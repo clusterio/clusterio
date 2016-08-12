@@ -1,0 +1,23 @@
+{
+  "name": "factorio-clusterio",
+  "version": "1.0.0",
+  "description": "Factorio cluster???",
+  "main": "master.js",
+  "scripts": {
+    "test": "nodemon master.js"
+  },
+  "keywords": [
+    "factorio"
+  ],
+  "author": "Danielv123",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "fs": "0.0.2",
+    "mkdirp": "^0.5.1",
+    "nedb": "^1.8.0",
+    "needle": "^1.1.0",
+    "rcon": "^1.0.2"
+  }
+}
