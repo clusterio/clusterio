@@ -56,7 +56,7 @@ db.items.removeitem = function(object) {
 app.post("/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log(req.body);
+	console.log("added: " + req.body);
 	// save items we get
 	db.items.additem(req.body)
 	// Attempt confirming
@@ -64,12 +64,13 @@ app.post("/place", function(req, res) {
 });
 
 // endpoint to remove items from DB when client orders items
-app.post("/place", function(req, res) {
+app.post("/remove", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log(req.body);
+	console.log("removed: " + req.body);
 	// save items we get
-	if(db.items.removeitem(req.body);) {
+	temp = db.items.removeitem(req.body);
+	if(temp) {
 		// if true, the action was successfull
 		res.send("success");
 	} else {
