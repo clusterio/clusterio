@@ -76,7 +76,7 @@ function HandleInputChests()
 			local items = v.get_inventory(defines.inventory.chest).get_contents()
 			--write everything to the file
 			for itemName, itemCount in pairs(items) do
-				linesToWriteToFile[#linesToWriteToFile + 1] = itemName..", "..itemCount.."\n"
+				linesToWriteToFile[#linesToWriteToFile + 1] = itemName.. " " ..itemCount.."\n"
 			end
 			-- clear the inventory
 			v.get_inventory(defines.inventory.chest).clear()

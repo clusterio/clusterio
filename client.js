@@ -56,8 +56,8 @@ fs.watch("Factorio 0.13.9/script-output/orders.txt", "utf8", function(eventType,
 			// send our entity and count to the master for him to keep track of
 			needle.post('localhost:8080/remove', {name:g[0], count:g[1]}, function(err, resp, body){
 				console.log(body);
-				if(body == "success") {
-					conn.send("/c remote.call('clusterio', 'import', '" + g[0] + "', " + g[1] + ")")
+				if(body){
+					//conn.send("/c remote.call('clusterio', 'import', '" + g[0] + "', " + g[1] + ")")
 				}
 			});
 		}
