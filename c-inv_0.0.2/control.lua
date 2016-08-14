@@ -154,7 +154,6 @@ function RequestItemsFromStorage(itemName, itemCount)
 	local itemsTakenFromStorage = math.min(global.itemStorage[itemName], itemCount)
 	global.itemStorage[itemName] = global.itemStorage[itemName] - itemsTakenFromStorage
 	
-	print(itemsTakenFromStorage)
 	return itemsTakenFromStorage
 end
 
@@ -165,8 +164,6 @@ function GiveItemsToStorage(itemName, itemCount)
 	--be used in arithmetic operations
 	global.itemStorage[itemName] = global.itemStorage[itemName] or 0
 	global.itemStorage[itemName] = global.itemStorage[itemName] + itemCount
-	print(itemName.." "..itemCount)
-	print(itemName.." "..global.itemStorage[itemName])
 end
 
 
