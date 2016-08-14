@@ -9,12 +9,10 @@ function OnBuiltEntity(event)
 	--only add entities that are not ghosts
 	if entity.type ~= "entity-ghost" then
 		if entity.name == INPUT_CHEST_NAME then
-			--if the table hasn't been initialized then do it
 			global.inputChests = global.inputChests or {}
 			--add the chests to a lists if these chests so they can be interated over
 			global.inputChests[HashPosition(entity.position)] = entity
 		elseif entity.name == OUTPUT_CHEST_NAME then
-			--if the table hasn't been initialized then do it
 			global.outputChests = global.outputChests or {}
 			--add the chests to a lists if these chests so they can be interated over
 			global.outputChests[HashPosition(entity.position)] = entity
@@ -33,6 +31,16 @@ function OnKilledEntity(event)
 		end
 	end
 end
+
+
+
+--[[ Initialize Things ]]--
+--script.on_configuration_changed(function(data)
+	--if the tables hasn't been initialized then do it
+	
+	
+	
+--end)
 
 
 
@@ -104,12 +112,23 @@ function HandleOutputChests()
 					local itemsInChest = chestInventory.get_item_count(requestItem.name)
 					--if there isn't enough items in the chest
 					if itemsInChest < requestItem.count then
-						simpleItemStack.name = requestItem.name
-						simpleItemStack.count = requestItem.count - itemsInChest
-						--insert the missing items
-						local insertedItemsCount = chestInventory.insert(simpleItemStack)
-						--write how many items was inserted
-						linesToWriteToFile[#linesToWriteToFile + 1] = simpleItemStack.name..", "..insertedItemsCount.."\n"
+						local additionalItemRequiredCount = requestItem.count - itemsInChest
+						local itemCountAllowedToInsert = RequestItemsFromStorage(requestItem.name, additionalItemRequiredCount)
+						if itemCountAllowedToInsert > 0 then
+							simpleItemStack.name = requestItem.name
+							simpleItemStack.count = itemCountAllowedToInsert
+							--insert the missing items
+							local insertedItemsCount = chestInventory.insert(simpleItemStack)
+							local itemsNotInsertedCount = itemCountAllowedToInsert - insertedItemsCount
+							
+							if itemsNotInsertedCount > 0 then
+								GiveItemsToStorage(requestItem.name, itemsNotInsertedCount)
+							end
+						else
+							local missingItems = additionalItemRequiredCount - itemCountAllowedToInsert
+							--write how many items was inserted
+							linesToWriteToFile[#linesToWriteToFile + 1] = requestItem.name..", "..missingItems.."\n"
+						end
 					end
 				end
 			end
@@ -122,6 +141,43 @@ function HandleOutputChests()
 		game.write_file(OUTPUT_CHEST_FILE, table.concat(linesToWriteToFile), true)
 	end
 end
+
+function RequestItemsFromStorage(itemName, itemCount)
+	global.itemStorage = global.itemStorage or {}
+	--if result is nil then there is no items in storage
+	--which means that no items can be given
+	if global.itemStorage[itemName] == nil then
+		return 0
+	end
+	--if the number of items in storage is lower than the number of items
+	--requested then take the number of items there are left otherwise take the requested amount
+	local itemsTakenFromStorage = math.min(global.itemStorage[itemName], itemCount)
+	global.itemStorage[itemName] = global.itemStorage[itemName] - itemsTakenFromStorage
+	
+	print(itemsTakenFromStorage)
+	return itemsTakenFromStorage
+end
+
+function GiveItemsToStorage(itemName, itemCount)
+	global.itemStorage = global.itemStorage or {}
+	--if this is called for the first time for an item then the result
+	--is nil. if that's the case then set the result to 0 so it can
+	--be used in arithmetic operations
+	global.itemStorage[itemName] = global.itemStorage[itemName] or 0
+	global.itemStorage[itemName] = global.itemStorage[itemName] + itemCount
+	print(itemName.." "..itemCount)
+	print(itemName.." "..global.itemStorage[itemName])
+end
+
+
+
+--[[ Remote Thing ]]--
+remote.add_interface("clusterio", 
+{
+	import = function(itemName, itemCount)
+		GiveItemsToStorage(itemName, itemCount)
+	end
+})
 
 
 
