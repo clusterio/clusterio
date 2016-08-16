@@ -76,7 +76,7 @@ script.on_event(defines.events.on_tick, function(event)
 	global.outputList = global.outputList or {}
 	global.inputList = global.inputList or {}
 	
-	local todo = game.tick % 6
+	local todo = game.tick % UPATE_RATE
 	
 	if todo == 0 then
 		HandleInputChests()

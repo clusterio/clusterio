@@ -19,6 +19,8 @@ OUTPUT_TANK_PICTURE_PATH = nil
 OUTPUT_TANK_ICON_PATH = nil
 
 
-
 OUTPUT_FILE = "output.txt"
 ORDER_FILE  = "orders.txt"
+
+
+UPATE_RATE = 60
