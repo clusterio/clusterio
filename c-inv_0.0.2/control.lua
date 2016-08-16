@@ -16,6 +16,14 @@ function OnBuiltEntity(event)
 			global.outputChests = global.outputChests or {}
 			--add the chests to a lists if these chests so they can be interated over
 			global.outputChests[HashPosition(entity.position)] = entity
+		elseif entity.name == INPUT_TANK_NAME then
+			global.inputTanks = global.inputTanks or {}
+			--add the chests to a lists if these chests so they can be interated over
+			global.inputTanks[HashPosition(entity.position)] = entity
+		elseif entity.name == OUTPUT_TANK_NAME then
+			global.outputTanks = global.outputTanks or {}
+			--add the chests to a lists if these chests so they can be interated over
+			global.outputTanks[HashPosition(entity.position)] = entity
 		end
 	end
 end
@@ -28,21 +36,13 @@ function OnKilledEntity(event)
 			global.inputChests[HashPosition(entity.position)] = nil
 		elseif entity.name == OUTPUT_CHEST_NAME then
 			global.outputChests[HashPosition(entity.position)] = nil
+		elseif entity.name == INPUT_TANK_NAME then
+			global.inputTanks[HashPosition(entity.position)] = nil
+		elseif entity.name == OUTPUT_TANK_NAME then
+			global.outputTanks[HashPosition(entity.position)] = nil
 		end
 	end
 end
-
-
-
---[[ Initialize Things ]]--
---script.on_configuration_changed(function(data)
-	--if the tables hasn't been initialized then do it
-	
-	
-	
---end)
-
-
 
 --[[ Thing Creation Events ]]--
 script.on_event(defines.events.on_built_entity, function(event)
@@ -71,35 +71,61 @@ end)
 script.on_event(defines.events.on_tick, function(event)
 	global.inputChests = global.inputChests or {}
 	global.outputChests = global.outputChests or {}
+	global.inputTanks = global.inputTanks or {}
+	global.outputTanks = global.outputTanks or {}
+	global.outputList = global.outputList or {}
+	global.inputList = global.inputList or {}
 	
-	HandleInputChests()
-	HandleOutputChests()
+	local todo = game.tick % 6
+	
+	if todo == 0 then
+		HandleInputChests()
+	elseif todo == 1 then
+		HandleInputTanks()
+	elseif todo == 2 then
+		HandleOutputChests()
+	elseif todo == 3 then
+		HandleOutputTanks()
+	elseif todo == 4 then
+		ExportInputList()
+	elseif todo == 5 then
+		ExportOutputList()
+	end
 end)
 
 function HandleInputChests()
-	local linesToWriteToFile = {}
 	for k, v in pairs(global.inputChests) do
 		if v.valid then
 			--get the content of the chest
 			local items = v.get_inventory(defines.inventory.chest).get_contents()
 			--write everything to the file
 			for itemName, itemCount in pairs(items) do
-				linesToWriteToFile[#linesToWriteToFile + 1] = itemName.. " " ..itemCount.."\n"
+				AddItemToInputList(itemName, itemCount)
 			end
 			-- clear the inventory
 			v.get_inventory(defines.inventory.chest).clear()
 		end
 	end
-	if #linesToWriteToFile > 0 then
-		--only write to file once as i/o is slow
-		--it's much faster to concatenate all the lines with table.concat 
-		--instead of doing it with the .. operator
-		game.write_file(INPUT_CHEST_FILE, table.concat(linesToWriteToFile), true)
+end
+
+function HandleInputTanks()
+	for k, v in pairs(global.inputTanks) do
+		if v.valid then
+			--get the content of the chest
+			local fluid = v.fluidbox[1]
+			if fluid ~= nil and
+			   fluid.type == "crude-oil" and
+			   math.floor(fluid.amount) > 0 then
+				AddItemToInputList(fluid.type, math.floor(fluid.amount))
+				fluid.amount = fluid.amount - math.floor(fluid.amount)
+			end
+			v.fluidbox[1] = fluid
+		end
 	end
+	
 end
 
 function HandleOutputChests()
-	local linesToWriteToFile = {}
 	local simpleItemStack = {}
 	for k, v in pairs(global.outputChests) do
 		if v.valid and not v.to_be_deconstructed(v.force) then
@@ -126,21 +152,77 @@ function HandleOutputChests()
 							end
 						else
 							local missingItems = additionalItemRequiredCount - itemCountAllowedToInsert
-							--write how many items was inserted
-							linesToWriteToFile[#linesToWriteToFile + 1] = requestItem.name..", "..missingItems.."\n"
+							AddItemToOutputList(requestItem.name, missingItems)
 						end
 					end
 				end
 			end
 		end
 	end
-	if #linesToWriteToFile > 0 then
+end
+
+function HandleOutputTanks()
+	local MAX_FLUID_AMOUNT = 1000
+	 for k,v in pairs(global.outputTanks) do
+		local fluid = v.fluidbox[1] or {type = "crude-oil", amount = 0}
+		if fluid.type == "crude-oil" then
+			
+			local missingFluid = math.ceil(MAX_FLUID_AMOUNT - fluid.amount)
+			if missingFluid > 0 then
+				local fluidToInsert = RequestItemsFromStorage("crude-oil", missingFluid)
+				if fluidToInsert > 0 then
+					fluid.amount = fluid.amount + fluidToInsert
+				else
+					local fluidToRequestAmount = missingFluid - fluidToInsert
+					AddItemToOutputList(fluid.type, fluidToRequestAmount)
+				end
+			end
+		end
+		v.fluidbox[1] = fluid
+	 end
+end
+
+
+function AddItemToInputList(itemName, itemCount)
+	global.inputList[itemName] = (global.inputList[itemName] or 0) + itemCount
+end
+
+function AddItemToOutputList(itemName, itemCount)
+	global.outputList[itemName] = (global.outputList[itemName] or 0) + itemCount
+end
+
+
+
+function ExportInputList()
+	local exportStrings = {}
+	for k,v in pairs(global.inputList) do
+		exportStrings[#exportStrings + 1] = k.." "..v.."\n"
+	end
+	global.inputList = {}
+	if #exportStrings > 0 then
+		
 		--only write to file once as i/o is slow
 		--it's much faster to concatenate all the lines with table.concat 
 		--instead of doing it with the .. operator
-		game.write_file(OUTPUT_CHEST_FILE, table.concat(linesToWriteToFile), true)
+		game.write_file(OUTPUT_FILE, table.concat(exportStrings), true)
 	end
 end
+
+function ExportOutputList()
+	local exportStrings = {}
+	for k,v in pairs(global.outputList) do
+		exportStrings[#exportStrings + 1] = k..", "..v.."\n"
+	end
+	global.outputList = {}
+	if #exportStrings > 0 then
+		
+		--only write to file once as i/o is slow
+		--it's much faster to concatenate all the lines with table.concat 
+		--instead of doing it with the .. operator
+		game.write_file(ORDER_FILE, table.concat(exportStrings), true)
+	end
+end
+
 
 function RequestItemsFromStorage(itemName, itemCount)
 	global.itemStorage = global.itemStorage or {}
@@ -173,6 +255,11 @@ remote.add_interface("clusterio",
 {
 	import = function(itemName, itemCount)
 		GiveItemsToStorage(itemName, itemCount)
+	end,
+	importMany = function(items)
+		for itemName, itemCount in pairs(items) do
+			GiveItemsToStorage(itemName, itemCount)
+		end
 	end
 })
 

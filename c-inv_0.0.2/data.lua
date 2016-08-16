@@ -1,11 +1,21 @@
 require("util")
 require("config")
 
-function MakeLogisticEntity(entity, name, picturePath, iconPath)
+function ChangePictureFilename(entity, path, newFilename)
+	if newFilename ~= nil then
+		local filenamePath = entity[path[1]]
+		for i = 2, #path do
+			filenamePath = filenamePath[path[i]]
+		end
+		filenamePath.filename = newFilename
+	end
+end
+
+function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, iconPath)
 	entity.name = name
 	entity.minable.result = name
 	--if no picture is defined then use the default one
-	entity.picture.filename = picturePath or entity.picture.filename
+	ChangePictureFilename(entity, pictureTablePath, pictureFilename)
 	--if no icon is defined then use the default one
 	entity.icon = iconPath or entity.icon
 	
@@ -68,9 +78,13 @@ function AddEntityToTech(techName, name)
 end
 
 
+--make chests
+MakeLogisticEntity(table.deepcopy(data.raw["logistic-container"]["logistic-chest-requester"]), OUTPUT_CHEST_NAME, OUTPUT_CHEST_PICTURE_PATH, { "picture" }, OUTPUT_CHEST_ICON_PATH)
+MakeLogisticEntity(table.deepcopy(data.raw["container"]["iron-chest"]), 					    INPUT_CHEST_NAME,  INPUT_CHEST_PICTURE_PATH, { "picture" },  INPUT_CHEST_ICON_PATH)
 
-MakeLogisticEntity(table.deepcopy(data.raw["logistic-container"]["logistic-chest-requester"]), OUTPUT_CHEST_NAME, OUTPUT_CHEST_PICTURE_PATH, OUTPUT_CHEST_ICON_PATH)
-MakeLogisticEntity(table.deepcopy(data.raw["container"]["iron-chest"]), 					    INPUT_CHEST_NAME,  INPUT_CHEST_PICTURE_PATH,  INPUT_CHEST_ICON_PATH)
+--make tanks
+MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]), OUTPUT_TANK_NAME, OUTPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" }, OUTPUT_TANK_ICON_PATH)
+MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]),  INPUT_TANK_NAME,  INPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" },  INPUT_TANK_ICON_PATH)
 
 
 
