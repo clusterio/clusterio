@@ -2,6 +2,8 @@
 var mkdirp = require("mkdirp");
 var nedb = require("nedb")
 var fs = require("fs");
+// require config.json
+var config = require('./config');
 
 var express = require("express");
 // Required for express post requests
@@ -44,6 +46,7 @@ db.items.removeitem = function(object, res) {
 			if (doc) {
 				// Update existing items if item name already exists
 				if(Number(doc.count) > Number(object.count)) {
+					console.log("removed: " + object.name + " " + object.count);
 					object.count = Number(doc.count) - Number(object.count);
 					db.items.update(doc, object, {multi:true}, function (err, numReplaced) {});
 					res.send("success");
@@ -73,11 +76,10 @@ app.post("/place", function(req, res) {
 app.post("/remove", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log("removed: " + req.body.name + " " + req.body.count);
 	// save items we get
 	db.items.removeitem(req.body, res);
 });
 
-var server = app.listen(8080, function () {
+var server = app.listen(config.masterPort || 8080, function () {
 	console.log("Listening on port %s...", server.address().port);
 });
