@@ -24,6 +24,7 @@ client.on('authenticated', function() {
 
 // trigger when something happens to output.txt
 fs.watch("Factorio 0.13.9/script-output/output.txt", "utf8", function(eventType, filename) {
+	console.log('hit output')
 	// get array of lines in file
 	items = fs.readFileSync("Factorio 0.13.9/script-output/output.txt", "utf8").split("\n");
 	// if you found anything, reset the file
@@ -60,7 +61,7 @@ fs.watch("Factorio 0.13.9/script-output/orders.txt", "utf8", function(eventType,
 			// send our entity and count to the master for him to keep track of
 			needle.post('localhost:8080/remove', {name:g[0], count:g[1]}, function(err, resp, body){
 				console.log(body);
-				if(body){
+				if(body == "success"){
 					client.exec("/c remote.call('clusterio', 'import', '" + g[0] + "', " + g[1] + ")")
 				}
 			});

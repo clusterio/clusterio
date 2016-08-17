@@ -34,20 +34,26 @@ db.items.additem = function(object) {
 		}
 	})
 }
-db.items.removeitem = function(object) {
+db.items.removeitem = function(object, res) {
 	db.items.findOne({name:object.name}, function (err, doc) {
 		// console.dir(doc);
-		if (doc) {
-			// Update existing items if item name already exists
-			if(Number(doc.count) > Number(object.count)) {
-				object.count = Number(doc.count) - Number(object.count);
-				db.items.update(doc, object, {multi:true}, function (err, numReplaced) {});
-				return true;
-			} else {
-				return false;
-			}
+		if (err) {
+			res.send('failure');
+			return false
 		} else {
-			return false;
+			if (doc) {
+				// Update existing items if item name already exists
+				if(Number(doc.count) > Number(object.count)) {
+					object.count = Number(doc.count) - Number(object.count);
+					db.items.update(doc, object, {multi:true}, function (err, numReplaced) {});
+					res.send("success");
+					return true;
+				} else {
+					res.send('failure');
+				}
+			} else {
+				res.send('failure');
+			}
 		}
 	})
 }
@@ -56,26 +62,20 @@ db.items.removeitem = function(object) {
 app.post("/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log("added: " + req.body);
+	console.log("added: " + req.body.name + " " + req.body.count);
 	// save items we get
 	db.items.additem(req.body)
 	// Attempt confirming
-	res.send("success!");
+	res.send("success");
 });
 
 // endpoint to remove items from DB when client orders items
 app.post("/remove", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log("removed: " + req.body);
+	console.log("removed: " + req.body.name + " " + req.body.count);
 	// save items we get
-	temp = db.items.removeitem(req.body);
-	if(temp) {
-		// if true, the action was successfull
-		res.send("success");
-	} else {
-		res.send('failure');
-	}
+	db.items.removeitem(req.body, res);
 });
 
 var server = app.listen(8080, function () {
