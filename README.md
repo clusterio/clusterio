@@ -8,8 +8,16 @@ git clone
 
 npm install
 
+edit config.json
+
+node master.js on the master
+
+start the server on the client, using the right rcon configs
+
+node client.js
+
+connect to server
+
 ???
 
-launchEverything.bat
-
-connect to server!
+profit!
