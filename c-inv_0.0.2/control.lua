@@ -211,7 +211,7 @@ end
 function ExportOutputList()
 	local exportStrings = {}
 	for k,v in pairs(global.outputList) do
-		exportStrings[#exportStrings + 1] = k..", "..v.."\n"
+		exportStrings[#exportStrings + 1] = k.." "..v.."\n"
 	end
 	global.outputList = {}
 	if #exportStrings > 0 then
