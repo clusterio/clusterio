@@ -1,0 +1,39 @@
+* {
+	margin:0px;
+}
+
+#logo {
+	background-color: yellow;
+}
+
+#sidenav {
+	position:fixed;
+	left:0px;
+	width:200px;
+	background-color:darkgrey;
+	height:100%;
+}
+#body {
+	margin-left:200px;
+}
+#contents table {
+	border: 1px solid black;
+}
+.button-black {
+	width:100%;
+	height:40px;
+	background-color:black;
+	color:white;
+	transition: all 300ms;
+}
+.button-black:hover {
+	background-color:#444;
+	color:yellow;
+	cursor:pointer;
+}
+.button-black * {
+	text-align:center;
+	position: relative;
+	top: 50%;
+	transform: translateY(-50%);
+}
