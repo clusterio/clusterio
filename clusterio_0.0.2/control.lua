@@ -8,23 +8,39 @@ function OnBuiltEntity(event)
 	local entity = event.created_entity
 	--only add entities that are not ghosts
 	if entity.type ~= "entity-ghost" then
-		if entity.name == INPUT_CHEST_NAME then
-			global.inputChests = global.inputChests or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.inputChests[HashPosition(entity.position)] = entity
-		elseif entity.name == OUTPUT_CHEST_NAME then
-			global.outputChests = global.outputChests or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.outputChests[HashPosition(entity.position)] = entity
-		elseif entity.name == INPUT_TANK_NAME then
-			global.inputTanks = global.inputTanks or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.inputTanks[HashPosition(entity.position)] = entity
-		elseif entity.name == OUTPUT_TANK_NAME then
-			global.outputTanks = global.outputTanks or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.outputTanks[HashPosition(entity.position)] = entity
-		end
+		
+	end
+end
+
+function AddAllEntitiesOfName(name)
+	for k, surface in pairs(game.surfaces) do
+		AddEntities(surface.find_entities_filtered({["name"] = name}))
+	end
+end
+
+function AddEntities(entities)
+	for k, entity in pairs(entities) do
+		AddEntity(entity)
+	end
+end
+
+function AddEntity(entity)
+	if entity.name == INPUT_CHEST_NAME then
+		global.inputChests = global.inputChests or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.inputChests[HashPosition(entity.position)] = entity
+	elseif entity.name == OUTPUT_CHEST_NAME then
+		global.outputChests = global.outputChests or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.outputChests[HashPosition(entity.position)] = entity
+	elseif entity.name == INPUT_TANK_NAME then
+		global.inputTanks = global.inputTanks or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.inputTanks[HashPosition(entity.position)] = entity
+	elseif entity.name == OUTPUT_TANK_NAME then
+		global.outputTanks = global.outputTanks or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.outputTanks[HashPosition(entity.position)] = entity
 	end
 end
 
@@ -66,9 +82,8 @@ script.on_event(defines.events.on_preplayer_mined_item, function(event)
 end)
 
 
-
-
 script.on_event(defines.events.on_tick, function(event)
+	
 	global.inputChests = global.inputChests or {}
 	global.outputChests = global.outputChests or {}
 	global.inputTanks = global.inputTanks or {}
@@ -77,6 +92,23 @@ script.on_event(defines.events.on_tick, function(event)
 	global.inputList = global.inputList or {}
 	
 	local todo = game.tick % UPATE_RATE
+	
+	if global.previousPlayerCount == nil or global.previousPlayerCount ~= #game.players then
+		global.outputList = {}
+		global.inputList = {}
+		global.itemStorage = {}
+		
+		global.inputChests = {}
+		global.outputChests = {}
+		global.inputTanks = {}
+		global.outputTanks = {}
+		
+		AddAllEntitiesOfName(INPUT_CHEST_NAME)
+		AddAllEntitiesOfName(OUTPUT_CHEST_NAME)
+		AddAllEntitiesOfName(INPUT_TANK_NAME)
+		AddAllEntitiesOfName(OUTPUT_TANK_NAME)
+		print("reset")
+	end
 	
 	if todo == 0 then
 		HandleInputChests()
@@ -91,6 +123,8 @@ script.on_event(defines.events.on_tick, function(event)
 	elseif todo == 5 then
 		ExportOutputList()
 	end
+	
+	global.previousPlayerCount = global.previousPlayerCount or #game.players
 end)
 
 function HandleInputChests()
