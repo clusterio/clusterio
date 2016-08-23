@@ -15,6 +15,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
+// Set convenient paths to 3rd party libs like metroUI and jquery from their bower installs
+// Use this to make it nice an easy to change without touching the HTML in production
+app.use(express.static('bower_components/metro-dist'));
+app.use(express.static('bower_components/jquery/dist'));
 
 // set up database
 var Datastore = require('nedb');
@@ -78,6 +82,15 @@ app.post("/remove", function(req, res) {
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
 	db.items.removeitem(req.body, res);
+});
+// endpoint for getting an inventory of what we got
+app.get("/inventory", function(req, res) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	// Check it and send it
+	db.items.find({}, function (err, docs) {
+		res.send(docs);
+	});
 });
 
 var server = app.listen(config.masterPort || 8080, function () {
