@@ -1,4 +1,5 @@
 require("config")
+local json = require("json")
 
 function HashPosition(position)
 	return 40000 * (position.y) + position.x
@@ -256,9 +257,12 @@ remote.add_interface("clusterio",
 	import = function(itemName, itemCount)
 		GiveItemsToStorage(itemName, itemCount)
 	end,
-	importMany = function(items)
-		for itemName, itemCount in pairs(items) do
-			GiveItemsToStorage(itemName, itemCount)
+	importMany = function(jsonString)
+		local items = json:decode(jsonString)
+		for k, item in pairs(items) do
+			for itemName, itemCount in pairs(item) do
+				GiveItemsToStorage(itemName, itemCount)
+			end
 		end
 	end
 })
