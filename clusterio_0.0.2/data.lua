@@ -20,7 +20,7 @@ function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, ico
 	entity.icon = iconPath or entity.icon
 	
 	-- add the entity to a technology so it can be unlocked
-	local wasAddedToTech = AddEntityToTech("construction-robotics", name)
+	--local wasAddedToTech = AddEntityToTech("construction-robotics", name)
 	
 	data:extend(
 	{
@@ -34,7 +34,7 @@ function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, ico
 			--shouldn't be enabled to begin with.
 			--but if the recipe isn't attached to a tech then it should
 			--be enabled to begin with because otherwise the player can never use the item ingame
-			enabled = not wasAddedToTech,
+			enabled = true,
 			ingredients =
 			{
 			  {"steel-chest", 1},
