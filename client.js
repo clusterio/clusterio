@@ -12,6 +12,8 @@ var client = new Rcon({
 	timeout: 0
 }).connect();
 
+fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
+
 client.on('authenticated', function() {
 	console.log('Authenticated!');
 }).on('connected', function() {
@@ -22,10 +24,11 @@ client.on('authenticated', function() {
 	client.connect();
 });
 
+// set some globals
+confirmedOrders = [];
 
 // trigger when something happens to output.txt
 fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", function(eventType, filename) {
-	console.log('hit output')
 	// get array of lines in file
 	items = fs.readFileSync(config.factorioDirectory + "/script-output/output.txt", "utf8").split("\n");
 	// if you found anything, reset the file
@@ -36,11 +39,11 @@ fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", functio
 		if(items[i]) {
 			g = items[i].split(" ");
 			g[0] = g[0].replace("\u0000", "");
-			console.log(g);
+			console.log("exporting " + JSON.stringify(g));
 			// send our entity and count to the master for him to keep track of
 			needle.post(config.masterIP + ":" + config.masterPort + '/place', {name:g[0], count:g[1]}, 
 			function(err, resp, body){
-				console.log(body);
+				// console.log(body);
 			});
 		}
 	}
@@ -53,7 +56,34 @@ fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", functio
 	if(items[0]) {
 		fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
 	}
+	
 	for(i = 0;i < items.length; i++) {
+		if(items[i]) {
+			g = items[i].split(" ");
+			g[0] = g[0].replace("\u0000", "");
+			g[0] = g[0].replace(",", "");
+			// send our entity and count to the master for him to keep track of
+			needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:g[0], count:g[1]}, function(err, resp, body){
+				if(body == "success"){
+					console.log("importing: " + JSON.stringify({[g[0]]: g[1]}));
+					// buffer confirmed orders
+					confirmedOrders[confirmedOrders.length] = {[g[0]]: g[1]}
+					//client.exec("/c remote.call('clusterio', 'importMany', '[" + JSON.stringify(jsonobject) + "]')")
+				} else {
+					console.log("ERROR: " + body)
+				}
+			});
+		}
+	}
+	// if we got some confirmed orders
+	console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+	if(confirmedOrders[1]) {
+		// send our RCON command
+		client.exec("/c remote.call('clusterio', 'importMany', '" + JSON.stringify(confirmedOrders) + "')");
+		confirmedOrders = [];
+	}
+	
+	/*for(i = 0;i < items.length; i++) {
 		if(items[i]) {
 			g = items[i].split(" ");
 			g[0] = g[0].replace("\u0000", "");
@@ -67,5 +97,5 @@ fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", functio
 				}
 			});
 		}
-	}
+	}*/
 })
