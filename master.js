@@ -40,30 +40,6 @@ db.items.additem = function(object) {
 		}
 	})
 }
-db.items.removeitem = function(object, res) {
-	db.items.findOne({name:object.name}, function (err, doc) {
-		// console.dir(doc);
-		if (err) {
-			res.send('failure');
-			return false
-		} else {
-			if (doc) {
-				// Update existing items if item name already exists
-				if(Number(doc.count) > Number(object.count)) {
-					console.log("removed: " + object.name + " " + object.count);
-					object.count = Number(doc.count) - Number(object.count);
-					db.items.update(doc, object, {multi:true}, function (err, numReplaced) {});
-					res.send("success");
-					return true;
-				} else {
-					res.send('failure');
-				}
-			} else {
-				res.send('failure');
-			}
-		}
-	})
-}
 
 // endpoint to send items to
 app.post("/place", function(req, res) {
@@ -81,7 +57,27 @@ app.post("/remove", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
-	db.items.removeitem(req.body, res);
+	var object = req.body;
+	db.items.findOne({name:object.name}, function (err, doc) {
+		// console.dir(doc);
+		if (err) {
+			console.log('failure');
+		} else {
+			if (doc) {
+				// Update existing items if item name already exists
+				if(Number(doc.count) > Number(object.count)) {
+					console.log("removed: " + object.name + " " + object.count + " . " + doc.count);
+					object.count = Number(doc.count) - Number(object.count);
+					db.items.update(doc, object, {multi:true}, function (err, numReplaced) {});
+					res.send("successier");
+				} else {
+					console.log('failure');
+				}
+			} else {
+				console.log('failure ' + object.name);
+			}
+		}
+	})
 });
 // endpoint for getting an inventory of what we got
 app.get("/inventory", function(req, res) {

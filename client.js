@@ -48,40 +48,39 @@ fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", functio
 		}
 	}
 })
-
-fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", function(eventType, filename) {
+setInterval(function() {
 	// get array of lines in file
 	items = fs.readFileSync(config.factorioDirectory + "/script-output/orders.txt", "utf8").split("\n");
 	// if you found anything, reset the file
 	if(items[0]) {
 		fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
+		for(i = 0;i < items.length; i++) {
+			if(items[i]) {
+				items[i] = items[i].split(" ");
+				items[i][0] = items[i][0].replace("\u0000", "");
+				items[i][0] = items[i][0].replace(",", "");
+	console.log(items)
+				// send our entity and count to the master for him to keep track of
+				needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:items[i][0], count:items[i][1]}, function(err, response, body){
+					if(response && response.body === "successier"){
+						console.log(response.body + " : importing: " + JSON.stringify({[items[i][0]]: items[i][1]}));
+						// buffer confirmed orders
+						confirmedOrders[confirmedOrders.length] = {[items[i][0]]: items[i][1]}
+						//client.exec("/c remote.call('clusterio', 'importMany', '[" + JSON.stringify(jsonobject) + "]')")
+					} else {
+						console.log("ERROR: "+JSON.stringify({[items[i][0]]: items[i][1]}));
+					}
+				});
+			}
+		}
+		// if we got some confirmed orders
+		console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+		sadas = JSON.stringify(confirmedOrders)
+		confirmedOrders = [];
+		// send our RCON command
+		client.exec("/c remote.call('clusterio', 'importMany', '" + sadas + "')");
 	}
 	
-	for(i = 0;i < items.length; i++) {
-		if(items[i]) {
-			g = items[i].split(" ");
-			g[0] = g[0].replace("\u0000", "");
-			g[0] = g[0].replace(",", "");
-			// send our entity and count to the master for him to keep track of
-			needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:g[0], count:g[1]}, function(err, resp, body){
-				if(body == "success"){
-					console.log("importing: " + JSON.stringify({[g[0]]: g[1]}));
-					// buffer confirmed orders
-					confirmedOrders[confirmedOrders.length] = {[g[0]]: g[1]}
-					//client.exec("/c remote.call('clusterio', 'importMany', '[" + JSON.stringify(jsonobject) + "]')")
-				} else {
-					console.log("ERROR: " + body)
-				}
-			});
-		}
-	}
-	// if we got some confirmed orders
-	console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
-	if(confirmedOrders[1]) {
-		// send our RCON command
-		client.exec("/c remote.call('clusterio', 'importMany', '" + JSON.stringify(confirmedOrders) + "')");
-		confirmedOrders = [];
-	}
 	
 	/*for(i = 0;i < items.length; i++) {
 		if(items[i]) {
@@ -98,4 +97,9 @@ fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", functio
 			});
 		}
 	}*/
+}, 10000)
+/*
+fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", function(eventType, filename) {
+	
 })
+*/
