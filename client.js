@@ -55,23 +55,28 @@ setInterval(function() {
 	if(items[0]) {
 		fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
 		for(i = 0;i < items.length; i++) {
-			if(items[i]) {
-				items[i] = items[i].split(" ");
-				items[i][0] = items[i][0].replace("\u0000", "");
-				items[i][0] = items[i][0].replace(",", "");
-	console.log(items)
-				// send our entity and count to the master for him to keep track of
-				needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:items[i][0], count:items[i][1]}, function(err, response, body){
-					if(response && response.body === "successier"){
-						console.log(response.body + " : importing: " + JSON.stringify({[items[i][0]]: items[i][1]}));
-						// buffer confirmed orders
-						confirmedOrders[confirmedOrders.length] = {[items[i][0]]: items[i][1]}
-						//client.exec("/c remote.call('clusterio', 'importMany', '[" + JSON.stringify(jsonobject) + "]')")
-					} else {
-						console.log("ERROR: "+JSON.stringify({[items[i][0]]: items[i][1]}));
-					}
-				});
-			}
+			(function(i){
+				if(items[i]) {
+					items[i] = items[i].split(" ");
+					items[i][0] = items[i][0].replace("\u0000", "");
+					items[i][0] = items[i][0].replace(",", "");
+					// send our entity and count to the master for him to keep track of
+					needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:items[i][0], count:items[i][1]}, function(err, response, body){
+						if(response && response.body && typeof response.body == "object") {
+							// buffer confirmed orders
+							confirmedOrders[confirmedOrders.length] = {[response.body.name]: response.body.count}
+						}
+						/*if(response && response.body === "successier"){
+							console.log(response.body + " : importing: " + JSON.stringify({[items[i][0]]: items[i][1]}));
+							// buffer confirmed orders
+							confirmedOrders[confirmedOrders.length] = {[items[i][0]]: items[i][1]}
+							//client.exec("/c remote.call('clusterio', 'importMany', '[" + JSON.stringify(jsonobject) + "]')")
+						} else {
+							console.log("ERROR: "+JSON.stringify({[items[i][0]]: items[i][1]}));
+						}*/
+					});
+				}
+			})(i);
 		}
 		// if we got some confirmed orders
 		console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));

@@ -67,9 +67,13 @@ app.post("/remove", function(req, res) {
 				// Update existing items if item name already exists
 				if(Number(doc.count) > Number(object.count)) {
 					console.log("removed: " + object.name + " " + object.count + " . " + doc.count);
-					object.count = Number(doc.count) - Number(object.count);
-					db.items.update(doc, object, {multi:true}, function (err, numReplaced) {});
-					res.send("successier");
+					objectUpdate = {
+						"name": object.name,
+						"count": Number(doc.count) - Number(object.count),
+					};
+					db.items.update(doc, objectUpdate, {multi:true}, function (err, numReplaced) {});
+					// res.send("successier");
+					res.send(object);
 				} else {
 					console.log('failure');
 				}
