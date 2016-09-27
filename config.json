@@ -1,7 +1,7 @@
 {
 	"__comment": "",
 	"__comment": "IP and port and password the factorio server runs at for rcon connection",
-	"clientIP": "81.167.2.56",
+	"clientIP": "localhost",
 	"clientPort": "12345",
 	"clientPassword": "123",
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
