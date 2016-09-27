@@ -12,6 +12,10 @@ var client = new Rcon({
 	timeout: 0
 }).connect();
 
+if (!fs.existsSync(config.factorioDirectory + "/script-output/")){
+    fs.mkdirSync(config.factorioDirectory + "/script-output/");
+}
+fs.writeFileSync(config.factorioDirectory + "/script-output/output.txt", "")
 fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
 
 client.on('authenticated', function() {
@@ -48,60 +52,50 @@ fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", functio
 		}
 	}
 })
+
 setInterval(function() {
 	// get array of lines in file
 	items = fs.readFileSync(config.factorioDirectory + "/script-output/orders.txt", "utf8").split("\n");
-	// if you found anything, reset the file
+	// if we actually got anything from the file, proceed and reset file
 	if(items[0]) {
-		fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
-		for(i = 0;i < items.length; i++) {
+		fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "");
+		// prepare a package of all our requested items in a more tranfer friendly format
+		var preparedPackage = {};
+		for(i = 2;i < items.length; i++) {
 			(function(i){
 				if(items[i]) {
 					items[i] = items[i].split(" ");
 					items[i][0] = items[i][0].replace("\u0000", "");
 					items[i][0] = items[i][0].replace(",", "");
-					// send our entity and count to the master for him to keep track of
-					needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:items[i][0], count:items[i][1]}, function(err, response, body){
-						if(response && response.body && typeof response.body == "object") {
-							// buffer confirmed orders
-							confirmedOrders[confirmedOrders.length] = {[response.body.name]: response.body.count}
+					if(preparedPackage[items[i][0]]){
+						if(typeof Number(preparedPackage[items[i][0]].count) == "number" && typeof Number(items[i][1]) == "number") {
+							preparedPackage[items[i][0]] = {"name":items[i][0], "count":Number(preparedPackage[items[i][0]].count) + Number(items[i][1])};
+						} else if (typeof Number(items[i][1]) == "number") {
+							preparedPackage[items[i][0]] = {"name":items[i][0], "count":Number(items[i][1])};
 						}
-						/*if(response && response.body === "successier"){
-							console.log(response.body + " : importing: " + JSON.stringify({[items[i][0]]: items[i][1]}));
-							// buffer confirmed orders
-							confirmedOrders[confirmedOrders.length] = {[items[i][0]]: items[i][1]}
-							//client.exec("/c remote.call('clusterio', 'importMany', '[" + JSON.stringify(jsonobject) + "]')")
-						} else {
-							console.log("ERROR: "+JSON.stringify({[items[i][0]]: items[i][1]}));
-						}*/
-					});
+					} else if (typeof Number(items[i][1]) == "number") {
+						preparedPackage[items[i][0]] = {"name":items[i][0], "count":Number(items[i][1])};
+					}
 				}
 			})(i);
+		}
+		// request our items, one item at a time
+		for(i = 0;i<Object.keys(preparedPackage).length;i++){
+			console.log(preparedPackage[Object.keys(preparedPackage)[i]])
+			needle.post(config.masterIP + ":" + config.masterPort + '/remove', preparedPackage[Object.keys(preparedPackage)[i]], function(err, response, body){
+				if(response && response.body && typeof response.body == "object") {
+					// buffer confirmed orders
+					confirmedOrders[confirmedOrders.length] = {[response.body.name]: response.body.count}
+				}
+			});
 		}
 		// if we got some confirmed orders
 		console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 		sadas = JSON.stringify(confirmedOrders)
 		confirmedOrders = [];
-		// send our RCON command
+		// send our RCON command with whatever we got
 		client.exec("/c remote.call('clusterio', 'importMany', '" + sadas + "')");
 	}
-	
-	
-	/*for(i = 0;i < items.length; i++) {
-		if(items[i]) {
-			g = items[i].split(" ");
-			g[0] = g[0].replace("\u0000", "");
-			g[0] = g[0].replace(",", "");
-			console.log(g);
-			// send our entity and count to the master for him to keep track of
-			needle.post(config.masterIP + ":" + config.masterPort + '/remove', {name:g[0], count:g[1]}, function(err, resp, body){
-				console.log(body);
-				if(body == "success"){
-					client.exec("/c remote.call('clusterio', 'import', '" + g[0] + "', " + g[1] + ")")
-				}
-			});
-		}
-	}*/
 }, 10000)
 /*
 fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", function(eventType, filename) {

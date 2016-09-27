@@ -71,7 +71,8 @@ app.post("/remove", function(req, res) {
 						"name": object.name,
 						"count": Number(doc.count) - Number(object.count),
 					};
-					db.items.update(doc, objectUpdate, {multi:true}, function (err, numReplaced) {});
+					// db.items.update(doc, objectUpdate, {multi:true}, function (err, numReplaced) {});
+					db.items.update(doc, {$inc:{count:object.count*-1}}, {multi:true}, function (err, numReplaced) {});
 					// res.send("successier");
 					res.send(object);
 				} else {
