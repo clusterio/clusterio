@@ -1,4 +1,5 @@
 require("config")
+local json = require("json")
 
 function HashPosition(position)
 	return 40000 * (position.y) + position.x
@@ -8,23 +9,39 @@ function OnBuiltEntity(event)
 	local entity = event.created_entity
 	--only add entities that are not ghosts
 	if entity.type ~= "entity-ghost" then
-		if entity.name == INPUT_CHEST_NAME then
-			global.inputChests = global.inputChests or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.inputChests[HashPosition(entity.position)] = entity
-		elseif entity.name == OUTPUT_CHEST_NAME then
-			global.outputChests = global.outputChests or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.outputChests[HashPosition(entity.position)] = entity
-		elseif entity.name == INPUT_TANK_NAME then
-			global.inputTanks = global.inputTanks or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.inputTanks[HashPosition(entity.position)] = entity
-		elseif entity.name == OUTPUT_TANK_NAME then
-			global.outputTanks = global.outputTanks or {}
-			--add the chests to a lists if these chests so they can be interated over
-			global.outputTanks[HashPosition(entity.position)] = entity
-		end
+		AddEntity(entity)
+	end
+end
+
+function AddAllEntitiesOfName(name)
+	for k, surface in pairs(game.surfaces) do
+		AddEntities(surface.find_entities_filtered({["name"] = name}))
+	end
+end
+
+function AddEntities(entities)
+	for k, entity in pairs(entities) do
+		AddEntity(entity)
+	end
+end
+
+function AddEntity(entity)
+	if entity.name == INPUT_CHEST_NAME then
+		global.inputChests = global.inputChests or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.inputChests[HashPosition(entity.position)] = entity
+	elseif entity.name == OUTPUT_CHEST_NAME then
+		global.outputChests = global.outputChests or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.outputChests[HashPosition(entity.position)] = entity
+	elseif entity.name == INPUT_TANK_NAME then
+		global.inputTanks = global.inputTanks or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.inputTanks[HashPosition(entity.position)] = entity
+	elseif entity.name == OUTPUT_TANK_NAME then
+		global.outputTanks = global.outputTanks or {}
+		--add the chests to a lists if these chests so they can be interated over
+		global.outputTanks[HashPosition(entity.position)] = entity
 	end
 end
 
@@ -66,9 +83,8 @@ script.on_event(defines.events.on_preplayer_mined_item, function(event)
 end)
 
 
-
-
 script.on_event(defines.events.on_tick, function(event)
+	
 	global.inputChests = global.inputChests or {}
 	global.outputChests = global.outputChests or {}
 	global.inputTanks = global.inputTanks or {}
@@ -77,6 +93,13 @@ script.on_event(defines.events.on_tick, function(event)
 	global.inputList = global.inputList or {}
 	
 	local todo = game.tick % UPATE_RATE
+	
+	local onlinePlayers = GetOnlinePlayerCount()
+	
+	if global.previousPlayerCount == nil or global.previousPlayerCount ~= onlinePlayers then
+		Reset()
+	end
+	global.previousPlayerCount = onlinePlayers
 	
 	if todo == 0 then
 		HandleInputChests()
@@ -92,6 +115,33 @@ script.on_event(defines.events.on_tick, function(event)
 		ExportOutputList()
 	end
 end)
+
+function GetOnlinePlayerCount()
+	local onlinePlayers = 0
+	for k, player in pairs(game.players) do
+		if player.connected then
+			onlinePlayers = onlinePlayers + 1
+		end
+	end
+	return onlinePlayers
+end
+
+function Reset()
+	global.outputList = {}
+	global.inputList = {}
+	global.itemStorage = {}
+	
+	global.inputChests = {}
+	global.outputChests = {}
+	global.inputTanks = {}
+	global.outputTanks = {}
+	
+	AddAllEntitiesOfName(INPUT_CHEST_NAME)
+	AddAllEntitiesOfName(OUTPUT_CHEST_NAME)
+	AddAllEntitiesOfName(INPUT_TANK_NAME)
+	AddAllEntitiesOfName(OUTPUT_TANK_NAME)
+	game.print("reset")
+end
 
 function HandleInputChests()
 	for k, v in pairs(global.inputChests) do
@@ -113,9 +163,7 @@ function HandleInputTanks()
 		if v.valid then
 			--get the content of the chest
 			local fluid = v.fluidbox[1]
-			if fluid ~= nil and
-			   fluid.type == "crude-oil" and
-			   math.floor(fluid.amount) > 0 then
+			if fluid ~= nil and math.floor(fluid.amount) > 0 then
 				AddItemToInputList(fluid.type, math.floor(fluid.amount))
 				fluid.amount = fluid.amount - math.floor(fluid.amount)
 			end
@@ -164,12 +212,23 @@ end
 function HandleOutputTanks()
 	local MAX_FLUID_AMOUNT = 1000
 	 for k,v in pairs(global.outputTanks) do
-		local fluid = v.fluidbox[1] or {type = "crude-oil", amount = 0}
-		if fluid.type == "crude-oil" then
+		--.recipe.products[1].name
+		
+		if v.recipe ~= nil then
+			local fluidName = v.recipe.products[1].name
 			
-			local missingFluid = math.ceil(MAX_FLUID_AMOUNT - fluid.amount)
+			--either get the fluid or reset it to the requested fluid
+			local fluid = v.fluidbox[1] or {type = fluidName, amount = 0}
+			if fluid.type ~= fluidName then
+				fluid = {type = fluidName, amount = 0}
+			end
+			
+			--if any fluid is missing then request the fluid
+			--from store and give either what it's missing or
+			--the rest of the liquid in the system
+			local missingFluid = math.max(math.ceil(MAX_FLUID_AMOUNT - fluid.amount), 0)
 			if missingFluid > 0 then
-				local fluidToInsert = RequestItemsFromStorage("crude-oil", missingFluid)
+				local fluidToInsert = RequestItemsFromStorage(fluidName, missingFluid)
 				if fluidToInsert > 0 then
 					fluid.amount = fluid.amount + fluidToInsert
 				else
@@ -177,8 +236,9 @@ function HandleOutputTanks()
 					AddItemToOutputList(fluid.type, fluidToRequestAmount)
 				end
 			end
+			
+			v.fluidbox[1] = fluid
 		end
-		v.fluidbox[1] = fluid
 	 end
 end
 
@@ -256,11 +316,23 @@ remote.add_interface("clusterio",
 	import = function(itemName, itemCount)
 		GiveItemsToStorage(itemName, itemCount)
 	end,
-	importMany = function(items)
-		for itemName, itemCount in pairs(items) do
-			GiveItemsToStorage(itemName, itemCount)
+	importMany = function(jsonString)
+		local items = json:decode(jsonString)
+		game.print(serpent.block(items))
+		for k, item in pairs(items) do
+			for itemName, itemCount in pairs(item) do
+				GiveItemsToStorage(itemName, itemCount)
+			end
 		end
-	end
+	end,
+	printStorage = function()
+		local items = ""
+		for itemName, itemCount in pairs(global.itemStorage) do
+			items = items.."\n"..itemName..": "..tostring(itemCount)
+		end
+		game.print(items)
+	end,
+	reset = Reset
 })
 
 
