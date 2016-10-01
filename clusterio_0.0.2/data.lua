@@ -84,15 +84,31 @@ MakeLogisticEntity(table.deepcopy(data.raw["logistic-container"]["logistic-chest
 MakeLogisticEntity(table.deepcopy(data.raw["container"]["iron-chest"]), 					    INPUT_CHEST_NAME,  INPUT_CHEST_PICTURE_PATH, { "picture" },  INPUT_CHEST_ICON_PATH)
 
 --make tanks
---MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]), OUTPUT_TANK_NAME, OUTPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" }, OUTPUT_TANK_ICON_PATH)
 MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]),  INPUT_TANK_NAME,  INPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" },  INPUT_TANK_ICON_PATH)
 
+
+
+
+
+
+
+--------------------------------------------------------
+--[[This section is purely to create the output tank]]--
+--------------------------------------------------------
+
+
+
+
+
+
+
+local CRAFING_FLUID_CATEGORY_NAME = "crafting-fluids"
 
 data:extend(
 {
 	{
 		type = "recipe-category",
-		name = "crafting-fluids"
+		name = CRAFING_FLUID_CATEGORY_NAME
 	}
 })
 
@@ -114,8 +130,7 @@ fluidCreator.fluid_boxes =
 	},
 	off_when_no_fluid_recipe = false
 }
-fluidCreator.crafting_categories = {"crafting-fluids"}
---fluidCreator.energy_source = nil
+fluidCreator.crafting_categories = {CRAFING_FLUID_CATEGORY_NAME}
 fluidCreator.energy_usage = "1kW"
 fluidCreator.ingredient_count = 1
 fluidCreator.module_specification.module_slots = 0
@@ -127,15 +142,12 @@ for k,v in pairs(data.raw.fluid) do
 			type = "recipe",
 			name = v.name,
 			icon = v.icon,
-			category = "crafting-fluids",
+			category = CRAFING_FLUID_CATEGORY_NAME,
 			energy_required = 1,
 			subgroup = "barrel",
 			order = "b[fill-crude-oil-barrel]",
 			enabled = true,
-			ingredients =
-			{
-				{type="item", name="none", amount=1}
-			},
+			ingredients = {},
 			results=
 			{
 			  {type="fluid", name=v.name, amount=-1}
@@ -143,19 +155,6 @@ for k,v in pairs(data.raw.fluid) do
 		}
 	})
 end
-
-data:extend(
-{
-	{
-		type = "item",
-		name = "none",
-		icon = "__clusterio__/graphics/icons/none.png",
-		flags = { "goes-to-quickbar" },
-		subgroup = "intermediate-product",
-		order = "c[other]-a[power-switch]",
-		stack_size= 1,
-  }
-})
 
 
 

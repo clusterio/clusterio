@@ -42,6 +42,7 @@ function AddEntity(entity)
 		global.outputTanks = global.outputTanks or {}
 		--add the chests to a lists if these chests so they can be interated over
 		global.outputTanks[HashPosition(entity.position)] = entity
+		entity.active = false
 	end
 end
 
