@@ -96,7 +96,7 @@ setInterval(function() {
 		// send our RCON command with whatever we got
 		client.exec("/c remote.call('clusterio', 'importMany', '" + sadas + "')");
 	}
-}, 10000)
+}, 3000)
 /*
 fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", function(eventType, filename) {
 	

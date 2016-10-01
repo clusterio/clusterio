@@ -6,6 +6,6 @@
 "date": "19-08-2016",
 "author": "Danielv123 & Keyboardhack",
 "dependencies": ["base >= 0.13"],
-"factorio_version": "0.13",
+"factorio_version": "0.14",
 "description": "Adds 2 chests to transfer items between saves and servers over the internet."
 }

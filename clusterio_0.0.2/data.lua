@@ -20,7 +20,7 @@ function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, ico
 	entity.icon = iconPath or entity.icon
 	
 	-- add the entity to a technology so it can be unlocked
-	local wasAddedToTech = AddEntityToTech("construction-robotics", name)
+	--local wasAddedToTech = AddEntityToTech("construction-robotics", name)
 	
 	data:extend(
 	{
@@ -34,7 +34,7 @@ function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, ico
 			--shouldn't be enabled to begin with.
 			--but if the recipe isn't attached to a tech then it should
 			--be enabled to begin with because otherwise the player can never use the item ingame
-			enabled = not wasAddedToTech,
+			enabled = true,
 			ingredients =
 			{
 			  {"steel-chest", 1},
@@ -55,6 +55,7 @@ function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, ico
 			stack_size = 50
 		}
 	})
+	return entity
 end
 
 --adds a recipe to a tech and returns true or if that fails returns false
@@ -83,11 +84,77 @@ MakeLogisticEntity(table.deepcopy(data.raw["logistic-container"]["logistic-chest
 MakeLogisticEntity(table.deepcopy(data.raw["container"]["iron-chest"]), 					    INPUT_CHEST_NAME,  INPUT_CHEST_PICTURE_PATH, { "picture" },  INPUT_CHEST_ICON_PATH)
 
 --make tanks
-MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]), OUTPUT_TANK_NAME, OUTPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" }, OUTPUT_TANK_ICON_PATH)
 MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]),  INPUT_TANK_NAME,  INPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" },  INPUT_TANK_ICON_PATH)
 
 
 
+
+
+
+
+--------------------------------------------------------
+--[[This section is purely to create the output tank]]--
+--------------------------------------------------------
+
+
+
+
+
+
+
+local CRAFING_FLUID_CATEGORY_NAME = "crafting-fluids"
+
+data:extend(
+{
+	{
+		type = "recipe-category",
+		name = CRAFING_FLUID_CATEGORY_NAME
+	}
+})
+
+local fluidCreator = MakeLogisticEntity(table.deepcopy(data.raw["assembling-machine"]["assembling-machine-3"]), OUTPUT_TANK_NAME, OUTPUT_TANK_PICTURE_PATH, { "animation" }, OUTPUT_TANK_ICON_PATH)
+fluidCreator.fluid_boxes =
+{
+	{
+		production_type = "output",
+		pipe_picture = assembler3pipepictures(),
+		pipe_covers = pipecoverspictures(),
+		base_area = 250,
+		base_level = 1,
+		pipe_connections = 
+		{
+			{ 
+				type="output", position = {0, 2} 
+			}
+		}
+	},
+	off_when_no_fluid_recipe = false
+}
+fluidCreator.crafting_categories = {CRAFING_FLUID_CATEGORY_NAME}
+fluidCreator.energy_usage = "1kW"
+fluidCreator.ingredient_count = 1
+fluidCreator.module_specification.module_slots = 0
+
+for k,v in pairs(data.raw.fluid) do
+	data:extend(
+	{
+		{
+			type = "recipe",
+			name = v.name,
+			icon = v.icon,
+			category = CRAFING_FLUID_CATEGORY_NAME,
+			energy_required = 1,
+			subgroup = "barrel",
+			order = "b[fill-crude-oil-barrel]",
+			enabled = true,
+			ingredients = {},
+			results=
+			{
+			  {type="fluid", name=v.name, amount=-1}
+			}
+		}
+	})
+end
 
 
 
