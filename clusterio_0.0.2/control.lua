@@ -318,10 +318,6 @@ remote.add_interface("clusterio",
 	end,
 	importMany = function(jsonString)
 		local items = json:decode(jsonString)
-<<<<<<< HEAD
-		game.print(serpent.block(items))
-=======
->>>>>>> refs/remotes/origin/json-parser
 		for k, item in pairs(items) do
 			for itemName, itemCount in pairs(item) do
 				GiveItemsToStorage(itemName, itemCount)
