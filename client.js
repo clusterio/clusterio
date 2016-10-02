@@ -94,7 +94,7 @@ setInterval(function() {
 		sadas = JSON.stringify(confirmedOrders)
 		confirmedOrders = [];
 		// send our RCON command with whatever we got
-		client.exec("/c remote.call('clusterio', 'importMany', '" + sadas + "')");
+		client.exec("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
 	}
 }, 3000)
 /*
