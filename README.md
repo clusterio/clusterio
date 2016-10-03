@@ -18,7 +18,7 @@ All Slaves AND Clients need to be running the clusterio mod located in this repo
 
 There are no requirements for other mods, they can be ran in any configuration allowed by the base game.
 
-**Master
+**Master**
 
 To start master, clone the repo and do
 
@@ -26,7 +26,7 @@ To start master, clone the repo and do
 
 The clusterio monitoring interface can be found on [master]:8080
 
-**Slave
+**Slave**
 
 To install a Slave, you need to set up config.json.
 
