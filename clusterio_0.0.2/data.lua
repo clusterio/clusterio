@@ -18,10 +18,10 @@ function MakeLogisticEntity(entity, name, pictureFilename, pictureTablePath, ico
 	ChangePictureFilename(entity, pictureTablePath, pictureFilename)
 	--if no icon is defined then use the default one
 	entity.icon = iconPath or entity.icon
-	
+
 	-- add the entity to a technology so it can be unlocked
 	--local wasAddedToTech = AddEntityToTech("construction-robotics", name)
-	
+
 	data:extend(
 	{
 		-- add the entity
@@ -70,7 +70,7 @@ function AddEntityToTech(techName, name)
 			type = "unlock-recipe",
 			recipe = name
 		}
-		--if a new table for the effects is made then the effects has to be attached to the 
+		--if a new table for the effects is made then the effects has to be attached to the
 		-- tech again because the table won't otherwise be owned by the tech
 		data.raw["technology"][techName].effects = effects
 		return true
@@ -86,21 +86,9 @@ MakeLogisticEntity(table.deepcopy(data.raw["container"]["iron-chest"]), 					   
 --make tanks
 MakeLogisticEntity(table.deepcopy(data.raw["storage-tank"]["storage-tank"]),  INPUT_TANK_NAME,  INPUT_TANK_PICTURE_PATH, { "pictures", "picture", "sheet" },  INPUT_TANK_ICON_PATH)
 
-
-
-
-
-
-
 --------------------------------------------------------
 --[[This section is purely to create the output tank]]--
 --------------------------------------------------------
-
-
-
-
-
-
 
 local CRAFING_FLUID_CATEGORY_NAME = "crafting-fluids"
 
@@ -121,10 +109,10 @@ fluidCreator.fluid_boxes =
 		pipe_covers = pipecoverspictures(),
 		base_area = 250,
 		base_level = 1,
-		pipe_connections = 
+		pipe_connections =
 		{
-			{ 
-				type="output", position = {0, 2} 
+			{
+				type="output", position = {0, 2}
 			}
 		}
 	},
@@ -157,12 +145,96 @@ for k,v in pairs(data.raw.fluid) do
 end
 
 
+-- Virtual signals
+data:extend{
+  {
+    type = "item-subgroup",
+    name = "virtual-signal-clusterio",
+    group = "signals",
+    order = "e"
+  },
+  {
+    type = "virtual-signal",
+    name = "signal-srctick",
+    icon = "__base__/graphics/icons/signal/signal_grey.png",
+    subgroup = "virtual-signal-clusterio",
+    order = "e[clusterio]-[1srctick]"
+  },
+  --[[{
+    type = "virtual-signal",
+    name = "signal-srcid",
+    icon = "__base__/graphics/icons/signal/signal_grey.png",
+    subgroup = "virtual-signal-clusterio",
+    order = "e[clusterio]-[2srcid]"
+  },]]
+  --[[{
+    type = "virtual-signal",
+    name = "signal-localid",
+    icon = "__base__/graphics/icons/signal/signal_grey.png",
+    subgroup = "virtual-signal-clusterio",
+    order = "e[clusterio]-[3localid]"
+  },]]
+}
 
+-- TX Combinator
+local tx = table.deepcopy(data.raw["decider-combinator"]["decider-combinator"])
+tx.name = TX_COMBINATOR_NAME
+tx.minable.result = TX_COMBINATOR_NAME
+data:extend{
+  tx,
+  {
+    type = "item",
+    name = TX_COMBINATOR_NAME,
+    icon = tx.icon,
+    flags = {"goes-to-quickbar"},
+    subgroup = "storage",
+    place_result=TX_COMBINATOR_NAME,
+    order = "a[items]-b["..TX_COMBINATOR_NAME.."]",
+    stack_size = 50,
+  },
+  {
+    type = "recipe",
+    name = TX_COMBINATOR_NAME,
+    enabled = true, -- TODO do this on a tech somewhere
+    ingredients =
+    {
+      {"decider-combinator", 1},
+      {"electronic-circuit", 3},
+      {"advanced-circuit", 1}
+    },
+    result = TX_COMBINATOR_NAME,
+    requester_paste_multiplier = 1
+  },
+}
 
-
-
-
-
-
-
-
+-- RX Combinator
+local rx = table.deepcopy(data.raw["constant-combinator"]["constant-combinator"])
+rx.name = RX_COMBINATOR_NAME
+rx.minable.result = RX_COMBINATOR_NAME
+rx.item_slot_count = 100
+data:extend{
+  rx,
+  {
+    type = "item",
+    name = RX_COMBINATOR_NAME,
+    icon = rx.icon,
+    flags = {"goes-to-quickbar"},
+    subgroup = "storage",
+    place_result=RX_COMBINATOR_NAME,
+    order = "a[items]-b["..RX_COMBINATOR_NAME.."]",
+    stack_size = 50,
+  },
+  {
+    type = "recipe",
+    name = RX_COMBINATOR_NAME,
+    enabled = true, -- TODO do this on a tech somewhere
+    ingredients =
+    {
+      {"constant-combinator", 1},
+      {"electronic-circuit", 3},
+      {"advanced-circuit", 1}
+    },
+    result = RX_COMBINATOR_NAME,
+    requester_paste_multiplier = 1
+  },
+}
