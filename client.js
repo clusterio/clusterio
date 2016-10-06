@@ -30,7 +30,7 @@ client.on('authenticated', function() {
 
 // set some globals
 confirmedOrders = [];
-
+// provide items --------------------------------------------------------------
 // trigger when something happens to output.txt
 fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", function(eventType, filename) {
 	// get array of lines in file
@@ -52,7 +52,7 @@ fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", functio
 		}
 	}
 })
-
+// request items --------------------------------------------------------------
 setInterval(function() {
 	// get array of lines in file
 	items = fs.readFileSync(config.factorioDirectory + "/script-output/orders.txt", "utf8").split("\n");
@@ -61,7 +61,7 @@ setInterval(function() {
 		fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "");
 		// prepare a package of all our requested items in a more tranfer friendly format
 		var preparedPackage = {};
-		for(i = 2;i < items.length; i++) {
+		for(i = 0;i < items.length; i++) {
 			(function(i){
 				if(items[i]) {
 					items[i] = items[i].split(" ");
@@ -97,8 +97,33 @@ setInterval(function() {
 		client.exec("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
 	}
 }, 3000)
-/*
-fs.watch(config.factorioDirectory + "/script-output/orders.txt", "utf8", function(eventType, filename) {
-	
-})
-*/
+// COMBINATOR SIGNALS ---------------------------------------------------------
+// send any signals the slave has been told to send
+setInterval(function() {
+	// get array of lines in file
+	signals = fs.readFileSync(config.factorioDirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
+	// if we actually got anything from the file, proceed and reset file
+	if(signals[0]) {
+		fs.writeFileSync(config.factorioDirectory + "/script-output/txbuffer.txt", "");
+		for(i = 0;i < signals.length; i++) {
+			(function(i){
+				if(signals[i]) {
+					// signals[i] is a JSON array, we need to unnest it
+					signal = JSON.parse(signals[i])
+					for(o=0;o<signal.length;o++) {
+						(function(o) {
+							singleSignal = signal[o];
+							singleSignal.time = Date.now();
+							console.log(singleSignal)
+							needle.post(config.masterIP + ":" + config.masterPort + '/setSignal', singleSignal, function(err, response, body){
+								if(response && response.body) {
+									// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+								}
+							});
+						})(o);
+					}
+				}
+			})(i);
+		}
+	}
+}, 3000)
