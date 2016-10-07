@@ -114,7 +114,7 @@ setInterval(function() {
 		if(response && response.body && typeof response.body == "object" && response.body[0]) {
 			// buffer confirmed orders
 			console.log("YESSSSSSSS" + JSON.stringify(response.body[0]));
-			client.exec("/c remote.call('clusterio', 'receiveFrame', '" + JSON.stringify(response.body[0]) + "')");
+			client.exec("/silent-command remote.call('clusterio', 'receiveFrame', '" + JSON.stringify(response.body[0].frame) + "')");
 			// confirmedSignals[confirmedSignals.length] = {[response.body.name]: response.body.count}
 		}
 	});
@@ -127,8 +127,8 @@ setInterval(function() {
 		for(i = 0;i < signals.length; i++) {
 			(function(i){
 				if(signals[i]) {
-					// signals[i] is a JSON array, we need to unnest it
-					// actually, we don't. That array is our "frame", and we pass that along instead of seperate signals.
+					// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
+					// then we unpack and RCON in this.frame to the game.
 					framepart = JSON.parse(signals[i])
 					doneframe = {
 						time: Date.now(),
