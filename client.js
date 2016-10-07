@@ -112,23 +112,30 @@ setInterval(function() {
 	// Fetch combinator signals from the server
 	needle.post(config.masterIP + ":" + config.masterPort + '/readSignal', {since:lastSignalCheck}, function(err, response, body){
 		if(response && response.body && typeof response.body == "object" && response.body[0]) {
-			// buffer confirmed orders
-			console.log("YESSSSSSSS" + JSON.stringify(response.body[0]));
-			client.exec("/silent-command remote.call('clusterio', 'receiveFrame', '" + JSON.stringify(response.body[0].frame) + "')");
-			// confirmedSignals[confirmedSignals.length] = {[response.body.name]: response.body.count}
+			// Take the new combinator frames and compress them so we can use a single command
+			frameset = [];
+			for(i=0;i<response.body.length;i++) {
+				frameset[i] = response.body[i].frame;
+			}
+			// console.log(frameset);
+			// Send all our compressed frames
+			client.exec("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
 		}
 	});
+	// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
 	lastSignalCheck = Date.now();
-	// get array of lines in file
+	
+	// get array of lines in file, each line should correspond to a JSON encoded frame
 	signals = fs.readFileSync(config.factorioDirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
 	// if we actually got anything from the file, proceed and reset file
 	if(signals[0]) {
 		fs.writeFileSync(config.factorioDirectory + "/script-output/txbuffer.txt", "");
+		// loop through all our frames
 		for(i = 0;i < signals.length; i++) {
 			(function(i){
 				if(signals[i]) {
 					// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
-					// then we unpack and RCON in this.frame to the game.
+					// then we unpack and RCON in this.frame to the game later.
 					framepart = JSON.parse(signals[i])
 					doneframe = {
 						time: Date.now(),
