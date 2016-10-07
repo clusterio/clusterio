@@ -12,11 +12,19 @@ var client = new Rcon({
 	timeout: 0
 }).connect();
 
+if (!fs.existsSync(config.factorioDirectory)){
+    console.error("FATAL ERROR: config.factorioDirectory DOES NOT EXIST, PLEASE UPDATE CONFIG.JSON");
+	process.exit(1);
+}
+// make sure we got the files we need
 if (!fs.existsSync(config.factorioDirectory + "/script-output/")){
     fs.mkdirSync(config.factorioDirectory + "/script-output/");
 }
-fs.writeFileSync(config.factorioDirectory + "/script-output/output.txt", "")
+if (!fs.existsSync(config.factorioDirectory + "/script-output/")){
+	fs.writeFileSync(config.factorioDirectory + "/script-output/output.txt", "")
+}
 fs.writeFileSync(config.factorioDirectory + "/script-output/orders.txt", "")
+fs.writeFileSync(config.factorioDirectory + "/script-output/txbuffer.txt", "");
 
 client.on('authenticated', function() {
 	console.log('Authenticated!');
@@ -30,6 +38,7 @@ client.on('authenticated', function() {
 
 // set some globals
 confirmedOrders = [];
+lastSignalCheck = Date.now();
 // provide items --------------------------------------------------------------
 // trigger when something happens to output.txt
 fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", function(eventType, filename) {
@@ -100,6 +109,16 @@ setInterval(function() {
 // COMBINATOR SIGNALS ---------------------------------------------------------
 // send any signals the slave has been told to send
 setInterval(function() {
+	// Fetch combinator signals from the server
+	needle.post(config.masterIP + ":" + config.masterPort + '/readSignal', {since:lastSignalCheck}, function(err, response, body){
+		if(response && response.body && typeof response.body == "object" && response.body[0]) {
+			// buffer confirmed orders
+			console.log("YESSSSSSSS" + JSON.stringify(response.body[0]));
+			client.exec("/c remote.call('clusterio', 'receiveFrame', '" + JSON.stringify(response.body[0]) + "')");
+			// confirmedSignals[confirmedSignals.length] = {[response.body.name]: response.body.count}
+		}
+	});
+	lastSignalCheck = Date.now();
 	// get array of lines in file
 	signals = fs.readFileSync(config.factorioDirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
 	// if we actually got anything from the file, proceed and reset file
@@ -109,21 +128,20 @@ setInterval(function() {
 			(function(i){
 				if(signals[i]) {
 					// signals[i] is a JSON array, we need to unnest it
-					signal = JSON.parse(signals[i])
-					for(o=0;o<signal.length;o++) {
-						(function(o) {
-							singleSignal = signal[o];
-							singleSignal.time = Date.now();
-							console.log(singleSignal)
-							needle.post(config.masterIP + ":" + config.masterPort + '/setSignal', singleSignal, function(err, response, body){
-								if(response && response.body) {
-									// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-								}
-							});
-						})(o);
+					// actually, we don't. That array is our "frame", and we pass that along instead of seperate signals.
+					framepart = JSON.parse(signals[i])
+					doneframe = {
+						time: Date.now(),
+						frame: framepart, // thats our array of objects(single signals)
 					}
+					// console.log(doneframe)
+					needle.post(config.masterIP + ":" + config.masterPort + '/setSignal', doneframe, function(err, response, body){
+						if(response && response.body) {
+							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+						}
+					});
 				}
 			})(i);
 		}
 	}
-}, 3000)
+}, 1000)
