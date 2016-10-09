@@ -16,8 +16,14 @@
 #body {
 	margin-left:200px;
 }
+#contents {
+	width:300px;
+}
 #contents table {
 	border: 1px solid black;
+}
+#contentGraph {
+	float:left;
 }
 .button-black {
 	width:100%;
