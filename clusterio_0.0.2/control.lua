@@ -43,12 +43,17 @@ function AddEntity(entity)
 		--add the chests to a lists if these chests so they can be interated over
 		global.outputTanks[HashPosition(entity.position)] = entity
 		entity.active = false
+	elseif entity.name == TX_COMBINATOR_NAME then
+		table.insert(global.txControls, entity.get_or_create_control_behavior())
+	elseif entity.name == RX_COMBINATOR_NAME then
+		table.insert(global.rxControls, entity.get_or_create_control_behavior())
+    entity.operable=false
 	end
 end
 
 function OnKilledEntity(event)
 	local entity = event.entity
-	if entity.type ~= "entity-ghost" then	
+	if entity.type ~= "entity-ghost" then
 		--remove the entities from the tables as they are dead
 		if entity.name == INPUT_CHEST_NAME then
 			global.inputChests[HashPosition(entity.position)] = nil
@@ -85,23 +90,29 @@ end)
 
 
 script.on_event(defines.events.on_tick, function(event)
-	
+
 	global.inputChests = global.inputChests or {}
 	global.outputChests = global.outputChests or {}
 	global.inputTanks = global.inputTanks or {}
 	global.outputTanks = global.outputTanks or {}
 	global.outputList = global.outputList or {}
 	global.inputList = global.inputList or {}
-	
+  global.rxControls = global.rxControls or {}
+  global.txControls = global.txControls or {}
+
+
+  -- TX Combinators must run every tick to catch single pulses
+  HandleTXCombinators()
+
 	local todo = game.tick % UPATE_RATE
-	
+
 	local onlinePlayers = GetOnlinePlayerCount()
-	
+
 	if global.previousPlayerCount == nil or global.previousPlayerCount ~= onlinePlayers then
 		Reset()
 	end
 	global.previousPlayerCount = onlinePlayers
-	
+
 	if todo == 0 then
 		HandleInputChests()
 	elseif todo == 1 then
@@ -114,6 +125,14 @@ script.on_event(defines.events.on_tick, function(event)
 		ExportInputList()
 	elseif todo == 5 then
 		ExportOutputList()
+  end
+
+  local rxstate = game.tick % CIRCUIT_UPATE_RATE
+  -- RX Combinators are set and then cleared on sequential ticks to create pulses
+  if rxstate == 0 then
+    SetRXCombinators()
+  elseif rxstate == 1 then
+    ClearRXCombinators()
 	end
 end)
 
@@ -131,12 +150,12 @@ function Reset()
 	global.outputList = {}
 	global.inputList = {}
 	global.itemStorage = {}
-	
+
 	global.inputChests = {}
 	global.outputChests = {}
 	global.inputTanks = {}
 	global.outputTanks = {}
-	
+
 	AddAllEntitiesOfName(INPUT_CHEST_NAME)
 	AddAllEntitiesOfName(OUTPUT_CHEST_NAME)
 	AddAllEntitiesOfName(INPUT_TANK_NAME)
@@ -171,7 +190,7 @@ function HandleInputTanks()
 			v.fluidbox[1] = fluid
 		end
 	end
-	
+
 end
 
 function HandleOutputChests()
@@ -195,7 +214,7 @@ function HandleOutputChests()
 							--insert the missing items
 							local insertedItemsCount = chestInventory.insert(simpleItemStack)
 							local itemsNotInsertedCount = itemCountAllowedToInsert - insertedItemsCount
-							
+
 							if itemsNotInsertedCount > 0 then
 								GiveItemsToStorage(requestItem.name, itemsNotInsertedCount)
 							end
@@ -214,16 +233,15 @@ function HandleOutputTanks()
 	local MAX_FLUID_AMOUNT = 1000
 	 for k,v in pairs(global.outputTanks) do
 		--.recipe.products[1].name
-		
 		if v.recipe ~= nil then
 			local fluidName = v.recipe.products[1].name
-			
+
 			--either get the fluid or reset it to the requested fluid
 			local fluid = v.fluidbox[1] or {type = fluidName, amount = 0}
 			if fluid.type ~= fluidName then
 				fluid = {type = fluidName, amount = 0}
 			end
-			
+
 			--if any fluid is missing then request the fluid
 			--from store and give either what it's missing or
 			--the rest of the liquid in the system
@@ -237,10 +255,10 @@ function HandleOutputTanks()
 					AddItemToOutputList(fluid.type, fluidToRequestAmount)
 				end
 			end
-			
-			v.fluidbox[1] = fluid
-		end
+
+		v.fluidbox[1] = fluid
 	 end
+end
 end
 
 
@@ -261,9 +279,9 @@ function ExportInputList()
 	end
 	global.inputList = {}
 	if #exportStrings > 0 then
-		
+
 		--only write to file once as i/o is slow
-		--it's much faster to concatenate all the lines with table.concat 
+		--it's much faster to concatenate all the lines with table.concat
 		--instead of doing it with the .. operator
 		game.write_file(OUTPUT_FILE, table.concat(exportStrings), true)
 	end
@@ -276,9 +294,9 @@ function ExportOutputList()
 	end
 	global.outputList = {}
 	if #exportStrings > 0 then
-		
+
 		--only write to file once as i/o is slow
-		--it's much faster to concatenate all the lines with table.concat 
+		--it's much faster to concatenate all the lines with table.concat
 		--instead of doing it with the .. operator
 		game.write_file(ORDER_FILE, table.concat(exportStrings), true)
 	end
@@ -296,7 +314,7 @@ function RequestItemsFromStorage(itemName, itemCount)
 	--requested then take the number of items there are left otherwise take the requested amount
 	local itemsTakenFromStorage = math.min(global.itemStorage[itemName], itemCount)
 	global.itemStorage[itemName] = global.itemStorage[itemName] - itemsTakenFromStorage
-	
+
 	return itemsTakenFromStorage
 end
 
@@ -311,10 +329,110 @@ end
 
 
 
+function AddFrameToRXBuffer(frame)
+  -- Add a frame to the buffer. return remaining space in buffer
+  local validsignals = {
+    ["virtual"] = game.virtual_signal_prototypes,
+    ["fluid"]   = game.fluid_prototypes,
+    ["item"]    = game.item_prototypes
+  }
+
+  global.rxBuffer = global.rxBuffer or {}
+
+  -- if buffer is full, drop frame
+  if #global.rxBuffer >= MAX_RX_BUFFER_SIZE then return 0 end
+
+  -- frame = {{count=42,name="signal-grey",type="virtual"},{...},...}
+  local signals = {}
+  local index = 1
+
+  for _,signal in pairs(frame) do
+    if validsignals[signal.type] and validsignals[signal.type][signal.name] then
+      signals[index] =
+        {
+          index=index,
+          count=signal.count,
+          signal={ name=signal.name, type=signal.type }
+        }
+      index = index + 1
+      --TODO: break if too many?
+      --TODO: error token on mismatched signals? maybe mismatch1-n signals?
+    end
+  end
+
+  if index > 1 then table.insert(global.rxBuffer,signals) end
+
+  return MAX_RX_BUFFER_SIZE - #global.rxBuffer
+end
+
+function HandleTXCombinators()
+  -- Check all TX Combinators, and if condition satisfied, add frame to transmit buffer
+
+  -- frame = {{count=42,name="signal-grey",type="virtual"},{...},...}
+  local signals = {["item"]={},["virtual"]={},["fluid"]={}}
+  for i,txControl in pairs(global.txControls) do
+    if txControl.valid then
+      local frame = txControl.signals_last_tick
+      if frame then
+        for _,signal in pairs(frame) do
+          signals[signal.signal.type][signal.signal.name]=
+            (signals[signal.signal.type][signal.signal.name] or 0) + signal.count
+        end
+      end
+    else
+      table.remove(global.txControls,i)
+    end
+  end
+
+  local frame = {}
+  for type,arr in pairs(signals) do
+    for name,count in pairs(arr) do
+      table.insert(frame,{count=count,name=name,type=type})
+    end
+  end
+
+  if #frame > 0 then
+    table.insert(frame,{count=game.tick,name="signal-srctick",type="virtual"})
+    game.write_file(TX_BUFFER_FILE, json:encode(frame).."\n", true)
+
+    -- Loopback for testing
+    --AddFrameToRXBuffer(frame)
+
+  end
+end
+
+function SetRXCombinators()
+  -- if the RX buffer is not empty, get a frame from it and output on all RX Combinators
+  if global.rxBuffer and #global.rxBuffer > 0 then
+    local frame = table.remove(global.rxBuffer)
+    for i,rxControl in pairs(global.rxControls) do
+      if rxControl.valid then
+        rxControl.parameters={parameters=frame}
+        rxControl.enabled=true
+      else
+        table.remove(global.rxControls,i)
+      end
+    end
+  end
+end
+
+function ClearRXCombinators()
+  -- Clear all RX Combinators.
+  -- This makes them emit pulses, which are easier to
+  -- detect than slowly changing continusous signals.
+  for i,rxControl in pairs(global.rxControls) do
+    if rxControl.valid then
+      rxControl.enabled=false
+    else
+      table.remove(global.rxControls,i)
+    end
+  end
+end
+
 --[[ Remote Thing ]]--
-remote.add_interface("clusterio", 
+remote.add_interface("clusterio",
 {
-	import = function(itemName, itemCount)
+  import = function(itemName, itemCount)
 		GiveItemsToStorage(itemName, itemCount)
 	end,
 	importMany = function(jsonString)
@@ -332,23 +450,19 @@ remote.add_interface("clusterio",
 		end
 		game.print(items)
 	end,
-	reset = Reset
+	reset = Reset,
+	receiveFrame = function(jsonframe)
+		local frame = json:decode(jsonframe)
+		-- frame = {tick=123456,frame={{count=42,name="signal-grey",type="virtual"},{...},...}}
+		return AddFrameToRXBuffer(frame)
+	end,
+	receiveMany = function(jsonframes)
+		local frames = json:decode(jsonframes)
+		local buffer
+		for _,frame in pairs(frames) do
+			buffer = AddFrameToRXBuffer(frame)
+			if buffer==0 then return 0 end
+		end
+		return buffer
+	end,
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
