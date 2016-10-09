@@ -24,6 +24,8 @@ app.use(express.static('bower_components/jquery/dist'));
 var Datastore = require('nedb');
 db = {};
 db.items = new Datastore({ filename: 'database/items.db', autoload: true });
+db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
+db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
 
 db.items.additem = function(object) {
 	db.items.findOne({name:object.name}, function (err, doc) {
@@ -84,6 +86,26 @@ app.post("/remove", function(req, res) {
 		}
 	})
 });
+
+// circuit stuff
+app.post("/setSignal", function(req,res) {
+	if(typeof req.body == "object" && req.body.time){
+		db.signals.insert(req.body);
+		// console.log("signal set")
+	}
+});
+
+app.post("/readSignal", function(req,res) {
+	// request.body should be an object
+	// {since:UNIXTIMESTAMP,}
+	// we should send an array of all signals since then
+	db.signals.find({time:{$gte: req.body.since}}, function (err, docs) {
+		// $gte means greater than or equal to, meaning we only get entries newer than the timestamp
+		res.send(docs);
+		// console.log(docs)
+	});
+});
+
 // endpoint for getting an inventory of what we got
 app.get("/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");

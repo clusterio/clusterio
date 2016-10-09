@@ -1,6 +1,14 @@
 #factorioClusterio
 
-- The first ever mod allowing you to transfer items between worlds
+Features:
+
+- Entities to send/recieve items
+
+- Cross dimensional storage
+
+- Sending of liquids
+
+- Sending of circuit network signals
 
 #Windows setup
 
@@ -42,3 +50,5 @@ Once finished, do
 
     [factorioDirectory]/bin/x64/factorio.exe [flags]
     node client.js
+	
+See launchEverything.bat for example command.
