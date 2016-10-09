@@ -41,7 +41,7 @@ confirmedOrders = [];
 lastSignalCheck = Date.now();
 // provide items --------------------------------------------------------------
 // trigger when something happens to output.txt
-fs.watch(config.factorioDirectory + "/script-output/output.txt", "utf8", function(eventType, filename) {
+fs.watch(config.factorioDirectory + "/script-output/output.txt", function(eventType, filename) {
 	// get array of lines in file
 	items = fs.readFileSync(config.factorioDirectory + "/script-output/output.txt", "utf8").split("\n");
 	// if you found anything, reset the file
