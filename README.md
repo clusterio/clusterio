@@ -1,23 +1,54 @@
 #factorioClusterio
 
-- The first ever mod allowing you to transfer items between worlds
+Features:
+
+- Entities to send/recieve items
+
+- Cross dimensional storage
+
+- Sending of liquids
+
+- Sending of circuit network signals
 
 #Windows setup
 
-git clone
+Clusterio is built up of multiple parts. Here is a quick guide:
 
-npm install
+Master = master.js
 
-edit config.json
+Slave = client.js + factorio server
 
-node master.js on the master
+Client = The people connecting to the server
 
-start the server on the client, using the right rcon configs
+Master and all all Slaves have to be running nodejs. Get it from nodejs.org.
 
-node client.js
+All Slaves AND Clients need to be running the clusterio mod located in this repository. Install it by dropping it into the mods folder.
 
-connect to server
+There are no requirements for other mods, they can be ran in any configuration allowed by the base game.
 
-???
+**Master**
 
-profit!
+To start master, clone the repo and do
+
+    node master.js
+
+The clusterio monitoring interface can be found on [master]:8080
+
+**Slave**
+
+To install a Slave, you need to set up config.json.
+
+clientIP should be localhost
+
+clientPort and password should be the port and password you have configured for RCON connections when launching factorio.exe. The defaults are correct if you are using a modified version of the included launchEverything.bat.
+
+factorioDirectory is the location of your factorio server folder, ex factorio_0.13.37. You HAVE to use the zip version downloaded from the website to use clusterio. Headless should also work.
+
+masterIP and port should be selfexplanatory. To test if these settings works, open a browser on the slave system and enter masterIP:masterPort.
+
+Once finished, do
+
+    [factorioDirectory]/bin/x64/factorio.exe [flags]
+    node client.js
+	
+See launchEverything.bat for example command.
