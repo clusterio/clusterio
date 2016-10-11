@@ -3,7 +3,7 @@ contents = {
 	"iron-plate":100,
 	"copper-plate":7312,
 }
-
+// nice functions
 function djb2(str){
   var hash = 5381;
   for (var i = 0; i < str.length; i++) {
@@ -20,6 +20,7 @@ function hashColor(str) {
   return "#" + ("0" + r.toString(16)).substr(-2) + ("0" + g.toString(16)).substr(-2) + ("0" + b.toString(16)).substr(-2);
 }
 
+// function to draw data we recieve from ajax requests
 function drawcontents(data) {
 	keys = Object.keys(data);
 	result = "<table>";
@@ -28,6 +29,25 @@ function drawcontents(data) {
 	}
 	result = result + "</table>"
 	document.getElementById("contents").innerHTML = result;
+}
+
+// handle the navigation buttons
+function display(page) {
+	var pages = document.querySelector("#body").childNodes;
+	for(i=0;i<pages.length;i++){
+		if(pages[i].style){
+			pages[i].style.display = "none";
+		}
+	}
+	if(typeof page == "string" && document.querySelector("#" + page)) {
+		document.querySelector("#" + page).style.display = "block";
+	}
+}
+
+// Function to redraw charts in case they bug out
+function drawcharts() {
+	ctx = document.querySelector("#contentGraph").getContext('2d');
+    PieChart = new Chart(ctx);
 }
 
 setInterval(function() {
@@ -66,6 +86,5 @@ setInterval(function() {
 // create chart of items in master storage
 // setTimeout is used to put this processing in the back of the queue, after the HTML canvas is done
 setTimeout(function(){
-	ctx = document.querySelector("#contentGraph").getContext('2d');
-    PieChart = new Chart(ctx);
+	drawcharts();
 },10)
