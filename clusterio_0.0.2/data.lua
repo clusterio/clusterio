@@ -128,9 +128,10 @@ for k,v in pairs(data.raw.fluid) do
 	{
 		{
 			type = "recipe",
-			name = v.name,
+			name = ("get-"..v.name),
 			icon = v.icon,
 			category = CRAFING_FLUID_CATEGORY_NAME,
+			--localised_name = {v.name},
 			energy_required = 1,
 			subgroup = "barrel",
 			order = "b[fill-crude-oil-barrel]",
