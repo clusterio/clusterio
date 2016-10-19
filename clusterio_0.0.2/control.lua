@@ -283,7 +283,7 @@ function ExportInputList()
 		--only write to file once as i/o is slow
 		--it's much faster to concatenate all the lines with table.concat
 		--instead of doing it with the .. operator
-		game.write_file(OUTPUT_FILE, table.concat(exportStrings), true)
+		game.write_file(OUTPUT_FILE, table.concat(exportStrings), true, global.write_file_player or 0)
 	end
 end
 
@@ -298,7 +298,7 @@ function ExportOutputList()
 		--only write to file once as i/o is slow
 		--it's much faster to concatenate all the lines with table.concat
 		--instead of doing it with the .. operator
-		game.write_file(ORDER_FILE, table.concat(exportStrings), true)
+		game.write_file(ORDER_FILE, table.concat(exportStrings), true, global.write_file_player or 0)
 	end
 end
 
@@ -393,7 +393,7 @@ function HandleTXCombinators()
 
   if #frame > 0 then
     table.insert(frame,{count=game.tick,name="signal-srctick",type="virtual"})
-    game.write_file(TX_BUFFER_FILE, json:encode(frame).."\n", true)
+    game.write_file(TX_BUFFER_FILE, json:encode(frame).."\n", true, global.write_file_player or 0)
 
     -- Loopback for testing
     --AddFrameToRXBuffer(frame)
@@ -465,4 +465,7 @@ remote.add_interface("clusterio",
 		end
 		return buffer
 	end,
+  setFilePlayer = function(i)
+    global.write_file_player = i
+  end
 })
