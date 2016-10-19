@@ -10,6 +10,12 @@ Features:
 
 - Sending of circuit network signals
 
+Connection diagram:
+
+![http://i.imgur.com/7FdVfgB.png](http://i.imgur.com/7FdVfgB.png)
+
+There can be any number of clients connected to each slave, and any sumber of slaves connected to a master but there can only be one master server.
+
 #Windows setup
 
 Clusterio is built up of multiple parts. Here is a quick guide:
