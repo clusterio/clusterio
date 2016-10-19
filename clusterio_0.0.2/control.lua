@@ -104,7 +104,7 @@ script.on_event(defines.events.on_tick, function(event)
   -- TX Combinators must run every tick to catch single pulses
   HandleTXCombinators()
 
-	local todo = game.tick % UPATE_RATE
+	local todo = game.tick % UPDATE_RATE
 
 	local onlinePlayers = GetOnlinePlayerCount()
 
@@ -127,7 +127,7 @@ script.on_event(defines.events.on_tick, function(event)
 		ExportOutputList()
   end
 
-  local rxstate = game.tick % CIRCUIT_UPATE_RATE
+  local rxstate = game.tick % CIRCUIT_UPDATE_RATE
   -- RX Combinators are set and then cleared on sequential ticks to create pulses
   if rxstate == 0 then
     SetRXCombinators()
