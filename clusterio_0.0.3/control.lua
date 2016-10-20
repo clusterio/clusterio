@@ -398,6 +398,9 @@ function HandleTXCombinators()
   end
 
   if #frame > 0 then
+    if global.worldID then
+      table.insert(frame,1,{count=global.worldID,name="signal-srcid",type="virtual"})
+    end
     table.insert(frame,{count=game.tick,name="signal-srctick",type="virtual"})
     game.write_file(TX_BUFFER_FILE, json:encode(frame).."\n", true, global.write_file_player or 0)
 
@@ -434,8 +437,11 @@ end
 function UpdateInvCombinators()
   -- Update all inventory Combinators
   -- Prepare a frame from the last inventory report, plus any virtuals
-  local invframe = {
-    --TODO: virtual signals here, localid, possibly others
+  local invframe = {}
+  if global.worldID then
+    table.insert(invframe,{count=global.worldID,index=#invframe+1,signal={name="signal-localid",type="virtual"}})
+  end
+
   }
   local items = game.item_prototypes
   if global.invdata then
@@ -500,4 +506,8 @@ remote.add_interface("clusterio",
     global.invdata = invdata
     UpdateInvCombinators()
   end,
+  setWorldID = function(newid)
+    global.worldID = newid
+    UpdateInvCombinators()
+  end
 })
