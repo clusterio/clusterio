@@ -1,10 +1,6 @@
 require("config")
 local json = require("json")
 
-function HashPosition(position)
-	return 40000 * (position.y) + position.x
-end
-
 function OnBuiltEntity(event)
 	local entity = event.created_entity
 	--only add entities that are not ghosts
@@ -27,29 +23,25 @@ end
 
 function AddEntity(entity)
 	if entity.name == INPUT_CHEST_NAME then
-		global.inputChests = global.inputChests or {}
 		--add the chests to a lists if these chests so they can be interated over
-		global.inputChests[HashPosition(entity.position)] = entity
+		global.inputChests[entity.unit_number] = entity
 	elseif entity.name == OUTPUT_CHEST_NAME then
-		global.outputChests = global.outputChests or {}
 		--add the chests to a lists if these chests so they can be interated over
-		global.outputChests[HashPosition(entity.position)] = entity
+		global.outputChests[entity.unit_number] = entity
 	elseif entity.name == INPUT_TANK_NAME then
-		global.inputTanks = global.inputTanks or {}
 		--add the chests to a lists if these chests so they can be interated over
-		global.inputTanks[HashPosition(entity.position)] = entity
+		global.inputTanks[entity.unit_number] = entity
 	elseif entity.name == OUTPUT_TANK_NAME then
-		global.outputTanks = global.outputTanks or {}
 		--add the chests to a lists if these chests so they can be interated over
-		global.outputTanks[HashPosition(entity.position)] = entity
+		global.outputTanks[entity.unit_number] = entity
 		entity.active = false
 	elseif entity.name == TX_COMBINATOR_NAME then
-		table.insert(global.txControls, entity.get_or_create_control_behavior())
+		global.txControls[entity.unit_number] = entity.get_or_create_control_behavior()
 	elseif entity.name == RX_COMBINATOR_NAME then
-		table.insert(global.rxControls, entity.get_or_create_control_behavior())
+		global.rxControls[entity.unit_number] = entity.get_or_create_control_behavior()
     entity.operable=false
   elseif entity.name == INV_COMBINATOR_NAME then
-    table.insert(global.invControls, entity.get_or_create_control_behavior())
+    global.invControls[entity.unit_number] = entity.get_or_create_control_behavior())
     entity.operable=false
 	end
 end
@@ -59,14 +51,20 @@ function OnKilledEntity(event)
 	if entity.type ~= "entity-ghost" then
 		--remove the entities from the tables as they are dead
 		if entity.name == INPUT_CHEST_NAME then
-			global.inputChests[HashPosition(entity.position)] = nil
+			global.inputChests[entity.unit_number] = nil
 		elseif entity.name == OUTPUT_CHEST_NAME then
-			global.outputChests[HashPosition(entity.position)] = nil
+			global.outputChests[entity.unit_number] = nil
 		elseif entity.name == INPUT_TANK_NAME then
-			global.inputTanks[HashPosition(entity.position)] = nil
+			global.inputTanks[entity.unit_number] = nil
 		elseif entity.name == OUTPUT_TANK_NAME then
-			global.outputTanks[HashPosition(entity.position)] = nil
-		end
+			global.outputTanks[entity.unit_number] = nil
+    elseif entity.name == TX_COMBINATOR_NAME then
+  		global.txControls[entity.unit_number] = nil
+  	elseif entity.name == RX_COMBINATOR_NAME then
+  		global.rxControls[entity.unit_number] = nil
+    elseif entity.name == INV_COMBINATOR_NAME then
+      global.invControls[entity.unit_number] = nil
+    end
 	end
 end
 
@@ -92,18 +90,17 @@ script.on_event(defines.events.on_preplayer_mined_item, function(event)
 end)
 
 
-script.on_event(defines.events.on_tick, function(event)
-  
-	global.inputChests = global.inputChests or {}
-	global.outputChests = global.outputChests or {}
-	global.inputTanks = global.inputTanks or {}
-	global.outputTanks = global.outputTanks or {}
-	global.outputList = global.outputList or {}
-	global.inputList = global.inputList or {}
-  global.rxControls = global.rxControls or {}
-  global.txControls = global.txControls or {}
-  global.invControls = global.invControls or {}
+script.on_init(function()
+  Reset()
+end)
 
+script.on_configuration_changed(function(data)
+  if data.mod_changes and data.mod_changes["clusterio"] then
+    Reset()
+  end
+end)
+
+script.on_event(defines.events.on_tick, function(event)
   -- TX Combinators must run every tick to catch single pulses
   HandleTXCombinators()
 
@@ -156,13 +153,23 @@ function Reset()
 
 	global.inputChests = {}
 	global.outputChests = {}
-	global.inputTanks = {}
+
+  global.inputTanks = {}
 	global.outputTanks = {}
+
+  global.rxControls = {}
+  global.txControls = {}
+  global.invControls = {}
 
 	AddAllEntitiesOfName(INPUT_CHEST_NAME)
 	AddAllEntitiesOfName(OUTPUT_CHEST_NAME)
+
 	AddAllEntitiesOfName(INPUT_TANK_NAME)
 	AddAllEntitiesOfName(OUTPUT_TANK_NAME)
+
+  AddAllEntitiesOfName(RX_COMBINATOR_NAME)
+  AddAllEntitiesOfName(TX_COMBINATOR_NAME)
+  AddAllEntitiesOfName(INV_COMBINATOR_NAME)
 	game.print("reset")
 end
 
@@ -307,7 +314,6 @@ end
 
 
 function RequestItemsFromStorage(itemName, itemCount)
-	global.itemStorage = global.itemStorage or {}
 	--if result is nil then there is no items in storage
 	--which means that no items can be given
 	if global.itemStorage[itemName] == nil then
@@ -322,7 +328,6 @@ function RequestItemsFromStorage(itemName, itemCount)
 end
 
 function GiveItemsToStorage(itemName, itemCount)
-	global.itemStorage = global.itemStorage or {}
 	--if this is called for the first time for an item then the result
 	--is nil. if that's the case then set the result to 0 so it can
 	--be used in arithmetic operations
@@ -382,8 +387,6 @@ function HandleTXCombinators()
             (signals[signal.signal.type][signal.signal.name] or 0) + signal.count
         end
       end
-    else
-      table.remove(global.txControls,i)
     end
   end
 
@@ -412,8 +415,6 @@ function SetRXCombinators()
       if rxControl.valid then
         rxControl.parameters={parameters=frame}
         rxControl.enabled=true
-      else
-        table.remove(global.rxControls,i)
       end
     end
   end
@@ -426,8 +427,6 @@ function ClearRXCombinators()
   for i,rxControl in pairs(global.rxControls) do
     if rxControl.valid then
       rxControl.enabled=false
-    else
-      table.remove(global.rxControls,i)
     end
   end
 end
@@ -451,8 +450,6 @@ function UpdateInvCombinators()
     if invControl.valid then
       invControl.parameters={parameters=invframe}
       invControl.enabled=true
-    else
-      table.remove(global.invControls,i)
     end
   end
 
