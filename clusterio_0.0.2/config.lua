@@ -21,7 +21,7 @@ OUTPUT_TANK_ICON_PATH = nil
 MAX_RX_BUFFER_SIZE = 40 -- slightly more than one second
 RX_COMBINATOR_NAME = "get-combinator"
 TX_COMBINATOR_NAME = "put-combinator"
-
+INV_COMBINATOR_NAME = "inventory-combinator"
 
 OUTPUT_FILE = "output.txt"
 ORDER_FILE  = "orders.txt"

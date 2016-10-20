@@ -48,6 +48,9 @@ function AddEntity(entity)
 	elseif entity.name == RX_COMBINATOR_NAME then
 		table.insert(global.rxControls, entity.get_or_create_control_behavior())
     entity.operable=false
+  elseif entity.name == INV_COMBINATOR_NAME then
+    table.insert(global.invControls, entity.get_or_create_control_behavior())
+    entity.operable=false
 	end
 end
 
@@ -90,7 +93,7 @@ end)
 
 
 script.on_event(defines.events.on_tick, function(event)
-
+  
 	global.inputChests = global.inputChests or {}
 	global.outputChests = global.outputChests or {}
 	global.inputTanks = global.inputTanks or {}
@@ -99,7 +102,7 @@ script.on_event(defines.events.on_tick, function(event)
 	global.inputList = global.inputList or {}
   global.rxControls = global.rxControls or {}
   global.txControls = global.txControls or {}
-
+  global.invControls = global.invControls or {}
 
   -- TX Combinators must run every tick to catch single pulses
   HandleTXCombinators()
@@ -429,6 +432,32 @@ function ClearRXCombinators()
   end
 end
 
+function UpdateInvCombinators()
+  -- Update all inventory Combinators
+  -- Prepare a frame from the last inventory report, plus any virtuals
+  local invframe = {
+    --TODO: virtual signals here, localid, possibly others
+  }
+  local items = game.item_prototypes
+  if global.invdata then
+    for name,count in pairs(invdata) do
+      if items[name] then
+        invframe[#invframe+1] = {count=count,index=#invframe+1,signal={name=name,type="item"}}
+      end
+    end
+  end
+
+  for i,invControl in pairs(global.invControls) do
+    if invControl.valid then
+      invControl.parameters={parameters=invframe}
+      invControl.enabled=true
+    else
+      table.remove(global.invControls,i)
+    end
+  end
+
+end
+
 --[[ Remote Thing ]]--
 remote.add_interface("clusterio",
 {
@@ -467,5 +496,11 @@ remote.add_interface("clusterio",
 	end,
   setFilePlayer = function(i)
     global.write_file_player = i
+  end
+  receiveInventory = function(jsoninvdata)
+    local invdata = json:decode(jsoninvdata)
+		-- invdata = {["iron-plates"]=1234,["copper-plates"]=5678,...}
+    global.invdata = invdata
+    UpdateInvCombinators()
   end
 })
