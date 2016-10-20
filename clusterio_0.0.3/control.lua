@@ -442,7 +442,6 @@ function UpdateInvCombinators()
     table.insert(invframe,{count=global.worldID,index=#invframe+1,signal={name="signal-localid",type="virtual"}})
   end
 
-  }
   local items = game.item_prototypes
   if global.invdata then
     for name,count in pairs(global.invdata) do
