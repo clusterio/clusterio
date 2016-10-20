@@ -161,20 +161,20 @@ data:extend{
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[1srctick]"
   },
-  --[[{
+  {
     type = "virtual-signal",
     name = "signal-srcid",
     icon = "__base__/graphics/icons/signal/signal_grey.png",
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[2srcid]"
-  },]]
-  --[[{
+  },
+  {
     type = "virtual-signal",
     name = "signal-localid",
     icon = "__base__/graphics/icons/signal/signal_grey.png",
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[3localid]"
-  },]]
+  },
 }
 
 -- TX Combinator
@@ -236,6 +236,37 @@ data:extend{
       {"advanced-circuit", 1}
     },
     result = RX_COMBINATOR_NAME,
+    requester_paste_multiplier = 1
+  },
+}
+-- Inventory Combinator
+local inv = table.deepcopy(data.raw["constant-combinator"]["constant-combinator"])
+inv.name = INV_COMBINATOR_NAME
+inv.minable.result = INV_COMBINATOR_NAME
+inv.item_slot_count = 100
+data:extend{
+  inv,
+  {
+    type = "item",
+    name = INV_COMBINATOR_NAME,
+    icon = inv.icon,
+    flags = {"goes-to-quickbar"},
+    subgroup = "storage",
+    place_result=INV_COMBINATOR_NAME,
+    order = "a[items]-b["..INV_COMBINATOR_NAME.."]",
+    stack_size = 50,
+  },
+  {
+    type = "recipe",
+    name = INV_COMBINATOR_NAME,
+    enabled = true, -- TODO do this on a tech somewhere
+    ingredients =
+    {
+      {"constant-combinator", 1},
+      {"electronic-circuit", 3},
+      {"advanced-circuit", 1}
+    },
+    result = INV_COMBINATOR_NAME,
     requester_paste_multiplier = 1
   },
 }
