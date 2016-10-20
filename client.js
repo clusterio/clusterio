@@ -107,6 +107,22 @@ setInterval(function() {
 	}
 }, 3000)
 // COMBINATOR SIGNALS ---------------------------------------------------------
+// get inventory from Master and RCON it to our slave
+setInterval(function() {
+	needle.get(config.masterIP + ":" + config.masterPort + '/inventory', function(err, response, body){
+		if(response && response.body) {
+			// Take the inventory we (hopefully) got and turn it into the format LUA accepts
+			// console.log(response.body)
+			var inventory = response.body;
+			var inventoryFrame = {};
+			for(i = 0;i<inventory.length;i++) {
+				inventoryFrame[inventory[i].name] = Number(inventory[i].count);
+			}
+			console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+			client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
+		}
+	});
+}, 1000)
 // send any signals the slave has been told to send
 setInterval(function() {
 	// Fetch combinator signals from the server
