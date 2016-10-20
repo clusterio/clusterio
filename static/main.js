@@ -20,12 +20,17 @@ function hashColor(str) {
   return "#" + ("0" + r.toString(16)).substr(-2) + ("0" + g.toString(16)).substr(-2) + ("0" + b.toString(16)).substr(-2);
 }
 
+
+
 // function to draw data we recieve from ajax requests
 function drawcontents(data) {
-	keys = Object.keys(data);
 	result = "<table>";
 	for(i = 0;i < data.length; i++) {
-		result = result + "<tr><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
+		var img = "";
+		if(imagedata[data[i].name]){
+			img = "https://wiki.factorio.com/images/" + imagedata[data[i].name] + ".png"
+		}
+		result = result + "<tr><td><image src='" + img + "'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
 	}
 	result = result + "</table>"
 	document.getElementById("contents").innerHTML = result;
@@ -87,6 +92,7 @@ function drawcharts() {
 		// this is where we generate new data
 		var newDataA =  piedata[0].value - piedataOld[0].value;
 		var newDataB = piedata[1].value - piedataOld[1].value;
+		// not quite sure how this works, where is dataSetA placed in data/the graph?
 		dataSetA.push(newDataA);
 		dataSetB.push(newDataB);
 		dataSetA.shift();
@@ -162,3 +168,57 @@ setInterval(function() {
 	xmlhttp.send();
 }, 500)
 
+// image data
+var imagedata = {
+	["raw-wood"]: "Raw-wood",
+	["alien-artifact"]: "Alien-artifact",
+	["heavy-oil"]: "Heavy-oil",
+	["engine-unit"]: "Engine-unit",
+	["electric-engine-unit"]: "Electric-engine-unit",
+	["flying-robot-frame"]: "Flying-robot-frame",
+	["alien-science_pack"]: "Alien-science-pack",
+	["empty-barrel"]: "Barrel-empty",
+	["transport-belt"]: "Basic-transport-belt",
+	["underground-belt"]: "Basic-transport-belt-to-ground",
+	["fast-underground-belt"]: "Fast-transport-belt-to-ground",
+	["express-underground-belt"]: "Express-transport-belt-to-ground",
+	["splitter"]: "Basic-splitter",
+	["inserter"]: "Inserter-icon",
+	["stack-inserter"]: "Stack_inserter",
+	["stack-filter-inserter"]: "Stack_filter_inserter",
+	["efficiency-module"]: "Effectivity-module",
+	["efficiency-module_2"]: "Effectivity-module-2",
+	["efficiency-module_3"]: "Effectivity-module-3",
+	["low-density-structure"]: "Rocket-structure",
+	["electric-mining-drill"]: "Basic-mining-drill",
+	["burner-mining-drill"]: "Burner-mining-drill",
+	["active-provider-chest"]: "Logistic-chest-active-provider",
+	["passive-provider-chest"]: "Logistic-chest-passive-provider",
+	["storage-chest"]: "Logistic-chest-storage",
+	["requester-chest"]: "Logistic-chest-requester",
+	["wall"]: "Stone-wall",
+	["medium-electric-pole"]: "Medium-electric-pole",
+	["lamp"]: "Small-lamp",
+	["regular-magazine"]: "Basic-bullet-magazine",
+	["piercing-rounds_magazine"]: "Piercing-bullet-magazine",
+	["flamethrower-ammo"]: "Flame-thrower-ammo",
+	["cannon-shells"]: "Cannon-shell",
+	["explosive-cannon-shells"]: "Explosive-cannon-shell",
+	["land-mine"]: "Land-mine-research",
+	["cluster-grenade"]: "Cluster_grenade",
+	["shotgun-shells"]: "Shotgun-shell",
+	["piercing-shotgun-shells"]: "Piercing-shotgun-shell",
+	["coal"]: "Coal",
+	["copper-ore"]: "Copper-ore",
+	["iron-ore"]: "Iron-ore",
+	["offshore-pump"]: "Offshore-pump",
+	["boiler"]: "Boiler",
+	["steam-engine"]: "Steam-engine",
+	["chemical-plant"]: "Chemical-plant",
+	["rocket-control-unit"]: "Rocket-control-unit",
+	["stone-furnace"]: "Stone-furnace",
+	["small-electric-pole"]: "Small-electric-pole",
+	["burner-inserter"]: "Burner-inserter",
+	["electronic-circuit"]: "Electronic-circuit",
+	["advanced-circuit"]: "Advanced-circuit",
+}
