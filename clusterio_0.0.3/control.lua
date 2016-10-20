@@ -41,7 +41,7 @@ function AddEntity(entity)
 		global.rxControls[entity.unit_number] = entity.get_or_create_control_behavior()
     entity.operable=false
   elseif entity.name == INV_COMBINATOR_NAME then
-    global.invControls[entity.unit_number] = entity.get_or_create_control_behavior())
+    global.invControls[entity.unit_number] = entity.get_or_create_control_behavior()
     entity.operable=false
 	end
 end
@@ -439,7 +439,7 @@ function UpdateInvCombinators()
   }
   local items = game.item_prototypes
   if global.invdata then
-    for name,count in pairs(invdata) do
+    for name,count in pairs(global.invdata) do
       if items[name] then
         invframe[#invframe+1] = {count=count,index=#invframe+1,signal={name=name,type="item"}}
       end
@@ -493,11 +493,11 @@ remote.add_interface("clusterio",
 	end,
   setFilePlayer = function(i)
     global.write_file_player = i
-  end
+  end,
   receiveInventory = function(jsoninvdata)
     local invdata = json:decode(jsoninvdata)
 		-- invdata = {["iron-plates"]=1234,["copper-plates"]=5678,...}
     global.invdata = invdata
     UpdateInvCombinators()
-  end
+  end,
 })

@@ -161,20 +161,20 @@ data:extend{
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[1srctick]"
   },
-  --[[{
+  {
     type = "virtual-signal",
     name = "signal-srcid",
     icon = "__base__/graphics/icons/signal/signal_grey.png",
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[2srcid]"
-  },]]
-  --[[{
+  },
+  {
     type = "virtual-signal",
     name = "signal-localid",
     icon = "__base__/graphics/icons/signal/signal_grey.png",
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[3localid]"
-  },]]
+  },
 }
 
 -- TX Combinator
@@ -238,7 +238,7 @@ data:extend{
     result = RX_COMBINATOR_NAME,
     requester_paste_multiplier = 1
   },
-
+}
 -- Inventory Combinator
 local inv = table.deepcopy(data.raw["constant-combinator"]["constant-combinator"])
 inv.name = INV_COMBINATOR_NAME
