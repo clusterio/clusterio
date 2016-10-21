@@ -25,6 +25,9 @@ function capitalizeFirstLetter(string) {
 }
 
 // function to draw data we recieve from ajax requests
+function hideThis(object) {
+	object.style.visibility = "hidden";
+}
 function drawcontents(data) {
 	result = "<table>";
 	for(i = 0;i < data.length; i++) {
@@ -34,7 +37,7 @@ function drawcontents(data) {
 		} else {
 			img = "https://wiki.factorio.com/images/" + capitalizeFirstLetter(data[i].name) + ".png";
 		}
-		result = result + "<tr><td><image src='" + img + "'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
+		result = result + "<tr><td><image src='" + img + "' onerror='hideThis(this);'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
 	}
 	result = result + "</table>"
 	document.getElementById("contents").innerHTML = result;
