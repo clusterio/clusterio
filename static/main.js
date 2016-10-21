@@ -20,7 +20,9 @@ function hashColor(str) {
   return "#" + ("0" + r.toString(16)).substr(-2) + ("0" + g.toString(16)).substr(-2) + ("0" + b.toString(16)).substr(-2);
 }
 
-
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
 
 // function to draw data we recieve from ajax requests
 function drawcontents(data) {
@@ -29,6 +31,8 @@ function drawcontents(data) {
 		var img = "";
 		if(imagedata[data[i].name]){
 			img = "https://wiki.factorio.com/images/" + imagedata[data[i].name] + ".png"
+		} else {
+			img = "https://wiki.factorio.com/images/" + capitalizeFirstLetter(data[i].name) + ".png";
 		}
 		result = result + "<tr><td><image src='" + img + "'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
 	}
