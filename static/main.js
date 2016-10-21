@@ -28,7 +28,14 @@ function capitalizeFirstLetter(string) {
 function hideThis(object) {
 	object.style.visibility = "hidden";
 }
+function sortByKey(array, key) {
+    return array.sort(function(a, b) {
+        var x = Number(a[key]); var y = Number(b[key]);
+        return ((x < y) ? 1 : ((x > y) ? -1 : 0));
+    });
+}
 function drawcontents(data) {
+	var data = sortByKey(data, "count");
 	result = "<table>";
 	for(i = 0;i < data.length; i++) {
 		var img = "";
