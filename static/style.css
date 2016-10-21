@@ -22,6 +22,11 @@
 #contents table {
 	border: 1px solid black;
 }
+
+#contents td img {
+	height:32px;
+	width:32px;
+}
 #contentGraph {
 	float:left;
 }
