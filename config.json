@@ -1,12 +1,8 @@
 {
-	"__comment": "",
-	"__comment": "IP and port and password the factorio server runs at for rcon connection",
-	"clientIP": "localhost",
-	"clientPort": "12345",
-	"clientPassword": "123",
-	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
-	"factorioDirectory": "factorio 0.13.9",
-	"__comment": "IP the master web server runs at, can be ignored on the master system",
+	"__comment": "IP and port for the clusterio master",
 	"masterIP": "localhost",
-	"masterPort": 8080
+	"masterPort": 8080,
+  "__comment": "credentials for factorio MP services",
+  "username": "",
+  "usertoken": ""
 }
