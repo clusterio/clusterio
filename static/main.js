@@ -183,14 +183,8 @@ setInterval(function() {
 }, 500)
 
 // image data
+// key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
 var imagedata = {
-	["raw-wood"]: "Raw-wood",
-	["alien-artifact"]: "Alien-artifact",
-	["heavy-oil"]: "Heavy-oil",
-	["engine-unit"]: "Engine-unit",
-	["electric-engine-unit"]: "Electric-engine-unit",
-	["flying-robot-frame"]: "Flying-robot-frame",
-	["alien-science_pack"]: "Alien-science-pack",
 	["empty-barrel"]: "Barrel-empty",
 	["transport-belt"]: "Basic-transport-belt",
 	["underground-belt"]: "Basic-transport-belt-to-ground",
@@ -224,5 +218,4 @@ var imagedata = {
 	["piercing-shotgun-shells"]: "Piercing-shotgun-shell",
 	["accumulator"]: "Basic-accumulator",
 	["beacon"]: "Basic-beacon",
-	
 }

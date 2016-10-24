@@ -1,8 +1,19 @@
 {
-	"__comment": "IP and port for the clusterio master",
+	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
+	"factorioDirectory": "factorio_0.14.9
+	
+	"__comment": "IP the master web server runs at, can be ignored on the master system",
 	"masterIP": "localhost",
 	"masterPort": 8080,
-  "__comment": "credentials for factorio MP services",
-  "username": "",
-  "usertoken": ""
+	
+	"__comment": "credentials for factorio MP services",
+	"username": "",
+	"usertoken": "",
+	
+	"__comment": "General user settings",
+	"verify_user_identity": true,
+	"auto_pause": false,
+	"allow_commands": "admins-only",
+	"game_password": "",
+	"description": "This server runs Clusterio",
 }

@@ -6,6 +6,10 @@ var child_process = require('child_process');
 var config = require('./config');
 
 var instance = process.argv[2];
+if(!instance){
+	console.error("Usage: node client.js [instance name]")
+	process.exit(1)
+}
 var instancedirectory = './instances/'+instance;
 if (!fs.existsSync(instancedirectory)){
     fs.mkdirSync(instancedirectory);
@@ -20,39 +24,39 @@ read-data=__PATH__executable__\\..\\..\\data\r\n\
 write-data=__PATH__executable__\\..\\..\\..\\instances\\"+instance+"\r\n\
 ");
 
-    var instconf = {
-      "factorioPort": "35001",
-    	"clientPort": "35002",
-    	"clientPassword": "clusterio"
-    }
-    fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
+var instconf = {
+	"factorioPort": "35001",
+	"clientPort": "35002",
+	"clientPassword": "clusterio"
+}
+fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
 
-    var serversettings = {
-      "name": config.username +"'s clusterio "+instance,
-      "description": "",
-      "tags": ["clusterio"],
-      "max_players": "20",
-      "visibility": "lan",
-      "username": config.username,
-      "token": config.usertoken,
-      "game_password": "",
-      "verify_user_identity": true,
-      "admins":[config.username],
-      "allow_commands":"admins-only",
-      "autosave_interval":10,
-      "autosave_slots":5,
-      "afk_autokick_interval":0,
-      "auto_pause":false
-    }
-    fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
+var serversettings = {
+  "name": config.username +"'s clusterio "+instance,
+  "description": config.description,
+  "tags": ["clusterio"],
+  "max_players": "20",
+  "visibility": "lan",
+  "username": config.username,
+  "token": config.usertoken,
+  "game_password": config.game_password,
+  "verify_user_identity": config.verify_user_identity,
+  "admins":[config.username],
+  "allow_commands":config.allow_commands,
+  "autosave_interval":10,
+  "autosave_slots":5,
+  "afk_autokick_interval":0,
+  "auto_pause":config.auto_pause
+}
+fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 
-    var createSave = child_process.spawnSync(
-      './factorio/bin/x64/factorio.exe',
-      [
-        '-c',instancedirectory+'/config.ini',
-        '--create',instancedirectory+'/save.zip',
-      ]
-    )
+var createSave = child_process.spawnSync(
+  './' + config.factorioDirectory + '/bin/x64/factorio.exe',
+  [
+	'-c',instancedirectory+'/config.ini',
+	'--create',instancedirectory+'/save.zip',
+  ]
+)
 }
 
 var instanceconfig = require(instancedirectory+'/config');
@@ -66,7 +70,7 @@ process.on('SIGINT', function() {
 
 //var serverprocess = child_process.exec(commandline)
 var serverprocess = child_process.spawn(
-  './factorio/bin/x64/factorio.exe',
+  './' + config.factorioDirectory + '/bin/x64/factorio.exe',
   [
     '-c',instancedirectory+'/config.ini',
     '--start-server',instancedirectory+'/save.zip',
@@ -221,7 +225,8 @@ setInterval(function() {
 	});
 	// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
 	lastSignalCheck = Date.now();
-
+	
+	// get outbound frames from file and send to master
 	// get array of lines in file, each line should correspond to a JSON encoded frame
 	signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
 	// if we actually got anything from the file, proceed and reset file
