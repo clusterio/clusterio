@@ -1,6 +1,6 @@
 {
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
-	"factorioDirectory": "factorio_0.14.9
+	"factorioDirectory": "factorio",
 	
 	"__comment": "IP the master web server runs at, can be ignored on the master system",
 	"masterIP": "localhost",
