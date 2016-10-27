@@ -10,53 +10,57 @@ if(!instance){
 	console.error("Usage: node client.js [instance name]")
 	process.exit(1)
 }
+if(!fs.existsSync("./instances/")){
+    fs.mkdirSync("instances");
+}
 var instancedirectory = './instances/'+instance;
 if (!fs.existsSync(instancedirectory)){
     fs.mkdirSync(instancedirectory);
     fs.mkdirSync(instancedirectory + "/script-output/");
     fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")
     fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "")
-    fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-    fs.mkdirSync(instancedirectory + "/mods/");
+    fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "")
+    fs.mkdirSync(instancedirectory + "/mods/")
     fs.symlinkSync('../../../clusterio_0.0.3',instancedirectory + "/mods/clusterio_0.0.3",'junction')
     fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
 read-data=__PATH__executable__\\..\\..\\data\r\n\
 write-data=__PATH__executable__\\..\\..\\..\\instances\\"+instance+"\r\n\
-");
+	");
 
-var instconf = {
-	"factorioPort": "35001",
-	"clientPort": "35002",
-	"clientPassword": "clusterio"
-}
-fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
+	var instconf = {
+		"factorioPort": Math.floor(Math.random()*65535),
+		"clientPort": Math.floor(Math.random()*65535),
+		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
+	}
+	console.log(instconf)
+	fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
 
-var serversettings = {
-  "name": config.username +"'s clusterio "+instance,
-  "description": config.description,
-  "tags": ["clusterio"],
-  "max_players": "20",
-  "visibility": "lan",
-  "username": config.username,
-  "token": config.usertoken,
-  "game_password": config.game_password,
-  "verify_user_identity": config.verify_user_identity,
-  "admins":[config.username],
-  "allow_commands":config.allow_commands,
-  "autosave_interval":10,
-  "autosave_slots":5,
-  "afk_autokick_interval":0,
-  "auto_pause":config.auto_pause
-}
-fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
+	var serversettings = {
+		"name": config.username +"'s clusterio "+instance,
+		"description": config.description,
+		"tags": ["clusterio"],
+		"max_players": "20",
+		"visibility": "lan",
+		"username": config.username,
+		"token": config.usertoken,
+		"game_password": config.game_password,
+		"verify_user_identity": config.verify_user_identity,
+		"admins":[config.username],
+		"allow_commands":config.allow_commands,
+		"autosave_interval":10,
+		"autosave_slots":5,
+		"afk_autokick_interval":0,
+		"auto_pause":config.auto_pause
+	}
+	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 
-var createSave = child_process.spawnSync(
-  './' + config.factorioDirectory + '/bin/x64/factorio.exe',
-  [
-	'-c',instancedirectory+'/config.ini',
-	'--create',instancedirectory+'/save.zip',
-  ]
-)
+	var createSave = child_process.spawnSync(
+		'./' + config.factorioDirectory + '/bin/x64/factorio.exe',
+		[
+			'-c',instancedirectory+'/config.ini',
+			'--create',instancedirectory+'/save.zip',
+		]
+	)
 }
 
 var instanceconfig = require(instancedirectory+'/config');
@@ -137,7 +141,7 @@ fs.watch(instancedirectory + "/script-output/output.txt", function(eventType, fi
 		if(items[i]) {
 			g = items[i].split(" ");
 			g[0] = g[0].replace("\u0000", "");
-			console.log("exporting " + JSON.stringify(g));
+			// console.log("exporting " + JSON.stringify(g));
 			// send our entity and count to the master for him to keep track of
 			needle.post(config.masterIP + ":" + config.masterPort + '/place', {name:g[0], count:g[1]},
 			function(err, resp, body){
@@ -184,7 +188,7 @@ setInterval(function() {
 			});
 		}
 		// if we got some confirmed orders
-		console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+		// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 		sadas = JSON.stringify(confirmedOrders)
 		confirmedOrders = [];
 		// send our RCON command with whatever we got
@@ -203,7 +207,7 @@ setInterval(function() {
 			for(i = 0;i<inventory.length;i++) {
 				inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 			}
-			console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+			// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
 			client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 		}
 	});
