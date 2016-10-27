@@ -119,6 +119,7 @@ client.on('authenticated', function() {
 	console.log('Authenticated!');
 }).on('connected', function() {
 	console.log('Connected!');
+	getID();
 }).on('disconnected', function() {
 	console.log('Disconnected!');
 	// now reconnect
@@ -128,6 +129,29 @@ client.on('authenticated', function() {
 // set some globals
 confirmedOrders = [];
 lastSignalCheck = Date.now();
+
+// world IDs ------------------------------------------------------------------
+function getID() {
+	var payload = {
+		time : Date.now(),
+		rconPort : instanceconfig.clientPort,
+		rconPassword : instanceconfig.clientPassword,
+		serverPort : instanceconfig.factorioPort,
+		unique : instanceconfig.clientPassword.hashCode()
+	}
+	require('getmac').getMac(function(err,mac){
+		if (err) throw err
+		payload.mac = mac
+		console.log(payload)
+		needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function(err, response, body){
+			if(response && response.body) {
+				// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+				console.log(response.body)
+			}
+	}	);
+	})
+	
+}
 // provide items --------------------------------------------------------------
 // trigger when something happens to output.txt
 fs.watch(instancedirectory + "/script-output/output.txt", function(eventType, filename) {
@@ -258,3 +282,15 @@ setInterval(function() {
 		}
 	}
 }, 1000)
+
+// simple string hasher
+String.prototype.hashCode = function(){
+	var hash = 0;
+	if (this.length == 0) return hash;
+	for (i = 0; i < this.length; i++) {
+		char = this.charCodeAt(i);
+		hash = ((hash<<5)-hash)+char;
+		hash = hash & hash; // Convert to 32bit integer
+	}
+	return hash;
+}
