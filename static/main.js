@@ -95,22 +95,24 @@ function drawcharts() {
 	}
 	// this is ugly, don't judge me
 	var updateData = function(oldData){
-		//console.log(piedata)
-		var labels = oldData["labels"];
-		var dataSetA = oldData["datasets"][0]["data"];
-		var dataSetB = oldData["datasets"][1]["data"];
-		
-		labels.shift();
-		count++;
-		labels.push(count.toString());
-		// this is where we generate new data
-		var newDataA =  piedata[0].value - piedataOld[0].value;
-		var newDataB = piedata[1].value - piedataOld[1].value;
-		// not quite sure how this works, where is dataSetA placed in data/the graph?
-		dataSetA.push(newDataA);
-		dataSetB.push(newDataB);
-		dataSetA.shift();
-		dataSetB.shift();
+		if(piedataOld[0]){
+			//console.log(piedata)
+			var labels = oldData["labels"];
+			var dataSetA = oldData["datasets"][0]["data"];
+			var dataSetB = oldData["datasets"][1]["data"];
+			
+			labels.shift();
+			count++;
+			labels.push(count.toString());
+			// this is where we generate new data
+			var newDataA =  piedata[0].value - piedataOld[0].value;
+			var newDataB = piedata[1].value - piedataOld[1].value;
+			// not quite sure how this works, where is dataSetA placed in data/the graph?
+			dataSetA.push(newDataA);
+			dataSetB.push(newDataB);
+			dataSetA.shift();
+			dataSetB.shift();
+		}
 	};
 	
 	// Not sure why the scaleOverride isn't working...
@@ -144,7 +146,9 @@ setTimeout(function(){
 	drawcharts();
 },10)
 
-var piedata = false;
+var piedata = {};
+var piedataOld = {};
+// get cluster inventory from master
 setInterval(function() {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
@@ -179,6 +183,30 @@ setInterval(function() {
 		}
 	}
 	xmlhttp.open("GET", "inventory", true);
+	xmlhttp.send();
+}, 500)
+// get all slaves recently connected to master
+Date.prototype.yyyymmdd = function() { // http://stackoverflow.com/questions/3066586/get-string-in-yyyymmdd-format-from-js-date-object
+	var mm = this.getMonth() + 1; // getMonth() is zero-based
+	var dd = this.getDate();
+	return [this.getFullYear(), !mm[1] && '0', mm, !dd[1] && '0', dd].join(''); // padding
+};
+var date = new Date();
+setInterval(function() {
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.onreadystatechange = function() {
+		if(xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+			var slaveData = JSON.parse(xmlhttp.responseText);
+			var HTML = "<p>Latest connections:</p>"
+			for(i=0;i<Object.keys(slaveData).length;i++){
+				var key = Object.keys(slaveData)[i]
+				// Date.getYear.getmonth.getDay
+				HTML += "<div class='slaveBox'><h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+date.yyyymmdd(slaveData[key].time)+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p></div>"
+			}
+			document.querySelector("#slaves > #display").innerHTML = HTML
+		}
+	}
+	xmlhttp.open("GET", "slaves", true);
 	xmlhttp.send();
 }, 500)
 
