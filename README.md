@@ -34,27 +34,28 @@ There are no requirements for other mods, they can be ran in any configuration a
 
 **Master**
 
-To start master, clone the repo and do
+1. Download this repository
 
-    node master.js
+2.     npm install
 
-The clusterio monitoring interface can be found on [master]:8080
+3.     node master.js
 
 **Slave**
 
-To install a Slave, you need to set up config.json.
+1. Download this repository
 
-clientIP should be localhost
+2. Place your factorio server folder inside of factorioClusterio/, making it factorioClusterio/factorio
 
-clientPort and password should be the port and password you have configured for RCON connections when launching factorio.exe. The defaults are correct if you are using a modified version of the included launchEverything.bat.
+You can change the name and path expected in config.json if wanted.
 
-factorioDirectory is the location of your factorio server folder, ex factorio_0.13.37. You HAVE to use the zip version downloaded from the website to use clusterio. Headless should also work.
+3.     node client.js [instancename]
 
-masterIP and port should be selfexplanatory. To test if these settings works, open a browser on the slave system and enter masterIP:masterPort.
+Repeat step 3 for more servers on one machine. You should be able to find its port by looking at the console output or at the slave section on master:8080
 
-Once finished, do
+**Client**
 
-    [factorioDirectory]/bin/x64/factorio.exe [flags]
-    node client.js
-	
-See launchEverything.bat for example command.
+1. Download the same version of the mod as the slave is running
+
+2. Drop it into ./factorio/mods
+
+3. Run factorio and connect to slave as a normal MP game.
