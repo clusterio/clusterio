@@ -51,6 +51,7 @@ function drawcontents(data) {
 }
 
 // handle the navigation buttons
+currentPage = ""
 function display(page) {
 	var pages = document.querySelector("#body").childNodes;
 	for(i=0;i<pages.length;i++){
@@ -60,6 +61,7 @@ function display(page) {
 	}
 	if(typeof page == "string" && document.querySelector("#" + page)) {
 		document.querySelector("#" + page).style.display = "block";
+		currentPage = page;
 	}
 }
 
@@ -154,7 +156,9 @@ setInterval(function() {
 	xmlhttp.onreadystatechange = function() {
 		if(xmlhttp.readyState == 4 && xmlhttp.status == 200) {
 			data = JSON.parse(xmlhttp.responseText);
-			drawcontents(data);
+			if(currentPage = "storage"){
+				drawcontents(data);
+			}
 			// render our piechart with up to date information
 			// items-in-network-chart
 			if(piedata) {

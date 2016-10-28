@@ -16,6 +16,9 @@
 #body {
 	margin-left:200px;
 }
+#body > div {
+	display:none;
+}
 #contents {
 	width:300px;
 }
