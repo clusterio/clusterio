@@ -26,6 +26,7 @@ db = {};
 db.items = new Datastore({ filename: 'database/items.db', autoload: true });
 db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
+// db.slaves = new Datastore({ filename: 'database/slaves.db', autoload: true, inMemoryOnly: false});
 
 db.items.additem = function(object) {
 	db.items.findOne({name:object.name}, function (err, doc) {
@@ -42,6 +43,25 @@ db.items.additem = function(object) {
 		}
 	})
 }
+var slaves = {}
+// world ID management
+app.post("/getID", function(req,res) {
+	// request.body should be an object
+	// {rconPort, rconPassword, serverPort, mac, time}
+	// time us a unix timestamp we can use to check for how long the server has been unresponsive
+	// we should save that somewhere and give appropriate response
+	if(req.body){
+		slaves[req.body.unique] = req.body
+		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort)
+	}
+});
+
+// endpoint for getting information about all our slaves
+app.get("/slaves", function(req, res) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	res.send(slaves)
+});
 
 // endpoint to send items to
 app.post("/place", function(req, res) {
