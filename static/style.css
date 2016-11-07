@@ -19,6 +19,9 @@
 #body > div {
 	display:none;
 }
+#body > #production {
+	display:block;
+}
 #contents {
 	width:300px;
 }
