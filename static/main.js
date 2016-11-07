@@ -1,4 +1,4 @@
-
+var g = {}
 contents = {
 	"iron-plate":100,
 	"copper-plate":7312,
@@ -70,6 +70,7 @@ function display(page) {
 
 // setTimeout is used to put this processing in the back of the queue, after the HTML canvas is done
 window.onload = function () {
+	display("storage")
 	// dataPoints
 	var dataPoints1 = [];
 	var dataPoints2 = [];
@@ -221,19 +222,32 @@ setInterval(function() {
 Date.prototype.yyyymmdd = function() { // http://stackoverflow.com/questions/3066586/get-string-in-yyyymmdd-format-from-js-date-object
 	var mm = this.getMonth() + 1; // getMonth() is zero-based
 	var dd = this.getDate();
-	return [this.getFullYear(), !mm[1] && '0', mm, !dd[1] && '0', dd].join(''); // padding
+	if(mm<10)mm = "0"+mm
+	if(dd<10)dd = "0"+dd
+	console.log(this.getFullYear())
+	return this.getFullYear()+""+mm+""+dd+ ""; // padding
 };
 var date = new Date();
+
+// ask master for slaves
 setInterval(function() {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
 		if(xmlhttp.readyState == 4 && xmlhttp.status == 200) {
 			var slaveData = JSON.parse(xmlhttp.responseText);
-			var HTML = "<p>Latest connections:</p>"
+			var HTML = "<p>Current connections:</p>"
 			for(i=0;i<Object.keys(slaveData).length;i++){
 				var key = Object.keys(slaveData)[i]
 				// Date.getYear.getmonth.getDay
-				HTML += "<div class='slaveBox'><h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+date.yyyymmdd(slaveData[key].time)+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p></div>"
+				if(Date.now() - slaveData[key].time < 12000) {
+					// Display ISO 6801 compliant date to please Zarthus
+					// maybe include an option to use y-ymd-ymd-y for Trangar compatibility as well
+					var seenDate = date.yyyymmdd(slaveData[key].time)
+					if(g.trangarTime == true){
+						var seenDate = (seenDate+"")[0]+"-"+(seenDate+"")[1]+(seenDate+"")[4]+(seenDate+"")[6]+"-"+(seenDate+"")[2]+(seenDate+"")[5]+(seenDate+"")[7]+"-"+(seenDate+"")[3]
+					}
+					HTML += "<div class='slaveBox'><h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p></div>"
+				}
 			}
 			document.querySelector("#slaves > #display").innerHTML = HTML
 		}
@@ -244,6 +258,7 @@ setInterval(function() {
 
 // image data
 // key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
+// this list has to include all entities that doesn't just follow the simple capitalize first letter convention
 var imagedata = {
 	["empty-barrel"]: "Barrel-empty",
 	["transport-belt"]: "Basic-transport-belt",

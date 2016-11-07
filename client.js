@@ -152,6 +152,7 @@ function getID() {
 	})
 	
 }
+setInterval(getID, 10000)
 // provide items --------------------------------------------------------------
 // trigger when something happens to output.txt
 fs.watch(instancedirectory + "/script-output/output.txt", function(eventType, filename) {
