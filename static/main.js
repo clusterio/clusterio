@@ -219,7 +219,7 @@ setInterval(function() {
 	xmlhttp.send();
 }, 500)
 // get all slaves recently connected to master
-Date.prototype.yyyymmdd = function() { // http://stackoverflow.com/questions/3066586/get-string-in-yyyymmdd-format-from-js-date-object
+Date.prototype.yyyymmdd = function(time) { // http://stackoverflow.com/questions/3066586/get-string-in-yyyymmdd-format-from-js-date-object
 	var mm = this.getMonth() + 1; // getMonth() is zero-based
 	var dd = this.getDate();
 	if(mm<10)mm = "0"+mm
