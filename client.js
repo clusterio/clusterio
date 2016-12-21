@@ -1,20 +1,61 @@
 var fs = require('fs');
 var needle = require("needle");
 var child_process = require('child_process');
+var path = require('path')
 
 // require config.json
 var config = require('./config');
 
 var instance = process.argv[2];
-if (!instance) {
-	console.error("Usage: node client.js [instance name]")
+if (!instance || instance == "help" || instance == "--help") {
+	console.error("Usage: ")
+	console.error("node client.js [instance name]")
+	console.error("node client.js list")
+	console.error("node client.js delete [instance]")
 	process.exit(1)
+}
+if (process.argv[2] == "list") {
+	console.dir(getDirectories("./instances/"));
+	process.exit(1)
+}
+var deleteFolderRecursive = function (path) {
+	if (fs.existsSync(path)) {
+		fs.readdirSync(path).forEach(function (file, index) {
+			var curPath = path + "/" + file;
+			if (fs.lstatSync(curPath).isDirectory()) { // recurse
+				deleteFolderRecursive(curPath);
+			} else { // delete file
+				fs.unlinkSync(curPath);
+			}
+		});
+		fs.rmdirSync(path);
+	}
+};
+if (process.argv[2] == "delete") {
+	if (!process.argv[3]) {
+		console.error("Usage: node client.js delete [instance]");
+		process.exit(1)
+	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/"+process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
+		deleteFolderRecursive("./instances/"+process.argv[3]);
+		console.log("Deleted instance " + process.argv[3])
+		process.exit(1)
+	} else {
+		console.error("Instance not found: " + process.argv[3]);
+		process.exit(1)
+	}
+}
+function getDirectories(srcpath) {
+	return fs.readdirSync(srcpath).filter(function (file) {
+		return fs.statSync(path.join(srcpath, file)).isDirectory();
+	});
 }
 if (!fs.existsSync("./instances/")) {
 	fs.mkdirSync("instances");
 }
 var instancedirectory = './instances/' + instance;
+// if instance does not exist, create it
 if (!fs.existsSync(instancedirectory)) {
+	console.log("Creating instance...")
 	fs.mkdirSync(instancedirectory);
 	fs.mkdirSync(instancedirectory + "/script-output/");
 	fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")

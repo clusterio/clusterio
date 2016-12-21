@@ -4,7 +4,8 @@
   "description": "Factorio cluster???",
   "main": "master.js",
   "scripts": {
-    "test": "nodemon master.js"
+    "test": "nodemon master.js",
+    "start": "echo Run node client.js [instance] to start slaves && node master.js"
   },
   "keywords": [
     "factorio"
