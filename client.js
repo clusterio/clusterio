@@ -27,20 +27,20 @@ function getDirectories(srcpath) {
 if (!fs.existsSync("./instances/")) {
 	fs.mkdirSync("instances");
 }
-var instance = process.argv[2];
+var instance = process.argv[3];
 var instancedirectory = './instances/' + instance;
-
+var command = process.argv[2];
 // handle commandline parameters
-if (!instance || instance == "help" || instance == "--help") {
+if (!command || command == "help" || command == "--help") {
 	console.error("Usage: ")
-	console.error("node client.js [instance name]")
+	console.error("node client.js start [instance name]")
 	console.error("node client.js list")
 	console.error("node client.js delete [instance]")
 	process.exit(1)
-} else if (process.argv[2] == "list") {
+} else if (command == "list") {
 	console.dir(getDirectories("./instances/"));
 	process.exit(1)
-} else if (process.argv[2] == "delete") {
+} else if (command == "delete") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1)
@@ -52,7 +52,7 @@ if (!instance || instance == "help" || instance == "--help") {
 		console.error("Instance not found: " + process.argv[3]);
 		process.exit(1)
 	}
-} else if (!fs.existsSync(instancedirectory)) {
+} else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
 	// if instance does not exist, create it
 	console.log("Creating instance...")
 	fs.mkdirSync(instancedirectory);
