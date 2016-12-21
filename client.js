@@ -19,6 +19,7 @@ var deleteFolderRecursive = function (path) {
 		fs.rmdirSync(path);
 	}
 };
+
 function getDirectories(srcpath) {
 	return fs.readdirSync(srcpath).filter(function (file) {
 		return fs.statSync(path.join(srcpath, file)).isDirectory();
@@ -44,8 +45,8 @@ if (!command || command == "help" || command == "--help") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1)
-	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/"+process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
-		deleteFolderRecursive("./instances/"+process.argv[3]);
+	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
+		deleteFolderRecursive("./instances/" + process.argv[3]);
 		console.log("Deleted instance " + process.argv[3])
 		process.exit(1)
 	} else {
@@ -190,7 +191,6 @@ function getID() {
 			}
 		});
 	})
-
 }
 setInterval(getID, 10000)
 	// provide items --------------------------------------------------------------
