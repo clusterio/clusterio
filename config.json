@@ -15,7 +15,7 @@
 	"auto_pause": false,
 	"allow_commands": "admins-only",
 	"game_password": "",
-	"description": "This server runs Clusterio"
+	"description": "This server runs Clusterio",
 	"visibility": {
 		"public": true,
 		"lan": true
