@@ -1,9 +1,10 @@
-
+var g = {}
 contents = {
 	"iron-plate":100,
 	"copper-plate":7312,
 }
 // nice functions
+// hash a string to a hash
 function djb2(str){
   var hash = 5381;
   for (var i = 0; i < str.length; i++) {
@@ -11,7 +12,7 @@ function djb2(str){
   }
   return hash;
 }
-
+// hash a string to a color
 function hashColor(str) {
   var hash = djb2(str);
   var r = (hash & 0xFF0000) >> 16;
@@ -19,21 +20,23 @@ function hashColor(str) {
   var b = hash & 0x0000FF;
   return "#" + ("0" + r.toString(16)).substr(-2) + ("0" + g.toString(16)).substr(-2) + ("0" + b.toString(16)).substr(-2);
 }
-
+// exactly what you would expect it to, returns String
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// function to draw data we recieve from ajax requests
+// hide the HTML object passed as argument #1
 function hideThis(object) {
 	object.style.visibility = "hidden";
 }
+// function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
     return array.sort(function(a, b) {
         var x = Number(a[key]); var y = Number(b[key]);
         return ((x < y) ? 1 : ((x > y) ? -1 : 0));
     });
 }
+// function to draw data we recieve from ajax requests
 function drawcontents(data) {
 	var data = sortByKey(data, "count");
 	result = "<table>";
@@ -65,88 +68,126 @@ function display(page) {
 	}
 }
 
-// Function to redraw charts in case they bug out
-function drawcharts() {
-	// create chart of items in master storage
-	ctx = document.querySelector("#contentGraph").getContext('2d');
-    PieChart = new Chart(ctx);
-	
-	// production chart
-	// https://codepen.io/statuswoe/pen/hyldD
-	var count = 20;
-	var data = {
-		labels : ["1","2","3","4","5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20"],
-		datasets : [
-			{
-				fillColor : "rgba(220,220,220,0.5)",
-				strokeColor : "rgba(220,220,220,1)",
-				pointColor : "rgba(220,220,220,1)",
-				pointStrokeColor : "#fff",
-				title:"one",
-				data : [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-			},
-			{
-				fillColor : "rgba(151,187,205,0.5)",
-				strokeColor : "rgba(151,187,205,1)",
-				pointColor : "rgba(151,187,205,1)",
-				pointStrokeColor : "#fff",
-				title:"two",
-				data : [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-			}
-		]
-	}
-	// this is ugly, don't judge me
-	var updateData = function(oldData){
-		if(piedataOld[0]){
-			//console.log(piedata)
-			var labels = oldData["labels"];
-			var dataSetA = oldData["datasets"][0]["data"];
-			var dataSetB = oldData["datasets"][1]["data"];
-			
-			labels.shift();
-			count++;
-			labels.push(count.toString());
-			// this is where we generate new data
-			var newDataA =  piedata[0].value - piedataOld[0].value;
-			var newDataB = piedata[1].value - piedataOld[1].value;
-			// not quite sure how this works, where is dataSetA placed in data/the graph?
-			dataSetA.push(newDataA);
-			dataSetB.push(newDataB);
-			dataSetA.shift();
-			dataSetB.shift();
-		}
-	};
-	
-	// Not sure why the scaleOverride isn't working...
-	var optionsNoAnimation = {
-		animation : false,
-		//Boolean - If we want to override with a hard coded scale
-		scaleOverride : true,
-		//** Required if scaleOverride is true **
-		//Number - The number of steps in a hard coded scale
-		scaleSteps : 20,
-		//Number - The value jump in the hard coded scale
-		scaleStepWidth : 10,
-		//Number - The scale starting value
-		scaleStartValue : 0
-	}
-	
-	//Get the context of the canvas element we want to select
-	var ctx = document.getElementById("productionChart").getContext("2d");
-	var optionsNoAnimation = {animation : false}
-	productionChart = new Chart(ctx);
-	productionChart.Line(data, optionsNoAnimation);	
-	
-	setInterval(function(){
-		updateData(data);
-		productionChart.Line(data, optionsNoAnimation);
-	},1000);
-}
-
 // setTimeout is used to put this processing in the back of the queue, after the HTML canvas is done
-setTimeout(function(){
-	drawcharts();
-},10)
+window.onload = function () {
+	display("storage")
+	// dataPoints
+	var dataPoints1 = [];
+	var dataPoints2 = [];
+
+	var chart = new CanvasJS.Chart("productionChart",{
+		zoomEnabled: true,
+		title: {
+			text: "Production"
+		},
+		toolTip: {
+			shared: true
+		},
+		legend: {
+			verticalAlign: "top",
+			horizontalAlign: "center",
+			fontSize: 14,
+			fontWeight: "bold",
+			fontFamily: "calibri",
+			fontColor: "dimGrey"
+		},
+		axisX: {
+			title: "Shows items in network"
+		},
+		axisY:{
+			prefix: '',
+			includeZero: true
+		}, 
+		data: [{ 
+			// dataSeries1
+			type: "line",
+			xValueType: "dateTime",
+			showInLegend: true,
+			name: "Company A",
+			dataPoints: dataPoints1
+		},
+		{				
+			// dataSeries2
+			type: "line",
+			xValueType: "dateTime",
+			showInLegend: true,
+			name: "Company B" ,
+			dataPoints: dataPoints2
+		}],
+	  legend:{
+		cursor:"pointer",
+		itemclick : function(e) {
+		  if (typeof(e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+			e.dataSeries.visible = false;
+		  }
+		  else {
+			e.dataSeries.visible = true;
+		  }
+		  chart.render();
+		}
+	  }
+	});
+
+
+
+	var updateInterval = 10000;
+	// initial value
+	var yValue1 = 640; 
+	var yValue2 = 604;
+
+	var time = new Date;
+	time.setHours(9);
+	time.setMinutes(30);
+	time.setSeconds(00);
+	time.setMilliseconds(00);
+	// starting at 9.30 am
+
+	var updateChart = function (count) {
+		count = count || 1;
+
+		// count is number of times loop runs to generate random dataPoints. 
+
+		for (var i = 0; i < count; i++) {
+			
+			// add interval duration to time				
+			time.setTime(time.getTime()+ updateInterval);
+
+
+			// generating random values
+			var deltaY1 = .5 + Math.random() *(-.5-.5);
+			var deltaY2 = .5 + Math.random() *(-.5-.5);
+
+			// adding random value and rounding it to two digits. 
+			yValue1 = Math.round((yValue1 + deltaY1)*100)/100;
+			yValue2 = Math.round((yValue2 + deltaY2)*100)/100;
+			
+			// pushing the new values
+			dataPoints1.push({
+				x: time.getTime(),
+				y: yValue1
+			});
+			dataPoints2.push({
+				x: time.getTime(),
+				y: yValue2
+			});
+
+
+		};
+
+		// updating legend text with  updated with y Value 
+		chart.options.data[0].legendText = " Company A  $" + yValue1;
+		chart.options.data[1].legendText = " Company B  $" + yValue2; 
+
+		chart.render();
+
+	};
+
+	// generates first set of dataPoints 
+	updateChart(3000);	
+	 
+	// update chart after specified interval 
+	setInterval(function(){updateChart()}, updateInterval);
+}
 
 var piedata = {};
 var piedataOld = {};
@@ -172,40 +213,41 @@ setInterval(function() {
 					label: data[i].name,
 				}
 			}
-			PieChart.Pie(piedata, {
-				animation: false,
-				legend: {
-					display: true,
-					labels: {
-						fontColor: 'rgb(255, 99, 132)'
-					}
-				},
-				hover: {
-					mode: "label",
-				}
-			});
 		}
 	}
 	xmlhttp.open("GET", "inventory", true);
 	xmlhttp.send();
 }, 500)
 // get all slaves recently connected to master
-Date.prototype.yyyymmdd = function() { // http://stackoverflow.com/questions/3066586/get-string-in-yyyymmdd-format-from-js-date-object
+Date.prototype.yyyymmdd = function(time) { // http://stackoverflow.com/questions/3066586/get-string-in-yyyymmdd-format-from-js-date-object
 	var mm = this.getMonth() + 1; // getMonth() is zero-based
 	var dd = this.getDate();
-	return [this.getFullYear(), !mm[1] && '0', mm, !dd[1] && '0', dd].join(''); // padding
+	if(mm<10)mm = "0"+mm
+	if(dd<10)dd = "0"+dd
+	console.log(this.getFullYear())
+	return this.getFullYear()+""+mm+""+dd+ ""; // padding
 };
 var date = new Date();
+
+// ask master for slaves
 setInterval(function() {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
 		if(xmlhttp.readyState == 4 && xmlhttp.status == 200) {
 			var slaveData = JSON.parse(xmlhttp.responseText);
-			var HTML = "<p>Latest connections:</p>"
+			var HTML = "<p>Current connections:</p>"
 			for(i=0;i<Object.keys(slaveData).length;i++){
 				var key = Object.keys(slaveData)[i]
 				// Date.getYear.getmonth.getDay
-				HTML += "<div class='slaveBox'><h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+date.yyyymmdd(slaveData[key].time)+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p></div>"
+				if(Date.now() - slaveData[key].time < 12000) {
+					// Display ISO 6801 compliant date to please Zarthus
+					// maybe include an option to use y-ymd-ymd-y for Trangar compatibility as well
+					var seenDate = date.yyyymmdd(slaveData[key].time)
+					if(g.trangarTime == true){
+						var seenDate = (seenDate+"")[0]+"-"+(seenDate+"")[1]+(seenDate+"")[4]+(seenDate+"")[6]+"-"+(seenDate+"")[2]+(seenDate+"")[5]+(seenDate+"")[7]+"-"+(seenDate+"")[3]
+					}
+					HTML += "<div class='slaveBox'><h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p></div>"
+				}
 			}
 			document.querySelector("#slaves > #display").innerHTML = HTML
 		}
@@ -216,6 +258,7 @@ setInterval(function() {
 
 // image data
 // key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
+// this list has to include all entities that doesn't just follow the simple capitalize first letter convention
 var imagedata = {
 	["empty-barrel"]: "Barrel-empty",
 	["transport-belt"]: "Basic-transport-belt",

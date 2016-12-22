@@ -45,6 +45,7 @@ db.items.additem = function(object) {
 }
 var slaves = {}
 // world ID management
+// slaves post here to tell the server they exist
 app.post("/getID", function(req,res) {
 	// request.body should be an object
 	// {rconPort, rconPassword, serverPort, mac, time}
@@ -55,7 +56,6 @@ app.post("/getID", function(req,res) {
 		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort)
 	}
 });
-
 // endpoint for getting information about all our slaves
 app.get("/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
