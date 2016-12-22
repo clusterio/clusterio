@@ -81,7 +81,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		"description": config.description,
 		"tags": ["clusterio"],
 		"max_players": "20",
-		"visibility": "lan",
+		"visibility": config.visibility,
 		"username": config.username,
 		"token": config.usertoken,
 		"game_password": config.game_password,
@@ -91,7 +91,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		"autosave_interval": 10,
 		"autosave_slots": 5,
 		"afk_autokick_interval": 0,
-		"auto_pause": config.auto_pause
+		"auto_pause": config.auto_pause,
+		
 	}
 	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 
