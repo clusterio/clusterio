@@ -96,7 +96,7 @@ write-data=__PATH__executable__\\..\\..\\..\\instances\\" + instance + "\r\n\
 	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 
 	var createSave = child_process.spawnSync(
-		'./' + config.factorioDirectory + '/bin/x64/factorio.exe', [
+		'./' + config.factorioDirectory + '/bin/x64/factorio', [
 			'-c', instancedirectory + '/config.ini',
 			'--create', instancedirectory + '/save.zip',
 		]
@@ -115,7 +115,7 @@ process.on('SIGINT', function () {
 
 //var serverprocess = child_process.exec(commandline)
 var serverprocess = child_process.spawn(
-	'./' + config.factorioDirectory + '/bin/x64/factorio.exe', [
+	'./' + config.factorioDirectory + '/bin/x64/factorio', [
 		'-c', instancedirectory + '/config.ini',
 		'--start-server', instancedirectory + '/save.zip',
 		'--rcon-port', instanceconfig.clientPort,
