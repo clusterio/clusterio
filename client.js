@@ -64,8 +64,8 @@ if (!command || command == "help" || command == "--help") {
 	fs.mkdirSync(instancedirectory + "/mods/")
 	fs.symlinkSync('../../../clusterio_0.0.3', instancedirectory + "/mods/clusterio_0.0.3", 'junction')
 	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
-read-data=__PATH__executable__\\..\\..\\data\r\n\
-write-data=__PATH__executable__\\..\\..\\..\\instances\\" + instance + "\r\n\
+read-data=__PATH__executable__/../../data\r\n\
+write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	");
 
 	var instconf = {
