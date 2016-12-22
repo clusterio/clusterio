@@ -64,20 +64,14 @@ Repeat step 3 for more servers on one machine. You should be able to find its po
 
 Master and all slaves:
 
-    sudo curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash - && sudo apt install -y git nodejs && git clone https://github.com/Danielv123/factorioClusterio.git && cd factorioClusterio && npm install
+    sudo curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash - && sudo apt install -y git nodejs && git clone https://github.com/Danielv123/factorioClusterio.git && cd factorioClusterio && npm install && curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64 && tar -xvzf factorio.tar.gz
 
-downloads and installs nodejs, git and clusterio.
+downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
 **Master**
 
     node master.js
     
 **Slave**
-
-Download factorio with curl. Make sure to insert the correct version number.
-
-Start the slave with node client.js
-
-    curl -o factorio.tar.gz -L https://www.factorio.com/get-download/0.14.21/headless/linux64 && tar -xvzf factorio.tar.gz
     
     node client.js start [instancename]
