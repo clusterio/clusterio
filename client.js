@@ -287,7 +287,8 @@ setInterval(function () {
 				for (i = 0; i < inventory.length; i++) {
 					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 				}
-				// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
+				console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
 				client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 			}
 		});
