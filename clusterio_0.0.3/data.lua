@@ -175,6 +175,13 @@ data:extend{
     subgroup = "virtual-signal-clusterio",
     order = "e[clusterio]-[3localid]"
   },
+  {
+    type = "virtual-signal",
+    name = "signal-unixtime",
+    icon = "__base__/graphics/icons/signal/signal_grey.png",
+    subgroup = "virtual-signal-clusterio",
+    order = "e[clusterio]-[4unixtime]"
+  },
 }
 
 -- TX Combinator
