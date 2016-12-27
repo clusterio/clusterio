@@ -52,10 +52,11 @@ app.post("/getID", function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		slaves[req.body.unique] = req.body
-		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort)
+		slaves[req.body.unique] = req.body;
+		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
 	}
 });
+
 // endpoint for getting information about all our slaves
 app.get("/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");

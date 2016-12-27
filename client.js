@@ -179,7 +179,8 @@ function getID() {
 		rconPort: instanceconfig.clientPort,
 		rconPassword: instanceconfig.clientPassword,
 		serverPort: instanceconfig.factorioPort,
-		unique: instanceconfig.clientPassword.hashCode()
+		unique: instanceconfig.clientPassword.hashCode(),
+		publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 	}
 	require('getmac').getMac(function (err, mac) {
 		if (err) throw err

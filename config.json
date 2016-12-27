@@ -2,6 +2,9 @@
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
 	"factorioDirectory": "factorio",
 	
+	"__comment": "IP players should connect to to join your servers, should be portforwarded and stuff",
+	"publicIP": "192.168.10.1",
+	
 	"__comment": "IP the master web server runs at, can be ignored on the master system",
 	"masterIP": "localhost",
 	"masterPort": 8080,
