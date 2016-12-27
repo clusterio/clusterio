@@ -446,7 +446,7 @@ function UpdateInvCombinators()
   local fluids = game.fluid_prototypes
   if global.invdata then
     for name,count in pairs(global.invdata) do
-      if name == "signal-unixtime" then
+      if virtuals[name] then
         invframe[#invframe+1] = {count=count,index=#invframe+1,signal={name=name,type="virtual"}}
       elseif fluids[name] then
         invframe[#invframe+1] = {count=count,index=#invframe+1,signal={name=name,type="fluid"}}
