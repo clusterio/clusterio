@@ -1,8 +1,10 @@
-var fs = require('fs');
+var fs = require('fs-extra');
+var https = require('follow-redirects').https;
 var needle = require("needle");
 var child_process = require('child_process');
-var path = require('path')
+var path = require('path');
 var syncRequest = require('sync-request');
+var ncp = require('ncp').ncp;
 
 // require config.json
 var config = require('./config');
@@ -67,10 +69,10 @@ if (!command || command == "help" || command == "--help") {
 	let name = JSON.parse(res.getBody())[0].assets[0].name;
 	if(url) {
 		console.log(url);
-		let out = fs.createWriteStream('sharedMods/' + name);
-		needle.get(url).pipe(out).on('finish', function() {
-			console.log("Downloaded " + name); 
-			process.exit(1);
+		var file = fs.createWriteStream("sharedMods/"+name);
+		var request = https.get(url, function(response) {
+			response.pipe(file);
+			console.log("Downloaded "+name)
 		});
 	}
 } else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
@@ -82,7 +84,7 @@ if (!command || command == "help" || command == "--help") {
 	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "")
 	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "")
 	fs.mkdirSync(instancedirectory + "/mods/")
-	fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction')
+	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
 read-data=__PATH__executable__/../../data\r\n\
 write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
@@ -123,14 +125,20 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		]
 	)
 	console.log("Instance created!")
-} else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
+} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard)
 	if(instancedirectory != "./instances/undefined"){
 		var instanceconfig = require(instancedirectory + '/config');
 	} else {
 		process.exit(1)
 	}
-
+	
+	// move mods from ./sharedMods to the instances mod directory
+	console.log("Moving shared mods...")
+	//ncp("./sharedMods/", instancedirectory + "/mods", function (err) {
+	
+	
+	fs.copySync('sharedMods', instancedirectory + "/mods")
 
 
 	process.on('SIGINT', function () {
@@ -138,7 +146,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		//serverprocess.stdin.write('/quit')
 	});
 
-
+	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline)
 	var serverprocess = child_process.spawn(
 		'./' + config.factorioDirectory + '/bin/x64/factorio', [
@@ -166,7 +174,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		console.log('ERR: ' + chunk);
 	})
 
-	// connect us to the server with rcon
+	// connect to the server with rcon
 	// IP, port, password
 	var Rcon = require('simple-rcon');
 	var client = new Rcon({
@@ -380,3 +388,5 @@ String.prototype.hashCode = function () {
 	}
 	return hash;
 }
+
+
