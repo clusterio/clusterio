@@ -23,6 +23,7 @@
     "nedb": "^1.8.0",
     "needle": "^1.1.0",
     "portfinder": "^1.0.9",
-    "simple-rcon": "^0.3.1"
+    "simple-rcon": "^0.3.1",
+    "sync-request": "^3.0.1"
   }
 }
