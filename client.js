@@ -5,6 +5,7 @@ var child_process = require('child_process');
 var path = require('path');
 var syncRequest = require('sync-request');
 var ncp = require('ncp').ncp;
+var Rcon = require('simple-rcon');
 
 // require config.json
 var config = require('./config');
@@ -176,7 +177,6 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 
 	// connect to the server with rcon
 	// IP, port, password
-	var Rcon = require('simple-rcon');
 	var client = new Rcon({
 		host: 'localhost',
 		port: instanceconfig.clientPort,
