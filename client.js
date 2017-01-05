@@ -6,6 +6,7 @@ var path = require('path');
 var syncRequest = require('sync-request');
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
+var hashFiles = require('hash-files');
 
 // require config.json
 var config = require('./config');
@@ -388,5 +389,67 @@ String.prototype.hashCode = function () {
 	}
 	return hash;
 }
-
-
+// string, function
+// [{modname:string,hash:string}, ... ]
+function hashMods(instanceName, callback) {
+	if(!callback) {
+		throw "ERROR in function hashMods NO CALLBACK"
+	}
+	function callback2(hash, modname){
+		hashedMods[hashedMods.length] = {
+			modname: modname,
+			hash: hash,
+		}
+		// check if this callback has ran once for each mod
+		if(hashedMods.length == mods.length + instanceMods.length) {
+			callback(hashedMods);
+		}
+		//console.log(modname)
+	}
+	let hashedMods = [];
+	var i = 0;
+	let mods = fs.readdirSync("./sharedMods/")
+	let instanceMods = fs.readdirSync("./instances/"+instanceName+"/mods/")
+	
+	for(o=0;o<mods.length;o++) {
+		if(path.extname(mods[o]) != ".zip") {
+			mods = mods.splice(mods.indexOf(mods[o]), 1); // remove element from array
+		}
+	}
+	for(o=0;o<instanceMods.length;o++) {
+		if(path.extname(instanceMods[o]) != ".zip") {
+			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array
+		}
+	}
+	for(i=0;i<mods.length;i++){
+		let path = "./sharedMods/"+mods[i];
+		let name = mods[i];
+		let options = {
+			files:path,
+		}
+		hashFiles(options, function(error, hash) {
+			// hash will be a string if no error occurred
+			if(!error){
+				callback2(hash, name);
+			} else {
+				throw error;
+			}
+		});
+	}
+	for(i=0; i<instanceMods.length; i++){
+		let path = "./instances/"+instanceName+"/mods/"+instanceMods[i];
+		let name = instanceMods[i];
+		let options = {
+			files:path,
+		}
+		// options {files:[array of paths]}
+		hashFiles(options, function(error, hash) {
+			// hash will be a string if no error occurred
+			if(!error){
+				callback2(hash, name);
+			} else {
+				throw error;
+			}
+		});
+	}
+}
