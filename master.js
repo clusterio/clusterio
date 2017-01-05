@@ -61,7 +61,12 @@ app.post("/getID", function(req,res) {
 app.get("/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	res.send(slaves)
+	let copyOfSlaves = slaves
+	// filter out the rcon password because thats kindof not a safe thing to share
+	for(key in copyOfSlaves) {
+		copyOfSlaves[key].rconPassword = "hidden";
+	}
+	res.send(copyOfSlaves)
 });
 
 // endpoint to send items to
