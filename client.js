@@ -4,6 +4,7 @@ var needle = require("needle");
 var child_process = require('child_process');
 var path = require('path');
 var syncRequest = require('sync-request');
+var request = require("request")
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
@@ -36,9 +37,9 @@ if (!fs.existsSync("./instances/")) {
 if (!fs.existsSync("./sharedMods/")) {
 	fs.mkdirSync("sharedMods");
 }
-var instance = process.argv[3];
-var instancedirectory = './instances/' + instance;
-var command = process.argv[2];
+const instance = process.argv[3];
+const instancedirectory = './instances/' + instance;
+const command = process.argv[2];
 // handle commandline parameters
 if (!command || command == "help" || command == "--help") {
 	console.error("Usage: ")
@@ -207,6 +208,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	lastSignalCheck = Date.now();
 
 	// world IDs ------------------------------------------------------------------
+	setInterval(getID, 10000);
 	function getID() {
 		var payload = {
 			time: Date.now(),
@@ -228,107 +230,147 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			});
 		})
 	}
-	setInterval(getID, 10000)
-		// provide items --------------------------------------------------------------
-		// trigger when something happens to output.txt
-	fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
-			// get array of lines in file
-			items = fs.readFileSync(instancedirectory + "/script-output/output.txt", "utf8").split("\n");
-			// if you found anything, reset the file
-			if (items[0]) {
-				fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")
+	// Mod uploading and management -----------------------------------------------
+	// get mod names and hashes
+	// string: instance, function: callback
+	
+	setTimeout(function(){hashMods(instance, uploadMods)}, 5000);
+	function uploadMods(modHashes) {
+		// [{modName:string,hash:string}, ... ]
+		for(i=0;i<modHashes.length;i++){
+			let payload = {
+				modName: modHashes[i].modName,
+				hash: modHashes[i].hash,
 			}
-			for (i = 0; i < items.length; i++) {
-				if (items[i]) {
-					g = items[i].split(" ");
-					g[0] = g[0].replace("\u0000", "");
-					// console.log("exporting " + JSON.stringify(g));
-					// send our entity and count to the master for him to keep track of
-					needle.post(config.masterIP + ":" + config.masterPort + '/place', {
-							name: g[0],
-							count: g[1]
-						},
-						function (err, resp, body) {
-							// console.log(body);
-						});
+			needle.post(config.masterIP + ":" + config.masterPort + '/checkMod', payload, function (err, response, body) {
+				if(err) throw err
+				if(response && body && body == "found") {
+					console.log("master has mod")
+				} else if (response && body && typeof body == "string") {
+					let mod = response.body;
+					console.log("Sending mod: " + mod)
+					// Send mods master says it wants
+					// response.body is a string which is a modName.zip
+					
+					/*needle.post(config.masterIP + ":" + config.masterPort + '/uploadMod', payload, function (err, response, body) {
+						// we did it, keep going
+					}
+					*/
+					
+					var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/uploadMod', function (err, resp, body) {
+						if (err) {
+							console.log('Error!');
+							throw err
+						} else {
+							console.log('URL: ' + body);
+						}
+					});
+					var form = req.form();
+					form.append('file', fs.createReadStream("./instances/"+instance+"/mods/"+mod));
 				}
+			});
+		}
+	}
+	// provide items --------------------------------------------------------------
+	// trigger when something happens to output.txt
+	fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
+		// get array of lines in file
+		items = fs.readFileSync(instancedirectory + "/script-output/output.txt", "utf8").split("\n");
+		// if you found anything, reset the file
+		if (items[0]) {
+			fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")
+		}
+		for (i = 0; i < items.length; i++) {
+			if (items[i]) {
+				g = items[i].split(" ");
+				g[0] = g[0].replace("\u0000", "");
+				// console.log("exporting " + JSON.stringify(g));
+				// send our entity and count to the master for him to keep track of
+				needle.post(config.masterIP + ":" + config.masterPort + '/place', {
+						name: g[0],
+						count: g[1]
+					},
+					function (err, resp, body) {
+						// console.log(body);
+					});
 			}
-		})
-		// request items --------------------------------------------------------------
+		}
+	})
+	// request items --------------------------------------------------------------
 	setInterval(function () {
-			// get array of lines in file
-			items = fs.readFileSync(instancedirectory + "/script-output/orders.txt", "utf8").split("\n");
-			// if we actually got anything from the file, proceed and reset file
-			if (items[0]) {
-				fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
-				// prepare a package of all our requested items in a more tranfer friendly format
-				var preparedPackage = {};
-				for (i = 0; i < items.length; i++) {
-					(function (i) {
-						if (items[i]) {
-							items[i] = items[i].split(" ");
-							items[i][0] = items[i][0].replace("\u0000", "");
-							items[i][0] = items[i][0].replace(",", "");
-							if (preparedPackage[items[i][0]]) {
-								if (typeof Number(preparedPackage[items[i][0]].count) == "number" && typeof Number(items[i][1]) == "number") {
-									preparedPackage[items[i][0]] = {
-										"name": items[i][0],
-										"count": Number(preparedPackage[items[i][0]].count) + Number(items[i][1])
-									};
-								} else if (typeof Number(items[i][1]) == "number") {
-									preparedPackage[items[i][0]] = {
-										"name": items[i][0],
-										"count": Number(items[i][1])
-									};
-								}
+		// get array of lines in file
+		items = fs.readFileSync(instancedirectory + "/script-output/orders.txt", "utf8").split("\n");
+		// if we actually got anything from the file, proceed and reset file
+		if (items[0]) {
+			fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
+			// prepare a package of all our requested items in a more tranfer friendly format
+			var preparedPackage = {};
+			for (i = 0; i < items.length; i++) {
+				(function (i) {
+					if (items[i]) {
+						items[i] = items[i].split(" ");
+						items[i][0] = items[i][0].replace("\u0000", "");
+						items[i][0] = items[i][0].replace(",", "");
+						if (preparedPackage[items[i][0]]) {
+							if (typeof Number(preparedPackage[items[i][0]].count) == "number" && typeof Number(items[i][1]) == "number") {
+								preparedPackage[items[i][0]] = {
+									"name": items[i][0],
+									"count": Number(preparedPackage[items[i][0]].count) + Number(items[i][1])
+								};
 							} else if (typeof Number(items[i][1]) == "number") {
 								preparedPackage[items[i][0]] = {
 									"name": items[i][0],
 									"count": Number(items[i][1])
 								};
 							}
+						} else if (typeof Number(items[i][1]) == "number") {
+							preparedPackage[items[i][0]] = {
+								"name": items[i][0],
+								"count": Number(items[i][1])
+							};
 						}
-					})(i);
-				}
-				// request our items, one item at a time
-				for (i = 0; i < Object.keys(preparedPackage).length; i++) {
-					console.log(preparedPackage[Object.keys(preparedPackage)[i]])
-					needle.post(config.masterIP + ":" + config.masterPort + '/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
-						if (response && response.body && typeof response.body == "object") {
-							// buffer confirmed orders
-							confirmedOrders[confirmedOrders.length] = {
-								[response.body.name]: response.body.count
-							}
-						}
-					});
-				}
-				// if we got some confirmed orders
-				// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
-				sadas = JSON.stringify(confirmedOrders)
-				confirmedOrders = [];
-				// send our RCON command with whatever we got
-				client.exec("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
-			}
-		}, 3000)
-		// COMBINATOR SIGNALS ---------------------------------------------------------
-		// get inventory from Master and RCON it to our slave
-	setInterval(function () {
-			needle.get(config.masterIP + ":" + config.masterPort + '/inventory', function (err, response, body) {
-				if (response && response.body) {
-					// Take the inventory we (hopefully) got and turn it into the format LUA accepts
-					// console.log(response.body)
-					var inventory = response.body;
-					var inventoryFrame = {};
-					for (i = 0; i < inventory.length; i++) {
-						inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 					}
-					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
-					console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
-					client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
+				})(i);
+			}
+			// request our items, one item at a time
+			for (i = 0; i < Object.keys(preparedPackage).length; i++) {
+				console.log(preparedPackage[Object.keys(preparedPackage)[i]])
+				needle.post(config.masterIP + ":" + config.masterPort + '/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
+					if (response && response.body && typeof response.body == "object") {
+						// buffer confirmed orders
+						confirmedOrders[confirmedOrders.length] = {
+							[response.body.name]: response.body.count
+						}
+					}
+				});
+			}
+			// if we got some confirmed orders
+			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+			sadas = JSON.stringify(confirmedOrders)
+			confirmedOrders = [];
+			// send our RCON command with whatever we got
+			client.exec("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
+		}
+	}, 3000)
+	// COMBINATOR SIGNALS ---------------------------------------------------------
+	// get inventory from Master and RCON it to our slave
+	setInterval(function () {
+		needle.get(config.masterIP + ":" + config.masterPort + '/inventory', function (err, response, body) {
+			if (response && response.body) {
+				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
+				// console.log(response.body)
+				var inventory = response.body;
+				var inventoryFrame = {};
+				for (i = 0; i < inventory.length; i++) {
+					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 				}
-			});
-		}, 1000)
-		// send any signals the slave has been told to send
+				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
+				console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+				client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
+			}
+		});
+	}, 1000)
+	// send any signals the slave has been told to send
 	setInterval(function () {
 		// Fetch combinator signals from the server
 		needle.post(config.masterIP + ":" + config.masterPort + '/readSignal', {
@@ -390,14 +432,14 @@ String.prototype.hashCode = function () {
 	return hash;
 }
 // string, function
-// [{modname:string,hash:string}, ... ]
+// returns [{modName:string,hash:string}, ... ]
 function hashMods(instanceName, callback) {
 	if(!callback) {
 		throw "ERROR in function hashMods NO CALLBACK"
 	}
-	function callback2(hash, modname){
+	function callback2(hash, modName){
 		hashedMods[hashedMods.length] = {
-			modname: modname,
+			modName: modName,
 			hash: hash,
 		}
 		// check if this callback has ran once for each mod
@@ -411,31 +453,11 @@ function hashMods(instanceName, callback) {
 	/*let mods = fs.readdirSync("./sharedMods/")*/
 	let instanceMods = fs.readdirSync("./instances/"+instanceName+"/mods/")
 	
-	/*for(o=0;o<mods.length;o++) {
-		if(path.extname(mods[o]) != ".zip") {
-			mods = mods.splice(mods.indexOf(mods[o]), 1); // remove element from array
-		}
-	}*/
 	for(o=0;o<instanceMods.length;o++) {
 		if(path.extname(instanceMods[o]) != ".zip") {
 			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array
 		}
 	}
-	/*for(i=0;i<mods.length;i++){
-		let path = "./sharedMods/"+mods[i];
-		let name = mods[i];
-		let options = {
-			files:path,
-		}
-		hashFiles(options, function(error, hash) {
-			// hash will be a string if no error occurred
-			if(!error){
-				callback2(hash, name);
-			} else {
-				throw error;
-			}
-		});
-	}*/
 	for(i=0; i<instanceMods.length; i++){
 		let path = "./instances/"+instanceName+"/mods/"+instanceMods[i];
 		let name = instanceMods[i];

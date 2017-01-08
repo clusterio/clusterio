@@ -1,17 +1,24 @@
-// Library for create folder if it does not exist
-var mkdirp = require("mkdirp");
+// constants
+const masterModFolder = "./database/masterMods/"
+
+// Library for create folder recursively if it does not exist
+const mkdirp = require("mkdirp");
+mkdirp.sync(masterModFolder);
+
+const fs = require("fs")
 var nedb = require("nedb")
-var fs = require("fs");
 // require config.json
 var config = require('./config');
 
 var express = require("express");
 // Required for express post requests
 var bodyParser = require("body-parser");
+var fileUpload = require('express-fileupload');
 var app = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(fileUpload());
 
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
@@ -56,7 +63,44 @@ app.post("/getID", function(req,res) {
 		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
 	}
 });
-
+// mod management
+// should handle uploading and checking if mods are uploaded
+app.post("/checkMod", function(req,res) {
+	console.log("Checking mod")
+	let files = fs.readdirSync(masterModFolder)
+	let found = false;
+	console.log(files)
+	files.forEach(file => {
+		console.log(file);
+		if(file == req.body.modName) {
+			found = true;
+		}
+	});
+	if(!found) {
+		// we don't have mod, plz send
+		res.send(req.body.modName)
+	} else {
+		res.send("found")
+	}
+	res.end()
+});
+app.post("/uploadMod", function(req,res) {
+	console.log("/uploadMod")
+	
+	if (!req.files) {
+        res.send('No files were uploaded.');
+        return;
+    } else {
+		console.log(req.files.file)
+		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
+		if (err) {
+			res.status(500).send(err);
+		} else {
+			res.send('File uploaded!');
+		}
+	});
+	}
+});
 // endpoint for getting information about all our slaves
 app.get("/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
@@ -77,7 +121,7 @@ app.post("/place", function(req, res) {
 	// save items we get
 	db.items.additem(req.body)
 	// Attempt confirming
-	res.send("success");
+	res.end("success");
 });
 
 // endpoint to remove items from DB when client orders items

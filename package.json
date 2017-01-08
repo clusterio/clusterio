@@ -5,7 +5,7 @@
   "main": "master.js",
   "scripts": {
     "test": "nodemon master.js",
-    "start": "echo Run node client.js [instance] to start slaves && node master.js"
+    "start": "echo Run node client.js start [instance] to start slaves && node master.js"
   },
   "keywords": [
     "factorio"
@@ -27,6 +27,7 @@
     "nedb": "^1.8.0",
     "needle": "^1.1.0",
     "portfinder": "^1.0.9",
+    "request": "^2.79.0",
     "simple-rcon": "^0.3.1",
     "sync-request": "^3.0.1"
   }
