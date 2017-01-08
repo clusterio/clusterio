@@ -3,6 +3,7 @@ const masterModFolder = "./database/masterMods/"
 
 // Library for create folder recursively if it does not exist
 const mkdirp = require("mkdirp");
+mkdirp.sync("./database");
 mkdirp.sync(masterModFolder);
 
 const fs = require("fs")
@@ -22,10 +23,8 @@ app.use(fileUpload());
 
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
-// Set convenient paths to 3rd party libs like metroUI and jquery from their bower installs
-// Use this to make it nice an easy to change without touching the HTML in production
-app.use(express.static('bower_components/metro-dist'));
-app.use(express.static('bower_components/jquery/dist'));
+// mod downloads
+app.use(express.static(masterModFolder));
 
 // set up database
 var Datastore = require('nedb');
@@ -66,12 +65,9 @@ app.post("/getID", function(req,res) {
 // mod management
 // should handle uploading and checking if mods are uploaded
 app.post("/checkMod", function(req,res) {
-	console.log("Checking mod")
 	let files = fs.readdirSync(masterModFolder)
 	let found = false;
-	console.log(files)
 	files.forEach(file => {
-		console.log(file);
 		if(file == req.body.modName) {
 			found = true;
 		}
@@ -85,8 +81,6 @@ app.post("/checkMod", function(req,res) {
 	res.end()
 });
 app.post("/uploadMod", function(req,res) {
-	console.log("/uploadMod")
-	
 	if (!req.files) {
         res.send('No files were uploaded.');
         return;
@@ -97,6 +91,7 @@ app.post("/uploadMod", function(req,res) {
 			res.status(500).send(err);
 		} else {
 			res.send('File uploaded!');
+			console.log("Uploaded mod: " + req.files.file.name)
 		}
 	});
 	}

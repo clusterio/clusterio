@@ -196,7 +196,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		console.log('Authenticated!');
 	}).on('connected', function () {
 		console.log('Connected!');
-		getID();
+		// getID();
 	}).on('disconnected', function () {
 		console.log('Disconnected!');
 		// now reconnect
@@ -208,28 +208,34 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	lastSignalCheck = Date.now();
 
 	// world IDs ------------------------------------------------------------------
-	setInterval(getID, 10000);
-	function getID() {
-		var payload = {
-			time: Date.now(),
-			rconPort: instanceconfig.clientPort,
-			rconPassword: instanceconfig.clientPassword,
-			serverPort: instanceconfig.factorioPort,
-			unique: instanceconfig.clientPassword.hashCode(),
-			publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
+	hashMods(instance, function(modHashes){
+		setInterval(getID, 10000);
+		getID()
+		function getID() {
+			var payload = {
+				time: Date.now(),
+				rconPort: instanceconfig.clientPort,
+				rconPassword: instanceconfig.clientPassword,
+				serverPort: instanceconfig.factorioPort,
+				unique: instanceconfig.clientPassword.hashCode(),
+				publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
+				mods:modHashes
+			}
+			require('getmac').getMac(function (err, mac) {
+				if (err) throw err
+				payload.mac = mac
+				console.log(payload)
+				needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
+					if (response && response.body) {
+						// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+						console.log(response.body)
+					}
+				});
+			})
 		}
-		require('getmac').getMac(function (err, mac) {
-			if (err) throw err
-			payload.mac = mac
-			console.log(payload)
-			needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
-				if (response && response.body) {
-					// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-					console.log(response.body)
-				}
-			});
-		})
-	}
+	})
+	
+	
 	// Mod uploading and management -----------------------------------------------
 	// get mod names and hashes
 	// string: instance, function: callback
