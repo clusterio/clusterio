@@ -1,7 +1,13 @@
-var fs = require('fs');
+var fs = require('fs-extra');
+var https = require('follow-redirects').https;
 var needle = require("needle");
 var child_process = require('child_process');
-var path = require('path')
+var path = require('path');
+var syncRequest = require('sync-request');
+var request = require("request")
+var ncp = require('ncp').ncp;
+var Rcon = require('simple-rcon');
+var hashFiles = require('hash-files');
 
 // require config.json
 var config = require('./config');
@@ -28,15 +34,20 @@ function getDirectories(srcpath) {
 if (!fs.existsSync("./instances/")) {
 	fs.mkdirSync("instances");
 }
-var instance = process.argv[3];
-var instancedirectory = './instances/' + instance;
-var command = process.argv[2];
+if (!fs.existsSync("./sharedMods/")) {
+	fs.mkdirSync("sharedMods");
+}
+const instance = process.argv[3];
+const instancedirectory = './instances/' + instance;
+const command = process.argv[2];
 // handle commandline parameters
 if (!command || command == "help" || command == "--help") {
 	console.error("Usage: ")
 	console.error("node client.js start [instance name]")
 	console.error("node client.js list")
 	console.error("node client.js delete [instance]")
+	console.error("To download the latest version of the Clusterio lua mod, do")
+	console.error("node client.js download")
 	process.exit(1)
 } else if (command == "list") {
 	console.dir(getDirectories("./instances/"));
@@ -53,6 +64,20 @@ if (!command || command == "help" || command == "--help") {
 		console.error("Instance not found: " + process.argv[3]);
 		process.exit(1)
 	}
+} else if (command == "download") {
+	console.log("Downloading mods...");
+	// get JSON data about releases
+	let res = syncRequest('GET', 'https://api.github.com/repos/Danielv123/factorioClusterioMod/releases', {"headers":{"User-Agent":"Fuck you for requiring user agents!"}});
+	let url = JSON.parse(res.getBody())[0].assets[0].browser_download_url;
+	let name = JSON.parse(res.getBody())[0].assets[0].name;
+	if(url) {
+		console.log(url);
+		var file = fs.createWriteStream("sharedMods/"+name);
+		var request = https.get(url, function(response) {
+			response.pipe(file);
+			console.log("Downloaded "+name)
+		});
+	}
 } else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
 	// if instance does not exist, create it
 	console.log("Creating instance...")
@@ -62,7 +87,7 @@ if (!command || command == "help" || command == "--help") {
 	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "")
 	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "")
 	fs.mkdirSync(instancedirectory + "/mods/")
-	fs.symlinkSync('../../../clusterio_0.0.3', instancedirectory + "/mods/clusterio_0.0.3", 'junction')
+	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
 read-data=__PATH__executable__/../../data\r\n\
 write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
@@ -103,100 +128,158 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		]
 	)
 	console.log("Instance created!")
-}
-
-var instanceconfig = require(instancedirectory + '/config');
-
-
-process.on('SIGINT', function () {
-	console.log("Caught interrupt signal");
-	//serverprocess.stdin.write('/quit')
-});
-
-
-//var serverprocess = child_process.exec(commandline)
-var serverprocess = child_process.spawn(
-	'./' + config.factorioDirectory + '/bin/x64/factorio', [
-		'-c', instancedirectory + '/config.ini',
-		'--start-server', instancedirectory + '/save.zip',
-		'--rcon-port', instanceconfig.clientPort,
-		'--rcon-password', instanceconfig.clientPassword,
-		'--server-settings', instancedirectory + '/server-settings.json',
-		'--port', instanceconfig.factorioPort
-	], {
-		'stdio': ['pipe', 'pipe', 'pipe']
+} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
+	// Exit if no instance specified (it should be, just a safeguard)
+	if(instancedirectory != "./instances/undefined"){
+		var instanceconfig = require(instancedirectory + '/config');
+	} else {
+		process.exit(1)
 	}
-)
+	
+	// move mods from ./sharedMods to the instances mod directory
+	console.log("Moving shared mods...")
+	//ncp("./sharedMods/", instancedirectory + "/mods", function (err) {
+	
+	
+	fs.copySync('sharedMods', instancedirectory + "/mods")
 
-serverprocess.on('close', (code) => {
-	console.log(`child process exited with code ${code}`);
-	process.exit();
-});
 
-serverprocess.stdout.on('data', (chunk) => {
-	console.log('OUT: ' + chunk);
-})
+	process.on('SIGINT', function () {
+		console.log("Caught interrupt signal");
+		//serverprocess.stdin.write('/quit')
+	});
 
-serverprocess.stderr.on('data', (chunk) => {
-	console.log('ERR: ' + chunk);
-})
+	// Spawn factorio server
+	//var serverprocess = child_process.exec(commandline)
+	var serverprocess = child_process.spawn(
+		'./' + config.factorioDirectory + '/bin/x64/factorio', [
+			'-c', instancedirectory + '/config.ini',
+			'--start-server', instancedirectory + '/save.zip',
+			'--rcon-port', instanceconfig.clientPort,
+			'--rcon-password', instanceconfig.clientPassword,
+			'--server-settings', instancedirectory + '/server-settings.json',
+			'--port', instanceconfig.factorioPort
+		], {
+			'stdio': ['pipe', 'pipe', 'pipe']
+		}
+	)
 
-// connect us to the server with rcon
-// IP, port, password
-var Rcon = require('simple-rcon');
-var client = new Rcon({
-	host: 'localhost',
-	port: instanceconfig.clientPort,
-	password: instanceconfig.clientPassword,
-	timeout: 0
-});
+	serverprocess.on('close', (code) => {
+		console.log(`child process exited with code ${code}`);
+		process.exit();
+	});
 
-// wait a few seconds to let the server finish starting before connecting rcon
-//TODO: catch '2.033 Info RemoteCommandProcessor.cpp:97: Starting RCON interface at port 35002' from stdout maybe?
-setTimeout(() => {
-	client.connect();
-}, 5000);
-
-client.on('authenticated', function () {
-	console.log('Authenticated!');
-}).on('connected', function () {
-	console.log('Connected!');
-	getID();
-}).on('disconnected', function () {
-	console.log('Disconnected!');
-	// now reconnect
-	client.connect();
-});
-
-// set some globals
-confirmedOrders = [];
-lastSignalCheck = Date.now();
-
-// world IDs ------------------------------------------------------------------
-function getID() {
-	var payload = {
-		time: Date.now(),
-		rconPort: instanceconfig.clientPort,
-		rconPassword: instanceconfig.clientPassword,
-		serverPort: instanceconfig.factorioPort,
-		unique: instanceconfig.clientPassword.hashCode()
-	}
-	require('getmac').getMac(function (err, mac) {
-		if (err) throw err
-		payload.mac = mac
-		console.log(payload)
-		needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
-			if (response && response.body) {
-				// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-				console.log(response.body)
-			}
-		});
+	serverprocess.stdout.on('data', (chunk) => {
+		console.log('OUT: ' + chunk);
 	})
-}
-setInterval(getID, 10000)
+
+	serverprocess.stderr.on('data', (chunk) => {
+		console.log('ERR: ' + chunk);
+	})
+
+	// connect to the server with rcon
+	// IP, port, password
+	var client = new Rcon({
+		host: 'localhost',
+		port: instanceconfig.clientPort,
+		password: instanceconfig.clientPassword,
+		timeout: 0
+	});
+
+	// wait a few seconds to let the server finish starting before connecting rcon
+	//TODO: catch '2.033 Info RemoteCommandProcessor.cpp:97: Starting RCON interface at port 35002' from stdout maybe?
+	setTimeout(() => {
+		client.connect();
+	}, 5000);
+
+	client.on('authenticated', function () {
+		console.log('Authenticated!');
+	}).on('connected', function () {
+		console.log('Connected!');
+		// getID();
+	}).on('disconnected', function () {
+		console.log('Disconnected!');
+		// now reconnect
+		client.connect();
+	});
+
+	// set some globals
+	confirmedOrders = [];
+	lastSignalCheck = Date.now();
+
+	// world IDs ------------------------------------------------------------------
+	hashMods(instance, function(modHashes){
+		setInterval(getID, 10000);
+		getID()
+		function getID() {
+			var payload = {
+				time: Date.now(),
+				rconPort: instanceconfig.clientPort,
+				rconPassword: instanceconfig.clientPassword,
+				serverPort: instanceconfig.factorioPort,
+				unique: instanceconfig.clientPassword.hashCode(),
+				publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
+				mods:modHashes
+			}
+			require('getmac').getMac(function (err, mac) {
+				if (err) throw err
+				payload.mac = mac
+				console.log(payload)
+				needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
+					if (response && response.body) {
+						// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+						console.log(response.body)
+					}
+				});
+			})
+		}
+	})
+	
+	
+	// Mod uploading and management -----------------------------------------------
+	// get mod names and hashes
+	// string: instance, function: callback
+	
+	setTimeout(function(){hashMods(instance, uploadMods)}, 5000);
+	function uploadMods(modHashes) {
+		// [{modName:string,hash:string}, ... ]
+		for(i=0;i<modHashes.length;i++){
+			let payload = {
+				modName: modHashes[i].modName,
+				hash: modHashes[i].hash,
+			}
+			needle.post(config.masterIP + ":" + config.masterPort + '/checkMod', payload, function (err, response, body) {
+				if(err) throw err
+				if(response && body && body == "found") {
+					console.log("master has mod")
+				} else if (response && body && typeof body == "string") {
+					let mod = response.body;
+					console.log("Sending mod: " + mod)
+					// Send mods master says it wants
+					// response.body is a string which is a modName.zip
+					
+					/*needle.post(config.masterIP + ":" + config.masterPort + '/uploadMod', payload, function (err, response, body) {
+						// we did it, keep going
+					}
+					*/
+					
+					var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/uploadMod', function (err, resp, body) {
+						if (err) {
+							console.log('Error!');
+							throw err
+						} else {
+							console.log('URL: ' + body);
+						}
+					});
+					var form = req.form();
+					form.append('file', fs.createReadStream("./instances/"+instance+"/mods/"+mod));
+				}
+			});
+		}
+	}
 	// provide items --------------------------------------------------------------
 	// trigger when something happens to output.txt
-fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
+	fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
 		// get array of lines in file
 		items = fs.readFileSync(instancedirectory + "/script-output/output.txt", "utf8").split("\n");
 		// if you found anything, reset the file
@@ -220,7 +303,7 @@ fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, f
 		}
 	})
 	// request items --------------------------------------------------------------
-setInterval(function () {
+	setInterval(function () {
 		// get array of lines in file
 		items = fs.readFileSync(instancedirectory + "/script-output/orders.txt", "utf8").split("\n");
 		// if we actually got anything from the file, proceed and reset file
@@ -277,7 +360,7 @@ setInterval(function () {
 	}, 3000)
 	// COMBINATOR SIGNALS ---------------------------------------------------------
 	// get inventory from Master and RCON it to our slave
-setInterval(function () {
+	setInterval(function () {
 		needle.get(config.masterIP + ":" + config.masterPort + '/inventory', function (err, response, body) {
 			if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
@@ -294,53 +377,54 @@ setInterval(function () {
 		});
 	}, 1000)
 	// send any signals the slave has been told to send
-setInterval(function () {
-	// Fetch combinator signals from the server
-	needle.post(config.masterIP + ":" + config.masterPort + '/readSignal', {
-		since: lastSignalCheck
-	}, function (err, response, body) {
-		if (response && response.body && typeof response.body == "object" && response.body[0]) {
-			// Take the new combinator frames and compress them so we can use a single command
-			frameset = [];
-			for (i = 0; i < response.body.length; i++) {
-				frameset[i] = response.body[i].frame;
-			}
-			// console.log(frameset);
-			// Send all our compressed frames
-			client.exec("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
-		}
-	});
-	// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
-	lastSignalCheck = Date.now();
-
-	// get outbound frames from file and send to master
-	// get array of lines in file, each line should correspond to a JSON encoded frame
-	signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
-	// if we actually got anything from the file, proceed and reset file
-	if (signals[0]) {
-		fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-		// loop through all our frames
-		for (i = 0; i < signals.length; i++) {
-			(function (i) {
-				if (signals[i]) {
-					// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
-					// then we unpack and RCON in this.frame to the game later.
-					framepart = JSON.parse(signals[i])
-					doneframe = {
-							time: Date.now(),
-							frame: framepart, // thats our array of objects(single signals)
-						}
-						// console.log(doneframe)
-					needle.post(config.masterIP + ":" + config.masterPort + '/setSignal', doneframe, function (err, response, body) {
-						if (response && response.body) {
-							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-						}
-					});
+	setInterval(function () {
+		// Fetch combinator signals from the server
+		needle.post(config.masterIP + ":" + config.masterPort + '/readSignal', {
+			since: lastSignalCheck
+		}, function (err, response, body) {
+			if (response && response.body && typeof response.body == "object" && response.body[0]) {
+				// Take the new combinator frames and compress them so we can use a single command
+				frameset = [];
+				for (i = 0; i < response.body.length; i++) {
+					frameset[i] = response.body[i].frame;
 				}
-			})(i);
+				// console.log(frameset);
+				// Send all our compressed frames
+				client.exec("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
+			}
+		});
+		// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
+		lastSignalCheck = Date.now();
+
+		// get outbound frames from file and send to master
+		// get array of lines in file, each line should correspond to a JSON encoded frame
+		signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
+		// if we actually got anything from the file, proceed and reset file
+		if (signals[0]) {
+			fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+			// loop through all our frames
+			for (i = 0; i < signals.length; i++) {
+				(function (i) {
+					if (signals[i]) {
+						// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
+						// then we unpack and RCON in this.frame to the game later.
+						framepart = JSON.parse(signals[i])
+						doneframe = {
+								time: Date.now(),
+								frame: framepart, // thats our array of objects(single signals)
+							}
+							// console.log(doneframe)
+						needle.post(config.masterIP + ":" + config.masterPort + '/setSignal', doneframe, function (err, response, body) {
+							if (response && response.body) {
+								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+							}
+						});
+					}
+				})(i);
+			}
 		}
-	}
-}, 1000)
+	}, 1000)
+} // END OF INSTANCE START ---------------------------------------------------------------------
 
 // simple string hasher
 String.prototype.hashCode = function () {
@@ -352,4 +436,48 @@ String.prototype.hashCode = function () {
 		hash = hash & hash; // Convert to 32bit integer
 	}
 	return hash;
+}
+// string, function
+// returns [{modName:string,hash:string}, ... ]
+function hashMods(instanceName, callback) {
+	if(!callback) {
+		throw "ERROR in function hashMods NO CALLBACK"
+	}
+	function callback2(hash, modName){
+		hashedMods[hashedMods.length] = {
+			modName: modName,
+			hash: hash,
+		}
+		// check if this callback has ran once for each mod
+		if(hashedMods.length == /*mods.length*/ + instanceMods.length) {
+			callback(hashedMods);
+		}
+		//console.log(modname)
+	}
+	let hashedMods = [];
+	var i = 0;
+	/*let mods = fs.readdirSync("./sharedMods/")*/
+	let instanceMods = fs.readdirSync("./instances/"+instanceName+"/mods/")
+	
+	for(o=0;o<instanceMods.length;o++) {
+		if(path.extname(instanceMods[o]) != ".zip") {
+			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array
+		}
+	}
+	for(i=0; i<instanceMods.length; i++){
+		let path = "./instances/"+instanceName+"/mods/"+instanceMods[i];
+		let name = instanceMods[i];
+		let options = {
+			files:path,
+		}
+		// options {files:[array of paths]}
+		hashFiles(options, function(error, hash) {
+			// hash will be a string if no error occurred
+			if(!error){
+				callback2(hash, name);
+			} else {
+				throw error;
+			}
+		});
+	}
 }

@@ -1,24 +1,30 @@
-// Library for create folder if it does not exist
-var mkdirp = require("mkdirp");
+// constants
+const masterModFolder = "./database/masterMods/"
+
+// Library for create folder recursively if it does not exist
+const mkdirp = require("mkdirp");
+mkdirp.sync("./database");
+mkdirp.sync(masterModFolder);
+
+const fs = require("fs")
 var nedb = require("nedb")
-var fs = require("fs");
 // require config.json
 var config = require('./config');
 
 var express = require("express");
 // Required for express post requests
 var bodyParser = require("body-parser");
+var fileUpload = require('express-fileupload');
 var app = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(fileUpload());
 
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
-// Set convenient paths to 3rd party libs like metroUI and jquery from their bower installs
-// Use this to make it nice an easy to change without touching the HTML in production
-app.use(express.static('bower_components/metro-dist'));
-app.use(express.static('bower_components/jquery/dist'));
+// mod downloads
+app.use(express.static(masterModFolder));
 
 // set up database
 var Datastore = require('nedb');
@@ -52,15 +58,54 @@ app.post("/getID", function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		slaves[req.body.unique] = req.body
-		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort)
+		slaves[req.body.unique] = req.body;
+		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
+	}
+});
+// mod management
+// should handle uploading and checking if mods are uploaded
+app.post("/checkMod", function(req,res) {
+	let files = fs.readdirSync(masterModFolder)
+	let found = false;
+	files.forEach(file => {
+		if(file == req.body.modName) {
+			found = true;
+		}
+	});
+	if(!found) {
+		// we don't have mod, plz send
+		res.send(req.body.modName)
+	} else {
+		res.send("found")
+	}
+	res.end()
+});
+app.post("/uploadMod", function(req,res) {
+	if (!req.files) {
+        res.send('No files were uploaded.');
+        return;
+    } else {
+		console.log(req.files.file)
+		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
+		if (err) {
+			res.status(500).send(err);
+		} else {
+			res.send('File uploaded!');
+			console.log("Uploaded mod: " + req.files.file.name)
+		}
+	});
 	}
 });
 // endpoint for getting information about all our slaves
 app.get("/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	res.send(slaves)
+	let copyOfSlaves = slaves
+	// filter out the rcon password because thats kindof not a safe thing to share
+	for(key in copyOfSlaves) {
+		copyOfSlaves[key].rconPassword = "hidden";
+	}
+	res.send(copyOfSlaves)
 });
 
 // endpoint to send items to
@@ -71,7 +116,7 @@ app.post("/place", function(req, res) {
 	// save items we get
 	db.items.additem(req.body)
 	// Attempt confirming
-	res.send("success");
+	res.end("success");
 });
 
 // endpoint to remove items from DB when client orders items
