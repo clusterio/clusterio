@@ -190,7 +190,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	//TODO: catch '2.033 Info RemoteCommandProcessor.cpp:97: Starting RCON interface at port 35002' from stdout maybe?
 	setTimeout(() => {
 		client.connect();
-	}, 5000);
+	}, 15000);
 
 	client.on('authenticated', function () {
 		console.log('Authenticated!');
