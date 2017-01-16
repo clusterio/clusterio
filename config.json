@@ -11,10 +11,12 @@
 	
 	"__comment": "credentials for factorio MP services, also username will be admin",
 	"username": "",
-	"usertoken": "",
+	"password": "",
+	"__comment": "Token can be used instead of password, but for the most part just ignore",
+	"token": "",
 	
 	"__comment": "General user settings",
-	"verify_user_identity": true,
+	"verify_user_identity": false,
 	"auto_pause": false,
 	"allow_commands": "admins-only",
 	"game_password": "",
