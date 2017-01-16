@@ -17,6 +17,7 @@
     "canvasjs": "^1.8.1",
     "child_process": "^1.0.2",
     "express": "^4.14.0",
+    "express-fileupload": "0.0.6",
     "follow-redirects": "^1.2.1",
     "fs": "0.0.2",
     "fs-extra": "^1.0.0",
