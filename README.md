@@ -32,6 +32,14 @@ All Slaves AND Clients need to be running the clusterio mod located in this repo
 
 There are no requirements for other mods, they can be ran in any configuration allowed by the base game.
 
+**Requirements**
+
+download and install nodeJS 6+ from http://nodejs.org
+
+download and install git from https://git-scm.com/
+
+reboot when you are done, then proceed to the next steps. *reboots matter*
+
 **Master**
 
 1. Download this repository
@@ -44,17 +52,31 @@ There are no requirements for other mods, they can be ran in any configuration a
 
 1. Download this repository
 
-2. Place your factorio server folder inside of factorioClusterio/, making it factorioClusterio/factorio
+2. Unzip to desktop (or other folder)
 
-You can change the name and path expected in config.json if wanted.
+3. Place your factorio server folder inside of factorioClusterio/, making it factorioClusterio/factorio
 
-3.     node client.js start [instancename]
+To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++)
 
-Repeat step 3 for more servers on one machine. You should be able to find its port by looking at the console output or at the slave section on master:8080
+Change masterIP to something like 31.152.123.14 (provided by master server owner)
+
+Change masterPort to something like 8080 (provided by master server owner)
+
+4. Open a cmd window by shift + right clicking in exlporer (https://puu.sh/tozfj/e3fd0acf6f.png Åpne kommando vindu her/open command window here) 
+
+5. Type
+
+    node client.js start [instancename]
+    
+ to create a new instance.
+
+Repeat step 4 and 5 for more servers on one machine. You should be able to find its port by looking at the console output or at the slave section on master:8080 (the web interface)
 
 **Client**
 
-1. Download the same version of the mod as the slave is running
+Alternative experimental client: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
+
+1. Download the same version of the mod as the slave is running from [the mod portal](https://mods.factorio.com/mods/Danielv123/clusterio) or [github](https://github.com/Danielv123/factorioClusterioMod
 
 2. Drop it into ./factorio/mods
 
