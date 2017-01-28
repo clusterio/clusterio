@@ -137,7 +137,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	}
 	
 	// move mods from ./sharedMods to the instances mod directory
-	console.log("Moving shared mods...")
+	console.log("Clusterio | Moving shared mods...")
 	//ncp("./sharedMods/", instancedirectory + "/mods", function (err) {
 	
 	
@@ -186,12 +186,24 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		timeout: 0
 	});
 
+	// clean old log file to avoid crash
+	// file exists, delete so we don't get in trouble
+	try {
+		fs.unlinkSync(instancedirectory+'/factorio-current.log')
+	} catch (err){
+		if(err){
+			console.log(err);
+		} else {
+			console.log("Clusterio | Deleting old logs...")
+		}
+	}
+	
 	// check the logfile to see if the RCON interface is running as there is no way to continue without it
 	// we read the log every 2 seconds and stop looping when we start connecting to factorio
 	function checkRcon() {
 		fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
-			if (err) throw err;
-			if(data.indexOf('Starting RCON interface') > 0){
+			// if (err) console.log(err);
+			if(data && data.indexOf('Starting RCON interface') > 0){
 				client.connect();
 			} else {
 				setTimeout(function(){
@@ -203,13 +215,13 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	checkRcon();
 	
 	client.on('authenticated', function () {
-		console.log('Authenticated!');
+		console.log('Clusterio | Authenticated!');
 		instanceManagement(); // start using rcons
 	}).on('connected', function () {
-		console.log('Connected!');
+		console.log('Clusterio | Connected!');
 		// getID();
 	}).on('disconnected', function () {
-		console.log('Disconnected!');
+		console.log('Clusterio | Disconnected!');
 		// now reconnect
 		client.connect();
 	});
