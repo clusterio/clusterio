@@ -186,14 +186,25 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		timeout: 0
 	});
 
-	// wait a few seconds to let the server finish starting before connecting rcon
-	//TODO: catch '2.033 Info RemoteCommandProcessor.cpp:97: Starting RCON interface at port 35002' from stdout maybe?
-	setTimeout(() => {
-		client.connect();
-	}, 15000);
-
+	// check the logfile to see if the RCON interface is running as there is no way to continue without it
+	// we read the log every 2 seconds and stop looping when we start connecting to factorio
+	function checkRcon() {
+		fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
+			if (err) throw err;
+			if(data.indexOf('Starting RCON interface') > 0){
+				client.connect();
+			} else {
+				setTimeout(function(){
+					checkRcon();
+				},2000);
+			}
+		});
+	}
+	checkRcon();
+	
 	client.on('authenticated', function () {
 		console.log('Authenticated!');
+		instanceManagement(); // start using rcons
 	}).on('connected', function () {
 		console.log('Connected!');
 		// getID();
@@ -206,7 +217,9 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// set some globals
 	confirmedOrders = [];
 	lastSignalCheck = Date.now();
+}
 
+function instanceManagement() {
 	// world IDs ------------------------------------------------------------------
 	hashMods(instance, function(modHashes){
 		setInterval(getID, 10000);
@@ -249,7 +262,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 				hash: modHashes[i].hash,
 			}
 			needle.post(config.masterIP + ":" + config.masterPort + '/checkMod', payload, function (err, response, body) {
-				if(err) throw err
+				if(err) throw err // Unable to contact master server! Please check your config.json.
 				if(response && body && body == "found") {
 					console.log("master has mod")
 				} else if (response && body && typeof body == "string") {
