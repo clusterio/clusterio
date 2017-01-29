@@ -11,8 +11,9 @@ var hashFiles = require('hash-files');
 
 // require config.json
 var config = require('./config');
+
 // Functions
-var deleteFolderRecursive = function (path) {
+function deleteFolderRecursive(path) {
 	if (fs.existsSync(path)) {
 		fs.readdirSync(path).forEach(function (file, index) {
 			var curPath = path + "/" + file;
@@ -26,11 +27,50 @@ var deleteFolderRecursive = function (path) {
 	}
 };
 
-function getDirectories(srcpath) {
-	return fs.readdirSync(srcpath).filter(function (file) {
-		return fs.statSync(path.join(srcpath, file)).isDirectory();
-	});
+// function to handle sending commands into the game
+function messageInterface(command, callback) {
+	if(client && client.exec && typeof client.exec == "function") {
+		try {
+			client.exec(command, callback);
+		} catch (err) {
+			console.log(err);
+			callback(err);
+		}
+	}
 }
+
+// load plugins and execute onLoad event
+let pluginDirectories = getDirectories("./sharedPlugins/");
+let plugins = [];
+for(i=0; i<pluginDirectories.length; i++) {
+	function log(t) {
+		console.log("clusterio | "+ pluginDirectories[i] + " | " + t)
+	}
+	plugins.push(require("./sharedPlugins/"+pluginDirectories[i]));
+	console.log("clusterio | Loaded plugin " + pluginDirectories[i]);
+	plugins[i].onLoad(undefined, log, {language: "english"})
+}
+
+function triggerPluginEvent(event, plugins, data) {
+	// string, array, object
+	// data = {messageInterface}
+	if(!data || typeof data != "object") {
+		data = {};
+		console.log("WARN: client.js triggerPluginEvent argument 3 has to be object, defaulting to " + JSON.stringify(data));
+	}
+	if(typeof event == "string" && typeof plugins == "object") {
+		for(i=0;i<plugins.length;i++){
+			if(plugins[i][event] && typeof plugins[i][event] == "function"){
+				function log(t) {
+					console.log("clusterio | "+ pluginDirectories[i] + " | " + t);
+				}
+				console.log("clusterio | Triggering event " + event + " on " + plugins[i]);
+				plugins[i][event](data.messageInterface, log, data);
+			}
+		}
+	}
+}
+
 if (!fs.existsSync("./instances/")) {
 	fs.mkdirSync("instances");
 }
@@ -216,6 +256,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	
 	client.on('authenticated', function () {
 		console.log('Clusterio | Authenticated!');
+		// tell all plugins we have RCON and they can start using it
+		triggerPluginEvent("onRcon", plugins, client.exec);
 		instanceManagement(); // start using rcons
 	}).on('connected', function () {
 		console.log('Clusterio | Connected!');
@@ -450,6 +492,13 @@ function instanceManagement() {
 		}
 	}, 1000)
 } // END OF INSTANCE START ---------------------------------------------------------------------
+
+// get all directories in folder
+function getDirectories(srcpath) {
+	return fs.readdirSync(srcpath).filter(function (file) {
+		return fs.statSync(path.join(srcpath, file)).isDirectory();
+	});
+}
 
 // simple string hasher
 String.prototype.hashCode = function () {
