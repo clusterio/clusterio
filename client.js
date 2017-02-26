@@ -29,7 +29,12 @@ function deleteFolderRecursive(path) {
 
 // function to handle sending commands into the game
 function messageInterface(command, callback) {
-	if(client && client.exec && typeof client.exec == "function") {
+	// try to save us if you send a buffer instead of string
+	if(typeof command == "object") {
+		command = command.toString('utf8');
+	}
+	
+	if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
 		try {
 			client.exec(command, callback);
 		} catch (err) {
@@ -43,12 +48,29 @@ function messageInterface(command, callback) {
 let pluginDirectories = getDirectories("./sharedPlugins/");
 let plugins = [];
 for(i=0; i<pluginDirectories.length; i++) {
-	function log(t) {
-		console.log("clusterio | "+ pluginDirectories[i] + " | " + t)
+	let I = i
+	let log = function(t) {
+		console.log("Clusterio | "+ pluginDirectories[I] + " | " + t)
 	}
-	plugins.push(require("./sharedPlugins/"+pluginDirectories[i]));
-	console.log("clusterio | Loaded plugin " + pluginDirectories[i]);
-	plugins[i].onLoad(undefined, log, {language: "english"})
+	// plugins.push(require("./sharedPlugins/"+pluginDirectories[i]));
+	
+	let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js")
+	plugins.push(child_process.spawn(pluginConfig.binary, [], {
+		cwd: "./sharedPlugins/"+pluginDirectories[i],
+		stdio: ['pipe', 'pipe', 'pipe'],
+	}));
+	//plugins.push();
+	console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
+	plugins[i].stdout.on("data", (data) => {
+		log("Stdout: " + data);
+		messageInterface(data.toString('utf8'));
+	});
+	plugins[i].stderr.on("data", (data) => {
+		log("STDERR: " + data);
+	})
+	plugins[i].on('close', (code) => {
+		console.log(`child process exited with code ${code}`);
+	});
 }
 
 function triggerPluginEvent(event, plugins, data) {
