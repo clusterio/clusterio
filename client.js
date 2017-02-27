@@ -11,6 +11,20 @@ var hashFiles = require('hash-files');
 
 // require config.json
 var config = require('./config');
+var global = {};
+
+if (!fs.existsSync("./instances/")) {
+	fs.mkdirSync("instances");
+}
+if (!fs.existsSync("./sharedPlugins/")) {
+	fs.mkdirSync("sharedPlugins");
+}
+if (!fs.existsSync("./sharedMods/")) {
+	fs.mkdirSync("sharedMods");
+}
+const instance = process.argv[3];
+const instancedirectory = './instances/' + instance;
+const command = process.argv[2];
 
 // Functions
 function deleteFolderRecursive(path) {
@@ -52,36 +66,62 @@ for(i=0; i<pluginDirectories.length; i++) {
 	let log = function(t) {
 		console.log("Clusterio | "+ pluginDirectories[I] + " | " + t)
 	}
-	// plugins.push(require("./sharedPlugins/"+pluginDirectories[i]));
 	
 	let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js")
 	plugins.push(child_process.spawn(pluginConfig.binary, [], {
 		cwd: "./sharedPlugins/"+pluginDirectories[i],
 		stdio: ['pipe', 'pipe', 'pipe'],
 	}));
-	//plugins.push();
+	
+	/*
+		to send to stdin, use:
+		spawn.stdin.write("text\n")
+	*/
+	
+	if(!global.subscribedFiles) {
+		global.subscribedFiles = {};
+	}
+	// If plugin has subscribed to a file, send any text appearing in that file to stdin
+	if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
+		if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
+			// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
+			// between those plugins instead.
+			throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
+		}
+		
+		if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
+			// Do something
+			fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "")
+		}
+		global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
+		fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
+			// get array of lines in file
+			let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+			// if you found anything, reset the file
+			if (stuff[0]) {
+				fs.writeFileSync(instancedirectory + "/script-output/" + filename, "")
+			}
+			for (let i = 0; i < stuff.length; i++) {
+				if (stuff[i]) {
+					plugins[I].stdin.write(stuff[i])
+				}
+			}
+		})
+	}
 	console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
 	plugins[i].stdout.on("data", (data) => {
-		log("Stdout: " + data);
+		// log("Stdout: " + data);
 		messageInterface(data.toString('utf8'));
 	});
 	plugins[i].stderr.on("data", (data) => {
 		log("STDERR: " + data);
 	})
 	plugins[i].on('close', (code) => {
-		console.log(`child process exited with code ${code}`);
+		log(`child process exited with code ${code}`);
 	});
 }
 
-if (!fs.existsSync("./instances/")) {
-	fs.mkdirSync("instances");
-}
-if (!fs.existsSync("./sharedMods/")) {
-	fs.mkdirSync("sharedMods");
-}
-const instance = process.argv[3];
-const instancedirectory = './instances/' + instance;
-const command = process.argv[2];
+
 // handle commandline parameters
 if (!command || command == "help" || command == "--help") {
 	console.error("Usage: ")

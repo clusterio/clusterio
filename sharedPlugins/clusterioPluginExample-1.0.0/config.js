@@ -12,4 +12,6 @@ module.exports = {
 	// Make sure its cross platform somehow.
 	binary: "clusterioPluginExample",
 	description: "Example plugin for Clusterio to show easy interface integration with factorio servers.",
+	// We'll send everything in this file to your stdin. Beware.
+	scriptOutputFileSubscription: "example.txt",
 }
