@@ -190,6 +190,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		"max_players": "20",
 		"visibility": config.visibility,
 		"username": config.username,
+		"password": config.password,
 		"token": config.usertoken,
 		"game_password": config.game_password,
 		"verify_user_identity": config.verify_user_identity,
