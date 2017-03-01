@@ -25,6 +25,7 @@ if (!fs.existsSync("./sharedMods/")) {
 const instance = process.argv[3];
 const instancedirectory = './instances/' + instance;
 const command = process.argv[2];
+var instanceInfo = {};
 
 // Functions
 function deleteFolderRecursive(path) {
@@ -57,70 +58,6 @@ function messageInterface(command, callback) {
 		}
 	}
 }
-
-// load plugins and execute onLoad event
-let pluginDirectories = getDirectories("./sharedPlugins/");
-let plugins = [];
-for(i=0; i<pluginDirectories.length; i++) {
-	let I = i
-	let log = function(t) {
-		console.log("Clusterio | "+ pluginDirectories[I] + " | " + t)
-	}
-	
-	let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js")
-	plugins.push(child_process.spawn(pluginConfig.binary, [], {
-		cwd: "./sharedPlugins/"+pluginDirectories[i],
-		stdio: ['pipe', 'pipe', 'pipe'],
-	}));
-	
-	/*
-		to send to stdin, use:
-		spawn.stdin.write("text\n")
-	*/
-	
-	if(!global.subscribedFiles) {
-		global.subscribedFiles = {};
-	}
-	// If plugin has subscribed to a file, send any text appearing in that file to stdin
-	if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
-		if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
-			// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
-			// between those plugins instead.
-			throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
-		}
-		
-		if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
-			// Do something
-			fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "")
-		}
-		global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
-		fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
-			// get array of lines in file
-			let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
-			// if you found anything, reset the file
-			if (stuff[0]) {
-				fs.writeFileSync(instancedirectory + "/script-output/" + filename, "")
-			}
-			for (let i = 0; i < stuff.length; i++) {
-				if (stuff[i]) {
-					plugins[I].stdin.write(stuff[i])
-				}
-			}
-		})
-	}
-	console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
-	plugins[i].stdout.on("data", (data) => {
-		// log("Stdout: " + data);
-		messageInterface(data.toString('utf8'));
-	});
-	plugins[i].stderr.on("data", (data) => {
-		log("STDERR: " + data);
-	})
-	plugins[i].on('close', (code) => {
-		log(`child process exited with code ${code}`);
-	});
-}
-
 
 // handle commandline parameters
 if (!command || command == "help" || command == "--help") {
@@ -315,30 +252,116 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 }
 
 function instanceManagement() {
+	// load plugins and execute onLoad event
+	let pluginDirectories = getDirectories("./sharedPlugins/");
+	let plugins = [];
+	for(i=0; i<pluginDirectories.length; i++) {
+		let I = i
+		let log = function(t) {
+			console.log("Clusterio | "+ pluginDirectories[I] + " | " + t)
+		}
+		
+		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js")
+		plugins.push(child_process.spawn(pluginConfig.binary, [], {
+			cwd: "./sharedPlugins/"+pluginDirectories[i],
+			stdio: ['pipe', 'pipe', 'pipe'],
+		}));
+		
+		/*
+			to send to stdin, use:
+			spawn.stdin.write("text\n")
+		*/
+		
+		if(!global.subscribedFiles) {
+			global.subscribedFiles = {};
+		}
+		// If plugin has subscribed to a file, send any text appearing in that file to stdin
+		if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
+			if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
+				// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
+				// between those plugins instead.
+				throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
+			}
+			
+			if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
+				// Do something
+				fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "")
+			}
+			global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
+			fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
+				// get array of lines in file
+				let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+				// if you found anything, reset the file
+				if (stuff[0]) {
+					fs.writeFileSync(instancedirectory + "/script-output/" + filename, "")
+				}
+				for (let i = 0; i < stuff.length; i++) {
+					if (stuff[i]) {
+						plugins[I].stdin.write(stuff[i])
+					}
+				}
+			})
+		}
+		console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
+		plugins[i].stdout.on("data", (data) => {
+			// log("Stdout: " + data);
+			messageInterface(data.toString('utf8'));
+		});
+		plugins[i].stderr.on("data", (data) => {
+			log("STDERR: " + data);
+		})
+		plugins[i].on('close', (code) => {
+			log(`child process exited with code ${code}`);
+		});
+	}
+	
 	// world IDs ------------------------------------------------------------------
 	hashMods(instance, function(modHashes){
 		setInterval(getID, 10000);
 		getID()
 		function getID() {
-			var payload = {
-				time: Date.now(),
-				rconPort: instanceconfig.clientPort,
-				rconPassword: instanceconfig.clientPassword,
-				serverPort: instanceconfig.factorioPort,
-				unique: instanceconfig.clientPassword.hashCode(),
-				publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
-				mods:modHashes
-			}
-			require('getmac').getMac(function (err, mac) {
-				if (err) throw err
-				payload.mac = mac
-				console.log(payload)
-				needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
-					if (response && response.body) {
-						// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-						console.log(response.body)
+			messageInterface("/silent-command game.write_file('tempfile.txt', 'connected_players ' .. #game.connected_players .. '\\n', true, 0)", function(err) {setTimeout(function(){
+				// get array of lines in file
+				if(fs.existsSync(instancedirectory + "/script-output/tempfile.txt")) {
+					var data = fs.readFileSync(instancedirectory + "/script-output/tempfile.txt", "utf8").split("\n");
+					// delete when we are done
+					fs.unlink(instancedirectory + "/script-output/tempfile.txt");
+				}
+				// if we actually got anything from the file, proceed to categorize it
+				if (data && data[0]) {
+					while (data[0]) {
+						let q = data[0].split(" ");
+						// delete array element
+						data.splice(0,1)
+						if(q[0] == "connected_players" && Number(q[1]) != NaN) {
+							instanceInfo.playerCount = q[1];
+						}
 					}
-				});
+				} else {
+					instanceInfo.playerCount = 0;
+				}
+				var payload = {
+					time: Date.now(),
+					rconPort: instanceconfig.clientPort,
+					rconPassword: instanceconfig.clientPassword,
+					serverPort: instanceconfig.factorioPort,
+					unique: instanceconfig.clientPassword.hashCode(),
+					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
+					mods:modHashes,
+					playerCount: instanceInfo.playerCount || 0,
+				}
+				require('getmac').getMac(function (err, mac) {
+					if (err) throw err
+					payload.mac = mac
+					console.log(payload)
+					needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
+						if (response && response.body) {
+							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+							console.log(response.body)
+						}
+					});
+				})
+			},1000)
 			})
 		}
 	})
@@ -498,7 +521,7 @@ function instanceManagement() {
 				}
 				// console.log(frameset);
 				// Send all our compressed frames
-				client.exec("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
+				messageInterface("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
 			}
 		});
 		// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
