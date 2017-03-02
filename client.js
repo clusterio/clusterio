@@ -192,7 +192,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		var serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instancedirectory + '/config.ini',
-				'--start-server', instancedirectory + '/saves/' + latestSave,
+				'--start-server', latestSave.file,
 				'--rcon-port', instanceconfig.clientPort,
 				'--rcon-password', instanceconfig.clientPassword,
 				'--server-settings', instancedirectory + '/server-settings.json',
@@ -635,9 +635,6 @@ function getNewestFile(dir, files, callback) {
     if (!callback) return;
     if (!files || (files && files.length === 0)) {
         callback();
-    }
-    if (files.length === 1) {
-        callback(files[0]);
     }
     var newest = { file: files[0] };
     var checked = 0;
