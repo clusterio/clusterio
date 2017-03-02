@@ -99,29 +99,38 @@ if (!command || command == "help" || command == "--help") {
 	}
 } else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
 	// if instance does not exist, create it
-	console.log("Creating instance...")
+	console.log("Creating instance...");
 	fs.mkdirSync(instancedirectory);
 	fs.mkdirSync(instancedirectory + "/script-output/");
-	fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")
-	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "")
-	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "")
-	fs.mkdirSync(instancedirectory + "/mods/")
+	fs.mkdirSync(instancedirectory + "/saves/");
+	fs.writeFileSync(instancedirectory + "/script-output/output.txt", "");
+	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
+	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+	fs.mkdirSync(instancedirectory + "/mods/");
 	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
 read-data=__PATH__executable__/../../data\r\n\
 write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	");
 
-	var instconf = {
+	fs.copySync('sharedMods', instancedirectory + "/mods")
+	let instconf = {
 		"factorioPort": Math.floor(Math.random() * 65535),
 		"clientPort": Math.floor(Math.random() * 65535),
 		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
+	console.log("Clusterio | Moving shared mods...")
 	console.log(instconf)
+	
+	// create instance config
 	fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
-
-	var serversettings = {
-		"name": config.username + "'s clusterio " + instance,
+	
+	let name = "Clusterio instance: " + instance;
+	if (config.username) {
+		name = config.username + "'s clusterio " + instance;
+	}
+	let serversettings = {
+		"name": name,
 		"description": config.description,
 		"tags": ["clusterio"],
 		"max_players": "20",
@@ -137,14 +146,12 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		"autosave_slots": 5,
 		"afk_autokick_interval": 0,
 		"auto_pause": config.auto_pause,
-		
 	}
 	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
-
-	var createSave = child_process.spawnSync(
+	let createSave = child_process.spawnSync(
 		'./' + config.factorioDirectory + '/bin/x64/factorio', [
 			'-c', instancedirectory + '/config.ini',
-			'--create', instancedirectory + '/save.zip',
+			'--create', instancedirectory + '/saves/save.zip',
 		]
 	)
 	console.log("Instance created!")
@@ -156,58 +163,10 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		process.exit(1)
 	}
 	
-	// move mods from ./sharedMods to the instances mod directory
-	console.log("Clusterio | Moving shared mods...")
-	//ncp("./sharedMods/", instancedirectory + "/mods", function (err) {
-	
-	
-	fs.copySync('sharedMods', instancedirectory + "/mods")
-
-
-	process.on('SIGINT', function () {
-		console.log("Caught interrupt signal");
-		//serverprocess.stdin.write('/quit')
-	});
-
-	// Spawn factorio server
-	//var serverprocess = child_process.exec(commandline)
-	var serverprocess = child_process.spawn(
-		'./' + config.factorioDirectory + '/bin/x64/factorio', [
-			'-c', instancedirectory + '/config.ini',
-			'--start-server', instancedirectory + '/save.zip',
-			'--rcon-port', instanceconfig.clientPort,
-			'--rcon-password', instanceconfig.clientPassword,
-			'--server-settings', instancedirectory + '/server-settings.json',
-			'--port', instanceconfig.factorioPort
-		], {
-			'stdio': ['pipe', 'pipe', 'pipe']
-		}
-	)
-
-	serverprocess.on('close', (code) => {
-		console.log(`child process exited with code ${code}`);
-		process.exit();
-	});
-/*
-	serverprocess.stdout.on('data', (chunk) => {
-		console.log('OUT: ' + chunk);
-	})*/
-
-	serverprocess.stderr.on('data', (chunk) => {
-		console.log('ERR: ' + chunk);
-	})
-
-	// connect to the server with rcon
-	// IP, port, password
-	var client = new Rcon({
-		host: 'localhost',
-		port: instanceconfig.clientPort,
-		password: instanceconfig.clientPassword,
-		timeout: 0
-	});
-
+	console.log("Deleting logs");
 	// clean old log file to avoid crash
 	// file exists, delete so we don't get in trouble
+	
 	try {
 		fs.unlinkSync(instancedirectory+'/factorio-current.log')
 	} catch (err){
@@ -218,37 +177,85 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		}
 	}
 	
-	// check the logfile to see if the RCON interface is running as there is no way to continue without it
-	// we read the log every 2 seconds and stop looping when we start connecting to factorio
-	function checkRcon() {
-		fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
-			// if (err) console.log(err);
-			if(data && data.indexOf('Starting RCON interface') > 0){
-				client.connect();
-			} else {
-				setTimeout(function(){
-					checkRcon();
-				},2000);
-			}
-		});
-	}
-	checkRcon();
-	
-	client.on('authenticated', function () {
-		console.log('Clusterio | Authenticated!');
-		instanceManagement(); // start using rcons
-	}).on('connected', function () {
-		console.log('Clusterio | Connected!');
-		// getID();
-	}).on('disconnected', function () {
-		console.log('Clusterio | Disconnected!');
-		// now reconnect
-		client.connect();
+	// move mods from ./sharedMods to the instances mod directory
+	console.log("Clusterio | Moving shared mods...");
+	fs.copySync('sharedMods', instancedirectory + "/mods");
+
+	process.on('SIGINT', function () {
+		console.log("Caught interrupt signal");
+		messageInterface("/quit");
 	});
 
-	// set some globals
-	confirmedOrders = [];
-	lastSignalCheck = Date.now();
+	// Spawn factorio server
+	//var serverprocess = child_process.exec(commandline)
+	getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(latestSave) {
+		var serverprocess = child_process.spawn(
+			'./' + config.factorioDirectory + '/bin/x64/factorio', [
+				'-c', instancedirectory + '/config.ini',
+				'--start-server', instancedirectory + '/saves/' + latestSave,
+				'--rcon-port', instanceconfig.clientPort,
+				'--rcon-password', instanceconfig.clientPassword,
+				'--server-settings', instancedirectory + '/server-settings.json',
+				'--port', instanceconfig.factorioPort
+			], {
+				'stdio': ['pipe', 'pipe', 'pipe']
+			}
+		)
+
+		serverprocess.on('close', (code) => {
+			console.log(`child process exited with code ${code}`);
+			process.exit();
+		});
+	/*
+		serverprocess.stdout.on('data', (chunk) => {
+			console.log('OUT: ' + chunk);
+		})*/
+
+		serverprocess.stderr.on('data', (chunk) => {
+			console.log('ERR: ' + chunk);
+		})
+
+		// connect to the server with rcon
+		// IP, port, password
+		client = new Rcon({
+			host: 'localhost',
+			port: instanceconfig.clientPort,
+			password: instanceconfig.clientPassword,
+			timeout: 0
+		});
+		
+		// check the logfile to see if the RCON interface is running as there is no way to continue without it
+		// we read the log every 2 seconds and stop looping when we start connecting to factorio
+		function checkRcon() {
+			fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
+				// if (err) console.log(err);
+				if(data && data.indexOf('Starting RCON interface') > 0){
+					client.connect();
+				} else {
+					setTimeout(function(){
+						checkRcon();
+					},2000);
+				}
+			});
+		}
+		setTimeout(checkRcon, 5000);
+		
+		client.on('authenticated', function () {
+			console.log('Clusterio | Authenticated!');
+			instanceManagement(); // start using rcons
+		}).on('connected', function () {
+			console.log('Clusterio | Connected!');
+			// getID();
+		}).on('disconnected', function () {
+			console.log('Clusterio | Disconnected!');
+			// now reconnect
+			client.connect();
+		});
+
+		// set some globals
+		confirmedOrders = [];
+		lastSignalCheck = Date.now();
+	})
 }
 
 function instanceManagement() {
@@ -619,3 +626,36 @@ function hashMods(instanceName, callback) {
 		});
 	}
 }
+
+// gets newest file in a directory
+// dir is directory
+// files is array of filenames
+// callback(filename string)
+function getNewestFile(dir, files, callback) {
+    if (!callback) return;
+    if (!files || (files && files.length === 0)) {
+        callback();
+    }
+    if (files.length === 1) {
+        callback(files[0]);
+    }
+    var newest = { file: files[0] };
+    var checked = 0;
+    fs.stat(dir + newest.file, function(err, stats) {
+        newest.mtime = stats.mtime;
+        for (var i = 0; i < files.length; i++) {
+            var file = files[i];
+            (function(file) {
+                fs.stat(file, function(err, stats) {
+                    ++checked;
+                    if (stats.mtime.getTime() > newest.mtime.getTime()) {
+                        newest = { file : file, mtime : stats.mtime };
+                    }
+                    if (checked == files.length) {
+                        callback(newest);
+                    }
+                });
+            })(dir + file);
+        }
+    });
+ }
