@@ -188,10 +188,10 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		console.log(`child process exited with code ${code}`);
 		process.exit();
 	});
-
+/*
 	serverprocess.stdout.on('data', (chunk) => {
 		console.log('OUT: ' + chunk);
-	})
+	})*/
 
 	serverprocess.stderr.on('data', (chunk) => {
 		console.log('ERR: ' + chunk);
@@ -353,7 +353,7 @@ function instanceManagement() {
 				require('getmac').getMac(function (err, mac) {
 					if (err) throw err
 					payload.mac = mac
-					console.log(payload)
+					// console.log(payload)
 					needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
 						if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
@@ -502,7 +502,7 @@ function instanceManagement() {
 					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 				}
 				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
-				console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+				// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
 				client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 			}
 		});
