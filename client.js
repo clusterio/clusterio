@@ -8,7 +8,6 @@ var request = require("request")
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
-var findRemoveSync = require('find-remove');
 
 // require config.json
 var config = require('./config');
@@ -55,7 +54,9 @@ function messageInterface(command, callback) {
 			client.exec(command, callback);
 		} catch (err) {
 			console.log(err);
-			callback(err);
+			if(typeof callback == "function"){
+				callback(err);
+			}
 		}
 	}
 }
@@ -164,7 +165,12 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		process.exit(1)
 	}
 	console.log("Deleting .tmp.zip files");
-	findRemoveSync(instancedirectory + "/saves", {extensions: ['.tmp.zip']})
+	let savefiles = fs.readdirSync(instancedirectory + "/saves/");
+	for(i = 0; i < savefiles.length; i++){
+		if(savefiles[i].substr(savefiles[i].length - 8, 8) == ".tmp.zip") {
+			fs.unlinkSync(instancedirectory + "/saves/" + savefiles[i]);
+		}
+	}
 	
 	console.log("Deleting logs");
 	// clean old log file to avoid crash
