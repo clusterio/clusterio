@@ -8,6 +8,7 @@ var request = require("request")
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
+var findRemoveSync = require('find-remove');
 
 // require config.json
 var config = require('./config');
@@ -162,11 +163,12 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	} else {
 		process.exit(1)
 	}
+	console.log("Deleting .tmp.zip files");
+	findRemoveSync(instancedirectory + "/saves", {extensions: ['.tmp.zip']})
 	
 	console.log("Deleting logs");
 	// clean old log file to avoid crash
 	// file exists, delete so we don't get in trouble
-	
 	try {
 		fs.unlinkSync(instancedirectory+'/factorio-current.log')
 	} catch (err){
@@ -493,7 +495,7 @@ function instanceManagement() {
 			sadas = JSON.stringify(confirmedOrders)
 			confirmedOrders = [];
 			// send our RCON command with whatever we got
-			client.exec("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
+			messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
 		}
 	}, 3000)
 	// COMBINATOR SIGNALS ---------------------------------------------------------
@@ -510,7 +512,7 @@ function instanceManagement() {
 				}
 				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
 				// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
-				client.exec("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
+				messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 			}
 		});
 	}, 1000)
