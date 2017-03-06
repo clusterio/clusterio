@@ -9,6 +9,7 @@ var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
 
+var libomega = require("./libomega.js");
 // require config.json
 var config = require('./config');
 var global = {};
@@ -41,6 +42,18 @@ function deleteFolderRecursive(path) {
 		fs.rmdirSync(path);
 	}
 };
+
+// simple string hasher
+String.prototype.hashCode = function () {
+	var hash = 0;
+	if (this.length == 0) return hash;
+	for (let i = 0; i < this.length; i++) {
+		char = this.charCodeAt(i);
+		hash = ((hash << 5) - hash) + char;
+		hash = hash & hash; // Convert to 32bit integer
+	}
+	return hash;
+}
 
 // function to handle sending commands into the game
 function messageInterface(command, callback) {
@@ -161,6 +174,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// Exit if no instance specified (it should be, just a safeguard)
 	if(instancedirectory != "./instances/undefined"){
 		var instanceconfig = require(instancedirectory + '/config');
+		instanceconfig.unique = instanceconfig.clientPassword.hashCode();
 	} else {
 		process.exit(1)
 	}
@@ -360,7 +374,7 @@ function instanceManagement() {
 					rconPort: instanceconfig.clientPort,
 					rconPassword: instanceconfig.clientPassword,
 					serverPort: instanceconfig.factorioPort,
-					unique: instanceconfig.clientPassword.hashCode(),
+					unique: instanceconfig.unique,
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					playerCount: instanceInfo.playerCount || 0,
@@ -403,12 +417,6 @@ function instanceManagement() {
 					console.log("Sending mod: " + mod)
 					// Send mods master says it wants
 					// response.body is a string which is a modName.zip
-					
-					/*needle.post(config.masterIP + ":" + config.masterPort + '/uploadMod', payload, function (err, response, body) {
-						// we did it, keep going
-					}
-					*/
-					
 					var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/uploadMod', function (err, resp, body) {
 						if (err) {
 							console.log('Error!');
@@ -423,6 +431,52 @@ function instanceManagement() {
 			});
 		}
 	}
+	
+	// flow statistics ------------------------------------------------------------
+	oldFlowStats = false
+	setInterval(function(){
+		fs.readFile(instancedirectory + "/script-output/flows.txt", {encoding: "utf8"}, function(err, data) {
+			if(!err && data) {
+				data = data.split("\n");
+				let flowStats = [];
+				for(let i = 0; i < data.length; i++) {
+					// try catch to remove any invalid json
+					try{
+						flowStats[flowStats.length] = JSON.parse(data[i]);
+					} catch (e) {
+						console.log(" invalid json: " + i);
+					}
+				}
+				// fluids
+				let flowStat1 = flowStats[flowStats.length-1].flows.player.input_counts
+				// items
+				let flowStat2 = flowStats[flowStats.length-2].flows.player.input_counts
+				// console.log(flowStat2)
+				// merge fluid and item flows
+				let totalFlows = {};
+				for(var key in flowStat1) totalFlows[key] = flowStat1[key];
+				for(var key in flowStat2) totalFlows[key] = flowStat2[key];
+				// console.log(JSON.stringify(totalFlows)); throw "nah";
+				if(oldFlowStats && totalFlows) {
+					let payload = libomega.clone(totalFlows);
+					// change from total reported to per time unit
+					for(let key in oldFlowStats) {
+						//console.log(typeof oldFlowStats[key] + " | " + oldFlowStats[key])
+						payload[key] = payload[key] - oldFlowStats[key]
+						//console.log(payload[key])
+					}
+					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
+					/*needle.post(config.masterIP + ":" + config.masterPort + '/uploadMod', payload, function (err, response, body) {
+						// we did it, keep going
+					}*/
+				}
+				oldFlowStats = totalFlows
+				fs.writeFileSync(instancedirectory + "/script-output/flows.txt", "");
+			}
+		})
+		// we don't need to update stats quickly as that could be expensive
+	}, 5000)
+	
 	// provide items --------------------------------------------------------------
 	// trigger when something happens to output.txt
 	fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
@@ -432,19 +486,18 @@ function instanceManagement() {
 		if (items[0]) {
 			fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")
 		}
-		for (i = 0; i < items.length; i++) {
+		for (let i = 0; i < items.length; i++) {
 			if (items[i]) {
 				g = items[i].split(" ");
 				g[0] = g[0].replace("\u0000", "");
 				// console.log("exporting " + JSON.stringify(g));
 				// send our entity and count to the master for him to keep track of
 				needle.post(config.masterIP + ":" + config.masterPort + '/place', {
-						name: g[0],
-						count: g[1]
-					},
-					function (err, resp, body) {
-						// console.log(body);
-					});
+					name: g[0],
+					count: g[1]
+				}, function (err, resp, body) {
+					// console.log(body);
+				});
 			}
 		}
 	})
@@ -457,7 +510,7 @@ function instanceManagement() {
 			fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
 			// prepare a package of all our requested items in a more tranfer friendly format
 			var preparedPackage = {};
-			for (i = 0; i < items.length; i++) {
+			for (let i = 0; i < items.length; i++) {
 				(function (i) {
 					if (items[i]) {
 						items[i] = items[i].split(" ");
@@ -485,7 +538,7 @@ function instanceManagement() {
 				})(i);
 			}
 			// request our items, one item at a time
-			for (i = 0; i < Object.keys(preparedPackage).length; i++) {
+			for (let i = 0; i < Object.keys(preparedPackage).length; i++) {
 				console.log(preparedPackage[Object.keys(preparedPackage)[i]])
 				needle.post(config.masterIP + ":" + config.masterPort + '/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
 					if (response && response.body && typeof response.body == "object") {
@@ -513,7 +566,7 @@ function instanceManagement() {
 				// console.log(response.body)
 				var inventory = response.body;
 				var inventoryFrame = {};
-				for (i = 0; i < inventory.length; i++) {
+				for (let i = 0; i < inventory.length; i++) {
 					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 				}
 				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
@@ -522,6 +575,7 @@ function instanceManagement() {
 			}
 		});
 	}, 1000)
+	// REMOTE SIGNALLING
 	// send any signals the slave has been told to send
 	setInterval(function () {
 		// Fetch combinator signals from the server
@@ -531,7 +585,7 @@ function instanceManagement() {
 			if (response && response.body && typeof response.body == "object" && response.body[0]) {
 				// Take the new combinator frames and compress them so we can use a single command
 				frameset = [];
-				for (i = 0; i < response.body.length; i++) {
+				for (let i = 0; i < response.body.length; i++) {
 					frameset[i] = response.body[i].frame;
 				}
 				// console.log(frameset);
@@ -549,7 +603,7 @@ function instanceManagement() {
 		if (signals[0]) {
 			fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 			// loop through all our frames
-			for (i = 0; i < signals.length; i++) {
+			for (let i = 0; i < signals.length; i++) {
 				(function (i) {
 					if (signals[i]) {
 						// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
@@ -579,17 +633,6 @@ function getDirectories(srcpath) {
 	});
 }
 
-// simple string hasher
-String.prototype.hashCode = function () {
-	var hash = 0;
-	if (this.length == 0) return hash;
-	for (i = 0; i < this.length; i++) {
-		char = this.charCodeAt(i);
-		hash = ((hash << 5) - hash) + char;
-		hash = hash & hash; // Convert to 32bit integer
-	}
-	return hash;
-}
 // string, function
 // returns [{modName:string,hash:string}, ... ]
 function hashMods(instanceName, callback) {
