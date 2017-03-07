@@ -29,9 +29,17 @@ app.use(express.static(masterModFolder));
 // set up database
 var Datastore = require('nedb');
 db = {};
+
+// database for items in system
 db.items = new Datastore({ filename: 'database/items.db', autoload: true });
+
+// in memory database for combinator signals
 db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
+
+// production chart database
+db.flows = new Datastore({ filename: "database/flows.db", autoload: true})
+db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // expire after 30 days
 // db.slaves = new Datastore({ filename: 'database/slaves.db', autoload: true, inMemoryOnly: false});
 
 db.items.additem = function(object) {
@@ -180,6 +188,48 @@ app.get("/inventory", function(req, res) {
 		res.send(docs);
 	});
 });
+
+// post flowstats here for production graphs
+// {timestamp: Date, slaveID: string, data: {"item":number}}
+app.post("/logStats", function(req,res) {
+	if(typeof req.body == "object" && req.body.slaveID && req.body.timestamp && req.body.data) {
+		db.flows.insert({
+			slaveID: req.body.slaveID,
+			timestamp: req.body.timestamp,
+			data: req.body.data,
+		});
+		console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp)
+	} else {
+		res.send("failure")
+	}
+})
+// {slaveID: string, fromTime: Date, toTime, Date}
+app.post("/getStats", function(req,res) {
+	if(typeof req.body == "object" && req.body.slaveID) {
+		// if not specified, get stats for last 24 hours
+		if(!req.body.fromTime) {
+			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
+		}
+		if(!req.body.toTime) {
+			req.body.toTime = Date.now();
+		}
+		db.flows.find({
+			$and: [
+				{
+					slaveID: req.body.slaveID,
+				}, {
+					timestamp: {
+						$gte: req.body.toTime,
+						$lt: req.body.fromTime,
+					}
+				}
+			]
+		}, function(err, docs) {
+			
+		})
+	}
+})
+
 // endpoint for getting the chartjs library
 app.get("/chart.js", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");

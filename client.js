@@ -437,6 +437,7 @@ function instanceManagement() {
 	setInterval(function(){
 		fs.readFile(instancedirectory + "/script-output/flows.txt", {encoding: "utf8"}, function(err, data) {
 			if(!err && data) {
+				let timestamp = Date.now();
 				data = data.split("\n");
 				let flowStats = [];
 				for(let i = 0; i < data.length; i++) {
@@ -466,9 +467,9 @@ function instanceManagement() {
 						//console.log(payload[key])
 					}
 					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-					/*needle.post(config.masterIP + ":" + config.masterPort + '/uploadMod', payload, function (err, response, body) {
+					needle.post(config.masterIP + ":" + config.masterPort + '/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
 						// we did it, keep going
-					}*/
+					})
 				}
 				oldFlowStats = totalFlows
 				fs.writeFileSync(instancedirectory + "/script-output/flows.txt", "");
