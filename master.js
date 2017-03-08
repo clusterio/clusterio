@@ -5,13 +5,14 @@ const masterModFolder = "./database/masterMods/"
 const mkdirp = require("mkdirp");
 mkdirp.sync("./database");
 mkdirp.sync(masterModFolder);
-
+const path = require("path")
 const fs = require("fs")
 var nedb = require("nedb")
 // require config.json
 var config = require('./config');
 
 var express = require("express");
+var ejs = require("ejs");
 // Required for express post requests
 var bodyParser = require("body-parser");
 var fileUpload = require('express-fileupload');
@@ -20,6 +21,14 @@ var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(fileUpload());
+
+// dynamic HTML generations with EJS
+app.set('views', path.join(__dirname, 'static'));
+app.set('view engine', 'ejs');
+
+var routes = require("./routes.js");
+routes(app);
+
 
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
