@@ -52,54 +52,45 @@ function post(url, data, callback) {
 }
 // execute functions to make a graph, this is the entrypoint (during testing at least)
 // ID of slave, blank string, function with JSON data as fist argument
-makeGraph("2000814241", "", function(data){
+makeGraph("-496927236", "", function(data){
 	console.log("Building chart with this data:")
 	console.log(data)
 	let chartData = [];
 	for(let i = 0; i < data.length; i++){
-		chartData[chartData.length] = {
-			/*x: new Date(data[i].timestamp),*/
-			x: new Date(2012, 00, i),
-			y: data[i].data["light-oil"]
+		// only show recent data
+		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
+			let y = data[i].data["copper-plate"]
+			if(!data[i].data["copper-plate"]) {
+				y = 0
+			}
+			chartData[chartData.length] = {
+				/*x: new Date(data[i].timestamp),*/
+				x: data[i].timestamp,//new Date(2012, 00, i),
+				y: Number(y)
+			}
+			// console.log(i + " | " + y)
 		}
 	}
 	console.log(chartData)
 	drawChart("chartContainer", chartData)
 })
 
-function drawChart(selector, data) {
+function drawChart(selector, chartData) {
 	// selector is ID of element, ex "chartContainer"
 	var chart = new CanvasJS.Chart(selector, {
 		title:{
-			text: "Production with CanvasJS"
+			text: "Production graph"
 		},
 		axisX: {
-			interval:1,
 		},
 		axisY:{
 			includeZero: true
 		},
 		data: [{
 			type: "line",
-			dataPoints: data
+			dataPoints: chartData
 		}]
-		/*[{
-			type: "line",
-			dataPoints: [
-			{ x: new Date(2012, 00, 1), y: 450 },
-			{ x: new Date(2012, 01, 1), y: 414},
-			{ x: new Date(2012, 02, 1), y: 520, indexLabel: "highest",markerColor: "red", markerType: "triangle"},
-			{ x: new Date(2012, 03, 1), y: 460 },
-			{ x: new Date(2012, 04, 1), y: 450 },
-			{ x: new Date(2012, 05, 1), y: 500 },
-			{ x: new Date(2012, 06, 1), y: 480 },
-			{ x: new Date(2012, 07, 1), y: 480 },
-			{ x: new Date(2012, 08, 1), y: 410 , indexLabel: "lowest",markerColor: "DarkSlateGrey", markerType: "cross"},
-			{ x: new Date(2012, 09, 1), y: 500 },
-			{ x: new Date(2012, 10, 1), y: 480 },
-			{ x: new Date(2012, 11, 1), y: 510 }
-			]
-		}]*/
 	});
+	// console.log(chart)
 	chart.render();
 }
