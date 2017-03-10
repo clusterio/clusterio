@@ -236,7 +236,8 @@ app.post("/getStats", function(req,res) {
 			let entries = docs.filter(function (el) {
 				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
 			});
-			console.log(entries)
+			// console.log(entries)
+			res.send(entries)
 		})
 	}
 })

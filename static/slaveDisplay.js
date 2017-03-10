@@ -27,9 +27,10 @@ setInterval(function() {
 	xmlhttp.send();
 }, 500)
 
-function makeGraph(slaveID, selector) {
+function makeGraph(slaveID, selector, callback) {
 	post("http://localhost:8080/getStats", {slaveID: slaveID}, function(data){
-		console.log(data);
+		console.log("makeGraphed!")
+		callback(data);
 	})
 }
 
@@ -48,4 +49,57 @@ function post(url, data, callback) {
 		}
 	}
 	xhr.send(JSON.stringify(data));
+}
+// execute functions to make a graph, this is the entrypoint (during testing at least)
+// ID of slave, blank string, function with JSON data as fist argument
+makeGraph("2000814241", "", function(data){
+	console.log("Building chart with this data:")
+	console.log(data)
+	let chartData = [];
+	for(let i = 0; i < data.length; i++){
+		chartData[chartData.length] = {
+			/*x: new Date(data[i].timestamp),*/
+			x: new Date(2012, 00, i),
+			y: data[i].data["light-oil"]
+		}
+	}
+	console.log(chartData)
+	drawChart("chartContainer", chartData)
+})
+
+function drawChart(selector, data) {
+	// selector is ID of element, ex "chartContainer"
+	var chart = new CanvasJS.Chart(selector, {
+		title:{
+			text: "Production with CanvasJS"
+		},
+		axisX: {
+			interval:1,
+		},
+		axisY:{
+			includeZero: true
+		},
+		data: [{
+			type: "line",
+			dataPoints: data
+		}]
+		/*[{
+			type: "line",
+			dataPoints: [
+			{ x: new Date(2012, 00, 1), y: 450 },
+			{ x: new Date(2012, 01, 1), y: 414},
+			{ x: new Date(2012, 02, 1), y: 520, indexLabel: "highest",markerColor: "red", markerType: "triangle"},
+			{ x: new Date(2012, 03, 1), y: 460 },
+			{ x: new Date(2012, 04, 1), y: 450 },
+			{ x: new Date(2012, 05, 1), y: 500 },
+			{ x: new Date(2012, 06, 1), y: 480 },
+			{ x: new Date(2012, 07, 1), y: 480 },
+			{ x: new Date(2012, 08, 1), y: 410 , indexLabel: "lowest",markerColor: "DarkSlateGrey", markerType: "cross"},
+			{ x: new Date(2012, 09, 1), y: 500 },
+			{ x: new Date(2012, 10, 1), y: 480 },
+			{ x: new Date(2012, 11, 1), y: 510 }
+			]
+		}]*/
+	});
+	chart.render();
 }
