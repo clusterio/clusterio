@@ -55,25 +55,45 @@ function post(url, data, callback) {
 makeGraph("-496927236", "", function(data){
 	console.log("Building chart with this data:")
 	console.log(data)
+	// find keys
+	let itemNames = [];
+	for(let key in data[data.length - 1].data) {
+		itemNames[itemNames.length] = key
+	}
 	let chartData = [];
-	for(let i = 0; i < data.length; i++){
+	for(let o = 0; o < itemNames.length; o++) {
+		if(itemNames[o] != "water"){
+			chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
+		}
+	}
+	
+	
+	console.log(chartData)
+	drawChart("chartContainer", chartData)
+})
+
+function generateLineChartArray(data, nameKey) {
+	let chartData = [];
+	for(let i = 0; i < data.length; i++) {
 		// only show recent data
 		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
-			let y = data[i].data["copper-plate"]
-			if(!data[i].data["copper-plate"]) {
+			let y = data[i].data[nameKey]
+			if(!data[i].data[nameKey]) {
 				y = 0
 			}
 			chartData[chartData.length] = {
 				/*x: new Date(data[i].timestamp),*/
-				x: data[i].timestamp,//new Date(2012, 00, i),
+				x: new Date(data[i].timestamp),//new Date(2012, 00, i),
 				y: Number(y)
 			}
 			// console.log(i + " | " + y)
 		}
 	}
-	console.log(chartData)
-	drawChart("chartContainer", chartData)
-})
+	let xyz = {};
+	xyz.type = "spline";
+	xyz.dataPoints = chartData;
+	return xyz;
+}
 
 function drawChart(selector, chartData) {
 	// selector is ID of element, ex "chartContainer"
@@ -81,15 +101,13 @@ function drawChart(selector, chartData) {
 		title:{
 			text: "Production graph"
 		},
-		axisX: {
-		},
 		axisY:{
 			includeZero: true
 		},
-		data: [{
+		data: chartData/*[{
 			type: "line",
 			dataPoints: chartData
-		}]
+		}]*/
 	});
 	// console.log(chart)
 	chart.render();
