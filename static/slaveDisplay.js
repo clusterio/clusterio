@@ -82,14 +82,13 @@ function generateLineChartArray(data, nameKey) {
 				y = 0
 			}
 			chartData[chartData.length] = {
-				/*x: new Date(data[i].timestamp),*/
-				x: new Date(data[i].timestamp),//new Date(2012, 00, i),
+				x: new Date(data[i].timestamp),
 				y: Number(y)
 			}
-			// console.log(i + " | " + y)
 		}
 	}
 	let xyz = {};
+	xyz.name = nameKey;
 	xyz.type = "spline";
 	xyz.dataPoints = chartData;
 	return xyz;
@@ -100,6 +99,9 @@ function drawChart(selector, chartData) {
 	var chart = new CanvasJS.Chart(selector, {
 		title:{
 			text: "Production graph"
+		},
+		toolTip:{   
+			content: "{name}: {y}"      
 		},
 		axisY:{
 			includeZero: true
