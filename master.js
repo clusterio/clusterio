@@ -202,18 +202,25 @@ app.get("/inventory", function(req, res) {
 // {timestamp: Date, slaveID: string, data: {"item":number}}
 app.post("/logStats", function(req,res) {
 	if(typeof req.body == "object" && req.body.slaveID && req.body.timestamp && req.body.data) {
-		db.flows.insert({
-			slaveID: req.body.slaveID,
-			timestamp: req.body.timestamp,
-			data: req.body.data,
-		});
-		console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp)
+		if(Number(req.body.timestamp) != NaN){
+			req.body.timestamp = Number(req.body.timestamp);
+			db.flows.insert({
+				slaveID: req.body.slaveID,
+				timestamp: req.body.timestamp,
+				data: req.body.data,
+			});
+			console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp)
+		} else {
+			console.log("error invalid timestamp " + req.body.timestamp);
+			res.send(failure)
+		}
 	} else {
 		res.send("failure")
 	}
 })
 // {slaveID: string, fromTime: Date, toTime, Date}
 app.post("/getStats", function(req,res) {
+	console.log(req.body)
 	if(typeof req.body == "object" && req.body.slaveID) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
@@ -222,19 +229,14 @@ app.post("/getStats", function(req,res) {
 		if(!req.body.toTime) {
 			req.body.toTime = Date.now();
 		}
+		console.log("Looking... " + JSON.stringify(req.body))
 		db.flows.find({
-			$and: [
-				{
-					slaveID: req.body.slaveID,
-				}, {
-					timestamp: {
-						$gte: req.body.toTime,
-						$lt: req.body.fromTime,
-					}
-				}
-			]
+			slaveID: req.body.slaveID,
 		}, function(err, docs) {
-			
+			let entries = docs.filter(function (el) {
+				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
+			});
+			console.log(entries)
 		})
 	}
 })

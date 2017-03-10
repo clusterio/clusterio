@@ -1,3 +1,5 @@
+
+// get all slaves recently connected to master
 // ask master for slaves
 setInterval(function() {
 	var xmlhttp = new XMLHttpRequest();
@@ -25,4 +27,25 @@ setInterval(function() {
 	xmlhttp.send();
 }, 500)
 
-// get all slaves recently connected to master
+function makeGraph(slaveID, selector) {
+	post("http://localhost:8080/getStats", {slaveID: slaveID}, function(data){
+		console.log(data);
+	})
+}
+
+// production info
+// string, object, function(object)
+function post(url, data, callback) {
+	console.log("POST " + url + JSON.stringify(data))
+	var xhr = new XMLHttpRequest();
+	xhr.open("POST", url, true);
+	xhr.setRequestHeader("Content-type", "application/json");
+	xhr.onreadystatechange = function () {
+		console.log(xhr.readyState + "WOW")
+		if (xhr.readyState == 4 && xhr.status == 200) {
+			var json = JSON.parse(xhr.responseText);
+			callback(json);
+		}
+	}
+	xhr.send(JSON.stringify(data));
+}
