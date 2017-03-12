@@ -432,7 +432,7 @@ function instanceManagement() {
 		}
 	}
 	
-	// flow statistics ------------------------------------------------------------
+	// flow/production statistics ------------------------------------------------------------
 	oldFlowStats = false
 	setInterval(function(){
 		fs.readFile(instancedirectory + "/script-output/flows.txt", {encoding: "utf8"}, function(err, data) {
@@ -445,33 +445,32 @@ function instanceManagement() {
 					try{
 						flowStats[flowStats.length] = JSON.parse(data[i]);
 					} catch (e) {
-						console.log(" invalid json: " + i);
+						// console.log(" invalid json: " + i);
+						// some lines of JSON are invalid but don't worry, we just filter em out
 					}
 				}
 				// fluids
 				let flowStat1 = flowStats[flowStats.length-1].flows.player.input_counts
 				// items
 				let flowStat2 = flowStats[flowStats.length-2].flows.player.input_counts
-				// console.log(flowStat2)
 				// merge fluid and item flows
 				let totalFlows = {};
 				for(var key in flowStat1) totalFlows[key] = flowStat1[key];
 				for(var key in flowStat2) totalFlows[key] = flowStat2[key];
-				// console.log(JSON.stringify(totalFlows)); throw "nah";
-				if(oldFlowStats && totalFlows) {
+				if(oldFlowStats && totalFlows && oldTimestamp) {
 					let payload = libomega.clone(totalFlows);
 					// change from total reported to per time unit
 					for(let key in oldFlowStats) {
-						//console.log(typeof oldFlowStats[key] + " | " + oldFlowStats[key])
-						payload[key] = payload[key] - oldFlowStats[key]
-						//console.log(payload[key])
+						// get production per minute
+						payload[key] = Math.floor((payload[key] - oldFlowStats[key])/(timestamp - oldTimestamp)*60000);
 					}
-					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
+					// console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
 					needle.post(config.masterIP + ":" + config.masterPort + '/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
 						// we did it, keep going
 					})
 				}
-				oldFlowStats = totalFlows
+				oldTimestamp = timestamp;
+				oldFlowStats = totalFlows;
 				fs.writeFileSync(instancedirectory + "/script-output/flows.txt", "");
 			}
 		})

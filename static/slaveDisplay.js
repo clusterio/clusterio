@@ -1,7 +1,7 @@
 
 // get all slaves recently connected to master
 // ask master for slaves
-setInterval(function() {
+setTimeout(function() {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
 		if(xmlhttp.readyState == 4 && xmlhttp.status == 200) {
@@ -15,22 +15,50 @@ setInterval(function() {
 					// maybe include an option to use y-ymd-ymd-y for Trangar compatibility as well
 					var seenDate = date.yyyymmdd(slaveData[key].time)
 					if(g.trangarTime == true){
-						var seenDate = (seenDate+"")[0]+"-"+(seenDate+"")[1]+(seenDate+"")[4]+(seenDate+"")[6]+"-"+(seenDate+"")[2]+(seenDate+"")[5]+(seenDate+"")[7]+"-"+(seenDate+"")[3]
+						var seenDate = (seenDate+"")[0]+"-"+(seenDate+"")[1]+(seenDate+"")[4]+(seenDate+"")[6]+"-"+(seenDate+"")[2]+(seenDate+"")[5]+(seenDate+"")[7]+"-"+(seenDate+"")[3];
 					}
-					HTML += "<div class='slaveBox'><h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p></div>"
+					HTML += "<div class='slaveBox'>";
+					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="height: 250px; width: calc(100% - 200px);"></div>';
+					HTML += "<h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p>";
+					
+					HTML += "</div>";
 				}
 			}
 			document.querySelector("#slaves > #display").innerHTML = HTML
+			let graphs = document.querySelectorAll(".productionGraph");
+			for(let i = 0; i < graphs.length; i++) {
+				// execute functions to make graphs
+				// ID of slave, ID of canvasjs div without #
+				makeGraph(graphs[i].id, graphs[i].id)
+			}
 		}
 	}
 	xmlhttp.open("GET", "slaves", true);
 	xmlhttp.send();
-}, 500)
+}, 0)
 
-function makeGraph(slaveID, selector, callback) {
-	post("http://localhost:8080/getStats", {slaveID: slaveID}, function(data){
-		console.log("makeGraphed!")
-		callback(data);
+
+// ID of slave, ID of canvasjs div without #
+function makeGraph(slaveID, selector) {
+	post("getStats", {slaveID: slaveID}, function(data){
+		console.log("Building chart " + slaveID + " with this data:")
+		console.log(data)
+		if(data.length > 0) {
+			// find keys
+			let itemNames = [];
+			for(let key in data[data.length - 1].data) {
+				itemNames[itemNames.length] = key
+			}
+			let chartData = [];
+			for(let o = 0; o < itemNames.length; o++) {
+				if(itemNames[o] != "water"){
+					chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
+				}
+			}
+			console.log(chartData)
+			drawChart(selector, chartData)
+		}
+		// callback(data);
 	})
 }
 
@@ -50,27 +78,6 @@ function post(url, data, callback) {
 	}
 	xhr.send(JSON.stringify(data));
 }
-// execute functions to make a graph, this is the entrypoint (during testing at least)
-// ID of slave, blank string, function with JSON data as fist argument
-makeGraph("-496927236", "", function(data){
-	console.log("Building chart with this data:")
-	console.log(data)
-	// find keys
-	let itemNames = [];
-	for(let key in data[data.length - 1].data) {
-		itemNames[itemNames.length] = key
-	}
-	let chartData = [];
-	for(let o = 0; o < itemNames.length; o++) {
-		if(itemNames[o] != "water"){
-			chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
-		}
-	}
-	
-	
-	console.log(chartData)
-	drawChart("chartContainer", chartData)
-})
 
 function generateLineChartArray(data, nameKey) {
 	let chartData = [];
@@ -106,10 +113,7 @@ function drawChart(selector, chartData) {
 		axisY:{
 			includeZero: true
 		},
-		data: chartData/*[{
-			type: "line",
-			dataPoints: chartData
-		}]*/
+		data: chartData
 	});
 	// console.log(chart)
 	chart.render();
