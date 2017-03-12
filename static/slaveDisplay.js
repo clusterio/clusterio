@@ -110,6 +110,7 @@ function drawChart(selector, chartData) {
 		toolTip:{   
 			content: "{name}: {y}"      
 		},
+		zoomEnabled: true,
 		axisY:{
 			includeZero: true
 		},
