@@ -1,5 +1,7 @@
 #factorioClusterio
 
+If you want to connect to a clusterio cluster, please reffer to the [client](https://github.com/Danielv123/factorioClusterioClient)
+
 Features:
 
 - Entities to send/recieve items
@@ -15,6 +17,36 @@ Connection diagram:
 ![http://i.imgur.com/7FdVfgB.png](http://i.imgur.com/7FdVfgB.png)
 
 There can be any number of clients connected to each slave, and any sumber of slaves connected to a master but there can only be one master server.
+
+#Ubuntu setup
+
+NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
+
+Master and all slaves:
+
+    sudo curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash - && sudo apt install -y git nodejs && git clone https://github.com/Danielv123/factorioClusterio.git && cd factorioClusterio && npm install && sudo npm install pm2 -g && curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64 && tar -xvzf factorio.tar.gz
+
+downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
+
+**Master**
+
+    pm2 start master.js --name master
+    
+**Server Host**
+    
+To download the mod for all its non vanilla features and items, (optional)
+
+    node client.js download
+
+To create a new instance (its own save, set of mods and config files)
+
+    node client.js start [instancename]
+
+To launch an instance with pm2
+
+    pm2 start --name slave client.js -- start [instancename]
+
+use `nano config.json` to change settings.
 
 #Windows setup
 
@@ -71,33 +103,3 @@ Alternative experimental client that may be broken: [clusterioClient](https://gi
 2. Drop it into ./factorio/mods
 
 3. Run factorio and connect to slave as a normal MP game. You will find the port number to connect to at http://[masterAddress]:8080
-
-#Ubuntu setup
-
-NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
-
-Master and all slaves:
-
-    sudo curl -sL https://deb.nodesource.com/setup_7.x | sudo -E bash - && sudo apt install -y git nodejs && git clone https://github.com/Danielv123/factorioClusterio.git && cd factorioClusterio && npm install && sudo npm install pm2 -g && curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64 && tar -xvzf factorio.tar.gz
-
-downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
-
-**Master**
-
-    pm2 start master.js --name master
-    
-**Server Host**
-    
-To download the mod for all its non vanilla features and items, (optional)
-
-    node client.js download
-
-To create a new instance (its own save, set of mods and config files)
-
-    node client.js start [instancename]
-
-To launch an instance with pm2
-
-    pm2 start --name slave client.js -- start [instancename]
-
-use `nano config.json` to change settings.
