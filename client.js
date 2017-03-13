@@ -475,7 +475,7 @@ function instanceManagement() {
 			}
 		})
 		// we don't need to update stats quickly as that could be expensive
-	}, 5000)
+	}, 60000)
 	
 	// provide items --------------------------------------------------------------
 	// trigger when something happens to output.txt
