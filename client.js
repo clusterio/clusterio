@@ -463,6 +463,9 @@ function instanceManagement() {
 					for(let key in oldFlowStats) {
 						// get production per minute
 						payload[key] = Math.floor((payload[key] - oldFlowStats[key])/(timestamp - oldTimestamp)*60000);
+						if(payload[key] < 0) {
+							payload[key] = 0;
+						}
 					}
 					// console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
 					needle.post(config.masterIP + ":" + config.masterPort + '/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
