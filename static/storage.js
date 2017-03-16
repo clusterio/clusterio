@@ -26,7 +26,7 @@ setInterval(function() {
 			drawcontents(data);
 		}
 	}
-	xmlhttp.open("GET", "inventory", true);
+	xmlhttp.open("GET", "api/inventory", true);
 	xmlhttp.send();
 }, 500)
 
