@@ -18,7 +18,7 @@ setTimeout(function() {
 						var seenDate = (seenDate+"")[0]+"-"+(seenDate+"")[1]+(seenDate+"")[4]+(seenDate+"")[6]+"-"+(seenDate+"")[2]+(seenDate+"")[5]+(seenDate+"")[7]+"-"+(seenDate+"")[3];
 					}
 					HTML += "<div class='slaveBox'>";
-					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="height: 250px; width: calc(100% - 200px);"></div>';
+					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="width: calc(100% - 200px);"></div>';
 					HTML += "<h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p>";
 					
 					HTML += "</div>";
@@ -86,7 +86,9 @@ function generateLineChartArray(data, nameKey) {
 		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
 			let y = data[i].data[nameKey]
 			if(!data[i].data[nameKey]) {
-				y = 0
+				y = 0;
+			} else if(y < 0) {
+				y = 0;
 			}
 			chartData[chartData.length] = {
 				x: new Date(data[i].timestamp),
