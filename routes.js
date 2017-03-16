@@ -5,4 +5,7 @@ module.exports = function(app) {
 	app.get("/nodes", function(req, res) {
 		res.render("nodes");
 	});
+	app.get("/settings", function(req, res) {
+		res.render("settings");
+	});
 };

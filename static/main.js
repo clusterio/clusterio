@@ -1,3 +1,23 @@
+
+(function (){
+	ensureSetting("Display offline slaves", "boolean", false);
+}())
+
+function ensureSetting(setting, type, defaultSetting) {
+	let settings
+	try {
+		settings = JSON.parse(localStorage.settings);
+	} catch (e) {
+		
+	}
+	if(!settings) settings = {};
+	if(typeof settings[setting] != type) {
+		settings[setting] = defaultSetting;
+		console.log("Fixed setting: " + setting + " | " + defaultSetting)
+	}
+	localStorage.settings = JSON.stringify(settings)
+}
+
 var g = {}
 contents = {
 	"iron-plate":100,
