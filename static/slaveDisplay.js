@@ -9,8 +9,9 @@ setTimeout(function() {
 			var HTML = "<p>Current connections:</p>"
 			for(i=0;i<Object.keys(slaveData).length;i++){
 				var key = Object.keys(slaveData)[i]
-				// Only show slaves connected last 2 minutes
-				if(Date.now() - slaveData[key].time < 120000) {
+				// Only show slaves connected last 2 minutes (depending on setting now)
+				if(JSON.parse(localStorage.settings)["Display offline slaves"]) var displayOffline = true;
+				if(Date.now() - slaveData[key].time < 120000 || displayOffline) {
 					// Display ISO 6801 compliant date to please Zarthus
 					// maybe include an option to use y-ymd-ymd-y for Trangar compatibility as well
 					var seenDate = date.yyyymmdd(slaveData[key].time)
