@@ -383,7 +383,7 @@ function instanceManagement() {
 					if (err) throw err
 					payload.mac = mac
 					// console.log(payload)
-					needle.post(config.masterIP + ":" + config.masterPort + '/getID', payload, function (err, response, body) {
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
 						if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
 							console.log(response.body)
@@ -408,7 +408,7 @@ function instanceManagement() {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
 			}
-			needle.post(config.masterIP + ":" + config.masterPort + '/checkMod', payload, function (err, response, body) {
+			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, function (err, response, body) {
 				if(err) throw err // Unable to contact master server! Please check your config.json.
 				if(response && body && body == "found") {
 					console.log("master has mod")
@@ -417,7 +417,7 @@ function instanceManagement() {
 					console.log("Sending mod: " + mod)
 					// Send mods master says it wants
 					// response.body is a string which is a modName.zip
-					var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/uploadMod', function (err, resp, body) {
+					var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod', function (err, resp, body) {
 						if (err) {
 							console.log('Error!');
 							throw err
@@ -467,8 +467,8 @@ function instanceManagement() {
 							payload[key] = 0;
 						}
 					}
-					// console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-					needle.post(config.masterIP + ":" + config.masterPort + '/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
+					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
 						// we did it, keep going
 					})
 				}
@@ -495,7 +495,7 @@ function instanceManagement() {
 				g[0] = g[0].replace("\u0000", "");
 				// console.log("exporting " + JSON.stringify(g));
 				// send our entity and count to the master for him to keep track of
-				needle.post(config.masterIP + ":" + config.masterPort + '/place', {
+				needle.post(config.masterIP + ":" + config.masterPort + '/api/place', {
 					name: g[0],
 					count: g[1]
 				}, function (err, resp, body) {
@@ -543,7 +543,7 @@ function instanceManagement() {
 			// request our items, one item at a time
 			for (let i = 0; i < Object.keys(preparedPackage).length; i++) {
 				console.log(preparedPackage[Object.keys(preparedPackage)[i]])
-				needle.post(config.masterIP + ":" + config.masterPort + '/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
+				needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
 						confirmedOrders[confirmedOrders.length] = {
@@ -563,7 +563,7 @@ function instanceManagement() {
 	// COMBINATOR SIGNALS ---------------------------------------------------------
 	// get inventory from Master and RCON it to our slave
 	setInterval(function () {
-		needle.get(config.masterIP + ":" + config.masterPort + '/inventory', function (err, response, body) {
+		needle.get(config.masterIP + ":" + config.masterPort + '/api/inventory', function (err, response, body) {
 			if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
 				// console.log(response.body)
@@ -582,7 +582,7 @@ function instanceManagement() {
 	// send any signals the slave has been told to send
 	setInterval(function () {
 		// Fetch combinator signals from the server
-		needle.post(config.masterIP + ":" + config.masterPort + '/readSignal', {
+		needle.post(config.masterIP + ":" + config.masterPort + '/api/readSignal', {
 			since: lastSignalCheck
 		}, function (err, response, body) {
 			if (response && response.body && typeof response.body == "object" && response.body[0]) {
@@ -617,7 +617,7 @@ function instanceManagement() {
 								frame: framepart, // thats our array of objects(single signals)
 							}
 							// console.log(doneframe)
-						needle.post(config.masterIP + ":" + config.masterPort + '/setSignal', doneframe, function (err, response, body) {
+						needle.post(config.masterIP + ":" + config.masterPort + '/api/setSignal', doneframe, function (err, response, body) {
 							if (response && response.body) {
 								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
 							}

@@ -33,14 +33,14 @@ setTimeout(function() {
 			}
 		}
 	}
-	xmlhttp.open("GET", "slaves", true);
+	xmlhttp.open("GET", "api/slaves", true);
 	xmlhttp.send();
 }, 0)
 
 
 // ID of slave, ID of canvasjs div without #
 function makeGraph(slaveID, selector) {
-	post("getStats", {slaveID: slaveID}, function(data){
+	post("api/getStats", {slaveID: slaveID}, function(data){
 		console.log("Building chart " + slaveID + " with this data:")
 		console.log(data)
 		if(data.length > 0) {

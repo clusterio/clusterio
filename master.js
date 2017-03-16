@@ -69,7 +69,7 @@ db.items.additem = function(object) {
 var slaves = {}
 // world ID management
 // slaves post here to tell the server they exist
-app.post("/getID", function(req,res) {
+app.post("/api/getID", function(req,res) {
 	// request.body should be an object
 	// {rconPort, rconPassword, serverPort, mac, time}
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
@@ -81,7 +81,7 @@ app.post("/getID", function(req,res) {
 });
 // mod management
 // should handle uploading and checking if mods are uploaded
-app.post("/checkMod", function(req,res) {
+app.post("/api/checkMod", function(req,res) {
 	let files = fs.readdirSync(masterModFolder)
 	let found = false;
 	files.forEach(file => {
@@ -97,7 +97,7 @@ app.post("/checkMod", function(req,res) {
 	}
 	res.end()
 });
-app.post("/uploadMod", function(req,res) {
+app.post("/api/uploadMod", function(req,res) {
 	if (!req.files) {
         res.send('No files were uploaded.');
         return;
@@ -114,7 +114,7 @@ app.post("/uploadMod", function(req,res) {
 	}
 });
 // endpoint for getting information about all our slaves
-app.get("/slaves", function(req, res) {
+app.get("/api/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	let copyOfSlaves = slaves
@@ -126,7 +126,7 @@ app.get("/slaves", function(req, res) {
 });
 
 // endpoint to send items to
-app.post("/place", function(req, res) {
+app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	console.log("added: " + req.body.name + " " + req.body.count);
@@ -137,7 +137,7 @@ app.post("/place", function(req, res) {
 });
 
 // endpoint to remove items from DB when client orders items
-app.post("/remove", function(req, res) {
+app.post("/api/remove", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
@@ -170,14 +170,14 @@ app.post("/remove", function(req, res) {
 });
 
 // circuit stuff
-app.post("/setSignal", function(req,res) {
+app.post("/api/setSignal", function(req,res) {
 	if(typeof req.body == "object" && req.body.time){
 		db.signals.insert(req.body);
 		// console.log("signal set")
 	}
 });
 
-app.post("/readSignal", function(req,res) {
+app.post("/api/readSignal", function(req,res) {
 	// request.body should be an object
 	// {since:UNIXTIMESTAMP,}
 	// we should send an array of all signals since then
@@ -189,7 +189,7 @@ app.post("/readSignal", function(req,res) {
 });
 
 // endpoint for getting an inventory of what we got
-app.get("/inventory", function(req, res) {
+app.get("/api/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
@@ -200,7 +200,7 @@ app.get("/inventory", function(req, res) {
 
 // post flowstats here for production graphs
 // {timestamp: Date, slaveID: string, data: {"item":number}}
-app.post("/logStats", function(req,res) {
+app.post("/api/logStats", function(req,res) {
 	if(typeof req.body == "object" && req.body.slaveID && req.body.timestamp && req.body.data) {
 		if(Number(req.body.timestamp) != NaN){
 			req.body.timestamp = Number(req.body.timestamp);
@@ -219,7 +219,7 @@ app.post("/logStats", function(req,res) {
 	}
 })
 // {slaveID: string, fromTime: Date, toTime, Date}
-app.post("/getStats", function(req,res) {
+app.post("/api/getStats", function(req,res) {
 	console.log(req.body)
 	if(typeof req.body == "object" && req.body.slaveID) {
 		// if not specified, get stats for last 24 hours
