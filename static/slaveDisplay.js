@@ -98,26 +98,43 @@ function generateLineChartArray(data, nameKey) {
 	}
 	let xyz = {};
 	xyz.name = nameKey;
-	xyz.type = "spline";
+	xyz.type = "line";
+	xyz.showInLegend = true;
 	xyz.dataPoints = chartData;
 	return xyz;
 }
 
+var chartsByID = {};
 function drawChart(selector, chartData) {
-	// selector is ID of element, ex "chartContainer"
-	var chart = new CanvasJS.Chart(selector, {
+	// selector is ID of element, ex "chartContainer" or "-123199123"
+	console.log(chartData)
+	chartsByID[selector] = new CanvasJS.Chart(selector, {
 		title:{
 			text: "Production graph"
 		},
 		toolTip:{   
-			content: "{name}: {y}"      
+			content: "{name}: {y}"	  
 		},
 		zoomEnabled: true,
 		axisY:{
-			includeZero: true
+			includeZero: true,
+		},
+		legend: {
+			cursor: "pointer",
+			itemclick: function (e) {
+				//console.log("legend click: " + e.dataPointIndex);
+				//console.log(e);
+				if (typeof (e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
+					e.dataSeries.visible = false;
+				} else {
+					e.dataSeries.visible = true;
+				}
+				e.chart.render();
+			}
 		},
 		data: chartData
 	});
+	chart = chartsByID[selector];
 	// console.log(chart)
 	chart.render();
 }
