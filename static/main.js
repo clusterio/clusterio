@@ -98,3 +98,8 @@ var imagedata = {
 	["accumulator"]: "Basic-accumulator",
 	["beacon"]: "Basic-beacon",
 }
+
+// value:link pairs where you can add modded item icons that are missing
+var imagelinks = {
+	"fictional-modded-item": "/pictures/fictional-modded-item.png"
+}

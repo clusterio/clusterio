@@ -4,8 +4,10 @@ function drawcontents(data) {
 	result = "<table>";
 	for(i = 0;i < data.length; i++) {
 		var img = "";
-		if(imagedata[data[i].name]){
+		if(imagedata[data[i].name]) {
 			img = "https://wiki.factorio.com/images/" + imagedata[data[i].name] + ".png"
+		} else if(imagelinks[data[i].name]) {
+			img = imagelinks[data[i].name];
 		} else {
 			img = "https://wiki.factorio.com/images/" + capitalizeFirstLetter(data[i].name) + ".png";
 		}
