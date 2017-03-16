@@ -55,7 +55,7 @@ function makeGraph(slaveID, selector) {
 					chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
 				}
 			}
-			console.log(chartData)
+			//console.log(chartData)
 			drawChart(selector, chartData)
 		}
 		// callback(data);
@@ -96,6 +96,7 @@ function generateLineChartArray(data, nameKey) {
 			}
 		}
 	}
+	chartData = sortByKey(chartData, "x")
 	let xyz = {};
 	xyz.name = nameKey;
 	xyz.type = "line";
@@ -128,7 +129,7 @@ function drawChart(selector, chartData) {
 					e.dataSeries.visible = false;
 				} else {
 					e.dataSeries.visible = true;
-				}
+				}	
 				e.chart.render();
 			}
 		},
@@ -137,4 +138,12 @@ function drawChart(selector, chartData) {
 	chart = chartsByID[selector];
 	// console.log(chart)
 	chart.render();
+}
+
+// function to sort arrays of objects after a keys value
+function sortByKey(array, key) {
+    return array.sort(function(a, b) {
+        var x = Number(a[key]); var y = Number(b[key]);
+        return ((x < y) ? 1 : ((x > y) ? -1 : 0));
+    });
 }
