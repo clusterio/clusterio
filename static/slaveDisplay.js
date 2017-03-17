@@ -27,11 +27,14 @@ setTimeout(function() {
 				}
 			}
 			document.querySelector("#slaves > #display").innerHTML = HTML
-			let graphs = document.querySelectorAll(".productionGraph");
-			for(let i = 0; i < graphs.length; i++) {
-				// execute functions to make graphs
-				// ID of slave, ID of canvasjs div without #
-				makeGraph(graphs[i].id, graphs[i].id)
+			
+			if(JSON.parse(localStorage.settings)["Enable production graphs"]) {
+				let graphs = document.querySelectorAll(".productionGraph");
+				for(let i = 0; i < graphs.length; i++) {
+					// execute functions to make graphs
+					// ID of slave, ID of canvasjs div without #
+					makeGraph(graphs[i].id, graphs[i].id)
+				}
 			}
 		}
 	}

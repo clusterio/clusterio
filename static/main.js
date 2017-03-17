@@ -1,6 +1,7 @@
 
 (function (){
 	ensureSetting("Display offline slaves", "boolean", false);
+	ensureSetting("Enable production graphs", "boolean", true);
 }())
 
 function ensureSetting(setting, type, defaultSetting) {
