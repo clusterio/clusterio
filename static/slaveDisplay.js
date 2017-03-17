@@ -20,8 +20,9 @@ setTimeout(function() {
 					}
 					HTML += "<div class='slaveBox'>";
 					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="width: calc(100% - 200px);"></div>';
-					HTML += "<h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>Port: "+slaveData[key].serverPort+"</p><p>Host: "+slaveData[key].mac+"</p>";
-					
+					HTML += "<h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
+					HTML += "<p>Host: "+slaveData[key].mac+"</p>";
+					HTML += "<button onclick='hideAllDatasets(\"" + slaveData[key].unique + "\")\'>Hide all</button>";
 					HTML += "</div>";
 				}
 			}
@@ -97,7 +98,7 @@ function generateLineChartArray(data, nameKey) {
 			}
 		}
 	}
-	chartData = sortByKey(chartData, "x")
+	chartData = sortByKey(chartData, "x");
 	let xyz = {};
 	xyz.name = nameKey;
 	xyz.type = "line";
@@ -139,6 +140,18 @@ function drawChart(selector, chartData) {
 	chart = chartsByID[selector];
 	// console.log(chart)
 	chart.render();
+}
+
+function hideAllDatasets(chartID) {
+	if(chartsByID[chartID]) {
+		let chart = chartsByID[chartID];
+		for(let i = 0; i < chart.options.data.length; i++) {
+			chart.options.data[i].visible = false;
+		}
+		chart.render();
+	} else {
+		return false;
+	}
 }
 
 // function to sort arrays of objects after a keys value
