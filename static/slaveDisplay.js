@@ -1,6 +1,5 @@
 
-// get all slaves recently connected to master
-// ask master for slaves
+// ask master for slaves and render them nicely on a page with production graphs
 setTimeout(function() {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
@@ -76,7 +75,6 @@ function post(url, data, callback) {
 	xhr.open("POST", url, true);
 	xhr.setRequestHeader("Content-type", "application/json");
 	xhr.onreadystatechange = function () {
-		console.log(xhr.readyState + "WOW")
 		if (xhr.readyState == 4 && xhr.status == 200) {
 			var json = JSON.parse(xhr.responseText);
 			callback(json);
@@ -106,7 +104,9 @@ function generateLineChartArray(data, nameKey) {
 	let xyz = {};
 	xyz.name = nameKey;
 	xyz.type = "line";
-	xyz.showInLegend = true;
+	if(nameKey == "copper-wire"||nameKey == "iron-plate"||nameKey == "copper-plate"||nameKey == "electronic-circuit"||nameKey == "steel-plate"||nameKey == "advanced-circuit"||nameKey == "crude-oil"||nameKey == "petroleum-gas"){
+		xyz.showInLegend = true;
+	}
 	xyz.dataPoints = chartData;
 	return xyz;
 }
