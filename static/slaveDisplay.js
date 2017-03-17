@@ -23,6 +23,7 @@ setTimeout(function() {
 					HTML += "<h2>ID: " + slaveData[key].unique + "</h2><p>Last seen: "+seenDate+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
 					HTML += "<p>Host: "+slaveData[key].mac+"</p>";
 					HTML += "<button onclick='hideAllDatasets(\"" + slaveData[key].unique + "\")\'>Hide all</button>";
+					HTML += "<button onclick='showAllDatasets(\"" + slaveData[key].unique + "\")\'>Show all</button>";
 					HTML += "</div>";
 				}
 			}
@@ -46,8 +47,8 @@ setTimeout(function() {
 // ID of slave, ID of canvasjs div without #
 function makeGraph(slaveID, selector) {
 	post("api/getStats", {slaveID: slaveID}, function(data){
-		console.log("Building chart " + slaveID + " with this data:")
-		console.log(data)
+		//console.log("Building chart " + slaveID + " with this data:")
+		//console.log(data)
 		if(data.length > 0) {
 			// find keys
 			let itemNames = [];
@@ -150,6 +151,17 @@ function hideAllDatasets(chartID) {
 		let chart = chartsByID[chartID];
 		for(let i = 0; i < chart.options.data.length; i++) {
 			chart.options.data[i].visible = false;
+		}
+		chart.render();
+	} else {
+		return false;
+	}
+}
+function showAllDatasets(chartID) {
+	if(chartsByID[chartID]) {
+		let chart = chartsByID[chartID];
+		for(let i = 0; i < chart.options.data.length; i++) {
+			chart.options.data[i].visible = true;
 		}
 		chart.render();
 	} else {
