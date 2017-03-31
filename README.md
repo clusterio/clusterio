@@ -1,4 +1,4 @@
-#factorioClusterio
+# factorioClusterio
 
 If you want to connect to a clusterio cluster, please reffer to the [client](https://github.com/Danielv123/factorioClusterioClient)
 
@@ -18,7 +18,7 @@ Connection diagram:
 
 There can be any number of clients connected to each slave, and any sumber of slaves connected to a master but there can only be one master server.
 
-#Ubuntu setup
+# Ubuntu setup
 
 NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
 
@@ -60,7 +60,7 @@ Clusterio has limited support for using docker.
 
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
 
-#Windows setup
+# Windows setup
 
 Clusterio is built up of multiple parts. Here is a quick guide:
 
