@@ -48,6 +48,18 @@ To launch an instance with pm2
 
 use `nano config.json` to change settings.
 
+**Ubuntu with Docker**
+
+Clusterio has limited support for using docker.
+
+    sudo docker build -t clusterio --no-cache --force-rm factorioClusterio
+	
+	sudo docker run --name master -e MODE=master -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
+	
+	sudo docker run --name slave -e MODE=client -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
+
+The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
+
 #Windows setup
 
 Clusterio is built up of multiple parts. Here is a quick guide:
@@ -86,7 +98,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 3. Type `node client.js start [instancename]` to create a new instance.
 
-To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser server.
+To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
 Change masterIP to something like 31.152.123.14 (provided by master server owner)
 
@@ -96,7 +108,7 @@ Repeat step 3 for more servers on one machine. You should be able to find its po
 
 **GameClient**
 
-Alternative experimental client that may be broken: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
+Fancy game client that does the following steps automatically: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
 
 1. Download the same version of the mod as the slave is running from [the mod portal](https://mods.factorio.com/mods/Danielv123/clusterio) or [github](https://github.com/Danielv123/factorioClusterioMod
 
