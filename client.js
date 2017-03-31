@@ -403,7 +403,7 @@ function instanceManagement() {
 	setTimeout(function(){hashMods(instance, uploadMods)}, 5000);
 	function uploadMods(modHashes) {
 		// [{modName:string,hash:string}, ... ]
-		for(i=0;i<modHashes.length;i++){
+		for(let i=0;i<modHashes.length;i++){
 			let payload = {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
@@ -455,8 +455,8 @@ function instanceManagement() {
 				let flowStat2 = flowStats[flowStats.length-2].flows.player.input_counts
 				// merge fluid and item flows
 				let totalFlows = {};
-				for(var key in flowStat1) totalFlows[key] = flowStat1[key];
-				for(var key in flowStat2) totalFlows[key] = flowStat2[key];
+				for(let key in flowStat1) totalFlows[key] = flowStat1[key];
+				for(let key in flowStat2) totalFlows[key] = flowStat2[key];
 				if(oldFlowStats && totalFlows && oldTimestamp) {
 					let payload = libomega.clone(totalFlows);
 					// change from total reported to per time unit
@@ -484,14 +484,14 @@ function instanceManagement() {
 	// trigger when something happens to output.txt
 	fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
 		// get array of lines in file
-		items = fs.readFileSync(instancedirectory + "/script-output/output.txt", "utf8").split("\n");
+		let items = fs.readFileSync(instancedirectory + "/script-output/output.txt", "utf8").split("\n");
 		// if you found anything, reset the file
 		if (items[0]) {
 			fs.writeFileSync(instancedirectory + "/script-output/output.txt", "")
 		}
 		for (let i = 0; i < items.length; i++) {
 			if (items[i]) {
-				g = items[i].split(" ");
+				let g = items[i].split(" ");
 				g[0] = g[0].replace("\u0000", "");
 				// console.log("exporting " + JSON.stringify(g));
 				// send our entity and count to the master for him to keep track of
@@ -507,7 +507,7 @@ function instanceManagement() {
 	// request items --------------------------------------------------------------
 	setInterval(function () {
 		// get array of lines in file
-		items = fs.readFileSync(instancedirectory + "/script-output/orders.txt", "utf8").split("\n");
+		let items = fs.readFileSync(instancedirectory + "/script-output/orders.txt", "utf8").split("\n");
 		// if we actually got anything from the file, proceed and reset file
 		if (items[0]) {
 			fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
@@ -558,6 +558,7 @@ function instanceManagement() {
 			confirmedOrders = [];
 			// send our RCON command with whatever we got
 			messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
+			sadas = null;
 		}
 	}, 3000)
 	// COMBINATOR SIGNALS ---------------------------------------------------------
@@ -587,7 +588,7 @@ function instanceManagement() {
 		}, function (err, response, body) {
 			if (response && response.body && typeof response.body == "object" && response.body[0]) {
 				// Take the new combinator frames and compress them so we can use a single command
-				frameset = [];
+				let frameset = [];
 				for (let i = 0; i < response.body.length; i++) {
 					frameset[i] = response.body[i].frame;
 				}
@@ -601,7 +602,7 @@ function instanceManagement() {
 
 		// get outbound frames from file and send to master
 		// get array of lines in file, each line should correspond to a JSON encoded frame
-		signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
+		let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
 		// if we actually got anything from the file, proceed and reset file
 		if (signals[0]) {
 			fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
@@ -611,8 +612,8 @@ function instanceManagement() {
 					if (signals[i]) {
 						// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
 						// then we unpack and RCON in this.frame to the game later.
-						framepart = JSON.parse(signals[i])
-						doneframe = {
+						let framepart = JSON.parse(signals[i])
+						let doneframe = {
 								time: Date.now(),
 								frame: framepart, // thats our array of objects(single signals)
 							}
