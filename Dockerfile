@@ -5,7 +5,7 @@ LABEL maintainer "danielv@live.no"
 
 EXPOSE 8080 34167
 
-VOLUME factorioClusterio/instances
+VOLUME /factorioClusterio/instances
 
 WORKDIR factorioClusterio
 CMD node $MODE\.js start $INSTANCE
