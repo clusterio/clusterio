@@ -354,7 +354,7 @@ function instanceManagement() {
 				if(fs.existsSync(instancedirectory + "/script-output/tempfile.txt")) {
 					var data = fs.readFileSync(instancedirectory + "/script-output/tempfile.txt", "utf8").split("\n");
 					// delete when we are done
-					fs.unlink(instancedirectory + "/script-output/tempfile.txt");
+					fs.unlink(instancedirectory + "/script-output/tempfile.txt", function(){});
 				}
 				// if we actually got anything from the file, proceed to categorize it
 				if (data && data[0]) {
