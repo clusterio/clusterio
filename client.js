@@ -378,6 +378,7 @@ function instanceManagement() {
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					playerCount: instanceInfo.playerCount || 0,
+					instanceName: instance,
 				}
 				require('getmac').getMac(function (err, mac) {
 					if (err) throw err
