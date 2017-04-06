@@ -228,10 +228,11 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			console.log(`child process exited with code ${code}`);
 			process.exit();
 		});
-	/*
 		serverprocess.stdout.on('data', (chunk) => {
-			console.log('OUT: ' + chunk);
-		})*/
+			if(process.platform == "linux"){
+				console.log('Factorio: ' + chunk);
+			}
+		})
 
 		serverprocess.stderr.on('data', (chunk) => {
 			console.log('ERR: ' + chunk);
