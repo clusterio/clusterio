@@ -2,6 +2,7 @@
 (function (){
 	ensureSetting("Display offline slaves", "boolean", false);
 	ensureSetting("Enable production graphs", "boolean", true);
+	ensureSetting("Periodically update storage screen", "boolean", true);
 }())
 
 function ensureSetting(setting, type, defaultSetting) {
