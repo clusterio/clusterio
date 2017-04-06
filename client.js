@@ -521,17 +521,24 @@ function instanceManagement() {
 						items[i][0] = items[i][0].replace("\u0000", "");
 						items[i][0] = items[i][0].replace(",", "");
 						if (preparedPackage[items[i][0]]) {
+							// if we have buffered some already, sum the new items
 							if (typeof Number(preparedPackage[items[i][0]].count) == "number" && typeof Number(items[i][1]) == "number") {
 								preparedPackage[items[i][0]] = {
 									"name": items[i][0],
-									"count": Number(preparedPackage[items[i][0]].count) + Number(items[i][1])
+									"count": Number(preparedPackage[items[i][0]].count) + Number(items[i][1]),
+									"instanceName":instance,
+									"instanceID":instanceconfig.unique,
 								};
+							// else just add em in without summing
 							} else if (typeof Number(items[i][1]) == "number") {
 								preparedPackage[items[i][0]] = {
 									"name": items[i][0],
-									"count": Number(items[i][1])
+									"count": Number(items[i][1]),
+									"instanceName":instance,
+									"instanceID":instanceconfig.unique,
 								};
 							}
+						// this condition will NEVER be triggered but we know how that goes
 						} else if (typeof Number(items[i][1]) == "number") {
 							preparedPackage[items[i][0]] = {
 								"name": items[i][0],
