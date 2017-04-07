@@ -130,8 +130,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 
 	fs.copySync('sharedMods', instancedirectory + "/mods")
 	let instconf = {
-		"factorioPort": Math.floor(Math.random() * 65535),
-		"clientPort": Math.floor(Math.random() * 65535),
+		"factorioPort": process.env.FACTORIOPORT | Math.floor(Math.random() * 65535),
+		"clientPort": process.env.RCONPORT | Math.floor(Math.random() * 65535),
 		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
 	console.log("Clusterio | Moving shared mods...")
