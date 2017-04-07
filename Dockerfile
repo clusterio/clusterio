@@ -14,4 +14,4 @@ VOLUME /factorioClusterio/instances
 VOLUME /factorioClusterio/sharedMods
 VOLUME /factorioClusterio/sharedPlugins
 
-CMD node $MODE\.js start $INSTANCE
+CMD node RCONPORT="$RCONPORT" FACTORIOPORT="$FACTORIOPORT" MODE="$MODE" $MODE\.js start $INSTANCE

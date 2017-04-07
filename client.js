@@ -175,6 +175,12 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	if(instancedirectory != "./instances/undefined"){
 		var instanceconfig = require(instancedirectory + '/config');
 		instanceconfig.unique = instanceconfig.clientPassword.hashCode();
+		if(process.env.FACTORIOPORT){
+			instanceconfig.factorioPort = process.env.FACTORIOPORT;
+		}
+		if(process.env.RCONPORT){
+			instanceconfig.rconPort = process.env.RCONPORT;
+		}
 	} else {
 		process.exit(1)
 	}
