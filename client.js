@@ -191,7 +191,9 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			fs.unlinkSync(instancedirectory + "/saves/" + savefiles[i]);
 		}
 	}
-	
+	setInterval(function(){
+		console.log(process.env);
+	},5000);
 	console.log("Deleting logs");
 	// clean old log file to avoid crash
 	// file exists, delete so we don't get in trouble
