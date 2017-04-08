@@ -223,10 +223,10 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instancedirectory + '/config.ini',
 				'--start-server', latestSave.file,
-				'--rcon-port', instanceconfig.clientPort,
+				'--rcon-port', Number(process.env.RCONPORT) | instanceconfig.clientPort,
 				'--rcon-password', instanceconfig.clientPassword,
 				'--server-settings', instancedirectory + '/server-settings.json',
-				'--port', instanceconfig.factorioPort
+				'--port', Number(process.env.FACTORIOPORT) | instanceconfig.factorioPort
 			], {
 				'stdio': ['pipe', 'pipe', 'pipe']
 			}
@@ -249,7 +249,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		// IP, port, password
 		client = new Rcon({
 			host: 'localhost',
-			port: instanceconfig.clientPort,
+			port: Number(process.env.RCONPORT) | instanceconfig.clientPort,
 			password: instanceconfig.clientPassword,
 			timeout: 0
 		});
