@@ -278,8 +278,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			// getID();
 		}).on('disconnected', function () {
 			console.log('Clusterio | Disconnected!');
-			// now reconnect
-			client.connect();
+			process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
 		});
 
 		// set some globals
@@ -391,9 +390,12 @@ function instanceManagement() {
 				require('getmac').getMac(function (err, mac) {
 					if (err) throw err
 					payload.mac = mac
-					// console.log(payload)
+					console.log("Registered our precense with master at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
-						if (response && response.body) {
+						if (err){
+							console.error("We got problems, something went wrong when contacting master");
+							console.error(err);
+						} else if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
 							console.log(response.body)
 						}
