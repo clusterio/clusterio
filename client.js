@@ -8,6 +8,7 @@ var request = require("request")
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
+var _ = require('underscore'):
 
 var libomega = require("./libomega.js");
 // require config.json
@@ -236,6 +237,15 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			console.log(`child process exited with code ${code}`);
 			process.exit();
 		});
+		serverprocess.stdout.on("data", (data) => {
+			// log("Stdout: " + data);
+			if(data.toString('utf8').includes("Couldn't parse RCON data: Maximum payload size exceeded")){
+				console.error("ERROR: RCON CONNECTION BROKE DUE TO TOO LARGE PACKET!");
+				console.error("Attempting reconnect...");
+				client.close();
+				client.connect();
+			}
+		});
 	/*
 		serverprocess.stdout.on('data', (chunk) => {
 			console.log('OUT: ' + chunk);
@@ -286,8 +296,9 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		lastSignalCheck = Date.now();
 	})
 }
-
+_.once(instanceManagement);
 function instanceManagement() {
+	console.log("Started instanceManagement();")
 	// load plugins and execute onLoad event
 	let pluginDirectories = getDirectories("./sharedPlugins/");
 	let plugins = [];
