@@ -402,9 +402,9 @@ function instanceManagement() {
 				require('getmac').getMac(function (err, mac) {
 					if (err) throw err
 					payload.mac = mac
-					console.log("Registered our precense with master at " + payload.time);
+					console.log("Registered our precense with master "+config.masterPort+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
-						if (err){
+						if (err && err.code != "ECONNRESET"){
 							console.error("We got problems, something went wrong when contacting master");
 							console.error(err);
 						} else if (response && response.body) {
