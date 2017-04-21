@@ -99,6 +99,13 @@ var imagedata = {
 	["piercing-shotgun-shells"]: "Piercing-shotgun-shell",
 	["accumulator"]: "Basic-accumulator",
 	["beacon"]: "Basic-beacon",
+	["rail"]: "Straight-rail",
+	["piercing-rounds-magazine"]: "Piercing-bullet-magazine",
+	["grenade"]: "Basic-grenade",
+	["raw-fish"]: "Fish",
+	["water-barrel"]: "Barrel-empty",
+	["smart-train-stop"]: "Train-stop",
+	["put-combinator"]: "Decider-combinator",
 }
 
 // value:link pairs where you can add modded item icons that are missing

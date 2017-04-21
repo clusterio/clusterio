@@ -142,15 +142,21 @@ app.post("/api/remove", function(req, res) {
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
 	var object = req.body;
+	if(!object.instanceName) {
+		object.instanceName = "unknown"
+	}
+	if(!object.instanceID) {
+		object.instanceID = "unknown"
+	}
 	db.items.findOne({name:object.name}, function (err, doc) {
 		// console.dir(doc);
 		if (err) {
-			console.log('failure');
+			console.log('failure count not find ' + object.name);
 		} else {
 			if (doc) {
 				// Update existing items if item name already exists
 				if(Number(doc.count) > Number(object.count)) {
-					console.log("removed: " + object.name + " " + object.count + " . " + doc.count);
+					console.log("removed: " + object.name + " " + object.count + " . " + doc.count + " and sent to " + object.instanceID + " | " + object.instanceName);
 					objectUpdate = {
 						"name": object.name,
 						"count": Number(doc.count) - Number(object.count),
@@ -160,7 +166,7 @@ app.post("/api/remove", function(req, res) {
 					// res.send("successier");
 					res.send(object);
 				} else {
-					console.log('failure');
+					console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
 				}
 			} else {
 				console.log('failure ' + object.name);
