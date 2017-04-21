@@ -4,11 +4,11 @@ var needle = require("needle");
 var child_process = require('child_process');
 var path = require('path');
 var syncRequest = require('sync-request');
-var request = require("request")
+var request = require("request");
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
-var _ = require('underscore'):
+var _ = require('underscore');
 
 var libomega = require("./libomega.js");
 // require config.json
