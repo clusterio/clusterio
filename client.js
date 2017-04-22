@@ -63,7 +63,13 @@ function messageInterface(command, callback) {
 		command = command.toString('utf8');
 	}
 	
-	if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
+	if(process.platform == "linux" && typeof command == "string" && serverprocess) {
+		/*
+			to send to stdin, use:
+			serverprocess.stdin.write("/c command;\n")
+		*/
+		serverprocess.stdin.write(command+"\n");
+	} else if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
 		try {
 			client.exec(command, callback);
 		} catch (err) {
@@ -220,7 +226,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline)
 	getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(latestSave) {
-		var serverprocess = child_process.spawn(
+		// implicit global
+		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instancedirectory + '/config.ini',
 				'--start-server', latestSave.file,
@@ -402,7 +409,7 @@ function instanceManagement() {
 				require('getmac').getMac(function (err, mac) {
 					if (err) throw err
 					payload.mac = mac
-					console.log("Registered our precense with master "+config.masterPort+" at " + payload.time);
+					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
 							console.error("We got problems, something went wrong when contacting master");
