@@ -69,6 +69,9 @@ function messageInterface(command, callback) {
 			serverprocess.stdin.write("/c command;\n")
 		*/
 		serverprocess.stdin.write(command+"\n");
+		if(typeof callback == "function"){
+			callback();
+		}
 	} else if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
 		try {
 			client.exec(command, callback);
