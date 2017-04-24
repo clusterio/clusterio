@@ -4,10 +4,11 @@ var needle = require("needle");
 var child_process = require('child_process');
 var path = require('path');
 var syncRequest = require('sync-request');
-var request = require("request")
+var request = require("request");
 var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
+var _ = require('underscore');
 
 var libomega = require("./libomega.js");
 // require config.json
@@ -62,7 +63,16 @@ function messageInterface(command, callback) {
 		command = command.toString('utf8');
 	}
 	
-	if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
+	if(process.platform == "linux" && typeof command == "string" && serverprocess) {
+		/*
+			to send to stdin, use:
+			serverprocess.stdin.write("/c command;\n")
+		*/
+		serverprocess.stdin.write(command+"\n");
+		if(typeof callback == "function"){
+			callback();
+		}
+	} else if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
 		try {
 			client.exec(command, callback);
 		} catch (err) {
@@ -130,8 +140,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 
 	fs.copySync('sharedMods', instancedirectory + "/mods")
 	let instconf = {
-		"factorioPort": Math.floor(Math.random() * 65535),
-		"clientPort": Math.floor(Math.random() * 65535),
+		"factorioPort": process.env.FACTORIOPORT | Math.floor(Math.random() * 65535),
+		"clientPort": process.env.RCONPORT | Math.floor(Math.random() * 65535),
 		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
 	console.log("Clusterio | Moving shared mods...")
@@ -175,6 +185,12 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	if(instancedirectory != "./instances/undefined"){
 		var instanceconfig = require(instancedirectory + '/config');
 		instanceconfig.unique = instanceconfig.clientPassword.hashCode();
+		if(process.env.FACTORIOPORT){
+			instanceconfig.factorioPort = process.env.FACTORIOPORT;
+		}
+		if(process.env.RCONPORT){
+			instanceconfig.rconPort = process.env.RCONPORT;
+		}
 	} else {
 		process.exit(1)
 	}
@@ -185,7 +201,9 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			fs.unlinkSync(instancedirectory + "/saves/" + savefiles[i]);
 		}
 	}
-	
+	/*setInterval(function(){
+		console.log(process.env);
+	},5000);*/
 	console.log("Deleting logs");
 	// clean old log file to avoid crash
 	// file exists, delete so we don't get in trouble
@@ -211,14 +229,15 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline)
 	getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(latestSave) {
-		var serverprocess = child_process.spawn(
+		// implicit global
+		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instancedirectory + '/config.ini',
 				'--start-server', latestSave.file,
-				'--rcon-port', instanceconfig.clientPort,
+				'--rcon-port', Number(process.env.RCONPORT) || instanceconfig.clientPort,
 				'--rcon-password', instanceconfig.clientPassword,
 				'--server-settings', instancedirectory + '/server-settings.json',
-				'--port', instanceconfig.factorioPort
+				'--port', Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort
 			], {
 				'stdio': ['pipe', 'pipe', 'pipe']
 			}
@@ -227,6 +246,15 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		serverprocess.on('close', (code) => {
 			console.log(`child process exited with code ${code}`);
 			process.exit();
+		});
+		serverprocess.stdout.on("data", (data) => {
+			// log("Stdout: " + data);
+			if(data.toString('utf8').includes("Couldn't parse RCON data: Maximum payload size exceeded")){
+				console.error("ERROR: RCON CONNECTION BROKE DUE TO TOO LARGE PACKET!");
+				console.error("Attempting reconnect...");
+				client.close();
+				client.connect();
+			}
 		});
 		serverprocess.stdout.on('data', (chunk) => {
 			if(process.platform == "linux"){
@@ -242,7 +270,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		// IP, port, password
 		client = new Rcon({
 			host: 'localhost',
-			port: instanceconfig.clientPort,
+			port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
 			password: instanceconfig.clientPassword,
 			timeout: 0
 		});
@@ -271,8 +299,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			// getID();
 		}).on('disconnected', function () {
 			console.log('Clusterio | Disconnected!');
-			// now reconnect
-			client.connect();
+			process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
 		});
 
 		// set some globals
@@ -280,8 +307,9 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		lastSignalCheck = Date.now();
 	})
 }
-
+_.once(instanceManagement);
 function instanceManagement() {
+	console.log("Started instanceManagement();")
 	// load plugins and execute onLoad event
 	let pluginDirectories = getDirectories("./sharedPlugins/");
 	let plugins = [];
@@ -384,9 +412,12 @@ function instanceManagement() {
 				require('getmac').getMac(function (err, mac) {
 					if (err) throw err
 					payload.mac = mac
-					// console.log(payload)
+					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
-						if (response && response.body) {
+						if (err && err.code != "ECONNRESET"){
+							console.error("We got problems, something went wrong when contacting master");
+							console.error(err);
+						} else if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
 							console.log(response.body)
 						}

@@ -32,6 +32,7 @@
     "portfinder": "^1.0.9",
     "request": "^2.79.0",
     "simple-rcon": "^0.3.1",
-    "sync-request": "^4.0.1"
+    "sync-request": "^4.0.1",
+    "underscore": "^1.8.3"
   }
 }

@@ -1,7 +1,7 @@
 // function to draw data we recieve from ajax requests
 function drawcontents(data) {
-	var data = sortByKey(data, "count");
-	result = "<table>";
+	data = sortByKey(data, "count");
+	let result = "<table>";
 	for(i = 0;i < data.length; i++) {
 		var img = "";
 		if(imagedata[data[i].name]) {
@@ -18,17 +18,22 @@ function drawcontents(data) {
 }
 
 // get cluster inventory from master
-setInterval(function() {
+function updateInventory() {
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
 		if(xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-			data = JSON.parse(xmlhttp.responseText);
+			let data = JSON.parse(xmlhttp.responseText);
 			drawcontents(data);
 		}
 	}
 	xmlhttp.open("GET", "api/inventory", true);
 	xmlhttp.send();
-}, 500)
+}
+if(JSON.parse(localStorage.settings)["Periodically update storage screen"]) {
+	setInterval(updateInventory, 500);
+} else {
+	updateInventory();
+}
 
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
