@@ -575,7 +575,7 @@ function instanceManagement() {
 						} else if (typeof Number(items[i][1]) == "number") {
 							preparedPackage[items[i][0]] = {
 								"name": items[i][0],
-								"count": Number(items[i][1]);
+								"count": Number(items[i][1]),
 							};
 						}
 					}
