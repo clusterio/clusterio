@@ -318,9 +318,10 @@ function instanceManagement() {
 		let log = function(t) {
 			console.log("Clusterio | "+ pluginDirectories[I] + " | " + t);
 		}
+		let arguments = pluginConfig.arguments || [];
 		
 		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
-		plugins.push(child_process.spawn(pluginConfig.binary, [], {
+		plugins.push(child_process.spawn(pluginConfig.binary, arguments, {
 			cwd: "./sharedPlugins/"+pluginDirectories[i],
 			stdio: ['pipe', 'pipe', 'pipe'],
 		}));
