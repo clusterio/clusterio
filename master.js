@@ -5,6 +5,7 @@ const masterModFolder = "./database/masterMods/"
 const mkdirp = require("mkdirp");
 mkdirp.sync("./database");
 mkdirp.sync(masterModFolder);
+const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
 var nedb = require("nedb");
@@ -75,8 +76,35 @@ app.post("/api/getID", function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		slaves[req.body.unique] = req.body;
-		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
+		console.log(req.body)
+		if(!slaves[req.body.unique]){
+			slaves[req.body.unique] = {};
+		}
+		for(k in req.body){
+			if(k != "meta" && req.body.hasOwnProperty(k)){
+				slaves[req.body.unique][k] = req.body[k];
+			}
+		}
+		console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
+	}
+});
+// todo: Write docs for this
+app.post("/api/editSlaveMeta", function(req,res) {
+	// request.body should be an object
+	// {slaveID, pass, meta:{x,y,z}}
+	
+	if(req.body && req.body.slaveID && req.body.password && req.body.meta){
+		// check for editing permissions
+		if(slaves[req.body.slaveID] && slaves[req.body.slaveID].rconPassword == req.body.password){
+			if(!slaves[req.body.slaveID].meta){
+				slaves[req.body.slaveID].meta = {};
+				slaves[req.body.slaveID].meta = deepmerge(slaves[req.body.slaveID].meta, req.body.meta, {clone:true})
+			}
+			console.log("Updating slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
+		} else {
+			res.send("ERROR: Invalid slaveID or password")
+		}
+		slaves[req.body.slaveID] = req.body;
 	}
 });
 // mod management
@@ -117,9 +145,9 @@ app.post("/api/uploadMod", function(req,res) {
 app.get("/api/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let copyOfSlaves = slaves
+	let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
 	// filter out the rcon password because thats kindof not a safe thing to share
-	for(key in copyOfSlaves) {
+	for(key in copyOfSlaves){
 		copyOfSlaves[key].rconPassword = "hidden";
 	}
 	res.send(copyOfSlaves);
