@@ -318,9 +318,9 @@ function instanceManagement() {
 		let log = function(t) {
 			console.log("Clusterio | "+ pluginDirectories[I] + " | " + t);
 		}
-		let arguments = pluginConfig.arguments || [];
 		
 		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
+		let arguments = pluginConfig.arguments || [];
 		plugins.push(child_process.spawn(pluginConfig.binary, arguments, {
 			cwd: "./sharedPlugins/"+pluginDirectories[i],
 			stdio: ['pipe', 'pipe', 'pipe'],
@@ -363,8 +363,11 @@ function instanceManagement() {
 		}
 		console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
 		plugins[i].stdout.on("data", (data) => {
-			// log("Stdout: " + data);
-			messageInterface(data.toString('utf8'));
+			if(data.toString('utf8')[0] != "/") {
+				log("Stdout: " + data.toString('utf8'))
+			} else {
+				messageInterface(data.toString('utf8'));
+			}
 		});
 		plugins[i].stderr.on("data", (data) => {
 			log("STDERR: " + data);
