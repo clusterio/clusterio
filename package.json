@@ -4,7 +4,8 @@
   "description": "Factorio cluster???",
   "main": "master.js",
   "scripts": {
-    "test": "nodemon master.js",
+    "test": "npm run test-unit",
+    "test-unit": "SET NODE_ENV=test && mocha *.spec.js",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js"
   },
   "keywords": [
@@ -35,5 +36,8 @@
     "simple-rcon": "^0.3.1",
     "sync-request": "^4.0.1",
     "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "mocha": "^3.4.1"
   }
 }

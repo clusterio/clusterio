@@ -38,6 +38,11 @@ var clone = function(obj) {
 	return copy;
 }
 
+var deepclone = function(obj){
+	return JSON.parse(JSON.stringify(obj));
+}
+
 module.exports = {
 	clone:clone,
+	deepclone:deepclone,
 };
