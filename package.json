@@ -5,7 +5,7 @@
   "main": "master.js",
   "scripts": {
     "test": "npm run test-unit",
-    "test-unit": "SET NODE_ENV=test && mocha *.spec.js",
+    "test-unit": "SET NODE_ENV=test && mocha --recursive ./**/*.spec.js",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js"
   },
   "keywords": [
