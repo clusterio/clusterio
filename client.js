@@ -10,7 +10,7 @@ var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
 var _ = require('underscore');
 
-var libomega = require("./libomega.js");
+var libomega = require("./lib/libomega.js");
 // require config.json
 var config = require('./config');
 var global = {};
