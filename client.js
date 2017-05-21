@@ -10,7 +10,10 @@ var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
 var _ = require('underscore');
 
+// internal libraries
 var libomega = require("./lib/libomega.js");
+var fileOps = require("./lib/fileOps.js");
+
 // require config.json
 var config = require('./config');
 var global = {};
@@ -28,21 +31,6 @@ const instance = process.argv[3];
 const instancedirectory = './instances/' + instance;
 const command = process.argv[2];
 var instanceInfo = {};
-
-// Functions
-function deleteFolderRecursive(path) {
-	if (fs.existsSync(path)) {
-		fs.readdirSync(path).forEach(function (file, index) {
-			var curPath = path + "/" + file;
-			if (fs.lstatSync(curPath).isDirectory()) { // recurse
-				deleteFolderRecursive(curPath);
-			} else { // delete file
-				fs.unlinkSync(curPath);
-			}
-		});
-		fs.rmdirSync(path);
-	}
-};
 
 // simple string hasher
 String.prototype.hashCode = function () {
@@ -94,14 +82,14 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js download");
 	process.exit(1);
 } else if (command == "list") {
-	console.dir(getDirectories("./instances/"));
+	console.dir(fileOps.getDirectories("./instances/"));
 	process.exit(1);
 } else if (command == "delete") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
 	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
-		deleteFolderRecursive("./instances/" + process.argv[3]);
+		fileOps.deleteFolderRecursive("./instances/" + process.argv[3]);
 		console.log("Deleted instance " + process.argv[3]);
 		process.exit(1);
 	} else {
@@ -228,7 +216,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
-	getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(latestSave) {
+	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(latestSave) {
 		// implicit global
 		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
@@ -307,11 +295,13 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		lastSignalCheck = Date.now();
 	});
 }
+
+// ensure instancemanagement only runs once
 _.once(instanceManagement);
 function instanceManagement() {
 	console.log("Started instanceManagement();");
 	// load plugins and execute onLoad event
-	let pluginDirectories = getDirectories("./sharedPlugins/");
+	let pluginDirectories = fileOps.getDirectories("./sharedPlugins/");
 	let plugins = [];
 	for(i=0; i<pluginDirectories.length; i++) {
 		let I = i
@@ -674,13 +664,6 @@ function instanceManagement() {
 	}, 1000);
 } // END OF INSTANCE START ---------------------------------------------------------------------
 
-// get all directories in folder
-function getDirectories(srcpath) {
-	return fs.readdirSync(srcpath).filter(function (file) {
-		return fs.statSync(path.join(srcpath, file)).isDirectory();
-	});
-}
-
 // string, function
 // returns [{modName:string,hash:string}, ... ]
 function hashMods(instanceName, callback) {
@@ -725,33 +708,3 @@ function hashMods(instanceName, callback) {
 		});
 	}
 }
-
-// gets newest file in a directory
-// dir is directory
-// files is array of filenames
-// callback(filename string);
-function getNewestFile(dir, files, callback) {
-    if (!callback) return;
-    if (!files || (files && files.length === 0)) {
-        callback();
-    }
-    var newest = { file: files[0] };
-    var checked = 0;
-    fs.stat(dir + newest.file, function(err, stats) {
-        newest.mtime = stats.mtime;
-        for (var i = 0; i < files.length; i++) {
-            var file = files[i];
-            (function(file) {
-                fs.stat(file, function(err, stats) {
-                    ++checked;
-                    if (stats.mtime.getTime() > newest.mtime.getTime()) {
-                        newest = { file : file, mtime : stats.mtime };
-                    }
-                    if (checked == files.length) {
-                        callback(newest);
-                    }
-                });
-            })(dir + file);
-        }
-    });
- }
