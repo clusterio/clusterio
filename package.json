@@ -6,7 +6,8 @@
   "scripts": {
     "test": "npm run test-unit",
     "test-unit": "SET NODE_ENV=test && mocha --recursive \"./{,!(node_modules)/**/}*.spec.js\" || echo .",
-    "start": "echo Run node client.js start [instance] to start slaves && node master.js"
+    "start": "echo Run node client.js start [instance] to start slaves && node master.js",
+    "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- lib/*.js -R spec"
   },
   "keywords": [
     "factorio"
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "chai": "^3.5.0",
+    "istanbul": "^0.4.5",
     "mocha": "^3.4.1",
     "mock-fs": "^4.3.0"
   }
