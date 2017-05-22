@@ -82,14 +82,14 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js download");
 	process.exit(1);
 } else if (command == "list") {
-	console.dir(fileOps.getDirectories("./instances/"));
+	console.dir(fileOps.getDirectoriesSync("./instances/"));
 	process.exit(1);
 } else if (command == "delete") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
 	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
-		fileOps.deleteFolderRecursive("./instances/" + process.argv[3]);
+		fileOps.deleteFolderRecursiveSync("./instances/" + process.argv[3]);
 		console.log("Deleted instance " + process.argv[3]);
 		process.exit(1);
 	} else {
@@ -216,7 +216,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
-	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(latestSave) {
+	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
+		if(err) throw err;
 		// implicit global
 		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
@@ -301,7 +302,7 @@ _.once(instanceManagement);
 function instanceManagement() {
 	console.log("Started instanceManagement();");
 	// load plugins and execute onLoad event
-	let pluginDirectories = fileOps.getDirectories("./sharedPlugins/");
+	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
 	let plugins = [];
 	for(i=0; i<pluginDirectories.length; i++) {
 		let I = i
