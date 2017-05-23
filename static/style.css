@@ -23,6 +23,13 @@
 #sidenav a:hover p {
 	color: #FFF;
 }
+a {
+	color: #FF7200;
+	text-decoration: none;
+}
+a:hover {
+	color: #FFF;
+}
 #body {
 	margin-left:200px;
 }

@@ -16,13 +16,6 @@
 #displayBody {
 	margin-left: 16px;
 }
-a {
-	color: #FF7200;
-	text-decoration: none;
-}
-a:hover {
-	color: #FFF;
-}
 #hero {
 	background-color: #444;
 	height:400px;

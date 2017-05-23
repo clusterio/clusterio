@@ -19,7 +19,7 @@ setTimeout(function() {
 					}
 					HTML += "<div class='slaveBox'>";
 					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="width: calc(100% - 200px);"></div>';
-					HTML += "<h2>" + slaveData[key].instanceName + "</h2><p>ID: " + slaveData[key].unique + "</p><p>Last seen: "+seenDate+"</p><p>Online players: "+slaveData[key].playerCount+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
+					HTML += "<a href='nodeDetails?slaveID="+slaveData[key].unique+"'><h2>" + slaveData[key].instanceName + "</h2></a><p>ID: " + slaveData[key].unique + "</p><p>Last seen: "+seenDate+"</p><p>Online players: "+slaveData[key].playerCount+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
 					HTML += "<p>Host: "+slaveData[key].mac+"</p>";
 					HTML += "<button onclick='hideAllDatasets(\"" + slaveData[key].unique + "\")\'>Hide all</button>";
 					HTML += "<button onclick='showAllDatasets(\"" + slaveData[key].unique + "\")\'>Show all</button>";
