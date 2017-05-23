@@ -1,7 +1,10 @@
 * {
 	margin:0px;
+	color: #FFF;
 }
-
+body {
+	background-color: #242B30;
+}
 #logo {
 	/* using same colors as factorios official ones, taken from
 	http://www.lua-api.factorio.com */
@@ -55,7 +58,7 @@ a:hover {
 	float:left;
 	width:100%;
 	/*height:110px;*/
-	background-color:#EEE;
+	background-color:#444;
 	/*border-radius: 10px;
 	margin-left:5px;
 	margin-right:5px;*/
@@ -63,8 +66,18 @@ a:hover {
 .slaveBox > p {
 	margin:5px;
 }
-.slaveBox > h2 {
+.slaveBox h2 {
 	margin:5px;
+	color: inherit;
+	transition:0.2s;
+}
+.slaveBox > button {
+	background-color: transparent;
+	color: #FF7200;
+	transition: 0.2s;
+}
+.slaveBox > button:hover {
+	color: #FFF;
 }
 .productionGraph {
 	float:right;
