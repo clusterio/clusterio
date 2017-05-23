@@ -3,8 +3,11 @@
 }
 
 #logo {
-	background-color: yellow;
-}
+	/* using same colors as factorios official ones, taken from
+	http://www.lua-api.factorio.com */
+	background-color: #262626;
+	color: 	#C8C8C8;
+}	
 
 #sidenav {
 	position:fixed;
@@ -12,6 +15,13 @@
 	width:200px;
 	background-color:darkgrey;
 	height:100%;
+}
+#sidenav a p {
+	color: #FF7200;
+	transition:0.5s;
+}
+#sidenav a:hover p {
+	color: #FFF;
 }
 #body {
 	margin-left:200px;
