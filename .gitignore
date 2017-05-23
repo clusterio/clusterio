@@ -32,3 +32,5 @@ Factorio*
 /sharedMods
 /database
 /sharedPlugins
+database/items.db
+config.json
