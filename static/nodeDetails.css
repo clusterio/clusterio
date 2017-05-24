@@ -31,6 +31,12 @@
 	display:inline-block;
 	border-radius:16px;
 }
+.productionGraph {
+	background-color:black;
+}
+#leftHeroContainer {
+	float:left;
+}
 ul {
 	width:300px;
 	list-style:none;

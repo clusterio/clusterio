@@ -5,6 +5,13 @@
 body {
 	background-color: #242B30;
 }
+button {
+	border-radius: 0;
+	border: 1px solid transparent;
+	border-color: #FF7200;
+	border-width:1px;
+	cursor: pointer;
+}
 #logo {
 	/* using same colors as factorios official ones, taken from
 	http://www.lua-api.factorio.com */
