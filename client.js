@@ -11,7 +11,7 @@ var hashFiles = require('hash-files');
 var _ = require('underscore');
 
 // internal libraries
-var libomega = require("./lib/libomega.js");
+var objectOps = require("./lib/objectOps.js");
 var fileOps = require("./lib/fileOps.js");
 
 // require config.json
@@ -486,7 +486,8 @@ function instanceManagement() {
 				for(let key in flowStat1) totalFlows[key] = flowStat1[key];
 				for(let key in flowStat2) totalFlows[key] = flowStat2[key];
 				if(oldFlowStats && totalFlows && oldTimestamp) {
-					let payload = libomega.clone(totalFlows);
+					// todo: Migrate this to JSON.parse(JSON.stringify())
+					let payload = objectOps.clone(totalFlows);
 					// change from total reported to per time unit
 					for(let key in oldFlowStats) {
 						// get production per minute
