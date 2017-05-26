@@ -12,19 +12,24 @@ function post(url, data, callback) {
 	}
 	xhr.send(JSON.stringify(data));
 }
+// callback(err, json)
 function getJSON(url, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'json';
-    xhr.onload = function() {
-      var status = xhr.status;
-      if (status == 200) {
-        callback(null, xhr.response);
-      } else {
-        callback(status);
-      }
-    };
-    xhr.send();
+	var xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.responseType = 'json';
+	xhr.onload = function() {
+	  var status = xhr.status;
+	  if (status == 200) {
+		callback(null, xhr.response);
+	  } else {
+		callback(status);
+	  }
+	};
+	// triggers if connection is refused
+	xhr.onerror = function(e){
+		callback(e);
+	};
+	xhr.send();
 };
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
@@ -42,6 +47,24 @@ function getParameterByName(name, url) {
     if (!results[2]) return '';
     return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
+
+
+
+
+/// code below here
+// update the online indicator dot
+setInterval(function(){
+	getJSON("/api/slaves", function(err, slaveData){
+		if(err){
+			document.querySelector("#onlineIndicator").style.backgroundColor = "yellow";
+			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
+		} else if(Math.floor(slaveData[getParameterByName("slaveID")].time/100000) == Math.floor(Date.now()/100000)){
+			document.querySelector("#onlineIndicator").style.backgroundColor = "green";
+		} else {
+			document.querySelector("#onlineIndicator").style.backgroundColor = "red";
+		}
+	});
+}, 1000);
 
 function populateSlaveInfo(){
 	let slaveID = getParameterByName("slaveID");
