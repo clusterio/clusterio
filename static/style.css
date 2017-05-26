@@ -17,8 +17,12 @@ button {
 	http://www.lua-api.factorio.com */
 	background-color: #262626;
 	color: 	#C8C8C8;
-}	
-
+}
+/* search field */
+#storage > input {
+	background-color:black;
+	width:300px;
+}
 #sidenav {
 	position:fixed;
 	left:0px;
