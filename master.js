@@ -88,7 +88,7 @@ app.post("/api/getID", function(req,res) {
 		console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
 	}
 });
-// todo: Write docs for this
+
 app.post("/api/editSlaveMeta", function(req,res) {
 	// request.body should be an object
 	// {slaveID, pass, meta:{x,y,z}}
@@ -104,7 +104,6 @@ app.post("/api/editSlaveMeta", function(req,res) {
 		} else {
 			res.send("ERROR: Invalid slaveID or password")
 		}
-		slaves[req.body.slaveID] = req.body;
 	}
 });
 // mod management
