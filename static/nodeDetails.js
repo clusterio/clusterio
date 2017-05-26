@@ -56,6 +56,7 @@ function getParameterByName(name, url) {
 setInterval(function(){
 	getJSON("/api/slaves", function(err, slaveData){
 		if(err){
+			// our request threw an error, most likely master is unavailable so we show yellow indicator
 			document.querySelector("#onlineIndicator").style.backgroundColor = "yellow";
 			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
 		} else if(Math.floor(slaveData[getParameterByName("slaveID")].time/100000) == Math.floor(Date.now()/100000)){
@@ -124,6 +125,20 @@ function populateSlaveInfo(){
 		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>'
 		
 		document.querySelector("#hero").innerHTML = HTML;
+		
+		// slaveDetails
+		HTML = "";
+		if(slave.meta)
+		for(let key in slave.meta){
+			let t = slave.meta[key];
+			if(typeof t == "string"){
+				HTML += "<p>"+key+": "+t+"</p>";
+			}
+		}
+		
+		document.querySelector("#body > #details").innerHTML = HTML;
+		
+		// make production graph
 		makeGraph(slave.unique, slave.unique)
 		
 	});

@@ -9,6 +9,7 @@ var ncp = require('ncp').ncp;
 var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
 var _ = require('underscore');
+var deepmerge = require("deepmerge");
 
 // internal libraries
 var objectOps = require("./lib/objectOps.js");
@@ -352,6 +353,14 @@ function instanceManagement() {
 				}
 			});
 		}
+		// these are our two config files. We need to send these in case plugin
+		// wants to contact master or know something.
+		let combinedConfig = deepmerge(instanceconfig,config,{clone:true})
+		// send through script-output file, maybe more compat?
+		fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, JSON.stringify(combinedConfig)+"\r\n");
+		// send directly through stdin
+		// plugins[i].stdin.write(JSON.stringify(combinedConfig)+"\n");
+		
 		console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
 		plugins[i].stdout.on("data", (data) => {
 			if(data.toString('utf8')[0] != "/") {
