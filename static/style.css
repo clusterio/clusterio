@@ -3,7 +3,8 @@
 	color: #FFF;
 }
 body {
-	background-color: #242B30;
+	/* same as http://www.lua-api.factorio.com/latest */
+	background-color: rgb(38, 38, 38);
 }
 button {
 	border-radius: 0;
@@ -23,6 +24,7 @@ button {
 	background-color:black;
 	width:300px;
 }
+/* Navbar on the right */
 #sidenav {
 	position:fixed;
 	left:0px;
@@ -44,12 +46,14 @@ a {
 a:hover {
 	color: #FFF;
 }
+/* ensure body does not overlap navbar on the right */
 #body {
 	margin-left:200px;
 }
 #body > #production {
 	display:block;
 }
+/* Inventory display table */
 #contents {
 	width:300px;
 }
