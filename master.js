@@ -1,3 +1,6 @@
+// configgy stuff
+debug = false;
+
 // constants
 const masterModFolder = "./database/masterMods/"
 
@@ -85,13 +88,12 @@ var slaves = {};
 	let x;
 	try{
 		x = fs.statSync("database/slaves.json");
-		console.log(x)
 	} catch (e){
 		
 	}
 	if(x){
+		console.log("loading slaves from database/slaves.json");
 		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
-		console.log("parsing slaves " + slaves)
 	}
 })()
 // world ID management
@@ -102,7 +104,9 @@ app.post("/api/getID", function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		console.log(req.body)
+		if(debug){
+			console.log(req.body)
+		}
 		if(!slaves[req.body.unique]){
 			slaves[req.body.unique] = {};
 		}
@@ -126,7 +130,7 @@ app.post("/api/editSlaveMeta", function(req,res) {
 				slaves[req.body.slaveID].meta = {};
 				slaves[req.body.slaveID].meta = deepmerge(slaves[req.body.slaveID].meta, req.body.meta, {clone:true})
 			}
-			console.log("Updating slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
+			console.log("Updating slave: " + slaves[req.body.slaveID].mac + " : " + slaves[req.body.slaveID].serverPort+" at " + slaves[req.body.slaveID].publicIP);
 		} else {
 			res.send("ERROR: Invalid slaveID or password")
 		}
