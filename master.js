@@ -67,7 +67,33 @@ db.items.additem = function(object) {
 		}
 	});
 }
-var slaves = {}
+
+// store slaves in a .json full of JSON data
+process.on('SIGINT', function () {
+	console.log('Ctrl-C...');
+	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
+	if(slaves && Object.keys(slaves).length < 50000){
+		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
+		console.log("saving to slaves.json");
+	} else if(slaves) {
+		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
+	}
+	process.exit(2);
+});
+var slaves = {};
+(function(){
+	let x;
+	try{
+		x = fs.statSync("database/slaves.json");
+		console.log(x)
+	} catch (e){
+		
+	}
+	if(x){
+		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
+		console.log("parsing slaves " + slaves)
+	}
+})()
 // world ID management
 // slaves post here to tell the server they exist
 app.post("/api/getID", function(req,res) {
