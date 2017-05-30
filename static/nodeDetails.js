@@ -55,14 +55,18 @@ function getParameterByName(name, url) {
 // update the online indicator dot
 setInterval(function(){
 	getJSON("/api/slaves", function(err, slaveData){
+		let indicator = document.querySelector("#onlineIndicator");
 		if(err){
 			// our request threw an error, most likely master is unavailable so we show yellow indicator
-			document.querySelector("#onlineIndicator").style.backgroundColor = "yellow";
+			indicator.style.backgroundColor = "yellow";
+			indicator.title = "Master server unavailable";
 			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
 		} else if(Math.floor(slaveData[getParameterByName("slaveID")].time/100000) == Math.floor(Date.now()/100000)){
-			document.querySelector("#onlineIndicator").style.backgroundColor = "green";
+			indicator.style.backgroundColor = "green";
+			indicator.title = "Slave is online";
 		} else {
-			document.querySelector("#onlineIndicator").style.backgroundColor = "red";
+			indicator.style.backgroundColor = "red";
+			indicator.title = "Slave is offline";
 		}
 	});
 }, 1000);
