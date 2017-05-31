@@ -1,11 +1,13 @@
 {
-  "name": "factorio-clusterio",
+  "name": "clusterio",
   "version": "1.0.0",
-  "description": "Factorio cluster???",
+  "description": "Interserver communication for factorio",
   "main": "master.js",
   "scripts": {
-    "test": "nodemon master.js",
-    "start": "echo Run node client.js start [instance] to start slaves && node master.js"
+    "test": "npm run test-unit",
+    "test-unit": "mocha --recursive \"./{,!(node_modules)/**/}*.spec.js\" || echo .",
+    "start": "echo Run node client.js start [instance] to start slaves && node master.js",
+    "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- lib/*.js -R spec"
   },
   "keywords": [
     "factorio"
@@ -16,6 +18,7 @@
     "body-parser": "^1.15.2",
     "canvasjs": "^1.8.1",
     "child_process": "^1.0.2",
+    "deepmerge": "^1.3.2",
     "ejs": "^2.5.6",
     "express": "^4.14.0",
     "express-fileupload": "0.0.6",
@@ -31,8 +34,15 @@
     "needle": "^1.1.0",
     "portfinder": "^1.0.9",
     "request": "^2.79.0",
+    "semver": "^5.3.0",
     "simple-rcon": "^0.3.1",
     "sync-request": "^4.0.1",
     "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "istanbul": "^0.4.5",
+    "mocha": "^3.4.1",
+    "mock-fs": "^4.3.0"
   }
 }

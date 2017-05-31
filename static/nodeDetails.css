@@ -1,0 +1,54 @@
+#header .subbar h6 {
+	display:inline;
+	font-weight:normal;
+	color: #BBB
+}
+#header {
+	background-color: #222;
+	color: #DDD;
+	font-family: 'Roboto', sans-serif;
+	padding-left:16px;
+}
+#displayBody {
+	margin-left: 16px;
+}
+#hero {
+	background-color: #444;
+	height:400px;
+}
+
+#header h1 {
+	margin-left: 10px;
+	display:inline-block;
+}
+#header .subbar h6 {
+	margin-right: 16px;
+}
+#onlineIndicator {
+	background-color:red;
+	height:20px;
+	width:20px;
+	display:inline-block;
+	border-radius:16px;
+}
+.productionGraph {
+	background-color:black;
+}
+#leftHeroContainer {
+	float:left;
+}
+ul {
+	width:300px;
+	list-style:none;
+	max-height:100px;
+	margin:0;
+	overflow:auto;
+	padding:0;
+	text-indent:10px;
+}
+li{
+  line-height:25px;
+}
+li:nth-child(even){
+  background:#ccc;
+}

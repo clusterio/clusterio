@@ -11,7 +11,10 @@ function drawcontents(data) {
 		} else {
 			img = "https://wiki.factorio.com/images/" + capitalizeFirstLetter(data[i].name) + ".png";
 		}
-		result = result + "<tr><td><image src='" + img + "' onerror='hideThis(this);'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
+		var searchField = document.querySelector("#search");
+		if(!searchField.value || data[i].name.includes(searchField.value)) {
+			result = result + "<tr><td><image src='" + img + "' onerror='hideThis(this);'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
+		}
 	}
 	result = result + "</table>"
 	document.getElementById("contents").innerHTML = result;

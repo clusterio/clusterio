@@ -1,3 +1,6 @@
+// configgy stuff
+debug = false;
+
 // constants
 const masterModFolder = "./database/masterMods/"
 
@@ -5,9 +8,10 @@ const masterModFolder = "./database/masterMods/"
 const mkdirp = require("mkdirp");
 mkdirp.sync("./database");
 mkdirp.sync(masterModFolder);
-const path = require("path")
-const fs = require("fs")
-var nedb = require("nedb")
+const deepmerge = require("deepmerge");
+const path = require("path");
+const fs = require("fs");
+var nedb = require("nedb");
 // require config.json
 var config = require('./config');
 
@@ -47,7 +51,7 @@ db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, in
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
 
 // production chart database
-db.flows = new Datastore({ filename: "database/flows.db", autoload: true})
+db.flows = new Datastore({ filename: "database/flows.db", autoload: true});
 db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // expire after 30 days
 // db.slaves = new Datastore({ filename: 'database/slaves.db', autoload: true, inMemoryOnly: false});
 
@@ -64,9 +68,34 @@ db.items.additem = function(object) {
 			db.items.insert(object);
 			console.log('Item created!');
 		}
-	})
+	});
 }
-var slaves = {}
+
+// store slaves in a .json full of JSON data
+process.on('SIGINT', function () {
+	console.log('Ctrl-C...');
+	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
+	if(slaves && Object.keys(slaves).length < 50000){
+		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
+		console.log("saving to slaves.json");
+	} else if(slaves) {
+		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
+	}
+	process.exit(2);
+});
+var slaves = {};
+(function(){
+	let x;
+	try{
+		x = fs.statSync("database/slaves.json");
+	} catch (e){
+		
+	}
+	if(x){
+		console.log("loading slaves from database/slaves.json");
+		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
+	}
+})()
 // world ID management
 // slaves post here to tell the server they exist
 app.post("/api/getID", function(req,res) {
@@ -75,14 +104,42 @@ app.post("/api/getID", function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		slaves[req.body.unique] = req.body;
-		console.log("Slave: " + req.body.mac + " : " + req.body.serverPort+" at " + req.body.publicIP);
+		if(debug){
+			console.log(req.body)
+		}
+		if(!slaves[req.body.unique]){
+			slaves[req.body.unique] = {};
+		}
+		for(k in req.body){
+			if(k != "meta" && req.body.hasOwnProperty(k)){
+				slaves[req.body.unique][k] = req.body[k];
+			}
+		}
+		console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
+	}
+});
+
+app.post("/api/editSlaveMeta", function(req,res) {
+	// request.body should be an object
+	// {slaveID, pass, meta:{x,y,z}}
+	
+	if(req.body && req.body.slaveID && req.body.password && req.body.meta){
+		// check for editing permissions
+		if(slaves[req.body.slaveID] && slaves[req.body.slaveID].rconPassword == req.body.password){
+			if(!slaves[req.body.slaveID].meta){
+				slaves[req.body.slaveID].meta = {};
+				slaves[req.body.slaveID].meta = deepmerge(slaves[req.body.slaveID].meta, req.body.meta, {clone:true})
+			}
+			console.log("Updating slave: " + slaves[req.body.slaveID].mac + " : " + slaves[req.body.slaveID].serverPort+" at " + slaves[req.body.slaveID].publicIP);
+		} else {
+			res.send("ERROR: Invalid slaveID or password")
+		}
 	}
 });
 // mod management
 // should handle uploading and checking if mods are uploaded
 app.post("/api/checkMod", function(req,res) {
-	let files = fs.readdirSync(masterModFolder)
+	let files = fs.readdirSync(masterModFolder);
 	let found = false;
 	files.forEach(file => {
 		if(file == req.body.modName) {
@@ -91,24 +148,24 @@ app.post("/api/checkMod", function(req,res) {
 	});
 	if(!found) {
 		// we don't have mod, plz send
-		res.send(req.body.modName)
+		res.send(req.body.modName);
 	} else {
-		res.send("found")
+		res.send("found");
 	}
-	res.end()
+	res.end();
 });
 app.post("/api/uploadMod", function(req,res) {
 	if (!req.files) {
         res.send('No files were uploaded.');
         return;
     } else {
-		console.log(req.files.file)
+		console.log(req.files.file);
 		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
 		if (err) {
 			res.status(500).send(err);
 		} else {
 			res.send('File uploaded!');
-			console.log("Uploaded mod: " + req.files.file.name)
+			console.log("Uploaded mod: " + req.files.file.name);
 		}
 	});
 	}
@@ -117,12 +174,12 @@ app.post("/api/uploadMod", function(req,res) {
 app.get("/api/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let copyOfSlaves = slaves
+	let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
 	// filter out the rcon password because thats kindof not a safe thing to share
-	for(key in copyOfSlaves) {
+	for(key in copyOfSlaves){
 		copyOfSlaves[key].rconPassword = "hidden";
 	}
-	res.send(copyOfSlaves)
+	res.send(copyOfSlaves);
 });
 
 // endpoint to send items to
@@ -131,7 +188,7 @@ app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	console.log("added: " + req.body.name + " " + req.body.count);
 	// save items we get
-	db.items.additem(req.body)
+	db.items.additem(req.body);
 	// Attempt confirming
 	res.end("success");
 });
@@ -172,14 +229,14 @@ app.post("/api/remove", function(req, res) {
 				console.log('failure ' + object.name);
 			}
 		}
-	})
+	});
 });
 
 // circuit stuff
 app.post("/api/setSignal", function(req,res) {
 	if(typeof req.body == "object" && req.body.time){
 		db.signals.insert(req.body);
-		// console.log("signal set")
+		// console.log("signal set");
 	}
 });
 
@@ -190,7 +247,7 @@ app.post("/api/readSignal", function(req,res) {
 	db.signals.find({time:{$gte: req.body.since}}, function (err, docs) {
 		// $gte means greater than or equal to, meaning we only get entries newer than the timestamp
 		res.send(docs);
-		// console.log(docs)
+		// console.log(docs);
 	});
 });
 
@@ -215,18 +272,18 @@ app.post("/api/logStats", function(req,res) {
 				timestamp: req.body.timestamp,
 				data: req.body.data,
 			});
-			console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp)
+			console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp);
 		} else {
 			console.log("error invalid timestamp " + req.body.timestamp);
-			res.send(failure)
+			res.send(failure);
 		}
 	} else {
-		res.send("failure")
+		res.send("failure");
 	}
-})
+});
 // {slaveID: string, fromTime: Date, toTime, Date}
 app.post("/api/getStats", function(req,res) {
-	console.log(req.body)
+	console.log(req.body);
 	if(typeof req.body == "object" && req.body.slaveID) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
@@ -235,18 +292,18 @@ app.post("/api/getStats", function(req,res) {
 		if(!req.body.toTime) {
 			req.body.toTime = Date.now();
 		}
-		console.log("Looking... " + JSON.stringify(req.body))
+		console.log("Looking... " + JSON.stringify(req.body));
 		db.flows.find({
 			slaveID: req.body.slaveID,
 		}, function(err, docs) {
 			let entries = docs.filter(function (el) {
 				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
 			});
-			// console.log(entries)
-			res.send(entries)
-		})
+			// console.log(entries);
+			res.send(entries);
+		});
 	}
-})
+});
 
 // endpoint for getting the chartjs library
 app.get("/chart.js", function(req, res) {
