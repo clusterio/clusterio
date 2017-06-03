@@ -66,9 +66,9 @@ function messageInterface(command, callback) {
 			client.exec(command, callback);
 		} catch (err) {
 			console.log(err);
-			if(typeof callback == "function"){
-				callback(err);
-			}
+		}
+		if(typeof callback == "function"){
+			callback();
 		}
 	}
 }
@@ -305,7 +305,7 @@ function instanceManagement() {
 	// load plugins and execute onLoad event
 	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
 	let plugins = [];
-	for(i=0; i<pluginDirectories.length; i++) {
+	for(let i=0; i<pluginDirectories.length; i++) {
 		let I = i
 		let log = function(t) {
 			console.log("Clusterio | "+ pluginDirectories[I] + " | " + t);
@@ -427,8 +427,7 @@ function instanceManagement() {
 						}
 					});
 				});
-			},1000);
-			});
+			},1000)});
 		}
 	});
 	
