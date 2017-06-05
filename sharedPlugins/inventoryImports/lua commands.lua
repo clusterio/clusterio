@@ -23,6 +23,10 @@ end
 game.print(o)
 
 /c
+
+local o = ""
+
+for a,b in pairs(game.players) do
 local inventory = game.players["Danielv123"].get_inventory(defines.inventory.player_main).get_contents()
 local quickbar = game.players["Danielv123"].get_quickbar().get_contents()
 --[[ Get contents of requester slots into a table ]]
@@ -31,8 +35,8 @@ for i = 1, game.players["Danielv123"].force.character_logistic_slot_count do
 	requests[i] = game.players["Danielv123"].character.get_request_slot(i)
 end
 
+o = o.."{inventory:{"
 --[[ generate JS table (not JSON) ]]
-local o = "{inventory:{"
 for k,v in pairs(inventory) do
 	o = o.."['"..k.."']:"..v..","
 end
@@ -45,6 +49,7 @@ for k,v in pairs(requests) do
 	o = o.."['"..v["name"].."']:"..v["count"]..", "
 end
 o = o.."}}"
+end
 game.print(o)
 game.write_file("test.txt", o)
 
