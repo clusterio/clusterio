@@ -22,37 +22,51 @@ for k,v in pairs(requests) do
 end
 game.print(o)
 
+-- sum up our inventory and request slots
 /c
-
-local o = ""
-
+local o = "{"
 for a,b in pairs(game.players) do
-local inventory = game.players["Danielv123"].get_inventory(defines.inventory.player_main).get_contents()
-local quickbar = game.players["Danielv123"].get_quickbar().get_contents()
---[[ Get contents of requester slots into a table ]]
-local requests = {}
-for i = 1, game.players["Danielv123"].force.character_logistic_slot_count do
-	requests[i] = game.players["Danielv123"].character.get_request_slot(i)
-end
+	if b.connected then
+		local inventory = game.players[a].get_inventory(defines.inventory.player_main).get_contents()
+		local quickbar = game.players[a].get_quickbar().get_contents()
+		--[[ Get contents of requester slots into a table ]]
+		local requests = {}
+		for i = 1, game.players[a].force.character_logistic_slot_count do
+			requests[i] = game.players[a].character.get_request_slot(i)
+		end
 
-o = o.."{inventory:{"
---[[ generate JS table (not JSON) ]]
-for k,v in pairs(inventory) do
-	o = o.."['"..k.."']:"..v..","
-end
-for k,v in pairs(quickbar) do
-	o = o.."['"..k.."']:"..v..","
-end
+		o = o..a..":{inventory:{"
+		--[[ generate JS table (not JSON) ]]
+		for k,v in pairs(inventory) do
+			o = o.."['"..k.."']:"..v..","
+		end
+		for k,v in pairs(quickbar) do
+			o = o.."['"..k.."']:"..v..","
+		end
 
-o = o.."},requestSlots:{"
-for k,v in pairs(requests) do
-	o = o.."['"..v["name"].."']:"..v["count"]..", "
+		o = o.."},requestSlots:{"
+		for k,v in pairs(requests) do
+			o = o.."['"..v["name"].."']:"..v["count"]..", "
+		end
+		o = o.."}},"
+	end
 end
-o = o.."}}"
-end
+o = o.."}"
 game.print(o)
 game.write_file("test.txt", o)
 
+-- insert items in players inventory and export leftovers
+/c
+local name = "Danielv123"
+local itemName = "iron-ore"
+local itemCount = 100
+if game.players[name] do
+	local items = {name=itemName, count=itemCount}
+	if game.players[name].can_insert(items) do
+		local insertedItems = game.players[name].insert(items)
+		local restItems = itemCount - insertedItems
+	end
+end
 
 --[[
 
@@ -66,6 +80,9 @@ enclose in ''
 ]]
 
 -- minified strings
-
+-- offline playes
+local a="{"for b,c in pairs(game.players)do if c.connected then local d=game.players[b].get_inventory(defines.inventory.player_main).get_contents()local e=game.players[b].get_quickbar().get_contents()local f={}for g=1,game.players[b].force.character_logistic_slot_count do f[g]=game.players[b].character.get_request_slot(g)end;a=a..b..":{inventory:{"for h,i in pairs(d)do a=a.."['+"'"+'"..h.."'+"'"+']:"..i..","end;for h,i in pairs(e)do a=a.."['+"'"+'"..h.."'+"'"+']:"..i..","end;a=a.."},requestSlots:{"for h,i in pairs(f)do a=a.."['+"'"+'"..i["name"].."'+"'"+']:"..i["count"]..", "end;a=a.."}},"end end;a=a.."}"game.print(a)
+-- multiple players
+local a="{"for b,c in pairs(game.players)do local d=game.players[b].get_inventory(defines.inventory.player_main).get_contents()local e=game.players[b].get_quickbar().get_contents()local f={}for g=1,game.players[b].force.character_logistic_slot_count do f[g]=game.players[b].character.get_request_slot(g)end;a=a..b..":{inventory:{"for h,i in pairs(d)do a=a.."['+"'"+'"..h.."'+"'"+']:"..i..","end;for h,i in pairs(e)do a=a.."['+"'"+'"..h.."'+"'"+']:"..i..","end;a=a.."},requestSlots:{"for h,i in pairs(f)do a=a.."['+"'"+'"..i["name"].."'+"'"+']:"..i["count"]..", "end;a=a.."}},"end;a=a.."}"game.print(a)
 local a=game.players["Danielv123"].get_inventory(defines.inventory.player_main).get_contents()local b=game.players["Danielv123"].get_quickbar().get_contents()local c={}for d=1,game.players["Danielv123"].force.character_logistic_slot_count do c[d]=game.players["Danielv123"].character.get_request_slot(d)end;local e="{inventory:{"for f,g in pairs(a)do e=e.."['+"'"+'"..f.."'+"'"+']:"..g..","end;for f,g in pairs(b)do e=e.."['+"'"+'"..f.."'+"'"+']:"..g..","end;e=e.."},requestSlots:{"for f,g in pairs(c)do e=e.."['+"'"+'"..g["name"].."'+"'"+']:"..g["count"]..", "end;e=e.."}}"game.print(e)
 local inventory = game.players["Danielv123"].get_inventory(defines.inventory.player_main).get_contents()local quickbar = game.players["Danielv123"].get_quickbar().get_contents()local requests = {}for i = 1, game.player.force.character_logistic_slot_count do requests[i] = game.players["Danielv123"].character.get_request_slot(i) end local o = "{inventory:{" for k,v in pairs(inventory) do o = o.."['+"'"+'"..k.."'+"'"+']:"..v.."," end for k,v in pairs(quickbar) do o = o.."['+"'"+'"..k.."'+"'"+']:"..v.."," end o = o.."},requestSlots:{" for k,v in pairs(requests) do o = o.."['+"'"+'"..v["name"].."'+"'"+']:"..v["count"]..", " end o = o.."}}" game.write_file("test.txt", o)
