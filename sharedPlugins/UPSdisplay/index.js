@@ -1,9 +1,9 @@
 const needle = require("needle");
 
-console.log("/silent-command game.print('UPSdisplay enabled')\n");
+console.log("/silent-command game.print('UPSdisplay enabled')");
 
 setInterval(function(){
-	console.log("/silent-command game.write_file('UPSdisplay.txt', game.tick, true, 0)\n");
+	console.log("/silent-command game.write_file('UPSdisplay.txt', game.tick, true, 0)");
 },1000);
 var config = {};
 process.stdin.setEncoding('utf8');
