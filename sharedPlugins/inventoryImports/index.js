@@ -10,7 +10,10 @@ var config = {};
 process.stdin.setEncoding('utf8');
 process.stdin.on('readable', () => {
 	var chunk = process.stdin.read();
-	if (chunk !== null && isNaN(chunk) && config && !isJson(chunk)&& !chunk.includes("[")){
+	console.log(chunk)
+	if (chunk !== null && isNaN(chunk) && config && !isJson(chunk)){
+		// example chunk Stdout: {1:{inventory:{['iron-ore']:100,['steel-plate']:5800,['iron-ore']:50,},
+		// requestSlots:{['underground-belt']:50, ['fast-transport-belt']:50, ['express-underground-belt']:50, ['underground-belt']:50, }},}
 		// returns JS object, throws if there are syntax errors in input string
 		let inventory = functions.parseJsString(chunk);
 		console.log(inventory);
