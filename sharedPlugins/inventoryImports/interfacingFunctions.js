@@ -14,8 +14,8 @@ function parseJsString(string){
 	}
 	let inventory = "";
 	eval("inventory = " + string);
-	console.log(string)
-	console.log(inventory)
+	/*console.log(string)
+	console.log(inventory)*/
 	return inventory;
 	/* Example output: 
 	{'1':{
@@ -119,7 +119,7 @@ function handleInventory(json, config){
 				let stackArray = json.exports[playerName];
 				for(let i = 0; i < stackArray.length; i++){
 					if(stackArray[i].count > 0){
-						console.log("Returning overflow: " + JSON.stringify(stackArray[i]));
+						// console.log("Returning overflow: " + JSON.stringify(stackArray[i]));
 						needle.post(config.masterIP + ":" + config.masterPort + '/api/place', stackArray[i], function (err, resp, body) {
 							// console.log(body);
 						});

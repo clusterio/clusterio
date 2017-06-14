@@ -12,12 +12,8 @@ process.stdin.on('readable', () => {
 	var chunk = process.stdin.read();
 	// console.log(chunk)
 	if (chunk !== null && isNaN(chunk) && config && isJson(chunk) && !JSON.parse(chunk).factorioPort){
-		// example chunk Stdout: {1:{inventory:{['iron-ore']:100,['steel-plate']:5800,['iron-ore']:50,},
-		// requestSlots:{['underground-belt']:50, ['fast-transport-belt']:50, ['express-underground-belt']:50, ['underground-belt']:50, }},}
-		// returns JS object, throws if there are syntax errors in input string
-		// let inventory = functions.parseJsString(chunk);
+		
 		let inventory = JSON.parse(chunk)
-		// console.log(inventory);
 		// process inventory of players and ask master for more stuff
 		functions.handleInventory(inventory, config);
 	} else if(isJson(chunk) && JSON.parse(chunk).factorioPort){
