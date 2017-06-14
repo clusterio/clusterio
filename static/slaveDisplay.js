@@ -42,6 +42,10 @@ setTimeout(function() {
 	xmlhttp.send();
 }, 0)
 
+let chartIgnoreList = [
+	"water",
+	"steam"
+]
 
 // ID of slave, ID of canvasjs div without #
 function makeGraph(slaveID, selector) {
@@ -56,7 +60,7 @@ function makeGraph(slaveID, selector) {
 			}
 			let chartData = [];
 			for(let o = 0; o < itemNames.length; o++) {
-				if(itemNames[o] != "water"){
+				if(!chartIgnoreList.includes(itemNames[o])){
 					chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
 				}
 			}
