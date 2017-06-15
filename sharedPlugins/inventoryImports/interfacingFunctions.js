@@ -48,25 +48,14 @@ function handleInventory(json, config){
 				let collectStacks = function(stack){
 					itemsToConfirm--;
 					if(stack){
-						if(confirmedItems[stack.name]){
+						if(confirmedItems[stack.name] && confirmedItems[stack.name] > 0){
 							confirmedItems[stack.name] += stack.count;
 						} else {
 							confirmedItems[stack.name] = stack.count;
 						}
 					}
 					if(itemsToConfirm == 0 && Object.keys(confirmedItems).length > 0){
-						// make lua table
-						// we gotta construct a string because I can't find any nice library for this
-						let itemTable = "{";
-						Object.keys(confirmedItems).forEach(function(name){
-							let count = confirmedItems[name];
-							itemTable += '["'+name+'"]='+count+',';
-						});
-						itemTable += "}";
-						let outputFile = pluginConfig.scriptOutputFileSubscription;
-						// a="'+players[i]+'"
-						// b='+itemTable+'
-						console.log('/silent-command local a="'+playerNames[i]+'"local b='+itemTable+'local c={}if game.players[a]and game.players[a].connected then local d='+"'"+'{"exports":{"'+"'"+'..a..'+"'"+'":['+"'"+'local e=false;for f,g in pairs(b)do local h=game.players[a].insert{name=f,count=g}if e then d=d..'+"'"+','+"'"+'else e=true end;d=d..'+"'"+'{"name":"'+"'"+'..f..'+"'"+'","count":'+"'"+'..g-h..'+"'"+'}'+"'"+'end;d=d..'+"'"+']}}'+"'"+'game.write_file("'+outputFile+'",d)end');
+						console.log(insertItemsFromObject(confirmedItems, playerNames[i]));
 					}
 				}
 				// subtract items already in inventory
@@ -118,6 +107,27 @@ function handleInventory(json, config){
 		}
 	} else return false; // inventory is falsey or a string
 }
+function insertItemsFromObject(confirmedItems, playerName){
+	// expeced input
+	// {["iron-plate"]:100, coal:20}
+	// make lua table
+	// we gotta construct a string because I can't find any nice library for this
+	if(playerName && confirmedItems){
+		if(typeof playerName != "string") {
+			throw "playerName is: '"+typeof playerName+"' instead of string!";
+		}
+		let itemTable = "{";
+		Object.keys(confirmedItems).forEach(function(name){
+			let count = confirmedItems[name];
+			itemTable += '["'+name+'"]='+count+',';
+		});
+		itemTable += "}";
+		let outputFile = pluginConfig.scriptOutputFileSubscription;
+		// a="'+players[i]+'"
+		// b='+itemTable+'
+		return '/silent-command local a="'+playerName+'"local b='+itemTable+'local c={}if game.players[a]and game.players[a].connected then local d='+"'"+'{"exports":{"'+"'"+'..a..'+"'"+'":['+"'"+'local e=false;for f,g in pairs(b)do local h=game.players[a].insert{name=f,count=g}if e then d=d..'+"'"+','+"'"+'else e=true end;d=d..'+"'"+'{"name":"'+"'"+'..f..'+"'"+'","count":'+"'"+'..g-h..'+"'"+'}'+"'"+'end;d=d..'+"'"+']}}'+"'"+'game.write_file("'+outputFile+'",d)end';
+	}
+}
 function pollInventories(outputFile){
 	// console.log("/silent-command "+'local a=game.players["Danielv123"].get_inventory(defines.inventory.player_main).get_contents()local b=game.players["Danielv123"].get_quickbar().get_contents()local c={}local d="{inventory:{"for e,f in pairs(a)do d=d.."['+"'"+'"..e.."'+"'"+']:"..f..","end;for e,f in pairs(b)do d=d.."['+"'"+'"..e.."'+"'"+']:"..f..","end;d=d.."},requestSlots:{"for e,f in pairs(c)do d=d.."['+"'"+'"..e.."'+"'"+']:"..f..","end;d=d.."}}"game.write_file("'+pluginConfig.scriptOutputFileSubscription+'",d)');
 	// console.log("Running inventory LUA")
@@ -136,4 +146,5 @@ module.exports = {
 	handleInventory: handleInventory,
 	parseJsString: parseJsString,
 	pollInventories: pollInventories,
+	insertItemsFromObject: insertItemsFromObject,
 }
