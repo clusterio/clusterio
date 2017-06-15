@@ -2,6 +2,7 @@
   "name": "clusterio",
   "version": "1.0.0",
   "description": "Interserver communication for factorio",
+  "repository": "https://github.com/Danielv123/factorioClusterio",
   "main": "master.js",
   "scripts": {
     "test": "npm run test-unit",
@@ -44,6 +45,7 @@
     "chai": "^3.5.0",
     "istanbul": "^0.4.5",
     "mocha": "^3.4.1",
-    "mock-fs": "^4.3.0"
+    "mock-fs": "^4.3.0",
+    "nock": "^9.0.13"
   }
 }

@@ -18,20 +18,7 @@ process.stdin.on('readable', () => {
 		functions.handleInventory(inventory, config);
 	} else if(isJson(chunk) && JSON.parse(chunk).factorioPort){
 		config = JSON.parse(chunk);
-		// if its a LUA table message returning with the exports send em off to master
-	}/* else if(!isJson(chunk) && !!chunk && config){
-		let thing = functions.parseJsString(chunk.replace(/=/g, ":"));
-		Object.keys(thing).forEach(function(playerName){
-			Object.keys(thing[playerName]).forEach(function(itemName){
-				needle.post(config.masterIP + ":" + config.masterPort + '/api/place', {
-					name: itemName,
-					count: thing[playerName][itemName]
-				}, function (err, resp, body) {
-					// console.log(body);
-				});
-			});
-		});
-	}*/
+	}
 });
 process.stdin.on('end', () => {
 	process.stdout.write('end');

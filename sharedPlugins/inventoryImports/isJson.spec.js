@@ -1,7 +1,7 @@
 const isJson = require("./isJson");
 const assert = require("assert");
 
-describe("isJson.js()", function(){
+describe("inventoryImports/isJson.js()", function(){
 	it("checks if a thing is valid JSON", function(){
 		assert(isJson("string") === false);
 		assert(isJson("{js_object_notation='very false'}") === false);

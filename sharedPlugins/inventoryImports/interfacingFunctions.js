@@ -17,17 +17,6 @@ function parseJsString(string){
 	/*console.log(string)
 	console.log(inventory)*/
 	return inventory;
-	/* Example output: 
-	{'1':{
-		inventory: {
-			'raw-wood': 4
-		},
-		requestSlots:{
-			'underground-belt': 50,
-			'fast-transport-belt': 50,
-			'express-underground-belt': 50
-	}}}
-	*/
 }
 function handleInventory(json, config){
 	/*
