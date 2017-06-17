@@ -1,6 +1,7 @@
 const objectOps = require("../../lib/objectOps.js");
 const needle = require("needle");
 const pluginConfig = require("./config")
+const isJson = require("./isJson")
 
 // returns JS object, throws if there are syntax errors in input string
 function parseJsString(string){
@@ -18,7 +19,7 @@ function parseJsString(string){
 	console.log(inventory)*/
 	return inventory;
 }
-function handleInventory(json, config){
+function handleInventory(json, config, callback){
 	/*
 	json is one of these two samples
 	{"players":{"1":{"inventory":{"stone":12,"iron-ore":120,"raw-wood":10,"iron-plate":8,"steel-plate":480},"requestSlots":{}}}}
@@ -48,6 +49,8 @@ function handleInventory(json, config){
 				let collectStacks = function(stack){
 					itemsToConfirm--;
 					if(stack){
+						// because of the way we collect data in a keyed JSON object, this first part of the IF cannot happen.
+						/* istanbul ignore next */
 						if(confirmedItems[stack.name] && confirmedItems[stack.name] > 0){
 							confirmedItems[stack.name] += stack.count;
 						} else {
@@ -55,7 +58,8 @@ function handleInventory(json, config){
 						}
 					}
 					if(itemsToConfirm == 0 && Object.keys(confirmedItems).length > 0){
-						console.log(insertItemsFromObject(confirmedItems, playerNames[i]));
+						// return LUA
+						callback(insertItemsFromObject(confirmedItems, playerNames[i]));
 					}
 				}
 				// subtract items already in inventory
@@ -72,10 +76,11 @@ function handleInventory(json, config){
 						}
 						//console.log("Requesting: "+JSON.stringify(request));
 						// request the difference from master
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', request, function (err, response, body) {
-							if (response && response.body && typeof response.body == "object") {
+						needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', request, {json:true}, function (err, response, body) {
+							if (!err && response && response.body && (typeof response.body == "object" || isJson(response.body))) {
 								// confirmed orders, already removed from master inventory
 								//response.body.name: response.body.count
+								if(typeof response.body == "string") response.body = JSON.parse(response.body);
 								let stack = {name:response.body.name,count:Number(response.body.count)}
 								collectStacks(stack);
 							} else {

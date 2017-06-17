@@ -15,7 +15,7 @@ process.stdin.on('readable', () => {
 		
 		let inventory = JSON.parse(chunk)
 		// process inventory of players and ask master for more stuff
-		functions.handleInventory(inventory, config);
+		functions.handleInventory(inventory, config, console.log);
 	} else if(isJson(chunk) && JSON.parse(chunk).factorioPort){
 		config = JSON.parse(chunk);
 	}
