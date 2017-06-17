@@ -44,7 +44,7 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 					if(body.name == "iron-plate") assert(body.count == "92");
 					// nock wants us to return true if this is the correct body and we should reply
 					// if we return false we won't send a reply.
-					return x
+					return true;
 				})
 				// nock destroys the endpoints after being hit once, this changes the number of hits required for destruction
 				.times(10)
