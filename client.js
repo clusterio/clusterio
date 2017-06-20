@@ -66,9 +66,9 @@ function messageInterface(command, callback) {
 			client.exec(command, callback);
 		} catch (err) {
 			console.log(err);
-			if(typeof callback == "function"){
-				callback(err);
-			}
+		}
+		if(typeof callback == "function"){
+			callback();
 		}
 	}
 }
@@ -111,6 +111,10 @@ if (!command || command == "help" || command == "--help") {
 			console.log("Downloaded "+name);
 		});
 	}
+} else if (command == "start" && instance === undefined) {
+	console.log("ERROR: No instanceName provided!");
+	console.log("Usage: node client.js start [instanceName]");
+	process.exit(0);
 } else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
 	// if instance does not exist, create it
 	console.log("Creating instance...");
@@ -305,7 +309,7 @@ function instanceManagement() {
 	// load plugins and execute onLoad event
 	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
 	let plugins = [];
-	for(i=0; i<pluginDirectories.length; i++) {
+	for(let i=0; i<pluginDirectories.length; i++) {
 		let I = i
 		let log = function(t) {
 			console.log("Clusterio | "+ pluginDirectories[I] + " | " + t);
@@ -427,8 +431,7 @@ function instanceManagement() {
 						}
 					});
 				});
-			},1000);
-			});
+			},1000)});
 		}
 	});
 	

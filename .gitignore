@@ -31,6 +31,11 @@ Factorio*
 /instances
 /sharedMods
 /database
-/sharedPlugins
 database/items.db
 config.json
+
+# weird pattern to ignore sharedPlugins except not ignore some core modules
+!sharedPlugins/
+sharedPlugins/*
+!sharedPlugins/inventoryImports/
+!sharedPlugins/UPSdisplay/

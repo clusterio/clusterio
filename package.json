@@ -2,12 +2,13 @@
   "name": "clusterio",
   "version": "1.0.0",
   "description": "Interserver communication for factorio",
+  "repository": "https://github.com/Danielv123/factorioClusterio",
   "main": "master.js",
   "scripts": {
     "test": "npm run test-unit",
     "test-unit": "mocha --recursive \"./{,!(node_modules)/**/}*.spec.js\" || echo .",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
-    "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- lib/*.js -R spec"
+    "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{,!(node_modules)/**/}*.spec.js\" -R spec || echo ."
   },
   "keywords": [
     "factorio"
@@ -28,6 +29,7 @@
     "fs-extra": "^1.0.0",
     "getmac": "^1.2.1",
     "hash-files": "^1.1.1",
+    "luamin": "^1.0.4",
     "mkdirp": "^0.5.1",
     "ncp": "^2.0.0",
     "nedb": "^1.8.0",
@@ -43,6 +45,9 @@
     "chai": "^3.5.0",
     "istanbul": "^0.4.5",
     "mocha": "^3.4.1",
-    "mock-fs": "^4.3.0"
+    "mocha-sinon": "^2.0.0",
+    "mock-fs": "^4.3.0",
+    "nock": "^9.0.13",
+    "sinon": "^2.3.4"
   }
 }

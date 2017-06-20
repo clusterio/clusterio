@@ -1,9 +1,9 @@
 const needle = require("needle");
 
-console.log("/silent-command game.print('UPSdisplay enabled')\n");
+console.log("/silent-command game.print('UPSdisplay enabled')");
 
 setInterval(function(){
-	console.log("/silent-command game.write_file('UPSdisplay.txt', game.tick, true, 0)\n");
+	console.log("/silent-command game.write_file('UPSdisplay.txt', game.tick, true, 0)");
 },1000);
 var config = {};
 process.stdin.setEncoding('utf8');
@@ -31,8 +31,12 @@ setInterval(function(){
 		let ticksInPeriod = historicalTicks[historicalTicks.length-1].tick - historicalTicks[0].tick;
 		let UPS = Math.round(ticksInPeriod / (timePeriod/1000));
 		// console.log("UPS: " + UPS);
-		needle.post(config.masterIP+':'+config.masterPort+'/api/editSlaveMeta', {slaveID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
-			// success?
-		});
+		try{
+			needle.post(config.masterIP+':'+config.masterPort+'/api/editSlaveMeta', {slaveID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
+				// success?
+			});
+		} catch (err){
+			console.log(err);
+		}
 	}
 }, 10000);
