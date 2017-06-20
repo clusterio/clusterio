@@ -32,6 +32,7 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 						"requestSlots":{
 							"iron-plate":100,
 							"steel-plate":480,
+							"raw-wood":20,
 							"bullshit":0,
 						}
 					}

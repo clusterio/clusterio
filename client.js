@@ -111,6 +111,10 @@ if (!command || command == "help" || command == "--help") {
 			console.log("Downloaded "+name);
 		});
 	}
+} else if (command == "start" && instance === undefined) {
+	console.log("ERROR: No instanceName provided!");
+	console.log("Usage: node client.js start [instanceName]");
+	process.exit(0);
 } else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
 	// if instance does not exist, create it
 	console.log("Creating instance...");
