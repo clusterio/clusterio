@@ -61,6 +61,10 @@ Date.prototype.yyyymmdd = function(time) { // http://stackoverflow.com/questions
 	return this.getFullYear()+""+mm+""+dd+ ""; // padding
 };
 var date = new Date();
+String.prototype.replaceAll = function(search, replacement) {
+    var target = this;
+    return target.split(search).join(replacement);
+};
 
 // image data
 // key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
