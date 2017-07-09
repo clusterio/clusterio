@@ -65,6 +65,8 @@ var date = new Date();
 // image data
 // key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
 // this list has to include all entities that doesn't just follow the simple capitalize first letter convention
+var imagedata = {};
+/* Notice: All icon images hosted on this Wiki have been renamed to use their in-game names, with underscores. If your external tool references these icons, please correct your links.
 var imagedata = {
 	["empty-barrel"]: "Barrel-empty",
 	["transport-belt"]: "Basic-transport-belt",
@@ -106,7 +108,7 @@ var imagedata = {
 	["water-barrel"]: "Barrel-empty",
 	["smart-train-stop"]: "Train-stop",
 	["put-combinator"]: "Decider-combinator",
-}
+}*/
 
 // value:link pairs where you can add modded item icons that are missing
 var imagelinks = {
