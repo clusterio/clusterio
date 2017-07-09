@@ -9,7 +9,7 @@ function drawcontents(data) {
 		} else if(imagelinks[data[i].name]) {
 			img = imagelinks[data[i].name];
 		} else {
-			img = "https://wiki.factorio.com/images/" + data[i].name.replace('-','_') + ".png";
+			img = "https://wiki.factorio.com/images/" + capitalizeFirstletter(data[i].name.replace('-','_')) + ".png";
 		}
 		var searchField = document.querySelector("#search");
 		if(!searchField.value || data[i].name.includes(searchField.value)) {
