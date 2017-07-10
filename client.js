@@ -499,7 +499,7 @@ function instanceManagement() {
 				for(let key in flowStat2) totalFlows[key] = flowStat2[key];
 				if(oldFlowStats && totalFlows && oldTimestamp) {
 					// todo: Migrate this to JSON.parse(JSON.stringify())
-					let payload = objectOps.clone(totalFlows);
+					let payload = objectOps.deepclone(totalFlows);
 					// change from total reported to per time unit
 					for(let key in oldFlowStats) {
 						// get production per minute
