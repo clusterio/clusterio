@@ -3,7 +3,7 @@
 	"factorioDirectory": "factorio",
 	
 	"__comment": "IP players should connect to to join your servers, should be portforwarded and stuff",
-	"publicIP": "192.168.10.1",
+	"publicIP": "localhost",
 	
 	"__comment": "IP the master web server runs at, can be ignored on the master system",
 	"masterIP": "localhost",

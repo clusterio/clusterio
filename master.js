@@ -28,7 +28,8 @@ app.use(fileUpload());
 
 // dynamic HTML generations with EJS
 app.set('views', path.join(__dirname, 'static'));
-app.set('view engine', 'ejs');
+app.set('view engine', 'html');
+app.engine('html', ejs.renderFile);
 
 var routes = require("./routes.js");
 routes(app);
