@@ -249,52 +249,55 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 				client.close();
 				client.connect();
 			}
-		});
-		serverprocess.stdout.on('data', (chunk) => {
 			if(process.platform == "linux"){
-				console.log('Factorio: ' + chunk);
+				// we have to log on linux because linux only shows stdout of the first process launched
+				console.log('Factorio: ' + data);
 			}
 		});
-
 		serverprocess.stderr.on('data', (chunk) => {
 			console.log('ERR: ' + chunk);
 		});
 
 		// connect to the server with rcon
-		// IP, port, password
-		client = new Rcon({
-			host: 'localhost',
-			port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
-			password: instanceconfig.clientPassword,
-			timeout: 0
-		});
-		
-		// check the logfile to see if the RCON interface is running as there is no way to continue without it
-		// we read the log every 2 seconds and stop looping when we start connecting to factorio
-		function checkRcon() {
-			fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
-				// if (err) console.log(err);
-				if(data && data.indexOf('Starting RCON interface') > 0){
-					client.connect();
-				} else {
-					setTimeout(function(){
-						checkRcon();
-					},2000);
-				}
+		if(process.platform != "linux"){
+			// IP, port, password
+			client = new Rcon({
+				host: 'localhost',
+				port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
+				password: instanceconfig.clientPassword,
+				timeout: 0
 			});
-		}
-		setTimeout(checkRcon, 5000);
+			
+			// check the logfile to see if the RCON interface is running as there is no way to continue without it
+			// we read the log every 2 seconds and stop looping when we start connecting to factorio
+			function checkRcon() {
+				fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
+					// if (err) console.log(err);
+					if(data && data.indexOf('Starting RCON interface') > 0){
+						client.connect();
+					} else {
+						setTimeout(function(){
+							checkRcon();
+						},2000);
+					}
+				});
+			}
+			setTimeout(checkRcon, 5000);
 		
-		client.on('authenticated', function () {
-			console.log('Clusterio | Authenticated!');
-			instanceManagement(); // start using rcons
-		}).on('connected', function () {
-			console.log('Clusterio | Connected!');
-			// getID();
-		}).on('disconnected', function () {
-			console.log('Clusterio | Disconnected!');
-			process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
-		});
+			client.on('authenticated', function () {
+				console.log('Clusterio | RCON Authenticated!');
+				instanceManagement(); // start using rcons
+			}).on('connected', function () {
+				console.log('Clusterio | RCON Connected!');
+				// getID();
+			}).on('disconnected', function () {
+				console.log('Clusterio | RCON Disconnected!');
+				process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
+			});
+		} else if(process.platform == "linux"){
+			// TODO: Check if this works fine on linux or if it has to be delayed until the server starts properly
+			instanceManagement();
+		}
 
 		// set some globals
 		confirmedOrders = [];
@@ -302,7 +305,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	});
 }
 
-// ensure instancemanagement only runs once
+// ensure instancemanagement only ever runs once
 _.once(instanceManagement);
 function instanceManagement() {
 	console.log("Started instanceManagement();");
@@ -498,7 +501,6 @@ function instanceManagement() {
 				for(let key in flowStat1) totalFlows[key] = flowStat1[key];
 				for(let key in flowStat2) totalFlows[key] = flowStat2[key];
 				if(oldFlowStats && totalFlows && oldTimestamp) {
-					// todo: Migrate this to JSON.parse(JSON.stringify())
 					let payload = objectOps.deepclone(totalFlows);
 					// change from total reported to per time unit
 					for(let key in oldFlowStats) {
