@@ -2,7 +2,11 @@
 debug = false;
 
 // constants
-const masterModFolder = "./database/masterMods/"
+const masterModFolder = "./database/masterMods/";
+var config = require('./config');
+
+// homebrew modules
+const getFactorioLocale = require("./lib/getFactorioLocale");
 
 // Library for create folder recursively if it does not exist
 const mkdirp = require("mkdirp");
@@ -12,8 +16,6 @@ const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
 var nedb = require("nedb");
-// require config.json
-var config = require('./config');
 
 var express = require("express");
 var ejs = require("ejs");
@@ -304,6 +306,9 @@ app.post("/api/getStats", function(req,res) {
 			res.send(entries);
 		});
 	}
+});
+app.get("/api/getFactorioLocale", function(req,res){
+	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => res.send(factorioLocale));
 });
 
 // endpoint for getting the chartjs library
