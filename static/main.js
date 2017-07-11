@@ -28,23 +28,23 @@ contents = {
 // nice functions
 // hash a string to a hash
 function djb2(str){
-  var hash = 5381;
-  for (var i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash) + str.charCodeAt(i); /* hash * 33 + c */
-  }
-  return hash;
+	var hash = 5381;
+	for (var i = 0; i < str.length; i++) {
+		hash = ((hash << 5) + hash) + str.charCodeAt(i); /* hash * 33 + c */
+	}
+	return hash;
 }
 // hash a string to a color
 function hashColor(str) {
-  var hash = djb2(str);
-  var r = (hash & 0xFF0000) >> 16;
-  var g = (hash & 0x00FF00) >> 8;
-  var b = hash & 0x0000FF;
-  return "#" + ("0" + r.toString(16)).substr(-2) + ("0" + g.toString(16)).substr(-2) + ("0" + b.toString(16)).substr(-2);
+	var hash = djb2(str);
+	var r = (hash & 0xFF0000) >> 16;
+	var g = (hash & 0x00FF00) >> 8;
+	var b = hash & 0x0000FF;
+	return "#" + ("0" + r.toString(16)).substr(-2) + ("0" + g.toString(16)).substr(-2) + ("0" + b.toString(16)).substr(-2);
 }
 // exactly what you would expect it to, returns String
 function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
+		return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 // hide the HTML object passed as argument #1
@@ -62,7 +62,7 @@ Date.prototype.yyyymmdd = function(time) { // http://stackoverflow.com/questions
 };
 var date = new Date();
 function replaceAll(target, search, replacement) {
-    return target.split(search).join(replacement);
+		return target.split(search).join(replacement);
 };
 
 function getImageFromName(name){
