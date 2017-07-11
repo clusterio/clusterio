@@ -70,13 +70,13 @@ function getImageFromName(name){
 		return imagelinks[name];
 	} else if(imagedata[name]) {
 		return "https://wiki.factorio.com/images/" + imagedata[name] + ".png"
-	} else if(factorioLocale["entity-name"][name]){
+	} else if(factorioLocale["entity-name"] && factorioLocale["entity-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["entity-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else if(factorioLocale["item-name"][name]){
+	} else if(factorioLocale["item-name"] && factorioLocale["item-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["item-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else if(factorioLocale["fluid-name"][name]){
+	} else if(factorioLocale["fluid-name"] && factorioLocale["fluid-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["fluid-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else if(factorioLocale["equipment-name"][name]){
+	} else if(factorioLocale["equipment-name"] && factorioLocale["equipment-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["equipment-name"][name], ' ', '_').toLowerCase()) + ".png";
 	} else return "";
 }
