@@ -80,6 +80,7 @@ function getImageFromName(name){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["equipment-name"][name], ' ', '_').toLowerCase()) + ".png";
 	} else return "";
 }
+window.factorioLocale = {};
 $.getJSON("/api/getFactorioLocale", (locale) => {
 	window.factorioLocale = locale;
 });
