@@ -3,14 +3,7 @@ function drawcontents(data) {
 	data = sortByKey(data, "count");
 	let result = "<table>";
 	for(i = 0;i < data.length; i++) {
-		var img = "";
-		if(imagedata[data[i].name]) {
-			img = "https://wiki.factorio.com/images/" + imagedata[data[i].name] + ".png"
-		} else if(imagelinks[data[i].name]) {
-			img = imagelinks[data[i].name];
-		} else {
-			img = "https://wiki.factorio.com/images/" + capitalizeFirstLetter(data[i].name.replaceAll('-','_')) + ".png";
-		}
+		var img = getImageFromName(data[i].name);
 		var searchField = document.querySelector("#search");
 		if(!searchField.value || data[i].name.includes(searchField.value)) {
 			result = result + "<tr><td><image src='" + img + "' onerror='hideThis(this);'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";

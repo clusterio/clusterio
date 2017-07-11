@@ -61,60 +61,52 @@ Date.prototype.yyyymmdd = function(time) { // http://stackoverflow.com/questions
 	return this.getFullYear()+""+mm+""+dd+ ""; // padding
 };
 var date = new Date();
-String.prototype.replaceAll = function(search, replacement) {
-    var target = this;
+function replaceAll(target, search, replacement) {
     return target.split(search).join(replacement);
 };
 
+function getImageFromName(name){
+	if(imagelinks[name]){
+		return imagelinks[name];
+	} else if(imagedata[name]) {
+		return "https://wiki.factorio.com/images/" + imagedata[name] + ".png"
+	} else if(factorioLocale["entity-name"][name]){
+		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["entity-name"][name], ' ', '_').toLowerCase()) + ".png";
+	} else if(factorioLocale["item-name"][name]){
+		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["item-name"][name], ' ', '_').toLowerCase()) + ".png";
+	} else if(factorioLocale["fluid-name"][name]){
+		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["fluid-name"][name], ' ', '_').toLowerCase()) + ".png";
+	} else if(factorioLocale["equipment-name"][name]){
+		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["equipment-name"][name], ' ', '_').toLowerCase()) + ".png";
+	} else return "";
+}
+$.getJSON("/api/getFactorioLocale", (locale) => {
+	window.factorioLocale = locale;
+});
 // image data
 // key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
 // this list has to include all entities that doesn't just follow the simple capitalize first letter convention
-var imagedata = {};
-/* Notice: All icon images hosted on this Wiki have been renamed to use their in-game names, with underscores. If your external tool references these icons, please correct your links.
+/* Notice: All icon images hosted on this Wiki have been renamed to use their in-game names, with underscores. If your external tool references these icons, please correct your links. */
 var imagedata = {
-	["empty-barrel"]: "Barrel-empty",
-	["transport-belt"]: "Basic-transport-belt",
-	["underground-belt"]: "Basic-transport-belt-to-ground",
-	["fast-underground-belt"]: "Fast-transport-belt-to-ground",
-	["express-underground-belt"]: "Express-transport-belt-to-ground",
-	["splitter"]: "Basic-splitter",
-	["inserter"]: "Inserter-icon",
-	["stack-inserter"]: "Stack_inserter",
-	["stack-filter-inserter"]: "Stack_filter_inserter",
-	["efficiency-module"]: "Effectivity-module",
-	["efficiency-module_2"]: "Effectivity-module-2",
-	["efficiency-module_3"]: "Effectivity-module-3",
-	["low-density-structure"]: "Rocket-structure",
-	["electric-mining-drill"]: "Basic-mining-drill",
-	["burner-mining-drill"]: "Burner-mining-drill",
-	["active-provider-chest"]: "Logistic-chest-active-provider",
-	["passive-provider-chest"]: "Logistic-chest-passive-provider",
-	["storage-chest"]: "Logistic-chest-storage",
-	["requester-chest"]: "Logistic-chest-requester",
-	["wall"]: "Stone-wall",
-	["medium-electric-pole"]: "Medium-electric-pole",
-	["lamp"]: "Small-lamp",
-	["regular-magazine"]: "Basic-bullet-magazine",
-	["piercing-rounds_magazine"]: "Piercing-bullet-magazine",
-	["flamethrower-ammo"]: "Flame-thrower-ammo",
-	["cannon-shells"]: "Cannon-shell",
-	["explosive-cannon-shells"]: "Explosive-cannon-shell",
-	["land-mine"]: "Land-mine-research",
-	["cluster-grenade"]: "Cluster_grenade",
-	["shotgun-shells"]: "Shotgun-shell",
-	["piercing-shotgun-shells"]: "Piercing-shotgun-shell",
-	["accumulator"]: "Basic-accumulator",
-	["beacon"]: "Basic-beacon",
-	["rail"]: "Straight-rail",
-	["piercing-rounds-magazine"]: "Piercing-bullet-magazine",
-	["grenade"]: "Basic-grenade",
-	["raw-fish"]: "Fish",
-	["water-barrel"]: "Barrel-empty",
-	["smart-train-stop"]: "Train-stop",
-	["put-combinator"]: "Decider-combinator",
-}*/
+	"put-combinator": "Decider_combinator",
+	"smart-train-stop": "Train_stop",
+	"raw-fish": "Fish",
+	"solar-panel-equipment": "Portable_solar_panel",
+	"diesel-locomotive": "Locomotive", // pre 0.15 loco name
+	"small-lamp": "Lamp",
+	
+}
 
 // value:link pairs where you can add modded item icons that are missing
 var imagelinks = {
-	"fictional-modded-item": "/pictures/fictional-modded-item.png"
+	"fictional-modded-item": "/pictures/fictional-modded-item.png",
+	"raw-fish": "/pictures/Fish.png",
+	"rail": "/pictures/rail.png",
+	"effectivity-module-1": "/pictures/green_module_1.png",
+	"effectivity-module-2": "/pictures/green_module_2.png",
+	"effectivity-module-3": "/pictures/green_module_3.png",
+	"piercing-shotgun-shell": "/pictures/piercing_shotgun_shells.png",
+	"energy-shield-mk2-equipment": "/pictures/Energy_shield_MK2.png",
+	"battery-mk2-equipment": "/pictures/Battery_MK2.png",
+	"personal-roboport-mk2-equipment": "/pictures/Personal_roboport_MK2.png"
 }
