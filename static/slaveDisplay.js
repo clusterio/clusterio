@@ -11,12 +11,7 @@ setTimeout(function() {
 				// Only show slaves connected last 2 minutes (depending on setting now)
 				if(JSON.parse(localStorage.settings)["Display offline slaves"]) var displayOffline = true;
 				if(Date.now() - slaveData[key].time < 120000 || displayOffline) {
-					// Display ISO 6801 compliant date to please Zarthus
-					// maybe include an option to use y-ymd-ymd-y for Trangar compatibility as well
-					var seenDate = date.yyyymmdd(slaveData[key].time)
-					if(g.trangarTime == true){
-						var seenDate = (seenDate+"")[0]+"-"+(seenDate+"")[1]+(seenDate+"")[4]+(seenDate+"")[6]+"-"+(seenDate+"")[2]+(seenDate+"")[5]+(seenDate+"")[7]+"-"+(seenDate+"")[3];
-					}
+					let seenDate = moment(Number(slaveData[key].time)).format('MM DD YY, hh:mm:ss')
 					HTML += "<div class='slaveBox'>";
 					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="width: calc(100% - 200px);"></div>';
 					HTML += "<a href='nodeDetails?slaveID="+slaveData[key].unique+"'><h2>" + slaveData[key].instanceName + "</h2></a><p>ID: " + slaveData[key].unique + "</p><p>Last seen: "+seenDate+"</p><p>Online players: "+slaveData[key].playerCount+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
