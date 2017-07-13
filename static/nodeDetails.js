@@ -126,7 +126,9 @@ function populateSlaveInfo(){
 		HTML += "</div>" // end of left container
 		
 		// chart
-		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>'
+		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>';
+		// terminal
+		// HTML += '<div id="terminal"></div>';
 		
 		document.querySelector("#hero").innerHTML = HTML;
 		
@@ -145,9 +147,100 @@ function populateSlaveInfo(){
 		// make production graph
 		makeGraph(slave.unique, slave.unique)
 		
+		makeTerminal();
 	});
 }
-
+var slaveLogin = {};
+function makeTerminal(){
+	myTerminal = new Terminal();
+	document.querySelector("#terminal").appendChild(myTerminal.html);
+	// use jQuery to allow the user to drag the window around
+	$("#terminal").draggable({
+		handle:".titleBar",
+	});
+	myTerminal.print('Welcome to Clusterio rcon!');
+	myTerminal.input('', handleTerminalInput);
+	if(localStorage.terminalMinimized && localStorage.terminalMinimized == "true"){
+		minimizeTerminal(true);
+	}
+	function print(string){
+		myTerminal.print(string);
+	}
+	
+	function handleTerminalInput(inputString) {
+		// show clearly that it was a command that was typed, not terminal output
+		let lastLine = document.querySelector("#terminal div > p:nth-child(1) > div:last-child");
+		lastLine.innerHTML = "> " + lastLine.innerHTML;
+		
+		argv = inputString.split(' ');
+		if(argv[0][0] == '/'){
+			if(slaveLogin && slaveLogin.name && slaveLogin.pass){
+				print('Running: '+inputString);
+			} else {
+				print('Not identified to communicate with any slave! Run "help" for more information.');
+			}
+		} else if(argv[0] == 'help'){
+			if(argv[1] == 'login'){
+				print('To send commands to a slave, you are required to identify yourself. You can do this with the login command. The name will be the name of the slave as displayed on master. The password is the rcon password of the slave, as per /instances/[name]/config.json');
+			} else if(argv[1] == "/c"){
+				print('To run a command, start with /. You can for example do /c game.print("hello world!")');
+			} else if(argv[1] == "issues"){
+				print("Issues are reported to Danielv123 on github or espernet IRC.");
+				print(" - http://github.com/Danielv123/factorioClusterio/issues");
+				print(" - EsperNet #factorio Danielv123");
+			} else {
+				print('To identify yourself to a slave, use "login [name] [password]"');
+				print(' - /c [command] - Run command');
+				print(' - login [name] [passs] - Connect to remote slave');
+				print(' - issues - Report an issue');
+			}
+		} else if(argv[0] == 'issues'){
+			print("Issues are reported to Danielv123 on github or espernet IRC.");
+			print(" - http://github.com/Danielv123/factorioClusterio/issues");
+			print(" - EsperNet #factorio Danielv123");
+		} else {
+			print('Invalid command!');
+		}
+		
+		// keep handling input (unless something is seriously wrong)
+		myTerminal.input('',handleTerminalInput);
+	}
+}
+function minimizeTerminal(instant){
+	localStorage.terminalMinimized = true;
+	$('#terminal').draggable('disable');
+	if(!instant){
+		$('#terminal')[0].style.transition = 'left 0.2s linear, top 0.2s linear';
+	}
+	document.querySelector('.Terminal').style.height = 0;
+	let ter = $('#terminal')[0];
+	// if the window just spawned in and we are doing the first minimize,  our position won't be set yet. We also don't want to save this blank position.
+	if(ter.style.left && ter.style.top){
+		localStorage.oldTerminalPosition = JSON.stringify({x:ter.style.left, y:ter.style.top});
+	}
+	ter.style.left = (window.innerWidth - ter.offsetWidth)+'px';
+	ter.style.top = (window.innerHeight - 25)+'px';
+	
+	// if we did it instant we still want to set this property for after.
+	if(instant){
+		setTimeout(() => $('#terminal')[0].style.transition = 'left 0.2s linear, top 0.2s linear',200);
+	}
+}
+function maximizeTerminal(instant){
+	localStorage.terminalMinimized = false;
+	document.querySelector('.Terminal').style.height = '400px';
+	let ter = $('#terminal')[0];
+	
+	// recover our old saved position
+	let oldTerminalPosition = JSON.parse(localStorage.oldTerminalPosition);
+	ter.style.left = oldTerminalPosition.x;
+	ter.style.top = oldTerminalPosition.y;
+	
+	// remove our animation once its finished
+	// since instant is a true/false value, Number will convert it to 1 or 0. Since 0 is falsy, || will turn it into 200.
+	setTimeout(() => $('#terminal')[0].style.transition = 'none', (Number(instant) || 200));
+	$('#terminal').draggable('enable');
+}
 populateSlaveInfo();
 
 // ID of slave, ID of canvasjs div without #
