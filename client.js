@@ -63,7 +63,7 @@ function messageInterface(command, callback) {
 		}
 	} else if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
 		try {
-			client.exec(command, callback);
+			client.exec(command+"\n", callback);
 		} catch (err) {
 			console.log(err);
 		}
