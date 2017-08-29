@@ -1,16 +1,33 @@
 // function to draw data we recieve from ajax requests
 function drawcontents(data) {
-	data = sortByKey(data, "count");
-	let result = "<table>";
-	for(i = 0;i < data.length; i++) {
-		var img = getImageFromName(data[i].name);
-		var searchField = document.querySelector("#search");
-		if(!searchField.value || data[i].name.includes(searchField.value)) {
-			result = result + "<tr><td><image src='" + img + "' onerror='hideThis(this);'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
+	const table = document.querySelector("#contents tbody"); //tables have tbody inserted automatically
+	const rows = table.children;
+	
+	sortByKey(data, "count");
+	data.forEach(function(item, i) {
+		let row = rows[i];
+		if(!row) {
+			row = document.createElement('tr');
+			row.innerHTML = "<td><img width=32 height=32></td><td class=name></td><td class=count></td>";
+			table.appendChild(row);
 		}
-	}
-	result = result + "</table>"
-	document.getElementById("contents").innerHTML = result;
+		
+		const img = row.querySelector('img');
+		const imgName = getImageFromName(item.name);
+		if(img.getAttribute('src') !== imgName) {
+			img.setAttribute('src',imgName);
+		}
+		
+		const name = row.querySelector('.name');
+		if(name.textContent !== item.name) {
+			name.textContent = item.name;
+		}
+		
+		const count = row.querySelector('.count');
+		if(count.textContent !== ''+item.count) {
+			count.textContent = item.count;
+		}
+	})
 }
 
 // get cluster inventory from master
@@ -33,8 +50,7 @@ if(JSON.parse(localStorage.settings)["Periodically update storage screen"]) {
 
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
-    return array.sort(function(a, b) {
-        var x = Number(a[key]); var y = Number(b[key]);
-        return ((x < y) ? 1 : ((x > y) ? -1 : 0));
+    array.sort(function(a, b) {
+        return b[key] - a[key];
     });
 }
