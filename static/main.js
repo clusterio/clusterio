@@ -78,7 +78,7 @@ function getImageFromName(name){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["fluid-name"][name], ' ', '_').toLowerCase()) + ".png";
 	} else if(factorioLocale["equipment-name"] && factorioLocale["equipment-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["equipment-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else return "";
+	} else return "/pictures/unknown-item.png";
 }
 window.factorioLocale = {};
 $.getJSON("/api/getFactorioLocale", (locale) => {
