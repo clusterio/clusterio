@@ -1,9 +1,20 @@
 // function to draw data we recieve from ajax requests
+_lastData = [];
 function drawcontents(data) {
+	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
+	_lastData = data;
+	
+	const search = new RegExp(document.querySelector("#search").value, 'i');
+	data = data.filter(function(item) {
+		return search.test(item.name);
+	})
+	
+	sortByKey(data, "count");
+	
 	const table = document.querySelector("#contents tbody"); //tables have tbody inserted automatically
 	const rows = table.children;
 	
-	sortByKey(data, "count");
+	//update existing rows or create new ones
 	data.forEach(function(item, i) {
 		let row = rows[i];
 		if(!row) {
@@ -27,7 +38,12 @@ function drawcontents(data) {
 		if(count.textContent !== ''+item.count) {
 			count.textContent = item.count;
 		}
-	})
+	});
+	
+	//remove excess rows, for example, after filtering
+	while (data.length < rows.length) {
+		table.removeChild(rows[data.length]);
+	}
 }
 
 // get cluster inventory from master
@@ -54,3 +70,7 @@ function sortByKey(array, key) {
         return b[key] - a[key];
     });
 }
+
+document.querySelector("#search").addEventListener('input', function() { 
+	drawcontents();
+})
