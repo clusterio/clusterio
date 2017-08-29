@@ -307,6 +307,49 @@ app.post("/api/getStats", function(req,res) {
 		});
 	}
 });
+
+// Modified version of getStats which feeds the web interface production graphs
+// at /nodes. It is like getStats but it does not report items which were not
+// produced at the moment of recording. (This is to save space, the 0-items were
+// making up about 92% of the response body weight.)
+app.post("/api/getTimelineStats", function(req,res) {
+	console.log(req.body);
+	if(typeof req.body == "object" && req.body.slaveID) {
+		// if not specified, get stats for last 24 hours
+		if(!req.body.fromTime) {
+			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
+		}
+		if(!req.body.toTime) {
+			req.body.toTime = Date.now();
+		}
+		console.log("Looking... " + JSON.stringify(req.body));
+		db.flows.find({
+			slaveID: req.body.slaveID,
+		}, function(err, docs) {
+			if(err) { 
+				console.error(err);
+				return;
+			}
+			
+			//Filter out all the entries outside the time range.
+			docs = docs.filter(function (el) {
+				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
+			});
+			
+			//Filter out all the elements that weren't produced.
+			docs.forEach(el => {
+				for(let key in el.data) {
+					if(el.data[key] === '0') {
+						delete el.data[key];
+					}
+				}
+			});
+			
+			res.send(docs);
+		});
+	}
+});
+
 app.get("/api/getFactorioLocale", function(req,res){
 	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => res.send(factorioLocale));
 });
