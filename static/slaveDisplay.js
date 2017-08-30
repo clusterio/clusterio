@@ -44,32 +44,34 @@ let chartIgnoreList = [
 
 // ID of slave, ID of canvasjs div without #
 function makeGraph(slaveID, selector) {
-	post("api/getStats", {slaveID: slaveID}, function(data){
+	post("api/getTimelineStats", {slaveID: slaveID}, function(pointsInTime) {
 		//console.log("Building chart " + slaveID + " with this data:")
-		//console.log(data)
-		if(data.length > 0) {
-			// find keys
-			let itemNames = [];
-			for(let key in data[data.length - 1].data) {
-				itemNames[itemNames.length] = key
+		
+		//Find all keys at all points in time.
+		let itemNames = {};
+		pointsInTime.forEach(function(point) {
+			for(let key in point.data) {
+				itemNames[key] = true;
 			}
-			let chartData = [];
-			for(let o = 0; o < itemNames.length; o++) {
-				if(!chartIgnoreList.includes(itemNames[o])){
-					chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
-				}
-			}
-			//console.log(chartData)
-			drawChart(selector, chartData)
-		}
-		// callback(data);
+		});
+		itemNames = Object.keys(itemNames);
+		
+		//Generate a chart list for each item.
+		const displayNames = itemNames.filter(function(name) { 
+			return !chartIgnoreList.includes(name);
+		});
+		const chartData = displayNames.map(function(name) {
+			return generateLineChartArray(pointsInTime, name)
+		});
+		
+		chartData.length && drawChart(selector, chartData)
 	})
 }
 
 // production info
 // string, object, function(object)
 function post(url, data, callback) {
-	console.log("POST " + url + JSON.stringify(data))
+	console.log("POST " + url, data);
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", url, true);
 	xhr.setRequestHeader("Content-type", "application/json");
@@ -83,27 +85,26 @@ function post(url, data, callback) {
 }
 
 function generateLineChartArray(data, nameKey) {
+	const legendKeys = ["copper-cable", "iron-plate", "copper-plate", "electronic-circuit", "steel-plate", "advanced-circuit", "crude-oil", "petroleum-gas"];
 	let chartData = [];
 	for(let i = 0; i < data.length; i++) {
-		// only show recent data
-		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
-			let y = data[i].data[nameKey]
-			if(!data[i].data[nameKey]) {
-				y = 0;
-			} else if(y < 0) {
-				y = 0;
-			}
-			chartData[chartData.length] = {
-				x: new Date(data[i].timestamp),
-				y: Number(y)
-			}
+		let y = data[i].data[nameKey]
+		if(!data[i].data[nameKey]) {
+			y = 0;
+		} else if(y < 0) {
+			y = 0;
+		}
+		chartData[chartData.length] = {
+			x: new Date(data[i].timestamp),
+			y: Number(y)
 		}
 	}
 	chartData = sortByKey(chartData, "x");
 	let xyz = {};
 	xyz.name = nameKey;
 	xyz.type = "line";
-	if(nameKey == "copper-wire"||nameKey == "iron-plate"||nameKey == "copper-plate"||nameKey == "electronic-circuit"||nameKey == "steel-plate"||nameKey == "advanced-circuit"||nameKey == "crude-oil"||nameKey == "petroleum-gas"){
+	
+	if(legendKeys.indexOf(nameKey) >= 0){
 		xyz.showInLegend = true;
 	}
 	xyz.dataPoints = chartData;
@@ -113,7 +114,7 @@ function generateLineChartArray(data, nameKey) {
 var chartsByID = {};
 function drawChart(selector, chartData) {
 	// selector is ID of element, ex "chartContainer" or "-123199123"
-	console.log(chartData)
+	// console.log(chartData)
 	chartsByID[selector] = new CanvasJS.Chart(selector, {
 		title:{
 			text: "Production graph"

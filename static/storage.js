@@ -1,16 +1,49 @@
 // function to draw data we recieve from ajax requests
+_lastData = [];
 function drawcontents(data) {
-	data = sortByKey(data, "count");
-	let result = "<table>";
-	for(i = 0;i < data.length; i++) {
-		var img = getImageFromName(data[i].name);
-		var searchField = document.querySelector("#search");
-		if(!searchField.value || data[i].name.includes(searchField.value)) {
-			result = result + "<tr><td><image src='" + img + "' onerror='hideThis(this);'></td><td>" + data[i].name + "</td><td>" + data[i].count + "</td></tr>";
+	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
+	_lastData = data;
+	
+	const search = new RegExp(document.querySelector("#search").value, 'i');
+	data = data.filter(function(item) {
+		return search.test(item.name);
+	})
+	
+	sortByKey(data, "count");
+	
+	const table = document.querySelector("#contents tbody"); //tables have tbody inserted automatically
+	const rows = table.children;
+	
+	//update existing rows or create new ones
+	data.forEach(function(item, i) {
+		let row = rows[i];
+		if(!row) {
+			row = document.createElement('tr');
+			row.innerHTML = "<td><img width=32 height=32></td><td class=name></td><td class=count></td>";
+			table.appendChild(row);
 		}
+		
+		const img = row.querySelector('img');
+		const imgName = getImageFromName(item.name);
+		if(img.getAttribute('src') !== imgName) {
+			img.setAttribute('src',imgName);
+		}
+		
+		const name = row.querySelector('.name');
+		if(name.textContent !== item.name) {
+			name.textContent = item.name;
+		}
+		
+		const count = row.querySelector('.count');
+		if(count.textContent !== ''+item.count) {
+			count.textContent = item.count;
+		}
+	});
+	
+	//remove excess rows, for example, after filtering
+	while (data.length < rows.length) {
+		table.removeChild(rows[data.length]);
 	}
-	result = result + "</table>"
-	document.getElementById("contents").innerHTML = result;
 }
 
 // get cluster inventory from master
@@ -33,8 +66,11 @@ if(JSON.parse(localStorage.settings)["Periodically update storage screen"]) {
 
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
-    return array.sort(function(a, b) {
-        var x = Number(a[key]); var y = Number(b[key]);
-        return ((x < y) ? 1 : ((x > y) ? -1 : 0));
+    array.sort(function(a, b) {
+        return b[key] - a[key];
     });
 }
+
+document.querySelector("#search").addEventListener('input', function() { 
+	drawcontents();
+})
