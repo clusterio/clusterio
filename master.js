@@ -197,7 +197,10 @@ app.post("/api/place", function(req, res) {
 });
 
 // endpoint to remove items from DB when client orders items
+_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", function(req, res) {
+	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
+	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
@@ -214,9 +217,18 @@ app.post("/api/remove", function(req, res) {
 			console.log('failure count not find ' + object.name);
 		} else {
 			if (doc) {
+				const originalCount = object.count || 0;
+				object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
+				object.count = Math.round(object.count);
+				
+				console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${doc.count} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(doc.count) > Number(object.count)?'stocked':'short'}.`);
+				
 				// Update existing items if item name already exists
 				if(Number(doc.count) > Number(object.count)) {
-					console.log("removed: " + object.name + " " + object.count + " . " + doc.count + " and sent to " + object.instanceID + " | " + object.instanceName);
+					//If successful, 
+					_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
+					
+					//console.log("removed: " + object.name + " " + object.count + " . " + doc.count + " and sent to " + object.instanceID + " | " + object.instanceName);
 					objectUpdate = {
 						"name": object.name,
 						"count": Number(doc.count) - Number(object.count),
@@ -226,7 +238,8 @@ app.post("/api/remove", function(req, res) {
 					// res.send("successier");
 					res.send(object);
 				} else {
-					console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
+					_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
+					//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
 				}
 			} else {
 				console.log('failure ' + object.name);
