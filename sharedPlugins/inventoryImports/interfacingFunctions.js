@@ -124,7 +124,9 @@ function insertItemsFromObject(confirmedItems, playerName){
 		let itemTable = "{";
 		Object.keys(confirmedItems).forEach(function(name){
 			let count = confirmedItems[name];
-			itemTable += '["'+name+'"]='+count+',';
+			if(count > 0){
+				itemTable += '["'+name+'"]='+Math.floor(count)+',';
+			}
 		});
 		itemTable += "}";
 		let outputFile = pluginConfig.scriptOutputFileSubscription;
