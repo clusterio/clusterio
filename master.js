@@ -76,10 +76,24 @@ db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // e
 })()
 
 db.items.addItem = function(object) {
-	db.items[object.name] += object.count;
+	if(object.name == "addItem") {
+		console.log("Fuck you, that would screw everything up if you named your item that.");
+	}
+	if(this[object.name] && typeof this[object.name] == "number"){
+		this[object.name] += object.count;
+	} else {
+		this[object.name] = object.count;
+	}
 }
 db.items.removeItem = function(object) {
-	db.items[object.name] -= object.count;
+	if(object.name == "addItem") {
+		console.log("Fuck you, that would screw everything up if you named your item that.");
+	}
+	if(this[object.name] && typeof this[object.name] == "number"){
+		this[object.name] -= object.count;
+	} else {
+		this[object.name] = 0;
+	}
 }
 
 // store slaves and inventory in a .json full of JSON data
