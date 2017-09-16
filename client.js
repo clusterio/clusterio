@@ -420,20 +420,24 @@ function instanceManagement() {
 					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
 				}
-				require('getmac').getMac(function (err, mac) {
-					if (err) throw err
-					payload.mac = mac
-					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
-					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
-						if (err && err.code != "ECONNRESET"){
-							console.error("We got problems, something went wrong when contacting master");
-							console.error(err);
-						} else if (response && response.body) {
-							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-							console.log(response.body);
-						}
+				try {
+					require('getmac').getMac(function (err, mac) {
+						if (err) throw err
+						payload.mac = mac
+						console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
+						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
+							if (err && err.code != "ECONNRESET"){
+								console.error("We got problems, something went wrong when contacting master");
+								console.error(err);
+							} else if (response && response.body) {
+								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+								console.log(response.body);
+							}
+						});
 					});
-				});
+				} catch (e){
+					console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
+				}
 			},1000)});
 		}
 	});
