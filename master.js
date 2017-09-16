@@ -236,13 +236,13 @@ app.post("/api/remove", function(req, res) {
 		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
 		object.count = Math.round(object.count);
 		
-		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${item.count} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(item.count) > Number(object.count)?'stocked':'short'}.`);
+		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${item} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(item) > Number(object.count)?'stocked':'short'}.`);
 		
 		// Update existing items if item name already exists
-		if(Number(item.count) > Number(object.count)) {
+		if(Number(item) > Number(object.count)) {
 			//If successful, increase dole
 			_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-			//console.log("removed: " + object.name + " " + object.count + " . " + item.count + " and sent to " + object.instanceID + " | " + object.instanceName);
+			//console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
 			db.items.removeItem(object);
 			// res.send("successier");
 			res.send(object);
