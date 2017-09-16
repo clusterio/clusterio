@@ -77,20 +77,20 @@ db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // e
 
 db.items.addItem = function(object) {
 	if(object.name == "addItem") {
-		console.log("Fuck you, that would screw everything up if you named your item that.");
+		console.error("Fuck you, that would screw everything up if you named your item that.");
 	}
-	if(this[object.name] && typeof this[object.name] == "number"){
-		this[object.name] += object.count;
+	if(this[object.name] && Number(this[object.name]) != NaN){
+		this[object.name] = Number(this[object.name]) + Number(object.count);
 	} else {
 		this[object.name] = object.count;
 	}
 }
 db.items.removeItem = function(object) {
 	if(object.name == "addItem") {
-		console.log("Fuck you, that would screw everything up if you named your item that.");
+		console.error("Fuck you, that would screw everything up if you named your item that.");
 	}
-	if(this[object.name] && typeof this[object.name] == "number"){
-		this[object.name] -= object.count;
+	if(this[object.name] && Number(this[object.name]) != NaN){
+		this[object.name] = Number(this[object.name]) - Number(object.count);
 	} else {
 		this[object.name] = 0;
 	}
@@ -108,7 +108,7 @@ process.on('SIGINT', function () {
 	}
 	if(db.items && Object.keys(db.items).length < 50000){
 		console.log("saving to items.json");
-		fs.writeFileSync("database/items.json", JSON.stringify(slaves));
+		fs.writeFileSync("database/items.json", JSON.stringify(db.items));
 	} else if(slaves) {
 		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
 	}
@@ -230,7 +230,7 @@ app.post("/api/remove", function(req, res) {
 	let item = db.items[object.name]
 		// console.dir(doc);
 	if (!item) {
-		console.log('failure count not find ' + object.name);
+		console.log('failure could not find ' + object.name);
 	} else {
 		const originalCount = object.count || 0;
 		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
@@ -276,6 +276,18 @@ app.post("/api/readSignal", function(req,res) {
 
 // endpoint for getting an inventory of what we got
 app.get("/api/inventory", function(req, res) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	// Check it and send it
+	var inventory = [];
+	for(let key in db.items){
+		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
+			inventory.push({name:key, count:db.items[key]});
+		}
+	}
+	res.send(JSON.stringify(inventory));
+});
+app.get("/api/inventoryAsObject", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
