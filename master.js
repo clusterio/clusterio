@@ -47,7 +47,7 @@ var Datastore = require('nedb');
 db = {};
 
 // database for items in system
-db.items = new Datastore({ filename: 'database/items.db', autoload: true });
+// db.items = new Datastore({ filename: 'database/items.db', autoload: true });
 
 // in memory database for combinator signals
 db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
@@ -58,47 +58,49 @@ db.flows = new Datastore({ filename: "database/flows.db", autoload: true});
 db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // expire after 30 days
 // db.slaves = new Datastore({ filename: 'database/slaves.db', autoload: true, inMemoryOnly: false});
 
-db.items.additem = function(object) {
-	db.items.findOne({name:object.name}, function (err, doc) {
-		// console.dir(doc);
-		if (doc) {
-			// Update existing items if item name already exists
-			object.count = Number(object.count) + Number(doc.count);
-			db.items.update(doc, object, {multi:true}, function (err, numReplaced) {
-			});
-		} else {
-			// If command does not match an entry, insert new document
-			db.items.insert(object);
-			console.log('Item created!');
-		}
-	});
+(function(){
+	try{
+		let x = fs.statSync("database/slaves.json");
+		console.log("loading slaves from database/slaves.json");
+		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
+	} catch (e){
+		slaves = {};
+	}
+	try{
+		x = fs.statSync("database/items.json");
+		console.log("loading items from database/items.json");
+		db.items = JSON.parse(fs.readFileSync("database/items.json"));
+	} catch (e){
+		db.items = {};
+	}
+})()
+
+db.items.addItem = function(object) {
+	db.items[object.name] += object.count;
+}
+db.items.removeItem = function(object) {
+	db.items[object.name] -= object.count;
 }
 
-// store slaves in a .json full of JSON data
+// store slaves and inventory in a .json full of JSON data
 process.on('SIGINT', function () {
 	console.log('Ctrl-C...');
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
 	if(slaves && Object.keys(slaves).length < 50000){
-		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
 		console.log("saving to slaves.json");
+		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
 	} else if(slaves) {
 		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
 	}
+	if(db.items && Object.keys(db.items).length < 50000){
+		console.log("saving to items.json");
+		fs.writeFileSync("database/items.json", JSON.stringify(slaves));
+	} else if(slaves) {
+		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
+	}
 	process.exit(2);
 });
-var slaves = {};
-(function(){
-	let x;
-	try{
-		x = fs.statSync("database/slaves.json");
-	} catch (e){
-		
-	}
-	if(x){
-		console.log("loading slaves from database/slaves.json");
-		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
-	}
-})()
+
 // world ID management
 // slaves post here to tell the server they exist
 app.post("/api/getID", function(req,res) {
@@ -191,7 +193,7 @@ app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	console.log("added: " + req.body.name + " " + req.body.count);
 	// save items we get
-	db.items.additem(req.body);
+	db.items.addItem(req.body);
 	// Attempt confirming
 	res.end("success");
 });
@@ -211,41 +213,32 @@ app.post("/api/remove", function(req, res) {
 	if(!object.instanceID) {
 		object.instanceID = "unknown"
 	}
-	db.items.findOne({name:object.name}, function (err, doc) {
+	let item = db.items[object.name]
 		// console.dir(doc);
-		if (err) {
-			console.log('failure count not find ' + object.name);
+	if (!item) {
+		console.log('failure count not find ' + object.name);
+	} else {
+		const originalCount = object.count || 0;
+		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
+		object.count = Math.round(object.count);
+		
+		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${doc.count} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(doc.count) > Number(object.count)?'stocked':'short'}.`);
+		
+		// Update existing items if item name already exists
+		if(Number(doc.count) > Number(object.count)) {
+			//If successful, increase dole
+			_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
+			//console.log("removed: " + object.name + " " + object.count + " . " + doc.count + " and sent to " + object.instanceID + " | " + object.instanceName);
+			db.items.removeItem(object);
+			// res.send("successier");
+			res.send(object);
 		} else {
-			if (doc) {
-				const originalCount = object.count || 0;
-				object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
-				object.count = Math.round(object.count);
-				
-				console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${doc.count} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(doc.count) > Number(object.count)?'stocked':'short'}.`);
-				
-				// Update existing items if item name already exists
-				if(Number(doc.count) > Number(object.count)) {
-					//If successful, 
-					_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-					
-					//console.log("removed: " + object.name + " " + object.count + " . " + doc.count + " and sent to " + object.instanceID + " | " + object.instanceName);
-					objectUpdate = {
-						"name": object.name,
-						"count": Number(doc.count) - Number(object.count),
-					};
-					// db.items.update(doc, objectUpdate, {multi:true}, function (err, numReplaced) {});
-					db.items.update(doc, {$inc:{count:object.count*-1}}, {multi:true}, function (err, numReplaced) {});
-					// res.send("successier");
-					res.send(object);
-				} else {
-					_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
-					//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
-				}
-			} else {
-				console.log('failure ' + object.name);
-			}
+			// if we didn't have enough, attempt giving out a smaller amount next time
+			_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
+			res.send({name:object.name, count:0});
+			//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
 		}
-	});
+	}
 });
 
 // circuit stuff
@@ -272,9 +265,7 @@ app.get("/api/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
-	db.items.find({}, function (err, docs) {
-		res.send(docs);
-	});
+	res.send(JSON.stringify(db.items));
 });
 
 // post flowstats here for production graphs
