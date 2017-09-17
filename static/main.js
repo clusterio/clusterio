@@ -69,7 +69,7 @@ function getImageFromName(name){
 	if(imagelinks[name]){
 		return imagelinks[name];
 	} else if(imagedata[name]) {
-		return "https://wiki.factorio.com/images/" + imagedata[name] + ".png"
+		return "https://wiki.factorio.com/images/" + imagedata[name] + ".png";
 	} else if(factorioLocale["entity-name"] && factorioLocale["entity-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["entity-name"][name], ' ', '_').toLowerCase()) + ".png";
 	} else if(factorioLocale["item-name"] && factorioLocale["item-name"][name]){
@@ -100,6 +100,13 @@ var imagedata = {
 
 // value:link pairs where you can add modded item icons that are missing
 var imagelinks = {
+	"crude-oil-barrel": "/pictures/Crude_oil_barrel.png",
+	"heavy-oil-barrel": "/pictures/Heavy_oil_barrel.png",
+	"light-oil-barrel": "/pictures/Light_oil_barrel.png",
+	"petroleum-gas-barrel": "/pictures/Petroleum_gas_barrel.png",
+	"sulfuric-acid-barrel": "/pictures/Sulfuric_acid_barrel.png",
+	"water-barrel": "/pictures/Water_barrel.png",
+	"lubricant-barrel": "/pictures/Lubricant_barrel.png",
 	"power-armor-mk2": "/pictures/Power_armor_MK2.png",
 	"fictional-modded-item": "/pictures/fictional-modded-item.png",
 	"raw-fish": "/pictures/Fish.png",
