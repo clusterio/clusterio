@@ -621,8 +621,11 @@ function instanceManagement() {
 		needle.get(config.masterIP + ":" + config.masterPort + '/api/inventory', function (err, response, body) {
 			if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
-				// console.log(response.body);
-				var inventory = response.body;
+				try {
+					var inventory = JSON.parse(response.body);
+				} catch (e){
+					console.log(e);
+				}
 				var inventoryFrame = {};
 				for (let i = 0; i < inventory.length; i++) {
 					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
@@ -640,7 +643,8 @@ function instanceManagement() {
 		needle.post(config.masterIP + ":" + config.masterPort + '/api/readSignal', {
 			since: lastSignalCheck
 		}, function (err, response, body) {
-			if (response && response.body && typeof response.body == "object" && response.body[0]) {
+			if (response && response.body) {
+				if(typeof response.body == "string") response.body = JSON.parse(response.body);
 				// Take the new combinator frames and compress them so we can use a single command
 				let frameset = [];
 				for (let i = 0; i < response.body.length; i++) {
