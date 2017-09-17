@@ -100,7 +100,7 @@ var imagedata = {
 
 // value:link pairs where you can add modded item icons that are missing
 var imagelinks = {
-	"power-armor-mk2": "/pictures/Power_armor_MK2.png"
+	"power-armor-mk2": "/pictures/Power_armor_MK2.png",
 	"fictional-modded-item": "/pictures/fictional-modded-item.png",
 	"raw-fish": "/pictures/Fish.png",
 	"rail": "/pictures/rail.png",
