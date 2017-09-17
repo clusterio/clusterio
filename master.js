@@ -45,7 +45,8 @@ app.use(express.static(masterModFolder));
 // set up database
 var Datastore = require('nedb');
 db = {};
-
+var LinvoDB = require("linvodb3");
+LinvoDB.dbPath = "./database/linvodb/";
 // database for items in system
 // db.items = new Datastore({ filename: 'database/items.db', autoload: true });
 
@@ -54,8 +55,9 @@ db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, in
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
 
 // production chart database
-db.flows = new Datastore({ filename: "database/flows.db", autoload: true});
-db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // expire after 30 days
+// db.flows = new Datastore({ filename: "database/flows.db", autoload: true});
+db.flows = new LinvoDB("flows", {}, {});
+// db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // expire after 30 days
 // db.slaves = new Datastore({ filename: 'database/slaves.db', autoload: true, inMemoryOnly: false});
 
 (function(){
