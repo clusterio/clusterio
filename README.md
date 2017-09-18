@@ -1,4 +1,4 @@
-# factorioClusterio [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio?ref=badge_shield)
+# factorioClusterio [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio?ref=badge_shield) [![codecov](https://codecov.io/gh/Danielv123/factorioClusterio/branch/master/graph/badge.svg)](https://codecov.io/gh/Danielv123/factorioClusterio)
 
 If you want to connect to a clusterio cluster, please reffer to the [client](https://github.com/Danielv123/factorioClusterioClient)
 
