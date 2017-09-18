@@ -6,3 +6,5 @@ before_install:
   - sudo apt-get install -y curl git tar
   - curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
   - tar -xvf factorio.tar.gz
+script:
+  - npm run cover
