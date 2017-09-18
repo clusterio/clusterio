@@ -5,9 +5,9 @@
   "repository": "https://github.com/Danielv123/factorioClusterio",
   "main": "master.js",
   "scripts": {
-    "test": "mocha --recursive \"./{,!(node_modules)/**/}*.spec.js\" || echo .",
+    "test": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{,!(node_modules)/**/}*.spec.js\" -R spec || echo .",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
-    "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{,!(node_modules)/**/}*.spec.js\" -R spec || echo . && codecov codecov -t f7b38085-36eb-4d72-84e6-64721910171e"
+    "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{,!(node_modules)/**/}*.spec.js\" -R spec || echo . && codecov -t f7b38085-36eb-4d72-84e6-64721910171e"
   },
   "keywords": [
     "factorio"
