@@ -7,6 +7,7 @@ var config = require('./config');
 
 // homebrew modules
 const getFactorioLocale = require("./lib/getFactorioLocale");
+const stringUtils = require("./lib/stringUtils");
 
 // Library for create folder recursively if it does not exist
 const mkdirp = require("mkdirp");
@@ -55,10 +56,8 @@ db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, in
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
 
 // production chart database
-// db.flows = new Datastore({ filename: "database/flows.db", autoload: true});
 db.flows = new LinvoDB("flows", {}, {});
-// db.flows.ensureIndex({ fieldName: "slaveID", expireAfterSeconds: 2592000}); // expire after 30 days
-// db.slaves = new Datastore({ filename: 'database/slaves.db', autoload: true, inMemoryOnly: false});
+
 
 (function(){
 	try{
@@ -207,11 +206,22 @@ app.get("/api/slaves", function(req, res) {
 app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log("added: " + req.body.name + " " + req.body.count);
-	// save items we get
-	db.items.addItem(req.body);
-	// Attempt confirming
-	res.end("success");
+	let x = req.body;
+	if(	x.unique
+		&& x.instanceName // This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster
+		&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique){
+		
+		console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.unique+")");
+		// save items we get
+		db.items.addItem({
+			name:req.body.name,
+			count:req.body.count
+		});
+		// Attempt confirming
+		res.send("success");
+	} else {
+		res.send("failure");
+	}
 });
 
 // endpoint to remove items from DB when client orders items
