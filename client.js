@@ -10,10 +10,12 @@ var Rcon = require('simple-rcon');
 var hashFiles = require('hash-files');
 var _ = require('underscore');
 var deepmerge = require("deepmerge");
+var getMac = require('getmac').getMac;
 
 // internal libraries
 var objectOps = require("./lib/objectOps.js");
 var fileOps = require("./lib/fileOps.js");
+var stringUtils = require("./lib/stringUtils.js");
 
 // require config.json
 var config = require('./config');
@@ -32,18 +34,6 @@ const instance = process.argv[3];
 const instancedirectory = './instances/' + instance;
 const command = process.argv[2];
 var instanceInfo = {};
-
-// simple string hasher
-String.prototype.hashCode = function () {
-	var hash = 0;
-	if (this.length == 0) return hash;
-	for (let i = 0; i < this.length; i++) {
-		char = this.charCodeAt(i);
-		hash = ((hash << 5) - hash) + char;
-		hash = hash & hash; // Convert to 32bit integer
-	}
-	return hash;
-}
 
 // function to handle sending commands into the game
 function messageInterface(command, callback) {
@@ -177,7 +167,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != "./instances/undefined"){
 		var instanceconfig = require(instancedirectory + '/config');
-		instanceconfig.unique = instanceconfig.clientPassword.hashCode();
+		instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
 		if(process.env.FACTORIOPORT){
 			instanceconfig.factorioPort = process.env.FACTORIOPORT;
 		}
@@ -420,9 +410,10 @@ function instanceManagement() {
 					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
 				}
-				try {
-					require('getmac').getMac(function (err, mac) {
-						if (err) throw err
+				getMac(function (err, mac) {
+					if (err) {
+						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
+					} else {
 						payload.mac = mac
 						console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
 						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
@@ -434,10 +425,8 @@ function instanceManagement() {
 								console.log(response.body);
 							}
 						});
-					});
-				} catch (e){
-					console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
-				}
+					}
+				});
 			},1000)});
 		}
 	});
