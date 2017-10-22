@@ -503,6 +503,11 @@ function instanceManagement() {
 							payload[key] = 0;
 						}
 					}
+					for(let key in payload) {
+						if(payload[key] == '0') {
+							delete payload[key];
+						}
+					}
 					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
 						// we did it, keep going
@@ -514,7 +519,7 @@ function instanceManagement() {
 			}
 		});
 		// we don't need to update stats quickly as that could be expensive
-	}, 60000);
+	}, 60000*5);
 	
 	// provide items --------------------------------------------------------------
 	// trigger when something happens to output.txt
