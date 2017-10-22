@@ -24,5 +24,10 @@
 	"visibility": {
 		"public": true,
 		"lan": true
+	},
+	"__comment": "Statistic gathering statistics, may affect server performance (master memory usage especially)",
+	"itemStats": {
+		"maxEntries":60,
+		"entriesPerSecond": 0.01666666667
 	}
 }

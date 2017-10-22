@@ -34,6 +34,58 @@ function djb2(str){
 	}
 	return hash;
 }
+// callback(err, json)
+function getJSON(url, callback) {
+	var xhr = new XMLHttpRequest();
+	xhr.open('GET', url, true);
+	xhr.responseType = 'json';
+	xhr.onload = function() {
+	  var status = xhr.status;
+	  if (status == 200) {
+		callback(null, xhr.response);
+	  } else {
+		callback(status);
+	  }
+	};
+	// triggers if connection is refused
+	xhr.onerror = function(e){
+		callback(e);
+	};
+	xhr.send();
+};
+// callback(err, json)
+function postJSON(url, data, callback) {
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST', url, true);
+	xhr.responseType = 'json';
+	xhr.onload = function() {
+	  var status = xhr.status;
+	  if (status == 200) {
+		callback(null, xhr.response);
+	  } else {
+		callback(status);
+	  }
+	};
+	// triggers if connection is refused
+	xhr.onerror = function(e){
+		callback(e);
+	};
+	xhr.send(data);
+};
+// return Boolean
+function isJSON(string){
+	let stringIsJson = false;
+	let x
+	try {
+		x = JSON.parse(string);
+	} catch (e){
+		return false;
+	}
+	if(typeof x == "object" || typeof string == "object"){
+		stringIsJson = true;
+	}
+	return stringIsJson;
+}
 // hash a string to a color
 function hashColor(str) {
 	var hash = djb2(str);

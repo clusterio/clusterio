@@ -19,10 +19,21 @@ button {
 	background-color: #262626;
 	color: 	#C8C8C8;
 }
+#storage {
+	float: left;
+}
 /* search field */
 #storage > input {
 	background-color:black;
 	width:300px;
+	box-sizing: border-box;
+}
+/* Graphs on the right of storage page */
+#body > #graphDisplay {
+	float:left;
+	width: calc(100% - 300px);
+	min-height:100px;
+	background-color: red;
 }
 /* Navbar on the right */
 #sidenav {

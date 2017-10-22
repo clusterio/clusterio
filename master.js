@@ -13,6 +13,7 @@ const stringUtils = require("./lib/stringUtils");
 const mkdirp = require("mkdirp");
 mkdirp.sync("./database");
 mkdirp.sync(masterModFolder);
+const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
@@ -77,23 +78,25 @@ db.flows = new LinvoDB("flows", {}, {});
 })()
 
 db.items.addItem = function(object) {
-	if(object.name == "addItem") {
+	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
-	}
-	if(this[object.name] && Number(this[object.name]) != NaN){
-		this[object.name] = Number(this[object.name]) + Number(object.count);
 	} else {
-		this[object.name] = object.count;
+		if(this[object.name] && Number(this[object.name]) != NaN){
+			this[object.name] = Number(this[object.name]) + Number(object.count);
+		} else {
+			this[object.name] = object.count;
+		}
 	}
 }
 db.items.removeItem = function(object) {
-	if(object.name == "addItem") {
+	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
-	}
-	if(this[object.name] && Number(this[object.name]) != NaN){
-		this[object.name] = Number(this[object.name]) - Number(object.count);
 	} else {
-		this[object.name] = 0;
+		if(this[object.name] && Number(this[object.name]) != NaN){
+			this[object.name] = Number(this[object.name]) - Number(object.count);
+		} else {
+			this[object.name] = 0;
+		}
 	}
 }
 
@@ -201,17 +204,46 @@ app.get("/api/slaves", function(req, res) {
 	}
 	res.send(copyOfSlaves);
 });
-
+var recievedItemStatisticsBySlaveID = {};
+var sentItemStatisticsBySlaveID = {};
+/*
+var recievedItemStatistics = new averagedTimeSeries({
+	maxEntries: config.itemStats.maxEntries,
+	entriesPerSecond: config.itemStats.entriesPerSecond,
+}, console.log);*/
 // endpoint to send items to
 app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	let x = req.body;
+	if(!x.instanceName) {
+		x.instanceName = "unknown";
+	}
+	if(!x.instanceID) {
+		x.instanceID = "unknown";
+	}
+	if(!x.unique) {
+		x.unique = "unknown";
+	}
 	if(	x.unique
-		&& x.instanceName // This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster
-		&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique){
+		&& x.instanceName
+		&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
+		/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/){
 		
 		console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.unique+")");
+		// gather statistics
+		let recievedItemStatistics = recievedItemStatisticsBySlaveID[x.instanceID];
+		if(recievedItemStatistics === undefined){
+			recievedItemStatistics = new averagedTimeSeries({
+				maxEntries: config.itemStats.maxEntries,
+				entriesPerSecond: config.itemStats.entriesPerSecond,
+			}, console.log);
+			recievedItemStatisticsBySlaveID[x.instanceID] = recievedItemStatistics;
+		}
+		recievedItemStatistics.add({
+			key:req.body.name,
+			value:req.body.count,
+		});
 		// save items we get
 		db.items.addItem({
 			name:req.body.name,
@@ -223,7 +255,6 @@ app.post("/api/place", function(req, res) {
 		res.send("failure");
 	}
 });
-
 // endpoint to remove items from DB when client orders items
 _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", function(req, res) {
@@ -257,6 +288,17 @@ app.post("/api/remove", function(req, res) {
 			//console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
 			db.items.removeItem(object);
 			// res.send("successier");
+			let sentItemStatistics = sentItemStatisticsBySlaveID[x.instanceID];
+			if(sentItemStatistics === undefined){
+				sentItemStatistics = new averagedTimeSeries({
+					maxEntries: config.itemStats.maxEntries,
+					entriesPerSecond: config.itemStats.entriesPerSecond,
+				}, console.log);
+			}
+			sentItemStatistics.add({
+				key:object.name,
+				value:object.count,
+			});
 			res.send(object);
 		} else {
 			// if we didn't have enough, attempt giving out a smaller amount next time
@@ -328,8 +370,11 @@ app.post("/api/logStats", function(req,res) {
 });
 // {slaveID: string, fromTime: Date, toTime, Date}
 app.post("/api/getStats", function(req,res) {
+	if(typeof req.body == "string"){
+		req.body = JSON.stringify(req.body);
+	}
 	console.log(req.body);
-	if(typeof req.body == "object" && req.body.slaveID) {
+	if(typeof req.body == "object" && req.body.slaveID && req.body.statistic === undefined) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
 			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
@@ -347,6 +392,26 @@ app.post("/api/getStats", function(req,res) {
 			// console.log(entries);
 			res.send(entries);
 		});
+	} else if(typeof req.body == "object" && req.body.slaveID && typeof req.body.slaveID == "string" && req.body.itemName){
+		if(req.body.statistic == "place"){
+			console.log("sending place data...");
+			// Gather data
+			console.log(recievedItemStatisticsBySlaveID)
+			let itemStats = recievedItemStatisticsBySlaveID[req.body.slaveID];
+			if(itemStats === undefined){
+				res.send({statusForDebugging:"no data available"});
+				return false;
+			}
+			let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
+			
+			res.send({
+				maxEntries:config.itemStats.maxEntries,
+				entriesPerSecond: config.itemStats.entriesPerSecond,
+				data: data,
+			});
+		} else if(req.body.statistic == "remove"){
+			
+		}
 	}
 });
 

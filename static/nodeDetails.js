@@ -12,25 +12,6 @@ function post(url, data, callback) {
 	}
 	xhr.send(JSON.stringify(data));
 }
-// callback(err, json)
-function getJSON(url, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.responseType = 'json';
-	xhr.onload = function() {
-	  var status = xhr.status;
-	  if (status == 200) {
-		callback(null, xhr.response);
-	  } else {
-		callback(status);
-	  }
-	};
-	// triggers if connection is refused
-	xhr.onerror = function(e){
-		callback(e);
-	};
-	xhr.send();
-};
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
     return array.sort(function(a, b) {
@@ -71,6 +52,7 @@ setInterval(function(){
 	});
 }, 1000);
 
+populateSlaveInfo();
 function populateSlaveInfo(){
 	let slaveID = getParameterByName("slaveID");
 	if(!slaveID){
@@ -241,7 +223,6 @@ function maximizeTerminal(instant){
 	setTimeout(() => $('#terminal')[0].style.transition = 'none', (Number(instant) || 200));
 	$('#terminal').draggable('enable');
 }
-populateSlaveInfo();
 
 // ID of slave, ID of canvasjs div without #
 function makeGraph(slaveID, selector) {
@@ -301,7 +282,7 @@ function drawChart(selector, chartData) {
 	console.log(chartData)
 	chartsByID[selector] = new CanvasJS.Chart(selector, {
 		title:{
-			text: "Production graph"
+			text: title || "Production graph"
 		},
 		toolTip:{   
 			content: "{name}: {y}"	  
@@ -328,4 +309,5 @@ function drawChart(selector, chartData) {
 	chart = chartsByID[selector];
 	// console.log(chart)
 	chart.render();
+	return chart;
 }
