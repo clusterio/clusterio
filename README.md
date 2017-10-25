@@ -1,4 +1,9 @@
-# factorioClusterio [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio?ref=badge_shield) [![codecov](https://codecov.io/gh/Danielv123/factorioClusterio/branch/master/graph/badge.svg)](https://codecov.io/gh/Danielv123/factorioClusterio)
+# factorioClusterio [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio?ref=badge_shield)
+
+| Branch | Coverage | Build |
+|--------|----------| ----- |
+| Master | [![codecov](https://codecov.io/gh/Danielv123/factorioClusterio/branch/master/graph/badge.svg)](https://codecov.io/gh/Danielv123/factorioClusterio) | [![Build Status](https://travis-ci.org/Danielv123/factorioClusterio.svg?branch=master)](https://travis-ci.org/Danielv123/factorioClusterio) |
+| Dev    | [![codecov](https://codecov.io/gh/Danielv123/factorioClusterio/branch/dev/graph/badge.svg)](https://codecov.io/gh/Danielv123/factorioClusterio) | [![Build Status](https://travis-ci.org/Danielv123/factorioClusterio.svg?branch=dev)](https://travis-ci.org/Danielv123/factorioClusterio) |
 
 If you want to connect to a clusterio cluster, please reffer to the [client](https://github.com/Danielv123/factorioClusterioClient)
 
