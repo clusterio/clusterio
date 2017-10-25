@@ -461,14 +461,8 @@ app.get("/api/getFactorioLocale", function(req,res){
 	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => res.send(factorioLocale));
 });
 
-// endpoint for getting the chartjs library
-app.get("/chart.js", function(req, res) {
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	// Check it and send it
-	res.end(fs.readFileSync("node_modules/chartjs/chart.js"));
-});
-
 var server = app.listen(config.masterPort || 8080, function () {
 	console.log("Listening on port %s...", server.address().port);
 });
+
+module.exports = app;
