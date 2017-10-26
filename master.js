@@ -215,7 +215,12 @@ var recievedItemStatistics = new averagedTimeSeries({
 app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let x = req.body;
+	let x;
+	try {
+		x = JSON.parse(req.body);
+	} catch (e) {
+		x = req.body;
+	}
 	if(!x.instanceName) {
 		x.instanceName = "unknown";
 	}

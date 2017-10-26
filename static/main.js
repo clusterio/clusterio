@@ -20,6 +20,33 @@ function ensureSetting(setting, type, defaultSetting) {
 	localStorage.settings = JSON.stringify(settings)
 }
 
+// debug tools
+
+debugTools = {
+	addItem: function(name, count){
+		console.log(`Attempting to add ${count} ${name}`)
+		postJSON("api/place", {
+			instanceName: "debug",
+			unique: "debug",
+			name: name,
+			count: count,
+		}, function(data){
+			console.log(data);
+		});
+	},
+	removeItem: function(name, count){
+		console.log(name)
+		postJSON("api/remove", {
+			instanceName: "debug",
+			unique: "debug",
+			name: name,
+			count: count,
+		}, function(data){
+			console.log(data);
+		});
+	}
+}
+
 var g = {}
 contents = {
 	"iron-plate":100,
@@ -57,6 +84,7 @@ function getJSON(url, callback) {
 function postJSON(url, data, callback) {
 	var xhr = new XMLHttpRequest();
 	xhr.open('POST', url, true);
+	xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
 	xhr.responseType = 'json';
 	xhr.onload = function() {
 	  var status = xhr.status;
@@ -70,7 +98,7 @@ function postJSON(url, data, callback) {
 	xhr.onerror = function(e){
 		callback(e);
 	};
-	xhr.send(data);
+	xhr.send(JSON.stringify(data));
 };
 // return Boolean
 function isJSON(string){
