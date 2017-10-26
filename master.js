@@ -237,6 +237,7 @@ app.post("/api/place", function(req, res) {
 			recievedItemStatistics = new averagedTimeSeries({
 				maxEntries: config.itemStats.maxEntries,
 				entriesPerSecond: config.itemStats.entriesPerSecond,
+				mergeMode: "add",
 			}, console.log);
 			recievedItemStatisticsBySlaveID[x.instanceID] = recievedItemStatistics;
 		}
@@ -293,6 +294,7 @@ app.post("/api/remove", function(req, res) {
 				sentItemStatistics = new averagedTimeSeries({
 					maxEntries: config.itemStats.maxEntries,
 					entriesPerSecond: config.itemStats.entriesPerSecond,
+					mergeMode: "add",
 				}, console.log);
 			}
 			sentItemStatistics.add({
