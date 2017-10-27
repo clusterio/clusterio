@@ -33,7 +33,6 @@ button {
 	float:left;
 	width: calc(100% - 300px);
 	min-height:100px;
-	background-color: red;
 }
 /* Navbar on the right */
 #sidenav {
@@ -78,6 +77,9 @@ a:hover {
 }
 #contentGraph {
 	float:left;
+}
+.storageGraph {
+	height:200px;
 }
 
 /* terminal */
@@ -182,6 +184,7 @@ a:hover {
 	float:right;
 	height:300px;
 }
+
 
 .button-black {
 	width:100%;

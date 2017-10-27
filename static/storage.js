@@ -113,6 +113,7 @@ function makeItemGraphs(itemName){
 		let HTML = ""
 		// Draw in/out chart for unregistered slaves as well
 		slaveIDs.unshift("unknown");
+		slaveIDs.unshift("debug");
 		slaveIDs.forEach(function(slaveID){
 			["place", "remove"].forEach(statistic => {
 				console.log("Making chart for "+slaveID+"'s "+statistic+" statistic")
@@ -127,8 +128,8 @@ function makeItemGraphs(itemName){
 						if(xmlhttp.readyState === XMLHttpRequest.DONE && xmlhttp.status === 200) {
 							// console.log(xmlhttp.responseText);
 							if(isJSON(xmlhttp.responseText) && JSON.parse(xmlhttp.responseText).statusForDebugging === undefined){
-								drawChart("contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data]);
-								console.log(JSON.parse(xmlhttp.response).data)
+								drawChart("contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], slaveID+" "+itemName);
+								// console.log(JSON.parse(xmlhttp.response).data);
 							}
 						}
 					}

@@ -403,7 +403,7 @@ app.post("/api/getStats", function(req,res) {
 		if(req.body.statistic == "place"){
 			console.log("sending place data...");
 			// Gather data
-			console.log(recievedItemStatisticsBySlaveID)
+			//console.log(recievedItemStatisticsBySlaveID)
 			let itemStats = recievedItemStatisticsBySlaveID[req.body.slaveID];
 			if(itemStats === undefined){
 				res.send({statusForDebugging:"no data available"});
@@ -417,7 +417,21 @@ app.post("/api/getStats", function(req,res) {
 				data: data,
 			});
 		} else if(req.body.statistic == "remove"){
+			console.log("sending remove data...");
+			// Gather data
+			//console.log(sentItemStatisticsBySlaveID)
+			let itemStats = sentItemStatisticsBySlaveID[req.body.slaveID];
+			if(itemStats === undefined){
+				res.send({statusForDebugging:"no data available"});
+				return false;
+			}
+			let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
 			
+			res.send({
+				maxEntries:config.itemStats.maxEntries,
+				entriesPerSecond: config.itemStats.entriesPerSecond,
+				data: data,
+			});
 		}
 	}
 });
