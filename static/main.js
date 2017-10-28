@@ -26,8 +26,9 @@ debugTools = {
 	addItem: function(name, count){
 		console.log(`Attempting to add ${count} ${name}`)
 		postJSON("api/place", {
-			instanceName: "debug",
-			unique: "debug",
+			instanceName: "unknown",
+			instanceID: "unknown",
+			unique: "unknown",
 			name: name,
 			count: count,
 		}, function(data){
@@ -35,10 +36,11 @@ debugTools = {
 		});
 	},
 	removeItem: function(name, count){
-		console.log(name)
+		console.log(`Attempting to remove ${count} ${name}`)
 		postJSON("api/remove", {
-			instanceName: "debug",
-			unique: "debug",
+			instanceName: "unknown",
+			instanceID: "unknown",
+			unique: "unknown",
 			name: name,
 			count: count,
 		}, function(data){

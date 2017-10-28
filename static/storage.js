@@ -117,7 +117,7 @@ function makeItemGraphs(itemName){
 		slaveIDs.forEach(function(slaveID){
 			["place", "remove"].forEach(statistic => {
 				console.log("Making chart for "+slaveID+"'s "+statistic+" statistic")
-				HTML += '<div id="contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
+				HTML += '<div id="'+statistic+'contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
 				
 				setTimeout(function(){
 					let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
@@ -128,7 +128,7 @@ function makeItemGraphs(itemName){
 						if(xmlhttp.readyState === XMLHttpRequest.DONE && xmlhttp.status === 200) {
 							// console.log(xmlhttp.responseText);
 							if(isJSON(xmlhttp.responseText) && JSON.parse(xmlhttp.responseText).statusForDebugging === undefined){
-								drawChart("contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], slaveID+" "+itemName);
+								drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], slaveID+" "+itemName);
 								// console.log(JSON.parse(xmlhttp.response).data);
 							}
 						}

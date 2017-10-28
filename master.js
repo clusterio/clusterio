@@ -294,7 +294,7 @@ app.post("/api/remove", function(req, res) {
 			//console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
 			db.items.removeItem(object);
 			// res.send("successier");
-			let sentItemStatistics = sentItemStatisticsBySlaveID[x.instanceID];
+			let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
 			if(sentItemStatistics === undefined){
 				sentItemStatistics = new averagedTimeSeries({
 					maxEntries: config.itemStats.maxEntries,
@@ -306,6 +306,8 @@ app.post("/api/remove", function(req, res) {
 				key:object.name,
 				value:object.count,
 			});
+			//console.log(sentItemStatistics.data)
+			sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 			res.send(object);
 		} else {
 			// if we didn't have enough, attempt giving out a smaller amount next time
@@ -378,9 +380,9 @@ app.post("/api/logStats", function(req,res) {
 // {slaveID: string, fromTime: Date, toTime, Date}
 app.post("/api/getStats", function(req,res) {
 	if(typeof req.body == "string"){
-		req.body = JSON.stringify(req.body);
+		req.body = JSON.parse(req.body);
 	}
-	console.log(req.body);
+	// console.log(req.body);
 	if(typeof req.body == "object" && req.body.slaveID && req.body.statistic === undefined) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
@@ -401,7 +403,7 @@ app.post("/api/getStats", function(req,res) {
 		});
 	} else if(typeof req.body == "object" && req.body.slaveID && typeof req.body.slaveID == "string" && req.body.itemName){
 		if(req.body.statistic == "place"){
-			console.log("sending place data...");
+			console.log(`sending place data for slaveID ${req.body.slaveID} ${req.body.itemName}`);
 			// Gather data
 			//console.log(recievedItemStatisticsBySlaveID)
 			let itemStats = recievedItemStatisticsBySlaveID[req.body.slaveID];
@@ -417,21 +419,22 @@ app.post("/api/getStats", function(req,res) {
 				data: data,
 			});
 		} else if(req.body.statistic == "remove"){
-			console.log("sending remove data...");
+			console.log(`sending remove data for slaveID ${req.body.slaveID} ${req.body.itemName}`);
 			// Gather data
-			//console.log(sentItemStatisticsBySlaveID)
+			console.log(sentItemStatisticsBySlaveID)
 			let itemStats = sentItemStatisticsBySlaveID[req.body.slaveID];
-			if(itemStats === undefined){
+			console.log(itemStats)
+			if(typeof itemStats == "object"){
+				let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
+				//console.log(itemStats.get(config.itemStats.maxEntries, req.body.itemName));
+				res.send({
+					maxEntries:config.itemStats.maxEntries,
+					entriesPerSecond: config.itemStats.entriesPerSecond,
+					data: data,
+				});
+			} else {
 				res.send({statusForDebugging:"no data available"});
-				return false;
 			}
-			let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
-			
-			res.send({
-				maxEntries:config.itemStats.maxEntries,
-				entriesPerSecond: config.itemStats.entriesPerSecond,
-				data: data,
-			});
 		}
 	}
 });
