@@ -1,3 +1,7 @@
+// Set the process title, shows up as the title of the CMD window on windows
+// and as the process name in ps/top on linux.
+process.title = "clusterioMaster";
+
 // configgy stuff
 debug = false;
 

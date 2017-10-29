@@ -33,6 +33,11 @@ if (!fs.existsSync("./sharedMods/")) {
 const instance = process.argv[3];
 const instancedirectory = './instances/' + instance;
 const command = process.argv[2];
+
+// Set the process title, shows up as the title of the CMD window on windows
+// and as the process name in ps/top on linux.
+process.title = "clusterioClient "+instance;
+
 var instanceInfo = {};
 
 // function to handle sending commands into the game
