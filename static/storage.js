@@ -113,29 +113,34 @@ function makeItemGraphs(itemName){
 		let HTML = ""
 		// Draw in/out chart for unregistered slaves as well
 		slaveIDs.unshift("unknown");
-		slaveIDs.unshift("debug");
 		slaveIDs.forEach(function(slaveID){
-			["place", "remove"].forEach(statistic => {
-				console.log("Making chart for "+slaveID+"'s "+statistic+" statistic")
-				HTML += '<div id="'+statistic+'contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
-				
-				setTimeout(function(){
-					let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
-					xmlhttp.open("POST", "/api/getStats");
-					xmlhttp.setRequestHeader("Content-Type", "application/json");
-					xmlhttp.onreadystatechange = function(){
-						console.log(xmlhttp.status);
-						if(xmlhttp.readyState === XMLHttpRequest.DONE && xmlhttp.status === 200) {
-							// console.log(xmlhttp.responseText);
-							if(isJSON(xmlhttp.responseText) && JSON.parse(xmlhttp.responseText).statusForDebugging === undefined){
-								drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], slaveID+" "+itemName);
-								// console.log(JSON.parse(xmlhttp.response).data);
+			if(slaveID == "unknown" || Date.now() - slaves[slaveID].time < 120000 || JSON.parse(localStorage.settings)["Display offline slaves"]){
+				["place", "remove"].forEach(statistic => {
+					console.log("Making chart for "+slaveID+"'s "+statistic+" statistic");
+					HTML += '<div id="'+statistic+'contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
+					
+					setTimeout(function(){
+						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
+						xmlhttp.open("POST", "/api/getStats");
+						xmlhttp.setRequestHeader("Content-Type", "application/json");
+						xmlhttp.onreadystatechange = function(){
+							console.log(xmlhttp.status);
+							if(xmlhttp.readyState === XMLHttpRequest.DONE && xmlhttp.status === 200) {
+								// console.log(xmlhttp.responseText);
+								if(isJSON(xmlhttp.responseText) && JSON.parse(xmlhttp.responseText).statusForDebugging === undefined){
+									let slaveDisplayName = "unknown";
+									try {
+										slaveDisplayName = slaves[slaveID].instanceName;
+									} catch(e) {}
+									drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], `${slaveDisplayName} (${slaveID}) ${itemName}`);
+									// console.log(JSON.parse(xmlhttp.response).data);
+								}
 							}
 						}
-					}
-					xmlhttp.send(JSON.stringify({statistic:statistic, itemName:itemName, slaveID:slaveID}));
-				},1000);
-			});
+						xmlhttp.send(JSON.stringify({statistic:statistic, itemName:itemName, slaveID:slaveID}));
+					},1);
+				});
+			}
 		});
 		document.querySelector("#graphDisplay > #storageGraphContainer").innerHTML = HTML;
 	});
