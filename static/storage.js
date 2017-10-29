@@ -132,7 +132,9 @@ function makeItemGraphs(itemName){
 									try {
 										slaveDisplayName = slaves[slaveID].instanceName;
 									} catch(e) {}
-									drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], `${slaveDisplayName} (${slaveID}) ${itemName}`);
+									let whatGraphIsIt = "Items sent to cluster from";
+									if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by"
+									drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], `${whatGraphIsIt} ${slaveDisplayName} (${slaveID}) ${itemName}`);
 									// console.log(JSON.parse(xmlhttp.response).data);
 								}
 							}
