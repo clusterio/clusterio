@@ -231,15 +231,12 @@ app.post("/api/place", function(req, res) {
 	if(!x.instanceID) {
 		x.instanceID = "unknown";
 	}
-	if(!x.unique) {
-		x.unique = "unknown";
-	}
-	if(	x.unique
+	if(	x.instanceID
 		&& x.instanceName
 		&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
 		/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/){
 		
-		console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.unique+")");
+		console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.instanceID+")");
 		// gather statistics
 		let recievedItemStatistics = recievedItemStatisticsBySlaveID[x.instanceID];
 		if(recievedItemStatistics === undefined){

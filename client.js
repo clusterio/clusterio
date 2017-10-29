@@ -545,7 +545,7 @@ function instanceManagement() {
 					name: g[0],
 					count: g[1],
 					instanceName: instance, // name of instance
-					unique: instanceconfig.unique, // a hash computed from the randomly generated rcon password
+					instanceID: instanceconfig.unique, // a hash computed from the randomly generated rcon password
 				}, function (err, resp, body) {
 					if(body == "failure") console.error("#### Export failed! Lost: "+g[1]+" "+g[0]);
 				});
