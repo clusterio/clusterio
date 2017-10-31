@@ -88,19 +88,14 @@ describe('Master server endpoint testing', function() {
 				assert(!err)
 				assert.equal(res.text, "success", "something went wrong with the request")
 				done();
-			})
+			});
 		});
 	});
 	describe("#GET /api/inventory", function(){
 		it("returns the masters current inventory", function(done){
 			persistentMaster.get("/api/inventory").end(function(err,res){
 				assert.equal(res.statusCode, 200);
-				let inventory
-				try {
-					inventory = JSON.parse(res.text);
-				} catch (e){
-					assert(!e);
-				}
+				let inventory = JSON.parse(res.text);
 				assert.equal(typeof inventory, "object", "Inventory should be an object");
 				assert(inventory.length >= 1, "There should be at least 1 entry in the inventory");
 				
@@ -112,5 +107,21 @@ describe('Master server endpoint testing', function() {
 				done();
 			});
 		});
+	});
+	describe("#POST /api/remove", function(){
+		it("returns an itemStack of how many items were removed", function(done){
+			persistentMaster.post("/api/remove")
+			.send({
+				name:"steel-plate",
+				count:10
+			})
+			.end(function(err,res){
+				assert(!err);
+				assert.equal(res.text, '{"name":"steel-plate","count":10,"instanceID":"unknown","instanceName":"unknown"}', "Something is wrong with the response, maybe the format changed slightly or you didn't have enough steel?");
+				
+				done();
+			});
+		});
+		
 	});
 });

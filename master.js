@@ -271,12 +271,13 @@ app.post("/api/remove", function(req, res) {
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
 	var object = req.body;
-	if(!object.instanceName) {
-		object.instanceName = "unknown"
-	}
 	if(!object.instanceID) {
 		object.instanceID = "unknown"
 	}
+	if(!object.instanceName) {
+		object.instanceName = "unknown";
+	}
+	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
 	let item = db.items[object.name]
 		// console.dir(doc);
 	if (!item) {
