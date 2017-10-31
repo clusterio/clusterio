@@ -117,11 +117,55 @@ describe('Master server endpoint testing', function() {
 			})
 			.end(function(err,res){
 				assert(!err);
-				assert.equal(res.text, '{"name":"steel-plate","count":10,"instanceID":"unknown","instanceName":"unknown"}', "Something is wrong with the response, maybe the format changed slightly or you didn't have enough steel?");
+				assert.equal(res.body.count, 10, "Something is wrong with the response, maybe the format changed slightly or you didn't have enough steel?");
 				
 				done();
 			});
 		});
-		
+		it("returns an empty itemStack if you try to request addItem or removeItem", function(done){
+			let casesRan = 0;
+			persistentMaster.post("/api/remove")
+			.send({
+				name:"addItem",
+				count:10
+			})
+			.end(function(err,res){
+				assert(!err);
+				assert.equal(res.text, '{"name":"addItem","count":0}', "When there are none of the item, you should get 0 back. addItem and removeItem should always return 0");
+				
+				isDone();
+			});
+			
+			persistentMaster.post("/api/remove")
+			.send({
+				name:"removeItem",
+				count:10
+			})
+			.end(function(err,res){
+				assert(!err);
+				assert.equal(res.text, '{"name":"removeItem","count":0}', "When there are none of the item, you should get 0 back. addItem and removeItem should always return 0");
+				
+				isDone();
+			});
+			
+			function isDone(){
+				if(++casesRan == 2) done();
+			}
+		});
+		it("returns an empty itemStack if you don't have any of the item you request", function(done){
+			persistentMaster.post("/api/remove")
+			.send({
+				name:"imaginaryItem",
+				count:999999
+			})
+			.end(function(err,res){
+				assert(!err);//{"name":"imaginaryItem","count":0}
+				assert.equal(res.body.name, "imaginaryItem", "Make sure body.name is the item we asked for");
+				assert.equal(res.body.count, 0, "Count should be 0 since we are asking for something that does not exist anywhere");
+				assert.equal(Object.keys(res.body).length, 2, "name and count should be the only keys on this object");
+				
+				done();
+			});
+		});
 	});
 });
