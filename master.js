@@ -84,23 +84,27 @@ db.flows = new LinvoDB("flows", {}, {});
 db.items.addItem = function(object) {
 	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
+		return false;
 	} else {
 		if(this[object.name] && Number(this[object.name]) != NaN){
 			this[object.name] = Number(this[object.name]) + Number(object.count);
 		} else {
 			this[object.name] = object.count;
 		}
+		return true;
 	}
 }
 db.items.removeItem = function(object) {
 	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
+		return false;
 	} else {
 		if(this[object.name] && Number(this[object.name]) != NaN){
 			this[object.name] = Number(this[object.name]) - Number(object.count);
 		} else {
 			this[object.name] = 0;
 		}
+		return true;
 	}
 }
 
@@ -282,8 +286,9 @@ app.post("/api/remove", function(req, res) {
 		// console.dir(doc);
 	if (!item) {
 		console.log('failure could not find ' + object.name);
+		res.send({name:object.name, count:0});
 	} else {
-		const originalCount = object.count || 0;
+		const originalCount = Number(object.count) || 0;
 		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
 		object.count = Math.round(object.count);
 		
@@ -294,23 +299,23 @@ app.post("/api/remove", function(req, res) {
 			//If successful, increase dole
 			_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
 			//console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
-			db.items.removeItem(object);
-			// res.send("successier");
-			let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-			if(sentItemStatistics === undefined){
-				sentItemStatistics = new averagedTimeSeries({
-					maxEntries: config.itemStats.maxEntries,
-					entriesPerSecond: config.itemStats.entriesPerSecond,
-					mergeMode: "add",
-				}, console.log);
+			if(db.items.removeItem({count: object.count, name: object.name})){
+				let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
+				if(sentItemStatistics === undefined){
+					sentItemStatistics = new averagedTimeSeries({
+						maxEntries: config.itemStats.maxEntries,
+						entriesPerSecond: config.itemStats.entriesPerSecond,
+						mergeMode: "add",
+					}, console.log);
+				}
+				sentItemStatistics.add({
+					key:object.name,
+					value:object.count,
+				});
+				//console.log(sentItemStatistics.data)
+				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 			}
-			sentItemStatistics.add({
-				key:object.name,
-				value:object.count,
-			});
-			//console.log(sentItemStatistics.data)
-			sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
-			res.send(object);
+			res.send({count: object.count, name: object.name});
 		} else {
 			// if we didn't have enough, attempt giving out a smaller amount next time
 			_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
