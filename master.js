@@ -159,8 +159,8 @@ app.post("/api/editSlaveMeta", function(req,res) {
 		if(slaves[req.body.slaveID] && slaves[req.body.slaveID].rconPassword == req.body.password){
 			if(!slaves[req.body.slaveID].meta){
 				slaves[req.body.slaveID].meta = {};
-				slaves[req.body.slaveID].meta = deepmerge(slaves[req.body.slaveID].meta, req.body.meta, {clone:true})
 			}
+			slaves[req.body.slaveID].meta = deepmerge(slaves[req.body.slaveID].meta, req.body.meta, {clone:true});
 			console.log("Updating slave: " + slaves[req.body.slaveID].mac + " : " + slaves[req.body.slaveID].serverPort+" at " + slaves[req.body.slaveID].publicIP);
 		} else {
 			res.send("ERROR: Invalid slaveID or password")
