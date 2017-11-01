@@ -1,21 +1,22 @@
-var fs = require('fs-extra');
-var https = require('follow-redirects').https;
-var needle = require("needle");
-var child_process = require('child_process');
-var path = require('path');
-var syncRequest = require('sync-request');
-var request = require("request");
-var ncp = require('ncp').ncp;
-var Rcon = require('simple-rcon');
-var hashFiles = require('hash-files');
-var _ = require('underscore');
-var deepmerge = require("deepmerge");
-var getMac = require('getmac').getMac;
+const fs = require('fs-extra');
+const https = require('follow-redirects').https;
+const needle = require("needle");
+const child_process = require('child_process');
+const path = require('path');
+const syncRequest = require('sync-request');
+const request = require("request");
+const ncp = require('ncp').ncp;
+const Rcon = require('simple-rcon');
+const hashFiles = require('hash-files');
+const _ = require('underscore');
+const deepmerge = require("deepmerge");
+const getMac = require('getmac').getMac;
 
 // internal libraries
-var objectOps = require("./lib/objectOps.js");
-var fileOps = require("./lib/fileOps.js");
-var stringUtils = require("./lib/stringUtils.js");
+const objectOps = require("./lib/objectOps.js");
+const fileOps = require("./lib/fileOps.js");
+const stringUtils = require("./lib/stringUtils.js");
+const modManager = require("./lib/modManager/modManager.js");
 
 // require config.json
 var config = require('./config');
@@ -80,6 +81,12 @@ if (!command || command == "help" || command == "--help") {
 } else if (command == "list") {
 	console.dir(fileOps.getDirectoriesSync("./instances/"));
 	process.exit(1);
+} else if (command == "modManager") {
+	console.log("Launching mod manager");
+	
+	modManager.listMods(instance);
+	
+	// process.exit(1);
 } else if (command == "delete") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
