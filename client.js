@@ -548,6 +548,7 @@ function instanceManagement() {
 					instanceID: instanceconfig.unique, // a hash computed from the randomly generated rcon password
 				}, function (err, resp, body) {
 					if(body == "failure") console.error("#### Export failed! Lost: "+g[1]+" "+g[0]);
+					if(body == "success") console.log(`Exported ${g[1]} ${g[0]} to master`)
 				});
 			}
 		}
@@ -599,13 +600,14 @@ function instanceManagement() {
 			}
 			// request our items, one item at a time
 			for (let i = 0; i < Object.keys(preparedPackage).length; i++) {
-				console.log(preparedPackage[Object.keys(preparedPackage)[i]]);
+				// console.log(preparedPackage[Object.keys(preparedPackage)[i]]);
 				needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
 						confirmedOrders[confirmedOrders.length] = {
 							[response.body.name]: response.body.count
 						}
+						console.log(`Imported ${response.body.count} ${response.body.name} from master`);
 					}
 				});
 			}
