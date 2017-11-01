@@ -2,6 +2,7 @@ var app = require('./master.js'),
   assert = require('assert'),
   request = require('supertest');
 const validateHTML = require('html5-validator');
+var parallel = require('mocha.parallel');
 
 
 describe('Master server endpoint testing', function() {
@@ -33,7 +34,7 @@ describe('Master server endpoint testing', function() {
 		});
 	});
 	// describe("#GET /api/")
-	describe("#GET static website data", function() {
+	parallel("#GET static website data", function() {
 		it("sends some HTML when accessing /", function(done){
 			this.timeout(6000);
 			request(app).get("/").end(function(err,res){
@@ -108,7 +109,7 @@ describe('Master server endpoint testing', function() {
 			});
 		});
 	});
-	describe("#POST /api/remove", function(){
+	parallel("#POST /api/remove", function(){
 		it("returns an itemStack of how many items were removed", function(done){
 			persistentMaster.post("/api/remove")
 			.send({

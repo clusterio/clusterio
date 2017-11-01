@@ -52,6 +52,7 @@
     "istanbul": "^0.4.5",
     "mocha": "^3.5.3",
     "mocha-sinon": "^2.0.0",
+    "mocha.parallel": "^0.15.3",
     "mock-fs": "^4.4.2",
     "nock": "^9.0.25",
     "sinon": "^2.4.1",
