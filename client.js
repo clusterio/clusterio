@@ -590,6 +590,8 @@ function instanceManagement() {
 							preparedPackage[items[i][0]] = {
 								"name": items[i][0],
 								"count": Number(items[i][1]),
+								"instanceName":instance,
+								"instanceID":instanceconfig.unique,
 							};
 						}
 					}

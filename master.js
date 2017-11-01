@@ -234,6 +234,11 @@ app.post("/api/place", function(req, res) {
 	}
 	if(!x.instanceID) {
 		x.instanceID = "unknown";
+		Object.keys(slaves).forEach(instanceID => {
+			if(slaves[instanceID].instanceName == req.body.instanceName) {
+				x.instanceID = instanceID;
+			}
+		});
 	}
 	if(	x.instanceID
 		&& x.instanceName
