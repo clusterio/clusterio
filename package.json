@@ -40,7 +40,7 @@
     "ncp": "^2.0.0",
     "nedb": "^1.8.0",
     "needle": "^1.1.0",
-    "node-factorio-api": "^0.1.27",
+    "node-factorio-api": "^0.1.28",
     "portfinder": "^1.0.9",
     "request": "^2.83.0",
     "semver": "^5.4.1",
@@ -55,7 +55,7 @@
     "mocha-sinon": "^2.0.0",
     "mocha.parallel": "^0.15.3",
     "mock-fs": "^4.4.2",
-    "nock": "^9.0.25",
+    "nock": "^9.0.27",
     "sinon": "^2.4.1",
     "supertest": "^3.0.0"
   }
