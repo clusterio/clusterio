@@ -16,7 +16,7 @@ const getMac = require('getmac').getMac;
 const objectOps = require("./lib/objectOps.js");
 const fileOps = require("./lib/fileOps.js");
 const stringUtils = require("./lib/stringUtils.js");
-const modManager = require("./lib/modManager/modManager.js");
+const modManager = require("./lib/manager/modManager.js");
 
 // require config.json
 var config = require('./config');
@@ -79,9 +79,50 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js download");
 	process.exit(1);
 } else if (command == "list") {
-	console.dir(fileOps.getDirectoriesSync("./instances/"));
+	let instanceNames = fileOps.getDirectoriesSync("./instances/");
+	instanceNames.unshift("Name:");
+	let longestInstanceName = 0;
+	// determine longest instance name
+	instanceNames.forEach(function(instance){
+		if(instance.length > longestInstanceName) longestInstanceName = instance.length;
+	});
+	let displayLines = [];
+	// push name coloumn to array
+	instanceNames.forEach(function(instance){
+		while(instance.length < longestInstanceName+1){
+			instance += " ";
+		}
+		displayLines.push("| "+ instance + "|");
+	});
+	// create port colloumn
+	let factorioPorts = [];
+	instanceNames.forEach(function(instance){
+		let factorioPort
+		
+		if(instance.includes("Name:")){
+			factorioPort = "Port:"
+		} else {
+			factorioPort = require("./instances/"+instance+"/config").factorioPort;
+		}
+		factorioPorts.push(factorioPort);
+	});
+	factorioPorts.forEach((port, index) => {
+		let longestPort = 0;
+		factorioPorts.forEach((port, index) => {
+			if(port.toString().length > longestPort) longestPort = port.toString().length;
+		});
+		while(port.toString().length < longestPort){
+			port += " ";
+		}
+		factorioPorts[index] = port;
+	});
+	instanceNames.forEach(function(instance, index){
+		displayLines[index] += " " + factorioPorts[index] + " |";
+	});
+	
+	displayLines.forEach(line => console.log(line));
 	process.exit(1);
-} else if (command == "modManager") {
+} else if (command == "manage"){
 	console.log("Launching mod manager");
 	
 	modManager.listMods(instance);
@@ -108,7 +149,7 @@ if (!command || command == "help" || command == "--help") {
 	if(url) {
 		console.log(url);
 		var file = fs.createWriteStream("sharedMods/"+name);
-		var request = https.get(url, function(response) {
+		var req = https.get(url, function(response) {
 			response.pipe(file);
 			console.log("Downloaded "+name);
 		});
