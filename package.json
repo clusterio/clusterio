@@ -43,6 +43,7 @@
     "node-factorio-api": "^0.1.28",
     "portfinder": "^1.0.9",
     "request": "^2.83.0",
+    "right-pad": "^1.0.1",
     "semver": "^5.4.1",
     "simple-rcon": "^0.3.1",
     "sync-request": "^4.0.1",
