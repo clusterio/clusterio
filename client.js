@@ -123,10 +123,14 @@ if (!command || command == "help" || command == "--help") {
 	displayLines.forEach(line => console.log(line));
 	process.exit(1);
 } else if (command == "manage"){
-	console.log("Launching mod manager");
-	
-	modManager.listMods(instance);
-	
+	// console.log("Launching mod manager");
+	const action = process.argv[4];
+	if(instance && action && action == "list"){
+		modManager.listMods(instance);
+	} else {
+		console.log('Usage:');
+		console.log('node client.js manage [instance, "shared"] ["list"]');
+	}
 	// process.exit(1);
 } else if (command == "delete") {
 	if (!process.argv[3]) {

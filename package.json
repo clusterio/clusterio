@@ -15,6 +15,7 @@
   "author": "Danielv123",
   "license": "ISC",
   "dependencies": {
+    "as-table": "^1.0.31",
     "averaged-timeseries": "^1.4.0",
     "body-parser": "^1.18.2",
     "canvasjs": "^1.8.1",
