@@ -100,8 +100,6 @@ function getItemStatData(item, callback){
 	});
 	xhr.send(data);
 }
-////// drawChart("contentGraph", /api/getStats)
-
 
 function makeItemGraphs(itemName){
 	getJSON("/api/slaves", function(err, slaves){
@@ -115,9 +113,9 @@ function makeItemGraphs(itemName){
 		slaveIDs.unshift("unknown");
 		slaveIDs.forEach(function(slaveID){
 			if(slaveID == "unknown" || Date.now() - slaves[slaveID].time < 120000 || JSON.parse(localStorage.settings)["Display offline slaves"]){
+				HTML += '<div id="contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
 				["place", "remove"].forEach(statistic => {
 					console.log("Making chart for "+slaveID+"'s "+statistic+" statistic");
-					HTML += '<div id="'+statistic+'contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
 					
 					setTimeout(function(){
 						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
@@ -133,8 +131,19 @@ function makeItemGraphs(itemName){
 										slaveDisplayName = slaves[slaveID].instanceName;
 									} catch(e) {}
 									let whatGraphIsIt = "Items sent to cluster from";
-									if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by"
-									drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], `${whatGraphIsIt} ${slaveDisplayName} (${slaveID}) ${itemName}`);
+									if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by";
+									
+									let chartData = JSON.parse(xmlhttp.response).data;
+									switch(statistic){
+										case "place":
+											chartData.name = "Items exported:";
+										break;
+										case "remove":
+											chartData.name = "Items imported:";
+										break;
+									}
+									drawChartWhenCalledTwice(chartData, whatGraphIsIt + " " + slaveDisplayName);
+									//drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], `${whatGraphIsIt} ${slaveDisplayName} (${slaveID}) ${itemName}`);
 									// console.log(JSON.parse(xmlhttp.response).data);
 								}
 							}
@@ -142,6 +151,13 @@ function makeItemGraphs(itemName){
 						xmlhttp.send(JSON.stringify({statistic:statistic, itemName:itemName, slaveID:slaveID}));
 					},1);
 				});
+				let chartLines = [];
+				function drawChartWhenCalledTwice(data, slaveDisplayName){
+					chartLines.push(data);
+					if(chartLines.length >= 2){
+						drawChart("contentGraph"+slaveID, chartLines, `${slaveDisplayName} (${slaveID}) ${itemName}`);
+					}
+				}
 			}
 		});
 		document.querySelector("#graphDisplay > #storageGraphContainer").innerHTML = HTML;
@@ -155,8 +171,9 @@ function drawChart(selector, chartData, title) {
 		title:{
 			text: title || "Production graph"
 		},
-		toolTip:{   
-			content: "{name}: {y}"	  
+		toolTip:{
+			shared: true,
+			// content: "{name}: {y}",
 		},
 		zoomEnabled: true,
 		axisY:{
