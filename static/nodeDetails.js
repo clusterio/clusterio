@@ -277,7 +277,7 @@ function generateLineChartArray(data, nameKey) {
 }
 
 var chartsByID = {};
-function drawChart(selector, chartData) {
+function drawChart(selector, chartData, title) {
 	// selector is ID of element, ex "chartContainer" or "-123199123"
 	console.log(chartData)
 	chartsByID[selector] = new CanvasJS.Chart(selector, {
