@@ -1,3 +1,12 @@
+/**
+Clusterio master server. Facilitates communication between slaves through
+a webserver, storing data related to slaves like production graphs and
+combinator signals.
+
+@module clusterioMaster
+@author Danielv123
+*/
+
 // Set the process title, shows up as the title of the CMD window on windows
 // and as the process name in ps/top on linux.
 process.title = "clusterioMaster";
@@ -348,7 +357,12 @@ app.post("/api/readSignal", function(req,res) {
 		// console.log(docs);
 	});
 });
+/**
+GET endpoint to read the masters current inventory of items.
 
+@alias api/inventory
+@returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
+*/
 // endpoint for getting an inventory of what we got
 app.get("/api/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
@@ -371,6 +385,15 @@ app.get("/api/inventoryAsObject", function(req, res) {
 
 // post flowstats here for production graphs
 // {timestamp: Date, slaveID: string, data: {"item":number}}
+/**
+POST endpoint to log production graph statistics. Should contain a timestamp
+gathered from Date.now(), a slaveID (also reffered to as "unique") and of
+course the timeSeries data.
+
+@alias api/logStats
+@param {object} JSON {timestamp: Date.now(), slaveID: "string", data: {"item": number}}
+@returns {string} failure
+*/
 app.post("/api/logStats", function(req,res) {
 	if(typeof req.body == "object" && req.body.slaveID && req.body.timestamp && req.body.data) {
 		if(Number(req.body.timestamp) != NaN){
@@ -383,13 +406,21 @@ app.post("/api/logStats", function(req,res) {
 			console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp);
 		} else {
 			console.log("error invalid timestamp " + req.body.timestamp);
-			res.send(failure);
+			res.send("failure");
 		}
 	} else {
 		res.send("failure");
 	}
 });
 // {slaveID: string, fromTime: Date, toTime, Date}
+/**
+POST endpoint to get timeSeries statistics stored on the master. Can give production
+graphs and other IO statistics.
+
+@alias api/getStats
+@param {object} JSON
+@returns {object} - with statistics
+*/
 app.post("/api/getStats", function(req,res) {
 	if(typeof req.body == "string"){
 		req.body = JSON.parse(req.body);
@@ -451,10 +482,16 @@ app.post("/api/getStats", function(req,res) {
 	}
 });
 
-// Modified version of getStats which feeds the web interface production graphs
-// at /nodes. It is like getStats but it does not report items which were not
-// produced at the moment of recording. (This is to save space, the 0-items were
-// making up about 92% of the response body weight.)
+/**
+POST endpoint. Modified version of api/getStats which feeds the web interface production graphs
+at /nodes. It is like getStats but it does not report items which were not
+produced at the moment of recording. (This is to save space, the 0-items were
+making up about 92% of the response body weight.)
+
+@alias api/getTimelineStats
+@param {object} JSON {slaveID:1941029, fromTime: ???, toTime: ???}
+@returns {object[]} timeseries where each entry is a set point in time.
+*/
 app.post("/api/getTimelineStats", function(req,res) {
 	console.log(req.body);
 	if(typeof req.body == "object" && req.body.slaveID) {

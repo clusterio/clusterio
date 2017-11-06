@@ -392,8 +392,8 @@ function instanceManagement() {
 		}
 		
 		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
-		let arguments = pluginConfig.arguments || [];
-		plugins.push(child_process.spawn(pluginConfig.binary, arguments, {
+		let args = pluginConfig.args || [];
+		plugins.push(child_process.spawn(pluginConfig.binary, args, {
 			cwd: "./sharedPlugins/"+pluginDirectories[i],
 			stdio: ['pipe', 'pipe', 'pipe'],
 		}));
