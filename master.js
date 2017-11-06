@@ -483,7 +483,12 @@ app.post("/api/getTimelineStats", function(req,res) {
 			docs.forEach(el => {
 				for(let key in el.data) {
 					if(el.data[key] === '0') {
-						delete el.data[key];
+						// Set value to undefined instead of using the delete keyword.
+						// This is because the delete keyword is super duper slow.
+						// https://stackoverflow.com/questions/208105/how-do-i-remove-a-property-from-a-javascript-object
+						
+						//delete el.data[key];
+						el.data[key] = undefined;
 					}
 				}
 			});
