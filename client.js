@@ -17,6 +17,7 @@ const objectOps = require("./lib/objectOps.js");
 const fileOps = require("./lib/fileOps.js");
 const stringUtils = require("./lib/stringUtils.js");
 const modManager = require("./lib/manager/modManager.js");
+const configManager = require("./lib/manager/configManager.js");
 
 // require config.json
 var config = require('./config');
@@ -124,12 +125,37 @@ if (!command || command == "help" || command == "--help") {
 	process.exit(1);
 } else if (command == "manage"){
 	// console.log("Launching mod manager");
-	const action = process.argv[4];
-	if(instance && action && action == "list"){
-		modManager.listMods(instance);
+	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
+	function usage(instance, tool){
+		return 'node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config"]') + ' ...';
+	}
+	const modManagerUsage1 = 'node client.js manage ';
+	const modManagerUsage2 = ' mods ["list", "update"]';
+	const tool = process.argv[4] || "";
+	const action = process.argv[5] || "";
+	if(instance){
+		if(tool == "mods"){
+			if(action == "list"){
+				modManager.listMods(instance);
+			} else if(action == "search"){
+				modManager.findMods(process.argv[6]);
+			} else {
+				console.log(modManagerUsage1 + instance + modManagerUsage2);
+			}
+		} else if(tool == "config"){
+			if(action == "list" || action == "show" || action == "display"){
+				configManager.displayConfig(instance);
+			} else if(action == "edit"){
+				
+			} else {
+				console.log()
+			}
+		} else {
+			console.log(usage(instance));
+		}
 	} else {
 		console.log('Usage:');
-		console.log('node client.js manage [instance, "shared"] ["list"]');
+		console.log(usage(instance));
 	}
 	// process.exit(1);
 } else if (command == "delete") {
@@ -152,8 +178,8 @@ if (!command || command == "help" || command == "--help") {
 	let name = JSON.parse(res.getBody())[0].assets[0].name;
 	if(url) {
 		console.log(url);
-		var file = fs.createWriteStream("sharedMods/"+name);
-		var req = https.get(url, function(response) {
+		let file = fs.createWriteStream("sharedMods/"+name);
+		https.get(url, function(response) {
 			response.pipe(file);
 			console.log("Downloaded "+name);
 		});
