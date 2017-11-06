@@ -9,10 +9,9 @@
 	"masterIP": "localhost",
 	"masterPort": 8080,
 	
-	"__comment": "credentials for factorio MP services, also username will be admin",
+	"__comment": "Your factorio.com username for factorio MP services, also username will be admin",
 	"username": "",
-	"password": "",
-	"__comment": "Token can be used instead of password, but for the most part just ignore",
+	"__comment": "Token from your factorio.com profile page. Required for MP and mod manager services.",
 	"token": "",
 	
 	"__comment": "General user settings",
