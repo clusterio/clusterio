@@ -33,6 +33,7 @@ Factorio*
 /database
 database/items.db
 config.json
+package-lock.json
 
 # weird pattern to ignore sharedPlugins except not ignore some core modules
 !sharedPlugins/

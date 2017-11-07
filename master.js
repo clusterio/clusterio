@@ -5,6 +5,9 @@ combinator signals.
 
 @module clusterioMaster
 @author Danielv123
+
+@example
+node master.js
 */
 
 // Set the process title, shows up as the title of the CMD window on windows
@@ -360,11 +363,13 @@ app.post("/api/readSignal", function(req,res) {
 /**
 GET endpoint to read the masters current inventory of items.
 
+@memberof clusterioMaster
+@instance
 @alias api/inventory
 @returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
 */
 // endpoint for getting an inventory of what we got
-app.get("/api/inventory", function(req, res) {
+var apiinventory = app.get("/api/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
@@ -390,6 +395,8 @@ POST endpoint to log production graph statistics. Should contain a timestamp
 gathered from Date.now(), a slaveID (also reffered to as "unique") and of
 course the timeSeries data.
 
+@memberof clusterioMaster
+@instance
 @alias api/logStats
 @param {object} JSON {timestamp: Date.now(), slaveID: "string", data: {"item": number}}
 @returns {string} failure
@@ -417,6 +424,8 @@ app.post("/api/logStats", function(req,res) {
 POST endpoint to get timeSeries statistics stored on the master. Can give production
 graphs and other IO statistics.
 
+@memberof clusterioMaster
+@instance
 @alias api/getStats
 @param {object} JSON
 @returns {object} - with statistics
@@ -488,6 +497,8 @@ at /nodes. It is like getStats but it does not report items which were not
 produced at the moment of recording. (This is to save space, the 0-items were
 making up about 92% of the response body weight.)
 
+@memberof clusterioMaster
+@instance
 @alias api/getTimelineStats
 @param {object} JSON {slaveID:1941029, fromTime: ???, toTime: ???}
 @returns {object[]} timeseries where each entry is a set point in time.
