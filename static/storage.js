@@ -130,8 +130,8 @@ function makeItemGraphs(itemName){
 									try {
 										slaveDisplayName = slaves[slaveID].instanceName;
 									} catch(e) {}
-									let whatGraphIsIt = "Items sent to cluster from";
-									if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by";
+									let whatGraphIsIt = "Item IO from ";
+									// if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by";
 									
 									let chartData = JSON.parse(xmlhttp.response).data;
 									switch(statistic){
