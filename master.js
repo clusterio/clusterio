@@ -343,13 +343,30 @@ app.post("/api/remove", function(req, res) {
 });
 
 // circuit stuff
+/**
+POST endpoint to send and store circuit frames on the master.
+Gives no response
+
+@memberof clusterioMaster
+@instance
+@alias api/setSignal
+@param {object} circuitFrame
+@param {number} circuitFrame.time
+*/
 app.post("/api/setSignal", function(req,res) {
 	if(typeof req.body == "object" && req.body.time){
 		db.signals.insert(req.body);
 		// console.log("signal set");
 	}
 });
+/**
+POST endpoint to read database of circuit signals sent to master
 
+@memberof clusterioMaster
+@instance
+@alias api/readSignal
+@returns {object} circuitFrame
+*/
 app.post("/api/readSignal", function(req,res) {
 	// request.body should be an object
 	// {since:UNIXTIMESTAMP,}
@@ -369,7 +386,7 @@ GET endpoint to read the masters current inventory of items.
 @returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
 */
 // endpoint for getting an inventory of what we got
-var apiinventory = app.get("/api/inventory", function(req, res) {
+app.get("/api/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
@@ -381,6 +398,14 @@ var apiinventory = app.get("/api/inventory", function(req, res) {
 	}
 	res.send(JSON.stringify(inventory));
 });
+/**
+GET endpoint to read the masters inventory as an object with key:value pairs
+
+@memberof clusterioMaster
+@instance
+@alias api/inventoryAsObject
+@returns {object} JSON {"iron-plate":100, "copper-plate":5}
+*/
 app.get("/api/inventoryAsObject", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
