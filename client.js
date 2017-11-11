@@ -154,7 +154,15 @@ if (!command || command == "help" || command == "--help") {
 			if(action == "list" || action == "show" || action == "display"){
 				configManager.displayConfig(instance);
 			} else if(action == "edit"){
-				configManager.editConfig(instance, process.argv);
+				let newConfigValue = "";
+				process.argv.forEach((arg, i)=>{
+					if(i >= 8){
+						newConfigValue += " "+arg;
+					} else if(i >= 7){
+						newConfigValue += arg;
+					}
+				});
+				configManager.editConfig(instance, process.argv[6], newConfigValue);
 			} else {
 				usage(instance, tool);
 			}
