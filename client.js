@@ -126,8 +126,14 @@ if (!command || command == "help" || command == "--help") {
 } else if (command == "manage"){
 	// console.log("Launching mod manager");
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
-	function usage(instance, tool){
-		return 'node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config"]') + ' ...';
+	function usage(instance, tool, action){
+		if(tool && tool == "mods"){
+			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "update"]');
+		} else if(tool && tool == "config") {
+			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
+		} else {
+			console.log('node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config"]') + ' ...');
+		}
 	}
 	const modManagerUsage1 = 'node client.js manage ';
 	const modManagerUsage2 = ' mods ["list", "update"]';
@@ -139,23 +145,25 @@ if (!command || command == "help" || command == "--help") {
 				modManager.listMods(instance);
 			} else if(action == "search"){
 				modManager.findMods(process.argv[6]);
+			} else if(action == "update"){
+				modManager.updateAllMods();
 			} else {
-				console.log(modManagerUsage1 + instance + modManagerUsage2);
+				usage(instance, tool);
 			}
 		} else if(tool == "config"){
 			if(action == "list" || action == "show" || action == "display"){
 				configManager.displayConfig(instance);
 			} else if(action == "edit"){
-				
+				configManager.editConfig(instance, process.argv);
 			} else {
-				console.log()
+				usage(instance, tool);
 			}
 		} else {
-			console.log(usage(instance));
+			usage(instance);
 		}
 	} else {
 		console.log('Usage:');
-		console.log(usage(instance));
+		usage(instance);
 	}
 	// process.exit(1);
 } else if (command == "delete") {
