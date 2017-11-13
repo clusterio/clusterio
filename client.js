@@ -132,7 +132,7 @@ if (!command || command == "help" || command == "--help") {
 		} else if(tool && tool == "config") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
 		} else {
-			console.log('node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config"]') + ' ...');
+			console.log('node client.js manage '+(instance || '[instance, "shared"]')+'+ (tool || '["mods", "config"]') + ' ...');
 		}
 	}
 	const modManagerUsage1 = 'node client.js manage ';
