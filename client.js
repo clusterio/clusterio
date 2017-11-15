@@ -11,7 +11,7 @@ const hashFiles = require('hash-files');
 const _ = require('underscore');
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
-
+const rmdirSync = require('rmdir-sync');
 // internal libraries
 const objectOps = require("./lib/objectOps.js");
 const fileOps = require("./lib/fileOps.js");
@@ -135,12 +135,11 @@ if (!command || command == "help" || command == "--help") {
 			console.log('node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config"]') + ' ...');
 		}
 	}
-	const modManagerUsage1 = 'node client.js manage ';
-	const modManagerUsage2 = ' mods ["list", "update"]';
 	const tool = process.argv[4] || "";
 	const action = process.argv[5] || "";
 	if(instance){
 		if(tool == "mods"){
+			// allow managing mods
 			if(action == "list"){
 				modManager.listMods(instance);
 			} else if(action == "search"){
@@ -151,6 +150,7 @@ if (!command || command == "help" || command == "--help") {
 				usage(instance, tool);
 			}
 		} else if(tool == "config"){
+			// allow managing the config
 			if(action == "list" || action == "show" || action == "display"){
 				configManager.displayConfig(instance);
 			} else if(action == "edit"){
@@ -214,6 +214,7 @@ if (!command || command == "help" || command == "--help") {
 	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
 	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 	fs.mkdirSync(instancedirectory + "/mods/");
+	fs.mkdirSync(instancedirectory + "/instanceMods/");
 	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
 read-data=__PATH__executable__/../../data\r\n\
@@ -226,7 +227,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		"clientPort": process.env.RCONPORT | Math.floor(Math.random() * 65535),
 		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
-	console.log("Clusterio | Moving shared mods...");
+	console.log("Clusterio | Created instance with settings:")
 	console.log(instconf);
 	
 	// create instance config
@@ -300,8 +301,18 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	}
 	
 	// move mods from ./sharedMods to the instances mod directory
-	console.log("Clusterio | Moving shared mods...");
+	try {
+		fs.mkdirSync(instancedirectory + "/instanceMods/");
+	} catch(e){}
+	try{rmdirSync(instancedirectory + "/mods");}catch(e){}
+	try {
+		// mods directory that will be emptied (deleted) when closing the server to facilitate seperation of instanceMods and sharedMods
+		fs.mkdirSync(instancedirectory + "/mods/");
+	} catch(e){}
+	console.log("Clusterio | Moving shared mods from sharedMods/ to instance/mods...");
 	fs.copySync('sharedMods', instancedirectory + "/mods");
+	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
+	fs.copySync(instancedirectory + "/instanceMods", instancedirectory + "/mods");
 
 	process.on('SIGINT', function () {
 		console.log("Caught interrupt signal");

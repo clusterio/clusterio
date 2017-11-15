@@ -75,7 +75,7 @@ Server host (Slave) = client.js + factorio server
 
 Game Client = The people connecting to the server
 
-All Server Hosts (Slaves) AND Game Clients need to be running the clusterio mod located at [github](https://github.com/Danielv123/factorioClusterioMod) Install it by dropping it into the mods folder.
+All Server Hosts (Slaves) AND Game Clients need to be running the clusterio mod located at [github](https://github.com/Danielv123/factorioClusterioMod) Install it by dropping it into either the sharedMods folder or instances/[instanceName]/instanceMods folder.
 
 There are no requirements for other mods, they can be ran in any configuration allowed by the base game.
 
