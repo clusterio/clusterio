@@ -231,7 +231,18 @@ var recievedItemStatistics = new averagedTimeSeries({
 	maxEntries: config.itemStats.maxEntries,
 	entriesPerSecond: config.itemStats.entriesPerSecond,
 }, console.log);*/
-// endpoint to send items to
+// 
+/**
+POST endpoint for storing items in master's inventory.
+
+@memberof clusterioMaster
+@instance
+@alias api/place
+@param {itemStack} itemStack the number and type of items to store (see typedef)
+@param {string} [itemStack.instanceID="unknown"] the unique/instanceID which is a numerical value for an instance
+@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
+@returns {string} status either "success" or "failure"
+*/
 app.post("/api/place", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -283,7 +294,17 @@ app.post("/api/place", function(req, res) {
 		res.send("failure");
 	}
 });
-// endpoint to remove items from DB when client orders items
+/**
+POST endpoint to remove items from DB when client orders items.
+
+@memberof clusterioMaster
+@instance
+@alias api/remove
+@param {itemStack} itemStack the name of and the number of items to remove (see typedef)
+@param {string} [itemStack.instanceID="unknown"] the unique/instanceID which is a numerical value for an instance
+@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
+@returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
+*/
 _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", function(req, res) {
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
@@ -570,7 +591,14 @@ app.post("/api/getTimelineStats", function(req,res) {
 		});
 	}
 });
+/**
+GET endpoint. Returns factorio's base locale as a JSON object.
 
+@memberof clusterioMaster
+@instance
+@alias api/getFactorioLocale
+@returns {object{}} 2 deep nested object with base game factorio locale as key:value pairs
+*/
 app.get("/api/getFactorioLocale", function(req,res){
 	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => res.send(factorioLocale));
 });
