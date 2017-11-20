@@ -40,3 +40,4 @@ package-lock.json
 sharedPlugins/*
 !sharedPlugins/inventoryImports/
 !sharedPlugins/UPSdisplay/
+!sharedPlugins/remoteMap/
