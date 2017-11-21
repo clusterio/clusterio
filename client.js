@@ -619,7 +619,7 @@ function instanceManagement() {
 						}
 					}
 					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-					needle.post(config.masterIP + ":" + config.masterPort + '/api/logStats', {timestamp: timestamp, slaveID: instanceconfig.unique,data: payload}, function (err, response, body) {
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/logStats', {timestamp: timestamp, instanceID: instanceconfig.unique,data: payload}, function (err, response, body) {
 						// we did it, keep going
 					});
 				}

@@ -164,18 +164,18 @@ app.post("/api/getID", function(req,res) {
 
 app.post("/api/editSlaveMeta", function(req,res) {
 	// request.body should be an object
-	// {slaveID, pass, meta:{x,y,z}}
+	// {instanceID, pass, meta:{x,y,z}}
 	
-	if(req.body && req.body.slaveID && req.body.password && req.body.meta){
+	if(req.body && req.body.instanceID && req.body.password && req.body.meta){
 		// check for editing permissions
-		if(slaves[req.body.slaveID] && slaves[req.body.slaveID].rconPassword == req.body.password){
-			if(!slaves[req.body.slaveID].meta){
-				slaves[req.body.slaveID].meta = {};
+		if(slaves[req.body.instanceID] && slaves[req.body.instanceID].rconPassword == req.body.password){
+			if(!slaves[req.body.instanceID].meta){
+				slaves[req.body.instanceID].meta = {};
 			}
-			slaves[req.body.slaveID].meta = deepmerge(slaves[req.body.slaveID].meta, req.body.meta, {clone:true});
-			console.log("Updating slave: " + slaves[req.body.slaveID].mac + " : " + slaves[req.body.slaveID].serverPort+" at " + slaves[req.body.slaveID].publicIP);
+			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
+			console.log("Updating slave: " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP);
 		} else {
-			res.send("ERROR: Invalid slaveID or password")
+			res.send("ERROR: Invalid instanceID or password")
 		}
 	}
 });
@@ -435,28 +435,28 @@ app.get("/api/inventoryAsObject", function(req, res) {
 });
 
 // post flowstats here for production graphs
-// {timestamp: Date, slaveID: string, data: {"item":number}}
+// {timestamp: Date, instanceID: string, data: {"item":number}}
 /**
 POST endpoint to log production graph statistics. Should contain a timestamp
-gathered from Date.now(), a slaveID (also reffered to as "unique") and of
+gathered from Date.now(), a instanceID (also reffered to as "unique") and of
 course the timeSeries data.
 
 @memberof clusterioMaster
 @instance
 @alias api/logStats
-@param {object} JSON {timestamp: Date.now(), slaveID: "string", data: {"item": number}}
+@param {object} JSON {timestamp: Date.now(), instanceID: "string", data: {"item": number}}
 @returns {string} failure
 */
 app.post("/api/logStats", function(req,res) {
-	if(typeof req.body == "object" && req.body.slaveID && req.body.timestamp && req.body.data) {
+	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
 		if(Number(req.body.timestamp) != NaN){
 			req.body.timestamp = Number(req.body.timestamp);
 			db.flows.insert({
-				slaveID: req.body.slaveID,
+				instanceID: req.body.instanceID,
 				timestamp: req.body.timestamp,
 				data: req.body.data,
 			});
-			console.log("inserted: " + req.body.slaveID + " | " + req.body.timestamp);
+			console.log("inserted: " + req.body.instanceID + " | " + req.body.timestamp);
 		} else {
 			console.log("error invalid timestamp " + req.body.timestamp);
 			res.send("failure");
@@ -465,7 +465,7 @@ app.post("/api/logStats", function(req,res) {
 		res.send("failure");
 	}
 });
-// {slaveID: string, fromTime: Date, toTime, Date}
+// {instanceID: string, fromTime: Date, toTime, Date}
 /**
 POST endpoint to get timeSeries statistics stored on the master. Can give production
 graphs and other IO statistics.
@@ -481,7 +481,7 @@ app.post("/api/getStats", function(req,res) {
 		req.body = JSON.parse(req.body);
 	}
 	// console.log(req.body);
-	if(typeof req.body == "object" && req.body.slaveID && req.body.statistic === undefined) {
+	if(typeof req.body == "object" && req.body.instanceID && req.body.statistic === undefined) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
 			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
@@ -491,7 +491,7 @@ app.post("/api/getStats", function(req,res) {
 		}
 		console.log("Looking... " + JSON.stringify(req.body));
 		db.flows.find({
-			slaveID: req.body.slaveID,
+			instanceID: req.body.instanceID,
 		}, function(err, docs) {
 			let entries = docs.filter(function (el) {
 				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
@@ -499,12 +499,12 @@ app.post("/api/getStats", function(req,res) {
 			// console.log(entries);
 			res.send(entries);
 		});
-	} else if(typeof req.body == "object" && req.body.slaveID && typeof req.body.slaveID == "string" && req.body.itemName){
+	} else if(typeof req.body == "object" && req.body.instanceID && typeof req.body.instanceID == "string" && req.body.itemName){
 		if(req.body.statistic == "place"){
-			console.log(`sending place data for slaveID ${req.body.slaveID} ${req.body.itemName}`);
+			console.log(`sending place data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
 			// Gather data
 			//console.log(recievedItemStatisticsBySlaveID)
-			let itemStats = recievedItemStatisticsBySlaveID[req.body.slaveID];
+			let itemStats = recievedItemStatisticsBySlaveID[req.body.instanceID];
 			if(itemStats === undefined){
 				res.send({statusForDebugging:"no data available"});
 				return false;
@@ -517,10 +517,10 @@ app.post("/api/getStats", function(req,res) {
 				data: data,
 			});
 		} else if(req.body.statistic == "remove"){
-			console.log(`sending remove data for slaveID ${req.body.slaveID} ${req.body.itemName}`);
+			console.log(`sending remove data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
 			// Gather data
 			console.log(sentItemStatisticsBySlaveID)
-			let itemStats = sentItemStatisticsBySlaveID[req.body.slaveID];
+			let itemStats = sentItemStatisticsBySlaveID[req.body.instanceID];
 			console.log(itemStats)
 			if(typeof itemStats == "object"){
 				let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
@@ -546,12 +546,12 @@ making up about 92% of the response body weight.)
 @memberof clusterioMaster
 @instance
 @alias api/getTimelineStats
-@param {object} JSON {slaveID:1941029, fromTime: ???, toTime: ???}
+@param {object} JSON {instanceID:1941029, fromTime: ???, toTime: ???}
 @returns {object[]} timeseries where each entry is a set point in time.
 */
 app.post("/api/getTimelineStats", function(req,res) {
 	console.log(req.body);
-	if(typeof req.body == "object" && req.body.slaveID) {
+	if(typeof req.body == "object" && req.body.instanceID) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
 			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
@@ -561,7 +561,7 @@ app.post("/api/getTimelineStats", function(req,res) {
 		}
 		console.log("Looking... " + JSON.stringify(req.body));
 		db.flows.find({
-			slaveID: req.body.slaveID,
+			instanceID: req.body.instanceID,
 		}, function(err, docs) {
 			if(err) { 
 				console.error(err);

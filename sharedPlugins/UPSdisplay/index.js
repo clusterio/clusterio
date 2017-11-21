@@ -32,7 +32,7 @@ setInterval(function(){
 		let UPS = Math.round(ticksInPeriod / (timePeriod/1000));
 		// console.log("UPS: " + UPS);
 		try{
-			needle.post(config.masterIP+':'+config.masterPort+'/api/editSlaveMeta', {slaveID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
+			needle.post(config.masterIP+':'+config.masterPort+'/api/editSlaveMeta', {instanceID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
 				// success?
 			});
 		} catch (err){

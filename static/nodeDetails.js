@@ -42,7 +42,7 @@ setInterval(function(){
 			indicator.style.backgroundColor = "yellow";
 			indicator.title = "Master server unavailable";
 			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
-		} else if(Math.floor(slaveData[getParameterByName("slaveID")].time/100000) == Math.floor(Date.now()/100000)){
+		} else if(Math.floor(slaveData[getParameterByName("instanceID")].time/100000) == Math.floor(Date.now()/100000)){
 			indicator.style.backgroundColor = "green";
 			indicator.title = "Slave is online";
 		} else {
@@ -54,9 +54,9 @@ setInterval(function(){
 
 populateSlaveInfo();
 function populateSlaveInfo(){
-	let slaveID = getParameterByName("slaveID");
-	if(!slaveID){
-		throw "We need slaveID! GIVE US SLAVEID! ALL HAIL OUR NEW OVERLORDS!"
+	let instanceID = getParameterByName("instanceID");
+	if(!instanceID){
+		throw "We need instanceID! GIVE US SLAVEID! ALL HAIL OUR NEW OVERLORDS!"
 	}
 	getJSON("/api/slaves", function(err, slaveData){
 		/*
@@ -83,7 +83,7 @@ function populateSlaveInfo(){
 			"mac":"44-85-00-D2-7E-D6"}
 		}
 		*/
-		let slave = slaveData[slaveID];
+		let slave = slaveData[instanceID];
 		let HTML = "<div id='header'><div id='onlineIndicator'></div><h1>Name: " + slave.instanceName+"</h1>"
 		HTML += "<div class='subbar'><h6>Host: "+slave.mac+" </h6><h6>Unique: "+slave.unique+" </h6>"
 		if(slave.publicIP != "localhost"){
@@ -225,9 +225,9 @@ function maximizeTerminal(instant){
 }
 
 // ID of slave, ID of canvasjs div without #
-function makeGraph(slaveID, selector) {
-	post("api/getStats", {slaveID: slaveID}, function(data){
-		//console.log("Building chart " + slaveID + " with this data:")
+function makeGraph(instanceID, selector) {
+	post("api/getStats", {instanceID: instanceID}, function(data){
+		//console.log("Building chart " + instanceID + " with this data:")
 		//console.log(data)
 		if(data.length > 0) {
 			// find keys

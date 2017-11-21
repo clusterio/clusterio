@@ -14,7 +14,7 @@ setTimeout(function() {
 					let seenDate = moment(Number(slaveData[key].time)).format('DD.MM.YY, hh:mm:ss')
 					HTML += "<div class='slaveBox'>";
 					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="width: calc(100% - 200px);"></div>';
-					HTML += "<a href='nodeDetails?slaveID="+slaveData[key].unique+"'><h2>" + slaveData[key].instanceName + "</h2></a><p>ID: " + slaveData[key].unique + "</p><p>Last seen: "+seenDate+"</p><p>Online players: "+slaveData[key].playerCount+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
+					HTML += "<a href='nodeDetails?instanceID="+slaveData[key].unique+"'><h2>" + slaveData[key].instanceName + "</h2></a><p>ID: " + slaveData[key].unique + "</p><p>Last seen: "+seenDate+"</p><p>Online players: "+slaveData[key].playerCount+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
 					HTML += "<p>Host: "+slaveData[key].mac+"</p>";
 					HTML += "<button onclick='hideAllDatasets(\"" + slaveData[key].unique + "\")\'>Hide all</button>";
 					HTML += "<button onclick='showAllDatasets(\"" + slaveData[key].unique + "\")\'>Show all</button>";
@@ -43,9 +43,9 @@ let chartIgnoreList = [
 ]
 
 // ID of slave, ID of canvasjs div without #
-function makeGraph(slaveID, selector) {
-	post("api/getTimelineStats", {slaveID: slaveID}, function(pointsInTime) {
-		//console.log("Building chart " + slaveID + " with this data:")
+function makeGraph(instanceID, selector) {
+	post("api/getTimelineStats", {instanceID: instanceID}, function(pointsInTime) {
+		//console.log("Building chart " + instanceID + " with this data:")
 		
 		//Find all keys at all points in time.
 		let itemNames = {};

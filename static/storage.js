@@ -107,15 +107,15 @@ function makeItemGraphs(itemName){
 		if(typeof slaves == "string"){
 			slaves = JSON.parse(slaves);
 		}
-		let slaveIDs = Object.keys(slaves);
+		let instanceIDs = Object.keys(slaves);
 		let HTML = ""
 		// Draw in/out chart for unregistered slaves as well
-		slaveIDs.unshift("unknown");
-		slaveIDs.forEach(function(slaveID){
-			if(slaveID == "unknown" || Date.now() - slaves[slaveID].time < 120000 || JSON.parse(localStorage.settings)["Display offline slaves"]){
-				HTML += '<div id="contentGraph'+slaveID+'" class="storageGraph" style="width: 100%;"></div>';
+		instanceIDs.unshift("unknown");
+		instanceIDs.forEach(function(instanceID){
+			if(instanceID == "unknown" || Date.now() - slaves[instanceID].time < 120000 || JSON.parse(localStorage.settings)["Display offline slaves"]){
+				HTML += '<div id="contentGraph'+instanceID+'" class="storageGraph" style="width: 100%;"></div>';
 				["place", "remove"].forEach(statistic => {
-					console.log("Making chart for "+slaveID+"'s "+statistic+" statistic");
+					console.log("Making chart for "+instanceID+"'s "+statistic+" statistic");
 					
 					setTimeout(function(){
 						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
@@ -128,7 +128,7 @@ function makeItemGraphs(itemName){
 								if(isJSON(xmlhttp.responseText) && JSON.parse(xmlhttp.responseText).statusForDebugging === undefined){
 									let slaveDisplayName = "unknown";
 									try {
-										slaveDisplayName = slaves[slaveID].instanceName;
+										slaveDisplayName = slaves[instanceID].instanceName;
 									} catch(e) {}
 									let whatGraphIsIt = "Item IO from ";
 									// if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by";
@@ -143,19 +143,19 @@ function makeItemGraphs(itemName){
 										break;
 									}
 									drawChartWhenCalledTwice(chartData, whatGraphIsIt + " " + slaveDisplayName);
-									//drawChart(statistic+"contentGraph"+slaveID, [JSON.parse(xmlhttp.response).data], `${whatGraphIsIt} ${slaveDisplayName} (${slaveID}) ${itemName}`);
+									//drawChart(statistic+"contentGraph"+instanceID, [JSON.parse(xmlhttp.response).data], `${whatGraphIsIt} ${slaveDisplayName} (${instanceID}) ${itemName}`);
 									// console.log(JSON.parse(xmlhttp.response).data);
 								}
 							}
 						}
-						xmlhttp.send(JSON.stringify({statistic:statistic, itemName:itemName, slaveID:slaveID}));
+						xmlhttp.send(JSON.stringify({statistic:statistic, itemName:itemName, instanceID:instanceID}));
 					},1);
 				});
 				let chartLines = [];
 				function drawChartWhenCalledTwice(data, slaveDisplayName){
 					chartLines.push(data);
 					if(chartLines.length >= 2){
-						drawChart("contentGraph"+slaveID, chartLines, `${slaveDisplayName} (${slaveID}) ${itemName}`);
+						drawChart("contentGraph"+instanceID, chartLines, `${slaveDisplayName} (${instanceID}) ${itemName}`);
 					}
 				}
 			}
