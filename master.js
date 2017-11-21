@@ -603,8 +603,21 @@ app.get("/api/getFactorioLocale", function(req,res){
 	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => res.send(factorioLocale));
 });
 
-var server = app.listen(config.masterPort || 8080, function () {
+var server = require("http").Server(app);
+server.listen(config.masterPort || 8080, function () {
 	console.log("Listening on port %s...", server.address().port);
+});
+/* Websockets for remoteMap */
+var io = require("socket.io")(server);
+var slaveMappers = {};
+io.on('connection', function (socket) {
+	socket.emit('hello', { hello: 'world' });
+	socket.on('registerSlaveMapper', function (data) {
+		console.log(data);
+		slaveMappers[data.instanceID].getChunk = function getChunk(x,y){
+			
+		}
+	});
 });
 
 module.exports = app;

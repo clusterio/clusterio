@@ -40,6 +40,7 @@
     "linvodb3": "^3.25.0",
     "luamin": "^1.0.4",
     "mkdirp": "^0.5.1",
+    "mkdirp-promise": "^5.0.1",
     "moment": "^2.19.1",
     "ncp": "^2.0.0",
     "nedb": "^1.8.0",
@@ -51,6 +52,7 @@
     "rmdir-sync": "^1.0.1",
     "semver": "^5.4.1",
     "simple-rcon": "^0.3.1",
+    "socket.io": "^2.0.4",
     "sync-request": "^4.0.1",
     "underscore": "^1.8.3"
   },
