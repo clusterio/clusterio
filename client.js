@@ -220,7 +220,8 @@ if (!command || command == "help" || command == "--help") {
 read-data=__PATH__executable__/../../data\r\n\
 write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	");
-
+	
+	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', instancedirectory + "/mods");
 	let instconf = {
 		"factorioPort": process.env.FACTORIOPORT | Math.floor(Math.random() * 65535),
@@ -244,7 +245,6 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		"max_players": "20",
 		"visibility": config.visibility,
 		"username": config.username,
-		"password": config.password,
 		"token": config.usertoken,
 		"game_password": config.game_password,
 		"verify_user_identity": config.verify_user_identity,
@@ -284,9 +284,6 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 			fs.unlinkSync(instancedirectory + "/saves/" + savefiles[i]);
 		}
 	}
-	/*setInterval(function(){
-		console.log(process.env);
-	},5000);*/
 	console.log("Deleting logs");
 	// clean old log file to avoid crash
 	// file exists, delete so we don't get in trouble
