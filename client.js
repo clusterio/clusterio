@@ -712,6 +712,9 @@ function instanceManagement() {
 				var inventoryFrame = {};
 				for (let i = 0; i < inventory.length; i++) {
 					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
+					if(inventoryFrame[inventory[i].name] >= 2 ** 31){
+						inventoryFrame[inventory[i].name] = 2 ** 31;
+					}
 				}
 				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
 				// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
