@@ -12,7 +12,6 @@ process.stdin.on('readable', () => {
 	var chunk = process.stdin.read();
 	// console.log(chunk)
 	if (chunk !== null && isNaN(chunk) && config && isJson(chunk) && !JSON.parse(chunk).factorioPort){
-		
 		let inventory = JSON.parse(chunk)
 		// process inventory of players and ask master for more stuff
 		functions.handleInventory(inventory, config, console.log);

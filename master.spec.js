@@ -75,6 +75,16 @@ describe('Master server endpoint testing', function() {
 				});
 			});
 		});
+		it("sends some HTML when accessing /remoteMap",function(done){
+			this.timeout(6000);
+			request(app).get("/remoteMap").end(function(err,res){
+				assert.equal(res.statusCode, 200);
+				validateHTML(res.text).then(result => {
+					assert(result.messages.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					done();
+				});
+			});
+		});
 	});
 	let persistentMaster = request(app);
 	describe("#POST /api/place", function(){
