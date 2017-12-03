@@ -713,7 +713,7 @@ function instanceManagement() {
 				for (let i = 0; i < inventory.length; i++) {
 					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
 					if(inventoryFrame[inventory[i].name] >= 2 ** 31){
-						inventoryFrame[inventory[i].name] = 2 ** 31;
+						inventoryFrame[inventory[i].name] = 2 ** 30; // set it waaay lower, -1 would probably suffice
 					}
 				}
 				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
