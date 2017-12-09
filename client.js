@@ -319,7 +319,11 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
 	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
-		if(err) throw err;
+		if(err) {
+			console.log("Your savefile seems to be missing. This might because you created an instance without having factorio\
+			installed and configured properly. Try installing factorio and adding your savefile to instances/[instancename]/saves/");
+			throw err;
+		}
 		// implicit global
 		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
