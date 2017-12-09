@@ -730,7 +730,9 @@ function instanceManagement() {
 	// get inventory from Master and RCON it to our slave
 	setInterval(function () {
 		needle.get(config.masterIP + ":" + config.masterPort + '/api/inventory', function (err, response, body) {
-			if (response && response.body) {
+			if(err){
+				console.log("Unable to get JSON master/api/inventory, master might be unaccessible");
+			} else if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
 				try {
 					var inventory = JSON.parse(response.body);
