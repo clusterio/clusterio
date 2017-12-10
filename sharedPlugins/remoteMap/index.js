@@ -21,7 +21,10 @@ class remoteMap {
 			this.socket.emit("registerSlaveMapper", {instanceID: this.config.unique});
 		});
 		this.socket.on("getChunk", req => {
-			
+			this.chunkMap.getChunk(req.x, req.y).then(chunk => {
+				chunk.requesterID = req.requesterID;
+				this.socket.emit("sendChunk", chunk);
+			});
 		});
 		
 		this.messageInterface("/silent-command game.print('"+moduleConfig.name+" version "+moduleConfig.version+" enabled')");

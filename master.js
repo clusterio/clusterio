@@ -614,16 +614,40 @@ class slaveMapper {
 	constructor(instanceID, socket) {
 		this.instanceID = instanceID;
 		this.socket = socket;
-	}
-	getChunk(x,y){
 		
+		this.socket.on("sendChunk", function(data){
+			mapRequesters[data.requesterID].socket.emit("displayChunk", data)
+		});
+	}
+}
+var mapRequesters = {};
+class mapRequester {
+	constructor(requesterID, socket, instanceID){
+		this.requesterID = requesterID;
+		this.socket = socket;
+		this.instanceID = instanceID;
+		
+		this.socket.on("requestChunk", loc => {
+			loc.requesterID = this.requesterID;
+			let instanceID = loc.instanceID || this.instanceID;
+			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
+				slaveMappers[instanceID].socket.emit("getChunk", loc)
+			}
+		});
 	}
 }
 io.on('connection', function (socket) {
 	socket.emit('hello', { hello: 'world' });
 	socket.on('registerSlaveMapper', function (data) {
-		console.log(data);
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
+		console.log("SOCKET registered map provider for "+data.instanceID);
+	});
+	socket.on('registerMapRequester', function(data){
+		// data {instanceID:""}
+		let requesterID = Math.random().toString();
+		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
+		
+		console.log("SOCKET registered map requester for "+data.instanceID);
 	});
 });
 
