@@ -415,74 +415,104 @@ function instanceManagement() {
 	let plugins = [];
 	for(let i=0; i<pluginDirectories.length; i++) {
 		let I = i
-		let log = function(t) {
-			console.log("Clusterio | "+ pluginDirectories[I] + " | " + t);
-		}
-		
-		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
-		let args = pluginConfig.args || [];
-		plugins.push(child_process.spawn(pluginConfig.binary, args, {
-			cwd: "./sharedPlugins/"+pluginDirectories[i],
-			stdio: ['pipe', 'pipe', 'pipe'],
-		}));
-		
-		/*
-			to send to stdin, use:
-			spawn.stdin.write("text\n");
-		*/
-		
-		if(!global.subscribedFiles) {
-			global.subscribedFiles = {};
-		}
-		// If plugin has subscribed to a file, send any text appearing in that file to stdin
-		if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
-			if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
-				// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
-				// between those plugins instead.
-				throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
-			}
-			
-			if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
-				// Do something
-				fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
-			}
-			global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
-			fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
-				// get array of lines in file
-				let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
-				// if you found anything, reset the file
-				if (stuff[0]) {
-					fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
-				}
-				for (let i = 0; i < stuff.length; i++) {
-					if (stuff[i]) {
-						plugins[I].stdin.write(stuff[i]);
-					}
-				}
-			});
+		let log = function(message) {
+			console.log("Clusterio | "+ pluginDirectories[I] + " | " + message);
 		}
 		// these are our two config files. We need to send these in case plugin
 		// wants to contact master or know something.
 		let combinedConfig = deepmerge(instanceconfig,config,{clone:true})
-		// send through script-output file, maybe more compat?
-		fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, JSON.stringify(combinedConfig)+"\r\n");
-		// send directly through stdin
-		// plugins[i].stdin.write(JSON.stringify(combinedConfig)+"\n");
-		
-		console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
-		plugins[i].stdout.on("data", (data) => {
-			if(data.toString('utf8')[0] != "/") {
-				log("Stdout: " + data.toString('utf8'))
-			} else {
-				messageInterface(data.toString('utf8'));
+		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
+		if(pluginConfig.binary == "nodePackage"){
+			// require index.js.main() of plugin and execute it as a function
+			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
+			plugins[I] = new pluginClass(combinedConfig, function(data){
+				if(data.toString('utf8')[0] != "/") {
+					log("Stdout: " + data.toString('utf8'));
+				} else {
+					messageInterface(data.toString('utf8'));
+				}
+			});
+			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
+				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
+					// get array of lines in file
+					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+					// if you found anything, reset the file
+					if (stuff[0]) {
+						fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+					}
+					for (let i = 0; i < stuff.length; i++) {
+						if (stuff[i]) {
+							plugins[I].scriptOutput(stuff[i]);
+						}
+					}
+				});
 			}
-		});
-		plugins[i].stderr.on("data", (data) => {
-			log("STDERR: " + data);
-		});
-		plugins[i].on('close', (code) => {
-			log(`child process exited with code ${code}`);
-		});
+			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
+		} else if(pluginConfig.binary != "nodePackage"){
+			// handle as fragile executable plugin
+			let args = pluginConfig.args || [];
+			plugins[I]=child_process.spawn(pluginConfig.binary, args, {
+				cwd: "./sharedPlugins/"+pluginDirectories[i],
+				stdio: ['pipe', 'pipe', 'pipe'],
+			});
+			
+			/*
+				to send to stdin, use:
+				spawn.stdin.write("text\n");
+			*/
+			
+			if(!global.subscribedFiles) {
+				global.subscribedFiles = {};
+			}
+			// If plugin has subscribed to a file, send any text appearing in that file to stdin
+			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
+				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
+					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
+					// between those plugins instead.
+					throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
+				}
+				
+				if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
+					// Do something
+					fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
+				}
+				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
+				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
+					// get array of lines in file
+					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+					// if you found anything, reset the file
+					if (stuff[0]) {
+						fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+					}
+					for (let i = 0; i < stuff.length; i++) {
+						if (stuff[i]) {
+							plugins[I].stdin.write(stuff[i]);
+						}
+					}
+				});
+			}
+			// these are our two config files. We need to send these in case plugin
+			// wants to contact master or know something.
+			// send through script-output file, maybe more compat?
+			fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, JSON.stringify(combinedConfig)+"\r\n");
+			// send directly through stdin
+			// plugins[i].stdin.write(JSON.stringify(combinedConfig)+"\n");
+			
+			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
+			plugins[i].stdout.on("data", (data) => {
+				if(data.toString('utf8')[0] != "/") {
+					log("Stdout: " + data.toString('utf8'))
+				} else {
+					messageInterface(data.toString('utf8'));
+				}
+			});
+			plugins[i].stderr.on("data", (data) => {
+				log("STDERR: " + data);
+			});
+			plugins[i].on('close', (code) => {
+				log(`child process exited with code ${code}`);
+			});
+		}
 	}
 	
 	// world IDs ------------------------------------------------------------------
