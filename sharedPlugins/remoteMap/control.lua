@@ -63,8 +63,8 @@ function writeout_objects(surface, area)
 		end
 	end
 	table.insert(lines,line)
-	write_file(header..table.concat(lines,"").."\n")
-
+	--write_file(header..table.concat(lines,"").."\n")
+	--write_file(table.concat(lines,"").."\n")
 	line=nil
 end
 
@@ -74,8 +74,8 @@ function on_some_entity_created(event)
 		complain("wtf, on_some_entity_created has nil entity")
 		return
 	end
-
-	writeout_objects(ent.surface, {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}})
+	write_file(ent.name.." "..ent.position.x.." "..ent.position.y)
+	--writeout_objects(ent.surface, {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}})
 
 	complain("on_some_entity_created: "..ent.name.." at "..ent.position.x..","..ent.position.y)
 end
@@ -91,8 +91,8 @@ function on_some_entity_deleted(event)
 	local surface = ent.surface
 	local area = {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}}
 
-	table.insert(todo_next_tick, function () writeout_objects(surface, area ) end)
-	
+	--table.insert(todo_next_tick, function () writeout_objects(surface, area ) end)
+	write_file("deleted "..ent.position.x.." "..ent.position.y)
 	complain("on_some_entity_deleted: "..ent.name.." at "..ent.position.x..","..ent.position.y)
 end
 

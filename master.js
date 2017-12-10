@@ -610,13 +610,20 @@ server.listen(config.masterPort || 8080, function () {
 /* Websockets for remoteMap */
 var io = require("socket.io")(server);
 var slaveMappers = {};
+class slaveMapper {
+	constructor(instanceID, socket) {
+		this.instanceID = instanceID;
+		this.socket = socket;
+	}
+	getChunk(x,y){
+		
+	}
+}
 io.on('connection', function (socket) {
 	socket.emit('hello', { hello: 'world' });
 	socket.on('registerSlaveMapper', function (data) {
 		console.log(data);
-		slaveMappers[data.instanceID].getChunk = function getChunk(x,y){
-			
-		}
+		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
 	});
 });
 

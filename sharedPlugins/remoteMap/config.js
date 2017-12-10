@@ -9,8 +9,7 @@ module.exports = {
 	version: modInfo.version,
 	// Binary entrypoint for plugin. Don't let it crash. Stdout is sent to game as server chat (run /c commands from here for interface)
 	// Make sure its cross platform somehow.
-	binary: "node",
-	arguments: ["index.js"],
+	binary: "nodePackage",
 	description: modInfo.description,
 	// We'll send everything in this file to your stdin. Beware.
 	scriptOutputFileSubscription: "remoteMap.txt",
