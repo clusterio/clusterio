@@ -50,19 +50,14 @@ function writeout_objects(surface, area)
 	--if my_client_id ~= 1 then return end
 	header = "objects "..area.left_top.x..","..area.left_top.y..";"..area.right_bottom.x..","..area.right_bottom.y..": "
 	line = ''
-	lines={}
 	for idx, ent in pairs(surface.find_entities(area)) do
 		if area.left_top.x <= ent.position.x and ent.position.x < area.right_bottom.x and area.left_top.y <= ent.position.y and ent.position.y < area.right_bottom.y then
 			if ent.prototype.collision_mask ~= nil and ent.prototype.collision_mask['player-layer'] then
-				line=line..","..ent.name.." "..ent.position.x.." "..ent.position.y
-				if idx % 100 == 0 then
-					table.insert(lines,line)
-					line=''
-				end
+				line = line .. ent.name.." "..ent.position.x.." "..ent.position.y.."\n"
 			end
 		end
 	end
-	table.insert(lines,line)
+	write_file(line)
 	--write_file(header..table.concat(lines,"").."\n")
 	--write_file(table.concat(lines,"").."\n")
 	line=nil
