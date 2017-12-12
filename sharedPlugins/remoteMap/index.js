@@ -48,11 +48,11 @@ class remoteMap {
 				if(name == "deleted"){
 					this.chunkMap.setEntity(xPos, yPos, "delete this entity").then(data => {
 						this.messageInterface("Deleted data "+data.position.x+", "+data.position.y);
-					}).catch((err)=>messageInterface(err));
+					}).catch((err)=>this.messageInterface(err));
 				} else {
 					this.chunkMap.setEntity(xPos, yPos, {name}).then(data => {
 						this.messageInterface("Added "+name+" to data "+data.position.x+", "+data.position.y);
-					}).catch((err)=>messageInterface(err));
+					}).catch((err)=>this.messageInterface(err));
 				}
 			}
 			
