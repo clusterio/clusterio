@@ -2,10 +2,10 @@
 {
 "name": "remoteMap",
 "title": "Clusterio remote map",
-"version": "1.0.0",
+"version": "2.0.0",
 "date": "18-11-2017",
 "author": "Danielv123",
 "dependencies": ["base >= 0.15"],
-"factorio_version": "0.15",
+"factorio_version": "0.16",
 "description": "Clusterio plugin for external mapping and possibly building?"
 }
