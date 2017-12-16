@@ -14,6 +14,9 @@ node master.js
 // and as the process name in ps/top on linux.
 process.title = "clusterioMaster";
 
+// add better stack traces on promise rejection
+process.on('unhandledRejection', r => console.log(r));
+
 // configgy stuff
 debug = false;
 
@@ -329,8 +332,7 @@ app.post("/api/remove", function(req, res) {
 		const originalCount = Number(object.count) || 0;
 		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
 		object.count = Math.round(object.count);
-		
-		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${item} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(item) > Number(object.count)?'stocked':'short'}.`);
+		if(item.length > 40) console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${item} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(item) > Number(object.count)?'stocked':'short'}.`);
 		
 		// Update existing items if item name already exists
 		if(Number(item) > Number(object.count)) {
