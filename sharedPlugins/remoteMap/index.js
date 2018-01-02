@@ -36,7 +36,6 @@ class remoteMap {
 			
 			data = data.split(" ");
 			if(data && data[0] == undefined){
-				// this position is now empty, delete whatever was there from DB
 				console.log("empty: ");
 				console.log(data);
 				return
@@ -46,12 +45,15 @@ class remoteMap {
 			let yPos = data[2];
 			if(xPos && yPos && name){
 				if(name == "deleted"){
-					this.chunkMap.setEntity(xPos, yPos, "delete this entity").then(data => {
-						this.messageInterface("Deleted data "+data.position.x+", "+data.position.y);
+					// this position is now empty, delete whatever was there from DB
+					this.chunkMap.setEntity(xPos, yPos, "delete this entity").then(() => {
+						this.messageInterface("Deleted data "+xPos+", "+yPos);
 					}).catch((err)=>this.messageInterface(err));
 				} else {
+					// save this entity in the database
 					this.chunkMap.setEntity(xPos, yPos, {name}).then(data => {
-						this.messageInterface("Added "+name+" to data "+data.position.x+", "+data.position.y);
+						data = data[0];
+						this.messageInterface("Added "+name+" to data "+data.x+", "+data.y);
 					}).catch((err)=>this.messageInterface(err));
 				}
 			}
