@@ -1,7 +1,9 @@
 var mkdirp = require("mkdirp-promise");
 var mkdirpSync = require("mkdirp").sync;
 var fs = require("fs");
-var objectOps = require("./objectOps");
+var events = require("events");
+
+var objectOps = require("./../../lib/objectOps");
 
 var LinvoDB = require("linvodb3");
 LinvoDB.dbPath = "./database/linvodb/";
@@ -12,12 +14,16 @@ let log = string => (allowLogging)? console.log(string):""
 
 module.exports = class chunkStore {
 	constructor(name, chunkSize = 32, path = "./chunkStore/"){
+		name = name.toString();
+		if(!name || typeof name != "string") throw new Error("chunkstore requires a name string as first param")
 		this.name = name;
 		this.chunkSize = chunkSize;
 		this.path = (path[path.length] == "/") ? path : path+"/";
 		mkdirpSync(path+name);
 		
 		this.db = new LinvoDB(name, {}, {});
+		
+		this.eventEmitter = new events.EventEmitter();
 	}
 	setEntity(x/**{number}*/, y/**{number}*/, newEntity/**{object}*/){
 		return new Promise((resolve, reject) => {
@@ -33,14 +39,16 @@ module.exports = class chunkStore {
 					this.db.save(entityDoc, (err,docs) => {
 						if(err) reject(err);
 						resolve(docs);
+						this.eventEmitter.emit("change", docs)
 					});
 				} else {
 					docs.forEach(doc => {
 						doc.remove(()=>{
 							// removed :)
-							resolve();
 						});
 					});
+					resolve();
+					this.eventEmitter.emit("change", [{x,y}]);
 				}
 			});
 		});
@@ -50,8 +58,14 @@ module.exports = class chunkStore {
 			this.db.find({x:Math.floor(x), y:Math.floor(y)}, (err, docs) => {
 				if(err) reject(err);
 				resolve(docs);
+				this.eventEmitter.emit("change", docs);
 			});
 		});
+	}
+	onEntityChange(eventhandler/**function*/){
+		if(typeof eventhandler == "function") {
+			this.eventEmitter.on("change", eventhandler);
+		}
 	}
 	getChunk(x, y){
 		return new Promise((resolve, reject) => {

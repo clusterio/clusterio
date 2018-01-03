@@ -2,7 +2,7 @@ var assert = require("assert");
 
 var chunkStore = require("./chunkStore.js");
 
-describe("chunkStore.js", () => {
+describe("remoteMap/chunkStore.js", () => {
 	// define some values for our test
 	const inserterX = 14.5; // rounds to 15
 	const inserterY = -17.5; // rounds to -17, +64 would be 47

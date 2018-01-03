@@ -618,7 +618,11 @@ class slaveMapper {
 		this.socket = socket;
 		
 		this.socket.on("sendChunk", function(data){
-			mapRequesters[data.requesterID].socket.emit("displayChunk", data)
+			mapRequesters[data.requesterID].socket.emit("displayChunk", data);
+		});
+		// slaveMapper sent us an entity update, process
+		this.socket.on("sendEntity", function(entity){
+			mapRequesters[entity.requesterID].socket.emit("displayEntity", entity);
 		});
 	}
 }
@@ -634,6 +638,13 @@ class mapRequester {
 			let instanceID = loc.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
 				slaveMappers[instanceID].socket.emit("getChunk", loc)
+			}
+		});
+		this.socket.on("requestEntity", req => {
+			req.requesterID = this.requesterID;
+			let instanceID = req.instanceID || this.instanceID;
+			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
+				slaveMappers[instanceID].socket.emit("getEntity", req)
 			}
 		});
 	}
