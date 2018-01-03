@@ -12,12 +12,23 @@ class remoteMap {
 		
 		// initialize chunk database
 		this.chunkMap = new chunkStore(this.config.unique, 64, "./database/chunkStore/");
+		this.chunkMap.onEntityChange(entity => {
+			console.log("Entity changed: ")
+			console.log(entity);
+			// check valid coordinates (dunno what could go wrong, but can never be too sure)
+			if(entity && entity.x !== undefined && !isNaN(Number(entity.x)) && entity.y !== undefined && !isNaN(Number(entity.y))){
+				this.socket.emit("sendEntity", entity);
+			}
+		});
 		
 		// set up websocket communication and handle requests from web interface users (which are going through master)
 		// socket should be a global
 		this.socket = ioClient("http://"+this.config.masterIP+":"+this.config.masterPort);
 		this.socket.on("hello", data => {
 			this.socket.emit("registerSlaveMapper", {instanceID: this.config.unique});
+			setInterval(()=>{
+				this.socket.emit("heartbeat"); // send our heartbeat to prevent being assumed dead
+			},10000);
 		});
 		this.socket.on("getChunk", req => {
 			console.log("getChunk is not supported!");
@@ -27,11 +38,11 @@ class remoteMap {
 			});*/
 		});
 		this.socket.on("getEntity", req => {
-			if(req.requesterID && req.x && !isNaN(Number(req.x)) && req.y && !isNaN(Number(req.y))){
+			// check for valid coordinates
+			if(req.x !== undefined && !isNaN(Number(req.x)) && req.y !== undefined && !isNaN(Number(req.y))){
 				this.chunkMap.getEntity(req.x, req.y).then(entities => {
 					if(entities && entities.length > 0){
 						entities.forEach(entity => {
-							entity.requesterID = req.requesterID;
 							this.socket.emit("sendEntity", entity);
 						});
 					}
@@ -45,9 +56,8 @@ class remoteMap {
 	}
 	scriptOutput(data){
 		if(data){
-			//this.messageInterface(data);
+			this.messageInterface(data);
 			// express-transport-belt -35.5 -14.5
-			
 			data = data.split(" ");
 			if(data && data[0] == undefined){
 				console.log("empty: ");

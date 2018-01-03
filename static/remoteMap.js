@@ -1,7 +1,23 @@
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
 var socket = io.connect('http://localhost:8080');
 socket.on('hello', function (data) {
 	console.log(data);
-	socket.emit("registerMapRequester", {instanceID: '1611985668'});
+	socket.emit("registerMapRequester", {instanceID: getParameterByName("instanceID")});
+	socket.on("mapRequesterReady", function(){
+		setInterval(()=>{
+			socket.emit("heartbeat"); // send our heartbeat to prevent being assumed dead
+		},10000);
+		requestMapDraw();
+	});
 	
 	socket.on("displayChunk", function(chunk){
 		console.log(chunk);
@@ -14,14 +30,11 @@ socket.on('hello', function (data) {
 });
 
 function requestChunk(x,y){
-	socket.emit('requestChunk', {x:x, y:y, instanceID: '1611985668'});
+	socket.emit('requestChunk', {x:x, y:y, instanceID: getParameterByName("instanceID")});
 }
 setTimeout(function(){
 	canvas = document.getElementById("remoteMap");
 	ctx = canvas.getContext("2d");
-	ctx.beginPath();
-	ctx.arc(95,50,40,0,2*Math.PI);
-	ctx.stroke();
 	ctx.font = "30px Arial";
 	ctx.fillText("Hello World",10,50);
 	
@@ -31,11 +44,12 @@ setTimeout(function(){
 	};
 	img.src = 'https://wiki.factorio.com/images/Lab.png';
 	
-	requestChunk(0, -1);
-}, 500);
+}, 1);
 entityImages = {};
+/*
 entityImages["express-transport-belt"] = new Image();
 entityImages["express-transport-belt"].src = 'https://wiki.factorio.com/images/Express_transport_belt.png';
+*/
 
 // map view position, top left corner (or another corner?)
 playerPosition = {
@@ -50,28 +64,49 @@ function requestMapDraw(){
 	let yHigh = yLow+64;
 	for(let x = xLow; x < xHigh; x++){
 		for(let y = yLow; y < yHigh; y++){
-			socket.emit("requestEntity", {x, y, instanceID: '1611985668'});
+			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	}
 }
-function drawEntity(entity, ctx){
+function drawEntity(entity){
 	if(entity.x && entity.y){
 		if(entity.entity && entity.entity.name && typeof entity.entity.name == "string"){
 			let name = entity.entity.name;
-			let xPos = (entity.x * 16) - playerPosition.x;
-			let yPos = (entity.y * 16) - playerPosition.y;
 			if(!entityImages[name]){
-				// download the entityImages
-				entityImages[name] = new Image();
-				entityImages[name].onload = function(){
-					ctx.drawImage(entityImages[name], xPos, yPos, 16, 16);
-					console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos);
+				// download the entityImages and add stuff  to queue
+				entityImages[name] = {};
+				entityImages[name].img = new Image();
+				entityImages[name].queue = [];
+				entityImages[name].queue.push(entity);
+				entityImages[name].loaded = false;
+				entityImages[name].img.onload = function(){
+					// process queue and display
+					console.log("Image loaded!");
+					entityImages[name].loaded = true;
+					entityImages[name].queue.forEach(entity => {
+						entityImages[name].draw(entity);
+					});
+					entityImages[name].queue = [];
 				}
-				entityImages[name].src = getImageFromName(name);
+				entityImages[name].draw = function(entity){
+					if(this.loaded){
+						let name = entity.entity.name;
+						let xPos = (entity.x * 16) - playerPosition.x;
+						let yPos = (entity.y * 16) - playerPosition.y;
+						ctx.drawImage(entityImages[name].img, xPos, yPos, 16, 16);
+						console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos);
+					} else {
+						this.queue.push(entity);
+					}
+				}
+				entityImages[name].img.src = getImageFromName(name);
+			} else {
+				entityImages[name].draw(entity);
 			}
-			
 		} else {
-			throw new Error(entity);
+			// we got an empty coordinate pair, that usually means this tile was occupied before but is empty now
+			console.log("Clearing at X: "+entity.x+", Y: "+entity.y);
+			ctx.clearRect(entity.x * 16, entity.y * 16, 16, 16);
 		}
 	} else {
 		throw new Error("drawEntity on entity without x and y coordinates")
@@ -95,4 +130,7 @@ function drawChunk(chunk, ctx){
 			}
 		});
 	});
+}
+function clear(){
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
 }

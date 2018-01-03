@@ -621,8 +621,18 @@ class slaveMapper {
 			mapRequesters[data.requesterID].socket.emit("displayChunk", data);
 		});
 		// slaveMapper sent us an entity update, process
-		this.socket.on("sendEntity", function(entity){
-			mapRequesters[entity.requesterID].socket.emit("displayEntity", entity);
+		this.socket.on("sendEntity", entity => {
+			Object.keys(mapRequesters).forEach(requesterName => {
+				let requester = mapRequesters[requesterName];
+				if(requester.lastBeat < (Date.now() - 30000)){
+					console.log("There are currently "+Object.keys(mapRequesters).length+" map requesters, deleting one on timeout");
+					delete mapRequesters[requesterName]; // we have to use the full name here or we will only kill the pointer
+				}
+				if(requester.instanceID == this.instanceID){
+					// this mapRequester is listening to this slaveMapper, so we send it updates
+					requester.socket.emit("displayEntity", entity);
+				}
+			});
 		});
 	}
 }
@@ -632,7 +642,12 @@ class mapRequester {
 		this.requesterID = requesterID;
 		this.socket = socket;
 		this.instanceID = instanceID;
+		this.lastBeat = Date.now();
 		
+		this.socket.on("heartbeat", () => {
+			// we aren't ready to die yet apparently
+			this.lastBeat = Date.now();
+		});
 		this.socket.on("requestChunk", loc => {
 			loc.requesterID = this.requesterID;
 			let instanceID = loc.instanceID || this.instanceID;
@@ -659,7 +674,7 @@ io.on('connection', function (socket) {
 		// data {instanceID:""}
 		let requesterID = Math.random().toString();
 		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
-		
+		socket.emit("mapRequesterReady", true);
 		console.log("SOCKET registered map requester for "+data.instanceID);
 	});
 });

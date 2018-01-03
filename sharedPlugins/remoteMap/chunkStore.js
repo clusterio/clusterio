@@ -48,7 +48,7 @@ module.exports = class chunkStore {
 						});
 					});
 					resolve();
-					this.eventEmitter.emit("change", [{x,y}]);
+					this.eventEmitter.emit("change", {x,y});
 				}
 			});
 		});
@@ -58,7 +58,6 @@ module.exports = class chunkStore {
 			this.db.find({x:Math.floor(x), y:Math.floor(y)}, (err, docs) => {
 				if(err) reject(err);
 				resolve(docs);
-				this.eventEmitter.emit("change", docs);
 			});
 		});
 	}
