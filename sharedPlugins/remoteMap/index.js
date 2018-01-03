@@ -57,8 +57,8 @@ class remoteMap {
 	scriptOutput(data){
 		if(data){
 			this.messageInterface(data);
-			// express-transport-belt -35.5 -14.5
-			data = data.split(" ");
+			// express-transport-belt,-35.5,-14.5,[...]
+			data = data.split(",");
 			if(data && data[0] == undefined){
 				console.log("empty: ");
 				console.log(data);
@@ -74,8 +74,15 @@ class remoteMap {
 						this.messageInterface("Deleted data "+xPos+", "+yPos);
 					}).catch((err)=>this.messageInterface(err));
 				} else {
+					let entity = {name};
+					for(let i = 3; i < data.length; i++){
+						if(data[i].includes("=")){
+							let kv = data[i].split("=");
+							entity[kv[0]] = kv[1];
+						}
+					}
 					// save this entity in the database
-					this.chunkMap.setEntity(xPos, yPos, {name}).then(data => {
+					this.chunkMap.setEntity(xPos, yPos, entity).then(data => {
 						this.messageInterface("Added "+name+" to data "+xPos+", "+yPos);
 					}).catch((err)=>this.messageInterface(err));
 				}

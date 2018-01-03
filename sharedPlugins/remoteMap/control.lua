@@ -69,7 +69,11 @@ function on_some_entity_created(event)
 		complain("wtf, on_some_entity_created has nil entity")
 		return
 	end
-	write_file(ent.name.." "..ent.position.x.." "..ent.position.y)
+	local entityData = ent.name..","..ent.position.x..","..ent.position.y
+	if ent.supports_direction then
+		entityData = entityData .. ",rot="..ent.direction
+	end
+	write_file(entityData)
 	--writeout_objects(ent.surface, {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}})
 
 	complain("on_some_entity_created: "..ent.name.." at "..ent.position.x..","..ent.position.y)
@@ -83,12 +87,12 @@ function on_some_entity_deleted(event)
 
 	-- we can't do this now, because the entity still exists at this point. instead, we schedule the writeout for the next tick
 	
-	local surface = ent.surface
-	local area = {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}}
+	--local surface = ent.surface
+	--local area = {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}}
 
 	--table.insert(todo_next_tick, function () writeout_objects(surface, area ) end)
 	write_file("deleted "..ent.position.x.." "..ent.position.y)
-	complain("on_some_entity_deleted: "..ent.name.." at "..ent.position.x..","..ent.position.y)
+	--complain("on_some_entity_deleted: "..ent.name.." at "..ent.position.x..","..ent.position.y)
 end
 
 script.on_event(defines.events.on_tick, on_tick)

@@ -68,6 +68,14 @@ function requestMapDraw(){
 		}
 	}
 }
+function drawImage(ctx, image, x, y, w, h, degrees){
+	ctx.save();
+	ctx.translate(x+w/2, y+h/2);
+	ctx.rotate(degrees*Math.PI/180.0);
+	ctx.translate(-x-w/2, -y-h/2);
+	ctx.drawImage(image, x, y, w, h);
+	ctx.restore();
+}
 function drawEntity(entity){
 	if(entity.x && entity.y){
 		if(entity.entity && entity.entity.name && typeof entity.entity.name == "string"){
@@ -93,7 +101,12 @@ function drawEntity(entity){
 						let name = entity.entity.name;
 						let xPos = (entity.x * 16) - playerPosition.x;
 						let yPos = (entity.y * 16) - playerPosition.y;
-						ctx.drawImage(entityImages[name].img, xPos, yPos, 16, 16);
+						let rotation = 0;
+						if(entity.entity.rot && !isNaN(Number(entity.entity.rot))){
+							rotation = entity.entity.rot * 45;
+						}
+						
+						drawImage(ctx, entityImages[name].img, xPos, yPos, 16, 16, rotation);
 						console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos);
 					} else {
 						this.queue.push(entity);
