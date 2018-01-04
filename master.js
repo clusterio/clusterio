@@ -616,7 +616,12 @@ class slaveMapper {
 	constructor(instanceID, socket) {
 		this.instanceID = instanceID;
 		this.socket = socket;
+		this.lastBeat = Date.now();
 		
+		this.socket.on("heartbeat", () => {
+			// we aren't ready to die yet apparently
+			this.lastBeat = Date.now();
+		});
 		this.socket.on("sendChunk", function(data){
 			mapRequesters[data.requesterID].socket.emit("displayChunk", data);
 		});
@@ -624,10 +629,7 @@ class slaveMapper {
 		this.socket.on("sendEntity", entity => {
 			Object.keys(mapRequesters).forEach(requesterName => {
 				let requester = mapRequesters[requesterName];
-				if(requester.lastBeat < (Date.now() - 30000)){
-					console.log("There are currently "+Object.keys(mapRequesters).length+" map requesters, deleting one on timeout");
-					delete mapRequesters[requesterName]; // we have to use the full name here or we will only kill the pointer
-				}
+				
 				if(requester.instanceID == this.instanceID){
 					// this mapRequester is listening to this slaveMapper, so we send it updates
 					requester.socket.emit("displayEntity", entity);
@@ -665,17 +667,32 @@ class mapRequester {
 	}
 }
 io.on('connection', function (socket) {
+	// cleanup dead sockets from disconnected people
+	Object.keys(mapRequesters).forEach(requesterName => {
+		let requester = mapRequesters[requesterName];
+		if(requester.lastBeat < (Date.now() - 30000)){
+			console.log("remoteMap | There are currently "+Object.keys(mapRequesters).length+" map requesters, deleting one on timeout");
+			delete mapRequesters[requesterName]; // we have to use the full name here or we will only kill the pointer
+		}
+	});
+	Object.keys(slaveMappers).forEach(mapperName => {
+		let mapper = slaveMappers[mapperName];
+		if(mapper.lastBeat < (Date.now() - 30000)){
+			console.log("remoteMap | There are currently "+Object.keys(slaveMappers).length+" mappers, deleting one on timeout");
+			delete slaveMappers[mapperName]; // we have to use the full name here or we will only kill the pointer
+		}
+	});
 	socket.emit('hello', { hello: 'world' });
 	socket.on('registerSlaveMapper', function (data) {
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
-		console.log("SOCKET registered map provider for "+data.instanceID);
+		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
 	});
 	socket.on('registerMapRequester', function(data){
 		// data {instanceID:""}
 		let requesterID = Math.random().toString();
 		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
 		socket.emit("mapRequesterReady", true);
-		console.log("SOCKET registered map requester for "+data.instanceID);
+		console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
 	});
 });
 
