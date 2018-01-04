@@ -77,26 +77,26 @@ function drawImageWithRotation(ctx, image, x, y, w, h, degrees){
 	ctx.restore();
 }
 
-Mousetrap.bind("w", e => {
-	console.log("w");
+Mousetrap.bind("s", e => {
+	console.log("s");
 	cache.walkUp();
 	playerPosition.y += 16;
 	clear();drawFromCache();
 });
-Mousetrap.bind("a", e => {
-	console.log("a");
+Mousetrap.bind("d", e => {
+	console.log("d");
 	cache.walkLeft();
 	playerPosition.x += 16;
 	clear();drawFromCache();
 });
-Mousetrap.bind("s", e => {
-	console.log("s");
+Mousetrap.bind("w", e => {
+	console.log("w");
 	cache.walkDown();
 	playerPosition.y -= 16;
 	clear();drawFromCache();
 });
-Mousetrap.bind("d", e => {
-	console.log("d");
+Mousetrap.bind("a", e => {
+	console.log("a");
 	cache.walkRight();
 	playerPosition.x -= 16;
 	clear();drawFromCache();
