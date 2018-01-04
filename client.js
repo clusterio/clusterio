@@ -591,19 +591,23 @@ function instanceManagement() {
 					console.log("master has mod");
 				} else if (response && body && typeof body == "string") {
 					let mod = response.body;
-					console.log("Sending mod: " + mod);
-					// Send mods master says it wants
-					// response.body is a string which is a modName.zip
-					var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod', function (err, resp, body) {
-						if (err) {
-							console.log('Error!');
-							throw err
-						} else {
-							console.log('URL: ' + body);
-						}
-					});
-					var form = req.form();
-					form.append('file', fs.createReadStream("./instances/"+instance+"/mods/"+mod));
+					if(config.uploadModsToMaster){
+						console.log("Sending mod: " + mod);
+						// Send mods master says it wants
+						// response.body is a string which is a modName.zip
+						var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod', function (err, resp, body) {
+							if (err) {
+								console.log('Error!');
+								throw err
+							} else {
+								console.log('URL: ' + body);
+							}
+						});
+						var form = req.form();
+						form.append('file', fs.createReadStream("./instances/"+instance+"/mods/"+mod));
+					} else {
+						console.log("Not sending mod: " + mod + " to master because config.uploadModsToMaster is not enabled")
+					}
 				}
 			});
 		}

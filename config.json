@@ -2,19 +2,19 @@
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
 	"factorioDirectory": "factorio",
 	
-	"__comment": "IP players should connect to to join your servers, should be portforwarded and stuff",
+	"__comment1": "IP players should connect to to join your servers, should be portforwarded and stuff",
 	"publicIP": "localhost",
 	
-	"__comment": "IP the master web server runs at, can be ignored on the master system",
+	"__comment2": "IP the master web server runs at, can be ignored on the master system",
 	"masterIP": "localhost",
 	"masterPort": 8080,
 	
-	"__comment": "Your factorio.com username for factorio MP services, also username will be admin",
+	"__comment3": "Your factorio.com username for factorio MP services, also username will be admin",
 	"username": "",
-	"__comment": "Token from your factorio.com profile page. Required for MP and mod manager services.",
+	"__comment4": "Token from your factorio.com profile page. Required for MP and mod manager services.",
 	"token": "",
 	
-	"__comment": "General user settings",
+	"__comment5": "General user settings",
 	"verify_user_identity": false,
 	"auto_pause": false,
 	"allow_commands": "admins-only",
@@ -24,10 +24,11 @@
 		"public": true,
 		"lan": true
 	},
-	"__comment": "Statistic gathering statistics, may affect server performance (master memory usage especially)",
+	"__comment6": "Statistic gathering statistics, may affect server performance (master memory usage especially)",
 	"itemStats": {
 		"maxEntries":60,
 		"entriesPerSecond": 0.01666666667
 	},
-	"logItemTransfers": false
+	"logItemTransfers": false,
+	"uploadModsToMaster": true
 }
