@@ -32,16 +32,18 @@ describe("remoteMap/chunkStore.js", () => {
 				assert.equal(entity.entity.otherData, "can be arbitrary");
 				done();
 			});
-		},500)
+		},300);
 	});
 	it("deletes entities when not provided with an object as 3rd arg", done => {
 		store.setEntity(inserterX, inserterY).then(entity => {
 			assert(entity === undefined);
-			store.getEntity(inserterX, inserterY).then(entities => {
-				// console.log(entities)
-				assert.equal(entities.length, 0, "Why are we getting results, it should be empty?");
-				done();
-			});
+			setTimeout(()=>{
+				store.getEntity(inserterX, inserterY).then(entities => {
+					// console.log(entities)
+					assert.equal(entities.length, 0, "Why are we getting results, it should be empty?");
+					done();
+				});
+			},300);
 		});
 	});
 });
