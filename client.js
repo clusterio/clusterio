@@ -747,7 +747,7 @@ function instanceManagement() {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
 						confirmedOrders[confirmedOrders.length] = {
-							[response.body.name]: response.body.count;
+							[response.body.name]: response.body.count,
 						}
 						if(config.logItemTransfers){
 							console.log(`Imported ${response.body.count} ${response.body.name} from master`);
