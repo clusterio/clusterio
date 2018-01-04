@@ -270,8 +270,9 @@ app.post("/api/place", function(req, res) {
 		&& x.instanceName
 		&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
 		/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/){
-		
-		console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.instanceID+")");
+		if(config.logItemTransfers){
+			console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.instanceID+")");
+		}
 		// gather statistics
 		let recievedItemStatistics = recievedItemStatisticsBySlaveID[x.instanceID];
 		if(recievedItemStatistics === undefined){
@@ -326,7 +327,9 @@ app.post("/api/remove", function(req, res) {
 	let item = db.items[object.name]
 		// console.dir(doc);
 	if (!item) {
-		console.log('failure could not find ' + object.name);
+		if(config.logItemTransfers){
+			console.log('failure could not find ' + object.name);
+		}
 		res.send({name:object.name, count:0});
 	} else {
 		const originalCount = Number(object.count) || 0;
@@ -338,7 +341,9 @@ app.post("/api/remove", function(req, res) {
 		if(Number(item) > Number(object.count)) {
 			//If successful, increase dole
 			_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-			//console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
+			if(config.logItemTransfers){
+				console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
+			}
 			if(db.items.removeItem({count: object.count, name: object.name})){
 				let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
 				if(sentItemStatistics === undefined){

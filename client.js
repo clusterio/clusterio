@@ -684,7 +684,9 @@ function instanceManagement() {
 					instanceID: instanceconfig.unique, // a hash computed from the randomly generated rcon password
 				}, function (err, resp, body) {
 					if(body == "failure") console.error("#### Export failed! Lost: "+g[1]+" "+g[0]);
-					if(body == "success") console.log(`Exported ${g[1]} ${g[0]} to master`)
+					if(config.logItemTransfers){
+						if(body == "success") console.log(`Exported ${g[1]} ${g[0]} to master`);
+					}
 				});
 			}
 		}
@@ -741,9 +743,11 @@ function instanceManagement() {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
 						confirmedOrders[confirmedOrders.length] = {
-							[response.body.name]: response.body.count
+							[response.body.name]: response.body.count;
 						}
-						console.log(`Imported ${response.body.count} ${response.body.name} from master`);
+						if(config.logItemTransfers){
+							console.log(`Imported ${response.body.count} ${response.body.name} from master`);
+						}
 					}
 				});
 			}

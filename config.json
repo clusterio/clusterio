@@ -28,5 +28,6 @@
 	"itemStats": {
 		"maxEntries":60,
 		"entriesPerSecond": 0.01666666667
-	}
+	},
+	"logItemTransfers": false
 }
