@@ -79,25 +79,25 @@ function drawImageWithRotation(ctx, image, x, y, w, h, degrees){
 
 Mousetrap.bind("w", e => {
 	console.log("w");
-	cache.north();
+	cache.walkUp();
 	playerPosition.y += 16;
 	clear();drawFromCache();
 });
 Mousetrap.bind("a", e => {
 	console.log("a");
-	cache.west();
+	cache.walkLeft();
 	playerPosition.x += 16;
 	clear();drawFromCache();
 });
 Mousetrap.bind("s", e => {
 	console.log("s");
-	cache.south();
+	cache.walkDown();
 	playerPosition.y -= 16;
 	clear();drawFromCache();
 });
 Mousetrap.bind("d", e => {
 	console.log("d");
-	cache.east();
+	cache.walkRight();
 	playerPosition.x -= 16;
 	clear();drawFromCache();
 });
@@ -106,39 +106,57 @@ entityCache = new Array(64);
 for(let i = 0; i < 64; i++){
 	entityCache[i] = new Array(64);
 	for(let o = 0; o < 64; o++){
-		entityCache[i][o] = false;
+		entityCache[i][o] = " ";
 	}
 }
 cache = {
-	north: function north(){
+	walkUp: function walkUp(){
 		for(let i = 0; i < 64; i++){
 			entityCache[i].shift(); // remove leftmost entry
-			entityCache[i].push(false); // add new entry on the right
+			entityCache[i].push(" "); // add new entry on the right
 			// get data from slaveMapper
+			let x = playerPosition.x/16 + i;
+			let y = playerPosition.y/16+64;
+			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
-	south: function south(){
+	walkDown: function walkDown(){
 		for(let i = 0; i < 64; i++){
 			entityCache[i].pop(); // remove rightmost entry
-			entityCache[i].unshift(false); // add new entry on the left
+			entityCache[i].unshift(" "); // add new entry on the left
 			// get data from slaveMapper
+			let x = playerPosition.x/16 + i;
+			let y = playerPosition.y/16;
+			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
-	west: function west(){
+	walkLeft: function walkLeft(){
 		entityCache.shift();
 		entityCache.push(new Array(64));
 		// get data from slaveMapper
+		// fill in a row on the right side of the screen, that is the bottom of the 1st level array
+		for(let i = 0; i < 64; i++){
+			let x = playerPosition.x/16 + 64;
+			let y = playerPosition.y/16 + i;
+			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
+		}
 	},
-	east: function east(){
+	walkRight: function walkRight(){
 		entityCache.pop();
 		entityCache.unshift(new Array(64));
 		// get data from slaveMapper
+		// fill a row on the left side of the screen, that is the top column
+		for(let i = 0; i < 64; i++){
+			let x = playerPosition.x/16;
+			let y = playerPosition.y/16 + i;
+			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
+		}
 	}
 }
 function drawFromCache(){
 	entityCache.forEach(row => {
 		row.forEach(doc => {
-			if(doc){
+			if(doc && typeof doc == "object"){
 				drawEntity(doc, true);
 			}
 		});
@@ -181,7 +199,7 @@ function drawEntity(entity, dontCache){
 						}
 						
 						drawImageWithRotation(ctx, entityImages[name].img, xPos, yPos, 16, 16, rotation);
-						console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos);
+						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos);
 					} else {
 						this.queue.push(entity);
 					}
