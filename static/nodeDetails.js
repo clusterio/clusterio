@@ -56,7 +56,7 @@ populateSlaveInfo();
 function populateSlaveInfo(){
 	let instanceID = getParameterByName("instanceID");
 	if(!instanceID){
-		throw "We need instanceID! GIVE US SLAVEID! ALL HAIL OUR NEW OVERLORDS!"
+		throw "We need instanceID! Also, *funny joke* but it doesn't work after I standardized on calling it instanceID";
 	}
 	getJSON("/api/slaves", function(err, slaveData){
 		/*
@@ -89,17 +89,30 @@ function populateSlaveInfo(){
 		if(slave.publicIP != "localhost"){
 			HTML += "<h6>IP: "+slave.publicIP+":"+slave.serverPort+"</h6>";
 		} else {
-			HTML += "<h6>This server is not configured for incoming connections</h6>"
+			HTML += "<h6>This server is not configured for incoming connections</h6>";
 		}
 		HTML += "</div></div>" // end of header
 		// left container
-		HTML += "<div id='leftHeroContainer'>"
-		HTML += "<div id='displayBody'><p>Last seen: <span id='lastSeenDate'>"+moment(Number(slave.time)).fromNow()+"</span></p>"
-		HTML += "<p>Online players: "+slave.playerCount+"</p>"
+		HTML += "<div id='leftHeroContainer'>";
+		HTML += "<div id='displayBody'><p>Last seen: <span id='lastSeenDate'>"+moment(Number(slave.time)).fromNow()+"</span></p>";
+		HTML += "<p>Online players: "+slave.playerCount+"</p>";
+		
+		// detect  if remoteMap mod is installed, if it is we want to show the link for it
+		let hasRemoteMap = false;
+		slave.mods.forEach(mod => {
+			console.log(mod.modName)
+			if(mod.modName.includes("remoteMap")){
+				hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
+			}
+		});
+		if(hasRemoteMap){
+			HTML += "<a href='/remoteMap?instanceID="+getParameterByName("instanceID")+"'>Remote map</a>";
+		}
+		
 		HTML += "</div>" // end of displayBody
 		
 		// list mods and other metadata
-		HTML += "<h2>Mods</h2><ul id='modlist'>"
+		HTML += "<h2 class='subtitle'>Mods</h2><ul id='modlist'>"
 		for(let i = 0; i < slave.mods.length; i++){
 			HTML += "<li>"+slave.mods[i].modName+"</li>"
 		}

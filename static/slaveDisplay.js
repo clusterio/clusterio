@@ -16,8 +16,22 @@ setTimeout(function() {
 					HTML += '<div id="' + slaveData[key].unique + '" class="productionGraph" style="width: calc(100% - 200px);"></div>';
 					HTML += "<a href='nodeDetails?instanceID="+slaveData[key].unique+"'><h2>" + slaveData[key].instanceName + "</h2></a><p>ID: " + slaveData[key].unique + "</p><p>Last seen: "+seenDate+"</p><p>Online players: "+slaveData[key].playerCount+"</p><p>IP: "+slaveData[key].publicIP +":"+ slaveData[key].serverPort+"</p>"
 					HTML += "<p>Host: "+slaveData[key].mac+"</p>";
-					HTML += "<button onclick='hideAllDatasets(\"" + slaveData[key].unique + "\")\'>Hide all</button>";
-					HTML += "<button onclick='showAllDatasets(\"" + slaveData[key].unique + "\")\'>Show all</button>";
+					
+					// detect  if remoteMap mod is installed, if it is we want to show the link for it
+					let hasRemoteMap = false;
+					slaveData[key].mods.forEach(mod => {
+						console.log(mod.modName);
+						if(mod.modName.includes("remoteMap")){
+							hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
+						}
+					});
+					if(hasRemoteMap){
+						HTML += "<a href='/remoteMap?instanceID="+slaveData[key].unique+"'>Remote map</a>"
+					}
+					
+					HTML += "<br><p>Graph tools:</p>";
+					HTML += "<button style='width:100px;' onclick='hideAllDatasets(\"" + slaveData[key].unique + "\")\'>Hide all</button>";
+					HTML += "<button style='width:100px;' onclick='showAllDatasets(\"" + slaveData[key].unique + "\")\'>Show all</button>";
 					HTML += "</div>";
 				}
 			}

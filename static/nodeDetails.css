@@ -16,6 +16,9 @@
 	background-color: #444;
 	height:400px;
 }
+#hero .subtitle {
+	margin-left:8px;
+}
 
 #header h1 {
 	margin-left: 10px;
@@ -40,7 +43,8 @@
 ul {
 	width:300px;
 	list-style:none;
-	max-height:100px;
+	max-height:400px;
+	min-height:100px;
 	margin:0;
 	overflow:auto;
 	padding:0;
