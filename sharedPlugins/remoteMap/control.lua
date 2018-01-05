@@ -75,8 +75,7 @@ function on_some_entity_created(event)
 	end
 	write_file(entityData)
 	--writeout_objects(ent.surface, {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}})
-
-	complain("on_some_entity_created: "..ent.name.." at "..ent.position.x..","..ent.position.y)
+	--complain("on_some_entity_created: "..ent.name.." at "..ent.position.x..","..ent.position.y)
 end
 function on_some_entity_deleted(event)
 	local ent = event.entity
