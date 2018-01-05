@@ -91,7 +91,7 @@ function on_some_entity_deleted(event)
 	--local area = {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}}
 
 	--table.insert(todo_next_tick, function () writeout_objects(surface, area ) end)
-	write_file("deleted "..ent.position.x.." "..ent.position.y)
+	write_file("deleted,"..ent.position.x..","..ent.position.y)
 	--complain("on_some_entity_deleted: "..ent.name.." at "..ent.position.x..","..ent.position.y)
 end
 

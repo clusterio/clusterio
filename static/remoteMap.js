@@ -167,7 +167,12 @@ function drawEntity(entity, dontCache){
 		if(!dontCache){
 			// cache entity for later draws (like panning)
 			if(entity.x - playerPosition.x/16 >= 0 && entity.x - playerPosition.x/16 < 64 && entity.y - playerPosition.y/16 >= 0 && entity.y - playerPosition.y/16 < 64){
-				entityCache[entity.x - playerPosition.x/16][entity.y - playerPosition.y/16] = entity;
+				if(entity.entity){
+					entityCache[entity.x - playerPosition.x/16][entity.y - playerPosition.y/16] = entity;
+				} else {
+					// delete this entity because we just heard the tile is empty and stuff
+					entityCache[entity.x - playerPosition.x/16][entity.y - playerPosition.y/16] = " ";
+				}
 			}
 		}
 		if(entity.entity && entity.entity.name && typeof entity.entity.name == "string"){
