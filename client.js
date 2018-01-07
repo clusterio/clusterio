@@ -433,6 +433,18 @@ function instanceManagement() {
 				}
 			});
 			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
+				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
+					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
+					// between those plugins instead.
+					throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
+				}
+				
+				if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
+					// Do something
+					fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
+				}
+				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
+				
 				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
 					// get array of lines in file
 					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
