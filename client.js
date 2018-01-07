@@ -422,6 +422,10 @@ function instanceManagement() {
 		// wants to contact master or know something.
 		let combinedConfig = deepmerge(instanceconfig,config,{clone:true})
 		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
+		
+		if(!global.subscribedFiles) {
+			global.subscribedFiles = {};
+		}
 		if(pluginConfig.binary == "nodePackage"){
 			// require index.js.main() of plugin and execute it as a function
 			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
@@ -472,10 +476,6 @@ function instanceManagement() {
 				to send to stdin, use:
 				spawn.stdin.write("text\n");
 			*/
-			
-			if(!global.subscribedFiles) {
-				global.subscribedFiles = {};
-			}
 			// If plugin has subscribed to a file, send any text appearing in that file to stdin
 			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
 				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
