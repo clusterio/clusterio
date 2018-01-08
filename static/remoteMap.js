@@ -8,7 +8,7 @@ function getParameterByName(name, url) {
     return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
 
-var socket = io.connect('http://localhost:8080');
+var socket = io.connect(document.location.origin);
 socket.on('hello', function (data) {
 	console.log(data);
 	socket.emit("registerMapRequester", {instanceID: getParameterByName("instanceID")});
