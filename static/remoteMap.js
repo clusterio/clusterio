@@ -214,6 +214,26 @@ entityDrawRules = {
 			x:-1,
 			y:-1,
 		}
+	},
+	"solar-panel": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		}
+	},
+	"accumulator": {
+		sizeInTiles: {
+			x:2,
+			y:2,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		}
 	}
 };
 for(let i = 1; i <= 3; i++){
