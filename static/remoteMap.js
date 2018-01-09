@@ -7,7 +7,10 @@ function getParameterByName(name, url) {
     if (!results[2]) return '';
     return decodeURIComponent(results[2].replace(/\+/g, " "));
 }
-
+remoteMapConfig = {
+	mapSize : 64,
+	tileSize: 16,
+}
 var socket = io.connect(document.location.origin);
 socket.on('hello', function (data) {
 	console.log(data);
@@ -20,8 +23,7 @@ socket.on('hello', function (data) {
 	});
 	
 	socket.on("displayChunk", function(chunk){
-		console.log(chunk);
-		drawChunk(chunk, ctx);
+		console.log("displayChunk triggered but I can't draw chunks");
 	});
 	socket.on("displayEntity", function(entity){
 		console.log("Displaying entity "+JSON.stringify(entity));
@@ -36,20 +38,8 @@ setTimeout(function(){
 	canvas = document.getElementById("remoteMap");
 	ctx = canvas.getContext("2d");
 	ctx.font = "30px Arial";
-	ctx.fillText("Hello World",10,50);
-	
-	var img = new Image();
-	img.onload = function() {
-		ctx.drawImage(img, 0, 0, 32, 32);
-	};
-	img.src = 'https://wiki.factorio.com/images/Lab.png';
-	
+	ctx.fillText("Use WASD to navigate.",10,50);
 }, 1);
-entityImages = {};
-/*
-entityImages["express-transport-belt"] = new Image();
-entityImages["express-transport-belt"].src = 'https://wiki.factorio.com/images/Express_transport_belt.png';
-*/
 
 // map view position, top left corner (or another corner?)
 playerPosition = {
@@ -60,8 +50,8 @@ function requestMapDraw(){
 	let xLow = Math.floor(playerPosition.x % 16);
 	let yLow = Math.floor(playerPosition.y % 16);
 	
-	let xHigh = xLow+64;
-	let yHigh = yLow+64;
+	let xHigh = xLow+remoteMapConfig.mapSize;
+	let yHigh = yLow+remoteMapConfig.mapSize;
 	for(let x = xLow; x < xHigh; x++){
 		for(let y = yLow; y < yHigh; y++){
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
@@ -101,27 +91,28 @@ Mousetrap.bind("a", e => {
 	playerPosition.x -= 16;
 	clear();drawFromCache();
 });
-entityCache = new Array(64);
+entityCache = new Array(remoteMapConfig.mapSize);
 // populate cache with arrays of arrays
-for(let i = 0; i < 64; i++){
-	entityCache[i] = new Array(64);
-	for(let o = 0; o < 64; o++){
+for(let i = 0; i < remoteMapConfig.mapSize; i++){
+	entityCache[i] = new Array(remoteMapConfig.mapSize);
+	for(let o = 0; o < remoteMapConfig.mapSize; o++){
 		entityCache[i][o] = " ";
 	}
 }
+// cache navigation functions, for panning (walking, if you will)
 cache = {
 	walkUp: function walkUp(){
-		for(let i = 0; i < 64; i++){
+		for(let i = 0; i < remoteMapConfig.mapSize; i++){
 			entityCache[i].shift(); // remove leftmost entry
 			entityCache[i].push(" "); // add new entry on the right
 			// get data from slaveMapper
 			let x = playerPosition.x/16 + i;
-			let y = playerPosition.y/16+64;
+			let y = playerPosition.y/16+remoteMapConfig.mapSize;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
 	walkDown: function walkDown(){
-		for(let i = 0; i < 64; i++){
+		for(let i = 0; i < remoteMapConfig.mapSize; i++){
 			entityCache[i].pop(); // remove rightmost entry
 			entityCache[i].unshift(" "); // add new entry on the left
 			// get data from slaveMapper
@@ -132,21 +123,21 @@ cache = {
 	},
 	walkLeft: function walkLeft(){
 		entityCache.shift();
-		entityCache.push(new Array(64));
+		entityCache.push(new Array(remoteMapConfig.mapSize));
 		// get data from slaveMapper
 		// fill in a row on the right side of the screen, that is the bottom of the 1st level array
-		for(let i = 0; i < 64; i++){
-			let x = playerPosition.x/16 + 64;
+		for(let i = 0; i < remoteMapConfig.mapSize; i++){
+			let x = playerPosition.x/16 + remoteMapConfig.mapSize;
 			let y = playerPosition.y/16 + i;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
 	walkRight: function walkRight(){
 		entityCache.pop();
-		entityCache.unshift(new Array(64));
+		entityCache.unshift(new Array(remoteMapConfig.mapSize));
 		// get data from slaveMapper
 		// fill a row on the left side of the screen, that is the top column
-		for(let i = 0; i < 64; i++){
+		for(let i = 0; i < remoteMapConfig.mapSize; i++){
 			let x = playerPosition.x/16;
 			let y = playerPosition.y/16 + i;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
@@ -162,11 +153,87 @@ function drawFromCache(){
 		});
 	});
 }
+entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
+entityDrawRules = {
+	"assembling-machine-3": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		},
+	},
+	"electric-furnace": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		},
+	},
+	"beacon": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		},
+	},
+	"electric-mining-drill": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		},
+	},
+	"big-electric-pole": {
+		sizeInTiles: {
+			x:2,
+			y:2,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		}
+	},
+	"lab": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		}
+	}
+};
+for(let i = 1; i <= 3; i++){
+	let assemblingMachineTemplate = {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		},
+	},
+	entityDrawRules["assembling-machine-"+i] = assemblingMachineTemplate;
+}
 function drawEntity(entity, dontCache){
 	if(entity.x && entity.y){
 		if(!dontCache){
 			// cache entity for later draws (like panning)
-			if(entity.x - playerPosition.x/16 >= 0 && entity.x - playerPosition.x/16 < 64 && entity.y - playerPosition.y/16 >= 0 && entity.y - playerPosition.y/16 < 64){
+			if(entity.x - playerPosition.x/16 >= 0 && entity.x - playerPosition.x/16 < remoteMapConfig.mapSize && entity.y - playerPosition.y/16 >= 0 && entity.y - playerPosition.y/16 < remoteMapConfig.mapSize){
 				if(entity.entity){
 					entityCache[entity.x - playerPosition.x/16][entity.y - playerPosition.y/16] = entity;
 				} else {
@@ -196,16 +263,31 @@ function drawEntity(entity, dontCache){
 				entityImages[name].draw = function(entity){
 					if(this.loaded){
 						let name = entity.entity.name;
-						let xPos = (entity.x * 16) - playerPosition.x;
-						let yPos = (entity.y * 16) - playerPosition.y;
+						// check hardcoded entity draw rules for specifics (otherwise draw icon as 1x1 entity with rotation if specified)
+						if(entityDrawRules[name]){
+							var offsetX = entityDrawRules[name].positionOffset.x;
+							var offsetY = entityDrawRules[name].positionOffset.y;
+							var size = {
+								x: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.x,
+								y: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.y,
+							};
+						} else {
+							var offsetX = 0, offsetY = 0;
+							var size = {
+								x:remoteMapConfig.tileSize, y: remoteMapConfig.tileSize,
+							};
+						}
+						let xPos = ((entity.x + offsetX) * 16) - playerPosition.x;
+						let yPos = ((entity.y + offsetY) * 16) - playerPosition.y;
 						let rotation = 0;
 						if(entity.entity.rot && !isNaN(Number(entity.entity.rot))){
 							rotation = entity.entity.rot * 45;
 						}
 						
-						drawImageWithRotation(ctx, entityImages[name].img, xPos, yPos, 16, 16, rotation);
-						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos);
+						drawImageWithRotation(ctx, entityImages[name].img, xPos, yPos, size.x, size.y, rotation);
+						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos+" with with rotation "+rotation);
 					} else {
+						// we are waiting for the image to load, push the task to our queue. It will be processed once the image loads.
 						this.queue.push(entity);
 					}
 				}
@@ -219,56 +301,10 @@ function drawEntity(entity, dontCache){
 			ctx.clearRect(entity.x * 16, entity.y * 16, 16, 16);
 		}
 	} else {
-		throw new Error("drawEntity on entity without x and y coordinates")
+		console.log(entity);
+		throw new Error("drawEntity on entity without x and y coordinates");
 	}
-}
-function drawChunk(chunk, ctx){
-	Object.keys(chunk.dataObject).forEach(xValue => {
-		let xRow = chunk.dataObject[xValue];
-		Object.keys(xRow).forEach(yValue => {
-			let yCell = xRow[yValue];
-			if(yCell && yCell.name && yCell.name){
-				let img = new Image();
-				let xPos = (xValue*16)+(chunk.position.x*64*16)+(64*16*3);
-				let yPos = (yValue*16)+(chunk.position.y*64*16)+(64*16);
-				img.onload = function() {
-					ctx.drawImage(img, xPos, yPos, 16, 16);
-					console.log("X: "+xPos+", Y: "+yPos);
-				};
-				img.src = getImageFromName(yCell.name);
-				//img.src = entityImages[yCell.name].src;
-			}
-		});
-	});
 }
 function clear(){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
-
-/*
-/// ZOOMING AND PANNING COPY PASTA ===============================================
-// View parameters
-var xleftView = 0;
-var ytopView = 0;
-var widthViewOriginal = 1.0;           //actual width and height of zoomed and panned display
-var heightViewOriginal = 1.0;
-var widthView = widthViewOriginal;           //actual width and height of zoomed and panned display
-var heightView = heightViewOriginal;
-
-window.addEventListener("load",setup,false);
-function setup() {
-    canvas = document.getElementById("canvas");
-    ctx = canvas.getContext("2d");
-
-    widthCanvas = canvas.width;
-    heightCanvas = canvas.height;
-
-    canvas.addEventListener("dblclick", handleDblClick, false);  // dblclick to zoom in at point, shift dblclick to zoom out.
-    canvas.addEventListener("mousedown", handleMouseDown, false); // click and hold to pan
-    canvas.addEventListener("mousemove", handleMouseMove, false);
-    canvas.addEventListener("mouseup", handleMouseUp, false);
-    canvas.addEventListener("mousewheel", handleMouseWheel, false); // mousewheel duplicates dblclick function
-    canvas.addEventListener("DOMMouseScroll", handleMouseWheel, false); // for Firefox
-
-    draw();
-}*/
