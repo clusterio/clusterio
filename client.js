@@ -77,7 +77,9 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js list");
 	console.error("node client.js delete [instance]");
 	console.error("To download the latest version of the Clusterio lua mod, do");
-	console.error("node client.js download");
+	console.error("node client.js manage shared mods download clusterio");
+	console.error("For more management options, do");
+	console.error("node client.js manage");
 	process.exit(1);
 } else if (command == "list") {
 	let instanceNames = fileOps.getDirectoriesSync("./instances/");
@@ -128,7 +130,7 @@ if (!command || command == "help" || command == "--help") {
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
-			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "update"]');
+			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove", "update"]');
 		} else if(tool && tool == "config") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
 		} else {
