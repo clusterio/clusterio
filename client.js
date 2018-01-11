@@ -146,6 +146,8 @@ if (!command || command == "help" || command == "--help") {
 				modManager.findMods(process.argv[6]);
 			} else if(action == "add" || action == "download"){
 				modManager.addMod(process.argv[6], instance);
+			} else if(action == "remove" || action == "rm" || action == "delete"){
+				modManager.removeMod(process.argv[6], instance);
 			} else if(action == "update"){
 				modManager.updateAllMods();
 			} else {
