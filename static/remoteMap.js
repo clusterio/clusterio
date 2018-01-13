@@ -245,6 +245,16 @@ entityDrawRules = {
 			y:-1,
 		}
 	},
+	"chemical-plant": {
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		}
+	},
 };
 for(let i = 1; i <= 3; i++){
 	let assemblingMachineTemplate = {
