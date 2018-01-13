@@ -1,13 +1,13 @@
-function getParameterByName(name, url) {
-    if(!url) url = window.location.href;
-    name = name.replace(/[\[\]]/g, "\\$&");
-    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-        results = regex.exec(url);
-    if(!results) return null;
-    if(!results[2]) return '';
-    return decodeURIComponent(results[2].replace(/\+/g, " "));
-}
-remoteMapConfig = {
+/**
+	Javascript to download and render a map of a factorio world from an instance using websockets and canvas
+*/
+
+/// ES6 imports
+// rules for how entities are drawn (sizes, offset etc)
+import {entityDrawRules} from "./lib/entityDrawRules.js";
+import {getParameterByName} from "./lib/utility.js";
+
+const remoteMapConfig = {
 	mapSize : 64,
 	tileSize: 16,
 }
@@ -34,15 +34,13 @@ socket.on('hello', function (data) {
 function requestChunk(x,y){
 	socket.emit('requestChunk', {x:x, y:y, instanceID: getParameterByName("instanceID")});
 }
-setTimeout(function(){
-	canvas = document.getElementById("remoteMap");
-	ctx = canvas.getContext("2d");
-	ctx.font = "30px Arial";
-	ctx.fillText("Use WASD to navigate.",10,50);
-}, 1);
+const canvas = document.getElementById("remoteMap");
+const ctx = canvas.getContext("2d");
+ctx.font = "30px Arial";
+ctx.fillText("Use WASD to navigate.",10,50);
 
 // map view position, top left corner (or another corner?)
-playerPosition = {
+var playerPosition = {
 	x:0,
 	y:0,
 }
@@ -91,7 +89,7 @@ Mousetrap.bind("a", e => {
 	playerPosition.x -= 16;
 	clear();drawFromCache();
 });
-entityCache = new Array(remoteMapConfig.mapSize);
+var entityCache = new Array(remoteMapConfig.mapSize);
 // populate cache with arrays of arrays
 for(let i = 0; i < remoteMapConfig.mapSize; i++){
 	entityCache[i] = new Array(remoteMapConfig.mapSize);
@@ -100,7 +98,7 @@ for(let i = 0; i < remoteMapConfig.mapSize; i++){
 	}
 }
 // cache navigation functions, for panning (walking, if you will)
-cache = {
+const cache = {
 	walkUp: function walkUp(){
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
 			entityCache[i].shift(); // remove leftmost entry
@@ -153,123 +151,7 @@ function drawFromCache(){
 		});
 	});
 }
-entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
-entityDrawRules = {
-	"assembling-machine-3": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		},
-	},
-	"electric-furnace": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		},
-	},
-	"beacon": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		},
-	},
-	"electric-mining-drill": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		},
-	},
-	"big-electric-pole": {
-		sizeInTiles: {
-			x:2,
-			y:2,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
-	"lab": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
-	"solar-panel": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
-	"accumulator": {
-		sizeInTiles: {
-			x:2,
-			y:2,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
-	"radar": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
-	"chemical-plant": {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
-};
-for(let i = 1; i <= 3; i++){
-	let assemblingMachineTemplate = {
-		sizeInTiles: {
-			x:3,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		},
-	};
-	let name = "assembling-machine-"+i;
-	entityDrawRules[name] = assemblingMachineTemplate;
-}
+var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
 function drawEntity(entity, dontCache){
 	if(entity.x && entity.y){
 		if(!dontCache){
@@ -287,11 +169,12 @@ function drawEntity(entity, dontCache){
 			let name = entity.entity.name;
 			if(!entityImages[name]){
 				// download the entityImages and add stuff  to queue
-				entityImages[name] = {};
-				entityImages[name].img = new Image();
-				entityImages[name].queue = [];
+				entityImages[name] = {
+					img: new Image(),
+					queue: [],
+					loaded: false,
+				};
 				entityImages[name].queue.push(entity);
-				entityImages[name].loaded = false;
 				entityImages[name].img.onload = function(){
 					// process queue and display
 					console.log("Image loaded!");
