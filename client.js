@@ -841,10 +841,10 @@ function instanceManagement() {
 			setTimeout(()=>{
 				txBufferClearCounter++;
 				fs.readFile(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (err, signals) => {
-					if(txBufferClearCounter > 500){
+					//if(txBufferClearCounter > 500){
 						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-						txBufferClearCounter = 0;
-					}
+					//	txBufferClearCounter = 0;
+					//}
 					console.log(signals);
 					if (signals[0]) {
 						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
