@@ -12,6 +12,8 @@ const _ = require('underscore');
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
+const ioClient = require("socket.io-client");
+
 // internal libraries
 const objectOps = require("./lib/objectOps.js");
 const fileOps = require("./lib/fileOps.js");
@@ -415,6 +417,15 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 // ensure instancemanagement only ever runs once
 _.once(instanceManagement);
 function instanceManagement() {
+	/* Open websocket connection to master */
+	var socket = ioClient(config.masterIP+":"+config.masterPort);
+	socket.on("hello", function(){
+		socket.emit("registerSlave", {
+			instanceID: config.instanceID,
+		});
+		setInterval(B=> socket.emit("heartbeat"), 10000);
+	});
+	
 	console.log("Started instanceManagement();");
 	// load plugins and execute onLoad event
 	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
@@ -790,6 +801,7 @@ function instanceManagement() {
 				console.log("Unable to get JSON master/api/inventory, master might be unaccessible");
 			} else if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
+				if(Buffer.isBuffer(response.body)) {console.log(response.body.toString("utf-8")); throw new Error();} // We are probably contacting the wrong webserver
 				try {
 					var inventory = JSON.parse(response.body);
 				} catch (e){
@@ -808,56 +820,54 @@ function instanceManagement() {
 			}
 		});
 	}, 1000);
-	// REMOTE SIGNALLING
-	// send any signals the slave has been told to send
-	setInterval(function () {
-		// Fetch combinator signals from the server
-		needle.post(config.masterIP + ":" + config.masterPort + '/api/readSignal', {
-			since: lastSignalCheck
-		}, function (err, response, body) {
-			if (response && response.body) {
-				if(typeof response.body == "string") response.body = JSON.parse(response.body);
-				// Take the new combinator frames and compress them so we can use a single command
-				let frameset = [];
-				for (let i = 0; i < response.body.length; i++) {
-					frameset[i] = response.body[i].frame;
-				}
-				// console.log(frameset);
-				// Send all our compressed frames
-				messageInterface("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
-			}
-		});
-		// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
-		lastSignalCheck = Date.now();
-
-		// get outbound frames from file and send to master
-		// get array of lines in file, each line should correspond to a JSON encoded frame
-		let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
-		// if we actually got anything from the file, proceed and reset file
-		if (signals[0]) {
-			fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-			// loop through all our frames
-			for (let i = 0; i < signals.length; i++) {
-				(function (i) {
-					if (signals[i]) {
-						// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
-						// then we unpack and RCON in this.frame to the game later.
-						let framepart = JSON.parse(signals[i]);
-						let doneframe = {
-								time: Date.now(),
-								frame: framepart, // thats our array of objects(single signals);
-							}
-							// console.log(doneframe);
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/setSignal', doneframe, function (err, response, body) {
-							if (response && response.body) {
-								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-							}
-						});
-					}
-				})(i);
-			}
+	/* REMOTE SIGNALLING
+	 * send any signals the slave has been told to send
+	 * Fetch combinator signals from the server
+	*/
+	socket.on("processCombinatorSignal", circuitFrameWithMeta => {
+		if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object" && circuitFrameWithMeta.frame && Array.isArray(circuitFrameWithMeta.frame) && objectOps.isJSON(circuitFrameWithMeta.frame)){
+			messageInterface("/silent-command remote.call('clusterio', 'recieveMany', '"+JSON.stringify(circuitFrameWithMeta.frame)+"')");
 		}
-	}, 1000);
+	});
+	// get outbound frames from file and send to master
+	// get array of lines in file, each line should correspond to a JSON encoded frame
+	let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
+	// if we actually got anything from the file, proceed and reset file
+	let readingTxBufferSoon = false;
+	let txBufferClearCounter = 0;
+	fs.watch(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (eventType, filename) => {
+		if(!readingTxBufferSoon){ // use a 100ms delay to avoid messing with rapid sequential writes from factorio (I think that might be a problem maybe?)
+			readingTxBufferSoon = true;
+			setTimeout(()=>{
+				txBufferClearCounter++;
+				fs.readFile(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (err, signals) => {
+					if(txBufferClearCounter > 500){
+						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+						txBufferClearCounter = 0;
+					}
+					console.log(signals);
+					if (signals[0]) {
+						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+						// loop through all our frames
+						for (let i = 0; i < signals.length; i++) {
+							if (signals[i]) {
+								// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
+								// then we unpack and RCON in this.frame to the game later.
+								let framepart = JSON.parse(signals[i]);
+								let doneframe = {
+									time: Date.now(),
+									frame: framepart, // thats our array of objects(single signals);
+								}
+								// send to master using socket.io, opened at the top of instanceManagement()
+								socket.emit("combinatorSignal", doneframe);
+							}
+						}
+					}
+				});
+				readingTxBufferSoon = false;
+			},100);
+		}
+	});
 } // END OF INSTANCE START ---------------------------------------------------------------------
 
 // string, function

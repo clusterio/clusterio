@@ -671,23 +671,45 @@ class mapRequester {
 		});
 	}
 }
+/* Websockets for send and recieve combinators */
+var wsSlaves = {};
+class wsSlave {
+	constructor(instanceID, socket){
+		this.instanceID = instanceID;
+		this.socket = socket;
+		this.lastBeat = Date.now();
+		
+		this.socket.on("heartbeat", () => {
+			this.lastBeat = Date.now();
+		});
+		this.socket.on("combinatorSignal", circuitFrameWithMeta => {
+			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object"){
+				Object.keys(wsSlaves).forEach(instanceID => {
+					wsSlaves[instanceID].socket.emit("processCombinatorSignal", circuitFrameWithMeta);
+				});
+			}
+		});
+	}
+}
 io.on('connection', function (socket) {
 	// cleanup dead sockets from disconnected people
-	Object.keys(mapRequesters).forEach(requesterName => {
-		let requester = mapRequesters[requesterName];
-		if(requester.lastBeat < (Date.now() - 30000)){
-			console.log("remoteMap | There are currently "+Object.keys(mapRequesters).length+" map requesters, deleting one on timeout");
-			delete mapRequesters[requesterName]; // we have to use the full name here or we will only kill the pointer
-		}
+	let terminatedConnections = 0;
+	let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
+	[mapRequesters, slaveMappers, wsSlaves].forEach(list => {
+		Object.keys(list).forEach(connectionID => {
+			let connection = list[connectionID];
+			if(connection.lastBeat < (Date.now() - 30000)){
+				terminatedConnections++;
+				delete list[connectionID];
+			}
+		});
 	});
-	Object.keys(slaveMappers).forEach(mapperName => {
-		let mapper = slaveMappers[mapperName];
-		if(mapper.lastBeat < (Date.now() - 30000)){
-			console.log("remoteMap | There are currently "+Object.keys(slaveMappers).length+" mappers, deleting one on timeout");
-			delete slaveMappers[mapperName]; // we have to use the full name here or we will only kill the pointer
-		}
-	});
+	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
+	
+	// tell our friend that we are listening
 	socket.emit('hello', { hello: 'world' });
+	
+	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
 		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
@@ -699,6 +721,15 @@ io.on('connection', function (socket) {
 		socket.emit("mapRequesterReady", true);
 		console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
 	});
+	
+	/* Websockets for send and recieve combinators */
+	socket.on("registerSlave", function(data) {
+		if(data && data.instanceID){
+			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
+			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
+		}
+	});
+	
 });
 
 module.exports = app;
