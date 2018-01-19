@@ -418,10 +418,11 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 _.once(instanceManagement);
 function instanceManagement() {
 	/* Open websocket connection to master */
-	var socket = ioClient(config.masterIP+":"+config.masterPort);
-	socket.on("hello", function(){
+	var socket = ioClient("http://"+config.masterIP+":"+config.masterPort);
+	socket.on("hello", data => {
+		console.log("SOCKET | registering slave!");
 		socket.emit("registerSlave", {
-			instanceID: config.instanceID,
+			instanceID: instanceconfig.unique,
 		});
 		setInterval(B=> socket.emit("heartbeat"), 10000);
 	});
@@ -825,8 +826,8 @@ function instanceManagement() {
 	 * Fetch combinator signals from the server
 	*/
 	socket.on("processCombinatorSignal", circuitFrameWithMeta => {
-		if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object" && circuitFrameWithMeta.frame && Array.isArray(circuitFrameWithMeta.frame) && objectOps.isJSON(circuitFrameWithMeta.frame)){
-			messageInterface("/silent-command remote.call('clusterio', 'recieveMany', '"+JSON.stringify(circuitFrameWithMeta.frame)+"')");
+		if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object" && circuitFrameWithMeta.frame && Array.isArray(circuitFrameWithMeta.frame)){
+			messageInterface("/silent-command remote.call('clusterio', 'receiveFrame', '"+JSON.stringify(circuitFrameWithMeta.frame)+"')");
 		}
 	});
 	// get outbound frames from file and send to master
@@ -841,14 +842,13 @@ function instanceManagement() {
 			setTimeout(()=>{
 				txBufferClearCounter++;
 				fs.readFile(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (err, signals) => {
-					//if(txBufferClearCounter > 500){
-						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-					//	txBufferClearCounter = 0;
-					//}
 					signals = signals.split("\n");
-					console.log(signals);
 					if (signals[0]) {
-						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+						//if(txBufferClearCounter > 500){
+							fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+						//	txBufferClearCounter = 0;
+						//}
+						
 						// loop through all our frames
 						for (let i = 0; i < signals.length; i++) {
 							if (signals[i] && objectOps.isJSON(signals[i])) {
@@ -862,7 +862,7 @@ function instanceManagement() {
 								// send to master using socket.io, opened at the top of instanceManagement()
 								socket.emit("combinatorSignal", doneframe);
 							} else {
-								console.log("Invalid jsony: "+signals[i])
+								// console.log("Invalid jsony: "+typeof signals[i])
 							}
 						}
 					}
