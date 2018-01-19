@@ -845,12 +845,13 @@ function instanceManagement() {
 						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 					//	txBufferClearCounter = 0;
 					//}
+					signals = signals.split("\n");
 					console.log(signals);
 					if (signals[0]) {
 						fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 						// loop through all our frames
 						for (let i = 0; i < signals.length; i++) {
-							if (signals[i]) {
+							if (signals[i] && objectOps.isJSON(signals[i])) {
 								// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
 								// then we unpack and RCON in this.frame to the game later.
 								let framepart = JSON.parse(signals[i]);
@@ -860,6 +861,8 @@ function instanceManagement() {
 								}
 								// send to master using socket.io, opened at the top of instanceManagement()
 								socket.emit("combinatorSignal", doneframe);
+							} else {
+								console.log("Invalid jsony: "+signals[i])
 							}
 						}
 					}
