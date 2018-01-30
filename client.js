@@ -581,7 +581,8 @@ function instanceManagement() {
 					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
 				}
-				getMac(function (err, mac) {
+				//remote.call('clusterio','setWorldID',1234)
+				function callback(err, mac) {
 					if (err) {
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
 					} else {
@@ -597,7 +598,12 @@ function instanceManagement() {
 							}
 						});
 					}
-				});
+				}
+				if(global.mac){
+					getMac(callback);
+				} else {
+					callback(undefined, global.mac);
+				}
 			},1000)});
 		}
 	});
