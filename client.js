@@ -581,7 +581,7 @@ function instanceManagement() {
 					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
 				}
-				//remote.call('clusterio','setWorldID',1234)
+				
 				function callback(err, mac) {
 					if (err) {
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
@@ -827,6 +827,10 @@ function instanceManagement() {
 			}
 		});
 	}, 1000);
+	// Make sure world has its worldID
+	setTimeout(function(){
+		messageInterface("/c remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")
+	}, 20000);
 	/* REMOTE SIGNALLING
 	 * send any signals the slave has been told to send
 	 * Fetch combinator signals from the server
