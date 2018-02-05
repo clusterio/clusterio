@@ -6,6 +6,8 @@
 // rules for how entities are drawn (sizes, offset etc)
 import {entityDrawRules} from "./lib/entityDrawRules.js";
 import {getParameterByName} from "./lib/utility.js";
+import spritesheetJson from "./pictures/spritesheet.js";
+var global = {};
 
 const remoteMapConfig = {
 	mapSize : 64,
@@ -19,7 +21,11 @@ socket.on('hello', function (data) {
 		setInterval(()=>{
 			socket.emit("heartbeat"); // send our heartbeat to prevent being assumed dead
 		},10000);
-		requestMapDraw();
+		global.spritesheet = new Image();
+		global.spritesheet.onload = function(){
+			requestMapDraw();
+		}
+		global.spritesheet.src = "/pictures/spritesheet.png";
 	});
 	
 	socket.on("displayChunk", function(chunk){
@@ -56,12 +62,18 @@ function requestMapDraw(){
 		}
 	}
 }
-function drawImageWithRotation(ctx, image, x, y, w, h, degrees){
+// ctx, entityImages[name].img, xPos, yPos, size.x, size.y, rotation, sprWidth, sprHeight, offLeft, offTop
+function drawImageWithRotation(ctx, image, x, y, w, h, degrees, sprWidth, sprHeight, offLeft, offTop){
 	ctx.save();
 	ctx.translate(x+w/2, y+h/2);
 	ctx.rotate(degrees*Math.PI/180.0);
 	ctx.translate(-x-w/2, -y-h/2);
-	ctx.drawImage(image, x, y, w, h);
+	if(sprWidth != undefined && sprHeight != undefined && offLeft != undefined && offTop != undefined){
+		console.log(sprWidth+" "+sprHeight+" "+offLeft+" "+offTop+" "+w+" "+h)
+		ctx.drawImage(image, offLeft, offTop, sprWidth, sprHeight, x, y, w, h);
+	} else {
+		ctx.drawImage(image, x, y, w, h);
+	}
 	ctx.restore();
 }
 
@@ -152,6 +164,7 @@ function drawFromCache(){
 	});
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
+
 function drawEntity(entity, dontCache){
 	if(entity.x && entity.y){
 		if(!dontCache){
@@ -187,14 +200,24 @@ function drawEntity(entity, dontCache){
 				entityImages[name].draw = function(entity){
 					if(this.loaded){
 						let name = entity.entity.name;
+						let image, sprWidth, sprHeight, offLeft, offTop
 						// check hardcoded entity draw rules for specifics (otherwise draw icon as 1x1 entity with rotation if specified)
 						if(entityDrawRules[name]){
+							let rules = entityDrawRules[name]
+							// console.log(entityDrawRules[name])
 							var offsetX = entityDrawRules[name].positionOffset.x;
 							var offsetY = entityDrawRules[name].positionOffset.y;
 							var size = {
 								x: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.x,
 								y: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.y,
 							};
+							if(rules.spritesheet){
+								sprWidth = rules.spritesheet.frame.w;
+								sprHeight = rules.spritesheet.frame.h;
+								offLeft = rules.spritesheet.frame.x;
+								offTop = rules.spritesheet.frame.y;
+								image = global.spritesheet
+							}
 						} else {
 							var offsetX = 0, offsetY = 0;
 							var size = {
@@ -205,10 +228,14 @@ function drawEntity(entity, dontCache){
 						let yPos = ((entity.y + offsetY) * 16) - playerPosition.y;
 						let rotation = 0;
 						if(entity.entity.rot && !isNaN(Number(entity.entity.rot))){
-							rotation = entity.entity.rot * 45;
+							if(entityDrawRules[name] && entityDrawRules[name].rotOffset){
+								rotation = ((entity.entity.rot * 45) + entityDrawRules[name].rotOffset);
+							} else {
+								rotation = entity.entity.rot * 45;
+							}
 						}
-						
-						drawImageWithRotation(ctx, entityImages[name].img, xPos, yPos, size.x, size.y, rotation);
+						if(!image) image = entityImages[name].img;
+						drawImageWithRotation(ctx, image, xPos, yPos, size.x, size.y, rotation, sprWidth, sprHeight, offLeft, offTop);
 						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos+" with with rotation "+rotation);
 					} else {
 						// we are waiting for the image to load, push the task to our queue. It will be processed once the image loads.
