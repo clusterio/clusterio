@@ -829,7 +829,7 @@ function instanceManagement() {
 	}, 1000);
 	// Make sure world has its worldID
 	setTimeout(function(){
-		messageInterface("/c remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")
+		messageInterface("/silent-command remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")
 	}, 20000);
 	/* REMOTE SIGNALLING
 	 * send any signals the slave has been told to send
