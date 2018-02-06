@@ -187,20 +187,11 @@ function drawEntity(entity, dontCache){
 					queue: [],
 					loaded: false,
 				};
-				entityImages[name].queue.push(entity);
-				entityImages[name].img.onload = function(){
-					// process queue and display
-					console.log("Image loaded!");
-					entityImages[name].loaded = true;
-					entityImages[name].queue.forEach(entity => {
-						entityImages[name].draw(entity);
-					});
-					entityImages[name].queue = [];
-				}
 				entityImages[name].draw = function(entity){
 					if(this.loaded){
 						let name = entity.entity.name;
 						let image, sprWidth, sprHeight, offLeft, offTop
+						let rotation = 0;
 						// check hardcoded entity draw rules for specifics (otherwise draw icon as 1x1 entity with rotation if specified)
 						if(entityDrawRules[name]){
 							let rules = entityDrawRules[name]
@@ -216,7 +207,7 @@ function drawEntity(entity, dontCache){
 								sprHeight = rules.spritesheet.frame.h;
 								offLeft = rules.spritesheet.frame.x;
 								offTop = rules.spritesheet.frame.y;
-								image = global.spritesheet
+								image = global.spritesheet;
 							}
 						} else {
 							var offsetX = 0, offsetY = 0;
@@ -226,9 +217,12 @@ function drawEntity(entity, dontCache){
 						}
 						let xPos = ((entity.x + offsetX) * 16) - playerPosition.x;
 						let yPos = ((entity.y + offsetY) * 16) - playerPosition.y;
-						let rotation = 0;
 						if(entity.entity.rot && !isNaN(Number(entity.entity.rot))){
-							if(entityDrawRules[name] && entityDrawRules[name].rotOffset){
+							let rules = entityDrawRules[name];
+							if(rules && rules.directions){
+								// draw different sprites for different rotations
+								
+							} else if(rules && rules.rotOffset){
 								rotation = ((entity.entity.rot * 45) + entityDrawRules[name].rotOffset);
 							} else {
 								rotation = entity.entity.rot * 45;
@@ -242,7 +236,21 @@ function drawEntity(entity, dontCache){
 						this.queue.push(entity);
 					}
 				}
-				entityImages[name].img.src = getImageFromName(name);
+				let imageLoaded = function(){
+					// process queue and display
+					console.log("Image loaded!");
+					entityImages[name].loaded = true;
+					entityImages[name].queue.forEach(entity => {
+						entityImages[name].draw(entity);
+					});
+					entityImages[name].queue = [];
+				}
+				entityImages[name].queue.push(entity);
+				entityImages[name].img.onload = imageLoaded()
+				
+				if(entityDrawRules[name]){
+					imageLoaded();
+				} else entityImages[name].img.src = getImageFromName(name);
 			} else {
 				entityImages[name].draw(entity);
 			}
