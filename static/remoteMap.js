@@ -155,6 +155,7 @@ const cache = {
 	}
 }
 function drawFromCache(){
+	let startTime = Date.now()
 	entityCache.forEach(row => {
 		row.forEach(doc => {
 			if(doc && typeof doc == "object"){
@@ -162,6 +163,7 @@ function drawFromCache(){
 			}
 		});
 	});
+	console.log("cacheDraw took "+(Date.now()-startTime)+"ms");
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
 
@@ -202,7 +204,21 @@ function drawEntity(entity, dontCache){
 								x: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.x,
 								y: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.y,
 							};
-							if(rules.spritesheet){
+							if(rules.spritesheet && Array.isArray(rules.spritesheet)){
+								let dir = Number(entity.entity.rot);
+								sprWidth = rules.spritesheet[dir].frame.w;
+								sprHeight = rules.spritesheet[dir].frame.h;
+								offLeft = rules.spritesheet[dir].frame.x;
+								offTop = rules.spritesheet[dir].frame.y;
+								image = global.spritesheet;
+								
+								offsetX = rules.spritesheet[dir].positionOffset.x;
+								offsetY = rules.spritesheet[dir].positionOffset.y;
+								size = {
+									x: remoteMapConfig.tileSize * rules.spritesheet[dir].sizeInTiles.x,
+									y: remoteMapConfig.tileSize * rules.spritesheet[dir].sizeInTiles.y,
+								};
+							} else if(rules.spritesheet){
 								sprWidth = rules.spritesheet.frame.w;
 								sprHeight = rules.spritesheet.frame.h;
 								offLeft = rules.spritesheet.frame.x;
@@ -217,12 +233,9 @@ function drawEntity(entity, dontCache){
 						}
 						let xPos = ((entity.x + offsetX) * 16) - playerPosition.x;
 						let yPos = ((entity.y + offsetY) * 16) - playerPosition.y;
-						if(entity.entity.rot && !isNaN(Number(entity.entity.rot))){
+						if(entity.entity.rot && !isNaN(Number(entity.entity.rot)) && !Array.isArray(entityDrawRules[name].spritesheet)){
 							let rules = entityDrawRules[name];
-							if(rules && rules.directions){
-								// draw different sprites for different rotations
-								
-							} else if(rules && rules.rotOffset){
+							if(rules && rules.rotOffset){
 								rotation = ((entity.entity.rot * 45) + entityDrawRules[name].rotOffset);
 							} else {
 								rotation = entity.entity.rot * 45;
