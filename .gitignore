@@ -41,3 +41,4 @@ sharedPlugins/*
 !sharedPlugins/inventoryImports/
 !sharedPlugins/UPSdisplay/
 !sharedPlugins/remoteMap/
+!sharedPlugins/researchSync/

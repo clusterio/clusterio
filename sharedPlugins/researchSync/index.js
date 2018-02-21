@@ -3,8 +3,8 @@ const nodelua = require('node-lua');
 const needle = require("needle");
 
 
-
 class ResearchSync {
+
     constructor(slaveConfig, messageInterface){
         this.functions = this.loadFunctions();
         this.config = slaveConfig;
@@ -15,26 +15,70 @@ class ResearchSync {
         this.isMaster = this.config.master == this.config.unique;
 
         messageInterface("ResearchSync enabled");
-        if (this.isMaster) {
-            setInterval(function () {
-                this.pollResearch.call(this);
-            }.bind(this), 3000);
-        }
+        setInterval(function () {
+            this.pollResearch.call(this);
+            setTimeout(this.doSync.bind(this), 2)
+        }.bind(this), 2000);
+
     }
 
     pollResearch() {
         this.messageInterface("Polling Research\n")
         this.messageInterface(this.functions.dumpResearch);
-        console.log(this.config.master, this.config.unique, this.isMaster);
-        needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
-            instanceID: this.config.unique,
-            password: this.config.clientPassword,
-            meta: {research: this.research}
-        }, function (err, resp) {
-            // success?
-        });
+
     }
 
+    doSync() {
+        if (this.isMaster) {
+            needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
+                instanceID: this.config.unique,
+                password: this.config.clientPassword,
+                meta: {research: this.research}
+            }, function (err, resp) {
+                // success?
+            });
+        } else {
+            console.log(this.config.masterIP, this.config.masterPort, this.config.master)
+            needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/getSlaveMeta', {
+                instanceID: this.config.master,
+                password: this.config.clientPassword,
+            }, function (err, resp, body) {
+                if (err) {
+                    throw err;
+                }
+
+                if (resp.statusCode != 200){
+                    console.log("got error when calling getSlaveMeta", resp.statusCode, resp.body);
+                    return;
+                }
+                var mastermeta = JSON.parse(resp.body);
+
+                var difference = this.diff(this.research, mastermeta.research);
+
+                Object.keys(difference).forEach((key) => {
+                    this.messageInterface("/c game.forces['player'].technologies['"+key+"'].researched="+ (difference[key] == 1? "true": "false"));
+
+                })
+
+                console.log("difference from master", difference);
+                // success?
+            }.bind(this));
+        }
+    }
+
+    diff(array1, array2) {
+        var diff = {};
+
+
+
+        Object.keys(array2).forEach((element) => {
+            if (array2[element] != array1[element]){
+                diff[element] = array2[element];
+            }
+        });
+
+        return diff;
+    }
 
     loadFunctions() {
         return {
@@ -53,7 +97,6 @@ class ResearchSync {
             this.research = Object.assign(this.research, currentResearch);
             this.lua.Pop();
         } catch (e) {
-            console.log(e);
         }
     }
 }

@@ -176,10 +176,21 @@ app.post("/api/editSlaveMeta", function(req,res) {
 				slaves[req.body.instanceID].meta = {};
 			}
 			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
-			console.log("Updating slave: " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP);
+			console.log("Updating slave: " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, req.body.meta);
 		} else {
 			res.send("ERROR: Invalid instanceID or password")
 		}
+	}
+});
+
+app.post("/api/getSlaveMeta", function (req, res) {
+	console.log("body", req.body);
+    if(req.body && req.body.instanceID && req.body.password){
+    	console.log("returning meta for ", req.body.instanceID);
+    	res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+	} else {
+    	res.status(400);
+    	res.send('{"INVALID REQUEST":1}');
 	}
 });
 // mod management

@@ -1,8 +1,12 @@
 /silent-command
 
+local lines = "";
+
 for _, tech in pairs(game.forces["player"].technologies) do
     local dict = {};
     dict[tech.name] = tech.researched;
-    game.write_file("researchSync.txt",serpent.line(dict));
+    lines = lines .. serpent.line(dict) .. "\n";
 end
+
+game.write_file("researchSync.txt",lines)
 
