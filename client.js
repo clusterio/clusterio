@@ -450,6 +450,7 @@ function instanceManagement() {
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
 				
 				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
+					if (filename == null) return;
 					// get array of lines in file
 					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
 					// if you found anything, reset the file
@@ -491,6 +492,7 @@ function instanceManagement() {
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
 				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
 					// get array of lines in file
+					// TODO async
 					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
 					// if you found anything, reset the file
 					if (stuff[0]) {

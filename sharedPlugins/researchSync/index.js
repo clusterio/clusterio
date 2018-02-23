@@ -12,7 +12,6 @@ class ResearchSync {
 
         this.research = {};
         this.lua = new nodelua.LuaState();
-        this.isMaster = this.config.master == this.config.unique;
 
         messageInterface("ResearchSync enabled");
         setInterval(function () {
@@ -29,7 +28,43 @@ class ResearchSync {
     }
 
     doSync() {
-        if (this.isMaster) {
+
+
+
+        needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/getSlavesMeta', {
+            password: this.config.clientPassword,
+        }, function (err, resp, body) {
+            if (err) {
+                throw err;
+            }
+
+            if (resp.statusCode != 200){
+                console.log("got error when calling getSlaveMeta", resp.statusCode, resp.body);
+                return;
+            }
+            var allmeta = JSON.parse(resp.body);
+
+            let needResearch = {};
+
+            Object.entries(allmeta).map((instance) => {
+                if (instance[1] == null || instance[1].research == null) return;
+                Object.entries(instance[1].research).map((research) => {
+                    if (research[1] == 1) {
+                        needResearch[research[0]] = 1;
+                    }
+                });
+            })
+
+
+            var difference = this.diff(this.research, needResearch);
+
+            Object.keys(difference).forEach((key) => {
+                if (difference[key] == 1) {
+                    this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
+                }
+            })
+
+            console.log("difference from other servers", difference);
             needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
                 instanceID: this.config.unique,
                 password: this.config.clientPassword,
@@ -37,33 +72,8 @@ class ResearchSync {
             }, function (err, resp) {
                 // success?
             });
-        } else {
-            console.log(this.config.masterIP, this.config.masterPort, this.config.master)
-            needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/getSlaveMeta', {
-                instanceID: this.config.master,
-                password: this.config.clientPassword,
-            }, function (err, resp, body) {
-                if (err) {
-                    throw err;
-                }
+        }.bind(this));
 
-                if (resp.statusCode != 200){
-                    console.log("got error when calling getSlaveMeta", resp.statusCode, resp.body);
-                    return;
-                }
-                var mastermeta = JSON.parse(resp.body);
-
-                var difference = this.diff(this.research, mastermeta.research);
-
-                Object.keys(difference).forEach((key) => {
-                    this.messageInterface("/c game.forces['player'].technologies['"+key+"'].researched="+ (difference[key] == 1? "true": "false"));
-
-                })
-
-                console.log("difference from master", difference);
-                // success?
-            }.bind(this));
-        }
     }
 
     diff(array1, array2) {

@@ -193,6 +193,16 @@ app.post("/api/getSlaveMeta", function (req, res) {
     	res.send('{"INVALID REQUEST":1}');
 	}
 });
+
+app.post("/api/getSlavesMeta", function (req, res) {
+    if(req.body.password){
+    	let metas = {};
+        res.send(JSON.stringify(Object.keys(slaves).map(key => metas[key] = slaves[key].meta)));
+    } else {
+        res.status(400);
+        res.send('{"INVALID REQUEST":1}');
+    }
+});
 // mod management
 // should handle uploading and checking if mods are uploaded
 app.post("/api/checkMod", function(req,res) {

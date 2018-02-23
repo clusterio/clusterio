@@ -42,6 +42,7 @@
     "nedb": "^1.8.0",
     "needle": "^1.1.0",
     "node-factorio-api": "^0.1.28",
+    "node-lua": "^1.0.4",
     "request": "^2.83.0",
     "right-pad": "^1.0.1",
     "rmdir-sync": "^1.0.1",
