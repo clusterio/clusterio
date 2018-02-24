@@ -9,10 +9,36 @@ import {getParameterByName} from "./lib/utility.js";
 import spritesheetJson from "./pictures/spritesheet.js";
 var global = {};
 
-const remoteMapConfig = {
-	mapSize : 64,
-	tileSize: 16,
+if(!localStorage.remoteMapConfig || localStorage.remoteMapConfig == "[object Object]"){
+	localStorage.remoteMapConfig = JSON.stringify({
+		mapSize: 32,
+		tileSize: 8,
+	});
 }
+
+var remoteMapConfig = JSON.parse(localStorage.remoteMapConfig);
+
+// Handle config changes through UI buttons
+(function(){
+	let selectMapSize = document.querySelector("#mapSize");
+	let selectTileSize = document.querySelector("#tileSize");
+	if(selectMapSize && selectTileSize){
+		selectMapSize.value = remoteMapConfig.mapSize;
+		selectTileSize.value = remoteMapConfig.tileSize;
+		
+		selectMapSize.onchange = function(){
+			let config = JSON.parse(localStorage.remoteMapConfig);
+			config.mapSize = Number(selectMapSize.value);
+			localStorage.remoteMapConfig = JSON.stringify(config);
+		}
+		selectTileSize.onchange = function(){
+			let config = JSON.parse(localStorage.remoteMapConfig);
+			config.tileSize = Number(selectTileSize.value);
+			localStorage.remoteMapConfig = JSON.stringify(config);
+		}
+	}
+})();
+
 var socket = io.connect(document.location.origin);
 socket.on('hello', function (data) {
 	console.log(data);
@@ -32,7 +58,7 @@ socket.on('hello', function (data) {
 		console.log("displayChunk triggered but I can't draw chunks");
 	});
 	socket.on("displayEntity", function(entity){
-		console.log("Displaying entity "+JSON.stringify(entity));
+		// console.log("Displaying entity "+JSON.stringify(entity));
 		drawEntity(entity);
 	});
 });
@@ -41,6 +67,8 @@ function requestChunk(x,y){
 	socket.emit('requestChunk', {x:x, y:y, instanceID: getParameterByName("instanceID")});
 }
 const canvas = document.getElementById("remoteMap");
+canvas.height = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
+canvas.width = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
 const ctx = canvas.getContext("2d");
 ctx.font = "30px Arial";
 ctx.fillText("Use WASD to navigate.",10,50);
@@ -51,8 +79,8 @@ var playerPosition = {
 	y:0,
 }
 function requestMapDraw(){
-	let xLow = Math.floor(playerPosition.x % 16);
-	let yLow = Math.floor(playerPosition.y % 16);
+	let xLow = Math.floor(playerPosition.x % remoteMapConfig.tileSize);
+	let yLow = Math.floor(playerPosition.y % remoteMapConfig.tileSize);
 	
 	let xHigh = xLow+remoteMapConfig.mapSize;
 	let yHigh = yLow+remoteMapConfig.mapSize;
@@ -69,7 +97,7 @@ function drawImageWithRotation(ctx, image, x, y, w, h, degrees, sprWidth, sprHei
 	ctx.rotate(degrees*Math.PI/180.0);
 	ctx.translate(-x-w/2, -y-h/2);
 	if(sprWidth != undefined && sprHeight != undefined && offLeft != undefined && offTop != undefined){
-		console.log(sprWidth+" "+sprHeight+" "+offLeft+" "+offTop+" "+w+" "+h)
+		// console.log(sprWidth+" "+sprHeight+" "+offLeft+" "+offTop+" "+w+" "+h)
 		ctx.drawImage(image, offLeft, offTop, sprWidth, sprHeight, x, y, w, h);
 	} else {
 		ctx.drawImage(image, x, y, w, h);
@@ -80,25 +108,26 @@ function drawImageWithRotation(ctx, image, x, y, w, h, degrees, sprWidth, sprHei
 Mousetrap.bind("s", e => {
 	console.log("s");
 	cache.walkUp();
-	playerPosition.y += 16;
+	playerPosition.y += remoteMapConfig.tileSize;
+	console.log(remoteMapConfig)
 	clear();drawFromCache();
 });
 Mousetrap.bind("d", e => {
 	console.log("d");
 	cache.walkLeft();
-	playerPosition.x += 16;
+	playerPosition.x += remoteMapConfig.tileSize;
 	clear();drawFromCache();
 });
 Mousetrap.bind("w", e => {
 	console.log("w");
 	cache.walkDown();
-	playerPosition.y -= 16;
+	playerPosition.y -= remoteMapConfig.tileSize;
 	clear();drawFromCache();
 });
 Mousetrap.bind("a", e => {
 	console.log("a");
 	cache.walkRight();
-	playerPosition.x -= 16;
+	playerPosition.x -= remoteMapConfig.tileSize;
 	clear();drawFromCache();
 });
 var entityCache = new Array(remoteMapConfig.mapSize);
@@ -116,8 +145,8 @@ const cache = {
 			entityCache[i].shift(); // remove leftmost entry
 			entityCache[i].push(" "); // add new entry on the right
 			// get data from slaveMapper
-			let x = playerPosition.x/16 + i;
-			let y = playerPosition.y/16+remoteMapConfig.mapSize;
+			let x = playerPosition.x/remoteMapConfig.tileSize + i;
+			let y = playerPosition.y/remoteMapConfig.tileSize+remoteMapConfig.mapSize;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
@@ -126,8 +155,8 @@ const cache = {
 			entityCache[i].pop(); // remove rightmost entry
 			entityCache[i].unshift(" "); // add new entry on the left
 			// get data from slaveMapper
-			let x = playerPosition.x/16 + i;
-			let y = playerPosition.y/16;
+			let x = playerPosition.x/remoteMapConfig.tileSize + i;
+			let y = playerPosition.y/remoteMapConfig.tileSize;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
@@ -137,8 +166,8 @@ const cache = {
 		// get data from slaveMapper
 		// fill in a row on the right side of the screen, that is the bottom of the 1st level array
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
-			let x = playerPosition.x/16 + remoteMapConfig.mapSize;
-			let y = playerPosition.y/16 + i;
+			let x = playerPosition.x/remoteMapConfig.tileSize + remoteMapConfig.mapSize;
+			let y = playerPosition.y/remoteMapConfig.tileSize + i;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
@@ -148,8 +177,8 @@ const cache = {
 		// get data from slaveMapper
 		// fill a row on the left side of the screen, that is the top column
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
-			let x = playerPosition.x/16;
-			let y = playerPosition.y/16 + i;
+			let x = playerPosition.x/remoteMapConfig.tileSize;
+			let y = playerPosition.y/remoteMapConfig.tileSize + i;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	}
@@ -163,7 +192,6 @@ function drawFromCache(){
 			}
 		});
 	});
-	console.log("cacheDraw took "+(Date.now()-startTime)+"ms");
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
 
@@ -171,18 +199,19 @@ function drawEntity(entity, dontCache){
 	if(entity.x && entity.y){
 		if(!dontCache){
 			// cache entity for later draws (like panning)
-			if(entity.x - playerPosition.x/16 >= 0 && entity.x - playerPosition.x/16 < remoteMapConfig.mapSize && entity.y - playerPosition.y/16 >= 0 && entity.y - playerPosition.y/16 < remoteMapConfig.mapSize){
+			if(entity.x - playerPosition.x/remoteMapConfig.tileSize >= 0 && entity.x - playerPosition.x/remoteMapConfig.tileSize < remoteMapConfig.mapSize && entity.y - playerPosition.y/remoteMapConfig.tileSize >= 0 && entity.y - playerPosition.y/remoteMapConfig.tileSize < remoteMapConfig.mapSize){
 				if(entity.entity){
-					entityCache[entity.x - playerPosition.x/16][entity.y - playerPosition.y/16] = entity;
+					entityCache[entity.x - playerPosition.x/remoteMapConfig.tileSize][entity.y - playerPosition.y/remoteMapConfig.tileSize] = entity;
 				} else {
 					// delete this entity because we just heard the tile is empty and stuff
-					entityCache[entity.x - playerPosition.x/16][entity.y - playerPosition.y/16] = " ";
+					entityCache[entity.x - playerPosition.x/remoteMapConfig.tileSize][entity.y - playerPosition.y/remoteMapConfig.tileSize] = " ";
 				}
 			}
 		}
 		if(entity.entity && entity.entity.name && typeof entity.entity.name == "string"){
 			let name = entity.entity.name;
 			if(!entityImages[name]){
+				console.log("Downloading image")
 				// download the entityImages and add stuff  to queue
 				entityImages[name] = {
 					img: new Image(),
@@ -231,9 +260,9 @@ function drawEntity(entity, dontCache){
 								x:remoteMapConfig.tileSize, y: remoteMapConfig.tileSize,
 							};
 						}
-						let xPos = ((entity.x + offsetX) * 16) - playerPosition.x;
-						let yPos = ((entity.y + offsetY) * 16) - playerPosition.y;
-						if(entity.entity.rot && !isNaN(Number(entity.entity.rot)) && !Array.isArray(entityDrawRules[name].spritesheet)){
+						let xPos = ((entity.x + offsetX) * remoteMapConfig.tileSize) - playerPosition.x;
+						let yPos = ((entity.y + offsetY) * remoteMapConfig.tileSize) - playerPosition.y;
+						if(entityDrawRules[name] && entity.entity.rot && !isNaN(Number(entity.entity.rot)) && !Array.isArray(entityDrawRules[name].spritesheet)){
 							let rules = entityDrawRules[name];
 							if(rules && rules.rotOffset){
 								rotation = ((entity.entity.rot * 45) + entityDrawRules[name].rotOffset);
@@ -265,12 +294,13 @@ function drawEntity(entity, dontCache){
 					imageLoaded();
 				} else entityImages[name].img.src = getImageFromName(name);
 			} else {
+				// console.log("Already got image, drawing")
 				entityImages[name].draw(entity);
 			}
 		} else {
 			// we got an empty coordinate pair, that usually means this tile was occupied before but is empty now
 			console.log("Clearing at X: "+entity.x+", Y: "+entity.y);
-			ctx.clearRect(entity.x * 16, entity.y * 16, 16, 16);
+			ctx.clearRect(entity.x * remoteMapConfig.tileSize, entity.y * remoteMapConfig.tileSize, remoteMapConfig.tileSize, remoteMapConfig.tileSize);
 		}
 	} else {
 		console.log(entity);

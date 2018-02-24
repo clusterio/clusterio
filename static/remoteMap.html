@@ -9,8 +9,12 @@
 	<%- include("sidebar.html") %>
 	<div id="body">
 		<h2>remoteMap</h2>
-		<canvas id="remoteMap" width="1024" height="1024" style="border:1px solid #000000;">
+		<canvas id="remoteMap" width="32" height="32" style="border:1px solid #000000;">
 			
 		</canvas>
+		<div>
+			<p>Map size: <input type="number" id="mapSize" style="color:black;"> (default 32)</p>
+			<p>Tile size: <input type="number" id="tileSize" style="color:black;"> (default 8)</p>
+		</div>
 	</div>
 </body>
