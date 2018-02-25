@@ -33,6 +33,8 @@ function getParameterByName(name, url) {
 
 
 /// code below here
+// declaring globals
+var chartsByID = {};
 // update the online indicator dot
 setInterval(function(){
 	getJSON("/api/slaves", function(err, slaveData){
@@ -201,6 +203,7 @@ function makeTerminal(){
 		myTerminal.input('',handleTerminalInput);
 	}
 }
+if(localStorage.terminalMinimized == "true")minimizeTerminal(true);
 function minimizeTerminal(instant){
 	localStorage.terminalMinimized = true;
 	$('#terminal').draggable('disable');
@@ -239,6 +242,10 @@ function maximizeTerminal(instant){
 
 // ID of slave, ID of canvasjs div without #
 function makeGraph(instanceID, selector) {
+	let chartIgnoreList = [
+		"water",
+		"steam"
+	]
 	post("api/getStats", {instanceID: instanceID}, function(data){
 		//console.log("Building chart " + instanceID + " with this data:")
 		//console.log(data)
@@ -250,7 +257,7 @@ function makeGraph(instanceID, selector) {
 			}
 			let chartData = [];
 			for(let o = 0; o < itemNames.length; o++) {
-				if(itemNames[o] != "water"){
+				if(!chartIgnoreList.includes(itemNames[o])){
 					chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
 				}
 			}
@@ -289,7 +296,6 @@ function generateLineChartArray(data, nameKey) {
 	return xyz;
 }
 
-var chartsByID = {};
 function drawChart(selector, chartData, title) {
 	// selector is ID of element, ex "chartContainer" or "-123199123"
 	console.log(chartData)
