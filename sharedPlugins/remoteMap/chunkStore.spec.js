@@ -12,7 +12,7 @@ describe("remoteMap/chunkStore.js", () => {
 	it("is a constructor", ()=>{
 		assert.equal(typeof chunkStore, "function");
 		// create a new store and elevate it
-		store = new chunkStore("910239"/* instanceID, use defaults for the rest */);
+		store = new chunkStore("910239"/* instanceID, use defaults for the rest */, undefined, "./database/unitTests/chunkStore/");
 		assert.equal(store.name, "910239");
 	});
 	it("allows you to store the locations of entities", done => {
