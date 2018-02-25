@@ -37,6 +37,13 @@ var remoteMapConfig = JSON.parse(localStorage.remoteMapConfig);
 			localStorage.remoteMapConfig = JSON.stringify(config);
 		}
 	}
+	let pauseOnBlur = document.querySelector("#pauseOnBlur");
+	if(pauseOnBlur){
+		pauseOnBlur.checked = localStorage.remoteMapPauseOnBlur || true;
+		pauseOnBlur.onchange = function(){
+			localStorage.remoteMapPauseOnBlur = pauseOnBlur.checked;
+		}
+	}
 })();
 
 var socket = io.connect(document.location.origin);
@@ -109,25 +116,25 @@ Mousetrap.bind("s", e => {
 	console.log("s");
 	cache.walkUp();
 	playerPosition.y += remoteMapConfig.tileSize;
-	clear();drawFromCache();
+	clear();//drawFromCache();
 });
 Mousetrap.bind("d", e => {
 	console.log("d");
 	cache.walkLeft();
 	playerPosition.x += remoteMapConfig.tileSize;
-	clear();drawFromCache();
+	clear();//drawFromCache();
 });
 Mousetrap.bind("w", e => {
 	console.log("w");
 	cache.walkDown();
 	playerPosition.y -= remoteMapConfig.tileSize;
-	clear();drawFromCache();
+	clear();//drawFromCache();
 });
 Mousetrap.bind("a", e => {
 	console.log("a");
 	cache.walkRight();
 	playerPosition.x -= remoteMapConfig.tileSize;
-	clear();drawFromCache();
+	clear();//drawFromCache();
 });
 var entityCache = new Array(remoteMapConfig.mapSize);
 // populate cache with arrays of arrays
@@ -191,6 +198,36 @@ function drawFromCache(){
 			}
 		});
 	});
+}
+window.requestAnimationFrame(renderLoop);
+var fpsTimings = {
+	lastFrame: Date.now(),
+	averageLength: 60,
+	sum:0,
+	counter: document.querySelector("#fpsCounter"),
+}
+var isPaused = false;
+window.onblur = function() {
+	if(localStorage.remoteMapPauseOnBlur == "true"){
+		isPaused = true;
+		console.log("paused");
+	}
+}
+window.onfocus = function() {
+	if(isPaused){
+		isPaused = false;
+		console.log("unpaused");
+		window.requestAnimationFrame(renderLoop);
+	}
+}
+function renderLoop(){
+	let newTimestamp = Date.now();
+	fpsTimings.sum = fpsTimings.sum / fpsTimings.averageLength * (fpsTimings.averageLength - 1);
+	fpsTimings.sum += newTimestamp - fpsTimings.lastFrame;
+	fpsTimings.counter.value = (1000 / (fpsTimings.sum / fpsTimings.averageLength)).toPrecision(4);
+	fpsTimings.lastFrame = newTimestamp;
+	if(!isPaused) drawFromCache();
+	if(!isPaused) window.requestAnimationFrame(renderLoop);
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
 
