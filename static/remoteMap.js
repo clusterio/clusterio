@@ -81,13 +81,17 @@ ctx.font = "30px Arial";
 ctx.fillText("Use WASD to navigate.",10,50);
 
 // map view position, top left corner (or another corner?)
-var playerPosition = {
+window.playerPosition = {
 	x:0,
 	y:0,
 }
+window.cachePosition = {
+	x:0,
+	y:0,
+};
 function requestMapDraw(){
-	let xLow = Math.floor(playerPosition.x % remoteMapConfig.tileSize);
-	let yLow = Math.floor(playerPosition.y % remoteMapConfig.tileSize);
+	let xLow = Math.floor(cachePosition.x % remoteMapConfig.tileSize);
+	let yLow = Math.floor(cachePosition.y % remoteMapConfig.tileSize);
 	
 	let xHigh = xLow+remoteMapConfig.mapSize;
 	let yHigh = yLow+remoteMapConfig.mapSize;
@@ -111,7 +115,7 @@ function drawImageWithRotation(ctx, image, x, y, w, h, degrees, sprWidth, sprHei
 	}
 	ctx.restore();
 }
-
+/* 
 Mousetrap.bind("s", e => {
 	console.log("s");
 	cache.walkUp();
@@ -135,7 +139,42 @@ Mousetrap.bind("a", e => {
 	cache.walkRight();
 	playerPosition.x -= remoteMapConfig.tileSize;
 	clear();//drawFromCache();
-});
+}); */
+document.addEventListener('keydown', keyDownHandler, false);
+document.addEventListener('keyup', keyUpHandler, false);
+var rightPressed = false;
+var leftPressed = false;
+var upPressed = false;
+var downPressed = false;
+function keyDownHandler(event) {
+	if(event.keyCode == 39) {
+		rightPressed = true;
+	}
+	else if(event.keyCode == 37) {
+		leftPressed = true;
+	}
+	if(event.keyCode == 40) {
+		downPressed = true;
+	}
+	else if(event.keyCode == 38) {
+		upPressed = true;
+	}
+}
+function keyUpHandler(event) {
+	if(event.keyCode == 39) {
+		rightPressed = false;
+	}
+	else if(event.keyCode == 37) {
+		leftPressed = false;
+	}
+	if(event.keyCode == 40) {
+		downPressed = false;
+	}
+	else if(event.keyCode == 38) {
+		upPressed = false;
+	}
+}
+
 var entityCache = new Array(remoteMapConfig.mapSize);
 // populate cache with arrays of arrays
 for(let i = 0; i < remoteMapConfig.mapSize; i++){
@@ -146,50 +185,55 @@ for(let i = 0; i < remoteMapConfig.mapSize; i++){
 }
 // cache navigation functions, for panning (walking, if you will)
 const cache = {
-	walkUp: function walkUp(){
+	walkDown: function walkUp(){
+		cachePosition.y += remoteMapConfig.tileSize;
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
 			entityCache[i].shift(); // remove leftmost entry
 			entityCache[i].push(" "); // add new entry on the right
 			// get data from slaveMapper
-			let x = playerPosition.x/remoteMapConfig.tileSize + i;
-			let y = playerPosition.y/remoteMapConfig.tileSize+remoteMapConfig.mapSize;
+			let x = cachePosition.x/remoteMapConfig.tileSize + i;
+			let y = cachePosition.y/remoteMapConfig.tileSize+remoteMapConfig.mapSize-1;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
-	walkDown: function walkDown(){
+	walkUp: function walkDown(){
+		cachePosition.y -= remoteMapConfig.tileSize;
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
 			entityCache[i].pop(); // remove rightmost entry
 			entityCache[i].unshift(" "); // add new entry on the left
 			// get data from slaveMapper
-			let x = playerPosition.x/remoteMapConfig.tileSize + i;
-			let y = playerPosition.y/remoteMapConfig.tileSize;
+			let x = cachePosition.x/remoteMapConfig.tileSize + i;
+			let y = cachePosition.y/remoteMapConfig.tileSize;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
 	walkLeft: function walkLeft(){
+		cachePosition.x += remoteMapConfig.tileSize;
 		entityCache.shift();
 		entityCache.push(new Array(remoteMapConfig.mapSize));
 		// get data from slaveMapper
 		// fill in a row on the right side of the screen, that is the bottom of the 1st level array
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
-			let x = playerPosition.x/remoteMapConfig.tileSize + remoteMapConfig.mapSize;
-			let y = playerPosition.y/remoteMapConfig.tileSize + i;
+			let x = cachePosition.x/remoteMapConfig.tileSize + remoteMapConfig.mapSize - 1;
+			let y = cachePosition.y/remoteMapConfig.tileSize + i;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	},
 	walkRight: function walkRight(){
+		cachePosition.x -= remoteMapConfig.tileSize;
 		entityCache.pop();
 		entityCache.unshift(new Array(remoteMapConfig.mapSize));
 		// get data from slaveMapper
 		// fill a row on the left side of the screen, that is the top column
 		for(let i = 0; i < remoteMapConfig.mapSize; i++){
-			let x = playerPosition.x/remoteMapConfig.tileSize;
-			let y = playerPosition.y/remoteMapConfig.tileSize + i;
+			let x = cachePosition.x/remoteMapConfig.tileSize;
+			let y = cachePosition.y/remoteMapConfig.tileSize + i;
 			socket.emit("requestEntity", {x, y, instanceID: getParameterByName("instanceID")});
 		}
 	}
 }
 function drawFromCache(){
+	clear();
 	let startTime = Date.now()
 	entityCache.forEach(row => {
 		row.forEach(doc => {
@@ -220,27 +264,65 @@ window.onfocus = function() {
 		window.requestAnimationFrame(renderLoop);
 	}
 }
+
 function renderLoop(){
 	let newTimestamp = Date.now();
 	fpsTimings.sum = fpsTimings.sum / fpsTimings.averageLength * (fpsTimings.averageLength - 1);
-	fpsTimings.sum += newTimestamp - fpsTimings.lastFrame;
+	let timeSinceLastFrame;
+	fpsTimings.sum += timeSinceLastFrame = newTimestamp - fpsTimings.lastFrame;
 	fpsTimings.counter.value = (1000 / (fpsTimings.sum / fpsTimings.averageLength)).toPrecision(4);
 	fpsTimings.lastFrame = newTimestamp;
-	if(!isPaused) drawFromCache();
-	if(!isPaused) window.requestAnimationFrame(renderLoop);
+	if(!isPaused){
+		let moveSpeed = 0.1;
+		let movement = moveSpeed * timeSinceLastFrame;
+		// handle movement and requesting new entities
+		if(upPressed){
+			console.log("w");
+			playerPosition.y -= movement;
+			if(Math.abs((playerPosition.y-cachePosition.y)/remoteMapConfig.tileSize) > 1){
+				cache.walkUp();
+			}
+		}
+		if(leftPressed){
+			console.log("a");
+			playerPosition.x -= movement;
+			if(Math.abs((playerPosition.x-cachePosition.x)/remoteMapConfig.tileSize) > 1){
+				cache.walkRight();
+			}
+		}
+		if(downPressed){
+			console.log("s");
+			playerPosition.y += movement;
+			if(Math.abs((playerPosition.y-cachePosition.y)/remoteMapConfig.tileSize) > 1){
+				cache.walkDown();
+			}
+		}
+		if(rightPressed){
+			console.log("d");
+			let oldPos = playerPosition.x;
+			playerPosition.x += movement;
+			if(Math.abs((playerPosition.x-cachePosition.x)/remoteMapConfig.tileSize) > 1){
+				cache.walkLeft();
+			}
+		}
+		// draw map
+		drawFromCache();
+		// queue next tick
+		window.requestAnimationFrame(renderLoop);
+	}
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
-
+window.logEntCache = function(){console.log(entityCache)}
 function drawEntity(entity, dontCache){
 	if(entity.x && entity.y){
 		if(!dontCache){
 			// cache entity for later draws (like panning)
-			if(entity.x - playerPosition.x/remoteMapConfig.tileSize >= 0 && entity.x - playerPosition.x/remoteMapConfig.tileSize < remoteMapConfig.mapSize && entity.y - playerPosition.y/remoteMapConfig.tileSize >= 0 && entity.y - playerPosition.y/remoteMapConfig.tileSize < remoteMapConfig.mapSize){
+			if(entity.x - cachePosition.x/remoteMapConfig.tileSize >= 0 && entity.x - cachePosition.x/remoteMapConfig.tileSize < remoteMapConfig.mapSize && entity.y - cachePosition.y/remoteMapConfig.tileSize >= 0 && entity.y - cachePosition.y/remoteMapConfig.tileSize < remoteMapConfig.mapSize){
 				if(entity.entity){
-					entityCache[entity.x - playerPosition.x/remoteMapConfig.tileSize][entity.y - playerPosition.y/remoteMapConfig.tileSize] = entity;
+					entityCache[entity.x - cachePosition.x/remoteMapConfig.tileSize][entity.y - cachePosition.y/remoteMapConfig.tileSize] = entity;
 				} else {
 					// delete this entity because we just heard the tile is empty and stuff
-					entityCache[entity.x - playerPosition.x/remoteMapConfig.tileSize][entity.y - playerPosition.y/remoteMapConfig.tileSize] = " ";
+					entityCache[entity.x - cachePosition.x/remoteMapConfig.tileSize][entity.y - cachePosition.y/remoteMapConfig.tileSize] = " ";
 				}
 			}
 		}
