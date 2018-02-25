@@ -13,6 +13,7 @@ if(!localStorage.remoteMapConfig || localStorage.remoteMapConfig == "[object Obj
 	localStorage.remoteMapConfig = JSON.stringify({
 		mapSize: 32,
 		tileSize: 8,
+		movementSpeed: 0.2,
 	});
 }
 
@@ -23,18 +24,20 @@ var remoteMapConfig = JSON.parse(localStorage.remoteMapConfig);
 	let selectMapSize = document.querySelector("#mapSize");
 	let selectTileSize = document.querySelector("#tileSize");
 	if(selectMapSize && selectTileSize){
-		selectMapSize.value = remoteMapConfig.mapSize;
-		selectTileSize.value = remoteMapConfig.tileSize;
+		selectMapSize.value = Number(remoteMapConfig.mapSize) || 32;
+		selectTileSize.value = Number(remoteMapConfig.tileSize) || 8;
 		
 		selectMapSize.onchange = function(){
 			let config = JSON.parse(localStorage.remoteMapConfig);
 			config.mapSize = Number(selectMapSize.value);
 			localStorage.remoteMapConfig = JSON.stringify(config);
+			console.log("Config updated: "+localStorage.remoteMapConfig);
 		}
 		selectTileSize.onchange = function(){
 			let config = JSON.parse(localStorage.remoteMapConfig);
 			config.tileSize = Number(selectTileSize.value);
 			localStorage.remoteMapConfig = JSON.stringify(config);
+			console.log("Config updated: "+localStorage.remoteMapConfig);
 		}
 	}
 	let pauseOnBlur = document.querySelector("#pauseOnBlur");
@@ -42,6 +45,19 @@ var remoteMapConfig = JSON.parse(localStorage.remoteMapConfig);
 		pauseOnBlur.checked = localStorage.remoteMapPauseOnBlur || true;
 		pauseOnBlur.onchange = function(){
 			localStorage.remoteMapPauseOnBlur = pauseOnBlur.checked;
+		}
+	}
+	let movementSpeed = document.querySelector("#movementSpeed");
+	if(movementSpeed){
+		movementSpeed.value = Number(remoteMapConfig.movementSpeed) || 0.2;
+		movementSpeed.onchange = function(){
+			let config = JSON.parse(localStorage.remoteMapConfig);
+			config.movementSpeed = Number(movementSpeed.value);
+			localStorage.remoteMapConfig = JSON.stringify(config);
+			console.log("Config updated: "+localStorage.remoteMapConfig);
+			
+			// also update config live
+			remoteMapConfig.movementSpeed = config.movementSpeed;
 		}
 	}
 })();
@@ -147,30 +163,30 @@ var leftPressed = false;
 var upPressed = false;
 var downPressed = false;
 function keyDownHandler(event) {
-	if(event.keyCode == 39) {
+	if(event.keyCode == 39 || event.keyCode == 68) {
 		rightPressed = true;
 	}
-	else if(event.keyCode == 37) {
+	else if(event.keyCode == 37 || event.keyCode == 65) {
 		leftPressed = true;
 	}
-	if(event.keyCode == 40) {
+	if(event.keyCode == 40 || event.keyCode == 83) {
 		downPressed = true;
 	}
-	else if(event.keyCode == 38) {
+	else if(event.keyCode == 38 || event.keyCode == 87) {
 		upPressed = true;
 	}
 }
 function keyUpHandler(event) {
-	if(event.keyCode == 39) {
+	if(event.keyCode == 39 || event.keyCode == 68) {
 		rightPressed = false;
 	}
-	else if(event.keyCode == 37) {
+	else if(event.keyCode == 37 || event.keyCode == 65) {
 		leftPressed = false;
 	}
-	if(event.keyCode == 40) {
+	if(event.keyCode == 40 || event.keyCode == 83) {
 		downPressed = false;
 	}
-	else if(event.keyCode == 38) {
+	else if(event.keyCode == 38 || event.keyCode == 87) {
 		upPressed = false;
 	}
 }
@@ -273,7 +289,7 @@ function renderLoop(){
 	fpsTimings.counter.value = (1000 / (fpsTimings.sum / fpsTimings.averageLength)).toPrecision(4);
 	fpsTimings.lastFrame = newTimestamp;
 	if(!isPaused){
-		let moveSpeed = 0.1;
+		let moveSpeed = Number(remoteMapConfig.movementSpeed);
 		let movement = moveSpeed * timeSinceLastFrame;
 		// handle movement and requesting new entities
 		if(upPressed){
