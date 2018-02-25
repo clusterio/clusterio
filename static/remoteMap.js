@@ -296,30 +296,35 @@ function renderLoop(){
 			console.log("w");
 			playerPosition.y -= movement;
 			if(Math.abs((playerPosition.y-cachePosition.y)/remoteMapConfig.tileSize) > 1){
-				cache.walkUp();
+				for(let i = 0; i < Math.floor(Math.abs((playerPosition.y-cachePosition.y)/remoteMapConfig.tileSize)); i++){
+					cache.walkUp();
+				}
 			}
 		}
 		if(leftPressed){
 			console.log("a");
 			playerPosition.x -= movement;
 			if(Math.abs((playerPosition.x-cachePosition.x)/remoteMapConfig.tileSize) > 1){
+				for(let i = 0; i < Math.floor(Math.abs((playerPosition.x-cachePosition.x)/remoteMapConfig.tileSize)); i++){
 				cache.walkRight();
-			}
+			}}
 		}
 		if(downPressed){
 			console.log("s");
 			playerPosition.y += movement;
 			if(Math.abs((playerPosition.y-cachePosition.y)/remoteMapConfig.tileSize) > 1){
+				for(let i = 0; i < Math.floor(Math.abs((playerPosition.y-cachePosition.y)/remoteMapConfig.tileSize)); i++){
 				cache.walkDown();
-			}
+			}}
 		}
 		if(rightPressed){
 			console.log("d");
 			let oldPos = playerPosition.x;
 			playerPosition.x += movement;
 			if(Math.abs((playerPosition.x-cachePosition.x)/remoteMapConfig.tileSize) > 1){
+				for(let i = 0; i < Math.floor(Math.abs((playerPosition.x-cachePosition.x)/remoteMapConfig.tileSize)); i++){
 				cache.walkLeft();
-			}
+			}}
 		}
 		// draw map
 		drawFromCache();
