@@ -109,7 +109,6 @@ Mousetrap.bind("s", e => {
 	console.log("s");
 	cache.walkUp();
 	playerPosition.y += remoteMapConfig.tileSize;
-	console.log(remoteMapConfig)
 	clear();drawFromCache();
 });
 Mousetrap.bind("d", e => {
@@ -300,7 +299,7 @@ function drawEntity(entity, dontCache){
 		} else {
 			// we got an empty coordinate pair, that usually means this tile was occupied before but is empty now
 			console.log("Clearing at X: "+entity.x+", Y: "+entity.y);
-			ctx.clearRect(entity.x * remoteMapConfig.tileSize, entity.y * remoteMapConfig.tileSize, remoteMapConfig.tileSize, remoteMapConfig.tileSize);
+			ctx.clearRect((entity.x + playerPosition.x/remoteMapConfig.tileSize) * remoteMapConfig.tileSize, (entity.y + playerPosition.y/remoteMapConfig.tileSize) * remoteMapConfig.tileSize, remoteMapConfig.tileSize, remoteMapConfig.tileSize);
 		}
 	} else {
 		console.log(entity);
