@@ -5,7 +5,7 @@
 /// ES6 imports
 // rules for how entities are drawn (sizes, offset etc)
 import {entityDrawRules} from "./lib/entityDrawRules.js";
-import {getParameterByName} from "./lib/utility.js";
+import {getParameterByName, drawImageWithRotation} from "./lib/utility.js";
 import spritesheetJson from "./pictures/spritesheet.js";
 var global = {};
 
@@ -89,13 +89,23 @@ socket.on('hello', function (data) {
 function requestChunk(x,y){
 	socket.emit('requestChunk', {x:x, y:y, instanceID: getParameterByName("instanceID")});
 }
+(function(){
+	let remoteMapLayers = document.querySelectorAll(".remoteMap");
+	remoteMapLayers.forEach(layer => {
+		layer.width = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
+		layer.height = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
+	});
+	["width", "height"].forEach(style => document.querySelector("#remoteMapContainer").style[style] = remoteMapConfig.tileSize * remoteMapConfig.mapSize + "px");
+})();
 const canvas = document.getElementById("remoteMap");
-canvas.height = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
-canvas.width = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
 const ctx = canvas.getContext("2d");
 ctx.font = "30px Arial";
 ctx.fillText("Use WASD to navigate.",10,50);
 
+const selectionCanvas = document.getElementById("remoteMapSelection");
+const selectionCtx = selectionCanvas.getContext("2d");
+selectionCtx.font = "30px Arial";
+selectionCtx.fillText("Selection layer",10,50);
 // map view position, top left corner (or another corner?)
 window.playerPosition = {
 	x:0,
@@ -117,45 +127,7 @@ function requestMapDraw(){
 		}
 	}
 }
-// ctx, entityImages[name].img, xPos, yPos, size.x, size.y, rotation, sprWidth, sprHeight, offLeft, offTop
-function drawImageWithRotation(ctx, image, x, y, w, h, degrees, sprWidth, sprHeight, offLeft, offTop){
-	ctx.save();
-	ctx.translate(x+w/2, y+h/2);
-	ctx.rotate(degrees*Math.PI/180.0);
-	ctx.translate(-x-w/2, -y-h/2);
-	if(sprWidth != undefined && sprHeight != undefined && offLeft != undefined && offTop != undefined){
-		// console.log(sprWidth+" "+sprHeight+" "+offLeft+" "+offTop+" "+w+" "+h)
-		ctx.drawImage(image, offLeft, offTop, sprWidth, sprHeight, x, y, w, h);
-	} else {
-		ctx.drawImage(image, x, y, w, h);
-	}
-	ctx.restore();
-}
-/* 
-Mousetrap.bind("s", e => {
-	console.log("s");
-	cache.walkUp();
-	playerPosition.y += remoteMapConfig.tileSize;
-	clear();//drawFromCache();
-});
-Mousetrap.bind("d", e => {
-	console.log("d");
-	cache.walkLeft();
-	playerPosition.x += remoteMapConfig.tileSize;
-	clear();//drawFromCache();
-});
-Mousetrap.bind("w", e => {
-	console.log("w");
-	cache.walkDown();
-	playerPosition.y -= remoteMapConfig.tileSize;
-	clear();//drawFromCache();
-});
-Mousetrap.bind("a", e => {
-	console.log("a");
-	cache.walkRight();
-	playerPosition.x -= remoteMapConfig.tileSize;
-	clear();//drawFromCache();
-}); */
+
 document.addEventListener('keydown', keyDownHandler, false);
 document.addEventListener('keyup', keyUpHandler, false);
 var rightPressed = false;
@@ -280,8 +252,21 @@ window.onfocus = function() {
 		window.requestAnimationFrame(renderLoop);
 	}
 }
-
+function getMousePos(canvas, evt) {
+	var rect = canvas.getBoundingClientRect();
+	return {
+		x: evt.clientX - rect.left,
+		y: evt.clientY - rect.top
+	};
+}
+window.mousePos;
+selectionCanvas.addEventListener('mousemove', function(evt) {
+	var mousePos = getMousePos(selectionCanvas, evt);
+	var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
+	window.mousePos = mousePos;
+}, false);
 function renderLoop(){
+	// render game canvas
 	let newTimestamp = Date.now();
 	fpsTimings.sum = fpsTimings.sum / fpsTimings.averageLength * (fpsTimings.averageLength - 1);
 	let timeSinceLastFrame;
@@ -330,6 +315,20 @@ function renderLoop(){
 		drawFromCache();
 		// queue next tick
 		window.requestAnimationFrame(renderLoop);
+	}
+	
+	// render selection canvas
+	let mousePosition = window.mousePos;
+	if(mousePosition){
+		// make a box around the mouse cursor
+		selectionCtx.beginPath();
+		selectionCtx.lineWidth = remoteMapConfig.tileSize / 8;
+		selectionCtx.strokeStyle="yellow";
+		let tileSize = remoteMapConfig.tileSize
+		let halfTile = tileSize / 2;
+		// Long thing to correct for offset between playerPosition, cachePosition (tile grid) and mouse position and draw the box so it aligns with tiles.
+		selectionCtx.rect(mousePosition.x - mousePosition.x % tileSize + playerPosition.x % tileSize, mousePosition.y - mousePosition.y % tileSize - playerPosition.y % tileSize, tileSize, tileSize);
+		selectionCtx.stroke();
 	}
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
@@ -448,4 +447,5 @@ function drawEntity(entity, dontCache){
 }
 function clear(){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	selectionCtx.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
 }
