@@ -51,8 +51,44 @@ class remoteMap {
 				this.messageInterface("socket.getEntity triggered called with invalid parameters");
 			}
 		});
+		// both placing and deleting entities via the web interface
+		this.socket.on("placeEntity", req => {
+			// game.player.surface.create_entity{name="small-ship-wreck", position={game.player.position.x-2, game.player.position.y+1}, direction=..., force=...}
+			console.log("placing "+JSON.stringify(req));
+			if(req.name && typeof req.name == "string" && req.position && Number(req.position.x) && Number(req.position.y)){
+				if(req.name == "deleted"){ // {{'+req.position.x+','+req.position.y+'},{'+req.position.x+','+req.position.y+'}}
+					this.messageInterface('/silent-command local toDelete = game.surfaces[1].find_entities({{'+req.position.x+','+req.position.y+'},{'+(req.position.x+1)+','+(req.position.y+1)+'}}) for i, entity in pairs(toDelete) do entity.die() end');
+					// this position is now empty, delete whatever was there from DB
+					// this.deleteEntity(req.position.x, req.position.y);
+				} else {
+					let command = '/silent-command game.surfaces[1].create_entity{name="'+req.name+'", position={'+Number(req.position.x)+', '+Number(req.position.y)+'}, force="neutral"'
+					if(req.direction) command += ', direction='+req.direction;
+					command += '}';
+					this.messageInterface(command); // execute command
+					
+					// add entity to the chunkStore database because create_entity does not trigger any events
+					let name = req.name;
+					let entity = {name};
+					if(req.direction){
+						entity.direction = req.direction;
+					}
+					this.addEntity(req.position.x, req.position.y, entity);
+				}
+			}
+		});
 		
 		this.messageInterface("/silent-command game.print('"+moduleConfig.name+" version "+moduleConfig.version+" enabled')");
+	}
+	addEntity(x,y,entity){ // add entity to database
+		this.chunkMap.setEntity(Number(x), Number(y), entity).then(data => {
+			this.messageInterface("Added "+entity.name+" to data "+Number(x)+", "+Number(y));
+		}).catch((err)=>this.messageInterface(err));
+	}
+	deleteEntity(x,y){ // remove entity from database
+		// this position is now empty, delete whatever was there from DB
+		this.chunkMap.setEntity(x, y, "delete this entity").then(() => {
+			this.messageInterface("Deleted data "+x+", "+y);
+		}).catch((err)=>this.messageInterface(err));
 	}
 	scriptOutput(data){
 		if(data){
@@ -70,9 +106,7 @@ class remoteMap {
 			if(xPos && yPos && name){
 				if(name == "deleted"){
 					// this position is now empty, delete whatever was there from DB
-					this.chunkMap.setEntity(xPos, yPos, "delete this entity").then(() => {
-						this.messageInterface("Deleted data "+xPos+", "+yPos);
-					}).catch((err)=>this.messageInterface(err));
+					this.deleteEntity(xPos, yPos);
 				} else {
 					let entity = {name};
 					for(let i = 3; i < data.length; i++){
@@ -82,9 +116,10 @@ class remoteMap {
 						}
 					}
 					// save this entity in the database
-					this.chunkMap.setEntity(xPos, yPos, entity).then(data => {
+					this.addEntity(xPos, yPos, entity);
+					/* this.chunkMap.setEntity(xPos, yPos, entity).then(data => {
 						this.messageInterface("Added "+name+" to data "+xPos+", "+yPos);
-					}).catch((err)=>this.messageInterface(err));
+					}).catch((err)=>this.messageInterface(err)); */
 				}
 			}
 			

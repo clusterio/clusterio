@@ -1,13 +1,33 @@
 /**
 	Javascript to download and render a map of a factorio world from an instance using websockets and canvas
+	
+	It is its responsibility to handle:
+	* Display settings
+	* Ordering of canvases
+	* Querying slaves through master for map info
+	* Drawing of sprites defined in external files to canvas
+	* Handling input for placing/removing items
+	* Transmitting item placements/removals through master
+	
+	That is way too much for one file, so to anyone reading this:
+	This file is horribly written and documented.
+	I am sorry. Drawing code is at the bottom, good luck.
 */
-
+console.log(":)")
 /// ES6 imports
 // rules for how entities are drawn (sizes, offset etc)
 import {entityDrawRules} from "./lib/entityDrawRules.js";
 import {getParameterByName, drawImageWithRotation} from "./lib/utility.js";
 import spritesheetJson from "./pictures/spritesheet.js";
+import {itemSelector} from "./remoteMap/itemSelection.js";
 var global = {};
+
+var itemSelectorGUI = new itemSelector("#remoteMapItemSelector", [
+	{name:"stone-furnace"},
+	{name:"accumulator"}, 
+	{name:"electric-furnace"}, 
+	{name:"inserter"}
+]);
 
 if(!localStorage.remoteMapConfig || localStorage.remoteMapConfig == "[object Object]"){
 	localStorage.remoteMapConfig = JSON.stringify({
@@ -92,6 +112,7 @@ function requestChunk(x,y){
 (function(){
 	let remoteMapLayers = document.querySelectorAll(".remoteMap");
 	remoteMapLayers.forEach(layer => {
+		layer.addEventListener('contextmenu', event => event.preventDefault());
 		layer.width = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
 		layer.height = remoteMapConfig.tileSize * remoteMapConfig.mapSize;
 	});
@@ -259,12 +280,37 @@ function getMousePos(canvas, evt) {
 		y: evt.clientY - rect.top
 	};
 }
-window.mousePos;
+window.mousePos = {};
 selectionCanvas.addEventListener('mousemove', function(evt) {
 	var mousePos = getMousePos(selectionCanvas, evt);
 	var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
-	window.mousePos = mousePos;
+	window.mousePos.x = mousePos.x;
+	window.mousePos.y = mousePos.y;
 }, false);
+selectionCanvas.addEventListener("mousedown", function(evt) {
+	if(evt.which === 1) window.mousePos.clicked = true;
+	
+	// place item in world by sending it with websockets and shit
+	let tileSize = remoteMapConfig.tileSize;
+	let entity = {
+		name: itemSelectorGUI.getItem().name,
+		position:{
+			x: Math.floor((playerPosition.x + window.mousePos.x) / tileSize),
+			y: Math.floor((playerPosition.y + window.mousePos.y) / tileSize),
+		},
+	};
+	if(evt.which === 1){ // left click to place
+		console.log(JSON.stringify(entity));
+		socket.emit("placeEntity", entity);
+	} else if(evt.which === 3){ // right click to delete
+		entity.name = "deleted";
+		socket.emit("placeEntity", entity)
+	}
+	// console.log(entity);
+});
+selectionCanvas.addEventListener("mouseup", function(evt) {
+	if(evt.which === 1)	window.mousePos.clicked = false;
+});
 function renderLoop(){
 	// render game canvas
 	let newTimestamp = Date.now();
@@ -319,15 +365,20 @@ function renderLoop(){
 	
 	// render selection canvas
 	let mousePosition = window.mousePos;
-	if(mousePosition){
+	if(mousePosition && mousePosition.x){
 		// make a box around the mouse cursor
 		selectionCtx.beginPath();
 		selectionCtx.lineWidth = remoteMapConfig.tileSize / 8;
 		selectionCtx.strokeStyle="yellow";
+		if(mousePosition.clicked) selectionCtx.strokeStyle = "red";
 		let tileSize = remoteMapConfig.tileSize
 		let halfTile = tileSize / 2;
+		let tilePosition = {
+			x: Math.floor((playerPosition.x + mousePosition.x) / tileSize),
+			y: Math.floor((playerPosition.y + mousePosition.y) / tileSize),
+		}
 		// Long thing to correct for offset between playerPosition, cachePosition (tile grid) and mouse position and draw the box so it aligns with tiles.
-		selectionCtx.rect(mousePosition.x - mousePosition.x % tileSize + playerPosition.x % tileSize, mousePosition.y - mousePosition.y % tileSize - playerPosition.y % tileSize, tileSize, tileSize);
+		selectionCtx.rect(mousePosition.x - mousePosition.x % tileSize - playerPosition.x % tileSize, mousePosition.y - mousePosition.y % tileSize - playerPosition.y % tileSize, tileSize, tileSize);
 		selectionCtx.stroke();
 	}
 }

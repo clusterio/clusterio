@@ -31,7 +31,7 @@ export var entityDrawRules = {
 		},
 		positionOffset: {
 			x:-0.8,
-			y:-1.5,
+			y:-1.7,
 		},
 	},
 	"centrifuge": {
@@ -67,7 +67,7 @@ for(let i = 1; i <= 3; i++){
 		},
 		positionOffset: {
 			x:-1.4,
-			y:-0.9,
+			y:-1.2,
 		},
 	}
 	// template3x3entity;
@@ -125,7 +125,7 @@ for(let i = 1; i <= 3; i++){
 			x:1.2,y:1.6,
 		},
 		positionOffset: {
-			x:0,y:0,
+			x:0,y:-0.2,
 		}
 	}
 });

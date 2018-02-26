@@ -659,14 +659,21 @@ class mapRequester {
 			loc.requesterID = this.requesterID;
 			let instanceID = loc.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
-				slaveMappers[instanceID].socket.emit("getChunk", loc)
+				slaveMappers[instanceID].socket.emit("getChunk", loc);
 			}
 		});
 		this.socket.on("requestEntity", req => {
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
-				slaveMappers[instanceID].socket.emit("getEntity", req)
+				slaveMappers[instanceID].socket.emit("getEntity", req);
+			}
+		});
+		this.socket.on("placeEntity", req => {
+			req.requesterID = this.requesterID;
+			let instanceID = req.instanceID || this.instanceID;
+			if(slaveMappers[instanceID]){
+				slaveMappers[instanceID].socket.emit("placeEntity", req);
 			}
 		});
 	}
