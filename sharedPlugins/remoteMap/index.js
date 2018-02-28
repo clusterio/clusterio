@@ -69,8 +69,8 @@ class remoteMap {
 					// add entity to the chunkStore database because create_entity does not trigger any events
 					let name = req.name;
 					let entity = {name};
-					if(req.direction){
-						entity.direction = req.direction;
+					if(typeof req.direction == "string"){
+						entity.rot = req.direction;
 					}
 					this.addEntity(req.position.x, req.position.y, entity);
 				}

@@ -4,6 +4,7 @@ export class itemSelector {
 		this.container = document.querySelector(containerSelector);
 		if(!this.container) throw new Error("Could not find container "+container);
 		this.entities = entities;
+		this.direction = 0;
 		
 		// populate container
 		let cont = this.container;
@@ -16,6 +17,12 @@ export class itemSelector {
 			HTML += "<select class='blackText'>";
 				this.entities.forEach(entity => HTML += "<option value='"+entity.name+"'>"+entity.name+"</option>");
 			HTML += "</select>";
+		HTML += "</div>";
+		// direction selector
+		HTML += "<div id='directionSelector'>";
+			HTML += "<h2>Direction: </h2>";
+			HTML += "<p>Press R to rotate</p>";
+			HTML += "<p id='directionDisplay'>0</p>"
 		HTML += "</div>";
 		
 		// write styles
@@ -42,9 +49,18 @@ export class itemSelector {
 			HTML += "}";
 		}
 		cont.innerHTML += HTML + "</style>";
+		
+		// handle direction keyboard event
+		Mousetrap.bind('r', ()=>this.rotate());
+	}
+	rotate(){
+		this.direction = (this.direction + 2) % 8;
+		// update display
+		document.querySelector("#directionDisplay").innerHTML = this.direction;
 	}
 	getItem(){
 		let name = document.querySelector(this.containerSelector+" > .itemSelector > select").value;
-		return {name};
+		let direction = this.direction;
+		return {name, direction};
 	}
 }

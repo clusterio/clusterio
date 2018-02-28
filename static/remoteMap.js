@@ -26,7 +26,8 @@ var itemSelectorGUI = new itemSelector("#remoteMapItemSelector", [
 	{name:"stone-furnace"},
 	{name:"accumulator"}, 
 	{name:"electric-furnace"}, 
-	{name:"inserter"}
+	{name:"inserter"},
+	{name:"express-transport-belt"},
 ]);
 
 if(!localStorage.remoteMapConfig || localStorage.remoteMapConfig == "[object Object]"){
@@ -289,6 +290,7 @@ selectionCanvas.addEventListener('mousemove', function(evt) {
 }, false);
 selectionCanvas.addEventListener("mousedown", function(evt) {
 	if(evt.which === 1) window.mousePos.clicked = true;
+	if(evt.which === 3) window.mousePos.rightClicked = true;
 	
 	// place item in world by sending it with websockets and shit
 	let tileSize = remoteMapConfig.tileSize;
@@ -298,6 +300,7 @@ selectionCanvas.addEventListener("mousedown", function(evt) {
 			x: Math.floor((playerPosition.x + window.mousePos.x) / tileSize),
 			y: Math.floor((playerPosition.y + window.mousePos.y) / tileSize),
 		},
+		direction: itemSelectorGUI.getItem().direction.toString(),
 	};
 	if(evt.which === 1){ // left click to place
 		console.log(JSON.stringify(entity));
@@ -310,6 +313,7 @@ selectionCanvas.addEventListener("mousedown", function(evt) {
 });
 selectionCanvas.addEventListener("mouseup", function(evt) {
 	if(evt.which === 1)	window.mousePos.clicked = false;
+	if(evt.which === 3)	window.mousePos.rightClicked = false;
 });
 function renderLoop(){
 	// render game canvas
@@ -371,14 +375,15 @@ function renderLoop(){
 		selectionCtx.lineWidth = remoteMapConfig.tileSize / 8;
 		selectionCtx.strokeStyle="yellow";
 		if(mousePosition.clicked) selectionCtx.strokeStyle = "red";
+		if(mousePosition.rightClicked) selectionCtx.strokeStyle = "blue";
 		let tileSize = remoteMapConfig.tileSize
 		let halfTile = tileSize / 2;
-		let tilePosition = {
+		let tilePosition = { // position in world coordinates (same as used by factorio)
 			x: Math.floor((playerPosition.x + mousePosition.x) / tileSize),
 			y: Math.floor((playerPosition.y + mousePosition.y) / tileSize),
 		}
 		// Long thing to correct for offset between playerPosition, cachePosition (tile grid) and mouse position and draw the box so it aligns with tiles.
-		selectionCtx.rect(mousePosition.x - mousePosition.x % tileSize - playerPosition.x % tileSize, mousePosition.y - mousePosition.y % tileSize - playerPosition.y % tileSize, tileSize, tileSize);
+		selectionCtx.rect(tilePosition.x * tileSize - playerPosition.x, tilePosition.y * tileSize - playerPosition.y, tileSize, tileSize);
 		selectionCtx.stroke();
 	}
 }
