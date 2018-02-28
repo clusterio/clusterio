@@ -15,8 +15,8 @@ export var entityDrawRules = {
 	"accumulator": {
 		spritesheet: spritesheetJson.frames["images/factorio/entity/accumulator/accumulator.png"],
 		sizeInTiles: {
-			x:4,
-			y:4,
+			x:3.5,
+			y:3.5,
 		},
 		positionOffset: {
 			x:-1,
@@ -43,6 +43,28 @@ export var entityDrawRules = {
 		positionOffset: {
 			x:-1.5,
 			y:-1,
+		},
+	},
+	"stone-furnace": {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/stone-furnace/stone-furnace.png"],
+		sizeInTiles: {
+			x:3,
+			y:2.2,
+		},
+		positionOffset: {
+			x:-0.9,
+			y:-1,
+		},
+	},
+	"steel-furnace": {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/steel-furnace/steel-furnace.png"],
+		sizeInTiles: {
+			x:2.5,
+			y:2.5,
+		},
+		positionOffset: {
+			x:-1.2,
+			y:-1.1,
 		},
 	},
 };
@@ -101,22 +123,7 @@ for(let i = 1; i <= 3; i++){
 		},
 	}
 });
-// 2 tile entities
-[{name: "stone-furnace", ref:"images/factorio/entity/stone-furnace/stone-furnace.png"},
-	{name: "steel-furnace", ref:"images/factorio/entity/steel-furnace/steel-furnace.png"}
-	].forEach(ent => {
-	entityDrawRules[ent.name] = {
-		spritesheet: spritesheetJson.frames[ent.ref],
-		sizeInTiles: {
-			x:2.5,
-			y:2.5,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		},
-	}
-});
+
 ["transport-belt", "fast-transport-belt", "express-transport-belt"].forEach(name => {
 	entityDrawRules[name] = {
 		rotOffset: 270,
@@ -127,6 +134,11 @@ for(let i = 1; i <= 3; i++){
 		positionOffset: {
 			x:0,y:-0.2,
 		}
+	}
+});
+["inserter", "fast-inserter", "stack-inserter", "filter-inserter"].forEach(inserter => {
+	entityDrawRules[inserter] = {
+		rotOffset:90,
 	}
 });
 entityDrawRules["oil-refinery"] = {

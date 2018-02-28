@@ -405,7 +405,7 @@ function drawEntity(entity, dontCache){
 		if(entity.entity && entity.entity.name && typeof entity.entity.name == "string"){
 			let name = entity.entity.name;
 			if(!entityImages[name]){
-				console.log("Downloading image")
+				console.log("Downloading image "+name);
 				// download the entityImages and add stuff  to queue
 				entityImages[name] = {
 					img: new Image(),
@@ -418,14 +418,13 @@ function drawEntity(entity, dontCache){
 						let image, sprWidth, sprHeight, offLeft, offTop
 						let rotation = 0;
 						// check hardcoded entity draw rules for specifics (otherwise draw icon as 1x1 entity with rotation if specified)
-						if(entityDrawRules[name]){
+						if(entityDrawRules[name] && entityDrawRules[name].positionOffset){
 							let rules = entityDrawRules[name]
-							// console.log(entityDrawRules[name])
-							var offsetX = entityDrawRules[name].positionOffset.x;
-							var offsetY = entityDrawRules[name].positionOffset.y;
+							var offsetX = rules.positionOffset.x;
+							var offsetY = rules.positionOffset.y;
 							var size = {
-								x: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.x,
-								y: remoteMapConfig.tileSize * entityDrawRules[name].sizeInTiles.y,
+								x: remoteMapConfig.tileSize * rules.sizeInTiles.x,
+								y: remoteMapConfig.tileSize * rules.sizeInTiles.y,
 							};
 							if(rules.spritesheet && Array.isArray(rules.spritesheet)){
 								let dir = Number(entity.entity.rot);
@@ -465,7 +464,7 @@ function drawEntity(entity, dontCache){
 							}
 						}
 						if(!image) image = entityImages[name].img;
-						drawImageWithRotation(ctx, image, xPos, yPos, size.x, size.y, rotation, sprWidth, sprHeight, offLeft, offTop);
+						drawImageWithRotation(ctx, image, xPos, yPos, size.x, size.y, rotation%360, sprWidth, sprHeight, offLeft, offTop);
 						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos+" with with rotation "+rotation);
 					} else {
 						// we are waiting for the image to load, push the task to our queue. It will be processed once the image loads.
@@ -484,7 +483,7 @@ function drawEntity(entity, dontCache){
 				entityImages[name].queue.push(entity);
 				entityImages[name].img.onload = imageLoaded()
 				
-				if(entityDrawRules[name]){
+				if(entityDrawRules[name] && entityDrawRules[name].spritesheet){
 					imageLoaded();
 				} else entityImages[name].img.src = getImageFromName(name);
 			} else {

@@ -21,8 +21,8 @@ export class itemSelector {
 		// direction selector
 		HTML += "<div id='directionSelector'>";
 			HTML += "<h2>Direction: </h2>";
+			HTML += "<h2 id='directionDisplay'>"+this.directionToCardinal(0)+"</h2>"
 			HTML += "<p>Press R to rotate</p>";
-			HTML += "<p id='directionDisplay'>0</p>"
 		HTML += "</div>";
 		
 		// write styles
@@ -53,10 +53,29 @@ export class itemSelector {
 		// handle direction keyboard event
 		Mousetrap.bind('r', ()=>this.rotate());
 	}
+	directionToCardinal(dir){
+		if(dir == 0){
+			return "north";
+		} else if(dir == 1){
+			return "north-east";
+		} else if(dir == 2){
+			return "east";
+		} else if(dir == 3){
+			return "south-east";
+		} else if(dir == 4){
+			return "south";
+		} else if(dir == 5){
+			return "south-west";
+		} else if(dir == 6){
+			return "west";
+		} else if(dir == 7){
+			return "north-west";
+		}
+	}
 	rotate(){
 		this.direction = (this.direction + 2) % 8;
 		// update display
-		document.querySelector("#directionDisplay").innerHTML = this.direction;
+		document.querySelector("#directionDisplay").innerHTML = this.directionToCardinal(this.direction);
 	}
 	getItem(){
 		let name = document.querySelector(this.containerSelector+" > .itemSelector > select").value;
