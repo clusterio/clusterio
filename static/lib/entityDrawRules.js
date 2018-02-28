@@ -97,7 +97,7 @@ for(let i = 1; i <= 3; i++){
 ["electric-mining-drill", "beacon", "electric-furnace"].forEach(name => {
 	entityDrawRules[name] = template3x3entity;
 });
-["chemical-plant", "lab"].forEach(name => {
+["lab"].forEach(name => {
 	entityDrawRules[name] = {
 		spritesheet: spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.0"],
 		sizeInTiles: {
@@ -110,6 +110,50 @@ for(let i = 1; i <= 3; i++){
 		},
 	}
 });
+entityDrawRules["chemical-plant"] = {
+	spritesheet: [{
+			spritesheet: spritesheetJson.frames["images/factorio/entity/chemical-plant/chemical-plant.png.0"],
+			sizeInTiles: {
+				x:3.5,
+				y:3.5,
+			},
+			positionOffset: {
+				x:-1.3,
+				y:-1,
+			},
+		},{
+			spritesheet: spritesheetJson.frames["images/factorio/entity/chemical-plant/chemical-plant.png.1"],
+			sizeInTiles: {
+				x:3.7,
+				y:4,
+			},
+			positionOffset: {
+				x:-1.3,
+				y:-1.5,
+			},
+		},{
+			spritesheet: spritesheetJson.frames["images/factorio/entity/chemical-plant/chemical-plant.png.2"],
+			sizeInTiles: {
+				x:3.5,
+				y:3.2,
+			},
+			positionOffset: {
+				x:-1.3,
+				y:-1,
+			},
+		},{
+			spritesheet: spritesheetJson.frames["images/factorio/entity/chemical-plant/chemical-plant.png.3"],
+			sizeInTiles: {
+				x:3.7,
+				y:3.6,
+			},
+			positionOffset: {
+				x:-1.45,
+				y:-1.3,
+			},
+		},
+	],
+};
 [{name: "solar-panel", ref:"images/factorio/entity/solar-panel/solar-panel.png"}].forEach(ent => {
 	entityDrawRules[ent.name] = {
 		spritesheet: spritesheetJson.frames[ent.ref],
@@ -136,19 +180,48 @@ for(let i = 1; i <= 3; i++){
 		}
 	}
 });
-["inserter", "fast-inserter", "stack-inserter", "filter-inserter"].forEach(inserter => {
+["splitter", "fast-splitter", "express-splitter"].forEach(splitter => {
+	entityDrawRules[splitter] = {
+		rotOffset:180,
+	}
+});
+["underground-belt", "fast-underground-belt", "express-underground-belt"].forEach(underneathie => {
+	entityDrawRules[underneathie] = {
+		rotOffset: 270,
+	}
+});
+["inserter", "fast-inserter", "stack-inserter", "filter-inserter", "burner-inserter", 'long-handed-inserter', 'stack-filter-inserter'].forEach(inserter => {
 	entityDrawRules[inserter] = {
 		rotOffset:90,
 	}
 });
-entityDrawRules["oil-refinery"] = {
-	spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.0"],
-	sizeInTiles: {
-		x:9,
-		y:6,
-	},
-	positionOffset: {
-		x:-2,
-		y:-2,
-	},
+entityDrawRules["straight-rail"] = {
+	rotOffset: 0,
+};
+entityDrawRules["curved-rail"] = {
+	rotOffset: 0
 }
+entityDrawRules["oil-refinery"] = {
+	spritesheet: [
+	{
+		spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.0"],
+	}, {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.1"],
+	}, {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.2"],
+	}, {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.3"],
+	}
+	],
+}
+// correct image size for the oil refinery frames (same for all of them on this one)
+entityDrawRules["oil-refinery"].spritesheet.forEach(object => {
+	object.sizeInTiles = {
+		x:10,
+		y:7.5,
+	}
+	object.positionOffset = {
+		x:-2,
+		y:-2.7,
+	}
+});

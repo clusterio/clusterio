@@ -390,7 +390,7 @@ function renderLoop(){
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
 window.logEntCache = function(){console.log(entityCache)}
 function drawEntity(entity, dontCache){
-	if(entity.x && entity.y){
+	if(entity.x !== undefined && entity.y !== undefined){
 		if(!dontCache){
 			// cache entity for later draws (like panning)
 			if(entity.x - cachePosition.x/remoteMapConfig.tileSize >= 0 && entity.x - cachePosition.x/remoteMapConfig.tileSize < remoteMapConfig.mapSize && entity.y - cachePosition.y/remoteMapConfig.tileSize >= 0 && entity.y - cachePosition.y/remoteMapConfig.tileSize < remoteMapConfig.mapSize){
@@ -415,31 +415,38 @@ function drawEntity(entity, dontCache){
 				entityImages[name].draw = function(entity){
 					if(this.loaded){
 						let name = entity.entity.name;
-						let image, sprWidth, sprHeight, offLeft, offTop
+						let image, sprWidth, sprHeight, offLeft, offTop, size, offsetX, offsetY
 						let rotation = 0;
 						// check hardcoded entity draw rules for specifics (otherwise draw icon as 1x1 entity with rotation if specified)
-						if(entityDrawRules[name] && entityDrawRules[name].positionOffset){
+						if(entityDrawRules[name] && (entityDrawRules[name].positionOffset || entityDrawRules[name].spritesheet)){
 							let rules = entityDrawRules[name]
-							var offsetX = rules.positionOffset.x;
-							var offsetY = rules.positionOffset.y;
-							var size = {
-								x: remoteMapConfig.tileSize * rules.sizeInTiles.x,
-								y: remoteMapConfig.tileSize * rules.sizeInTiles.y,
-							};
+							if(rules.positionOffset){
+								offsetX = rules.positionOffset.x;
+								offsetY = rules.positionOffset.y;
+							}
+							if(rules.sizeInTiles){
+								size = {
+									x: remoteMapConfig.tileSize * rules.sizeInTiles.x,
+									y: remoteMapConfig.tileSize * rules.sizeInTiles.y,
+								};
+							}
 							if(rules.spritesheet && Array.isArray(rules.spritesheet)){
 								let dir = Number(entity.entity.rot);
-								sprWidth = rules.spritesheet[dir].frame.w;
-								sprHeight = rules.spritesheet[dir].frame.h;
-								offLeft = rules.spritesheet[dir].frame.x;
-								offTop = rules.spritesheet[dir].frame.y;
+								sprWidth = rules.spritesheet[dir/2].spritesheet.frame.w;
+								sprHeight = rules.spritesheet[dir/2].spritesheet.frame.h;
+								offLeft = rules.spritesheet[dir/2].spritesheet.frame.x;
+								offTop = rules.spritesheet[dir/2].spritesheet.frame.y;
 								image = global.spritesheet;
-								
-								offsetX = rules.spritesheet[dir].positionOffset.x;
-								offsetY = rules.spritesheet[dir].positionOffset.y;
-								size = {
-									x: remoteMapConfig.tileSize * rules.spritesheet[dir].sizeInTiles.x,
-									y: remoteMapConfig.tileSize * rules.spritesheet[dir].sizeInTiles.y,
-								};
+								if(rules.spritesheet[dir/2].positionOffset){
+									offsetX = rules.spritesheet[dir/2].positionOffset.x;
+									offsetY = rules.spritesheet[dir/2].positionOffset.y;
+								}
+								if(rules.spritesheet[dir/2].sizeInTiles){
+									size = {
+										x: remoteMapConfig.tileSize * rules.spritesheet[dir/2].sizeInTiles.x,
+										y: remoteMapConfig.tileSize * rules.spritesheet[dir/2].sizeInTiles.y,
+									};
+								}
 							} else if(rules.spritesheet){
 								sprWidth = rules.spritesheet.frame.w;
 								sprHeight = rules.spritesheet.frame.h;
@@ -448,14 +455,14 @@ function drawEntity(entity, dontCache){
 								image = global.spritesheet;
 							}
 						} else {
-							var offsetX = 0, offsetY = 0;
-							var size = {
+							offsetX = 0, offsetY = 0;
+							size = {
 								x:remoteMapConfig.tileSize, y: remoteMapConfig.tileSize,
 							};
 						}
 						let xPos = ((entity.x + offsetX) * remoteMapConfig.tileSize) - playerPosition.x;
 						let yPos = ((entity.y + offsetY) * remoteMapConfig.tileSize) - playerPosition.y;
-						if(entityDrawRules[name] && entity.entity.rot && !isNaN(Number(entity.entity.rot)) && !Array.isArray(entityDrawRules[name].spritesheet)){
+						if(entity.entity.rot && !isNaN(Number(entity.entity.rot)) && !(entityDrawRules[name] && Array.isArray(entityDrawRules[name].spritesheet))){
 							let rules = entityDrawRules[name];
 							if(rules && rules.rotOffset){
 								rotation = ((entity.entity.rot * 45) + entityDrawRules[name].rotOffset);
@@ -464,6 +471,7 @@ function drawEntity(entity, dontCache){
 							}
 						}
 						if(!image) image = entityImages[name].img;
+						// if(name == "oil-refinery") console.log(offsetX)
 						drawImageWithRotation(ctx, image, xPos, yPos, size.x, size.y, rotation%360, sprWidth, sprHeight, offLeft, offTop);
 						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos+" with with rotation "+rotation);
 					} else {
@@ -484,7 +492,7 @@ function drawEntity(entity, dontCache){
 				entityImages[name].img.onload = imageLoaded()
 				
 				if(entityDrawRules[name] && entityDrawRules[name].spritesheet){
-					imageLoaded();
+					// imageLoaded();
 				} else entityImages[name].img.src = getImageFromName(name);
 			} else {
 				// console.log("Already got image, drawing")
