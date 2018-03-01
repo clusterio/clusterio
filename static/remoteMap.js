@@ -432,16 +432,19 @@ function drawEntity(entity, dontCache){
 							}
 							if(rules.spritesheet && Array.isArray(rules.spritesheet)){
 								let dir = Number(entity.entity.rot);
-								sprWidth = rules.spritesheet[dir/2].spritesheet.frame.w;
-								sprHeight = rules.spritesheet[dir/2].spritesheet.frame.h;
-								offLeft = rules.spritesheet[dir/2].spritesheet.frame.x;
-								offTop = rules.spritesheet[dir/2].spritesheet.frame.y;
+								// correct for whether we have 4 or 8 directions
+								let spriteSheetRotIndex = dir / (8 / rules.spritesheet.length);
+								
+								sprWidth = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.w;
+								sprHeight = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.h;
+								offLeft = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.x;
+								offTop = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.y;
 								image = global.spritesheet;
-								if(rules.spritesheet[dir/2].positionOffset){
-									offsetX = rules.spritesheet[dir/2].positionOffset.x;
-									offsetY = rules.spritesheet[dir/2].positionOffset.y;
+								if(rules.spritesheet[spriteSheetRotIndex].positionOffset){
+									offsetX = rules.spritesheet[spriteSheetRotIndex].positionOffset.x;
+									offsetY = rules.spritesheet[spriteSheetRotIndex].positionOffset.y;
 								}
-								if(rules.spritesheet[dir/2].sizeInTiles){
+								if(rules.spritesheet[spriteSheetRotIndex].sizeInTiles){
 									size = {
 										x: remoteMapConfig.tileSize * rules.spritesheet[dir/2].sizeInTiles.x,
 										y: remoteMapConfig.tileSize * rules.spritesheet[dir/2].sizeInTiles.y,

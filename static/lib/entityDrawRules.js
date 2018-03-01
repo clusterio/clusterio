@@ -67,6 +67,69 @@ export var entityDrawRules = {
 			y:-1.1,
 		},
 	},
+	"roboport": {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/roboport/roboport-base.png"],
+		sizeInTiles: {
+			x:5,
+			y:4.5,
+		},
+		positionOffset: {
+			x:-2,
+			y:-2.2,
+		},
+	},
+	"substation": {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/substation/substation.png.0"],
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1.8,
+		},
+	},
+	"big-electric-pole": {
+		spritesheet: spritesheetJson.frames["images/factorio/entity/big-electric-pole/big-electric-pole.png.0"],
+		sizeInTiles: {
+			x:5,
+			y:5,
+		},
+		positionOffset: {
+			x:-1,
+			y:-3.5,
+		},
+	},
+	"electric-mining-drill": {
+		spritesheet: [{
+				spritesheet: spritesheetJson.frames["images/factorio/entity/electric-mining-drill/electric-mining-drill-N.png.0"],
+			},{
+				spritesheet: spritesheetJson.frames["images/factorio/entity/electric-mining-drill/electric-mining-drill-E.png.0"],
+			},{
+				spritesheet: spritesheetJson.frames["images/factorio/entity/electric-mining-drill/electric-mining-drill-S.png.0"],
+			},{
+				spritesheet: spritesheetJson.frames["images/factorio/entity/electric-mining-drill/electric-mining-drill-W.png.0"],
+			},
+		],
+		sizeInTiles: {
+			x:3,
+			y:3,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		},
+	},
+	"straight-rail": {
+		sizeInTiles: {
+			x:2,
+			y:2,
+		},
+		positionOffset: {
+			x:-1,
+			y:-1,
+		}
+	}
 };
 let template3x3entity = {
 	sizeInTiles: {
@@ -94,22 +157,20 @@ for(let i = 1; i <= 3; i++){
 	}
 	// template3x3entity;
 };
-["electric-mining-drill", "beacon", "electric-furnace"].forEach(name => {
+["beacon", "electric-furnace"].forEach(name => {
 	entityDrawRules[name] = template3x3entity;
 });
-["lab"].forEach(name => {
-	entityDrawRules[name] = {
-		spritesheet: spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.0"],
-		sizeInTiles: {
-			x:3.5,
-			y:3,
-		},
-		positionOffset: {
-			x:-1,
-			y:-0.9,
-		},
-	}
-});
+entityDrawRules["lab"] = {
+	spritesheet: spritesheetJson.frames["images/factorio/entity/lab/lab.png.0"],
+	sizeInTiles: {
+		x:3.5,
+		y:3,
+	},
+	positionOffset: {
+		x:-1,
+		y:-0.9,
+	},
+}
 entityDrawRules["chemical-plant"] = {
 	spritesheet: [{
 			spritesheet: spritesheetJson.frames["images/factorio/entity/chemical-plant/chemical-plant.png.0"],
@@ -195,12 +256,6 @@ entityDrawRules["chemical-plant"] = {
 		rotOffset:90,
 	}
 });
-entityDrawRules["straight-rail"] = {
-	rotOffset: 0,
-};
-entityDrawRules["curved-rail"] = {
-	rotOffset: 0
-}
 entityDrawRules["oil-refinery"] = {
 	spritesheet: [
 	{
@@ -225,3 +280,4 @@ entityDrawRules["oil-refinery"].spritesheet.forEach(object => {
 		y:-2.7,
 	}
 });
+
