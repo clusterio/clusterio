@@ -231,14 +231,33 @@ entityDrawRules["chemical-plant"] = {
 
 ["transport-belt", "fast-transport-belt", "express-transport-belt"].forEach(name => {
 	entityDrawRules[name] = {
-		rotOffset: 270,
-		spritesheet: spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.10"],
-		sizeInTiles: {
-			x:1.2,y:1.6,
-		},
-		positionOffset: {
-			x:0,y:-0.2,
-		}
+		spritesheet: [{
+			spritesheet: [ // vertical belts
+				// spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.0"], // 0 to 31
+			],
+			sizeInTiles: {
+				x:1.2,y:1.4,
+			},
+			positionOffset: {
+				x:-0.1,y:-0,
+			}
+		},{
+			spritesheet: [ // horizontal belts
+				// spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.27"], // 32 to 63
+			],
+			sizeInTiles: {
+				x:1.3,y:1.6,
+			},
+			positionOffset: {
+				x:-0.15,y:-0.25,
+			}
+		}],
+	}
+	for(let i = 0; i < 32; i++){
+		// up
+		entityDrawRules[name].spritesheet[1].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
+		// right
+		entityDrawRules[name].spritesheet[0].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+32)]);
 	}
 });
 ["splitter", "fast-splitter", "express-splitter"].forEach(splitter => {
@@ -266,8 +285,7 @@ entityDrawRules["oil-refinery"] = {
 		spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.2"],
 	}, {
 		spritesheet: spritesheetJson.frames["images/factorio/entity/oil-refinery/oil-refinery.png.3"],
-	}
-	],
+	}],
 }
 // correct image size for the oil refinery frames (same for all of them on this one)
 entityDrawRules["oil-refinery"].spritesheet.forEach(object => {

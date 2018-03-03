@@ -372,7 +372,7 @@ function renderLoop(){
 	if(mousePosition && mousePosition.x){
 		// make a box around the mouse cursor
 		selectionCtx.beginPath();
-		selectionCtx.lineWidth = remoteMapConfig.tileSize / 8;
+		selectionCtx.lineWidth = remoteMapConfig.tileSize / 16;
 		selectionCtx.strokeStyle="yellow";
 		if(mousePosition.clicked) selectionCtx.strokeStyle = "red";
 		if(mousePosition.rightClicked) selectionCtx.strokeStyle = "blue";
@@ -415,7 +415,8 @@ function drawEntity(entity, dontCache){
 				entityImages[name].draw = function(entity){
 					if(this.loaded){
 						let name = entity.entity.name;
-						let image, sprWidth, sprHeight, offLeft, offTop, size, offsetX, offsetY
+						let image, sprWidth, sprHeight, offLeft, offTop, size, offsetX, offsetY;
+						let flipX = false, flipY = false;
 						let rotation = 0;
 						// check hardcoded entity draw rules for specifics (otherwise draw icon as 1x1 entity with rotation if specified)
 						if(entityDrawRules[name] && (entityDrawRules[name].positionOffset || entityDrawRules[name].spritesheet)){
@@ -431,24 +432,63 @@ function drawEntity(entity, dontCache){
 								};
 							}
 							if(rules.spritesheet && Array.isArray(rules.spritesheet)){
-								let dir = Number(entity.entity.rot);
-								// correct for whether we have 4 or 8 directions
-								let spriteSheetRotIndex = dir / (8 / rules.spritesheet.length);
-								
-								sprWidth = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.w;
-								sprHeight = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.h;
-								offLeft = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.x;
-								offTop = rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.y;
-								image = global.spritesheet;
-								if(rules.spritesheet[spriteSheetRotIndex].positionOffset){
-									offsetX = rules.spritesheet[spriteSheetRotIndex].positionOffset.x;
-									offsetY = rules.spritesheet[spriteSheetRotIndex].positionOffset.y;
-								}
-								if(rules.spritesheet[spriteSheetRotIndex].sizeInTiles){
-									size = {
-										x: remoteMapConfig.tileSize * rules.spritesheet[dir/2].sizeInTiles.x,
-										y: remoteMapConfig.tileSize * rules.spritesheet[dir/2].sizeInTiles.y,
-									};
+								let dir = Number(entity.entity.rot || 0);
+								// 2 animated sprites, we will need to flip it for rotations.
+								if(rules.spritesheet.length == 2){
+									let spritesheetAnim = dir / 2 % 2;
+									let animationStage = Math.floor(Date.now()/16) % rules.spritesheet[spritesheetAnim].spritesheet.length;
+									
+									try{
+									sprWidth =	rules.spritesheet[spritesheetAnim].spritesheet[animationStage].frame.w;
+									sprHeight =	rules.spritesheet[spritesheetAnim].spritesheet[animationStage].frame.h;
+									offLeft =	rules.spritesheet[spritesheetAnim].spritesheet[animationStage].frame.x;
+									offTop =	rules.spritesheet[spritesheetAnim].spritesheet[animationStage].frame.y;
+									} catch(e){
+										// console.log(name)
+										// console.log(rules.spritesheet[spritesheetAnim].spritesheet)
+									}
+									image = 	global.spritesheet;
+									
+									// handle rotation (not handled by generic handler because we have to do flips and special stuff)
+									if(dir == 4){
+										// rotation = (dir/2)*90
+										// console.log("rotating")
+										flipY = true;
+									} else if(dir == 6){
+										flipX = true;
+										// rotation = ((dir+2)/2)*90+180 // this formula is terrible, don't try to repair, there is no sense to it
+									}
+									
+									if(rules.spritesheet[spritesheetAnim].positionOffset){
+										offsetX = rules.spritesheet[spritesheetAnim].positionOffset.x;
+										offsetY = rules.spritesheet[spritesheetAnim].positionOffset.y;
+									}
+									if(rules.spritesheet[spritesheetAnim].sizeInTiles){
+										size = {
+											x: remoteMapConfig.tileSize * rules.spritesheet[spritesheetAnim].sizeInTiles.x,
+											y: remoteMapConfig.tileSize * rules.spritesheet[spritesheetAnim].sizeInTiles.y,
+										};
+									}
+								} else {
+									// correct for whether we have 4 or 8 directions
+									let spriteSheetRotIndex = dir / (8 / rules.spritesheet.length);
+									
+									sprWidth =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.w;
+									sprHeight =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.h;
+									offLeft =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.x;
+									offTop =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.y;
+									image =		global.spritesheet;
+									
+									if(rules.spritesheet[spriteSheetRotIndex].positionOffset){
+										offsetX = rules.spritesheet[spriteSheetRotIndex].positionOffset.x;
+										offsetY = rules.spritesheet[spriteSheetRotIndex].positionOffset.y;
+									}
+									if(rules.spritesheet[spriteSheetRotIndex].sizeInTiles){
+										size = {
+											x: remoteMapConfig.tileSize * rules.spritesheet[spriteSheetRotIndex].sizeInTiles.x,
+											y: remoteMapConfig.tileSize * rules.spritesheet[spriteSheetRotIndex].sizeInTiles.y,
+										};
+									}
 								}
 							} else if(rules.spritesheet){
 								sprWidth = rules.spritesheet.frame.w;
@@ -475,7 +515,7 @@ function drawEntity(entity, dontCache){
 						}
 						if(!image) image = entityImages[name].img;
 						// if(name == "oil-refinery") console.log(offsetX)
-						drawImageWithRotation(ctx, image, xPos, yPos, size.x, size.y, rotation%360, sprWidth, sprHeight, offLeft, offTop);
+						drawImageWithRotation(ctx, image, xPos, yPos, size.x, size.y, rotation%360, sprWidth, sprHeight, offLeft, offTop, flipX, flipY);
 						//console.log("Drawing "+name+" at X: "+xPos+", Y: "+yPos+" with with rotation "+rotation);
 					} else {
 						// we are waiting for the image to load, push the task to our queue. It will be processed once the image loads.
@@ -515,3 +555,4 @@ function clear(){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	selectionCtx.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
 }
+// setInterval(()=>console.log(entityDrawRules),5000);

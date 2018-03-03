@@ -55,11 +55,11 @@ class remoteMap {
 		this.socket.on("placeEntity", req => {
 			// game.player.surface.create_entity{name="small-ship-wreck", position={game.player.position.x-2, game.player.position.y+1}, direction=..., force=...}
 			console.log("placing "+JSON.stringify(req));
-			if(req.name && typeof req.name == "string" && req.position && Number(req.position.x) && Number(req.position.y)){
+			if(req.name && typeof req.name == "string" && req.position && !isNaN(Number(req.position.x)) && !isNaN(Number(req.position.y))){
 				if(req.name == "deleted"){ // {{'+req.position.x+','+req.position.y+'},{'+req.position.x+','+req.position.y+'}}
 					this.messageInterface('/silent-command local toDelete = game.surfaces[1].find_entities({{'+req.position.x+','+req.position.y+'},{'+(req.position.x+1)+','+(req.position.y+1)+'}}) for i, entity in pairs(toDelete) do entity.die() end');
 					// this position is now empty, delete whatever was there from DB
-					// this.deleteEntity(req.position.x, req.position.y);
+					this.deleteEntity(req.position.x, req.position.y);
 				} else {
 					let command = '/silent-command game.surfaces[1].create_entity{name="'+req.name+'", position={'+Number(req.position.x)+', '+Number(req.position.y)+'}, force="neutral"'
 					if(req.direction) command += ', direction='+req.direction;
