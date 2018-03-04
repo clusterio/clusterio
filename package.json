@@ -43,6 +43,7 @@
     "needle": "^1.1.0",
     "node-factorio-api": "^0.2.2",
     "node-forge": "^0.7.1",
+    "prom-client": "^10.2.3",
     "request": "^2.83.0",
     "right-pad": "^1.0.1",
     "rmdir-sync": "^1.0.1",
