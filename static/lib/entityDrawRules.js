@@ -147,7 +147,7 @@ for(let i = 1; i <= 3; i++){
 	// template3x3entity;
 };
 entityDrawRules["radar"] = {
-	spritesheet: spritesheetJson.frames["images/factorio/entity/radar/radar.png.22"],
+	spritesheet: [],
 	sizeInTiles: {
 		x:4,
 		y:4,
@@ -159,6 +159,7 @@ entityDrawRules["radar"] = {
 }
 for(let i = 0; i < 64; i++){
 	// animate the radar
+	entityDrawRules.radar.spritesheet.push({spritesheet: spritesheetJson.frames["images/factorio/entity/radar/radar.png."+i]});
 }
 ["beacon", "electric-furnace"].forEach(name => {
 	entityDrawRules[name] = template3x3entity;

@@ -494,9 +494,14 @@ function drawEntity(entity, dontCache){
 										};
 									}
 								} else {
-									// correct for whether we have 4 or 8 directions
+									// correct for whether we have 1, 4 or 8 directions
 									let spriteSheetRotIndex = dir / (8 / rules.spritesheet.length);
-									if(rules.spritesheet[spriteSheetRotIndex].spritesheet.length){
+									if(rules.spritesheet.length > 8) {
+										// apparently this entity has more than 8 directions. That isn't supported.
+										// therefore we can conclude that they are instead intended as animation frames.
+										// That is why we treat them as animation frames.
+										spriteSheetRotIndex = Math.floor(Date.now()/32) % rules.spritesheet.length;
+									} else if(rules.spritesheet[spriteSheetRotIndex].spritesheet.length){
 										var animationStage = Math.floor(Date.now()/16) % rules.spritesheet[spriteSheetRotIndex].spritesheet.length;
 										var usesAnimation = true;
 									} else {
