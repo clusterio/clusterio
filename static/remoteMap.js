@@ -12,6 +12,9 @@
 	That is way too much for one file, so to anyone reading this:
 	This file is horribly written and documented.
 	I am sorry. Drawing code is at the bottom, good luck.
+	
+	If you have questions and wish to contact me, my name
+	is Danielv123 on Github, Discord and esperNet #factorio
 */
 console.log(":)")
 /// ES6 imports
@@ -91,9 +94,14 @@ socket.on('hello', function (data) {
 		setInterval(()=>{
 			socket.emit("heartbeat"); // send our heartbeat to prevent being assumed dead
 		},10000);
+		// load important images then proceed with rendering (and loading more images)
 		global.spritesheet = new Image();
 		global.spritesheet.onload = function(){
-			requestMapDraw();
+			global.grassBackground = new Image();
+			global.grassBackground.onload = function(){
+				requestMapDraw();	
+			}
+			global.grassBackground.src = "/pictures/grass-1.png";
 		}
 		global.spritesheet.src = "/pictures/spritesheet.png";
 	});
@@ -119,15 +127,18 @@ function requestChunk(x,y){
 	});
 	["width", "height"].forEach(style => document.querySelector("#remoteMapContainer").style[style] = remoteMapConfig.tileSize * remoteMapConfig.mapSize + "px");
 })();
-const canvas = document.getElementById("remoteMap");
+const canvas = document.querySelector("#remoteMap");
 const ctx = canvas.getContext("2d");
 ctx.font = "30px Arial";
 ctx.fillText("Use WASD to navigate.",10,50);
 
-const selectionCanvas = document.getElementById("remoteMapSelection");
+const selectionCanvas = document.querySelector("#remoteMapSelection");
 const selectionCtx = selectionCanvas.getContext("2d");
 selectionCtx.font = "30px Arial";
 selectionCtx.fillText("Selection layer",10,50);
+
+const backgroundCanvas = document.querySelector("#remoteMapBackground");
+const backgroundCtx = backgroundCanvas.getContext("2d");
 // map view position, top left corner (or another corner?)
 window.playerPosition = {
 	x:0,
@@ -386,6 +397,19 @@ function renderLoop(){
 		selectionCtx.rect(tilePosition.x * tileSize - playerPosition.x, tilePosition.y * tileSize - playerPosition.y, tileSize, tileSize);
 		selectionCtx.stroke();
 	}
+	
+	// render background canvas
+	let dw = 1024 / 32 * remoteMapConfig.tileSize;
+	let dh = 64 / 32 * remoteMapConfig.tileSize;
+	
+	// 0-dw and x < ?? + dw is to make sure we draw well outside the canvas on both sides to avoid ugly gfx
+	for(let x = 0-dw; x < remoteMapConfig.tileSize * remoteMapConfig.mapSize + dw; x += dw){
+		for(let y = 0-dh; y < remoteMapConfig.tileSize * remoteMapConfig.mapSize + dh; y += dh){
+			let dx = x - playerPosition.x % dw;
+			let dy = y - playerPosition.y % dh;
+			backgroundCtx.drawImage(global.grassBackground, 0, 64, 1024, 64, dx, dy, dw, dh);
+		}
+	}
 }
 var entityImages = {}; // cache to store images and details about entities, populated by drawEntity();
 window.logEntCache = function(){console.log(entityCache)}
@@ -574,5 +598,6 @@ function drawEntity(entity, dontCache){
 function clear(){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	selectionCtx.clearRect(0, 0, selectionCanvas.width, selectionCanvas.height);
+	backgroundCtx.clearRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
 }
 // setInterval(()=>console.log(entityDrawRules),5000);
