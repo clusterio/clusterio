@@ -472,11 +472,26 @@ function drawEntity(entity, dontCache){
 								} else {
 									// correct for whether we have 4 or 8 directions
 									let spriteSheetRotIndex = dir / (8 / rules.spritesheet.length);
+									if(rules.spritesheet[spriteSheetRotIndex].spritesheet.length){
+										var animationStage = Math.floor(Date.now()/16) % rules.spritesheet[spriteSheetRotIndex].spritesheet.length;
+										var usesAnimation = true;
+									} else {
+										var usesAnimation = false;
+									}
 									
-									sprWidth =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.w;
-									sprHeight =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.h;
-									offLeft =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.x;
-									offTop =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.y;
+									if(usesAnimation){
+										try{
+										sprWidth =	rules.spritesheet[spriteSheetRotIndex].spritesheet[animationStage].frame.w;
+										sprHeight =	rules.spritesheet[spriteSheetRotIndex].spritesheet[animationStage].frame.h;
+										offLeft =	rules.spritesheet[spriteSheetRotIndex].spritesheet[animationStage].frame.x;
+										offTop =	rules.spritesheet[spriteSheetRotIndex].spritesheet[animationStage].frame.y;
+										}catch(e){} // TODO throws error due to yellow belt rendering
+									} else {
+										sprWidth =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.w;
+										sprHeight =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.h;
+										offLeft =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.x;
+										offTop =	rules.spritesheet[spriteSheetRotIndex].spritesheet.frame.y;
+									}
 									image =		global.spritesheet;
 									
 									if(rules.spritesheet[spriteSheetRotIndex].positionOffset){
@@ -488,6 +503,11 @@ function drawEntity(entity, dontCache){
 											x: remoteMapConfig.tileSize * rules.spritesheet[spriteSheetRotIndex].sizeInTiles.x,
 											y: remoteMapConfig.tileSize * rules.spritesheet[spriteSheetRotIndex].sizeInTiles.y,
 										};
+									}
+									if(rules.spritesheet[spriteSheetRotIndex].flip){
+										let flip = rules.spritesheet[spriteSheetRotIndex].flip;
+										if(flip == "x") flipX = true;
+										if(flip == "y") flipY = true;
 									}
 								}
 							} else if(rules.spritesheet){

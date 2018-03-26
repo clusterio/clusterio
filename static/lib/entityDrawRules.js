@@ -23,17 +23,6 @@ export var entityDrawRules = {
 			y:-2,
 		}
 	},
-	"radar": {
-		spritesheet: spritesheetJson.frames["images/factorio/entity/radar/radar.png.22"],
-		sizeInTiles: {
-			x:4,
-			y:4,
-		},
-		positionOffset: {
-			x:-0.8,
-			y:-1.7,
-		},
-	},
 	"centrifuge": {
 		spritesheet: spritesheetJson.frames["images/factorio/entity/centrifuge/centrifuge-A.png.0"],
 		sizeInTiles: {
@@ -157,6 +146,20 @@ for(let i = 1; i <= 3; i++){
 	}
 	// template3x3entity;
 };
+entityDrawRules["radar"] = {
+	spritesheet: spritesheetJson.frames["images/factorio/entity/radar/radar.png.22"],
+	sizeInTiles: {
+		x:4,
+		y:4,
+	},
+	positionOffset: {
+		x:-0.8,
+		y:-1.7,
+	},
+}
+for(let i = 0; i < 64; i++){
+	// animate the radar
+}
 ["beacon", "electric-furnace"].forEach(name => {
 	entityDrawRules[name] = template3x3entity;
 });
@@ -232,7 +235,7 @@ entityDrawRules["chemical-plant"] = {
 ["transport-belt", "fast-transport-belt", "express-transport-belt"].forEach(name => {
 	entityDrawRules[name] = {
 		spritesheet: [{
-			spritesheet: [ // vertical belts
+			spritesheet: [ // Up
 				// spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.0"], // 0 to 31
 			],
 			sizeInTiles: {
@@ -242,18 +245,44 @@ entityDrawRules["chemical-plant"] = {
 				x:-0.1,y:-0,
 			}
 		},{
-			spritesheet: [ // horizontal belts
+			spritesheet: [ // Right
+				// spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.0"], // 0 to 31
+			],
+			sizeInTiles: {
+				x:1.2,y:1.4,
+			},
+			positionOffset: {
+				x:-0.1,y:-0.2,
+			}
+		},{
+			spritesheet: [ // Down
 				// spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.27"], // 32 to 63
 			],
+			flip: "y",
 			sizeInTiles: {
 				x:1.3,y:1.6,
 			},
 			positionOffset: {
-				x:-0.15,y:-0.25,
+				x:-0.15,y:-1.6,
+			}
+		},{
+			spritesheet: [ // Left
+				// spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png.27"], // 32 to 63
+			],
+			flip: "x",
+			sizeInTiles: {
+				x:1.3,y:1.6,
+			},
+			positionOffset: {
+				x:-1.35,y:-0.25,
 			}
 		}],
 	}
 	for(let i = 0; i < 32; i++){
+		// down
+		entityDrawRules[name].spritesheet[3].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
+		// left
+		entityDrawRules[name].spritesheet[2].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+32)]);
 		// up
 		entityDrawRules[name].spritesheet[1].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
 		// right
