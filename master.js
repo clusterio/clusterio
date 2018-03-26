@@ -83,6 +83,11 @@ const prometheusConnectedInstancesCounter = new Prometheus.Gauge({
 	name: prometheusPrefix+'connected_instaces_gauge',
 	help: "How many instances are currently connected to this master server",
 });
+const prometheusWsUsageCounter = new Prometheus.Counter({
+	name: prometheusPrefix+'websocket_usage_counter',
+	help: 'Websocket traffic',
+	labelNames: ["connectionType"],
+});
 setInterval(()=>{
 	let numberOfActiveSlaves = 0;
 	for(let instance in slaves){
@@ -737,10 +742,12 @@ class mapRequester {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
+			prometheusWsUsageCounter.labels('heartbeat').inc();
 			// we aren't ready to die yet apparently
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("requestChunk", loc => {
+			prometheusWsUsageCounter.labels('requestChunk').inc();
 			loc.requesterID = this.requesterID;
 			let instanceID = loc.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
@@ -748,6 +755,7 @@ class mapRequester {
 			}
 		});
 		this.socket.on("requestEntity", req => {
+			prometheusWsUsageCounter.labels('requestEntity').inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
@@ -755,6 +763,7 @@ class mapRequester {
 			}
 		});
 		this.socket.on("placeEntity", req => {
+			prometheusWsUsageCounter.labels('placeEntity').inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID]){
@@ -772,9 +781,11 @@ class wsSlave {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
+			prometheusWsUsageCounter.labels('heartbeat').inc();
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("combinatorSignal", circuitFrameWithMeta => {
+			prometheusWsUsageCounter.labels('combinatorSignal').inc();
 			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object"){
 				Object.keys(wsSlaves).forEach(instanceID => {
 					wsSlaves[instanceID].socket.emit("processCombinatorSignal", circuitFrameWithMeta);
@@ -803,11 +814,13 @@ io.on('connection', function (socket) {
 	
 	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {
+		prometheusWsUsageCounter.labels('registerSlaveMapper').inc();
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
 		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
 	});
 	socket.on('registerMapRequester', function(data){
 		// data {instanceID:""}
+		prometheusWsUsageCounter.labels('registerMapRequester').inc();
 		let requesterID = Math.random().toString();
 		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
 		socket.emit("mapRequesterReady", true);
@@ -816,6 +829,7 @@ io.on('connection', function (socket) {
 	
 	/* Websockets for send and recieve combinators */
 	socket.on("registerSlave", function(data) {
+		prometheusWsUsageCounter.labels('registerSlave').inc();
 		if(data && data.instanceID){
 			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
 			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
