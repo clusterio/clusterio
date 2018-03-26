@@ -466,20 +466,25 @@ function instanceManagement() {
 					fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
 				}
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
+				console.log("Clusterio | Registered file subscription on "+instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
+				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
+				// run once in case a plugin wrote out information before the plugin loaded fully
+				fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
 				
-				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
+				// send file contents to plugin for processing
+				function fileChangeHandler(eventType, filename) {
 					// get array of lines in file
 					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
 					// if you found anything, reset the file
 					if (stuff[0]) {
 						fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
 					}
-					for (let i = 0; i < stuff.length; i++) {
-						if (stuff[i]) {
+					for(let i = 0; i < stuff.length; i++) {
+						if(stuff[i]) {
 							plugins[I].scriptOutput(stuff[i]);
 						}
 					}
-				});
+				}
 			}
 			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
 		} else if(pluginConfig.binary != "nodePackage"){
