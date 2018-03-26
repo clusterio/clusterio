@@ -279,15 +279,19 @@ entityDrawRules["chemical-plant"] = {
 			}
 		}],
 	}
-	for(let i = 0; i < 32; i++){
-		// down
-		entityDrawRules[name].spritesheet[3].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
-		// left
-		entityDrawRules[name].spritesheet[2].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+32)]);
-		// up
-		entityDrawRules[name].spritesheet[1].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
-		// right
-		entityDrawRules[name].spritesheet[0].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+32)]);
+	for(let i = 0; i < 16; i++){
+		if(name == "transport-belt"){
+			entityDrawRules[name].spritesheet[3].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
+			entityDrawRules[name].spritesheet[2].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+16)]);
+			entityDrawRules[name].spritesheet[1].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
+			entityDrawRules[name].spritesheet[0].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+16)]);
+			
+		} else {
+			entityDrawRules[name].spritesheet[3].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
+			entityDrawRules[name].spritesheet[2].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+32)]);
+			entityDrawRules[name].spritesheet[1].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+i]);
+			entityDrawRules[name].spritesheet[0].spritesheet.push(spritesheetJson.frames["images/factorio/entity/"+name+"/"+name+".png."+(i+32)]);
+		}
 	}
 });
 ["splitter", "fast-splitter", "express-splitter"].forEach(splitter => {
