@@ -20,7 +20,7 @@ console.log(":)")
 /// ES6 imports
 // rules for how entities are drawn (sizes, offset etc)
 import {entityDrawRules} from "./lib/entityDrawRules.js";
-import {getParameterByName, drawImageWithRotation} from "./lib/utility.js";
+import {getParameterByName, drawImageWithRotation, isImageOk} from "./lib/utility.js";
 import spritesheetJson from "./pictures/spritesheet.js";
 import {itemSelector} from "./remoteMap/itemSelection.js";
 var global = {};
@@ -407,7 +407,7 @@ function renderLoop(){
 		for(let y = 0-dh; y < remoteMapConfig.tileSize * remoteMapConfig.mapSize + dh; y += dh){
 			let dx = x - playerPosition.x % dw;
 			let dy = y - playerPosition.y % dh;
-			backgroundCtx.drawImage(global.grassBackground, 0, 64, 1024, 64, dx, dy, dw, dh);
+			if(global.grassBackground && isImageOk(global.grassBackground)) backgroundCtx.drawImage(global.grassBackground, 0, 64, 1024, 64, dx, dy, dw, dh);
 		}
 	}
 }
