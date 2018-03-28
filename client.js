@@ -16,7 +16,7 @@ const ioClient = require("socket.io-client");
 
 // internal libraries
 const objectOps = require("./lib/objectOps.js");
-const fileOps = require("./lib/fileOps.js");
+const fileOps = require("_app/fileOps");
 const stringUtils = require("./lib/stringUtils.js");
 const modManager = require("./lib/manager/modManager.js");
 const configManager = require("./lib/manager/configManager.js");
@@ -232,8 +232,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', instancedirectory + "/mods");
 	let instconf = {
-		"factorioPort": process.env.FACTORIOPORT | Math.floor(Math.random() * 65535),
-		"clientPort": process.env.RCONPORT | Math.floor(Math.random() * 65535),
+		"factorioPort": process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
+		"clientPort": process.env.RCONPORT || Math.floor(Math.random() * 65535),
 		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
 	console.log("Clusterio | Created instance with settings:")
