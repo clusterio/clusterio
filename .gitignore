@@ -37,6 +37,7 @@ package-lock.json
 mod_cache.json
 static/pictures/spritesheet.js
 static/pictures/spritesheet.png
+static/external
 
 # weird pattern to ignore sharedPlugins except not ignore some core modules
 !sharedPlugins/
