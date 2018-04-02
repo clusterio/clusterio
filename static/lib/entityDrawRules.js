@@ -118,7 +118,7 @@ export var entityDrawRules = {
 			x:-1,
 			y:-1,
 		}
-	}
+	},
 };
 let template3x3entity = {
 	sizeInTiles: {
@@ -332,4 +332,24 @@ entityDrawRules["oil-refinery"].spritesheet.forEach(object => {
 		y:-2.7,
 	}
 });
-
+// tree sizes
+["tree-02",
+"tree-02-red",
+"tree-03",
+"tree-04",
+"tree-05",
+"tree-07",
+"tree-09",
+"tree-09-brown",
+"tree-09-red"].forEach(tree => {
+	entityDrawRules[tree] = {
+		sizeInTiles: {
+			x: 3,
+			y: 4,
+		},
+		positionOffset: {
+			x: -0.6,
+			y: -2.6,
+		}
+	}
+});

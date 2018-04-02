@@ -13,8 +13,8 @@ class remoteMap {
 		// initialize chunk database
 		this.chunkMap = new chunkStore(this.config.unique, 64, "./database/chunkStore/");
 		this.chunkMap.onEntityChange(entity => {
-			this.messageInterface("Entity changed: ")
-			this.messageInterface(entity);
+			// this.messageInterface("Entity changed: ")
+			// this.messageInterface(entity);
 			// check valid coordinates (dunno what could go wrong, but can never be too sure)
 			if(entity && entity.x !== undefined && !isNaN(Number(entity.x)) && entity.y !== undefined && !isNaN(Number(entity.y))){
 				this.socket.emit("sendEntity", entity);
@@ -57,6 +57,7 @@ class remoteMap {
 			this.messageInterface("placing "+JSON.stringify(req));
 			if(req.name && typeof req.name == "string" && req.position && !isNaN(Number(req.position.x)) && !isNaN(Number(req.position.y))){
 				if(req.name == "deleted"){ // {{'+req.position.x+','+req.position.y+'},{'+req.position.x+','+req.position.y+'}}
+					// delete entity from game world using LUA command
 					this.messageInterface('/silent-command local toDelete = game.surfaces[1].find_entities({{'+req.position.x+','+req.position.y+'},{'+(req.position.x+1)+','+(req.position.y+1)+'}}) for i, entity in pairs(toDelete) do entity.die() end');
 					// this position is now empty, delete whatever was there from DB
 					this.deleteEntity(req.position.x, req.position.y);
@@ -87,7 +88,7 @@ class remoteMap {
 	deleteEntity(x,y){ // remove entity from database
 		// this position is now empty, delete whatever was there from DB
 		this.chunkMap.setEntity(x, y, "delete this entity").then(() => {
-			this.messageInterface("Deleted data "+x+", "+y);
+			this.messageInterface("Deleted entity at "+x+", "+y);
 		}).catch((err)=>this.messageInterface(err));
 	}
 	scriptOutput(data){
