@@ -473,15 +473,17 @@ function instanceManagement() {
 				
 				// send file contents to plugin for processing
 				function fileChangeHandler(eventType, filename) {
-					// get array of lines in file
-					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
-					// if you found anything, reset the file
-					if (stuff[0]) {
-						fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
-					}
-					for(let i = 0; i < stuff.length; i++) {
-						if(stuff[i]) {
-							plugins[I].scriptOutput(stuff[i]);
+					if(filename != null){
+						// get array of lines in file
+						let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+						// if you found anything, reset the file
+						if (stuff[0]) {
+							fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+						}
+						for(let i = 0; i < stuff.length; i++) {
+							if(stuff[i]) {
+								plugins[I].scriptOutput(stuff[i]);
+							}
 						}
 					}
 				}
