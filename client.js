@@ -605,9 +605,9 @@ function instanceManagement() {
 					}
 				}
 				if(global.mac){
-					getMac(callback);
-				} else {
 					callback(undefined, global.mac);
+				} else {
+					getMac(callback);
 				}
 			},1000)});
 		}
@@ -892,7 +892,7 @@ function instanceManagement() {
 // returns [{modName:string,hash:string}, ... ]
 function hashMods(instanceName, callback) {
 	if(!callback) {
-		throw "ERROR in function hashMods NO CALLBACK"
+		throw new Error("ERROR in function hashMods NO CALLBACK");
 	}
 	function callback2(hash, modName){
 		hashedMods[hashedMods.length] = {
@@ -900,22 +900,23 @@ function hashMods(instanceName, callback) {
 			hash: hash,
 		}
 		// check if this callback has ran once for each mod
-		if(hashedMods.length == /*mods.length*/ + instanceMods.length) {
+		if(hashedMods.length == instanceMods.length) {
 			callback(hashedMods);
 		}
 		//console.log(modname);
 	}
 	let hashedMods = [];
-	var i = 0;
 	/*let mods = fs.readdirSync("./sharedMods/")*/
 	let instanceMods = fs.readdirSync("./instances/"+instanceName+"/mods/");
-	
-	for(o=0;o<instanceMods.length;o++) {
+	if(instanceMods.length == 0){
+		callback({}); // there are no mods installed, return an empty object
+	}
+	for(let o=0;o<instanceMods.length;o++) {
 		if(path.extname(instanceMods[o]) != ".zip") {
-			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array
+			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array, we can't hash unzipped mods
 		}
 	}
-	for(i=0; i<instanceMods.length; i++){
+	for(let i=0; i<instanceMods.length; i++){
 		let path = "./instances/"+instanceName+"/mods/"+instanceMods[i];
 		let name = instanceMods[i];
 		let options = {
