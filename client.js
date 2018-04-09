@@ -806,7 +806,7 @@ function instanceManagement() {
 			messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
 			sadas = null;
 		}
-	}, 3000);
+	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
 	// get inventory from Master and RCON it to our slave
 	setInterval(function () {
