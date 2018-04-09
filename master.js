@@ -98,7 +98,10 @@ setInterval(()=>{
 	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
 },10000);
 /**
-Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
+GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
+@memberof clusterioMaster
+@instance
+@alias /metrics
 */
 app.get('/metrics', (req, res) => {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -187,8 +190,12 @@ process.on('SIGINT', function () {
 	process.exit(2);
 });
 
-// world ID management
-// slaves post here to tell the server they exist
+/**
+POST World ID management. Slaves post here to tell the server they exist
+@memberof clusterioMaster
+@instance
+@alias /api/getID
+*/
 app.post("/api/getID", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -212,7 +219,12 @@ app.post("/api/getID", function(req,res) {
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
-
+/**
+POST Allows you to add metadata related to slaves for other tools, like owner data, descriptions or statistics.
+@memberof clusterioMaster
+@instance
+@alias /api/editSlaveMeta
+*/
 app.post("/api/editSlaveMeta", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -233,8 +245,12 @@ app.post("/api/editSlaveMeta", function(req,res) {
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
-// mod management
-// should handle uploading and checking if mods are uploaded
+/**
+POST Check if a mod has been uploaded to the master before. Only checks against filename, not hash.
+@memberof clusterioMaster
+@instance
+@alias /api/checkMod
+*/
 app.post("/api/checkMod", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -254,6 +270,12 @@ app.post("/api/checkMod", function(req,res) {
 	res.end();
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
+/**
+POST endpoint for uploading mods to the master server. Required for automatic mod downloads with factorioClusterioClient (electron app, see seperate repo)
+@memberof clusterioMaster
+@instance
+@alias /api/uploadMod
+*/
 app.post("/api/uploadMod", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -273,7 +295,12 @@ app.post("/api/uploadMod", function(req,res) {
 		});
 	}
 });
-// endpoint for getting information about all our slaves
+/**
+GET endpoint for getting information about all our slaves
+@memberof clusterioMaster
+@instance
+@alias /api/slaves
+*/
 app.get("/api/slaves", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -694,7 +721,7 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 @instance
 @alias api/runCommand
 @param {object} JSON {instanceID:19412312, command:"/c game.print('hello')"}
-@returns {object} Status {auth: bool, message: "Informative error"}
+@returns {object} Status {auth: bool, message: "Informative error", data:{}}
 */
 // write an auth token to file
 fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
