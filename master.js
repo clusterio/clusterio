@@ -246,6 +246,12 @@ app.post("/api/editSlaveMeta", function(req,res) {
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
+/**
+POST Get metadata from a single slave. For whenever you find the data returned by /api/slaves overkill.
+@memberof clusterioMaster
+@instance
+@alias /api/getSlaveMeta
+*/
 app.post("/api/getSlaveMeta", function (req, res) {
 	console.log("body", req.body);
     if(req.body && req.body.instanceID && req.body.password){
@@ -256,7 +262,13 @@ app.post("/api/getSlaveMeta", function (req, res) {
     	res.send('{"INVALID REQUEST":1}');
 	}
 });
-
+// TODO: Remove deprecated function, also update researchSync to not use it
+/**
+POST DEPRECATED Get metadata from all slaves. This is already covered by /api/slaves, please use that one instead.
+@memberof clusterioMaster
+@instance
+@alias /api/getSlavesMeta
+*/
 app.post("/api/getSlavesMeta", function (req, res) {
     if(req.body.password){
     	let metas = {};
