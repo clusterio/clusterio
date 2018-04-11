@@ -169,7 +169,7 @@ $.getJSON("/api/getFactorioLocale", (locale) => {
 // image data
 // key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
 // this list has to include all entities that doesn't just follow the simple capitalize first letter convention
-/* Notice: All icon images hosted on this Wiki have been renamed to use their in-game names, with underscores. If your external tool references these icons, please correct your links. */
+/* Notice from bilka: All icon images hosted on this Wiki have been renamed to use their in-game names, with underscores. If your external tool references these icons, please correct your links. */
 var imagedata = {
 	"put-combinator": "Decider_combinator",
 	"smart-train-stop": "Train_stop",
@@ -177,6 +177,19 @@ var imagedata = {
 	"solar-panel-equipment": "Portable_solar_panel",
 	"diesel-locomotive": "Locomotive", // pre 0.15 loco name
 	"small-lamp": "Lamp",
+	"tree-02": "Green_tree",
+	"tree-02-red": "Green_tree",
+	"tree-03": "Green_tree",
+	"tree-04": "Green_tree",
+	"tree-05": "Green_tree",
+	"tree-07": "Green_tree",
+	"tree-09": "Green_tree",
+	"tree-09-brown": "Green_tree",
+	"tree-09-red": "Green_tree",
+	"dead-tree-desert": "Dead_tree_desert",
+	"sand-rock-big": "Rock_big",
+	// "biter-spawner" missing, but can't find png for it on wiki
+	// "spitter-spawner"
 	
 }
 
@@ -199,6 +212,5 @@ var imagelinks = {
 	"piercing-shotgun-shell": "/pictures/piercing_shotgun_shells.png",
 	"energy-shield-mk2-equipment": "/pictures/Energy_shield_MK2.png",
 	"battery-mk2-equipment": "/pictures/Battery_MK2.png",
-	"personal-roboport-mk2-equipment": "/pictures/Personal_roboport_MK2.png"
-	
+	"personal-roboport-mk2-equipment": "/pictures/Personal_roboport_MK2.png",
 }

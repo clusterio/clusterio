@@ -22,22 +22,33 @@
 -- DEALINGS IN THE SOFTWARE.
 
 function write_file(data)
-	if must_write_initstuff then
-		must_write_initstuff = false
-		writeout_initial_stuff()
-	end
-
-	game.write_file("remoteMap.txt", data, true)
+	stringsToWriteNextTick = stringsToWriteNextTick .. data .. '\n'
+	-- game.write_file("remoteMap.txt", data, true)
 end
+
+function dump_cached_writes()
+	game.write_file("remoteMap.txt", stringsToWriteNextTick, true)
+end
+
 function complain(text)
-	print(text)
-	game.forces["player"].print(text)
+	if false then -- only print during development
+		print(text)
+		game.forces["player"].print(text)
+	end
 end
 
 local todo_next_tick = {}
+must_write_initstuff = true
 function on_tick(event)
+	dump_cached_writes()
+	stringsToWriteNextTick = ''
+	if must_write_initstuff then
+		must_write_initstuff = false
+		log("I must write init stuff!")
+		writeout_initial_stuff()
+	end
 	if #todo_next_tick > 0 then
-		print("on_tick executing "..#todo_next_tick.." stored callbacks")
+		complain("on_tick executing "..#todo_next_tick.." stored callbacks")
 		for _,func in ipairs(todo_next_tick) do
 			func()
 		end
@@ -45,26 +56,50 @@ function on_tick(event)
 	end
 end
 
+function writeout_initial_stuff()
+	log("Writing out initial stuff...")
+	writeout_objects(game.surfaces['nauvis'], {left_top={x=-64,y=-64},right_bottom={x=64,y=64}})
+end
 
 function writeout_objects(surface, area)
 	--if my_client_id ~= 1 then return end
-	header = "objects "..area.left_top.x..","..area.left_top.y..";"..area.right_bottom.x..","..area.right_bottom.y..": "
-	line = ''
 	for idx, ent in pairs(surface.find_entities(area)) do
 		if area.left_top.x <= ent.position.x and ent.position.x < area.right_bottom.x and area.left_top.y <= ent.position.y and ent.position.y < area.right_bottom.y then
 			if ent.prototype.collision_mask ~= nil and ent.prototype.collision_mask['player-layer'] then
-				line = line .. ent.name.." "..ent.position.x.." "..ent.position.y.."\n"
+				-- line = line .. ent.name.." "..ent.position.x.." "..ent.position.y.."\n"
+				-- local line = ent.name..","..ent.position.x..","..ent.position.y
+				-- if ent.supports_direction then
+					-- line = line .. ",rot="..ent.direction
+				-- end
+				-- write_file(line)
+				on_some_entity_created(nil, ent)
 			end
 		end
 	end
-	write_file(line)
 	--write_file(header..table.concat(lines,"").."\n")
 	--write_file(table.concat(lines,"").."\n")
-	line=nil
 end
+function on_chunk_generated(event)
+	local area = event.area
+	local surface = event.surface
+	--print("chunk generated at ("..area.left_top.x..","..area.left_top.y..") -- ("..area.right_bottom.x..","..area.right_bottom.y..")")
 
-function on_some_entity_created(event)
-	local ent = event.entity or event.created_entity or nil
+	if surface ~= game.surfaces['nauvis'] then -- we only support one surface
+		return
+	end
+
+	-- writeout_resources(surface, area)
+	writeout_objects(surface, area)
+	-- writeout_tiles(surface, area)
+end
+function on_some_entity_created(event, entp)
+	local ent
+	if entp then
+		ent = entp
+	else
+		ent = event.entity or event.created_entity or nil
+	end
+	
 	if ent == nil then
 		complain("wtf, on_some_entity_created has nil entity")
 		return
@@ -73,6 +108,7 @@ function on_some_entity_created(event)
 	if ent.supports_direction then
 		entityData = entityData .. ",rot="..ent.direction
 	end
+	-- log(entityData)
 	write_file(entityData)
 	--writeout_objects(ent.surface, {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}})
 	--complain("on_some_entity_created: "..ent.name.." at "..ent.position.x..","..ent.position.y)
@@ -95,12 +131,15 @@ function on_some_entity_deleted(event)
 end
 
 script.on_event(defines.events.on_tick, on_tick)
+script.on_event(defines.events.on_chunk_generated, on_chunk_generated)
 
 script.on_event(defines.events.on_biter_base_built, on_some_entity_created) --entity
 script.on_event(defines.events.on_built_entity, on_some_entity_created) --created_entity
 script.on_event(defines.events.on_robot_built_entity, on_some_entity_created) --created_entity
+script.on_event(defines.events.on_player_rotated_entity, on_some_entity_created) --created_entity
 
 script.on_event(defines.events.on_entity_died, on_some_entity_deleted) --entity
 script.on_event(defines.events.on_player_mined_entity, on_some_entity_deleted) --entity
 script.on_event(defines.events.on_robot_mined_entity, on_some_entity_deleted) --entity
 script.on_event(defines.events.on_resource_depleted, on_some_entity_deleted) --entity
+

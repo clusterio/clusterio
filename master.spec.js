@@ -35,6 +35,7 @@ describe('Master server endpoint testing', function() {
 	});
 	// describe("#GET /api/")
 	parallel("#GET static website data", function() {
+		this.timeout(6000);
 		it("sends some HTML when accessing /", function(done){
 			this.timeout(6000);
 			request(app).get("/").end(function(err,res){
@@ -80,7 +81,8 @@ describe('Master server endpoint testing', function() {
 			request(app).get("/remoteMap").end(function(err,res){
 				assert.equal(res.statusCode, 200);
 				validateHTML(res.text).then(result => {
-					assert(result.messages.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					// there should be 1 error regarding complaining about me using ES6 modules before they are fully supported
+					assert(result.messages.length === 1, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
 					done();
 				});
 			});

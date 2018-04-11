@@ -12,9 +12,11 @@ const _ = require('underscore');
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
+const ioClient = require("socket.io-client");
+
 // internal libraries
 const objectOps = require("./lib/objectOps.js");
-const fileOps = require("./lib/fileOps.js");
+const fileOps = require("_app/fileOps");
 const stringUtils = require("./lib/stringUtils.js");
 const modManager = require("./lib/manager/modManager.js");
 const configManager = require("./lib/manager/configManager.js");
@@ -77,7 +79,9 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js list");
 	console.error("node client.js delete [instance]");
 	console.error("To download the latest version of the Clusterio lua mod, do");
-	console.error("node client.js download");
+	console.error("node client.js manage shared mods download clusterio");
+	console.error("For more management options, do");
+	console.error("node client.js manage");
 	process.exit(1);
 } else if (command == "list") {
 	let instanceNames = fileOps.getDirectoriesSync("./instances/");
@@ -128,7 +132,7 @@ if (!command || command == "help" || command == "--help") {
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
-			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "update"]');
+			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove", "update"]');
 		} else if(tool && tool == "config") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
 		} else {
@@ -144,6 +148,10 @@ if (!command || command == "help" || command == "--help") {
 				modManager.listMods(instance);
 			} else if(action == "search"){
 				modManager.findMods(process.argv[6]);
+			} else if(action == "add" || action == "download"){
+				modManager.addMod(process.argv[6], instance);
+			} else if(action == "remove" || action == "rm" || action == "delete"){
+				modManager.removeMod(process.argv[6], instance);
 			} else if(action == "update"){
 				modManager.updateAllMods();
 			} else {
@@ -224,8 +232,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', instancedirectory + "/mods");
 	let instconf = {
-		"factorioPort": process.env.FACTORIOPORT | Math.floor(Math.random() * 65535),
-		"clientPort": process.env.RCONPORT | Math.floor(Math.random() * 65535),
+		"factorioPort": process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
+		"clientPort": process.env.RCONPORT || Math.floor(Math.random() * 65535),
 		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
 	console.log("Clusterio | Created instance with settings:")
@@ -409,6 +417,16 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 // ensure instancemanagement only ever runs once
 _.once(instanceManagement);
 function instanceManagement() {
+	/* Open websocket connection to master */
+	var socket = ioClient("http://"+config.masterIP+":"+config.masterPort);
+	socket.on("hello", data => {
+		console.log("SOCKET | registering slave!");
+		socket.emit("registerSlave", {
+			instanceID: instanceconfig.unique,
+		});
+		setInterval(B=> socket.emit("heartbeat"), 10000);
+	});
+	
 	console.log("Started instanceManagement();");
 	// load plugins and execute onLoad event
 	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
@@ -448,21 +466,27 @@ function instanceManagement() {
 					fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
 				}
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
+				console.log("Clusterio | Registered file subscription on "+instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
+				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
+				// run once in case a plugin wrote out information before the plugin loaded fully
+				fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
 				
-				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
-					if (filename == null) return;
-					// get array of lines in file
-					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
-					// if you found anything, reset the file
-					if (stuff[0]) {
-						fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
-					}
-					for (let i = 0; i < stuff.length; i++) {
-						if (stuff[i]) {
-							plugins[I].scriptOutput(stuff[i]);
+				// send file contents to plugin for processing
+				function fileChangeHandler(eventType, filename) {
+					if(filename != null){
+						// get array of lines in file
+						let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+						// if you found anything, reset the file
+						if (stuff[0]) {
+							fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+						}
+						for(let i = 0; i < stuff.length; i++) {
+							if(stuff[i]) {
+								plugins[I].scriptOutput(stuff[i]);
+							}
 						}
 					}
-				});
+				}
 			}
 			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
 		} else if(pluginConfig.binary != "nodePackage"){
@@ -565,7 +589,8 @@ function instanceManagement() {
 					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
 				}
-				getMac(function (err, mac) {
+				
+				function callback(err, mac) {
 					if (err) {
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
 					} else {
@@ -581,7 +606,12 @@ function instanceManagement() {
 							}
 						});
 					}
-				});
+				}
+				if(global.mac){
+					callback(undefined, global.mac);
+				} else {
+					getMac(callback);
+				}
 			},1000)});
 		}
 	});
@@ -777,7 +807,7 @@ function instanceManagement() {
 			messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
 			sadas = null;
 		}
-	}, 3000);
+	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
 	// get inventory from Master and RCON it to our slave
 	setInterval(function () {
@@ -786,6 +816,7 @@ function instanceManagement() {
 				console.log("Unable to get JSON master/api/inventory, master might be unaccessible");
 			} else if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
+				if(Buffer.isBuffer(response.body)) {console.log(response.body.toString("utf-8")); throw new Error();} // We are probably contacting the wrong webserver
 				try {
 					var inventory = JSON.parse(response.body);
 				} catch (e){
@@ -804,63 +835,67 @@ function instanceManagement() {
 			}
 		});
 	}, 1000);
-	// REMOTE SIGNALLING
-	// send any signals the slave has been told to send
-	setInterval(function () {
-		// Fetch combinator signals from the server
-		needle.post(config.masterIP + ":" + config.masterPort + '/api/readSignal', {
-			since: lastSignalCheck
-		}, function (err, response, body) {
-			if (response && response.body) {
-				if(typeof response.body == "string") response.body = JSON.parse(response.body);
-				// Take the new combinator frames and compress them so we can use a single command
-				let frameset = [];
-				for (let i = 0; i < response.body.length; i++) {
-					frameset[i] = response.body[i].frame;
-				}
-				// console.log(frameset);
-				// Send all our compressed frames
-				messageInterface("/silent-command remote.call('clusterio', 'receiveMany', '" + JSON.stringify(frameset) + "')");
-			}
-		});
-		// after fetching all the latest frames, we take a timestamp. During the next iteration, we fetch all frames submitted after this.
-		lastSignalCheck = Date.now();
-
-		// get outbound frames from file and send to master
-		// get array of lines in file, each line should correspond to a JSON encoded frame
-		let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
-		// if we actually got anything from the file, proceed and reset file
-		if (signals[0]) {
-			fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-			// loop through all our frames
-			for (let i = 0; i < signals.length; i++) {
-				(function (i) {
-					if (signals[i]) {
-						// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
-						// then we unpack and RCON in this.frame to the game later.
-						let framepart = JSON.parse(signals[i]);
-						let doneframe = {
-								time: Date.now(),
-								frame: framepart, // thats our array of objects(single signals);
-							}
-							// console.log(doneframe);
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/setSignal', doneframe, function (err, response, body) {
-							if (response && response.body) {
-								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-							}
-						});
-					}
-				})(i);
-			}
+	// Make sure world has its worldID
+	setTimeout(function(){
+		messageInterface("/silent-command remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")
+	}, 20000);
+	/* REMOTE SIGNALLING
+	 * send any signals the slave has been told to send
+	 * Fetch combinator signals from the server
+	*/
+	socket.on("processCombinatorSignal", circuitFrameWithMeta => {
+		if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object" && circuitFrameWithMeta.frame && Array.isArray(circuitFrameWithMeta.frame)){
+			messageInterface("/silent-command remote.call('clusterio', 'receiveFrame', '"+JSON.stringify(circuitFrameWithMeta.frame)+"')");
 		}
-	}, 1000);
+	});
+	// get outbound frames from file and send to master
+	// get array of lines in file, each line should correspond to a JSON encoded frame
+	let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
+	// if we actually got anything from the file, proceed and reset file
+	let readingTxBufferSoon = false;
+	let txBufferClearCounter = 0;
+	fs.watch(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (eventType, filename) => {
+		if(!readingTxBufferSoon){ // use a 100ms delay to avoid messing with rapid sequential writes from factorio (I think that might be a problem maybe?)
+			readingTxBufferSoon = true;
+			setTimeout(()=>{
+				txBufferClearCounter++;
+				fs.readFile(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (err, signals) => {
+					signals = signals.split("\n");
+					if (signals[0]) {
+						//if(txBufferClearCounter > 500){
+							fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
+						//	txBufferClearCounter = 0;
+						//}
+						
+						// loop through all our frames
+						for (let i = 0; i < signals.length; i++) {
+							if (signals[i] && objectOps.isJSON(signals[i])) {
+								// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
+								// then we unpack and RCON in this.frame to the game later.
+								let framepart = JSON.parse(signals[i]);
+								let doneframe = {
+									time: Date.now(),
+									frame: framepart, // thats our array of objects(single signals);
+								}
+								// send to master using socket.io, opened at the top of instanceManagement()
+								socket.emit("combinatorSignal", doneframe);
+							} else {
+								// console.log("Invalid jsony: "+typeof signals[i])
+							}
+						}
+					}
+				});
+				readingTxBufferSoon = false;
+			},100);
+		}
+	});
 } // END OF INSTANCE START ---------------------------------------------------------------------
 
 // string, function
 // returns [{modName:string,hash:string}, ... ]
 function hashMods(instanceName, callback) {
 	if(!callback) {
-		throw "ERROR in function hashMods NO CALLBACK"
+		throw new Error("ERROR in function hashMods NO CALLBACK");
 	}
 	function callback2(hash, modName){
 		hashedMods[hashedMods.length] = {
@@ -868,22 +903,23 @@ function hashMods(instanceName, callback) {
 			hash: hash,
 		}
 		// check if this callback has ran once for each mod
-		if(hashedMods.length == /*mods.length*/ + instanceMods.length) {
+		if(hashedMods.length == instanceMods.length) {
 			callback(hashedMods);
 		}
 		//console.log(modname);
 	}
 	let hashedMods = [];
-	var i = 0;
 	/*let mods = fs.readdirSync("./sharedMods/")*/
 	let instanceMods = fs.readdirSync("./instances/"+instanceName+"/mods/");
-	
-	for(o=0;o<instanceMods.length;o++) {
+	if(instanceMods.length == 0){
+		callback({}); // there are no mods installed, return an empty object
+	}
+	for(let o=0;o<instanceMods.length;o++) {
 		if(path.extname(instanceMods[o]) != ".zip") {
-			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array
+			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array, we can't hash unzipped mods
 		}
 	}
-	for(i=0; i<instanceMods.length; i++){
+	for(let i=0; i<instanceMods.length; i++){
 		let path = "./instances/"+instanceName+"/mods/"+instanceMods[i];
 		let name = instanceMods[i];
 		let options = {

@@ -63,6 +63,49 @@ app.use(express.static('static'));
 // mod downloads
 app.use(express.static(masterModFolder));
 
+// set up logging software
+const prometheusPrefix = "clusterio_";
+const Prometheus = require('prom-client');
+Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
+const httpRequestDurationMilliseconds = new Prometheus.Histogram({
+  name: prometheusPrefix+'http_request_duration_ms',
+  help: 'Duration of HTTP requests in ms',
+  labelNames: ['route'],
+  // buckets for response time from 0.1ms to 500ms
+  buckets: [0.10, 5, 15, 50, 100, 200, 300, 400, 500]
+});
+const endpointHitCounter = new Prometheus.Gauge({
+	name: prometheusPrefix+'endpoint_hit_gauge',
+	help: "How many requests a particular endpoint has gotten",
+	labelNames: ['route'],
+});
+const prometheusConnectedInstancesCounter = new Prometheus.Gauge({
+	name: prometheusPrefix+'connected_instaces_gauge',
+	help: "How many instances are currently connected to this master server",
+});
+const prometheusWsUsageCounter = new Prometheus.Counter({
+	name: prometheusPrefix+'websocket_usage_counter',
+	help: 'Websocket traffic',
+	labelNames: ["connectionType"],
+});
+setInterval(()=>{
+	let numberOfActiveSlaves = 0;
+	for(let instance in slaves){
+		if(Date.now() - Number(slaves[instance].time) < 1000 * 30) numberOfActiveSlaves++;
+	}
+	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
+},10000);
+/**
+Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
+*/
+app.get('/metrics', (req, res) => {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
+	res.set('Content-Type', Prometheus.register.contentType);
+	res.end(Prometheus.register.metrics());
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
+});
+
 // set up database
 var Datastore = require('nedb');
 db = {};
@@ -145,6 +188,8 @@ process.on('SIGINT', function () {
 // world ID management
 // slaves post here to tell the server they exist
 app.post("/api/getID", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	// request.body should be an object
 	// {rconPort, rconPassword, serverPort, mac, time}
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
@@ -163,9 +208,12 @@ app.post("/api/getID", function(req,res) {
 		}
 		console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
 	}
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 app.post("/api/editSlaveMeta", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	// request.body should be an object
 	// {instanceID, pass, meta:{x,y,z}}
 	
@@ -181,6 +229,7 @@ app.post("/api/editSlaveMeta", function(req,res) {
 			res.send("ERROR: Invalid instanceID or password")
 		}
 	}
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 app.post("/api/getSlaveMeta", function (req, res) {
@@ -206,6 +255,8 @@ app.post("/api/getSlavesMeta", function (req, res) {
 // mod management
 // should handle uploading and checking if mods are uploaded
 app.post("/api/checkMod", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	let files = fs.readdirSync(masterModFolder);
 	let found = false;
 	files.forEach(file => {
@@ -220,25 +271,31 @@ app.post("/api/checkMod", function(req,res) {
 		res.send("found");
 	}
 	res.end();
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 app.post("/api/uploadMod", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	if (!req.files) {
         res.send('No files were uploaded.');
         return;
     } else {
 		console.log(req.files.file);
 		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
-		if (err) {
-			res.status(500).send(err);
-		} else {
-			res.send('File uploaded!');
-			console.log("Uploaded mod: " + req.files.file.name);
-		}
-	});
+			if (err) {
+				res.status(500).send(err);
+			} else {
+				res.send('File uploaded!');
+				console.log("Uploaded mod: " + req.files.file.name);
+			}
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
+		});
 	}
 });
 // endpoint for getting information about all our slaves
 app.get("/api/slaves", function(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
@@ -247,6 +304,7 @@ app.get("/api/slaves", function(req, res) {
 		copyOfSlaves[key].rconPassword = "hidden";
 	}
 	res.send(copyOfSlaves);
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 var recievedItemStatisticsBySlaveID = {};
 var sentItemStatisticsBySlaveID = {};
@@ -268,6 +326,8 @@ POST endpoint for storing items in master's inventory.
 @returns {string} status either "success" or "failure"
 */
 app.post("/api/place", function(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	let x;
@@ -318,6 +378,7 @@ app.post("/api/place", function(req, res) {
 	} else {
 		res.send("failure");
 	}
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 /**
 POST endpoint to remove items from DB when client orders items.
@@ -332,6 +393,8 @@ POST endpoint to remove items from DB when client orders items.
 */
 _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", function(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
 	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
 	res.header("Access-Control-Allow-Origin", "*");
@@ -382,10 +445,12 @@ app.post("/api/remove", function(req, res) {
 				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 			}
 			res.send({count: object.count, name: object.name});
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		} else {
 			// if we didn't have enough, attempt giving out a smaller amount next time
 			_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
 			res.send({name:object.name, count:0});
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 			//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
 		}
 	}
@@ -403,8 +468,11 @@ Gives no response
 @param {number} circuitFrame.time
 */
 app.post("/api/setSignal", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.time){
 		db.signals.insert(req.body);
+		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		// console.log("signal set");
 	}
 });
@@ -417,12 +485,15 @@ POST endpoint to read database of circuit signals sent to master
 @returns {object} circuitFrame
 */
 app.post("/api/readSignal", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	// request.body should be an object
 	// {since:UNIXTIMESTAMP,}
 	// we should send an array of all signals since then
 	db.signals.find({time:{$gte: req.body.since}}, function (err, docs) {
 		// $gte means greater than or equal to, meaning we only get entries newer than the timestamp
 		res.send(docs);
+		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		// console.log(docs);
 	});
 });
@@ -436,6 +507,8 @@ GET endpoint to read the masters current inventory of items.
 */
 // endpoint for getting an inventory of what we got
 app.get("/api/inventory", function(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
@@ -446,6 +519,7 @@ app.get("/api/inventory", function(req, res) {
 		}
 	}
 	res.send(JSON.stringify(inventory));
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 /**
 GET endpoint to read the masters inventory as an object with key:value pairs
@@ -456,10 +530,13 @@ GET endpoint to read the masters inventory as an object with key:value pairs
 @returns {object} JSON {"iron-plate":100, "copper-plate":5}
 */
 app.get("/api/inventoryAsObject", function(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
 	res.send(JSON.stringify(db.items));
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 // post flowstats here for production graphs
@@ -476,6 +553,8 @@ course the timeSeries data.
 @returns {string} failure
 */
 app.post("/api/logStats", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
 		if(Number(req.body.timestamp) != NaN){
 			req.body.timestamp = Number(req.body.timestamp);
@@ -492,6 +571,7 @@ app.post("/api/logStats", function(req,res) {
 	} else {
 		res.send("failure");
 	}
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 // {instanceID: string, fromTime: Date, toTime, Date}
 /**
@@ -505,6 +585,8 @@ graphs and other IO statistics.
 @returns {object} - with statistics
 */
 app.post("/api/getStats", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	if(typeof req.body == "string"){
 		req.body = JSON.parse(req.body);
 	}
@@ -563,6 +645,7 @@ app.post("/api/getStats", function(req,res) {
 			}
 		}
 	}
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 /**
@@ -578,6 +661,8 @@ making up about 92% of the response body weight.)
 @returns {object[]} timeseries where each entry is a set point in time.
 */
 app.post("/api/getTimelineStats", function(req,res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	console.log(req.body);
 	if(typeof req.body == "object" && req.body.instanceID) {
 		// if not specified, get stats for last 24 hours
@@ -616,6 +701,7 @@ app.post("/api/getTimelineStats", function(req,res) {
 			});
 			
 			res.send(docs);
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		});
 	}
 });
@@ -628,9 +714,13 @@ GET endpoint. Returns factorio's base locale as a JSON object.
 @returns {object{}} 2 deep nested object with base game factorio locale as key:value pairs
 */
 app.get("/api/getFactorioLocale", function(req,res){
-	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => res.send(factorioLocale));
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
+	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => {
+		res.send(factorioLocale);
+		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
+	});
 });
-
 var server = require("http").Server(app);
 server.listen(config.masterPort || 8080, function () {
 	console.log("Listening on port %s...", server.address().port);
@@ -673,53 +763,100 @@ class mapRequester {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
+			prometheusWsUsageCounter.labels('heartbeat').inc();
 			// we aren't ready to die yet apparently
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("requestChunk", loc => {
+			prometheusWsUsageCounter.labels('requestChunk').inc();
 			loc.requesterID = this.requesterID;
 			let instanceID = loc.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
-				slaveMappers[instanceID].socket.emit("getChunk", loc)
+				slaveMappers[instanceID].socket.emit("getChunk", loc);
 			}
 		});
 		this.socket.on("requestEntity", req => {
+			prometheusWsUsageCounter.labels('requestEntity').inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
-				slaveMappers[instanceID].socket.emit("getEntity", req)
+				slaveMappers[instanceID].socket.emit("getEntity", req);
+			}
+		});
+		this.socket.on("placeEntity", req => {
+			prometheusWsUsageCounter.labels('placeEntity').inc();
+			req.requesterID = this.requesterID;
+			let instanceID = req.instanceID || this.instanceID;
+			if(slaveMappers[instanceID]){
+				slaveMappers[instanceID].socket.emit("placeEntity", req);
+			}
+		});
+	}
+}
+/* Websockets for send and recieve combinators */
+var wsSlaves = {};
+class wsSlave {
+	constructor(instanceID, socket){
+		this.instanceID = instanceID;
+		this.socket = socket;
+		this.lastBeat = Date.now();
+		
+		this.socket.on("heartbeat", () => {
+			prometheusWsUsageCounter.labels('heartbeat').inc();
+			this.lastBeat = Date.now();
+		});
+		this.socket.on("combinatorSignal", circuitFrameWithMeta => {
+			prometheusWsUsageCounter.labels('combinatorSignal').inc();
+			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object"){
+				Object.keys(wsSlaves).forEach(instanceID => {
+					wsSlaves[instanceID].socket.emit("processCombinatorSignal", circuitFrameWithMeta);
+				});
 			}
 		});
 	}
 }
 io.on('connection', function (socket) {
 	// cleanup dead sockets from disconnected people
-	Object.keys(mapRequesters).forEach(requesterName => {
-		let requester = mapRequesters[requesterName];
-		if(requester.lastBeat < (Date.now() - 30000)){
-			console.log("remoteMap | There are currently "+Object.keys(mapRequesters).length+" map requesters, deleting one on timeout");
-			delete mapRequesters[requesterName]; // we have to use the full name here or we will only kill the pointer
-		}
+	let terminatedConnections = 0;
+	let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
+	[mapRequesters, slaveMappers, wsSlaves].forEach(list => {
+		Object.keys(list).forEach(connectionID => {
+			let connection = list[connectionID];
+			if(connection.lastBeat < (Date.now() - 30000)){
+				terminatedConnections++;
+				delete list[connectionID];
+			}
+		});
 	});
-	Object.keys(slaveMappers).forEach(mapperName => {
-		let mapper = slaveMappers[mapperName];
-		if(mapper.lastBeat < (Date.now() - 30000)){
-			console.log("remoteMap | There are currently "+Object.keys(slaveMappers).length+" mappers, deleting one on timeout");
-			delete slaveMappers[mapperName]; // we have to use the full name here or we will only kill the pointer
-		}
-	});
+	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
+	
+	// tell our friend that we are listening
 	socket.emit('hello', { hello: 'world' });
+	
+	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {
+		prometheusWsUsageCounter.labels('registerSlaveMapper').inc();
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
 		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
 	});
 	socket.on('registerMapRequester', function(data){
 		// data {instanceID:""}
+		prometheusWsUsageCounter.labels('registerMapRequester').inc();
 		let requesterID = Math.random().toString();
 		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
 		socket.emit("mapRequesterReady", true);
 		console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
 	});
+	
+	/* Websockets for send and recieve combinators */
+	socket.on("registerSlave", function(data) {
+		prometheusWsUsageCounter.labels('registerSlave').inc();
+		if(data && data.instanceID){
+			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
+			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
+		}
+	});
+	
 });
 
 module.exports = app;

@@ -19,12 +19,14 @@ setTimeout(function() {
 					
 					// detect  if remoteMap mod is installed, if it is we want to show the link for it
 					let hasRemoteMap = false;
-					slaveData[key].mods.forEach(mod => {
-						console.log(mod.modName);
-						if(mod.modName.includes("remoteMap")){
-							hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
-						}
-					});
+					if(slaveData[key].mods){ // not all instances have mods apparently
+						slaveData[key].mods.forEach(mod => {
+							console.log(mod.modName);
+							if(mod.modName.includes("remoteMap")){
+								hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
+							}
+						});
+					}
 					if(hasRemoteMap){
 						HTML += "<a href='/remoteMap?instanceID="+slaveData[key].unique+"'>Remote map</a>"
 					}
