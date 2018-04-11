@@ -445,7 +445,7 @@ function instanceManagement() {
 			global.subscribedFiles = {};
 		}
 		if(pluginConfig.binary == "nodePackage"){
-			// require index.js.main() of plugin and execute it as a function
+			// require index.js.main() of plugin and execute it as a class
 			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
 			plugins[I] = new pluginClass(combinedConfig, function(data){
 				if(data.toString('utf8')[0] != "/") {
@@ -453,6 +453,8 @@ function instanceManagement() {
 				} else {
 					messageInterface(data.toString('utf8'));
 				}
+			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
+				socket, // socket.io connection to master (and ES6 destructuring, yay)
 			});
 			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
 				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {

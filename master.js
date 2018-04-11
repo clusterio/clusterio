@@ -36,13 +36,15 @@ const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
-var nedb = require("nedb");
+const nedb = require("nedb");
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
-var express = require("express");
-var ejs = require("ejs");
+const express = require("express");
+const ejs = require("ejs");
 // Required for express post requests
-var bodyParser = require("body-parser");
-var fileUpload = require('express-fileupload');
+const bodyParser = require("body-parser");
+const fileUpload = require('express-fileupload');
 var app = express();
 
 app.use(bodyParser.json());
@@ -96,7 +98,10 @@ setInterval(()=>{
 	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
 },10000);
 /**
-Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
+GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
+@memberof clusterioMaster
+@instance
+@alias /metrics
 */
 app.get('/metrics', (req, res) => {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -185,8 +190,12 @@ process.on('SIGINT', function () {
 	process.exit(2);
 });
 
-// world ID management
-// slaves post here to tell the server they exist
+/**
+POST World ID management. Slaves post here to tell the server they exist
+@memberof clusterioMaster
+@instance
+@alias /api/getID
+*/
 app.post("/api/getID", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -210,7 +219,12 @@ app.post("/api/getID", function(req,res) {
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
-
+/**
+POST Allows you to add metadata related to slaves for other tools, like owner data, descriptions or statistics.
+@memberof clusterioMaster
+@instance
+@alias /api/editSlaveMeta
+*/
 app.post("/api/editSlaveMeta", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -254,6 +268,12 @@ app.post("/api/getSlavesMeta", function (req, res) {
 });
 // mod management
 // should handle uploading and checking if mods are uploaded
+/**
+POST Check if a mod has been uploaded to the master before. Only checks against filename, not hash.
+@memberof clusterioMaster
+@instance
+@alias /api/checkMod
+*/
 app.post("/api/checkMod", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -273,6 +293,12 @@ app.post("/api/checkMod", function(req,res) {
 	res.end();
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
+/**
+POST endpoint for uploading mods to the master server. Required for automatic mod downloads with factorioClusterioClient (electron app, see seperate repo)
+@memberof clusterioMaster
+@instance
+@alias /api/uploadMod
+*/
 app.post("/api/uploadMod", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -292,7 +318,12 @@ app.post("/api/uploadMod", function(req,res) {
 		});
 	}
 });
-// endpoint for getting information about all our slaves
+/**
+GET endpoint for getting information about all our slaves
+@memberof clusterioMaster
+@instance
+@alias /api/slaves
+*/
 app.get("/api/slaves", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -706,6 +737,43 @@ app.post("/api/getTimelineStats", function(req,res) {
 	}
 });
 /**
+POST endpoint for running commands on slaves.
+Requires x-access-token header to be set. Find you api token in secret-api-token.txt on the master (after running it once)
+
+@memberof clusterioMaster
+@instance
+@alias api/runCommand
+@param {object} JSON {instanceID:19412312, command:"/c game.print('hello')"}
+@returns {object} Status {auth: bool, message: "Informative error", data:{}}
+*/
+// write an auth token to file
+fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+	expiresIn: 86400*365 // expires in 1 year
+}));
+app.post("/api/runCommand", (req,res) => {
+	var token = req.headers['x-access-token'];
+	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
+	
+	jwt.verify(token, config.masterAuthSecret, function(err, decoded) {
+		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+		
+		// validate request.body
+		let body = req.body;
+		if(body.instanceID
+		&& Object.keys(wsSlaves).includes(body.instanceID)
+		&& body.command
+		&& typeof body.command == "string"
+		&& body.command[0] == "/"){
+			// execute command
+			wsSlaves[body.instanceID].runCommand(body.command, data => {
+				res.status(200).send({auth: true, message: "success", data});
+			});
+		} else {
+			res.status(400).send({auth: true, message: "Error: invalid request.body"});
+		}
+	});
+});
+/**
 GET endpoint. Returns factorio's base locale as a JSON object.
 
 @memberof clusterioMaster
@@ -813,6 +881,19 @@ class wsSlave {
 				});
 			}
 		});
+		// handle command return values
+		this.commandsWaitingForReturn = {};
+		this.socket.on("runCommandReturnValue", resp => {
+			if(resp.commandID && resp.body && this.commandsWaitingForReturn[resp.commandID] && this.commandsWaitingForReturn[resp.commandID].callback && typeof this.commandsWaitingForReturn[resp.commandID].callback == "function"){
+				this.commandsWaitingForReturn[resp.commandID].callback(resp.body);
+				delete this.commandsWaitingForReturn[resp.commandID];
+			}
+		});
+	}
+	runCommand(command, callback){
+		let commandID = Math.random().toString();
+		this.socket.emit("runCommand", {command, commandID});
+		this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
 	}
 }
 io.on('connection', function (socket) {

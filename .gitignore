@@ -34,6 +34,7 @@ Factorio*
 database/items.db
 config.json
 package-lock.json
+secret-api-token.txt
 mod_cache.json
 static/pictures/spritesheet.js
 static/pictures/spritesheet.png
@@ -45,4 +46,5 @@ sharedPlugins/*
 !sharedPlugins/inventoryImports/
 !sharedPlugins/UPSdisplay/
 !sharedPlugins/remoteMap/
+!sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
