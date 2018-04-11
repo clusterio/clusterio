@@ -1,5 +1,4 @@
-var fs = require('fs');
-const nodelua = require('node-lua');
+const fs = require('fs');
 const needle = require("needle");
 
 
@@ -11,32 +10,24 @@ class ResearchSync {
         this.messageInterface = messageInterface;
 
         this.research = {};
-        this.lua = new nodelua.LuaState();
 
         messageInterface("ResearchSync enabled");
-        setInterval(function () {
-            this.pollResearch.call(this);
-            setTimeout(this.doSync.bind(this), 2)
-        }.bind(this), 2000);
-
+        setInterval(() => {
+            this.pollResearch();
+            setTimeout(this.doSync, 2)
+        }, 2000);
     }
 
     pollResearch() {
         this.messageInterface("Polling Research\n")
         this.messageInterface(this.functions.dumpResearch);
-
     }
 
     doSync() {
-
-
-
         needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/getSlavesMeta', {
             password: this.config.clientPassword,
         }, function (err, resp, body) {
-            if (err) {
-                throw err;
-            }
+            if (err) throw err;
 
             if (resp.statusCode != 200){
                 console.log("got error when calling getSlaveMeta", resp.statusCode, resp.body);
@@ -55,7 +46,6 @@ class ResearchSync {
                 });
             })
 
-
             var difference = this.diff(this.research, needResearch);
 
             Object.keys(difference).forEach((key) => {
@@ -73,20 +63,15 @@ class ResearchSync {
                 // success?
             });
         }.bind(this));
-
     }
 
     diff(array1, array2) {
         var diff = {};
-
-
-
         Object.keys(array2).forEach((element) => {
             if (array2[element] != array1[element]){
                 diff[element] = array2[element];
             }
         });
-
         return diff;
     }
 
@@ -101,11 +86,8 @@ class ResearchSync {
     }
     scriptOutput(data){
         try {
-            this.lua.DoString("a = " + data);
-            this.lua.GetGlobal("a");
-            let currentResearch = this.lua.ToValue(-1);
+			let research = JSON.parse(data.replace("=",":").replace("[","").replace("]",""));
             this.research = Object.assign(this.research, currentResearch);
-            this.lua.Pop();
         } catch (e) {
         }
     }

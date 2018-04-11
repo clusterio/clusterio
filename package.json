@@ -47,7 +47,6 @@
     "node-factorio-api": "^0.3.1-alpha",
     "node-forge": "^0.7.1",
     "prom-client": "^10.2.3",
-    "node-lua": "^1.0.4",
     "request": "^2.83.0",
     "right-pad": "^1.0.1",
     "rmdir-sync": "^1.0.1",
