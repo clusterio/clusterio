@@ -8,7 +8,8 @@ class ResearchSync {
         this.functions = this.loadFunctions();
         this.config = slaveConfig;
         this.messageInterface = messageInterface;
-
+		console.log = messageInterface;
+		
         this.research = {};
 
         messageInterface("ResearchSync enabled");
@@ -26,7 +27,7 @@ class ResearchSync {
     doSync() {
         needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/getSlavesMeta', {
             password: this.config.clientPassword,
-        }, function (err, resp, body) {
+        }, (err, resp, body) => {
             if (err) throw err;
 
             if (resp.statusCode != 200){
@@ -50,7 +51,12 @@ class ResearchSync {
 
             Object.keys(difference).forEach((key) => {
                 if (difference[key] == 1) {
-                    this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
+					let command = this.functions.enableResearch;
+					while(command.includes("£key")){
+						command = command.replace("£key", key);
+					}
+					this.messageInterface(command);
+                    // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
                 }
             })
 
@@ -62,7 +68,7 @@ class ResearchSync {
             }, function (err, resp) {
                 // success?
             });
-        }.bind(this));
+        });
     }
 
     diff(array1, array2) {
@@ -77,7 +83,8 @@ class ResearchSync {
 
     loadFunctions() {
         return {
-            dumpResearch: this.loadFunc("dumpResearch.lua")
+            dumpResearch: this.loadFunc("dumpResearch.lua"),
+			enableResearch: this.loadFunc("enableResearch.lua"),
         };
     }
 
