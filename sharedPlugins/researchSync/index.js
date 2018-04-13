@@ -35,17 +35,20 @@ class ResearchSync {
 
             let needResearch = {};
 
-            Object.entries(allmeta).map((instance) => {
-                if (instance[1] == null || instance[1].research == null) return;
-                Object.entries(instance[1].research).map((research) => {
-                    if (research[1] == 1) {
-                        needResearch[research[0]] = 1;
-                    }
-                });
-            })
-
+			allmeta.forEach(instance => {
+				if(instance){
+					let researchList = instance.research;
+					if(researchList){
+						Object.keys(researchList).forEach(researchName => {
+							let researched = researchList[researchName];
+							if(JSON.parse(researched)){
+								needResearch[researchName] = true;
+							}
+						});
+					}
+				}
+			});
             var difference = this.diff(this.research, needResearch);
-
             Object.keys(difference).forEach((key) => {
                 if (difference[key] == 1) {
 					let command = this.functions.enableResearch;
@@ -53,6 +56,7 @@ class ResearchSync {
 						command = command.replace("£key", key);
 					}
 					this.messageInterface(command);
+					this.messageInterface("Unlocking research: "+key)
                     // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
                 }
             })
@@ -91,16 +95,10 @@ class ResearchSync {
     }
     scriptOutput(data){
         try {
-			// remove Lua table junk
-			let currentResearch = data.replace("=",":").replace("[","").replace("]","").replace('"', "").replace('"', "");
-			// add first " before key
-			currentResearch = '{"' + currentResearch.slice(1);
-			// add second " after the key to make it a string
-			currentResearch = currentResearch.split(" ")[0] + '"' + currentResearch.slice(currentResearch.split(" ")[0].length);
-			// turn our constructed JSON string into an object
-			currentResearch = JSON.parse(currentResearch);
-			// console.log(currentResearch)
-            this.research = Object.assign(this.research, currentResearch);
+			let kv = data.split(":");
+			let name = kv[0];
+			let value = JSON.parse(kv[1]);
+			this.research[name] = value;
         } catch (e) {
         }
     }

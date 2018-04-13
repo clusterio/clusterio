@@ -238,7 +238,9 @@ app.post("/api/editSlaveMeta", function(req,res) {
 				slaves[req.body.instanceID].meta = {};
 			}
 			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
-			console.log("Updating slave: " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, req.body.meta);
+			let metaPortion = JSON.stringify(req.body.meta);
+			if(metaPortion.length > 50) metaPortion = metaPortion.substring(0,20) + "...";
+			console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
 		} else {
 			res.send("ERROR: Invalid instanceID or password")
 		}

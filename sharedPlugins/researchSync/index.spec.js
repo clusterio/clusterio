@@ -47,23 +47,32 @@ describe("researchSync/index.js", ()=>{
 			assert(ioRecieved);
 		});
 		describe(".scriptOutput(data) handles file writes from factorio", ()=>{
-			it("wants a Lua table of a single research, parses and saves it", ()=>{
+			it("wants a key:value pair of a single research, parses and saves it", ()=>{
 				let reSync = new researchSync({hi:"hello"}, console.log);
 				let researches = [
-					'{automation = false}',
-					'{["automation-2"] = false}',
-					'{["automation-3"] = false}',
-					'{electronics = false}',
-					'{["advanced-electronics"] = false}',
-					'{["advanced-electronics-2"] = false}',
-					'{["circuit-network"] = false}',
-					'{explosives = false}',
-					'{logistics = false}',
-					'{["logistics-2"] = false}',
+					'automation:false',
+					'automation-2:false',
+					'automation-3:false',
+					'electronics:false',
+					'advanced-electronics:false',
+					'advanced-electronics-2:false',
+					'circuit-network:false',
+					'explosives:false',
+					'logistics:false',
+					'logistics-2:false',
+					'logistics-3:false',
+					'optics:false',
+					'laser:false',
+					'solar-energy:false',
+					'turrets:false',
+					'laser-turrets:false',
+					'stone-walls:false',
+					'gates:false',
+					'engine:false',
 				]
 				researches.forEach(research => {
 					reSync.scriptOutput(research);
-					assert(isFactorioCommand("/c x = "+research));
+					assert(!isFactorioCommand("/c x = "+research));
 				});
 				assert(Object.keys(reSync.research).length == researches.length);
 			});
