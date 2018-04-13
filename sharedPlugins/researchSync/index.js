@@ -3,24 +3,22 @@ const needle = require("needle");
 
 
 class ResearchSync {
-
     constructor(slaveConfig, messageInterface){
         this.functions = this.loadFunctions();
         this.config = slaveConfig;
         this.messageInterface = messageInterface;
-		console.log = messageInterface;
 		
         this.research = {};
 
         messageInterface("ResearchSync enabled");
         setInterval(() => {
+			this.doSync();
             this.pollResearch();
-            setTimeout(this.doSync, 2)
-        }, 2000);
+        }, 30000);
     }
 
     pollResearch() {
-        this.messageInterface("Polling Research\n")
+        // this.messageInterface("Polling Research\n")
         this.messageInterface(this.functions.dumpResearch);
     }
 
@@ -59,8 +57,9 @@ class ResearchSync {
                     // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
                 }
             })
-
-            console.log("difference from other servers", difference);
+			if(Object.keys(difference).length > 0){
+				this.messageInterface("difference from other servers", difference);
+			}
             needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
                 instanceID: this.config.unique,
                 password: this.config.clientPassword,

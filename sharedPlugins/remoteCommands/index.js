@@ -1,6 +1,5 @@
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
-		console.log = messageInterface;
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
