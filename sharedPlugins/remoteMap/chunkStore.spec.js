@@ -46,4 +46,19 @@ describe("remoteMap/chunkStore.js", () => {
 			},300);
 		});
 	});
+	describe("validates input by throwing when it is invalid", ()=>{
+		it("throws if called without a string as the first parameter", ()=>{
+			assert.throws(()=>{
+				let throwingChunkStore = new chunkStore(undefined, undefined, "asdasda");
+			});
+			assert.throws(()=>{
+				let throwingChunkStore = new chunkStore({}, undefined, "asdasdas");
+			});
+		});
+		it("converts numbers to strings automatically if they are provided  as the first parameter", ()=>{
+			assert.ok(()=>{
+				let nonThrowingChunkStore = new chunkStore(42, undefined, "./database/unitTests/chunkStore/");
+			});
+		});
+	});
 });

@@ -14,8 +14,8 @@ let log = string => (allowLogging)? console.log(string):""
 
 module.exports = class chunkStore {
 	constructor(name, chunkSize = 32, path = "./chunkStore/"){
+		if(!name || (typeof name != "string" && typeof name != "number")) throw new Error("chunkstore requires a name string as first param");
 		name = name.toString();
-		if(!name || typeof name != "string") throw new Error("chunkstore requires a name string as first param")
 		this.name = name;
 		this.chunkSize = chunkSize;
 		this.path = (path[path.length] == "/") ? path : path+"/";
