@@ -3,18 +3,17 @@ const needle = require("needle");
 
 
 class ResearchSync {
-    constructor(slaveConfig, messageInterface){
+    constructor(slaveConfig, messageInterface, extras = {}){
         this.functions = this.loadFunctions();
         this.config = slaveConfig;
         this.messageInterface = messageInterface;
 		
         this.research = {};
 
-        messageInterface("ResearchSync enabled");
         setInterval(() => {
 			this.doSync();
             this.pollResearch();
-        }, 30000);
+        }, extras.researchSyncPollInterval || 30000);
     }
 
     pollResearch() {
@@ -29,7 +28,7 @@ class ResearchSync {
             if (err) throw err;
 
             if (resp.statusCode != 200){
-                console.log("got error when calling getSlaveMeta", resp.statusCode, resp.body);
+                this.messageInterface("got error when calling getSlaveMeta", resp.statusCode, resp.body);
                 return;
             }
             var allmeta = JSON.parse(resp.body);
@@ -92,7 +91,15 @@ class ResearchSync {
     }
     scriptOutput(data){
         try {
-			let research = JSON.parse(data.replace("=",":").replace("[","").replace("]",""));
+			// remove Lua table junk
+			let currentResearch = data.replace("=",":").replace("[","").replace("]","").replace('"', "").replace('"', "");
+			// add first " before key
+			currentResearch = '{"' + currentResearch.slice(1);
+			// add second " after the key to make it a string
+			currentResearch = currentResearch.split(" ")[0] + '"' + currentResearch.slice(currentResearch.split(" ")[0].length);
+			// turn our constructed JSON string into an object
+			currentResearch = JSON.parse(currentResearch);
+			// console.log(currentResearch)
             this.research = Object.assign(this.research, currentResearch);
         } catch (e) {
         }

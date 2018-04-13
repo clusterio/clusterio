@@ -41,7 +41,7 @@ describe('Master server endpoint testing', function() {
 			request(app).get("/").end(function(err,res){
 				assert.equal(res.statusCode, 200);
 				validateHTML(res.text).then(result => {
-					assert(result.messages.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					assert(result.messages.length === 1, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
 					done();
 				});
 			});
@@ -51,7 +51,7 @@ describe('Master server endpoint testing', function() {
 			request(app).get("/nodes").end(function(err,res){
 				assert.equal(res.statusCode, 200);
 				validateHTML(res.text).then(result => {
-					assert(result.messages.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					assert(result.messages.length === 1, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
 					done();
 				});
 			});
@@ -61,7 +61,7 @@ describe('Master server endpoint testing', function() {
 			request(app).get("/settings").end(function(err,res){
 				assert.equal(res.statusCode, 200);
 				validateHTML(res.text).then(result => {
-					assert(result.messages.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					assert(result.messages.length === 1, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
 					done();
 				});
 			});
@@ -71,7 +71,7 @@ describe('Master server endpoint testing', function() {
 			request(app).get("/nodeDetails").end(function(err,res){
 				assert.equal(res.statusCode, 200);
 				validateHTML(res.text).then(result => {
-					assert(result.messages.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					assert(result.messages.length === 1, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
 					done();
 				});
 			});
@@ -82,7 +82,7 @@ describe('Master server endpoint testing', function() {
 				assert.equal(res.statusCode, 200);
 				validateHTML(res.text).then(result => {
 					// there should be 1 error regarding complaining about me using ES6 modules before they are fully supported
-					assert(result.messages.length === 1, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
+					assert(result.messages.length === 2, "there are HTML errors on the page, please fix: "+JSON.stringify(result.messages));
 					done();
 				});
 			});
