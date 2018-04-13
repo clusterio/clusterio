@@ -1,4 +1,4 @@
-module.exports.main = class remoteCommands {
+module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
 		console.log = messageInterface;
 		this.messageInterface = messageInterface;
