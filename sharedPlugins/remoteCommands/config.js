@@ -4,7 +4,6 @@
 	
 	Careful, may allow for RCE vulnerabilities.
 */
-var modInfo = require("./info.json");
 module.exports = {
 	// Name of package. For display somewhere I guess.
 	name: "remoteCommands",
