@@ -4,9 +4,9 @@ const needle = require("needle");
 
 class ResearchSync {
     constructor(slaveConfig, messageInterface, extras = {}){
-        this.functions = this.loadFunctions();
         this.config = slaveConfig;
         this.messageInterface = messageInterface;
+        this.functions = this.loadFunctions();
 		
         this.research = {};
 
@@ -87,7 +87,7 @@ class ResearchSync {
     }
 
     loadFunc(path) {
-        return fs.readFileSync("sharedPlugins/researchSync/" + path,'utf-8').replace(/\r\n/g,' ');
+        return fs.readFileSync("sharedPlugins/researchSync/" + path,'utf-8').replace(/\r?\n|\r/g,' ');
     }
     scriptOutput(data){
         try {
