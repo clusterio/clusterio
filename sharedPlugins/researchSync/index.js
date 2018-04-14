@@ -11,8 +11,8 @@ class ResearchSync {
         this.research = {};
 
         setInterval(() => {
-			this.doSync();
             this.pollResearch();
+			setTimeout(this.doSync, 2000);
         }, extras.researchSyncPollInterval || 30000);
     }
 
@@ -25,8 +25,10 @@ class ResearchSync {
         needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/getSlavesMeta', {
             password: this.config.clientPassword,
         }, (err, resp, body) => {
-            if (err) throw err;
-
+            if (err){
+				this.messageInterface("Unable to post JSON master/api/getSlavesMeta, master might be unaccessible";
+				return false;
+			}
             if (resp.statusCode != 200){
                 this.messageInterface("got error when calling getSlaveMeta", resp.statusCode, resp.body);
                 return;
