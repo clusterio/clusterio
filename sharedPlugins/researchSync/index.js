@@ -26,7 +26,7 @@ class ResearchSync {
             password: this.config.clientPassword,
         }, (err, resp, body) => {
             if (err){
-				this.messageInterface("Unable to post JSON master/api/getSlavesMeta, master might be unaccessible";
+				this.messageInterface("Unable to post JSON master/api/getSlavesMeta, master might be unaccessible");
 				return false;
 			}
             if (resp.statusCode != 200){
