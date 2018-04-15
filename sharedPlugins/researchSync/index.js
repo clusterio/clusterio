@@ -12,8 +12,8 @@ class ResearchSync {
 
         setInterval(() => {
             this.pollResearch();
-			setTimeout(this.doSync, 2000);
-        }, extras.researchSyncPollInterval || 30000);
+			setTimeout(this.doSync.bind(this), 2000);
+        }, extras.researchSyncPollInterval || 5000);
     }
 
     pollResearch() {
