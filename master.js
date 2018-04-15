@@ -90,6 +90,11 @@ const prometheusWsUsageCounter = new Prometheus.Counter({
 	help: 'Websocket traffic',
 	labelNames: ["connectionType"],
 });
+const prometheusProductionGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'production_gauge',
+	help: 'Items produced by instance',
+	labelNames: ["instanceID", "itemName"],
+});
 setInterval(()=>{
 	let numberOfActiveSlaves = 0;
 	for(let instance in slaves){
@@ -608,6 +613,11 @@ app.post("/api/logStats", function(req,res) {
 				timestamp: req.body.timestamp,
 				data: req.body.data,
 			});
+			try{
+			Object.keys(req.body.data).forEach(itemName => {
+				prometheusProductionGauge.labels(req.body.instanceID, itemName).inc(Number(req.body.data[itemName]) || 0);
+			});
+			}catch(e){console.log(e)};
 			console.log("inserted: " + req.body.instanceID + " | " + req.body.timestamp);
 		} else {
 			console.log("error invalid timestamp " + req.body.timestamp);
