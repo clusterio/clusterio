@@ -144,7 +144,7 @@ function populateSlaveInfo(){
 		// make production graph
 		makeGraph(slave.unique, slave.unique)
 		
-		makeTerminal();
+		// makeTerminal();
 	});
 }
 var slaveLogin = {};
@@ -203,7 +203,6 @@ function makeTerminal(){
 		myTerminal.input('',handleTerminalInput);
 	}
 }
-if(localStorage.terminalMinimized == "true")minimizeTerminal(true);
 function minimizeTerminal(instant){
 	localStorage.terminalMinimized = true;
 	$('#terminal').draggable('disable');
