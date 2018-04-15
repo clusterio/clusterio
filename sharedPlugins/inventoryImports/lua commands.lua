@@ -28,7 +28,7 @@ game.print(o)
 local o = '{"players":{'
 local notFirst = false
 for a,b in pairs(game.players) do
-	if b.connected then
+	if b.connected and b.character then
 		if notFirst then
 			o = o .. ','
 		else
