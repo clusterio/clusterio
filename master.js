@@ -95,6 +95,11 @@ const prometheusProductionGauge = new Prometheus.Gauge({
 	help: 'Items produced by instance',
 	labelNames: ["instanceID", "itemName"],
 });
+const prometheusPlayerCountGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'player_count_gauge',
+	help: 'Amount of players connected to this cluster',
+	labelNames: ["instanceID", "instanceName"],
+})
 setInterval(()=>{
 	let numberOfActiveSlaves = 0;
 	for(let instance in slaves){
@@ -112,6 +117,12 @@ app.get('/metrics', (req, res) => {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	res.set('Content-Type', Prometheus.register.contentType);
+	
+	// gather some static metrics
+	for(let instanceID in slaves){try{
+		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(slaves[instanceID].playerCount);
+	}catch(e){}}
+	
 	res.end(Prometheus.register.metrics());
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
