@@ -63,7 +63,7 @@ class ResearchSync {
                 }
             })
 			if(Object.keys(difference).length > 0){
-				this.messageInterface("difference from other servers", difference);
+				this.messageInterface("difference from other servers", JSON.stringify(difference));
 			}
             needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
                 instanceID: this.config.unique,

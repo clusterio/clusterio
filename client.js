@@ -483,7 +483,7 @@ function instanceManagement() {
 							fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
 						}
 						for(let i = 0; i < stuff.length; i++) {
-							if(stuff[i]) {
+							if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
 								plugins[I].scriptOutput(stuff[i]);
 							}
 						}
