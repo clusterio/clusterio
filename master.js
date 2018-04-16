@@ -126,12 +126,12 @@ app.get('/metrics', (req, res) => {
 	/// gather some static metrics
 	// playercount
 	for(let instanceID in slaves){try{
-		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(slaves[instanceID].playerCount);
+		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
 	}catch(e){}}
 	// inventory
 	for(let key in db.items){
 		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
-			prometheusMasterInventoryGauge.labels(key).set(db.items[key]);
+			prometheusMasterInventoryGauge.labels(key).set(Number(db.items[key]) || 0);
 		}
 	}
 	
