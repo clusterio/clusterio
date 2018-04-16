@@ -191,7 +191,7 @@ db.items.removeItem = function(object) {
 process.on('SIGINT', function () {
 	console.log('Ctrl-C...');
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
-	if(slaves && Object.keys(slaves).length < 50000){
+	if(slaves && Object.keys(slaves).length < 2000000){
 		console.log("saving to slaves.json");
 		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
 	} else if(slaves) {
