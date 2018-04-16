@@ -99,7 +99,12 @@ const prometheusPlayerCountGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'player_count_gauge',
 	help: 'Amount of players connected to this cluster',
 	labelNames: ["instanceID", "instanceName"],
-})
+});
+const prometheusMasterInventoryGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'master_inventory_gauge',
+	help: 'Amount of items stored on master',
+	labelNames: ["itemName"],
+});
 setInterval(()=>{
 	let numberOfActiveSlaves = 0;
 	for(let instance in slaves){
@@ -118,10 +123,17 @@ app.get('/metrics', (req, res) => {
 	let reqStartTime = Date.now();
 	res.set('Content-Type', Prometheus.register.contentType);
 	
-	// gather some static metrics
+	/// gather some static metrics
+	// playercount
 	for(let instanceID in slaves){try{
 		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(slaves[instanceID].playerCount);
 	}catch(e){}}
+	// inventory
+	for(let key in db.items){
+		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
+			prometheusMasterInventoryGauge.labels(key).set(db.items[key]);
+		}
+	}
 	
 	res.end(Prometheus.register.metrics());
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
