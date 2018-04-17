@@ -43,7 +43,7 @@ class ResearchSync {
 					if(researchList){
 						Object.keys(researchList).forEach(researchName => {
                             if (needResearch.hasOwnProperty(researchName)) {
-                                if (needResearch[researchName][0] !== false) {
+                                if (needResearch[researchName][0] !== 0) {
                                     needResearch[researchName][0] = researchList[researchName][0];
                                 }
                                 if (needResearch[researchName][1] < researchList[researchName][1]) {
@@ -66,7 +66,7 @@ class ResearchSync {
                     command = command.replace("{tech_level}", difference[key][1]);
                 }
                 this.messageInterface(command);
-                this.messageInterface("Unlocking research: "+key);
+                this.messageInterface("Unlocking research: "+key+" at state "+difference[key][0]+' and level '+difference[key][1]);
                 // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
             });
             if(Object.keys(difference).length > 0){
@@ -85,8 +85,10 @@ class ResearchSync {
     filterResearchDiff(localResearch, remoteResearch) {
         let diff = {};
         Object.keys(localResearch).forEach((key) => {
-            if (localResearch[key][0] != remoteResearch[key][0] || localResearch[key][1] != remoteResearch[key][1]){
-                diff[key] = remoteResearch[key];
+            if (remoteResearch.hasOwnProperty(key)) {
+                if (localResearch[key][0] != remoteResearch[key][0] || localResearch[key][1] != remoteResearch[key][1]) {
+                    diff[key] = remoteResearch[key];
+                }
             }
         });
         return diff;
@@ -106,7 +108,7 @@ class ResearchSync {
         try {
 			let kv = data.split(":");
 			let name = kv[0];
-			let researched = JSON.parse(kv[1]) === 'true' ? true : false;
+			let researched = JSON.parse(kv[1]) === 'true' ? 1 : 0;
 			let level = parseInt(kv[2]);
 			this.research[name] = [researched, level];
         } catch (e) {
