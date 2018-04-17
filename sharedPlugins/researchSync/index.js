@@ -44,14 +44,14 @@ class ResearchSync {
 						Object.keys(researchList).forEach(researchName => {
                             if (needResearch.hasOwnProperty(researchName)) {
                                 if (needResearch[researchName][0] !== 0) {
-                                    needResearch[researchName][0] = researchList[researchName][0];
+                                    needResearch[researchName][0] = parseInt(researchList[researchName][0]);
                                 }
                                 if (needResearch[researchName][1] < researchList[researchName][1]) {
-                                    needResearch[researchName][1] = researchList[researchName][1];
+                                    needResearch[researchName][1] = parseInt(researchList[researchName][1]);
                                 }
                             }
                              else {
-                                needResearch[researchName] = researchList[researchName];
+                                needResearch[researchName] = [parseInt(researchList[researchName][0]), parseInt(researchList[researchName][1])];
                             }
 						});
 					}
@@ -66,7 +66,7 @@ class ResearchSync {
                     command = command.replace("{tech_level}", difference[key][1]);
                 }
                 this.messageInterface(command);
-                this.messageInterface("Unlocking research: "+key+" at state "+difference[key][0]+' and level '+difference[key][1]);
+                this.messageInterface("Unlocking research: " + key + " at research state = " + (difference[key][0] === 0 ? 'false' : 'true') + ' and level ' + difference[key][1]);
                 // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
             });
             if(Object.keys(difference).length > 0){
