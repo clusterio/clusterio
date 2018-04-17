@@ -1,9 +1,9 @@
 /silent-command
 
-local lines = "";
+local data = {};
 
 for _, tech in pairs(game.forces["player"].technologies) do
-    lines = lines .. tech.name .. ":" .. tostring(tech.researched) .. "\n";
+    table.insert(data, tech.name .. ":" .. tostring(tech.researched) .. ":" .. tostring(tech.level));
 end
 
-game.write_file("researchSync.txt",lines)
+game.write_file("researchSync.txt", table.concat(data, "\n"))

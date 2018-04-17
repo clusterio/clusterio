@@ -33,7 +33,7 @@ class ResearchSync {
                 this.messageInterface("got error when calling getSlaveMeta", resp.statusCode, resp.body);
                 return;
             }
-            var allmeta = JSON.parse(resp.body);
+            let allmeta = JSON.parse(resp.body);
 
             let needResearch = {};
 
@@ -42,27 +42,34 @@ class ResearchSync {
 					let researchList = instance.research;
 					if(researchList){
 						Object.keys(researchList).forEach(researchName => {
-							let researched = researchList[researchName];
-							if(JSON.parse(researched)){
-								needResearch[researchName] = true;
-							}
+                            if (needResearch.hasOwnProperty(researchName)) {
+                                if (needResearch[researchName][0] !== false) {
+                                    needResearch[researchName][0] = researchList[researchName][0];
+                                }
+                                if (needResearch[researchName][1] < researchList[researchName][1]) {
+                                    needResearch[researchName][1] = researchList[researchName][1];
+                                }
+                            }
+                             else {
+                                needResearch[researchName] = researchList[researchName];
+                            }
 						});
 					}
 				}
 			});
-            var difference = this.diff(this.research, needResearch);
+            let difference = this.filterResearchDiff(this.research, needResearch);
             Object.keys(difference).forEach((key) => {
-                if (difference[key] == 1) {
-					let command = this.functions.enableResearch;
-					while(command.includes("£key")){
-						command = command.replace("£key", key);
-					}
-					this.messageInterface(command);
-					this.messageInterface("Unlocking research: "+key)
-                    // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
+                let command = this.functions.enableResearch;
+                while(command.includes("{tech_name}")){
+                    command = command.replace("{tech_name}", key);
+                    command = command.replace("{tech_researched}", difference[key][0]);
+                    command = command.replace("{tech_level}", difference[key][1]);
                 }
-            })
-			if(Object.keys(difference).length > 0){
+                this.messageInterface(command);
+                this.messageInterface("Unlocking research: "+key);
+                // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
+            });
+            if(Object.keys(difference).length > 0){
 				this.messageInterface("difference from other servers", JSON.stringify(difference));
 			}
             needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
@@ -75,11 +82,11 @@ class ResearchSync {
         });
     }
 
-    diff(array1, array2) {
-        var diff = {};
-        Object.keys(array2).forEach((element) => {
-            if (array2[element] != array1[element]){
-                diff[element] = array2[element];
+    filterResearchDiff(localResearch, remoteResearch) {
+        let diff = {};
+        Object.keys(localResearch).forEach((key) => {
+            if (localResearch[key][0] != remoteResearch[key][0] || localResearch[key][1] != remoteResearch[key][1]){
+                diff[key] = remoteResearch[key];
             }
         });
         return diff;
@@ -99,8 +106,9 @@ class ResearchSync {
         try {
 			let kv = data.split(":");
 			let name = kv[0];
-			let value = JSON.parse(kv[1]);
-			this.research[name] = value;
+			let researched = JSON.parse(kv[1]) === 'true' ? true : false;
+			let level = parseInt(kv[2]);
+			this.research[name] = [researched, level];
         } catch (e) {
         }
     }

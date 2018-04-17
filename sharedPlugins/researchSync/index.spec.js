@@ -9,28 +9,28 @@ describe("researchSync/index.js", ()=>{
 		assert.equal(typeof researchSync, "function");
 	});
 	describe("class researchSync()", ()=>{
-		it(".diff(object1, object2) returns key:value pairs that exist in object2 but not object1", ()=>{
+		it(".filterResearchDiff(object1, object2) returns research that needs enabling on the local instance", ()=>{
 			let reSync = new researchSync({}, function(){});
 			
 			let obj1 = {
-				a:"str",
-				b:123,
-				c:console.log,
-				d:"apple cake",
-			}
+				a:[true, 0],
+				b:[true, 0],
+				c:[false, 0],
+				d:[false, 10],
+			};
 			let obj2 = {
-				a:"str",
-				b:9999,
-				c:console.log,
-				e:"truthy",
-			}
-			assert(typeof reSync.diff == "function");
+				a:[true, 0],
+				b:[true, 1],
+				c:[false, 0],
+				e:[false, 50],
+			};
+			assert(typeof reSync.filterResearchDiff == "function");
 			
-			let diffResult = reSync.diff(obj1, obj2);
+			let diffResult = reSync.filterResearchDiff(obj1, obj2);
 			assert(diffResult.a === undefined);
-			assert(diffResult.b === 9999);
+			assert(diffResult.b === [true, 1]);
 			assert(diffResult.d === undefined);
-			assert(diffResult.e === "truthy");
+			assert(diffResult.e === [false, 50]);
 		});
 		it(".pollResearch() dumps a long Lua command", ()=>{
 			let reSync = new researchSync({}, io);
