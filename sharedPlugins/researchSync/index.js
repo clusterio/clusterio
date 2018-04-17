@@ -108,7 +108,7 @@ class ResearchSync {
         try {
 			let kv = data.split(":");
 			let name = kv[0];
-			let researched = JSON.parse(kv[1]) === 'true' ? 1 : 0;
+			let researched = ('true' !== kv[1] ? 0 : 1);
 			let level = parseInt(kv[2]);
 			this.research[name] = [researched, level];
         } catch (e) {
