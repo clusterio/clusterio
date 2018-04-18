@@ -43,7 +43,7 @@ class ResearchSync {
 					if(researchList){
 						Object.keys(researchList).forEach(researchName => {
                             if (needResearch.hasOwnProperty(researchName)) {
-                                if (needResearch[researchName].researched !== 0) {
+                                if (needResearch[researchName].researched === 0) {
                                     needResearch[researchName].researched = parseInt(researchList[researchName].researched);
                                 }
                                 if (needResearch[researchName].level < parseInt(researchList[researchName].level)) {
@@ -67,7 +67,7 @@ class ResearchSync {
                 }
                 this.messageInterface(command);
                 this.messageInterface("Unlocking research: " + key + " at research state = " + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level);
-                // this.messageInterface("/c game.forces['player'].technologies['" + key + "'].researched=true");
+                this.research[key] = difference[key];
             });
             if(Object.keys(difference).length > 0){
 				this.messageInterface("difference from other servers", JSON.stringify(difference));
@@ -86,7 +86,7 @@ class ResearchSync {
         let diff = {};
         Object.keys(localResearch).forEach((key) => {
             if (remoteResearch.hasOwnProperty(key)) {
-                if (localResearch[key].researched !== remoteResearch[key].researched || localResearch[key].level !== remoteResearch[key].level) {
+                if (localResearch[key].researched !== remoteResearch[key].researched || localResearch[key].level < remoteResearch[key].level) {
                     diff[key] = remoteResearch[key];
                 }
             }
