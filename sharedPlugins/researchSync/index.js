@@ -86,7 +86,7 @@ class ResearchSync {
         let diff = {};
         Object.keys(localResearch).forEach((key) => {
             if (remoteResearch.hasOwnProperty(key)) {
-                if (localResearch[key].researched !== remoteResearch[key].researched || localResearch[key].level < remoteResearch[key].level) {
+                if ((localResearch[key].researched !== remoteResearch[key].researched && remoteResearch[key].researched === 1) || localResearch[key].level < remoteResearch[key].level) {
                     diff[key] = remoteResearch[key];
                 }
             }
