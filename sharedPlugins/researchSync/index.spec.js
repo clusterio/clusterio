@@ -13,24 +13,32 @@ describe("researchSync/index.js", ()=>{
 			let reSync = new researchSync({}, function(){});
 			
 			let obj1 = {
-				a:[true, 0],
-				b:[true, 0],
-				c:[false, 0],
-				d:[false, 10],
+				a:{researched: true, level: 0},
+				b:{researched: true, level: 0},
+				c:{researched: false, level: 0},
+				d:{researched: false, level: 10},
 			};
 			let obj2 = {
-				a:[true, 0],
-				b:[true, 1],
-				c:[false, 0],
-				e:[false, 50],
+				a:{researched: true, level: 0},
+				b:{researched: true, level: 1},
+				c:{researched: false, level: 0},
+				e:{researched: false, level: 50},
 			};
 			assert(typeof reSync.filterResearchDiff == "function");
 			
 			let diffResult = reSync.filterResearchDiff(obj1, obj2);
+			
 			assert(diffResult.a === undefined);
-			assert(diffResult.b === [true, 1]);
+			
+			assert(diffResult.b !== undefined);
+			assert.equal(diffResult.b.researched, true);
+			assert.equal(diffResult.b.level, 1);
+			
 			assert(diffResult.d === undefined);
-			assert(diffResult.e === [false, 50]);
+			
+			assert(diffResult.e !== undefined);
+			assert.equal(diffResult.e.researched, false);
+			assert.equal(diffResult.e.level, 50);
 		});
 		it(".pollResearch() dumps a long Lua command", ()=>{
 			let reSync = new researchSync({}, io);
