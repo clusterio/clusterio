@@ -632,7 +632,7 @@ function instanceManagement() {
 				hash: modHashes[i].hash,
 			}
 			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, function (err, response, body) {
-				if(err) throw err // Unable to contact master server! Please check your config.json.
+				if(err) console.log(new Error("Unable to contact master server! Please check your config.json."));
 				if(response && body && body == "found") {
 					console.log("master has mod");
 				} else if (response && body && typeof body == "string") {
@@ -643,8 +643,7 @@ function instanceManagement() {
 						// response.body is a string which is a modName.zip
 						var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod', function (err, resp, body) {
 							if (err) {
-								console.log('Error!');
-								throw err
+								console.log(new Error("Unable to contact master server! Please check your config.json."));
 							} else {
 								console.log('URL: ' + body);
 							}
