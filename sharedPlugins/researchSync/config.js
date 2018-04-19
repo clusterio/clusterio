@@ -11,4 +11,5 @@ module.exports = {
     description: "syncs research across servers",
     // We'll send everything in this file to your stdin. Beware.
     scriptOutputFileSubscription: "researchSync.txt",
+    fileReadDelay: 50
 }

@@ -476,17 +476,23 @@ function instanceManagement() {
 				// send file contents to plugin for processing
 				function fileChangeHandler(eventType, filename) {
 					if(filename != null){
-						// get array of lines in file
-						let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
-						// if you found anything, reset the file
-						if (stuff[0]) {
-							fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
-						}
-						for(let i = 0; i < stuff.length; i++) {
-							if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
-								plugins[I].scriptOutput(stuff[i]);
-							}
-						}
+						setTimeout(
+							()=>{
+								// get array of lines in file
+								let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+
+								// if you found anything, reset the file
+								if (stuff[0]) {
+									fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+								}
+								for(let i = 0; i < stuff.length; i++) {
+									if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
+										plugins[I].scriptOutput(stuff[i]);
+									}
+								}
+							},
+							pluginConfig.fileReadDelay || 0
+						);
 					}
 				}
 			}

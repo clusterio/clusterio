@@ -38,12 +38,15 @@ class ResearchSync {
                 if (slaveData[instanceKey].unique === this.config.unique.toString()) {
                     return;
                 }
-                if (!slaveData[instanceKey].meta.hasOwnProperty('research')) {
+                if (!slaveData[instanceKey].hasOwnProperty('meta') || !slaveData[instanceKey].meta.hasOwnProperty('research')) {
                     return;
                 }
                 let researchList = slaveData[instanceKey].meta.research;
 				if(researchList){
                     Object.keys(researchList).forEach(researchName => {
+                        if (isNaN(researchList[researchName].researched) || isNaN(researchList[researchName].level)) {
+                            return;
+                        }
                         if (needResearch.hasOwnProperty(researchName)) {
                             if (needResearch[researchName].researched === 0) {
                                 needResearch[researchName].researched = parseInt(researchList[researchName].researched);
@@ -62,15 +65,18 @@ class ResearchSync {
             let difference = this.filterResearchDiff(this.research, needResearch);
 
             Object.keys(difference).forEach((key) => {
-                let command = this.functions.enableResearch;
-                while(command.includes("{tech_name}")){
-                    command = command.replace("{tech_name}", key);
-                    command = command.replace("{tech_researched}", difference[key].researched);
-                    command = command.replace("{tech_level}", difference[key].level);
+                if (this.research[key]) {
+                    let command = this.functions.enableResearch;
+                    while(command.includes("{tech_name}")){
+                        command = command.replace("{tech_name}", key);
+                        command = command.replace("{tech_researched}", difference[key].researched);
+                        command = command.replace("{tech_level}", difference[key].level);
+                    }
+                    this.messageInterface(command);
+                    console.log('Unlocking '+ key + ': ' + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level + ', was '+ (this.research[key].researched === 0 ? 'false' : 'true') + ' at level ' + this.research[key].level);
+                    this.messageInterface("Unlocking research: " + key + " at research state = " + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level);
+                    this.research[key] = difference[key];
                 }
-                this.messageInterface(command);
-                this.messageInterface("Unlocking research: " + key + " at research state = " + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level);
-                this.research[key] = difference[key];
             });
 
             needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
@@ -87,8 +93,10 @@ class ResearchSync {
         let diff = {};
         Object.keys(localResearch).forEach((key) => {
             if (remoteResearch.hasOwnProperty(key)) {
-                if ((localResearch[key].researched === 0 && localResearch[key].researched !== remoteResearch[key].researched) || localResearch[key].level !== remoteResearch[key].level) {
-                    diff[key] = remoteResearch[key];
+                if ((localResearch[key].researched === 0 && localResearch[key].researched !== remoteResearch[key].researched) || localResearch[key].level < remoteResearch[key].level) {
+                    if (!isNaN(remoteResearch[key].researched) && !isNaN(remoteResearch[key].level)) {
+                        diff[key] = {researched: remoteResearch[key].researched, level: remoteResearch[key].level};
+                    }
                 }
             }
         });
@@ -106,15 +114,14 @@ class ResearchSync {
         return fs.readFileSync("sharedPlugins/researchSync/" + path,'utf-8').replace(/\r?\n|\r/g,' ');
     }
     scriptOutput(data){
-        try {
-            let kv              = data.split(":");
-            let name            = kv[0];
-            let researched      = ('true' !== kv[1]
-                ? 0
-                : 1);
-            let level           = parseInt(kv[2]);
+        let kv              = data.split(":");
+        let name            = kv[0];
+        let researched      = ('true' !== kv[1]
+            ? 0
+            : 1);
+        let level           = parseInt(kv[2]);
+        if (!isNaN(level) && !isNaN(researched)) {
             this.research[name] = {researched: researched, level: level};
-        } catch (e) {
         }
     }
 }
