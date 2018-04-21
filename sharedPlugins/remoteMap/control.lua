@@ -27,7 +27,7 @@ function write_file(data)
 end
 
 function dump_cached_writes()
-	game.write_file("remoteMap.txt", stringsToWriteNextTick, true)
+	game.write_file("remoteMap.txt", stringsToWriteNextTick, true, 0)
 end
 
 function complain(text)
