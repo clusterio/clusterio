@@ -42,6 +42,19 @@ const command = process.argv[2];
 // and as the process name in ps/top on linux.
 process.title = "clusterioClient "+instance;
 
+// make sure we have the master access token (can't write to master without it since clusterio 2.0)
+if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
+	console.log("ERROR invalid config!");
+	console.log("Master server now needs an access token for write operations. As clusterio slaves depends \
+	upon this, please add your token to config.js in the field named masterAuthToken. \
+	You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
+}
+const needleOptionsWithTokenAuthHeader = {
+	headers: {
+		'x-access-token': config.masterAuthToken
+	},
+};
+
 var instanceInfo = {};
 
 // function to handle sending commands into the game
@@ -604,7 +617,7 @@ function instanceManagement() {
 					} else {
 						payload.mac = mac
 						console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, function (err, response, body) {
+						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 							if (err && err.code != "ECONNRESET"){
 								console.error("We got problems, something went wrong when contacting master");
 								console.error(err);
@@ -637,7 +650,7 @@ function instanceManagement() {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
 			}
-			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, function (err, response, body) {
+			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 				if(err) console.log(new Error("Unable to contact master server! Please check your config.json."));
 				if(response && body && body == "found") {
 					console.log("master has mod");
@@ -647,7 +660,11 @@ function instanceManagement() {
 						console.log("Sending mod: " + mod);
 						// Send mods master says it wants
 						// response.body is a string which is a modName.zip
-						var req = request.post("http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod', function (err, resp, body) {
+						var req = request.post({url: "http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod',
+							headers: {
+								"x-access-token": config.masterAuthToken,
+							},
+						}, function (err, resp, body) {
 							if (err) {
 								console.log(new Error("Unable to contact master server! Please check your config.json."));
 							} else {
@@ -705,7 +722,7 @@ function instanceManagement() {
 						}
 					}
 					console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-					needle.post(config.masterIP + ":" + config.masterPort + '/api/logStats', {timestamp: timestamp, instanceID: instanceconfig.unique,data: payload}, function (err, response, body) {
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/logStats', {timestamp: timestamp, instanceID: instanceconfig.unique,data: payload}, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 						// we did it, keep going
 					});
 				}
@@ -737,7 +754,7 @@ function instanceManagement() {
 					count: g[1],
 					instanceName: instance, // name of instance
 					instanceID: instanceconfig.unique, // a hash computed from the randomly generated rcon password
-				}, function (err, resp, body) {
+				}, needleOptionsWithTokenAuthHeader, function (err, resp, body) {
 					if(body == "failure") console.error("#### Export failed! Lost: "+g[1]+" "+g[0]);
 					if(config.logItemTransfers){
 						if(body == "success") console.log(`Exported ${g[1]} ${g[0]} to master`);
@@ -794,7 +811,7 @@ function instanceManagement() {
 			// request our items, one item at a time
 			for (let i = 0; i < Object.keys(preparedPackage).length; i++) {
 				// console.log(preparedPackage[Object.keys(preparedPackage)[i]]);
-				needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], function (err, response, body) {
+				needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], needleOptionsWithTokenAuthHeader, function (err, response, body) {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
 						confirmedOrders[confirmedOrders.length] = {

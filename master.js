@@ -28,6 +28,9 @@ var config = require('./config');
 const getFactorioLocale = require("./lib/getFactorioLocale");
 const stringUtils = require("./lib/stringUtils");
 
+// homemade express middleware for token auth
+const authenticate = require("./lib/authenticate");
+
 // Library for create folder recursively if it does not exist
 const mkdirp = require("mkdirp");
 mkdirp.sync("./database");
@@ -37,8 +40,13 @@ const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
 const nedb = require("nedb");
+
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+// write an auth token to file
+fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+	expiresIn: 86400*365 // expires in 1 year
+}));
 
 const express = require("express");
 const ejs = require("ejs");
@@ -224,7 +232,7 @@ POST World ID management. Slaves post here to tell the server they exist
 @instance
 @alias /api/getID
 */
-app.post("/api/getID", function(req,res) {
+app.post("/api/getID", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	// request.body should be an object
@@ -253,7 +261,7 @@ POST Allows you to add metadata related to slaves for other tools, like owner da
 @instance
 @alias /api/editSlaveMeta
 */
-app.post("/api/editSlaveMeta", function(req,res) {
+app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	// request.body should be an object
@@ -292,22 +300,6 @@ app.post("/api/getSlaveMeta", function (req, res) {
     	res.send('{"INVALID REQUEST":1}');
 	}
 });
-// TODO: Remove deprecated function, also update researchSync to not use it
-/**
-POST DEPRECATED Get metadata from all slaves. This is already covered by /api/slaves, please use that one instead.
-@memberof clusterioMaster
-@instance
-@alias /api/getSlavesMeta
-*/
-app.post("/api/getSlavesMeta", function (req, res) {
-    if(req.body.password){
-    	let metas = {};
-        res.send(JSON.stringify(Object.keys(slaves).map(key => metas[key] = slaves[key].meta)));
-    } else {
-        res.status(400);
-        res.send('{"INVALID REQUEST":1}');
-    }
-});
 // mod management
 // should handle uploading and checking if mods are uploaded
 /**
@@ -341,7 +333,7 @@ POST endpoint for uploading mods to the master server. Required for automatic mo
 @instance
 @alias /api/uploadMod
 */
-app.post("/api/uploadMod", function(req,res) {
+app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if (!req.files) {
@@ -398,7 +390,7 @@ POST endpoint for storing items in master's inventory.
 @param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
 @returns {string} status either "success" or "failure"
 */
-app.post("/api/place", function(req, res) {
+app.post("/api/place", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
@@ -465,7 +457,7 @@ POST endpoint to remove items from DB when client orders items.
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
 _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
-app.post("/api/remove", function(req, res) {
+app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
@@ -540,7 +532,7 @@ Gives no response
 @param {object} circuitFrame
 @param {number} circuitFrame.time
 */
-app.post("/api/setSignal", function(req,res) {
+app.post("/api/setSignal", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.time){
@@ -625,7 +617,7 @@ course the timeSeries data.
 @param {object} JSON {timestamp: Date.now(), instanceID: "string", data: {"item": number}}
 @returns {string} failure
 */
-app.post("/api/logStats", function(req,res) {
+app.post("/api/logStats", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
@@ -793,10 +785,6 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 @param {object} JSON {instanceID:19412312, command:"/c game.print('hello')"}
 @returns {object} Status {auth: bool, message: "Informative error", data:{}}
 */
-// write an auth token to file
-fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
-	expiresIn: 86400*365 // expires in 1 year
-}));
 app.post("/api/runCommand", (req,res) => {
 	var token = req.headers['x-access-token'];
 	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
