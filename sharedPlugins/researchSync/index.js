@@ -83,7 +83,7 @@ class ResearchSync {
                 instanceID: this.config.unique,
                 password: this.config.clientPassword,
                 meta: {research: this.research}
-            }, function (err, resp) {
+            }, {headers: {'x-access-token': this.config.masterAuthToken}}, function (err, resp) {
                 // success?
             });
         });
