@@ -40,6 +40,7 @@ const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
 const nedb = require("nedb");
+const https = require("https");
 
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -840,10 +841,21 @@ app.get("/api/getFactorioLocale", function(req,res){
 		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 	});
 });
-var server = require("http").Server(app);
-server.listen(config.masterPort || 8080, function () {
-	console.log("Listening on port %s...", server.address().port);
-});
+if(config.masterPort == 443){
+	var privateKey = fs.readFileSync( 'privatekey.pem' );
+	var certificate = fs.readFileSync( 'certificate.pem' );
+
+	server = https.createServer({
+		key: privateKey,
+		cert: certificate
+	}, app).listen(443);
+} else {
+	server = require("http").Server(app);
+	server.listen(config.masterPort || 8080, function () {
+		console.log("Listening on port %s...", server.address().port);
+	});
+}
+
 /* Websockets for remoteMap */
 var io = require("socket.io")(server);
 var slaveMappers = {};
