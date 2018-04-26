@@ -793,19 +793,35 @@ app.post("/api/runCommand", (req,res) => {
 		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
 		
 		// validate request.body
-		let body = req.body;
-		if(body.instanceID
-		&& Object.keys(wsSlaves).includes(body.instanceID)
-		&& body.command
-		&& typeof body.command == "string"
-		&& body.command[0] == "/"){
-			// execute command
-			wsSlaves[body.instanceID].runCommand(body.command, data => {
-				res.status(200).send({auth: true, message: "success", data});
-			});
-		} else {
-			res.status(400).send({auth: true, message: "Error: invalid request.body"});
-		}
+        let body = req.body;
+
+        if (
+            body.broadcast
+            && body.command
+            && typeof body.command == "string"
+            && body.command[0] == "/")
+        {
+        	let instanceResponses = [];
+            for (let instanceID in wsSlaves) {
+                // skip loop if the property is from prototype
+                if (!wsSlaves.hasOwnProperty(instanceID)) continue;
+                wsSlaves[instanceID].runCommand(body.command);
+            }
+            res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
+        } else if (
+            body.instanceID
+            && wsSlaves[body.instanceID]
+            && body.command
+            && typeof body.command == "string"
+            && body.command[0] == "/")
+        {
+            // execute command
+            wsSlaves[body.instanceID].runCommand(body.command, data => {
+                res.status(200).send({auth: true, message: "success", data});
+            });
+        } else {
+            res.status(400).send({auth: true, message: "Error: invalid request.body"});
+        }
 	});
 });
 /**
