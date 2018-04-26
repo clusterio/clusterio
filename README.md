@@ -97,7 +97,7 @@ To create a new instance (its own save, set of mods and config files)
 
 To launch an instance with pm2
 
-    pm2 start --name slave client.js -- start [instancename]
+    pm2 start --name [instancename] client.js -- start [instancename]
 
 use `nano config.json` to change settings.
 
