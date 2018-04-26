@@ -469,6 +469,10 @@ function instanceManagement() {
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
 				socket, // socket.io connection to master (and ES6 destructuring, yay)
 			});
+			if(plugins[I].factorioOutput && typeof plugins[I].factorioOutput === "function"){
+				// when factorio logs a line, send it to the plugin. This includes things like autosaves, chat, errors etc
+				serverprocess.stdout.on("data", data => plugins[I].factorioOutput(data.toString()));
+			}
 			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
 				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
 					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication

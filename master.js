@@ -940,6 +940,16 @@ class wsSlave {
 				delete this.commandsWaitingForReturn[resp.commandID];
 			}
 		});
+		
+		this.socket.on("gameChat", data => {
+			if(typeof data === "object"){
+				data.timestamp = Date.now();
+				if(!global.wsChatRecievers) global.wsChatRecievers = [];
+				global.wsChatRecievers.forEach(socket => {
+					socket.emit("gameChat", data);
+				});
+			}
+		});
 	}
 	runCommand(command, callback){
 		let commandID = Math.random().toString();
@@ -988,7 +998,11 @@ io.on('connection', function (socket) {
 			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
 		}
 	});
-	
+	socket.on("registerChatReciever", function(data){
+		prometheusWsUsageCounter.labels("registerChatReciever").inc();
+		if(!global.wsChatRecievers) global.wsChatRecievers = [];
+		global.wsChatRecievers.push(socket);
+	});
 });
 
 module.exports = app;

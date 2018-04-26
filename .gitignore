@@ -48,3 +48,4 @@ sharedPlugins/*
 !sharedPlugins/remoteMap/
 !sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
+!sharedPlugins/globalChat/
