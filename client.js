@@ -504,7 +504,9 @@ function instanceManagement() {
 								}
 								for(let i = 0; i < stuff.length; i++) {
 									if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
-										plugins[I].scriptOutput(stuff[i]);
+										try{
+											plugins[I].scriptOutput(stuff[i]);
+										}catch(e){console.log(e)}
 									}
 								}
 							},
