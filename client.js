@@ -847,19 +847,19 @@ function instanceManagement() {
 				if(Buffer.isBuffer(response.body)) {console.log(response.body.toString("utf-8")); throw new Error();} // We are probably contacting the wrong webserver
 				try {
 					var inventory = JSON.parse(response.body);
+					var inventoryFrame = {};
+					for (let i = 0; i < inventory.length; i++) {
+						inventoryFrame[inventory[i].name] = Number(inventory[i].count);
+						if(inventoryFrame[inventory[i].name] >= Math.pow(2, 31)){
+							inventoryFrame[inventory[i].name] = Math.pow(2, 30); // set it waaay lower, 31 -1 would probably suffice
+						}
+					}
+					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
+					// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+					messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 				} catch (e){
 					console.log(e);
 				}
-				var inventoryFrame = {};
-				for (let i = 0; i < inventory.length; i++) {
-					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
-					if(inventoryFrame[inventory[i].name] >= Math.pow(2, 31)){
-						inventoryFrame[inventory[i].name] = Math.pow(2, 30); // set it waaay lower, 31 -1 would probably suffice
-					}
-				}
-				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
-				// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
-				messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 			}
 		});
 	}, 1000);
