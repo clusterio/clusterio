@@ -950,6 +950,16 @@ class wsSlave {
 				});
 			}
 		});
+		
+		this.socket.on("alert", alert => {
+			if(typeof alert === "object"){
+				alert.timestamp = Date.now();
+				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
+				global.wsAlertRecievers.forEach(socket => {
+					socket.emit("alert", alert);
+				});
+			}
+		});
 	}
 	runCommand(command, callback){
 		let commandID = Math.random().toString();
@@ -1003,6 +1013,11 @@ io.on('connection', function (socket) {
 		if(!global.wsChatRecievers) global.wsChatRecievers = [];
 		global.wsChatRecievers.push(socket);
 	});
+	socket.on("registerAlertReciever", function(data){
+		prometheusWsUsageCounter.labels("registerAlertReciever").inc();
+		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
+		global.wsAlertRecievers.push(socket);
+	}
 });
 
 module.exports = app;
