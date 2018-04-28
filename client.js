@@ -831,11 +831,21 @@ function instanceManagement() {
 			}
 			// if we got some confirmed orders
 			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
-			sadas = JSON.stringify(confirmedOrders);
-			confirmedOrders = [];
-			// send our RCON command with whatever we got
-			messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
-			sadas = null;
+			let itemCount = confirmedOrders.length;
+			if(itemCount > 0){
+				let numberOfFragments = Math.floor(itemCount*20/2000); // 20 is approximate length of items, 2000 is maximum length we want to send at a time
+				let exportedCount = 0;
+				let exportFragment = [];
+				while(exportedCount < itemCount){
+					exportFragment[exportFragment.length] = confirmedOrders[exportedCount];
+					exportedCount++;
+					if(exportFragment.length > 100 || exportedCount >= itemCount){
+						messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + JSON.stringify(exportFragment) + "')");
+						exportFragment = [];
+					}
+				}
+				confirmedOrders = [];
+			}
 		}
 	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
