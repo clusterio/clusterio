@@ -782,7 +782,7 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 @memberof clusterioMaster
 @instance
 @alias api/runCommand
-@param {object} JSON {instanceID:19412312, command:"/c game.print('hello')"}
+@param {object} JSON {instanceID:19412312, broadcast:false, command:"/c game.print('hello')"}
 @returns {object} Status {auth: bool, message: "Informative error", data:{}}
 */
 app.post("/api/runCommand", (req,res) => {
