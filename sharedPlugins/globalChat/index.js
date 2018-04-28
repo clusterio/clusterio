@@ -13,7 +13,7 @@ module.exports = class remoteCommands {
 					message.shift();
 					message.shift();
 					let chatMessage = "["+data.instanceID+"]"+ message.join(" ");
-					chatMessage = chatMessage.replace(/[^a-zA-Z0-9]+/g, "");
+					chatMessage = chatMessage.replace(/[^a-zA-Z0-9]+/g, " ");
 					this.messageInterface("/silent-command game.print('"+chatMessage.replace("!shout ","")+"')");
 				}
 			}
