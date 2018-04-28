@@ -1017,7 +1017,7 @@ io.on('connection', function (socket) {
 		prometheusWsUsageCounter.labels("registerAlertReciever").inc();
 		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
 		global.wsAlertRecievers.push(socket);
-	}
+	});
 });
 
 module.exports = app;
