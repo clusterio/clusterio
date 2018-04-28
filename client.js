@@ -833,7 +833,7 @@ function instanceManagement() {
 			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 			let itemCount = confirmedOrders.length;
 			if(itemCount > 0){
-				let numberOfFragments = Math.floor(itemCount*20/2000); // 20 is approximate length of items, 2000 is maximum length we want to send at a time
+				let numberOfFragments = Math.floor(itemCount*50/2000); // 50 is approximate length of items, 2000 is maximum length we want to send at a time
 				let exportedCount = 0;
 				let exportFragment = [];
 				while(exportedCount < itemCount){
