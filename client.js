@@ -835,7 +835,7 @@ function instanceManagement() {
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
 			    cmd+='"'+confirmedOrders[i].name+'"'+":"+confirmedOrders[i].count+",";
-			    if(cmd.length>1000)
+			    if(cmd.length>400)//450              //ITS SMALL SO FACTORIO DOESNT SPILT IT INTO MULTIPLE PACKETS
 			    {
 			        messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"}"+ "')");
 			        cmd="{";
