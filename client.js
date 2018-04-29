@@ -831,21 +831,18 @@ function instanceManagement() {
 			}
 			// if we got some confirmed orders
 			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
-			let itemCount = confirmedOrders.length;
-			if(itemCount > 0){
-				let numberOfFragments = Math.floor(itemCount*50/2000); // 50 is approximate length of items, 2000 is maximum length we want to send at a time
-				let exportedCount = 0;
-				let exportFragment = [];
-				while(exportedCount < itemCount){
-					exportFragment[exportFragment.length] = confirmedOrders[exportedCount];
-					exportedCount++;
-					if(exportFragment.length > 100 || exportedCount >= itemCount){
-						messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + JSON.stringify(exportFragment) + "')");
-						exportFragment = [];
-					}
-				}
-				confirmedOrders = [];
+			let cmd="{";
+			for(let i=0;i<confirmedOrders.length;i++)
+			{
+			    cmd+='"'+confirmedOrders[i].name+'"'+":"+confirmedOrders[i].count+",";
+			    if(cmd.length>1000)
+			    {
+			        messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"}"+ "')");
+			        cmd="{";
+			    }
 			}
+			messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"}"+ "')");
+			confirmedOrders=[];
 		}
 	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
