@@ -820,9 +820,7 @@ function instanceManagement() {
 				needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], needleOptionsWithTokenAuthHeader, function (err, response, body) {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
-						confirmedOrders[confirmedOrders.length] = {
-							[response.body.name]: response.body.count,
-						}
+						confirmedOrders[confirmedOrders.length] = {name:response.body.name,count:response.body.count}
 						if(config.logItemTransfers){
 							console.log(`Imported ${response.body.count} ${response.body.name} from master`);
 						}
