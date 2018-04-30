@@ -863,8 +863,7 @@ function instanceManagement() {
 					}
 					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
 					// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
-					messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
-					/*let cmd="{";
+					let cmd="{";
 					for (var key in inventoryFrame) 
 					{
 						cmd+='"'+key+'"'+":"+inventoryFrame[key]+",";
@@ -874,7 +873,7 @@ function instanceManagement() {
 					       		cmd="{";
 						}
 					}
-					if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");}*/
+					if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");}
 				} catch (e){
 					console.log(e);
 				}
