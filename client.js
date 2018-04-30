@@ -828,7 +828,7 @@ function instanceManagement() {
 				});
 			}
 			// if we got some confirmed orders
-			console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+			//console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 			let cmd="[";
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
