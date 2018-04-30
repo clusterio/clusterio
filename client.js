@@ -56,9 +56,9 @@ const needleOptionsWithTokenAuthHeader = {
 };
 
 var instanceInfo = {};
-
+var commandBuffer=[];
 // function to handle sending commands into the game
-function messageInterface(command, callback) {
+function messageInterfaceInternal(command, callback) {
 	// try to save us if you send a buffer instead of string
 	if(typeof command == "object") {
 		command = command.toString('utf8');
@@ -84,6 +84,8 @@ function messageInterface(command, callback) {
 		}
 	}
 }
+function messageInterface(command, callback) {commandBuffer.push([command,callback]);}
+
 
 // handle commandline parameters
 if (!command || command == "help" || command == "--help") {
@@ -643,6 +645,8 @@ function instanceManagement() {
 		}
 	});
 	
+	// messageInterface Management
+	setInterval(function(){let command=commandBuffer.pop();if(command){messageInterfaceInternal(command[0],command[1])}},10);
 	
 	// Mod uploading and management -----------------------------------------------
 	// get mod names and hashes
