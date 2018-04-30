@@ -828,7 +828,7 @@ function instanceManagement() {
 				});
 			}
 			// if we got some confirmed orders
-			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+			console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 			let cmd="[";
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
@@ -864,12 +864,23 @@ function instanceManagement() {
 					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
 					// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
 					messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
+					/*let cmd="{";
+					for (var key in inventoryFrame) 
+					{
+						cmd+='"'+key+'"'+":"+inventoryFrame[key]+",";
+						if(cmd.length>400)//450              //ITS SMALL SO FACTORIO DOESNT SPILT IT INTO MULTIPLE PACKETS
+						{
+					       		messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");
+					       		cmd="{";
+						}
+					}
+					messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");*/
 				} catch (e){
 					console.log(e);
 				}
 			}
 		});
-	}, 1000);
+	}, 1500);
 	// Make sure world has its worldID
 	setTimeout(function(){
 		messageInterface("/silent-command remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")
