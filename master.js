@@ -291,6 +291,8 @@ POST Get metadata from a single slave. For whenever you find the data returned b
 @alias /api/getSlaveMeta
 */
 app.post("/api/getSlaveMeta", function (req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	console.log("body", req.body);
     if(req.body && req.body.instanceID && req.body.password){
     	console.log("returning meta for ", req.body.instanceID);
@@ -299,6 +301,7 @@ app.post("/api/getSlaveMeta", function (req, res) {
     	res.status(400);
     	res.send('{"INVALID REQUEST":1}');
 	}
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 // mod management
 // should handle uploading and checking if mods are uploaded
@@ -699,7 +702,7 @@ app.post("/api/getStats", function(req,res) {
 		} else if(req.body.statistic == "remove"){
 			console.log(`sending remove data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
 			// Gather data
-			console.log(sentItemStatisticsBySlaveID)
+			// console.log(sentItemStatisticsBySlaveID)
 			let itemStats = sentItemStatisticsBySlaveID[req.body.instanceID];
 			console.log(itemStats)
 			if(typeof itemStats == "object"){
@@ -786,6 +789,8 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 @returns {object} Status {auth: bool, message: "Informative error", data:{}}
 */
 app.post("/api/runCommand", (req,res) => {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	var token = req.headers['x-access-token'];
 	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
 	
@@ -808,6 +813,7 @@ app.post("/api/runCommand", (req,res) => {
                 wsSlaves[instanceID].runCommand(body.command);
             }
             res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
         } else if (
             body.instanceID
             && wsSlaves[body.instanceID]
@@ -818,9 +824,11 @@ app.post("/api/runCommand", (req,res) => {
             // execute command
             wsSlaves[body.instanceID].runCommand(body.command, data => {
                 res.status(200).send({auth: true, message: "success", data});
+				httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
             });
         } else {
             res.status(400).send({auth: true, message: "Error: invalid request.body"});
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
         }
 	});
 });
@@ -935,6 +943,7 @@ class wsSlave {
 		// handle command return values
 		this.commandsWaitingForReturn = {};
 		this.socket.on("runCommandReturnValue", resp => {
+			prometheusWsUsageCounter.labels('runCommandReturnValue').inc();
 			if(resp.commandID && resp.body && this.commandsWaitingForReturn[resp.commandID] && this.commandsWaitingForReturn[resp.commandID].callback && typeof this.commandsWaitingForReturn[resp.commandID].callback == "function"){
 				this.commandsWaitingForReturn[resp.commandID].callback(resp.body);
 				delete this.commandsWaitingForReturn[resp.commandID];
@@ -942,6 +951,7 @@ class wsSlave {
 		});
 		
 		this.socket.on("gameChat", data => {
+			prometheusWsUsageCounter.labels('gameChat').inc();
 			if(typeof data === "object"){
 				data.timestamp = Date.now();
 				if(!global.wsChatRecievers) global.wsChatRecievers = [];
@@ -952,6 +962,7 @@ class wsSlave {
 		});
 		
 		this.socket.on("alert", alert => {
+			prometheusWsUsageCounter.labels('alert').inc();
 			if(typeof alert === "object"){
 				alert.timestamp = Date.now();
 				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];

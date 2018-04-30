@@ -64,7 +64,7 @@ function messageInterface(command, callback) {
 		command = command.toString('utf8');
 	}
 	
-	if(process.platform == "linux" && typeof command == "string" && serverprocess) {
+	if(false && process.platform == "linux" && typeof command == "string" && serverprocess) {
 		/*
 			to send to stdin, use:
 			serverprocess.stdin.write("/c command;\n")
@@ -381,7 +381,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		});
 
 		// connect to the server with rcon
-		if(process.platform != "linux"){
+		if(true || process.platform != "linux"){
 			// IP, port, password
 			client = new Rcon({
 				host: 'localhost',
@@ -619,20 +619,20 @@ function instanceManagement() {
 				
 				function callback(err, mac) {
 					if (err) {
+						mac = "unknown";
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
-					} else {
-						payload.mac = mac
-						console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-							if (err && err.code != "ECONNRESET"){
-								console.error("We got problems, something went wrong when contacting master");
-								console.error(err);
-							} else if (response && response.body) {
-								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-								console.log(response.body);
-							}
-						});
 					}
+					payload.mac = mac;
+					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+						if (err && err.code != "ECONNRESET"){
+							console.error("We got problems, something went wrong when contacting master");
+							console.error(err);
+						} else if (response && response.body) {
+							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+							console.log(response.body);
+						}
+					});
 				}
 				if(global.mac){
 					callback(undefined, global.mac);
@@ -834,13 +834,14 @@ function instanceManagement() {
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
 			    cmd+='{"'+confirmedOrders[i].name+'"'+":"+confirmedOrders[i].count+"},";
-			    if(cmd.length>400)//450              //ITS SMALL SO FACTORIO DOESNT SPILT IT INTO MULTIPLE PACKETS
+			    if(cmd.length>8000)//450              //ITS SMALL SO FACTORIO DOESNT SPILT IT INTO MULTIPLE PACKETS
 			    {
 			        messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");
 			        cmd="[";
 			    }
 			}
-			if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");}confirmedOrders=[];
+			if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");}
+			confirmedOrders=[];
 		}
 	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
