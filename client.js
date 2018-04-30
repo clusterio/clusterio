@@ -619,20 +619,20 @@ function instanceManagement() {
 				
 				function callback(err, mac) {
 					if (err) {
+						mac = "unknown";
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
-					} else {
-						payload.mac = mac
-						console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-							if (err && err.code != "ECONNRESET"){
-								console.error("We got problems, something went wrong when contacting master");
-								console.error(err);
-							} else if (response && response.body) {
-								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-								console.log(response.body);
-							}
-						});
 					}
+					payload.mac = mac;
+					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+						if (err && err.code != "ECONNRESET"){
+							console.error("We got problems, something went wrong when contacting master");
+							console.error(err);
+						} else if (response && response.body) {
+							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+							console.log(response.body);
+						}
+					});
 				}
 				if(global.mac){
 					callback(undefined, global.mac);
