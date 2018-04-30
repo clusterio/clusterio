@@ -880,7 +880,7 @@ function instanceManagement() {
 				}
 			}
 		});
-	}, 1500);
+	}, 1550);
 	// Make sure world has its worldID
 	setTimeout(function(){
 		messageInterface("/silent-command remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")
