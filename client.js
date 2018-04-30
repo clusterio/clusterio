@@ -829,6 +829,7 @@ function instanceManagement() {
 			}
 			// if we got some confirmed orders
 			//console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+			//if (!(confirmedOrders.length>0)){return;}
 			let cmd="[";
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
@@ -839,8 +840,7 @@ function instanceManagement() {
 			        cmd="[";
 			    }
 			}
-			messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");
-			confirmedOrders=[];
+			if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");}confirmedOrders=[];
 		}
 	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
