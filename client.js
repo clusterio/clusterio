@@ -64,7 +64,7 @@ function messageInterface(command, callback) {
 		command = command.toString('utf8');
 	}
 	
-	if(process.platform == "linux" && typeof command == "string" && serverprocess) {
+	if(false && process.platform == "linux" && typeof command == "string" && serverprocess) {
 		/*
 			to send to stdin, use:
 			serverprocess.stdin.write("/c command;\n")
@@ -381,7 +381,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		});
 
 		// connect to the server with rcon
-		if(process.platform != "linux"){
+		if(true || process.platform != "linux"){
 			// IP, port, password
 			client = new Rcon({
 				host: 'localhost',
