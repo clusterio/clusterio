@@ -935,6 +935,7 @@ class wsSlave {
 		// handle command return values
 		this.commandsWaitingForReturn = {};
 		this.socket.on("runCommandReturnValue", resp => {
+			prometheusWsUsageCounter.labels('runCommandReturnValue').inc();
 			if(resp.commandID && resp.body && this.commandsWaitingForReturn[resp.commandID] && this.commandsWaitingForReturn[resp.commandID].callback && typeof this.commandsWaitingForReturn[resp.commandID].callback == "function"){
 				this.commandsWaitingForReturn[resp.commandID].callback(resp.body);
 				delete this.commandsWaitingForReturn[resp.commandID];
@@ -942,6 +943,7 @@ class wsSlave {
 		});
 		
 		this.socket.on("gameChat", data => {
+			prometheusWsUsageCounter.labels('gameChat').inc();
 			if(typeof data === "object"){
 				data.timestamp = Date.now();
 				if(!global.wsChatRecievers) global.wsChatRecievers = [];
@@ -952,6 +954,7 @@ class wsSlave {
 		});
 		
 		this.socket.on("alert", alert => {
+			prometheusWsUsageCounter.labels('alert').inc();
 			if(typeof alert === "object"){
 				alert.timestamp = Date.now();
 				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
