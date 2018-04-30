@@ -874,7 +874,7 @@ function instanceManagement() {
 					       		cmd="{";
 						}
 					}
-					messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");
+					if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");}
 				} catch (e){
 					console.log(e);
 				}
