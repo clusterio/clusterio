@@ -699,7 +699,7 @@ app.post("/api/getStats", function(req,res) {
 		} else if(req.body.statistic == "remove"){
 			console.log(`sending remove data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
 			// Gather data
-			console.log(sentItemStatisticsBySlaveID)
+			// console.log(sentItemStatisticsBySlaveID)
 			let itemStats = sentItemStatisticsBySlaveID[req.body.instanceID];
 			console.log(itemStats)
 			if(typeof itemStats == "object"){
