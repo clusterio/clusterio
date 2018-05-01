@@ -646,8 +646,8 @@ function instanceManagement() {
 	});
 	
 	// messageInterface Management
-	setInterval(function(){let command=commandBuffer.pop();if(command){messageInterfaceInternal(command[0],command[1])}},10);
-	
+	setInterval(function(){let command=commandBuffer.pop();if(command){messageInterfaceInternal(command[0],command[1])}},50);
+
 	// Mod uploading and management -----------------------------------------------
 	// get mod names and hashes
 	// string: instance, function: callback
@@ -832,19 +832,21 @@ function instanceManagement() {
 				});
 			}
 			// if we got some confirmed orders
-			//console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
+			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 			//if (!(confirmedOrders.length>0)){return;}
-			let cmd="[";
+			let cmd="local t={";
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
-			    cmd+='{"'+confirmedOrders[i].name+'"'+":"+confirmedOrders[i].count+"},";
-			    if(cmd.length>8000)//450              //ITS SMALL SO FACTORIO DOESNT SPILT IT INTO MULTIPLE PACKETS
+			    cmd+='["'+confirmedOrders[i].name+'"]='+confirmedOrders[i].count+',';
+			    if(cmd.length>320) // Factorio max packet size is 508
 			    {
-			        messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");
-			        cmd="[";
+			        messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
+			        cmd="local t={";
 			    }
 			}
-			if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'importMany', '"+cmd.slice(0, -1)+"]"+ "')");}
+			if (!(cmd==="local t={")){
+				messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
+			}
 			confirmedOrders=[];
 		}
 	}, 1000);
@@ -868,17 +870,22 @@ function instanceManagement() {
 					}
 					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
 					// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
-					let cmd="{";
-					for (var key in inventoryFrame) 
+					let first = true;
+					let cmd="local s={";
+					for (let key in inventoryFrame)
 					{
-						cmd+='"'+key+'"'+":"+inventoryFrame[key]+",";
-						if(cmd.length>400)//450              //ITS SMALL SO FACTORIO DOESNT SPILT IT INTO MULTIPLE PACKETS
+						cmd+='["'+key+'"]='+inventoryFrame[key]+",";
+						if(first && cmd.length>300 || !first && cmd.length > 320) // Factorio max packet size is 508
 						{
-					       		messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");
-					       		cmd="{";
+					       		messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
+					       		cmd="local s={";
+					       		first = false;
 						}
 					}
-					if (!(cmd=="[")){messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '"+cmd.slice(0, -1)+"}"+ "')");}
+					if (!(cmd==="local s={")){
+						messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
+					}
+					messageInterface("/silent-command remote.call('clusterio', 'runcode', 'UpdateInvCombinators()')");
 				} catch (e){
 					console.log(e);
 				}
