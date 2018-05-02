@@ -16,6 +16,9 @@ function drawcontents(data) {
 	
 	//update existing rows or create new ones
 	data.forEach(function(item, i) {
+		// format count to have .s in it for large number readability (1,000,000)
+		item.count = item.count.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+		
 		let row = rows[i];
 		if(!row) {
 			row = document.createElement('tr');
