@@ -96,7 +96,7 @@ const prometheusConnectedInstancesCounter = new Prometheus.Gauge({
 const prometheusWsUsageCounter = new Prometheus.Counter({
 	name: prometheusPrefix+'websocket_usage_counter',
 	help: 'Websocket traffic',
-	labelNames: ["connectionType"],
+	labelNames: ["connectionType", "instanceID"],
 });
 const prometheusProductionGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'production_gauge',
@@ -862,14 +862,17 @@ class slaveMapper {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
+			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			// we aren't ready to die yet apparently
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("sendChunk", function(data){
+			prometheusWsUsageCounter.labels('sendChunk', this.instanceID).inc();
 			mapRequesters[data.requesterID].socket.emit("displayChunk", data);
 		});
 		// slaveMapper sent us an entity update, process
 		this.socket.on("sendEntity", entity => {
+			prometheusWsUsageCounter.labels('sendEntity', this.instanceID).inc();
 			Object.keys(mapRequesters).forEach(requesterName => {
 				let requester = mapRequesters[requesterName];
 				
@@ -890,12 +893,12 @@ class mapRequester {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat').inc();
+			prometheusWsUsageCounter.labels('heartbeat', "other").inc();
 			// we aren't ready to die yet apparently
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("requestChunk", loc => {
-			prometheusWsUsageCounter.labels('requestChunk').inc();
+			prometheusWsUsageCounter.labels('requestChunk', "other").inc();
 			loc.requesterID = this.requesterID;
 			let instanceID = loc.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
@@ -903,7 +906,7 @@ class mapRequester {
 			}
 		});
 		this.socket.on("requestEntity", req => {
-			prometheusWsUsageCounter.labels('requestEntity').inc();
+			prometheusWsUsageCounter.labels('requestEntity', "other").inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
@@ -911,7 +914,7 @@ class mapRequester {
 			}
 		});
 		this.socket.on("placeEntity", req => {
-			prometheusWsUsageCounter.labels('placeEntity').inc();
+			prometheusWsUsageCounter.labels('placeEntity', "other").inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID]){
@@ -929,11 +932,11 @@ class wsSlave {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat').inc();
+			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("combinatorSignal", circuitFrameWithMeta => {
-			prometheusWsUsageCounter.labels('combinatorSignal').inc();
+			prometheusWsUsageCounter.labels('combinatorSignal', this.instanceID).inc();
 			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object"){
 				Object.keys(wsSlaves).forEach(instanceID => {
 					wsSlaves[instanceID].socket.emit("processCombinatorSignal", circuitFrameWithMeta);
@@ -943,7 +946,7 @@ class wsSlave {
 		// handle command return values
 		this.commandsWaitingForReturn = {};
 		this.socket.on("runCommandReturnValue", resp => {
-			prometheusWsUsageCounter.labels('runCommandReturnValue').inc();
+			prometheusWsUsageCounter.labels('runCommandReturnValue', this.instanceID).inc();
 			if(resp.commandID && resp.body && this.commandsWaitingForReturn[resp.commandID] && this.commandsWaitingForReturn[resp.commandID].callback && typeof this.commandsWaitingForReturn[resp.commandID].callback == "function"){
 				this.commandsWaitingForReturn[resp.commandID].callback(resp.body);
 				delete this.commandsWaitingForReturn[resp.commandID];
@@ -951,7 +954,7 @@ class wsSlave {
 		});
 		
 		this.socket.on("gameChat", data => {
-			prometheusWsUsageCounter.labels('gameChat').inc();
+			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
 			if(typeof data === "object"){
 				data.timestamp = Date.now();
 				if(!global.wsChatRecievers) global.wsChatRecievers = [];
@@ -962,7 +965,7 @@ class wsSlave {
 		});
 		
 		this.socket.on("alert", alert => {
-			prometheusWsUsageCounter.labels('alert').inc();
+			prometheusWsUsageCounter.labels('alert', this.instanceID).inc();
 			if(typeof alert === "object"){
 				alert.timestamp = Date.now();
 				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
@@ -998,13 +1001,13 @@ io.on('connection', function (socket) {
 	
 	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {
-		prometheusWsUsageCounter.labels('registerSlaveMapper').inc();
+		prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
 		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
 	});
 	socket.on('registerMapRequester', function(data){
 		// data {instanceID:""}
-		prometheusWsUsageCounter.labels('registerMapRequester').inc();
+		prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
 		let requesterID = Math.random().toString();
 		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
 		socket.emit("mapRequesterReady", true);
@@ -1013,19 +1016,19 @@ io.on('connection', function (socket) {
 	
 	/* Websockets for send and recieve combinators */
 	socket.on("registerSlave", function(data) {
-		prometheusWsUsageCounter.labels('registerSlave').inc();
+		prometheusWsUsageCounter.labels('registerSlave', "other").inc();
 		if(data && data.instanceID){
 			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
 			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
 		}
 	});
 	socket.on("registerChatReciever", function(data){
-		prometheusWsUsageCounter.labels("registerChatReciever").inc();
+		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
 		if(!global.wsChatRecievers) global.wsChatRecievers = [];
 		global.wsChatRecievers.push(socket);
 	});
 	socket.on("registerAlertReciever", function(data){
-		prometheusWsUsageCounter.labels("registerAlertReciever").inc();
+		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
 		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
 		global.wsAlertRecievers.push(socket);
 	});
