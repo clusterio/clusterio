@@ -49,6 +49,7 @@ fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAu
 }));
 
 const express = require("express");
+const compression = require('compression');
 const ejs = require("ejs");
 // Required for express post requests
 const bodyParser = require("body-parser");
@@ -58,6 +59,7 @@ var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(fileUpload());
+app.use(compression());
 
 // dynamic HTML generations with EJS
 app.set('views', path.join(__dirname, 'static'));
