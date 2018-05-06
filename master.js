@@ -115,6 +115,11 @@ const prometheusImportGauge = new Prometheus.Gauge({
 	help: 'Items imported by instance',
 	labelNames: ["instanceID", "itemName"],
 });
+const prometheusDoleFactorGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'dole_factor_gauge',
+	help: 'The current dole division factor for this item',
+	labelNames: ["itemName"],
+});
 const prometheusPlayerCountGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'player_count_gauge',
 	help: 'Amount of players connected to this cluster',
@@ -535,6 +540,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 			}
 			
+			prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
 			prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(object.count) || 0);
 			res.send({count: object.count, name: object.name});
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
