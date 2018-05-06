@@ -594,19 +594,7 @@ function instanceManagement() {
 					// delete when we are done
 					fs.unlink(instancedirectory + "/script-output/tempfile.txt", function(){});
 				}
-				// if we actually got anything from the file, proceed to categorize it
-				if (data && data[0]) {
-					while (data[0]) {
-						let q = data[0].split(" ");
-						// delete array element
-						data.splice(0,1);
-						if(q[0] == "connected_players" && Number(q[1]) != NaN) {
-							instanceInfo.playerCount = q[1];
-						}
-					}
-				} else {
-					instanceInfo.playerCount = 0;
-				}
+				
 				var payload = {
 					time: Date.now(),
 					rconPort: instanceconfig.clientPort,
@@ -615,8 +603,19 @@ function instanceManagement() {
 					unique: instanceconfig.unique,
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
-					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
+				}
+				
+				// if we actually got anything from the file, proceed to categorize it
+				if (data && data[0]) {
+					while (data[0]) {
+						let q = data[0].split(" ");
+						// delete array element
+						data.splice(0,1);
+						if(q[0] == "connected_players" && Number(q[1]) != NaN) {
+							payload.playerCount = q[1];
+						}
+					}
 				}
 				
 				function callback(err, mac) {
