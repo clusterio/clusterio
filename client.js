@@ -833,18 +833,18 @@ function instanceManagement() {
 			// if we got some confirmed orders
 			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
 			//if (!(confirmedOrders.length>0)){return;}
-			let cmd="local t={";
+			let cmd="{";
 			for(let i=0;i<confirmedOrders.length;i++)
 			{
 			    cmd+='["'+confirmedOrders[i].name+'"]='+confirmedOrders[i].count+',';
-			    if(cmd.length>320) // Factorio max packet size is 508
+			    if(cmd.length>400) // Factorio max packet size is 508
 			    {
-			        messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
-			        cmd="local t={";
+			        messageInterface("/ccrm "+cmd.slice(0, -1)+"}");
+			        cmd="{";
 			    }
 			}
-			if (!(cmd==="local t={")){
-				messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
+			if (!(cmd=="{")){
+				messageInterface("/ccrm "+cmd.slice(0, -1)+"}");
 			}
 			confirmedOrders=[];
 		}
@@ -870,19 +870,20 @@ function instanceManagement() {
 					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
 					// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
 					let first = true;
-					let cmd="local s={";
+					let cmd="{";
 					for (let key in inventoryFrame)
 					{
 						cmd+='["'+key+'"]='+inventoryFrame[key]+",";
-						if(first && cmd.length>300 || !first && cmd.length > 320) // Factorio max packet size is 508
+						if(first && cmd.length>380 || !first && cmd.length > 400) // Factorio max packet size is 508
 						{
-					       		messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
-					       		cmd="local s={";
+					       		
+							messageInterface("/ccri "+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}");
+							cmd="{";
 					       		first = false;
 						}
 					}
-					if (!(cmd==="local s={")){
-						messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
+					if (!(cmd=="{")){
+						messageInterface("/ccri "+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}");
 					}
 					messageInterface("/silent-command remote.call('clusterio', 'runcode', 'UpdateInvCombinators()')");
 				} catch (e){
