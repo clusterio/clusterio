@@ -373,17 +373,25 @@ GET endpoint for getting information about all our slaves
 @instance
 @alias /api/slaves
 */
+let slaveCache = {
+	timestamp: Date.now(),
+};
 app.get("/api/slaves", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
-	// filter out the rcon password because thats kindof not a safe thing to share
-	for(key in copyOfSlaves){
-		copyOfSlaves[key].rconPassword = "hidden";
+	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
+		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
+		// filter out the rcon password because thats kindof not a safe thing to share
+		for(key in copyOfSlaves){
+			copyOfSlaves[key].rconPassword = "hidden";
+		}
+		slaveCache.cache = copyOfSlaves;
+		slaveCache.timestamp = Date.now();
 	}
-	res.send(copyOfSlaves);
+	
+	res.send(slaveCache.cache);
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 var recievedItemStatisticsBySlaveID = {};
