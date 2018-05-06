@@ -105,16 +105,6 @@ const prometheusProductionGauge = new Prometheus.Gauge({
 	help: 'Items produced by instance',
 	labelNames: ["instanceID", "itemName"],
 });
-const prometheusExportGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'export_gauge',
-	help: 'Items exported by instance',
-	labelNames: ["instanceID", "itemName"],
-});
-const prometheusImportGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'import_gauge',
-	help: 'Items imported by instance',
-	labelNames: ["instanceID", "itemName"],
-});
 const prometheusPlayerCountGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'player_count_gauge',
 	help: 'Amount of players connected to this cluster',
@@ -448,13 +438,11 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 			key:req.body.name,
 			value:req.body.count,
 		});
-		prometheusExportGauge.labels(x.instanceID, req.body.name).inc(req.body.count);
 		// save items we get
 		db.items.addItem({
 			name:req.body.name,
 			count:req.body.count
 		});
-		
 		// Attempt confirming
 		res.send("success");
 	} else {
@@ -526,8 +514,6 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 				//console.log(sentItemStatistics.data)
 				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 			}
-			
-			prometheusImportGauge.labels(object.instanceID, object.name).inc(object.count);
 			res.send({count: object.count, name: object.name});
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		} else {
