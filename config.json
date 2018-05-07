@@ -37,5 +37,6 @@
 	},
 	"logItemTransfers": false,
 	"uploadModsToMaster": true,
+	"msBetweenCommands": 10,
 	"allowRemoteCommandExecution": false
 }
