@@ -35,5 +35,6 @@
 	},
 	"logItemTransfers": false,
 	"uploadModsToMaster": true,
-	"allowRemoteCommandExecution": false
+	"allowRemoteCommandExecution": false,
+	"commandExecutionRate": 50
 }

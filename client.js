@@ -646,7 +646,7 @@ function instanceManagement() {
 	});
 	
 	// messageInterface Management
-	setInterval(function(){let command=commandBuffer.pop();if(command){messageInterfaceInternal(command[0],command[1])}},50);
+	setInterval(function(){let command=commandBuffer.pop();if(command){messageInterfaceInternal(command[0],command[1])}},this.config.commandExecutionRate || 50);
 
 	// Mod uploading and management -----------------------------------------------
 	// get mod names and hashes
