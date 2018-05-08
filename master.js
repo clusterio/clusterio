@@ -43,6 +43,18 @@ const nedb = require("nedb");
 
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+
+var crypto = require('crypto');
+var base64url = require('base64url');
+
+/** Sync */
+function randomStringAsBase64Url(size) {
+  return base64url(crypto.randomBytes(size));
+}
+if (!fs.existsSync("secret-api-token.txt")) {
+	config.masterAuthSecret = randomStringAsBase64Url(256);
+    fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
+}
 // write an auth token to file
 fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
 	expiresIn: 86400*365 // expires in 1 year
