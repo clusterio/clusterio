@@ -6,7 +6,7 @@ const path = require('path');
 const syncRequest = require('sync-request');
 const request = require("request");
 const ncp = require('ncp').ncp;
-const Rcon = require('simple-rcon');
+const Rcon = require('rcon-client').Rcon;
 const hashFiles = require('hash-files');
 const _ = require('underscore');
 const deepmerge = require("deepmerge");
@@ -73,14 +73,16 @@ function messageInterfaceInternal(command, callback) {
 		if(typeof callback == "function"){
 			callback();
 		}
-	} else if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
+	} else if(typeof command == "string" && client && client.send && typeof client.send == "function") {
 		try {
-			client.exec(command+"\n", callback);
+			client.send(command+"\n").then(str => {
+				if(typeof callback == "function") callback(str)
+			});
 		} catch (err) {
 			console.log(err);
-		}
-		if(typeof callback == "function"){
-			callback();
+			if(typeof callback == "function"){
+				callback();
+			}
 		}
 	}
 }
@@ -385,12 +387,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		// connect to the server with rcon
 		if(true || process.platform != "linux"){
 			// IP, port, password
-			client = new Rcon({
-				host: 'localhost',
-				port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
-				password: instanceconfig.clientPassword,
-				timeout: 0
-			});
+			client = new Rcon();
 			
 			// check the logfile to see if the RCON interface is running as there is no way to continue without it
 			// we read the log every 2 seconds and stop looping when we start connecting to factorio
@@ -398,23 +395,30 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 				fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
 					// if (err) console.log(err);
 					if(data && data.indexOf('Starting RCON interface') > 0){
-						client.connect();
+						client.connect({
+							host: 'localhost',
+							port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
+							password: instanceconfig.clientPassword,
+							timeout: 5000
+						});
 					} else {
 						setTimeout(function(){
 							checkRcon();
-						},2000);
+						},5000);
 					}
 				});
 			}
 			setTimeout(checkRcon, 5000);
 		
-			client.on('authenticated', function () {
+			client.onDidAuthenticate(() => {
 				console.log('Clusterio | RCON Authenticated!');
 				instanceManagement(); // start using rcons
-			}).on('connected', function () {
+			});
+			client.onDidConnect(() => {
 				console.log('Clusterio | RCON Connected!');
 				// getID();
-			}).on('disconnected', function () {
+			});
+			client.onDidDisconnect(() => {
 				console.log('Clusterio | RCON Disconnected!');
 				process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
 			});
@@ -462,11 +466,11 @@ function instanceManagement() {
 		if(pluginConfig.binary == "nodePackage"){
 			// require index.js.main() of plugin and execute it as a class
 			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
-			plugins[I] = new pluginClass(combinedConfig, function(data){
+			plugins[I] = new pluginClass(combinedConfig, function(data, callback){
 				if(data.toString('utf8')[0] != "/") {
 					log("Stdout: " + data.toString('utf8'));
 				} else {
-					messageInterface(data.toString('utf8'));
+					messageInterface(data.toString('utf8'), callback);
 				}
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
 				socket, // socket.io connection to master (and ES6 destructuring, yay)
