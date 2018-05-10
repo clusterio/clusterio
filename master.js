@@ -69,7 +69,11 @@ const fileUpload = require('express-fileupload');
 var app = express();
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({
+	parameterLimit: 100000,
+	limit: '10mb',
+	extended: true
+}));
 app.use(fileUpload());
 app.use(compression());
 
