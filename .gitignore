@@ -50,3 +50,4 @@ sharedPlugins/*
 !sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
+!sharedPlugins/trainTeleports/
