@@ -591,14 +591,7 @@ function instanceManagement() {
 		setInterval(getID, 10000);
 		getID();
 		function getID() {
-			messageInterface("/silent-command game.write_file('tempfile.txt', 'connected_players ' .. #game.connected_players .. '\\n', true, 0)", function(err) {setTimeout(function(){
-				// get array of lines in file
-				if(fs.existsSync(instancedirectory + "/script-output/tempfile.txt")) {
-					var data = fs.readFileSync(instancedirectory + "/script-output/tempfile.txt", "utf8").split("\n");
-					// delete when we are done
-					fs.unlink(instancedirectory + "/script-output/tempfile.txt", function(){});
-				}
-				
+			messageInterface("/silent-command rcon.print(#game.connected_players)", function(playerCount) {
 				var payload = {
 					time: Date.now(),
 					rconPort: instanceconfig.clientPort,
@@ -608,18 +601,7 @@ function instanceManagement() {
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					instanceName: instance,
-				}
-				
-				// if we actually got anything from the file, proceed to categorize it
-				if (data && data[0]) {
-					while (data[0]) {
-						let q = data[0].split(" ");
-						// delete array element
-						data.splice(0,1);
-						if(q[0] == "connected_players" && Number(q[1]) != NaN) {
-							payload.playerCount = q[1];
-						}
-					}
+					playerCount,
 				}
 				
 				function callback(err, mac) {
@@ -644,7 +626,7 @@ function instanceManagement() {
 				} else {
 					getMac(callback);
 				}
-			},1000)});
+			});
 		}
 	});
 	
