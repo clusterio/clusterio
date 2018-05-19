@@ -25,8 +25,8 @@ const configManager = require("./lib/manager/configManager.js");
 var config = require('./config');
 var global = {};
 
-if (!fs.existsSync("./instances/")) {
-	fs.mkdirSync("instances");
+if (!fs.existsSync(config.instanceDirectory)) {
+	fs.mkdirSync(config.instanceDirectory);
 }
 if (!fs.existsSync("./sharedPlugins/")) {
 	fs.mkdirSync("sharedPlugins");
@@ -35,7 +35,7 @@ if (!fs.existsSync("./sharedMods/")) {
 	fs.mkdirSync("sharedMods");
 }
 const instance = process.argv[3];
-const instancedirectory = './instances/' + instance;
+const instancedirectory = config.instanceDirectory + '/' + instance;
 const command = process.argv[2];
 
 // Set the process title, shows up as the title of the CMD window on windows
@@ -101,7 +101,7 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js manage");
 	process.exit(1);
 } else if (command == "list") {
-	let instanceNames = fileOps.getDirectoriesSync("./instances/");
+	let instanceNames = fileOps.getDirectoriesSync(config.instanceDirectory);
 	instanceNames.unshift("Name:");
 	let longestInstanceName = 0;
 	// determine longest instance name
@@ -124,7 +124,7 @@ if (!command || command == "help" || command == "--help") {
 		if(instance.includes("Name:")){
 			factorioPort = "Port:"
 		} else {
-			factorioPort = require("./instances/"+instance+"/config").factorioPort;
+			factorioPort = require(config.instanceDirectory+"/"+instance+"/config").factorioPort;
 		}
 		factorioPorts.push(factorioPort);
 	});
@@ -203,8 +203,8 @@ if (!command || command == "help" || command == "--help") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
-	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
-		fileOps.deleteFolderRecursiveSync("./instances/" + process.argv[3]);
+	} else if (typeof process.argv[3] == "string" && fs.existsSync(config.instanceDirectory+"/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
+		fileOps.deleteFolderRecursiveSync(config.instanceDirectory+"/" + process.argv[3]);
 		console.log("Deleted instance " + process.argv[3]);
 		process.exit(1);
 	} else {
@@ -243,7 +243,7 @@ if (!command || command == "help" || command == "--help") {
 	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
 read-data=__PATH__executable__/../../data\r\n\
-write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
+write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instance + "\r\n\
 	");
 	
 	// this line is probably not needed anymore but Im not gonna remove it
@@ -290,7 +290,7 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	console.log("Instance created!");
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard);
-	if(instancedirectory != "./instances/undefined"){
+	if(instancedirectory != config.instanceDirectory+"/undefined"){
 		var instanceconfig = require(instancedirectory + '/config');
 		instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
 		if(process.env.FACTORIOPORT){
@@ -667,7 +667,7 @@ function instanceManagement() {
 							}
 						});
 						var form = req.form();
-						form.append('file', fs.createReadStream("./instances/"+instance+"/mods/"+mod));
+						form.append('file', fs.createReadStream(config.instanceDirectory+"/"+instance+"/mods/"+mod));
 					} else {
 						console.log("Not sending mod: " + mod + " to master because config.uploadModsToMaster is not enabled")
 					}
@@ -952,7 +952,7 @@ function hashMods(instanceName, callback) {
 	}
 	let hashedMods = [];
 	/*let mods = fs.readdirSync("./sharedMods/")*/
-	let instanceMods = fs.readdirSync("./instances/"+instanceName+"/mods/");
+	let instanceMods = fs.readdirSync(config.instanceDirectory+"/"+instanceName+"/mods/");
 	if(instanceMods.length == 0){
 		callback({}); // there are no mods installed, return an empty object
 	}
@@ -962,7 +962,7 @@ function hashMods(instanceName, callback) {
 		}
 	}
 	for(let i=0; i<instanceMods.length; i++){
-		let path = "./instances/"+instanceName+"/mods/"+instanceMods[i];
+		let path = config.instanceDirectory+"/"+instanceName+"/mods/"+instanceMods[i];
 		let name = instanceMods[i];
 		let options = {
 			files:path,
