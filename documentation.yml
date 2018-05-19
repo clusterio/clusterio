@@ -3,6 +3,7 @@ toc:
  - clusterioMaster
  - name: Type declarations
  - itemStack
+ - circuitFrame
  - name: Internal modules
    description: |
      Here are some helper functions for navigation.

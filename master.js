@@ -578,8 +578,7 @@ Gives no response
 @memberof clusterioMaster
 @instance
 @alias api/setSignal
-@param {object} circuitFrame
-@param {number} circuitFrame.time
+@param {circuitFrame} body
 */
 app.post("/api/setSignal", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -596,7 +595,7 @@ POST endpoint to read database of circuit signals sent to master
 @memberof clusterioMaster
 @instance
 @alias api/readSignal
-@returns {object} circuitFrame
+@returns {circuitFrame[]}
 */
 app.post("/api/readSignal", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();

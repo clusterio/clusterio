@@ -8,8 +8,8 @@
     "test": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{{,node_modules/_app/**/},!(node_modules)/**/}*.spec.js\" -R spec || echo .",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
     "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{{,node_modules/_app/**/},!(node_modules)/**/}*.spec.js\" -R spec || echo . && codecov -t f7b38085-36eb-4d72-84e6-64721910171e",
-    "docs": "documentation build index.js --config documentation.yml -f html -o docs",
-    "livedocs": "documentation serve --watch *.js lib/** --config documentation.yml",
+    "docs": "documentation build *.js \"./{{,node_modules/_app/**/},lib/**/}*.js\" --config documentation.yml -f html -o docs",
+    "livedocs": "documentation serve --watch *.js \"./{{,node_modules/_app/**/},lib/**/}*.js\" --config documentation.yml",
     "install": "node lib/npmPostinstall.js"
   },
   "keywords": [
