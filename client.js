@@ -291,7 +291,7 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != config.instanceDirectory+"/undefined"){
-		var instanceconfig = require(instancedirectory + '/config');
+		var instanceconfig = require(path.resolve(instancedirectory,'config'));
 		instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
 		if(process.env.FACTORIOPORT){
 			instanceconfig.factorioPort = process.env.FACTORIOPORT;
