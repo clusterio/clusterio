@@ -522,7 +522,7 @@ function instanceManagement() {
 				}
 			}
 			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
-		} else if(pluginConfig.binary != "nodePackage"){
+		} else if(pluginConfig.binary != "nodePackage" && pluginConfig.binary){
 			// handle as fragile executable plugin
 			let args = pluginConfig.args || [];
 			plugins[I]=child_process.spawn(pluginConfig.binary, args, {
@@ -583,6 +583,8 @@ function instanceManagement() {
 			plugins[i].on('close', (code) => {
 				log(`child process exited with code ${code}`);
 			});
+		} else {
+			// This plugin doesn't have a client portion
 		}
 	}
 	
