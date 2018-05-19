@@ -27,6 +27,7 @@ var config = require('./config');
 // homebrew modules
 const getFactorioLocale = require("./lib/getFactorioLocale");
 const stringUtils = require("./lib/stringUtils");
+const fileOps = require("_app/fileOps");
 
 // homemade express middleware for token auth
 const authenticate = require("./lib/authenticate");
@@ -1078,5 +1079,63 @@ io.on('connection', function (socket) {
 		global.wsAlertRecievers.push(socket);
 	});
 });
+
+// handle plugins on the master
+pluginManagement();
+async function pluginManagement(){
+	let startPluginLoad = Date.now();
+	let plugins = await getPlugins("sharedPlugins");
+	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+}
+function getPlugins(pluginDirectory){
+	return new Promise((resolve, reject) => {
+		let filesLeft = 0;
+		let plugins = [];
+		
+		function checkLoadComplete(plugin){
+			if(!filesLeft){
+				resolve(plugins);
+			}
+		}
+		fs.readdir(pluginDirectory, function(err, files){
+			if(err){
+				reject(err);
+			} else {
+				files.forEach(file => {
+					let pluginStartedLoading = Date.now(); // just for logging
+					filesLeft++;
+					let pluginPath = path.join(pluginDirectory, file);
+					fs.stat(pluginPath, function(err, stats){
+						if(err){
+							reject(err);
+							checkLoadComplete();
+						} else if(stats.isDirectory()){
+							let pluginConfig = require(path.resolve(pluginPath, "config"));
+							--filesLeft;
+							if(pluginConfig.masterPlugin){
+								let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
+								plugins.push(new masterPlugin({
+									config,
+									pluginConfig,
+									path: pluginPath,
+									socketio: io,
+									express: app,
+								}));
+								
+								console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
+								checkLoadComplete();
+							} else {
+								checkLoadComplete();
+							}
+						} else {
+							checkLoadComplete();
+						}
+					});
+				});
+			}
+		});
+	});
+}
+
 
 module.exports = app;
