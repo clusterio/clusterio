@@ -1,41 +1,22 @@
+const pluginConfig = require("./config");
+
+const fs = require("fs");
+
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		setInterval(()=>{
-			messageInterface("/c rcon.print('Rcon return data works :D')", data => messageInterface(data));
+			// messageInterface("/c rcon.print('Rcon return data works :D')", data => messageInterface(data));
 		},1000);
-	}
-	getTrainstops(){
-		return new Promise((resolve, reject) => {
-			if(this.trainstopsDatabase){
-				resolve(this.trainstopsDatabase);
-			} else {
-				fs.readFile("trainstopsDatabase.db", (err, data) => {
-					if(err){
-						resolve({});
-					} else {
-						this.trainstopsDatabase = JSON.parse(data);
-						resolve(this.trainstopsDatabase);
-					}
-				});
-			}
+		
+		// initialize mod with Hotpatch
+		this.checkHotpatchInstallation().then(status => {
+			console.log(status)
 		});
-	}
-	saveTrainstops(){
-		return new Promise((resolve, reject) => {
-			if(this.trainstopsDatabase){
-				fs.writeFile("trainstopsDatabase.db", JSON.stringify(this.trainstopsDatabase, null, 4), (err, data) => {
-					if(err){
-						reject(err);
-					} else {
-						resolve("Database successfully saved");
-					}
-				});
-			} else {
-				resolve("Nothing to save");
-			}
+		this.getSafeLua("sharedPlugins/trainTeleports/lua/train_stop_tracking.lua").then(code => {
+			messageInterface("/c remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+code+"')");
 		});
 	}
 	async scriptOutput(data){
@@ -69,6 +50,38 @@ module.exports = class remoteCommands {
 				});
 			}
 		}
+	}
+	getSafeLua(filePath){
+		return new Promise((resolve, reject) => {
+			fs.readFile(filePath, "utf8", (err, contents) => {
+				if(err){
+					reject(err);
+				} else {
+					// remove newlines
+					contents = contents.split(/\r?\n/);
+					// strip away single line comments
+					contents = contents.reduce((acc, val) => {
+						if(val.indexOf("--") && val.indexOf("--") != val.indexOf("--[[")){
+							acc += val.substr(0, val.indexOf("--"));
+						} else {
+							acc += val;
+						}
+					});
+					resolve(contents);
+				}
+			});
+		});
+	}
+	checkHotpatchInstallation(){
+		return new Promise((resolve, reject) => {
+			this.messageInterface("/silent-command if remote.interfaces['hotpatch'] then rcon.print('true') else rcon.print('false') end", yn => {
+				if(yn == "true"){
+					resolve(true);
+				} else if(yn == "false"){
+					resolve(false);
+				}
+			});
+		});
 	}
 	factorioOutput(data){
 		console.log(data.replace(/(\r\n\t|\n|\r\t)/gm,""));

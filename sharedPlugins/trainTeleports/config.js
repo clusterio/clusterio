@@ -8,4 +8,5 @@ module.exports = {
 	binary: "nodePackage",
 	description: "Clusterio plugin for teleporting trains between servers",
 	scriptOutputFileSubscription: "trainTeleports.txt",
+	masterPlugin: "masterPlugin.js",
 }

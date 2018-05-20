@@ -39,7 +39,7 @@ end
 global.config = { PlacableArea = 160 }
 local function is_teleport_station(entity)
     if not entity.valid
-        or entity.type ~= 'train-stop'
+        or entity.type ~= "train-stop"
         or entity.force ~= game.forces.player then
         return false
     end
@@ -57,7 +57,7 @@ local function on_entity_built(entity, player_index)
     end
 
     if player_index ~= nil then
-        game.players[player_index].print('[Clusterio] Train station built in teleportation range')
+        game.players[player_index].print("[Clusterio] Train station built in teleportation range")
     end
     update_train_stop(entity)
 end
@@ -81,7 +81,7 @@ script.on_event(defines.events.on_robot_built_entity, on_entity_built_event)
 script.on_event(defines.events.script_raised_built, function (event)
     if not event then return end
     local entity = event.created_entity or event.entity
-    if type(entity) ~= 'table' or type(entity.__self) ~= 'userdata' or not entity.valid then return end
+    if type(entity) ~= "table" or type(entity.__self) ~= "userdata" or not entity.valid then return end
     on_entity_built(entity)
 end)
 script.on_event(defines.events.on_player_mined_entity, on_entity_mined_event)
@@ -89,7 +89,7 @@ script.on_event(defines.events.on_robot_mined_entity, on_entity_mined_event)
 script.on_event(defines.events.script_raised_destroy, function (event)
     if not event then return end
     local entity = event.entity
-    if type(entity) ~= 'table' or type(entity.__self) ~= 'userdata' or not entity.valid then return end
+    if type(entity) ~= "table" or type(entity.__self) ~= "userdata" or not entity.valid then return end
     on_entity_removed(entity)
 end)
 script.on_event(defines.events.on_entity_renamed, function (event)
