@@ -240,54 +240,63 @@ if (!command || command == "help" || command == "--help") {
 	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 	fs.mkdirSync(instancedirectory + "/mods/");
 	fs.mkdirSync(instancedirectory + "/instanceMods/");
-	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
-	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
-read-data=__PATH__executable__/../../data\r\n\
-write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instance + "\r\n\
-	");
-	
-	// this line is probably not needed anymore but Im not gonna remove it
-	fs.copySync('sharedMods', instancedirectory + "/mods");
-	let instconf = {
-		"factorioPort": process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
-		"clientPort": process.env.RCONPORT || Math.floor(Math.random() * 65535),
-		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
-	}
-	console.log("Clusterio | Created instance with settings:")
-	console.log(instconf);
-	
-	// create instance config
-	fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
-	
-	let name = "Clusterio instance: " + instance;
-	if (config.username) {
-		name = config.username + "'s clusterio " + instance;
-	}
-	let serversettings = {
-		"name": name,
-		"description": config.description,
-		"tags": ["clusterio"],
-		"max_players": "20",
-		"visibility": config.visibility,
-		"username": config.username,
-		"token": config.token,
-		"game_password": config.game_password,
-		"verify_user_identity": config.verify_user_identity,
-		"admins": [config.username],
-		"allow_commands": config.allow_commands,
-		"autosave_interval": 10,
-		"autosave_slots": 5,
-		"afk_autokick_interval": 0,
-		"auto_pause": config.auto_pause,
-	}
-	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
-	let createSave = child_process.spawnSync(
-		'./' + config.factorioDirectory + '/bin/x64/factorio', [
-			'-c', instancedirectory + '/config.ini',
-			'--create', instancedirectory + '/saves/save.zip',
-		]
-	);
-	console.log("Instance created!");
+	fs.mkdirSync(instancedirectory + "/scenarios/");
+	ncp("./factorio/scenarios", instancedirectory + "/scenarios/", err=>{
+		console.log(err)
+		// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
+		fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
+	read-data=__PATH__executable__/../../data\r\n\
+	write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instance + "\r\n\
+		");
+		
+		// this line is probably not needed anymore but Im not gonna remove it
+		fs.copySync('sharedMods', instancedirectory + "/mods");
+		let instconf = {
+			"factorioPort": process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
+			"clientPort": process.env.RCONPORT || Math.floor(Math.random() * 65535),
+			"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
+		}
+		console.log("Clusterio | Created instance with settings:")
+		console.log(instconf);
+		
+		// create instance config
+		fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
+		
+		let name = "Clusterio instance: " + instance;
+		if (config.username) {
+			name = config.username + "'s clusterio " + instance;
+		}
+		let serversettings = {
+			"name": name,
+			"description": config.description,
+			"tags": ["clusterio"],
+			"max_players": "20",
+			"visibility": config.visibility,
+			"username": config.username,
+			"token": config.token,
+			"game_password": config.game_password,
+			"verify_user_identity": config.verify_user_identity,
+			"admins": [config.username],
+			"allow_commands": config.allow_commands,
+			"autosave_interval": 10,
+			"autosave_slots": 5,
+			"afk_autokick_interval": 0,
+			"auto_pause": config.auto_pause,
+		}
+		fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
+		console.log("Server settings: "+JSON.stringify(serversettings, null, 4));
+		console.log("Creating save .....");
+		let createSave = child_process.spawnSync(
+			'./' + config.factorioDirectory + '/bin/x64/factorio', [
+				'-c', instancedirectory + '/config.ini',
+				'--create', instancedirectory + '/saves/save.zip',
+				// '--start-server-load-scenario', 'Hotpatch',
+			]
+		);
+		console.log(createSave.output.join("\n"));
+		console.log("Instance created!");
+		process.exit(0);
+	});
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != config.instanceDirectory+"/undefined"){
