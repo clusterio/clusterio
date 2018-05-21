@@ -42,6 +42,9 @@ const command = process.argv[2];
 // and as the process name in ps/top on linux.
 process.title = "clusterioClient "+instance;
 
+// add better stack traces on promise rejection
+process.on('unhandledRejection', r => console.log(r));
+
 // make sure we have the master access token (can't write to master without it since clusterio 2.0)
 if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
 	console.log("ERROR invalid config!");
@@ -241,12 +244,12 @@ if (!command || command == "help" || command == "--help") {
 	fs.mkdirSync(instancedirectory + "/mods/");
 	fs.mkdirSync(instancedirectory + "/instanceMods/");
 	fs.mkdirSync(instancedirectory + "/scenarios/");
-	ncp("./factorio/scenarios", instancedirectory + "/scenarios/", err=>{
-		console.log(err)
+	ncp("./lib/scenarios", instancedirectory + "/scenarios/", err => {
+		if(err) console.log(err)
 		// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 		fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
-	read-data=__PATH__executable__/../../data\r\n\
-	write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instance + "\r\n\
+			read-data=__PATH__executable__/../../data\r\n\
+			write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instance + "\r\n\
 		");
 		
 		// this line is probably not needed anymore but Im not gonna remove it
@@ -286,16 +289,43 @@ if (!command || command == "help" || command == "--help") {
 		fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 		console.log("Server settings: "+JSON.stringify(serversettings, null, 4));
 		console.log("Creating save .....");
-		let createSave = child_process.spawnSync(
+		let factorio = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instancedirectory + '/config.ini',
-				'--create', instancedirectory + '/saves/save.zip',
-				// '--start-server-load-scenario', 'Hotpatch',
-			]
+				// '--create', instancedirectory + '/saves/save.zip',
+				'--start-server-load-scenario', 'Hotpatch',
+				'--server-settings', instancedirectory + '/server-settings.json',
+				'--rcon-port', Number(process.env.RCONPORT) || instconf.clientPort,
+				'--rcon-password', instconf.clientPassword,
+			], {
+				'stdio': ['pipe', 'pipe', 'pipe']
+			}
 		);
-		console.log(createSave.output.join("\n"));
-		console.log("Instance created!");
-		process.exit(0);
+		factorio.stdout.on("data", data => {
+			data = data.toString("utf8").replace(/(\r\n\t|\n|\r\t)/gm,"");
+			console.log(data);
+			if(data.includes("Starting RCON interface")){
+				let client = new Rcon();
+				client.connect({
+					host: 'localhost',
+					port: Number(process.env.RCONPORT) || instconf.clientPort,
+					password: instconf.clientPassword,
+					timeout: 5000
+				});
+				client.onDidAuthenticate(() => {
+					console.log('Clusterio | RCON Authenticated!');
+				});
+				client.onDidConnect(() => {
+					console.log('Clusterio | RCON Connected, starting save');
+					client.send("/c game.server_save('hotpachSave')");
+				});
+			}
+			if(data.includes("Saving finished")){
+				console.log("Map saved as hotpachSave.zip, exiting...");
+				console.log("Instance created!")
+				process.exit(0);
+			}
+		});
 	});
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard);
@@ -372,11 +402,11 @@ if (!command || command == "help" || command == "--help") {
 			}
 		);
 
-		serverprocess.on('close', (code) => {
+		serverprocess.on('close', code => {
 			console.log(`child process exited with code ${code}`);
 			process.exit();
 		});
-		serverprocess.stdout.on("data", (data) => {
+		serverprocess.stdout.on("data", data => {
 			// log("Stdout: " + data);
 			if(data.toString('utf8').includes("Couldn't parse RCON data: Maximum payload size exceeded")){
 				console.error("ERROR: RCON CONNECTION BROKE DUE TO TOO LARGE PACKET!");
@@ -384,10 +414,7 @@ if (!command || command == "help" || command == "--help") {
 				client.close();
 				client.connect();
 			}
-			if(process.platform == "linux"){
-				// we have to log on linux because linux only shows stdout of the first process launched
-				console.log('Factorio: ' + data);
-			}
+			console.log(data.toString("utf8").replace(/(\r\n\t|\n|\r\t)/gm,""));
 		});
 		serverprocess.stderr.on('data', (chunk) => {
 			console.log('ERR: ' + chunk);

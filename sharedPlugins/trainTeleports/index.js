@@ -83,7 +83,4 @@ module.exports = class remoteCommands {
 			});
 		});
 	}
-	factorioOutput(data){
-		console.log(data.replace(/(\r\n\t|\n|\r\t)/gm,""));
-	}
 }
