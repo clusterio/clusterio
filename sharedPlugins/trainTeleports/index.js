@@ -14,21 +14,18 @@ module.exports = class remoteCommands {
 		},1000);
 		
 		// initialize mod with Hotpatch
-		this.checkHotpatchInstallation().then(status => {
-			this.messageInterface("Hotpach installation status: "+status);
-			if(status){
-				this.getSafeLua("sharedPlugins/trainTeleports/lua/train_stop_tracking.lua").then(code => {
-					messageInterface("Installing trainTeleports...");
-					if(code){
-						messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+code+"')");
-					}
-				}).catch(e => {
-					console.log(e);
-				});
+		(async () => {
+			let startTime = Date.now();
+			let hotpatchInstallStatus = await this.checkHotpatchInstallation();
+			this.messageInterface("Hotpach installation status: "+hotpatchInstallStatus);
+			if(hotpatchInstallStatus){
+				var luaCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/train_stop_tracking.lua");
+				if(luaCode) await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+luaCode+"')");
+				messageInterface("trainTeleports installed in "+(Date.now() - startTime)+"ms");
 			} else {
 				this.messageInterface("Hotpatch isn't installed! Please generate a new map with the hotpatch scenario to use trainTeleports.");
 			}
-		});
+		})().catch(e => console.log(e));
 	}
 	async scriptOutput(data){
 		if(data !== null){
@@ -87,15 +84,12 @@ module.exports = class remoteCommands {
 		});
 	}
 	async checkHotpatchInstallation(){
-		return new Promise((resolve, reject) => {
-			this.messageInterface("/silent-command if remote.interfaces['hotpatch'] then rcon.print('true') else rcon.print('false') end", yn => {
-				yn = yn.replace(/(\r\n\t|\n|\r\t)/gm, "");
-				if(yn == "true"){
-					resolve(true);
-				} else if(yn == "false"){
-					resolve(false);
-				}
-			});
-		});
+		let yn = await this.messageInterface("/silent-command if remote.interfaces['hotpatch'] then rcon.print('true') else rcon.print('false') end");
+		yn = yn.replace(/(\r\n\t|\n|\r\t)/gm, "");
+		if(yn == "true"){
+			return true;
+		} else if(yn == "false"){
+			return false;
+		}
 	}
 }
