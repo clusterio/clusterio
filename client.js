@@ -57,8 +57,16 @@ const needleOptionsWithTokenAuthHeader = {
 
 var instanceInfo = {};
 var commandBuffer=[];
+// messageInterface Management
+setInterval(function(){
+	let command=commandBuffer.shift();
+	if(command){
+		messageInterfaceInternal(command[0], command[1], command[2], command[3]);
+	}
+},config.msBetweenCommands || 50);
+
 // function to handle sending commands into the game
-function messageInterfaceInternal(command, callback) {
+async function messageInterfaceInternal(command, callback, resolve, reject) {
 	// try to save us if you send a buffer instead of string
 	if(typeof command == "object") {
 		command = command.toString('utf8');
@@ -73,20 +81,26 @@ function messageInterfaceInternal(command, callback) {
 		if(typeof callback == "function"){
 			callback();
 		}
+		resolve();
 	} else if(typeof command == "string" && client && client.send && typeof client.send == "function") {
 		try {
-			client.send(command+"\n").then(str => {
-				if(typeof callback == "function") callback(str)
-			});
+			let str = await client.send(command+"\n");
+			if(typeof callback == "function") callback(str)
+			resolve(str)
 		} catch (err) {
 			console.log(err);
 			if(typeof callback == "function"){
 				callback();
 			}
+			reject(err)
 		}
 	}
 }
-function messageInterface(command, callback) {commandBuffer.push([command,callback]);}
+function messageInterface(command, callback) {
+	return new Promise((resolve,reject) => {
+		commandBuffer.push([command,callback, resolve, reject]);
+	});
+}
 
 
 // handle commandline parameters
@@ -466,11 +480,12 @@ function instanceManagement() {
 		if(pluginConfig.binary == "nodePackage"){
 			// require index.js.main() of plugin and execute it as a class
 			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
-			plugins[I] = new pluginClass(combinedConfig, function(data, callback){
+			plugins[I] = new pluginClass(combinedConfig, async function(data, callback){
 				if(data.toString('utf8')[0] != "/") {
 					log("Stdout: " + data.toString('utf8'));
+					return true;
 				} else {
-					messageInterface(data.toString('utf8'), callback);
+					return messageInterface(data.toString('utf8'), callback);
 				}
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
 				socket, // socket.io connection to master (and ES6 destructuring, yay)
@@ -631,10 +646,6 @@ function instanceManagement() {
 			});
 		}
 	});
-	
-	// messageInterface Management
-	setInterval(function(){let command=commandBuffer.pop();if(command){messageInterfaceInternal(command[0],command[1])}},config.msBetweenCommands || 50);
-
 	// Mod uploading and management -----------------------------------------------
 	// get mod names and hashes
 	// string: instance, function: callback
@@ -650,7 +661,7 @@ function instanceManagement() {
 			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 				if(err) console.log(new Error("Unable to contact master server! Please check your config.json."));
 				if(response && body && body == "found") {
-					console.log("master has mod");
+					console.log("master has mod "+modHashes[i].modName);
 				} else if (response && body && typeof body == "string") {
 					let mod = response.body;
 					if(config.uploadModsToMaster){
