@@ -2,16 +2,13 @@ const pluginConfig = require("./config");
 
 const fs = require("fs");
 
-const COMPRESS_LUA = true;
+const COMPRESS_LUA = false;
 
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
-		setInterval(()=>{
-			// messageInterface("/c rcon.print('Rcon return data works :D')", data => messageInterface(data));
-		},1000);
 		
 		// initialize mod with Hotpatch
 		(async () => {
@@ -21,7 +18,9 @@ module.exports = class remoteCommands {
 			if(hotpatchInstallStatus){
 				var luaCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/train_stop_tracking.lua");
 				if(luaCode) await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+luaCode+"')");
-				messageInterface("trainTeleports installed in "+(Date.now() - startTime)+"ms");
+				var guiCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/gui.lua");
+				if(guiCode) await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"Gui', '"+pluginConfig.version+"', '"+guiCode+"')");
+				this.messageInterface("trainTeleports installed in "+(Date.now() - startTime)+"ms");
 			} else {
 				this.messageInterface("Hotpatch isn't installed! Please generate a new map with the hotpatch scenario to use trainTeleports.");
 			}
@@ -42,8 +41,10 @@ module.exports = class remoteCommands {
 			if(!trainstops.data) trainstops.data = [];
 			if(parsedData.event == "trainstop_added"){
 				this.messageInterface(`Adding trainstop ${parsedData.name} at x:${parsedData.x} y:${parsedData.y}`);
-				trainstops.data.push(parsedData);
+				this.socket.emit("trainstop_added", parsedData);
 			} else if(parsedData.event == "trainstop_edited"){
+				this.messageInterface(`Editing trainstop ${parsedData.name} at x:${parsedData.x} y:${parsedData.y}`);
+				this.socket.emit("trainstop_edited", parsedData);
 				trainstops.data.forEach(trainstop, index => {
 					if(trainstop.x == parsedData.x && trainstop.y == parsedData.y){
 						this.messageInterface("Renaming trainstop from "+trainstop.name+" to "+parsedData.name);
@@ -51,11 +52,8 @@ module.exports = class remoteCommands {
 					}
 				});
 			} else if(parsedData.event == "trainstop_removed"){
-				trainstops.data.forEach(trainstop, index => {
-					if(trainstop.x == parsedData.x && trainstop.y == parsedData.y){
-						delete trainstops[index];
-					}
-				});
+				this.messageInterface(`Removing trainstop ${parsedData.name} at x:${parsedData.x} y:${parsedData.y}`);
+				this.socket.emit("trainstop_removed", parsedData);
 			}
 		}
 	}
