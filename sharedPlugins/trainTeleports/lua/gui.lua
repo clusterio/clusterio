@@ -140,7 +140,7 @@ local function gui_populate(self, remote_data)
 end
 remote.add_interface("trainTeleports", {
 	runCode = function(code)
-		loadstring(code)()
+		load(code, "trainTeleports code injection failed!", "bt", _ENV)()
 	end
 })
 script.on_event(defines.events.on_gui_opened, function (event)

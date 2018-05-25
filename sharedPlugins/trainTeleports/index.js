@@ -47,7 +47,7 @@ module.exports = class remoteCommands {
 				command += '},},';
 			}
 			command += '}\')';
-			this.messageInterface("/c "+command);
+			this.messageInterface("/silent-command "+command);
 		});
 	}
 	async scriptOutput(data){
