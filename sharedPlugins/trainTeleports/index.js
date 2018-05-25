@@ -10,6 +10,9 @@ module.exports = class remoteCommands {
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		
+		setTimeout(()=>{this.socket.emit("registerTrainTeleporter", {
+			instanceID: this.config.unique,
+		})},1000);
 		// initialize mod with Hotpatch
 		(async () => {
 			let startTime = Date.now();
@@ -37,20 +40,12 @@ module.exports = class remoteCommands {
 			});
 			this.messageInterface(JSON.stringify(parsedData));
 			
-			let trainstops = await this.getTrainstops();
-			if(!trainstops.data) trainstops.data = [];
 			if(parsedData.event == "trainstop_added"){
 				this.messageInterface(`Adding trainstop ${parsedData.name} at x:${parsedData.x} y:${parsedData.y}`);
 				this.socket.emit("trainstop_added", parsedData);
 			} else if(parsedData.event == "trainstop_edited"){
 				this.messageInterface(`Editing trainstop ${parsedData.name} at x:${parsedData.x} y:${parsedData.y}`);
 				this.socket.emit("trainstop_edited", parsedData);
-				trainstops.data.forEach(trainstop, index => {
-					if(trainstop.x == parsedData.x && trainstop.y == parsedData.y){
-						this.messageInterface("Renaming trainstop from "+trainstop.name+" to "+parsedData.name);
-						trainstop.name = parsedData.name;
-					}
-				});
 			} else if(parsedData.event == "trainstop_removed"){
 				this.messageInterface(`Removing trainstop ${parsedData.name} at x:${parsedData.x} y:${parsedData.y}`);
 				this.socket.emit("trainstop_removed", parsedData);

@@ -20,10 +20,10 @@ local function update_train_stop(entity)
         shared_train_stops[entity.unit_number] = registration
 
         --[[ TODO: Communicate that a new train stop has been added ]]
-		game.writeFile(fileName, "event:trainstop_added|name:"..entity.backer_name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
+		game.write_file(fileName, "event:trainstop_added|name:"..entity.backer_name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
     elseif registration.name ~= entity.backer_name then
         --[[ TODO: Communicate that a train stop has been edited ]]
-		game.writeFile(fileName, "event:trainstop_edited|name:"..entity.backer_name.."|oldName:"..registration.name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
+		game.write_file(fileName, "event:trainstop_edited|name:"..entity.backer_name.."|oldName:"..registration.name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
 		
         registration.name = entity.backer_name
     end
@@ -32,7 +32,8 @@ local function remove_train_stop(entity)
     global.shared_train_stops[entity.unit_number] = nil
 
     --[[ TODO: Communicate that entity with unit number has been removed ]]
-	game.writeFile(fileName, "event:trainstop_removed|name:"..entity.backer_name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
+    local entity_position = entity.position
+	game.write_file(fileName, "event:trainstop_removed|name:"..entity.backer_name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
 end
 
 --[[ Placeholder ]]

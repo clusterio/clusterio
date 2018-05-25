@@ -282,7 +282,7 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 				slaves[req.body.unique][k] = req.body[k];
 			}
 		}
-		console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
+		// console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
 		res.send("Registered!");
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
@@ -308,7 +308,7 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
 			let metaPortion = JSON.stringify(req.body.meta);
 			if(metaPortion.length > 50) metaPortion = metaPortion.substring(0,20) + "...";
-			console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
+			// console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
 		} else {
 			res.send("ERROR: Invalid instanceID or password");
 		}

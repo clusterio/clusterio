@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 class trainTeleporter{
 	constructor({socket, instanceID, master}){
 		this.socket = socket;
@@ -10,7 +12,11 @@ class trainTeleporter{
 				console.log("trainstop_added: "+data.name);
 			});
 			this.socket.on("trainstop_edited", async data => {
-				await this.removeTrainstop(data);
+				await this.removeTrainstop({
+					x:data.x,
+					y:data.y,
+					name:data.oldName
+				});
 				await this.addTrainstop(data);
 				console.log("trainstop_edited: "+data.name);
 			});
@@ -22,22 +28,27 @@ class trainTeleporter{
 	}
 	async addTrainstop({x, y, name}){
 		let trainstops = await this.master.getTrainstops();
-		if(!trainstops[name]) trainstops[name] = {name, stops:[]};
-		trainstops[data.name].stops.push({x,y});
+		if(!trainstops[this.instanceID]) trainstops[this.instanceID] = {};
+		if(!trainstops[this.instanceID][name]) trainstops[this.instanceID][name] = {name, stops:[]};
+		trainstops[this.instanceID][name].stops.push({x,y});
+		
 		await this.master.saveTrainstops();
 		return true;
 	}
 	async removeTrainstop({x, y, name}){
 		let trainstops = await this.master.getTrainstops();
-		if(!trainstops[name]) return true;
-		
-		trainstops.data.forEach(trainstop, index => {
-			if(trainstop.x == x && trainstop.y == y){
-				delete trainstops[index];
-			}
-		});
-		await this.master.saveTrainstops();
-		resolve(true);
+		if(!trainstops[this.instanceID][name]){
+			return true;
+		} else {
+			trainstops[this.instanceID][name].stops.forEach((trainstop, index) => {
+				if(trainstop.x == x && trainstop.y == y){
+					trainstops[this.instanceID][name].stops.splice(index, 1);
+				}
+			});
+			if(!trainstops[this.instanceID][name].stops[0]) delete trainstops[this.instanceID][name];
+			await this.master.saveTrainstops();
+			return true;
+		}
 	}
 }
 
@@ -52,6 +63,7 @@ class masterPlugin {
 		this.clients = {};
 		this.io.on("connection", socket => {
 			socket.on("registerTrainTeleporter", data => {
+				console.log("Registered train teleporter "+data.instanceID);
 				this.clients[data.instanceID] = new trainTeleporter({
 					master:this,
 					instanceID: data.instanceID,
@@ -63,11 +75,13 @@ class masterPlugin {
 	getTrainstops(){
 		return new Promise((resolve, reject) => {
 			if(this.trainstopsDatabase){
+				console.log(this.trainstopsDatabase)
 				resolve(this.trainstopsDatabase);
 			} else {
-				fs.readFile("trainstopsDatabase.json", (err, data) => {
+				fs.readFile("database/trainstopsDatabase.json", (err, data) => {
 					if(err){
-						resolve({});
+						this.trainstopsDatabase = {};
+						resolve(this.trainstopsDatabase);
 					} else {
 						this.trainstopsDatabase = JSON.parse(data);
 						resolve(this.trainstopsDatabase);
@@ -79,7 +93,8 @@ class masterPlugin {
 	saveTrainstops(){
 		return new Promise((resolve, reject) => {
 			if(this.trainstopsDatabase){
-				fs.writeFile("trainstopsDatabase.json", JSON.stringify(this.trainstopsDatabase, null, 4), (err, data) => {
+				console.log(this.trainstopsDatabase)
+				fs.writeFile("database/trainstopsDatabase.json", JSON.stringify(this.trainstopsDatabase, null, 4), (err, data) => {
 					if(err){
 						reject(err);
 					} else {
