@@ -1,5 +1,5 @@
 const pluginConfig = require("./config");
-
+const clusterUtil = require("./lib/clusterUtil.js");
 const fs = require("fs");
 
 const COMPRESS_LUA = false;
@@ -24,10 +24,31 @@ module.exports = class remoteCommands {
 				var guiCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/gui.lua");
 				if(guiCode) await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"Gui', '"+pluginConfig.version+"', '"+guiCode+"')");
 				this.messageInterface("trainTeleports installed in "+(Date.now() - startTime)+"ms");
+				
+				setInterval(() => {
+					this.socket.emit("getTrainstops");
+				}, 10000);
 			} else {
 				this.messageInterface("Hotpatch isn't installed! Please generate a new map with the hotpatch scenario to use trainTeleports.");
 			}
 		})().catch(e => console.log(e));
+		
+		this.socket.on("trainstopsDatabase", async trainstopsDB => {
+			// convert database to LUA table
+			// for an example of intended output, see exampleTable_1.lua
+			let command = 'remote.call("trainTeleports", "runCode", \'global.trainstopsData = {';
+			for(let instanceID in trainstopsDB){
+				command += '{id='+instanceID+',';
+				command += 'name="'+await clusterUtil.getInstanceName(instanceID, this.config)+'",';
+				command += 'stations={';
+				for(let trainstop in trainstopsDB[instanceID]){
+					command += '"'+trainstop+'",';
+				}
+				command += '},},';
+			}
+			command += '}\')';
+			this.messageInterface("/c "+command);
+		});
 	}
 	async scriptOutput(data){
 		if(data !== null){

@@ -7,6 +7,9 @@ class trainTeleporter{
 		this.master = master;
 		
 		(async () => {
+			this.socket.on("getTrainstops", async () => {
+				this.socket.emit("trainstopsDatabase", await this.master.getTrainstops());
+			});
 			this.socket.on("trainstop_added", async data => {
 				await this.addTrainstop(data);
 				console.log("trainstop_added: "+data.name);

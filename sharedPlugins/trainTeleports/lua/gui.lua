@@ -138,7 +138,11 @@ local function gui_populate(self, remote_data)
 
     gui_showlist(self)
 end
-
+remote.add_interface("trainTeleports", {
+	runCode = function(code)
+		loadstring(code)()
+	end
+})
 script.on_event(defines.events.on_gui_opened, function (event)
     local player = game.players[event.player_index]
     local entity = event.entity
@@ -183,18 +187,18 @@ script.on_event(defines.events.on_gui_opened, function (event)
             },
         },
     }
-    for i = 1, 20 do
+    --[[for i = 1, 20 do
         local stations = {}
         for j = 1, 50 do
             stations[#stations + 1] = "Station " .. tostring(j)
         end
-        dummy_data[#dummy_data + 1] = {
+        global.trainstopsData[#global.trainstopsData + 1] = {
             id = i,
             name = "Dummy " .. tostring(i),
             stations = stations,
         }
-    end
-    gui_populate(state, dummy_data)
+    end]]
+    gui_populate(state, global.trainstopsData)
 end)
 
 script.on_event(defines.events.on_gui_closed, function (event)
