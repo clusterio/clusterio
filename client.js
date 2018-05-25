@@ -695,7 +695,7 @@ function instanceManagement() {
 				hash: modHashes[i].hash,
 			}
 			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-				if(err) console.log(new Error("Unable to contact master server! Please check your config.json."));
+				if(err) console.log("Unable to contact master server! Please check your config.json.");
 				if(response && body && body == "found") {
 					console.log("master has mod "+modHashes[i].modName);
 				} else if (response && body && typeof body == "string") {

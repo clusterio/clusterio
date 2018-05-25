@@ -1,5 +1,3 @@
-/*jslint esnext:true*/
-
 class trainTeleporter{
 	constructor({socket, instanceID, master}){
 		this.socket = socket;
@@ -7,16 +5,16 @@ class trainTeleporter{
 		this.master = master;
 		
 		(async () => {
-			this.socket.on("trainstop_added", data => {
+			this.socket.on("trainstop_added", async data => {
 				await this.addTrainstop(data);
 				console.log("trainstop_added: "+data.name);
 			});
-			this.socket.on("trainstop_edited", data => {
+			this.socket.on("trainstop_edited", async data => {
 				await this.removeTrainstop(data);
 				await this.addTrainstop(data);
 				console.log("trainstop_edited: "+data.name);
 			});
-			this.socket.on("trainstop_removed", data => {
+			this.socket.on("trainstop_removed", async data => {
 				await this.removeTrainstop(data);
 				console.log("trainstop_removed: "+data.name);
 			});
@@ -26,6 +24,7 @@ class trainTeleporter{
 		let trainstops = await this.master.getTrainstops();
 		if(!trainstops[name]) trainstops[name] = {name, stops:[]};
 		trainstops[data.name].stops.push({x,y});
+		await this.master.saveTrainstops();
 		return true;
 	}
 	async removeTrainstop({x, y, name}){
@@ -37,6 +36,7 @@ class trainTeleporter{
 				delete trainstops[index];
 			}
 		});
+		await this.master.saveTrainstops();
 		resolve(true);
 	}
 }
@@ -65,7 +65,7 @@ class masterPlugin {
 			if(this.trainstopsDatabase){
 				resolve(this.trainstopsDatabase);
 			} else {
-				fs.readFile("trainstopsDatabase.db", (err, data) => {
+				fs.readFile("trainstopsDatabase.json", (err, data) => {
 					if(err){
 						resolve({});
 					} else {
@@ -79,7 +79,7 @@ class masterPlugin {
 	saveTrainstops(){
 		return new Promise((resolve, reject) => {
 			if(this.trainstopsDatabase){
-				fs.writeFile("trainstopsDatabase.db", JSON.stringify(this.trainstopsDatabase, null, 4), (err, data) => {
+				fs.writeFile("trainstopsDatabase.json", JSON.stringify(this.trainstopsDatabase, null, 4), (err, data) => {
 					if(err){
 						reject(err);
 					} else {
