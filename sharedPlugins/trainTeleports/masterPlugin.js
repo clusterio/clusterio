@@ -74,6 +74,10 @@ class masterPlugin {
 				});
 			});
 		});
+		
+		this.express.get("/api/trainTeleports/getTrainstops", async (req,res) => {
+			res.send(await this.getTrainstops());
+		});
 	}
 	getTrainstops(){
 		return new Promise((resolve, reject) => {
