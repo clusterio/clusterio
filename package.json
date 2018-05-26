@@ -21,6 +21,7 @@
     "app-root-path": "^2.0.1",
     "as-table": "^1.0.31",
     "averaged-timeseries": "^1.4.0",
+    "base64url": "^3.0.0",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.18.2",
     "codecov": "^3.0.1",
