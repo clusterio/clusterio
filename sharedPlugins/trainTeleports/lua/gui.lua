@@ -1,7 +1,3 @@
---[[
-   Adaptation of code from:
-   http://notebook.kulchenko.com/algorithms/alphanumeric-natural-sorting-for-humans-in-lua
-]]
 local alphanumcmp
 do
     local function padnum(d) return ("%012d"):format(d) end
@@ -138,7 +134,7 @@ local function gui_populate(self, remote_data)
 
     gui_showlist(self)
 end
-remote.add_interface("trainTeleports", {
+remote.add_interface("trainTeleportsGui", {
 	runCode = function(code)
 		load(code, "trainTeleports code injection failed!", "bt", _ENV)()
 	end
@@ -166,7 +162,6 @@ script.on_event(defines.events.on_gui_opened, function (event)
     state.train = train
 
     gui_create(state)
-    --[[ Placeholder, should be replaced with actual data ]]
     local dummy_data = {
         {
             id = 69,
@@ -187,17 +182,6 @@ script.on_event(defines.events.on_gui_opened, function (event)
             },
         },
     }
-    --[[for i = 1, 20 do
-        local stations = {}
-        for j = 1, 50 do
-            stations[#stations + 1] = "Station " .. tostring(j)
-        end
-        global.trainstopsData[#global.trainstopsData + 1] = {
-            id = i,
-            name = "Dummy " .. tostring(i),
-            stations = stations,
-        }
-    end]]
     gui_populate(state, global.trainstopsData)
 end)
 

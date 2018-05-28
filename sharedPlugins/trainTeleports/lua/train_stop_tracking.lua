@@ -10,7 +10,6 @@ local function update_train_stop(entity)
     local entity_position = entity.position
     local registration = shared_train_stops[entity.unit_number]
     if not registration then
-        --[[ Add new train stop ]]
         registration = {
             name = entity.backer_name,
             entity = entity,
@@ -19,24 +18,23 @@ local function update_train_stop(entity)
         }
         shared_train_stops[entity.unit_number] = registration
 
-        --[[ TODO: Communicate that a new train stop has been added ]]
 		game.write_file(fileName, "event:trainstop_added|name:"..entity.backer_name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
     elseif registration.name ~= entity.backer_name then
-        --[[ TODO: Communicate that a train stop has been edited ]]
 		game.write_file(fileName, "event:trainstop_edited|name:"..entity.backer_name.."|oldName:"..registration.name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
 		
+		if string.find(entity.backer_name, "[Cluster_send] ") then
+			entity.color = {r = 0, g = 1, b = 0}
+		end
         registration.name = entity.backer_name
     end
 end
 local function remove_train_stop(entity)
     global.shared_train_stops[entity.unit_number] = nil
 
-    --[[ TODO: Communicate that entity with unit number has been removed ]]
     local entity_position = entity.position
 	game.write_file(fileName, "event:trainstop_removed|name:"..entity.backer_name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
 end
 
---[[ Placeholder ]]
 global.config = { PlacableArea = 160 }
 local function is_teleport_station(entity)
     if not entity.valid

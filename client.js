@@ -425,8 +425,11 @@ if (!command || command == "help" || command == "--help") {
 			if(data.toString('utf8').includes("Couldn't parse RCON data: Maximum payload size exceeded")){
 				console.error("ERROR: RCON CONNECTION BROKE DUE TO TOO LARGE PACKET!");
 				console.error("Attempting reconnect...");
-				client.close();
+				client.disconnect();
 				client.connect();
+			}
+			if(data.toString('utf8').includes("Received SIGINT, shutting down")){
+				client.disconnect();
 			}
 			console.log(data.toString("utf8").replace(/(\r\n\t|\n|\r\t)/gm,""));
 		});
@@ -493,8 +496,8 @@ function instanceManagement() {
 		socket.emit("registerSlave", {
 			instanceID: instanceconfig.unique,
 		});
-		setInterval(B=> socket.emit("heartbeat"), 10000);
 	});
+	setInterval(B=> socket.emit("heartbeat"), 10000);
 	
 	console.log("Started instanceManagement();");
 	// load plugins and execute onLoad event

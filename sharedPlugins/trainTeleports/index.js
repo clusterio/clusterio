@@ -10,24 +10,32 @@ module.exports = class remoteCommands {
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		
-		setTimeout(()=>{this.socket.emit("registerTrainTeleporter", {
-			instanceID: this.config.unique,
-		})},1000);
+		let socketRegister = () => {
+			this.socket.emit("registerTrainTeleporter", {
+				instanceID: this.config.unique,
+			});
+		}
+		
+		this.socket.on("hello", () => setTimeout(socketRegister,1000));
+		
+		
 		// initialize mod with Hotpatch
 		(async () => {
 			let startTime = Date.now();
 			let hotpatchInstallStatus = await this.checkHotpatchInstallation();
 			this.messageInterface("Hotpach installation status: "+hotpatchInstallStatus);
 			if(hotpatchInstallStatus){
+				var returnValue
 				var luaCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/train_stop_tracking.lua");
-				if(luaCode) await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+luaCode+"')");
+				if(luaCode) returnValue = await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+luaCode+"')");
+				if(returnValue) console.log(returnValue)
 				var guiCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/gui.lua");
-				if(guiCode) await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"Gui', '"+pluginConfig.version+"', '"+guiCode+"')");
+				if(guiCode) returnValue = await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"Gui', '"+pluginConfig.version+"', '"+guiCode+"')");
+				if(returnValue) console.log(returnValue)
+				var trainCode = await this.getSafeLua("sharedPlugins/trainTeleports/lua/train_tracking.lua");
+				if(trainCode) returnValue = await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"_train_tracking', '"+pluginConfig.version+"', '"+trainCode+"')");
+				if(returnValue) console.log(returnValue)
 				this.messageInterface("trainTeleports installed in "+(Date.now() - startTime)+"ms");
-				
-				setInterval(() => {
-					this.socket.emit("getTrainstops");
-				}, 10000);
 			} else {
 				this.messageInterface("Hotpatch isn't installed! Please generate a new map with the hotpatch scenario to use trainTeleports.");
 			}
@@ -36,7 +44,7 @@ module.exports = class remoteCommands {
 		this.socket.on("trainstopsDatabase", async trainstopsDB => {
 			// convert database to LUA table
 			// for an example of intended output, see exampleTable_1.lua
-			let command = 'remote.call("trainTeleports", "runCode", \'global.trainstopsData = {';
+			let command = 'remote.call("trainTeleportsGui", "runCode", \'global.trainstopsData = {';
 			for(let instanceID in trainstopsDB){
 				command += '{id='+instanceID+',';
 				command += 'name="'+await clusterUtil.getInstanceName(instanceID, this.config)+'",';

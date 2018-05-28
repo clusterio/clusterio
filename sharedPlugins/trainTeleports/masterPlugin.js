@@ -6,15 +6,23 @@ class trainTeleporter{
 		this.instanceID = instanceID;
 		this.master = master;
 		
+		this.lastSeen = Date.now();
+		
 		(async () => {
+			setInterval(async () => {
+				this.socket.emit("trainstopsDatabase", await this.master.getTrainstops());
+			}, 10000);
 			this.socket.on("getTrainstops", async () => {
+				this.lastSeen = Date.now();
 				this.socket.emit("trainstopsDatabase", await this.master.getTrainstops());
 			});
 			this.socket.on("trainstop_added", async data => {
+				this.lastSeen = Date.now();
 				await this.addTrainstop(data);
 				console.log("trainstop_added: "+data.name);
 			});
 			this.socket.on("trainstop_edited", async data => {
+				this.lastSeen = Date.now();
 				await this.removeTrainstop({
 					x:data.x,
 					y:data.y,
@@ -24,6 +32,7 @@ class trainTeleporter{
 				console.log("trainstop_edited: "+data.name);
 			});
 			this.socket.on("trainstop_removed", async data => {
+				this.lastSeen = Date.now();
 				await this.removeTrainstop(data);
 				console.log("trainstop_removed: "+data.name);
 			});
@@ -65,6 +74,11 @@ class masterPlugin {
 		
 		this.clients = {};
 		this.io.on("connection", socket => {
+			for(let id in this.clients){
+				if(Date.now() - this.clients[id].lastSeen > 60000){
+					delete this.clients[id];
+				}
+			}
 			socket.on("registerTrainTeleporter", data => {
 				console.log("Registered train teleporter "+data.instanceID);
 				this.clients[data.instanceID] = new trainTeleporter({
