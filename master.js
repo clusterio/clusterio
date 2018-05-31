@@ -18,7 +18,7 @@ process.title = "clusterioMaster";
 process.on('unhandledRejection', r => console.log(r));
 
 // configgy stuff
-debug = false;
+const debug = false;
 
 // constants
 const masterModFolder = "./database/masterMods/";
@@ -26,7 +26,8 @@ var config = require('./config');
 
 // homebrew modules
 const getFactorioLocale = require("./lib/getFactorioLocale");
-const stringUtils = require("./lib/stringUtils");
+// const stringUtils = require("./lib/stringUtils");
+// const fileOps = require("_app/fileOps");
 
 // homemade express middleware for token auth
 const authenticate = require("./lib/authenticate");
@@ -39,21 +40,20 @@ const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs");
-const nedb = require("nedb");
 
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+// const bcrypt = require('bcryptjs');
 
 var crypto = require('crypto');
 var base64url = require('base64url');
 
 /** Sync */
 function randomStringAsBase64Url(size) {
-  return base64url(crypto.randomBytes(size));
+	return base64url(crypto.randomBytes(size));
 }
 if (!fs.existsSync("secret-api-token.txt")) {
 	config.masterAuthSecret = randomStringAsBase64Url(256);
-    fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
+	fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
 }
 // write an auth token to file
 fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
@@ -96,11 +96,11 @@ const prometheusPrefix = "clusterio_";
 const Prometheus = require('prom-client');
 Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
 const httpRequestDurationMilliseconds = new Prometheus.Histogram({
-  name: prometheusPrefix+'http_request_duration_ms',
-  help: 'Duration of HTTP requests in ms',
-  labelNames: ['route'],
-  // buckets for response time from 0.1ms to 500ms
-  buckets: [0.10, 5, 15, 50, 100, 200, 300, 400, 500]
+	name: prometheusPrefix+'http_request_duration_ms',
+	help: 'Duration of HTTP requests in ms',
+	labelNames: ['route'],
+	// buckets for response time from 0.1ms to 500ms
+	buckets: [0.10, 5, 15, 50, 100, 200, 300, 400, 500]
 });
 const endpointHitCounter = new Prometheus.Gauge({
 	name: prometheusPrefix+'endpoint_hit_gauge',
@@ -168,7 +168,7 @@ app.get('/metrics', (req, res) => {
 	// playercount
 	for(let instanceID in slaves){try{
 		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
-	}catch(e){}}
+	}catch(e){console.log(e);}}
 	// inventory
 	for(let key in db.items){
 		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
@@ -182,7 +182,7 @@ app.get('/metrics', (req, res) => {
 
 // set up database
 var Datastore = require('nedb');
-db = {};
+var db = {};
 var LinvoDB = require("linvodb3");
 LinvoDB.dbPath = "./database/linvodb/";
 // database for items in system
@@ -190,55 +190,53 @@ LinvoDB.dbPath = "./database/linvodb/";
 
 // in memory database for combinator signals
 db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
-db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
+db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {console.log(err);});
 
 // production chart database
 db.flows = new LinvoDB("flows", {}, {});
 
-
+var slaves;
 (function(){
 	try{
-		let x = fs.statSync("database/slaves.json");
 		console.log("loading slaves from database/slaves.json");
 		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
 	} catch (e){
 		slaves = {};
 	}
 	try{
-		x = fs.statSync("database/items.json");
 		console.log("loading items from database/items.json");
 		db.items = JSON.parse(fs.readFileSync("database/items.json"));
 	} catch (e){
 		db.items = {};
 	}
-})()
+})();
 
 db.items.addItem = function(object) {
 	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
 		return false;
 	} else {
-		if(this[object.name] && Number(this[object.name]) != NaN){
+		if(this[object.name] && !isNaN(Number(this[object.name]))){
 			this[object.name] = Number(this[object.name]) + Number(object.count);
 		} else {
 			this[object.name] = object.count;
 		}
 		return true;
 	}
-}
+};
 db.items.removeItem = function(object) {
 	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
 		return false;
 	} else {
-		if(this[object.name] && Number(this[object.name]) != NaN){
+		if(this[object.name] && !isNaN(Number(this[object.name]))){
 			this[object.name] = Number(this[object.name]) - Number(object.count);
 		} else {
 			this[object.name] = 0;
 		}
 		return true;
 	}
-}
+};
 
 // store slaves and inventory in a .json full of JSON data
 process.on('SIGINT', function () {
@@ -274,17 +272,18 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 	// we should save that somewhere and give appropriate response
 	if(req.body){
 		if(debug){
-			console.log(req.body)
+			console.log(req.body);
 		}
 		if(!slaves[req.body.unique]){
 			slaves[req.body.unique] = {};
 		}
-		for(k in req.body){
+		for(let k in req.body){
 			if(k != "meta" && req.body.hasOwnProperty(k)){
 				slaves[req.body.unique][k] = req.body[k];
 			}
 		}
-		console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
+		// console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
+		res.send("Registered!");
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
@@ -309,9 +308,9 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
 			let metaPortion = JSON.stringify(req.body.meta);
 			if(metaPortion.length > 50) metaPortion = metaPortion.substring(0,20) + "...";
-			console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
+			// console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
 		} else {
-			res.send("ERROR: Invalid instanceID or password")
+			res.send("ERROR: Invalid instanceID or password");
 		}
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
@@ -327,12 +326,12 @@ app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	console.log("body", req.body);
-    if(req.body && req.body.instanceID && req.body.password){
-    	console.log("returning meta for ", req.body.instanceID);
-    	res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+	if(req.body && req.body.instanceID && req.body.password){
+		console.log("returning meta for ", req.body.instanceID);
+		res.send(JSON.stringify(slaves[req.body.instanceID].meta));
 	} else {
-    	res.status(400);
-    	res.send('{"INVALID REQUEST":1}');
+		res.status(400);
+		res.send('{"INVALID REQUEST":1}');
 	}
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
@@ -373,9 +372,9 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if (!req.files) {
-        res.send('No files were uploaded.');
-        return;
-    } else {
+		res.send('No files were uploaded.');
+		return;
+	} else {
 		console.log(req.files.file);
 		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
 			if (err) {
@@ -405,7 +404,7 @@ app.get("/api/slaves", function(req, res) {
 	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
 		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
 		// filter out the rcon password because thats kindof not a safe thing to share
-		for(key in copyOfSlaves){
+		for(let key in copyOfSlaves){
 			copyOfSlaves[key].rconPassword = "hidden";
 		}
 		slaveCache.cache = copyOfSlaves;
@@ -502,7 +501,7 @@ POST endpoint to remove items from DB when client orders items.
 @param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
-_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
+var _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
@@ -513,14 +512,14 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	// save items we get
 	var object = req.body;
 	if(!object.instanceID) {
-		object.instanceID = "unknown"
+		object.instanceID = "unknown";
 	}
 	if(!object.instanceName) {
 		object.instanceName = "unknown";
 	}
 	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
-	let item = db.items[object.name]
-		// console.dir(doc);
+	let item = db.items[object.name];
+	// console.dir(doc);
 	if (!item) {
 		if(config.logItemTransfers){
 			console.log('failure could not find ' + object.name);
@@ -578,14 +577,14 @@ Gives no response
 @memberof clusterioMaster
 @instance
 @alias api/setSignal
-@param {object} circuitFrame
-@param {number} circuitFrame.time
+@param {circuitFrame} body
 */
 app.post("/api/setSignal", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.time){
 		db.signals.insert(req.body);
+		res.send("success");
 		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		// console.log("signal set");
 	}
@@ -596,7 +595,7 @@ POST endpoint to read database of circuit signals sent to master
 @memberof clusterioMaster
 @instance
 @alias api/readSignal
-@returns {object} circuitFrame
+@returns {circuitFrame[]}
 */
 app.post("/api/readSignal", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -670,7 +669,7 @@ app.post("/api/logStats", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
-		if(Number(req.body.timestamp) != NaN){
+		if(!isNaN(Number(req.body.timestamp))){
 			req.body.timestamp = Number(req.body.timestamp);
 			db.flows.insert({
 				instanceID: req.body.instanceID,
@@ -678,10 +677,10 @@ app.post("/api/logStats", authenticate.middleware, function(req,res) {
 				data: req.body.data,
 			});
 			try{
-			Object.keys(req.body.data).forEach(itemName => {
-				prometheusProductionGauge.labels(req.body.instanceID, itemName).inc(Number(req.body.data[itemName]) || 0);
-			});
-			}catch(e){console.log(e)};
+				Object.keys(req.body.data).forEach(itemName => {
+					prometheusProductionGauge.labels(req.body.instanceID, itemName).inc(Number(req.body.data[itemName]) || 0);
+				});
+			}catch(e){console.log(e);}
 			console.log("inserted: " + req.body.instanceID + " | " + req.body.timestamp);
 		} else {
 			console.log("error invalid timestamp " + req.body.timestamp);
@@ -713,7 +712,7 @@ app.post("/api/getStats", function(req,res) {
 	if(typeof req.body == "object" && req.body.instanceID && req.body.statistic === undefined) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
-			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
+			req.body.fromTime = Date.now() - 86400000; // 24 hours in MS
 		}
 		if(!req.body.toTime) {
 			req.body.toTime = Date.now();
@@ -750,7 +749,7 @@ app.post("/api/getStats", function(req,res) {
 			// Gather data
 			// console.log(sentItemStatisticsBySlaveID)
 			let itemStats = sentItemStatisticsBySlaveID[req.body.instanceID];
-			console.log(itemStats)
+			console.log(itemStats);
 			if(typeof itemStats == "object"){
 				let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
 				//console.log(itemStats.get(config.itemStats.maxEntries, req.body.itemName));
@@ -786,7 +785,7 @@ app.post("/api/getTimelineStats", function(req,res) {
 	if(typeof req.body == "object" && req.body.instanceID) {
 		// if not specified, get stats for last 24 hours
 		if(!req.body.fromTime) {
-			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
+			req.body.fromTime = Date.now() - 86400000; // 24 hours in MS
 		}
 		if(!req.body.toTime) {
 			req.body.toTime = Date.now();
@@ -841,41 +840,47 @@ app.post("/api/runCommand", (req,res) => {
 	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
 	
 	jwt.verify(token, config.masterAuthSecret, function(err, decoded) {
-		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
-		
+		if(err || !decoded) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+		let respondedYet = false;
+		function handleResponses(response){
+			instanceResponses.push(response);
+			if(instanceResponses.length == wsSlaves.length || reqStartTime + 10000 < Date.now()){
+				if(!respondedYet) res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated", responseData: instanceResponses});
+			}
+		}
+		setTimeout(()=>{if(!respondedYet) {handleResponses();}}, 10000);
 		// validate request.body
-        let body = req.body;
+		let body = req.body;
 
-        if (
-            body.broadcast
-            && body.command
-            && typeof body.command == "string"
-            && body.command[0] == "/")
-        {
-        	let instanceResponses = [];
-            for (let instanceID in wsSlaves) {
-                // skip loop if the property is from prototype
-                if (!wsSlaves.hasOwnProperty(instanceID)) continue;
-                wsSlaves[instanceID].runCommand(body.command);
-            }
-            res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
+		if (
+			body.broadcast
+			&& body.command
+			&& typeof body.command == "string"
+			&& body.command[0] == "/")
+		{
+			var instanceResponses = [];
+			for (let instanceID in wsSlaves) {
+				// skip loop if the property is from prototype
+				if (!wsSlaves.hasOwnProperty(instanceID)) continue;
+				wsSlaves[instanceID].runCommand(body.command, handleResponses);
+			}
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
-        } else if (
-            body.instanceID
-            && wsSlaves[body.instanceID]
-            && body.command
-            && typeof body.command == "string"
-            && body.command[0] == "/")
-        {
-            // execute command
-            wsSlaves[body.instanceID].runCommand(body.command, data => {
-                res.status(200).send({auth: true, message: "success", data});
+		} else if (
+			body.instanceID
+			&& wsSlaves[body.instanceID]
+			&& body.command
+			&& typeof body.command == "string"
+			&& body.command[0] == "/")
+		{
+			// execute command
+			wsSlaves[body.instanceID].runCommand(body.command, data => {
+				res.status(200).send({auth: true, message: "success", data});
 				httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
-            });
-        } else {
-            res.status(400).send({auth: true, message: "Error: invalid request.body"});
+			});
+		} else {
+			res.status(400).send({auth: true, message: "Error: invalid request.body"});
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
-        }
+		}
 	});
 });
 /**
@@ -1068,16 +1073,75 @@ io.on('connection', function (socket) {
 			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
 		}
 	});
-	socket.on("registerChatReciever", function(data){
+	socket.on("registerChatReciever", function(){
 		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
 		if(!global.wsChatRecievers) global.wsChatRecievers = [];
 		global.wsChatRecievers.push(socket);
 	});
-	socket.on("registerAlertReciever", function(data){
+	socket.on("registerAlertReciever", function(){
 		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
 		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
 		global.wsAlertRecievers.push(socket);
 	});
 });
+
+// handle plugins on the master
+pluginManagement();
+async function pluginManagement(){
+	let startPluginLoad = Date.now();
+	let plugins = await getPlugins("sharedPlugins");
+	console.log("Loaded "+plugins.length+" plugins in "+(Date.now() - startPluginLoad)+"ms");
+}
+function getPlugins(pluginDirectory){
+	return new Promise((resolve, reject) => {
+		let filesLeft = 0;
+		let plugins = [];
+		
+		function checkLoadComplete(){
+			if(!filesLeft){
+				resolve(plugins);
+			}
+		}
+		fs.readdir(pluginDirectory, function(err, files){
+			if(err){
+				reject(err);
+			} else {
+				files.forEach(file => {
+					let pluginStartedLoading = Date.now(); // just for logging
+					filesLeft++;
+					let pluginPath = path.join(pluginDirectory, file);
+					fs.stat(pluginPath, function(err, stats){
+						if(err){
+							reject(err);
+							checkLoadComplete();
+						} else if(stats.isDirectory()){
+							let pluginConfig = require(path.resolve(pluginPath, "config"));
+							--filesLeft;
+							if(pluginConfig.masterPlugin){
+								// spawn the plugin and pass it the masters context
+								let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
+								plugins.push(new masterPlugin({
+									config,
+									pluginConfig,
+									path: pluginPath,
+									socketio: io,
+									express: app,
+								}));
+								
+								console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
+								checkLoadComplete();
+							} else {
+								checkLoadComplete();
+							}
+						} else {
+							checkLoadComplete();
+						}
+					});
+				});
+			}
+		});
+	});
+}
+
 
 module.exports = app;

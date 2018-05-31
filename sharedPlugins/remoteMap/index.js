@@ -26,10 +26,9 @@ class remoteMap {
 		this.socket = ioClient("http://"+this.config.masterIP+":"+this.config.masterPort);
 		this.socket.on("hello", data => {
 			this.socket.emit("registerSlaveMapper", {instanceID: this.config.unique});
-			setInterval(()=>{
-				this.socket.emit("heartbeat"); // send our heartbeat to prevent being assumed dead
-			},10000);
 		});
+		setInterval(() => this.socket.emit("heartbeat"), 10000); // send our heartbeat to prevent being assumed dead
+		
 		this.socket.on("getChunk", req => {
 			this.messageInterface("getChunk is not supported!");
 			/*this.chunkMap.getChunk(req.x, req.y).then(chunk => {
