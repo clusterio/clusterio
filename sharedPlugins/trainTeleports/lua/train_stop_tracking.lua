@@ -22,7 +22,7 @@ local function update_train_stop(entity)
     elseif registration.name ~= entity.backer_name then
 		game.write_file(fileName, "event:trainstop_edited|name:"..entity.backer_name.."|oldName:"..registration.name.."|x:"..entity_position.x.."|y:"..entity_position.y, true, 0)
 		
-		if string.find(entity.backer_name, "[Cluster_send] ") then
+		if string.find(entity.backer_name, "Clustersend ") then
 			entity.color = {r = 0, g = 1, b = 0}
 		end
         registration.name = entity.backer_name
