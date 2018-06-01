@@ -134,12 +134,15 @@ local function gui_populate(self, remote_data)
 
     gui_showlist(self)
 end
+remote.remove_interface("trainTeleportsGui");
 remote.add_interface("trainTeleportsGui", {
 	runCode = function(code)
 		load(code, "trainTeleports code injection failed!", "bt", _ENV)()
 	end
 })
-script.on_event(defines.events.on_gui_opened, function (event)
+
+
+script.on_event(defines.events.on_gui_opened, function(event)
     local player = game.players[event.player_index]
     local entity = event.entity
     if not entity or entity.type ~= "locomotive" then
@@ -244,3 +247,5 @@ script.on_event(defines.events.on_gui_click, function (event)
         end
     end
 end)
+ 
+

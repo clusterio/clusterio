@@ -1,4 +1,3 @@
---[[ Script setup ]]
 local player = game.player
 local station = player.selected
 
@@ -20,7 +19,6 @@ if not train then
     return
 end
 
---[[ Init code ]]
 local inventory_types = {}
 do
     local map = {}

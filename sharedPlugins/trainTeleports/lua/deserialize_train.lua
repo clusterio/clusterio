@@ -1,4 +1,3 @@
---[[ Script setup ]]
 local player = game.player
 local surface = player.surface
 

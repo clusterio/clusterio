@@ -1,6 +1,7 @@
 global.canSendTrain = global.canSendTrain or {}
 global.trainsToSend = global.trainsToSend  or {}
 
+remote.remove_interface("trainTeleportsTrainTracking")
 remote.add_interface("trainTeleportsTrainTracking", {
 	runCode = function(code)
 		load(code, "trainTeleportsTrainTracking code injection failed!", "bt", _ENV)()
@@ -15,15 +16,14 @@ script.on_event(defines.events.on_train_changed_state, function (event)
 	game.print("Train changed state! " .. trainState.." old state: "..oldTrainState.. " but I want state "..defines.train_state.wait_station)
 	if trainState == 7 then
 		log(entity.station.backer_name)
-		log(string.find(entity.station.backer_name, "[Cluster_send] "))
 	end
-    if entity.station ~= nil and string.find(entity.station.backer_name, "[Cluster_send] ") then
-		log("Ready to send train!")
+    if entity.station ~= nil and string.find(entity.station.backer_name, "Clustersend ") then
+		log("Ready to send train to "..string.gsub(entity.station.backer_name, "Clustersend ", "").."!")
 		entity.locomotives.front_movers[1].color = {r=0,g=1,b=0}
 		table.insert(global.trainsToSend, 1, {
 			train = entity,
 			station = entity.station,
-			destinationWorld = string:gsub(entity.station.backer_name, "[Cluster_send] ", "")
+			destinationWorld = string.gsub(entity.station.backer_name, "Clustersend ", "")
 		})
 	elseif oldTrainState == defines.train_state.wait_station then
 		log(":)")
@@ -163,7 +163,6 @@ local function serialize_train_contents(train)
 
     local data = {}
     for _, carriage in pairs(train.carriages) do
-        --[[ Manhathan distance to correctly order carriages from nearest to furthest from station ]]
         local carriage_index
         do
             local distance = math.abs(carriage.position.x - station.position.x) + math.abs(carriage.position.y - station.position.y)
