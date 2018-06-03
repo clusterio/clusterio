@@ -5,7 +5,6 @@ module.exports = class remoteCommands {
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
-		console.log(mergedConfig)
 		this.instances = {};
 		
 		this.socket.on("hello", () => this.socket.emit("registerChatReciever"));
