@@ -242,8 +242,9 @@ db.items.removeItem = function(object) {
 }
 
 // store slaves and inventory in a .json full of JSON data
-process.on('SIGINT', function () {
+process.on('SIGINT', async function () {
 	console.log('Ctrl-C...');
+	let exitStartTime = Date.now();
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
 	if(slaves && Object.keys(slaves).length < 2000000){
 		console.log("saving to slaves.json");
@@ -257,6 +258,15 @@ process.on('SIGINT', function () {
 	} else if(slaves) {
 		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
 	}
+	for(let i in masterPlugins){
+		let plugin = masterPlugins[i];
+		if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
+			let startTime = Date.now();
+			await plugin.main.onExit();
+			console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
+		}
+	}
+	console.log("Exited in "+(Date.now()-exitStartTime)+"ms");
 	process.exit(2);
 });
 
@@ -1083,11 +1093,13 @@ io.on('connection', function (socket) {
 
 // handle plugins on the master
 pluginManagement();
+masterPlugins = [];
 async function pluginManagement(){
 	let startPluginLoad = Date.now();
-	let plugins = await getPlugins("sharedPlugins");
+	masterPlugins = await getPlugins("sharedPlugins");
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 }
+
 function getPlugins(pluginDirectory){
 	return new Promise((resolve, reject) => {
 		let filesLeft = 0;
@@ -1115,13 +1127,16 @@ function getPlugins(pluginDirectory){
 							--filesLeft;
 							if(pluginConfig.masterPlugin){
 								let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
-								plugins.push(new masterPlugin({
-									config,
+								plugins.push({
+									main:new masterPlugin({
+										config,
+										pluginConfig,
+										path: pluginPath,
+										socketio: io,
+										express: app,
+									}),
 									pluginConfig,
-									path: pluginPath,
-									socketio: io,
-									express: app,
-								}));
+								});
 								
 								console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
 								checkLoadComplete();
