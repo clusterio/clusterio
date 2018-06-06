@@ -83,10 +83,15 @@ app.set('views', path.join(__dirname, 'static'));
 app.set('view engine', 'html');
 app.engine('html', ejs.renderFile);
 
-var routes = require("./routes.js");
-routes(app);
+// give ejs access to some interesting information
+app.use(function(req, res, next){
+	res.locals.res = res;
+	res.locals.req = req;
+	res.locals.masterPlugins = masterPlugins;
+	next();
+});
 
-
+require("./routes.js")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 // mod downloads

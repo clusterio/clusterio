@@ -8,10 +8,15 @@
 	<a href="/"><div id="storage-menu" class="button-black menuItem">
 		<p>Storage</p>
 	</div></a>
-	<a href="nodes"><div id="slaves-menu" class="button-black menuItem">
+	<a href="/nodes"><div id="slaves-menu" class="button-black menuItem">
 		<p>Slaves</p>
 	</div></a>
-	<a href="settings"><div id="settings-menu" class="button-black menuItem">
+	<%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
+	<% adsdf = "none"; masterPlugins.forEach(plug => {if(plug.pluginConfig.name == "playerManager"){ adsdf = "block" }}); %>
+	<a href="/playerManager" style="display:<%= adsdf %>"><div id="playerManager-menu" class="button-black menuItem">
+		<p>Players</p>
+	</div></a>
+	<a href="/settings"><div id="settings-menu" class="button-black menuItem">
 		<p>Settings</p>
 	</div></a>
 </div>
