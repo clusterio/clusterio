@@ -22,7 +22,7 @@ debug = false;
 
 // constants
 const masterModFolder = "./database/masterMods/";
-var config = require('./config');
+const config = require('./config');
 
 // homebrew modules
 const getFactorioLocale = require("./lib/getFactorioLocale");
@@ -56,6 +56,11 @@ function randomStringAsBase64Url(size) {
 if (!fs.existsSync("secret-api-token.txt")) {
 	config.masterAuthSecret = randomStringAsBase64Url(256);
     fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
+	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+		expiresIn: 86400*365 // expires in 1 year
+	}));
+	console.log("Generated new master authentication private key!");
+	process.exit(0);
 }
 // write an auth token to file
 fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
