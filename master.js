@@ -911,15 +911,16 @@ app.get("/api/getFactorioLocale", function(req,res){
 		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 	});
 });
-if(config.masterPort == 443){
-	var privateKey = fs.readFileSync( 'privatekey.pem' );
-	var certificate = fs.readFileSync( 'certificate.pem' );
+if(config.sslPort){
+	var certificate = fs.readFileSync( 'database/certificates/cert.crt' );
+	var privateKey = fs.readFileSync( 'database/certificates/cert.key' );
 
-	server = https.createServer({
+	httpsServer = https.createServer({
 		key: privateKey,
 		cert: certificate
-	}, app).listen(443);
-} else {
+	}, app).listen(config.sslPort);
+}
+if(config.masterPort){
 	server = require("http").Server(app);
 	server.listen(config.masterPort || 8080, function () {
 		console.log("Listening on port %s...", server.address().port);

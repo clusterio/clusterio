@@ -70,16 +70,18 @@ NodeJS does not support EOL ubuntu releases. Make sure you are on the most recen
 
 Master and all slaves:
 
-    sudo curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash - \
-    sudo apt install -y nodejs python-dev git wget curl tar build-essential \
-    sudo npm install pm2 -g \
-    git clone https://github.com/Danielv123/factorioClusterio.git \
-    cd factorioClusterio \
-    npm install \
-    curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64 \
+    sudo curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
+    sudo apt install -y nodejs python-dev git wget curl tar build-essential
+    sudo npm install pm2 -g
+    git clone https://github.com/Danielv123/factorioClusterio.git
+    cd factorioClusterio
+    curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
+    npm install
 
 downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
+
+*Copy config.json.dist to config.json* - Otherwise it will crash, as you'd expect.
 
 **Master**
 
@@ -141,17 +143,21 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 1. download and run https://puu.sh/toFHl/01eebbb333.bat
 
-2. You do not *need* to follow the given instructions, but you should
+2. Copy config.json.dist to config.json
 
-3. type `node master.js`
+3. You do not *need* to follow the given instructions, but you should
+
+4. type `node master.js`
 
 **Server Host**
 
 1. download and run https://puu.sh/toFHl/01eebbb333.bat
 
-2. Follow the instructions given
+2. Copy config.json.dist to config.json
 
-3. Type `node client.js start [instancename]` to create a new instance.
+3. Follow the instructions given
+
+4. Type `node client.js start [instancename]` to create a new instance.
 
 To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
