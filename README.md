@@ -90,6 +90,8 @@ downloads and installs nodejs, pm2, git and clusterio. To specify a version, cha
 To download the mod for all its non vanilla features and items, (optional)
 
     node client.js download
+	
+Add the master API key, found in the masters install directory (secret-api-token.txt) to your config.json masterAuthToken field
 
 To create a new instance (its own save, set of mods and config files)
 
@@ -97,7 +99,7 @@ To create a new instance (its own save, set of mods and config files)
 
 To launch an instance with pm2
 
-    pm2 start --name slave client.js -- start [instancename]
+    pm2 start --name [instancename] client.js -- start [instancename]
 
 use `nano config.json` to change settings.
 

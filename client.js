@@ -6,7 +6,7 @@ const path = require('path');
 const syncRequest = require('sync-request');
 const request = require("request");
 const ncp = require('ncp').ncp;
-const Rcon = require('simple-rcon');
+const Rcon = require('rcon-client').Rcon;
 const hashFiles = require('hash-files');
 const _ = require('underscore');
 const deepmerge = require("deepmerge");
@@ -56,15 +56,23 @@ const needleOptionsWithTokenAuthHeader = {
 };
 
 var instanceInfo = {};
+var commandBuffer=[];
+// messageInterface Management
+setInterval(function(){
+	let command=commandBuffer.shift();
+	if(command){
+		messageInterfaceInternal(command[0], command[1], command[2], command[3]);
+	}
+},config.msBetweenCommands || 50);
 
 // function to handle sending commands into the game
-function messageInterface(command, callback) {
+async function messageInterfaceInternal(command, callback, resolve, reject) {
 	// try to save us if you send a buffer instead of string
 	if(typeof command == "object") {
 		command = command.toString('utf8');
 	}
 	
-	if(process.platform == "linux" && typeof command == "string" && serverprocess) {
+	if(false && process.platform == "linux" && typeof command == "string" && serverprocess) {
 		/*
 			to send to stdin, use:
 			serverprocess.stdin.write("/c command;\n")
@@ -73,17 +81,27 @@ function messageInterface(command, callback) {
 		if(typeof callback == "function"){
 			callback();
 		}
-	} else if(typeof command == "string" && client && client.exec && typeof client.exec == "function") {
+		resolve();
+	} else if(typeof command == "string" && client && client.send && typeof client.send == "function") {
 		try {
-			client.exec(command+"\n", callback);
+			let str = await client.send(command+"\n");
+			if(typeof callback == "function") callback(str)
+			resolve(str)
 		} catch (err) {
 			console.log(err);
-		}
-		if(typeof callback == "function"){
-			callback();
+			if(typeof callback == "function"){
+				callback();
+			}
+			reject(err)
 		}
 	}
 }
+function messageInterface(command, callback) {
+	return new Promise((resolve,reject) => {
+		commandBuffer.push([command,callback, resolve, reject]);
+	});
+}
+
 
 // handle commandline parameters
 if (!command || command == "help" || command == "--help") {
@@ -286,8 +304,8 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 	console.log("Instance created!");
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard);
-	if(instancedirectory != "./instances/undefined"){
-		var instanceconfig = require(instancedirectory + '/config');
+	if(instancedirectory != config.instanceDirectory+"/undefined"){
+		var instanceconfig = require(path.resolve(instancedirectory,'config'));
 		instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
 		if(process.env.FACTORIOPORT){
 			instanceconfig.factorioPort = process.env.FACTORIOPORT;
@@ -381,14 +399,9 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 		});
 
 		// connect to the server with rcon
-		if(process.platform != "linux"){
+		if(true || process.platform != "linux"){
 			// IP, port, password
-			client = new Rcon({
-				host: 'localhost',
-				port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
-				password: instanceconfig.clientPassword,
-				timeout: 0
-			});
+			client = new Rcon();
 			
 			// check the logfile to see if the RCON interface is running as there is no way to continue without it
 			// we read the log every 2 seconds and stop looping when we start connecting to factorio
@@ -396,23 +409,30 @@ write-data=__PATH__executable__/../../../instances/" + instance + "\r\n\
 				fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
 					// if (err) console.log(err);
 					if(data && data.indexOf('Starting RCON interface') > 0){
-						client.connect();
+						client.connect({
+							host: 'localhost',
+							port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
+							password: instanceconfig.clientPassword,
+							timeout: 5000
+						});
 					} else {
 						setTimeout(function(){
 							checkRcon();
-						},2000);
+						},5000);
 					}
 				});
 			}
 			setTimeout(checkRcon, 5000);
 		
-			client.on('authenticated', function () {
+			client.onDidAuthenticate(() => {
 				console.log('Clusterio | RCON Authenticated!');
 				instanceManagement(); // start using rcons
-			}).on('connected', function () {
+			});
+			client.onDidConnect(() => {
 				console.log('Clusterio | RCON Connected!');
 				// getID();
-			}).on('disconnected', function () {
+			});
+			client.onDidDisconnect(() => {
 				console.log('Clusterio | RCON Disconnected!');
 				process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
 			});
@@ -460,11 +480,12 @@ function instanceManagement() {
 		if(pluginConfig.binary == "nodePackage"){
 			// require index.js.main() of plugin and execute it as a class
 			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
-			plugins[I] = new pluginClass(combinedConfig, function(data){
+			plugins[I] = new pluginClass(combinedConfig, async function(data, callback){
 				if(data.toString('utf8')[0] != "/") {
 					log("Stdout: " + data.toString('utf8'));
+					return true;
 				} else {
-					messageInterface(data.toString('utf8'));
+					return messageInterface(data.toString('utf8'), callback);
 				}
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
 				socket, // socket.io connection to master (and ES6 destructuring, yay)
@@ -504,7 +525,9 @@ function instanceManagement() {
 								}
 								for(let i = 0; i < stuff.length; i++) {
 									if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
-										plugins[I].scriptOutput(stuff[i]);
+										try{
+											plugins[I].scriptOutput(stuff[i]);
+										}catch(e){console.log(e)}
 									}
 								}
 							},
@@ -514,7 +537,7 @@ function instanceManagement() {
 				}
 			}
 			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
-		} else if(pluginConfig.binary != "nodePackage"){
+		} else if(pluginConfig.binary != "nodePackage" && pluginConfig.binary){
 			// handle as fragile executable plugin
 			let args = pluginConfig.args || [];
 			plugins[I]=child_process.spawn(pluginConfig.binary, args, {
@@ -575,6 +598,8 @@ function instanceManagement() {
 			plugins[i].on('close', (code) => {
 				log(`child process exited with code ${code}`);
 			});
+		} else {
+			// This plugin doesn't have a client portion
 		}
 	}
 	
@@ -583,26 +608,7 @@ function instanceManagement() {
 		setInterval(getID, 10000);
 		getID();
 		function getID() {
-			messageInterface("/silent-command game.write_file('tempfile.txt', 'connected_players ' .. #game.connected_players .. '\\n', true, 0)", function(err) {setTimeout(function(){
-				// get array of lines in file
-				if(fs.existsSync(instancedirectory + "/script-output/tempfile.txt")) {
-					var data = fs.readFileSync(instancedirectory + "/script-output/tempfile.txt", "utf8").split("\n");
-					// delete when we are done
-					fs.unlink(instancedirectory + "/script-output/tempfile.txt", function(){});
-				}
-				// if we actually got anything from the file, proceed to categorize it
-				if (data && data[0]) {
-					while (data[0]) {
-						let q = data[0].split(" ");
-						// delete array element
-						data.splice(0,1);
-						if(q[0] == "connected_players" && Number(q[1]) != NaN) {
-							instanceInfo.playerCount = q[1];
-						}
-					}
-				} else {
-					instanceInfo.playerCount = 0;
-				}
+			messageInterface("/silent-command rcon.print(#game.connected_players)", function(playerCount) {
 				var payload = {
 					time: Date.now(),
 					rconPort: instanceconfig.clientPort,
@@ -611,37 +617,35 @@ function instanceManagement() {
 					unique: instanceconfig.unique,
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
-					playerCount: instanceInfo.playerCount || 0,
 					instanceName: instance,
+					playerCount,
 				}
 				
 				function callback(err, mac) {
 					if (err) {
+						mac = "unknown";
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
-					} else {
-						payload.mac = mac
-						console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-							if (err && err.code != "ECONNRESET"){
-								console.error("We got problems, something went wrong when contacting master");
-								console.error(err);
-							} else if (response && response.body) {
-								// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-								console.log(response.body);
-							}
-						});
 					}
+					payload.mac = mac;
+					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
+					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+						if (err && err.code != "ECONNRESET"){
+							console.error("We got problems, something went wrong when contacting master");
+							console.error(err);
+						} else if (response && response.body) {
+							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
+							console.log(response.body);
+						}
+					});
 				}
 				if(global.mac){
 					callback(undefined, global.mac);
 				} else {
 					getMac(callback);
 				}
-			},1000)});
+			});
 		}
 	});
-	
-	
 	// Mod uploading and management -----------------------------------------------
 	// get mod names and hashes
 	// string: instance, function: callback
@@ -657,7 +661,7 @@ function instanceManagement() {
 			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 				if(err) console.log(new Error("Unable to contact master server! Please check your config.json."));
 				if(response && body && body == "found") {
-					console.log("master has mod");
+					console.log("master has mod "+modHashes[i].modName);
 				} else if (response && body && typeof body == "string") {
 					let mod = response.body;
 					if(config.uploadModsToMaster){
@@ -818,9 +822,7 @@ function instanceManagement() {
 				needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], needleOptionsWithTokenAuthHeader, function (err, response, body) {
 					if (response && response.body && typeof response.body == "object") {
 						// buffer confirmed orders
-						confirmedOrders[confirmedOrders.length] = {
-							[response.body.name]: response.body.count,
-						}
+						confirmedOrders[confirmedOrders.length] = {name:response.body.name,count:response.body.count}
 						if(config.logItemTransfers){
 							console.log(`Imported ${response.body.count} ${response.body.name} from master`);
 						}
@@ -829,11 +831,21 @@ function instanceManagement() {
 			}
 			// if we got some confirmed orders
 			// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
-			sadas = JSON.stringify(confirmedOrders);
-			confirmedOrders = [];
-			// send our RCON command with whatever we got
-			messageInterface("/silent-command remote.call('clusterio', 'importMany', '" + sadas + "')");
-			sadas = null;
+			//if (!(confirmedOrders.length>0)){return;}
+			let cmd="local t={";
+			for(let i=0;i<confirmedOrders.length;i++)
+			{
+			    cmd+='["'+confirmedOrders[i].name+'"]='+confirmedOrders[i].count+',';
+			    if(cmd.length>320) // Factorio max packet size is 508
+			    {
+			        messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
+			        cmd="local t={";
+			    }
+			}
+			if (!(cmd==="local t={")){
+				messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
+			}
+			confirmedOrders=[];
 		}
 	}, 1000);
 	// COMBINATOR SIGNALS ---------------------------------------------------------
@@ -847,22 +859,37 @@ function instanceManagement() {
 				if(Buffer.isBuffer(response.body)) {console.log(response.body.toString("utf-8")); throw new Error();} // We are probably contacting the wrong webserver
 				try {
 					var inventory = JSON.parse(response.body);
+					var inventoryFrame = {};
+					for (let i = 0; i < inventory.length; i++) {
+						inventoryFrame[inventory[i].name] = Number(inventory[i].count);
+						if(inventoryFrame[inventory[i].name] >= Math.pow(2, 31)){
+							inventoryFrame[inventory[i].name] = Math.pow(2, 30); // set it waaay lower, 31 -1 would probably suffice
+						}
+					}
+					inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
+					// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
+					let first = true;
+					let cmd="local s={";
+					for (let key in inventoryFrame)
+					{
+						cmd+='["'+key+'"]='+inventoryFrame[key]+",";
+						if(first && cmd.length>300 || !first && cmd.length > 320) // Factorio max packet size is 508
+						{
+					       		messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
+					       		cmd="local s={";
+					       		first = false;
+						}
+					}
+					if (!(cmd==="local s={")){
+						messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
+					}
+					messageInterface("/silent-command remote.call('clusterio', 'runcode', 'UpdateInvCombinators()')");
 				} catch (e){
 					console.log(e);
 				}
-				var inventoryFrame = {};
-				for (let i = 0; i < inventory.length; i++) {
-					inventoryFrame[inventory[i].name] = Number(inventory[i].count);
-					if(inventoryFrame[inventory[i].name] >= Math.pow(2, 31)){
-						inventoryFrame[inventory[i].name] = Math.pow(2, 30); // set it waaay lower, 31 -1 would probably suffice
-					}
-				}
-				inventoryFrame["signal-unixtime"] = Math.floor(Date.now()/1000);
-				// console.log("RCONing inventory! " + JSON.stringify(inventoryFrame));
-				messageInterface("/silent-command remote.call('clusterio', 'receiveInventory', '" + JSON.stringify(inventoryFrame) + "')");
 			}
 		});
-	}, 1000);
+	}, 1550);
 	// Make sure world has its worldID
 	setTimeout(function(){
 		messageInterface("/silent-command remote.call('clusterio','setWorldID',"+instanceconfig.unique+")")

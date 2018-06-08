@@ -49,6 +49,24 @@ debugTools = {
 	}
 }
 
+let cachedInstanceNames = {};
+async function getInstanceName(instanceID){
+	let instance = cachedInstanceNames[instanceID];
+	if(!instance){
+		let slaves = await getJSON("/api/slaves");
+		try {
+			for(id in slaves){
+				cachedInstanceNames[id] = slaves[id].instanceName;
+			}
+		} catch(e){
+			console.log("Error while looking for instance name!");
+			console.log(e);
+		}
+		return cachedInstanceNames[instanceID] || instanceID;
+	} else {
+		return cachedInstanceNames[instanceID];
+	}
+}
 var g = {}
 contents = {
 	"iron-plate":100,
@@ -65,22 +83,27 @@ function djb2(str){
 }
 // callback(err, json)
 function getJSON(url, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.responseType = 'json';
-	xhr.onload = function() {
-	  var status = xhr.status;
-	  if (status == 200) {
-		callback(null, xhr.response);
-	  } else {
-		callback(status);
-	  }
-	};
-	// triggers if connection is refused
-	xhr.onerror = function(e){
-		callback(e);
-	};
-	xhr.send();
+	return new Promise((resolve, reject) => {
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', url, true);
+		xhr.responseType = 'json';
+		xhr.onload = function() {
+			var status = xhr.status;
+			if (status == 200) {
+				if(callback) callback(null, xhr.response);
+				resolve(xhr.response);
+			} else {
+				if(callback) callback(status);
+				resolve(status);
+			}
+		};
+		// triggers if connection is refused
+		xhr.onerror = function(e){
+			if(callback) callback(e);
+			reject(e);
+		};
+		xhr.send();
+	});
 };
 // callback(err, json)
 function postJSON(url, data, callback) {
@@ -89,12 +112,12 @@ function postJSON(url, data, callback) {
 	xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
 	xhr.responseType = 'json';
 	xhr.onload = function() {
-	  var status = xhr.status;
-	  if (status == 200) {
+		var status = xhr.status;
+		if (status == 200) {
 		callback(null, xhr.response);
-	  } else {
+		} else {
 		callback(status);
-	  }
+		}
 	};
 	// triggers if connection is refused
 	xhr.onerror = function(e){
