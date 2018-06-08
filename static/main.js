@@ -94,7 +94,7 @@ function getJSON(url, callback) {
 				resolve(xhr.response);
 			} else {
 				if(callback) callback(status);
-				resolve(status);
+				reject(status);
 			}
 		};
 		// triggers if connection is refused
@@ -107,23 +107,28 @@ function getJSON(url, callback) {
 };
 // callback(err, json)
 function postJSON(url, data, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.open('POST', url, true);
-	xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-	xhr.responseType = 'json';
-	xhr.onload = function() {
-		var status = xhr.status;
-		if (status == 200) {
-		callback(null, xhr.response);
-		} else {
-		callback(status);
-		}
-	};
-	// triggers if connection is refused
-	xhr.onerror = function(e){
-		callback(e);
-	};
-	xhr.send(JSON.stringify(data));
+	return new Promise((resolve, reject) => {
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', url, true);
+		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+		xhr.responseType = 'json';
+		xhr.onload = function() {
+			var status = xhr.status;
+			if (status == 200) {
+				if(callback) callback(null, xhr.response);
+				resolve(xhr.response);
+			} else {
+				if(callback) callback(status);
+				reject(status);
+			}
+		};
+		// triggers if connection is refused
+		xhr.onerror = function(e){
+			if(callback) callback(e);
+			reject(e);
+		};
+		xhr.send(JSON.stringify(data));
+	});
 };
 // return Boolean
 function isJSON(string){

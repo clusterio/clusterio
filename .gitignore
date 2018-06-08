@@ -50,3 +50,5 @@ sharedPlugins/*
 !sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
+
+\.cache-require-paths\.json

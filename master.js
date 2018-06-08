@@ -20,6 +20,10 @@ process.on('unhandledRejection', r => console.log(r));
 // configgy stuff
 debug = false;
 
+// reduces loadtime from 1700 ms to 1200 ms on my i3 + SSD
+// tested by logging Date.now() here and when the webserver started listening
+require('cache-require-paths');
+
 // constants
 const masterModFolder = "./database/masterMods/";
 const config = require('./config');
@@ -46,8 +50,8 @@ const https = require("https");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
-var crypto = require('crypto');
-var base64url = require('base64url');
+const crypto = require('crypto');
+const base64url = require('base64url');
 
 /** Sync */
 function randomStringAsBase64Url(size) {
