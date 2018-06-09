@@ -19,6 +19,10 @@ button {
 	background-color: #262626;
 	color: 	#C8C8C8;
 }
+#logo > h1 {
+	padding-top: 6px;
+	transform: translateX(5%);
+}
 #storage {
 	float: left;
 }
@@ -188,7 +192,7 @@ a:hover {
 
 .button-black {
 	width:100%;
-	height:40px;
+	height:50px;
 	background-color:black;
 	color:white;
 	transition: all 300ms;
