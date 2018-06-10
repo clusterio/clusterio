@@ -618,7 +618,7 @@ function instanceManagement() {
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					instanceName: instance,
-					playerCount,
+					playerCount:playerCount.replace(/(\r\n\t|\n|\r\t)/gm, ""),
 				}
 				
 				function callback(err, mac) {
