@@ -157,6 +157,16 @@ const prometheusPlayerCountGauge = new Prometheus.Gauge({
 	help: 'Amount of players connected to this cluster',
 	labelNames: ["instanceID", "instanceName"],
 });
+const prometheusUPSGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'UPS_gauge',
+	help: 'UPS of the current server',
+	labelNames: ["instanceID", "instanceName"],
+});
+const prometheusTickGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'tick_gauge',
+	help: 'Servers current gametick',
+	labelNames: ["instanceID", "instanceName"],
+});
 const prometheusMasterInventoryGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'master_inventory_gauge',
 	help: 'Amount of items stored on master',
@@ -181,10 +191,17 @@ app.get('/metrics', (req, res) => {
 	res.set('Content-Type', Prometheus.register.contentType);
 	
 	/// gather some static metrics
-	// playercount
-	for(let instanceID in slaves){try{
-		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
-	}catch(e){}}
+	for(let instanceID in slaves){
+		// playercount
+		try{
+			prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
+		}catch(e){}
+		// UPS
+		try{
+			prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.UPS) || 60);
+			if(slaves[instanceID].meta.tick && typeof slaves[instanceID].meta.tick === "number") prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.tick) || 0);
+		}catch(e){}
+	}
 	// inventory
 	for(let key in db.items){
 		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
