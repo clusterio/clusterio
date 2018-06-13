@@ -1079,7 +1079,7 @@ class wsSlave {
 	runCommand(command, callback){
 		let commandID = Math.random().toString();
 		this.socket.emit("runCommand", {command, commandID});
-		this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
+		if(commandID) this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
 	}
 }
 io.on('connection', function (socket) {

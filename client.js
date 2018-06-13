@@ -88,11 +88,12 @@ async function messageInterfaceInternal(command, callback, resolve, reject) {
 			if(typeof callback == "function") callback(str)
 			resolve(str)
 		} catch (err) {
-			console.log(err);
+			console.log("RCON failed, server might be paused or shutting down");
+			// console.log(err);
+			// reject(err);
 			if(typeof callback == "function"){
 				callback();
 			}
-			reject(err)
 		}
 	}
 }
