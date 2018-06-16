@@ -158,7 +158,7 @@ if (!command || command == "help" || command == "--help") {
 	});
 	
 	displayLines.forEach(line => console.log(line));
-	process.exit(1);
+	process.exit(0);
 } else if (command == "manage"){
 	// console.log("Launching mod manager");
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
@@ -175,20 +175,26 @@ if (!command || command == "help" || command == "--help") {
 	const action = process.argv[5] || "";
 	if(instance){
 		if(tool == "mods"){
-			// allow managing mods
-			if(action == "list"){
-				modManager.listMods(instance);
-			} else if(action == "search"){
-				modManager.findMods(process.argv[6]);
-			} else if(action == "add" || action == "download"){
-				modManager.addMod(process.argv[6], instance);
-			} else if(action == "remove" || action == "rm" || action == "delete"){
-				modManager.removeMod(process.argv[6], instance);
-			} else if(action == "update"){
-				modManager.updateAllMods();
-			} else {
-				usage(instance, tool);
-			}
+			(async function(){try{
+				// allow managing mods
+				if(action == "list"){
+					console.log(await modManager.listMods(instance));
+				} else if(action == "search"){
+					console.log(await modManager.findMods(process.argv[6]));
+				} else if(action == "add" || action == "download"){
+					await modManager.addMod(process.argv[6], instance);
+				} else if(action == "remove" || action == "rm" || action == "delete"){
+					await modManager.removeMod(process.argv[6], instance);
+				} else if(action == "update"){
+					await modManager.updateAllMods();
+				} else {
+					usage(instance, tool);
+				}
+				process.exit(0);
+			}catch(e){
+				console.log("Got error from modManager:")
+				console.log(e);
+			}})();
 		} else if(tool == "config"){
 			// allow managing the config
 			if(action == "list" || action == "show" || action == "display"){
@@ -213,7 +219,7 @@ if (!command || command == "help" || command == "--help") {
 		console.log('Usage:');
 		usage(instance);
 	}
-	// process.exit(1);
+	// process.exit(0);
 } else if (command == "delete") {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
@@ -221,10 +227,10 @@ if (!command || command == "help" || command == "--help") {
 	} else if (typeof process.argv[3] == "string" && fs.existsSync("./instances/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
 		fileOps.deleteFolderRecursiveSync("./instances/" + process.argv[3]);
 		console.log("Deleted instance " + process.argv[3]);
-		process.exit(1);
+		process.exit(0);
 	} else {
 		console.error("Instance not found: " + process.argv[3]);
-		process.exit(1);
+		process.exit(0);
 	}
 } else if (command == "download") {
 	console.log("Downloading mods...");
@@ -238,6 +244,7 @@ if (!command || command == "help" || command == "--help") {
 		https.get(url, function(response) {
 			response.pipe(file);
 			console.log("Downloaded "+name);
+			process.exit(0);
 		});
 	}
 } else if (command == "start" && instance === undefined) {
