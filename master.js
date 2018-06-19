@@ -415,10 +415,7 @@ POST endpoint for uploading mods to the master server. Required for automatic mo
 app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
-	if (!req.files) {
-        res.send('No files were uploaded.');
-        return;
-    } else {
+	if (req.files && req.files.file) {
 		console.log(req.files.file);
 		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
 			if (err) {
@@ -429,7 +426,10 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 			}
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		});
-	}
+	} else {
+		res.send('No files were uploaded.');
+		return;
+    }
 });
 /**
 GET endpoint for getting information about all our slaves
