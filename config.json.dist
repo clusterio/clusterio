@@ -30,7 +30,7 @@
 	"factorio_version": "0.16.41",
 	
 	"__comment5": "General user settings",
-	"verify_user_identity": false,
+	"verify_user_identity": true,
 	"auto_pause": false,
 	"allow_commands": "admins-only",
 	"game_password": "",
@@ -47,5 +47,5 @@
 	"logItemTransfers": false,
 	"uploadModsToMaster": true,
 	"msBetweenCommands": 10,
-	"allowRemoteCommandExecution": false
+	"allowRemoteCommandExecution": true
 }
