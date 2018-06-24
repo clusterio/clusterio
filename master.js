@@ -24,9 +24,27 @@ debug = false;
 // tested by logging Date.now() here and when the webserver started listening
 require('cache-require-paths');
 
+// argument parsing
+const args = require('minimist')(process.argv.slice(2));
+
+// Library for create folder recursively if it does not exist
+const mkdirp = require("mkdirp");
+const averagedTimeSeries = require("averaged-timeseries");
+const deepmerge = require("deepmerge");
+const path = require("path");
+const fs = require("fs");
+const nedb = require("nedb");
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const base64url = require('base64url');
+
 // constants
-const masterModFolder = "./database/masterMods/";
 const config = require('./config');
+config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
+const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
+mkdirp.sync(config.databaseDirectory);
+mkdirp.sync(masterModFolder);
 
 // homebrew modules
 const getFactorioLocale = require("./lib/getFactorioLocale");
@@ -35,23 +53,6 @@ const fileOps = require("_app/fileOps");
 
 // homemade express middleware for token auth
 const authenticate = require("./lib/authenticate");
-
-// Library for create folder recursively if it does not exist
-const mkdirp = require("mkdirp");
-mkdirp.sync("./database");
-mkdirp.sync(masterModFolder);
-const averagedTimeSeries = require("averaged-timeseries");
-const deepmerge = require("deepmerge");
-const path = require("path");
-const fs = require("fs");
-const nedb = require("nedb");
-const https = require("https");
-
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-
-const crypto = require('crypto');
-const base64url = require('base64url');
 
 /** Sync */
 function randomStringAsBase64Url(size) {
@@ -217,12 +218,12 @@ app.get('/metrics', (req, res) => {
 var Datastore = require('nedb');
 db = {};
 var LinvoDB = require("linvodb3");
-LinvoDB.dbPath = "./database/linvodb/";
+LinvoDB.dbPath = path.resolve(config.databaseDirectory, "/linvodb/");
 // database for items in system
 // db.items = new Datastore({ filename: 'database/items.db', autoload: true });
 
 // in memory database for combinator signals
-db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
+db.signals = new Datastore({ filename: path.resolve(config.databaseDirectory, '/signals.db'), autoload: true, inMemoryOnly: true});
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
 
 // production chart database
@@ -231,16 +232,16 @@ db.flows = new LinvoDB("flows", {}, {});
 
 (function(){
 	try{
-		let x = fs.statSync("database/slaves.json");
-		console.log("loading slaves from database/slaves.json");
-		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
+		let x = fs.statSync(path.resolve(config.databaseDirectory, "/slaves.json"));
+		console.log(`loading slaves from path.resolve(config.databaseDirectory, "slaves.json")`);
+		slaves = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "slaves.json")));
 	} catch (e){
 		slaves = {};
 	}
 	try{
-		x = fs.statSync("database/items.json");
-		console.log("loading items from database/items.json");
-		db.items = JSON.parse(fs.readFileSync("database/items.json"));
+		x = fs.statSync(path.resolve(config.databaseDirectory, "items.json"));
+		console.log(`loading items from ${path.resolve(config.databaseDirectory, "items.json")}`);
+		db.items = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "items.json")));
 	} catch (e){
 		db.items = {};
 	}
@@ -280,13 +281,13 @@ process.on('SIGINT', async function () {
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
 	if(slaves && Object.keys(slaves).length < 2000000){
 		console.log("saving to slaves.json");
-		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
+		fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
 	} else if(slaves) {
 		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
 	}
 	if(db.items && Object.keys(db.items).length < 50000){
 		console.log("saving to items.json");
-		fs.writeFileSync("database/items.json", JSON.stringify(db.items));
+		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
 	} else if(slaves) {
 		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
 	}
@@ -417,7 +418,7 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	let reqStartTime = Date.now();
 	if (req.files && req.files.file) {
 		console.log(req.files.file);
-		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
+		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err) {
 			if (err) {
 				res.status(500).send(err);
 			} else {
@@ -937,18 +938,22 @@ app.get("/api/getFactorioLocale", function(req,res){
 		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 	});
 });
-if(config.sslPort){
-	var certificate = fs.readFileSync( 'database/certificates/cert.crt' );
-	var privateKey = fs.readFileSync( 'database/certificates/cert.key' );
+if(args.sslPort || config.sslPort){
+	try{
+		var certificate = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.crt'));
+		var privateKey = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.key'));
 
-	httpsServer = https.createServer({
-		key: privateKey,
-		cert: certificate
-	}, app).listen(config.sslPort);
+		httpsServer = require("https").createServer({
+			key: privateKey,
+			cert: certificate
+		}, app).listen(args.sslPort || config.sslPort);
+	} catch(e){
+		console.error(e)
+	}
 }
-if(config.masterPort){
+if(args.masterPort || config.masterPort){
 	server = require("http").Server(app);
-	server.listen(config.masterPort || 8080, function () {
+	server.listen(args.masterPort || config.masterPort || 8080, function () {
 		console.log("Listening on port %s...", server.address().port);
 	});
 }
