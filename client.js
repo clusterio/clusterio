@@ -263,10 +263,10 @@ if (!command || command == "help" || command == "--help") {
 	fs.mkdirSync(instancedirectory + "/mods/");
 	fs.mkdirSync(instancedirectory + "/instanceMods/");
 	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
-	fs.writeFileSync(instancedirectory + "/config.ini", "[path]\r\n\
-read-data=__PATH__executable__/../../data\r\n\
-write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instance + "\r\n\
-	");
+	fs.writeFileSync(instancedirectory + `/config.ini`, `[path]\r\n
+read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
+write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
+	`);
 	
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', instancedirectory + "/mods");
