@@ -90,9 +90,9 @@ downloads and installs nodejs, pm2, git and clusterio. To specify a version, cha
     
 **Server Host**
     
-To download the mod for all its non vanilla features and items, (optional)
+To download the mod for all its non vanilla features and items, (optional, but very recommended)
 
-    node client.js download
+    node client.js manage shared mods add clusterio
 	
 Add the master API key, found in the masters install directory (secret-api-token.txt) to your config.json masterAuthToken field
 
@@ -134,7 +134,7 @@ There are no requirements for other mods, they can be ran in any configuration a
 
 **Requirements**
 
-download and install nodeJS 6+ from http://nodejs.org
+download and install nodeJS 8 or 9 from http://nodejs.org
 
 download and install git from https://git-scm.com/
 
@@ -146,9 +146,11 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 2. Copy config.json.dist to config.json
 
-3. You do not *need* to follow the given instructions, but you should
+3. Follow the instructions in the bat file
 
-4. type `node master.js`
+4. Run `node client.js manage shared mods add clusterio`
+
+5. type `node master.js` to start the server
 
 **Server Host**
 
@@ -163,14 +165,14 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
 Change masterIP to something like 31.152.123.14 (provided by master server owner)
-
+e war
 Change masterPort to something like 8080 (provided by master server owner)
 
 Repeat step 3 for more servers on one machine. You should be able to find its port by looking at the slave section on master:8080 (the web interface)
 
 **GameClient**
 
-Fancy game client that does the following steps automatically: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
+Fancy game client that does the following steps automatically, but is really old so be warned: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
 
 1. Download the same version of the mod as the slave is running from [the mod portal](https://mods.factorio.com/mods/Danielv123/clusterio) or [github](https://github.com/Danielv123/factorioClusterioMod
 
@@ -203,5 +205,5 @@ npm install
 
 3. Download the latest version of the factorioClusterioMod from its github repo
 ```
-node client.js download
+node client.js manage shared mods add clusterio
 ```
