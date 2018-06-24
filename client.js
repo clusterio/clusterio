@@ -310,6 +310,7 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 		]
 	);
 	console.log("Instance created!");
+	process.exit(0);
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != config.instanceDirectory+"/undefined"){
@@ -345,9 +346,7 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 	}
 	
 	// move mods from ./sharedMods to the instances mod directory
-	try {
-		fs.mkdirSync(instancedirectory + "/instanceMods/");
-	} catch(e){}
+	try{fs.mkdirSync(instancedirectory + "/instanceMods/");}catch(e){}
 	try{rmdirSync(instancedirectory + "/mods");}catch(e){}
 	try {
 		// mods directory that will be emptied (deleted) when closing the server to facilitate seperation of instanceMods and sharedMods
@@ -359,7 +358,7 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 	fs.copySync(instancedirectory + "/instanceMods", instancedirectory + "/mods");
 
 	process.on('SIGINT', function () {
-		console.log("Caught interrupt signal");
+		console.log("Caught interrupt signal, sending /quit");
 		messageInterface("/quit");
 	});
 
@@ -367,8 +366,9 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 	//var serverprocess = child_process.exec(commandline);
 	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
 		if(err) {
-			console.log("Your savefile seems to be missing. This might because you created an instance without having factorio\
-			installed and configured properly. Try installing factorio and adding your savefile to instances/[instancename]/saves/");
+			console.error("ERROR!")
+			console.error("Your savefile seems to be missing. This might because you created an instance without having factorio\
+ installed and configured properly. Try installing factorio and adding your savefile to instances/[instancename]/saves/\n");
 			throw err;
 		}
 		// implicit global
@@ -397,10 +397,8 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 				client.close();
 				client.connect();
 			}
-			if(process.platform == "linux"){
-				// we have to log on linux because linux only shows stdout of the first process launched
-				console.log('Factorio: ' + data);
-			}
+			// we have to do this to make logs visible on linux and in powershell. Causes log duplication for people with CMD.
+			console.log('Fact: ' + data);
 		});
 		serverprocess.stderr.on('data', (chunk) => {
 			console.log('ERR: ' + chunk);
@@ -445,7 +443,7 @@ write-data=__PATH__executable__/../../../"+config.instanceDirectory+"/" + instan
 				process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
 			});
 		} else if(process.platform == "linux"){
-			// TODO: Check if this works fine on linux or if it has to be delayed until the server starts properly
+			// don't open an RCON connection and just use stdio instead, does not work on windows.
 			instanceManagement();
 		}
 
