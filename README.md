@@ -92,7 +92,7 @@ downloads and installs nodejs, pm2, git and clusterio. To specify a version, cha
     
 To download the mod for all its non vanilla features and items, (optional)
 
-    node client.js download
+    node client.js manage shared mods add clusterio
 	
 Add the master API key, found in the masters install directory (secret-api-token.txt) to your config.json masterAuthToken field
 
