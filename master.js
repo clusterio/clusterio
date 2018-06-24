@@ -40,7 +40,7 @@ const crypto = require('crypto');
 const base64url = require('base64url');
 
 // constants
-const config = require('./config');
+const config = require(args.config || './config');
 config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
 mkdirp.sync(config.databaseDirectory);

@@ -25,7 +25,7 @@ const configManager = require("./lib/manager/configManager.js");
 const args = require('minimist')(process.argv.slice(2));
 
 // require config.json
-var config = require('./config');
+var config = require(args.config || './config');
 var global = {};
 
 if (!fs.existsSync(config.instanceDirectory)) {
