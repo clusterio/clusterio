@@ -1,5 +1,13 @@
 # factorioClusterio
 
+Discord for development/support/play: https://discord.gg/5XuDkje
+
+### Ways to support me/the project:
+
+* Contribute with code/documentation. Always nice to move the project forward
+
+* Support me monetarily on [patreon](https://www.patreon.com/danielv123) or paypal: danielv@live.no
+
 ### Table of contents
 
 * [Introduction & methodology](#introduction)
@@ -188,15 +196,15 @@ Fancy game client that does the following steps automatically, but is really old
 
 ## Common problems
 
-# Cannot find module: `/../../config`
+### Cannot find module: `/../../config`
 
 Copy your config.json.dist to config.json and configure it.
 
-# EACCESS [...] LISTEN 443
+### EACCESS [...] LISTEN 443
 
 Some systems don't let non root processes listen to ports below 1000. Either run with `sudo` or change config.json to use higher port numbers.
 
-# Other fixes for other potential problems:
+### Other fixes for other potential problems:
 
 Sometimes the install fails. Try `node ./lib/npmPostinstall.js` to complete it.
 
