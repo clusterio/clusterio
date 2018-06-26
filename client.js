@@ -21,8 +21,11 @@ const stringUtils = require("./lib/stringUtils.js");
 const modManager = require("./lib/manager/modManager.js");
 const configManager = require("./lib/manager/configManager.js");
 
+// argument parsing
+const args = require('minimist')(process.argv.slice(2));
+
 // require config.json
-var config = require('./config');
+var config = require(args.config || './config');
 var global = {};
 
 if (!fs.existsSync(config.instanceDirectory)) {
@@ -271,9 +274,9 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', instancedirectory + "/mods");
 	let instconf = {
-		"factorioPort": process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
-		"clientPort": process.env.RCONPORT || Math.floor(Math.random() * 65535),
-		"clientPassword": Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
+		"factorioPort": args.port || process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
+		"clientPort": args["rcon-port"] || process.env.RCONPORT || Math.floor(Math.random() * 65535),
+		"clientPassword": args["rcon-password"] || Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 	}
 	console.log("Clusterio | Created instance with settings:")
 	console.log(instconf);
@@ -305,7 +308,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 	let createSave = child_process.spawnSync(
 		'./' + config.factorioDirectory + '/bin/x64/factorio', [
-			'-c', instancedirectory + '/config.ini',
+			'-c', path.resolve(instancedirectory, '/config.ini'),
 			'--create', instancedirectory + '/saves/save.zip',
 		]
 	);
@@ -376,10 +379,10 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instancedirectory + '/config.ini',
 				'--start-server', latestSave.file,
-				'--rcon-port', Number(process.env.RCONPORT) || instanceconfig.clientPort,
-				'--rcon-password', instanceconfig.clientPassword,
+				'--rcon-port', args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
+				'--rcon-password', args["rcon-password"] || instanceconfig.clientPassword,
 				'--server-settings', instancedirectory + '/server-settings.json',
-				'--port', Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort
+				'--port', args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort
 			], {
 				'stdio': ['pipe', 'pipe', 'pipe']
 			}
@@ -398,7 +401,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 				client.connect();
 			}
 			// we have to do this to make logs visible on linux and in powershell. Causes log duplication for people with CMD.
-			console.log('Fact: ' + data);
+			console.log('Fact: ' + data.toString("utf8").replace("\n", ""));
 		});
 		serverprocess.stderr.on('data', (chunk) => {
 			console.log('ERR: ' + chunk);
@@ -417,8 +420,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 					if(data && data.indexOf('Starting RCON interface') > 0){
 						client.connect({
 							host: 'localhost',
-							port: Number(process.env.RCONPORT) || instanceconfig.clientPort,
-							password: instanceconfig.clientPassword,
+							port: args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
+							password: args["rcon-password"] || instanceconfig.clientPassword,
 							timeout: 5000
 						});
 					} else {

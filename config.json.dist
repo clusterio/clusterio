@@ -2,6 +2,7 @@
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
 	"factorioDirectory": "factorio",
 	"instanceDirectory": "instances",
+	"databaseDirectory": "database",
 	
 	"__comment1": "IP players should connect to to join your servers, should be portforwarded and stuff",
 	"publicIP": "localhost",
