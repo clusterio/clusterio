@@ -1,12 +1,4 @@
 # factorioClusterio
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDanielv123%2FfactorioClusterio?ref=badge_shield)
-
-| Branch | Coverage | Build |
-|--------|----------| ----- |
-| Master | [![codecov](https://codecov.io/gh/Danielv123/factorioClusterio/branch/master/graph/badge.svg)](https://codecov.io/gh/Danielv123/factorioClusterio) | [![Build Status](https://travis-ci.org/Danielv123/factorioClusterio.svg?branch=master)](https://travis-ci.org/Danielv123/factorioClusterio) |
-| Dev    | [![codecov](https://codecov.io/gh/Danielv123/factorioClusterio/branch/dev/graph/badge.svg)](https://codecov.io/gh/Danielv123/factorioClusterio) | [![Build Status](https://travis-ci.org/Danielv123/factorioClusterio.svg?branch=dev)](https://travis-ci.org/Danielv123/factorioClusterio) |
-
-If you want to connect to a clusterio cluster, please reffer to the [client](https://github.com/Danielv123/factorioClusterioClient)
 
 ### Table of contents
 
@@ -15,6 +7,8 @@ If you want to connect to a clusterio cluster, please reffer to the [client](htt
 * [Ubuntu setup](#ubuntu-setup)
 
 * [Windows setup](#windows-setup)
+
+* [Common problems](#Common-problems)
 
 * [Command cheatsheet](#cheatsheet)
 
@@ -78,24 +72,35 @@ Master and all slaves:
     curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
     npm install
-    node ./lib/npmPostinstall.js
+    cp config.json.dist config.json
+    node ./lib/npmPostinstall.json
+	
 
 downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
-*Copy config.json.dist to config.json* - Otherwise it will crash, as you'd expect.
+Now you need to edit the `config.json` file. If you skip this step nothing will work.
+Pretty much all the blank fields should be filled in, except on the master where a few can be omitted.
+
+* You get the `masterAuthToken` from `secret-api-token.txt` in the master install dir after running the master twice.
+
+* You get your factorio matchmaking token from factorio.com
+
+* The `masterAuthSecret` should never be touched unless you want to invalidate everyones authentication tokens
 
 **Master**
 
     pm2 start master.js --name master
+	
+OR
+
+    node master.js
     
 **Server Host**
     
-To download the mod for all its non vanilla features and items, (optional)
+To download the mod for all its non vanilla features and items, (optional, but very recommended)
 
-    node client.js download
+    node client.js manage shared mods add clusterio
 	
-Add the master API key, found in the masters install directory (secret-api-token.txt) to your config.json masterAuthToken field
-
 To create a new instance (its own save, set of mods and config files)
 
     node client.js start [instancename]
@@ -108,7 +113,7 @@ use `nano config.json` to change settings.
 
 **Ubuntu with Docker**
 
-Clusterio has limited support for using docker.
+Clusterio has *very* limited support for using docker.
 
     sudo docker build -t clusterio --no-cache --force-rm factorioClusterio
 	
@@ -128,13 +133,9 @@ Server host (Slave) = client.js + factorio server
 
 Game Client = The people connecting to the server
 
-All Server Hosts (Slaves) AND Game Clients need to be running the clusterio mod located at [github](https://github.com/Danielv123/factorioClusterioMod) Install it by dropping it into either the sharedMods folder or instances/[instanceName]/instanceMods folder.
-
-There are no requirements for other mods, they can be ran in any configuration allowed by the base game.
-
 **Requirements**
 
-download and install nodeJS 6+ from http://nodejs.org
+download and install nodeJS 8 or 9 from http://nodejs.org
 
 download and install git from https://git-scm.com/
 
@@ -146,9 +147,12 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 2. Copy config.json.dist to config.json
 
-3. You do not *need* to follow the given instructions, but you should
+3. Follow the instructions in the bat file
+3. Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
 
-4. type `node master.js`
+4. Run `node client.js manage shared mods add clusterio`
+
+5. type `node master.js` to start the server
 
 **Server Host**
 
@@ -156,27 +160,46 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 2. Copy config.json.dist to config.json
 
-3. Follow the instructions given
+3. Follow the instructions given. 
+
+3.5 Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
 
 4. Type `node client.js start [instancename]` to create a new instance.
 
 To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
-Change masterIP to something like 31.152.123.14 (provided by master server owner)
+Change `masterIP `to something like `31.152.123.14` (provided by master server owner)
 
-Change masterPort to something like 8080 (provided by master server owner)
+Change `masterPort` to something like `8080` (provided by master server owner)
 
-Repeat step 3 for more servers on one machine. You should be able to find its port by looking at the slave section on master:8080 (the web interface)
+Change `masterAuthToken` to the value found in `secret-api-token.txt` on the master server
+
+Repeat step 4 for more servers on one machine. You should be able to find its port by looking at the slave section on master:8080 (the web interface)
 
 **GameClient**
 
-Fancy game client that does the following steps automatically: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
+Fancy game client that does the following steps automatically, but is really old so be warned: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
 
 1. Download the same version of the mod as the slave is running from [the mod portal](https://mods.factorio.com/mods/Danielv123/clusterio) or [github](https://github.com/Danielv123/factorioClusterioMod
 
 2. Drop it into ./factorio/mods
 
 3. Run factorio and connect to slave as a normal MP game. You will find the port number to connect to at http://[masterAddress]:8080
+
+## Common problems
+
+# Cannot find module: `/../../config`
+
+Copy your config.json.dist to config.json and configure it.
+
+# EACCESS [...] LISTEN 443
+
+Some systems don't let non root processes listen to ports below 1000. Either run with `sudo` or change config.json to use higher port numbers.
+
+# Other fixes for other potential problems:
+
+Sometimes the install fails. Try `node ./lib/npmPostinstall.js` to complete it.
+
 
 ## Cheatsheet
 
@@ -203,5 +226,5 @@ npm install
 
 3. Download the latest version of the factorioClusterioMod from its github repo
 ```
-node client.js download
+node client.js manage shared mods add clusterio
 ```
