@@ -49,5 +49,7 @@
 	"logItemTransfers": false,
 	"uploadModsToMaster": true,
 	"msBetweenCommands": 10,
-	"allowRemoteCommandExecution": true
+	"allowRemoteCommandExecution": true,
+	"enableCrossServerShout": true,
+	"mirrorAllChat": false
 }
