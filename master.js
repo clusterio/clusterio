@@ -218,7 +218,11 @@ app.get('/metrics', (req, res) => {
 var Datastore = require('nedb');
 db = {};
 var LinvoDB = require("linvodb3");
-LinvoDB.dbPath = path.resolve(config.databaseDirectory, "/linvodb/");
+
+// TODO: This breaks. databaseDirectory is either "database" or "./database". `LinvoDB.dbPath = "./database/linvodb/";` is the old working version.
+LinvoDB.dbPath = path.resolve(config.databaseDirectory, "linvodb");
+// LinvoDB.dbPath = "./database/linvodb/";
+
 // database for items in system
 // db.items = new Datastore({ filename: 'database/items.db', autoload: true });
 
