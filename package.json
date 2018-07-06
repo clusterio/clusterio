@@ -10,7 +10,9 @@
     "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{{,node_modules/_app/**/},!(node_modules)/**/}*.spec.js\" -R spec || echo . && codecov -t f7b38085-36eb-4d72-84e6-64721910171e",
     "docs": "documentation build index.js --config documentation.yml -f html -o docs",
     "livedocs": "documentation serve --watch *.js lib/** --config documentation.yml",
-    "install": "node lib/npmPostinstall.js"
+    "install": "node lib/npmPostinstall.js",
+    "snyk-protect": "snyk protect",
+    "prepare": "npm run snyk-protect"
   },
   "keywords": [
     "factorio"
@@ -63,7 +65,8 @@
     "socket.io": "^2.0.4",
     "socket.io-client": "^2.0.4",
     "sync-request": "^4.0.1",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "snyk": "^1.88.1"
   },
   "devDependencies": {
     "documentation": "^5.4.0",
@@ -74,5 +77,6 @@
     "nock": "^9.1.6",
     "sinon": "^2.4.1",
     "supertest": "^3.0.0"
-  }
+  },
+  "snyk": true
 }
