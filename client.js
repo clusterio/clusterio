@@ -245,10 +245,12 @@ if (!command || command == "help" || command == "--help") {
 		console.log(url);
 		let file = fs.createWriteStream("sharedMods/"+name);
 		https.get(url, function(response) {
+			response.on('end', function () {
+				console.log("Downloaded "+name);
+				process.exit(0);                
+			});
 			response.pipe(file);
-			console.log("Downloaded "+name);
-			process.exit(0);
-		});
+		}).end();
 	}
 } else if (command == "start" && instance === undefined) {
 	console.log("ERROR: No instanceName provided!");
