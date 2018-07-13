@@ -13,10 +13,23 @@
 		<p>Slaves</p>
 	</div></a>
 	<%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
-	<% adsdf = "none"; masterPlugins.forEach(plug => {if(plug.pluginConfig.name == "playerManager"){ adsdf = "block" }}); %>
-	<a href="/playerManager" style="display:<%= adsdf %>"><div id="playerManager-menu" class="button-black menuItem">
-		<p>Players</p>
-	</div></a>
+	<%
+		sidebarPluginButtonsHtml = "";
+		masterPlugins.forEach(plug => {
+			if(plug.main
+			&& plug.main.ui
+			&& typeof plug.main.ui.sidebar == "object"
+			&& Array.isArray(plug.main.ui.sidebar)){
+				let sidebarEntries = plug.main.ui.sidebar;
+				sidebarEntries.forEach(button => {
+					if(button.getHtml && typeof button.getHtml == "function"){
+						sidebarPluginButtonsHtml += button.getHtml();
+					}
+				});
+			}
+		});	
+	%>
+	<%- sidebarPluginButtonsHtml %>
 	<a href="/settings"><div id="settings-menu" class="button-black menuItem">
 		<p>Settings</p>
 	</div></a>
