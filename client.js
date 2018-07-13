@@ -454,6 +454,9 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		confirmedOrders = [];
 		lastSignalCheck = Date.now();
 	});
+} else {
+	console.error("Invalid arguments, quitting.");
+	process.exit(1);
 }
 
 // ensure instancemanagement only ever runs once

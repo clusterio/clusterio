@@ -52,7 +52,7 @@ const stringUtils = require("./lib/stringUtils");
 const fileOps = require("_app/fileOps");
 
 // homemade express middleware for token auth
-const authenticate = require("./lib/authenticate");
+const authenticate = require("./lib/authenticate")(config);
 
 /** Sync */
 function randomStringAsBase64Url(size) {
@@ -279,7 +279,9 @@ db.items.removeItem = function(object) {
 }
 
 // store slaves and inventory in a .json full of JSON data
-process.on('SIGINT', async function () {
+process.on('SIGINT', shutdown); // ctrl + c
+process.on('SIGHUP', shutdown); // terminal closed
+async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
@@ -304,8 +306,8 @@ process.on('SIGINT', async function () {
 		}
 	}
 	console.log("Exited in "+(Date.now()-exitStartTime)+"ms");
-	process.exit(2);
-});
+	process.exit(0);
+}
 
 /**
 POST World ID management. Slaves post here to tell the server they exist
