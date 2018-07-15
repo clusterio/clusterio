@@ -245,10 +245,12 @@ if (!command || command == "help" || command == "--help") {
 		console.log(url);
 		let file = fs.createWriteStream("sharedMods/"+name);
 		https.get(url, function(response) {
+			response.on('end', function () {
+				console.log("Downloaded "+name);
+				process.exit(0);                
+			});
 			response.pipe(file);
-			console.log("Downloaded "+name);
-			process.exit(0);
-		});
+		}).end();
 	}
 } else if (command == "start" && instance === undefined) {
 	console.log("ERROR: No instanceName provided!");
@@ -639,7 +641,7 @@ function instanceManagement() {
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
 					}
 					payload.mac = mac;
-					console.log("Registered our precense with master "+config.masterIP+" at " + payload.time);
+					console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
 							console.error("We got problems, something went wrong when contacting master");
