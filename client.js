@@ -274,7 +274,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	`);
 	
 	// this line is probably not needed anymore but Im not gonna remove it
-	fs.copySync('sharedMods', instancedirectory + "/mods");
+	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
 	let instconf = {
 		"factorioPort": args.port || process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || Math.floor(Math.random() * 65535),
@@ -310,8 +310,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
 	let createSave = child_process.spawnSync(
 		'./' + config.factorioDirectory + '/bin/x64/factorio', [
-			'-c', path.resolve(instancedirectory, '/config.ini'),
-			'--create', instancedirectory + '/saves/save.zip',
+			'-c', path.resolve(instancedirectory, 'config.ini'),
+			'--create', path.resolve(instancedirectory, 'saves', 'save.zip'),
 		]
 	);
 	console.log("Instance created!");
@@ -331,17 +331,17 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		process.exit(1);
 	}
 	console.log("Deleting .tmp.zip files");
-	let savefiles = fs.readdirSync(instancedirectory + "/saves/");
+	let savefiles = fs.readdirSync(path.join(instancedirectory,"saves"));
 	for(i = 0; i < savefiles.length; i++){
 		if(savefiles[i].substr(savefiles[i].length - 8, 8) == ".tmp.zip") {
-			fs.unlinkSync(instancedirectory + "/saves/" + savefiles[i]);
+			fs.unlinkSync(path.resolve(instancedirectory, "saves", savefiles[i]));
 		}
 	}
 	console.log("Deleting logs");
 	// clean old log file to avoid crash
 	// file exists, delete so we don't get in trouble
 	try {
-		fs.unlinkSync(instancedirectory+'/factorio-current.log');
+		fs.unlinkSync(path.join(instancedirectory,'factorio-current.log'));
 	} catch (err){
 		if(err){
 			console.log(err);
@@ -351,16 +351,16 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	}
 	
 	// move mods from ./sharedMods to the instances mod directory
-	try{fs.mkdirSync(instancedirectory + "/instanceMods/");}catch(e){}
-	try{rmdirSync(instancedirectory + "/mods");}catch(e){}
+	try{fs.mkdirSync(path.join(instancedirectory, "instanceMods"));}catch(e){}
+	try{rmdirSync(path.join(instancedirectory, "mods"));}catch(e){}
 	try {
 		// mods directory that will be emptied (deleted) when closing the server to facilitate seperation of instanceMods and sharedMods
-		fs.mkdirSync(instancedirectory + "/mods/");
+		fs.mkdirSync(path.join(instancedirectory, "mods"));
 	} catch(e){}
 	console.log("Clusterio | Moving shared mods from sharedMods/ to instance/mods...");
-	fs.copySync('sharedMods', instancedirectory + "/mods");
+	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
 	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
-	fs.copySync(instancedirectory + "/instanceMods", instancedirectory + "/mods");
+	fs.copySync(path.join(instancedirectory, "instanceMods"), path.join(instancedirectory, "mods"));
 
 	process.on('SIGINT', function () {
 		console.log("Caught interrupt signal, sending /quit");
@@ -371,7 +371,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	//var serverprocess = child_process.exec(commandline);
 	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
 		if(err) {
-			console.error("ERROR!")
+			console.error("ERROR!");
 			console.error("Your savefile seems to be missing. This might because you created an instance without having factorio\
  installed and configured properly. Try installing factorio and adding your savefile to instances/[instancename]/saves/\n");
 			throw err;

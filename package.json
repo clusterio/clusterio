@@ -50,7 +50,7 @@
     "moment": "^2.20.1",
     "ncp": "^2.0.0",
     "nedb": "^1.8.0",
-    "needle": "^1.1.0",
+    "needle": "^2.2.1",
     "node-factorio-api": "^0.3.1-alpha",
     "node-forge": "^0.7.1",
     "prom-client": "^10.2.3",
