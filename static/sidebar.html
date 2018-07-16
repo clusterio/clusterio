@@ -2,16 +2,35 @@
 	
 </div>
 <div id="sidenav">
-	<div id="logo">
+	<div id="logo" style="height:50px;">
+		<img src="/pictures/clusterio_icon.png" style="width:50px;height:50px; float:left;"></img>
 		<h1>Clusterio</h1>
 	</div>
 	<a href="/"><div id="storage-menu" class="button-black menuItem">
 		<p>Storage</p>
 	</div></a>
-	<a href="nodes"><div id="slaves-menu" class="button-black menuItem">
+	<a href="/nodes"><div id="slaves-menu" class="button-black menuItem">
 		<p>Slaves</p>
 	</div></a>
-	<a href="settings"><div id="settings-menu" class="button-black menuItem">
+	<%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
+	<%
+		sidebarPluginButtonsHtml = "";
+		masterPlugins.forEach(plug => {
+			if(plug.main
+			&& plug.main.ui
+			&& typeof plug.main.ui.sidebar == "object"
+			&& Array.isArray(plug.main.ui.sidebar)){
+				let sidebarEntries = plug.main.ui.sidebar;
+				sidebarEntries.forEach(button => {
+					if(button.getHtml && typeof button.getHtml == "function"){
+						sidebarPluginButtonsHtml += button.getHtml();
+					}
+				});
+			}
+		});	
+	%>
+	<%- sidebarPluginButtonsHtml %>
+	<a href="/settings"><div id="settings-menu" class="button-black menuItem">
 		<p>Settings</p>
 	</div></a>
 </div>

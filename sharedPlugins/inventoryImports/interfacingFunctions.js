@@ -76,7 +76,7 @@ function handleInventory(json, config, callback){
 						}
 						//console.log("Requesting: "+JSON.stringify(request));
 						// request the difference from master
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', request, {json:true}, function (err, response, body) {
+						needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', request, {json:true,headers: {'x-access-token': config.masterAuthToken}}, function (err, response, body) {
 							if (!err && response && response.body && (typeof response.body == "object" || isJson(response.body))) {
 								// confirmed orders, already removed from master inventory
 								//response.body.name: response.body.count
@@ -103,7 +103,7 @@ function handleInventory(json, config, callback){
 				for(let i = 0; i < stackArray.length; i++){
 					if(stackArray[i].count > 0){
 						// console.log("Returning overflow: " + JSON.stringify(stackArray[i]));
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/place', stackArray[i], function (err, resp, body) {
+						needle.post(config.masterIP + ":" + config.masterPort + '/api/place', stackArray[i], {headers: {'x-access-token': config.masterAuthToken}}, function (err, resp, body) {
 							// console.log(body);
 						});
 					}

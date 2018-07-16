@@ -20,18 +20,15 @@ process.on('unhandledRejection', r => console.log(r));
 // configgy stuff
 debug = false;
 
-// constants
-const masterModFolder = "./database/masterMods/";
-var config = require('./config');
+// reduces loadtime from 1700 ms to 1200 ms on my i3 + SSD
+// tested by logging Date.now() here and when the webserver started listening
+require('cache-require-paths');
 
-// homebrew modules
-const getFactorioLocale = require("./lib/getFactorioLocale");
-const stringUtils = require("./lib/stringUtils");
+// argument parsing
+const args = require('minimist')(process.argv.slice(2));
 
 // Library for create folder recursively if it does not exist
 const mkdirp = require("mkdirp");
-mkdirp.sync("./database");
-mkdirp.sync(masterModFolder);
 const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
@@ -39,8 +36,44 @@ const fs = require("fs");
 const nedb = require("nedb");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const base64url = require('base64url');
+
+// constants
+const config = require(args.config || './config');
+config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
+const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
+mkdirp.sync(config.databaseDirectory);
+mkdirp.sync(masterModFolder);
+
+// homebrew modules
+const getFactorioLocale = require("./lib/getFactorioLocale");
+const stringUtils = require("./lib/stringUtils");
+const fileOps = require("_app/fileOps");
+
+// homemade express middleware for token auth
+const authenticate = require("./lib/authenticate")(config);
+
+/** Sync */
+function randomStringAsBase64Url(size) {
+  return base64url(crypto.randomBytes(size));
+}
+if (!fs.existsSync("secret-api-token.txt")) {
+	config.masterAuthSecret = randomStringAsBase64Url(256);
+    fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
+	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+		expiresIn: 86400*365 // expires in 1 year
+	}));
+	console.log("Generated new master authentication private key!");
+	process.exit(0);
+}
+// write an auth token to file
+fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+	expiresIn: 86400*365 // expires in 1 year
+}));
 
 const express = require("express");
+const compression = require('compression');
 const ejs = require("ejs");
 // Required for express post requests
 const bodyParser = require("body-parser");
@@ -48,18 +81,28 @@ const fileUpload = require('express-fileupload');
 var app = express();
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({
+	parameterLimit: 100000,
+	limit: '10mb',
+	extended: true
+}));
 app.use(fileUpload());
+app.use(compression());
 
 // dynamic HTML generations with EJS
 app.set('views', path.join(__dirname, 'static'));
 app.set('view engine', 'html');
 app.engine('html', ejs.renderFile);
 
-var routes = require("./routes.js");
-routes(app);
+// give ejs access to some interesting information
+app.use(function(req, res, next){
+	res.locals.res = res;
+	res.locals.req = req;
+	res.locals.masterPlugins = masterPlugins;
+	next();
+});
 
-
+require("./routes.js")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 // mod downloads
@@ -88,16 +131,41 @@ const prometheusConnectedInstancesCounter = new Prometheus.Gauge({
 const prometheusWsUsageCounter = new Prometheus.Counter({
 	name: prometheusPrefix+'websocket_usage_counter',
 	help: 'Websocket traffic',
-	labelNames: ["connectionType"],
+	labelNames: ["connectionType", "instanceID"],
 });
 const prometheusProductionGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'production_gauge',
 	help: 'Items produced by instance',
 	labelNames: ["instanceID", "itemName"],
 });
+const prometheusExportGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'export_gauge',
+	help: 'Items exported by instance',
+	labelNames: ["instanceID", "itemName"],
+});
+const prometheusImportGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'import_gauge',
+	help: 'Items imported by instance',
+	labelNames: ["instanceID", "itemName"],
+});
+const prometheusDoleFactorGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'dole_factor_gauge',
+	help: 'The current dole division factor for this item',
+	labelNames: ["itemName"],
+});
 const prometheusPlayerCountGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'player_count_gauge',
 	help: 'Amount of players connected to this cluster',
+	labelNames: ["instanceID", "instanceName"],
+});
+const prometheusUPSGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'UPS_gauge',
+	help: 'UPS of the current server',
+	labelNames: ["instanceID", "instanceName"],
+});
+const prometheusTickGauge = new Prometheus.Gauge({
+	name: prometheusPrefix+'tick_gauge',
+	help: 'Servers current gametick',
 	labelNames: ["instanceID", "instanceName"],
 });
 const prometheusMasterInventoryGauge = new Prometheus.Gauge({
@@ -124,10 +192,17 @@ app.get('/metrics', (req, res) => {
 	res.set('Content-Type', Prometheus.register.contentType);
 	
 	/// gather some static metrics
-	// playercount
-	for(let instanceID in slaves){try{
-		prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
-	}catch(e){}}
+	for(let instanceID in slaves){
+		// playercount
+		try{
+			prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
+		}catch(e){}
+		// UPS
+		try{
+			prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.UPS) || 60);
+			if(slaves[instanceID].meta.tick && typeof slaves[instanceID].meta.tick === "number") prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.tick) || 0);
+		}catch(e){}
+	}
 	// inventory
 	for(let key in db.items){
 		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
@@ -143,12 +218,16 @@ app.get('/metrics', (req, res) => {
 var Datastore = require('nedb');
 db = {};
 var LinvoDB = require("linvodb3");
-LinvoDB.dbPath = "./database/linvodb/";
+
+// TODO: This breaks. databaseDirectory is either "database" or "./database". `LinvoDB.dbPath = "./database/linvodb/";` is the old working version.
+LinvoDB.dbPath = path.resolve(config.databaseDirectory, "linvodb");
+// LinvoDB.dbPath = "./database/linvodb/";
+
 // database for items in system
 // db.items = new Datastore({ filename: 'database/items.db', autoload: true });
 
 // in memory database for combinator signals
-db.signals = new Datastore({ filename: 'database/signals.db', autoload: true, inMemoryOnly: true});
+db.signals = new Datastore({ filename: path.resolve(config.databaseDirectory, '/signals.db'), autoload: true, inMemoryOnly: true});
 db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
 
 // production chart database
@@ -157,16 +236,16 @@ db.flows = new LinvoDB("flows", {}, {});
 
 (function(){
 	try{
-		let x = fs.statSync("database/slaves.json");
-		console.log("loading slaves from database/slaves.json");
-		slaves = JSON.parse(fs.readFileSync("database/slaves.json"));
+		let x = fs.statSync(path.resolve(config.databaseDirectory, "/slaves.json"));
+		console.log(`loading slaves from path.resolve(config.databaseDirectory, "slaves.json")`);
+		slaves = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "slaves.json")));
 	} catch (e){
 		slaves = {};
 	}
 	try{
-		x = fs.statSync("database/items.json");
-		console.log("loading items from database/items.json");
-		db.items = JSON.parse(fs.readFileSync("database/items.json"));
+		x = fs.statSync(path.resolve(config.databaseDirectory, "items.json"));
+		console.log(`loading items from ${path.resolve(config.databaseDirectory, "items.json")}`);
+		db.items = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "items.json")));
 	} catch (e){
 		db.items = {};
 	}
@@ -200,23 +279,35 @@ db.items.removeItem = function(object) {
 }
 
 // store slaves and inventory in a .json full of JSON data
-process.on('SIGINT', function () {
+process.on('SIGINT', shutdown); // ctrl + c
+process.on('SIGHUP', shutdown); // terminal closed
+async function shutdown() {
 	console.log('Ctrl-C...');
+	let exitStartTime = Date.now();
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
 	if(slaves && Object.keys(slaves).length < 2000000){
 		console.log("saving to slaves.json");
-		fs.writeFileSync("database/slaves.json", JSON.stringify(slaves));
+		fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
 	} else if(slaves) {
 		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
 	}
 	if(db.items && Object.keys(db.items).length < 50000){
 		console.log("saving to items.json");
-		fs.writeFileSync("database/items.json", JSON.stringify(db.items));
+		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
 	} else if(slaves) {
 		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
 	}
-	process.exit(2);
-});
+	for(let i in masterPlugins){
+		let plugin = masterPlugins[i];
+		if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
+			let startTime = Date.now();
+			await plugin.main.onExit();
+			console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
+		}
+	}
+	console.log("Exited in "+(Date.now()-exitStartTime)+"ms");
+	process.exit(0);
+}
 
 /**
 POST World ID management. Slaves post here to tell the server they exist
@@ -224,7 +315,7 @@ POST World ID management. Slaves post here to tell the server they exist
 @instance
 @alias /api/getID
 */
-app.post("/api/getID", function(req,res) {
+app.post("/api/getID", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	// request.body should be an object
@@ -253,7 +344,7 @@ POST Allows you to add metadata related to slaves for other tools, like owner da
 @instance
 @alias /api/editSlaveMeta
 */
-app.post("/api/editSlaveMeta", function(req,res) {
+app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	// request.body should be an object
@@ -283,6 +374,8 @@ POST Get metadata from a single slave. For whenever you find the data returned b
 @alias /api/getSlaveMeta
 */
 app.post("/api/getSlaveMeta", function (req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	console.log("body", req.body);
     if(req.body && req.body.instanceID && req.body.password){
     	console.log("returning meta for ", req.body.instanceID);
@@ -291,22 +384,7 @@ app.post("/api/getSlaveMeta", function (req, res) {
     	res.status(400);
     	res.send('{"INVALID REQUEST":1}');
 	}
-});
-// TODO: Remove deprecated function, also update researchSync to not use it
-/**
-POST DEPRECATED Get metadata from all slaves. This is already covered by /api/slaves, please use that one instead.
-@memberof clusterioMaster
-@instance
-@alias /api/getSlavesMeta
-*/
-app.post("/api/getSlavesMeta", function (req, res) {
-    if(req.body.password){
-    	let metas = {};
-        res.send(JSON.stringify(Object.keys(slaves).map(key => metas[key] = slaves[key].meta)));
-    } else {
-        res.status(400);
-        res.send('{"INVALID REQUEST":1}');
-    }
+	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 // mod management
 // should handle uploading and checking if mods are uploaded
@@ -341,15 +419,12 @@ POST endpoint for uploading mods to the master server. Required for automatic mo
 @instance
 @alias /api/uploadMod
 */
-app.post("/api/uploadMod", function(req,res) {
+app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
-	if (!req.files) {
-        res.send('No files were uploaded.');
-        return;
-    } else {
+	if (req.files && req.files.file) {
 		console.log(req.files.file);
-		req.files.file.mv('./database/masterMods/'+req.files.file.name, function(err) {
+		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err) {
 			if (err) {
 				res.status(500).send(err);
 			} else {
@@ -358,7 +433,10 @@ app.post("/api/uploadMod", function(req,res) {
 			}
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		});
-	}
+	} else {
+		res.send('No files were uploaded.');
+		return;
+    }
 });
 /**
 GET endpoint for getting information about all our slaves
@@ -366,17 +444,25 @@ GET endpoint for getting information about all our slaves
 @instance
 @alias /api/slaves
 */
+let slaveCache = {
+	timestamp: Date.now(),
+};
 app.get("/api/slaves", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
-	// filter out the rcon password because thats kindof not a safe thing to share
-	for(key in copyOfSlaves){
-		copyOfSlaves[key].rconPassword = "hidden";
+	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
+		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
+		// filter out the rcon password because thats kindof not a safe thing to share
+		for(key in copyOfSlaves){
+			copyOfSlaves[key].rconPassword = "hidden";
+		}
+		slaveCache.cache = copyOfSlaves;
+		slaveCache.timestamp = Date.now();
 	}
-	res.send(copyOfSlaves);
+	
+	res.send(slaveCache.cache);
 	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 var recievedItemStatisticsBySlaveID = {};
@@ -398,7 +484,7 @@ POST endpoint for storing items in master's inventory.
 @param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
 @returns {string} status either "success" or "failure"
 */
-app.post("/api/place", function(req, res) {
+app.post("/api/place", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
@@ -441,11 +527,13 @@ app.post("/api/place", function(req, res) {
 			key:req.body.name,
 			value:req.body.count,
 		});
+		prometheusExportGauge.labels(x.instanceID, req.body.name).inc(Number(req.body.count) || 0);
 		// save items we get
 		db.items.addItem({
 			name:req.body.name,
 			count:req.body.count
 		});
+		
 		// Attempt confirming
 		res.send("success");
 	} else {
@@ -465,7 +553,7 @@ POST endpoint to remove items from DB when client orders items.
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
 _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
-app.post("/api/remove", function(req, res) {
+app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
@@ -517,6 +605,9 @@ app.post("/api/remove", function(req, res) {
 				//console.log(sentItemStatistics.data)
 				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 			}
+			
+			prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
+			prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(object.count) || 0);
 			res.send({count: object.count, name: object.name});
 			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		} else {
@@ -540,7 +631,7 @@ Gives no response
 @param {object} circuitFrame
 @param {number} circuitFrame.time
 */
-app.post("/api/setSignal", function(req,res) {
+app.post("/api/setSignal", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.time){
@@ -625,7 +716,7 @@ course the timeSeries data.
 @param {object} JSON {timestamp: Date.now(), instanceID: "string", data: {"item": number}}
 @returns {string} failure
 */
-app.post("/api/logStats", function(req,res) {
+app.post("/api/logStats", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
@@ -707,7 +798,7 @@ app.post("/api/getStats", function(req,res) {
 		} else if(req.body.statistic == "remove"){
 			console.log(`sending remove data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
 			// Gather data
-			console.log(sentItemStatisticsBySlaveID)
+			// console.log(sentItemStatisticsBySlaveID)
 			let itemStats = sentItemStatisticsBySlaveID[req.body.instanceID];
 			console.log(itemStats)
 			if(typeof itemStats == "object"){
@@ -790,14 +881,12 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 @memberof clusterioMaster
 @instance
 @alias api/runCommand
-@param {object} JSON {instanceID:19412312, command:"/c game.print('hello')"}
+@param {object} JSON {instanceID:19412312, broadcast:false, command:"/c game.print('hello')"}
 @returns {object} Status {auth: bool, message: "Informative error", data:{}}
 */
-// write an auth token to file
-fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
-	expiresIn: 86400*365 // expires in 1 year
-}));
 app.post("/api/runCommand", (req,res) => {
+	endpointHitCounter.labels(req.route.path).inc();
+	let reqStartTime = Date.now();
 	var token = req.headers['x-access-token'];
 	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
 	
@@ -805,19 +894,38 @@ app.post("/api/runCommand", (req,res) => {
 		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
 		
 		// validate request.body
-		let body = req.body;
-		if(body.instanceID
-		&& Object.keys(wsSlaves).includes(body.instanceID)
-		&& body.command
-		&& typeof body.command == "string"
-		&& body.command[0] == "/"){
-			// execute command
-			wsSlaves[body.instanceID].runCommand(body.command, data => {
-				res.status(200).send({auth: true, message: "success", data});
-			});
-		} else {
-			res.status(400).send({auth: true, message: "Error: invalid request.body"});
-		}
+        let body = req.body;
+
+        if (
+            body.broadcast
+            && body.command
+            && typeof body.command == "string"
+            && body.command[0] == "/")
+        {
+        	let instanceResponses = [];
+            for (let instanceID in wsSlaves) {
+                // skip loop if the property is from prototype
+                if (!wsSlaves.hasOwnProperty(instanceID)) continue;
+                wsSlaves[instanceID].runCommand(body.command);
+            }
+            res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
+        } else if (
+            body.instanceID
+            && wsSlaves[body.instanceID]
+            && body.command
+            && typeof body.command == "string"
+            && body.command[0] == "/")
+        {
+            // execute command
+            wsSlaves[body.instanceID].runCommand(body.command, data => {
+                res.status(200).send({auth: true, message: "success", data});
+				httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
+            });
+        } else {
+            res.status(400).send({auth: true, message: "Error: invalid request.body"});
+			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
+        }
 	});
 });
 /**
@@ -836,10 +944,26 @@ app.get("/api/getFactorioLocale", function(req,res){
 		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 	});
 });
-var server = require("http").Server(app);
-server.listen(config.masterPort || 8080, function () {
-	console.log("Listening on port %s...", server.address().port);
-});
+if(args.sslPort || config.sslPort){
+	try{
+		var certificate = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.crt'));
+		var privateKey = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.key'));
+
+		httpsServer = require("https").createServer({
+			key: privateKey,
+			cert: certificate
+		}, app).listen(args.sslPort || config.sslPort);
+	} catch(e){
+		console.error(e)
+	}
+}
+if(args.masterPort || config.masterPort){
+	server = require("http").Server(app);
+	server.listen(args.masterPort || config.masterPort || 8080, function () {
+		console.log("Listening on port %s...", server.address().port);
+	});
+}
+
 /* Websockets for remoteMap */
 var io = require("socket.io")(server);
 var slaveMappers = {};
@@ -850,14 +974,17 @@ class slaveMapper {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
+			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			// we aren't ready to die yet apparently
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("sendChunk", function(data){
+			prometheusWsUsageCounter.labels('sendChunk', this.instanceID).inc();
 			mapRequesters[data.requesterID].socket.emit("displayChunk", data);
 		});
 		// slaveMapper sent us an entity update, process
 		this.socket.on("sendEntity", entity => {
+			prometheusWsUsageCounter.labels('sendEntity', this.instanceID).inc();
 			Object.keys(mapRequesters).forEach(requesterName => {
 				let requester = mapRequesters[requesterName];
 				
@@ -878,12 +1005,12 @@ class mapRequester {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat').inc();
+			prometheusWsUsageCounter.labels('heartbeat', "other").inc();
 			// we aren't ready to die yet apparently
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("requestChunk", loc => {
-			prometheusWsUsageCounter.labels('requestChunk').inc();
+			prometheusWsUsageCounter.labels('requestChunk', "other").inc();
 			loc.requesterID = this.requesterID;
 			let instanceID = loc.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
@@ -891,7 +1018,7 @@ class mapRequester {
 			}
 		});
 		this.socket.on("requestEntity", req => {
-			prometheusWsUsageCounter.labels('requestEntity').inc();
+			prometheusWsUsageCounter.labels('requestEntity', "other").inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
@@ -899,7 +1026,7 @@ class mapRequester {
 			}
 		});
 		this.socket.on("placeEntity", req => {
-			prometheusWsUsageCounter.labels('placeEntity').inc();
+			prometheusWsUsageCounter.labels('placeEntity', "other").inc();
 			req.requesterID = this.requesterID;
 			let instanceID = req.instanceID || this.instanceID;
 			if(slaveMappers[instanceID]){
@@ -917,11 +1044,11 @@ class wsSlave {
 		this.lastBeat = Date.now();
 		
 		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat').inc();
+			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			this.lastBeat = Date.now();
 		});
 		this.socket.on("combinatorSignal", circuitFrameWithMeta => {
-			prometheusWsUsageCounter.labels('combinatorSignal').inc();
+			prometheusWsUsageCounter.labels('combinatorSignal', this.instanceID).inc();
 			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object"){
 				Object.keys(wsSlaves).forEach(instanceID => {
 					wsSlaves[instanceID].socket.emit("processCombinatorSignal", circuitFrameWithMeta);
@@ -931,16 +1058,39 @@ class wsSlave {
 		// handle command return values
 		this.commandsWaitingForReturn = {};
 		this.socket.on("runCommandReturnValue", resp => {
+			prometheusWsUsageCounter.labels('runCommandReturnValue', this.instanceID).inc();
 			if(resp.commandID && resp.body && this.commandsWaitingForReturn[resp.commandID] && this.commandsWaitingForReturn[resp.commandID].callback && typeof this.commandsWaitingForReturn[resp.commandID].callback == "function"){
 				this.commandsWaitingForReturn[resp.commandID].callback(resp.body);
 				delete this.commandsWaitingForReturn[resp.commandID];
+			}
+		});
+		
+		this.socket.on("gameChat", data => {
+			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
+			if(typeof data === "object"){
+				data.timestamp = Date.now();
+				if(!global.wsChatRecievers) global.wsChatRecievers = [];
+				global.wsChatRecievers.forEach(socket => {
+					socket.emit("gameChat", data);
+				});
+			}
+		});
+		
+		this.socket.on("alert", alert => {
+			prometheusWsUsageCounter.labels('alert', this.instanceID).inc();
+			if(typeof alert === "object"){
+				alert.timestamp = Date.now();
+				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
+				global.wsAlertRecievers.forEach(socket => {
+					socket.emit("alert", alert);
+				});
 			}
 		});
 	}
 	runCommand(command, callback){
 		let commandID = Math.random().toString();
 		this.socket.emit("runCommand", {command, commandID});
-		this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
+		if(commandID) this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
 	}
 }
 io.on('connection', function (socket) {
@@ -963,13 +1113,13 @@ io.on('connection', function (socket) {
 	
 	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {
-		prometheusWsUsageCounter.labels('registerSlaveMapper').inc();
+		prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
 		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
 		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
 	});
 	socket.on('registerMapRequester', function(data){
 		// data {instanceID:""}
-		prometheusWsUsageCounter.labels('registerMapRequester').inc();
+		prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
 		let requesterID = Math.random().toString();
 		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
 		socket.emit("mapRequesterReady", true);
@@ -978,13 +1128,85 @@ io.on('connection', function (socket) {
 	
 	/* Websockets for send and recieve combinators */
 	socket.on("registerSlave", function(data) {
-		prometheusWsUsageCounter.labels('registerSlave').inc();
+		prometheusWsUsageCounter.labels('registerSlave', "other").inc();
 		if(data && data.instanceID){
 			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
 			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
 		}
 	});
-	
+	socket.on("registerChatReciever", function(data){
+		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
+		if(!global.wsChatRecievers) global.wsChatRecievers = [];
+		global.wsChatRecievers.push(socket);
+	});
+	socket.on("registerAlertReciever", function(data){
+		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
+		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
+		global.wsAlertRecievers.push(socket);
+	});
 });
+
+// handle plugins on the master
+pluginManagement();
+masterPlugins = [];
+async function pluginManagement(){
+	let startPluginLoad = Date.now();
+	masterPlugins = await getPlugins("sharedPlugins");
+	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+}
+
+function getPlugins(pluginDirectory){
+	return new Promise((resolve, reject) => {
+		let filesLeft = 0;
+		let plugins = [];
+		
+		function checkLoadComplete(plugin){
+			if(!filesLeft){
+				resolve(plugins);
+			}
+		}
+		fs.readdir(pluginDirectory, function(err, files){
+			if(err){
+				reject(err);
+			} else {
+				files.forEach(file => {
+					let pluginStartedLoading = Date.now(); // just for logging
+					filesLeft++;
+					let pluginPath = path.join(pluginDirectory, file);
+					fs.stat(pluginPath, function(err, stats){
+						if(err){
+							reject(err);
+							checkLoadComplete();
+						} else if(stats.isDirectory()){
+							let pluginConfig = require(path.resolve(pluginPath, "config"));
+							--filesLeft;
+							if(pluginConfig.masterPlugin){
+								let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
+								plugins.push({
+									main:new masterPlugin({
+										config,
+										pluginConfig,
+										path: pluginPath,
+										socketio: io,
+										express: app,
+									}),
+									pluginConfig,
+								});
+								
+								console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
+								checkLoadComplete();
+							} else {
+								checkLoadComplete();
+							}
+						} else {
+							checkLoadComplete();
+						}
+					});
+				});
+			}
+		});
+	});
+}
+
 
 module.exports = app;
