@@ -45,11 +45,14 @@ const command = process.argv[2];
 // and as the process name in ps/top on linux.
 process.title = "clusterioClient "+instance;
 
+// add better stack traces on promise rejection
+process.on('unhandledRejection', r => console.log(r));
+
 // make sure we have the master access token (can't write to master without it since clusterio 2.0)
 if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
-	console.log("ERROR invalid config!");
-	console.log("Master server now needs an access token for write operations. As clusterio slaves depends \
-	upon this, please add your token to config.js in the field named masterAuthToken. \
+	console.error("ERROR invalid config!");
+	console.error("Master server now needs an access token for write operations. As clusterio slaves depends \
+	upon this, please add your token to config.json in the field named masterAuthToken. \
 	You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
 }
 const needleOptionsWithTokenAuthHeader = {
@@ -97,6 +100,7 @@ async function messageInterfaceInternal(command, callback, resolve, reject) {
 			if(typeof callback == "function"){
 				callback();
 			}
+			reject(err)
 		}
 	}
 }
@@ -137,12 +141,12 @@ if (!command || command == "help" || command == "--help") {
 	// create port colloumn
 	let factorioPorts = [];
 	instanceNames.forEach(function(instance){
-		let factorioPort
+		let factorioPort;
 		
 		if(instance.includes("Name:")){
 			factorioPort = "Port:"
 		} else {
-			factorioPort = require(config.instanceDirectory+"/"+instance+"/config").factorioPort;
+			factorioPort = require(path.resolve(config.instanceDirectory, instance, 'config')).factorioPort;
 		}
 		factorioPorts.push(factorioPort);
 	});
@@ -247,14 +251,14 @@ if (!command || command == "help" || command == "--help") {
 		https.get(url, function(response) {
 			response.on('end', function () {
 				console.log("Downloaded "+name);
-				process.exit(0);                
+				process.exit(0);
 			});
 			response.pipe(file);
 		}).end();
 	}
 } else if (command == "start" && instance === undefined) {
-	console.log("ERROR: No instanceName provided!");
-	console.log("Usage: node client.js start [instanceName]");
+	console.error("ERROR: No instanceName provided!");
+	console.error("Usage: node client.js start [instanceName]");
 	process.exit(0);
 } else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
 	// if instance does not exist, create it
@@ -267,12 +271,17 @@ if (!command || command == "help" || command == "--help") {
 	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 	fs.mkdirSync(instancedirectory + "/mods/");
 	fs.mkdirSync(instancedirectory + "/instanceMods/");
+    fs.mkdirSync(instancedirectory + "/scenarios/");
+    ncp("./lib/scenarios", path.resolve(instancedirectory, "scenarios"), err => {
+        if (err) console.error(err)
+    });
+
 	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instancedirectory + `/config.ini`, `[path]\r\n
 read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
 write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	`);
-	
+
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
 	let instconf = {
@@ -282,10 +291,10 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	}
 	console.log("Clusterio | Created instance with settings:")
 	console.log(instconf);
-	
+
 	// create instance config
 	fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
-	
+
 	let name = "Clusterio instance: " + instance;
 	if (config.username) {
 		name = config.username + "'s clusterio " + instance;
@@ -306,17 +315,48 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		"autosave_slots": 5,
 		"afk_autokick_interval": 0,
 		"auto_pause": config.auto_pause,
-	}
+	};
 	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
-	let createSave = child_process.spawnSync(
-		'./' + config.factorioDirectory + '/bin/x64/factorio', [
-			'-c', path.resolve(instancedirectory, 'config.ini'),
-			'--create', path.resolve(instancedirectory, 'saves', 'save.zip'),
-		]
-	);
-	console.log("Instance created!");
-	process.exit(0);
-} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
+    console.log("Server settings: "+JSON.stringify(serversettings, null, 4));
+    console.log("Creating save .....");
+    let factorio = child_process.spawn(
+        './' + config.factorioDirectory + '/bin/x64/factorio', [
+            '-c', instancedirectory + '/config.ini',
+            // '--create', instancedirectory + '/saves/save.zip',
+            '--start-server-load-scenario', 'Hotpatch',
+            '--server-settings', instancedirectory + '/server-settings.json',
+            '--rcon-port', Number(process.env.RCONPORT) || instconf.clientPort,
+            '--rcon-password', instconf.clientPassword,
+        ], {
+            'stdio': ['pipe', 'pipe', 'pipe']
+        }
+    );
+    factorio.stdout.on("data", data => {
+        data = data.toString("utf8").replace(/(\r\n\t|\n|\r\t)/gm,"");
+        console.log(data);
+        if(data.includes("Starting RCON interface")){
+            let client = new Rcon();
+            client.connect({
+                host: 'localhost',
+                port: Number(process.env.RCONPORT) || instconf.clientPort,
+                password: instconf.clientPassword,
+                timeout: 5000
+            });
+            client.onDidAuthenticate(() => {
+                console.log('Clusterio | RCON Authenticated!');
+            });
+            client.onDidConnect(() => {
+                console.log('Clusterio | RCON Connected, starting save');
+                client.send("/c game.server_save('hotpachSave')");
+            });
+        }
+        if(data.includes("Saving finished")){
+            console.log("Map saved as hotpachSave.zip, exiting...");
+            console.log("Instance created!")
+            process.exit(0);
+        }
+    });
+} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)){
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != config.instanceDirectory+"/undefined"){
 		var instanceconfig = require(path.resolve(instancedirectory,'config'));
@@ -344,7 +384,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		fs.unlinkSync(path.join(instancedirectory,'factorio-current.log'));
 	} catch (err){
 		if(err){
-			console.log(err);
+			console.error(err);
 		} else {
 			console.log("Clusterio | Deleting old logs...");
 		}
@@ -390,16 +430,16 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			}
 		);
 
-		serverprocess.on('close', (code) => {
+		serverprocess.on('close', code => {
 			console.log(`child process exited with code ${code}`);
 			process.exit();
 		});
-		serverprocess.stdout.on("data", (data) => {
+		serverprocess.stdout.on("data", data => {
 			// log("Stdout: " + data);
 			if(data.toString('utf8').includes("Couldn't parse RCON data: Maximum payload size exceeded")){
 				console.error("ERROR: RCON CONNECTION BROKE DUE TO TOO LARGE PACKET!");
 				console.error("Attempting reconnect...");
-				client.close();
+				client.disconnect();
 				client.connect();
 			}
 			// we have to do this to make logs visible on linux and in powershell. Causes log duplication for people with CMD.
@@ -418,7 +458,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			// we read the log every 2 seconds and stop looping when we start connecting to factorio
 			function checkRcon() {
 				fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
-					// if (err) console.log(err);
+					// if (err) console.error(err);
 					if(data && data.indexOf('Starting RCON interface') > 0){
 						client.connect({
 							host: 'localhost',
@@ -464,17 +504,18 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 // ensure instancemanagement only ever runs once
 _.once(instanceManagement);
 function instanceManagement() {
-	/* Open websocket connection to master */
+    console.log("Started instanceManagement();");
+
+    /* Open websocket connection to master */
 	var socket = ioClient("http://"+config.masterIP+":"+config.masterPort);
 	socket.on("hello", data => {
 		console.log("SOCKET | registering slave!");
 		socket.emit("registerSlave", {
 			instanceID: instanceconfig.unique,
 		});
-		setInterval(B=> socket.emit("heartbeat"), 10000);
 	});
-	
-	console.log("Started instanceManagement();");
+	setInterval(B=> socket.emit("heartbeat"), 10000);
+
 	// load plugins and execute onLoad event
 	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
 	let plugins = [];
@@ -486,7 +527,7 @@ function instanceManagement() {
 		// these are our two config files. We need to send these in case plugin
 		// wants to contact master or know something.
 		let combinedConfig = deepmerge(instanceconfig,config,{clone:true})
-		let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
+        let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
 		
 		if(!global.subscribedFiles) {
 			global.subscribedFiles = {};
@@ -523,7 +564,11 @@ function instanceManagement() {
 				console.log("Clusterio | Registered file subscription on "+instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
 				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
 				// run once in case a plugin wrote out information before the plugin loaded fully
-				fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
+
+				// delay, so the socket got enough time to connect
+				setTimeout(()=> {
+                    fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
+                }, 500);
 				
 				// send file contents to plugin for processing
 				function fileChangeHandler(eventType, filename) {
@@ -541,7 +586,7 @@ function instanceManagement() {
 									if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
 										try{
 											plugins[I].scriptOutput(stuff[i]);
-										}catch(e){console.log(e)}
+										}catch(e){console.error(e)}
 									}
 								}
 							},
@@ -615,8 +660,8 @@ function instanceManagement() {
 		} else {
 			// This plugin doesn't have a client portion
 		}
-	}
-	
+    }
+
 	// world IDs ------------------------------------------------------------------
 	hashMods(instance, function(modHashes){
 		setInterval(getID, 10000);
@@ -644,11 +689,14 @@ function instanceManagement() {
 					console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
-							console.error("We got problems, something went wrong when contacting master");
+                            console.error("We got problems, something went wrong when contacting master"+config.masterIP+" at " + payload.time);
 							console.error(err);
 						} else if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-							console.log(response.body);
+							if(response.body !== "ok") {
+                                console.log("Got no \"ok\" while registering our precense with master "+config.masterIP+" at " + payload.time);
+                                console.log(response.body);
+                            }
 						}
 					});
 				}
@@ -673,7 +721,7 @@ function instanceManagement() {
 				hash: modHashes[i].hash,
 			}
 			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-				if(err) console.log(new Error("Unable to contact master server! Please check your config.json."));
+				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
 				if(response && body && body == "found") {
 					console.log("master has mod "+modHashes[i].modName);
 				} else if (response && body && typeof body == "string") {
@@ -688,7 +736,7 @@ function instanceManagement() {
 							},
 						}, function (err, resp, body) {
 							if (err) {
-								console.log(new Error("Unable to contact master server! Please check your config.json."));
+								console.error(new Error("Unable to contact master server /api/uploadMod! Please check your config.json."));
 							} else {
 								console.log('URL: ' + body);
 							}
@@ -867,7 +915,7 @@ function instanceManagement() {
 	setInterval(function () {
 		needle.get(config.masterIP + ":" + config.masterPort + '/api/inventory', function (err, response, body) {
 			if(err){
-				console.log("Unable to get JSON master/api/inventory, master might be unaccessible");
+				console.error("Unable to get JSON master/api/inventory, master might be unaccessible");
 			} else if (response && response.body) {
 				// Take the inventory we (hopefully) got and turn it into the format LUA accepts
 				if(Buffer.isBuffer(response.body)) {console.log(response.body.toString("utf-8")); throw new Error();} // We are probably contacting the wrong webserver
