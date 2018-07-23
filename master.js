@@ -180,6 +180,9 @@ setInterval(()=>{
 	}
 	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
 },10000);
+setInterval(()=>{
+    fs.writeFileSync("database/items.json", JSON.stringify(db.items));
+},config.autosaveInterval || 60000);
 /**
 GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
 @memberof clusterioMaster
