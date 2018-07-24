@@ -232,7 +232,7 @@ if (!command || command == "help" || command == "--help") {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
 	} else if (typeof process.argv[3] == "string" && fs.existsSync(config.instanceDirectory+"/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
-		fileOps.deleteFolderRecursiveSync(config.instanceDirectory+"/" + process.argv[3]);
+		fileOps.deleteFolderRecursiveSync(path.resolve(config.instanceDirectory, process.argv[3])); // TODO: Check if this can cause i-craft users to format their server by using wrong paths
 		console.log("Deleted instance " + process.argv[3]);
 		process.exit(0);
 	} else {
@@ -355,6 +355,14 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
             console.log("Instance created!")
             process.exit(0);
         }
+		if(data.includes("Downloading from auth server failed")){
+			console.error("Instance creation failed, unable to establish auth server connection.");
+			console.error("Deleting broken instance...");
+			
+			fileOps.deleteFolderRecursiveSync(path.resolve(config.instanceDirectory, process.argv[3]));
+			
+			process.exit(0);
+		}
     });
 } else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)){
 	// Exit if no instance specified (it should be, just a safeguard);
