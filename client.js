@@ -118,6 +118,8 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js delete [instance]");
 	console.error("To download the latest version of the Clusterio lua mod, do");
 	console.error("node client.js manage shared mods download clusterio");
+	console.error("To download a clusterio plugin, do");
+	console.error("node client.js manage shared plugins install https://github.com/Danielv123/playerManager");
 	console.error("For more management options, do");
 	console.error("node client.js manage");
 	process.exit(1);
@@ -173,8 +175,10 @@ if (!command || command == "help" || command == "--help") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove", "update"]');
 		} else if(tool && tool == "config") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
+		} else if(tool && tool == "plugins") {
+			console.log(`node client.js manage ${instance} ${tool} ["list", "add", "remove"]`);
 		} else {
-			console.log('node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config"]') + ' ...');
+			console.log('node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config", "plugins"]') + ' ...');
 		}
 	}
 	const tool = process.argv[4] || "";
@@ -221,6 +225,22 @@ if (!command || command == "help" || command == "--help") {
 			} else {
 				usage(instance, tool);
 			}
+		} else if(tool == "plugins"){
+			(async function(){try{
+				const pluginManager = require("./lib/manager/pluginManager.js")(config);
+				if(action == "list"){
+					console.log(await pluginManager.listPlugins())
+				} else if(action == "add" || action == "install" || action == "download"){
+					let status = await pluginManager.addPlugin(process.argv[6]);
+				} else if(action == "remove" || action == "uninstall" || action == "delete"){
+					let status = await pluginManager.removePlugin(process.argv[6]);
+					if(status && status.msg) console.log(status.msg);
+				}
+				process.exit(0);
+			}catch(e){
+				console.error(e);
+				process.exit(1);
+			}})();
 		} else {
 			usage(instance);
 		}
