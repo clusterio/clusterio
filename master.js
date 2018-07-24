@@ -426,7 +426,7 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let reqStartTime = Date.now();
 	if (req.files && req.files.file) {
-		console.log(req.files.file);
+		// console.log(req.files.file);
 		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err) {
 			if (err) {
 				res.status(500).send(err);
