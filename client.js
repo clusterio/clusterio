@@ -18,7 +18,6 @@ const ioClient = require("socket.io-client");
 const objectOps = require("./lib/objectOps.js");
 const fileOps = require("_app/fileOps");
 const stringUtils = require("./lib/stringUtils.js");
-const modManager = require("./lib/manager/modManager.js");
 const configManager = require("./lib/manager/configManager.js");
 
 // argument parsing
@@ -183,6 +182,9 @@ if (!command || command == "help" || command == "--help") {
 	if(instance){
 		if(tool == "mods"){
 			(async function(){try{
+				// do require down here to reduce master load time
+				const modManager = require("./lib/manager/modManager.js")(config);
+				
 				// allow managing mods
 				if(action == "list"){
 					console.log(await modManager.listMods(instance));
