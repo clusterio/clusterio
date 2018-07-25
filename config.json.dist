@@ -52,6 +52,6 @@
 	"allowRemoteCommandExecution": true,
 	"enableCrossServerShout": true,
 	"mirrorAllChat": false,
-	"__comment7": "Autosave interval for items in the master storage in milliseconds. Defaults to one minute when set to 0 or not set."
+	"__comment7": "Autosave interval for items in the master storage in milliseconds. Defaults to one minute when set to 0 or not set.",
 	"autosaveInterval": 600000
 }
