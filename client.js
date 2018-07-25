@@ -433,8 +433,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	fs.copySync(path.join(instancedirectory, "instanceMods"), path.join(instancedirectory, "mods"));
 
 	process.on('SIGINT', function () {
-		console.log("Caught interrupt signal, sending /quit");
-		messageInterface("/quit");
+		console.log("Caught interrupt signal, sending ^C");
+		serverprocess.kill("SIGINT");
 	});
 
 	// Spawn factorio server
