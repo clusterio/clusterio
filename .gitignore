@@ -50,5 +50,6 @@ sharedPlugins/*
 !sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
+!sharedPlugins/clusterioMod/
 
 \.cache-require-paths\.json
