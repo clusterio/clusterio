@@ -12,7 +12,7 @@ class inventoryImports {
 		this.messageInterface = messageInterface;
 		messageInterface("/silent-command game.print('InventoryImports enabled')");
 		setInterval(function(){
-			messageInterface("Polling inventories\n")
+			// messageInterface("Polling inventories\n")
 			messageInterface(functions.pollInventories(pluginConfig.scriptOutputFileSubscription));
 		}, 10000);
 	}

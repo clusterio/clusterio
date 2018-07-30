@@ -716,7 +716,7 @@ function instanceManagement() {
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
 					}
 					payload.mac = mac;
-					console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
+					// console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
                             console.error("We got problems, something went wrong when contacting master"+config.masterIP+" at " + payload.time);
