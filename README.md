@@ -81,7 +81,7 @@ Master and all slaves:
     tar -xf factorio.tar.gz
     npm install
     cp config.json.dist config.json
-    node ./lib/npmPostinstall.json
+    node ./lib/npmPostinstall.js
 	
 
 downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
