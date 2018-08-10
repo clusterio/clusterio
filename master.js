@@ -38,6 +38,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const base64url = require('base64url');
+const moment = require("moment");
 
 // constants
 const config = require(args.config || './config');
@@ -99,6 +100,8 @@ app.use(function(req, res, next){
 	res.locals.res = res;
 	res.locals.req = req;
 	res.locals.masterPlugins = masterPlugins;
+	res.locals.slaves = slaves;
+	res.locals.moment = moment;
 	next();
 });
 
