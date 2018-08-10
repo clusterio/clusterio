@@ -32,7 +32,7 @@ const mkdirp = require("mkdirp");
 const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs-extra");
 const nedb = require("nedb");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -1161,57 +1161,39 @@ async function pluginManagement(){
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 }
 
-function getPlugins(pluginDirectory){
-	return new Promise((resolve, reject) => {
-		let filesLeft = 0;
-		let plugins = [];
-		
-		function checkLoadComplete(plugin){
-			if(!filesLeft){
-				resolve(plugins);
+async function getPlugins(pluginDirectory){
+	let plugins = [];
+	
+	let files = await fs.readdir(pluginDirectory);
+	for(let i in files){
+		let file = files[i];
+		let pluginStartedLoading = Date.now(); // just for logging
+		let pluginPath = path.join(pluginDirectory, file);
+		let stats = await fs.stat(pluginPath);
+		if(stats.isDirectory()){
+			let pluginConfig = require(path.resolve(pluginPath, "config"));
+			if(pluginConfig.masterPlugin){
+				let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
+				plugins.push({
+					main:new masterPlugin({
+						config,
+						pluginConfig,
+						path: pluginPath,
+						socketio: io,
+						express: app,
+					}),
+					pluginConfig,
+				});
+				
+				console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
 			}
 		}
-		fs.readdir(pluginDirectory, function(err, files){
-			if(err){
-				reject(err);
-			} else {
-				files.forEach(file => {
-					let pluginStartedLoading = Date.now(); // just for logging
-					filesLeft++;
-					let pluginPath = path.join(pluginDirectory, file);
-					fs.stat(pluginPath, function(err, stats){
-						if(err){
-							reject(err);
-							checkLoadComplete();
-						} else if(stats.isDirectory()){
-							let pluginConfig = require(path.resolve(pluginPath, "config"));
-							--filesLeft;
-							if(pluginConfig.masterPlugin){
-								let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
-								plugins.push({
-									main:new masterPlugin({
-										config,
-										pluginConfig,
-										path: pluginPath,
-										socketio: io,
-										express: app,
-									}),
-									pluginConfig,
-								});
-								
-								console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
-								checkLoadComplete();
-							} else {
-								checkLoadComplete();
-							}
-						} else {
-							checkLoadComplete();
-						}
-					});
-				});
-			}
-		});
-	});
+	}
+	for(let i in plugins){
+		let plugin = plugins[i];
+		if(plugin.main.onLoadFinish && typeof plugin.main.onLoadFinish == "function") await plugin.main.onLoadFinish({plugins});
+	}
+	return plugins;
 }
 
 
