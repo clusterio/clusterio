@@ -1,7 +1,7 @@
 <!doctype HTML>
 <head>
 	<%- include("head.html") %>
-	<script src="slaveDisplay.js"></script>
+	<!-- <script src="slaveDisplay.js"></script> -->
 </head>
 
 <body>
@@ -10,7 +10,49 @@
 		<div id="slaves">
 			<h2>Slaves</h2>
 			<div id="display">
-				  
+				<%
+					function findInArray(key, value, array){
+						let indexes = [];
+						for(let i in array){
+							if(array[i][key] && array[i][key].includes(value)) indexes.push(i);
+						}
+						return indexes;
+					}
+					html = "<p>Current connections:</p>";
+					for(let id in slaves){
+						let slave = slaves[id];
+						html += `
+						<div id="${id}" class="slaveBox">
+							<a href='nodeDetails?instanceID=${id}'>
+								<h2>${slave.instanceName}</h2>
+							</a>
+							<p>ID: ${id}</p>
+							<p>Last seen: ${moment(Number(slave.time)).format("DD.MM.YY, hh:mm")}</p>
+							<p>Online players: ${slave.playerCount}</p>
+							<p>IP: ${slave.publicIP}:${slave.serverPort}</p>
+							<p>Host: ${slave.mac}</p>
+							${findInArray("modName", "remoteMap", slave.mods).length ? "<a href='/remoteMap?instanceID="+id+"'>Remote map</a>" : ""}
+						`
+						for(let o in masterPlugins){
+							let plug = masterPlugins[o];
+							if(plug.main
+							&& plug.main.ui
+							&& typeof plug.main.ui.slaveListing == "object"
+							&& Array.isArray(plug.main.ui.slaveListing)){
+								let slaveListingEntries = plug.main.ui.slaveListing;
+								for(let i in slaveListingEntries){
+									let button = slaveListingEntries[i];
+									if(button.getHtml && typeof button.getHtml == "function"){
+										html += button.getHtml({slave});
+									}
+								}
+							}
+						}
+						html += `
+						</div>`
+					}
+				%>
+				<%- html %>
 			</div>
 		</div>
 	</div>

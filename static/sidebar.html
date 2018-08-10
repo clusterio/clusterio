@@ -15,19 +15,21 @@
 	<%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
 	<%
 		sidebarPluginButtonsHtml = "";
-		masterPlugins.forEach(plug => {
+		for(let o in masterPlugins){
+			let plug = masterPlugins[o];
 			if(plug.main
 			&& plug.main.ui
 			&& typeof plug.main.ui.sidebar == "object"
 			&& Array.isArray(plug.main.ui.sidebar)){
 				let sidebarEntries = plug.main.ui.sidebar;
-				sidebarEntries.forEach(button => {
+				for(let i in sidebarEntries){
+					let button = sidebarEntries[i];
 					if(button.getHtml && typeof button.getHtml == "function"){
 						sidebarPluginButtonsHtml += button.getHtml();
 					}
-				});
+				}
 			}
-		});	
+		}	
 	%>
 	<%- sidebarPluginButtonsHtml %>
 	<a href="/settings"><div id="settings-menu" class="button-black menuItem">
