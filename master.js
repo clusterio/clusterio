@@ -10,6 +10,8 @@ combinator signals.
 node master.js
 */
 
+(async ()=>{
+
 // Set the process title, shows up as the title of the CMD window on windows
 // and as the process name in ps/top on linux.
 process.title = "clusterioMaster";
@@ -75,12 +77,14 @@ fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAu
 
 const express = require("express");
 const compression = require('compression');
+const cookieParser = require('cookie-parser');
 const ejs = require("ejs");
 // Required for express post requests
 const bodyParser = require("body-parser");
 const fileUpload = require('express-fileupload');
 var app = express();
 
+app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
 	parameterLimit: 100000,
@@ -114,14 +118,12 @@ app.use(express.static(masterModFolder));
 // set up logging software
 const prometheusPrefix = "clusterio_";
 const Prometheus = require('prom-client');
+const expressPrometheus = require('express-prometheus-request-metrics');
 Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
-const httpRequestDurationMilliseconds = new Prometheus.Histogram({
-  name: prometheusPrefix+'http_request_duration_ms',
-  help: 'Duration of HTTP requests in ms',
-  labelNames: ['route'],
-  // buckets for response time from 0.1ms to 500ms
-  buckets: [0.10, 5, 15, 50, 100, 200, 300, 400, 500]
-});
+
+// collect express request durations ms
+app.use(expressPrometheus(Prometheus));
+
 const endpointHitCounter = new Prometheus.Gauge({
 	name: prometheusPrefix+'endpoint_hit_gauge',
 	help: "How many requests a particular endpoint has gotten",
@@ -194,7 +196,6 @@ GET Prometheus metrics endpoint. Returns performance and usage metrics in a prom
 */
 app.get('/metrics', (req, res) => {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	res.set('Content-Type', Prometheus.register.contentType);
 	
 	/// gather some static metrics
@@ -217,7 +218,6 @@ app.get('/metrics', (req, res) => {
 	}
 	
 	res.end(Prometheus.register.metrics());
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 // set up database
@@ -323,7 +323,6 @@ POST World ID management. Slaves post here to tell the server they exist
 */
 app.post("/api/getID", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	// request.body should be an object
 	// {rconPort, rconPassword, serverPort, mac, time}
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
@@ -342,7 +341,6 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 		}
 		// console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
 	}
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 /**
 POST Allows you to add metadata related to slaves for other tools, like owner data, descriptions or statistics.
@@ -352,7 +350,6 @@ POST Allows you to add metadata related to slaves for other tools, like owner da
 */
 app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	// request.body should be an object
 	// {instanceID, pass, meta:{x,y,z}}
 	
@@ -370,7 +367,6 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 			res.send("ERROR: Invalid instanceID or password")
 		}
 	}
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 /**
@@ -381,7 +377,6 @@ POST Get metadata from a single slave. For whenever you find the data returned b
 */
 app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	console.log("body", req.body);
     if(req.body && req.body.instanceID && req.body.password){
     	console.log("returning meta for ", req.body.instanceID);
@@ -390,7 +385,6 @@ app.post("/api/getSlaveMeta", function (req, res) {
     	res.status(400);
     	res.send('{"INVALID REQUEST":1}');
 	}
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 // mod management
 // should handle uploading and checking if mods are uploaded
@@ -402,7 +396,6 @@ POST Check if a mod has been uploaded to the master before. Only checks against 
 */
 app.post("/api/checkMod", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	let files = fs.readdirSync(masterModFolder);
 	let found = false;
 	files.forEach(file => {
@@ -417,7 +410,6 @@ app.post("/api/checkMod", function(req,res) {
 		res.send("found");
 	}
 	res.end();
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 /**
 POST endpoint for uploading mods to the master server. Required for automatic mod downloads with factorioClusterioClient (electron app, see seperate repo)
@@ -427,7 +419,6 @@ POST endpoint for uploading mods to the master server. Required for automatic mo
 */
 app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	if (req.files && req.files.file) {
 		// console.log(req.files.file);
 		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err) {
@@ -437,7 +428,6 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 				res.send('File uploaded!');
 				console.log("Uploaded mod: " + req.files.file.name);
 			}
-			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		});
 	} else {
 		res.send('No files were uploaded.');
@@ -455,7 +445,6 @@ let slaveCache = {
 };
 app.get("/api/slaves", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
@@ -469,7 +458,6 @@ app.get("/api/slaves", function(req, res) {
 	}
 	
 	res.send(slaveCache.cache);
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 var recievedItemStatisticsBySlaveID = {};
 var sentItemStatisticsBySlaveID = {};
@@ -492,7 +480,6 @@ POST endpoint for storing items in master's inventory.
 */
 app.post("/api/place", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	let x;
@@ -545,7 +532,6 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	} else {
 		res.send("failure");
 	}
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 /**
 POST endpoint to remove items from DB when client orders items.
@@ -561,7 +547,6 @@ POST endpoint to remove items from DB when client orders items.
 _doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
 	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
 	res.header("Access-Control-Allow-Origin", "*");
@@ -615,12 +600,10 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 			prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
 			prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(object.count) || 0);
 			res.send({count: object.count, name: object.name});
-			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		} else {
 			// if we didn't have enough, attempt giving out a smaller amount next time
 			_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
 			res.send({name:object.name, count:0});
-			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 			//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
 		}
 	}
@@ -639,10 +622,8 @@ Gives no response
 */
 app.post("/api/setSignal", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.time){
 		db.signals.insert(req.body);
-		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		// console.log("signal set");
 	}
 });
@@ -656,14 +637,12 @@ POST endpoint to read database of circuit signals sent to master
 */
 app.post("/api/readSignal", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	// request.body should be an object
 	// {since:UNIXTIMESTAMP,}
 	// we should send an array of all signals since then
 	db.signals.find({time:{$gte: req.body.since}}, function (err, docs) {
 		// $gte means greater than or equal to, meaning we only get entries newer than the timestamp
 		res.send(docs);
-		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		// console.log(docs);
 	});
 });
@@ -678,7 +657,6 @@ GET endpoint to read the masters current inventory of items.
 // endpoint for getting an inventory of what we got
 app.get("/api/inventory", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
@@ -689,7 +667,6 @@ app.get("/api/inventory", function(req, res) {
 		}
 	}
 	res.send(JSON.stringify(inventory));
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 /**
 GET endpoint to read the masters inventory as an object with key:value pairs
@@ -701,12 +678,10 @@ GET endpoint to read the masters inventory as an object with key:value pairs
 */
 app.get("/api/inventoryAsObject", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
 	res.send(JSON.stringify(db.items));
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 // post flowstats here for production graphs
@@ -724,7 +699,6 @@ course the timeSeries data.
 */
 app.post("/api/logStats", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
 		if(Number(req.body.timestamp) != NaN){
 			req.body.timestamp = Number(req.body.timestamp);
@@ -746,7 +720,6 @@ app.post("/api/logStats", authenticate.middleware, function(req,res) {
 	} else {
 		res.send("failure");
 	}
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 // {instanceID: string, fromTime: Date, toTime, Date}
 /**
@@ -761,7 +734,6 @@ graphs and other IO statistics.
 */
 app.post("/api/getStats", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	if(typeof req.body == "string"){
 		req.body = JSON.parse(req.body);
 	}
@@ -820,7 +792,6 @@ app.post("/api/getStats", function(req,res) {
 			}
 		}
 	}
-	httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 });
 
 /**
@@ -837,7 +808,6 @@ making up about 92% of the response body weight.)
 */
 app.post("/api/getTimelineStats", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	console.log(req.body);
 	if(typeof req.body == "object" && req.body.instanceID) {
 		// if not specified, get stats for last 24 hours
@@ -876,7 +846,6 @@ app.post("/api/getTimelineStats", function(req,res) {
 			});
 			
 			res.send(docs);
-			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 		});
 	}
 });
@@ -892,7 +861,6 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 */
 app.post("/api/runCommand", (req,res) => {
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	var token = req.headers['x-access-token'];
 	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
 	
@@ -915,7 +883,6 @@ app.post("/api/runCommand", (req,res) => {
                 wsSlaves[instanceID].runCommand(body.command);
             }
             res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
-			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
         } else if (
             body.instanceID
             && wsSlaves[body.instanceID]
@@ -926,11 +893,9 @@ app.post("/api/runCommand", (req,res) => {
             // execute command
             wsSlaves[body.instanceID].runCommand(body.command, data => {
                 res.status(200).send({auth: true, message: "success", data});
-				httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
             });
         } else {
             res.status(400).send({auth: true, message: "Error: invalid request.body"});
-			httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
         }
 	});
 });
@@ -944,10 +909,8 @@ GET endpoint. Returns factorio's base locale as a JSON object.
 */
 app.get("/api/getFactorioLocale", function(req,res){
 	endpointHitCounter.labels(req.route.path).inc();
-	let reqStartTime = Date.now();
 	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => {
 		res.send(factorioLocale);
-		httpRequestDurationMilliseconds.labels(req.route.path).observe(Date.now()-reqStartTime);
 	});
 });
 if(args.sslPort || config.sslPort){
@@ -1159,6 +1122,7 @@ async function pluginManagement(){
 	let startPluginLoad = Date.now();
 	masterPlugins = await getPlugins("sharedPlugins");
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+	return;
 }
 
 async function getPlugins(pluginDirectory){
@@ -1196,5 +1160,5 @@ async function getPlugins(pluginDirectory){
 	return plugins;
 }
 
-
 module.exports = app;
+})();
