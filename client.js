@@ -235,6 +235,12 @@ if (!command || command == "help" || command == "--help") {
 				} else if(action == "remove" || action == "uninstall" || action == "delete"){
 					let status = await pluginManager.removePlugin(process.argv[6]);
 					if(status && status.msg) console.log(status.msg);
+				} else if(action == "enable"){
+					let status = await pluginManager.enablePlugin(process.argv[6]);
+					if(status && status.msg) console.log(status.msg);
+				} else if(action == "disable"){
+					let status = await pluginManager.disablePlugin(process.argv[6]);
+					if(status && status.msg) console.log(status.msg);
 				}
 				process.exit(0);
 			}catch(e){
