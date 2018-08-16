@@ -546,7 +546,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 
 // ensure instancemanagement only ever runs once
 _.once(instanceManagement);
-function instanceManagement() {
+async function instanceManagement() {
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
@@ -560,27 +560,27 @@ function instanceManagement() {
 	setInterval(B=> socket.emit("heartbeat"), 10000);
 
 	// load plugins and execute onLoad event
-	let pluginDirectories = fileOps.getDirectoriesSync("./sharedPlugins/");
+	const pluginManager = require("./lib/manager/pluginManager.js")(config);
+	let pluginsToLoad = await pluginManager.getPlugins();
 	let plugins = [];
-	for(let i=0; i<pluginDirectories.length; i++) {
-		let I = i
+	
+	for(let i = 0; i < pluginsToLoad.length; i++){
+		let pluginLoadStarted = Date.now();
 		let log = function(message) {
-			console.log("Clusterio | "+ pluginDirectories[I] + " | " + message);
+			console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + message);
 		}
-		// these are our two config files. We need to send these in case plugin
-		// wants to contact master or know something.
-		let combinedConfig = deepmerge(instanceconfig,config,{clone:true})
-        let pluginConfig = require("./sharedPlugins/" + pluginDirectories[i] + "/config.js");
+		let combinedConfig = deepmerge(instanceconfig,config,{clone:true});
+		let pluginConfig = pluginsToLoad[i];
 		
 		if(!global.subscribedFiles) {
 			global.subscribedFiles = {};
 		}
-		if(pluginConfig.binary == "nodePackage"){
-			// require index.js.main() of plugin and execute it as a class
-			let pluginClass = require("./sharedPlugins/" + pluginDirectories[I] + "/index.js");
-			plugins[I] = new pluginClass(combinedConfig, async function(data, callback){
+		if(pluginConfig.binary == "nodePackage" && pluginConfig.enabled){
+			// require plugin class and execute it
+			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index.js"));
+			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
 				if(data.toString('utf8')[0] != "/") {
-					log("Stdout: " + data.toString('utf8'));
+					log(data.toString('utf8'));
 					return true;
 				} else {
 					return messageInterface(data.toString('utf8'), callback);
@@ -588,15 +588,15 @@ function instanceManagement() {
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
 				socket, // socket.io connection to master (and ES6 destructuring, yay)
 			});
-			if(plugins[I].factorioOutput && typeof plugins[I].factorioOutput === "function"){
+			if(plugins[i].factorioOutput && typeof plugins[i].factorioOutput === "function"){
 				// when factorio logs a line, send it to the plugin. This includes things like autosaves, chat, errors etc
-				serverprocess.stdout.on("data", data => plugins[I].factorioOutput(data.toString()));
+				serverprocess.stdout.on("data", data => plugins[i].factorioOutput(data.toString()));
 			}
 			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
 				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
 					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
 					// between those plugins instead.
-					throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
+					throw "FATAL ERROR IN " + pluginConfig.name + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
 				}
 				
 				if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
@@ -605,14 +605,13 @@ function instanceManagement() {
 				}
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
 				console.log("Clusterio | Registered file subscription on "+instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
+				
 				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
 				// run once in case a plugin wrote out information before the plugin loaded fully
-
 				// delay, so the socket got enough time to connect
 				setTimeout(()=> {
                     fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
                 }, 500);
-				
 				// send file contents to plugin for processing
 				function fileChangeHandler(eventType, filename) {
 					if(filename != null){
@@ -625,10 +624,10 @@ function instanceManagement() {
 								if (stuff[0]) {
 									fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
 								}
-								for(let i = 0; i < stuff.length; i++) {
-									if(stuff[i] && !stuff[i].includes('\u0000\u0000')) {
+								for(let o = 0; o < stuff.length; o++) {
+									if(stuff[o] && !stuff[o].includes('\u0000\u0000')) {
 										try{
-											plugins[I].scriptOutput(stuff[i]);
+											plugins[i].scriptOutput(stuff[o]);
 										}catch(e){console.error(e)}
 									}
 								}
@@ -638,72 +637,11 @@ function instanceManagement() {
 					}
 				}
 			}
-			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
-		} else if(pluginConfig.binary != "nodePackage" && pluginConfig.binary){
-			// handle as fragile executable plugin
-			let args = pluginConfig.args || [];
-			plugins[I]=child_process.spawn(pluginConfig.binary, args, {
-				cwd: "./sharedPlugins/"+pluginDirectories[i],
-				stdio: ['pipe', 'pipe', 'pipe'],
-			});
-			
-			/*
-				to send to stdin, use:
-				spawn.stdin.write("text\n");
-			*/
-			// If plugin has subscribed to a file, send any text appearing in that file to stdin
-			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string") {
-				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
-					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
-					// between those plugins instead.
-					throw "FATAL ERROR IN " + pluginDirectories[i] + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
-				}
-				
-				if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
-					// Do something
-					fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
-				}
-				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
-				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, function (eventType, filename) {
-					// get array of lines in file
-					// TODO async
-					let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
-					// if you found anything, reset the file
-					if (stuff[0]) {
-						fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
-					}
-					for (let i = 0; i < stuff.length; i++) {
-						if (stuff[i]) {
-							plugins[I].stdin.write(stuff[i]);
-						}
-					}
-				});
-			}
-			// these are our two config files. We need to send these in case plugin
-			// wants to contact master or know something.
-			// send through script-output file, maybe more compat?
-			fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, JSON.stringify(combinedConfig)+"\r\n");
-			// send directly through stdin
-			// plugins[i].stdin.write(JSON.stringify(combinedConfig)+"\n");
-			
-			console.log("Clusterio | Loaded plugin " + pluginDirectories[i]);
-			plugins[i].stdout.on("data", (data) => {
-				if(data.toString('utf8')[0] != "/") {
-					log("Stdout: " + data.toString('utf8'))
-				} else {
-					messageInterface(data.toString('utf8'));
-				}
-			});
-			plugins[i].stderr.on("data", (data) => {
-				log("STDERR: " + data);
-			});
-			plugins[i].on('close', (code) => {
-				log(`child process exited with code ${code}`);
-			});
+			console.log(`Clusterio | Loaded plugin ${pluginsToLoad[i].name} in ${Date.now() - pluginLoadStarted}ms`);
 		} else {
-			// This plugin doesn't have a client portion
+			// this plugin doesn't have a client portion. Maybe it runs on the master only?
 		}
-    }
+	}
 
 	// world IDs ------------------------------------------------------------------
 	hashMods(instance, function(modHashes){

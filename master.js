@@ -1078,7 +1078,7 @@ io.on('connection', function (socket) {
 	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
 	
 	// tell our friend that we are listening
-	socket.emit('hello', { hello: 'world' });
+	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 1000);
 	
 	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {
@@ -1120,29 +1120,27 @@ pluginManagement();
 masterPlugins = [];
 async function pluginManagement(){
 	let startPluginLoad = Date.now();
-	masterPlugins = await getPlugins("sharedPlugins");
+	masterPlugins = await getPlugins();
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 	return;
 }
 
-async function getPlugins(pluginDirectory){
+async function getPlugins(){
+	const pluginManager = require("./lib/manager/pluginManager.js")(config);
 	let plugins = [];
-	
-	let files = await fs.readdir(pluginDirectory);
-	for(let i in files){
-		let file = files[i];
+	let pluginsToLoad = await pluginManager.getPlugins();
+	for(let i = 0; i < pluginsToLoad.length; i++){
 		let pluginStartedLoading = Date.now(); // just for logging
-		let pluginPath = path.join(pluginDirectory, file);
-		let stats = await fs.stat(pluginPath);
+		let stats = await fs.stat(pluginsToLoad[i].pluginPath);
 		if(stats.isDirectory()){
-			let pluginConfig = require(path.resolve(pluginPath, "config"));
-			if(pluginConfig.masterPlugin){
-				let masterPlugin = require(path.resolve(pluginPath, pluginConfig.masterPlugin));
+			let pluginConfig = pluginsToLoad[i];
+			if(pluginConfig.masterPlugin && pluginConfig.enabled){
+				let masterPlugin = require(path.resolve(pluginConfig.pluginPath, pluginConfig.masterPlugin));
 				plugins.push({
 					main:new masterPlugin({
 						config,
 						pluginConfig,
-						path: pluginPath,
+						path: pluginConfig.pluginPath,
 						socketio: io,
 						express: app,
 					}),
