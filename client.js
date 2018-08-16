@@ -438,11 +438,6 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
 	fs.copySync(path.join(instancedirectory, "instanceMods"), path.join(instancedirectory, "mods"));
 
-	process.on('SIGINT', function () {
-		console.log("Caught interrupt signal, sending ^C");
-		serverprocess.kill("SIGINT");
-	});
-
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
 	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
@@ -521,11 +516,23 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			});
 			client.onDidDisconnect(() => {
 				console.log('Clusterio | RCON Disconnected!');
-				process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
+				// process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
+			});
+			process.on('SIGINT', function () {
+				console.log("Caught interrupt signal, disconnecting RCON");
+				client.disconnect().then(()=>{
+					console.log("Rcon disconnected, Sending ^C");
+					// We don't actually do this, because ctrl+c in windows CMD sends it to all subprocesses as well. Doing it twice will abort factorios save.
+					// serverprocess.kill("SIGINT");
+				});
 			});
 		} else if(process.platform == "linux"){
 			// don't open an RCON connection and just use stdio instead, does not work on windows.
 			instanceManagement();
+			process.on('SIGINT', function () {
+				console.log("Caught interrupt signal, sending ^C");
+				serverprocess.kill("SIGINT");
+			});
 		}
 
 		// set some globals
