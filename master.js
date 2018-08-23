@@ -1078,7 +1078,7 @@ io.on('connection', function (socket) {
 	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
 	
 	// tell our friend that we are listening
-	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 1000);
+	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
 	
 	/* initial processing for remoteMap */
 	socket.on('registerSlaveMapper', function (data) {

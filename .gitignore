@@ -52,4 +52,7 @@ sharedPlugins/*
 !sharedPlugins/globalChat/
 !sharedPlugins/clusterioMod/
 
+# File used for marking plugins as disabled
+sharedPlugins/*/DISABLED
+
 \.cache-require-paths\.json

@@ -392,7 +392,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			process.exit(0);
 		}
     });
-} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)){
+} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)){(async () => {
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != config.instanceDirectory+"/undefined"){
 		var instanceconfig = require(path.resolve(instancedirectory,'config'));
@@ -413,18 +413,21 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			fs.unlinkSync(path.resolve(instancedirectory, "saves", savefiles[i]));
 		}
 	}
-	console.log("Deleting logs");
+	console.log("Clusterio | Rotating old logs...");
 	// clean old log file to avoid crash
-	// file exists, delete so we don't get in trouble
-	try {
-		fs.unlinkSync(path.join(instancedirectory,'factorio-current.log'));
-	} catch (err){
-		if(err){
-			console.error(err);
-		} else {
-			console.log("Clusterio | Deleting old logs...");
+	try{
+		let logPath = path.join(instancedirectory,'factorio-current.log');
+		let stat = await fs.stat(logPath);
+		console.log(stat)
+		console.log(stat.isFile())
+		if(stat.isFile()){
+			let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
+			await fs.rename(logPath, path.join(instancedirectory, logFilename));
+			console.log(`Log rotated as ${logFilename}`);
 		}
-	}
+	}catch(e){}
+	// Math.floor(Date.now()/1000)
+	// (new Date).toGMTString()
 	
 	// move mods from ./sharedMods to the instances mod directory
 	try{fs.mkdirSync(path.join(instancedirectory, "instanceMods"));}catch(e){}
@@ -508,7 +511,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		
 			client.onDidAuthenticate(() => {
 				console.log('Clusterio | RCON Authenticated!');
-				instanceManagement(); // start using rcons
+				instanceManagement(instanceconfig); // start using rcons
 			});
 			client.onDidConnect(() => {
 				console.log('Clusterio | RCON Connected!');
@@ -522,13 +525,15 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 				console.log("Caught interrupt signal, disconnecting RCON");
 				client.disconnect().then(()=>{
 					console.log("Rcon disconnected, Sending ^C");
-					// We don't actually do this, because ctrl+c in windows CMD sends it to all subprocesses as well. Doing it twice will abort factorios save.
-					// serverprocess.kill("SIGINT");
+					// We don't actually do this on windows, because ctrl+c in windows CMD sends it to all subprocesses as well. Doing it twice will abort factorios save.
+					if(process.platform == "linux"){
+						serverprocess.kill("SIGINT");
+					}
 				});
 			});
 		} else if(process.platform == "linux"){
 			// don't open an RCON connection and just use stdio instead, does not work on windows.
-			instanceManagement();
+			instanceManagement(instanceconfig);
 			process.on('SIGINT', function () {
 				console.log("Caught interrupt signal, sending ^C");
 				serverprocess.kill("SIGINT");
@@ -539,14 +544,14 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		confirmedOrders = [];
 		lastSignalCheck = Date.now();
 	});
-} else {
+})()} else {
 	console.error("Invalid arguments, quitting.");
 	process.exit(1);
 }
 
 // ensure instancemanagement only ever runs once
 _.once(instanceManagement);
-async function instanceManagement() {
+async function instanceManagement(instanceconfig) {
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
@@ -666,6 +671,7 @@ async function instanceManagement() {
 						mac = "unknown";
 						console.log("##### getMac crashed, but we don't really give a shit because we are probably closing down #####");
 					}
+					global.mac = mac;
 					payload.mac = mac;
 					// console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
 					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
