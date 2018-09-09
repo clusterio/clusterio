@@ -1,8 +1,8 @@
 {
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
-	"factorioDirectory": "factorio",
-	"instanceDirectory": "instances",
-	"databaseDirectory": "database",
+	"factorioDirectory": "./factorio",
+	"instanceDirectory": "./instances",
+	"databaseDirectory": "./database",
 	
 	"__comment1": "IP players should connect to to join your servers, should be portforwarded and stuff",
 	"publicIP": "localhost",
@@ -10,10 +10,10 @@
 	"__comment2": "IP the master web server runs at, can be ignored on the master system",
 	"masterIP": "localhost",
 	
-	"__commentMasterPort": "HTTP port for the master to listen to, set to 0 or an empty string to not listen for HTTP requests",
+	"__commentMasterPort": "HTTP port for the master to listen to",
 	"masterPort": 8080,
 	
-	"__commentsslPort": "HTTPS port for the master to listen to. Set to 0 or an empty string to not use HTTPS.",
+	"__commentsslPort": "HTTPS port for the master to listen to. Set to 0 or an empty string to not listen for HTTPS.",
 	"sslPort": 443,
 	"sslCert": "database/certificates/cert.crt",
 	"sslPrivKey": "database/certificates/cert.key",

@@ -204,6 +204,18 @@ Copy your config.json.dist to config.json and configure it.
 
 Some systems don't let non root processes listen to ports below 1000. Either run with `sudo` or change config.json to use higher port numbers.
 
+### InitializationError: First argument must be an abstract-leveldown compliant store
+
+do:
+
+    npm install linvodb3@3.25.1
+
+if that does not suffice do
+
+    npm install levelup@1.3.9
+
+If it still doesn't work, come over to our support discord linked at the top of this readme.
+
 ### Other fixes for other potential problems:
 
 Sometimes the install fails. Try `node ./lib/npmPostinstall.js` to complete it.
