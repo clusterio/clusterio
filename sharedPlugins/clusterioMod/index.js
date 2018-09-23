@@ -282,7 +282,7 @@ module.exports = class remoteCommands {
 										frame: framepart, // thats our array of objects(single signals);
 									}
 									// send to master using socket.io, opened at the top of instanceManagement()
-									socket.emit("combinatorSignal", doneframe);
+									this.socket.emit("combinatorSignal", doneframe);
 								} else {
 									// console.log("Invalid jsony: "+typeof signals[i])
 								}
