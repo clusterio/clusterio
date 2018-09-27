@@ -51,6 +51,7 @@ sharedPlugins/*
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
 !sharedPlugins/clusterioMod/
+!sharedPlugins/serverManager/
 
 # File used for marking plugins as disabled
 sharedPlugins/*/DISABLED
