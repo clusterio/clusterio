@@ -1,5 +1,5 @@
 local hotpatch_tools = require 'hotpatch.mod-tools'
-hotpatch_tools.static_mod('hotpatch-gui', '1.0.3', [===[
+hotpatch_tools.static_mod('hotpatch-gui', '1.0.4', [===[
 --[[
 
 Copyright 2018 Chrisgbk
@@ -75,7 +75,7 @@ script.on_event(defines.events.on_player_joined_game, function(e)
         main.destroy()
     end
     
-    button = top.add{type = 'sprite-button', name = 'hotpatch-button', sprite='utility/heat_exchange_indication', tooltip = 'Hotpatch'}
+    button = top.add{type = 'sprite-button', name = 'hotpatch-button', sprite='utility/heat_exchange_indication', tooltip = 'Hotpatch', style = mod_gui.button_style}
 end)
 
 local on_gui_click_handlers
@@ -119,7 +119,7 @@ on_gui_click_handlers = {
         
         local IDE = center['hotpatch-IDE']
         if not IDE then
-            IDE = center.add{type = 'frame', name = 'hotpatch-IDE', direction = 'vertical', caption = 'Hotpatch IDE'}
+            IDE = center.add{type = 'frame', name = 'hotpatch-IDE', direction = 'vertical', caption = 'Hotpatch IDE', style = mod_gui.frame_style}
             local top_flow = IDE.add{type = 'flow', name = 'hotpatch-IDE-top', direction = 'horizontal'}
             top_flow.add{type = 'label', name = 'hotpatch-IDE-mod-label', caption = 'Mod: '}
             local IDE_dropdown = top_flow.add{type = 'drop-down', name = 'hotpatch-IDE-mod-selector'}

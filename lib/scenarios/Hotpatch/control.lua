@@ -30,14 +30,60 @@ require 'hotpatch.gui'
 
 -- mod code goes here
 
--- Single-file test
---[[
-hotpatch_tools.static_mod('test', '1.0.0', [===[
-    script.on_init(function()
-        log('test')
-    end)
+-- This is the Factorio Freeplay scenario
+-- This code, and the freeplay locale files in the zip file, is the property of Wube
+-- As this is part of the base mod, the developers have given permission for modders to use/adapt the assets therein, for modding Factorio
+-- Any other use would require licensing/permission from Wube
+-- If you don't want to run this, either comment this out before creating your scenario, OR uninstall freeplay at runtime
+hotpatch_tools.static_mod('freeplay', '1.0.0', [===[
+local silo_script = require("silo-script")
+local version = 1
+
+script.on_event(defines.events.on_player_created, function(event)
+  local player = game.players[event.player_index]
+  player.insert{name="iron-plate", count=8}
+  player.insert{name="pistol", count=1}
+  player.insert{name="firearm-magazine", count=10}
+  player.insert{name="burner-mining-drill", count = 1}
+  player.insert{name="stone-furnace", count = 1}
+  player.force.chart(player.surface, {{player.position.x - 200, player.position.y - 200}, {player.position.x + 200, player.position.y + 200}})
+  if (#game.players <= 1) then
+    game.show_message_dialog{text = {"msg-intro"}}
+  else
+    player.print({"msg-intro"})
+  end
+  silo_script.on_player_created(event)
+end)
+
+script.on_event(defines.events.on_player_respawned, function(event)
+  local player = game.players[event.player_index]
+  player.insert{name="pistol", count=1}
+  player.insert{name="firearm-magazine", count=10}
+end)
+
+script.on_event(defines.events.on_gui_click, function(event)
+  silo_script.on_gui_click(event)
+end)
+
+script.on_init(function()
+  global.version = version
+  silo_script.on_init()
+end)
+
+script.on_event(defines.events.on_rocket_launched, function(event)
+  silo_script.on_rocket_launched(event)
+end)
+
+script.on_configuration_changed(function(event)
+  if global.version ~= version then
+    global.version = version
+  end
+  silo_script.on_configuration_changed(event)
+end)
+
+silo_script.add_remote_interface()
+silo_script.add_commands()
 ]===])
---]]
 
 -- Multi-file test
 --[[

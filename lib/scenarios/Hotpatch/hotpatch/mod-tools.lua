@@ -810,8 +810,8 @@ end
 
 run_mod = function(loaded_index)
     local mod = loaded_mods[loaded_index]
-    local mod_name = mod.name
     if mod then
+        local mod_name = mod.name
         local old_global = mod.env.global
         if strict_mode then
            mod.env.global = {}
