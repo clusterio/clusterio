@@ -253,3 +253,4 @@ node client.js manage shared mods add clusterio
 Here are the known Clusterio plugins in the wild:
 1. [Player Manager](https://github.com/Danielv123/playerManager) - Adds player management to the Web UI and shared inventory handling (beta)
 2. [DiscordChat](https://github.com/jakedraddy/ClusterioDiscordChat) - Logs in-game chat/joins/leave messages on all instances to a Discord webhook.
+3. [TrainTeleports](https://github.com/Godmave/clusterioTrainTeleports) - Allows you to teleport cargotrains between servers.
