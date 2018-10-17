@@ -122,7 +122,10 @@ const expressPrometheus = require('express-prometheus-request-metrics');
 Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
 if(!config.disablePrometheusPushgateway){
 	const pushgateway = new Prometheus.Pushgateway('http://hme.danielv.no:9091');
-	setInterval(() => pushgateway.push({ jobName: 'clusterio', groupings: {instance: config.publicIP + ":" + config.masterPort, owner: config.username}}, function(err, resp, body) {}), 5000)
+	setInterval(() => {
+		registerMoreMetrics();
+		pushgateway.push({ jobName: 'clusterio', groupings: {instance: config.publicIP + ":" + config.masterPort, owner: config.username}}, function(err, resp, body) {})
+	}, 5000)
 }
 
 // collect express request durations ms
@@ -183,13 +186,6 @@ const prometheusMasterInventoryGauge = new Prometheus.Gauge({
 	labelNames: ["itemName"],
 });
 setInterval(()=>{
-	let numberOfActiveSlaves = 0;
-	for(let instance in slaves){
-		if(Date.now() - Number(slaves[instance].time) < 1000 * 30) numberOfActiveSlaves++;
-	}
-	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
-},10000);
-setInterval(()=>{
     fs.writeFileSync("database/items.json", JSON.stringify(db.items));
 },config.autosaveInterval || 60000);
 /**
@@ -203,6 +199,11 @@ app.get('/metrics', (req, res) => {
 	res.set('Content-Type', Prometheus.register.contentType);
 	
 	/// gather some static metrics
+	reisterMoreMetrics();
+	res.end(Prometheus.register.metrics());
+});
+
+function registerMoreMetrics(){
 	for(let instanceID in slaves){
 		// playercount
 		try{
@@ -220,9 +221,13 @@ app.get('/metrics', (req, res) => {
 			prometheusMasterInventoryGauge.labels(key).set(Number(db.items[key]) || 0);
 		}
 	}
-	
-	res.end(Prometheus.register.metrics());
-});
+	// Slave count
+	let numberOfActiveSlaves = 0;
+	for(let instance in slaves){
+		if(Date.now() - Number(slaves[instance].time) < 1000 * 30) numberOfActiveSlaves++;
+	}
+	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
+}
 
 // set up database
 var Datastore = require('nedb');
