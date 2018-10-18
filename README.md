@@ -20,6 +20,8 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 * [Command cheatsheet](#cheatsheet)
 
+* [Optional plugins](#Plugins)
+
 ## Introduction
 
 Features:
@@ -35,6 +37,15 @@ Features:
 - Inventory combinator to display item levels in the cluster (and epoch time)
 
 - Reporting of graphs and UPS on master interface
+
+Optional extras (see [Plugins](#Plugins))
+
+- Have your inventory synchronize across servers
+
+- Teleport trans from the border of one world to te next
+
+- Show in-game chat in discord
+
 
 Connection diagram:
 
@@ -249,7 +260,7 @@ npm install
 node client.js manage shared mods add clusterio
 ```
 
-# Plugins
+## Plugins
 Here are the known Clusterio plugins in the wild:
 1. [Player Manager](https://github.com/Danielv123/playerManager) - Adds player management to the Web UI and shared inventory handling (beta)
 2. [DiscordChat](https://github.com/jakedraddy/ClusterioDiscordChat) - Logs in-game chat/joins/leave messages on all instances to a Discord webhook.
