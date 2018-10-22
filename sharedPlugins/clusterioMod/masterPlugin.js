@@ -3,8 +3,6 @@ const path = require("path");
 const Express = require("express");
 const ejs = require("ejs");
 
-const pmSockets = [];
-
 class masterPlugin {
 	constructor({config, pluginConfig, pluginPath, socketio, express}){
 		this.config = config;

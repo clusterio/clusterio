@@ -10,6 +10,10 @@ combinator signals.
 node master.js
 */
 
+// Attempt updating
+// const updater = require("./updater.js");
+// updater.update().then(console.log);
+
 (async ()=>{
 
 // Set the process title, shows up as the title of the CMD window on windows
@@ -35,7 +39,6 @@ const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
-const nedb = require("nedb");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -230,24 +233,7 @@ function registerMoreMetrics(){
 }
 
 // set up database
-var Datastore = require('nedb');
-db = {};
-var LinvoDB = require("linvodb3");
-
-// TODO: This breaks. databaseDirectory is either "database" or "./database". `LinvoDB.dbPath = "./database/linvodb/";` is the old working version.
-LinvoDB.dbPath = path.resolve(config.databaseDirectory, "linvodb");
-// LinvoDB.dbPath = "./database/linvodb/";
-
-// database for items in system
-// db.items = new Datastore({ filename: 'database/items.db', autoload: true });
-
-// in memory database for combinator signals
-db.signals = new Datastore({ filename: path.resolve(config.databaseDirectory, '/signals.db'), autoload: true, inMemoryOnly: true});
-db.signals.ensureIndex({ fieldName: 'time', expireAfterSeconds: 3600 }, function (err) {});
-
-// production chart database
-db.flows = new LinvoDB("flows", {}, {});
-
+const db = {};
 
 (function(){
 	try{
@@ -618,43 +604,6 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	}
 });
 
-// circuit stuff
-/**
-POST endpoint to send and store circuit frames on the master.
-Gives no response
-
-@memberof clusterioMaster
-@instance
-@alias api/setSignal
-@param {object} circuitFrame
-@param {number} circuitFrame.time
-*/
-app.post("/api/setSignal", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	if(typeof req.body == "object" && req.body.time){
-		db.signals.insert(req.body);
-		// console.log("signal set");
-	}
-});
-/**
-POST endpoint to read database of circuit signals sent to master
-
-@memberof clusterioMaster
-@instance
-@alias api/readSignal
-@returns {object} circuitFrame
-*/
-app.post("/api/readSignal", function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	// request.body should be an object
-	// {since:UNIXTIMESTAMP,}
-	// we should send an array of all signals since then
-	db.signals.find({time:{$gte: req.body.since}}, function (err, docs) {
-		// $gte means greater than or equal to, meaning we only get entries newer than the timestamp
-		res.send(docs);
-		// console.log(docs);
-	});
-});
 /**
 GET endpoint to read the masters current inventory of items.
 
@@ -695,7 +644,7 @@ app.get("/api/inventoryAsObject", function(req, res) {
 
 // post flowstats here for production graphs
 // {timestamp: Date, instanceID: string, data: {"item":number}}
-/**
+/** --- TODO: Replace this with a simpler Prometheus exporter. Requires changes to the mod as well.
 POST endpoint to log production graph statistics. Should contain a timestamp
 gathered from Date.now(), a instanceID (also reffered to as "unique") and of
 course the timeSeries data.
@@ -730,134 +679,7 @@ app.post("/api/logStats", authenticate.middleware, function(req,res) {
 		res.send("failure");
 	}
 });
-// {instanceID: string, fromTime: Date, toTime, Date}
-/**
-POST endpoint to get timeSeries statistics stored on the master. Can give production
-graphs and other IO statistics.
 
-@memberof clusterioMaster
-@instance
-@alias api/getStats
-@param {object} JSON
-@returns {object} - with statistics
-*/
-app.post("/api/getStats", function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	if(typeof req.body == "string"){
-		req.body = JSON.parse(req.body);
-	}
-	// console.log(req.body);
-	if(typeof req.body == "object" && req.body.instanceID && req.body.statistic === undefined) {
-		// if not specified, get stats for last 24 hours
-		if(!req.body.fromTime) {
-			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
-		}
-		if(!req.body.toTime) {
-			req.body.toTime = Date.now();
-		}
-		console.log("Looking... " + JSON.stringify(req.body));
-		db.flows.find({
-			instanceID: req.body.instanceID,
-		}, function(err, docs) {
-			let entries = docs.filter(function (el) {
-				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
-			});
-			// console.log(entries);
-			res.send(entries);
-		});
-	} else if(typeof req.body == "object" && req.body.instanceID && typeof req.body.instanceID == "string" && req.body.itemName){
-		if(req.body.statistic == "place"){
-			console.log(`sending place data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
-			// Gather data
-			//console.log(recievedItemStatisticsBySlaveID)
-			let itemStats = recievedItemStatisticsBySlaveID[req.body.instanceID];
-			if(itemStats === undefined){
-				res.send({statusForDebugging:"no data available"});
-				return false;
-			}
-			let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
-			
-			res.send({
-				maxEntries:config.itemStats.maxEntries,
-				entriesPerSecond: config.itemStats.entriesPerSecond,
-				data: data,
-			});
-		} else if(req.body.statistic == "remove"){
-			console.log(`sending remove data for instanceID ${req.body.instanceID} ${req.body.itemName}`);
-			// Gather data
-			// console.log(sentItemStatisticsBySlaveID)
-			let itemStats = sentItemStatisticsBySlaveID[req.body.instanceID];
-			console.log(itemStats)
-			if(typeof itemStats == "object"){
-				let data = itemStats.get(config.itemStats.maxEntries, req.body.itemName);
-				//console.log(itemStats.get(config.itemStats.maxEntries, req.body.itemName));
-				res.send({
-					maxEntries:config.itemStats.maxEntries,
-					entriesPerSecond: config.itemStats.entriesPerSecond,
-					data: data,
-				});
-			} else {
-				res.send({statusForDebugging:"no data available"});
-			}
-		}
-	}
-});
-
-/**
-POST endpoint. Modified version of api/getStats which feeds the web interface production graphs
-at /nodes. It is like getStats but it does not report items which were not
-produced at the moment of recording. (This is to save space, the 0-items were
-making up about 92% of the response body weight.)
-
-@memberof clusterioMaster
-@instance
-@alias api/getTimelineStats
-@param {object} JSON {instanceID:1941029, fromTime: ???, toTime: ???}
-@returns {object[]} timeseries where each entry is a set point in time.
-*/
-app.post("/api/getTimelineStats", function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	console.log(req.body);
-	if(typeof req.body == "object" && req.body.instanceID) {
-		// if not specified, get stats for last 24 hours
-		if(!req.body.fromTime) {
-			req.body.fromTime = Date.now() - 86400000 // 24 hours in MS
-		}
-		if(!req.body.toTime) {
-			req.body.toTime = Date.now();
-		}
-		console.log("Looking... " + JSON.stringify(req.body));
-		db.flows.find({
-			instanceID: req.body.instanceID,
-		}, function(err, docs) {
-			if(err) { 
-				console.error(err);
-				return;
-			}
-			
-			//Filter out all the entries outside the time range.
-			docs = docs.filter(function (el) {
-				return el.timestamp <= req.body.toTime && el.timestamp >= req.body.fromTime;
-			});
-			
-			//Filter out all the elements that weren't produced.
-			docs.forEach(el => {
-				for(let key in el.data) {
-					if(el.data[key] === '0') {
-						// Set value to undefined instead of using the delete keyword.
-						// This is because the delete keyword is super duper slow.
-						// https://stackoverflow.com/questions/208105/how-do-i-remove-a-property-from-a-javascript-object
-						
-						//delete el.data[key];
-						el.data[key] = undefined;
-					}
-				}
-			});
-			
-			res.send(docs);
-		});
-	}
-});
 /**
 POST endpoint for running commands on slaves.
 Requires x-access-token header to be set. Find you api token in secret-api-token.txt on the master (after running it once)
