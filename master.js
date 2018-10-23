@@ -148,11 +148,6 @@ const prometheusWsUsageCounter = new Prometheus.Counter({
 	help: 'Websocket traffic',
 	labelNames: ["connectionType", "instanceID"],
 });
-const prometheusProductionGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'production_gauge',
-	help: 'Items produced by instance',
-	labelNames: ["instanceID", "itemName"],
-});
 const prometheusExportGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'export_gauge',
 	help: 'Items exported by instance',
@@ -202,7 +197,7 @@ app.get('/metrics', (req, res) => {
 	res.set('Content-Type', Prometheus.register.contentType);
 	
 	/// gather some static metrics
-	reisterMoreMetrics();
+	registerMoreMetrics();
 	res.end(Prometheus.register.metrics());
 });
 
@@ -642,44 +637,6 @@ app.get("/api/inventoryAsObject", function(req, res) {
 	res.send(JSON.stringify(db.items));
 });
 
-// post flowstats here for production graphs
-// {timestamp: Date, instanceID: string, data: {"item":number}}
-/** --- TODO: Replace this with a simpler Prometheus exporter. Requires changes to the mod as well.
-POST endpoint to log production graph statistics. Should contain a timestamp
-gathered from Date.now(), a instanceID (also reffered to as "unique") and of
-course the timeSeries data.
-
-@memberof clusterioMaster
-@instance
-@alias api/logStats
-@param {object} JSON {timestamp: Date.now(), instanceID: "string", data: {"item": number}}
-@returns {string} failure
-*/
-app.post("/api/logStats", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	if(typeof req.body == "object" && req.body.instanceID && req.body.timestamp && req.body.data) {
-		if(Number(req.body.timestamp) != NaN){
-			req.body.timestamp = Number(req.body.timestamp);
-			db.flows.insert({
-				instanceID: req.body.instanceID,
-				timestamp: req.body.timestamp,
-				data: req.body.data,
-			});
-			try{
-			Object.keys(req.body.data).forEach(itemName => {
-				prometheusProductionGauge.labels(req.body.instanceID, itemName).inc(Number(req.body.data[itemName]) || 0);
-			});
-			}catch(e){console.log(e)};
-			console.log("inserted: " + req.body.instanceID + " | " + req.body.timestamp);
-		} else {
-			console.log("error invalid timestamp " + req.body.timestamp);
-			res.send("failure");
-		}
-	} else {
-		res.send("failure");
-	}
-});
-
 /**
 POST endpoint for running commands on slaves.
 Requires x-access-token header to be set. Find you api token in secret-api-token.txt on the master (after running it once)
@@ -974,6 +931,7 @@ async function getPlugins(){
 						path: pluginConfig.pluginPath,
 						socketio: io,
 						express: app,
+						Prometheus,
 					}),
 					pluginConfig,
 				});
