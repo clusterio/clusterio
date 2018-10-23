@@ -16,11 +16,11 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 * [Windows setup](#windows-setup)
 
+* [Optional plugins](#Plugins)
+
 * [Common problems](#Common-problems)
 
 * [Command cheatsheet](#cheatsheet)
-
-* [Optional plugins](#Plugins)
 
 ## Introduction
 
@@ -36,7 +36,7 @@ Features:
 
 - Inventory combinator to display item levels in the cluster (and epoch time)
 
-- Reporting of graphs and UPS on master interface
+- Reporting of graphs and UPS on master interface (Also has extensive Prometheus reporting)
 
 Optional extras (see [Plugins](#Plugins))
 
@@ -205,6 +205,12 @@ Fancy game client that does the following steps automatically, but is really old
 
 3. Run factorio and connect to slave as a normal MP game. You will find the port number to connect to at http://[masterAddress]:8080
 
+## Plugins
+Here are the known Clusterio plugins in the wild:
+1. [Player Manager](https://github.com/Danielv123/playerManager) - Adds player management to the Web UI and shared inventory handling (beta)
+2. [DiscordChat](https://github.com/jakedraddy/ClusterioDiscordChat) - Logs in-game chat/joins/leave messages on all instances to a Discord webhook.
+3. [TrainTeleports](https://github.com/Godmave/clusterioTrainTeleports) - Allows you to teleport cargotrains between servers.
+
 ## Common problems
 
 ### Cannot find module: `/../../config`
@@ -226,6 +232,22 @@ if that does not suffice do
     npm install levelup@1.3.9
 
 If it still doesn't work, come over to our support discord linked at the top of this readme.
+
+### Portforwarding doesn't work on the master server when running under WSL
+
+If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip. This is also true when you correctly port-forwarded the correct ports. Even when routing this server through nginx in WSL, the issue persists. Then, on a hunch, I tried to run nginx from windows itself and found that this DID work. It came to me that the only usage difference between the 2 versions of nginx is that I got a Windows Firewall popup. 
+
+TLDR: the tested fix is: 
+
+- open your windows firewall and go to advanced settings
+
+- click on inbound rules and click on new rule...
+
+- select port and click next >
+
+- select TCP and select specific local ports and type in the ports that you want to open (comma separated) and click next > 3 times
+
+- give the rule a name (like 'web server' or something), give it a description (optionally) and click finish
 
 ### Other fixes for other potential problems:
 
@@ -259,9 +281,3 @@ npm install
 ```
 node client.js manage shared mods add clusterio
 ```
-
-## Plugins
-Here are the known Clusterio plugins in the wild:
-1. [Player Manager](https://github.com/Danielv123/playerManager) - Adds player management to the Web UI and shared inventory handling (beta)
-2. [DiscordChat](https://github.com/jakedraddy/ClusterioDiscordChat) - Logs in-game chat/joins/leave messages on all instances to a Discord webhook.
-3. [TrainTeleports](https://github.com/Godmave/clusterioTrainTeleports) - Allows you to teleport cargotrains between servers.
