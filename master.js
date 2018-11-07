@@ -46,6 +46,7 @@ const base64url = require('base64url');
 const moment = require("moment");
 
 // constants
+console.log(`Requiring config from ${args.config || './config'}`)
 const config = require(args.config || './config');
 config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
@@ -301,7 +302,7 @@ async function shutdown() {
 			console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
 		}
 	}
-	console.log("Exited in "+(Date.now()-exitStartTime)+"ms");
+	console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
 	process.exit(0);
 }
 
@@ -489,10 +490,12 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 			}
 		});
 	}
-	if(	x.instanceID
-		&& x.instanceName
-		&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
-		/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/){
+	if(x.instanceID
+	&& x.instanceName
+	&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
+	/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/
+	&& x.name
+	&& typeof x.name == "string"){
 		if(config.logItemTransfers){
 			console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.instanceID+")");
 		}
@@ -552,7 +555,11 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
 	let item = db.items[object.name]
 		// console.dir(doc);
-	if (!item) {
+	if(!item
+	||((
+		config.disableImportsOfEverythingExceptElectricity === true || config.disableImportsOfEverythingExceptElectricity === "true" )
+		&& object.name != "electricity")
+	){
 		if(config.logItemTransfers){
 			console.log('failure could not find ' + object.name);
 		}
