@@ -441,7 +441,13 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
 	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
 	fs.copySync(path.join(instancedirectory, "instanceMods"), path.join(instancedirectory, "mods"));
-
+	
+	// Set paths for factorio so it reads and writes from the correct place even if the instance is imported from somewhere else
+	fs.writeFileSync(instancedirectory + `/config.ini`, `[path]\r\n
+read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
+write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
+	`);
+	
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
 	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
