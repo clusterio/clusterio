@@ -42,7 +42,6 @@ module.exports = class remoteCommands {
 							fileImportString += `["${name}"] = '${files[k]}', `;
 						}
 						fileImportString += `\}`;
-						console.log(fileImportString)
 						if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
 						if(returnValue) messageInterface(returnValue);
 					}
