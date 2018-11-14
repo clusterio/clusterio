@@ -31,7 +31,7 @@ module.exports = class remoteCommands {
 								messageInterface(`Loading `/*${scenarios[i]}*/+`${fileName}`);
 								let code = await clusterTools.getLua(/*path.join(scenPath, */fileName/*)*/, false);
 								// trim away external path from filenames
-								fileName = fileName.replace("scenarios\\factoriommoscenarios\\", "");
+								fileName = fileName.replace("scenarios\\factoriommoscenarios\\", "").replace("scenarios/factoriommoscenarios", "");
 								files[fileName.split(".")[0]] = code;
 							}
 						}
