@@ -15,26 +15,38 @@ module.exports = class remoteCommands {
 				await fs.ensureDir(scenarioDir)
 				let scenarios = await fs.readdir(scenarioDir);
 				for(let i = 0; i < scenarios.length; i++){
+					let startTime = Date.now();
 					let scenPath = path.join(scenarioDir, scenarios[i]);
 					let stat = await fs.stat(scenPath);
 					if(stat.isDirectory){
-						// let scenario = await fs.readdir(scenPath, {withFileTypes: true});
-						
-						// this function is bad in terms of scope since it relies on a global for return values, should be refactored.
-						filesCollection = [];
-						readDirectorySynchronously(scenPath);
-						let scenario = filesCollection;
-						let files = {};
-						for(let o = 0; o < scenario.length; o++){
-							let fileName = scenario[o];
-							if(fileName.split(".")[1] && fileName.split(".")[1].toLowerCase() == "lua"){
-								messageInterface(`Loading `/*${scenarios[i]}*/+`${fileName}`);
-								let code = await clusterTools.getLua(/*path.join(scenPath, */fileName/*)*/, false);
-								// trim away external path from filenames
-								fileName = fileName.replace("scenarios\\factoriommoscenarios\\", "").replace("scenarios/factoriommoscenarios", "");
-								files[fileName.split(".")[0]] = code;
+						async function loadFiles(dir, rootdir){
+							let returnFiles = [];
+							let entries = await fs.readdir(path.join(rootdir, dir));
+							for(let o = 0; o < entries.length; o++){
+								let stat = await fs.stat(path.join(rootdir, dir, entries[o]));
+								if(stat.isDirectory()){
+									// recurse
+									let subFolder = await loadFiles(path.join(dir, entries[o]), rootdir);
+									returnFiles = returnFiles.concat(subFolder);
+								} else if(entries[o].split(".")[entries[o].split(".").length-1].toLowerCase() == "lua"){
+									// if it is a Lua file, read its contents
+									// let data = await fs.readFile(path.join(rootdir, dir, entries[o]));
+									let data = await clusterTools.getLua(path.join(rootdir, dir, entries[o]), false);
+									returnFiles.push({
+										name: path.join(dir, entries[o].split(".")[0]),
+										data,
+									});
+								}
 							}
+							return returnFiles;
 						}
+						let fileMap = await loadFiles("", scenPath);
+						let files = {};
+						fileMap.forEach(map => {
+							files[map.name] = map.data;
+							console.log(map.name);
+						});
+						
 						let fileImportString = `\{`;
 						for(let k in files){
 							let name = k.replace(/\\/g, '/');
@@ -44,6 +56,7 @@ module.exports = class remoteCommands {
 						fileImportString += `\}`;
 						if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
 						if(returnValue) messageInterface(returnValue);
+						messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
 					}
 				}
 			}
