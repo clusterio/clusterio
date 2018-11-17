@@ -51,7 +51,8 @@ module.exports = class remoteCommands {
 						for(let k in files){
 							let name = k.replace(/\\/g, '/');
 							name = name.replace(/ /g, '');
-							fileImportString += `["${name}"] = '${files[k]}', `;
+							// make sure *not* to include control.lua as it is provided as a seperate argument
+							if(name != "control") fileImportString += `["${name}"] = '${files[k]}', `;
 						}
 						fileImportString += `\}`;
 						if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
