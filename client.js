@@ -591,10 +591,10 @@ async function instanceManagement(instanceconfig) {
 			// require plugin class and execute it
 			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index.js"));
 			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
-				if(data.toString('utf8')[0] != "/") {
+				if(data && data.toString('utf8')[0] != "/") {
 					log(data.toString('utf8'));
 					return true;
-				} else {
+				} else if (data && data.toString('utf8')[0] == "/"){
 					return messageInterface(data.toString('utf8'), callback);
 				}
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
@@ -670,7 +670,11 @@ async function instanceManagement(instanceconfig) {
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					instanceName: instance,
-					playerCount:playerCount.replace(/(\r\n\t|\n|\r\t)/gm, ""),
+				}
+				if(playerCount){
+					payload.playerCount = playerCount.replace(/(\r\n\t|\n|\r\t)/gm, "");
+				} else {
+					payload.playerCount = 0;
 				}
 				
 				function callback(err, mac) {

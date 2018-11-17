@@ -50,7 +50,7 @@
     "mkdirp-promise": "^5.0.1",
     "moment": "^2.22.2",
     "ncp": "^2.0.0",
-    "needle": "^2.2.1",
+    "needle": "^2.2.4",
     "node-factorio-api": "^0.3.1-alpha",
     "node-forge": "^0.7.1",
     "prom-client": "^10.2.3",
