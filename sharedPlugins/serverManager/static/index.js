@@ -16,7 +16,7 @@ settings.forEach(setting => {
 		}
 	});
 });
-
+let submitSettings = document.querySelector("#submitSettings");
 submitSettings.addEventListener("click", async ()=>{
 	let settings = document.querySelectorAll(".settingInput");
 	for(let i = 0; i < settings.length; i++){
