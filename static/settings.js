@@ -23,24 +23,11 @@ window.onload = function(){
 			localStorage.settings = JSON.stringify(settings);
 		}
 	}
-}
+};
 
 function drawSetting(settingText, checked) {
-	// please don't change these without fixing what it will break in window.onload
-	let boxPart1 = '<div class="settingsBox"><span class="settingsText">'; // setting text
-	let boxPart2 = '</span><label class="switch"><input type="checkbox"'; // either checked or nothing
-	let boxPart3 = '><div class="slider"></div></label></div>';          // comment for balance and looks
-	
-	let HTML = boxPart1;
-	if(settingText && typeof settingText == "string") {
-		HTML += settingText;
-	} else {
-		HTML += "unknown";
-	}
-	HTML += boxPart2;
-	if(checked && typeof checked == "boolean") {
-		HTML += " checked";
-	}
-	HTML += boxPart3;
+	let HTML = '<div class="settingsBox">' +
+		'<label class="switch"><input type="checkbox" ' + checked + '' +
+		'><div class="slider round"></div></label><span class="settings-text ml-3 align-middle">' + settingText + '</span></div>';
 	return HTML;
 }

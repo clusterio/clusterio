@@ -1,15 +1,15 @@
 // string, object, function(object)
 function post(url, data, callback) {
-	console.log("POST " + url + JSON.stringify(data))
+	console.log("POST " + url + JSON.stringify(data));
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", url, true);
 	xhr.setRequestHeader("Content-type", "application/json");
 	xhr.onreadystatechange = function () {
-		if (xhr.readyState == 4 && xhr.status == 200) {
+		if (xhr.readyState === 4 && xhr.status === 200) {
 			var json = JSON.parse(xhr.responseText);
 			callback(json);
 		}
-	}
+	};
 	xhr.send(JSON.stringify(data));
 }
 // function to sort arrays of objects after a keys value
@@ -44,7 +44,7 @@ setInterval(function(){
 			indicator.style.backgroundColor = "yellow";
 			indicator.title = "Master server unavailable";
 			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
-		} else if(Math.floor(slaveData[getParameterByName("instanceID")].time/100000) == Math.floor(Date.now()/100000)){
+		} else if(Math.floor(slaveData[getParameterByName("instanceID")].time/100000) === Math.floor(Date.now()/100000)){
 			indicator.style.backgroundColor = "green";
 			indicator.title = "Slave is online";
 		} else {
@@ -86,14 +86,14 @@ function populateSlaveInfo(){
 		}
 		*/
 		let slave = slaveData[instanceID];
-		let HTML = "<div id='header'><div id='onlineIndicator'></div><h1>Name: " + slave.instanceName+"</h1>"
-		HTML += "<div class='subbar'><h6>Host: "+slave.mac+" </h6><h6>Unique: "+slave.unique+" </h6>"
-		if(slave.publicIP != "localhost"){
+		let HTML = "<div id='header'><div id='onlineIndicator'></div><h1>Name: " + slave.instanceName+"</h1>";
+		HTML += "<div class='subbar'><h6>Host: "+slave.mac+" </h6><h6>Unique: "+slave.unique+" </h6>";
+		if(slave.publicIP !== "localhost"){
 			HTML += "<h6>IP: "+slave.publicIP+":"+slave.serverPort+"</h6>";
 		} else {
 			HTML += "<h6>This server is not configured for incoming connections</h6>";
 		}
-		HTML += "</div></div>" // end of header
+		HTML += "</div></div>"; // end of header
 		// left container
 		HTML += "<div id='leftHeroContainer'>";
 		HTML += "<div id='displayBody'><p>Last seen: <span id='lastSeenDate'>"+moment(Number(slave.time)).fromNow()+"</span></p>";
@@ -102,7 +102,7 @@ function populateSlaveInfo(){
 		// detect  if remoteMap mod is installed, if it is we want to show the link for it
 		let hasRemoteMap = false;
 		slave.mods.forEach(mod => {
-			console.log(mod.modName)
+			console.log(mod.modName);
 			if(mod.modName.includes("remoteMap")){
 				hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
 			}
@@ -111,16 +111,16 @@ function populateSlaveInfo(){
 			HTML += "<a href='/remoteMap?instanceID="+getParameterByName("instanceID")+"'>Remote map</a>";
 		}
 		
-		HTML += "</div>" // end of displayBody
+		HTML += "</div>"; // end of displayBody
 		
 		// list mods and other metadata
-		HTML += "<h2 class='subtitle'>Mods</h2><ul id='modlist'>"
+		HTML += "<h2 class='subtitle'>Mods</h2><ul id='modlist'>";
 		for(let i = 0; i < slave.mods.length; i++){
 			HTML += "<li>"+slave.mods[i].modName+"</li>"
 		}
-		HTML += "</ul>"
+		HTML += "</ul>";
 		
-		HTML += "</div>" // end of left container
+		HTML += "</div>"; // end of left container
 		
 		// chart
 		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>';
@@ -157,7 +157,7 @@ function makeTerminal(){
 	});
 	myTerminal.print('Welcome to Clusterio rcon!');
 	myTerminal.input('', handleTerminalInput);
-	if(localStorage.terminalMinimized && localStorage.terminalMinimized == "true"){
+	if(localStorage.terminalMinimized && localStorage.terminalMinimized === "true"){
 		minimizeTerminal(true);
 	}
 	function print(string){
@@ -170,18 +170,18 @@ function makeTerminal(){
 		lastLine.innerHTML = "> " + lastLine.innerHTML;
 		
 		argv = inputString.split(' ');
-		if(argv[0][0] == '/'){
+		if(argv[0][0] === '/'){
 			if(slaveLogin && slaveLogin.name && slaveLogin.pass){
 				print('Running: '+inputString);
 			} else {
 				print('Not identified to communicate with any slave! Run "help" for more information.');
 			}
-		} else if(argv[0] == 'help'){
-			if(argv[1] == 'login'){
+		} else if(argv[0] === 'help'){
+			if(argv[1] === 'login'){
 				print('To send commands to a slave, you are required to identify yourself. You can do this with the login command. The name will be the name of the slave as displayed on master. The password is the rcon password of the slave, as per /instances/[name]/config.json');
-			} else if(argv[1] == "/c"){
+			} else if(argv[1] === "/c"){
 				print('To run a command, start with /. You can for example do /c game.print("hello world!")');
-			} else if(argv[1] == "issues"){
+			} else if(argv[1] === "issues"){
 				print("Issues are reported to Danielv123 on github or espernet IRC.");
 				print(" - http://github.com/Danielv123/factorioClusterio/issues");
 				print(" - EsperNet #factorio Danielv123");
@@ -191,7 +191,7 @@ function makeTerminal(){
 				print(' - login [name] [passs] - Connect to remote slave');
 				print(' - issues - Report an issue');
 			}
-		} else if(argv[0] == 'issues'){
+		} else if(argv[0] === 'issues'){
 			print("Issues are reported to Danielv123 on github or espernet IRC.");
 			print(" - http://github.com/Danielv123/factorioClusterio/issues");
 			print(" - EsperNet #factorio Danielv123");
@@ -244,7 +244,7 @@ function makeGraph(instanceID, selector) {
 	let chartIgnoreList = [
 		"water",
 		"steam"
-	]
+	];
 	post("api/getStats", {instanceID: instanceID}, function(data){
 		//console.log("Building chart " + instanceID + " with this data:")
 		//console.log(data)
@@ -272,7 +272,7 @@ function generateLineChartArray(data, nameKey) {
 	for(let i = 0; i < data.length; i++) {
 		// only show recent data
 		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
-			let y = data[i].data[nameKey]
+			let y = data[i].data[nameKey];
 			if(!data[i].data[nameKey]) {
 				y = 0;
 			} else if(y < 0) {
@@ -288,7 +288,7 @@ function generateLineChartArray(data, nameKey) {
 	let xyz = {};
 	xyz.name = nameKey;
 	xyz.type = "line";
-	if(nameKey == "copper-wire"||nameKey == "iron-plate"||nameKey == "copper-plate"||nameKey == "electronic-circuit"||nameKey == "steel-plate"||nameKey == "advanced-circuit"||nameKey == "crude-oil"||nameKey == "petroleum-gas"){
+	if(nameKey === "copper-wire"||nameKey === "iron-plate"||nameKey === "copper-plate"||nameKey === "electronic-circuit"||nameKey === "steel-plate"||nameKey === "advanced-circuit"||nameKey === "crude-oil"||nameKey === "petroleum-gas"){
 		xyz.showInLegend = true;
 	}
 	xyz.dataPoints = chartData;
@@ -297,7 +297,7 @@ function generateLineChartArray(data, nameKey) {
 
 function drawChart(selector, chartData, title) {
 	// selector is ID of element, ex "chartContainer" or "-123199123"
-	console.log(chartData)
+	console.log(chartData);
 	chartsByID[selector] = new CanvasJS.Chart(selector, {
 		title:{
 			text: title || "Production graph"
