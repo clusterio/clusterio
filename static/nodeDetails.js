@@ -38,21 +38,45 @@ var chartsByID = {};
 // update the online indicator dot
 setInterval(function(){
 	getJSON("/api/slaves", function(err, slaveData){
-		let indicator = document.querySelector("#onlineIndicator");
+		let indicator = document.querySelector("#online-indicator");
+		$(indicator).removeClass('fa-signal');
+		$(indicator).removeClass('fa-dizzy');
+		$(indicator).removeClass('fa-plug');
 		if(err){
 			// our request threw an error, most likely master is unavailable so we show yellow indicator
-			indicator.style.backgroundColor = "yellow";
+			indicator.style.color = "yellow";
+			$(indicator).addClass('fa-plug');
 			indicator.title = "Master server unavailable";
 			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
 		} else if(Math.floor(slaveData[getParameterByName("instanceID")].time/100000) === Math.floor(Date.now()/100000)){
-			indicator.style.backgroundColor = "green";
+			indicator.style.color = "green";
+			$(indicator).addClass('fa-signal');
 			indicator.title = "Slave is online";
 		} else {
-			indicator.style.backgroundColor = "red";
+			indicator.style.color = "red";
+			$(indicator).addClass('fa-dizzy');
 			indicator.title = "Slave is offline";
 		}
 	});
 }, 1000);
+
+function regexModDetails(modFileName) {
+	let m;
+	let results = [];
+	const regex = /(.+)_(\d+\.\d+\.\d+)\.zip/gm;
+	while ((m = regex.exec(modFileName)) !== null) {
+		// This is necessary to avoid infinite loops with zero-width matches
+		if (m.index === regex.lastIndex) {
+			regex.lastIndex++;
+		}
+
+		// The result can be accessed through the `m`-variable.
+		m.forEach((match, _) => {
+			results.push(match);
+		});
+	}
+	return results
+}
 
 populateSlaveInfo();
 function populateSlaveInfo(){
@@ -86,18 +110,19 @@ function populateSlaveInfo(){
 		}
 		*/
 		let slave = slaveData[instanceID];
-		let HTML = "<div id='header'><div id='onlineIndicator'></div><h1>Name: " + slave.instanceName+"</h1>";
-		HTML += "<div class='subbar'><h6>Host: "+slave.mac+" </h6><h6>Unique: "+slave.unique+" </h6>";
+		let HTML = '<div class="jumbotron mt-5"><div id="header">' +
+			'<h1 class="display-4"><i id="online-indicator" class="mr-3 fas"></i> ' + slave.instanceName+"</h1>";
+		HTML += '<div class="stats" id="node-stats">' +
+			'<nav aria-label="breadcrumb">\n' +
+			'  <ol class="breadcrumb"><li class="breadcrumb-item">Host: '+slave.mac+'</li>' +
+			'<li class="breadcrumb-item">Unique: '+slave.unique+'</li>';
 		if(slave.publicIP !== "localhost"){
-			HTML += "<h6>IP: "+slave.publicIP+":"+slave.serverPort+"</h6>";
+			HTML += '<li class="breadcrumb-item">IP: '+slave.publicIP+':'+slave.serverPort+'</li>';
 		} else {
-			HTML += "<h6>This server is not configured for incoming connections</h6>";
+			HTML += '<li class="breadcrumb-item">This server is not configured for incoming connections</li>';
 		}
-		HTML += "</div></div>"; // end of header
-		// left container
-		HTML += "<div id='leftHeroContainer'>";
-		HTML += "<div id='displayBody'><p>Last seen: <span id='lastSeenDate'>"+moment(Number(slave.time)).fromNow()+"</span></p>";
-		HTML += "<p>Online players: "+slave.playerCount+"</p>";
+		HTML += '<li class="breadcrumb-item">Last seen: <span id="lastSeenDate">'+moment(Number(slave.time)).fromNow()+"</span></li>";
+		HTML += '<li class="breadcrumb-item">Online players: '+slave.playerCount+"</li></ol></nav>";
 		
 		// detect  if remoteMap mod is installed, if it is we want to show the link for it
 		let hasRemoteMap = false;
@@ -114,9 +139,25 @@ function populateSlaveInfo(){
 		HTML += "</div>"; // end of displayBody
 		
 		// list mods and other metadata
-		HTML += "<h2 class='subtitle'>Mods</h2><ul id='modlist'>";
-		for(let i = 0; i < slave.mods.length; i++){
-			HTML += "<li>"+slave.mods[i].modName+"</li>"
+		HTML += '<h2 class="subtitle d-inline">Mods</h2><a class="btn btn-primary float-right m-2">Fetch Mod Data</a>' +
+			'<table id="modlist" class="table table-striped table-hover">' +
+			'  <thead>\n' +
+			'    <tr>\n' +
+			'      <th scope="col">#</th>\n' +
+			'      <th scope="col">Version</th>\n' +
+			'      <th scope="col">Filename</th>\n' +
+			'      <th scope="col">Summary</th>\n' +
+			'    </tr>\n' +
+			'  </thead>' +
+			'  <tbody>';
+		for(let i = 0; i < slave.mods[0].modName.length; i++){
+			let modRegexResults = regexModDetails(slave.mods[0].modName[i]);
+			HTML += `<tr>
+					<th scope="row">${i + 1}</th>
+					<td>${modRegexResults[2]}</td>
+					<td>${modRegexResults[1]}</td>
+					<td></td>
+				</tr>`
 		}
 		HTML += "</ul>";
 		

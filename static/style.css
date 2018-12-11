@@ -21,6 +21,10 @@ nav li {
     width: 60px;
     height: 34px;
 }
+.settingsBox {
+    position: relative;
+    display: block;
+}
 
 /* Hide default HTML checkbox */
 .switch input {

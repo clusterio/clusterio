@@ -25,7 +25,7 @@
 					for(let id in slaves){
 						let slave = slaves[id];
 						html += `
-						<div id="${id}" class="slaveBox card">
+						<div id="${id}" class="slaveBox card mb-3">
                             <div class="card-body">
                                 <h5 class="card-title"><a href='nodeDetails?instanceID=${id}'>
                                     <h2>${slave.instanceName}</h2>
@@ -50,17 +50,22 @@
 								for(let i in slaveListingEntries){
 									let button = slaveListingEntries[i];
 									if(button.getHtml && typeof button.getHtml == "function"){
+										html += "<div class=\"plugin-link\">"
 										html += button.getHtml({slave});
+										html += "</div>"
 									}
 								}
 							}
 						}
 						html += `
 						</div>
-                    </div>`
+                    `
 					}
 				%>
 				<%- html %>
 			</div>
     </div>
+<script>
+	$('.plugin-link a').addClass('btn btn-primary')
+</script>
 </body>
