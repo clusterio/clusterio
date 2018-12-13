@@ -113,17 +113,24 @@ function populateSlaveInfo(){
 		let HTML = '<div class="jumbotron mt-5"><div id="header">' +
 			'<h1 class="display-4"><i id="online-indicator" class="mr-3 fas"></i> ' + slave.instanceName+"</h1>";
 		HTML += '<div class="stats" id="node-stats">' +
-			'<nav aria-label="breadcrumb">\n' +
-			'  <ol class="breadcrumb"><li class="breadcrumb-item">Host: '+slave.mac+'</li>' +
+			'<nav class="mt-3" aria-label="breadcrumb">\n' +
+			'  <ol class="breadcrumb align-content-center"><li class="breadcrumb-item">Host: '+slave.mac+'</li>' +
 			'<li class="breadcrumb-item">Unique: '+slave.unique+'</li>';
 		if(slave.publicIP !== "localhost"){
 			HTML += '<li class="breadcrumb-item">IP: '+slave.publicIP+':'+slave.serverPort+'</li>';
 		} else {
 			HTML += '<li class="breadcrumb-item">This server is not configured for incoming connections</li>';
 		}
+        if(slave.meta)
+            for(let key in slave.meta){
+                let t = slave.meta[key];
+                if(typeof t == "string"){
+                    HTML += "<li class=\"breadcrumb-item\">"+key+": "+t+"</li>";
+                }
+            }
 		HTML += '<li class="breadcrumb-item">Last seen: <span id="lastSeenDate">'+moment(Number(slave.time)).fromNow()+"</span></li>";
 		HTML += '<li class="breadcrumb-item">Online players: '+slave.playerCount+"</li></ol></nav>";
-		
+
 		// detect  if remoteMap mod is installed, if it is we want to show the link for it
 		let hasRemoteMap = false;
 		slave.mods.forEach(mod => {
@@ -139,13 +146,13 @@ function populateSlaveInfo(){
 		HTML += "</div>"; // end of displayBody
 		
 		// list mods and other metadata
-		HTML += '<h2 class="subtitle d-inline">Mods</h2><a class="btn btn-primary float-right m-2">Fetch Mod Data</a>' +
+		HTML += '<h2 class="subtitle d-inline">Mods</h2><a id="fetch-mod-data" class="btn btn-primary float-right m-2">Fetch Mod Data</a>' +
 			'<table id="modlist" class="table table-striped table-hover">' +
 			'  <thead>\n' +
 			'    <tr>\n' +
 			'      <th scope="col">#</th>\n' +
 			'      <th scope="col">Version</th>\n' +
-			'      <th scope="col">Filename</th>\n' +
+			'      <th scope="col">Name</th>\n' +
 			'      <th scope="col">Summary</th>\n' +
 			'    </tr>\n' +
 			'  </thead>' +
@@ -167,18 +174,8 @@ function populateSlaveInfo(){
 		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>';
 		// terminal
 		// HTML += '<div id="terminal"></div>';
-		
-		document.querySelector("#hero").innerHTML = HTML;
-		
-		// slaveDetails
-		HTML = "";
-		if(slave.meta)
-		for(let key in slave.meta){
-			let t = slave.meta[key];
-			if(typeof t == "string"){
-				HTML += "<p>"+key+": "+t+"</p>";
-			}
-		}
+
+
 		
 		document.querySelector("#body > #details").innerHTML = HTML;
 		
@@ -186,8 +183,23 @@ function populateSlaveInfo(){
 		makeGraph(slave.unique, slave.unique)
 		
 		// makeTerminal();
+
+        $('#fetch-mod-data').on("click", downloadSaveModData);
 	});
 }
+
+
+function downloadSaveModData() {
+    let modRows = $("#modlist tbody tr");
+    for (let i = 0; i < modRows.length; i++) {
+		let modName = modRows[i].children[2].innerText;
+        $.getJSON( "/api/modmeta?modname=" + modName, function( data ) {
+            modRows[i].children[2].innerHTML = data.title;
+            modRows[i].children[3].innerHTML = data.summary
+        });
+    }
+}
+
 var slaveLogin = {};
 function makeTerminal(){
 	myTerminal = new Terminal();

@@ -16,10 +16,10 @@ window.onload = function(){
 	for(let i = 0; i < sliders.length; i++) {
 		sliders[i].onclick = function() {
 			let settings = JSON.parse(localStorage.settings);
-			
+            let selectedSliderParent = $(this.parentElement.parentElement);
 			// walk through DOM structure created by drawSetting and update localstorage from that
-			console.log(this.parentElement.parentElement.childNodes[0].innerHTML + " = " + !this.parentElement.childNodes[0].checked);
-			settings[this.parentElement.parentElement.childNodes[0].innerHTML] = !this.parentElement.childNodes[0].checked;
+			console.log(selectedSliderParent.find('.settings-text').html() + " = " + (selectedSliderParent.find("label input").val() === 'on'));
+			settings[selectedSliderParent.find('.settings-text').html()] = (selectedSliderParent.find("label input").val() === 'on');
 			
 			localStorage.settings = JSON.stringify(settings);
 		}

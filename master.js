@@ -44,6 +44,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const base64url = require('base64url');
 const moment = require("moment");
+const request = require("request")
 
 // constants
 console.log(`Requiring config from ${args.config || './config'}`)
@@ -643,6 +644,33 @@ app.get("/api/inventoryAsObject", function(req, res) {
 	// Check it and send it
 	res.send(JSON.stringify(db.items));
 });
+
+/**
+ GET endpoint to read the masters inventory as an object with key:value pairs
+
+ @memberof clusterioMaster
+ @instance
+ @alias api/modData
+ @returns {object} JSON
+ */
+
+// wrap a request in an promise
+    async function downloadPage(url) {
+        return new Promise((resolve, reject) => {
+            request(url, (error, response, body) => {
+                resolve(body);
+            });
+        });
+    }
+
+app.get("/api/modmeta", async function(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+    res.header("Access-Control-Allow-Origin", "*");
+    res.setHeader('Content-Type', 'application/json');
+    let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
+	res.send(modData);
+});
+
 
 /**
 POST endpoint for running commands on slaves.

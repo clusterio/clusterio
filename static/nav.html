@@ -11,6 +11,26 @@
     <div class="nav-item mr-1">
         <a class="nav-link align-middle" href="/nodes">Slaves</a>
     </div>
+    <%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
+    <%
+    sidebarPluginButtonsHtml = "";
+    for(let o in masterPlugins){
+    let plug = masterPlugins[o];
+    if(plug.main
+    && plug.main.ui
+    && typeof plug.main.ui.sidebar == "object"
+    && Array.isArray(plug.main.ui.sidebar)){
+    let sidebarEntries = plug.main.ui.sidebar;
+    for(let i in sidebarEntries){
+    let button = sidebarEntries[i];
+    if(button.getHtml && typeof button.getHtml == "function"){
+    sidebarPluginButtonsHtml += button.getHtml();
+    }
+    }
+    }
+    }
+    %>
+    <%- sidebarPluginButtonsHtml %>
     <div class="nav-item">
         <a class="nav-link align-middle" href="/settings">Settings</a>
     </div>
