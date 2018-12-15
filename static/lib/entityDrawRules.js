@@ -2,16 +2,6 @@
 import spritesheetJson from "./../pictures/spritesheet.js";
 
 export var entityDrawRules = {
-	"big-electric-pole": {
-		sizeInTiles: {
-			x:2,
-			y:2,
-		},
-		positionOffset: {
-			x:-1,
-			y:-1,
-		}
-	},
 	"accumulator": {
 		spritesheet: spritesheetJson.frames["images/factorio/entity/accumulator/accumulator.png"],
 		sizeInTiles: {
