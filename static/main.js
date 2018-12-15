@@ -49,6 +49,24 @@ debugTools = {
 	}
 }
 
+let cachedInstanceNames = {};
+async function getInstanceName(instanceID){
+	let instance = cachedInstanceNames[instanceID];
+	if(!instance){
+		let slaves = await getJSON("/api/slaves");
+		try {
+			for(id in slaves){
+				cachedInstanceNames[id] = slaves[id].instanceName;
+			}
+		} catch(e){
+			console.log("Error while looking for instance name!");
+			console.log(e);
+		}
+		return cachedInstanceNames[instanceID] || instanceID;
+	} else {
+		return cachedInstanceNames[instanceID];
+	}
+}
 var g = {}
 contents = {
 	"iron-plate":100,
@@ -63,44 +81,66 @@ function djb2(str){
 	}
 	return hash;
 }
+
+// get queryString parameters
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
 // callback(err, json)
 function getJSON(url, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.open('GET', url, true);
-	xhr.responseType = 'json';
-	xhr.onload = function() {
-	  var status = xhr.status;
-	  if (status == 200) {
-		callback(null, xhr.response);
-	  } else {
-		callback(status);
-	  }
-	};
-	// triggers if connection is refused
-	xhr.onerror = function(e){
-		callback(e);
-	};
-	xhr.send();
+	return new Promise((resolve, reject) => {
+		var xhr = new XMLHttpRequest();
+		xhr.open('GET', url, true);
+		xhr.responseType = 'json';
+		xhr.onload = function() {
+			var status = xhr.status;
+			if (status == 200) {
+				if(callback) callback(null, xhr.response);
+				resolve(xhr.response);
+			} else {
+				if(callback) callback(status);
+				reject(status);
+			}
+		};
+		// triggers if connection is refused
+		xhr.onerror = function(e){
+			if(callback) callback(e);
+			reject(e);
+		};
+		xhr.send();
+	});
 };
 // callback(err, json)
 function postJSON(url, data, callback) {
-	var xhr = new XMLHttpRequest();
-	xhr.open('POST', url, true);
-	xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-	xhr.responseType = 'json';
-	xhr.onload = function() {
-	  var status = xhr.status;
-	  if (status == 200) {
-		callback(null, xhr.response);
-	  } else {
-		callback(status);
-	  }
-	};
-	// triggers if connection is refused
-	xhr.onerror = function(e){
-		callback(e);
-	};
-	xhr.send(JSON.stringify(data));
+	return new Promise((resolve, reject) => {
+		var xhr = new XMLHttpRequest();
+		xhr.open('POST', url, true);
+		xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+		xhr.responseType = 'json';
+		xhr.onload = function() {
+			var status = xhr.status;
+			if (status == 200) {
+				if(callback) callback(null, xhr.response);
+				resolve(xhr.response);
+			} else {
+				if(callback) callback(status);
+				reject(status);
+			}
+		};
+		// triggers if connection is refused
+		xhr.onerror = function(e){
+			if(callback) callback(e);
+			reject(e);
+		};
+		xhr.send(JSON.stringify(data));
+	});
 };
 // return Boolean
 function isJSON(string){

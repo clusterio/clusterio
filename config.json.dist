@@ -1,0 +1,60 @@
+{
+	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
+	"factorioDirectory": "./factorio",
+	"instanceDirectory": "./instances",
+	"databaseDirectory": "./database",
+	
+	"__comment1": "IP players should connect to to join your servers, should be portforwarded and stuff",
+	"publicIP": "localhost",
+	
+	"__comment2": "IP the master web server runs at, can be ignored on the master system",
+	"masterIP": "localhost",
+	
+	"__commentMasterPort": "HTTP port for the master to listen to",
+	"masterPort": 8080,
+	
+	"__commentsslPort": "HTTPS port for the master to listen to. Set to 0 or an empty string to not listen for HTTPS.",
+	"sslPort": 443,
+	"sslCert": "database/certificates/cert.crt",
+	"sslPrivKey": "database/certificates/cert.key",
+	
+	"__commentMasterAuthToken": "Authentication token to connect to the master server. Find it in secret-api-token.txt on the master.",
+	"masterAuthToken": "",
+	
+	"__commentAuthSecret": "This is a long random string used for generating authentication tokens. Do not share. Regenerates when secret-api-token.txt is deleted.",
+	"masterAuthSecret": "",
+	
+	"__comment3": "Your factorio.com username for factorio MP services, also username will be admin on new instances",
+	"username": "",
+	"__comment4": "Token from your factorio.com profile page. Required for MP and mod manager services.",
+	"token": "",
+	"__comment7": "Used for communication with the mod portal, not needed if you manage mods by hand",
+	"factorio_version": "0.16.41",
+	
+	"__comment5": "General user settings",
+	"verify_user_identity": true,
+	"auto_pause": false,
+	"allow_commands": "admins-only",
+	"game_password": "",
+	"description": "This server runs Clusterio",
+	"visibility": {
+		"public": true,
+		"lan": true
+	},
+	"__comment6": "Statistic gathering statistics, may affect server performance (master memory usage especially)",
+	"itemStats": {
+		"maxEntries":60,
+		"entriesPerSecond": 0.01666666667
+	},
+	"logItemTransfers": false,
+	"uploadModsToMaster": true,
+	"msBetweenCommands": 10,
+	"allowRemoteCommandExecution": true,
+	"enableCrossServerShout": true,
+	"mirrorAllChat": false,
+	"__comment7": "Autosave interval for items in the master storage in milliseconds. Defaults to one minute when set to 0 or not set.",
+	"autosaveInterval": 600000,
+	"disablePrometheusPushgateway": false,
+	"__comment8": "This setting only affects the master. It makes every import for things that arent 'electricity' return a maximum of 0. Effectively disables teleport chests.",
+	"disableImportsOfEverythingExceptElectricity": false
+}

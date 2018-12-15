@@ -2,11 +2,12 @@ var mkdirp = require("mkdirp-promise");
 var mkdirpSync = require("mkdirp").sync;
 var fs = require("fs");
 var events = require("events");
+var path = require("path");
 
 var objectOps = require("./../../lib/objectOps");
 
 var LinvoDB = require("linvodb3");
-LinvoDB.dbPath = "./database/linvodb/";
+// LinvoDB.dbPath = "./database/linvodb/";
 
 
 let allowLogging = true;
@@ -20,6 +21,7 @@ module.exports = class chunkStore {
 		this.chunkSize = chunkSize;
 		this.path = (path[path.length] == "/") ? path : path+"/";
 		mkdirpSync(path+name);
+		LinvoDB.dbPath = this.path;
 		
 		this.db = new LinvoDB(name, {}, {});
 		

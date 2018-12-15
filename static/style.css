@@ -1,277 +1,82 @@
-* {
-	margin:0px;
-	color: #FFF;
-}
-body {
-	/* same as http://www.lua-api.factorio.com/latest */
-	background-color: rgb(38, 38, 38);
-}
-button {
-	border-radius: 0;
-	border: 1px solid transparent;
-	border-color: #FF7200;
-	border-width:1px;
-	cursor: pointer;
-}
-#logo {
-	/* using same colors as factorios official ones, taken from
-	http://www.lua-api.factorio.com */
-	background-color: #262626;
-	color: 	#C8C8C8;
-}
-#storage {
-	float: left;
-}
-/* search field */
-#storage > input {
-	background-color:black;
-	width:300px;
-	box-sizing: border-box;
-}
-/* Graphs on the right of storage page */
-#body > #graphDisplay {
-	float:left;
-	width: calc(100% - 300px);
-	min-height:100px;
-}
-/* Navbar on the right */
-#sidenav {
-	position:fixed;
-	left:0px;
-	width:200px;
-	background-color:darkgrey;
-	height:100%;
-}
-#sidenav a p {
-	color: #FF7200;
-	transition:0.5s;
-}
-#sidenav a:hover p {
-	color: #FFF;
-}
-a {
-	color: #FF7200;
-	text-decoration: none;
-}
-a:hover {
-	color: #FFF;
-}
-/* ensure body does not overlap navbar on the right */
-#body {
-	margin-left:200px;
-}
-#body > #production {
-	display:block;
-}
-/* Inventory display table */
-#contents {
-	width:300px;
-}
-#contents table {
-	border: 1px solid black;
+nav {
+background-color: #25272a;
 }
 
-#contents td img {
-	height:32px;
-	width:32px;
-}
-#contentGraph {
-	float:left;
-}
-.storageGraph {
-	height:200px;
+nav li {
+	height: 80px;
+	vertical-align: middle;
 }
 
-/* terminal */
-.Terminal p div {
-	color:lime;
-}
-.Terminal p span {
-	color:yellow;
-}
-.Terminal p > span:nth-child(1):before {
-	content:"> ";
-}
-.Terminal {
-	overflow-y: scroll;
-	position:absolute;
-	border-left:1px solid darkgrey;
-	border-bottom:1px solid darkgrey;
-	height:400px;
-	transition:height 0.2s linear;
-}
-#terminal {
-	width:640px;
-	height:400px;
-	position:fixed;
-	right:10px;
-	bottom:10px;
-	left:50%;
-	top:50%;
-}
-/* titleBar, the bar above windows where you can minimize, maximize etc. Mostly for the terminal. */
-.titleBar {
-	width:100%;
-	height:25px;
-	background-color:white;
-}
-.titleBar > .title {
-	float:left;
-	margin-top: 3px;
-	margin-left: 5px;
-}
-.titleBar p {
-	color:black;
-}
-.titleBar > .titleButton {
-	width:50px;
-	height:100%;
-	float:right;
-	background-color:white;
-	color:black;
-	transition:0.3s;
-}
-.titleBar > .titleButton:hover {
-	background-color: lightgray;
-}
-.titleBar > .titleButton:before {
-	margin-left: 18px;
-}
-.titleBar > .titleButton.close:hover {
-	background-color: red;
-	color:white;
-}
-.titleBar > .titleButton.close:before {
-	content:"✕";
-	margin-top:5px;
-}
-.titleBar > .titleButton.maximize:before {
-	content:"⬜";
-	margin-top:5px;
-}
-.titleBar > .titleButton.minimize:before {
-	content:"__";
-	margin-left:17px;
+.navbar .nav-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 25px;
+    display: inline-block;
+    vertical-align: bottom;
 }
 
-/* Slave stuff */
-.slaveBox {
-	float:left;
-	width:100%;
-	/*height:110px;*/
-	background-color:#444;
-	/*border-radius: 10px;
-	margin-left:5px;
-	margin-right:5px;*/
-}
-.slaveBox > p {
-	margin:5px;
-}
-.slaveBox h2 {
-	margin:5px;
-	color: inherit;
-	transition:0.2s;
-}
-.slaveBox > button {
-	background-color: transparent;
-	color: #FF7200;
-	transition: 0.2s;
-}
-.slaveBox > button:hover {
-	color: #FFF;
-}
-.productionGraph {
-	float:right;
-	height:300px;
-}
-
-
-.button-black {
-	width:100%;
-	height:40px;
-	background-color:black;
-	color:white;
-	transition: all 300ms;
-}
-.button-black:hover {
-	background-color:#444;
-	color:yellow;
-	cursor:pointer;
-}
-.button-black * {
-	text-align:center;
-	position: relative;
-	top: 50%;
-	transform: translateY(-50%);
-}
-
-.canvasjs-chart-credit {
-	display:none;
-}
-
-
-/* Styling for settings page */
-.settingsText {
-	margin-left: 10px;
-	margin-right:10px;
-	margin-top: -10px;
-	font-size: 18px;
-}
-.settingsBox .switch {
-	position:relative;
-	top:10px;
-}
-
-/* Fancy togglle switch for toggly things  stolen from https://www.w3schools.com/howto/howto_css_switch.asp */
 /* The switch - the box around the slider */
 .switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+.settingsBox {
+    position: relative;
+    display: block;
 }
 
 /* Hide default HTML checkbox */
-.switch input {display:none;}
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
 
 /* The slider */
 .slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
 }
 
 .slider:before {
-  position: absolute;
-  content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
 }
 
 input:checked + .slider {
-  background-color: #2196F3;
+    background-color: #ab671e;
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+    box-shadow: 0 0 1px #ab671e;
 }
 
 input:checked + .slider:before {
-  -webkit-transform: translateX(26px);
-  -ms-transform: translateX(26px);
-  transform: translateX(26px);
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
 }
-canvas {
-	 -webkit-transform:translateZ(0)
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
 }

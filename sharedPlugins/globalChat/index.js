@@ -5,14 +5,19 @@ module.exports = class remoteCommands {
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
-		console.log(mergedConfig)
 		this.instances = {};
 		
 		this.socket.on("hello", () => this.socket.emit("registerChatReciever"));
 	
 		this.socket.on("gameChat", async data => {
 			if(data.instanceID && data.instanceID != this.config.unique.toString()){
-				if(data.data.includes("[CHAT]") && (data.data.toLowerCase().includes("/shout") || data.data.toLowerCase().includes("!shout"))){
+				if(data.data.includes("[CHAT]")
+				// if this isn't used as an info command or something (reduce spam)
+				&& !data.data.includes("!info")
+				// check if we are allowed to cross chat at all, default to true
+				&& (mergedConfig.enableCrossServerShout == undefined || mergedConfig.enableCrossServerShout)
+				// check if we are supposed to relay this message
+				&& (mergedConfig.mirrorAllChat || data.data.toLowerCase().includes("/shout") || data.data.toLowerCase().includes("!shout"))){
 					let words = data.data.trim().split(" ");
 					words.shift();
 					words.shift();
