@@ -3,35 +3,39 @@ _lastData = [];
 function drawcontents(data) {
 	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
 	_lastData = data;
-	
-	const search = new RegExp(document.querySelector("#search").value, 'i');
-	data = data.filter(function(item) {
+
+  // allow searching for multiple criteria separated by space
+  var searchArgs = document.querySelector("#search").value;
+  searchArgs = searchArgs.trim();
+  searchArgs = '(' + searchArgs.replace(/ +/g,")|(") + ')';
+  const search = new RegExp(searchArgs, 'i');
+  data = data.filter(function(item) {
 		return search.test(item.name);
 	})
-	
+
 	sortByKey(data, "count");
-	
+
 	const table = document.querySelector("#contents tbody"); //tables have tbody inserted automatically
 	const rows = table.children;
-	
+
 	//update existing rows or create new ones
 	data.forEach(function(item, i) {
 		// format count to have .s in it for large number readability (1,000,000)
 		item.count = item.count.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-		
+
 		let row = rows[i];
 		if(!row) {
 			row = document.createElement('tr');
 			row.innerHTML = "<td><img width=32 height=32></td><td class=name></td><td class=count></td>";
 			table.appendChild(row);
 		}
-		
+
 		const img = row.querySelector('img');
 		const imgName = getImageFromName(item.name);
 		if(img.getAttribute('src') !== imgName) {
 			img.setAttribute('src',imgName);
 		}
-		
+
 		const name = row.querySelector('.name');
 		if(name.textContent !== item.name) {
 			name.textContent = item.name;
@@ -39,13 +43,13 @@ function drawcontents(data) {
 				makeItemGraphs(item.name);
 			}
 		}
-		
+
 		const count = row.querySelector('.count');
 		if(count.textContent !== ''+item.count) {
 			count.textContent = item.count;
 		}
 	});
-	
+
 	//remove excess rows, for example, after filtering
 	while (data.length < rows.length) {
 		table.removeChild(rows[data.length]);
@@ -77,13 +81,13 @@ function sortByKey(array, key) {
     });
 }
 
-document.querySelector("#search").addEventListener('input', function() { 
+document.querySelector("#search").addEventListener('input', function() {
 	drawcontents();
 });
 
 // Make graph of cluster IO items
 /*getJSON("/api/getStats", function(err, data){
-	
+
 }*/
 function getItemStatData(item, callback){
 	var xhr = new XMLHttpRequest();
@@ -119,9 +123,9 @@ function makeItemGraphs(itemName){
 				HTML += '<div id="contentGraph'+instanceID+'" class="storageGraph" style="width: 100%;"></div>';
 				["place", "remove"].forEach(statistic => {
 					console.log("Making chart for "+instanceID+"'s "+statistic+" statistic");
-					
+
 					setTimeout(function(){
-						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
+						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance
 						xmlhttp.open("POST", "/api/getStats");
 						xmlhttp.setRequestHeader("Content-Type", "application/json");
 						xmlhttp.onreadystatechange = function(){
@@ -135,7 +139,7 @@ function makeItemGraphs(itemName){
 									} catch(e) {}
 									let whatGraphIsIt = "Item IO from ";
 									// if(statistic == "remove") whatGraphIsIt = "Items taken from cluster by";
-									
+
 									let chartData = JSON.parse(xmlhttp.response).data;
 									switch(statistic){
 										case "place":
@@ -191,7 +195,7 @@ function drawChart(selector, chartData, title) {
 					e.dataSeries.visible = false;
 				} else {
 					e.dataSeries.visible = true;
-				}	
+				}
 				e.chart.render();
 			}
 		},
