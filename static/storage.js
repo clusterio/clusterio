@@ -4,12 +4,12 @@ function drawcontents(data) {
 	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
 	_lastData = data;
 
-  // allow searching for multiple criteria separated by space
-  var searchArgs = document.querySelector("#search").value;
-  searchArgs = searchArgs.trim();
-  searchArgs = '(' + searchArgs.replace(/ +/g,")|(") + ')';
-  const search = new RegExp(searchArgs, 'i');
-  data = data.filter(function(item) {
+        // allow searching for multiple criteria separated by space
+        var searchArgs = document.querySelector("#search").value;
+        searchArgs = searchArgs.trim();
+        searchArgs = '(' + searchArgs.replace(/ +/g,")|(") + ')';
+        const search = new RegExp(searchArgs, 'i');
+        data = data.filter(function(item) {
 		return search.test(item.name);
 	})
 
