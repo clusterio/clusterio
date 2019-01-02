@@ -680,12 +680,16 @@ load_mod = function(installed_index)
             -- I blame Nexela for this
             path = path:gsub('/', '.')
             path = path:gsub('\\', '.')
+			local alt_path = ''
             if env.package._current_path_in_package then
-                path = env.package._current_path_in_package .. path
+                alt_path = env.package._current_path_in_package .. path
             end
             if mod_obj.loaded_files[path] then
                 debug_log({'hotpatch-trace.cached-load-require', path}, mod_name)
                 return mod_obj.loaded_files[path]
+			elseif mod_obj.loaded_files[alt_path] then
+				debug_log({'hotpatch-trace.cached-load-require', alt_path}, mod_name)
+                return mod_obj.loaded_files[alt_path]
             else
                 local oldbase = env.package._current_path_in_package
                 env.package._current_path_in_package = path:match('.+%..+%.')
@@ -706,9 +710,29 @@ load_mod = function(installed_index)
                         error(err)
                     end
                 end
+				local file = global.mods[installed_index].files[alt_path]
+                if file then
+                    debug_log({'hotpatch-trace.load-require', alt_path}, mod_name)
+                    local code, err = load(file, '[' .. mod_name .. '] ' .. alt_path .. '.lua', 'bt', env)
+                    if code then
+                        local result = code()
+                        mod_obj.loaded_files[alt_path] = result or true
+                        env.package._current_path_in_package = oldbase
+                        return mod_obj.loaded_files[alt_path]
+                    else
+                        debug_log(err, nil, 3)
+                        error(err)
+                    end
+                end
+				
                 debug_log({'hotpatch-trace.load-core-lib', path}, mod_name)
                 env.package._current_path_in_package = oldbase
-                return package.loaded[path]
+				local lib = package.loaded[path]
+				if not lib then 
+					debug_log(path .. ' not found', nil, 3)
+                    error(path .. ' not found')
+				end
+                return lib
             end
         end
         
@@ -812,9 +836,10 @@ run_mod = function(loaded_index)
     local mod = loaded_mods[loaded_index]
     if mod then
         local mod_name = mod.name
-        local old_global = mod.env.global
+        local old_global = table.deepcopy(mod.env.global)
+
         if strict_mode then
-           mod.env.global = {}
+           --mod.env.global = {}
         end
         debug_log({'hotpatch-info.running'}, mod_name)
         
@@ -826,19 +851,31 @@ run_mod = function(loaded_index)
             if game and game.player then
                 game.player.print(result)
             end
-            unload_mod(loaded_index)
             
             return false
         end
-        
             
         if strict_mode then
-            if mod.env.global ~= {} then
+            --if mod.env.global ~= {} then
                 --TODO: error, mod touched global inappropriately during load
-            end
-           mod.env.global = old_global
+            --end
+           --mod.env.global = old_global
+		   
         end
-        
+		
+		-- if a mod is being loaded that already has global data, it must be restored after
+		-- running control.lua, discarding any changes made
+		if not table.compare(old_global, {}) then
+			for k,v in pairs(mod.env.global) do
+				mod.env.global[k] = nil
+			end
+			for k,v in pairs(old_global) do
+				mod.env.global[k] = v
+			end
+			--mod.env.global = old_global
+		end
+		old_global = nil
+		
         mod.running = true
         debug_log({'hotpatch-info.complete', {'hotpatch-info.running'}}, mod_name)
         
@@ -964,7 +1001,7 @@ mod_on_init = function(loaded_index)
             local success, result = xpcall(mod.on_init, debug.traceback)
             if not success then
                 debug_log('on_init failed for ' .. mod.name)
-                unload_mod(loaded_index)
+                debug_log(result)
                 return false
             end
         end
@@ -980,10 +1017,11 @@ mod_on_load = function(loaded_index)
     if mod then
         debug_log({'hotpatch-trace.mod-on-load'}, mod.name)
         if mod.on_load then 
+			--local old_global = table.deepcopy(mod.env.global)
             local success, result = xpcall(mod.on_load, debug.traceback)
             if not success then
                 debug_log('on_load failed for ' .. mod.name)
-                unload_mod(loaded_index)
+                debug_log(result)
                 return false
             end
         end
@@ -1002,7 +1040,7 @@ mod_on_configuration_changed = function(loaded_index, config)
             local success, result = xpcall(mod.on_configuration_changed, debug.traceback, config)
             if not success then
                 debug_log('on_configuration_changed failed for ' .. mod.name)
-                unload_mod(loaded_index)
+                debug_log(result)
                 return false
             end
         end
@@ -1048,10 +1086,10 @@ register_nth_tick = function(mod_name, nth_tick)
     debug_log({'hotpatch-trace.on-nth-tick-event-registered', nth_tick}, mod_name)
     if found_event then
         debug_log({'hotpatch-trace.nth-tick-handler-added', nth_tick})
-        script.on_nth_tick(event.nth_tick, on_nth_tick)
+        script.on_nth_tick(nth_tick, on_nth_tick)
     else
         debug_log({'hotpatch-trace.nth-tick-handler-removed', nth_tick})
-        script.on_nth_tick(event.nth_tick, nil)
+        script.on_nth_tick(nth_tick, nil)
     end
 end
 
@@ -1063,18 +1101,18 @@ register_event = function(mod_name, event_name)
         local f = mod.on_event[event_name]
         if f then found_event = true break end
     end
-    debug_log({'hotpatch-trace.on-event-registered', nth_tick}, mod_name)
+    debug_log({'hotpatch-trace.on-event-registered', (event_names[event_name] or event_name)}, mod_name)
     if found_event then
         if script.get_event_handler(event_name) then
             -- handler already installed
             return
         else
            debug_log({'hotpatch-trace.on-event-handler-added', (event_names[event_name] or event_name)})
-           script.on_event(event.event, on_event)
+           script.on_event(event_name, on_event)
         end
     else
         debug_log({'hotpatch-trace.on-event-handler-removed', (event_names[event_name] or event_name)})
-        script.on_event(event.event, nil)
+        script.on_event(event_name, nil)
     end
 end
 
@@ -1095,7 +1133,7 @@ on_init = function()
         mod = static_mods[i]
         install_mod(mod.name, mod.version, mod.code, mod.files)
     end
-    
+    -- TODO: fix mod error loading behaviours
     for i = 1, #global.mods do
         load_mod(i)
     end
@@ -1150,10 +1188,21 @@ on_load = function()
     end
     
     -- run mods which loaded successfully
+	local failed_mods = {}
     for i = 1, #loaded_mods do
-        run_mod(i)
-        mod_on_load(i)
+        if run_mod(i) then
+			if not mod_on_load(i) then
+				table.insert(failed_mods, i)
+			end
+		else
+			table.insert(failed_mods, i)
+		end
     end
+	
+	-- unload mods which failed to run
+	for i = 1, #failed_mods do
+		unload_mod(failed_mods[i])
+	end
     
     debug_log({'hotpatch-info.complete', {'hotpatch-info.loading-installed-mods'}})
     debug_log({'hotpatch-info.complete', {'hotpatch-info.on-load'}})
@@ -1161,9 +1210,16 @@ end
 
 on_configuration_changed = function(config)
     debug_log({'hotpatch-info.on-configuration-changed'})
+	local failed_mods = {}
     for i = 1, #loaded_mods do
-        mod_on_configuration_changed(i)
+        if not mod_on_configuration_changed(i) then
+			table.insert(failed_mods, i)
+		end
     end
+	
+	for i = 1, #failed_mods do
+		unload_mod(failed_mods[i])
+	end
     debug_log({'hotpatch-info.complete', {'hotpatch-info.on-configuration-changed'}})
 end
 

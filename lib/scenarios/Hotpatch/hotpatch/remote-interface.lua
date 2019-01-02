@@ -1,5 +1,5 @@
 local hotpatch_tools = require 'hotpatch.mod-tools'
-hotpatch_tools.static_mod('hotpatch-remote-interface', '1.0.1', [===[
+hotpatch_tools.static_mod('hotpatch-remote-interface', '1.0.2', [===[
 --[[
 
 Copyright 2018 Chrisgbk
@@ -64,6 +64,14 @@ remote_interface['install'] = function(mod_name, mod_version, mod_code, mod_file
     -- examples: on_player_created
     local caller = game.player or console
     if caller.admin then
+		if mod_files then
+			for k,v in pairs(mod_files) do
+				if k == 'control' then
+					caller.print('ERROR: control.lua loaded twice for mod ' .. mod_name)
+					return
+				end
+			end
+		end
         local installed_index = find_installed_mod(mod_name)
         local loaded_index = find_loaded_mod(mod_name)
         if installed_index then
@@ -89,16 +97,19 @@ remote_interface['install'] = function(mod_name, mod_version, mod_code, mod_file
                 if loaded_index then
                     if not run_mod(loaded_index) then
                         caller.print('execution failed for mod ' .. mod_name)
+						unload_mod(loaded_index)
                         return
                     end
                     if not mod_on_init(loaded_index) then
                         caller.print('on_init failed for mod ' .. mod_name)
+						unload_mod(loaded_index)
                         return
                     end
                     -- TODO: notify all mods
                     -- TODO: determine vanilla behaviour and replicate it
-                    if not mod_on_configuration_changed(loaded_index, {mod_changes = {mod_name={new_version=version}}}) then
+                    if not mod_on_configuration_changed(loaded_index, {mod_changes = {mod_name={new_version=mod_version}}}) then
                         caller.print('on_configuration_changed failed for mod ' .. mod_name)
+						unload_mod(loaded_index)
                         return
                     end
                 else
@@ -138,16 +149,19 @@ remote_interface['run'] = function(mod_name)
         if loaded_index then
             if not run_mod(loaded_index) then
                 caller.print('execution failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
             if not mod_on_init(loaded_index) then
                 caller.print('on_init failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
             -- TODO: notify all mods
             -- TODO: determine vanilla behaviour and replicate it
             if not mod_on_configuration_changed(loaded_index, {mod_changes = {mod_name={new_version=version}}}) then
                 caller.print('on_configuration_changed failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
         end    
@@ -163,6 +177,14 @@ remote_interface['update'] = function(mod_name, mod_version, mod_code, mod_files
     -- TODO: validation
     local caller = game.player or console
     if caller.admin then
+		if mod_files then
+			for k,v in pairs(mod_files) do
+				if k == 'control' then
+					caller.print('ERROR: control.lua loaded twice for mod ' .. mod_name)
+					return
+				end
+			end
+		end
         local installed_index = find_installed_mod(mod_name)
         local loaded_index = find_loaded_mod(mod_name)
         local old_version
@@ -179,28 +201,33 @@ remote_interface['update'] = function(mod_name, mod_version, mod_code, mod_files
         loaded_index = find_loaded_mod(mod_name)
         if not run_mod(loaded_index) then
             caller.print('execution failed for mod ' .. mod_name)
+			unload_mod(loaded_index)
             return
         end
         if old_version then
-            if not mod_on_load(installed_index) then
+            if not mod_on_load(loaded_index) then
                 caller.print('on_load failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
             -- The mod must do any migrations here
             -- TODO: notify all mods
-            if not mod_on_configuration_changed(installed_index, {mod_changes = {mod_name={old_version=old_version, new_version=mod_version}}}) then
+            if not mod_on_configuration_changed(loaded_index, {mod_changes = {mod_name={old_version=old_version, new_version=mod_version}}}) then
                 caller.print('on_configuration_changed failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
         else
             -- first time install
-            if not mod_on_init(installed_index) then
+            if not mod_on_init(loaded_index) then
                 caller.print('on_init failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
             -- TODO: notify all mods
-            if not mod_on_configuration_changed(installed_index, {mod_changes = {mod_name={new_version=mod_version}}}) then
+            if not mod_on_configuration_changed(loaded_index, {mod_changes = {mod_name={new_version=mod_version}}}) then
                 caller.print('on_configuration_changed failed for mod ' .. mod_name)
+				unload_mod(loaded_index)
                 return
             end
         end
