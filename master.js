@@ -758,6 +758,8 @@ if(args.masterPort || config.masterPort){
 
 /* Websockets for remoteMap */
 var io = require("socket.io")(server);
+const ioMetrics = require("socket.io-prometheus");
+ioMetrics(io);
 var slaveMappers = {};
 class slaveMapper {
 	constructor(instanceID, socket) {
