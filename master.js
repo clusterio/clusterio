@@ -115,6 +115,7 @@ app.use(function(req, res, next){
 });
 
 require("./routes.js")(app);
+require("./routes/api/getPictures.js")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 // mod downloads

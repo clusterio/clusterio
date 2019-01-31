@@ -15,6 +15,7 @@ module.exports = class remoteCommands {
 				await fs.ensureDir(scenarioDir)
 				let scenarios = await fs.readdir(scenarioDir);
 				for(let i = 0; i < scenarios.length; i++){
+					messageInterface(`Loading scenario ${scenarios[i]}`)
 					let startTime = Date.now();
 					let scenPath = path.join(scenarioDir, scenarios[i]);
 					let stat = await fs.stat(scenPath);
