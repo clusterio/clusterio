@@ -1,3 +1,9 @@
+<img src="./logo.svg" width="100%" align="right">
+
+<br/>
+<br/>
+<br/>
+
 # factorioClusterio
 
 Discord for development/support/play: https://discord.gg/5XuDkje
@@ -74,8 +80,7 @@ Clusterio exploits one of the games logging features, game.write_file and RCON t
 
 This process works the same for both items and liquids, independant on what mods are used. Yes, modded items are fully supported.
 
-Clusterio also handles a few other neat things, such as giving you access to epoch time, transmitting combinator signals between worlds (and any other application who wants to) and 
-creating graphs on the master web interface.
+Clusterio can also do a few other neat things, such as giving you access to epoch time, syncing player inventories between servers, keeping track of playtime (playerManager plugin), teleporting trains between servers (trainTeleports) and exporting tons of factorio related statistics to Prometheus for graphing in grafana.
 
 ## Ubuntu setup
 
@@ -93,7 +98,7 @@ Master and all slaves:
     npm install
     cp config.json.dist config.json
     node ./lib/npmPostinstall.js
-	
+
 
 downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
@@ -109,17 +114,17 @@ Pretty much all the blank fields should be filled in, except on the master where
 **Master**
 
     pm2 start master.js --name master
-	
+
 OR
 
     node master.js
-    
+
 **Server Host**
-    
+
 To download the mod for all its non vanilla features and items, (optional, but very recommended)
 
     node client.js manage shared mods add clusterio
-	
+
 To create a new instance (its own save, set of mods and config files)
 
     node client.js start [instancename]
@@ -135,9 +140,9 @@ use `nano config.json` to change settings.
 Clusterio has *very* limited support for using docker.
 
     sudo docker build -t clusterio --no-cache --force-rm factorioClusterio
-	
+
 	sudo docker run --name master -e MODE=master -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
-	
+
 	sudo docker run --name slave -e MODE=client -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
@@ -179,7 +184,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 2. Copy config.json.dist to config.json
 
-3. Follow the instructions given. 
+3. Follow the instructions given.
 
 3.5 Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
 
@@ -235,9 +240,9 @@ If it still doesn't work, come over to our support discord linked at the top of 
 
 ### Portforwarding doesn't work on the master server when running under WSL
 
-If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip. This is also true when you correctly port-forwarded the correct ports. Even when routing this server through nginx in WSL, the issue persists. Then, on a hunch, I tried to run nginx from windows itself and found that this DID work. It came to me that the only usage difference between the 2 versions of nginx is that I got a Windows Firewall popup. 
+If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip. This is also true when you correctly port-forwarded the correct ports. Even when routing this server through nginx in WSL, the issue persists. Then, on a hunch, I tried to run nginx from windows itself and found that this DID work. It came to me that the only usage difference between the 2 versions of nginx is that I got a Windows Firewall popup.
 
-TLDR: the tested fix is: 
+TLDR: the tested fix is:
 
 - open your windows firewall and go to advanced settings
 
