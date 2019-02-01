@@ -80,8 +80,7 @@ Clusterio exploits one of the games logging features, game.write_file and RCON t
 
 This process works the same for both items and liquids, independant on what mods are used. Yes, modded items are fully supported.
 
-Clusterio also handles a few other neat things, such as giving you access to epoch time, transmitting combinator signals between worlds (and any other application who wants to) and
-creating graphs on the master web interface.
+Clusterio can also do a few other neat things, such as giving you access to epoch time, syncing player inventories between servers, keeping track of playtime (playerManager plugin), teleporting trains between servers (trainTeleports) and exporting tons of factorio related statistics to Prometheus for graphing in grafana.
 
 ## Ubuntu setup
 
