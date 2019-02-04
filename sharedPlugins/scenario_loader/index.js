@@ -11,58 +11,68 @@ module.exports = class remoteCommands {
 			let hotpatchInstallStatus = await this.checkHotpatchInstallation();
 			messageInterface("Hotpach installation status: "+hotpatchInstallStatus);
 			if(hotpatchInstallStatus){
-				let scenarioDir = "scenarios";
-				await fs.ensureDir(scenarioDir)
-				let scenarios = await fs.readdir(scenarioDir);
-				for(let i = 0; i < scenarios.length; i++){
-					messageInterface(`Loading scenario ${scenarios[i]}`)
-					let startTime = Date.now();
-					let scenPath = path.join(scenarioDir, scenarios[i]);
-					let stat = await fs.stat(scenPath);
-					if(stat.isDirectory){
-						async function loadFiles(dir, rootdir){
-							let returnFiles = [];
-							let entries = await fs.readdir(path.join(rootdir, dir));
-							for(let o = 0; o < entries.length; o++){
-								let stat = await fs.stat(path.join(rootdir, dir, entries[o]));
-								if(stat.isDirectory()){
-									// recurse
-									let subFolder = await loadFiles(path.join(dir, entries[o]), rootdir);
-									returnFiles = returnFiles.concat(subFolder);
-								} else if(entries[o].split(".")[entries[o].split(".").length-1].toLowerCase() == "lua"){
-									// if it is a Lua file, read its contents
-									// let data = await fs.readFile(path.join(rootdir, dir, entries[o]));
-									let data = await clusterTools.getLua(path.join(rootdir, dir, entries[o]), false);
-									returnFiles.push({
-										name: path.join(dir, entries[o].split(".")[0]),
-										data,
-									});
-								}
-							}
-							return returnFiles;
-						}
-						let fileMap = await loadFiles("", scenPath);
-						let files = {};
-						fileMap.forEach(map => {
-							files[map.name] = map.data;
-							console.log(map.name);
-						});
-						
-						let fileImportString = `\{`;
-						for(let k in files){
-							let name = k.replace(/\\/g, '/');
-							name = name.replace(/ /g, '');
-							// make sure *not* to include control.lua as it is provided as a seperate argument
-							if(name != "control") fileImportString += `["${name}"] = '${files[k]}', `;
-						}
-						fileImportString += `\}`;
-						if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
-						if(returnValue) messageInterface(returnValue);
-						messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
-					}
+				await this.loadScenariosFromFolder("scenarios") // located in project root folder (with sharedMods, sharedPlugins etc)
+				let plugins = new AsyncArray((await fs.readdir(path.join(__dirname, "../"))))
+				plugins.filterAsync(async plugin => {
+					// check if plugin is a folder and if plugin has a scenarios folder
+					
+				})
+				for(let g = 0; g < plugins.length; g++){
+					
 				}
 			}
 		})();
+	}
+	async loadScenariosFromFolder(scenarioDir){
+		await fs.ensureDir(scenarioDir)
+		let scenarios = await fs.readdir(scenarioDir);
+		for(let i = 0; i < scenarios.length; i++){
+			messageInterface(`Loading scenario ${scenarios[i]}`)
+			let startTime = Date.now();
+			let scenPath = path.join(scenarioDir, scenarios[i]);
+			let stat = await fs.stat(scenPath);
+			if(stat.isDirectory){
+				async function loadFiles(dir, rootdir){
+					let returnFiles = [];
+					let entries = await fs.readdir(path.join(rootdir, dir));
+					for(let o = 0; o < entries.length; o++){
+						let stat = await fs.stat(path.join(rootdir, dir, entries[o]));
+						if(stat.isDirectory()){
+							// recurse
+							let subFolder = await loadFiles(path.join(dir, entries[o]), rootdir);
+							returnFiles = returnFiles.concat(subFolder);
+						} else if(entries[o].split(".")[entries[o].split(".").length-1].toLowerCase() == "lua"){
+							// if it is a Lua file, read its contents
+							// let data = await fs.readFile(path.join(rootdir, dir, entries[o]));
+							let data = await clusterTools.getLua(path.join(rootdir, dir, entries[o]), false);
+							returnFiles.push({
+								name: path.join(dir, entries[o].split(".")[0]),
+								data,
+							});
+						}
+					}
+					return returnFiles;
+				}
+				let fileMap = await loadFiles("", scenPath);
+				let files = {};
+				fileMap.forEach(map => {
+					files[map.name] = map.data;
+					console.log(map.name);
+				});
+				
+				let fileImportString = `\{`;
+				for(let k in files){
+					let name = k.replace(/\\/g, '/');
+					name = name.replace(/ /g, '');
+					// make sure *not* to include control.lua as it is provided as a seperate argument
+					if(name != "control") fileImportString += `["${name}"] = '${files[k]}', `;
+				}
+				fileImportString += `\}`;
+				if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
+				if(returnValue) messageInterface(returnValue);
+				messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
+			}
+		}
 	}
 	async checkHotpatchInstallation(){
 		let yn = await this.messageInterface("/silent-command if remote.interfaces['hotpatch'] then rcon.print('true') else rcon.print('false') end");
@@ -95,4 +105,23 @@ function readDirectorySynchronously(directory) {
             readDirectorySynchronously(directorypath);
         }
     });
+}
+class AsyncArray extends Array {
+	constructor(arr) {
+		// this.data = arr; // In place of Array subclassing
+	}
+
+	filterAsync(predicate) {
+		// Take a copy of the array, it might mutate by the time we've finished
+		const data = Array.from(this.data);
+		// Transform all the elements into an array of promises using the predicate
+		// as the promise
+		return Promise.all(data.map((element, index) => predicate(element, index, data)))
+		// Use the result of the promises to call the underlying sync filter function
+		.then(result => {
+			return data.filter((element, index) => {
+				return result[index];
+			});
+		});
+	}
 }
