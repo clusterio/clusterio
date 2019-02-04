@@ -13,4 +13,5 @@ module.exports = {
 	description: modInfo.description,
 	// We'll send everything in this file to your stdin. Beware.
 	scriptOutputFileSubscription: "remoteMap.txt",
+	masterPlugin: "masterPlugin.js",
 }
