@@ -11,7 +11,4 @@ module.exports = function(app) {
 	app.get("/nodeDetails", function(req, res) {
 		res.render("nodeDetails");
 	});
-	app.get("/remoteMap", function(req, res) {
-		res.render("remoteMap");
-	});
 };

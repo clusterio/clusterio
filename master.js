@@ -755,6 +755,7 @@ if(args.masterPort || config.masterPort){
 	server.listen(args.masterPort || config.masterPort || 8080, function () {
 		console.log("Listening on port %s...", server.address().port);
 	});
+	module.exports = server;
 }
 
 /* Websockets for remoteMap */
@@ -985,5 +986,4 @@ async function getPlugins(){
 	return plugins;
 }
 
-module.exports = app;
 })();
