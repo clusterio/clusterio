@@ -2,6 +2,8 @@
 -- 
 -- Copyright (c) 2017 Florian Jung
 -- 
+-- Modified by Daniel Vestøl
+--
 -- Permission is hereby granted, free of charge, to any person obtaining a
 -- copy of this factorio lua stub and associated
 -- documentation files (the "Software"), to deal in the Software without
@@ -22,12 +24,13 @@
 -- DEALINGS IN THE SOFTWARE.
 
 function write_file(data)
-	stringsToWriteNextTick = stringsToWriteNextTick .. data .. '\n'
+	global.tileQueue = global.tileQueue .. data .. '\n'
+	-- stringsToWriteNextTick = stringsToWriteNextTick .. data .. '\n'
 	-- game.write_file("remoteMap.txt", data, true)
 end
 
 function dump_cached_writes()
-	game.write_file("remoteMap.txt", stringsToWriteNextTick, true, 0)
+	-- game.write_file("remoteMap.txt", stringsToWriteNextTick, true, 0)
 end
 
 function complain(text)
@@ -89,7 +92,7 @@ function on_chunk_generated(event)
 	end
 
 	-- writeout_resources(surface, area)
-	writeout_objects(surface, area)
+	-- writeout_objects(surface, area)
 	-- writeout_tiles(surface, area)
 end
 function on_some_entity_created(event, entp)
@@ -104,7 +107,7 @@ function on_some_entity_created(event, entp)
 		complain("wtf, on_some_entity_created has nil entity")
 		return
 	end
-	local entityData = ent.name..","..ent.position.x..","..ent.position.y
+	local entityData = "name="..ent.name..",x="..ent.position.x..",y="..ent.position.y
 	if ent.supports_direction then
 		entityData = entityData .. ",rot="..ent.direction
 	end
@@ -126,7 +129,7 @@ function on_some_entity_deleted(event)
 	--local area = {left_top={x=math.floor(ent.position.x), y=math.floor(ent.position.y)}, right_bottom={x=math.floor(ent.position.x)+1, y=math.floor(ent.position.y)+1}}
 
 	--table.insert(todo_next_tick, function () writeout_objects(surface, area ) end)
-	write_file("deleted,"..ent.position.x..","..ent.position.y)
+	write_file("name=deleted,x="..ent.position.x..",y="..ent.position.y)
 	--complain("on_some_entity_deleted: "..ent.name.." at "..ent.position.x..","..ent.position.y)
 end
 
@@ -143,3 +146,22 @@ script.on_event(defines.events.on_player_mined_entity, on_some_entity_deleted) -
 script.on_event(defines.events.on_robot_mined_entity, on_some_entity_deleted) --entity
 script.on_event(defines.events.on_resource_depleted, on_some_entity_deleted) --entity
 
+script.on_init(function()
+	global.tileQueue = ""
+end)
+
+remote.remove_interface("remoteMap")
+remote.add_interface("remoteMap", {
+	exportTiles = function()
+		rcon.print(global.tileQueue)
+		global.tileQueue = ""
+	end,
+	exportChunk = function(xc, yc, ref)
+		local data = ""
+		local entities = game.surfaces[1].find_entities({{xc*32,yc*32},{xc*32+32,yc*32+32}})
+		for _, ent in pairs(entities) do
+			data = data .. "|name:"..ent.name..",direction:"..ent.direction..",x:"..ent.position.x..",y:"..ent.position.y
+		end
+		rcon.print(data)
+	end
+})
