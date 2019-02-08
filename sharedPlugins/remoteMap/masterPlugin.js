@@ -80,15 +80,15 @@ class masterPlugin {
 							.split("|")																	// split into entities
 							.map(str => str.replace("\n",""))											// remove newlines that happen at the end of the last entity (maybe more as well???)
 							.filter(str => str.length > 0)												// remove blank entities
-							.filter(str => !str.includes("tree") &&										// don't send entities that can't be rendered anyways
+							.filter(str => 
+							// !str.includes("tree") &&													// don't send entities that can't be rendered anyways
 							!str.includes("dead") &&
-							!str.includes("rock") &&
+							// !str.includes("rock") &&
 							!str.includes("crude-oil") &&
 							!str.includes("remnants") &&
 							!str.includes("cliff") &&
 							!str.includes("player") &&
 							!str.includes("ore"))
-							.map(ent => ent.replace(/[-]/g, "_"))										// replace - with _
 							.map(ent => ent.split(",")													// split entity into properties
 								.map(prop => [prop.split(":")[0], prop.split(":")[1]])					// split properties into KV pairs
 							)
@@ -96,6 +96,10 @@ class masterPlugin {
 								let entityObj = {}
 								entity.forEach(property => entityObj[property[0]] = property[1])
 								return entityObj
+							})
+							.map(entity => {
+								entity.name = entity.name.replace(/[-]/g, "_")							// replace - with _ in entity names as thats what factorio.blueprint-editor preffers
+								return entity
 							})
 							.filter(entity => Object.keys(entity).length > 1)
 						)
