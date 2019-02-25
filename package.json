@@ -11,7 +11,9 @@
     "docs": "documentation build index.js --config documentation.yml -f html -o docs",
     "livedocs": "documentation serve --watch *.js lib/** --config documentation.yml",
     "install": "node lib/npmPostinstall.js",
-    "bundle-dependencies": "bundle-dependencies"
+    "bundle-dependencies": "bundle-dependencies",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "keywords": [
     "factorio"
@@ -65,7 +67,8 @@
     "socket.io-client": "^2.0.4",
     "socket.io-prometheus": "^0.2.1",
     "sync-request": "^4.0.1",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "snyk": "^1.134.2"
   },
   "devDependencies": {
     "documentation": "^5.4.0",
