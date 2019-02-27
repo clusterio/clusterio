@@ -382,7 +382,6 @@ debug_log({'hotpatch-info.loading-libs'})
 local libraries = {
     'camera',
     'flying_tags',
-    'inspect',
     'math3d',
     'mod-gui',
     'noise',
