@@ -185,11 +185,6 @@ module.exports = class remoteCommands {
 				for(let i=0;i<confirmedOrders.length;i++)
 				{
 					cmd+='["'+confirmedOrders[i].name+'"]='+confirmedOrders[i].count+',';
-					if(cmd.length>320) // Factorio max packet size is 508
-					{
-						that.messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
-						cmd="local t={";
-					}
 				}
 				if (!(cmd==="local t={")){
 					that.messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+cmd.slice(0, -1)+"}"+ " for k, item in pairs(t) do GiveItemsToStorage(k, item) end')");
@@ -222,12 +217,6 @@ module.exports = class remoteCommands {
 						for (let key in inventoryFrame)
 						{
 							cmd+='["'+key+'"]='+inventoryFrame[key]+",";
-							if(first && cmd.length>300 || !first && cmd.length > 320) // Factorio max packet size is 508
-							{
-									that.messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");
-									cmd="local s={";
-									first = false;
-							}
 						}
 						if (!(cmd==="local s={")){
 							that.messageInterface("/silent-command remote.call('clusterio', 'runcode', '"+(first ? 'global.ticksSinceMasterPinged=0 ':'')+cmd.slice(0, -1)+"}"+ " for name,count in pairs(s) do global.invdata[name]=count end')");

@@ -47,6 +47,7 @@
 		"entriesPerSecond": 0.01666666667
 	},
 	"logItemTransfers": false,
+	"disableFairItemDistribution": false,
 	"uploadModsToMaster": true,
 	"msBetweenCommands": 10,
 	"allowRemoteCommandExecution": true,

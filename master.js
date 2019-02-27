@@ -566,6 +566,27 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 			console.log('failure could not find ' + object.name);
 		}
 		res.send({name:object.name, count:0});
+	} else if(config.disableFairItemDistribution){
+		let numberToRemove = Math.min(Math.abs(Number(object.count)),Number(item));
+		db.items.removeItem({count: numberToRemove, name: object.name});
+		res.send({count: numberToRemove, name: object.name});
+		
+		// track statistics and do graphing things
+		prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(numberToRemove) || 0);
+		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
+		if(sentItemStatistics === undefined){
+			sentItemStatistics = new averagedTimeSeries({
+				maxEntries: config.itemStats.maxEntries,
+				entriesPerSecond: config.itemStats.entriesPerSecond,
+				mergeMode: "add",
+			}, console.log);
+		}
+		sentItemStatistics.add({
+			key:object.name,
+			value:numberToRemove,
+		});
+		//console.log(sentItemStatistics.data)
+		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 	} else {
 		const originalCount = Number(object.count) || 0;
 		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
