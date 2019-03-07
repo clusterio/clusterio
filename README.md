@@ -78,7 +78,7 @@ Clusterio exploits one of the games logging features, game.write_file and RCON t
 
 7. client.js on server2: We were allowed to import x of item y, run command /c remote.call("clusterio", "importMany", "{'copper-plate':120}")
 
-This process works the same for both items and liquids, independant on what mods are used. Yes, modded items are fully supported.
+This process works the same for both items and liquids, independent on what mods are used. Yes, modded items are fully supported.
 
 Clusterio can also do a few other neat things, such as giving you access to epoch time, syncing player inventories between servers, keeping track of playtime (playerManager plugin), teleporting trains between servers (trainTeleports) and exporting tons of factorio related statistics to Prometheus for graphing in grafana.
 
