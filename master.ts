@@ -1,3 +1,6 @@
+import { getDatabase } from "./lib/getDatabase";
+import { db } from "./lib/getDatabase";
+
 /**
 Clusterio master server. Facilitates communication between slaves through
 a webserver, storing data related to slaves like production graphs and
@@ -13,7 +16,9 @@ node master.js
 // Attempt updating
 // const updater = require("./updater.js");
 // updater.update().then(console.log);
-
+namespace Master {
+// homebrew types
+//import {MasterPlugin} from "master"
 (async ()=>{
 
 // Set the process title, shows up as the title of the CMD window on windows
@@ -24,7 +29,7 @@ process.title = "clusterioMaster";
 process.on('unhandledRejection', r => console.log(r));
 
 // configgy stuff
-debug = false;
+const debug = false;
 
 // reduces loadtime from 1700 ms to 1200 ms on my i3 + SSD
 // tested by logging Date.now() here and when the webserver started listening
@@ -63,7 +68,7 @@ const fileOps = require("_app/fileOps");
 const authenticate = require("./lib/authenticate")(config);
 
 /** Sync */
-function randomStringAsBase64Url(size) {
+function randomStringAsBase64Url(size: Number) {
   return base64url(crypto.randomBytes(size));
 }
 if (!fs.existsSync("secret-api-token.txt")) {
@@ -105,11 +110,11 @@ app.set('view engine', 'html');
 app.engine('html', ejs.renderFile);
 
 // give ejs access to some interesting information
-app.use(function(req, res, next){
+app.use(function(req: Request, res: any, next: any){
 	res.locals.res = res;
 	res.locals.req = req;
 	res.locals.masterPlugins = masterPlugins;
-	res.locals.slaves = slaves;
+	res.locals.slaves = db.slaves;
 	res.locals.moment = moment;
 	next();
 });
@@ -231,51 +236,8 @@ function registerMoreMetrics(){
 }
 
 // set up database
-const db = {};
+const db: db = getDatabase(config);
 
-(function(){
-	try{
-		let x = fs.statSync(path.resolve(config.databaseDirectory, "/slaves.json"));
-		console.log(`loading slaves from path.resolve(config.databaseDirectory, "slaves.json")`);
-		slaves = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "slaves.json")));
-	} catch (e){
-		slaves = {};
-	}
-	try{
-		x = fs.statSync(path.resolve(config.databaseDirectory, "items.json"));
-		console.log(`loading items from ${path.resolve(config.databaseDirectory, "items.json")}`);
-		db.items = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "items.json")));
-	} catch (e){
-		db.items = {};
-	}
-})()
-
-db.items.addItem = function(object) {
-	if(object.name == "addItem" || object.name == "removeItem") {
-		console.error("Fuck you, that would screw everything up if you named your item that.");
-		return false;
-	} else {
-		if(this[object.name] && Number(this[object.name]) != NaN){
-			this[object.name] = Number(this[object.name]) + Number(object.count);
-		} else {
-			this[object.name] = object.count;
-		}
-		return true;
-	}
-}
-db.items.removeItem = function(object) {
-	if(object.name == "addItem" || object.name == "removeItem") {
-		console.error("Fuck you, that would screw everything up if you named your item that.");
-		return false;
-	} else {
-		if(this[object.name] && Number(this[object.name]) != NaN){
-			this[object.name] = Number(this[object.name]) - Number(object.count);
-		} else {
-			this[object.name] = 0;
-		}
-		return true;
-	}
-}
 
 // store slaves and inventory in a .json full of JSON data
 process.on('SIGINT', shutdown); // ctrl + c
@@ -284,17 +246,17 @@ async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
 	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
-	if(slaves && Object.keys(slaves).length < 2000000){
+	if(db.slaves && Object.keys(db.slaves).length < 2000000){
 		console.log("saving to slaves.json");
-		fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
-	} else if(slaves) {
-		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
+		fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(db.slaves));
+	} else if(db.slaves) {
+		console.log("Slave database too large, not saving ("+Object.keys(db.slaves).length+")");
 	}
 	if(db.items && Object.keys(db.items).length < 50000){
 		console.log("saving to items.json");
 		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
-	} else if(slaves) {
-		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
+	} else if(db.slaves) {
+		console.log("Item database too large, not saving ("+Object.keys(db.slaves).length+")");
 	}
 	for(let i in masterPlugins){
 		let plugin = masterPlugins[i];
@@ -314,7 +276,7 @@ POST World ID management. Slaves post here to tell the server they exist
 @instance
 @alias /api/getID
 */
-app.post("/api/getID", authenticate.middleware, function(req,res) {
+app.post("/api/getID", authenticate.middleware, function(req: Request,res: Response) {
 	endpointHitCounter.labels(req.route.path).inc();
 	// request.body should be an object
 	// {rconPort, rconPassword, serverPort, mac, time}
@@ -324,12 +286,12 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 		if(debug){
 			console.log(req.body)
 		}
-		if(!slaves[req.body.unique]){
-			slaves[req.body.unique] = {};
+		if(!db.slaves[req.body.unique]){
+			db.slaves[req.body.unique] = {};
 		}
-		for(k in req.body){
+		for(let k in req.body){
 			if(k != "meta" && req.body.hasOwnProperty(k)){
-				slaves[req.body.unique][k] = req.body[k];
+				db.slaves[req.body.unique][k] = req.body[k];
 			}
 		}
 		// console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
@@ -348,11 +310,11 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	
 	if(req.body && req.body.instanceID && req.body.password && req.body.meta){
 		// check for editing permissions
-		if(slaves[req.body.instanceID] && slaves[req.body.instanceID].rconPassword == req.body.password){
-			if(!slaves[req.body.instanceID].meta){
-				slaves[req.body.instanceID].meta = {};
+		if(db.slaves[req.body.instanceID] && db.slaves[req.body.instanceID].rconPassword == req.body.password){
+			if(!db.slaves[req.body.instanceID].meta){
+				db.slaves[req.body.instanceID].meta = {};
 			}
-			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
+			db.slaves[req.body.instanceID].meta = deepmerge(db.slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
 			let metaPortion = JSON.stringify(req.body.meta);
 			if(metaPortion.length > 50) metaPortion = metaPortion.substring(0,20) + "...";
 			// console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
@@ -373,7 +335,7 @@ app.post("/api/getSlaveMeta", function (req, res) {
 	console.log("body", req.body);
     if(req.body && req.body.instanceID && req.body.password){
     	console.log("returning meta for ", req.body.instanceID);
-    	res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+    	res.send(JSON.stringify(db.slaves[req.body.instanceID].meta))
 	} else {
     	res.status(400);
     	res.send('{"INVALID REQUEST":1}');
@@ -389,9 +351,9 @@ POST Check if a mod has been uploaded to the master before. Only checks against 
 */
 app.post("/api/checkMod", function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let files = fs.readdirSync(masterModFolder);
+	let files: string[] = fs.readdirSync(masterModFolder);
 	let found = false;
-	files.forEach(file => {
+	files.forEach((file) => {
 		if(file == req.body.modName) {
 			found = true;
 		}
@@ -414,7 +376,7 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	if (req.files && req.files.file) {
 		// console.log(req.files.file);
-		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err) {
+		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err: Error) {
 			if (err) {
 				res.status(500).send(err);
 			} else {
@@ -433,7 +395,7 @@ GET endpoint for getting information about all our slaves
 @instance
 @alias /api/slaves
 */
-let slaveCache = {
+let slaveCache: {timestamp:number, cache?:Slaves} = {
 	timestamp: Date.now(),
 };
 app.get("/api/slaves", function(req, res) {
@@ -441,9 +403,9 @@ app.get("/api/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
-		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
+		let copyOfSlaves: Slaves = JSON.parse(JSON.stringify(db.slaves));
 		// filter out the rcon password because thats kindof not a safe thing to share
-		for(key in copyOfSlaves){
+		for(let key in copyOfSlaves){
 			copyOfSlaves[key].rconPassword = "hidden";
 		}
 		slaveCache.cache = copyOfSlaves;
@@ -452,8 +414,8 @@ app.get("/api/slaves", function(req, res) {
 	
 	res.send(slaveCache.cache);
 });
-var recievedItemStatisticsBySlaveID = {};
-var sentItemStatisticsBySlaveID = {};
+var recievedItemStatisticsBySlaveID: any = {};
+var sentItemStatisticsBySlaveID: any = {};
 /*
 var recievedItemStatistics = new averagedTimeSeries({
 	maxEntries: config.itemStats.maxEntries,
@@ -475,7 +437,7 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let x;
+	let x: item;
 	try {
 		x = JSON.parse(req.body);
 	} catch (e) {
@@ -486,8 +448,8 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	}
 	if(!x.instanceID) {
 		x.instanceID = "unknown";
-		Object.keys(slaves).forEach(instanceID => {
-			if(slaves[instanceID].instanceName == req.body.instanceName) {
+		Object.keys(db.slaves).forEach(instanceID => {
+			if(db.slaves[instanceID].instanceName == req.body.instanceName) {
 				x.instanceID = instanceID;
 			}
 		});
@@ -539,7 +501,7 @@ POST endpoint to remove items from DB when client orders items.
 @param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
-_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
+var _doleDivisionFactor: {[name:string]: number} = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
@@ -554,7 +516,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	if(!object.instanceName) {
 		object.instanceName = "unknown";
 	}
-	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
+	if(db.slaves[object.instanceID]) object.instanceName = db.slaves[object.instanceID].instanceName;
 	let item = db.items[object.name]
 		// console.dir(doc);
 	if(!item
@@ -672,18 +634,18 @@ app.get("/api/inventoryAsObject", function(req, res) {
 
  @memberof clusterioMaster
  @instance
- @alias api/modData
+ @alias api/modmeta
  @returns {object} JSON
  */
 
 // wrap a request in an promise
-    async function downloadPage(url) {
-        return new Promise((resolve, reject) => {
-            request(url, (error, response, body) => {
-                resolve(body);
-            });
-        });
-    }
+async function downloadPage(url: string): Promise<object> {
+	return new Promise((resolve, reject) => {
+		request(url, (_error: any, _response: any, body: object) => {
+			resolve(body);
+		});
+	});
+}
 
 app.get("/api/modmeta", async function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -709,7 +671,7 @@ app.post("/api/runCommand", (req,res) => {
 	var token = req.headers['x-access-token'];
 	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
 	
-	jwt.verify(token, config.masterAuthSecret, function(err, decoded) {
+	jwt.verify(token, config.masterAuthSecret, function(err: Error) {
 		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
 		
 		// validate request.body
@@ -736,7 +698,7 @@ app.post("/api/runCommand", (req,res) => {
             && body.command[0] == "/")
         {
             // execute command
-            wsSlaves[body.instanceID].runCommand(body.command, data => {
+            wsSlaves[body.instanceID].runCommand(body.command, (data: string) => {
                 res.status(200).send({auth: true, message: "success", data});
             });
         } else {
@@ -754,7 +716,7 @@ GET endpoint. Returns factorio's base locale as a JSON object.
 */
 app.get("/api/getFactorioLocale", function(req,res){
 	endpointHitCounter.labels(req.route.path).inc();
-	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => {
+	getFactorioLocale.asObject(config.factorioDirectory, "en", (_err, factorioLocale) => {
 		res.send(factorioLocale);
 	});
 });
@@ -854,6 +816,8 @@ class mapRequester {
 }
 /* Websockets for send and recieve combinators */
 var wsSlaves = {};
+var wsChatRecievers = [];
+var wsAlertRecievers = [];
 class wsSlave {
 	constructor(instanceID, socket){
 		this.instanceID = instanceID;
@@ -886,8 +850,8 @@ class wsSlave {
 			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
 			if(typeof data === "object"){
 				data.timestamp = Date.now();
-				if(!global.wsChatRecievers) global.wsChatRecievers = [];
-				global.wsChatRecievers.forEach(socket => {
+				if(!wsChatRecievers) wsChatRecievers = [];
+				wsChatRecievers.forEach(socket => {
 					socket.emit("gameChat", data);
 				});
 			}
@@ -897,8 +861,8 @@ class wsSlave {
 			prometheusWsUsageCounter.labels('alert', this.instanceID).inc();
 			if(typeof alert === "object"){
 				alert.timestamp = Date.now();
-				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
-				global.wsAlertRecievers.forEach(socket => {
+				if(!wsAlertRecievers) wsAlertRecievers = [];
+				wsAlertRecievers.forEach(socket => {
 					socket.emit("alert", alert);
 				});
 			}
@@ -953,27 +917,26 @@ io.on('connection', function (socket) {
 	});
 	socket.on("registerChatReciever", function(data){
 		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
-		if(!global.wsChatRecievers) global.wsChatRecievers = [];
-		global.wsChatRecievers.push(socket);
+		if(!wsChatRecievers) wsChatRecievers = [];
+		wsChatRecievers.push(socket);
 	});
 	socket.on("registerAlertReciever", function(data){
 		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
-		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
-		global.wsAlertRecievers.push(socket);
+		if(!wsAlertRecievers) wsAlertRecievers = [];
+		wsAlertRecievers.push(socket);
 	});
 });
 
 // handle plugins on the master
 pluginManagement();
-masterPlugins = [];
+var masterPlugins: MasterPlugin[] = [];
 async function pluginManagement(){
 	let startPluginLoad = Date.now();
 	masterPlugins = await getPlugins();
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 	return;
 }
-
-async function getPlugins(){
+async function getPlugins(): Promise<MasterPlugin[]>{
 	const pluginManager = require("./lib/manager/pluginManager.js")(config);
 	let plugins = [];
 	let pluginsToLoad = await pluginManager.getPlugins();
@@ -1008,3 +971,4 @@ async function getPlugins(){
 }
 
 })();
+}

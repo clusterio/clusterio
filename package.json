@@ -5,6 +5,10 @@
   "repository": "https://github.com/Danielv123/factorioClusterio",
   "main": "master.js",
   "scripts": {
+    "build": "tsc",
+    "watch-ts": "tsc -w",
+    "watch-node": "nodemon dist/master.js",
+    "watch": "concurrently -k -p \"[{name}]\" -n \"TypeScript, Node\" -c \"yello.bold, cyan.bold\" \"npm run watch-ts\" \"npm run watch-node\"",
     "test": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{{,node_modules/_app/**/},!(node_modules)/**/}*.spec.js\" -R spec || echo .",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
     "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{{,node_modules/_app/**/},!(node_modules)/**/}*.spec.js\" -R spec || echo . && codecov -t f7b38085-36eb-4d72-84e6-64721910171e",
@@ -19,6 +23,17 @@
   "author": "Danielv123",
   "license": "ISC",
   "dependencies": {
+    "@types/bcrypt": "^3.0.0",
+    "@types/body-parser": "^1.17.0",
+    "@types/deepmerge": "^2.2.0",
+    "@types/ejs": "^2.6.3",
+    "@types/express": "^4.16.1",
+    "@types/fs-extra": "^5.0.5",
+    "@types/mkdirp": "^0.5.2",
+    "@types/moment": "^2.13.0",
+    "@types/needle": "^2.0.4",
+    "@types/request": "^2.48.1",
+    "@types/socket.io": "^2.1.2",
     "app-root-path": "^2.0.1",
     "as-table": "^1.0.31",
     "averaged-timeseries": "^1.4.0",
@@ -65,6 +80,7 @@
     "socket.io-client": "^2.0.4",
     "socket.io-prometheus": "^0.2.1",
     "sync-request": "^4.0.1",
+    "typescript-require": "^0.2.10",
     "underscore": "^1.8.3"
   },
   "devDependencies": {
