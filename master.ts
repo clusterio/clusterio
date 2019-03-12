@@ -210,15 +210,15 @@ app.get('/metrics', (req, res) => {
 });
 
 function registerMoreMetrics(){
-	for(let instanceID in slaves){
+	for(let instanceID in db.slaves){
 		// playercount
 		try{
-			prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
+			prometheusPlayerCountGauge.labels(instanceID, db.slaves[instanceID].instanceName).set(Number(db.slaves[instanceID].playerCount) || 0);
 		}catch(e){}
 		// UPS
 		try{
-			prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.UPS) || 60);
-			if(slaves[instanceID].meta.tick && typeof slaves[instanceID].meta.tick === "number") prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.tick) || 0);
+			prometheusUPSGauge.labels(instanceID, db.slaves[instanceID].instanceName).set(Number(db.slaves[instanceID].meta.UPS) || 60);
+			if(db.slaves[instanceID].meta.tick && typeof db.slaves[instanceID].meta.tick === "number") prometheusUPSGauge.labels(instanceID, db.slaves[instanceID].instanceName).set(Number(db.slaves[instanceID].meta.tick) || 0);
 		}catch(e){}
 	}
 	// inventory
@@ -229,8 +229,8 @@ function registerMoreMetrics(){
 	}
 	// Slave count
 	let numberOfActiveSlaves = 0;
-	for(let instance in slaves){
-		if(Date.now() - Number(slaves[instance].time) < 1000 * 30) numberOfActiveSlaves++;
+	for(let instance in db.slaves){
+		if(Date.now() - Number(db.slaves[instance].time) < 1000 * 30) numberOfActiveSlaves++;
 	}
 	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
 }

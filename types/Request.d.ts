@@ -1,3 +1,9 @@
 interface Request {
-    route: {[name: string]: any}
-}
+       route?: any,
+       body?: requestBody,
+    }
+    interface requestBody extends Body {
+        unique: string,
+        
+    }
+ 
