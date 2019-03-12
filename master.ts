@@ -276,7 +276,7 @@ POST World ID management. Slaves post here to tell the server they exist
 @instance
 @alias /api/getID
 */
-app.post("/api/getID", authenticate.middleware, function(req: Request,res: Response) {
+app.post("/api/getID", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	// request.body should be an object
 	// {rconPort, rconPassword, serverPort, mac, time}
@@ -725,7 +725,7 @@ if(args.sslPort || config.sslPort){
 		var certificate = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.crt'));
 		var privateKey = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.key'));
 
-		httpsServer = require("https").createServer({
+		var httpsServer = require("https").createServer({
 			key: privateKey,
 			cert: certificate
 		}, app).listen(args.sslPort || config.sslPort);
@@ -734,7 +734,7 @@ if(args.sslPort || config.sslPort){
 	}
 }
 if(args.masterPort || config.masterPort){
-	server = require("http").Server(app);
+	var server = require("http").Server(app);
 	server.listen(args.masterPort || config.masterPort || 8080, function () {
 		console.log("Listening on port %s...", server.address().port);
 	});
@@ -747,6 +747,9 @@ const ioMetrics = require("socket.io-prometheus");
 ioMetrics(io);
 var slaveMappers = {};
 class slaveMapper {
+	instanceID: string
+	socket: any
+	lastBeat: number
 	constructor(instanceID, socket) {
 		this.instanceID = instanceID;
 		this.socket = socket;
@@ -777,6 +780,10 @@ class slaveMapper {
 }
 var mapRequesters = {};
 class mapRequester {
+	requesterID: string
+	socket: any
+	instanceID: string
+	lastBeat: number
 	constructor(requesterID, socket, instanceID){
 		this.requesterID = requesterID;
 		this.socket = socket;
@@ -819,6 +826,10 @@ var wsSlaves = {};
 var wsChatRecievers = [];
 var wsAlertRecievers = [];
 class wsSlave {
+	instanceID: string
+	socket: any
+	lastBeat: number
+	commandsWaitingForReturn: object
 	constructor(instanceID, socket){
 		this.instanceID = instanceID;
 		this.socket = socket;

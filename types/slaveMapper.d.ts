@@ -1,0 +1,3 @@
+interface slaveMapper {
+    instanceID: string,
+}
