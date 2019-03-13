@@ -65,7 +65,7 @@ remote_interface['install'] = function(mod_name, mod_version, mod_code, mod_file
     local caller = game.player or console
     if caller.admin then
 		if mod_files then
-			for k,v in pairs(mod_files) do
+			for k,_ in pairs(mod_files) do
 				if k == 'control' then
 					caller.print('ERROR: control.lua loaded twice for mod ' .. mod_name)
 					return
@@ -77,14 +77,14 @@ remote_interface['install'] = function(mod_name, mod_version, mod_code, mod_file
         if installed_index then
             local old_version = installed_mods[installed_index].version
             if old_version then
-                debug_log('WARNING: mod already exists: ' .. mod_name .. ' ' .. old_version)
-                debug_log('WARNING: reinstalling mod in-place: ' .. mod_name .. ' ' .. mod_version)
+                debug_log({'hotpatch-warning.already-exists', mod_name, old_version})
+                debug_log({'hotpatch-warning.reinstalling', mod_name, old_version})
             end
             if loaded_index then
                 unload_mod(loaded_index)
             end
         end
-        
+
         install_mod(mod_name, mod_version, mod_code, mod_files)
         if not only_install then
             installed_index = find_installed_mod(mod_name)
@@ -131,6 +131,8 @@ remote_interface['run'] = function(mod_name)
     if caller.admin then
         local installed_index = find_installed_mod(mod_name)
         local loaded_index = find_loaded_mod(mod_name)
+		local mod
+        local version
         if installed_index and not loaded_index then
             if not load_mod(installed_index) then
                 caller.print('compilation failed for mod ' .. mod_name)
@@ -139,13 +141,13 @@ remote_interface['run'] = function(mod_name)
             loaded_index = find_loaded_mod(mod_name)
         else
             if loaded_index then
-                local mod = loaded_mods[loaded_index]
-                local version = mod.version
-                debug_log('WARNING: mod already loaded: ' .. mod_name .. ' ' .. version)
-                debug_log('WARNING: reinitializing: ' .. mod_name .. ' ' .. version)
+                mod = loaded_mods[loaded_index]
+                version = mod.version
+                debug_log({'hotpatch-warning.already-loaded', mod_name, version})
+                debug_log({'hotpatch-warning.reinitializing', mod_name, version})
             end
         end
-        
+
         if loaded_index then
             if not run_mod(loaded_index) then
                 caller.print('execution failed for mod ' .. mod_name)
@@ -164,7 +166,7 @@ remote_interface['run'] = function(mod_name)
 				unload_mod(loaded_index)
                 return
             end
-        end    
+        end
     else
         caller.print('You must be an admin to run this command.')
     end
@@ -178,7 +180,7 @@ remote_interface['update'] = function(mod_name, mod_version, mod_code, mod_files
     local caller = game.player or console
     if caller.admin then
 		if mod_files then
-			for k,v in pairs(mod_files) do
+			for k,_ in pairs(mod_files) do
 				if k == 'control' then
 					caller.print('ERROR: control.lua loaded twice for mod ' .. mod_name)
 					return
@@ -186,6 +188,9 @@ remote_interface['update'] = function(mod_name, mod_version, mod_code, mod_files
 			end
 		end
         local installed_index = find_installed_mod(mod_name)
+		if installed_index then
+			;
+		end
         local loaded_index = find_loaded_mod(mod_name)
         local old_version
         if loaded_index then
@@ -245,16 +250,40 @@ remote_interface['install_mod_file'] = function(mod_name, mod_file, mod_file_cod
     end
 end
 
+remote_interface['exec'] = function(mod_name, exec_code)
+    local caller = game.player or console
+    if caller.admin then
+		local loaded_index = find_loaded_mod(mod_name)
+		local env = loaded_mods[loaded_index].env
+		
+		local success
+		local code, err = load(exec_code, exec_code, 't', env)
+		if code then
+			success, err = pcall(code)
+			if not success then
+				debug_log(err)
+			end
+		else
+			debug_log(err)
+		end
+	else
+		caller.print('You must be an admin to run this command.')
+    end
+end
+
 --TODO: most of this function
 remote_interface['clean'] = function(mod_name)
     -- Removes ALL mod data and reinitializes
     -- doesn't remove things a mod may add like surfaces, etc
     local caller = game.player or console
     if caller.admin then
-        mod_reset(mod_name)
-        run_mod(mod_name)
-        mod_on_init(mod_name)
-        mod_on_configuration_changed(mod_name, {mod_changes = {mod_name={new_version=mod_version}}})
+        --mod_reset(mod_name)
+        --run_mod(mod_name)
+        --mod_on_init(mod_name)
+		local loaded_index = find_loaded_mod(mod_name)
+		local mod = loaded_mods[loaded_index]
+        local version = mod.version
+        mod_on_configuration_changed(loaded_index, {mod_changes = {mod_name={new_version=version}}})
     else
         caller.print('You must be an admin to run this command.')
     end
@@ -274,13 +303,13 @@ remote.add_interface('hotpatch', remote_interface)
 
 debug_log({'hotpatch-info.complete', {'hotpatch-info.remote-installing'}})
 
-]===])
+--]===])
 
 --[[
 
-remote.call('hotpatch, 'install', 'test', '1.0.0', [===[ 
-script.on_event(defines.events.on_player_changed_position, function(e) 
-    game.print('changed position') 
+remote.call('hotpatch, 'install', 'test', '1.0.0', [===[
+script.on_event(defines.events.on_player_changed_position, function(e)
+    game.print('changed position')
 end
 ]===]
 

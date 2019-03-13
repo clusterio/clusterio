@@ -98,7 +98,7 @@ files['testfolder.test'] = [===[
 ]===]
 
 files['test'] = [===[
-    require 'testfolder.test' 
+    require 'testfolder.test'
 ]===]
 
 hotpatch_tools.static_mod('require-test', '1.0.0', [===[
