@@ -283,29 +283,35 @@ process.on('SIGHUP', shutdown); // terminal closed
 async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
-	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
-	if(slaves && Object.keys(slaves).length < 2000000){
-		console.log("saving to slaves.json");
-		fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
-	} else if(slaves) {
-		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
-	}
-	if(db.items && Object.keys(db.items).length < 50000){
-		console.log("saving to items.json");
-		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
-	} else if(slaves) {
-		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
-	}
-	for(let i in masterPlugins){
-		let plugin = masterPlugins[i];
-		if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
-			let startTime = Date.now();
-			await plugin.main.onExit();
-			console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
+	try {
+		// set insane limit to slave length, if its longer than this we are probably being ddosed or something
+		if(slaves && Object.keys(slaves).length < 2000000){
+			console.log("saving to slaves.json");
+			fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
+		} else if(slaves) {
+			console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
 		}
+		if(db.items && Object.keys(db.items).length < 50000){
+			console.log("saving to items.json");
+			fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
+		} else if(slaves) {
+			console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
+		}
+		for(let i in masterPlugins){
+			let plugin = masterPlugins[i];
+			if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
+				let startTime = Date.now();
+				await plugin.main.onExit();
+				console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
+			}
+		}
+		console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
+		process.exit(0);
+	} catch(e) {
+		console.log(e)
+		console.log("Clusterio failed to exit cleanly. Time elapsed: "+(Date.now()-exitStartTime)+"ms")
+		process.exit(1)
 	}
-	console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
-	process.exit(0);
 }
 
 /**
@@ -528,6 +534,10 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 		res.send("failure");
 	}
 });
+const routes_api_remove = require("./routes/api/remove.js")
+const neuralDole = new routes_api_remove.neuralDole({
+	items: db.items,
+})
 /**
 POST endpoint to remove items from DB when client orders items.
 
@@ -564,6 +574,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		}
 		res.send({name:object.name, count:0});
 	} else if(config.disableFairItemDistribution){
+		// Give out as much items as possible until there are 0 left. This might lead to one slave getting all the items and the rest nothing.
 		let numberToRemove = Math.min(Math.abs(Number(object.count)),Number(item));
 		db.items.removeItem({count: numberToRemove, name: object.name});
 		res.send({count: numberToRemove, name: object.name});
@@ -585,10 +596,17 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		//console.log(sentItemStatistics.data)
 		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 	} else if(config.useNeuralNetDoleDivider){
-		
+		// use fancy neural net to calculate a "fair" dole division rate.
+		neuralDole.divider({
+			res,
+			object,
+			config,
+			sentItemStatisticsBySlaveID,
+			prometheusImportGauge
+		})
 	} else {
-		// Use dole division
-		require("./routes/api/remove.js").doleDivider({
+		// Use dole division. Makes it really slow to drain out the last little bit.
+		routes_api_remove.doleDivider({
 			item,
 			object,
 			db,
