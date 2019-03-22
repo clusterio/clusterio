@@ -539,11 +539,8 @@ POST endpoint to remove items from DB when client orders items.
 @param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
-_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
-	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
@@ -587,45 +584,20 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		});
 		//console.log(sentItemStatistics.data)
 		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
-	} else {
-		const originalCount = Number(object.count) || 0;
-		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
-		object.count = Math.round(object.count);
-		if(item.length > 40) console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${item} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(item) > Number(object.count)?'stocked':'short'}.`);
+	} else if(config.useNeuralNetDoleDivider){
 		
-		// Update existing items if item name already exists
-		if(Number(item) > Number(object.count)) {
-			//If successful, increase dole
-			_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-			if(config.logItemTransfers){
-				console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
-			}
-			if(db.items.removeItem({count: object.count, name: object.name})){
-				let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-				if(sentItemStatistics === undefined){
-					sentItemStatistics = new averagedTimeSeries({
-						maxEntries: config.itemStats.maxEntries,
-						entriesPerSecond: config.itemStats.entriesPerSecond,
-						mergeMode: "add",
-					}, console.log);
-				}
-				sentItemStatistics.add({
-					key:object.name,
-					value:object.count,
-				});
-				//console.log(sentItemStatistics.data)
-				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
-			}
-			
-			prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
-			prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(object.count) || 0);
-			res.send({count: object.count, name: object.name});
-		} else {
-			// if we didn't have enough, attempt giving out a smaller amount next time
-			_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
-			res.send({name:object.name, count:0});
-			//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
-		}
+	} else {
+		// Use dole division
+		require("./routes/api/remove.js").doleDivider({
+			item,
+			object,
+			db,
+			sentItemStatisticsBySlaveID,
+			config,
+			prometheusDoleFactorGauge,
+			prometheusImportGauge,
+			req,res,
+		})
 	}
 });
 

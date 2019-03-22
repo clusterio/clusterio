@@ -47,7 +47,9 @@
 		"entriesPerSecond": 0.01666666667
 	},
 	"logItemTransfers": false,
+	"__comment6.5": "When the master is undersupplied, we have 3 different modes to 'fairly' distribute items. First to ask gets all, dole division using weird formula or experimental neural net tries to make stuff as fair as possible. Feel free to play around.",
 	"disableFairItemDistribution": false,
+	"useNeuralNetDoleDivider": true,
 	"uploadModsToMaster": true,
 	"msBetweenCommands": 10,
 	"allowRemoteCommandExecution": true,
