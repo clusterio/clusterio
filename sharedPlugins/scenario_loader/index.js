@@ -81,7 +81,7 @@ module.exports = class remoteCommands {
 				if(returnValue) this.messageInterface(returnValue);
 				this.messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
 			}
-		})();
+		}
 	}
 	async checkHotpatchInstallation(){
 		let yn = await this.messageInterface("/silent-command if remote.interfaces['hotpatch'] then rcon.print('true') else rcon.print('false') end");
