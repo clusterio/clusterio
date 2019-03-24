@@ -120,3 +120,4 @@ class AsyncArray extends Array {
 		super(arr)
 		this.data = arr; // In place of Array subclassing
 	}
+}
