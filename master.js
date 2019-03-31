@@ -131,7 +131,7 @@ if(!config.disablePrometheusPushgateway){
 	setInterval(() => {
 		registerMoreMetrics();
 		pushgateway.push({ jobName: 'clusterio', groupings: {instance: config.publicIP + ":" + config.masterPort, owner: config.username}}, function(err, resp, body) {})
-	}, 5000)
+	}, 15000)
 }
 
 // collect express request durations ms
