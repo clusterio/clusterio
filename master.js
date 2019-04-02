@@ -536,7 +536,7 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 });
 const routes_api_remove = require("./routes/api/remove.js")
 const neuralDole = new routes_api_remove.neuralDole({
-	items: db.items,
+	items: db.items, gauge: prometheusDoleFactorGauge
 })
 /**
 POST endpoint to remove items from DB when client orders items.
