@@ -7,14 +7,14 @@ class neuralDole {
         items, gauge
     }){
         // Set some storage variables for the dole divider
-		this.prometheusDoleFactorGauge = gauge
+        this.prometheusDoleFactorGauge = gauge
         this.items = items
         this.itemsLastTick = JSON.parse(JSON.stringify(items))
         this.dole = {}
         this.carry = {}
         this.lastRequest = {}
-		this.doleinfo_last = {}
-		this.doleinfo_new = {}
+        this.doleinfo_last = {}
+        this.doleinfo_new = {}
 
         setInterval(()=>{
             for(let name in this.items){
@@ -26,14 +26,14 @@ class neuralDole {
                     count,
                     this.dole[name],
                     this.itemsLastTick[name],
-					this.doleinfo_last[name] || {numreq:0 , numslave:0},
-					this.doleinfo_new[name] || {numreq:0 , numslave:0}
+                    this.doleinfo_last[name] || {numreq:0 , numslave:0},
+                    this.doleinfo_new[name] || {numreq:0 , numslave:0}
                 )
                 this.dole[name] = magicData[0]
                 // DONE handle magicData[1] for graphing for our users
-				this.prometheusDoleFactorGauge.labels(name).set(magicData[1] || 0);
-				this.doleinfo_last[name]=this.doleinfo_new[name]
-				this.doleinfo_new[name]={numreq:0 , numslave:0}
+                this.prometheusDoleFactorGauge.labels(name).set(magicData[1] || 0);
+                this.doleinfo_last[name]=this.doleinfo_new[name]
+                this.doleinfo_new[name]={numreq:0 , numslave:0}
             }
             this.itemsLastTick = JSON.parse(JSON.stringify(this.items))
         }, 1000)
@@ -52,7 +52,7 @@ class neuralDole {
             this.dole[object.name],
             this.carry[object.name+" "+object.instanceID] || 0,
             this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
-			this.doleinfo_last[object.name] || {numreq:0 , numslave:0}
+            this.doleinfo_last[object.name] || {numreq:0 , numslave:0}
         )
         this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count
         //0.Number of items to give in that dose
@@ -60,10 +60,10 @@ class neuralDole {
         //2.New carry for item X slave Y
         this.dole[object.name] = magicData[1]
         this.carry[object.name+" "+object.instanceID] = magicData[2]
-		
-		this.doleinfo_new[object.name].numreq=magicData[0] + (this.doleinfo_new[object.name].numreq || 0)
-		this.doleinfo_new[object.name].numslave=1 + (this.doleinfo_new[object.name].numslave || 0)
-		
+        
+        this.doleinfo_new[object.name].numreq=magicData[0] + (this.doleinfo_new[object.name].numreq || 0)
+        this.doleinfo_new[object.name].numslave=1 + (this.doleinfo_new[object.name].numslave || 0)
+        
         // Remove item from DB and send it
         if(this.items.removeItem({count: magicData[0], name: object.name})){
             if(config.logItemTransfers){
@@ -109,7 +109,7 @@ function doleDivider({
     prometheusImportGauge,
     req,res,
 }){
-	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
+    const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
     const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
     
     const originalCount = Number(object.count) || 0;
