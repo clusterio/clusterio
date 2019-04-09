@@ -2,19 +2,37 @@ const averagedTimeSeries = require("averaged-timeseries")
 
 const doleNN = require("./../../lib/dole_nn_base.js")
 
+const Prometheus = require('prom-client');
+
 class neuralDole {
+    
+    getRequestStats(itemname,samples)
+    {
+        var sum=0;
+        samples=Math.min(samples,(this.stats[itemname] || []).length-1);
+        if (samples<1) return 0.1;
+        for (var i = 1; i <= samples; i++) {
+            sum+=this.stats[itemname][i].req;
+        }
+        if (sum==0) return 0.1;
+        return sum/samples;
+    }
+    
     constructor({
-        items, gauge
+        items, gaugePrefix
     }){
         // Set some storage variables for the dole divider
-        this.prometheusDoleFactorGauge = gauge
+        this.prometheusNNDoleGauge = new Prometheus.Gauge({
+            name: gaugePrefix+'nn_dole_gauge',
+            help: 'Current demand being supplied by Neural Network ; 1 means all demand covered, 0.5 means about half of each supply is covered, 0 means no items are given',
+            labelNames: ["itemName"],
+        });
         this.items = items
         this.itemsLastTick = JSON.parse(JSON.stringify(items))
         this.dole = {}
         this.carry = {}
         this.lastRequest = {}
-        this.doleinfo_last = {}
-        this.doleinfo_new = {}
+        this.stats=[]
 
         setInterval(()=>{
             for(let name in this.items){
@@ -26,14 +44,15 @@ class neuralDole {
                     count,
                     this.dole[name],
                     this.itemsLastTick[name],
-                    this.doleinfo_last[name] || {numreq:0 , numslave:0},
-                    this.doleinfo_new[name] || {numreq:0 , numslave:0}
+                    this.getRequestStats(name,5)
                 )
+                this.stats[name]=this.stats[name] || []
+                this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
+                if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
+                
                 this.dole[name] = magicData[0]
                 // DONE handle magicData[1] for graphing for our users
-                this.prometheusDoleFactorGauge.labels(name).set(magicData[1] || 0);
-                this.doleinfo_last[name]=this.doleinfo_new[name]
-                this.doleinfo_new[name]={numreq:0 , numslave:0}
+                this.prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
             }
             this.itemsLastTick = JSON.parse(JSON.stringify(this.items))
         }, 1000)
@@ -52,17 +71,19 @@ class neuralDole {
             this.dole[object.name],
             this.carry[object.name+" "+object.instanceID] || 0,
             this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
-            this.doleinfo_last[object.name] || {numreq:0 , numslave:0}
+            this.getRequestStats(object.name,5)
         )
+        if ((this.stats[object.name] || []).length>0)
+        {
+            this.stats[object.name][0].req+=Number(object.count);
+            this.stats[object.name][0].given+=Number(magicData[0]);
+        }
         this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count
         //0.Number of items to give in that dose
         //1.New dole for item X
         //2.New carry for item X slave Y
         this.dole[object.name] = magicData[1]
         this.carry[object.name+" "+object.instanceID] = magicData[2]
-        
-        this.doleinfo_new[object.name].numreq=magicData[0] + (this.doleinfo_new[object.name].numreq || 0)
-        this.doleinfo_new[object.name].numslave=1 + (this.doleinfo_new[object.name].numslave || 0)
         
         // Remove item from DB and send it
         if(this.items.removeItem({count: magicData[0], name: object.name})){
