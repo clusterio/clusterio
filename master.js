@@ -258,7 +258,7 @@ db.items.addItem = function(object) {
 		if(this[object.name] && Number(this[object.name]) != NaN){
 			this[object.name] = Number(this[object.name]) + Number(object.count);
 		} else {
-			this[object.name] = object.count;
+			this[object.name] = Number(object.count);
 		}
 		return true;
 	}
@@ -535,9 +535,12 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	}
 });
 const routes_api_remove = require("./routes/api/remove.js")
-const neuralDole = new routes_api_remove.neuralDole({
-	items: db.items, gauge: prometheusDoleFactorGauge
-})
+var neuralDole = null
+
+if(config.useNeuralNetDoleDivider)//Only initialize neural network when it's enabled, otherwise it might override gauge
+	neuralDole=new routes_api_remove.neuralDole({
+		items: db.items, gaugePrefix: prometheusPrefix
+	})
 /**
 POST endpoint to remove items from DB when client orders items.
 
@@ -564,7 +567,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
 	let item = db.items[object.name]
 		// console.dir(doc);
-	if(!item
+	if((item === undefined)
 	||((
 		config.disableImportsOfEverythingExceptElectricity === true || config.disableImportsOfEverythingExceptElectricity === "true" )
 		&& object.name != "electricity")
