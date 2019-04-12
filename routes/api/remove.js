@@ -2,16 +2,37 @@ const averagedTimeSeries = require("averaged-timeseries")
 
 const doleNN = require("./../../lib/dole_nn_base.js")
 
+const Prometheus = require('prom-client');
+
 class neuralDole {
+    
+    getRequestStats(itemname,samples)
+    {
+        var sum=0;
+        samples=Math.min(samples,(this.stats[itemname] || []).length-1);
+        if (samples<1) return 0.1;
+        for (var i = 1; i <= samples; i++) {
+            sum+=this.stats[itemname][i].req;
+        }
+        if (sum==0) return 0.1;
+        return sum/samples;
+    }
+    
     constructor({
-        items,
+        items, gaugePrefix
     }){
         // Set some storage variables for the dole divider
+        this.prometheusNNDoleGauge = new Prometheus.Gauge({
+            name: gaugePrefix+'nn_dole_gauge',
+            help: 'Current demand being supplied by Neural Network ; 1 means all demand covered, 0.5 means about half of each supply is covered, 0 means no items are given',
+            labelNames: ["itemName"],
+        });
         this.items = items
         this.itemsLastTick = JSON.parse(JSON.stringify(items))
         this.dole = {}
         this.carry = {}
         this.lastRequest = {}
+        this.stats=[]
 
         setInterval(()=>{
             for(let name in this.items){
@@ -22,10 +43,16 @@ class neuralDole {
                 let magicData = doleNN.Tick(
                     count,
                     this.dole[name],
-                    this.itemsLastTick[name]
+                    this.itemsLastTick[name],
+                    this.getRequestStats(name,5)
                 )
+                this.stats[name]=this.stats[name] || []
+                this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
+                if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
+                
                 this.dole[name] = magicData[0]
-                // TODO handle magicData[1] for graphing for our users
+                // DONE handle magicData[1] for graphing for our users
+                this.prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
             }
             this.itemsLastTick = JSON.parse(JSON.stringify(this.items))
         }, 1000)
@@ -42,15 +69,22 @@ class neuralDole {
             this.items[object.name],
             this.itemsLastTick[object.name] || 0,
             this.dole[object.name],
-            this.carry[object.name] || 0,
-            this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0
+            this.carry[object.name+" "+object.instanceID] || 0,
+            this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
+            this.getRequestStats(object.name,5)
         )
+        if ((this.stats[object.name] || []).length>0)
+        {
+            this.stats[object.name][0].req+=Number(object.count);
+            this.stats[object.name][0].given+=Number(magicData[0]);
+        }
         this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count
         //0.Number of items to give in that dose
         //1.New dole for item X
         //2.New carry for item X slave Y
         this.dole[object.name] = magicData[1]
-        this.carry[object.name] = magicData[2]
+        this.carry[object.name+" "+object.instanceID] = magicData[2]
+        
         // Remove item from DB and send it
         if(this.items.removeItem({count: magicData[0], name: object.name})){
             if(config.logItemTransfers){
@@ -96,7 +130,7 @@ function doleDivider({
     prometheusImportGauge,
     req,res,
 }){
-	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
+    const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
     const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
     
     const originalCount = Number(object.count) || 0;
