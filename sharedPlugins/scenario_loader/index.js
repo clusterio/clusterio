@@ -12,14 +12,6 @@ module.exports = class remoteCommands {
 			messageInterface("Hotpach installation status: "+hotpatchInstallStatus);
 			if(hotpatchInstallStatus){
 				await this.loadScenariosFromFolder("scenarios") // located in project root folder (with sharedMods, sharedPlugins etc)
-				let plugins = new AsyncArray((await fs.readdir(path.join(__dirname, "../"))))
-				plugins.filterAsync(async plugin => {
-					// check if plugin is a folder and if plugin has a scenarios folder
-					
-				})
-				for(let g = 0; g < plugins.length; g++){
-					
-				}
 			}
 		})();
 	}
@@ -27,7 +19,7 @@ module.exports = class remoteCommands {
 		await fs.ensureDir(scenarioDir)
 		let scenarios = await fs.readdir(scenarioDir);
 		for(let i = 0; i < scenarios.length; i++){
-			messageInterface(`Loading scenario ${scenarios[i]}`)
+			this.messageInterface(`Loading scenario ${scenarios[i]}`)
 			let startTime = Date.now();
 			let scenPath = path.join(scenarioDir, scenarios[i]);
 			let stat = await fs.stat(scenPath);
@@ -68,9 +60,9 @@ module.exports = class remoteCommands {
 					if(name != "control") fileImportString += `["${name}"] = '${files[k]}', `;
 				}
 				fileImportString += `\}`;
-				if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
-				if(returnValue) messageInterface(returnValue);
-				messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
+				if(files.control) var returnValue = await this.messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
+				if(returnValue) this.messageInterface(returnValue);
+				this.messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
 			}
 		}
 	}
@@ -108,8 +100,10 @@ function readDirectorySynchronously(directory) {
 }
 class AsyncArray extends Array {
 	constructor(arr) {
-		// this.data = arr; // In place of Array subclassing
+		super(arr)
+		this.data = arr; // In place of Array subclassing
 	}
+}
 
 	filterAsync(predicate) {
 		// Take a copy of the array, it might mutate by the time we've finished

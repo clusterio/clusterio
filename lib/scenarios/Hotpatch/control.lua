@@ -36,53 +36,97 @@ require 'hotpatch.gui'
 -- Any other use would require licensing/permission from Wube
 -- If you don't want to run this, either comment this out before creating your scenario, OR uninstall freeplay at runtime
 hotpatch_tools.static_mod('freeplay', '1.0.0', [===[
+local util = require("util")
 local silo_script = require("silo-script")
-local version = 1
+
+local created_items = function()
+  return
+  {
+    ["iron-plate"] = 8,
+    ["wood"] = 1,
+    ["pistol"] = 1,
+    ["firearm-magazine"] = 10,
+    ["burner-mining-drill"] = 1,
+    ["stone-furnace"] = 1
+  }
+end
+
+local respawn_items = function()
+  return
+  {
+    ["pistol"] = 1,
+    ["firearm-magazine"] = 10
+  }
+end
+
+for k,v in pairs(silo_script.get_events()) do
+  script.on_event(k, v)
+end
 
 script.on_event(defines.events.on_player_created, function(event)
   local player = game.players[event.player_index]
-  player.insert{name="iron-plate", count=8}
-  player.insert{name="pistol", count=1}
-  player.insert{name="firearm-magazine", count=10}
-  player.insert{name="burner-mining-drill", count = 1}
-  player.insert{name="stone-furnace", count = 1}
-  player.force.chart(player.surface, {{player.position.x - 200, player.position.y - 200}, {player.position.x + 200, player.position.y + 200}})
-  if (#game.players <= 1) then
-    game.show_message_dialog{text = {"msg-intro"}}
-  else
-    player.print({"msg-intro"})
+  util.insert_safe(player, global.created_items)
+
+  local r = global.chart_distance or 200
+  player.force.chart(player.surface, {{player.position.x - r, player.position.y - r}, {player.position.x + r, player.position.y + r}})
+
+  if not global.skip_intro then
+    if game.is_multiplayer() then
+      player.print({"msg-intro"})
+    else
+      game.show_message_dialog{text = {"msg-intro"}}
+    end
   end
-  silo_script.on_player_created(event)
+
+  silo_script.on_event(event)
 end)
 
 script.on_event(defines.events.on_player_respawned, function(event)
   local player = game.players[event.player_index]
-  player.insert{name="pistol", count=1}
-  player.insert{name="firearm-magazine", count=10}
-end)
-
-script.on_event(defines.events.on_gui_click, function(event)
-  silo_script.on_gui_click(event)
-end)
-
-script.on_init(function()
-  global.version = version
-  silo_script.on_init()
-end)
-
-script.on_event(defines.events.on_rocket_launched, function(event)
-  silo_script.on_rocket_launched(event)
+  util.insert_safe(player, global.respawn_items)
+  silo_script.on_event(event)
 end)
 
 script.on_configuration_changed(function(event)
-  if global.version ~= version then
-    global.version = version
-  end
+  global.created_items = global.created_items or created_items()
+  global.respawn_items = global.respawn_items or respawn_items()
   silo_script.on_configuration_changed(event)
+end)
+
+script.on_load(function()
+  silo_script.on_load()
+end)
+
+script.on_init(function()
+  global.created_items = created_items()
+  global.respawn_items = respawn_items()
+  silo_script.on_init()
 end)
 
 silo_script.add_remote_interface()
 silo_script.add_commands()
+
+remote.add_interface("freeplay",
+{
+  get_created_items = function()
+    return global.created_items
+  end,
+  set_created_items = function(map)
+    global.created_items = map
+  end,
+  get_respawn_items = function()
+    return global.respawn_items
+  end,
+  set_respawn_items = function(map)
+    global.respawn_items = map
+  end,
+  set_skip_intro = function(bool)
+    global.skip_intro = bool
+  end,
+  set_chart_distance = function(value)
+    global.chart_distance = tonumber(value)
+  end
+})
 ]===])
 
 -- Multi-file test
@@ -98,7 +142,7 @@ files['testfolder.test'] = [===[
 ]===]
 
 files['test'] = [===[
-    require 'testfolder.test' 
+    require 'testfolder.test'
 ]===]
 
 hotpatch_tools.static_mod('require-test', '1.0.0', [===[

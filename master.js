@@ -131,7 +131,7 @@ if(!config.disablePrometheusPushgateway){
 	setInterval(() => {
 		registerMoreMetrics();
 		pushgateway.push({ jobName: 'clusterio', groupings: {instance: config.publicIP + ":" + config.masterPort, owner: config.username}}, function(err, resp, body) {})
-	}, 5000)
+	}, 15000)
 }
 
 // collect express request durations ms
@@ -258,7 +258,7 @@ db.items.addItem = function(object) {
 		if(this[object.name] && Number(this[object.name]) != NaN){
 			this[object.name] = Number(this[object.name]) + Number(object.count);
 		} else {
-			this[object.name] = object.count;
+			this[object.name] = Number(object.count);
 		}
 		return true;
 	}
@@ -283,29 +283,35 @@ process.on('SIGHUP', shutdown); // terminal closed
 async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
-	// set insane limit to slave length, if its longer than this we are probably being ddosed or something
-	if(slaves && Object.keys(slaves).length < 2000000){
-		console.log("saving to slaves.json");
-		fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
-	} else if(slaves) {
-		console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
-	}
-	if(db.items && Object.keys(db.items).length < 50000){
-		console.log("saving to items.json");
-		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
-	} else if(slaves) {
-		console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
-	}
-	for(let i in masterPlugins){
-		let plugin = masterPlugins[i];
-		if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
-			let startTime = Date.now();
-			await plugin.main.onExit();
-			console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
+	try {
+		// set insane limit to slave length, if its longer than this we are probably being ddosed or something
+		if(slaves && Object.keys(slaves).length < 2000000){
+			console.log("saving to slaves.json");
+			fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
+		} else if(slaves) {
+			console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
 		}
+		if(db.items && Object.keys(db.items).length < 50000){
+			console.log("saving to items.json");
+			fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
+		} else if(slaves) {
+			console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
+		}
+		for(let i in masterPlugins){
+			let plugin = masterPlugins[i];
+			if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
+				let startTime = Date.now();
+				await plugin.main.onExit();
+				console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
+			}
+		}
+		console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
+		process.exit(0);
+	} catch(e) {
+		console.log(e)
+		console.log("Clusterio failed to exit cleanly. Time elapsed: "+(Date.now()-exitStartTime)+"ms")
+		process.exit(1)
 	}
-	console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
-	process.exit(0);
 }
 
 /**
@@ -528,6 +534,13 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 		res.send("failure");
 	}
 });
+const routes_api_remove = require("./routes/api/remove.js")
+var neuralDole = null
+
+if(config.useNeuralNetDoleDivider)//Only initialize neural network when it's enabled, otherwise it might override gauge
+	neuralDole=new routes_api_remove.neuralDole({
+		items: db.items, gaugePrefix: prometheusPrefix
+	})
 /**
 POST endpoint to remove items from DB when client orders items.
 
@@ -539,11 +552,8 @@ POST endpoint to remove items from DB when client orders items.
 @param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
-_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 app.post("/api/remove", authenticate.middleware, function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
-	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// save items we get
@@ -557,7 +567,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
 	let item = db.items[object.name]
 		// console.dir(doc);
-	if(!item
+	if((item === undefined)
 	||((
 		config.disableImportsOfEverythingExceptElectricity === true || config.disableImportsOfEverythingExceptElectricity === "true" )
 		&& object.name != "electricity")
@@ -567,6 +577,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		}
 		res.send({name:object.name, count:0});
 	} else if(config.disableFairItemDistribution){
+		// Give out as much items as possible until there are 0 left. This might lead to one slave getting all the items and the rest nothing.
 		let numberToRemove = Math.min(Math.abs(Number(object.count)),Number(item));
 		db.items.removeItem({count: numberToRemove, name: object.name});
 		res.send({count: numberToRemove, name: object.name});
@@ -587,45 +598,27 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		});
 		//console.log(sentItemStatistics.data)
 		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
+	} else if(config.useNeuralNetDoleDivider){
+		// use fancy neural net to calculate a "fair" dole division rate.
+		neuralDole.divider({
+			res,
+			object,
+			config,
+			sentItemStatisticsBySlaveID,
+			prometheusImportGauge
+		})
 	} else {
-		const originalCount = Number(object.count) || 0;
-		object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
-		object.count = Math.round(object.count);
-		if(item.length > 40) console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${item} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${Number(item) > Number(object.count)?'stocked':'short'}.`);
-		
-		// Update existing items if item name already exists
-		if(Number(item) > Number(object.count)) {
-			//If successful, increase dole
-			_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-			if(config.logItemTransfers){
-				console.log("removed: " + object.name + " " + object.count + " . " + item + " and sent to " + object.instanceID + " | " + object.instanceName);
-			}
-			if(db.items.removeItem({count: object.count, name: object.name})){
-				let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-				if(sentItemStatistics === undefined){
-					sentItemStatistics = new averagedTimeSeries({
-						maxEntries: config.itemStats.maxEntries,
-						entriesPerSecond: config.itemStats.entriesPerSecond,
-						mergeMode: "add",
-					}, console.log);
-				}
-				sentItemStatistics.add({
-					key:object.name,
-					value:object.count,
-				});
-				//console.log(sentItemStatistics.data)
-				sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
-			}
-			
-			prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
-			prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(object.count) || 0);
-			res.send({count: object.count, name: object.name});
-		} else {
-			// if we didn't have enough, attempt giving out a smaller amount next time
-			_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
-			res.send({name:object.name, count:0});
-			//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
-		}
+		// Use dole division. Makes it really slow to drain out the last little bit.
+		routes_api_remove.doleDivider({
+			item,
+			object,
+			db,
+			sentItemStatisticsBySlaveID,
+			config,
+			prometheusDoleFactorGauge,
+			prometheusImportGauge,
+			req,res,
+		})
 	}
 });
 

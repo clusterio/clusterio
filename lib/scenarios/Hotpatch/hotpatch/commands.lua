@@ -61,11 +61,11 @@ sub_commands = {
         if (not param) or (param == '') then
             caller.print('Usage: /hotpatch [command] [parameters]')
             caller.print('Available commands:')
-            for k, v in pairs(sub_commands) do caller.print(k) end
+            for k, _ in pairs(sub_commands) do caller.print(k) end
             caller.print('Use /hotpatch help [command] for help on a particular command')
         else
             local text = help_commands[param]
-            if text then 
+            if text then
                 caller.print(text)
             end
         end
@@ -82,7 +82,7 @@ sub_commands = {
                 caller.print(table.concat{'[', k, '] ', v.name, ' ', v.version, ' ', (v.loaded and 'loaded') or 'not loaded', ' ', (v.running and 'running') or 'not running'})
             end
         else
-        
+
         end
     end,
 }
@@ -113,7 +113,7 @@ local admin_commands = {
 
 _ENV.commands.add_command('hotpatch', 'Commands for hotpatch. Run /hotpatch help for details.', function(e)
     local caller = (e.player_index and game.players[e.player_index]) or console
-    if (not e.parameter) or (e.parameter == '') then 
+    if (not e.parameter) or (e.parameter == '') then
         sub_commands['help'](e.player_index)
         return
     end
@@ -130,6 +130,6 @@ _ENV.commands.add_command('hotpatch', 'Commands for hotpatch. Run /hotpatch help
     end
 end)
 
-]===])
+--]===])
 
 return true

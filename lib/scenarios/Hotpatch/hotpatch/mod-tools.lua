@@ -67,7 +67,7 @@ local mod_obj_template = {
 }
 
 -- this is for the core factorio libraries; hotpatch MUST load these now, as they cannot be dynamically loaded due to factorio limitation
-local loaded_libraries = {} 
+local loaded_libraries = {}
 
 -- mod installation/uninstallation support functions
 -- These take a mod NAME as a first argument
@@ -100,6 +100,8 @@ local mod_on_configuration_changed
 -- local event handler to proxy to mods, these call the mods events
 local on_event
 local on_nth_tick
+
+local register_all_events
 
 -- core handlers
 local on_init -- installs static mods, loads, runs, and calls mod_on_init
@@ -222,12 +224,12 @@ local function build_locale(ini)
     local t = {}
     local section = ''
     local temp
-    
+
     -- line must end with a linefeed - single line file with no LF will fail
     if not ini:match('[\r\n]+$') then
         ini = ini .. '\n'
     end
-    
+
     -- for each non-empty line do
     local key, value
     for l in ini:gmatch('[\r\n]*(.-)[\r\n]+') do
@@ -261,7 +263,7 @@ local function static_translate(t, recursive)
     -- only translate tables that have a string as the first item
     local k = t[1]
     if type(k) ~= 'string' then return t end
-    
+
     -- make a copy, don't destroy the original table, after we copy we can translate in place
     if not recursive then
         t = table.deepcopy(t)
@@ -285,12 +287,12 @@ local function static_translate(t, recursive)
     -- substitution of parameters: use literal value of parameter n
     -- __n__
     local result = (pattern:gsub('__(%d+)__', function(s) return tostring(t[tonumber(s)+1]) end))
-       
+
     -- re-substitution engine: match value of parameter n to provide additional translation; use for pluralization
     -- __n:(pattern-1)=substitution-1;(pattern-2)=substitution-2;...(pattern-i)=substitution-i;__
     for n, p in result:gmatch('__(%d+)(:.-;)__') do
         for x, y in p:gmatch('%((.-)%)=(.-[^%%]);') do
-            if t[tonumber(n)+1]:match(x) then 
+            if t[tonumber(n)+1]:match(x) then
                 result = result:gsub(table.concat{'__', n, escape(p), '__'}, unescape(y))
                 break
             end
@@ -324,7 +326,7 @@ local hidden_log = hidden(static_translate)
 
 -- logs localized data
 local function debug_log(message, mod_name, stack_level)
-    if debug_level > -1 then 
+    if debug_level > -1 then
         if not stack_level then stack_level = 2 end
         local di = debug.getinfo(stack_level)
         local line = di.currentline
@@ -363,7 +365,7 @@ debug_log({'hotpatch-info.logging-enabled'})
 
 -- track _ENV accesses
 setmetatable(_ENV, {
-	__index = function(t, k)
+	__index = function(_, k)
 		debug_log({'hotpatch-trace.nil-var-access', k}, nil, 3)
 		return nil
 	end,
@@ -382,7 +384,6 @@ debug_log({'hotpatch-info.loading-libs'})
 local libraries = {
     'camera',
     'flying_tags',
-    'inspect',
     'math3d',
     'mod-gui',
     'noise',
@@ -429,14 +430,14 @@ uninstall_mod = function(mod_name)
         return
     end
     local loaded_index = find_loaded_mod(mod_name)
-    
+
     if loaded_index then
         unload_mod(loaded_index)
     end
-        
+
 
     debug_log({'hotpatch-info.uninstalling', mod_name})
-    
+
     table.remove(global.mods, index)
 end
 
@@ -447,7 +448,7 @@ install_mod_file = function(mod_name, mod_file, mod_file_code)
         return
     end
     local mod = global.mods[index]
-    
+
     debug_log({'hotpatch-info.installing-file', mod_file}, mod_name)
 
     mod_file = mod_file:gsub('/', '.')
@@ -475,7 +476,7 @@ install_mod = function(mod_name, mod_version, mod_code, mod_files)
         end
         debug_log({'hotpatch-warning.contains-comments-console'}, mod_name)
     end
-    
+
     mod_code = mod_code:gsub('\t', '  ')
 
     mod.name = mod_name
@@ -483,7 +484,7 @@ install_mod = function(mod_name, mod_version, mod_code, mod_files)
     mod.code = mod_code
     mod.version = mod_version
     mod.global = mod.global or {}
-    
+
     if mod_files then
         for k,v in pairs(mod_files) do
             install_mod_file(mod_name, k, v)
@@ -501,7 +502,7 @@ load_mod = function(installed_index)
             --TODO notify that mod was already loaded
             unload_mod(loaded_index)
         end
-        
+
         local mod_obj = {
             name = mod_name, -- name of the current mod
             version = mod.version,
@@ -516,7 +517,7 @@ load_mod = function(installed_index)
             on_nth_tick = {}, -- list of on_nth_tick handlers registered
             loaded_files = {}, -- list of files loaded by require() that were installed into the virtual file system
         }
-        
+
         debug_log({'hotpatch-info.script-shim'}, mod_name)
         --mods private script table/shim
         local mod_script = {}
@@ -541,7 +542,7 @@ load_mod = function(installed_index)
             mod_script.on_nth_tick = function(tick, f)
                 if tick then
                     if type(tick) == 'table' then
-                        for k, v in pairs(tick) do
+                        for _, v in pairs(tick) do
                             mod_script.on_nth_tick(v, f)
                         end
                         return
@@ -551,12 +552,12 @@ load_mod = function(installed_index)
                     mod_obj.on_nth_tick = {}
                 end
             end
-        else   
+        else
             mod_script.on_event = function(event, f)
                 if event == defines.events.on_tick then
                     mod_obj.on_tick = f
                     if mod_obj.running then
-                        register_on_tick(mod_name, event)
+                        register_on_tick(mod_name)
                     end
                 else
                     mod_obj.on_event[event] = f
@@ -568,7 +569,7 @@ load_mod = function(installed_index)
             mod_script.on_nth_tick = function(tick, f)
                 if tick then
                     if type(tick) == 'table' then
-                        for k, v in pairs(tick) do
+                        for _, v in pairs(tick) do
                             mod_script.on_nth_tick(v, f)
                         end
                         return
@@ -578,11 +579,11 @@ load_mod = function(installed_index)
                         register_nth_tick(mod_name, tick)
                     end
                 else
-                    local on_nth_tick = mod_obj.on_nth_tick
+                    local mod_on_nth_tick = mod_obj.on_nth_tick
                     mod_obj.on_nth_tick = {}
                     if mod_obj.running then
-                        for k, v in pairs(on_nth_tick) do
-                            register_nth_tick(mod_name, tick)
+                        for _, v in pairs(mod_on_nth_tick) do
+                            register_nth_tick(mod_name, v)
                         end
                     end
                 end
@@ -604,7 +605,7 @@ load_mod = function(installed_index)
         mod_script.mod_name = function()
             return script.mod_name()
         end
-        
+
         debug_log({'hotpatch-info.setting-env'}, mod_name)
         -- mods private env
         local env = mod_obj.env
@@ -621,20 +622,20 @@ load_mod = function(installed_index)
 			loaded[k] = v
 		end
         loaded._G = env
-        
+
         -- so many ways to escape sandboxes...
-        
+
         for k,v in pairs(_ENV.package) do
 			pack[k] = v
 		end
         pack.loaded = loaded
         env.package = pack
         loaded.package = pack
-        
+
         env.script = mod_script
         env.global = mod.global
         env._G = env
-        
+
         env['remote'] = {
             add_interface = function(name, functions)
                 if remote.interfaces[name] then
@@ -650,7 +651,7 @@ load_mod = function(installed_index)
                 return remote.call(...)
             end,
             interfaces = setmetatable({}, {
-                __index = function(t, k) return remote.interfaces[k] end,
+                __index = function(_, k) return remote.interfaces[k] end,
                 __pairs = function(t) local function iter(t, k) local v; k, v = next(remote.interfaces, k); if v then return k, t[k] end; end; return iter, t, nil end
             })
         }
@@ -666,16 +667,16 @@ load_mod = function(installed_index)
                 return commands.remove_command(name)
             end,
             commands = setmetatable({}, {
-                __index = function(t, k) return commands.commands[k] end,
+                __index = function(_, k) return commands.commands[k] end,
                 __pairs = function(t) local function iter(t, k) local v; k, v = next(commands.commands, k); if v then return k, t[k] end; end; return iter, t, nil end
             }),
             game_commands = setmetatable({}, {
-                __index = function(t, k) return commands.game_commands[k] end,
+                __index = function(_, k) return commands.game_commands[k] end,
                 __pairs = function(t) local function iter(t, k) local v; k, v = next(commands.game_commands, k); if v then return k, t[k] end; end; return iter, t, nil end
             })
         }
-        
-        
+
+
         env.require = function(path)
             -- I blame Nexela for this
             path = path:gsub('/', '.')
@@ -710,7 +711,7 @@ load_mod = function(installed_index)
                         error(err)
                     end
                 end
-				local file = global.mods[installed_index].files[alt_path]
+				file = global.mods[installed_index].files[alt_path]
                 if file then
                     debug_log({'hotpatch-trace.load-require', alt_path}, mod_name)
                     local code, err = load(file, '[' .. mod_name .. '] ' .. alt_path .. '.lua', 'bt', env)
@@ -724,31 +725,31 @@ load_mod = function(installed_index)
                         error(err)
                     end
                 end
-				
+
                 debug_log({'hotpatch-trace.load-core-lib', path}, mod_name)
                 env.package._current_path_in_package = oldbase
 				local lib = package.loaded[path]
-				if not lib then 
-					debug_log(path .. ' not found', nil, 3)
+				if not lib then
+					debug_log({'hotpatch-error.path-not-found', path}, mod_name, 3)
                     error(path .. ' not found')
 				end
                 return lib
             end
         end
-        
+
         env['load'] = function(l, s, m, e)
             return load(l, s, m, e or env)
         end
         env['loadstring'] = env['load']
-        
-        
+
+
         env['game'] = setmetatable({}, {
-            __index = function(t, k) return game[k] end,
+            __index = function(_, k) return game[k] end,
             __pairs = function(t) local function iter(t, k) local v; k, v = next(game, k); if v then return k, t[k] end; end; return iter, t, nil end
         })
-        
+
         local mt = {}
-        mt.__index = function(t, k)
+        mt.__index = function(_, k)
             debug_log({'hotpatch-trace.nil-var-access', k}, nil, 3)
             return nil
         end
@@ -762,7 +763,7 @@ load_mod = function(installed_index)
 
         --load/run code
         debug_log({'hotpatch-info.loading'}, mod_name)
-        
+
         local mod_code, message = load(mod.code, '[' .. mod_name .. '] control.lua', 'bt', env)
         if not mod_code then
             debug_log({'hotpatch-error.compilation-failed'}, mod_name)
@@ -816,12 +817,12 @@ reset_mod = function(loaded_index)
 end
 
 reset_mod_events = function(loaded_index)
-    local loaded_index = find_loaded_mod(mod_name)
-    
-    if not loaded_index then
-        debug_log({'hotpatch-warning.reset-events-not-running'}, mod_name)
-    else 
-        local loaded_mod = loaded_mods[loaded_index]
+    --local loaded_index = find_loaded_mod(mod_name)
+    local loaded_mod = loaded_mods[loaded_index]
+
+    if not loaded_mod then
+        --debug_log({'hotpatch-warning.reset-events-not-running'}, mod_name)
+    else
         loaded_mod.on_event = {}
         loaded_mod.on_nth_tick = {}
         loaded_mod.on_init = nil
@@ -842,7 +843,7 @@ run_mod = function(loaded_index)
            --mod.env.global = {}
         end
         debug_log({'hotpatch-info.running'}, mod_name)
-        
+
         local success, result = xpcall(mod.code, debug.traceback)
         if not success then
             debug_log({'hotpatch-error.execution-failed'}, mod_name)
@@ -851,22 +852,22 @@ run_mod = function(loaded_index)
             if game and game.player then
                 game.player.print(result)
             end
-            
+
             return false
         end
-            
+
         if strict_mode then
             --if mod.env.global ~= {} then
                 --TODO: error, mod touched global inappropriately during load
             --end
            --mod.env.global = old_global
-		   
+
         end
-		
+
 		-- if a mod is being loaded that already has global data, it must be restored after
 		-- running control.lua, discarding any changes made
 		if not table.compare(old_global, {}) then
-			for k,v in pairs(mod.env.global) do
+			for k,_ in pairs(mod.env.global) do
 				mod.env.global[k] = nil
 			end
 			for k,v in pairs(old_global) do
@@ -875,16 +876,16 @@ run_mod = function(loaded_index)
 			--mod.env.global = old_global
 		end
 		old_global = nil
-		
+
         mod.running = true
         debug_log({'hotpatch-info.complete', {'hotpatch-info.running'}}, mod_name)
-        
+
         --load complete, start notifying on event subscriptions
         if not compat_mode then
             mod.env.script.on_event = function(event, f)
                 if event == defines.events.on_tick then
                     mod.on_tick = f
-                    register_on_tick(mod_name, event)
+                    register_on_tick(mod_name)
                 else
                     mod.on_event[event] = f
                     register_event(mod_name, event)
@@ -893,18 +894,18 @@ run_mod = function(loaded_index)
             mod.env.script.on_nth_tick = function(tick, f)
                 if tick then
                     if type(tick) == 'table' then
-                        for k, v in pairs(tick) do
-                            mod_script.on_nth_tick(v, f)
+                        for _, v in pairs(tick) do
+                            mod.env.script.on_nth_tick(v, f)
                         end
                         return
                     end
                     mod.on_nth_tick[tick] = f
                     register_nth_tick(mod_name, tick)
                 else
-                    local on_nth_tick = mod.on_nth_tick
+                    local mod_on_nth_tick = mod.on_nth_tick
                     mod.on_nth_tick = {}
-                    for k, v in pairs(on_nth_tick) do
-                        register_nth_tick(mod_name, tick)
+                    for _, v in pairs(mod_on_nth_tick) do
+                        register_nth_tick(mod_name, v)
                     end
                 end
             end
@@ -924,7 +925,7 @@ on_event = function(event)
     for i = 1, #loaded_mods do
         mod = loaded_mods[i]
         f = mod.on_event[event.name]
-        if f then 
+        if f then
             debug_log({'hotpatch-trace.event-running', event_name}, mod.name)
             f(event)
         end
@@ -940,7 +941,7 @@ if debug_log_on_tick then
         for i = 1, #loaded_mods do
             mod = loaded_mods[i]
             f = mod.on_nth_tick[event.nth_tick]
-            if f then 
+            if f then
                 debug_log({'hotpatch-trace.nth-tick-event-running', tick}, mod.name)
                 f(event)
             end
@@ -954,7 +955,7 @@ else
         for i = 1, #loaded_mods do
             mod = loaded_mods[i]
             f = mod.on_nth_tick[event.nth_tick]
-            if f then 
+            if f then
                 debug_log({'hotpatch-trace.nth-tick-event-running', tick}, mod.name)
                 f(event)
             end
@@ -962,7 +963,7 @@ else
     end
 end
 
-local register_all_events = function()
+register_all_events = function()
     --unregister all events
     script.on_event(defines.events, nil)
     script.on_nth_tick(nil, nil)
@@ -981,12 +982,12 @@ register_mod_events = function(loaded_index)
         debug_log({'hotpatch-trace.on-tick-event-registered'}, mod_name)
         script.on_event(defines.events.on_tick, on_tick)
     end
-    for k,v in pairs(mod.on_event) do 
+    for k,_ in pairs(mod.on_event) do
         local event_name = (event_names[k] or k)
         debug_log({'hotpatch-trace.on-event-registered', event_name}, mod_name)
         script.on_event(k, on_event)
     end
-    for k,v in pairs(mod.on_nth_tick) do 
+    for k,_ in pairs(mod.on_nth_tick) do
         debug_log({'hotpatch-trace.on-nth-tick-event-registered', k}, mod_name)
         script.on_nth_tick(k, on_nth_tick)
     end
@@ -994,14 +995,14 @@ end
 
 mod_on_init = function(loaded_index)
     local mod = loaded_mods[loaded_index]
-    
+
     if mod then
         debug_log({'hotpatch-trace.mod-on-init'}, mod.name)
-        if mod.on_init then 
+        if mod.on_init then
             local success, result = xpcall(mod.on_init, debug.traceback)
             if not success then
-                debug_log('on_init failed for ' .. mod.name)
-                debug_log(result)
+				debug_log({'hotpatch-error.on-init-failed'}, mod_name)
+                debug_log(result, mod_name)
                 return false
             end
         end
@@ -1013,15 +1014,15 @@ end
 
 mod_on_load = function(loaded_index)
     local mod = loaded_mods[loaded_index]
-    
+
     if mod then
         debug_log({'hotpatch-trace.mod-on-load'}, mod.name)
-        if mod.on_load then 
+        if mod.on_load then
 			--local old_global = table.deepcopy(mod.env.global)
             local success, result = xpcall(mod.on_load, debug.traceback)
             if not success then
-                debug_log('on_load failed for ' .. mod.name)
-                debug_log(result)
+                debug_log({'hotpatch-error.on-load-failed'}, mod_name)
+                debug_log(result, mod_name)
                 return false
             end
         end
@@ -1033,14 +1034,14 @@ end
 
 mod_on_configuration_changed = function(loaded_index, config)
     local mod = loaded_mods[loaded_index]
-    
+
     if mod then
         debug_log({'hotpatch-trace.mod-on-configuration-changed'}, mod.name)
-        if mod.on_configuration_changed then 
+        if mod.on_configuration_changed then
             local success, result = xpcall(mod.on_configuration_changed, debug.traceback, config)
             if not success then
-                debug_log('on_configuration_changed failed for ' .. mod.name)
-                debug_log(result)
+				debug_log({'hotpatch-error.on-configuration-changed-failed'}, mod_name)
+                debug_log(result, mod_name)
                 return false
             end
         end
@@ -1058,9 +1059,9 @@ register_on_tick = function(mod_name)
     for i = 1, #loaded_mods do
         mod = loaded_mods[i]
         local f = mod.on_tick
-        if f then 
-            found_event = true 
-            break 
+        if f then
+            found_event = true
+            break
         end
     end
     debug_log({'hotpatch-trace.on-tick-event-registered'}, mod_name)
@@ -1078,9 +1079,9 @@ register_nth_tick = function(mod_name, nth_tick)
     for i = 1, #loaded_mods do
         mod = loaded_mods[i]
         local f = mod.on_nth_tick[nth_tick]
-        if f then 
-            found_event = true 
-            break 
+        if f then
+            found_event = true
+            break
         end
     end
     debug_log({'hotpatch-trace.on-nth-tick-event-registered', nth_tick}, mod_name)
@@ -1126,7 +1127,7 @@ on_init = function()
     debug_log({'hotpatch-info.on-init'})
     --juuuuust in case
     global.mods = global.mods or {}
-    
+
     debug_log({'hotpatch-info.installing-included-mods'})
     local mod
     for i = 1, #static_mods do
@@ -1137,7 +1138,7 @@ on_init = function()
     for i = 1, #global.mods do
         load_mod(i)
     end
-    
+
     for i = 1, #loaded_mods do
         run_mod(i)
         mod_on_init(i)
@@ -1153,10 +1154,10 @@ on_load = function()
     hidden_log = hidden()
     debug_log({'hotpatch-info.on-load'})
     debug_log({'hotpatch-info.loading-installed-mods'})
-    
+
     if global.globals then
         error('Upgrading from Hotpatch 1.0.X to 1.1.0 is not currently supported!')
-        
+
         -- untested migration: use a tick to do the migration
         script.on_event(defines.events.on_tick, function(e)
             global.mods = {}
@@ -1174,19 +1175,19 @@ on_load = function()
             global.mod_code = nil
             global.mod_files = nil
             global.globals = nil
-            
+
             on_load() -- jump back into loading
             on_tick(e) -- need to test if factorio auto calls this or not after assigning the handler
             script.on_event(defines.events.on_tick, on_tick) -- restore old on_tick handler
         end)
         return
     end
-    
+
     -- load installed mods
     for i = 1, #global.mods do
         load_mod(i)
     end
-    
+
     -- run mods which loaded successfully
 	local failed_mods = {}
     for i = 1, #loaded_mods do
@@ -1198,12 +1199,12 @@ on_load = function()
 			table.insert(failed_mods, i)
 		end
     end
-	
+
 	-- unload mods which failed to run
 	for i = 1, #failed_mods do
 		unload_mod(failed_mods[i])
 	end
-    
+
     debug_log({'hotpatch-info.complete', {'hotpatch-info.loading-installed-mods'}})
     debug_log({'hotpatch-info.complete', {'hotpatch-info.on-load'}})
 end
@@ -1212,11 +1213,11 @@ on_configuration_changed = function(config)
     debug_log({'hotpatch-info.on-configuration-changed'})
 	local failed_mods = {}
     for i = 1, #loaded_mods do
-        if not mod_on_configuration_changed(i) then
+        if not mod_on_configuration_changed(i, config) then
 			table.insert(failed_mods, i)
 		end
     end
-	
+
 	for i = 1, #failed_mods do
 		unload_mod(failed_mods[i])
 	end
@@ -1231,7 +1232,7 @@ if debug_log_on_tick then
         for i = 1, #loaded_mods do
             mod = loaded_mods[i]
             f = mod.on_tick
-            if f then 
+            if f then
                 debug_log({'hotpatch-trace.event-running', 'on_tick'}, mod.name)
                 f(e)
             end
@@ -1244,7 +1245,7 @@ else
         for i = 1, #loaded_mods do
             mod = loaded_mods[i]
             f = mod.on_tick
-            if f then 
+            if f then
                 f(e)
             end
         end
@@ -1286,31 +1287,31 @@ local mod_tools_internal = setmetatable({
     mod_on_init = mod_on_init,
     mod_on_load = mod_on_load,
     mod_on_configuration_changed = mod_on_configuration_changed,
-    
+
     static_mods = static_mods,
     console = console,
     debug_log = debug_log,
     loaded_mods = loaded_mods,
     loaded_libraries = loaded_libraries,
     installed_mods = setmetatable({}, {
-        __index = function(t, k)
+        __index = function(_, k)
             return global.mods[k]
         end,
-        __newindex = function(t, k, v)
+        __newindex = function(_, __, ___)
         -- do nothing
         end,
-        __len = function(t)
+        __len = function(_)
             return #global.mods
         end,
-        __pairs = function(t) local function iter(t, k) local v; v = global.mods[k+1]; if v then return k+1, v end; end; return iter, t, 0 end,
-        __ipairs = function(t) local function iter(t, k) local v; v = global.mods[k+1]; if v then return k+1, v end; end; return iter, t, 0 end,
+        __pairs = function(t) local function iter(_, k) local v; v = global.mods[k+1]; if v then return k+1, v end; end; return iter, t, 0 end,
+        __ipairs = function(t) local function iter(_, k) local v; v = global.mods[k+1]; if v then return k+1, v end; end; return iter, t, 0 end,
         __metatable = false,
     })
 },{
-    __index = function(t, k)
+    __index = function(_, k)
         debug_log({'hotpatch-error.invalid-API-access', k}, nil, 3)
     end,
-    __newindex = function(t, k, v)
+    __newindex = function(_, __, ___)
         -- do nothing
     end,
     -- Don't let mods muck around
@@ -1322,11 +1323,12 @@ local mod_tools = setmetatable({
     -- most code should use static_mod
     static_mod = static_mod, -- (name, version, code, files)
     set_debug_level = function(level)
-        debug_level = tonumber(_ENV.debug_settings.level) or debug_levels[_ENV.debug_settings.level]
+        --debug_level = tonumber(_ENV.debug_settings.level) or debug_levels[_ENV.debug_settings.level]
+		debug_level = tonumber(level) or debug_levels[level]
     end,
 },{
     __index = mod_tools_internal,
-    __newindex = function(t, k, v)
+    __newindex = function(_, __, ___)
         -- do nothing, read-only table
     end,
     -- Don't let mods muck around
