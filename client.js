@@ -640,7 +640,9 @@ async function instanceManagement(instanceconfig) {
 									if(stuff[o] && !stuff[o].includes('\u0000\u0000')) {
 										try{
 											plugins[i].scriptOutput(stuff[o]);
-										}catch(e){console.error(e)}
+										}catch(e){
+											throw new Error(`Plugin ${pluginConfig.name} has a fileOutputSubscription but plugin.scriptOutput is not a function`)
+										}
 									}
 								}
 							},
