@@ -4,6 +4,11 @@ const sanitizer = require('sanitizer');
 
 const editorSockets = [];
 
+const blacklistedEntities = [
+	"fish",
+	"player",
+]
+
 class masterPlugin {
 	constructor({ config, pluginConfig, pluginPath, socketio, express }) {
 		this.config = config;
@@ -24,7 +29,8 @@ class masterPlugin {
 		// handle websocket connections
 		this.io.on("connection", socket => {
 			let instanceID = "unknown";
-			socket.on("registerSlave", data => {
+			socket.on("registerMapServer", data => {
+				console.log("Registered mapServer socket")
 				if (data.instanceID && !isNaN(Number(data.instanceID))) {
 					instanceID = data.instanceID;
 					this.slaves[instanceID] = socket;
@@ -66,12 +72,15 @@ class masterPlugin {
 				}}),10000)
 				
 				socket.on("createEntity", data => {
+					console.log(`Creating entity: ${JSON.stringify(data)}`)
 					this.slaves[Object.keys(this.slaves)[0]].emit("createEntity", data.entity)
 				})
 				socket.on("deleteEntity", data => {
+					console.log(`Deleting entity: ${JSON.stringify(data)}`)
 					this.slaves[Object.keys(this.slaves)[0]].emit("deleteEntity", data.entity)
 				})
 				socket.on("getChunk", (data, callback) => {
+					console.log(`Getting chunk x:${data.x} y:${data.y} from slave`)
 					this.slaves[Object.keys(this.slaves)[0]].emit("getChunk", data, resp => {
 						// parse response
 						// |name:transport-belt,direction:2,x:99,y:1231|name:assembly-machine,direction:6,x:939,y:88
@@ -87,7 +96,7 @@ class masterPlugin {
 							!str.includes("crude-oil") &&
 							!str.includes("remnants") &&
 							!str.includes("cliff") &&
-							!str.includes("player") &&
+							!blacklistedEntities.includes(str) &&
 							!str.includes("ore"))
 							.map(ent => ent.split(",")													// split entity into properties
 								.map(prop => [prop.split(":")[0], prop.split(":")[1]])					// split properties into KV pairs
@@ -102,6 +111,11 @@ class masterPlugin {
 								return entity
 							})
 							.filter(entity => Object.keys(entity).length > 1)
+							.filter(entity => !blacklistedEntities.includes(entity.name))
+							/*.map(entity => {
+								if(entity.name.includes("tree")) entity.name = "tree"
+								return entity
+							})*/
 						)
 					})
 				})

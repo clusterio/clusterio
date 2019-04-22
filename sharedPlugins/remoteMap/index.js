@@ -8,7 +8,9 @@ module.exports = class remoteMap {
 		this.socket = extras.socket;
 		this.instances = {};
 		
-        this.socket.on("hello", () => this.socket.emit("registerMapServer"));
+        this.socket.on("hello", () => this.socket.emit("registerMapServer", {
+			instanceID: this.config.unique, // instanceID
+		}));
 
         this.socket.on("createEntity", req => {
 			// req = {name:"", position:{x,y}, ?direction:4}
@@ -29,7 +31,9 @@ module.exports = class remoteMap {
 			this.messageInterface('/silent-command local toDelete = game.surfaces[1].find_entities({{'+req.position.x+','+req.position.y+'},{'+(req.position.x+0.5)+','+(req.position.y+0.5)+'}}) for i, entity in pairs(toDelete) do entity.destroy() end');
         })
 		this.socket.on("getChunk", async (data, callback) => {
-			callback(await this.messageInterface(`/silent-command remote.call("remoteMap", "exportChunk", ${data.x}, ${data.y})`));
+			let chunkData = await this.messageInterface(`/silent-command remote.call("remoteMap", "exportChunk", ${data.x}, ${data.y})`)
+			console.log(`Sending chunk data: ${chunkData}`)
+			callback(chunkData);
 		})
 		
 		// detect new entities created/deleted on the server and update the master
