@@ -42,25 +42,8 @@ module.exports = class remoteCommands {
 								data,
 							});
 						}
-						let fileMap = await loadFiles("", scenPath);
-						let files = {};
-						fileMap.forEach(map => {
-							files[map.name] = map.data;
-							console.log(map.name);
-						});
-						
-						let fileImportString = `\{`;
-						for(let k in files){
-							let name = k.replace(/\\/g, '/');
-							name = name.replace(/ /g, '');
-							// make sure *not* to include control.lua as it is provided as a seperate argument
-							if(name != "control") fileImportString += `["${name}"] = '${files[k]}', `;
-						}
-						fileImportString += `\}`;
-						if(files.control) var returnValue = await messageInterface(`/silent-command remote.call('hotpatch', 'update', '${scenarios[i]}', '1.0.0', '${files.control}', ${fileImportString})`);
-						if(returnValue) messageInterface(returnValue);
-						messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
 					}
+					return returnFiles;
 				}
 				let fileMap = await loadFiles("", scenPath);
 				let files = {};
@@ -119,5 +102,15 @@ class AsyncArray extends Array {
 	constructor(arr) {
 		super(arr)
 		this.data = arr; // In place of Array subclassing
+	}
+	async filterAsync(predicate) {
+		// Take a copy of the array, it might mutate by the time we've finished
+		const data = Array.from(this.data);
+		// Transform all the elements into an array of promises using the predicate
+		// as the promise
+		const result = await Promise.all(data.map((element, index) => predicate(element, index, data)));
+		return data.filter((element, index) => {
+			return result[index];
+		});
 	}
 }
