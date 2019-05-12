@@ -226,6 +226,10 @@ Copy your config.json.dist to config.json and configure it.
 
 Some systems don't let non root processes listen to ports below 1000. Either run with `sudo` or change config.json to use higher port numbers.
 
+According to [this link](https://askubuntu.com/questions/839520/open-port-443-for-a-node-web-app) if you manually installed node.js following the above instructions, you may need to run the following command to fix this issue:
+
+    sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
+
 ### InitializationError: First argument must be an abstract-leveldown compliant store
 
 do:
