@@ -12,6 +12,8 @@ module.exports = class remoteCommands {
 		this.socket.on("gameChat", async data => {
 			if(data.instanceID && data.instanceID != this.config.unique.toString()){
 				if(data.data.includes("[CHAT]")
+				// if this isn't used as an info command or something (reduce spam)
+				&& !data.data.includes("!info")
 				// check if we are allowed to cross chat at all, default to true
 				&& (mergedConfig.enableCrossServerShout == undefined || mergedConfig.enableCrossServerShout)
 				// check if we are supposed to relay this message

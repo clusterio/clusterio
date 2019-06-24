@@ -254,3 +254,6 @@ var imagelinks = {
 	"battery-mk2-equipment": "/pictures/Battery_MK2.png",
 	"personal-roboport-mk2-equipment": "/pictures/Personal_roboport_MK2.png",
 }
+var populateImageLinks = async () => (await getJSON("/api/getPictures")).forEach(img => imagelinks[img.name] = img.path)
+
+populateImageLinks()

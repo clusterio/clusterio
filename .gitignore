@@ -22,6 +22,7 @@ coverage
 
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
+dist/
 
 node_modules/*
 !node_modules/_app
@@ -50,5 +51,16 @@ sharedPlugins/*
 !sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
+!sharedPlugins/clusterioMod/
+!sharedPlugins/serverManager/
+sharedPlugins/serverManager/database/*
+sharedPlugins/serverManager/config.json
+sharedPlugins/serverManager/secret-api-token.txt
+!sharedPlugins/scenario_loader/
+sharedPlugins/scenario_loader/scenarios
+!sharedPlugins/statisticsExporter/
+
+# File used for marking plugins as disabled
+sharedPlugins/*/DISABLED
 
 \.cache-require-paths\.json

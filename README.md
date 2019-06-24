@@ -1,3 +1,9 @@
+<img src="./logo.svg" width="100%" align="right">
+
+<br/>
+<br/>
+<br/>
+
 # factorioClusterio
 
 Discord for development/support/play: https://discord.gg/5XuDkje
@@ -15,6 +21,8 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 * [Ubuntu setup](#ubuntu-setup)
 
 * [Windows setup](#windows-setup)
+
+* [Optional plugins](#Plugins)
 
 * [Common problems](#Common-problems)
 
@@ -34,7 +42,16 @@ Features:
 
 - Inventory combinator to display item levels in the cluster (and epoch time)
 
-- Reporting of graphs and UPS on master interface
+- Reporting of graphs and UPS on master interface (Also has extensive Prometheus reporting)
+
+Optional extras (see [Plugins](#Plugins))
+
+- Have your inventory synchronize across servers
+
+- Teleport trans from the border of one world to te next
+
+- Show in-game chat in discord
+
 
 Connection diagram:
 
@@ -61,10 +78,9 @@ Clusterio exploits one of the games logging features, game.write_file and RCON t
 
 7. client.js on server2: We were allowed to import x of item y, run command /c remote.call("clusterio", "importMany", "{'copper-plate':120}")
 
-This process works the same for both items and liquids, independant on what mods are used. Yes, modded items are fully supported.
+This process works the same for both items and liquids, independent on what mods are used. Yes, modded items are fully supported.
 
-Clusterio also handles a few other neat things, such as giving you access to epoch time, transmitting combinator signals between worlds (and any other application who wants to) and 
-creating graphs on the master web interface.
+Clusterio can also do a few other neat things, such as giving you access to epoch time, syncing player inventories between servers, keeping track of playtime (playerManager plugin), teleporting trains between servers (trainTeleports) and exporting tons of factorio related statistics to Prometheus for graphing in grafana.
 
 ## Ubuntu setup
 
@@ -81,8 +97,8 @@ Master and all slaves:
     tar -xf factorio.tar.gz
     npm install
     cp config.json.dist config.json
-    node ./lib/npmPostinstall.json
-	
+    node ./lib/npmPostinstall.js
+
 
 downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
@@ -98,17 +114,17 @@ Pretty much all the blank fields should be filled in, except on the master where
 **Master**
 
     pm2 start master.js --name master
-	
+
 OR
 
     node master.js
-    
+
 **Server Host**
-    
+
 To download the mod for all its non vanilla features and items, (optional, but very recommended)
 
     node client.js manage shared mods add clusterio
-	
+
 To create a new instance (its own save, set of mods and config files)
 
     node client.js start [instancename]
@@ -124,9 +140,9 @@ use `nano config.json` to change settings.
 Clusterio has *very* limited support for using docker.
 
     sudo docker build -t clusterio --no-cache --force-rm factorioClusterio
-	
+
 	sudo docker run --name master -e MODE=master -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
-	
+
 	sudo docker run --name slave -e MODE=client -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
@@ -168,7 +184,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 2. Copy config.json.dist to config.json
 
-3. Follow the instructions given. 
+3. Follow the instructions given.
 
 3.5 Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
 
@@ -194,6 +210,12 @@ Fancy game client that does the following steps automatically, but is really old
 
 3. Run factorio and connect to slave as a normal MP game. You will find the port number to connect to at http://[masterAddress]:8080
 
+## Plugins
+Here are the known Clusterio plugins in the wild:
+1. [Player Manager](https://github.com/Danielv123/playerManager) - Adds player management to the Web UI and shared inventory handling (beta)
+2. [DiscordChat](https://github.com/jakedraddy/ClusterioDiscordChat) - Logs in-game chat/joins/leave messages on all instances to a Discord webhook.
+3. [TrainTeleports](https://github.com/Godmave/clusterioTrainTeleports) - Allows you to teleport cargotrains between servers.
+
 ## Common problems
 
 ### Cannot find module: `/../../config`
@@ -203,6 +225,38 @@ Copy your config.json.dist to config.json and configure it.
 ### EACCESS [...] LISTEN 443
 
 Some systems don't let non root processes listen to ports below 1000. Either run with `sudo` or change config.json to use higher port numbers.
+
+According to [this link](https://askubuntu.com/questions/839520/open-port-443-for-a-node-web-app) if you manually installed node.js following the above instructions, you may need to run the following command to fix this issue:
+
+    sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
+
+### InitializationError: First argument must be an abstract-leveldown compliant store
+
+do:
+
+    npm install linvodb3@3.25.1
+
+if that does not suffice do
+
+    npm install levelup@1.3.9
+
+If it still doesn't work, come over to our support discord linked at the top of this readme.
+
+### Portforwarding doesn't work on the master server when running under WSL
+
+If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip. This is also true when you correctly port-forwarded the correct ports. Even when routing this server through nginx in WSL, the issue persists. Then, on a hunch, I tried to run nginx from windows itself and found that this DID work. It came to me that the only usage difference between the 2 versions of nginx is that I got a Windows Firewall popup.
+
+TLDR: the tested fix is:
+
+- open your windows firewall and go to advanced settings
+
+- click on inbound rules and click on new rule...
+
+- select port and click next >
+
+- select TCP and select specific local ports and type in the ports that you want to open (comma separated) and click next > 3 times
+
+- give the rule a name (like 'web server' or something), give it a description (optionally) and click finish
 
 ### Other fixes for other potential problems:
 

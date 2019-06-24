@@ -1,15 +1,15 @@
 // string, object, function(object)
 function post(url, data, callback) {
-	console.log("POST " + url + JSON.stringify(data))
+	console.log("POST " + url + JSON.stringify(data));
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", url, true);
 	xhr.setRequestHeader("Content-type", "application/json");
 	xhr.onreadystatechange = function () {
-		if (xhr.readyState == 4 && xhr.status == 200) {
+		if (xhr.readyState === 4 && xhr.status === 200) {
 			var json = JSON.parse(xhr.responseText);
 			callback(json);
 		}
-	}
+	};
 	xhr.send(JSON.stringify(data));
 }
 // function to sort arrays of objects after a keys value
@@ -38,21 +38,45 @@ var chartsByID = {};
 // update the online indicator dot
 setInterval(function(){
 	getJSON("/api/slaves", function(err, slaveData){
-		let indicator = document.querySelector("#onlineIndicator");
+		let indicator = document.querySelector("#online-indicator");
+		$(indicator).removeClass('fa-signal');
+		$(indicator).removeClass('fa-dizzy');
+		$(indicator).removeClass('fa-plug');
 		if(err){
 			// our request threw an error, most likely master is unavailable so we show yellow indicator
-			indicator.style.backgroundColor = "yellow";
+			indicator.style.color = "yellow";
+			$(indicator).addClass('fa-plug');
 			indicator.title = "Master server unavailable";
 			// compare with Math.floor(x/100000) allows us to check if they are within 10s of each other
-		} else if(Math.floor(slaveData[getParameterByName("instanceID")].time/100000) == Math.floor(Date.now()/100000)){
-			indicator.style.backgroundColor = "green";
+		} else if(Math.floor(slaveData[getParameterByName("instanceID")].time/100000) === Math.floor(Date.now()/100000)){
+			indicator.style.color = "green";
+			$(indicator).addClass('fa-signal');
 			indicator.title = "Slave is online";
 		} else {
-			indicator.style.backgroundColor = "red";
+			indicator.style.color = "red";
+			$(indicator).addClass('fa-dizzy');
 			indicator.title = "Slave is offline";
 		}
 	});
 }, 1000);
+
+function regexModDetails(modFileName) {
+	let m;
+	let results = [];
+	const regex = /(.+)_(\d+\.\d+\.\d+)\.zip/gm;
+	while ((m = regex.exec(modFileName)) !== null) {
+		// This is necessary to avoid infinite loops with zero-width matches
+		if (m.index === regex.lastIndex) {
+			regex.lastIndex++;
+		}
+
+		// The result can be accessed through the `m`-variable.
+		m.forEach((match, _) => {
+			results.push(match);
+		});
+	}
+	return results
+}
 
 populateSlaveInfo();
 function populateSlaveInfo(){
@@ -86,23 +110,31 @@ function populateSlaveInfo(){
 		}
 		*/
 		let slave = slaveData[instanceID];
-		let HTML = "<div id='header'><div id='onlineIndicator'></div><h1>Name: " + slave.instanceName+"</h1>"
-		HTML += "<div class='subbar'><h6>Host: "+slave.mac+" </h6><h6>Unique: "+slave.unique+" </h6>"
-		if(slave.publicIP != "localhost"){
-			HTML += "<h6>IP: "+slave.publicIP+":"+slave.serverPort+"</h6>";
+		let HTML = '<div class="jumbotron mt-5"><div id="header">' +
+			'<h1 class="display-4"><i id="online-indicator" class="mr-3 fas"></i> ' + slave.instanceName+"</h1>";
+		HTML += '<div class="stats" id="node-stats">' +
+			'<nav class="mt-3" aria-label="breadcrumb">\n' +
+			'  <ol class="breadcrumb align-content-center"><li class="breadcrumb-item">Host: '+slave.mac+'</li>' +
+			'<li class="breadcrumb-item">Unique: '+slave.unique+'</li>';
+		if(slave.publicIP !== "localhost"){
+			HTML += '<li class="breadcrumb-item">IP: '+slave.publicIP+':'+slave.serverPort+'</li>';
 		} else {
-			HTML += "<h6>This server is not configured for incoming connections</h6>";
+			HTML += '<li class="breadcrumb-item">This server is not configured for incoming connections</li>';
 		}
-		HTML += "</div></div>" // end of header
-		// left container
-		HTML += "<div id='leftHeroContainer'>";
-		HTML += "<div id='displayBody'><p>Last seen: <span id='lastSeenDate'>"+moment(Number(slave.time)).fromNow()+"</span></p>";
-		HTML += "<p>Online players: "+slave.playerCount+"</p>";
-		
+        if(slave.meta)
+            for(let key in slave.meta){
+                let t = slave.meta[key];
+                if(typeof t == "string"){
+                    HTML += "<li class=\"breadcrumb-item\">"+key+": "+t+"</li>";
+                }
+            }
+		HTML += '<li class="breadcrumb-item">Last seen: <span id="lastSeenDate">'+moment(Number(slave.time)).fromNow()+"</span></li>";
+		HTML += '<li class="breadcrumb-item">Online players: '+slave.playerCount+"</li></ol></nav>";
+
 		// detect  if remoteMap mod is installed, if it is we want to show the link for it
 		let hasRemoteMap = false;
 		slave.mods.forEach(mod => {
-			console.log(mod.modName)
+			console.log(mod.modName);
 			if(mod.modName.includes("remoteMap")){
 				hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
 			}
@@ -111,33 +143,39 @@ function populateSlaveInfo(){
 			HTML += "<a href='/remoteMap?instanceID="+getParameterByName("instanceID")+"'>Remote map</a>";
 		}
 		
-		HTML += "</div>" // end of displayBody
+		HTML += "</div>"; // end of displayBody
 		
 		// list mods and other metadata
-		HTML += "<h2 class='subtitle'>Mods</h2><ul id='modlist'>"
-		for(let i = 0; i < slave.mods.length; i++){
-			HTML += "<li>"+slave.mods[i].modName+"</li>"
+		HTML += '<h2 class="subtitle d-inline">Mods</h2><a id="fetch-mod-data" class="btn btn-primary float-right m-2">Fetch Mod Data</a>' +
+			'<table id="modlist" class="table table-striped table-hover">' +
+			'  <thead>\n' +
+			'    <tr>\n' +
+			'      <th scope="col">#</th>\n' +
+			'      <th scope="col">Version</th>\n' +
+			'      <th scope="col">Name</th>\n' +
+			'      <th scope="col">Summary</th>\n' +
+			'    </tr>\n' +
+			'  </thead>' +
+			'  <tbody>';
+		for(let i = 0; i < slave.mods[0].modName.length; i++){
+			let modRegexResults = regexModDetails(slave.mods[0].modName[i]);
+			HTML += `<tr>
+					<th scope="row">${i + 1}</th>
+					<td>${modRegexResults[2]}</td>
+					<td>${modRegexResults[1]}</td>
+					<td></td>
+				</tr>`
 		}
-		HTML += "</ul>"
+		HTML += "</ul>";
 		
-		HTML += "</div>" // end of left container
+		HTML += "</div>"; // end of left container
 		
 		// chart
 		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>';
 		// terminal
 		// HTML += '<div id="terminal"></div>';
-		
-		document.querySelector("#hero").innerHTML = HTML;
-		
-		// slaveDetails
-		HTML = "";
-		if(slave.meta)
-		for(let key in slave.meta){
-			let t = slave.meta[key];
-			if(typeof t == "string"){
-				HTML += "<p>"+key+": "+t+"</p>";
-			}
-		}
+
+
 		
 		document.querySelector("#body > #details").innerHTML = HTML;
 		
@@ -145,8 +183,23 @@ function populateSlaveInfo(){
 		makeGraph(slave.unique, slave.unique)
 		
 		// makeTerminal();
+
+        $('#fetch-mod-data').on("click", downloadSaveModData);
 	});
 }
+
+
+function downloadSaveModData() {
+    let modRows = $("#modlist tbody tr");
+    for (let i = 0; i < modRows.length; i++) {
+		let modName = modRows[i].children[2].innerText;
+        $.getJSON( "/api/modmeta?modname=" + modName, function( data ) {
+            modRows[i].children[2].innerHTML = data.title;
+            modRows[i].children[3].innerHTML = data.summary
+        });
+    }
+}
+
 var slaveLogin = {};
 function makeTerminal(){
 	myTerminal = new Terminal();
@@ -157,7 +210,7 @@ function makeTerminal(){
 	});
 	myTerminal.print('Welcome to Clusterio rcon!');
 	myTerminal.input('', handleTerminalInput);
-	if(localStorage.terminalMinimized && localStorage.terminalMinimized == "true"){
+	if(localStorage.terminalMinimized && localStorage.terminalMinimized === "true"){
 		minimizeTerminal(true);
 	}
 	function print(string){
@@ -170,18 +223,18 @@ function makeTerminal(){
 		lastLine.innerHTML = "> " + lastLine.innerHTML;
 		
 		argv = inputString.split(' ');
-		if(argv[0][0] == '/'){
+		if(argv[0][0] === '/'){
 			if(slaveLogin && slaveLogin.name && slaveLogin.pass){
 				print('Running: '+inputString);
 			} else {
 				print('Not identified to communicate with any slave! Run "help" for more information.');
 			}
-		} else if(argv[0] == 'help'){
-			if(argv[1] == 'login'){
+		} else if(argv[0] === 'help'){
+			if(argv[1] === 'login'){
 				print('To send commands to a slave, you are required to identify yourself. You can do this with the login command. The name will be the name of the slave as displayed on master. The password is the rcon password of the slave, as per /instances/[name]/config.json');
-			} else if(argv[1] == "/c"){
+			} else if(argv[1] === "/c"){
 				print('To run a command, start with /. You can for example do /c game.print("hello world!")');
-			} else if(argv[1] == "issues"){
+			} else if(argv[1] === "issues"){
 				print("Issues are reported to Danielv123 on github or espernet IRC.");
 				print(" - http://github.com/Danielv123/factorioClusterio/issues");
 				print(" - EsperNet #factorio Danielv123");
@@ -191,7 +244,7 @@ function makeTerminal(){
 				print(' - login [name] [passs] - Connect to remote slave');
 				print(' - issues - Report an issue');
 			}
-		} else if(argv[0] == 'issues'){
+		} else if(argv[0] === 'issues'){
 			print("Issues are reported to Danielv123 on github or espernet IRC.");
 			print(" - http://github.com/Danielv123/factorioClusterio/issues");
 			print(" - EsperNet #factorio Danielv123");
@@ -244,7 +297,7 @@ function makeGraph(instanceID, selector) {
 	let chartIgnoreList = [
 		"water",
 		"steam"
-	]
+	];
 	post("api/getStats", {instanceID: instanceID}, function(data){
 		//console.log("Building chart " + instanceID + " with this data:")
 		//console.log(data)
@@ -272,7 +325,7 @@ function generateLineChartArray(data, nameKey) {
 	for(let i = 0; i < data.length; i++) {
 		// only show recent data
 		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
-			let y = data[i].data[nameKey]
+			let y = data[i].data[nameKey];
 			if(!data[i].data[nameKey]) {
 				y = 0;
 			} else if(y < 0) {
@@ -288,7 +341,7 @@ function generateLineChartArray(data, nameKey) {
 	let xyz = {};
 	xyz.name = nameKey;
 	xyz.type = "line";
-	if(nameKey == "copper-wire"||nameKey == "iron-plate"||nameKey == "copper-plate"||nameKey == "electronic-circuit"||nameKey == "steel-plate"||nameKey == "advanced-circuit"||nameKey == "crude-oil"||nameKey == "petroleum-gas"){
+	if(nameKey === "copper-wire"||nameKey === "iron-plate"||nameKey === "copper-plate"||nameKey === "electronic-circuit"||nameKey === "steel-plate"||nameKey === "advanced-circuit"||nameKey === "crude-oil"||nameKey === "petroleum-gas"){
 		xyz.showInLegend = true;
 	}
 	xyz.dataPoints = chartData;
@@ -297,7 +350,7 @@ function generateLineChartArray(data, nameKey) {
 
 function drawChart(selector, chartData, title) {
 	// selector is ID of element, ex "chartContainer" or "-123199123"
-	console.log(chartData)
+	console.log(chartData);
 	chartsByID[selector] = new CanvasJS.Chart(selector, {
 		title:{
 			text: title || "Production graph"

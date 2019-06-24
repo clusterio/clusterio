@@ -3,9 +3,13 @@ _lastData = [];
 function drawcontents(data) {
 	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
 	_lastData = data;
-	
-	const search = new RegExp(document.querySelector("#search").value, 'i');
-	data = data.filter(function(item) {
+
+        // allow searching for multiple criteria separated by space
+        var searchArgs = document.querySelector("#search").value;
+        searchArgs = searchArgs.trim();
+        searchArgs = '(' + searchArgs.replace(/ +/g,")|(") + ')';
+        const search = new RegExp(searchArgs, 'i');
+        data = data.filter(function(item) {
 		return search.test(item.name);
 	})
 	
@@ -77,13 +81,13 @@ function sortByKey(array, key) {
     });
 }
 
-document.querySelector("#search").addEventListener('input', function() { 
+document.querySelector("#search").addEventListener('input', function() {
 	drawcontents();
 });
 
 // Make graph of cluster IO items
 /*getJSON("/api/getStats", function(err, data){
-	
+
 }*/
 function getItemStatData(item, callback){
 	var xhr = new XMLHttpRequest();
@@ -121,7 +125,7 @@ function makeItemGraphs(itemName){
 					console.log("Making chart for "+instanceID+"'s "+statistic+" statistic");
 					
 					setTimeout(function(){
-						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance 
+						let xmlhttp = new XMLHttpRequest();   // new HttpRequest instance
 						xmlhttp.open("POST", "/api/getStats");
 						xmlhttp.setRequestHeader("Content-Type", "application/json");
 						xmlhttp.onreadystatechange = function(){
@@ -191,7 +195,7 @@ function drawChart(selector, chartData, title) {
 					e.dataSeries.visible = false;
 				} else {
 					e.dataSeries.visible = true;
-				}	
+				}
 				e.chart.render();
 			}
 		},
