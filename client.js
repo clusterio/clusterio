@@ -365,8 +365,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
         console.log(data);
         if(data.includes("Starting RCON interface")){
             let client = new Rcon({
-				packetResponseTimeout: 2000,
-			    maxPending: 1
+				packetResponseTimeout: 20000,
+			    maxPending: 5
 			});
             client.connect({
                 host: 'localhost',
