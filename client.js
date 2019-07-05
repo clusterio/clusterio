@@ -364,12 +364,14 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
         data = data.toString("utf8").replace(/(\r\n\t|\n|\r\t)/gm,"");
         console.log(data);
         if(data.includes("Starting RCON interface")){
-            let client = new Rcon();
+            let client = new Rcon({
+				packetResponseTimeout: 2000,
+			    maxPending: 1
+			});
             client.connect({
                 host: 'localhost',
                 port: Number(process.env.RCONPORT) || instconf.clientPort,
-                password: instconf.clientPassword,
-                timeout: 5000
+                password: instconf.clientPassword
             });
             client.onDidAuthenticate(() => {
                 console.log('Clusterio | RCON Authenticated!');
