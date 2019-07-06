@@ -365,7 +365,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
         console.log(data);
         if(data.includes("Starting RCON interface")){
             let client = new Rcon({
-				packetResponseTimeout: 20000,
+				packetResponseTimeout: 200000,
 			    maxPending: 5
 			});
             client.connect({
@@ -495,8 +495,10 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		// connect to the server with rcon
 		if(true || process.platform != "linux"){
 			// IP, port, password
-			client = new Rcon();
-			
+			client = new Rcon({
+				packetResponseTimeout: 200000, // 200s, should allow for commands up to 1250kB in length
+			    maxPending: 5
+			});
 			// check the logfile to see if the RCON interface is running as there is no way to continue without it
 			// we read the log every 2 seconds and stop looping when we start connecting to factorio
 			function checkRcon() {
@@ -507,7 +509,6 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 							host: 'localhost',
 							port: args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
 							password: args["rcon-password"] || instanceconfig.clientPassword,
-							timeout: 5000
 						});
 					} else {
 						setTimeout(function(){
