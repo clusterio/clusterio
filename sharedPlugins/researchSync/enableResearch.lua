@@ -1,4 +1,4 @@
-/silent-command
+
 if game.forces['player'].technologies['{tech_name}'] then
 	if game.forces['player'].technologies['{tech_name}'].researched ~= {tech_researched} then
 		game.forces['player'].technologies['{tech_name}'].researched = {tech_researched}

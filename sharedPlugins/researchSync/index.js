@@ -1,13 +1,24 @@
 const fs = require('fs');
 const needle = require("needle");
 
+function format_tech(tech) {
+    return `${!!tech.researched} at level ${tech.level}`
+}
+
+
+function log_tech_unlocking(key, current, prev) {
+    console.log(
+        `Unlocking ${key}: ${format_tech(current)}, was ${format_tech(prev)}`
+    );
+}
+
 
 class ResearchSync {
     constructor(slaveConfig, messageInterface, extras = {}){
         this.config = slaveConfig;
         this.messageInterface = messageInterface;
         this.functions = this.loadFunctions();
-		
+
         this.research = {};
 
         setInterval(() => {
@@ -22,61 +33,62 @@ class ResearchSync {
     }
 
     doSync() {
-        needle.get(this.config.masterIP + ':' + this.config.masterPort + '/api/slaves', (err, resp, slaveData) => {
-            if (err){
+        const slaves_data_url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
+        needle.get(slaves_data_url, (err, resp, slavesData) => {
+            if (err) {
 				this.messageInterface("Unable to post JSON master/api/slaves, master might be unreachable");
 				return false;
 			}
-            if (resp.statusCode !== 200){
+            if (resp.statusCode !== 200) {
                 this.messageInterface("got error when calling slaves", resp.statusCode, resp.body);
                 return;
             }
 
             let needResearch = {};
+            for (let slave_data of Object.values(slavesData)) {
+                if (slave_data.unique === this.config.unique.toString())
+                    continue;
 
-            Object.keys(slaveData).forEach(instanceKey => {
-                if (slaveData[instanceKey].unique === this.config.unique.toString()) {
-                    return;
+                if (!slave_data.meta || !slave_data.meta.research)
+                    continue;
+
+                let researchList = slave_data.meta.research;
+                for (let [researchName, research] of Object.entries(researchList)) {
+                    if (isNaN(research.researched) || isNaN(research.level))
+                        continue;
+
+                    if (needResearch[researchName]) {
+                        if (needResearch[researchName].researched === 0) {
+                            needResearch[researchName].researched = parseInt(research.researched);
+                        }
+                        if (needResearch[researchName].level < parseInt(research.level)) {
+                            needResearch[researchName].level = parseInt(research.level);
+                        }
+                    }
+                    else {
+                        needResearch[researchName] = {
+                            researched: parseInt(researchList[researchName].researched),
+                            level: parseInt(researchList[researchName].level)
+                        };
+                    }
                 }
-                if (!slaveData[instanceKey].hasOwnProperty('meta') || !slaveData[instanceKey].meta.hasOwnProperty('research')) {
-                    return;
-                }
-                let researchList = slaveData[instanceKey].meta.research;
-				if(researchList){
-                    Object.keys(researchList).forEach(researchName => {
-                        if (isNaN(researchList[researchName].researched) || isNaN(researchList[researchName].level)) {
-                            return;
-                        }
-                        if (needResearch.hasOwnProperty(researchName)) {
-                            if (needResearch[researchName].researched === 0) {
-                                needResearch[researchName].researched = parseInt(researchList[researchName].researched);
-                            }
-                            if (needResearch[researchName].level < parseInt(researchList[researchName].level)) {
-                                needResearch[researchName].level = parseInt(researchList[researchName].level);
-                            }
-                        }
-                         else {
-                            needResearch[researchName] = {researched: parseInt(researchList[researchName].researched), level: parseInt(researchList[researchName].level)};
-                        }
-                    });
-				}
-			});
+			}
 
             let difference = this.filterResearchDiff(this.research, needResearch);
 
             Object.keys(difference).forEach((key) => {
-                if (this.research[key]) {
-                    let command = this.functions.enableResearch;
-                    while(command.includes("{tech_name}")){
-                        command = command.replace("{tech_name}", key);
-                        command = command.replace("{tech_researched}", difference[key].researched);
-                        command = command.replace("{tech_level}", difference[key].level);
-                    }
-                    this.messageInterface(command);
-                    console.log('Unlocking '+ key + ': ' + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level + ', was '+ (this.research[key].researched === 0 ? 'false' : 'true') + ' at level ' + this.research[key].level);
-                    this.messageInterface("Unlocking research: " + key + " at research state = " + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level);
-                    this.research[key] = difference[key];
-                }
+                if (!this.research[key])
+                    return
+                let command = this.functions.enableResearch;
+                command = command.replace(/{tech_name}/g, key);
+                command = command.replace(/{tech_researched}/g, difference[key].researched);
+                command = command.replace(/{tech_level}/g, difference[key].level);
+                this.messageInterface(command);
+                log_tech_unlocking(key, difference[key], this.research[key])
+                this.messageInterface(
+                    `Unlocking research: ${key} with research state ${format_tech(difference[key])}`
+                );
+                this.research[key] = difference[key];
             });
 
             needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
@@ -91,15 +103,20 @@ class ResearchSync {
 
     filterResearchDiff(localResearch, remoteResearch) {
         let diff = {};
-        Object.keys(localResearch).forEach((key) => {
-            if (remoteResearch.hasOwnProperty(key)) {
-                if ((localResearch[key].researched === 0 && localResearch[key].researched !== remoteResearch[key].researched) || localResearch[key].level < remoteResearch[key].level) {
-                    if (!isNaN(remoteResearch[key].researched) && !isNaN(remoteResearch[key].level)) {
-                        diff[key] = {researched: remoteResearch[key].researched, level: remoteResearch[key].level};
-                    }
-                }
+        for (let key in localResearch) {
+            if (!remoteResearch[key])
+                continue
+            if (isNaN(remoteResearch[key].researched) || isNaN(remoteResearch[key].level))
+                continue
+
+            if (remoteResearch[key].researched > localResearch[key].researched
+                || remoteResearch[key].level > localResearch[key].level) {
+                diff[key] = {
+                    researched: remoteResearch[key].researched,
+                    level: remoteResearch[key].level
+                };
             }
-        });
+        }
         return diff;
     }
 
@@ -111,15 +128,15 @@ class ResearchSync {
     }
 
     loadFunc(path) {
-        return fs.readFileSync("sharedPlugins/researchSync/" + path,'utf-8').replace(/\r?\n|\r/g,' ');
+        let command = fs.readFileSync("sharedPlugins/researchSync/" + path,'utf-8')
+        command = command.replace(/\r?\n|\r/g,' ')
+        command = '/silent-command ' + command
+        return command;
     }
-    scriptOutput(data){
-        let kv              = data.split(":");
-        let name            = kv[0];
-        let researched      = ('true' !== kv[1]
-            ? 0
-            : 1);
-        let level           = parseInt(kv[2]);
+    scriptOutput(data) {
+        let [name, researched, level] = data.split(":")
+        researched = +(researched === 'true');
+        level = parseInt(level);
         if (!isNaN(level) && !isNaN(researched)) {
             this.research[name] = {researched: researched, level: level};
         }
