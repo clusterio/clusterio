@@ -8,8 +8,8 @@ if game.forces['player'].technologies['{tech_name}'] then
     script.raise_event(defines.events.on_research_finished, {research=game.forces['player'].technologies['{tech_name}'], by_script=true})
 	game.play_sound({path="utility/research_completed"})
     if 1 == {tech_infinite} then
-		game.print("Technology {tech_name} synced at level {tech_level}")
+		game.print("Infinite technology {tech_name} level {tech_level} unlocked")
 	else
-		game.print("Technology {tech_name} synced")
+		game.print("Technology {tech_name} researched")
 	end
 end
