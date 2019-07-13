@@ -33,6 +33,7 @@ class neuralDole {
         this.carry = {}
         this.lastRequest = {}
         this.stats=[]
+		this.debt= {}
 
         setInterval(()=>{
             for(let name in this.items){
@@ -71,7 +72,8 @@ class neuralDole {
             this.dole[object.name],
             this.carry[object.name+" "+object.instanceID] || 0,
             this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
-            this.getRequestStats(object.name,5)
+            this.getRequestStats(object.name,5),
+			this.debt[object.name+" "+object.instanceID] || 0
         )
         if ((this.stats[object.name] || []).length>0)
         {
@@ -84,6 +86,7 @@ class neuralDole {
         //2.New carry for item X slave Y
         this.dole[object.name] = magicData[1]
         this.carry[object.name+" "+object.instanceID] = magicData[2]
+		this.debt[object.name+" "+object.instanceID] = magicData[3]
         
         // Remove item from DB and send it
         if(this.items.removeItem({count: magicData[0], name: object.name})){

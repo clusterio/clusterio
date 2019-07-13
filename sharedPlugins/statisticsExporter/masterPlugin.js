@@ -50,7 +50,10 @@ class masterPlugin {
 					console.log(e)
 				};
 			} else {
-				res.send("failure");
+				res.send({
+					ok:false,
+					msg:"Invalid request parameters"
+				});
 			}
 		});
 	}
