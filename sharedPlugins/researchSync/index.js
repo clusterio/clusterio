@@ -11,9 +11,11 @@ class ResearchSync {
         this.research = {};
 
         setInterval(() => {
-            this.pollResearch();
-			setTimeout(this.doSync.bind(this), 2000);
-        }, extras.researchSyncPollInterval || 5000);
+                this.pollResearch();
+                setTimeout(this.doSync.bind(this), 5000);
+            },
+            extras.researchSyncPollInterval || 30000
+        );
     }
 
     pollResearch() {
@@ -44,19 +46,25 @@ class ResearchSync {
                 let researchList = slaveData[instanceKey].meta.research;
 				if(researchList){
                     Object.keys(researchList).forEach(researchName => {
-                        if (isNaN(researchList[researchName].researched) || isNaN(researchList[researchName].level)) {
+                        if (isNaN(researchList[researchName].researched) || isNaN(researchList[researchName].level) || isNaN(researchList[researchName].infinite)) {
                             return;
                         }
                         if (needResearch.hasOwnProperty(researchName)) {
-                            if (needResearch[researchName].researched === 0) {
-                                needResearch[researchName].researched = parseInt(researchList[researchName].researched);
-                            }
-                            if (needResearch[researchName].level < parseInt(researchList[researchName].level)) {
+                            if (needResearch[researchName].infinite === 1
+                                && needResearch[researchName].level < parseInt(researchList[researchName].level))
+                            {
                                 needResearch[researchName].level = parseInt(researchList[researchName].level);
+                            } else if (needResearch[researchName].researched === 0
+                                && parseInt(researchList[researchName].researched) === 1)
+                            {
+                                needResearch[researchName].researched = 1
                             }
-                        }
-                         else {
-                            needResearch[researchName] = {researched: parseInt(researchList[researchName].researched), level: parseInt(researchList[researchName].level)};
+                        } else {
+                            needResearch[researchName] = {
+                                researched: parseInt(researchList[researchName].researched),
+                                level: parseInt(researchList[researchName].level),
+                                infinite: parseInt(researchList[researchName].infinite)
+                            };
                         }
                     });
 				}
@@ -71,6 +79,7 @@ class ResearchSync {
                         command = command.replace("{tech_name}", key);
                         command = command.replace("{tech_researched}", difference[key].researched);
                         command = command.replace("{tech_level}", difference[key].level);
+                        command = command.replace("{tech_infinite}", difference[key].infinite);
                     }
                     this.messageInterface(command);
                     console.log('Unlocking '+ key + ': ' + (difference[key].researched === 0 ? 'false' : 'true') + ' and level ' + difference[key].level + ', was '+ (this.research[key].researched === 0 ? 'false' : 'true') + ' at level ' + this.research[key].level);
@@ -93,9 +102,13 @@ class ResearchSync {
         let diff = {};
         Object.keys(localResearch).forEach((key) => {
             if (remoteResearch.hasOwnProperty(key)) {
-                if ((localResearch[key].researched === 0 && localResearch[key].researched !== remoteResearch[key].researched) || localResearch[key].level < remoteResearch[key].level) {
-                    if (!isNaN(remoteResearch[key].researched) && !isNaN(remoteResearch[key].level)) {
-                        diff[key] = {researched: remoteResearch[key].researched, level: remoteResearch[key].level};
+                if (
+                    (localResearch[key].infinite === 0 && localResearch[key].researched === 0 && remoteResearch[key].researched === 1)
+                    ||
+                    (localResearch[key].infinite === 1 && localResearch[key].level < remoteResearch[key].level)
+                ) {
+                    if (!isNaN(remoteResearch[key].researched) && !isNaN(remoteResearch[key].level) && !isNaN(remoteResearch[key].infinite)) {
+                        diff[key] = {researched: remoteResearch[key].researched, level: remoteResearch[key].level, infinite: remoteResearch[key].infinite};
                     }
                 }
             }
@@ -120,8 +133,11 @@ class ResearchSync {
             ? 0
             : 1);
         let level           = parseInt(kv[2]);
+        let infinite        = ('true' !== kv[3]
+            ? 0
+            : 1);
         if (!isNaN(level) && !isNaN(researched)) {
-            this.research[name] = {researched: researched, level: level};
+            this.research[name] = {researched: researched, level: level, infinite: infinite};
         }
     }
 }
