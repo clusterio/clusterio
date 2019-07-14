@@ -80,6 +80,8 @@ class ResearchSync {
 
             let difference = this.filterResearchDiff(this.research, needResearch);
 
+            let count = Object.keys(difference).length;
+            let counter = 1;
             Object.keys(difference).forEach((key) => {
                 if (this.research[key]) {
                     let command = this.functions.enableResearch;
@@ -88,6 +90,7 @@ class ResearchSync {
                         command = command.replace("{tech_researched}", difference[key].researched);
                         command = command.replace("{tech_level}", difference[key].level);
                         command = command.replace("{tech_infinite}", difference[key].infinite);
+                        command = command.replace("{notify}", count > 1 || count === counter ? 'false' : 'true');
                     }
                     this.messageInterface(command);
                     let log_message = '';
@@ -99,6 +102,7 @@ class ResearchSync {
                     console.log(log_message);
                     this.messageInterface(log_message);
                     this.research[key] = difference[key];
+                    ++counter;
                 }
             });
 
