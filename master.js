@@ -235,7 +235,7 @@ const db = {};
 
 (function(){
 	try{
-		let x = fs.statSync(path.resolve(config.databaseDirectory, "/slaves.json"));
+		let x = fs.statSync(path.resolve(config.databaseDirectory, "slaves.json"));
 		console.log(`loading slaves from path.resolve(config.databaseDirectory, "slaves.json")`);
 		slaves = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "slaves.json")));
 	} catch (e){
