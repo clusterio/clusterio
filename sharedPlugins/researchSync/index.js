@@ -18,16 +18,47 @@ class ResearchSync {
 
         this.research = {};
         this.prev_research = {};
-
-        setInterval(() => {
-            this.pollResearch();
-			setTimeout(this.request_cluster_data.bind(this), 2000);
-        }, extras.researchSyncPollInterval || 5000);
+        this.initial_request_own_data(
+            () => this.setup_sync_task(extras)
+        )
     }
 
-    pollResearch() {
-        // this.messageInterface("Polling Research\n")
+    initial_request_own_data(callback) {
+        const url = `${this.config.masterIP}:${this.config.masterPort}/api/getSlaveMeta`
+        const data = {
+            instanceID: this.config.unique,
+            password: this.config.clientPassword,
+        }
+        const options = {
+            headers: {'x-access-token': this.config.masterAuthToken},
+            json: true
+        }
+        needle.post(url, data, options, (err, res, techs) => {
+            if (err) {
+                console.log(`Can't get own slave data:`)
+                console.error(err)
+                return
+            }
+            if (res.statusCode !== 200) {
+                console.log(`Can't get own slave data:`)
+                console.error(`status code ${res.statusCode}, ${res.body}`)
+                return
+            }
+            techs = JSON.parse(techs)
+            if (typeof techs.research === 'object')
+                this.research = techs.research
+            callback()
+        })
+    }
+
+    setup_sync_task(extras) {
+        const timeout = extras.researchSyncPollInterval || 5000
+        setInterval(() => this.sync_task(), timeout);
+    }
+
+    sync_task() {
         this.messageInterface(this.functions.dumpResearch);
+        setTimeout(this.request_cluster_data.bind(this), 2000);
     }
 
     request_cluster_data() {
@@ -60,12 +91,17 @@ class ResearchSync {
         this.research_technologies(to_research)
         this.update_technologies_progress(to_update_progress)
 
+        this.print_own_contribution()
+
         needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
             instanceID: this.config.unique,
             password: this.config.clientPassword,
             meta: {research: this.research}
-        }, {headers: {'x-access-token': this.config.masterAuthToken}}, function (err, resp) {
-            // success?
+        }, {headers: {'x-access-token': this.config.masterAuthToken}, json: true}, function (err, resp) {
+            if (err)
+                console.error(err)
+            else
+                console.log('sent')
         });
     }
 
@@ -79,16 +115,13 @@ class ResearchSync {
 
                 if (researches[name]) {
                     if (researches[name].researched === 0) {
-                        researches[name].researched = parseInt(research.researched)
+                        researches[name].researched = research.researched
                     }
-                    if (researches[name].level < parseInt(research.level)) {
-                        researches[name].level = parseInt(research.level)
+                    if (researches[name].level < research.level) {
+                        researches[name].level = research.level
                     }
                 } else {
-                    researches[name] = {
-                        researched: parseInt(research.researched),
-                        level: parseInt(research.level)
-                    }
+                    researches[name] = research
                 }
             }
         }
@@ -96,8 +129,8 @@ class ResearchSync {
     }
 
     recount_cluster_research_progress(slaves_data, cluster_researches) {
-        for (let research of Object.values(cluster_researches))
-            research.progress = research.contribution
+        for (let [name, research] of Object.entries(cluster_researches))
+            research.progress = this.research[name].contribution
 
         for (let slave_data of slaves_data)
             for (let [name, research] of Object.entries(slave_data.meta.research))
@@ -108,6 +141,8 @@ class ResearchSync {
             if (research.progress > 1) {
                 research.progress = null
                 research.researched = 1
+                this.research[name].contribution = 0
+                research.contribution = 0
                 if (this.research[name].level >= research.level)
                     research.level = this.research[name].level + 1
             }
@@ -149,8 +184,10 @@ class ResearchSync {
         for (let [name, tech] of Object.entries(to_research)) {
             if (!this.research[name])
                 continue
+            this.research[name].contribution = 0
+            this.research[name].progress = null
             let command = this.functions.enableResearch;
-            command = command.replace(/{tech_name}/g, key);
+            command = command.replace(/{tech_name}/g, name);
             command = command.replace(/{tech_researched}/g, tech.researched);
             command = command.replace(/{tech_level}/g, tech.level);
             this.messageInterface(command);
@@ -160,7 +197,7 @@ class ResearchSync {
             this.messageInterface(
                 `Unlocking research: ${name} with research state ${format_tech(tech)}`
             );
-            this.research[key] = tech;
+            this.research[name] = tech;
         }
     }
 
@@ -168,22 +205,38 @@ class ResearchSync {
         for (let [name, tech] of Object.entries(to_update)) {
             if (!this.research[name])
                 continue
+            let progress = this.research[name].progress
+            if (progress === null)
+                progress = 'nil'
             let command = this.functions.updateProgress
             command = command.replace(/{tech_name}/g, name)
-            command = command.replace(/{last_check_progress}/g, this.research[name].progress)
+
+            command = command.replace(/{last_check_progress}/g, progress)
             command = command.replace(/{new_progress}/g, tech.progress)
             this.messageInterface(command);
             console.log(
-                `Updating ${name}: progress += ${tech.progress - this.research[name].progress}`
+                `Updating ${name}: ${this.research[name].progress} += ${tech.progress - this.research[name].progress}`
             );
             this.research[name].progress = tech.progress
         }
     }
 
-    loadFunc(path) {
+    print_own_contribution() {
+        if (!this.prev_research)
+            return
+        for (let [name, tech] of Object.entries(this.research)) {
+            if (!this.prev_research[name])
+                continue
+            let diff = this.research[name].contribution - this.prev_research[name].contribution
+            if (Math.abs(diff) > Number.EPSILON * 1000)
+                console.log(`Own research ${name}: ${this.research[name].progress} += ${diff}`)
+        }
+    }
+
+    loadFunc(path, silent=true) {
         let command = fs.readFileSync("sharedPlugins/researchSync/" + path,'utf-8')
         command = command.replace(/\r?\n|\r/g,' ')
-        command = '/silent-command ' + command
+        command = (silent ? '/silent-command ' : '/c ') + command
         return command;
     }
     scriptOutput(data) {
@@ -217,6 +270,10 @@ class ResearchSync {
             // therefore contribution should be own research progress change over sync interval
             let contribution = this.research[name].progress - this.prev_research[name].progress
             this.research[name].contribution += contribution
+        }
+        if (Math.abs(this.research[name].contribution) < Number.EPSILON * 1000) {
+            // if contribution should be 0 but because of floating-point precision is e.g. 2.2564e-18
+            this.research[name].contribution = 0
         }
     }
 }
