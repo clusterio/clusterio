@@ -26,18 +26,19 @@ class masterPlugin {
 		@returns {string} failure
 		*/
 		app.post("/api/logStats", authenticate.middleware, function(req,res) {
+			let data = JSON.parse(req.body.forceData);
 			// endpointHitCounter.labels(req.route.path).inc();
 			if(typeof req.body == "object"
 			&& req.body.instanceID
 			&& typeof req.body.instanceID == "string"
 			&& req.body.instanceID.length < 100
-			&& req.body.data
-			&& typeof req.body.data == "object"
-			&& !Array.isArray(req.body.data)){
+			&& data
+			&& typeof data == "object"
+			&& !Array.isArray(data)){
 				try{
-					Object.keys(req.body.data).forEach(statisticName => {
-						Object.keys(req.body.data[statisticName]).forEach(direction => {
-							let statHash = req.body.data[statisticName][direction];
+					Object.keys(data).forEach(statisticName => {
+						Object.keys(data[statisticName]).forEach(direction => {
+							let statHash = data[statisticName][direction];
 							Object.keys(statHash).forEach(item => {
 								let value = Number(statHash[item]);
 								if(value) prometheusStatisticsGauge.labels(req.body.instanceID, req.body.force, statisticName, direction, item).set(value);
@@ -50,6 +51,8 @@ class masterPlugin {
 					console.log(e)
 				};
 			} else {
+				console.log(`/api/logStats: Invalid request. instanceID: ${req.body.instanceID}, dataIsArray: `
+					+ `${Array.isArray(data)}, ${typeof req.body.instanceID}, ${typeof data}`);
 				res.send({
 					ok:false,
 					msg:"Invalid request parameters"
