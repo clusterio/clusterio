@@ -156,7 +156,8 @@ class ResearchSync {
 
         for (let slave_data of slaves_data)
             for (let [name, research] of Object.entries(slave_data.meta.research))
-                if (!isNaN(cluster_researches[name].progress) && !isNaN(research.contribution))
+                if (cluster_researches[name]
+                    && !isNaN(cluster_researches[name].progress) && !isNaN(research.contribution))
                     cluster_researches[name].progress += research.contribution
 
         for (let [name, research] of Object.entries(cluster_researches)) {
