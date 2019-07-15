@@ -378,8 +378,13 @@ app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	console.log("body", req.body);
     if(req.body && req.body.instanceID && req.body.password){
-    	console.log("returning meta for ", req.body.instanceID);
-    	res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+    	if (slaves[req.body.instanceID]) {
+			console.log("returning meta for ", req.body.instanceID);
+			res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+		} else {
+    		res.status(404)
+			res.send('{"status": 404, "info": "Slave not registered"}')
+		}
 	} else {
     	res.status(400);
     	res.send('{"INVALID REQUEST":1}');

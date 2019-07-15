@@ -9,11 +9,13 @@ for _, tech in pairs(force.technologies) do
     else
         progress = force.get_saved_technology_progress(tech.name);
     end
+    local infinite = tech.enabled == true and tech.prototype.max_level == 4294967295;
     local tech_data = {
         tech.name,
         tostring(tech.researched),
         tostring(tech.level),
         tostring(progress),
+        tostring(infinite),
     }
     tech_data = table.concat(tech_data, ':')
     table.insert(data, tech_data);

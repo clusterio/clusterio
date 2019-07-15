@@ -1,10 +1,6 @@
 const fs = require('fs');
 const needle = require("needle");
 
-function format_tech(tech) {
-    return `${!!tech.researched} at level ${tech.level}`
-}
-
 
 class ResearchSync {
     constructor(slaveConfig, messageInterface, extras = {}){
@@ -39,6 +35,14 @@ class ResearchSync {
                 console.error(err)
                 return
             }
+            if (res.statusCode === 404) {
+                console.log('researchSync: slave is not registered yet. Delaying for 5 secs')
+                setTimeout(
+                    () => this.initial_request_own_data(callback),
+                    5000
+                )
+                return
+            }
             if (res.statusCode !== 200) {
                 console.log(`Can't get own slave data:`)
                 console.error(`status code ${res.statusCode}, ${res.body}`)
@@ -47,6 +51,7 @@ class ResearchSync {
             techs = JSON.parse(techs)
             if (typeof techs.research === 'object')
                 this.research = techs.research
+            console.log('researchSync: techs imported from master')
             callback()
         })
     }
@@ -82,6 +87,7 @@ class ResearchSync {
                 && slave_data.meta && slave_data.meta.research
         )
 
+        this.clear_contribution_to_researched_techs()
         let cluster_techs = this.get_cluster_techs(slaves_data)
         this.recount_cluster_research_progress(slaves_data, cluster_techs)
 
@@ -98,6 +104,7 @@ class ResearchSync {
             password: this.config.clientPassword,
             meta: {research: this.research}
         }, {headers: {'x-access-token': this.config.masterAuthToken}, json: true}, function (err, resp) {
+            // it doesn't get called
             if (err)
                 console.error(err)
             else
@@ -105,27 +112,42 @@ class ResearchSync {
         });
     }
 
+    clear_contribution_to_researched_techs() {
+        // if between updates tech was researched
+        if (!this.prev_research)
+            return
+        for (let [name, research] of Object.entries(this.research)) {
+            let researched
+            if (research.infinite)
+                researched = this.prev_research[name].level < research.level
+            else
+                researched = this.prev_research[name].researched < research.researched
+
+            if (researched)
+                research.contribution = 0
+        }
+    }
+
     get_cluster_techs(slavesData) {
-        let researches = {}
+        let cluster_techs = {}
         for (let slave_data of slavesData) {
             let node_researches = slave_data.meta.research
-            for (let [name, research] of Object.entries(node_researches)) {
-                if (isNaN(research.researched) || isNaN(research.level))
+            for (let [name, node_tech] of Object.entries(node_researches)) {
+                if (isNaN(node_tech.researched) || isNaN(node_tech.level) || isNaN(node_tech.infinite))
                     continue
 
-                if (researches[name]) {
-                    if (researches[name].researched === 0) {
-                        researches[name].researched = research.researched
-                    }
-                    if (researches[name].level < research.level) {
-                        researches[name].level = research.level
+                if (cluster_techs[name]) {
+                    if (cluster_techs[name].infinite === 1 && cluster_techs[name].level < node_tech.level) {
+                        cluster_techs[name].level = node_tech.level
+                    } else if (node_tech.researched > cluster_techs[name].researched) {
+                        cluster_techs[name].researched = 1
                     }
                 } else {
-                    researches[name] = research
+                    cluster_techs[name] = node_tech
                 }
             }
         }
-        return researches
+        return cluster_techs
     }
 
     recount_cluster_research_progress(slaves_data, cluster_researches) {
@@ -158,10 +180,14 @@ class ResearchSync {
             if (isNaN(cluster_researches[key].researched) || isNaN(cluster_researches[key].level))
                 continue
 
-            if (cluster_researches[key].researched > local_researches[key].researched
-                || cluster_researches[key].level > local_researches[key].level) {
+            let researched
+            if (local_researches[key].infinite)
+                researched = local_researches[key].level < cluster_researches[key].level
+            else
+                researched = local_researches[key].researched < cluster_researches[key].researched
+
+            if (researched)
                 result[key] = cluster_researches[key]
-            }
         }
         return result;
     }
@@ -181,22 +207,26 @@ class ResearchSync {
     }
 
     research_technologies(to_research) {
-        for (let [name, tech] of Object.entries(to_research)) {
+        for (let name of Object.keys(to_research))
             if (!this.research[name])
-                continue
+                delete to_research[name]
+
+        const notify = Object.keys(to_research).length === 1
+        for (let [name, tech] of Object.entries(to_research)) {
             this.research[name].contribution = 0
             this.research[name].progress = null
             let command = this.functions.enableResearch;
             command = command.replace(/{tech_name}/g, name);
             command = command.replace(/{tech_researched}/g, tech.researched);
             command = command.replace(/{tech_level}/g, tech.level);
+            command = command.replace(/{tech_infinite}/g, tech.infinite);
+            command = command.replace(/{notify}/g, notify);
             this.messageInterface(command);
-            console.log(
-                `Unlocking ${name}: ${format_tech(tech)}, was ${format_tech(this.research[name])}`
-            );
-            this.messageInterface(
-                `Unlocking research: ${name} with research state ${format_tech(tech)}`
-            );
+            let log_message = tech.infinite
+                ? `Unlocking infinite research ${name} at level ${this.research[name].level}`
+                : `Unlocking research ${name}`
+            console.log(log_message);
+            this.messageInterface(log_message);
             this.research[name] = tech;
         }
     }
@@ -210,7 +240,6 @@ class ResearchSync {
                 progress = 'nil'
             let command = this.functions.updateProgress
             command = command.replace(/{tech_name}/g, name)
-
             command = command.replace(/{last_check_progress}/g, progress)
             command = command.replace(/{new_progress}/g, tech.progress)
             this.messageInterface(command);
@@ -240,8 +269,9 @@ class ResearchSync {
         return command;
     }
     scriptOutput(data) {
-        let [name, researched, level, progress] = data.split(":")
-        researched = +(researched === 'true');
+        let [name, researched, level, progress, infinite] = data.split(":")
+        researched = +(researched === 'true')
+        infinite = +(infinite === 'true')
         level = parseInt(level);
         if (progress === 'nil')
             progress = null
@@ -257,13 +287,15 @@ class ResearchSync {
                 level: null,
                 progress: null,
                 contribution: 0,
+                infinite,
             }
         }
         this.research[name] = {
             researched,
             level,
             progress,
-            contribution: this.prev_research[name].contribution
+            contribution: this.prev_research[name].contribution,
+            infinite
         }
         if (this.prev_research[name].progress && this.research[name].progress) {
             // this.prev_research[name].progress gets updated to overall cluster progress
