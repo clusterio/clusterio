@@ -26,7 +26,10 @@ class masterPlugin {
 		@returns {string} failure
 		*/
 		app.post("/api/logStats", authenticate.middleware, function(req,res) {
-			let data = JSON.parse(req.body.forceData);
+			let data = req.body.forceData;
+			if(typeof req.body.forceData == "string") {
+				data = JSON.parse(req.body.forceData);
+			}
 			// endpointHitCounter.labels(req.route.path).inc();
 			if(typeof req.body == "object"
 			&& req.body.instanceID
