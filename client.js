@@ -673,6 +673,7 @@ async function instanceManagement(instanceconfig) {
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					instanceName: instance,
+					info: instanceconfig.info,
 				}
 				if(playerCount){
 					payload.playerCount = playerCount.replace(/(\r\n\t|\n|\r\t)/gm, "");
