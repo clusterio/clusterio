@@ -317,6 +317,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || Math.floor(Math.random() * 65535),
 		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
 		"clientPassword": args["rcon-password"] || Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
+		"info": {}
 	}
 	console.log("Clusterio | Created instance with settings:")
 	console.log(instconf);
@@ -673,6 +674,7 @@ async function instanceManagement(instanceconfig) {
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
 					instanceName: instance,
+					info: instanceconfig.info,
 				}
 				if(playerCount){
 					payload.playerCount = playerCount.replace(/(\r\n\t|\n|\r\t)/gm, "");
