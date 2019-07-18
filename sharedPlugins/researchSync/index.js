@@ -1,22 +1,77 @@
 const fs = require('fs');
+const path = require('path')
 const needle = require("needle");
 
 
+function time() {
+    let d = new Date()
+    return `${d.getUTCHours()}:${d.getUTCMinutes()}:${d.getUTCSeconds()}.${d.getUTCMilliseconds()}`
+}
+
 class ResearchSync {
     constructor(slaveConfig, messageInterface, extras = {}){
-        this.config = slaveConfig;
-        this.messageInterface = messageInterface;
+        this.config = slaveConfig
+        this.messageInterface = messageInterface
+
         this.functions = {
             dumpResearch: this.loadFunc("dumpResearch.lua"),
 			enableResearch: this.loadFunc("enableResearch.lua"),
             updateProgress: this.loadFunc("updateProgress.lua")
         }
 
-        this.research = {};
-        this.prev_research = {};
+        this.log_folder = './logs'
+        if (!fs.existsSync(this.log_folder))
+            fs.mkdirSync(this.log_folder);
+        this.log_file = path.join(this.log_folder, `${this.config.unique}-research.log`)
+        this.get_node_name_and_move_log()
+
+        this.research = {}
+        this.prev_research = {}
         this.initial_request_own_data(
             () => this.setup_sync_task(extras)
         )
+    }
+
+    log(data) {
+        try {
+            console.log(`researchSync: ${data}`)
+            fs.appendFileSync(this.log_file, `${time()}: ${data}\n`);
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    error(data) {
+        try {
+            console.error(`researchSync: ${data}`)
+            fs.appendFileSync(this.log_file, `${time()}: ${data}\n`);
+        } catch (e) {
+            console.error(e)
+        }
+    }
+
+    get_node_name_and_move_log() {
+        const url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
+        needle.get(url, (err, res, slaves_data) => {
+            if (err)
+                return this.error(err)
+
+            slaves_data = Object.values(slaves_data)
+            let node_data = slaves_data.find(
+                slave_data => slave_data.unique === this.config.unique.toString()
+            )
+            if (node_data === undefined)
+                return this.error('slave was not found')
+            let node_name = node_data.instanceName
+            let log_file = path.join(this.log_folder, `${node_name}-research.log`)
+            if (fs.existsSync(log_file)) {
+                fs.appendFileSync(log_file, fs.readFileSync(this.log_file));
+                fs.unlinkSync(this.log_file)
+            } else {
+                fs.renameSync(this.log_file, log_file)
+            }
+            this.log_file = log_file
+        })
     }
 
     initial_request_own_data(callback) {
@@ -31,12 +86,12 @@ class ResearchSync {
         }
         needle.post(url, data, options, (err, res, techs) => {
             if (err) {
-                console.log(`Can't get own slave data:`)
-                console.error(err)
+                this.log(`Can't get own slave data:`)
+                this.error(err)
                 return
             }
             if (res.statusCode === 404) {
-                console.log('researchSync: slave is not registered yet. Delaying for 5 secs')
+                this.log('slave is not registered yet. Delaying for 5 secs')
                 setTimeout(
                     () => this.initial_request_own_data(callback),
                     5000
@@ -44,14 +99,14 @@ class ResearchSync {
                 return
             }
             if (res.statusCode !== 200) {
-                console.log(`Can't get own slave data:`)
-                console.error(`status code ${res.statusCode}, ${res.body}`)
+                this.log(`Can't get own slave data:`)
+                this.error(`status code ${res.statusCode}, ${res.body}`)
                 return
             }
             techs = JSON.parse(techs)
             if (typeof techs.research === 'object')
                 this.research = techs.research
-            console.log('researchSync: techs imported from master')
+            this.log('techs imported from master')
             callback()
         })
     }
@@ -103,13 +158,10 @@ class ResearchSync {
             instanceID: this.config.unique,
             password: this.config.clientPassword,
             meta: {research: this.research}
-        }, {headers: {'x-access-token': this.config.masterAuthToken}, json: true}, function (err, resp) {
-            // it doesn't get called
+        }, {headers: {'x-access-token': this.config.masterAuthToken}, json: true}, (err, resp) => {
             if (err)
-                console.error(err)
-            else
-                console.log('sent')
-        });
+                this.error(err)
+        })
     }
 
     clear_contribution_to_researched_techs() {
@@ -234,7 +286,7 @@ class ResearchSync {
             let log_message = tech.infinite
                 ? `Unlocking infinite research ${name} at level ${this.research[name].level}`
                 : `Unlocking research ${name}`
-            console.log(log_message);
+            this.log(log_message);
             this.messageInterface(log_message);
             this.research[name] = tech;
         }
@@ -252,7 +304,7 @@ class ResearchSync {
             command = command.replace(/{last_check_progress}/g, progress)
             command = command.replace(/{new_progress}/g, tech.progress)
             this.messageInterface(command);
-            console.log(
+            this.log(
                 `Updating ${name}: ${this.research[name].progress} += ${tech.progress - this.research[name].progress}`
             );
             this.research[name].progress = tech.progress
@@ -267,7 +319,7 @@ class ResearchSync {
                 continue
             let diff = this.research[name].contribution - this.prev_research[name].contribution
             if (Math.abs(diff) > Number.EPSILON * 1000)
-                console.log(`Own research ${name}: ${this.research[name].progress} += ${diff}`)
+                this.log(`Own research ${name}: ${this.research[name].progress} += ${diff}`)
         }
     }
 
