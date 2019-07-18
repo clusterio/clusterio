@@ -445,17 +445,16 @@ GET endpoint for getting information about all our slaves
 @instance
 @alias /api/slaves
 */
-let slaveCache = {
-	timestamp: Date.now(),
-};
 app.get("/api/slaves", function(req, res) {
+	let slaveCache = {
+		timestamp: Date.now(),
+	};
 	endpointHitCounter.labels(req.route.path).inc();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
 		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
-		// filter out the rcon password because thats kindof not a safe thing to share
-		for(key in copyOfSlaves){
+		for(key in copyOfSlaves) {
 			copyOfSlaves[key].rconPassword = "hidden";
 		}
 		slaveCache.cache = copyOfSlaves;
@@ -464,13 +463,40 @@ app.get("/api/slaves", function(req, res) {
 	
 	res.send(slaveCache.cache);
 });
-var recievedItemStatisticsBySlaveID = {};
-var sentItemStatisticsBySlaveID = {};
+/**
+POST endpoint for getting information about all our slaves, requires auth, responds including RCON passwords
+@memberof clusterioMaster
+@instance
+@alias /api/slaves
+*/
+app.post("/api/slaves", function(req, res) {
+	let slaveCache = {
+		timestamp: Date.now(),
+	};
+	let token = req.headers['x-access-token'];
+	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
+	jwt.verify(token, config.masterAuthSecret, function(err, decoded) {
+		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+		endpointHitCounter.labels(req.route.path).inc();
+		res.header("Access-Control-Allow-Origin", "*");
+		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+//		console.log(JSON.stringify(slaves));
+		if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
+			let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
+			slaveCache.cache = copyOfSlaves;
+			slaveCache.timestamp = Date.now();
+		}
+		console.log(JSON.stringify(slaveCache.cache));
+		res.send(slaveCache.cache);
+	});
+});
 /*
 var recievedItemStatistics = new averagedTimeSeries({
 	maxEntries: config.itemStats.maxEntries,
 	entriesPerSecond: config.itemStats.entriesPerSecond,
 }, console.log);*/
+var recievedItemStatisticsBySlaveID = {};
+var sentItemStatisticsBySlaveID = {};
 // 
 /**
 POST endpoint for storing items in master's inventory.
