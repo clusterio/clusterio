@@ -22,7 +22,7 @@ module.exports = class remoteCommands {
 					words.shift();
 					words.shift();
 					words.shift();
-					let message = words.join(" ").replace(/[";]/g, " ").replace(/[']/g,"").replace("/shout ", "").replace("!shout", "");
+					                let message = words.join(" ").replace(/[";]/g, " ").replace(/[']/g,"").replace("/shout ", "").replace(/\[gps=.*?\]/g, "").replace(/\[train=.*?\]/g, "");
 					
                     let instance = await this.getInstanceName(data.instanceID);
                     if(data.data.includes("[gps=")){
