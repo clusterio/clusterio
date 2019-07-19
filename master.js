@@ -446,7 +446,7 @@ let slaveCache = {
 	timestamp: Date.now(),
 };
 function getSlaves() {
-	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
+	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000) {
 		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
 		slaveCache.cache = copyOfSlaves;
 		slaveCache.timestamp = Date.now();
@@ -477,9 +477,13 @@ POST endpoint for getting information about all our slaves, requires auth, respo
 */
 app.post("/api/slaves", function(req, res) {
 	let token = req.headers['x-access-token'];
-	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
+	if(!token) {
+		return res.status(401).send({ auth: false, message: 'No token provided.' });
+	}
 	jwt.verify(token, config.masterAuthSecret, function(err, decoded) {
-		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+		if(err) {
+			return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
+		}
 		endpointHitCounter.labels(req.route.path).inc();
 		res.header("Access-Control-Allow-Origin", "*");
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
