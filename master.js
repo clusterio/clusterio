@@ -465,8 +465,8 @@ app.get("/api/slaves", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	let slaveCache = getSlaves();
-	for(key in slaveCache) {
-		slaveCache[key].rconPassword = "hidden";
+	for(key in slaveCache.cache) {
+		slaveCache.cache[key].rconPassword = "hidden";
 	}
 	res.send(slaveCache.cache);
 });
@@ -481,9 +481,11 @@ app.post("/api/rconPasswords", authenticate.middleware, function(req, res) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     let slaveCache = getSlaves();
-    let serverInfo = [];
-    serverInfo[key] = {id: key, rconPassword: slaveCache[key].rconPassword};
-    res.send(serverInfo);
+    let validKeys = ['rconPort', 'rconPassword', 'publicIP'];
+    for(key in slaveCache.cache) {
+        slaveCache.cache[key] = {'publicIP': slaveCache.cache[key].publicIP, 'rconPort': slaveCache.cache[key].rconPort, 'rconPassword': slaveCache.cache[key].rconPassword};
+    }
+    res.send(slaveCache.cache);
 });
 /*
 var recievedItemStatistics = new averagedTimeSeries({
