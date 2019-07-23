@@ -1,4 +1,4 @@
-/silent-command
+
 if game.forces['player'].technologies['{tech_name}'] then
     if 1 == {tech_infinite} then
         game.forces['player'].technologies['{tech_name}'].level = {tech_level}

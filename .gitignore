@@ -64,3 +64,6 @@ sharedPlugins/scenario_loader/scenarios
 sharedPlugins/*/DISABLED
 
 \.cache-require-paths\.json
+
+# IDE
+.idea/
