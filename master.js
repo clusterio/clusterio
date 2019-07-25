@@ -389,7 +389,7 @@ app.post("/api/getSlaveMeta", function (req, res) {
 		}
 	} else {
     	res.status(400);
-    	res.send('{"INVALID REQUEST":1}');
+    	res.send('{"INVALID_REQUEST":1}');
 	}
 });
 // mod management
