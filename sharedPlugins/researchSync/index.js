@@ -52,7 +52,7 @@ class ResearchSync {
 
     get_node_name_and_move_log() {
         const url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
-        needle.get(url, (err, res, slaves_data) => {
+        needle.get(url, {compressed:true}, (err, res, slaves_data) => {
             if (err)
                 return this.error(err)
 
@@ -82,7 +82,8 @@ class ResearchSync {
         }
         const options = {
             headers: {'x-access-token': this.config.masterAuthToken},
-            json: true
+            json: true,
+            compressed: true
         }
         needle.post(url, data, options, (err, res, techs) => {
             if (err) {
@@ -103,10 +104,14 @@ class ResearchSync {
                 this.error(`status code ${res.statusCode}, ${res.body}`)
                 return
             }
-            techs = JSON.parse(techs)
-            if (typeof techs.research === 'object')
-                this.research = techs.research
-            this.log('techs imported from master')
+            if(techs.toString()!="") {
+                techs = JSON.parse(techs)
+                if (typeof techs.research === 'object')
+                    this.research = techs.research
+                this.log('techs imported from master')
+            } else {
+                this.log('no techs imported from master, since there are none yet')
+            }
             callback()
         })
     }
@@ -123,7 +128,7 @@ class ResearchSync {
 
     request_cluster_data() {
         const slaves_data_url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
-        needle.get(slaves_data_url, this.sync_researches.bind(this))
+        needle.get(slaves_data_url, this.sync_researches.bind(this), {compressed:true})
     }
 
     sync_researches(err, resp, slaves_data) {
@@ -158,7 +163,7 @@ class ResearchSync {
             instanceID: this.config.unique,
             password: this.config.clientPassword,
             meta: {research: this.research}
-        }, {headers: {'x-access-token': this.config.masterAuthToken}, json: true}, (err, resp) => {
+        }, {headers: {'x-access-token': this.config.masterAuthToken}, json: true, compressed:true}, (err, resp) => {
             if (err)
                 this.error(err)
         })
