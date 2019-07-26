@@ -128,7 +128,7 @@ class ResearchSync {
 
     request_cluster_data() {
         const slaves_data_url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
-        needle.get(slaves_data_url, this.sync_researches.bind(this), {compressed:true})
+        needle.get(slaves_data_url, {compressed:true}, this.sync_researches.bind(this))
     }
 
     sync_researches(err, resp, slaves_data) {
