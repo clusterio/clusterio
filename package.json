@@ -30,6 +30,7 @@
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.18.2",
     "cache-require-paths": "^0.3.0",
+    "cli": "^1.0.1",
     "cli-interact": "^0.1.9",
     "codecov": "^3.0.1",
     "compression": "^1.7.2",

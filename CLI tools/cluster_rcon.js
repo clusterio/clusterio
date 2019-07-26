@@ -1,5 +1,13 @@
 const needle = require("needle");
-const config = require("./config.json");
+const cli = require("cli");
+const config = require("./../config.json");
+
+let options = cli.parse()
+cli.setUsage(`node cluster_rcon.js /c game.player.force = "player"`)
+if(process.argv.length < 3){
+	cli.getUsage()
+	process.exit(1)
+}
 
 const masterIP = `${config.masterIP}:${config.masterPort}`;
 const token = config.masterAuthToken
