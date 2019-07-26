@@ -379,17 +379,20 @@ POST Get metadata from a single slave. For whenever you find the data returned b
 app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	console.log("body", req.body);
-    if(req.body && req.body.instanceID){
-    	if (slaves[req.body.instanceID]) {
+	if(req.body && req.body.instanceID){
+		if (slaves[req.body.instanceID]) {
 			console.log("returning meta for ", req.body.instanceID);
+			if(!slaves[req.body.instanceID].meta) {
+				slaves[req.body.instanceID].meta = {};
+			}
 			res.send(JSON.stringify(slaves[req.body.instanceID].meta))
 		} else {
     		res.status(404)
 			res.send('{"status": 404, "info": "Slave not registered"}')
 		}
 	} else {
-    	res.status(400);
-    	res.send('{"INVALID REQUEST":1}');
+		res.status(400);
+		res.send('{"INVALID_REQUEST":1}');
 	}
 });
 // mod management
