@@ -9,7 +9,7 @@ describe("researchSync/index.js", ()=>{
 		assert.equal(typeof researchSync, "function");
 	});
 	describe("class researchSync()", ()=>{
-		it(".filterResearchDiff(object1, object2) returns research that needs enabling on the local instance", ()=>{
+		it(".filter_researched_techs(object1, object2) returns research that needs enabling on the local instance", ()=>{
 			let reSync = new researchSync({}, function(){});
 			
 			let obj1 = {
@@ -24,9 +24,9 @@ describe("researchSync/index.js", ()=>{
 				c:{researched: false, level: 0},
 				e:{researched: false, level: 50},
 			};
-			assert(typeof reSync.filterResearchDiff == "function");
+			assert(typeof reSync.filter_researched_techs == "function");
 			
-			let diffResult = reSync.filterResearchDiff(obj1, obj2);
+			let diffResult = reSync.filter_researched_techs(obj1, obj2);
 			
 			assert(diffResult.a === undefined);
 			

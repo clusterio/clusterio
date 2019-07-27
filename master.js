@@ -235,7 +235,7 @@ const db = {};
 
 (function(){
 	try{
-		let x = fs.statSync(path.resolve(config.databaseDirectory, "/slaves.json"));
+		let x = fs.statSync(path.resolve(config.databaseDirectory, "slaves.json"));
 		console.log(`loading slaves from path.resolve(config.databaseDirectory, "slaves.json")`);
 		slaves = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "slaves.json")));
 	} catch (e){
@@ -352,16 +352,18 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	// request.body should be an object
 	// {instanceID, pass, meta:{x,y,z}}
 	
-	if(req.body && req.body.instanceID && req.body.password && req.body.meta){
-		// check for editing permissions
-		if(slaves[req.body.instanceID] && slaves[req.body.instanceID].rconPassword == req.body.password){
-			if(!slaves[req.body.instanceID].meta){
+	if(req.body && req.body.instanceID && req.body.meta){
+		if(slaves[req.body.instanceID]){
+			if(!slaves[req.body.instanceID].meta) {
 				slaves[req.body.instanceID].meta = {};
 			}
 			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
 			let metaPortion = JSON.stringify(req.body.meta);
-			if(metaPortion.length > 50) metaPortion = metaPortion.substring(0,20) + "...";
+			if(metaPortion.length > 50) {
+                metaPortion = metaPortion.substring(0,20) + "...";
+            }
 			// console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
+			res.sendStatus(200);
 		} else {
 			res.send("ERROR: Invalid instanceID or password")
 		}
@@ -377,12 +379,20 @@ POST Get metadata from a single slave. For whenever you find the data returned b
 app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	console.log("body", req.body);
-    if(req.body && req.body.instanceID && req.body.password){
-    	console.log("returning meta for ", req.body.instanceID);
-    	res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+	if(req.body && req.body.instanceID){
+		if (slaves[req.body.instanceID]) {
+			console.log("returning meta for ", req.body.instanceID);
+			if(!slaves[req.body.instanceID].meta) {
+				slaves[req.body.instanceID].meta = {};
+			}
+			res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+		} else {
+    		res.status(404)
+			res.send('{"status": 404, "info": "Slave not registered"}')
+		}
 	} else {
-    	res.status(400);
-    	res.send('{"INVALID REQUEST":1}');
+		res.status(400);
+		res.send('{"INVALID_REQUEST":1}');
 	}
 });
 // mod management
@@ -393,7 +403,7 @@ POST Check if a mod has been uploaded to the master before. Only checks against 
 @instance
 @alias /api/checkMod
 */
-app.post("/api/checkMod", function(req,res) {
+app.post("/api/checkMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	let files = fs.readdirSync(masterModFolder);
 	let found = false;
@@ -434,37 +444,59 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
     }
 });
 /**
+Prepare the slaveCache for both /api/slaves calls
+*/
+let slaveCache = {
+	timestamp: Date.now(),
+};
+function getSlaves() {
+	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000) {
+		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
+		slaveCache.cache = copyOfSlaves;
+		slaveCache.timestamp = Date.now();
+	}
+	return slaveCache;
+}
+/**
 GET endpoint for getting information about all our slaves
 @memberof clusterioMaster
 @instance
 @alias /api/slaves
 */
-let slaveCache = {
-	timestamp: Date.now(),
-};
 app.get("/api/slaves", function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000){
-		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
-		// filter out the rcon password because thats kindof not a safe thing to share
-		for(key in copyOfSlaves){
-			copyOfSlaves[key].rconPassword = "hidden";
-		}
-		slaveCache.cache = copyOfSlaves;
-		slaveCache.timestamp = Date.now();
+	let slaveCache = getSlaves();
+	for(key in slaveCache.cache) {
+		slaveCache.cache[key].rconPassword = "hidden";
 	}
-	
 	res.send(slaveCache.cache);
 });
-var recievedItemStatisticsBySlaveID = {};
-var sentItemStatisticsBySlaveID = {};
+/**
+POST endpoint for getting the rconPasswords of all our slaves
+@memberof clusterioMaster
+@instance
+@alias /api/rconPasswords
+*/
+app.post("/api/rconPasswords", authenticate.middleware, function(req, res) {
+    endpointHitCounter.labels(req.route.path).inc();
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    let slaveCache = getSlaves();
+    let validKeys = ['rconPort', 'rconPassword', 'publicIP'];
+    for(key in slaveCache.cache) {
+        slaveCache.cache[key] = {'publicIP': slaveCache.cache[key].publicIP, 'rconPort': slaveCache.cache[key].rconPort, 'rconPassword': slaveCache.cache[key].rconPassword};
+    }
+    res.send(slaveCache.cache);
+});
 /*
 var recievedItemStatistics = new averagedTimeSeries({
 	maxEntries: config.itemStats.maxEntries,
 	entriesPerSecond: config.itemStats.entriesPerSecond,
 }, console.log);*/
+var recievedItemStatisticsBySlaveID = {};
+var sentItemStatisticsBySlaveID = {};
 // 
 /**
 POST endpoint for storing items in master's inventory.
@@ -697,45 +729,38 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 @param {object} JSON {instanceID:19412312, broadcast:false, command:"/c game.print('hello')"}
 @returns {object} Status {auth: bool, message: "Informative error", data:{}}
 */
-app.post("/api/runCommand", (req,res) => {
+app.post("/api/runCommand", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	var token = req.headers['x-access-token'];
-	if(!token) return res.status(401).send({ auth: false, message: 'No token provided.' });
-	
-	jwt.verify(token, config.masterAuthSecret, function(err, decoded) {
-		if(err) return res.status(500).send({ auth: false, message: 'Failed to authenticate token.' });
-		
-		// validate request.body
-        let body = req.body;
+    // validate request.body
+    let body = req.body;
 
-        if (
-            body.broadcast
-            && body.command
-            && typeof body.command == "string"
-            && body.command[0] == "/")
-        {
-        	let instanceResponses = [];
-            for (let instanceID in wsSlaves) {
-                // skip loop if the property is from prototype
-                if (!wsSlaves.hasOwnProperty(instanceID)) continue;
-                wsSlaves[instanceID].runCommand(body.command);
-            }
-            res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
-        } else if (
-            body.instanceID
-            && wsSlaves[body.instanceID]
-            && body.command
-            && typeof body.command == "string"
-            && body.command[0] == "/")
-        {
-            // execute command
-            wsSlaves[body.instanceID].runCommand(body.command, data => {
-                res.status(200).send({auth: true, message: "success", data});
-            });
-        } else {
-            res.status(400).send({auth: true, message: "Error: invalid request.body"});
+    if (
+        body.broadcast
+        && body.command
+        && typeof body.command == "string"
+        && body.command[0] == "/")
+    {
+        let instanceResponses = [];
+        for (let instanceID in wsSlaves) {
+            // skip loop if the property is from prototype
+            if (!wsSlaves.hasOwnProperty(instanceID)) continue;
+            wsSlaves[instanceID].runCommand(body.command);
         }
-	});
+        res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
+    } else if (
+        body.instanceID
+        && wsSlaves[body.instanceID]
+        && body.command
+        && typeof body.command == "string"
+        && body.command[0] == "/")
+    {
+        // execute command
+        wsSlaves[body.instanceID].runCommand(body.command, data => {
+            res.status(200).send({auth: true, message: "success", data});
+        });
+    } else {
+        res.status(400).send({auth: true, message: "Error: invalid request.body"});
+    }
 });
 /**
 GET endpoint. Returns factorio's base locale as a JSON object.
