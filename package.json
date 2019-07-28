@@ -57,7 +57,7 @@
     "node-factorio-api": "^0.3.1-alpha",
     "node-forge": "^0.7.1",
     "prom-client": "^10.2.3",
-    "rcon-client": "^3.1.6",
+    "rcon-client": "git+https://gitlab.com/Hornwitser/rcon-client.git",
     "request": "^2.83.0",
     "right-pad": "^1.0.1",
     "rmdir-sync": "^1.0.1",
