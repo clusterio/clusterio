@@ -8,8 +8,6 @@
     "test": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{,!(node_modules)/**/}*.spec.js\" -R spec || echo .",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
     "cover": "./node_modules/.bin/istanbul cover ./node_modules/mocha/bin/_mocha -- \"./{,!(node_modules)/**/}*.spec.js\" -R spec || echo . && codecov -t f7b38085-36eb-4d72-84e6-64721910171e",
-    "docs": "documentation build index.js --config documentation.yml -f html -o docs",
-    "livedocs": "documentation serve --watch *.js lib/** --config documentation.yml",
     "install": "node lib/npmPostinstall.js",
     "bundle-dependencies": "bundle-dependencies",
     "snyk-protect": "snyk protect",
@@ -75,7 +73,6 @@
     "underscore": "^1.8.3"
   },
   "devDependencies": {
-    "documentation": "^5.4.0",
     "istanbul": "^0.4.5",
     "mocha": "^3.5.3",
     "mocha-sinon": "^2.0.0",
