@@ -19,8 +19,8 @@
 console.log(":)")
 /// ES6 imports
 // rules for how entities are drawn (sizes, offset etc)
-import {entityDrawRules} from "./lib/entityDrawRules.js";
-import {getParameterByName, drawImageWithRotation, isImageOk} from "./lib/utility.js";
+import {entityDrawRules} from "lib/entityDrawRules.js";
+import {getParameterByName, drawImageWithRotation, isImageOk} from "lib/utility.js";
 import spritesheetJson from "./pictures/spritesheet.js";
 import {itemSelector} from "./remoteMap/itemSelection.js";
 var global = {};

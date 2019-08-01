@@ -4,7 +4,7 @@ var fs = require("fs");
 var events = require("events");
 var path = require("path");
 
-var objectOps = require("./../../lib/objectOps");
+var objectOps = require("lib/objectOps");
 
 var LinvoDB = require("linvodb3");
 // LinvoDB.dbPath = "./database/linvodb/";
