@@ -14,9 +14,6 @@ node master.js
 // const updater = require("./updater.js");
 // updater.update().then(console.log);
 
-// configgy stuff
-debug = false;
-
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
 
@@ -284,9 +281,6 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		if(debug){
-			console.log(req.body)
-		}
 		if(!slaves[req.body.unique]){
 			slaves[req.body.unique] = {};
 		}
