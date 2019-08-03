@@ -26,10 +26,6 @@ process.on('unhandledRejection', r => console.log(r));
 // configgy stuff
 debug = false;
 
-// reduces loadtime from 1700 ms to 1200 ms on my i3 + SSD
-// tested by logging Date.now() here and when the webserver started listening
-require('cache-require-paths');
-
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
 

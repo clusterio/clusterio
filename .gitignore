@@ -62,7 +62,5 @@ sharedPlugins/scenario_loader/scenarios
 # File used for marking plugins as disabled
 sharedPlugins/*/DISABLED
 
-\.cache-require-paths\.json
-
 # IDE
 .idea/
