@@ -8,7 +8,6 @@ const syncRequest = require('sync-request');
 const request = require("request");
 const ncp = require('ncp').ncp;
 const Rcon = require('rcon-client-fork').Rcon;
-const _ = require('underscore');
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
@@ -563,8 +562,11 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 }
 
 // ensure instancemanagement only ever runs once
-_.once(instanceManagement);
+var _instanceInitialized;
 async function instanceManagement(instanceconfig) {
+	if (_instanceInitialized) return;
+	_instanceInitialized = true;
+
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
