@@ -23,7 +23,6 @@
     "base64url": "^3.0.0",
     "bcrypt": "^2.0.1",
     "bcrypt-promise": "^2.0.0",
-    "bcryptjs": "^2.4.3",
     "body-parser": "^1.18.2",
     "cli": "^1.0.1",
     "cli-interact": "^0.1.9",
