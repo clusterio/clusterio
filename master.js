@@ -65,7 +65,7 @@ function randomStringAsBase64Url(size) {
 }
 if (!fs.existsSync("secret-api-token.txt")) {
 	config.masterAuthSecret = randomStringAsBase64Url(256);
-    fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
+	fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
 	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
@@ -179,7 +179,7 @@ const prometheusMasterInventoryGauge = new Prometheus.Gauge({
 	labelNames: ["itemName"],
 });
 setInterval(()=>{
-    fs.writeFileSync("database/items.json", JSON.stringify(db.items));
+	fs.writeFileSync("database/items.json", JSON.stringify(db.items));
 },config.autosaveInterval || 60000);
 /**
 GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
@@ -352,8 +352,8 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
 			let metaPortion = JSON.stringify(req.body.meta);
 			if(metaPortion.length > 50) {
-                metaPortion = metaPortion.substring(0,20) + "...";
-            }
+				metaPortion = metaPortion.substring(0,20) + "...";
+			}
 			// console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
 			res.sendStatus(200);
 		} else {
@@ -379,7 +379,7 @@ app.post("/api/getSlaveMeta", function (req, res) {
 			}
 			res.send(JSON.stringify(slaves[req.body.instanceID].meta))
 		} else {
-    		res.status(404);
+			res.status(404);
 			res.send('{"status": 404, "info": "Slave not registered"}')
 		}
 	} else {
@@ -433,7 +433,7 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 	} else {
 		res.send('No files were uploaded.');
 
-    }
+	}
 });
 /**
 Prepare the slaveCache for both /api/slaves calls
@@ -472,15 +472,15 @@ POST endpoint for getting the rconPasswords of all our slaves
 @alias /api/rconPasswords
 */
 app.post("/api/rconPasswords", authenticate.middleware, function(req, res) {
-    endpointHitCounter.labels(req.route.path).inc();
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    let slaveCache = getSlaves();
-    let validKeys = ['rconPort', 'rconPassword', 'publicIP'];
-    for(key in slaveCache.cache) {
-        slaveCache.cache[key] = {'publicIP': slaveCache.cache[key].publicIP, 'rconPort': slaveCache.cache[key].rconPort, 'rconPassword': slaveCache.cache[key].rconPassword};
-    }
-    res.send(slaveCache.cache);
+	endpointHitCounter.labels(req.route.path).inc();
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	let slaveCache = getSlaves();
+	let validKeys = ['rconPort', 'rconPassword', 'publicIP'];
+	for(key in slaveCache.cache) {
+		slaveCache.cache[key] = {'publicIP': slaveCache.cache[key].publicIP, 'rconPort': slaveCache.cache[key].rconPort, 'rconPassword': slaveCache.cache[key].rconPassword};
+	}
+	res.send(slaveCache.cache);
 });
 /*
 var recievedItemStatistics = new averagedTimeSeries({
@@ -694,19 +694,19 @@ app.get("/api/inventoryAsObject", function(req, res) {
  */
 
 // wrap a request in an promise
-    async function downloadPage(url) {
-        return new Promise((resolve, reject) => {
-            request(url, (error, response, body) => {
-                resolve(body);
-            });
-        });
-    }
+	async function downloadPage(url) {
+		return new Promise((resolve, reject) => {
+			request(url, (error, response, body) => {
+				resolve(body);
+			});
+		});
+	}
 
 app.get("/api/modmeta", async function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
-    res.header("Access-Control-Allow-Origin", "*");
-    res.setHeader('Content-Type', 'application/json');
-    let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
+	res.header("Access-Control-Allow-Origin", "*");
+	res.setHeader('Content-Type', 'application/json');
+	let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
 	res.send(modData);
 });
 
@@ -723,36 +723,36 @@ Requires x-access-token header to be set. Find you api token in secret-api-token
 */
 app.post("/api/runCommand", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-    // validate request.body
-    let body = req.body;
+	// validate request.body
+	let body = req.body;
 
-    if (
-        body.broadcast
-        && body.command
-        && typeof body.command == "string"
-        && body.command[0] == "/")
-    {
-        let instanceResponses = [];
-        for (let instanceID in wsSlaves) {
-            // skip loop if the property is from prototype
-            if (!wsSlaves.hasOwnProperty(instanceID)) continue;
-            wsSlaves[instanceID].runCommand(body.command);
-        }
-        res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
-    } else if (
-        body.instanceID
-        && wsSlaves[body.instanceID]
-        && body.command
-        && typeof body.command == "string"
-        && body.command[0] == "/")
-    {
-        // execute command
-        wsSlaves[body.instanceID].runCommand(body.command, data => {
-            res.status(200).send({auth: true, message: "success", data});
-        });
-    } else {
-        res.status(400).send({auth: true, message: "Error: invalid request.body"});
-    }
+	if (
+		body.broadcast
+		&& body.command
+		&& typeof body.command == "string"
+		&& body.command[0] == "/")
+	{
+		let instanceResponses = [];
+		for (let instanceID in wsSlaves) {
+			// skip loop if the property is from prototype
+			if (!wsSlaves.hasOwnProperty(instanceID)) continue;
+			wsSlaves[instanceID].runCommand(body.command);
+		}
+		res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
+	} else if (
+		body.instanceID
+		&& wsSlaves[body.instanceID]
+		&& body.command
+		&& typeof body.command == "string"
+		&& body.command[0] == "/")
+	{
+		// execute command
+		wsSlaves[body.instanceID].runCommand(body.command, data => {
+			res.status(200).send({auth: true, message: "success", data});
+		});
+	} else {
+		res.status(400).send({auth: true, message: "Error: invalid request.body"});
+	}
 });
 /**
 GET endpoint. Returns factorio's base locale as a JSON object.
@@ -926,61 +926,61 @@ class wsSlave {
 }
 
 io.on('connection', function (socket) {
-    // cleanup dead sockets from disconnected people
-    let terminatedConnections = 0;
-    let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
-    [mapRequesters, slaveMappers, wsSlaves].forEach(list => {
-        Object.keys(list).forEach(connectionID => {
-            let connection = list[connectionID];
-            if(connection.lastBeat < (Date.now() - 30000)){
-                terminatedConnections++;
-                delete list[connectionID];
-            }
-        });
-    });
-    if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
+	// cleanup dead sockets from disconnected people
+	let terminatedConnections = 0;
+	let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
+	[mapRequesters, slaveMappers, wsSlaves].forEach(list => {
+		Object.keys(list).forEach(connectionID => {
+			let connection = list[connectionID];
+			if(connection.lastBeat < (Date.now() - 30000)){
+				terminatedConnections++;
+				delete list[connectionID];
+			}
+		});
+	});
+	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
 
-    // tell our friend that we are listening
-    setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
+	// tell our friend that we are listening
+	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
 
-    /* initial processing for remoteMap */
-    socket.on('registerSlaveMapper', function (data) {
-        prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
-        slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
-        console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
-    });
-    socket.on('registerMapRequester', function(data){
-        // data {instanceID:""}
-        prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
-        let requesterID = Math.random().toString();
-        mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
-        socket.emit("mapRequesterReady", true);
-        console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
-    });
+	/* initial processing for remoteMap */
+	socket.on('registerSlaveMapper', function (data) {
+		prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
+		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
+		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
+	});
+	socket.on('registerMapRequester', function(data){
+		// data {instanceID:""}
+		prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
+		let requesterID = Math.random().toString();
+		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
+		socket.emit("mapRequesterReady", true);
+		console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
+	});
 
-    /* Websockets for send and recieve combinators */
-    socket.on("registerSlave", function(data) {
-        prometheusWsUsageCounter.labels('registerSlave', "other").inc();
-        if(data && data.instanceID){
-            wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
-            console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
-        }
-    });
-    socket.on("registerChatReciever", function(data){
-        prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
-        if(!global.wsChatRecievers) global.wsChatRecievers = [];
-        global.wsChatRecievers.push(socket);
-    });
-    socket.on("registerAlertReciever", function(data){
-        prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
-        if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
-        global.wsAlertRecievers.push(socket);
-    });
+	/* Websockets for send and recieve combinators */
+	socket.on("registerSlave", function(data) {
+		prometheusWsUsageCounter.labels('registerSlave', "other").inc();
+		if(data && data.instanceID){
+			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
+			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
+		}
+	});
+	socket.on("registerChatReciever", function(data){
+		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
+		if(!global.wsChatRecievers) global.wsChatRecievers = [];
+		global.wsChatRecievers.push(socket);
+	});
+	socket.on("registerAlertReciever", function(data){
+		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
+		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
+		global.wsAlertRecievers.push(socket);
+	});
 });
 
 // handle plugins on the master
 async function getPlugins(){
-    let startPluginLoad = Date.now();
+	let startPluginLoad = Date.now();
 
 	const pluginManager = require("./lib/manager/pluginManager.js")(config);
 	let plugins = [];
@@ -1012,7 +1012,7 @@ async function getPlugins(){
 		let plugin = plugins[i];
 		if(plugin.main.onLoadFinish && typeof plugin.main.onLoadFinish == "function") await plugin.main.onLoadFinish({plugins});
 	}
-    console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 	return plugins;
 }
 
