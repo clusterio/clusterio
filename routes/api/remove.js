@@ -1,6 +1,6 @@
 const averagedTimeSeries = require("averaged-timeseries")
 
-const doleNN = require("./../../lib/dole_nn_base.js")
+const doleNN = require("lib/dole_nn_base.js")
 
 const Prometheus = require('prom-client');
 

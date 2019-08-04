@@ -54,10 +54,10 @@ mkdirp.sync(config.databaseDirectory);
 mkdirp.sync(masterModFolder);
 
 // homebrew modules
-const getFactorioLocale = require("./lib/getFactorioLocale");
+const getFactorioLocale = require("lib/getFactorioLocale");
 
 // homemade express middleware for token auth
-const authenticate = require("./lib/authenticate")(config);
+const authenticate = require("lib/authenticate")(config);
 
 /** Sync */
 function randomStringAsBase64Url(size) {
@@ -982,7 +982,8 @@ io.on('connection', function (socket) {
 async function getPlugins(){
 	let startPluginLoad = Date.now();
 
-	const pluginManager = require("./lib/manager/pluginManager.js")(config);
+async function getPlugins(){
+	const pluginManager = require("lib/manager/pluginManager.js")(config);
 	let plugins = [];
 	let pluginsToLoad = await pluginManager.getPlugins();
 	for(let i = 0; i < pluginsToLoad.length; i++){

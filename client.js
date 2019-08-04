@@ -16,10 +16,10 @@ const rmdirSync = require('rmdir-sync');
 const ioClient = require("socket.io-client");
 
 // internal libraries
-const objectOps = require("./lib/objectOps.js");
-const fileOps = require("_app/fileOps");
-const stringUtils = require("./lib/stringUtils.js");
-const configManager = require("./lib/manager/configManager.js");
+const objectOps = require("lib/objectOps.js");
+const fileOps = require("lib/fileOps");
+const stringUtils = require("lib/stringUtils.js");
+const configManager = require("lib/manager/configManager.js");
 
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
@@ -189,7 +189,7 @@ if (!command || command == "help" || command == "--help") {
 		if(tool == "mods"){
 			(async function(){try{
 				// do require down here to reduce master load time
-				const modManager = require("./lib/manager/modManager.js")(config);
+				const modManager = require("lib/manager/modManager.js")(config);
 				
 				// allow managing mods
 				if(action == "list"){
@@ -229,7 +229,7 @@ if (!command || command == "help" || command == "--help") {
 			}
 		} else if(tool == "plugins"){
 			(async function(){try{
-				const pluginManager = require("./lib/manager/pluginManager.js")(config);
+				const pluginManager = require("lib/manager/pluginManager.js")(config);
 				if(action == "list"){
 					await pluginManager.listPlugins();
 				} else if(action == "add" || action == "install" || action == "download"){
@@ -302,7 +302,7 @@ if (!command || command == "help" || command == "--help") {
 	fs.mkdirSync(instancedirectory + "/mods/");
 	fs.mkdirSync(instancedirectory + "/instanceMods/");
     fs.mkdirSync(instancedirectory + "/scenarios/");
-    ncp("./lib/scenarios", path.resolve(instancedirectory, "scenarios"), err => {
+    ncp("lib/scenarios", path.resolve(instancedirectory, "scenarios"), err => {
         if (err) console.error(err)
     });
 
@@ -578,7 +578,7 @@ async function instanceManagement(instanceconfig) {
 	setInterval(B=> socket.emit("heartbeat"), 10000);
 
 	// load plugins and execute onLoad event
-	const pluginManager = require("./lib/manager/pluginManager.js")(config);
+	const pluginManager = require("lib/manager/pluginManager.js")(config);
 	let pluginsToLoad = await pluginManager.getPlugins();
 	let plugins = [];
 	

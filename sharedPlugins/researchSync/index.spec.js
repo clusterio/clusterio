@@ -1,6 +1,6 @@
 const assert = require("assert");
 
-const isFactorioCommand = require("_app/isFactorioCommand");
+const isFactorioCommand = require("lib/isFactorioCommand");
 
 const researchSync = require("./index.js");
 
