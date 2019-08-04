@@ -17,7 +17,6 @@
   "author": "Danielv123",
   "license": "ISC",
   "dependencies": {
-    "app-root-path": "^2.0.1",
     "as-table": "^1.0.31",
     "averaged-timeseries": "^1.4.0",
     "base64url": "^3.0.0",
