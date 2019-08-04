@@ -980,6 +980,7 @@ io.on('connection', function (socket) {
 
 // handle plugins on the master
 async function getPlugins(){
+	let startPluginLoad = Date.now();
 	const pluginManager = require("lib/manager/pluginManager.js")(config);
 	let plugins = [];
 	let pluginsToLoad = await pluginManager.getPlugins();
