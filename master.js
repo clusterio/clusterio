@@ -40,14 +40,13 @@ const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const base64url = require('base64url');
 const moment = require("moment");
-const request = require("request")
+const request = require("request");
 
 // constants
-console.log(`Requiring config from ${args.config || './config'}`)
+console.log(`Requiring config from ${args.config || './config'}`);
 const config = require(args.config || './config');
 config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
@@ -56,8 +55,6 @@ mkdirp.sync(masterModFolder);
 
 // homebrew modules
 const getFactorioLocale = require("./lib/getFactorioLocale");
-const stringUtils = require("./lib/stringUtils");
-const fileOps = require("_app/fileOps");
 
 // homemade express middleware for token auth
 const authenticate = require("./lib/authenticate")(config);
@@ -176,11 +173,6 @@ const prometheusUPSGauge = new Prometheus.Gauge({
 	help: 'UPS of the current server',
 	labelNames: ["instanceID", "instanceName"],
 });
-const prometheusTickGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'tick_gauge',
-	help: 'Servers current gametick',
-	labelNames: ["instanceID", "instanceName"],
-});
 const prometheusMasterInventoryGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'master_inventory_gauge',
 	help: 'Amount of items stored on master',
@@ -198,7 +190,7 @@ GET Prometheus metrics endpoint. Returns performance and usage metrics in a prom
 app.get('/metrics', (req, res) => {
 	endpointHitCounter.labels(req.route.path).inc();
 	res.set('Content-Type', Prometheus.register.contentType);
-	
+
 	/// gather some static metrics
 	registerMoreMetrics();
 	res.end(Prometheus.register.metrics());
@@ -248,7 +240,7 @@ const db = {};
 	} catch (e){
 		db.items = {};
 	}
-})()
+})();
 
 db.items.addItem = function(object) {
 	if(object.name == "addItem" || object.name == "removeItem") {
@@ -262,7 +254,7 @@ db.items.addItem = function(object) {
 		}
 		return true;
 	}
-}
+};
 db.items.removeItem = function(object) {
 	if(object.name == "addItem" || object.name == "removeItem") {
 		console.error("Fuck you, that would screw everything up if you named your item that.");
@@ -275,7 +267,7 @@ db.items.removeItem = function(object) {
 		}
 		return true;
 	}
-}
+};
 
 // store slaves and inventory in a .json full of JSON data
 process.on('SIGINT', shutdown); // ctrl + c
@@ -308,8 +300,8 @@ async function shutdown() {
 		console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
 		process.exit(0);
 	} catch(e) {
-		console.log(e)
-		console.log("Clusterio failed to exit cleanly. Time elapsed: "+(Date.now()-exitStartTime)+"ms")
+		console.log(e);
+		console.log("Clusterio failed to exit cleanly. Time elapsed: "+(Date.now()-exitStartTime)+"ms");
 		process.exit(1)
 	}
 }
@@ -351,7 +343,7 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	// request.body should be an object
 	// {instanceID, pass, meta:{x,y,z}}
-	
+
 	if(req.body && req.body.instanceID && req.body.meta){
 		if(slaves[req.body.instanceID]){
 			if(!slaves[req.body.instanceID].meta) {
@@ -387,7 +379,7 @@ app.post("/api/getSlaveMeta", function (req, res) {
 			}
 			res.send(JSON.stringify(slaves[req.body.instanceID].meta))
 		} else {
-    		res.status(404)
+    		res.status(404);
 			res.send('{"status": 404, "info": "Slave not registered"}')
 		}
 	} else {
@@ -440,7 +432,7 @@ app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
 		});
 	} else {
 		res.send('No files were uploaded.');
-		return;
+
     }
 });
 /**
@@ -559,20 +551,20 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 			name:req.body.name,
 			count:req.body.count
 		});
-		
+
 		// Attempt confirming
 		res.send("success");
 	} else {
 		res.send("failure");
 	}
 });
-const routes_api_remove = require("./routes/api/remove.js")
-var neuralDole = null
+const routes_api_remove = require("./routes/api/remove.js");
+var neuralDole = null;
 
 if(config.useNeuralNetDoleDivider)//Only initialize neural network when it's enabled, otherwise it might override gauge
 	neuralDole=new routes_api_remove.neuralDole({
 		items: db.items, gaugePrefix: prometheusPrefix
-	})
+	});
 /**
 POST endpoint to remove items from DB when client orders items.
 
@@ -597,7 +589,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		object.instanceName = "unknown";
 	}
 	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
-	let item = db.items[object.name]
+	let item = db.items[object.name];
 		// console.dir(doc);
 	if((item === undefined)
 	||((
@@ -613,7 +605,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 		let numberToRemove = Math.min(Math.abs(Number(object.count)),Number(item));
 		db.items.removeItem({count: numberToRemove, name: object.name});
 		res.send({count: numberToRemove, name: object.name});
-		
+
 		// track statistics and do graphing things
 		prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(numberToRemove) || 0);
 		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
@@ -797,16 +789,17 @@ if(args.masterPort || config.masterPort){
 }
 
 /* Websockets for remoteMap */
-var io = require("socket.io")(server);
+var io = require("socket.io")();
 const ioMetrics = require("socket.io-prometheus");
 ioMetrics(io);
+
 var slaveMappers = {};
 class slaveMapper {
 	constructor(instanceID, socket) {
 		this.instanceID = instanceID;
 		this.socket = socket;
 		this.lastBeat = Date.now();
-		
+
 		this.socket.on("heartbeat", () => {
 			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			// we aren't ready to die yet apparently
@@ -821,7 +814,7 @@ class slaveMapper {
 			prometheusWsUsageCounter.labels('sendEntity', this.instanceID).inc();
 			Object.keys(mapRequesters).forEach(requesterName => {
 				let requester = mapRequesters[requesterName];
-				
+
 				if(requester.instanceID == this.instanceID){
 					// this mapRequester is listening to this slaveMapper, so we send it updates
 					requester.socket.emit("displayEntity", entity);
@@ -830,6 +823,8 @@ class slaveMapper {
 		});
 	}
 }
+
+
 var mapRequesters = {};
 class mapRequester {
 	constructor(requesterID, socket, instanceID){
@@ -837,7 +832,7 @@ class mapRequester {
 		this.socket = socket;
 		this.instanceID = instanceID;
 		this.lastBeat = Date.now();
-		
+
 		this.socket.on("heartbeat", () => {
 			prometheusWsUsageCounter.labels('heartbeat', "other").inc();
 			// we aren't ready to die yet apparently
@@ -869,6 +864,8 @@ class mapRequester {
 		});
 	}
 }
+
+
 /* Websockets for send and recieve combinators */
 var wsSlaves = {};
 class wsSlave {
@@ -876,7 +873,7 @@ class wsSlave {
 		this.instanceID = instanceID;
 		this.socket = socket;
 		this.lastBeat = Date.now();
-		
+
 		this.socket.on("heartbeat", () => {
 			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			this.lastBeat = Date.now();
@@ -898,7 +895,7 @@ class wsSlave {
 				delete this.commandsWaitingForReturn[resp.commandID];
 			}
 		});
-		
+
 		this.socket.on("gameChat", data => {
 			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
 			if(typeof data === "object"){
@@ -909,7 +906,7 @@ class wsSlave {
 				});
 			}
 		});
-		
+
 		this.socket.on("alert", alert => {
 			prometheusWsUsageCounter.labels('alert', this.instanceID).inc();
 			if(typeof alert === "object"){
@@ -927,70 +924,64 @@ class wsSlave {
 		if(commandID) this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
 	}
 }
+
 io.on('connection', function (socket) {
-	// cleanup dead sockets from disconnected people
-	let terminatedConnections = 0;
-	let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
-	[mapRequesters, slaveMappers, wsSlaves].forEach(list => {
-		Object.keys(list).forEach(connectionID => {
-			let connection = list[connectionID];
-			if(connection.lastBeat < (Date.now() - 30000)){
-				terminatedConnections++;
-				delete list[connectionID];
-			}
-		});
-	});
-	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
-	
-	// tell our friend that we are listening
-	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
-	
-	/* initial processing for remoteMap */
-	socket.on('registerSlaveMapper', function (data) {
-		prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
-		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
-		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
-	});
-	socket.on('registerMapRequester', function(data){
-		// data {instanceID:""}
-		prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
-		let requesterID = Math.random().toString();
-		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
-		socket.emit("mapRequesterReady", true);
-		console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
-	});
-	
-	/* Websockets for send and recieve combinators */
-	socket.on("registerSlave", function(data) {
-		prometheusWsUsageCounter.labels('registerSlave', "other").inc();
-		if(data && data.instanceID){
-			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
-			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
-		}
-	});
-	socket.on("registerChatReciever", function(data){
-		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
-		if(!global.wsChatRecievers) global.wsChatRecievers = [];
-		global.wsChatRecievers.push(socket);
-	});
-	socket.on("registerAlertReciever", function(data){
-		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
-		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
-		global.wsAlertRecievers.push(socket);
-	});
+    // cleanup dead sockets from disconnected people
+    let terminatedConnections = 0;
+    let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
+    [mapRequesters, slaveMappers, wsSlaves].forEach(list => {
+        Object.keys(list).forEach(connectionID => {
+            let connection = list[connectionID];
+            if(connection.lastBeat < (Date.now() - 30000)){
+                terminatedConnections++;
+                delete list[connectionID];
+            }
+        });
+    });
+    if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
+
+    // tell our friend that we are listening
+    setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
+
+    /* initial processing for remoteMap */
+    socket.on('registerSlaveMapper', function (data) {
+        prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
+        slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
+        console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
+    });
+    socket.on('registerMapRequester', function(data){
+        // data {instanceID:""}
+        prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
+        let requesterID = Math.random().toString();
+        mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
+        socket.emit("mapRequesterReady", true);
+        console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
+    });
+
+    /* Websockets for send and recieve combinators */
+    socket.on("registerSlave", function(data) {
+        prometheusWsUsageCounter.labels('registerSlave', "other").inc();
+        if(data && data.instanceID){
+            wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
+            console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
+        }
+    });
+    socket.on("registerChatReciever", function(data){
+        prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
+        if(!global.wsChatRecievers) global.wsChatRecievers = [];
+        global.wsChatRecievers.push(socket);
+    });
+    socket.on("registerAlertReciever", function(data){
+        prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
+        if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
+        global.wsAlertRecievers.push(socket);
+    });
 });
 
 // handle plugins on the master
-pluginManagement();
-masterPlugins = [];
-async function pluginManagement(){
-	let startPluginLoad = Date.now();
-	masterPlugins = await getPlugins();
-	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
-	return;
-}
-
 async function getPlugins(){
+    let startPluginLoad = Date.now();
+
 	const pluginManager = require("./lib/manager/pluginManager.js")(config);
 	let plugins = [];
 	let pluginsToLoad = await pluginManager.getPlugins();
@@ -1012,7 +1003,7 @@ async function getPlugins(){
 					}),
 					pluginConfig,
 				});
-				
+
 				console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
 			}
 		}
@@ -1021,8 +1012,15 @@ async function getPlugins(){
 		let plugin = plugins[i];
 		if(plugin.main.onLoadFinish && typeof plugin.main.onLoadFinish == "function") await plugin.main.onLoadFinish({plugins});
 	}
+    console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 	return plugins;
 }
+
+
+var masterPlugins = await getPlugins();
+
+
+io.attach(server);
 
 module.exports = app;
 })();

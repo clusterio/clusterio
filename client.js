@@ -1,4 +1,5 @@
 const fs = require('fs-extra');
+const Tail = require('tail').Tail;
 const https = require('follow-redirects').https;
 const needle = require("needle");
 const child_process = require('child_process');
@@ -55,6 +56,7 @@ if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
 	You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
 }
 const needleOptionsWithTokenAuthHeader = {
+	compressed:true,
 	headers: {
 		'x-access-token': config.masterAuthToken
 	},
@@ -582,9 +584,6 @@ async function instanceManagement(instanceconfig) {
 	
 	for(let i = 0; i < pluginsToLoad.length; i++){
 		let pluginLoadStarted = Date.now();
-		let log = function(message) {
-			console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + message);
-		}
 		let combinedConfig = deepmerge(instanceconfig,config,{clone:true});
 		let pluginConfig = pluginsToLoad[i];
 		
@@ -596,7 +595,7 @@ async function instanceManagement(instanceconfig) {
 			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index.js"));
 			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
 				if(data && data.toString('utf8')[0] != "/") {
-					log(data.toString('utf8'));
+                    console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + data.toString('utf8'));
 					return true;
 				} else if (data && data.toString('utf8')[0] == "/"){
 					return messageInterface(data.toString('utf8'), callback);
@@ -622,37 +621,50 @@ async function instanceManagement(instanceconfig) {
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
 				console.log("Clusterio | Registered file subscription on "+instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
 				
-				fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
-				// run once in case a plugin wrote out information before the plugin loaded fully
-				// delay, so the socket got enough time to connect
-				setTimeout(()=> {
-                    fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
-                }, 500);
-				// send file contents to plugin for processing
-				function fileChangeHandler(eventType, filename) {
-					if(filename != null){
-						setTimeout(
-							()=>{
-								// get array of lines in file
-								let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
 
-								// if you found anything, reset the file
-								if (stuff[0]) {
-									fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
-								}
-								for(let o = 0; o < stuff.length; o++) {
-									if(stuff[o] && !stuff[o].includes('\u0000\u0000')) {
-										try{
-											plugins[i].scriptOutput(stuff[o]);
-										}catch(e){console.error(e)}
-									}
-								}
-							},
-							pluginConfig.fileReadDelay || 0
-						);
-					}
-				}
-			}
+				if(!pluginConfig.fileReadDelay || pluginConfig.fileReadDelay == 0) {
+					// only wipe the file on restart for now, should most likely be rotated during runtime too
+                    fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
+                    let tail = new Tail(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
+                    tail.on("line", function (data) {
+                        plugins[i].scriptOutput(data);
+                    });
+                } else {
+                    fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
+                    // run once in case a plugin wrote out information before the plugin loaded fully
+                    // delay, so the socket got enough time to connect
+                    setTimeout(() => {
+                        fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
+                    }, 500);
+
+                    // send file contents to plugin for processing
+                    function fileChangeHandler(eventType, filename) {
+                        if (filename != null) {
+                            setTimeout(
+                                () => {
+                                    // get array of lines in file
+                                    let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+
+                                    // if you found anything, reset the file
+                                    if (stuff[0]) {
+                                        fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+                                    }
+                                    for (let o = 0; o < stuff.length; o++) {
+                                        if (stuff[o] && !stuff[o].includes('\u0000\u0000')) {
+                                            try {
+                                                plugins[i].scriptOutput(stuff[o]);
+                                            } catch (e) {
+                                                console.error(e)
+                                            }
+                                        }
+                                    }
+                                },
+                                pluginConfig.fileReadDelay || 0
+                            );
+                        }
+                    }
+                }
+            }
 			console.log(`Clusterio | Loaded plugin ${pluginsToLoad[i].name} in ${Date.now() - pluginLoadStarted}ms`);
 		} else {
 			// this plugin doesn't have a client portion. Maybe it runs on the master only?
@@ -675,7 +687,7 @@ async function instanceManagement(instanceconfig) {
 					mods:modHashes,
 					instanceName: instance,
 					info: instanceconfig.info,
-				}
+				};
 				if(playerCount){
 					payload.playerCount = playerCount.replace(/(\r\n\t|\n|\r\t)/gm, "");
 				} else {
@@ -722,7 +734,7 @@ async function instanceManagement(instanceconfig) {
 			let payload = {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
-			}
+			};
 			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
 				if(response && body && body == "found") {
@@ -765,7 +777,7 @@ function hashMods(instanceName, callback) {
 		hashedMods[hashedMods.length] = {
 			modName: modName,
 			hash: hash,
-		}
+		};
 		// check if this callback has ran once for each mod
 		if(hashedMods.length == instanceMods.length) {
 			callback(hashedMods);
@@ -788,7 +800,7 @@ function hashMods(instanceName, callback) {
 		let name = instanceMods[i];
 		let options = {
 			files:path,
-		}
+		};
 		// options {files:[array of paths]}
 		hashFiles(options, function(error, hash) {
 			// hash will be a string if no error occurred
