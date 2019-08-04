@@ -1,6 +1,6 @@
 const fs = require("fs-extra");
 const path = require("path");
-const clusterTools = require("_app/clusterTools")();
+const clusterTools = require("lib/clusterTools")();
 
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){

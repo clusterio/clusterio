@@ -1,4 +1,4 @@
-const objectOps = require("../../lib/objectOps.js");
+const objectOps = require("lib/objectOps.js");
 const needle = require("needle");
 const pluginConfig = require("./config")
 const isJson = require("./isJson")
