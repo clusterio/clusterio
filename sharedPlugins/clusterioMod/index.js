@@ -307,7 +307,7 @@ module.exports = class remoteCommands {
 		return new Promise((resolve, reject) => {
 			let instance = this.instances[instanceID];
 			if(!instance){
-				needle.get(this.config.masterIP+":"+this.config.masterPort+ '/api/slaves', (err, response) => {
+				needle.get(this.config.masterIP+":"+this.config.masterPort+ '/api/slaves', { compressed: true }, (err, response) => {
 					if(err || response.statusCode != 200) {
 						console.log("Unable to get JSON master/api/slaves, master might be unaccessible");
 					} else if (response && response.body) {	
