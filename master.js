@@ -1016,7 +1016,7 @@ async function getPlugins(){
 }
 
 
-var masterPlugins = await getPlugins();
+masterPlugins = await getPlugins();
 
 
 io.attach(server);
