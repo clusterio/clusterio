@@ -1,0 +1,10 @@
+toc:
+ - name: Master Server API
+ - clusterioMaster
+ - name: Type declarations
+ - itemStack
+ - name: Internal modules
+   description: |
+     Here are some helper functions for navigation.
+ - modManager
+ - getFactorioLocale

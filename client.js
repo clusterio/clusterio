@@ -8,6 +8,8 @@ const syncRequest = require('sync-request');
 const request = require("request");
 const ncp = require('ncp').ncp;
 const Rcon = require('rcon-client-fork').Rcon;
+const hashFiles = require('hash-files');
+const _ = require('underscore');
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
@@ -18,7 +20,6 @@ const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
 const stringUtils = require("lib/stringUtils.js");
 const configManager = require("lib/manager/configManager.js");
-const hashFile = require('lib/hash').hashFile;
 
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
@@ -562,11 +563,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 }
 
 // ensure instancemanagement only ever runs once
-var _instanceInitialized;
+_.once(instanceManagement);
 async function instanceManagement(instanceconfig) {
-	if (_instanceInitialized) return;
-	_instanceInitialized = true;
-
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
@@ -775,22 +773,42 @@ function hashMods(instanceName, callback) {
 	if(!callback) {
 		throw new Error("ERROR in function hashMods NO CALLBACK");
 	}
-
-	let modsDir = config.instanceDirectory+"/"+instanceName+"/mods/";
-	function hashMod(name) {
-		if (path.extname(name) != ".zip") {
-			// Can't hash unzipped mods, return null that's filtered out later
-			return null;
-		} else {
-			return hashFile(modsDir+name).then(hash => (
-				{modName: name, hash: hash}
-			));
+	function callback2(hash, modName){
+		hashedMods[hashedMods.length] = {
+			modName: modName,
+			hash: hash,
+		};
+		// check if this callback has ran once for each mod
+		if(hashedMods.length == instanceMods.length) {
+			callback(hashedMods);
+		}
+		//console.log(modname);
+	}
+	let hashedMods = [];
+	/*let mods = fs.readdirSync("./sharedMods/")*/
+	let instanceMods = fs.readdirSync(config.instanceDirectory+"/"+instanceName+"/mods/");
+	if(instanceMods.length == 0){
+		callback({}); // there are no mods installed, return an empty object
+	}
+	for(let o=0;o<instanceMods.length;o++) {
+		if(path.extname(instanceMods[o]) != ".zip") {
+			instanceMods.splice(instanceMods.indexOf(instanceMods[o]), 1); // remove element from array, we can't hash unzipped mods
 		}
 	}
-
-	let promises = fs.readdirSync(modsDir).map(hashMod);
-	Promise.all(promises).then(hashes => {
-		// Remove null entries from hashMod
-		callback(hashes.filter(entry => entry !== null));
-	});
+	for(let i=0; i<instanceMods.length; i++){
+		let path = config.instanceDirectory+"/"+instanceName+"/mods/"+instanceMods[i];
+		let name = instanceMods[i];
+		let options = {
+			files:path,
+		};
+		// options {files:[array of paths]}
+		hashFiles(options, function(error, hash) {
+			// hash will be a string if no error occurred
+			if(!error){
+				callback2(hash, name);
+			} else {
+				throw error;
+			}
+		});
+	}
 }

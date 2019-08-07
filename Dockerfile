@@ -2,7 +2,7 @@ FROM node:9.11.2
 RUN apt-get update && apt install git curl tar -y
 RUN mkdir factorioClusterio
 
-RUN git clone -b master https://github.com/Danielv123/factorioClusterio.git && cd factorioClusterio && npm install --only=production
+RUN git clone -b master https://github.com/Danielv123/factorioClusterio.git && cd factorioClusterio && npm install
 RUN cd factorioClusterio && curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz
 
 WORKDIR factorioClusterio

@@ -95,7 +95,7 @@ Master and all slaves:
     cd factorioClusterio
     curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
-    npm install --only=production
+    npm install
     cp config.json.dist config.json
     node ./lib/npmPostinstall.js
 
@@ -283,7 +283,7 @@ node client.js list
 ```
 git pull
 
-npm install --only=production
+npm install
 ```
 
 3. Download the latest version of the factorioClusterioMod from its github repo
