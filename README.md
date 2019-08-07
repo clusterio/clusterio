@@ -230,18 +230,6 @@ According to [this link](https://askubuntu.com/questions/839520/open-port-443-fo
 
     sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
 
-### InitializationError: First argument must be an abstract-leveldown compliant store
-
-do:
-
-    npm install linvodb3@3.25.1
-
-if that does not suffice do
-
-    npm install levelup@1.3.9
-
-If it still doesn't work, come over to our support discord linked at the top of this readme.
-
 ### Portforwarding doesn't work on the master server when running under WSL
 
 If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip. This is also true when you correctly port-forwarded the correct ports. Even when routing this server through nginx in WSL, the issue persists. Then, on a hunch, I tried to run nginx from windows itself and found that this DID work. It came to me that the only usage difference between the 2 versions of nginx is that I got a Windows Firewall popup.
