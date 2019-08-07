@@ -1012,7 +1012,7 @@ async function getPlugins(){
 }
 
 
-masterPlugins = await getPlugins();
+var masterPlugins = await getPlugins();
 
 
 io.attach(server);

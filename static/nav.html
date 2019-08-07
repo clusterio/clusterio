@@ -14,8 +14,8 @@
     <%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
     <%
     sidebarPluginButtonsHtml = "";
-    for(let o in masterPlugins){
-    let plug = masterPlugins[o];
+    for(let o in locals.masterPlugins){
+    let plug = locals.masterPlugins[o];
     if(plug.main
     && plug.main.ui
     && typeof plug.main.ui.sidebar == "object"
