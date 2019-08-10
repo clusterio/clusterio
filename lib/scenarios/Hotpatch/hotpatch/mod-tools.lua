@@ -15,6 +15,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 log('Hotpatch runtime initializing...')
 local util = require 'util'
 
+local compat_mode = false -- enable some compatibility settings, which can help some mods load
+local strict_mode = false -- causes hotpatch to hard-stop on mods doing bad things
+
 local debug_levels = {['disabled'] = -1, ['severe'] = 1, ['error'] = 2, ['warning'] = 3, ['info'] = 4, ['verbose'] = 5, ['trace'] = 6}
 
 -- configuration options; these should be exposed via API one day
@@ -23,11 +26,14 @@ local debug_log_to_console_only = _ENV.debug_settings.log_to_console_only
 local debug_log_to_RCON = _ENV.debug_settings.log_to_RCON --only affects when log_to_console_only is in effect
 local debug_log_on_tick = _ENV.debug_settings.log_on_tick
 
-local compat_mode = false -- enable some compatibility settings, which can help some mods load
-local strict_mode = false -- causes hotpatch to hard-stop on mods doing bad things
-
 -- convenience object(rcon.print also prints to stdout when called from server console)
 local console = {name = 'Console', admin = true, print = function(...) rcon.print(...) end, color = {1,1,1,1}}
+
+-- mapping of events to names for logging
+local event_names = {}
+for k,v in pairs(defines.events) do
+    event_names[v] = k
+end
 
 -- these represent the mods as statically packaged with the scenario
 local static_mods = {}
@@ -125,12 +131,6 @@ local function static_mod(name, version, code, files)
         end
     end
     table.insert(static_mods, mod)
-end
-
--- mapping of events to names for logging
-local event_names = {}
-for k,v in pairs(defines.events) do
-    event_names[v] = k
 end
 
 -- This scenario contains an embedded locale, but it's unavailable until this file finishes loading
@@ -334,7 +334,7 @@ local function debug_log(message, mod_name, stack_level)
         local class = 'hotpatch.info'
         local log_type = (mod_name and 'hotpatch.log-mod') or 'hotpatch.log'
         local severity
-		if type(message) == 'table' then
+        if type(message) == 'table' then
             severity = message[1]:match('.-%-([^%-]*)%.')
             if not severity then
                 severity = message[1]:match('.-%-.-%-(.*)%.')
@@ -346,7 +346,7 @@ local function debug_log(message, mod_name, stack_level)
         else
             severity = 'always'
         end
-		local level = ((severity == 'always') and 0) or debug_levels[severity]
+        local level = ((severity == 'always') and 0) or debug_levels[severity]
         if debug_level >= level then
             if debug_log_to_console_only then
                 if debug_log_to_RCON then
@@ -365,15 +365,15 @@ debug_log({'hotpatch-info.logging-enabled'})
 
 -- track _ENV accesses
 setmetatable(_ENV, {
-	__index = function(_, k)
-		debug_log({'hotpatch-trace.nil-var-access', k}, nil, 3)
-		return nil
-	end,
-	__newindex = function(t, k, v)
-		debug_log({'hotpatch-trace.nil-var-assignment', k}, nil, 3)
-		rawset(t,k,v)
-	end,
-	__metatable = false
+    __index = function(_, k)
+        debug_log({'hotpatch-trace.nil-var-access', k}, nil, 3)
+        return nil
+    end,
+    __newindex = function(t, k, v)
+        debug_log({'hotpatch-trace.nil-var-assignment', k}, nil, 3)
+        rawset(t,k,v)
+    end,
+    __metatable = false
 })
 
 debug_log({'hotpatch-info.metatable-installed'})
@@ -395,7 +395,7 @@ local libraries = {
 
 for k, v in pairs(libraries) do
     debug_log({'hotpatch-info.loading-library', v})
-	loaded_libraries[k] = require(v)
+    loaded_libraries[k] = require(v)
 end
 
 debug_log({'hotpatch-info.complete', {'hotpatch-info.loading-libs'}})
@@ -614,20 +614,20 @@ load_mod = function(installed_index)
         -- mods private package.loaded
         local loaded = {}
         -- copy the current environment
-		for k,v in pairs(_ENV) do
-			env[k] = v
-		end
+        for k,v in pairs(_ENV) do
+            env[k] = v
+        end
         -- copy package.loaded
         for k,v in pairs(_ENV.package.loaded) do
-			loaded[k] = v
-		end
+            loaded[k] = v
+        end
         loaded._G = env
 
         -- so many ways to escape sandboxes...
 
         for k,v in pairs(_ENV.package) do
-			pack[k] = v
-		end
+            pack[k] = v
+        end
         pack.loaded = loaded
         env.package = pack
         loaded.package = pack
@@ -681,15 +681,15 @@ load_mod = function(installed_index)
             -- I blame Nexela for this
             path = path:gsub('/', '.')
             path = path:gsub('\\', '.')
-			local alt_path = ''
+            local alt_path = ''
             if env.package._current_path_in_package then
                 alt_path = env.package._current_path_in_package .. path
             end
             if mod_obj.loaded_files[path] then
                 debug_log({'hotpatch-trace.cached-load-require', path}, mod_name)
                 return mod_obj.loaded_files[path]
-			elseif mod_obj.loaded_files[alt_path] then
-				debug_log({'hotpatch-trace.cached-load-require', alt_path}, mod_name)
+            elseif mod_obj.loaded_files[alt_path] then
+                debug_log({'hotpatch-trace.cached-load-require', alt_path}, mod_name)
                 return mod_obj.loaded_files[alt_path]
             else
                 local oldbase = env.package._current_path_in_package
@@ -711,7 +711,7 @@ load_mod = function(installed_index)
                         error(err)
                     end
                 end
-				file = global.mods[installed_index].files[alt_path]
+                file = global.mods[installed_index].files[alt_path]
                 if file then
                     debug_log({'hotpatch-trace.load-require', alt_path}, mod_name)
                     local code, err = load(file, '[' .. mod_name .. '] ' .. alt_path .. '.lua', 'bt', env)
@@ -728,11 +728,11 @@ load_mod = function(installed_index)
 
                 debug_log({'hotpatch-trace.load-core-lib', path}, mod_name)
                 env.package._current_path_in_package = oldbase
-				local lib = package.loaded[path]
-				if not lib then
-					debug_log({'hotpatch-error.path-not-found', path}, mod_name, 3)
+                local lib = package.loaded[path]
+                if not lib then
+                    debug_log({'hotpatch-error.path-not-found', path}, mod_name, 3)
                     error(path .. ' not found')
-				end
+                end
                 return lib
             end
         end
@@ -808,10 +808,6 @@ reset_mod = function(loaded_index)
     local install_index = find_installed_mod(mod.name)
     mod = global.mods[install_index]
     mod.global = new_global
-    --local mod_global = global.mod_global[mod_name]
-    --for k, v in pairs(mod_global) do
-    --    mod_global[k] = nil
-    --end
 
     reset_mod_events(loaded_index)
 end
@@ -833,15 +829,38 @@ reset_mod_events = function(loaded_index)
     end
 end
 
+local wrap_table
+wrap_table = function(t, path)
+    local mt = {
+        __index = function(_, k)
+        local v = rawget(t, k)
+            if type(v) == 'table' then
+                if not v.__self then
+                    local p = (path or 'global') .. '[' .. tostring(k) .. ']'
+                    return wrap_table(v, p)
+                end
+            end
+            return v
+        end,
+        __newindex = function(_, k, v)
+            local k_type = type(k)
+            local wrap = ((k_type == 'string') and '"') or ''
+            local p = (path or 'global') .. '[' .. wrap .. tostring(k) .. wrap .. ']'
+            debug_log('WARN: Assignment to global table when none was expected: '.. p, nil, 3)
+            rawset(t, k, v)
+        end
+    }
+    return setmetatable({}, mt)
+end
+
+
 run_mod = function(loaded_index)
     local mod = loaded_mods[loaded_index]
     if mod then
         local mod_name = mod.name
-        local old_global = table.deepcopy(mod.env.global)
-
-        if strict_mode then
-           --mod.env.global = {}
-        end
+        local old_global =  mod.env.global
+        mod.env.global = wrap_table(old_global)
+        
         debug_log({'hotpatch-info.running'}, mod_name)
 
         local success, result = xpcall(mod.code, debug.traceback)
@@ -856,26 +875,8 @@ run_mod = function(loaded_index)
             return false
         end
 
-        if strict_mode then
-            --if mod.env.global ~= {} then
-                --TODO: error, mod touched global inappropriately during load
-            --end
-           --mod.env.global = old_global
-
-        end
-
-		-- if a mod is being loaded that already has global data, it must be restored after
-		-- running control.lua, discarding any changes made
-		if not table.compare(old_global, {}) then
-			for k,_ in pairs(mod.env.global) do
-				mod.env.global[k] = nil
-			end
-			for k,v in pairs(old_global) do
-				mod.env.global[k] = v
-			end
-			--mod.env.global = old_global
-		end
-		old_global = nil
+        mod.env.global = old_global
+        old_global = nil
 
         mod.running = true
         debug_log({'hotpatch-info.complete', {'hotpatch-info.running'}}, mod_name)
@@ -1001,7 +1002,7 @@ mod_on_init = function(loaded_index)
         if mod.on_init then
             local success, result = xpcall(mod.on_init, debug.traceback)
             if not success then
-				debug_log({'hotpatch-error.on-init-failed'}, mod_name)
+                debug_log({'hotpatch-error.on-init-failed'}, mod_name)
                 debug_log(result, mod_name)
                 return false
             end
@@ -1018,13 +1019,16 @@ mod_on_load = function(loaded_index)
     if mod then
         debug_log({'hotpatch-trace.mod-on-load'}, mod.name)
         if mod.on_load then
-			--local old_global = table.deepcopy(mod.env.global)
+            local old_global =  mod.env.global
+            mod.env.global = wrap_table(table.deepcopy(old_global))
             local success, result = xpcall(mod.on_load, debug.traceback)
             if not success then
                 debug_log({'hotpatch-error.on-load-failed'}, mod_name)
                 debug_log(result, mod_name)
                 return false
             end
+            mod.env.global = old_global
+
         end
         register_mod_events(loaded_index)
         return true
@@ -1040,7 +1044,7 @@ mod_on_configuration_changed = function(loaded_index, config)
         if mod.on_configuration_changed then
             local success, result = xpcall(mod.on_configuration_changed, debug.traceback, config)
             if not success then
-				debug_log({'hotpatch-error.on-configuration-changed-failed'}, mod_name)
+                debug_log({'hotpatch-error.on-configuration-changed-failed'}, mod_name)
                 debug_log(result, mod_name)
                 return false
             end
@@ -1189,21 +1193,27 @@ on_load = function()
     end
 
     -- run mods which loaded successfully
-	local failed_mods = {}
+    local failed_mods = {}
+    --log('before')
+    --log(serpent.block(global))
+    
     for i = 1, #loaded_mods do
         if run_mod(i) then
-			if not mod_on_load(i) then
-				table.insert(failed_mods, i)
-			end
-		else
-			table.insert(failed_mods, i)
-		end
+            if not mod_on_load(i) then
+                table.insert(failed_mods, i)
+            end
+        else
+            table.insert(failed_mods, i)
+        end
     end
-
-	-- unload mods which failed to run
-	for i = 1, #failed_mods do
-		unload_mod(failed_mods[i])
-	end
+    
+    --log('after')
+    --log(serpent.block(global))    
+    
+    -- unload mods which failed to run
+    for i = 1, #failed_mods do
+        unload_mod(failed_mods[i])
+    end
 
     debug_log({'hotpatch-info.complete', {'hotpatch-info.loading-installed-mods'}})
     debug_log({'hotpatch-info.complete', {'hotpatch-info.on-load'}})
@@ -1211,16 +1221,16 @@ end
 
 on_configuration_changed = function(config)
     debug_log({'hotpatch-info.on-configuration-changed'})
-	local failed_mods = {}
+    local failed_mods = {}
     for i = 1, #loaded_mods do
         if not mod_on_configuration_changed(i, config) then
-			table.insert(failed_mods, i)
-		end
+            table.insert(failed_mods, i)
+        end
     end
 
-	for i = 1, #failed_mods do
-		unload_mod(failed_mods[i])
-	end
+    for i = 1, #failed_mods do
+        unload_mod(failed_mods[i])
+    end
     debug_log({'hotpatch-info.complete', {'hotpatch-info.on-configuration-changed'}})
 end
 
@@ -1324,7 +1334,7 @@ local mod_tools = setmetatable({
     static_mod = static_mod, -- (name, version, code, files)
     set_debug_level = function(level)
         --debug_level = tonumber(_ENV.debug_settings.level) or debug_levels[_ENV.debug_settings.level]
-		debug_level = tonumber(level) or debug_levels[level]
+        debug_level = tonumber(level) or debug_levels[level]
     end,
 },{
     __index = mod_tools_internal,

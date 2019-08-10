@@ -35,7 +35,7 @@ require 'hotpatch.gui'
 -- As this is part of the base mod, the developers have given permission for modders to use/adapt the assets therein, for modding Factorio
 -- Any other use would require licensing/permission from Wube
 -- If you don't want to run this, either comment this out before creating your scenario, OR uninstall freeplay at runtime
-hotpatch_tools.static_mod('freeplay', '1.0.0', [===[
+hotpatch_tools.static_mod('freeplay', '0.17.50', [===[
 local util = require("util")
 local silo_script = require("silo-script")
 
@@ -127,6 +127,7 @@ remote.add_interface("freeplay",
     global.chart_distance = tonumber(value)
   end
 })
+
 ]===])
 
 -- Multi-file test
