@@ -2,7 +2,7 @@
   "name": "clusterio",
   "version": "1.7.0",
   "description": "Interserver communication for factorio",
-  "repository": "https://github.com/Danielv123/factorioClusterio",
+  "repository": "https://github.com/clusterio/factorioClusterio",
   "main": "master.js",
   "scripts": {
     "test": "mocha -R spec -- \"./{,!(node_modules)/**/}*.spec.js\" || true",
