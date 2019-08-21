@@ -91,7 +91,7 @@ Master and all slaves:
     sudo curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git wget curl tar build-essential
     sudo npm install pm2 -g
-    git clone https://github.com/Danielv123/factorioClusterio.git
+    git clone https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
     curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz

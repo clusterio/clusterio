@@ -235,8 +235,8 @@ function makeTerminal(){
 			} else if(argv[1] === "/c"){
 				print('To run a command, start with /. You can for example do /c game.print("hello world!")');
 			} else if(argv[1] === "issues"){
-				print("Issues are reported to Danielv123 on github or espernet IRC.");
-				print(" - http://github.com/Danielv123/factorioClusterio/issues");
+				print("Issues are reported to clusterio on github or espernet IRC.");
+				print(" - http://github.com/clusterio/factorioClusterio/issues");
 				print(" - EsperNet #factorio Danielv123");
 			} else {
 				print('To identify yourself to a slave, use "login [name] [password]"');
@@ -245,8 +245,8 @@ function makeTerminal(){
 				print(' - issues - Report an issue');
 			}
 		} else if(argv[0] === 'issues'){
-			print("Issues are reported to Danielv123 on github or espernet IRC.");
-			print(" - http://github.com/Danielv123/factorioClusterio/issues");
+			print("Issues are reported to clusterio on github or espernet IRC.");
+			print(" - http://github.com/clusterio/factorioClusterio/issues");
 			print(" - EsperNet #factorio Danielv123");
 		} else {
 			print('Invalid command!');
