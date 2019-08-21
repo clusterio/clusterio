@@ -2,10 +2,10 @@ language: node_js
 node_js:
   - "9"
 before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y curl git tar
   - curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
-  - tar -xvf factorio.tar.gz
+  - tar -xf factorio.tar.gz
   - cp -n config.json.test config.json
+  - npm install -g codecov
 script:
-  - npm run cover
+  - npm run-script ci-cover
+  - codecov -f coverage/lcov.info

@@ -6,7 +6,8 @@
   "main": "master.js",
   "scripts": {
     "test": "mocha -R spec -- \"./{,!(node_modules)/**/}*.spec.js\" || true",
-    "cover": "nyc --reporter=lcovonly npm run-script test && codecov -f coverage/lcov.info -t f7b38085-36eb-4d72-84e6-64721910171e",
+    "cover": "nyc npm run-script test",
+    "ci-cover": "nyc --reporter=lcovonly npm run-script test",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
     "install": "node lib/npmPostinstall.js",
     "bundle-dependencies": "bundle-dependencies"
@@ -25,7 +26,6 @@
     "body-parser": "^1.18.2",
     "cli": "^1.0.1",
     "cli-interact": "^0.1.9",
-    "codecov": "^3.0.1",
     "compression": "^1.7.2",
     "cookie-parser": "^1.4.3",
     "deepmerge": "^1.5.2",
