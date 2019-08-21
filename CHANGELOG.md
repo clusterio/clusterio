@@ -19,6 +19,10 @@ Version 1.2.2
 - Swapped curl out with wget in the install instructions as the latter comes
   pre-installed on Ubuntu.
 
+### Breaking Changes
+
+- Node.js versions below 10 are no longer supported.
+
 
 Version 1.2.1
 -------------
