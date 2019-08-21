@@ -88,7 +88,7 @@ NodeJS does not support EOL ubuntu releases. Make sure you are on the most recen
 
 Master and all slaves:
 
-    sudo curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
+    sudo curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git wget curl tar build-essential
     sudo npm install pm2 -g
     git clone https://github.com/clusterio/factorioClusterio.git
@@ -159,7 +159,7 @@ Game Client = The people connecting to the server
 
 **Requirements**
 
-download and install nodeJS 8 or 9 from http://nodejs.org
+download and install nodeJS 10 from http://nodejs.org
 
 download and install git from https://git-scm.com/
 
