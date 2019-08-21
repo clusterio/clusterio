@@ -1,11 +1,15 @@
-const app = require('./master.js');
-const config = require('./config.json');
 const assert = require('assert').strict;
 const request = require('supertest');
 const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 const jwt = require("jsonwebtoken");
 
+const app = require('./master.js');
+const config = require('./config.json');
+const authenticate = require('lib/authenticate');
+
+
+authenticate.setAuthSecret(config.masterAuthSecret);
 
 const token =
 	jwt.sign( { id: "api" }, config.masterAuthSecret, { expiresIn: 600 });

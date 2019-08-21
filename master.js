@@ -36,7 +36,7 @@ const generateSSLcert = require("lib/generateSSLcert");
 const getFactorioLocale = require("lib/getFactorioLocale");
 
 // homemade express middleware for token auth
-const authenticate = require("lib/authenticate")(config);
+const authenticate = require("lib/authenticate");
 
 const express = require("express");
 const compression = require('compression');
@@ -920,6 +920,8 @@ async function startServer() {
 
 	// mod downloads
 	app.use(express.static(masterModFolder));
+
+	authenticate.setAuthSecret(config.masterAuthSecret);
 
 	// Make sure we're actually going to listen on a port
 	let httpPort = args.masterPort || config.masterPort;
