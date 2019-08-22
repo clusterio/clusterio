@@ -41,6 +41,7 @@ mkdirp.sync(config.databaseDirectory);
 mkdirp.sync(masterModFolder);
 
 // homebrew modules
+const generateSSLcert = require("lib/generateSSLcert");
 const getFactorioLocale = require("lib/getFactorioLocale");
 
 // homemade express middleware for token auth
@@ -1005,6 +1006,15 @@ async function startServer() {
 		process.exit(1);
 	}
 
+	// Create a self signed certificate if the certificate files doesn't exist
+	if (httpsPort && !await fs.exists(config.sslCert) && !await fs.exists(config.sslPrivKey)) {
+		await generateSSLcert({
+			sslCertPath: config.sslCert,
+			sslPrivKeyPath: config.sslPrivKey,
+			doLogging: true,
+		});
+	}
+
 	// Load plugins
 	await pluginManagement();
 
@@ -1016,8 +1026,15 @@ async function startServer() {
 	}
 
 	if (httpsPort) {
-		var certificate = fs.readFileSync(config.sslCert);
-		var privateKey = fs.readFileSync(config.sslPrivKey);
+		let certificate, privateKey;
+		try {
+			certificate = await fs.readFile(config.sslCert);
+			privateKey = await fs.readFile(config.sslPrivKey);
+
+		} catch (err) {
+			console.error(`Error loading ssl certificate: ${err.message}`);
+			await shutdown()
+		}
 
 		let httpsServer = require("https").createServer({
 			key: privateKey,
