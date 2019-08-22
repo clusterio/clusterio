@@ -1042,5 +1042,12 @@ async function startServer() {
 module.exports = app;
 
 if (module === require.main) {
-	startServer();
+	startServer().catch(err => {
+		console.error(
+			"Unexpected error occured while starting master, please report\n"+
+			"it to https://github.com/clusterio/factorioClusterio/issues"
+		);
+		console.error(err);
+		return shutdown();
+	});
 }
