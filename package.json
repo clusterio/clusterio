@@ -6,7 +6,9 @@
   "main": "master.js",
   "scripts": {
     "test": "mocha --exit --check-leaks -R spec \"./{,!(node_modules)/**/}*.spec.js\" || true",
+    "fast-test": "FAST_TEST=y mocha --check-leaks --exit -R spec \"./{,!(node_modules)/**/}*.spec.js\" || true",
     "cover": "nyc npm run-script test",
+    "fast-cover": "nyc npm run-script fast-test",
     "ci-cover": "nyc --reporter=lcovonly npm run-script test",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
     "install": "node lib/npmPostinstall.js",
