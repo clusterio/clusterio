@@ -992,7 +992,7 @@ async function startServer() {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
 	setInterval(()=>{
-		fs.writeFileSync("database/items.json", JSON.stringify(db.items));
+		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
 	},config.autosaveInterval || 60000);
 	process.on('SIGINT', shutdown); // ctrl + c
 	process.on('SIGHUP', shutdown); // terminal closed
@@ -1016,8 +1016,8 @@ async function startServer() {
 	}
 
 	if (httpsPort) {
-		var certificate = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.crt'));
-		var privateKey = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.key'));
+		var certificate = fs.readFileSync(config.sslCert);
+		var privateKey = fs.readFileSync(config.sslPrivKey);
 
 		let httpsServer = require("https").createServer({
 			key: privateKey,
