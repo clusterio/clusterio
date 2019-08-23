@@ -82,13 +82,6 @@ const prometheusPrefix = "clusterio_";
 const Prometheus = require('prom-client');
 const expressPrometheus = require('express-prometheus-request-metrics');
 Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
-if(!config.disablePrometheusPushgateway){
-	const pushgateway = new Prometheus.Pushgateway('http://hme.danielv.no:9091');
-	setInterval(() => {
-		registerMoreMetrics();
-		pushgateway.push({ jobName: 'clusterio', groupings: {instance: config.publicIP + ":" + config.masterPort, owner: config.username}}, function(err, resp, body) {})
-	}, 15000)
-}
 
 // collect express request durations ms
 app.use(expressPrometheus(Prometheus));
