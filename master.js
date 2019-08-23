@@ -28,8 +28,7 @@ const moment = require("moment");
 const request = require("request");
 
 // constants
-console.log(`Requiring config from ${args.config || './config'}`);
-const config = require(args.config || './config');
+let config = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -865,6 +864,9 @@ async function startServer() {
 	// add better stack traces on promise rejection
 	process.on('unhandledRejection', r => console.log(r));
 
+	console.log(`Requiring config from ${args.config || './config'}`);
+	config = require(args.config || './config');
+
 	/** Sync */
 	function randomStringAsBase64Url(size) {
 	  return base64url(crypto.randomBytes(size));
@@ -964,6 +966,7 @@ module.exports = {
 
 	// For testing only
 	_db: db,
+	_config: config,
 }
 
 if (module === require.main) {

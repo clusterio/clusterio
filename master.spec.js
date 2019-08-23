@@ -5,17 +5,22 @@ const parallel = require('mocha.parallel');
 const jwt = require("jsonwebtoken");
 
 const master = require('./master.js');
-const config = require('./config.json');
 const authenticate = require('lib/authenticate');
 const database = require('lib/database');
 
 
-authenticate.setAuthSecret(config.masterAuthSecret);
 master._db.slaves = new Map();
 master._db.items = new database.ItemDatabase();
 
-const token =
-	jwt.sign( { id: "api" }, config.masterAuthSecret, { expiresIn: 600 });
+// Fields required in the config
+master._config.factorioDirectory = "factorio";
+master._config.itemStats = { maxEntries:60, entriesPerSecond: 1 / 60 };
+master._config.disableFairItemDistribution = true;
+
+const testSecret = "TestSecretDoNotUse";
+authenticate.setAuthSecret(testSecret);
+
+const token = jwt.sign({ id: "api" }, testSecret, { expiresIn: 600 });
 
 async function get(path) {
 	return await request(master.app).get(path).expect(200);
