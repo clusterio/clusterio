@@ -971,7 +971,9 @@ async function startServer() {
 	}
 }
 
-module.exports = app;
+module.exports = {
+	app,
+}
 
 if (module === require.main) {
 	console.warn(`

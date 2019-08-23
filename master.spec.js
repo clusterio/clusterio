@@ -4,7 +4,7 @@ const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 const jwt = require("jsonwebtoken");
 
-const app = require('./master.js');
+const master = require('./master.js');
 const config = require('./config.json');
 const authenticate = require('lib/authenticate');
 
@@ -15,7 +15,7 @@ const token =
 	jwt.sign( { id: "api" }, config.masterAuthSecret, { expiresIn: 600 });
 
 async function get(path) {
-	return await request(app).get(path).expect(200);
+	return await request(master.app).get(path).expect(200);
 }
 
 async function getValidate(path) {
@@ -46,7 +46,7 @@ describe('Master server endpoint testing', function() {
 			it(`sends some HTML when accessing ${path}`, () => getValidate(path));
 		}
 	});
-	let persistentMaster = request(app);
+	let persistentMaster = request(master.app);
 	describe("#POST /api/place", function() {
 		it("adds an itemStack to the masters inventory", function() {
 			return persistentMaster.post("/api/place").send({
