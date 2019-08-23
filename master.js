@@ -475,8 +475,7 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	}
 	if(x.instanceID
 	&& x.instanceName
-	&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
-	/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/
+	&& !isNaN(Number(x.count))
 	&& x.name
 	&& typeof x.name == "string"){
 		if(config.logItemTransfers){
