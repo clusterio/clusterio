@@ -17,8 +17,6 @@ node master.js
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
 
-// Library for create folder recursively if it does not exist
-const mkdirp = require("mkdirp");
 const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
@@ -32,10 +30,6 @@ const request = require("request");
 // constants
 console.log(`Requiring config from ${args.config || './config'}`);
 const config = require(args.config || './config');
-config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
-const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
-mkdirp.sync(config.databaseDirectory);
-mkdirp.sync(masterModFolder);
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -82,8 +76,6 @@ require("./routes.js")(app);
 require("./routes/api/getPictures.js")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
-// mod downloads
-app.use(express.static(masterModFolder));
 
 // set up logging software
 const prometheusPrefix = "clusterio_";
@@ -356,7 +348,7 @@ POST Check if a mod has been uploaded to the master before. Only checks against 
 */
 app.post("/api/checkMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let files = fs.readdirSync(masterModFolder);
+	let files = fs.readdirSync(path.join(config.databaseDirectory, "masterMods"));
 	let found = false;
 	files.forEach(file => {
 		if(file == req.body.modName) {
@@ -991,6 +983,15 @@ async function startServer() {
 	},config.autosaveInterval || 60000);
 	process.on('SIGINT', shutdown); // ctrl + c
 	process.on('SIGHUP', shutdown); // terminal closed
+
+	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
+	await fs.ensureDir(config.databaseDirectory);
+
+	const masterModFolder = path.join(config.databaseDirectory, "masterMods");
+	await fs.ensureDir(masterModFolder);
+
+	// mod downloads
+	app.use(express.static(masterModFolder));
 
 	// Make sure we're actually going to listen on a port
 	let httpPort = args.masterPort || config.masterPort;
