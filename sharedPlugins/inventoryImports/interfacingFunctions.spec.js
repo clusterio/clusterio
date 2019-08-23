@@ -141,7 +141,7 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 		it("Throws if player name is not a string", function(){
 			assert.throws(function(){
 				let x = functions.insertItemsFromObject(testObject, testObject);
-			}, "playerName is: 'object' instead of string!");
+			}, Error("playerName is: 'object' instead of string!"));
 		});
 		it("Returns a big factorio command as string", function(){
 			let x = functions.insertItemsFromObject(testObject, playerName);

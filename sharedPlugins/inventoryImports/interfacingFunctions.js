@@ -11,7 +11,7 @@ function parseJsString(string){
 	
 	// since eval is unsafe, maybe use https://www.npmjs.com/package/eval-sanitizer
 	if(string.includes("require") || string.includes(";") || string.includes("eval")){
-		throw "parseJsString might have gotten something that could be a xss attempt";
+		throw new Error("parseJsString might have gotten something that could be a xss attempt");
 	}
 	let inventory = "";
 	eval("inventory = " + string);
@@ -119,7 +119,7 @@ function insertItemsFromObject(confirmedItems, playerName){
 	// we gotta construct a string because I can't find any nice library for this
 	if(playerName && confirmedItems){
 		if(typeof playerName != "string") {
-			throw "playerName is: '"+typeof playerName+"' instead of string!";
+			throw new Error("playerName is: '"+typeof playerName+"' instead of string!");
 		}
 		let itemTable = "{";
 		Object.keys(confirmedItems).forEach(function(name){
