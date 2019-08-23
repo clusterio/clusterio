@@ -26,22 +26,11 @@ describe('Master server endpoint testing', function() {
 		it('should get the basegame factorio locale', async function() {
 			let res = await get('/api/getFactorioLocale');
 			let object = res.body;
-			// test that it is actual factorio locale, copied from getFactorioLocale.spec.js
+
+			// test that it is looks like a factorio locale
 			assert.equal(typeof object, "object");
 			assert.equal(object["entity-name"]["fish"], "Fish");
 			assert.equal(object["entity-name"]["small-lamp"], "Lamp");
-			Object.keys(object).forEach(key => {
-				// first level of the nested object is always an object
-				assert.equal(typeof object[key], "object");
-
-				Object.keys(object[key]).forEach(key2 => {
-					// second level of the nested object is always a string, nearly always truthy
-					if(key2 != "so-long-and-thanks-for-all-the-fish") {
-						assert.ok(object[key][key2], `${key}.${key2} is falsy (${object[key][key2]})`);
-						assert.equal(typeof object[key][key2], "string");
-					}
-				});
-			});
 		});
 	});
 	// describe("#GET /api/")
