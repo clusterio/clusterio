@@ -40,8 +40,8 @@
                                 </ul>
 							${findInArray("modName", "remoteMap", slave.mods).length ? "<a href='/remoteMap?instanceID="+id+"'>Remote map</a>" : ""}
 						`
-						for(let o in masterPlugins){
-							let plug = masterPlugins[o];
+						for(let o in locals.masterPlugins){
+							let plug = locals.masterPlugins[o];
 							if(plug.main
 							&& plug.main.ui
 							&& typeof plug.main.ui.slaveListing == "object"

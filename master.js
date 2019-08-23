@@ -14,15 +14,6 @@ node master.js
 // const updater = require("./updater.js");
 // updater.update().then(console.log);
 
-(async ()=>{
-
-// Set the process title, shows up as the title of the CMD window on windows
-// and as the process name in ps/top on linux.
-process.title = "clusterioMaster";
-
-// add better stack traces on promise rejection
-process.on('unhandledRejection', r => console.log(r));
-
 // configgy stuff
 debug = false;
 
@@ -54,24 +45,6 @@ const getFactorioLocale = require("lib/getFactorioLocale");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate")(config);
-
-/** Sync */
-function randomStringAsBase64Url(size) {
-  return base64url(crypto.randomBytes(size));
-}
-if (!fs.existsSync("secret-api-token.txt")) {
-	config.masterAuthSecret = randomStringAsBase64Url(256);
-	fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
-	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
-		expiresIn: 86400*365 // expires in 1 year
-	}));
-	console.log("Generated new master authentication private key!");
-	process.exit(0);
-}
-// write an auth token to file
-fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
-	expiresIn: 86400*365 // expires in 1 year
-}));
 
 const express = require("express");
 const compression = require('compression');
@@ -174,9 +147,6 @@ const prometheusMasterInventoryGauge = new Prometheus.Gauge({
 	help: 'Amount of items stored on master',
 	labelNames: ["itemName"],
 });
-setInterval(()=>{
-	fs.writeFileSync("database/items.json", JSON.stringify(db.items));
-},config.autosaveInterval || 60000);
 /**
 GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
 @memberof clusterioMaster
@@ -266,8 +236,6 @@ db.items.removeItem = function(object) {
 };
 
 // store slaves and inventory in a .json full of JSON data
-process.on('SIGINT', shutdown); // ctrl + c
-process.on('SIGHUP', shutdown); // terminal closed
 async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
@@ -764,28 +732,9 @@ app.get("/api/getFactorioLocale", function(req,res){
 		res.send(factorioLocale);
 	});
 });
-if(args.sslPort || config.sslPort){
-	try{
-		var certificate = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.crt'));
-		var privateKey = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.key'));
-
-		httpsServer = require("https").createServer({
-			key: privateKey,
-			cert: certificate
-		}, app).listen(args.sslPort || config.sslPort);
-	} catch(e){
-		console.error(e)
-	}
-}
-if(args.masterPort || config.masterPort){
-	server = require("http").Server(app);
-	server.listen(args.masterPort || config.masterPort || 8080, function () {
-		console.log("Listening on port %s...", server.address().port);
-	});
-}
 
 /* Websockets for remoteMap */
-var io = require("socket.io")();
+var io = require("socket.io")({});
 const ioMetrics = require("socket.io-prometheus");
 ioMetrics(io);
 
@@ -975,8 +924,14 @@ io.on('connection', function (socket) {
 });
 
 // handle plugins on the master
-async function getPlugins(){
+var masterPlugins = [];
+async function pluginManagement(){
 	let startPluginLoad = Date.now();
+	masterPlugins = await getPlugins();
+	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+}
+
+async function getPlugins(){
 	const pluginManager = require("lib/manager/pluginManager.js")(config);
 	let plugins = [];
 	let pluginsToLoad = await pluginManager.getPlugins();
@@ -1007,15 +962,74 @@ async function getPlugins(){
 		let plugin = plugins[i];
 		if(plugin.main.onLoadFinish && typeof plugin.main.onLoadFinish == "function") await plugin.main.onLoadFinish({plugins});
 	}
-	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 	return plugins;
 }
 
+async function startServer() {
+	// Set the process title, shows up as the title of the CMD window on windows
+	// and as the process name in ps/top on linux.
+	process.title = "clusterioMaster";
 
-masterPlugins = await getPlugins();
+	// add better stack traces on promise rejection
+	process.on('unhandledRejection', r => console.log(r));
 
+	/** Sync */
+	function randomStringAsBase64Url(size) {
+	  return base64url(crypto.randomBytes(size));
+	}
 
-io.attach(server);
+	if (!fs.existsSync("secret-api-token.txt")) {
+		config.masterAuthSecret = randomStringAsBase64Url(256);
+		fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
+		fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+			expiresIn: 86400*365 // expires in 1 year
+		}));
+		console.log("Generated new master authentication private key!");
+		process.exit(0);
+	}
+	// write an auth token to file
+	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+		expiresIn: 86400*365 // expires in 1 year
+	}));
+	setInterval(()=>{
+		fs.writeFileSync("database/items.json", JSON.stringify(db.items));
+	},config.autosaveInterval || 60000);
+	process.on('SIGINT', shutdown); // ctrl + c
+	process.on('SIGHUP', shutdown); // terminal closed
+
+	// Make sure we're actually going to listen on a port
+	let httpPort = args.masterPort || config.masterPort;
+	let httpsPort = args.sslPort || config.sslPort;
+	if (!httpPort && !httpsPort) {
+		console.error("Error: at least one of httpPort and sslPort must be configured");
+		process.exit(1);
+	}
+
+	// Load plugins
+	await pluginManagement();
+
+	// Only start listening for connections after all plugins have loaded
+	if (httpPort) {
+		let httpServer = require("http").Server(app);
+		httpServer.listen(httpPort);
+		console.log("Listening for HTTP on port %s...", httpServer.address().port);
+	}
+
+	if (httpsPort) {
+		var certificate = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.crt'));
+		var privateKey = fs.readFileSync(path.resolve(config.databaseDirectory, 'certificates/cert.key'));
+
+		let httpsServer = require("https").createServer({
+			key: privateKey,
+			cert: certificate
+		}, app)
+		httpsServer.listen(httpsPort);
+		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
+	}
+}
 
 module.exports = app;
-})();
+
+if (module === require.main) {
+	startServer();
+}
