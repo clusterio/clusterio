@@ -5,7 +5,7 @@
   "repository": "https://github.com/clusterio/factorioClusterio",
   "main": "master.js",
   "scripts": {
-    "test": "mocha --exit -R spec \"./{,!(node_modules)/**/}*.spec.js\" || true",
+    "test": "mocha --exit --check-leaks -R spec \"./{,!(node_modules)/**/}*.spec.js\" || true",
     "cover": "nyc npm run-script test",
     "ci-cover": "nyc --reporter=lcovonly npm run-script test",
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
