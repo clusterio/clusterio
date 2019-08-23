@@ -14,6 +14,7 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 		let config = {
 			masterIP:"localhost",
 			masterPort:8080,
+			masterAuthToken:"",
 		}
 		it("returns false if given invalid input", function(){
 			assert(functions.handleInventory("this is a string") === false, "when given strings it should return false and do nothing");
