@@ -13,7 +13,7 @@
     </div>
     <%# Very ugly ejs code to hide the Players button if the playerManager plugin isn`t installed %>
     <%
-    sidebarPluginButtonsHtml = "";
+    let sidebarPluginButtonsHtml = "";
     for(let o in locals.masterPlugins){
     let plug = locals.masterPlugins[o];
     if(plug.main
