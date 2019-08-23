@@ -7,9 +7,12 @@ const jwt = require("jsonwebtoken");
 const master = require('./master.js');
 const config = require('./config.json');
 const authenticate = require('lib/authenticate');
+const database = require('lib/database');
 
 
 authenticate.setAuthSecret(config.masterAuthSecret);
+master._db.slaves = new Map();
+master._db.items = new database.ItemDatabase();
 
 const token =
 	jwt.sign( { id: "api" }, config.masterAuthSecret, { expiresIn: 600 });
@@ -25,7 +28,7 @@ async function getValidate(path) {
 	assert(filtered.length === 0, "there are HTML errors on the page, please fix: "+JSON.stringify(validation.messages, null, 4));
 }
 
-describe('Master server endpoint testing', function() {
+describe('Master testing', function() {
 	describe('#GET /api/getFactorioLocale', function() {
 		it('should get the basegame factorio locale', async function() {
 			let res = await get('/api/getFactorioLocale');
@@ -86,19 +89,31 @@ describe('Master server endpoint testing', function() {
 				assert.equal(res.body.count, 10, `Expected 10 steel got ${res.text}`);
 			});
 		});
-		it("returns an empty itemStack if you try to request addItem or removeItem", function() {
-			function remove() {
-				return persistentMaster.post("/api/remove").send({
-					name:"addItem",
-					count:10
+		it("works correctly for items named addItem or removeItem", async function() {
+			function add(item) {
+				return persistentMaster.post("/api/place").send({
+					name: item,
+					count: 10
 				}).set(
 					"X-Access-Token", token
 				).expect(200).then(function(res) {
-					assert.equal(res.text, '{"name":"addItem","count":0}', "When there are none of the item, you should get 0 back. addItem and removeItem should always return 0");
+					assert.equal(res.text, 'success', `/api/place ${item} failed with ${res.text}`);
+				})
+			}
+
+			function remove(item) {
+				return persistentMaster.post("/api/remove").send({
+					name: item,
+					count: 10
+				}).set(
+					"X-Access-Token", token
+				).expect(200).then(function(res) {
+					assert.deepEqual(res.body, {"name":item,"count":10});
 				});
 			}
 
-			return Promise.all([remove(), remove()]);
+			await Promise.all([add("addItem"), add("removeItem")]);
+			await Promise.all([remove("addItem"), remove("removeItem")]);
 		});
 		it("returns an empty itemStack if you don't have any of the item you request", function() {
 			return persistentMaster.post("/api/remove").send({

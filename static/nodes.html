@@ -15,8 +15,7 @@
 			<div id="display">
 				<%
                     let html = ""
-					for(let id in slaves){
-						let slave = slaves[id];
+					for(let [id, slave] of locals.slaves){
 						html += `
 						<div id="${id}" class="slaveBox card mb-3">
                             <div class="card-body">

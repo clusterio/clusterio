@@ -34,6 +34,7 @@ const config = require(args.config || './config');
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
 const getFactorioLocale = require("lib/getFactorioLocale");
+const database = require("lib/database");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -67,7 +68,7 @@ app.use(function(req, res, next){
 	res.locals.res = res;
 	res.locals.req = req;
 	res.locals.masterPlugins = masterPlugins;
-	res.locals.slaves = slaves;
+	res.locals.slaves = db.slaves;
 	res.locals.moment = moment;
 	next();
 });
@@ -146,27 +147,25 @@ app.get('/metrics', (req, res) => {
 });
 
 function registerMoreMetrics(){
-	for(let instanceID in slaves){
+	for (let [instanceID, slave] of db.slaves) {
 		// playercount
 		try{
-			prometheusPlayerCountGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].playerCount) || 0);
+			prometheusPlayerCountGauge.labels(instanceID, slave.instanceName).set(Number(slave.playerCount) || 0);
 		}catch(e){}
 		// UPS
 		try{
-			prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.UPS) || 60);
-			if(slaves[instanceID].meta.tick && typeof slaves[instanceID].meta.tick === "number") prometheusUPSGauge.labels(instanceID, slaves[instanceID].instanceName).set(Number(slaves[instanceID].meta.tick) || 0);
+			prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.UPS) || 60);
+			if(slave.meta.tick && typeof slave.meta.tick === "number") prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.tick) || 0);
 		}catch(e){}
 	}
 	// inventory
-	for(let key in db.items){
-		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
-			prometheusMasterInventoryGauge.labels(key).set(Number(db.items[key]) || 0);
-		}
+	for (let [key, count] of db.items._items) {
+		prometheusMasterInventoryGauge.labels(key).set(Number(count) || 0);
 	}
 	// Slave count
 	let numberOfActiveSlaves = 0;
-	for(let instance in slaves){
-		if(Date.now() - Number(slaves[instance].time) < 1000 * 30) numberOfActiveSlaves++;
+	for(let slave of db.slaves.values()){
+		if(Date.now() - Number(slave.time) < 1000 * 30) numberOfActiveSlaves++;
 	}
 	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
 }
@@ -174,49 +173,28 @@ function registerMoreMetrics(){
 // set up database
 const db = {};
 
-(function(){
-	try{
-		let x = fs.statSync(path.resolve(config.databaseDirectory, "slaves.json"));
-		console.log(`loading slaves from path.resolve(config.databaseDirectory, "slaves.json")`);
-		slaves = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "slaves.json")));
-	} catch (e){
-		slaves = {};
-	}
-	try{
-		x = fs.statSync(path.resolve(config.databaseDirectory, "items.json"));
-		console.log(`loading items from ${path.resolve(config.databaseDirectory, "items.json")}`);
-		db.items = JSON.parse(fs.readFileSync(path.resolve(config.databaseDirectory, "items.json")));
-	} catch (e){
-		db.items = {};
-	}
-})();
+async function loadDatabase(databaseDirectory) {
+	let slavesPath = path.resolve(databaseDirectory, "slaves.json");
+	console.log(`Loading ${slavesPath}`);
+	db.slaves = await database.loadJsonAsMap(slavesPath);
 
-db.items.addItem = function(object) {
-	if(object.name == "addItem" || object.name == "removeItem") {
-		console.error("Fuck you, that would screw everything up if you named your item that.");
-		return false;
-	} else {
-		if(this[object.name] && Number(this[object.name]) != NaN){
-			this[object.name] = Number(this[object.name]) + Number(object.count);
+	let itemsPath = path.resolve(databaseDirectory, "items.json");
+	console.log(`Loading ${itemsPath}`);
+	try {
+		let content = await fs.readFile(itemsPath);
+		db.items = new database.ItemDatabase(JSON.parse(content));
+
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			console.log("Creating new item database");
+			db.items = new database.ItemDatabase();
+
 		} else {
-			this[object.name] = Number(object.count);
+			throw err;
 		}
-		return true;
 	}
-};
-db.items.removeItem = function(object) {
-	if(object.name == "addItem" || object.name == "removeItem") {
-		console.error("Fuck you, that would screw everything up if you named your item that.");
-		return false;
-	} else {
-		if(this[object.name] && Number(this[object.name]) != NaN){
-			this[object.name] = Number(this[object.name]) - Number(object.count);
-		} else {
-			this[object.name] = 0;
-		}
-		return true;
-	}
-};
+}
+
 
 // store slaves and inventory in a .json full of JSON data
 async function shutdown() {
@@ -224,17 +202,21 @@ async function shutdown() {
 	let exitStartTime = Date.now();
 	try {
 		// set insane limit to slave length, if its longer than this we are probably being ddosed or something
-		if(slaves && Object.keys(slaves).length < 2000000){
-			console.log("saving to slaves.json");
-			fs.writeFileSync(path.resolve(config.databaseDirectory, "slaves.json"), JSON.stringify(slaves));
-		} else if(slaves) {
-			console.log("Slave database too large, not saving ("+Object.keys(slaves).length+")");
+		if (db.slaves && db.slaves.size < 2000000) {
+			let file = path.resolve(config.databaseDirectory, "slaves.json");
+			console.log(`writing ${file}`);
+			await database.saveMapAsJson(file, db.slaves);
+		} else if (db.slaves) {
+			console.error(`Slave database too large, not saving (${db.slaves.size}`);
 		}
-		if(db.items && Object.keys(db.items).length < 50000){
-			console.log("saving to items.json");
-			fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
-		} else if(slaves) {
-			console.log("Item database too large, not saving ("+Object.keys(slaves).length+")");
+
+		if (db.items && db.items.size < 50000) {
+			let file = path.resolve(config.databaseDirectory, "items.json");
+			console.log(`writing ${file}`);
+			let content = JSON.stringify(db.items.serialize());
+			await fs.outputFile(file, content);
+		} else if (db.items) {
+			console.error(`Item database too large, not saving (${db.items.size})`);
 		}
 		for(let i in masterPlugins){
 			let plugin = masterPlugins[i];
@@ -266,15 +248,16 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		if(!slaves[req.body.unique]){
-			slaves[req.body.unique] = {};
+		if (!db.slaves.has(req.body.unique)) {
+			db.slaves.set(req.body.unique, {});
 		}
-		for(k in req.body){
+		let slave = db.slaves.get(req.body.unique);
+		for(let k in req.body){
 			if(k != "meta" && req.body.hasOwnProperty(k)){
-				slaves[req.body.unique][k] = req.body[k];
+				slave[k] = req.body[k];
 			}
 		}
-		// console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
+		// console.log("Slave registered: " + slave.mac + " : " + slave.serverPort+" at " + slave.publicIP + " with name " + slave.instanceName);
 	}
 });
 /**
@@ -289,16 +272,17 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	// {instanceID, pass, meta:{x,y,z}}
 
 	if(req.body && req.body.instanceID && req.body.meta){
-		if(slaves[req.body.instanceID]){
-			if(!slaves[req.body.instanceID].meta) {
-				slaves[req.body.instanceID].meta = {};
+		if (db.slaves.has(req.body.instanceID)) {
+			let slave = db.slaves.get(req);
+			if(!slave.meta) {
+				slave.meta = {};
 			}
-			slaves[req.body.instanceID].meta = deepmerge(slaves[req.body.instanceID].meta, req.body.meta, {clone:true});
+			slave.meta = deepmerge(slave.meta, req.body.meta, {clone:true});
 			let metaPortion = JSON.stringify(req.body.meta);
 			if(metaPortion.length > 50) {
 				metaPortion = metaPortion.substring(0,20) + "...";
 			}
-			// console.log("Updating slave "+slaves[req.body.instanceID].instanceName+": " + slaves[req.body.instanceID].mac + " : " + slaves[req.body.instanceID].serverPort+" at " + slaves[req.body.instanceID].publicIP, metaPortion);
+			// console.log("Updating slave "+slave.instanceName+": " + slave.mac + " : " + slave.serverPort+" at " + slave.publicIP, metaPortion);
 			res.sendStatus(200);
 		} else {
 			res.send("ERROR: Invalid instanceID or password")
@@ -316,12 +300,13 @@ app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	console.log("body", req.body);
 	if(req.body && req.body.instanceID){
-		if (slaves[req.body.instanceID]) {
+		if (db.slaves.has(req.body.instanceID)) {
+			let slave = db.slaves.get(req.body.instanceID);
 			console.log("returning meta for ", req.body.instanceID);
-			if(!slaves[req.body.instanceID].meta) {
-				slaves[req.body.instanceID].meta = {};
+			if(!slave.meta) {
+				slave.meta = {};
 			}
-			res.send(JSON.stringify(slaves[req.body.instanceID].meta))
+			res.send(JSON.stringify(slave.meta))
 		} else {
 			res.status(404);
 			res.send('{"status": 404, "info": "Slave not registered"}')
@@ -387,7 +372,7 @@ let slaveCache = {
 };
 function getSlaves() {
 	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000) {
-		let copyOfSlaves = JSON.parse(JSON.stringify(slaves));
+		let copyOfSlaves = JSON.parse(JSON.stringify(database.mapToObject(db.slaves)));
 		slaveCache.cache = copyOfSlaves;
 		slaveCache.timestamp = Date.now();
 	}
@@ -460,11 +445,12 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	}
 	if(!x.instanceID) {
 		x.instanceID = "unknown";
-		Object.keys(slaves).forEach(instanceID => {
-			if(slaves[instanceID].instanceName == req.body.instanceName) {
+		for (let [instanceID, slave] of db.slaves) {
+			if(slave.instanceName == req.body.instanceName) {
 				x.instanceID = instanceID;
+				break;
 			}
-		});
+		}
 	}
 	if(x.instanceID
 	&& x.instanceName
@@ -490,10 +476,7 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 		});
 		prometheusExportGauge.labels(x.instanceID, req.body.name).inc(Number(req.body.count) || 0);
 		// save items we get
-		db.items.addItem({
-			name:req.body.name,
-			count:req.body.count
-		});
+		db.items.addItem(req.body.name, req.body.count);
 
 		// Attempt confirming
 		res.send("success");
@@ -502,12 +485,8 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	}
 });
 const routes_api_remove = require("./routes/api/remove.js");
-var neuralDole = null;
+let neuralDole;
 
-if(config.useNeuralNetDoleDivider)//Only initialize neural network when it's enabled, otherwise it might override gauge
-	neuralDole=new routes_api_remove.neuralDole({
-		items: db.items, gaugePrefix: prometheusPrefix
-	});
 /**
 POST endpoint to remove items from DB when client orders items.
 
@@ -531,22 +510,22 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	if(!object.instanceName) {
 		object.instanceName = "unknown";
 	}
-	if(slaves[object.instanceID]) object.instanceName = slaves[object.instanceID].instanceName;
-	let item = db.items[object.name];
-		// console.dir(doc);
-	if((item === undefined)
-	||((
-		config.disableImportsOfEverythingExceptElectricity === true || config.disableImportsOfEverythingExceptElectricity === "true" )
-		&& object.name != "electricity")
-	){
+	if (db.slaves.has(object.instanceID)) {
+		object.instanceName = db.slaves.get(object.instanceID).instanceName;
+	}
+	let itemCount = db.items.getItemCount(object.name);
+	if (
+		(config.disableImportsOfEverythingExceptElectricity === true || config.disableImportsOfEverythingExceptElectricity === "true" )
+		&& object.name != "electricity"
+	) {
 		if(config.logItemTransfers){
 			console.log('failure could not find ' + object.name);
 		}
 		res.send({name:object.name, count:0});
 	} else if(config.disableFairItemDistribution){
 		// Give out as much items as possible until there are 0 left. This might lead to one slave getting all the items and the rest nothing.
-		let numberToRemove = Math.min(Math.abs(Number(object.count)),Number(item));
-		db.items.removeItem({count: numberToRemove, name: object.name});
+		let numberToRemove = Math.min(Math.abs(Number(object.count)),itemCount);
+		db.items.removeItem(object.name, numberToRemove);
 		res.send({count: numberToRemove, name: object.name});
 
 		// track statistics and do graphing things
@@ -577,7 +556,7 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	} else {
 		// Use dole division. Makes it really slow to drain out the last little bit.
 		routes_api_remove.doleDivider({
-			item,
+			itemCount,
 			object,
 			db,
 			sentItemStatisticsBySlaveID,
@@ -604,10 +583,8 @@ app.get("/api/inventory", function(req, res) {
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
 	var inventory = [];
-	for(let key in db.items){
-		if(typeof db.items[key] == "number" || typeof db.items[key] == "string"){
-			inventory.push({name:key, count:db.items[key]});
-		}
+	for (let [name, count] of db.items._items) {
+		inventory.push({ name, count });
 	}
 	res.send(JSON.stringify(inventory));
 });
@@ -624,7 +601,7 @@ app.get("/api/inventoryAsObject", function(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	// Check it and send it
-	res.send(JSON.stringify(db.items));
+	res.send(JSON.stringify(db.items.serialise()));
 });
 
 /**
@@ -906,8 +883,11 @@ async function startServer() {
 	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
-	setInterval(()=>{
-		fs.writeFileSync(path.resolve(config.databaseDirectory, "items.json"), JSON.stringify(db.items));
+	setInterval(async function() {
+		let file = path.resolve(config.databaseDirectory, "items.json");
+		console.log(`autosaving ${file}`);
+		let content = JSON.stringify(db.items.serialize());
+		await fs.outputFile(file, content);
 	},config.autosaveInterval || 60000);
 	process.on('SIGINT', shutdown); // ctrl + c
 	process.on('SIGHUP', shutdown); // terminal closed
@@ -921,7 +901,15 @@ async function startServer() {
 	// mod downloads
 	app.use(express.static(masterModFolder));
 
+	await loadDatabase(config.databaseDirectory);
 	authenticate.setAuthSecret(config.masterAuthSecret);
+
+	// Only initialize neural network when it's enabled, otherwise it might override gauge
+	if(config.useNeuralNetDoleDivider) {
+		neuralDole=new routes_api_remove.neuralDole({
+			db, gaugePrefix: prometheusPrefix
+		});
+	}
 
 	// Make sure we're actually going to listen on a port
 	let httpPort = args.masterPort || config.masterPort;
@@ -973,6 +961,9 @@ async function startServer() {
 
 module.exports = {
 	app,
+
+	// For testing only
+	_db: db,
 }
 
 if (module === require.main) {
