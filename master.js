@@ -14,14 +14,9 @@ node master.js
 // const updater = require("./updater.js");
 // updater.update().then(console.log);
 
-// configgy stuff
-debug = false;
-
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
 
-// Library for create folder recursively if it does not exist
-const mkdirp = require("mkdirp");
 const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
@@ -35,10 +30,6 @@ const request = require("request");
 // constants
 console.log(`Requiring config from ${args.config || './config'}`);
 const config = require(args.config || './config');
-config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
-const masterModFolder = path.join(config.databaseDirectory, "/masterMods/");
-mkdirp.sync(config.databaseDirectory);
-mkdirp.sync(masterModFolder);
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -85,21 +76,12 @@ require("./routes.js")(app);
 require("./routes/api/getPictures.js")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
-// mod downloads
-app.use(express.static(masterModFolder));
 
 // set up logging software
 const prometheusPrefix = "clusterio_";
 const Prometheus = require('prom-client');
 const expressPrometheus = require('express-prometheus-request-metrics');
 Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
-if(!config.disablePrometheusPushgateway){
-	const pushgateway = new Prometheus.Pushgateway('http://hme.danielv.no:9091');
-	setInterval(() => {
-		registerMoreMetrics();
-		pushgateway.push({ jobName: 'clusterio', groupings: {instance: config.publicIP + ":" + config.masterPort, owner: config.username}}, function(err, resp, body) {})
-	}, 15000)
-}
 
 // collect express request durations ms
 app.use(expressPrometheus(Prometheus));
@@ -284,9 +266,6 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		if(debug){
-			console.log(req.body)
-		}
 		if(!slaves[req.body.unique]){
 			slaves[req.body.unique] = {};
 		}
@@ -362,7 +341,7 @@ POST Check if a mod has been uploaded to the master before. Only checks against 
 */
 app.post("/api/checkMod", authenticate.middleware, function(req,res) {
 	endpointHitCounter.labels(req.route.path).inc();
-	let files = fs.readdirSync(masterModFolder);
+	let files = fs.readdirSync(path.join(config.databaseDirectory, "masterMods"));
 	let found = false;
 	files.forEach(file => {
 		if(file == req.body.modName) {
@@ -489,8 +468,7 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 	}
 	if(x.instanceID
 	&& x.instanceName
-	&& !isNaN(Number(x.count))// This is in no way a proper authentication or anything, its just to make sure everybody are registered as slaves before modifying the cluster (or not, to maintain backwards compat)
-	/*&& stringUtils.hashCode(slaves[x.unique].rconPassword) == x.unique*/
+	&& !isNaN(Number(x.count))
 	&& x.name
 	&& typeof x.name == "string"){
 		if(config.logItemTransfers){
@@ -998,6 +976,15 @@ async function startServer() {
 	process.on('SIGINT', shutdown); // ctrl + c
 	process.on('SIGHUP', shutdown); // terminal closed
 
+	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
+	await fs.ensureDir(config.databaseDirectory);
+
+	const masterModFolder = path.join(config.databaseDirectory, "masterMods");
+	await fs.ensureDir(masterModFolder);
+
+	// mod downloads
+	app.use(express.static(masterModFolder));
+
 	// Make sure we're actually going to listen on a port
 	let httpPort = args.masterPort || config.masterPort;
 	let httpsPort = args.sslPort || config.sslPort;
@@ -1048,5 +1035,12 @@ async function startServer() {
 module.exports = app;
 
 if (module === require.main) {
-	startServer();
+	startServer().catch(err => {
+		console.error(
+			"Unexpected error occured while starting master, please report\n"+
+			"it to https://github.com/clusterio/factorioClusterio/issues"
+		);
+		console.error(err);
+		return shutdown();
+	});
 }

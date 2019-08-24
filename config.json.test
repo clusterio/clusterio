@@ -42,6 +42,5 @@
 	"enableCrossServerShout": true,
 	"mirrorAllChat": false,
 	"autosaveInterval": 600000,
-	"disablePrometheusPushgateway": false,
 	"disableImportsOfEverythingExceptElectricity": false
 }

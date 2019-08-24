@@ -57,7 +57,6 @@
 	"mirrorAllChat": false,
 	"__comment7": "Autosave interval for items in the master storage in milliseconds. Defaults to one minute when set to 0 or not set.",
 	"autosaveInterval": 600000,
-	"disablePrometheusPushgateway": false,
 	"__comment8": "This setting only affects the master. It makes every import for things that arent 'electricity' return a maximum of 0. Effectively disables teleport chests.",
 	"disableImportsOfEverythingExceptElectricity": false
 }

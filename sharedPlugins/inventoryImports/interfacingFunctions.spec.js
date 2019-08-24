@@ -14,6 +14,7 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 		let config = {
 			masterIP:"localhost",
 			masterPort:8080,
+			masterAuthToken:"",
 		}
 		it("returns false if given invalid input", function(){
 			assert(functions.handleInventory("this is a string") === false, "when given strings it should return false and do nothing");
@@ -141,7 +142,7 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 		it("Throws if player name is not a string", function(){
 			assert.throws(function(){
 				let x = functions.insertItemsFromObject(testObject, testObject);
-			}, "playerName is: 'object' instead of string!");
+			}, Error("playerName is: 'object' instead of string!"));
 		});
 		it("Returns a big factorio command as string", function(){
 			let x = functions.insertItemsFromObject(testObject, playerName);
@@ -154,25 +155,6 @@ describe("inventoryImports/interfacingFunctions.js", function(){
 			let x = functions.insertItemsFromObject(testObject, playerName);
 			
 			assert(isFactorioCommand(x) == true);
-		});
-	});
-	describe("parseJsString(string) => object", function(){
-		it("converts a string with JS object notation to object", function(){
-			let x = functions.parseJsString("{hello:'thisAString!', yes:function(){return 'JS string!'}, not:'json'}");
-			assert(!!x == true, "Should under no circumstance return a falsey value, even !!{} is truthy");
-			assert(typeof x == "object", "parseJsString should return an object in this case");
-			assert(typeof x.yes == "function", "parseJsString is not JSON, so it should be able to contain functions");
-		});
-		it("*Tries* to avoid XSS attempts by throwing on certain symbols", function(){
-			assert.throws(function(){
-				let x = functions.parseJsString("{};throw 'fail'");
-			}, function(err) {
-				let error = err+""
-				/* istanbul ignore else */
-				if(error.includes('parseJsString might have gotten something that could be a xss attempt')){
-					return true;
-				}
-			}, "should throw when ; are passed because those are the simplest form of xss");
 		});
 	});
 });
