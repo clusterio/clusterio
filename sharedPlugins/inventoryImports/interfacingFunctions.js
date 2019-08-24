@@ -3,22 +3,6 @@ const needle = require("needle");
 const pluginConfig = require("./config")
 const isJson = require("./isJson")
 
-// returns JS object, throws if there are syntax errors in input string
-function parseJsString(string){
-	// eval because my lua is writing a JS object instead of traditional JSON
-	// this was done because I hate escaping strings and there are more quotes
-	// in JSON than JS objects.
-	
-	// since eval is unsafe, maybe use https://www.npmjs.com/package/eval-sanitizer
-	if(string.includes("require") || string.includes(";") || string.includes("eval")){
-		throw new Error("parseJsString might have gotten something that could be a xss attempt");
-	}
-	let inventory = "";
-	eval("inventory = " + string);
-	/*console.log(string)
-	console.log(inventory)*/
-	return inventory;
-}
 function handleInventory(json, config, callback){
 	/*
 	json is one of these two samples
@@ -151,7 +135,6 @@ function pollInventories(outputFile){
 
 module.exports = {
 	handleInventory: handleInventory,
-	parseJsString: parseJsString,
 	pollInventories: pollInventories,
 	insertItemsFromObject: insertItemsFromObject,
 }
