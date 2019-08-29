@@ -37,7 +37,7 @@ describe('Master server endpoint testing', function() {
 	parallel("#GET static website data", function() {
 		this.timeout(6000);
 
-		let paths = ["/", "/nodes", "/settings", "/nodeDetails", "/remoteMap"];
+		let paths = ["/", "/nodes", "/settings", "/nodeDetails"];
 		for (let path of paths) {
 			it(`sends some HTML when accessing ${path}`, () => getValidate(path));
 		}

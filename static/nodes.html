@@ -14,13 +14,6 @@
             </div>
 			<div id="display">
 				<%
-					function findInArray(key, value, array){
-						let indexes = [];
-						for(let i in array){
-							if(array[i][key] && array[i][key].includes(value)) indexes.push(i);
-						}
-						return indexes;
-					}
                     let html = ""
 					for(let id in slaves){
 						let slave = slaves[id];
@@ -38,7 +31,6 @@
                                     <li class="list-group-item">IP: ${slave.publicIP}:${slave.serverPort}</li>
                                     <li class="list-group-item">Host: ${slave.mac}</li>
                                 </ul>
-							${findInArray("modName", "remoteMap", slave.mods).length ? "<a href='/remoteMap?instanceID="+id+"'>Remote map</a>" : ""}
 						`
 						for(let o in locals.masterPlugins){
 							let plug = locals.masterPlugins[o];

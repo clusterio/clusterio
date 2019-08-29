@@ -712,82 +712,10 @@ app.get("/api/getFactorioLocale", function(req,res){
 	});
 });
 
-/* Websockets for remoteMap */
+/* Websockets for plugins */
 var io = require("socket.io")({});
 const ioMetrics = require("socket.io-prometheus");
 ioMetrics(io);
-
-var slaveMappers = {};
-class slaveMapper {
-	constructor(instanceID, socket) {
-		this.instanceID = instanceID;
-		this.socket = socket;
-		this.lastBeat = Date.now();
-
-		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
-			// we aren't ready to die yet apparently
-			this.lastBeat = Date.now();
-		});
-		this.socket.on("sendChunk", function(data){
-			prometheusWsUsageCounter.labels('sendChunk', this.instanceID).inc();
-			mapRequesters[data.requesterID].socket.emit("displayChunk", data);
-		});
-		// slaveMapper sent us an entity update, process
-		this.socket.on("sendEntity", entity => {
-			prometheusWsUsageCounter.labels('sendEntity', this.instanceID).inc();
-			Object.keys(mapRequesters).forEach(requesterName => {
-				let requester = mapRequesters[requesterName];
-
-				if(requester.instanceID == this.instanceID){
-					// this mapRequester is listening to this slaveMapper, so we send it updates
-					requester.socket.emit("displayEntity", entity);
-				}
-			});
-		});
-	}
-}
-
-
-var mapRequesters = {};
-class mapRequester {
-	constructor(requesterID, socket, instanceID){
-		this.requesterID = requesterID;
-		this.socket = socket;
-		this.instanceID = instanceID;
-		this.lastBeat = Date.now();
-
-		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat', "other").inc();
-			// we aren't ready to die yet apparently
-			this.lastBeat = Date.now();
-		});
-		this.socket.on("requestChunk", loc => {
-			prometheusWsUsageCounter.labels('requestChunk', "other").inc();
-			loc.requesterID = this.requesterID;
-			let instanceID = loc.instanceID || this.instanceID;
-			if(slaveMappers[instanceID] && typeof loc.x == "number" && typeof loc.y == "number"){
-				slaveMappers[instanceID].socket.emit("getChunk", loc);
-			}
-		});
-		this.socket.on("requestEntity", req => {
-			prometheusWsUsageCounter.labels('requestEntity', "other").inc();
-			req.requesterID = this.requesterID;
-			let instanceID = req.instanceID || this.instanceID;
-			if(slaveMappers[instanceID] && typeof req.x == "number" && typeof req.y == "number"){
-				slaveMappers[instanceID].socket.emit("getEntity", req);
-			}
-		});
-		this.socket.on("placeEntity", req => {
-			prometheusWsUsageCounter.labels('placeEntity', "other").inc();
-			req.requesterID = this.requesterID;
-			let instanceID = req.instanceID || this.instanceID;
-			if(slaveMappers[instanceID]){
-				slaveMappers[instanceID].socket.emit("placeEntity", req);
-			}
-		});
-	}
-}
 
 
 /* Websockets for send and recieve combinators */
@@ -852,8 +780,8 @@ class wsSlave {
 io.on('connection', function (socket) {
 	// cleanup dead sockets from disconnected people
 	let terminatedConnections = 0;
-	let currentConnections = Object.keys(mapRequesters).length + Object.keys(slaveMappers).length + Object.keys(wsSlaves).length;
-	[mapRequesters, slaveMappers, wsSlaves].forEach(list => {
+	let currentConnections = Object.keys(wsSlaves).length;
+	[wsSlaves].forEach(list => {
 		Object.keys(list).forEach(connectionID => {
 			let connection = list[connectionID];
 			if(connection.lastBeat < (Date.now() - 30000)){
@@ -866,21 +794,6 @@ io.on('connection', function (socket) {
 
 	// tell our friend that we are listening
 	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
-
-	/* initial processing for remoteMap */
-	socket.on('registerSlaveMapper', function (data) {
-		prometheusWsUsageCounter.labels('registerSlaveMapper', "other").inc();
-		slaveMappers[data.instanceID] = new slaveMapper(data.instanceID, socket);
-		console.log("remoteMap | SOCKET registered map provider for "+data.instanceID);
-	});
-	socket.on('registerMapRequester', function(data){
-		// data {instanceID:""}
-		prometheusWsUsageCounter.labels('registerMapRequester', "other").inc();
-		let requesterID = Math.random().toString();
-		mapRequesters[requesterID] = new mapRequester(requesterID, socket, data.instanceID);
-		socket.emit("mapRequesterReady", true);
-		console.log("remoteMap | SOCKET registered map requester for "+data.instanceID);
-	});
 
 	/* Websockets for send and recieve combinators */
 	socket.on("registerSlave", function(data) {
