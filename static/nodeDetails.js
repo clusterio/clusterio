@@ -131,18 +131,6 @@ function populateSlaveInfo(){
 		HTML += '<li class="breadcrumb-item">Last seen: <span id="lastSeenDate">'+moment(Number(slave.time)).fromNow()+"</span></li>";
 		HTML += '<li class="breadcrumb-item">Online players: '+slave.playerCount+"</li></ol></nav>";
 
-		// detect  if remoteMap mod is installed, if it is we want to show the link for it
-		let hasRemoteMap = false;
-		slave.mods.forEach(mod => {
-			console.log(mod.modName);
-			if(mod.modName.includes("remoteMap")){
-				hasRemoteMap = true; // we are still doing the logic on the outside, in case there are multiple instances of remoteMap installed....
-			}
-		});
-		if(hasRemoteMap){
-			HTML += "<a href='/remoteMap?instanceID="+getParameterByName("instanceID")+"'>Remote map</a>";
-		}
-		
 		HTML += "</div>"; // end of displayBody
 		
 		// list mods and other metadata

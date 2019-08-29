@@ -47,7 +47,6 @@ saves
 sharedPlugins/*
 !sharedPlugins/inventoryImports/
 !sharedPlugins/UPSdisplay/
-!sharedPlugins/remoteMap/
 !sharedPlugins/remoteCommands/
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
