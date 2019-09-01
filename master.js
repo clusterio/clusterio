@@ -972,6 +972,13 @@ async function startServer() {
 module.exports = app;
 
 if (module === require.main) {
+	console.warn(`
++==========================================================+
+I WARNING:  This is the development branch for the 2.0     I
+I           version of clusterio.  Expect things to break. I
++==========================================================+
+`
+	);
 	startServer().catch(err => {
 		if (!(err instanceof StartupError)) {
 			console.error(`
