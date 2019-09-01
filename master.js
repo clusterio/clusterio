@@ -857,6 +857,29 @@ async function getPlugins(){
 	return plugins;
 }
 
+// Errror class for known errors occuring during startup
+class StartupError extends Error { }
+
+/**
+ * Calls listen on server capturing any errors that occurs
+ * binding to the port.
+ */
+function listen(server, ...args) {
+	return new Promise((resolve, reject) => {
+		function wrapError(err) {
+			reject(new StartupError(
+				`Server listening failed: ${err.message}`
+			));
+		}
+
+		server.once('error', wrapError);
+		server.listen(...args, () => {
+			server.off('error', wrapError);
+			resolve();
+		});
+	});
+}
+
 async function startServer() {
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
@@ -921,7 +944,7 @@ async function startServer() {
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
 		let httpServer = require("http").Server(app);
-		httpServer.listen(httpPort);
+		await listen(httpServer, httpPort);
 		console.log("Listening for HTTP on port %s...", httpServer.address().port);
 	}
 
@@ -932,15 +955,16 @@ async function startServer() {
 			privateKey = await fs.readFile(config.sslPrivKey);
 
 		} catch (err) {
-			console.error(`Error loading ssl certificate: ${err.message}`);
-			await shutdown()
+			throw new StartupError(
+				`Error loading ssl certificate: ${err.message}`
+			);
 		}
 
 		let httpsServer = require("https").createServer({
 			key: privateKey,
 			cert: certificate
 		}, app)
-		httpsServer.listen(httpsPort);
+		await listen(httpsServer, httpsPort);
 		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
 	}
 }
@@ -949,10 +973,21 @@ module.exports = app;
 
 if (module === require.main) {
 	startServer().catch(err => {
-		console.error(
-			"Unexpected error occured while starting master, please report\n"+
-			"it to https://github.com/clusterio/factorioClusterio/issues"
-		);
+		if (!(err instanceof StartupError)) {
+			console.error(`
++---------------------------------------------------------------+
+| Unexpected error occured while starting master, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues   |
++---------------------------------------------------------------+`
+			);
+		} else {
+			console.error(`
++----------------------------------+
+| Unable to to start master server |
++----------------------------------+`
+			);
+		}
+
 		console.error(err);
 		return shutdown();
 	});
