@@ -3,14 +3,32 @@ const request = require('supertest');
 const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 
+const config = require("lib/config");
+const plugin = require("lib/plugin");
 const mock = require('./mock');
 const master = require('../master');
 
 
 master._db.slaves = new Map();
 
-// Fields required in the config
-master._config.factorioDirectory = "factorio";
+before(async function() {
+	let pluginInfos = await plugin.loadPluginInfos("plugins");
+	config.registerPluginConfigGroups(pluginInfos);
+	config.finalizeConfigs();
+	let masterConfig = new config.MasterConfig();
+	await masterConfig.load({
+		groups: [{
+			name: "master",
+			fields: {
+				auth_secret: "TestSecretDoNotUse",
+				http_port: 8880,
+				https_port: 4443,
+			},
+		}]
+	});
+
+	master._setConfig(masterConfig);
+})
 
 async function get(path) {
 	return await request(master.app).get(path).expect(200);

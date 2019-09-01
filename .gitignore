@@ -32,7 +32,7 @@ Factorio*
 /instances
 /sharedMods
 /database
-/config.json
+/config-master.json
 /config-control.json
 /config-slave.json
 package-lock.json

@@ -55,7 +55,7 @@ class neuralDole {
     divider({
         res,
         object,
-        config,
+		masterConfig,
         prometheusImportGauge
     }){
         let magicData = doleNN.Dose(
@@ -83,7 +83,7 @@ class neuralDole {
 
 		// Remove item from DB and send it
 		this.items.removeItem(object.name, magicData[0]);
-		if(config.logItemTransfers){
+		if (masterConfig.get('log_item_transfers')) {
 			console.log("removed: " + object.name + " " + magicData[0] + " . " + this.items.getItemCount(object.name) + " and sent to " + object.instanceID + " | " + object.instanceName);
 		}
 		prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(magicData[0]) || 0);
@@ -101,7 +101,7 @@ function doleDivider({
 	itemCount,
     object,
 	items,
-    config,
+	masterConfig,
     prometheusDoleFactorGauge,
     prometheusImportGauge,
     req,res,
@@ -120,7 +120,7 @@ function doleDivider({
 	if (itemCount > object.count) {
         //If successful, increase dole
         _doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-		if (config.logItemTransfers) {
+		if (masterConfig.get('log_item_transfers')) {
 			console.log("removed: " + object.name + " " + object.count + " . " + itemCount + " and sent to " + object.instanceID + " | " + object.instanceName);
 		}
 		items.removeItem(object.name, object.count)

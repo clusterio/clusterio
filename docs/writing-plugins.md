@@ -11,6 +11,7 @@ Contents
 
 - [Plugin Structure](#plugin-structure)
 - [Defining the plugin class](#defining-the-plugin-class)
+- [Plugin Configuration](#plugin-configuration)
 - [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
     - [Defining Events](#defining-events)
@@ -76,11 +77,21 @@ The following properties are recognized:
     for it to be able to send any messages to other instances it will
     still have to be loaded on the master server.
 
+**InstanceConfigGroup**:
+    Subclass of `PluginConfigGroup` to defining the per instance
+    configuration fields for this plugin.  See [Plugin
+    Configuration](#plugin-configuration)
+
 **masterEntrypoint**:
     Path to a Node.js module relative to the plugin directory which
     contains the MasterPlugin class definiton for this plugin.  This is
     an optional parameter.  A plugin can be made that only runs on the
     master server.
+
+**MasterConfigGroup**:
+    Subclass of `PluginConfigGroup` to defining the master server
+    configuration fields for this plugin.  See [Plugin
+    Configuration](#plugin-configuration)
 
 **messages**:
     Object with link messages definitions for this plugin.  See guide
@@ -140,6 +151,47 @@ one forward all arguments to be the base class.  E.g.:
 The arguments passed may change, and attempting to modify them will
 result in unpredicatable behaviour.  The async init method always called
 immediatly after the constructor so there's little reason to do this.
+
+
+Defining Configuration
+----------------------
+
+Clusterio provides a configuration system that handles storing,
+distributing, editing and validating config fields for you.  You can
+take advantage of it by subclassing `PluginConfigGroup`, setting the
+`groupName` to your plugin name, defining fields on it, finalizing it,
+and passing it as either `MasterConfigGroup` or `InstanceConfigGroup` in
+the `info.js` export.  For example in info.js:
+
+    const config = require("lib/config");
+
+    class MasterConfigGroup extends config.PluginConfigGroup { }
+    MasterConfigGroup.groupName = "foo_frobber";
+    MasterConfigGroup.define({
+        name: "level",
+        description: "Level of frobnication done",
+        type: "number",
+        initial_value: 2,
+    });
+    MasterConfigGroup.finalize();
+
+    module.exports = {
+        ...
+        MasterConfigGroup: MasterConfigGroup,
+    };
+
+Code inside the `MasterPlugin` class will then be able to access the
+level config field through the `Config` object at `this.master.config`,
+for example in the MasterPluginClass:
+
+    async init() {
+        let level = this.master.config.get("foo_frobber.level");
+        console.log("I got a frobnication level of", level);
+    }
+
+The same applies for instance configs, replace "master" with "instance"
+where appropriate.  See [Configuration System](configuration-system.md)
+for more details on how this system works.
 
 
 Communicating with Factorio

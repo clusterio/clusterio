@@ -30,7 +30,7 @@ describe("clusterctl", function() {
 				seq: 1, type: 'list_instances_response',
 				data: {
 					seq: message.seq,
-					list: [{ id: 57, slave_id: 4, name: 'Test Instance' }],
+					list: [{ id: 57, assigned_slave: 4, name: 'Test Instance' }],
 				},
 			});
 		}

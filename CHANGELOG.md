@@ -22,6 +22,9 @@ Version 2.0.0
 - Rewritten the plugin system from scratch.  Plugins now inherit from
   a base class and use the same WebSocket connection Clusterio uses to
   communicate.
+- New configuration system with support for initializing configs when needed,
+  modifying config entries using built-in commands, and updating instance
+  configuration remotely.
 
 ### Features
 
@@ -38,7 +41,6 @@ Version 2.0.0
 - Added plugins directory to the views path.  This makes it possible for
   plugins to render their own ejs views or pages in their own folders by
   using paths of the format "pluginName/path/to/page-or-view".
-- Added instanceName entry to the config passed to instance plugins.
 - Replaced the per instance copy of the shared Factorio mods with
   symlinks.  On Windows hard links are used instead due to the
   privileges requirements of symlinks.
@@ -63,16 +65,18 @@ Version 2.0.0
 - Removed factorio_version from config.  The version installed is auto
   detected and used instead.
 - Removed the playerManager specific command CLI tools/delete_player.js.
-- Creating an instance, creating a save for an instance and starting an
-  instance is now three separate commands.
+- Creating an instance, assigning it to a slave, creating a save for an
+  instance and starting an instance is now four separate commands.
 - Removed oddball limits to slaves.json size.
-- Moved slave specific configuration into its own configuration file.
+- Moved slave specific and instance specific configuration into their own
+  configuration files.
 - Removed unused binary option from plugin config.
 - Removed info and shout command from globalChat plugin
 - Removed mirrorAllChat and enableCrossServerShout configuration options for
   globalChat plugin.
 - Removed UPSdisplay plugin.  UPS statistics is exported by the statistics
   exporter plugin.
+- Master server now defaults to hosting on https on port 8443.
 
 ### Breaking Changes
 
@@ -136,6 +140,9 @@ Version 2.0.0
   concurrent commands.
 - Removed allowRemoteCommandExecution config option.  Remote commands are
   always allowed with the move to master managing slaves/instances.
+- Removed `--databaseDirectory`, `--masterPort`, and `--sslPort` command line
+  arguments from the master server.
+- Implemented a new config system that replaces the old.  Breaks all plugins.
 
 
 Version 1.2.4
