@@ -33,6 +33,7 @@ let config = {};
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
 const getFactorioLocale = require("lib/getFactorioLocale");
+const pluginManager = require("lib/manager/pluginManager.js");
 const database = require("lib/database");
 
 // homemade express middleware for token auth
@@ -800,7 +801,6 @@ async function pluginManagement(){
 }
 
 async function getPlugins(){
-	const pluginManager = require("lib/manager/pluginManager.js")(config);
 	let plugins = [];
 	let pluginsToLoad = await pluginManager.getPlugins();
 	for(let i = 0; i < pluginsToLoad.length; i++){
