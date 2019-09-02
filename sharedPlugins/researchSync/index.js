@@ -22,8 +22,7 @@ class ResearchSync {
         this.log_folder = './logs'
         if (!fs.existsSync(this.log_folder))
             fs.mkdirSync(this.log_folder);
-        this.log_file = path.join(this.log_folder, `${this.config.unique}-research.log`)
-        this.get_node_name_and_move_log()
+        this.log_file = path.join(this.log_folder, `${this.config.instanceName}-research.log`)
 
         this.research = {}
         this.prev_research = {}
@@ -48,30 +47,6 @@ class ResearchSync {
         } catch (e) {
             console.error(e)
         }
-    }
-
-    get_node_name_and_move_log() {
-        const url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
-        needle.get(url, {compressed:true}, (err, res, slaves_data) => {
-            if (err)
-                return this.error(err)
-
-            slaves_data = Object.values(slaves_data)
-            let node_data = slaves_data.find(
-                slave_data => slave_data.unique === this.config.unique.toString()
-            )
-            if (node_data === undefined)
-                return this.error('slave was not found')
-            let node_name = node_data.instanceName
-            let log_file = path.join(this.log_folder, `${node_name}-research.log`)
-            if (fs.existsSync(log_file)) {
-                fs.appendFileSync(log_file, fs.readFileSync(this.log_file));
-                fs.unlinkSync(this.log_file)
-            } else {
-                fs.renameSync(this.log_file, log_file)
-            }
-            this.log_file = log_file
-        })
     }
 
     initial_request_own_data(callback) {
