@@ -4,7 +4,6 @@
 module.exports = {
 	name: "statisticsExporter",
 	version: "1.0.0",
-	binary: "nodePackage",
 	description: "Gathers ingame stats such as production, consumption, kills and buildings placed",
 	masterPlugin: "masterPlugin.js"
 }

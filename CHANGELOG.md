@@ -58,6 +58,7 @@ Version 2.0.0
   instance is now three separate commands.
 - Removed oddball limits to slaves.json size.
 - Moved slave specific configuration into its own configuration file.
+- Removed unused binary option from plugin config.
 
 ### Breaking Changes
 
