@@ -945,6 +945,7 @@ async function startServer() {
 	if (httpPort) {
 		let httpServer = require("http").Server(app);
 		await listen(httpServer, httpPort);
+		io.attach(httpServer);
 		console.log("Listening for HTTP on port %s...", httpServer.address().port);
 	}
 
@@ -965,6 +966,10 @@ async function startServer() {
 			cert: certificate
 		}, app)
 		await listen(httpsServer, httpsPort);
+
+		// XXX I'm uncertain whether or not socket.io actually supports
+		// attaching to multiple servers at the same time.
+		io.attach(httpsServer);
 		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
 	}
 }
