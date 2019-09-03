@@ -95,7 +95,7 @@ class neuralDole {
 				maxEntries: config.itemStats.maxEntries,
 				entriesPerSecond: config.itemStats.entriesPerSecond,
 				mergeMode: "add",
-			}, console.log);
+			});
 		}
 		sentItemStatistics.add({
 			key:object.name,
@@ -147,7 +147,7 @@ function doleDivider({
 				maxEntries: config.itemStats.maxEntries,
 				entriesPerSecond: config.itemStats.entriesPerSecond,
 				mergeMode: "add",
-			}, console.log);
+			});
 		}
 		sentItemStatistics.add({
 			key:object.name,

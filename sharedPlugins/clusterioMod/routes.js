@@ -93,7 +93,7 @@ function addApiRoutes(
 					maxEntries: config.itemStats.maxEntries,
 					entriesPerSecond: config.itemStats.entriesPerSecond,
 					mergeMode: "add",
-				}, console.log);
+				});
 				recievedItemStatisticsBySlaveID[x.instanceID] = recievedItemStatistics;
 			}
 			recievedItemStatistics.add({
@@ -166,7 +166,7 @@ function addApiRoutes(
 					maxEntries: config.itemStats.maxEntries,
 					entriesPerSecond: config.itemStats.entriesPerSecond,
 					mergeMode: "add",
-				}, console.log);
+				});
 			}
 			sentItemStatistics.add({
 				key:object.name,
