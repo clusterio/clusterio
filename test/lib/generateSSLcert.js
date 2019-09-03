@@ -2,7 +2,7 @@ var assert = require("assert");
 var fs = require("fs-extra");
 
 var fileOps = require("lib/fileOps");
-var generateSSLcert = require("lib/generateSSLcert.js")
+var generateSSLcert = require("lib/generateSSLcert")
 
 describe("generateSSLcert.js(options)", ()=>{
 	it("Creates a folder with a .crt and .key file in it", async function() {

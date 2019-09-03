@@ -13,7 +13,7 @@ const asTable = require("as-table").configure({delimiter: ' | '});
 const util = require("util");
 
 // internal libraries
-const objectOps = require("lib/objectOps.js");
+const objectOps = require("lib/objectOps");
 const fileOps = require("lib/fileOps");
 const pluginManager = require("lib/manager/pluginManager");
 const modManager = require("lib/manager/modManager");
@@ -594,7 +594,7 @@ async function instanceManagement(config, instance, instanceconfig, server) {
 		}
 		if(pluginConfig.binary == "nodePackage" && pluginConfig.enabled){
 			// require plugin class and execute it
-			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index.js"));
+			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index"));
 			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
 				if(data && data.toString('utf8')[0] != "/") {
                     console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + data.toString('utf8'));

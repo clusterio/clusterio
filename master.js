@@ -11,7 +11,7 @@ node master
 */
 
 // Attempt updating
-// const updater = require("./updater.js");
+// const updater = require("./updater");
 // updater.update().then(console.log);
 
 // argument parsing
@@ -32,7 +32,7 @@ let config = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
-const pluginManager = require("lib/manager/pluginManager.js");
+const pluginManager = require("lib/manager/pluginManager");
 const database = require("lib/database");
 const factorio = require("lib/factorio");
 
@@ -71,8 +71,8 @@ app.use(function(req, res, next){
 	next();
 });
 
-require("./routes.js")(app);
-require("./routes/api/getPictures.js")(app);
+require("./routes")(app);
+require("./routes/api/getPictures")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 
@@ -480,7 +480,7 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 		res.send("failure");
 	}
 });
-const routes_api_remove = require("./routes/api/remove.js");
+const routes_api_remove = require("./routes/api/remove");
 let neuralDole;
 
 /**

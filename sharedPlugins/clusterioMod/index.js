@@ -1,7 +1,7 @@
 const needle = require("needle");
 const fs = require("fs-extra");
 
-const objectOps = require("lib/objectOps.js");
+const objectOps = require("lib/objectOps");
 const fileOps = require("lib/fileOps");
 
 const pluginConfig = require("./config");

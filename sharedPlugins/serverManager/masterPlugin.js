@@ -22,10 +22,10 @@ class masterPlugin {
 		// this.banlist = getDatabaseSync("database/banlist.json").banlist || [];
 		
 		// initialize web API
-		require("./js/api-endpoints.js")(this);
+		require("./js/api-endpoints")(this);
 		
 		// expose UI elements embedded in the master
-		this.ui = require("./js/ui.js").injectThis(this).ui;
+		this.ui = require("./js/ui").injectThis(this).ui;
 		
 		this.serverSockets = {};
 		

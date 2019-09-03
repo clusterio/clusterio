@@ -4,7 +4,7 @@ const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 const jwt = require("jsonwebtoken");
 
-const master = require('../master.js');
+const master = require('../master');
 const authenticate = require('lib/authenticate');
 const database = require('lib/database');
 
