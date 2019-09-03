@@ -7,7 +7,7 @@ combinator signals.
 @author Danielv123
 
 @example
-node master.js
+node master
 */
 
 // Attempt updating
@@ -421,7 +421,7 @@ POST endpoint for storing items in master's inventory.
 @alias api/place
 @param {itemStack} itemStack the number and type of items to store (see typedef)
 @param {string} [itemStack.instanceID="unknown"] the unique/instanceID which is a numerical value for an instance
-@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
+@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client start [name]
 @returns {string} status either "success" or "failure"
 */
 app.post("/api/place", authenticate.middleware, function(req, res) {
@@ -491,7 +491,7 @@ POST endpoint to remove items from DB when client orders items.
 @alias api/remove
 @param {itemStack} itemStack the name of and the number of items to remove (see typedef)
 @param {string} [itemStack.instanceID="unknown"] the unique/instanceID which is a numerical value for an instance
-@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
+@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client start [name]
 @returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
 */
 app.post("/api/remove", authenticate.middleware, function(req, res) {

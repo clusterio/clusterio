@@ -10,8 +10,8 @@
     "cover": "nyc npm test",
     "fast-cover": "FAST_TEST=y nyc npm test",
     "ci-cover": "nyc --reporter=lcovonly npm run-script test",
-    "start": "echo Run node client.js start [instance] to start slaves && node master.js",
-    "install": "node lib/npmPostinstall.js",
+    "start": "echo Run node client start [instance] to start slaves && node master",
+    "install": "node lib/npmPostinstall",
     "bundle-dependencies": "bundle-dependencies"
   },
   "nyc": {

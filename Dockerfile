@@ -9,7 +9,7 @@ WORKDIR factorioClusterio
 RUN mkdir instances sharedMods
 RUN cp config.json.dist config.json
 
-RUN node client.js download
+RUN node client download
 
 LABEL maintainer "Sir3lit@gmail.com"
 
@@ -18,4 +18,4 @@ VOLUME /factorioClusterio/instances
 VOLUME /factorioClusterio/sharedMods
 VOLUME /factorioClusterio/sharedPlugins
 
-CMD RCONPORT="$RCONPORT" FACTORIOPORT="$FACTORIOPORT" MODE="$MODE" node $MODE\.js start $INSTANCE
+CMD RCONPORT="$RCONPORT" FACTORIOPORT="$FACTORIOPORT" MODE="$MODE" node $MODE start $INSTANCE
