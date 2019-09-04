@@ -4,6 +4,14 @@
 <br/>
 <br/>
 
+# Warning
+
+Do not use master branch to run your Clusterio - master now is a development version and may not work
+
+Use latest stable release: https://github.com/clusterio/factorioClusterio/releases/latest
+
+Or clone latest stable branch that has name format `x.y.z`
+
 # factorioClusterio
 
 Discord for development/support/play: https://discord.gg/5XuDkje
@@ -91,7 +99,7 @@ Master and all slaves:
     sudo curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git wget curl tar build-essential
     sudo npm install pm2 -g
-    git clone https://github.com/clusterio/factorioClusterio.git
+    git clone -b 1.2.x https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
     curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
