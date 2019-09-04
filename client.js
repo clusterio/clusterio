@@ -20,6 +20,13 @@ const stringUtils = require("lib/stringUtils.js");
 const configManager = require("lib/manager/configManager.js");
 const hashFile = require('lib/hash').hashFile;
 
+console.warn(`
++==========================================================+
+I WARNING:  This is the development branch for the 2.0     I
+I           version of clusterio.  Expect things to break. I
++==========================================================+
+`);
+
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
 
