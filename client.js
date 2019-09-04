@@ -594,6 +594,7 @@ async function instanceManagement(instanceconfig) {
 	for(let i = 0; i < pluginsToLoad.length; i++){
 		let pluginLoadStarted = Date.now();
 		let combinedConfig = deepmerge(instanceconfig,config,{clone:true});
+		combinedConfig.instanceName = instance;
 		let pluginConfig = pluginsToLoad[i];
 		
 		if(!global.subscribedFiles) {
