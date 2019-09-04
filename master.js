@@ -2,7 +2,7 @@
 Clusterio master server. Facilitates communication between slaves through
 a webserver, storing data related to slaves like production graphs.
 
-@module clusterioMaster
+@module
 @author Danielv123
 
 @example
