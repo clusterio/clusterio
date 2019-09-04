@@ -16,6 +16,9 @@ using this branch.  If you don't want to be an alpha tester for 2.0 please use t
 [1.2.x branch](https://github.com/clusterio/factorioClusterio/tree/1.2.x) or
 [latest stable release](https://github.com/clusterio/factorioClusterio/releases/latest).
 
+Installation instructions bellow are for stable release - if you need a development version -
+just drop `-b 1.2.x` from clone command and `--only=production` from the `npm install` command.
+
 ### Ways to support me/the project:
 
 * Contribute with code/documentation. Always nice to move the project forward
@@ -99,7 +102,7 @@ Master and all slaves:
     sudo curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git wget curl tar build-essential
     sudo npm install pm2 -g
-    git clone https://github.com/clusterio/factorioClusterio.git
+    git clone -b 1.2.x https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
     curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
