@@ -16,7 +16,7 @@ using this branch.  If you don't want to be an alpha tester for 2.0 please use t
 [1.2.x branch](https://github.com/clusterio/factorioClusterio/tree/1.2.x) or
 [latest stable release](https://github.com/clusterio/factorioClusterio/releases/latest).
 
-Installation instructions bellow are for stable release - if you need a development version -
+Installation instructions below are for stable release - if you need a development version -
 just drop `-b 1.2.x` from clone command and `--only=production` from the `npm install` command.
 
 ### Ways to support me/the project:
