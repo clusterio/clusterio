@@ -1,6 +1,6 @@
 {
   "name": "clusterio",
-  "version": "1.7.0",
+  "version": "2.0.0-alpha",
   "description": "Interserver communication for factorio",
   "repository": "https://github.com/clusterio/factorioClusterio",
   "main": "master.js",
