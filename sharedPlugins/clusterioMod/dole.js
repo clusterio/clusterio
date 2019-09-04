@@ -112,7 +112,8 @@ class neuralDole {
     }
 }
 
-_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
+// If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
+let _doleDivisionFactor = {};
 function doleDivider({
 	itemCount,
     object,
