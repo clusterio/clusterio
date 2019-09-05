@@ -4,14 +4,6 @@
 <br/>
 <br/>
 
-# Warning
-
-Do not use master branch to run your Clusterio - master now is a development version and may not work
-
-Use latest stable release: https://github.com/clusterio/factorioClusterio/releases/latest
-
-Or clone latest stable branch that has name format `x.y.z`
-
 # factorioClusterio
 
 Discord for development/support/play: https://discord.gg/5XuDkje
@@ -19,9 +11,13 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 ## Important notice
 
 This is the development branch for factorioClusterio 2.0 which is currently undergoing heavy
-restructuring and refactoring.  Expect plugins and existing installations to frequenltly break when
+restructuring and refactoring.  Expect plugins and existing installations to frequently break when
 using this branch.  If you don't want to be an alpha tester for 2.0 please use the stable
-[1.2.x branch](https://github.com/clusterio/factorioClusterio/tree/1.2.x).
+[1.2.x branch](https://github.com/clusterio/factorioClusterio/tree/1.2.x) or
+[latest stable release](https://github.com/clusterio/factorioClusterio/releases/latest).
+
+Installation instructions below are for stable release - if you need a development version -
+just drop `-b 1.2.x` from clone command and `--only=production` from the `npm install` command.
 
 ### Ways to support me/the project:
 
