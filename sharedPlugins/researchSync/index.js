@@ -50,7 +50,7 @@ class ResearchSync {
     }
 
     initial_request_own_data(callback) {
-        const url = `${this.config.masterIP}:${this.config.masterPort}/api/getSlaveMeta`
+        const url = `${this.config.masterURL}/api/getSlaveMeta`
         const data = {
             instanceID: this.config.unique,
             password: this.config.clientPassword,
@@ -102,7 +102,7 @@ class ResearchSync {
     }
 
     request_cluster_data() {
-        const slaves_data_url = `${this.config.masterIP}:${this.config.masterPort}/api/slaves`
+        const slaves_data_url = `${this.config.masterURL}/api/slaves`
         needle.get(slaves_data_url, {compressed:true}, this.sync_researches.bind(this))
     }
 
@@ -134,7 +134,7 @@ class ResearchSync {
 
         this.print_own_contribution()
 
-        needle.post(this.config.masterIP + ':' + this.config.masterPort + '/api/editSlaveMeta', {
+        needle.post(this.config.masterURL + '/api/editSlaveMeta', {
             instanceID: this.config.unique,
             password: this.config.clientPassword,
             meta: {research: this.research}

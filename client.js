@@ -577,7 +577,7 @@ async function instanceManagement(instanceconfig) {
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
-	var socket = ioClient("http://"+config.masterIP+":"+config.masterPort);
+	var socket = ioClient(config.masterURL);
 	socket.on("hello", data => {
 		console.log("SOCKET | registering slave!");
 		socket.emit("registerSlave", {
@@ -710,15 +710,15 @@ async function instanceManagement(instanceconfig) {
 					}
 					global.mac = mac;
 					payload.mac = mac;
-					// console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
-					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+					// console.log("Registered our presence with master "+config.masterURL+" at " + payload.time);
+					needle.post(config.masterURL + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
-                            console.error("We got problems, something went wrong when contacting master"+config.masterIP+" at " + payload.time);
+                            console.error("We got problems, something went wrong when contacting master "+config.masterURL+" at " + payload.time);
 							console.error(err);
 						} else if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
 							if(response.body !== "ok") {
-                                console.log("Got no \"ok\" while registering our precense with master "+config.masterIP+" at " + payload.time);
+                                console.log("Got no \"ok\" while registering our precense with master "+config.masterURL+" at " + payload.time);
                                 console.log(response.body);
                             }
 						}
@@ -744,7 +744,7 @@ async function instanceManagement(instanceconfig) {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
 			};
-			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+			needle.post(config.masterURL + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
 				if(response && body && body == "found") {
 					console.log("master has mod "+modHashes[i].modName);
@@ -754,7 +754,7 @@ async function instanceManagement(instanceconfig) {
 						console.log("Sending mod: " + mod);
 						// Send mods master says it wants
 						// response.body is a string which is a modName.zip
-						var req = request.post({url: "http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod',
+						var req = request.post({url: config.masterURL + '/api/uploadMod',
 							headers: {
 								"x-access-token": config.masterAuthToken,
 							},

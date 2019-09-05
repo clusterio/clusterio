@@ -12,8 +12,7 @@ describe("researchSync/index.js", function() {
 
 	const config = {
 		instanceName: "test",
-		masterIP: "localhost",
-		masterPort: 8080,
+		masterURL: "http://localhost:8080",
 		unique: 99,
 		clientPassword: "password",
 		masterAuthToken: "masterToken",

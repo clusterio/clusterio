@@ -10,3 +10,6 @@ Breaking Changes
 - Node.js versions below 10 are no longer supported.
 - lib/authenticate no longer requires config to be passed to it.  Breaks
   playerManager.
+- The masterIP and masterPort config entries has been merged into masterURL.
+  Breaks discordChat, playerManager, serverSelect, trainTeleports and
+  clusterioModel.

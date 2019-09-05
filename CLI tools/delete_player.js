@@ -11,7 +11,7 @@ if(!options.name){
 	process.exit(1)
 }
 
-needle.post(config.masterIP+":"+config.masterPort+"/api/playerManager/deletePlayer", {
+needle.post(config.masterURL+"/api/playerManager/deletePlayer", {
 	name: options.name,
 	token: options.token
 }, (err, resp) => {

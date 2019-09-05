@@ -60,7 +60,7 @@ function handleInventory(json, config, callback){
 						}
 						//console.log("Requesting: "+JSON.stringify(request));
 						// request the difference from master
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/remove', request, {json:true,headers: {'x-access-token': config.masterAuthToken}}, function (err, response, body) {
+						function callback(err, response, body) {
 							if (!err && response && response.body && (typeof response.body == "object" || isJson(response.body))) {
 								// confirmed orders, already removed from master inventory
 								//response.body.name: response.body.count
@@ -70,7 +70,13 @@ function handleInventory(json, config, callback){
 							} else {
 								collectStacks(false);
 							}
-						});
+						}
+						needle.post(
+							config.masterURL + '/api/remove',
+							request,
+							{json:true,headers: {'x-access-token': config.masterAuthToken}},
+							callback
+						);
 					} else {
 						collectStacks(false);
 					}
@@ -87,9 +93,14 @@ function handleInventory(json, config, callback){
 				for(let i = 0; i < stackArray.length; i++){
 					if(stackArray[i].count > 0){
 						// console.log("Returning overflow: " + JSON.stringify(stackArray[i]));
-						needle.post(config.masterIP + ":" + config.masterPort + '/api/place', stackArray[i], {headers: {'x-access-token': config.masterAuthToken}}, function (err, resp, body) {
-							// console.log(body);
-						});
+						needle.post(
+							config.masterURL + '/api/place',
+							stackArray[i],
+							{headers: {'x-access-token': config.masterAuthToken}},
+							function (err, resp, body) {
+								// console.log(body);
+							}
+						);
 					}
 				}
 			});
@@ -127,7 +138,7 @@ function pollInventories(outputFile){
 	//return "/silent-command "+'local a="{"for b,c in pairs(game.players)do if c.connected then local d=game.players[b].get_inventory(defines.inventory.player_main).get_contents()local e=game.players[b].get_quickbar().get_contents()local f={}for g=1,game.players[b].force.character_logistic_slot_count do f[g]=game.players[b].character.get_request_slot(g)end;a=a..b..":{inventory:{"for h,i in pairs(d)do a=a.."['+"'"+'"..h.."'+"'"+']:"..i..","end;for h,i in pairs(e)do a=a.."['+"'"+'"..h.."'+"'"+']:"..i..","end;a=a.."},requestSlots:{"for h,i in pairs(f)do a=a.."['+"'"+'"..i["name"].."'+"'"+']:"..i["count"]..", "end;a=a.."}},"end end;a=a.."}"game.write_file("'+outputFile+'",a)'
 	return '/silent-command '+'local a='+"'"+'{"players":{'+"'"+'local b=false;for c,d in pairs(game.players)do if d.connected and d.character then if b then a=a..'+"'"+','+"'"+'else b=true end;local e=game.players[c].get_inventory(defines.inventory.player_main).get_contents()local f=game.players[c].get_quickbar().get_contents()local g={}local z={}for j,k in pairs(e)do if z[j] ~= nil then z[j] = z[j] + k else z[j] = k end end for j,k in pairs(f)do if z[j] ~= nil then z[j] = z[j] + k else z[j] = k end end for h=1,game.players[c].force.character_logistic_slot_count do g[h]=game.players[c].character.get_request_slot(h)end;a=a..'+"'"+'"'+"'"+'..c..'+"'"+'":{"inventory":{'+"'"+'local i=false;for j,k in pairs(z)do if i then a=a..'+"'"+','+"'"+'else i=true end;a=a..'+"'"+'"'+"'"+'..j..'+"'"+'":'+"'"+'..k end;a=a..'+"'"+'},"requestSlots":{'+"'"+'i=false;for j,k in pairs(g)do if i then a=a..'+"'"+','+"'"+'else i=true end;a=a..'+"'"+'"'+"'"+'..k['+"'"+'name'+"'"+']..'+"'"+'":'+"'"+'..k['+"'"+'count'+"'"+']end;a=a..'+"'"+'}}'+"'"+'end end;a=a.."}}"game.write_file("'+outputFile+'",a,true,0)'
 	/*
-	needle.post(config.masterIP+':'+config.masterPort+'/api/editSlaveMeta', {instanceID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
+	needle.post(config.masterURL+'/api/editSlaveMeta', {instanceID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
 		// success?
 	});
 	*/
