@@ -42,7 +42,6 @@ const authenticate = require("lib/authenticate");
 const express = require("express");
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
-const ejs = require("ejs");
 // Required for express post requests
 const bodyParser = require("body-parser");
 const fileUpload = require('express-fileupload');
@@ -59,9 +58,8 @@ app.use(fileUpload());
 app.use(compression());
 
 // dynamic HTML generations with EJS
-app.set('views', path.join(__dirname, 'static'));
-app.set('view engine', 'html');
-app.engine('html', ejs.renderFile);
+app.set('view engine', 'ejs');
+app.set('views', ['views', 'sharedPlugins']);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){

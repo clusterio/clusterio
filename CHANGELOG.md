@@ -10,6 +10,9 @@ Version 2.0.0
 - Factorio game and rcon port now defaults to a random port above 49151.
 - Removed unimplemented mods update command.
 - Fixed rcon password being generated with Math.random().
+- Added plugins directory to the views path.  This makes it possible for
+  plugins to render their own ejs views or pages in their own folders by
+  using paths of the format "pluginName/path/to/page-or-view".
 
 ### Breaking Changes
 
@@ -21,6 +24,8 @@ Version 2.0.0
   clusterioModel.
 - Instance names can no longer be invalid Windows file names.
 - Removed config management from the command line and the server manager.
+- Moved ejs templates into views folder and changed their extension to
+  .ejs.  Breaks playerManager.
 
 
 Version 1.2.1
