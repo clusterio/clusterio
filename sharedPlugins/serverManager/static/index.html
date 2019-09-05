@@ -13,10 +13,10 @@
 				html = "";
 				if(req.query
 				&& req.query.instanceID
-				&& slaves[req.query.instanceID]
-				&& slaves[req.query.instanceID].mods
+				&& locals.slaves.get(req.query.instanceID)
+				&& locals.slaves.get(req.query.instanceID).mods
 				&& serverManager.serverSockets[req.query.instanceID]){
-					let slave = slaves[req.query.instanceID];
+					let slave = locals.slaves.get(req.query.instanceID);
 					html += `
 						<div id="mods">
 							${slave.mods.map(mod => mod.name).reduce((acc, modname) => acc + "<li>" + modname + "</li>")}

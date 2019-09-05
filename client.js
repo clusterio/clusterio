@@ -18,6 +18,7 @@ const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
 const stringUtils = require("lib/stringUtils.js");
 const configManager = require("lib/manager/configManager.js");
+const pluginManager = require("lib/manager/pluginManager");
 const hashFile = require('lib/hash').hashFile;
 
 console.warn(`
@@ -235,7 +236,6 @@ if (!command || command == "help" || command == "--help") {
 			}
 		} else if(tool == "plugins"){
 			(async function(){try{
-				const pluginManager = require("lib/manager/pluginManager.js")(config);
 				if(action == "list"){
 					await pluginManager.listPlugins();
 				} else if(action == "add" || action == "install" || action == "download"){
@@ -587,7 +587,6 @@ async function instanceManagement(instanceconfig) {
 	setInterval(B=> socket.emit("heartbeat"), 10000);
 
 	// load plugins and execute onLoad event
-	const pluginManager = require("lib/manager/pluginManager.js")(config);
 	let pluginsToLoad = await pluginManager.getPlugins();
 	let plugins = [];
 	

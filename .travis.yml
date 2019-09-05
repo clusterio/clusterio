@@ -4,7 +4,6 @@ node_js:
 before_install:
   - curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
   - tar -xf factorio.tar.gz
-  - cp -n config.json.test config.json
   - npm install -g codecov
 script:
   - npm run-script ci-cover

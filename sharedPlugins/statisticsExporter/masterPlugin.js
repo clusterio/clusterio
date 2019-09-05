@@ -3,7 +3,7 @@ const path = require("path");
 
 class masterPlugin {
 	constructor({config, socketio, express, Prometheus}){
-		const authenticate = require("lib/authenticate")(config);
+		const authenticate = require("lib/authenticate");
 		
 		this.config = config;
 		this.io = socketio;
