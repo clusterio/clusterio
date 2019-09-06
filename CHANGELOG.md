@@ -24,6 +24,7 @@ Version 2.0.0
 - Added plugins directory to the views path.  This makes it possible for
   plugins to render their own ejs views or pages in their own folders by
   using paths of the format "pluginName/path/to/page-or-view".
+- Added instanceName entry to the config passed to instance plugins.
 - Replaced the per instance copy of the shared Factorio mods with
   symlinks.  On Windows hard links are used instead due to the
   privileges requirements of symlinks.
