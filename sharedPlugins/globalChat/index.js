@@ -6,6 +6,7 @@ module.exports = class remoteCommands {
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		this.instances = {};
+		this.getInstanceName = require("lib/clusterTools/getInstanceName")(mergedConfig);
 		
 		this.socket.on("hello", () => this.socket.emit("registerChatReciever"));
 	
@@ -50,31 +51,5 @@ module.exports = class remoteCommands {
 			});
 		}
 		}catch(e){console.log(e)}
-	}
-	getInstanceName(instanceID){
-		return new Promise((resolve, reject) => {
-			let instance = this.instances[instanceID];
-			if(!instance){
-				needle.get(this.config.masterURL + '/api/slaves', { compressed: true }, (err, response) => {
-					if(err || response.statusCode != 200) {
-						console.log("Unable to get JSON master/api/slaves, master might be unaccessible");
-					} else if (response && response.body) {	
-						if(Buffer.isBuffer(response.body)) {console.log(response.body.toString("utf-8")); throw new Error();}
-							try {
-								for (let index in response.body)
-									this.instances[index] = response.body[index].instanceName;
-							} catch (e){
-								console.log(e);
-								return null;
-							}
-						instance = this.instances[instanceID] 							
-						if (!instance) instance = instanceID;  //somehow the master doesn't know the instance	
-						resolve(instance);
-					}
-				});
-			} else {
-				resolve(instance);
-			}
-		});
 	}
 }
