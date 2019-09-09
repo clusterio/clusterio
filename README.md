@@ -203,9 +203,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
-Change `masterIP `to something like `31.152.123.14` (provided by master server owner)
-
-Change `masterPort` to something like `8080` (provided by master server owner)
+Change `masterURL `to something like `http://203.0.113.33:8080` (provided by master server owner)
 
 Change `masterAuthToken` to the value found in `secret-api-token.txt` on the master server
 

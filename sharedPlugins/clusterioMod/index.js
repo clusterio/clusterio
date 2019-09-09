@@ -78,9 +78,14 @@ module.exports = class remoteCommands {
 							}
 						}
 						console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-						needle.post(that.config.masterIP + ":" + that.config.masterPort + '/api/logStats', {timestamp: timestamp, instanceID: that.config.unique, data: payload}, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-							// we did it, keep going
-						});
+						needle.post(
+							that.config.masterURL + '/api/logStats',
+							{timestamp: timestamp, instanceID: that.config.unique, data: payload},
+							needleOptionsWithTokenAuthHeader,
+							function (err, response, body) {
+								// we did it, keep going
+							}
+						);
 					}
 					oldTimestamp = timestamp;
 					oldFlowStats = totalFlows;
@@ -105,7 +110,7 @@ module.exports = class remoteCommands {
 					g[0] = g[0].replace("\u0000", "");
 					// console.log("exporting " + JSON.stringify(g));
 					// send our entity and count to the master for him to keep track of
-					needle.post(that.config.masterIP + ":" + that.config.masterPort + '/api/place', {
+					needle.post(that.config.masterURL + '/api/place', {
 						name: g[0],
 						count: g[1],
 						instanceName: instance, // name of instance
@@ -168,7 +173,7 @@ module.exports = class remoteCommands {
 				// request our items, one item at a time
 				for (let i = 0; i < Object.keys(preparedPackage).length; i++) {
 					// console.log(preparedPackage[Object.keys(preparedPackage)[i]]);
-					needle.post(that.config.masterIP + ":" + that.config.masterPort + '/api/remove', preparedPackage[Object.keys(preparedPackage)[i]], needleOptionsWithTokenAuthHeader, function (err, response, body) {
+					function callback(err, response, body) {
 						if (response && response.body && typeof response.body == "object") {
 							// buffer confirmed orders
 							confirmedOrders[confirmedOrders.length] = {name:response.body.name,count:response.body.count}
@@ -176,7 +181,13 @@ module.exports = class remoteCommands {
 								console.log(`Imported ${response.body.count} ${response.body.name} from master`);
 							}
 						}
-					});
+					}
+					needle.post(
+						that.config.masterURL + '/api/remove',
+						preparedPackage[Object.keys(preparedPackage)[i]],
+						needleOptionsWithTokenAuthHeader,
+						callback
+					);
 				}
 				// if we got some confirmed orders
 				// console.log("Importing " + confirmedOrders.length + " items! " + JSON.stringify(confirmedOrders));
@@ -195,7 +206,7 @@ module.exports = class remoteCommands {
 		// COMBINATOR SIGNALS ---------------------------------------------------------
 		// get inventory from Master and RCON it to our slave
 		setInterval(() => {
-			needle.get(that.config.masterIP + ":" + that.config.masterPort + '/api/inventory', function (err, response, body) {
+			needle.get(that.config.masterURL + '/api/inventory', function (err, response, body) {
 				if(err){
 					console.error("Unable to get JSON master/api/inventory, master might be unaccessible");
 				} else if (response && response.body) {
@@ -307,7 +318,7 @@ module.exports = class remoteCommands {
 		return new Promise((resolve, reject) => {
 			let instance = this.instances[instanceID];
 			if(!instance){
-				needle.get(this.config.masterIP+":"+this.config.masterPort+ '/api/slaves', { compressed: true }, (err, response) => {
+				needle.get(this.config.masterURL + '/api/slaves', { compressed: true }, (err, response) => {
 					if(err || response.statusCode != 200) {
 						console.log("Unable to get JSON master/api/slaves, master might be unaccessible");
 					} else if (response && response.body) {	

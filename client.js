@@ -21,12 +21,6 @@ const configManager = require("lib/manager/configManager.js");
 const pluginManager = require("lib/manager/pluginManager");
 const hashFile = require('lib/hash').hashFile;
 
-console.warn(`
-+==========================================================+
-I WARNING:  This is the development branch for the 2.0     I
-I           version of clusterio.  Expect things to break. I
-+==========================================================+
-`);
 
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
@@ -35,33 +29,10 @@ const args = require('minimist')(process.argv.slice(2));
 var config = require(args.config || './config');
 var global = {};
 
-if (!fs.existsSync(config.instanceDirectory)) {
-	fs.mkdirSync(config.instanceDirectory);
-}
-if (!fs.existsSync("./sharedPlugins/")) {
-	fs.mkdirSync("sharedPlugins");
-}
-if (!fs.existsSync("./sharedMods/")) {
-	fs.mkdirSync("sharedMods");
-}
 const instance = process.argv[3];
 const instancedirectory = config.instanceDirectory + '/' + instance;
 const command = process.argv[2];
 
-// Set the process title, shows up as the title of the CMD window on windows
-// and as the process name in ps/top on linux.
-process.title = "clusterioClient "+instance;
-
-// add better stack traces on promise rejection
-process.on('unhandledRejection', r => console.log(r));
-
-// make sure we have the master access token (can't write to master without it since clusterio 2.0)
-if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
-	console.error("ERROR invalid config!");
-	console.error("Master server now needs an access token for write operations. As clusterio slaves depends \
-	upon this, please add your token to config.json in the field named masterAuthToken. \
-	You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
-}
 const needleOptionsWithTokenAuthHeader = {
 	compressed:true,
 	headers: {
@@ -118,9 +89,7 @@ function messageInterface(command, callback) {
 	});
 }
 
-
-// handle commandline parameters
-if (!command || command == "help" || command == "--help") {
+function printUsage() {
 	console.error("Usage: ");
 	console.error("node client.js start [instance name]");
 	console.error("node client.js list");
@@ -131,8 +100,9 @@ if (!command || command == "help" || command == "--help") {
 	console.error("node client.js manage shared plugins install https://github.com/Danielv123/playerManager");
 	console.error("For more management options, do");
 	console.error("node client.js manage");
-	process.exit(1);
-} else if (command == "list") {
+}
+
+async function listPlugins() {
 	let instanceNames = fileOps.getDirectoriesSync(config.instanceDirectory);
 	instanceNames.unshift("Name:");
 	let longestInstanceName = 0;
@@ -175,8 +145,9 @@ if (!command || command == "help" || command == "--help") {
 	});
 	
 	displayLines.forEach(line => console.log(line));
-	process.exit(0);
-} else if (command == "manage"){
+}
+
+async function manage() {
 	// console.log("Launching mod manager");
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
@@ -262,8 +233,9 @@ if (!command || command == "help" || command == "--help") {
 		console.log('Usage:');
 		usage(instance);
 	}
-	// process.exit(0);
-} else if (command == "delete") {
+}
+
+async function deleteInstance() {
 	if (!process.argv[3]) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
@@ -275,7 +247,9 @@ if (!command || command == "help" || command == "--help") {
 		console.error("Instance not found: " + process.argv[3]);
 		process.exit(0);
 	}
-} else if (command == "download") {
+}
+
+async function downloadMod() {
 	console.log("Downloading mods...");
 	// get JSON data about releases
 	let res = syncRequest('GET', 'https://api.github.com/repos/Danielv123/factorioClusterioMod/releases', {"headers":{"User-Agent":"factorioClusterio"}});
@@ -292,11 +266,9 @@ if (!command || command == "help" || command == "--help") {
 			response.pipe(file);
 		}).end();
 	}
-} else if (command == "start" && instance === undefined) {
-	console.error("ERROR: No instanceName provided!");
-	console.error("Usage: node client.js start [instanceName]");
-	process.exit(0);
-} else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
+}
+
+async function createInstance() {
 	// if instance does not exist, create it
 	console.log("Creating instance...");
 	fs.mkdirSync(instancedirectory);
@@ -403,8 +375,10 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			
 			process.exit(0);
 		}
-    });
-} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)){(async () => {
+	});
+}
+
+async function startInstance() {
 	// Exit if no instance specified (it should be, just a safeguard);
 	if(instancedirectory != config.instanceDirectory+"/undefined"){
 		var instanceconfig = require(path.resolve(instancedirectory,'config'));
@@ -563,9 +537,61 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		confirmedOrders = [];
 		lastSignalCheck = Date.now();
 	});
-})()} else {
-	console.error("Invalid arguments, quitting.");
-	process.exit(1);
+}
+
+async function startClient() {
+	if (!fs.existsSync(config.instanceDirectory)) {
+		fs.mkdirSync(config.instanceDirectory);
+	}
+	if (!fs.existsSync("./sharedPlugins/")) {
+		fs.mkdirSync("sharedPlugins");
+	}
+	if (!fs.existsSync("./sharedMods/")) {
+		fs.mkdirSync("sharedMods");
+	}
+
+	// Set the process title, shows up as the title of the CMD window on windows
+	// and as the process name in ps/top on linux.
+	process.title = "clusterioClient "+instance;
+
+	// add better stack traces on promise rejection
+	process.on('unhandledRejection', r => console.log(r));
+
+	// make sure we have the master access token (can't write to master without it since clusterio 2.0)
+	if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
+		console.error("ERROR invalid config!");
+		console.error("Master server now needs an access token for write operations. As clusterio slaves depends \
+		upon this, please add your token to config.json in the field named masterAuthToken. \
+		You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
+	}
+
+
+	// handle commandline parameters
+	if (!command || command == "help" || command == "--help") {
+		printUsage();
+		process.exit(1);
+	} else if (command == "list") {
+		await listPlugins();
+		process.exit(0);
+	} else if (command == "manage"){
+		await manage();
+		// process.exit(0);
+	} else if (command == "delete") {
+		await deleteInstance();
+	} else if (command == "download") {
+		await downloadMod();
+	} else if (command == "start" && instance === undefined) {
+		console.error("ERROR: No instanceName provided!");
+		console.error("Usage: node client.js start [instanceName]");
+		process.exit(0);
+	} else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
+		await createInstance();
+	} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
+		await startInstance();
+	} else {
+		console.error("Invalid arguments, quitting.");
+		process.exit(1);
+	}
 }
 
 // ensure instancemanagement only ever runs once
@@ -577,7 +603,7 @@ async function instanceManagement(instanceconfig) {
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
-	var socket = ioClient("http://"+config.masterIP+":"+config.masterPort);
+	var socket = ioClient(config.masterURL);
 	socket.on("hello", data => {
 		console.log("SOCKET | registering slave!");
 		socket.emit("registerSlave", {
@@ -710,15 +736,15 @@ async function instanceManagement(instanceconfig) {
 					}
 					global.mac = mac;
 					payload.mac = mac;
-					// console.log("Registered our presence with master "+config.masterIP+" at " + payload.time);
-					needle.post(config.masterIP + ":" + config.masterPort + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+					// console.log("Registered our presence with master "+config.masterURL+" at " + payload.time);
+					needle.post(config.masterURL + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
-                            console.error("We got problems, something went wrong when contacting master"+config.masterIP+" at " + payload.time);
+                            console.error("We got problems, something went wrong when contacting master "+config.masterURL+" at " + payload.time);
 							console.error(err);
 						} else if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
 							if(response.body !== "ok") {
-                                console.log("Got no \"ok\" while registering our precense with master "+config.masterIP+" at " + payload.time);
+                                console.log("Got no \"ok\" while registering our precense with master "+config.masterURL+" at " + payload.time);
                                 console.log(response.body);
                             }
 						}
@@ -744,7 +770,7 @@ async function instanceManagement(instanceconfig) {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
 			};
-			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+			needle.post(config.masterURL + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
 				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
 				if(response && body && body == "found") {
 					console.log("master has mod "+modHashes[i].modName);
@@ -754,7 +780,7 @@ async function instanceManagement(instanceconfig) {
 						console.log("Sending mod: " + mod);
 						// Send mods master says it wants
 						// response.body is a string which is a modName.zip
-						var req = request.post({url: "http://"+config.masterIP + ":" + config.masterPort + '/api/uploadMod',
+						var req = request.post({url: config.masterURL + '/api/uploadMod',
 							headers: {
 								"x-access-token": config.masterAuthToken,
 							},
@@ -799,5 +825,27 @@ function hashMods(instanceName, callback) {
 	Promise.all(promises).then(hashes => {
 		// Remove null entries from hashMod
 		callback(hashes.filter(entry => entry !== null));
+	});
+}
+
+
+if (module === require.main) {
+	console.warn(`
++==========================================================+
+I WARNING:  This is the development branch for the 2.0     I
+I           version of clusterio.  Expect things to break. I
++==========================================================+
+`
+	);
+	startClient().catch(err => {
+		console.error(`
++---------------------------------------------------------------+
+| Unexpected error occured while starting client, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues   |
++---------------------------------------------------------------+`
+		);
+
+		console.error(err);
+		process.exit(1);
 	});
 }

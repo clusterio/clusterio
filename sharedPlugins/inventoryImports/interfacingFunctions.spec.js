@@ -12,8 +12,7 @@ const sinon = require("sinon");
 describe("inventoryImports/interfacingFunctions.js", function(){
 	describe("handleInventory(inventory, config)", function(){
 		let config = {
-			masterIP:"localhost",
-			masterPort:8080,
+			masterURL:"http://localhost:8080",
 			masterAuthToken:"",
 		}
 		it("returns false if given invalid input", function(){

@@ -27,7 +27,7 @@ module.exports = class remoteCommands {
 					force: force.forceName,
 					forceData: JSON.stringify(force.data),
 				};
-				needle.post(`${mergedConfig.masterIP}:${mergedConfig.masterPort}/api/logStats`, 
+				needle.post(`${mergedConfig.masterURL}/api/logStats`, 
 					request, 
 					needleOptionsWithTokenAuthHeader, (err, resp) => {
 						if(!err && resp.body && resp.body.ok == false) console.log("Error calling /api/logStats: " + resp.body);

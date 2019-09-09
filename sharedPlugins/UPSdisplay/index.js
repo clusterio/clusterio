@@ -25,9 +25,14 @@ class UPSdisplay {
 				let UPS = Math.round(ticksInPeriod / (timePeriod/1000));
 				// console.log("UPS: " + UPS);
 				try{
-					needle.post(this.config.masterIP+':'+this.config.masterPort+'/api/editSlaveMeta', {instanceID: this.config.unique, password: this.config.clientPassword, meta: {UPS:UPS, tick:this.tick}}, {headers: {'x-access-token': this.config.masterAuthToken}}, function(err, resp) {
-						// success?
-					});
+					needle.post(
+						this.config.masterURL+'/api/editSlaveMeta',
+						{instanceID: this.config.unique, password: this.config.clientPassword, meta: {UPS:UPS, tick:this.tick}},
+						{headers: {'x-access-token': this.config.masterAuthToken}},
+						function(err, resp) {
+							// success?
+						}
+					);
 				} catch (err){
 					console.log(err);
 				}

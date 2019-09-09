@@ -7,8 +7,8 @@
 	"__comment1": "IP players should connect to to join your servers, should be portforwarded and stuff",
 	"publicIP": "localhost",
 	
-	"__comment2": "IP the master web server runs at, can be ignored on the master system",
-	"masterIP": "localhost",
+	"__comment2": "URL the master web server runs at, can be ignored on the master system.  Must not end with a slash",
+	"masterURL": "http://localhost:8080",
 	
 	"__commentMasterPort": "HTTP port for the master to listen to",
 	"masterPort": 8080,
