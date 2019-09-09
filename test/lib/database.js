@@ -176,6 +176,10 @@ describe("lib/database", function() {
 					() => items.addItem('a', NaN),
 					new Error("count must be a number")
 				);
+				assert.throws(
+					() => items.addItem('a', "1"),
+					new Error("count must be a number")
+				);
 			});
 		});
 
@@ -204,6 +208,10 @@ describe("lib/database", function() {
 				let items = new database.ItemDatabase();
 				assert.throws(
 					() => items.removeItem('a', 'b'),
+					new Error("count must be a number")
+				);
+				assert.throws(
+					() => items.removeItem('a', "1"),
 					new Error("count must be a number")
 				);
 			});
