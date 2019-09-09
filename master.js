@@ -273,7 +273,7 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 
 	if(req.body && req.body.instanceID && req.body.meta){
 		if (db.slaves.has(req.body.instanceID)) {
-			let slave = db.slaves.get(req);
+			let slave = db.slaves.get(req.body.instanceID);
 			if(!slave.meta) {
 				slave.meta = {};
 			}
