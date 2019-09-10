@@ -921,6 +921,18 @@ class wsSlave {
 	}
 }
 
+io.use((socket, next) => {
+	let token = socket.handshake.query.token;
+	authenticate.check(token).then((result) => {
+		if (result.ok) {
+			next();
+		} else {
+			console.error(`SOCKET | authentication failed for ${socket.handshake.address}`);
+			next(new Error(result.msg));
+		}
+	});
+});
+
 io.on('connection', function (socket) {
 	// cleanup dead sockets from disconnected people
 	let terminatedConnections = 0;
