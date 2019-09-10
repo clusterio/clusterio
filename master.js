@@ -273,7 +273,7 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 
 	if(req.body && req.body.instanceID && req.body.meta){
 		if (db.slaves.has(req.body.instanceID)) {
-			let slave = db.slaves.get(req);
+			let slave = db.slaves.get(req.body.instanceID);
 			if(!slave.meta) {
 				slave.meta = {};
 			}
@@ -476,7 +476,9 @@ app.post("/api/place", authenticate.middleware, function(req, res) {
 		});
 		prometheusExportGauge.labels(x.instanceID, req.body.name).inc(Number(req.body.count) || 0);
 		// save items we get
-		db.items.addItem(req.body.name, req.body.count);
+		
+		var count = Number(req.body.count);
+		db.items.addItem(req.body.name, count);
 
 		// Attempt confirming
 		res.send("success");
