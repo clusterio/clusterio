@@ -603,7 +603,10 @@ async function instanceManagement(instanceconfig) {
     console.log("Started instanceManagement();");
 
     /* Open websocket connection to master */
-	var socket = ioClient(config.masterURL);
+	var socket = ioClient(config.masterURL+"?token="+config.masterAuthToken);
+	socket.on("error", err => {
+		console.log("SOCKET | Error: ", err);
+	});
 	socket.on("hello", data => {
 		console.log("SOCKET | registering slave!");
 		socket.emit("registerSlave", {

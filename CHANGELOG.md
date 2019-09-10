@@ -16,3 +16,11 @@ Version 2.0.0
 - The masterIP and masterPort config entries has been merged into masterURL.
   Breaks discordChat, playerManager, serverSelect, trainTeleports and
   clusterioModel.
+
+
+Version 1.2.1
+-------------
+
+### Breaking Changes
+
+- Added authentication to the socket.io server running on the master.
