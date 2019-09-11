@@ -9,6 +9,7 @@ Version 2.0.0
 - Added error handling during master startup.
 - Factorio game and rcon port now defaults to a random port above 49151.
 - Removed unimplemented mods update command.
+- Fixed rcon password being generated with Math.random().
 
 ### Breaking Changes
 

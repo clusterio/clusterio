@@ -13,6 +13,8 @@ const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
 const ioClient = require("socket.io-client");
 const asTable = require("as-table").configure({delimiter: ' | '});
+const util = require("util");
+const crypto = require("crypto");
 
 // internal libraries
 const objectOps = require("lib/objectOps.js");
@@ -103,6 +105,42 @@ function randomDynamicPort() {
 	const end = 65535 + 1;
 
 	return Math.floor(Math.random() * (end - start) + start)
+}
+
+/**
+ * Generate a secure random password of the given length
+ *
+ * Uses crypto.randomBytes to generate a secure alphanumeric password of
+ * the given length.
+ *
+ * @param {number} length - the length of the password to generate.
+ * @return {string} password of the given length
+ */
+async function generatePassword(length) {
+	function validChar(byte) {
+		const ranges = ['az', 'AZ', '09'];
+		return ranges.some(range =>
+			range.codePointAt(0) <= byte && byte <= range.codePointAt(1)
+		);
+	}
+	let randomBytesAsync = util.promisify(crypto.randomBytes);
+
+	let password = "";
+	while (true) {
+		let bytes = await randomBytesAsync((length - password.length) * 3);
+		for (let byte of bytes) {
+
+			// Crop to ASCII values only
+			byte = byte & 0x7f;
+
+			if (validChar(byte)) {
+				password += String.fromCharCode(byte);
+				if (password.length == length) {
+					return password;
+				}
+			}
+		}
+	}
 }
 
 function printUsage() {
@@ -280,7 +318,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
 		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
-		"clientPassword": args["rcon-password"] || Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
+		"clientPassword": args["rcon-password"] || await generatePassword(10),
 		"info": {}
 	}
 	console.log("Clusterio | Created instance with settings:")
@@ -816,9 +854,9 @@ function hashMods(instanceName, callback) {
 }
 
 module.exports = {
-
 	// For testing only
 	_randomDynamicPort: randomDynamicPort,
+	_generatePassword: generatePassword,
 };
 
 if (module === require.main) {

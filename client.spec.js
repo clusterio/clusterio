@@ -20,4 +20,21 @@ describe("Client testing", function() {
 			}
 		});
 	});
+
+	describe("generatePassword()", function() {
+		it("should return a string", async function() {
+			let password = await client._generatePassword(1);
+			assert.equal(typeof password, "string");
+		});
+
+		it("should return a string of the given length", async function() {
+			let password = await client._generatePassword(10);
+			assert.equal(password.length, 10);
+		});
+
+		it("should contain only a-z, A-Z, 0-9", async function() {
+			let password = await client._generatePassword(10);
+			assert(/^[a-zA-Z0-9]+$/.test(password), `${password} failed test`);
+		});
+	});
 });
