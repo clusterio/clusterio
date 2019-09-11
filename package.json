@@ -24,7 +24,7 @@
     "factorio"
   ],
   "author": "Danielv123",
-  "license": "ISC",
+  "license": "MIT",
   "engines": {
     "node": ">=10"
   },
