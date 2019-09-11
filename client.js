@@ -90,6 +90,21 @@ function messageInterface(command, callback) {
 	});
 }
 
+/**
+ * Give a random dynamic port
+ *
+ * Returns a random port number in the Dynamic Ports range as defined by
+ * RFC 6335.
+ *
+ * @return {number} a number in the range 49152 to 65535.
+ */
+function randomDynamicPort() {
+	const start = 49152;
+	const end = 65535 + 1;
+
+	return Math.floor(Math.random() * (end - start) + start)
+}
+
 function printUsage() {
 	console.error("Usage: ");
 	console.error("node client.js start [instance name]");
@@ -264,8 +279,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
 	let instconf = {
-		"factorioPort": args.port || process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
-		"clientPort": args["rcon-port"] || process.env.RCONPORT || Math.floor(Math.random() * 65535),
+		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
+		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
 		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
 		"clientPassword": args["rcon-password"] || Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
 		"info": {}
@@ -802,6 +817,11 @@ function hashMods(instanceName, callback) {
 	});
 }
 
+module.exports = {
+
+	// For testing only
+	_randomDynamicPort: randomDynamicPort,
+};
 
 if (module === require.main) {
 	console.warn(`
