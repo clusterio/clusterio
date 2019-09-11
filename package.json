@@ -15,7 +15,7 @@
     "factorio"
   ],
   "author": "Danielv123",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "as-table": "^1.0.31",
     "averaged-timeseries": "^1.4.0",
