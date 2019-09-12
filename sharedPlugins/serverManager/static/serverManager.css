@@ -6,10 +6,6 @@
   width:calc((( 100% ) - (( 100% ) / 4))/2);
   float:left;
 }
-#config {
-  width:calc((( 100% ) - (( 100% ) / 4))/2);
-  float:left;
-}
 ul {
   list-style: none;
   padding:0px;

@@ -63,9 +63,6 @@ class masterPlugin {
 			server.socket.emit("serverManagerGetPlugins", {}, data => {
 				server.plugins = data;
 			});
-			server.socket.emit("serverManagerGetConfig", {}, data => {
-				server.config = data;
-			});
 		}
 		
 		// I can't seem to get express static pages + ejs rendering to work properly, so I write my own thing.

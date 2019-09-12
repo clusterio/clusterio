@@ -20,7 +20,6 @@ const crypto = require("crypto");
 const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
 const stringUtils = require("lib/stringUtils.js");
-const configManager = require("lib/manager/configManager.js");
 const pluginManager = require("lib/manager/pluginManager");
 const hashFile = require('lib/hash').hashFile;
 
@@ -235,12 +234,10 @@ async function manage(config, instance) {
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
 			console.log('node client.js manage '+instance.name+' '+tool+' ["list", "search", "add", "remove"]');
-		} else if(tool && tool == "config") {
-			console.log('node client.js manage '+instance.name+' '+tool+' ["list", "edit"]');
 		} else if(tool && tool == "plugins") {
 			console.log(`node client.js manage ${instance.name} ${tool} ["list", "add", "remove"]`);
 		} else {
-			console.log('node client.js manage '+(instance && instance.name || '[instance, "shared"]') +' '+ (tool || '["mods", "config", "plugins"]') + ' ...');
+			console.log('node client.js manage '+(instance && instance.name || '[instance, "shared"]') +' '+ (tool || '["mods", "plugins"]') + ' ...');
 		}
 	}
 	const tool = process.argv[4] || "";
@@ -268,23 +265,6 @@ async function manage(config, instance) {
 				console.log("Got error from modManager:")
 				console.log(e);
 			}})();
-		} else if(tool == "config"){
-			// allow managing the config
-			if(action == "list" || action == "show" || action == "display"){
-				configManager.displayConfig(instance.name);
-			} else if(action == "edit"){
-				let newConfigValue = "";
-				process.argv.forEach((arg, i)=>{
-					if(i >= 8){
-						newConfigValue += " "+arg;
-					} else if(i >= 7){
-						newConfigValue += arg;
-					}
-				});
-				configManager.editConfig(instance, process.argv[6], newConfigValue);
-			} else {
-				usage(instance, tool);
-			}
 		} else if(tool == "plugins"){
 			(async function(){try{
 				if(action == "list"){

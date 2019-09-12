@@ -77,48 +77,9 @@ module.exports = that => {
 			});
 		}
 	});
-	that.app.post("/api/serverManager/editConfig", async (req,res) => {
-		if((req.body.token || req.cookies.token)
-		&& req.body.instanceID
-		&& typeof req.body.instanceID == "string"
-		&& req.body.entry
-		&& typeof req.body.entry == "string"
-		&& req.body.value !== undefined
-		&& that.playerManager){
-			let perms = await that.playerManager.main.getPermissions((req.body.token || req.cookies.token));
-			if(perms.cluster.includes("writeConfig")
-			|| (perms.instance[req.body.instanceID]
-			&& perms.instance[req.body.instanceID].includes("writeConfig"))){
-				that.serverSockets[req.body.instanceID].socket.emit("serverManagerEditConfig", {
-					entry: req.body.entry,
-					value: req.body.value,
-				}, async resp => {
-					if(resp.ok){
-						// Retrieve the latest config from the server and store it
-						await updateData("config", req.body.instanceID);
-					}
-					res.send(resp);
-				});
-			} else {
-				res.send({
-					ok:false,
-					msg:"Insufficient permissions",
-				});
-			}
-		} else {
-			res.send({
-				ok:false,
-				msg:"Invalid request body",
-			});
-		}
-	});
 	async function updateData(type, instanceID){
 		// Retrieve the latest ${type} from the server and store it
-		if(type == "config"){
-			that.serverSockets[instanceID].socket.emit("serverManagerGetConfig", {}, data => {
-				that.serverSockets[instanceID].config = data;
-			});
-		} else if(type == "plugins"){
+		if(type == "plugins"){
 			that.serverSockets[instanceID].socket.emit("serverManagerGetPlugins", {}, data => {
 				that.serverSockets[instanceID].plugins = data;
 			});

@@ -26,23 +26,7 @@
 					if(server.plugins) server.plugins.forEach(plugin => {
 						html += `<li><div class="pluginStatus" style="background-color: ${plugin.enabled ? 'green' : 'red'}"></div><div style="width: calc( 100% - 50px )"><h3>${plugin.name}</h3><p>${plugin.description}</p></div></li>`
 					});
-					html += `</ul></div><div id="config">`
-					if(permissions && permissions.cluster && permissions.cluster.includes("readConfig")){
-						if(server.config){
-							html += `<ul>`;
-							server.config.forEach(setting => {
-								if(setting.entry[1] !== "_" && setting.entry !== "masterAuthSecret"){
-									html += `<li class="settingInput">
-										<p style="width: 50%; display:inline-block;">${setting.entry}</p>
-										<input style="color:black; width: calc(50% - 4px); box-sizing: border-box;" value='${setting.value}'>
-									</li>`
-								}
-							});
-						}
-					}
-					html += `</ul>
-					<input id="submitSettings" type="button" value="Save changes" style="color:black"/>
-					</div>`
+					html += `</ul></div>`
 				}
 			%>
 			<%- html %>

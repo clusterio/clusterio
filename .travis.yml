@@ -5,8 +5,6 @@ before_install:
   - curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
   - tar -xf factorio.tar.gz
   - npm install -g codecov
-  # Needed for lib/manager/configManager
-  - echo {} > config.json
 script:
   - npm run-script ci-cover
   - codecov -f coverage/lcov.info
