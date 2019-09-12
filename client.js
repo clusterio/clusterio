@@ -359,7 +359,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
             '--rcon-port', Number(process.env.RCONPORT) || instconf.clientPort,
             '--rcon-password', instconf.clientPassword,
         ], {
-            'stdio': ['pipe', 'pipe', 'pipe']
+			'stdio': ['pipe', 'pipe', 'pipe'],
+			'detached': process.platform === "linux",
         }
     );
     factorio.stdout.on("data", data => {
@@ -471,7 +472,8 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 				'--server-settings', instancedirectory + '/server-settings.json',
 				'--port', args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort
 			], {
-				'stdio': ['pipe', 'pipe', 'pipe']
+				'stdio': ['pipe', 'pipe', 'pipe'],
+				'detached': process.platform === "linux",
 			}
 		);
 
