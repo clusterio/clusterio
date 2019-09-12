@@ -138,7 +138,7 @@ async function manage() {
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
-			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove", "update"]');
+			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove"]');
 		} else if(tool && tool == "config") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
 		} else if(tool && tool == "plugins") {
@@ -164,8 +164,6 @@ async function manage() {
 					await modManager.addMod(process.argv[6], instance);
 				} else if(action == "remove" || action == "rm" || action == "delete"){
 					await modManager.removeMod(process.argv[6], instance);
-				} else if(action == "update"){
-					await modManager.updateAllMods();
 				} else {
 					usage(instance, tool);
 				}
