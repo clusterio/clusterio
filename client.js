@@ -21,6 +21,7 @@ const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
 const stringUtils = require("lib/stringUtils.js");
 const pluginManager = require("lib/manager/pluginManager");
+const modManager = require("lib/manager/modManager");
 const hashFile = require('lib/hash').hashFile;
 
 // Uhm...
@@ -245,18 +246,15 @@ async function manage(config, instance) {
 	if (instance !== undefined) {
 		if(tool == "mods"){
 			(async function(){try{
-				// do require down here to reduce master load time
-				const modManager = require("lib/manager/modManager.js")(config);
-				
 				// allow managing mods
 				if(action == "list"){
-					console.log(await modManager.listMods(instance));
+					console.log(await modManager.listMods(config, instance));
 				} else if(action == "search"){
-					console.log(await modManager.findMods(process.argv[6]));
+					console.log(await modManager.findMods(config, process.argv[6]));
 				} else if(action == "add" || action == "download"){
-					await modManager.addMod(process.argv[6], instance);
+					await modManager.addMod(config, process.argv[6], instance);
 				} else if(action == "remove" || action == "rm" || action == "delete"){
-					await modManager.removeMod(process.argv[6], instance);
+					await modManager.removeMod(config, process.argv[6], instance);
 				} else {
 					usage(instance, tool);
 				}
