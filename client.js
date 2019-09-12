@@ -24,12 +24,7 @@ const configManager = require("lib/manager/configManager.js");
 const pluginManager = require("lib/manager/pluginManager");
 const hashFile = require('lib/hash').hashFile;
 
-
-// argument parsing
-const args = require('minimist')(process.argv.slice(2));
-
-// require config.json
-var config = require(args.config || './config');
+// Uhm...
 var global = {};
 
 /**
@@ -103,36 +98,18 @@ function checkFilename(name) {
 	}
 }
 
-let instance;
-
-if (process.argv[3] !== undefined) {
-	let name = process.argv[3];
-	try {
-		checkFilename(name);
-	} catch (err) {
-		throw new Error(`Instance name ${err.message}`);
-	}
-	let dir = path.join(config.instanceDirectory, name);
-	instance = new Instance(dir, name);
+function needleOptionsWithTokenAuthHeader(config) {
+	return {
+		compressed: true,
+		headers: {
+			'x-access-token': config.masterAuthToken
+		},
+	};
 }
 
-const command = process.argv[2];
-const needleOptionsWithTokenAuthHeader = {
-	compressed:true,
-	headers: {
-		'x-access-token': config.masterAuthToken
-	},
-};
 
 var instanceInfo = {};
 var commandBuffer=[];
-// messageInterface Management
-setInterval(function(){
-	let command=commandBuffer.shift();
-	if(command){
-		messageInterfaceInternal(command[0], command[1], command[2], command[3]);
-	}
-},config.msBetweenCommands || 50);
 
 // function to handle sending commands into the game
 async function messageInterfaceInternal(command, callback, resolve, reject) {
@@ -237,7 +214,7 @@ function printUsage() {
 	console.error("node client.js manage");
 }
 
-async function listInstances() {
+async function listInstances(config) {
 	let instanceNames = fileOps.getDirectoriesSync(config.instanceDirectory);
 	let instances = [];
 	for (instance of instanceNames) {
@@ -252,7 +229,7 @@ async function listInstances() {
 	console.log(asTable(instances));
 }
 
-async function manage() {
+async function manage(config, instance) {
 	// console.log("Launching mod manager");
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
@@ -338,7 +315,7 @@ async function manage() {
 	}
 }
 
-async function deleteInstance() {
+async function deleteInstance(instance) {
 	if (instance === undefined) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
@@ -371,7 +348,7 @@ async function downloadMod() {
 	}
 }
 
-async function createInstance() {
+async function createInstance(config, args, instance) {
 	// if instance does not exist, create it
 	console.log("Creating instance...");
 	fs.mkdirSync(instance.path());
@@ -480,7 +457,7 @@ write-data=${ instance.path() }\r\n
 	});
 }
 
-async function startInstance() {
+async function startInstance(config, args, instance) {
 	var instanceconfig = JSON.parse(await fs.readFile(instance.path("config.json")));
 	instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
 	if (process.env.FACTORIOPORT) {
@@ -601,7 +578,7 @@ write-data=${ instance.path() }\r\n
 		
 			client.onDidAuthenticate(() => {
 				console.log('Clusterio | RCON Authenticated!');
-				instanceManagement(instanceconfig); // start using rcons
+				instanceManagement(config, instance, instanceconfig); // start using rcons
 			});
 			client.onDidConnect(() => {
 				console.log('Clusterio | RCON Connected!');
@@ -623,7 +600,7 @@ write-data=${ instance.path() }\r\n
 			});
 		} else if(process.platform == "linux"){
 			// don't open an RCON connection and just use stdio instead, does not work on windows.
-			instanceManagement(instanceconfig);
+			instanceManagement(config, instance, instanceconfig);
 			process.on('SIGINT', function () {
 				console.log("Caught interrupt signal, sending ^C");
 				serverprocess.kill("SIGINT");
@@ -637,14 +614,31 @@ write-data=${ instance.path() }\r\n
 }
 
 async function startClient() {
-	if (!fs.existsSync(config.instanceDirectory)) {
-		fs.mkdirSync(config.instanceDirectory);
-	}
-	if (!fs.existsSync("./sharedPlugins/")) {
-		fs.mkdirSync("sharedPlugins");
-	}
-	if (!fs.existsSync("./sharedMods/")) {
-		fs.mkdirSync("sharedMods");
+	// argument parsing
+	const args = require('minimist')(process.argv.slice(2));
+
+	const command = process.argv[2];
+
+	// add better stack traces on promise rejection
+	process.on('unhandledRejection', r => console.log(r));
+
+	console.log(`Requiring config from ${args.config || './config'}`);
+	const config = require(args.config || './config');
+
+	await fs.ensureDir(config.instanceDirectory);
+	await fs.ensureDir("sharedPlugins");
+	await fs.ensureDir("sharedMods");
+
+	let instance;
+	if (process.argv[3] !== undefined) {
+		let name = process.argv[3];
+		try {
+			checkFilename(name);
+		} catch (err) {
+			throw new Error(`Instance name ${err.message}`);
+		}
+		let dir = path.join(config.instanceDirectory, name);
+		instance = new Instance(dir, name);
 	}
 
 	// Set the process title, shows up as the title of the CMD window on windows
@@ -653,8 +647,6 @@ async function startClient() {
 		process.title = "clusterioClient "+instance.name;
 	}
 
-	// add better stack traces on promise rejection
-	process.on('unhandledRejection', r => console.log(r));
 
 	// make sure we have the master access token (can't write to master without it since clusterio 2.0)
 	if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
@@ -664,19 +656,26 @@ async function startClient() {
 		You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
 	}
 
+	// messageInterface Management
+	setInterval(function(){
+		let command=commandBuffer.shift();
+		if(command){
+			messageInterfaceInternal(command[0], command[1], command[2], command[3]);
+		}
+	},config.msBetweenCommands || 50);
 
 	// handle commandline parameters
 	if (!command || command == "help" || command == "--help") {
 		printUsage();
 		process.exit(1);
 	} else if (command == "list") {
-		await listInstances();
+		await listInstances(config);
 		process.exit(0);
 	} else if (command == "manage"){
-		await manage();
+		await manage(config, instance);
 		// process.exit(0);
 	} else if (command == "delete") {
-		await deleteInstance();
+		await deleteInstance(instance);
 	} else if (command == "download") {
 		await downloadMod();
 	} else if (command == "start" && instance === undefined) {
@@ -684,9 +683,9 @@ async function startClient() {
 		console.error("Usage: node client.js start [instanceName]");
 		process.exit(0);
 	} else if (command == "start" && !fs.existsSync(instance.path())) {
-		await createInstance();
+		await createInstance(config, args, instance);
 	} else if (command == "start" && fs.existsSync(instance.path())) {
-		await startInstance();
+		await startInstance(config, args, instance);
 	} else {
 		console.error("Invalid arguments, quitting.");
 		process.exit(1);
@@ -695,7 +694,7 @@ async function startClient() {
 
 // ensure instancemanagement only ever runs once
 var _instanceInitialized;
-async function instanceManagement(instanceconfig) {
+async function instanceManagement(config, instance, instanceconfig) {
 	if (_instanceInitialized) return;
 	_instanceInitialized = true;
 
@@ -843,7 +842,7 @@ async function instanceManagement(instanceconfig) {
 					global.mac = mac;
 					payload.mac = mac;
 					// console.log("Registered our presence with master "+config.masterURL+" at " + payload.time);
-					needle.post(config.masterURL + '/api/getID', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+					needle.post(config.masterURL + '/api/getID', payload, needleOptionsWithTokenAuthHeader(config), function (err, response, body) {
 						if (err && err.code != "ECONNRESET"){
                             console.error("We got problems, something went wrong when contacting master "+config.masterURL+" at " + payload.time);
 							console.error(err);
@@ -876,7 +875,7 @@ async function instanceManagement(instanceconfig) {
 				modName: modHashes[i].modName,
 				hash: modHashes[i].hash,
 			};
-			needle.post(config.masterURL + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+			needle.post(config.masterURL + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader(config), function (err, response, body) {
 				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
 				if(response && body && body == "found") {
 					console.log("master has mod "+modHashes[i].modName);
