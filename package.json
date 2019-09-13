@@ -5,7 +5,7 @@
   "repository": "https://github.com/clusterio/factorioClusterio",
   "main": "master.js",
   "scripts": {
-    "test": "mocha --exit --check-leaks -R spec \"./{,!(node_modules)/**/}*.spec.js\"",
+    "test": "mocha --exit --check-leaks -R spec --recursive test sharedPlugins/*/test",
     "fast-test": "FAST_TEST=y npm test",
     "cover": "nyc npm test",
     "fast-cover": "FAST_TEST=y nyc npm test",
@@ -13,6 +13,12 @@
     "start": "echo Run node client.js start [instance] to start slaves && node master.js",
     "install": "node lib/npmPostinstall.js",
     "bundle-dependencies": "bundle-dependencies"
+  },
+  "nyc": {
+    "exclude": [
+      "test/**",
+      "sharedPlugins/*/test/**"
+    ]
   },
   "keywords": [
     "factorio"

@@ -1,7 +1,7 @@
 const assert = require("assert");
 const util = require("util");
 
-const getFactorioLocale = require("./getFactorioLocale");
+const getFactorioLocale = require("lib/getFactorioLocale");
 const asObjectAsync = util.promisify(getFactorioLocale.asObject);
 
 describe("getFactorioLocale.js", function() {

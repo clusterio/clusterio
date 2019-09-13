@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
-const fileOps = require('./fileOps');
+const fileOps = require('lib/fileOps');
 
 // create folders for testing
 function setupTestingEnv(){

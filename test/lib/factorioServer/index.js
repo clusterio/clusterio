@@ -5,7 +5,7 @@ const path = require("path");
 const parallel = require("mocha.parallel");
 const mkdirp = require("mkdirp");
 
-const factorioServer = require("./index.js");
+const factorioServer = require("lib/factorioServer");
 
 describe("class factorioServer/index.js", ()=>{
 	it("is a class (or at least a function)", ()=>{

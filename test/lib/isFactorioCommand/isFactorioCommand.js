@@ -1,4 +1,4 @@
-const isFactorioCommand = require("./isFactorioCommand");
+const isFactorioCommand = require("lib/isFactorioCommand");
 const assert = require("assert");
 
 describe("inventoryImports/isFactorioCommand.js()", function(){

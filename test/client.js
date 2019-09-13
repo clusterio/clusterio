@@ -1,6 +1,6 @@
 const assert = require('assert').strict;
 
-const client = require("./client");
+const client = require("../client");
 
 describe("Client testing", function() {
 	describe("randomDynamicPort()", function() {
