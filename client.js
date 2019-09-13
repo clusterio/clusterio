@@ -102,7 +102,7 @@ function printUsage() {
 	console.error("node client.js manage");
 }
 
-async function listPlugins() {
+async function listInstances() {
 	let instanceNames = fileOps.getDirectoriesSync(config.instanceDirectory);
 	instanceNames.unshift("Name:");
 	let longestInstanceName = 0;
@@ -571,7 +571,7 @@ async function startClient() {
 		printUsage();
 		process.exit(1);
 	} else if (command == "list") {
-		await listPlugins();
+		await listInstances();
 		process.exit(0);
 	} else if (command == "manage"){
 		await manage();
