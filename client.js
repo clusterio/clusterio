@@ -12,6 +12,7 @@ const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
 const ioClient = require("socket.io-client");
+const asTable = require("as-table").configure({delimiter: ' | '});
 
 // internal libraries
 const objectOps = require("lib/objectOps.js");
@@ -104,47 +105,17 @@ function printUsage() {
 
 async function listInstances() {
 	let instanceNames = fileOps.getDirectoriesSync(config.instanceDirectory);
-	instanceNames.unshift("Name:");
-	let longestInstanceName = 0;
-	// determine longest instance name
-	instanceNames.forEach(function(instance){
-		if(instance.length > longestInstanceName) longestInstanceName = instance.length;
-	});
-	let displayLines = [];
-	// push name coloumn to array
-	instanceNames.forEach(function(instance){
-		while(instance.length < longestInstanceName+1){
-			instance += " ";
-		}
-		displayLines.push("| "+ instance + "|");
-	});
-	// create port colloumn
-	let factorioPorts = [];
-	instanceNames.forEach(function(instance){
-		let factorioPort;
-		
-		if(instance.includes("Name:")){
-			factorioPort = "Port:"
-		} else {
-			factorioPort = require(path.resolve(config.instanceDirectory, instance, 'config')).factorioPort;
-		}
-		factorioPorts.push(factorioPort);
-	});
-	factorioPorts.forEach((port, index) => {
-		let longestPort = 0;
-		factorioPorts.forEach((port, index) => {
-			if(port.toString().length > longestPort) longestPort = port.toString().length;
+	let instances = [];
+	for (instance of instanceNames) {
+		let cfg = path.resolve(config.instanceDirectory, instance, 'config');
+		let port = require(cfg).factorioPort;
+		instances.push({
+			"Name": instance,
+			"Port": port.toString(),
 		});
-		while(port.toString().length < longestPort){
-			port += " ";
-		}
-		factorioPorts[index] = port;
-	});
-	instanceNames.forEach(function(instance, index){
-		displayLines[index] += " " + factorioPorts[index] + " |";
-	});
-	
-	displayLines.forEach(line => console.log(line));
+	}
+
+	console.log(asTable(instances));
 }
 
 async function manage() {
