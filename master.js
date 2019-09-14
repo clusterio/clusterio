@@ -411,11 +411,7 @@ app.post("/api/rconPasswords", authenticate.middleware, function(req, res) {
 	}
 	res.send(slaveCache.cache);
 });
-/*
-var recievedItemStatistics = new averagedTimeSeries({
-	maxEntries: config.itemStats.maxEntries,
-	entriesPerSecond: config.itemStats.entriesPerSecond,
-}, console.log);*/
+
 var recievedItemStatisticsBySlaveID = {};
 var sentItemStatisticsBySlaveID = {};
 // 

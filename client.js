@@ -12,6 +12,9 @@ const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
 const rmdirSync = require('rmdir-sync');
 const ioClient = require("socket.io-client");
+const asTable = require("as-table").configure({delimiter: ' | '});
+const util = require("util");
+const crypto = require("crypto");
 
 // internal libraries
 const objectOps = require("lib/objectOps.js");
@@ -89,6 +92,57 @@ function messageInterface(command, callback) {
 	});
 }
 
+/**
+ * Give a random dynamic port
+ *
+ * Returns a random port number in the Dynamic Ports range as defined by
+ * RFC 6335.
+ *
+ * @return {number} a number in the range 49152 to 65535.
+ */
+function randomDynamicPort() {
+	const start = 49152;
+	const end = 65535 + 1;
+
+	return Math.floor(Math.random() * (end - start) + start)
+}
+
+/**
+ * Generate a secure random password of the given length
+ *
+ * Uses crypto.randomBytes to generate a secure alphanumeric password of
+ * the given length.
+ *
+ * @param {number} length - the length of the password to generate.
+ * @return {string} password of the given length
+ */
+async function generatePassword(length) {
+	function validChar(byte) {
+		const ranges = ['az', 'AZ', '09'];
+		return ranges.some(range =>
+			range.codePointAt(0) <= byte && byte <= range.codePointAt(1)
+		);
+	}
+	let randomBytesAsync = util.promisify(crypto.randomBytes);
+
+	let password = "";
+	while (true) {
+		let bytes = await randomBytesAsync((length - password.length) * 3);
+		for (let byte of bytes) {
+
+			// Crop to ASCII values only
+			byte = byte & 0x7f;
+
+			if (validChar(byte)) {
+				password += String.fromCharCode(byte);
+				if (password.length == length) {
+					return password;
+				}
+			}
+		}
+	}
+}
+
 function printUsage() {
 	console.error("Usage: ");
 	console.error("node client.js start [instance name]");
@@ -102,49 +156,19 @@ function printUsage() {
 	console.error("node client.js manage");
 }
 
-async function listPlugins() {
+async function listInstances() {
 	let instanceNames = fileOps.getDirectoriesSync(config.instanceDirectory);
-	instanceNames.unshift("Name:");
-	let longestInstanceName = 0;
-	// determine longest instance name
-	instanceNames.forEach(function(instance){
-		if(instance.length > longestInstanceName) longestInstanceName = instance.length;
-	});
-	let displayLines = [];
-	// push name coloumn to array
-	instanceNames.forEach(function(instance){
-		while(instance.length < longestInstanceName+1){
-			instance += " ";
-		}
-		displayLines.push("| "+ instance + "|");
-	});
-	// create port colloumn
-	let factorioPorts = [];
-	instanceNames.forEach(function(instance){
-		let factorioPort;
-		
-		if(instance.includes("Name:")){
-			factorioPort = "Port:"
-		} else {
-			factorioPort = require(path.resolve(config.instanceDirectory, instance, 'config')).factorioPort;
-		}
-		factorioPorts.push(factorioPort);
-	});
-	factorioPorts.forEach((port, index) => {
-		let longestPort = 0;
-		factorioPorts.forEach((port, index) => {
-			if(port.toString().length > longestPort) longestPort = port.toString().length;
+	let instances = [];
+	for (instance of instanceNames) {
+		let cfg = path.resolve(config.instanceDirectory, instance, 'config');
+		let port = require(cfg).factorioPort;
+		instances.push({
+			"Name": instance,
+			"Port": port.toString(),
 		});
-		while(port.toString().length < longestPort){
-			port += " ";
-		}
-		factorioPorts[index] = port;
-	});
-	instanceNames.forEach(function(instance, index){
-		displayLines[index] += " " + factorioPorts[index] + " |";
-	});
-	
-	displayLines.forEach(line => console.log(line));
+	}
+
+	console.log(asTable(instances));
 }
 
 async function manage() {
@@ -152,7 +176,7 @@ async function manage() {
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
-			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove", "update"]');
+			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove"]');
 		} else if(tool && tool == "config") {
 			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
 		} else if(tool && tool == "plugins") {
@@ -178,8 +202,6 @@ async function manage() {
 					await modManager.addMod(process.argv[6], instance);
 				} else if(action == "remove" || action == "rm" || action == "delete"){
 					await modManager.removeMod(process.argv[6], instance);
-				} else if(action == "update"){
-					await modManager.updateAllMods();
 				} else {
 					usage(instance, tool);
 				}
@@ -293,10 +315,10 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	// this line is probably not needed anymore but Im not gonna remove it
 	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
 	let instconf = {
-		"factorioPort": args.port || process.env.FACTORIOPORT || Math.floor(Math.random() * 65535),
-		"clientPort": args["rcon-port"] || process.env.RCONPORT || Math.floor(Math.random() * 65535),
+		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
+		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
 		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
-		"clientPassword": args["rcon-password"] || Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 8),
+		"clientPassword": args["rcon-password"] || await generatePassword(10),
 		"info": {}
 	}
 	console.log("Clusterio | Created instance with settings:")
@@ -571,7 +593,7 @@ async function startClient() {
 		printUsage();
 		process.exit(1);
 	} else if (command == "list") {
-		await listPlugins();
+		await listInstances();
 		process.exit(0);
 	} else if (command == "manage"){
 		await manage();
@@ -831,6 +853,11 @@ function hashMods(instanceName, callback) {
 	});
 }
 
+module.exports = {
+	// For testing only
+	_randomDynamicPort: randomDynamicPort,
+	_generatePassword: generatePassword,
+};
 
 if (module === require.main) {
 	console.warn(`
