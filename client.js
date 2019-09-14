@@ -32,10 +32,47 @@ const args = require('minimist')(process.argv.slice(2));
 var config = require(args.config || './config');
 var global = {};
 
-const instance = process.argv[3];
-const instancedirectory = config.instanceDirectory + '/' + instance;
-const command = process.argv[2];
+/**
+ * Keeps track of the runtime parameters of an instance
+ */
+class Instance {
+	constructor(dir, name) {
+		this._name = name;
+		this._dir = dir;
+	}
 
+	/**
+	 * Name of the instance
+	 *
+	 * This should not be used for filesystem paths.  See .path() for that.
+	 */
+	get name() {
+		return this._name;
+	}
+
+	/**
+	 * Return path in instance
+	 *
+	 * Creates a path using path.join with the given parts that's relative to
+	 * the directory of the instance.  For example instance.path("mods")
+	 * returns a path to the mods directory of the instance.  If no parts are
+	 * given it returns a path to the directory of the instance.
+	 */
+	path(...parts) {
+		return path.join(this._dir, ...parts);
+	}
+}
+
+
+let instance;
+
+if (process.argv[3] !== undefined) {
+	let name = process.argv[3];
+	let dir = path.join(config.instanceDirectory, name);
+	instance = new Instance(dir, name);
+}
+
+const command = process.argv[2];
 const needleOptionsWithTokenAuthHeader = {
 	compressed:true,
 	headers: {
@@ -176,18 +213,18 @@ async function manage() {
 	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
-			console.log('node client.js manage '+instance+' '+tool+' ["list", "search", "add", "remove"]');
+			console.log('node client.js manage '+instance.name+' '+tool+' ["list", "search", "add", "remove"]');
 		} else if(tool && tool == "config") {
-			console.log('node client.js manage '+instance+' '+tool+' ["list", "edit"]');
+			console.log('node client.js manage '+instance.name+' '+tool+' ["list", "edit"]');
 		} else if(tool && tool == "plugins") {
-			console.log(`node client.js manage ${instance} ${tool} ["list", "add", "remove"]`);
+			console.log(`node client.js manage ${instance.name} ${tool} ["list", "add", "remove"]`);
 		} else {
-			console.log('node client.js manage '+(instance || '[instance, "shared"]') +' '+ (tool || '["mods", "config", "plugins"]') + ' ...');
+			console.log('node client.js manage '+(instance && instance.name || '[instance, "shared"]') +' '+ (tool || '["mods", "config", "plugins"]') + ' ...');
 		}
 	}
 	const tool = process.argv[4] || "";
 	const action = process.argv[5] || "";
-	if(instance){
+	if (instance !== undefined) {
 		if(tool == "mods"){
 			(async function(){try{
 				// do require down here to reduce master load time
@@ -213,7 +250,7 @@ async function manage() {
 		} else if(tool == "config"){
 			// allow managing the config
 			if(action == "list" || action == "show" || action == "display"){
-				configManager.displayConfig(instance);
+				configManager.displayConfig(instance.name);
 			} else if(action == "edit"){
 				let newConfigValue = "";
 				process.argv.forEach((arg, i)=>{
@@ -258,15 +295,15 @@ async function manage() {
 }
 
 async function deleteInstance() {
-	if (!process.argv[3]) {
+	if (instance === undefined) {
 		console.error("Usage: node client.js delete [instance]");
 		process.exit(1);
-	} else if (typeof process.argv[3] == "string" && fs.existsSync(config.instanceDirectory+"/" + process.argv[3]) && process.argv[3] != "/" && process.argv[3] != "") {
-		fileOps.deleteFolderRecursiveSync(path.resolve(config.instanceDirectory, process.argv[3])); // TODO: Check if this can cause i-craft users to format their server by using wrong paths
-		console.log("Deleted instance " + process.argv[3]);
+	} else if (fs.existsSync(instance.path())) {
+		fileOps.deleteFolderRecursiveSync(instance.path()); // TODO: Check if this can cause i-craft users to format their server by using wrong paths
+		console.log("Deleted instance " + instance.name);
 		process.exit(0);
 	} else {
-		console.error("Instance not found: " + process.argv[3]);
+		console.error("Instance not found: " + instance.name);
 		process.exit(0);
 	}
 }
@@ -293,27 +330,26 @@ async function downloadMod() {
 async function createInstance() {
 	// if instance does not exist, create it
 	console.log("Creating instance...");
-	fs.mkdirSync(instancedirectory);
-	fs.mkdirSync(instancedirectory + "/script-output/");
-	fs.mkdirSync(instancedirectory + "/saves/");
-	fs.writeFileSync(instancedirectory + "/script-output/output.txt", "");
-	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
-	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-	fs.mkdirSync(instancedirectory + "/mods/");
-	fs.mkdirSync(instancedirectory + "/instanceMods/");
-    fs.mkdirSync(instancedirectory + "/scenarios/");
-    ncp("lib/scenarios", path.resolve(instancedirectory, "scenarios"), err => {
+	fs.mkdirSync(instance.path());
+	fs.mkdirSync(instance.path("script-output"));
+	fs.writeFileSync(instance.path("script-output", "output.txt"), "");
+	fs.writeFileSync(instance.path("script-output", "orders.txt"), "");
+	fs.writeFileSync(instance.path("script-output", "txbuffer.txt"), "");
+	fs.mkdirSync(instance.path("mods"));
+	fs.mkdirSync(instance.path("instanceMods"));
+    fs.mkdirSync(instance.path("scenarios"));
+    ncp("lib/scenarios", instance.path("scenarios"), err => {
         if (err) console.error(err)
     });
 
-	// fs.symlinkSync('../../../sharedMods', instancedirectory + "/mods", 'junction') // This is broken because it can only take a file as first argument, not a folder
-	fs.writeFileSync(instancedirectory + `/config.ini`, `[path]\r\n
+	// fs.symlinkSync('../../../sharedMods', instance.path("mods"), 'junction') // This is broken because it can only take a file as first argument, not a folder
+	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
 read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
-write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
+write-data=${ instance.path() }\r\n
 	`);
 
 	// this line is probably not needed anymore but Im not gonna remove it
-	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
+	fs.copySync('sharedMods', instance.path("mods"));
 	let instconf = {
 		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
@@ -325,11 +361,11 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 	console.log(instconf);
 
 	// create instance config
-	fs.writeFileSync(instancedirectory + "/config.json", JSON.stringify(instconf, null, 4));
+	fs.writeFileSync(instance.path("config.json"), JSON.stringify(instconf, null, 4));
 
-	let name = "Clusterio instance: " + instance;
+	let name = "Clusterio instance: " + instance.name;
 	if (config.username) {
-		name = config.username + "'s clusterio " + instance;
+		name = config.username + "'s clusterio " + instance.name;
 	}
 	let serversettings = {
 		"name": name,
@@ -348,15 +384,15 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		"afk_autokick_interval": 0,
 		"auto_pause": config.auto_pause,
 	};
-	fs.writeFileSync(instancedirectory + "/server-settings.json", JSON.stringify(serversettings, null, 4));
+	fs.writeFileSync(instance.path("server-settings.json"), JSON.stringify(serversettings, null, 4));
     console.log("Server settings: "+JSON.stringify(serversettings, null, 4));
     console.log("Creating save .....");
     let factorio = child_process.spawn(
         './' + config.factorioDirectory + '/bin/x64/factorio', [
-            '-c', instancedirectory + '/config.ini',
-            // '--create', instancedirectory + '/saves/save.zip',
+            '-c', instance.path("config.ini"),
+            // '--create', instance.path("saves", "save.zip"),
             '--start-server-load-scenario', 'Hotpatch',
-            '--server-settings', instancedirectory + '/server-settings.json',
+            '--server-settings', instance.path("server-settings.json"),
             '--rcon-port', Number(process.env.RCONPORT) || instconf.clientPort,
             '--rcon-password', instconf.clientPassword,
         ], {
@@ -401,36 +437,31 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 }
 
 async function startInstance() {
-	// Exit if no instance specified (it should be, just a safeguard);
-	if(instancedirectory != config.instanceDirectory+"/undefined"){
-		var instanceconfig = require(path.resolve(instancedirectory,'config'));
-		instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
-		if(process.env.FACTORIOPORT){
-			instanceconfig.factorioPort = process.env.FACTORIOPORT;
-		}
-		if(process.env.RCONPORT){
-			instanceconfig.rconPort = process.env.RCONPORT;
-		}
-	} else {
-		process.exit(1);
+	var instanceconfig = JSON.parse(await fs.readFile(instance.path("config.json")));
+	instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
+	if (process.env.FACTORIOPORT) {
+		instanceconfig.factorioPort = process.env.FACTORIOPORT;
+	}
+	if (process.env.RCONPORT) {
+		instanceconfig.rconPort = process.env.RCONPORT;
 	}
 	console.log("Deleting .tmp.zip files");
-	let savefiles = fs.readdirSync(path.join(instancedirectory,"saves"));
+	let savefiles = fs.readdirSync(instance.path("saves"));
 	for(i = 0; i < savefiles.length; i++){
 		if(savefiles[i].substr(savefiles[i].length - 8, 8) == ".tmp.zip") {
-			fs.unlinkSync(path.resolve(instancedirectory, "saves", savefiles[i]));
+			fs.unlinkSync(instance.path("saves", savefiles[i]));
 		}
 	}
 	console.log("Clusterio | Rotating old logs...");
 	// clean old log file to avoid crash
 	try{
-		let logPath = path.join(instancedirectory,'factorio-current.log');
+		let logPath = instance.path("factorio-current.log");
 		let stat = await fs.stat(logPath);
 		console.log(stat)
 		console.log(stat.isFile())
 		if(stat.isFile()){
 			let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
-			await fs.rename(logPath, path.join(instancedirectory, logFilename));
+			await fs.rename(logPath, instance.path(logFilename));
 			console.log(`Log rotated as ${logFilename}`);
 		}
 	}catch(e){}
@@ -438,26 +469,26 @@ async function startInstance() {
 	// (new Date).toGMTString()
 	
 	// move mods from ./sharedMods to the instances mod directory
-	try{fs.mkdirSync(path.join(instancedirectory, "instanceMods"));}catch(e){}
-	try{rmdirSync(path.join(instancedirectory, "mods"));}catch(e){}
+	try{fs.mkdirSync(instance.path("instanceMods"));}catch(e){}
+	try{rmdirSync(instance.path("mods"));}catch(e){}
 	try {
 		// mods directory that will be emptied (deleted) when closing the server to facilitate seperation of instanceMods and sharedMods
-		fs.mkdirSync(path.join(instancedirectory, "mods"));
+		fs.mkdirSync(instance.path("mods"));
 	} catch(e){}
 	console.log("Clusterio | Moving shared mods from sharedMods/ to instance/mods...");
-	fs.copySync('sharedMods', path.join(instancedirectory, "mods"));
+	fs.copySync('sharedMods', instance.path("mods"));
 	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
-	fs.copySync(path.join(instancedirectory, "instanceMods"), path.join(instancedirectory, "mods"));
+	fs.copySync(instance.path("instanceMods"), instance.path("mods"));
 	
 	// Set paths for factorio so it reads and writes from the correct place even if the instance is imported from somewhere else
-	fs.writeFileSync(instancedirectory + `/config.ini`, `[path]\r\n
+	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
 read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
-write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
+write-data=${ instance.path() }\r\n
 	`);
 	
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
-	fileOps.getNewestFile(instancedirectory + "/saves/", fs.readdirSync(instancedirectory + "/saves/"),function(err, latestSave) {
+	fileOps.getNewestFile(instance.path("saves"), fs.readdirSync(instance.path("saves")),function(err, latestSave) {
 		if(err) {
 			console.error("ERROR!");
 			console.error("Your savefile seems to be missing. This might because you created an instance without having factorio\
@@ -467,11 +498,11 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 		// implicit global
 		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
-				'-c', instancedirectory + '/config.ini',
+				'-c', instance.path("config.ini"),
 				'--start-server', latestSave.file,
 				'--rcon-port', args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
 				'--rcon-password', args["rcon-password"] || instanceconfig.clientPassword,
-				'--server-settings', instancedirectory + '/server-settings.json',
+				'--server-settings', instance.path("server-settings.json"),
 				'--port', args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort
 			], {
 				'stdio': ['pipe', 'pipe', 'pipe']
@@ -507,7 +538,7 @@ write-data=${ path.resolve(config.instanceDirectory, instance) }\r\n
 			// check the logfile to see if the RCON interface is running as there is no way to continue without it
 			// we read the log every 2 seconds and stop looping when we start connecting to factorio
 			function checkRcon() {
-				fs.readFile(instancedirectory+"/factorio-current.log", function (err, data) {
+				fs.readFile(instance.path("factorio-current.log"), function (err, data) {
 					// if (err) console.error(err);
 					if(data && data.indexOf('Starting RCON interface') > 0){
 						client.connect({
@@ -574,7 +605,9 @@ async function startClient() {
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioClient "+instance;
+	if (instance) {
+		process.title = "clusterioClient "+instance.name;
+	}
 
 	// add better stack traces on promise rejection
 	process.on('unhandledRejection', r => console.log(r));
@@ -606,9 +639,9 @@ async function startClient() {
 		console.error("ERROR: No instanceName provided!");
 		console.error("Usage: node client.js start [instanceName]");
 		process.exit(0);
-	} else if (command == "start" && typeof instance == "string" && instance != "/" && !fs.existsSync(instancedirectory)) {
+	} else if (command == "start" && !fs.existsSync(instance.path())) {
 		await createInstance();
-	} else if (command == "start" && typeof instance == "string" && instance != "/" && fs.existsSync(instancedirectory)) {
+	} else if (command == "start" && fs.existsSync(instance.path())) {
 		await startInstance();
 	} else {
 		console.error("Invalid arguments, quitting.");
@@ -644,7 +677,7 @@ async function instanceManagement(instanceconfig) {
 	for(let i = 0; i < pluginsToLoad.length; i++){
 		let pluginLoadStarted = Date.now();
 		let combinedConfig = deepmerge(instanceconfig,config,{clone:true});
-		combinedConfig.instanceName = instance;
+		combinedConfig.instanceName = instance.name;
 		let pluginConfig = pluginsToLoad[i];
 		
 		if(!global.subscribedFiles) {
@@ -674,23 +707,27 @@ async function instanceManagement(instanceconfig) {
 					throw "FATAL ERROR IN " + pluginConfig.name + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
 				}
 				
-				if (!fs.existsSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription)) {
+				let outputPath = instance.path(
+					"script-output",
+					pluginConfig.scriptOutputFileSubscription
+				);
+				if (!fs.existsSync(outputPath)) {
 					// Do something
-					fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
+					fs.writeFileSync(outputPath, "");
 				}
 				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
-				console.log("Clusterio | Registered file subscription on "+instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
+				console.log("Clusterio | Registered file subscription on "+outputPath);
 				
 
 				if(!pluginConfig.fileReadDelay || pluginConfig.fileReadDelay == 0) {
 					// only wipe the file on restart for now, should most likely be rotated during runtime too
-                    fs.writeFileSync(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, "");
-                    let tail = new Tail(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription);
+                    fs.writeFileSync(outputPath, "");
+                    let tail = new Tail(outputPath);
                     tail.on("line", function (data) {
                         plugins[i].scriptOutput(data);
                     });
                 } else {
-                    fs.watch(instancedirectory + "/script-output/" + pluginConfig.scriptOutputFileSubscription, fileChangeHandler);
+                    fs.watch(outputPath, fileChangeHandler);
                     // run once in case a plugin wrote out information before the plugin loaded fully
                     // delay, so the socket got enough time to connect
                     setTimeout(() => {
@@ -703,11 +740,11 @@ async function instanceManagement(instanceconfig) {
                             setTimeout(
                                 () => {
                                     // get array of lines in file
-                                    let stuff = fs.readFileSync(instancedirectory + "/script-output/" + filename, "utf8").split("\n");
+                                    let stuff = fs.readFileSync(instance.path("script-output", filename), "utf8").split("\n");
 
                                     // if you found anything, reset the file
                                     if (stuff[0]) {
-                                        fs.writeFileSync(instancedirectory + "/script-output/" + filename, "");
+                                        fs.writeFileSync(instance.path("script-output", filename), "");
                                     }
                                     for (let o = 0; o < stuff.length; o++) {
                                         if (stuff[o] && !stuff[o].includes('\u0000\u0000')) {
@@ -745,7 +782,7 @@ async function instanceManagement(instanceconfig) {
 					unique: instanceconfig.unique,
 					publicIP: config.publicIP, // IP of the server should be global for all instances, so we pull that straight from the config
 					mods:modHashes,
-					instanceName: instance,
+					instanceName: instance.name,
 					info: instanceconfig.info,
 				};
 				if(playerCount){
@@ -817,7 +854,7 @@ async function instanceManagement(instanceconfig) {
 							}
 						});
 						var form = req.form();
-						form.append('file', fs.createReadStream(config.instanceDirectory+"/"+instance+"/mods/"+mod));
+						form.append('file', fs.createReadStream(instance.path("mods", mod)));
 					} else {
 						console.log("Not sending mod: " + mod + " to master because config.uploadModsToMaster is not enabled")
 					}
@@ -829,24 +866,23 @@ async function instanceManagement(instanceconfig) {
 
 // string, function
 // returns [{modName:string,hash:string}, ... ]
-function hashMods(instanceName, callback) {
+function hashMods(instance, callback) {
 	if(!callback) {
 		throw new Error("ERROR in function hashMods NO CALLBACK");
 	}
 
-	let modsDir = config.instanceDirectory+"/"+instanceName+"/mods/";
 	function hashMod(name) {
 		if (path.extname(name) != ".zip") {
 			// Can't hash unzipped mods, return null that's filtered out later
 			return null;
 		} else {
-			return hashFile(modsDir+name).then(hash => (
+			return hashFile(instance.path("mods", name)).then(hash => (
 				{modName: name, hash: hash}
 			));
 		}
 	}
 
-	let promises = fs.readdirSync(modsDir).map(hashMod);
+	let promises = fs.readdirSync(instance.path("mods")).map(hashMod);
 	Promise.all(promises).then(hashes => {
 		// Remove null entries from hashMod
 		callback(hashes.filter(entry => entry !== null));
@@ -855,6 +891,7 @@ function hashMods(instanceName, callback) {
 
 module.exports = {
 	// For testing only
+	_Instance: Instance,
 	_randomDynamicPort: randomDynamicPort,
 	_generatePassword: generatePassword,
 };

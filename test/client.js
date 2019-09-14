@@ -1,8 +1,24 @@
 const assert = require('assert').strict;
+const path = require('path');
 
 const client = require("../client");
 
 describe("Client testing", function() {
+	describe("class Instance", function() {
+		let instance = new client._Instance("dir", "foo")
+		it("should give the name on .name", function() {
+			assert.equal(instance.name, "foo");
+		})
+
+		it("should give the path to it on .path()", function() {
+			assert.equal(instance.path(), "dir");
+		})
+
+		it("should join path on .path(...parts)", function() {
+			assert.equal(instance.path("bar"), path.join("dir", "bar"));
+		})
+	});
+
 	describe("randomDynamicPort()", function() {
 		it("should return a port number", function() {
 			let port = client._randomDynamicPort()
