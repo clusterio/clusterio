@@ -1,6 +1,6 @@
 const assert = require("assert");
 const child_process = require("child_process");
-const functions = require("./interfacingFunctions");
+const functions = require("../interfacingFunctions");
 const luamin = require("luamin");
 const isFactorioCommand = require("lib/isFactorioCommand");
 const nock = require("nock");

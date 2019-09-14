@@ -1,5 +1,5 @@
 const assert = require("assert");
-const stringUtils = require("./stringUtils");
+const stringUtils = require("lib/stringUtils");
 
 describe("stringUtils.js", function(){
 	describe("hashCode", function(){

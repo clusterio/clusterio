@@ -3,7 +3,7 @@ const nock = require("nock");
 
 const isFactorioCommand = require("lib/isFactorioCommand");
 
-const researchSync = require("./index.js");
+const researchSync = require("../index.js");
 
 describe("researchSync/index.js", function() {
 	it("exports a single class (or at least a function)", function() {

@@ -1,4 +1,4 @@
-const isJson = require("./isJson");
+const isJson = require("../isJson");
 const assert = require("assert");
 
 describe("inventoryImports/isJson.js()", function(){
