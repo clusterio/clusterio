@@ -63,11 +63,55 @@ class Instance {
 	}
 }
 
+function checkFilename(name) {
+	// All of these are bad in Windows only, except for /, . and ..
+	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
+	const badEnd = /[. ]$/;
+
+	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+	const badNames = [
+		// Relative path components
+		'.', '..',
+
+		// Reserved filenames in Windows
+		'CON', 'PRN', 'AUX', 'NUL',
+		...oneToNine.map(n => `COM${n}`),
+		...oneToNine.map(n => `LPT${n}`),
+	];
+
+	if (typeof name !== "string") {
+		throw new Error("must be a string");
+	}
+
+	if (name === "") {
+		throw new Error("cannot be empty");
+	}
+
+	if (badChars.test(name)) {
+		throw new Error('cannot contain <>:"\\/|=* or control characters');
+	}
+
+	if (badNames.includes(name.toUpperCase())) {
+		throw new Error(
+			"cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9"
+		);
+	}
+
+	if (badEnd.test(name)) {
+		throw new Error("cannot end with . or space");
+	}
+}
 
 let instance;
 
 if (process.argv[3] !== undefined) {
 	let name = process.argv[3];
+	try {
+		checkFilename(name);
+	} catch (err) {
+		throw new Error(`Instance name ${err.message}`);
+	}
 	let dir = path.join(config.instanceDirectory, name);
 	instance = new Instance(dir, name);
 }
@@ -892,6 +936,7 @@ function hashMods(instance, callback) {
 module.exports = {
 	// For testing only
 	_Instance: Instance,
+	_checkFilename: checkFilename,
 	_randomDynamicPort: randomDynamicPort,
 	_generatePassword: generatePassword,
 };

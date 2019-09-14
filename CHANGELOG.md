@@ -19,6 +19,7 @@ Version 2.0.0
 - The masterIP and masterPort config entries has been merged into masterURL.
   Breaks discordChat, playerManager, serverSelect, trainTeleports and
   clusterioModel.
+- Instance names can no longer be invalid Windows file names.
 
 
 Version 1.2.1
