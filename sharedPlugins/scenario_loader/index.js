@@ -8,7 +8,7 @@ module.exports = class remoteCommands {
 		this.config = mergedConfig;
 		
 		(async () => {
-			let hotpatchInstallStatus = await this.checkHotpatchInstallation();
+			let hotpatchInstallStatus = await clusterTools.checkHotpatchInstallation(messageInterface);
 			messageInterface("Hotpach installation status: "+hotpatchInstallStatus);
 			if(hotpatchInstallStatus){
 				await this.loadScenariosFromFolder("scenarios") // located in project root folder (with sharedMods, sharedPlugins etc)
@@ -64,15 +64,6 @@ module.exports = class remoteCommands {
 				if(returnValue) this.messageInterface(returnValue);
 				this.messageInterface(`Loaded scenario ${scenarios[i]} in ${Math.floor(Date.now()-startTime)}ms`);
 			}
-		}
-	}
-	async checkHotpatchInstallation(){
-		let yn = await this.messageInterface("/silent-command if remote.interfaces['hotpatch'] then rcon.print('true') else rcon.print('false') end");
-		yn = yn.replace(/(\r\n\t|\n|\r\t)/gm, "");
-		if(yn == "true"){
-			return true;
-		} else if(yn == "false"){
-			return false;
 		}
 	}
 }
