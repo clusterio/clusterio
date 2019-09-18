@@ -1,0 +1,54 @@
+<!doctype HTML>
+<head>
+	<%- include("head") %>
+	<!-- <script src="slaveDisplay.js"></script> -->
+</head>
+
+<body>
+	<%- include("nav") %>
+	<div id="body" class="container">
+		<div class="page-header mt-2 row" id="banner">
+			<div class="col-lg-8 col-md-7 col-sm-6">
+				<h2>Connected Nodes</h2>
+			</div>
+		</div>
+		<div id="display"><%
+for (let [id, slave] of locals.slaves) { %>
+			<div id="<%= id %>" class="slaveBox card mb-3">
+				<div class="card-body">
+					<h5 class="card-title"><a href='nodeDetails?instanceID=<%=id%>'>
+						<%= slave.instanceName %>
+					</a></h5>
+				</div>
+				<ul class="list-group list-group-flush">
+					<li class="list-group-item">ID: <%= id %></li>
+					<li class="list-group-item">Last seen: <%= moment(Number(slave.time)).format("DD.MM.YY, hh:mm") %></li>
+					<li class="list-group-item">Online players: <%= slave.playerCount %></li>
+					<li class="list-group-item">IP: <%= slave.publicIP %>:<%= slave.serverPort %></li>
+					<li class="list-group-item">Host: <%= slave.mac %></li>
+				</ul><%
+	for (let o in locals.masterPlugins) {
+		let plug = locals.masterPlugins[o];
+		if (
+			plug.main
+			&& plug.main.ui
+			&& typeof plug.main.ui.slaveListing == "object"
+			&& Array.isArray(plug.main.ui.slaveListing)
+		) {
+			let slaveListingEntries = plug.main.ui.slaveListing;
+			for (let i in slaveListingEntries) {
+				let button = slaveListingEntries[i];
+				if (button.getHtml && typeof button.getHtml == "function") { %>
+				<div class="plugin-link"><%- button.getHtml({slave}) %></div><%
+				}
+			}
+		}
+	} %>
+			</div><%
+} %>
+		</div>
+	</div>
+	<script>
+		$('.plugin-link a').addClass('btn btn-primary')
+	</script>
+</body>

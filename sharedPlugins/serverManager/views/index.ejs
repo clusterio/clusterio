@@ -1,12 +1,12 @@
 <!doctype HTML>
 <head>
-	<%- include("./../../../static/head.html") %>
+	<%- include("head") %>
 	<link rel="stylesheet" type="text/css" href="/serverManager/serverManager.css">
 	<!-- <script defer type="module" src="/serverManager/index.js"></script> -->
 </head>
 
 <body>
-	<%- include("./../../../static/sidebar.html") %>
+	<%- include("sidebar") %>
 	<div id="body">
 		<div id="serverlistDisplayContainer" class="serverManagerMainContainer">
 			<%
@@ -33,6 +33,6 @@
 		</div>
 	</div>
 	<script>
-		<%- include("./index.js") %>
+		<%- include("serverManager/static/index.js") %>
 	</script>
 </body>

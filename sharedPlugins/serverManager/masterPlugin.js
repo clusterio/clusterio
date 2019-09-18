@@ -69,8 +69,8 @@ class masterPlugin {
 		let pages = [
 			{
 				addr: "/serverManager",
-				path: path.join(__dirname,"static/index.html"),
-				render: ejs
+				path: "serverManager/views/index",
+				render: true
 			},
 		]
 		pages.forEach(page => {
@@ -81,14 +81,10 @@ class masterPlugin {
 					} else {
 						var permissions = {};
 					}
-					page.render.renderFile(page.path, {
+					res.render(page.path, {
 						permissions,
 						serverManager: this,
 						req: req,
-					}, async (err, prom) => {
-						if(err) console.log(err);
-						let str = await prom;
-						res.send(str);
 					});
 				} else {
 					res.send(await fs.readFile(page.path));
