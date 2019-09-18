@@ -248,10 +248,10 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 	// time us a unix timestamp we can use to check for how long the server has been unresponsive
 	// we should save that somewhere and give appropriate response
 	if(req.body){
-		if (!db.slaves.has(req.body.unique)) {
-			db.slaves.set(req.body.unique, {});
+		if (!db.slaves.has(String(req.body.unique))) {
+			db.slaves.set(String(req.body.unique), {});
 		}
-		let slave = db.slaves.get(req.body.unique);
+		let slave = db.slaves.get(String(req.body.unique));
 		for(let k in req.body){
 			if(k != "meta" && req.body.hasOwnProperty(k)){
 				slave[k] = req.body[k];
@@ -272,8 +272,8 @@ app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
 	// {instanceID, pass, meta:{x,y,z}}
 
 	if(req.body && req.body.instanceID && req.body.meta){
-		if (db.slaves.has(req.body.instanceID)) {
-			let slave = db.slaves.get(req.body.instanceID);
+		if (db.slaves.has(String(req.body.instanceID))) {
+			let slave = db.slaves.get(String(req.body.instanceID));
 			if(!slave.meta) {
 				slave.meta = {};
 			}
@@ -300,8 +300,8 @@ app.post("/api/getSlaveMeta", function (req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	console.log("body", req.body);
 	if(req.body && req.body.instanceID){
-		if (db.slaves.has(req.body.instanceID)) {
-			let slave = db.slaves.get(req.body.instanceID);
+		if (db.slaves.has(String(req.body.instanceID))) {
+			let slave = db.slaves.get(String(req.body.instanceID));
 			console.log("returning meta for ", req.body.instanceID);
 			if(!slave.meta) {
 				slave.meta = {};
@@ -508,8 +508,8 @@ app.post("/api/remove", authenticate.middleware, function(req, res) {
 	if(!object.instanceName) {
 		object.instanceName = "unknown";
 	}
-	if (db.slaves.has(object.instanceID)) {
-		object.instanceName = db.slaves.get(object.instanceID).instanceName;
+	if (db.slaves.has(String(object.instanceID))) {
+		object.instanceName = db.slaves.get(String(object.instanceID)).instanceName;
 	}
 	let itemCount = db.items.getItemCount(object.name);
 	if (

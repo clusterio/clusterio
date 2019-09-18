@@ -10,8 +10,7 @@ module.exports = class remoteCommands {
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		const pluginManager = require("lib/manager/pluginManager.js");
-		const configManager = require("lib/manager/configManager.js");
-		// const modManager = require("lib/manager/modManager.js")(this.config);
+		// const modManager = require("lib/manager/modManager");
 		this.socket.on("hello", () => {
 			this.socket.emit("registerServerManager");
 		});
@@ -20,15 +19,8 @@ module.exports = class remoteCommands {
 		});
 		this.socket.on("serverManagerGetMods", async (data, callback) => {
 			// TODO: Implement this function separately from listMods (which console.logs it)
-			// let mods = modManager.getMods()
+			// let mods = modManager.getMods(this.config)
 			// callback(mods);
-		});
-		this.socket.on("serverManagerGetConfig", async (data, callback) => {
-			let config = await configManager.getConfig(data.instance);
-			callback(config);
-		});
-		this.socket.on("serverManagerEditConfig", async (data, callback) => {
-			callback(configManager.editConfig(data.instance, data.entry, data.value));
 		});
 		this.socket.on("serverManagerGetPlugins", async (data, callback) => {
 			callback(await pluginManager.getPlugins());
