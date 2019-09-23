@@ -331,9 +331,6 @@ async function createInstance(config, args, instance) {
 	console.log("Creating instance...");
 	fs.mkdirSync(instance.path());
 	fs.mkdirSync(instance.path("script-output"));
-	fs.writeFileSync(instance.path("script-output", "output.txt"), "");
-	fs.writeFileSync(instance.path("script-output", "orders.txt"), "");
-	fs.writeFileSync(instance.path("script-output", "txbuffer.txt"), "");
 	fs.mkdirSync(instance.path("mods"));
 	fs.mkdirSync(instance.path("instanceMods"));
     fs.mkdirSync(instance.path("scenarios"));

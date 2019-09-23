@@ -10,6 +10,12 @@ const getLua = require("lib/clusterTools/getLua");
 const pluginConfig = require("./config");
 const COMPRESS_LUA = false;
 
+function ensureFileSync(path) {
+	if (!fs.existsSync(path)) {
+		fs.outputFileSync(path, "");
+	}
+}
+
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
 		this.messageInterface = messageInterface;
@@ -27,6 +33,10 @@ module.exports = class remoteCommands {
 				'x-access-token': this.config.masterAuthToken
 			},
 		};
+
+		ensureFileSync(instancedirectory + "/script-output/output.txt");
+		ensureFileSync(instancedirectory + "/script-output/orders.txt");
+		ensureFileSync(instancedirectory + "/script-output/txbuffer.txt");
 		
 		(async ()=>{
 			let hotpatchInstallStatus = await checkHotpatchInstallation(this.messageInterface);
