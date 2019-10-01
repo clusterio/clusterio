@@ -10,7 +10,6 @@ const ncp = require('ncp').ncp;
 const Rcon = require('rcon-client-fork').Rcon;
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
-const rmdirSync = require('rmdir-sync');
 const ioClient = require("socket.io-client");
 const asTable = require("as-table").configure({delimiter: ' | '});
 const util = require("util");
@@ -326,26 +325,84 @@ async function downloadMod() {
 	}
 }
 
+/**
+ * Create and update symlinks for shared mods in an instance
+ *
+ * Creates symlinks for .zip and .dat files that are not present in the
+ * instance mods directory but is present in the sharedMods directory,
+ * and removes any symlinks that don't point to a file in the instance
+ * mods directory.  If the instance mods directory doesn't exist it will
+ * be created.
+ *
+ * Note that on Windows this creates hard links instead of symbolic
+ * links as the latter requires elevated privileges.  This unfortunately
+ * means the removal of mods from the shared mods dir can't be detected.
+ *
+ * @param {Instance} instance - Instance to link mods for
+ * @param {string} sharedMods - Path to folder to link mods from.
+ * @param {object} logger - console like logging interface.
+ */
+async function symlinkMods(instance, sharedMods, logger) {
+	await fs.ensureDir(instance.path("mods"));
+
+	// Remove broken symlinks in instance mods.
+	for (let entry of await fs.readdir(instance.path("mods"), { withFileTypes: true })) {
+		if (entry.isSymbolicLink()) {
+			if (!await fs.pathExists(instance.path("mods", entry.name))) {
+				logger.log(`Removing broken symlink ${entry.name}`);
+				await fs.unlink(instance.path("mods", entry.name));
+			}
+		}
+	}
+
+	// Link entries that are in sharedMods but not in instance mods.
+	let instanceModsEntries = new Set(await fs.readdir(instance.path("mods")));
+	for (let entry of await fs.readdir(sharedMods, { withFileTypes: true })) {
+		if (entry.isFile()) {
+			if (['.zip', '.dat'].includes(path.extname(entry.name))) {
+				if (!instanceModsEntries.has(entry.name)) {
+					logger.log(`linking ${entry.name} from ${sharedMods}`);
+					let target = path.join(sharedMods, entry.name);
+					let link = instance.path("mods", entry.name);
+
+					if (process.platform !== "win32") {
+						await fs.symlink(path.relative(path.dirname(link), target), link);
+
+					// On Windows symlinks require elevated privileges, which is
+					// not something we want to have.  For this reason the mods
+					// are hard linked instead.  This has the drawback of not
+					// being able to identify when mods are removed from the
+					// sharedMods directory, or which mods are linked.
+					} else {
+						await fs.link(target, link);
+					}
+				}
+
+			} else {
+				logger.warning(`Warning: ignoring file '${entry.name}' in sharedMods`);
+			}
+
+		} else {
+			logger.warning(`Warning: ignoring non-file '${entry.name}' in sharedMods`);
+		}
+	}
+}
+
 async function createInstance(config, args, instance) {
-	// if instance does not exist, create it
-	console.log("Creating instance...");
-	fs.mkdirSync(instance.path());
-	fs.mkdirSync(instance.path("script-output"));
-	fs.mkdirSync(instance.path("mods"));
-	fs.mkdirSync(instance.path("instanceMods"));
+	console.log(`Creating ${instance.path()}`);
+	await fs.ensureDir(instance.path());
+	await fs.ensureDir(instance.path("script-output"));
     fs.mkdirSync(instance.path("scenarios"));
     ncp("lib/scenarios", instance.path("scenarios"), err => {
         if (err) console.error(err)
     });
 
-	// fs.symlinkSync('../../../sharedMods', instance.path("mods"), 'junction') // This is broken because it can only take a file as first argument, not a folder
 	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
 read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
 write-data=${ instance.path() }\r\n
 	`);
 
-	// this line is probably not needed anymore but Im not gonna remove it
-	fs.copySync('sharedMods', instance.path("mods"));
+	await symlinkMods(instance, "sharedMods", console);
 	let instconf = {
 		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
@@ -462,21 +519,9 @@ async function startInstance(config, args, instance) {
 			console.log(`Log rotated as ${logFilename}`);
 		}
 	}catch(e){}
-	// Math.floor(Date.now()/1000)
-	// (new Date).toGMTString()
-	
-	// move mods from ./sharedMods to the instances mod directory
-	try{fs.mkdirSync(instance.path("instanceMods"));}catch(e){}
-	try{rmdirSync(instance.path("mods"));}catch(e){}
-	try {
-		// mods directory that will be emptied (deleted) when closing the server to facilitate seperation of instanceMods and sharedMods
-		fs.mkdirSync(instance.path("mods"));
-	} catch(e){}
-	console.log("Clusterio | Moving shared mods from sharedMods/ to instance/mods...");
-	fs.copySync('sharedMods', instance.path("mods"));
-	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
-	fs.copySync(instance.path("instanceMods"), instance.path("mods"));
-	
+
+	await symlinkMods(instance, "sharedMods", console);
+
 	// Set paths for factorio so it reads and writes from the correct place even if the instance is imported from somewhere else
 	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
 read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
@@ -920,6 +965,7 @@ module.exports = {
 	_checkFilename: checkFilename,
 	_randomDynamicPort: randomDynamicPort,
 	_generatePassword: generatePassword,
+	_symlinkMods: symlinkMods,
 };
 
 if (module === require.main) {

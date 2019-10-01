@@ -13,6 +13,9 @@ Version 2.0.0
 - Added plugins directory to the views path.  This makes it possible for
   plugins to render their own ejs views or pages in their own folders by
   using paths of the format "pluginName/path/to/page-or-view".
+- Replaced the per instance copy of the shared Factorio mods with
+  symlinks.  On Windows hard links are used instead due to the
+  privileges requirements of symlinks.
 
 ### Breaking Changes
 
@@ -25,6 +28,9 @@ Version 2.0.0
 - Removed config management from the command line and the server manager.
 - Moved ejs templates into views folder and changed their extension to
   .ejs.  Breaks playerManager.
+- Mods are no longer copied from the per instance instanceMods directory.
+  If you need per instance mods you can now place them directly in the mods
+  directory inside the instance folder.
 
 
 Version 1.2.2

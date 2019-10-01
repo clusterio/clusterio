@@ -1,5 +1,6 @@
 const assert = require('assert').strict;
 const path = require('path');
+const fs = require('fs-extra');
 
 const client = require("../client");
 
@@ -103,6 +104,62 @@ describe("Client testing", function() {
 		it("should contain only a-z, A-Z, 0-9", async function() {
 			let password = await client._generatePassword(10);
 			assert(/^[a-zA-Z0-9]+$/.test(password), `${password} failed test`);
+		});
+	});
+
+	describe("symlinkMods()", function() {
+		// Remove previous test output
+		let testDir = path.join("test", "temp", "symlink");
+		fs.removeSync(testDir);
+
+		// Add some test mods
+		fs.outputFileSync(path.join(testDir, "shared", "mod_a.zip"), "a");
+		fs.outputFileSync(path.join(testDir, "shared", "mod_b.zip"), "b");
+		fs.outputFileSync(path.join(testDir, "shared", "mod.dat"), "c");
+		let instance = new client._Instance(path.join(testDir, "instance"), "test");
+		fs.outputFileSync(instance.path("mods", "mod_i.zip"), "i");
+
+		let discardingLogger = {
+			warning: function() { },
+			log: function() { },
+		}
+
+		it("should link mods and data files", async function() {
+			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+
+			assert.equal(await fs.readFile(instance.path("mods", "mod_a.zip"), "utf-8"), "a");
+			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
+			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
+			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
+		});
+
+		it("should ignore directories", async function() {
+			await fs.ensureDir(path.join(testDir, "shared", "dir"));
+			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+
+			assert(!await fs.exists(instance.path("mods", "dir"), "utf-8"), "dir was unxpectedly linked");
+		});
+
+		it("should ignore files", async function() {
+			await fs.outputFile(path.join(testDir, "shared", "file"), "f");
+			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+
+			assert(!await fs.exists(instance.path("mods", "file"), "utf-8"), "dir was unxpectedly linked");
+		});
+
+		it("should unlink removed mods", async function() {
+			// This does not work on Windows
+			if (process.platform == "win32") {
+				this.skip();
+			}
+
+			await fs.unlink(path.join(testDir, "shared", "mod_a.zip"));
+			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+
+			await assert.rejects(fs.lstat(instance.path("mods", "mod_a.zip")), { code: "ENOENT" });
+			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
+			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
+			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
 		});
 	});
 });
