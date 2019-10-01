@@ -16,6 +16,8 @@ Version 2.0.0
 - Replaced the per instance copy of the shared Factorio mods with
   symlinks.  On Windows hard links are used instead due to the
   privileges requirements of symlinks.
+- Changed the per instance scenario folder to be linked instead of
+  copied on instance creation.
 
 ### Breaking Changes
 

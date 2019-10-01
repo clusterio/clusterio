@@ -55,7 +55,6 @@
     "mkdirp": "^0.5.1",
     "mkdirp-promise": "^5.0.1",
     "moment": "^2.22.2",
-    "ncp": "^2.0.0",
     "needle": "^2.4.0",
     "node-factorio-api": "^0.3.8",
     "node-forge": "^0.7.1",

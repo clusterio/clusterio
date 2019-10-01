@@ -6,7 +6,6 @@ const child_process = require('child_process');
 const path = require('path');
 const syncRequest = require('sync-request');
 const request = require("request");
-const ncp = require('ncp').ncp;
 const Rcon = require('rcon-client-fork').Rcon;
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
@@ -392,10 +391,9 @@ async function createInstance(config, args, instance) {
 	console.log(`Creating ${instance.path()}`);
 	await fs.ensureDir(instance.path());
 	await fs.ensureDir(instance.path("script-output"));
-    fs.mkdirSync(instance.path("scenarios"));
-    ncp("lib/scenarios", instance.path("scenarios"), err => {
-        if (err) console.error(err)
-    });
+	let target = path.join("lib", "scenarios");
+	let link = instance.path("scenarios");
+	await fs.symlink(path.relative(path.dirname(link), target), link, 'junction');
 
 	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
 read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
