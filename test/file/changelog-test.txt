@@ -1,0 +1,13 @@
+---------------------------------------------------------------------------------------------------
+NotVersion: Wrong
+Version: 0.1.1
+Date: 04. 09. 2019
+  Changes:
+    - Test for changelog
+  Bugfixes:
+    - Has the same format as factorio's changelog
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 03. 09. 2019
+  Changes:
+    - Nothing

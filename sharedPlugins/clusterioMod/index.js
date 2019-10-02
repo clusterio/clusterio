@@ -17,6 +17,9 @@ function ensureFileSync(path) {
 
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
+		// Ugly global
+		global.confirmedOrders = [];
+
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
