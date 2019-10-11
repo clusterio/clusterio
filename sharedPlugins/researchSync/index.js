@@ -271,9 +271,9 @@ class ResearchSync {
             this.research[name].progress = null
             let command = this.functions.enableResearch;
             command = command.replace(/{tech_name}/g, name);
-            command = command.replace(/{tech_researched}/g, tech.researched);
             command = command.replace(/{tech_level}/g, tech.level);
             command = command.replace(/{tech_infinite}/g, tech.infinite);
+            command = command.replace(/{tech_progress}/g, tech.progress)
             command = command.replace(/{notify}/g, notify);
             this.messageInterface(command);
             let log_message = tech.infinite
