@@ -11,15 +11,22 @@ local function updateTech()
     end
 end
 
-if game.forces['player'].technologies['{tech_name}'] then
+local force = game.forces['player']
+local tech = force.technologies['{tech_name}']
+if tech then
     if 1 == {tech_infinite} then
-        if (game.forces['player'].technologies['{tech_name}'].level ~= level) then
-            game.forces['player'].technologies['{tech_name}'].level = {tech_level}
+        if (tech.level ~= level) then
+            tech.level = {tech_level}
+            if tech == force.current_research then
+                force.research_progress = {tech_progress}
+            else
+                force.set_saved_technology_progress(tech.name, {tech_progress});
+            end
             updateTech()
         end
     else
-        if not game.forces['player'].technologies['{tech_name}'].researched then
-            game.forces['player'].technologies['{tech_name}'].researched = true
+        if not tech.researched then
+            tech.researched = true
             updateTech()
         end
     end
