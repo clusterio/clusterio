@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 1.2.2
+-------------
+
+- Fixed possible crash with modded technologies named the same as a built-in
+  Object prototype property in researchSync.
+
+
 Version 1.2.1
 -------------
 
