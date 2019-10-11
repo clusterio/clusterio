@@ -144,22 +144,24 @@ class ResearchSync {
         })
     }
 
-    clear_contribution_to_researched_techs() {
-        for (let [name, research] of Object.entries(this.research)) {
+	clear_contribution_to_researched_techs() {
+		for (let [name, tech] of Object.entries(this.research)) {
 			if (!Object.hasOwnProperty.call(this.prev_research, name)) {
 				continue;
 			}
 
-            let researched
-            if (research.infinite)
-                researched = this.prev_research[name].level < research.level
-            else
-                researched = this.prev_research[name].researched < research.researched
+			let researched;
+			if (tech.infinite) {
+				researched = this.prev_research[name].level < tech.level;
+			} else {
+				researched = this.prev_research[name].researched < tech.researched;
+			}
 
-            if (researched)
-                research.contribution = 0
-        }
-    }
+			if (researched) {
+				tech.contribution = 0;
+			}
+		}
+	}
 
     get_cluster_techs(slavesData) {
         let cluster_techs = {}
@@ -184,32 +186,38 @@ class ResearchSync {
     }
 
     recount_cluster_research_progress(slaves_data, cluster_researches) {
-        for (let [name, research] of Object.entries(cluster_researches))
-            research.progress = this.research[name].contribution
+        for (let [name, tech] of Object.entries(cluster_researches))
+            tech.progress = this.research[name].contribution
 
         for (let slave_data of slaves_data) {
-            for (let [name, research] of Object.entries(slave_data.meta.research)) {
+            for (let [name, tech] of Object.entries(slave_data.meta.research)) {
 				if (!Object.hasOwnProperty.call(cluster_researches, name)) {
 					continue;
 				}
-                if (isNaN(cluster_researches[name].progress)
-                    || isNaN(research.contribution)
-                    || isNaN(research.level)
-                    || isNaN(cluster_researches[name].level))
-                    continue
-                if (cluster_researches[name].level === research.level)
-                    cluster_researches[name].progress += research.contribution
+
+				if (
+					isNaN(cluster_researches[name].progress)
+					|| isNaN(tech.contribution)
+					|| isNaN(tech.level)
+					|| isNaN(cluster_researches[name].level)
+				) {
+					continue;
+				}
+
+				if (cluster_researches[name].level === tech.level) {
+					cluster_researches[name].progress += tech.contribution;
+				}
             }
         }
 
-        for (let [name, research] of Object.entries(cluster_researches)) {
-            if (research.progress > 1) {
-                research.progress = null
-                research.researched = 1
+		for (let [name, tech] of Object.entries(cluster_researches)) {
+			if (tech.progress > 1) {
+				tech.progress = null
+				tech.researched = 1
                 this.research[name].contribution = 0
-                research.contribution = 0
-                if (this.research[name].level >= research.level)
-                    research.level = this.research[name].level + 1
+				tech.contribution = 0
+				if (this.research[name].level >= tech.level)
+					tech.level = this.research[name].level + 1
             }
         }
     }
@@ -328,7 +336,7 @@ class ResearchSync {
             return
 
 		if (Object.hasOwnProperty.call(this.research, name)) {
-			this.prev_research[name] = this.research[name]
+			this.prev_research[name] = this.research[name];
 		} else {
             this.prev_research[name] = {
                 researched: null,
