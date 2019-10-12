@@ -13,11 +13,13 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 This is the development branch for factorioClusterio 2.0 which is currently undergoing heavy
 restructuring and refactoring.  Expect plugins and existing installations to frequently break when
 using this branch.  If you don't want to be an alpha tester for 2.0 please use the stable
-[1.2.x branch](https://github.com/clusterio/factorioClusterio/tree/1.2.x) or
+[1.2.x branch][1.2.x] or
 [latest stable release](https://github.com/clusterio/factorioClusterio/releases/latest).
 
-Installation instructions below are for stable release - if you need a development version -
-just drop `-b 1.2.x` from clone command and `--only=production` from the `npm install` command.
+Installation instructions below are for the unstable master branch.  Go to the page for
+the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
+
+[1.2.x]: https://github.com/clusterio/factorioClusterio/tree/1.2.x
 
 ### Ways to support me/the project:
 
@@ -95,13 +97,16 @@ Clusterio can also do a few other neat things, such as giving you access to epoc
 
 ## Ubuntu setup
 
+**Warning**: These instructions are for the unstable master version and is not
+recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
+
 NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
 
 Master and all slaves:
 
     wget -qO - https://deb.nodesource.com/setup_10.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git build-essential
-    git clone -b 1.2.x https://github.com/clusterio/factorioClusterio.git
+    git clone -b master https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
     wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
@@ -162,6 +167,9 @@ Clusterio has *very* limited support for using docker.
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
 
 ## Windows setup
+
+**Warning**: These instructions are for the unstable master version and is not
+recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
 Clusterio is built up of multiple parts. Here is a quick guide:
 
