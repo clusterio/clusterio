@@ -37,6 +37,8 @@ Version 1.2.2
   when researching it and another node completes it in researchSync.
 - Fixed progress of a previous infinite tech from another node being applied
   to the current one in researchSync.
+- Fixed crash in researchSync when modded technologies are present only on some
+  nodes.
 
 
 Version 1.2.1
