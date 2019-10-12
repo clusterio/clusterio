@@ -39,6 +39,8 @@ Version 1.2.2
   to the current one in researchSync.
 - Fixed crash in researchSync when modded technologies are present only on some
   nodes.
+- Reordered install instructions to avoid problem with npm creating files owned
+  by root in the home directory.
 
 
 Version 1.2.1
