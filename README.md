@@ -126,11 +126,12 @@ Pretty much all the blank fields should be filled in, except on the master where
 
 **Master**
 
+    node master.js
+
+Or with pm2 (it's recommened to run it without pm2 first):
+
     pm2 start master.js --name master
 
-OR
-
-    node master.js
 
 **Server Host**
 
