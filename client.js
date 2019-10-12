@@ -631,9 +631,14 @@ async function startClient() {
 	// make sure we have the master access token (can't write to master without it since clusterio 2.0)
 	if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
 		console.error("ERROR invalid config!");
-		console.error("Master server now needs an access token for write operations. As clusterio slaves depends \
-		upon this, please add your token to config.json in the field named masterAuthToken. \
-		You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
+		console.error(
+			"Master server now needs an access token for write operations. As clusterio\n"+
+			"slaves depends upon this, please add your token to config.json in the field\n"+
+			"named masterAuthToken.  You can retrieve your auth token from the master in\n"+
+			"secret-api-token.txt after running it once."
+		);
+		process.exitCode = 1;
+		return;
 	}
 
 	// messageInterface Management
