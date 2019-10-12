@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version 1.2.2
+-------------
+
+- Fixed possible crash with modded technologies named the same as a built-in
+  Object prototype property in researchSync.
+- Fixed progress of a current infinite tech carrying over to the next one
+  when researching it and another node completes it in researchSync.
+- Fixed progress of a previous infinite tech from another node being applied
+  to the current one in researchSync.
+- Fixed crash in researchSync when modded technologies are present only on some
+  nodes.
+
+
 Version 1.2.1
 -------------
 

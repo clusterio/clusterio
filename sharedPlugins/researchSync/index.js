@@ -169,21 +169,24 @@ class ResearchSync {
         })
     }
 
-    clear_contribution_to_researched_techs() {
-        // if between updates tech was researched
-        if (!this.prev_research)
-            return
-        for (let [name, research] of Object.entries(this.research)) {
-            let researched
-            if (research.infinite)
-                researched = this.prev_research[name].level < research.level
-            else
-                researched = this.prev_research[name].researched < research.researched
+	clear_contribution_to_researched_techs() {
+		for (let [name, tech] of Object.entries(this.research)) {
+			if (!Object.hasOwnProperty.call(this.prev_research, name)) {
+				continue;
+			}
 
-            if (researched)
-                research.contribution = 0
-        }
-    }
+			let researched;
+			if (tech.infinite) {
+				researched = this.prev_research[name].level < tech.level;
+			} else {
+				researched = this.prev_research[name].researched < tech.researched;
+			}
+
+			if (researched) {
+				tech.contribution = 0;
+			}
+		}
+	}
 
     get_cluster_techs(slavesData) {
         let cluster_techs = {}
@@ -193,7 +196,7 @@ class ResearchSync {
                 if (isNaN(node_tech.researched) || isNaN(node_tech.level) || isNaN(node_tech.infinite))
                     continue
 
-                if (cluster_techs[name]) {
+                if (Object.hasOwnProperty.call(cluster_techs, name)) {
                     if (cluster_techs[name].infinite === 1 && cluster_techs[name].level < node_tech.level) {
                         cluster_techs[name].level = node_tech.level
                     } else if (node_tech.researched > cluster_techs[name].researched) {
@@ -208,65 +211,85 @@ class ResearchSync {
     }
 
     recount_cluster_research_progress(slaves_data, cluster_researches) {
-        for (let [name, research] of Object.entries(cluster_researches))
-            research.progress = this.research[name].contribution
+		for (let [name, tech] of Object.entries(cluster_researches)) {
+			if (Object.hasOwnProperty.call(this.research, name)) {
+				tech.progress = this.research[name].contribution
+			} else {
+				tech.progress = 0;
+			}
+		}
 
         for (let slave_data of slaves_data) {
-            for (let [name, research] of Object.entries(slave_data.meta.research)) {
-                if (!cluster_researches[name])
-                    continue
-                if (isNaN(cluster_researches[name].progress)
-                    || isNaN(research.contribution)
-                    || isNaN(research.level)
-                    || isNaN(cluster_researches[name].level))
-                    continue
-                if (cluster_researches[name].level === research.level)
-                    cluster_researches[name].progress += research.contribution
+            for (let [name, tech] of Object.entries(slave_data.meta.research)) {
+				if (!Object.hasOwnProperty.call(cluster_researches, name)) {
+					continue;
+				}
+
+				if (
+					isNaN(cluster_researches[name].progress)
+					|| isNaN(tech.contribution)
+					|| isNaN(tech.level)
+					|| isNaN(cluster_researches[name].level)
+				) {
+					continue;
+				}
+
+				if (cluster_researches[name].level === tech.level) {
+					cluster_researches[name].progress += tech.contribution;
+				}
             }
         }
 
-        for (let [name, research] of Object.entries(cluster_researches)) {
-            if (research.progress > 1) {
-                research.progress = null
-                research.researched = 1
+		for (let [name, tech] of Object.entries(cluster_researches)) {
+			if (Object.hasOwnProperty.call(this.research, name) && tech.progress > 1) {
+				tech.progress = null
+				tech.researched = 1
                 this.research[name].contribution = 0
-                research.contribution = 0
-                if (this.research[name].level >= research.level)
-                    research.level = this.research[name].level + 1
+				tech.contribution = 0
+				if (this.research[name].level >= tech.level)
+					tech.level = this.research[name].level + 1
             }
         }
     }
 
     filter_researched_techs(cluster_researches) {
-        let local_researches = this.research
         let result = {};
-        for (let key in local_researches) {
-            if (!cluster_researches[key])
-                continue
-            if (isNaN(cluster_researches[key].researched) || isNaN(cluster_researches[key].level))
+		for (let [name, tech] of Object.entries(this.research)) {
+			if (!Object.hasOwnProperty.call(cluster_researches, name)) {
+				continue;
+			}
+
+			if (isNaN(cluster_researches[name].researched) || isNaN(cluster_researches[name].level))
                 continue
 
             let researched
-            if (local_researches[key].infinite)
-                researched = local_researches[key].level < cluster_researches[key].level
-            else
-                researched = local_researches[key].researched < cluster_researches[key].researched
+			if (tech.infinite) {
+				researched = tech.level < cluster_researches[name].level;
+			} else {
+				researched = tech.researched < cluster_researches[name].researched;
+			}
 
             if (researched)
-                result[key] = cluster_researches[key]
+                result[name] = cluster_researches[name]
         }
         return result;
     }
 
     filter_updated_techs(cluster_techs, to_research) {
-        let local_techs = this.research
         let result = {}
-        for (let name in local_techs) {
-            if (name in to_research || !cluster_techs[name])
-                continue
+		for (let [name, tech] of Object.entries(this.research)) {
+			if (Object.hasOwnProperty.call(to_research, name) || !Object.hasOwnProperty.call(cluster_techs, name)) {
+				continue;
+			}
             if (isNaN(cluster_techs[name].progress))
                 continue
-            if (local_techs[name].progress < cluster_techs[name].progress)
+
+			// Do not update progress for infinite techs with a local level that's higher.
+			if (tech.infinite && tech.level > cluster_techs[name].level) {
+				continue;
+			}
+
+            if (tech.progress < cluster_techs[name].progress)
                 result[name] = cluster_techs[name]
         }
         return result
@@ -274,8 +297,9 @@ class ResearchSync {
 
     research_technologies(to_research) {
         for (let name of Object.keys(to_research))
-            if (!this.research[name])
-                delete to_research[name]
+			if (!Object.hasOwnProperty.call(this.research, name)) {
+				delete to_research[name];
+			}
 
         const notify = Object.keys(to_research).length === 1
         for (let [name, tech] of Object.entries(to_research)) {
@@ -283,9 +307,9 @@ class ResearchSync {
             this.research[name].progress = null
             let command = this.functions.enableResearch;
             command = command.replace(/{tech_name}/g, name);
-            command = command.replace(/{tech_researched}/g, tech.researched);
             command = command.replace(/{tech_level}/g, tech.level);
             command = command.replace(/{tech_infinite}/g, tech.infinite);
+            command = command.replace(/{tech_progress}/g, tech.progress)
             command = command.replace(/{notify}/g, notify);
             this.messageInterface(command);
             let log_message = tech.infinite
@@ -299,8 +323,9 @@ class ResearchSync {
 
     update_technologies_progress(to_update) {
         for (let [name, tech] of Object.entries(to_update)) {
-            if (!this.research[name])
-                continue
+			if (!Object.hasOwnProperty.call(this.research, name)) {
+				continue;
+			}
             let progress = this.research[name].progress
             if (progress === null)
                 progress = 'nil'
@@ -317,11 +342,10 @@ class ResearchSync {
     }
 
     print_own_contribution() {
-        if (!this.prev_research)
-            return
         for (let [name, tech] of Object.entries(this.research)) {
-            if (!this.prev_research[name])
-                continue
+			if (!Object.hasOwnProperty.call(this.prev_research, name)) {
+				continue;
+			}
             let diff = this.research[name].contribution - this.prev_research[name].contribution
             if (Math.abs(diff) > Number.EPSILON * 1000)
                 this.log(`Own research ${name}: ${this.research[name].progress} += ${diff}`)
@@ -346,8 +370,10 @@ class ResearchSync {
 
         if (isNaN(level) || isNaN(researched))
             return
-        this.prev_research[name] = this.research[name]
-        if (!this.prev_research[name]) {
+
+		if (Object.hasOwnProperty.call(this.research, name)) {
+			this.prev_research[name] = this.research[name];
+		} else {
             this.prev_research[name] = {
                 researched: null,
                 level: null,
