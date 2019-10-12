@@ -95,7 +95,7 @@ NodeJS does not support EOL ubuntu releases. Make sure you are on the most recen
 
 Master and all slaves:
 
-    wget -O - https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    wget -qO - https://deb.nodesource.com/setup_10.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git build-essential
     git clone -b 1.2.x https://github.com/Danielv123/factorioClusterio.git
     cd factorioClusterio
