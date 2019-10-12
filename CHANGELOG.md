@@ -35,6 +35,8 @@ Version 1.2.2
   Object prototype property in researchSync.
 - Fixed progress of a current infinite tech carrying over to the next one
   when researching it and another node completes it in researchSync.
+- Fixed progress of a previous infinite tech from another node being applied
+  to the current one in researchSync.
 
 
 Version 1.2.1
