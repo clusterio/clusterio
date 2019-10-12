@@ -16,6 +16,8 @@ Version 1.2.2
   on node v10.
 - Reordered install instructions to avoid problem with npm creating files owned
   by root in the home directory.
+- Swapped curl out with wget in the install instructions as the latter comes
+  pre-installed on Ubuntu.
 
 
 Version 1.2.1
