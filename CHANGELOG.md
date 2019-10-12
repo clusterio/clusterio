@@ -12,6 +12,8 @@ Version 1.2.2
   to the current one in researchSync.
 - Fixed crash in researchSync when modded technologies are present only on some
   nodes.
+- Fixed install failing due to bcrypt version less than 3 not being supported
+  on node v10.
 
 
 Version 1.2.1
