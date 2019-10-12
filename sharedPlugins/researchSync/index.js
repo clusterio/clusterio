@@ -211,8 +211,13 @@ class ResearchSync {
     }
 
     recount_cluster_research_progress(slaves_data, cluster_researches) {
-        for (let [name, tech] of Object.entries(cluster_researches))
-            tech.progress = this.research[name].contribution
+		for (let [name, tech] of Object.entries(cluster_researches)) {
+			if (Object.hasOwnProperty.call(this.research, name)) {
+				tech.progress = this.research[name].contribution
+			} else {
+				tech.progress = 0;
+			}
+		}
 
         for (let slave_data of slaves_data) {
             for (let [name, tech] of Object.entries(slave_data.meta.research)) {
@@ -236,7 +241,7 @@ class ResearchSync {
         }
 
 		for (let [name, tech] of Object.entries(cluster_researches)) {
-			if (tech.progress > 1) {
+			if (Object.hasOwnProperty.call(this.research, name) && tech.progress > 1) {
 				tech.progress = null
 				tech.researched = 1
                 this.research[name].contribution = 0
