@@ -1,4 +1,4 @@
-FROM node:9.11.2
+FROM node:10
 RUN apt-get update && apt install git curl tar -y
 RUN mkdir factorioClusterio
 

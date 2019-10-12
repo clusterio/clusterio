@@ -12,6 +12,16 @@ Version 1.2.2
   to the current one in researchSync.
 - Fixed crash in researchSync when modded technologies are present only on some
   nodes.
+- Fixed install failing due to bcrypt version less than 3 not being supported
+  on node v10.
+- Reordered install instructions to avoid problem with npm creating files owned
+  by root in the home directory.
+- Swapped curl out with wget in the install instructions as the latter comes
+  pre-installed on Ubuntu.
+
+### Breaking Changes
+
+- Node.js versions below 10 are no longer supported.
 
 
 Version 1.2.1

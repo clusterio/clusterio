@@ -4,17 +4,16 @@
 <br/>
 <br/>
 
-# Warning
-
-Do not use master branch to run your Clusterio - master now is a development version and may not work
-
-Use latest stable release: https://github.com/clusterio/factorioClusterio/releases/latest
-
-Or clone latest stable branch that has name format `x.y.z`
-
 # factorioClusterio
 
 Discord for development/support/play: https://discord.gg/5XuDkje
+
+## Important notice
+
+This is the stable branch of the project.  The
+[master branch][http://github.com/clusterio/factorioClusterio/tree/master]
+is undergoing significant changes that breaks compatibility to plugins and
+existing installations and is not recommended for use.
 
 ### Ways to support me/the project:
 
@@ -96,19 +95,21 @@ NodeJS does not support EOL ubuntu releases. Make sure you are on the most recen
 
 Master and all slaves:
 
-    sudo curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
-    sudo apt install -y nodejs python-dev git wget curl tar build-essential
-    sudo npm install pm2 -g
+    wget -O - https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    sudo apt install -y nodejs python-dev git build-essential
     git clone -b 1.2.x https://github.com/Danielv123/factorioClusterio.git
     cd factorioClusterio
-    curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
+    wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
     npm install --only=production
     cp config.json.dist config.json
     node ./lib/npmPostinstall.js
 
+downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
-downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
+Optional step (if you want to use pm2):
+
+    sudo npm install pm2 -g
 
 Now you need to edit the `config.json` file. If you skip this step nothing will work.
 Pretty much all the blank fields should be filled in, except on the master where a few can be omitted.
@@ -167,7 +168,7 @@ Game Client = The people connecting to the server
 
 **Requirements**
 
-download and install nodeJS 8 or 9 from http://nodejs.org
+download and install nodeJS 10 from http://nodejs.org
 
 download and install git from https://git-scm.com/
 
