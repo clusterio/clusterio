@@ -99,11 +99,11 @@ NodeJS does not support EOL ubuntu releases. Make sure you are on the most recen
 
 Master and all slaves:
 
-    sudo curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
-    sudo apt install -y nodejs python-dev git wget curl tar build-essential
+    wget -qO - https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    sudo apt install -y nodejs python-dev git build-essential
     git clone -b 1.2.x https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
-    curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
+    wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
     npm install --only=production
     cp config.json.dist config.json
