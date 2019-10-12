@@ -97,7 +97,6 @@ Master and all slaves:
 
     sudo curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git wget curl tar build-essential
-    sudo npm install pm2 -g
     git clone -b 1.2.x https://github.com/Danielv123/factorioClusterio.git
     cd factorioClusterio
     curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
@@ -106,8 +105,11 @@ Master and all slaves:
     cp config.json.dist config.json
     node ./lib/npmPostinstall.js
 
+downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
-downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
+Optional step (if you want to use pm2):
+
+    sudo npm install pm2 -g
 
 Now you need to edit the `config.json` file. If you skip this step nothing will work.
 Pretty much all the blank fields should be filled in, except on the master where a few can be omitted.

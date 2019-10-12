@@ -14,6 +14,8 @@ Version 1.2.2
   nodes.
 - Fixed install failing due to bcrypt version less than 3 not being supported
   on node v10.
+- Reordered install instructions to avoid problem with npm creating files owned
+  by root in the home directory.
 
 
 Version 1.2.1
