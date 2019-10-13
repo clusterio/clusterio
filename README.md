@@ -11,7 +11,7 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 ## Important notice
 
 This is the stable branch of the project.  The
-[master branch][http://github.com/clusterio/factorioClusterio/tree/master]
+[master branch](http://github.com/clusterio/factorioClusterio/tree/master)
 is undergoing significant changes that breaks compatibility to plugins and
 existing installations and is not recommended for use.
 
