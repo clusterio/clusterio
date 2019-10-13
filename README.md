@@ -13,11 +13,13 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 This is the development branch for factorioClusterio 2.0 which is currently undergoing heavy
 restructuring and refactoring.  Expect plugins and existing installations to frequently break when
 using this branch.  If you don't want to be an alpha tester for 2.0 please use the stable
-[1.2.x branch](https://github.com/clusterio/factorioClusterio/tree/1.2.x) or
+[1.2.x branch][1.2.x] or
 [latest stable release](https://github.com/clusterio/factorioClusterio/releases/latest).
 
-Installation instructions below are for stable release - if you need a development version -
-just drop `-b 1.2.x` from clone command and `--only=production` from the `npm install` command.
+Installation instructions below are for the unstable master branch.  Go to the page for
+the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
+
+[1.2.x]: https://github.com/clusterio/factorioClusterio/tree/1.2.x
 
 ### Ways to support me/the project:
 
@@ -95,23 +97,28 @@ Clusterio can also do a few other neat things, such as giving you access to epoc
 
 ## Ubuntu setup
 
+**Warning**: These instructions are for the unstable master version and is not
+recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
+
 NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
 
 Master and all slaves:
 
-    sudo curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
-    sudo apt install -y nodejs python-dev git wget curl tar build-essential
-    sudo npm install pm2 -g
-    git clone -b 1.2.x https://github.com/clusterio/factorioClusterio.git
+    wget -qO - https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    sudo apt install -y nodejs python-dev git build-essential
+    git clone -b master https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
-    curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64
+    wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
     npm install --only=production
     cp config.json.dist config.json
     node ./lib/npmPostinstall.js
 
+downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
-downloads and installs nodejs, pm2, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
+Optional step (if you want to use pm2):
+
+    sudo npm install pm2 -g
 
 Now you need to edit the `config.json` file. If you skip this step nothing will work.
 Pretty much all the blank fields should be filled in, except on the master where a few can be omitted.
@@ -124,11 +131,12 @@ Pretty much all the blank fields should be filled in, except on the master where
 
 **Master**
 
+    node master.js
+
+Or with pm2 (it's recommened to run it without pm2 first):
+
     pm2 start master.js --name master
 
-OR
-
-    node master.js
 
 **Server Host**
 
@@ -159,6 +167,9 @@ Clusterio has *very* limited support for using docker.
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
 
 ## Windows setup
+
+**Warning**: These instructions are for the unstable master version and is not
+recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
 Clusterio is built up of multiple parts. Here is a quick guide:
 
