@@ -14,7 +14,7 @@
 	"masterPort": 8080,
 	
 	"__commentsslPort": "HTTPS port for the master to listen to. Set to 0 or an empty string to not listen for HTTPS.",
-	"sslPort": 443,
+	"sslPort": 0,
 	"sslCert": "database/certificates/cert.crt",
 	"sslPrivKey": "database/certificates/cert.key",
 	

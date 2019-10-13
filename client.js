@@ -53,6 +53,8 @@ if(!config.masterAuthToken || typeof config.masterAuthToken !== "string"){
 	console.error("Master server now needs an access token for write operations. As clusterio slaves depends \
 	upon this, please add your token to config.json in the field named masterAuthToken. \
 	You can retrieve your auth token from the master in secret-api-token.txt after running it once.");
+	process.exitCode = 1;
+	return;
 }
 const needleOptionsWithTokenAuthHeader = {
 	compressed:true,
