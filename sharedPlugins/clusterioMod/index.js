@@ -3,7 +3,6 @@ const fs = require("fs-extra");
 
 const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
-const stringUtils = require("lib/stringUtils.js");
 const checkHotpatchInstallation = require("lib/clusterTools/checkHotpatchInstallation");
 const getLua = require("lib/clusterTools/getLua");
 

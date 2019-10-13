@@ -17,7 +17,6 @@ const crypto = require("crypto");
 // internal libraries
 const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
-const stringUtils = require("lib/stringUtils.js");
 const pluginManager = require("lib/manager/pluginManager");
 const modManager = require("lib/manager/modManager");
 const hashFile = require('lib/hash').hashFile;
@@ -402,6 +401,7 @@ write-data=${ instance.path() }\r\n
 
 	await symlinkMods(instance, "sharedMods", console);
 	let instconf = {
+		"id": Math.random() * 2 ** 31 | 0,
 		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
 		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
@@ -490,7 +490,12 @@ write-data=${ instance.path() }\r\n
 
 async function startInstance(config, args, instance) {
 	var instanceconfig = JSON.parse(await fs.readFile(instance.path("config.json")));
-	instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
+	if (typeof instanceconfig.id !== "number" || isNaN(instanceconfig.id)) {
+		throw new Error(`${instance.path("config.json")} is missing id`);
+	}
+	// Temporary measure for backwards compatibility
+	instanceconfig.unique = instanceconfig.id;
+
 	if (process.env.FACTORIOPORT) {
 		instanceconfig.factorioPort = process.env.FACTORIOPORT;
 	}

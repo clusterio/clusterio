@@ -18,6 +18,8 @@ Version 2.0.0
   privileges requirements of symlinks.
 - Changed the per instance scenario folder to be linked instead of
   copied on instance creation.
+- Instance id is no longer derived from the rcon password, instead it's
+  generated upon instance creation and stored in the instance config.
 
 ### Breaking Changes
 
