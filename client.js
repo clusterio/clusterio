@@ -530,18 +530,22 @@ write-data=${ instance.path() }\r\n
 	
 	// Spawn factorio server
 	//var serverprocess = child_process.exec(commandline);
-	fileOps.getNewestFile(instance.path("saves"), fs.readdirSync(instance.path("saves")),function(err, latestSave) {
-		if(err) {
-			console.error("ERROR!");
-			console.error("Your savefile seems to be missing. This might because you created an instance without having factorio\
- installed and configured properly. Try installing factorio and adding your savefile to instances/[instancename]/saves/\n");
-			throw err;
-		}
+	let latestSave = await fileOps.getNewestFile(instance.path("saves"));
+	if (latestSave === null) {
+		throw new Error(
+			"Your savefile seems to be missing. This might because you created an\n"+
+			"instance without having factorio installed and configured properly.\n"+
+			"Try installing factorio and adding your savefile to\n"+
+			"instances/[instancename]/saves/"
+		);
+	}
+
+	{
 		// implicit global
 		serverprocess = child_process.spawn(
 			'./' + config.factorioDirectory + '/bin/x64/factorio', [
 				'-c', instance.path("config.ini"),
-				'--start-server', latestSave.file,
+				'--start-server', instance.path("saves", latestSave),
 				'--rcon-port', args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
 				'--rcon-password', args["rcon-password"] || instanceconfig.clientPassword,
 				'--server-settings', instance.path("server-settings.json"),
@@ -632,7 +636,7 @@ write-data=${ instance.path() }\r\n
 		// set some globals
 		confirmedOrders = [];
 		lastSignalCheck = Date.now();
-	});
+	}
 }
 
 async function startClient() {
