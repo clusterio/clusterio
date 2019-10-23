@@ -296,10 +296,6 @@ async function createInstance(config, args, instance) {
 	await fs.ensureDir(instance.path());
 	await fs.ensureDir(instance.path("script-output"));
 
-	let target = path.join("lib", "scenarios");
-	let link = instance.path("scenarios");
-	await fs.symlink(path.relative(path.dirname(link), target), link, 'junction');
-
 	await symlinkMods(instance, "sharedMods", console);
 	let instconf = {
 		"id": Math.random() * 2 ** 31 | 0,
@@ -356,29 +352,7 @@ async function createInstance(config, args, instance) {
 		console.log("Fact: " + output.message);
 	});
 
-	server.on('rcon-ready', function() {
-		console.log("Clusterio | RCON connection established");
-	});
-
-	let waitUntilSaved = new Promise((resolve, reject) => {
-		let checkSaved = (output) => {
-			if (output.type === 'log' && output.message === "Saving finished") {
-				resolve();
-				server.off('output', checkSaved);
-			} else if (output.message === "Goodbye") {
-				reject(new Error("Server failed to save"));
-				server.off('output', checkSaved);
-			}
-		};
-
-		server.on('output', checkSaved);
-	});
-
-	await server.startScenario("Hotpatch");
-	await server.sendRcon("/c game.server_save('hotpatchSave')");
-	await waitUntilSaved;
-
-	await server.stop();
+	await server.create("world");
 	console.log("Clusterio | Successfully created instance");
 }
 
@@ -429,6 +403,41 @@ async function startInstance(config, args, instance) {
 			"instances/[instancename]/saves/"
 		);
 	}
+
+	// Patch save with lua modules from plugins
+	console.log("Clusterio | Patching save");
+
+	// For now it's assumed that all files in the lua folder of a plugin is
+	// to be patched in under the name of the plugin and loaded for all
+	// plugins that are not disabled.  This will most likely change in the
+	// future when the plugin refactor is done.
+	let modules = [];
+	for (let pluginName of await fs.readdir("sharedPlugins")) {
+		let pluginDir = path.join("sharedPlugins", pluginName);
+		if (await fs.pathExists(path.join(pluginDir, "DISABLED"))) {
+			continue;
+		}
+
+		if (!await fs.pathExists(path.join(pluginDir, "lua"))) {
+			continue;
+		}
+
+		let module = {
+			"name": pluginName,
+			"files": [],
+		};
+
+		for (let fileName of await fs.readdir(path.join(pluginDir, "lua"))) {
+			module["files"].push({
+				path: pluginName+"/"+fileName,
+				content: await fs.readFile(path.join(pluginDir, "lua", fileName)),
+				load: true,
+			});
+		}
+
+		modules.push(module);
+	}
+	await factorio.patch(instance.path("saves", latestSave), modules);
 
 	let options = {
 		gamePort: args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort,
