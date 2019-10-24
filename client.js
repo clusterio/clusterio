@@ -6,23 +6,19 @@ const child_process = require('child_process');
 const path = require('path');
 const syncRequest = require('sync-request');
 const request = require("request");
-const ncp = require('ncp').ncp;
-const Rcon = require('rcon-client-fork').Rcon;
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
-const rmdirSync = require('rmdir-sync');
 const ioClient = require("socket.io-client");
 const asTable = require("as-table").configure({delimiter: ' | '});
 const util = require("util");
-const crypto = require("crypto");
 
 // internal libraries
 const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
-const stringUtils = require("lib/stringUtils.js");
 const pluginManager = require("lib/manager/pluginManager");
 const modManager = require("lib/manager/modManager");
 const hashFile = require('lib/hash').hashFile;
+const factorio = require("lib/factorio");
 
 // Uhm...
 var global = {};
@@ -105,100 +101,6 @@ function needleOptionsWithTokenAuthHeader(config) {
 			'x-access-token': config.masterAuthToken
 		},
 	};
-}
-
-
-var instanceInfo = {};
-var commandBuffer=[];
-
-// function to handle sending commands into the game
-async function messageInterfaceInternal(command, callback, resolve, reject) {
-	// try to save us if you send a buffer instead of string
-	if(typeof command == "object") {
-		command = command.toString('utf8');
-	}
-	
-	if(false && process.platform == "linux" && typeof command == "string" && serverprocess) {
-		/*
-			to send to stdin, use:
-			serverprocess.stdin.write("/c command;\n")
-		*/
-		serverprocess.stdin.write(command+"\n");
-		if(typeof callback == "function"){
-			callback();
-		}
-		resolve();
-	} else if(typeof command == "string" && client && client.send && typeof client.send == "function") {
-		try {
-			let str = await client.send(command+"\n");
-			if(typeof callback == "function") callback(str)
-			resolve(str)
-		} catch (err) {
-			console.log("RCON failed, server might be paused or shutting down");
-			// console.log(err);
-			// reject(err);
-			if(typeof callback == "function"){
-				callback();
-			}
-			reject(err)
-		}
-	}
-}
-function messageInterface(command, callback) {
-	return new Promise((resolve,reject) => {
-		commandBuffer.push([command,callback, resolve, reject]);
-	});
-}
-
-/**
- * Give a random dynamic port
- *
- * Returns a random port number in the Dynamic Ports range as defined by
- * RFC 6335.
- *
- * @return {number} a number in the range 49152 to 65535.
- */
-function randomDynamicPort() {
-	const start = 49152;
-	const end = 65535 + 1;
-
-	return Math.floor(Math.random() * (end - start) + start)
-}
-
-/**
- * Generate a secure random password of the given length
- *
- * Uses crypto.randomBytes to generate a secure alphanumeric password of
- * the given length.
- *
- * @param {number} length - the length of the password to generate.
- * @return {string} password of the given length
- */
-async function generatePassword(length) {
-	function validChar(byte) {
-		const ranges = ['az', 'AZ', '09'];
-		return ranges.some(range =>
-			range.codePointAt(0) <= byte && byte <= range.codePointAt(1)
-		);
-	}
-	let randomBytesAsync = util.promisify(crypto.randomBytes);
-
-	let password = "";
-	while (true) {
-		let bytes = await randomBytesAsync((length - password.length) * 3);
-		for (let byte of bytes) {
-
-			// Crop to ASCII values only
-			byte = byte & 0x7f;
-
-			if (validChar(byte)) {
-				password += String.fromCharCode(byte);
-				if (password.length == length) {
-					return password;
-				}
-			}
-		}
-	}
 }
 
 function printUsage() {
@@ -326,34 +228,85 @@ async function downloadMod() {
 	}
 }
 
+/**
+ * Create and update symlinks for shared mods in an instance
+ *
+ * Creates symlinks for .zip and .dat files that are not present in the
+ * instance mods directory but is present in the sharedMods directory,
+ * and removes any symlinks that don't point to a file in the instance
+ * mods directory.  If the instance mods directory doesn't exist it will
+ * be created.
+ *
+ * Note that on Windows this creates hard links instead of symbolic
+ * links as the latter requires elevated privileges.  This unfortunately
+ * means the removal of mods from the shared mods dir can't be detected.
+ *
+ * @param {Instance} instance - Instance to link mods for
+ * @param {string} sharedMods - Path to folder to link mods from.
+ * @param {object} logger - console like logging interface.
+ */
+async function symlinkMods(instance, sharedMods, logger) {
+	await fs.ensureDir(instance.path("mods"));
+
+	// Remove broken symlinks in instance mods.
+	for (let entry of await fs.readdir(instance.path("mods"), { withFileTypes: true })) {
+		if (entry.isSymbolicLink()) {
+			if (!await fs.pathExists(instance.path("mods", entry.name))) {
+				logger.log(`Removing broken symlink ${entry.name}`);
+				await fs.unlink(instance.path("mods", entry.name));
+			}
+		}
+	}
+
+	// Link entries that are in sharedMods but not in instance mods.
+	let instanceModsEntries = new Set(await fs.readdir(instance.path("mods")));
+	for (let entry of await fs.readdir(sharedMods, { withFileTypes: true })) {
+		if (entry.isFile()) {
+			if (['.zip', '.dat'].includes(path.extname(entry.name))) {
+				if (!instanceModsEntries.has(entry.name)) {
+					logger.log(`linking ${entry.name} from ${sharedMods}`);
+					let target = path.join(sharedMods, entry.name);
+					let link = instance.path("mods", entry.name);
+
+					if (process.platform !== "win32") {
+						await fs.symlink(path.relative(path.dirname(link), target), link);
+
+					// On Windows symlinks require elevated privileges, which is
+					// not something we want to have.  For this reason the mods
+					// are hard linked instead.  This has the drawback of not
+					// being able to identify when mods are removed from the
+					// sharedMods directory, or which mods are linked.
+					} else {
+						await fs.link(target, link);
+					}
+				}
+
+			} else {
+				logger.warning(`Warning: ignoring file '${entry.name}' in sharedMods`);
+			}
+
+		} else {
+			logger.warning(`Warning: ignoring non-file '${entry.name}' in sharedMods`);
+		}
+	}
+}
+
 async function createInstance(config, args, instance) {
-	// if instance does not exist, create it
-	console.log("Creating instance...");
-	fs.mkdirSync(instance.path());
-	fs.mkdirSync(instance.path("script-output"));
-	fs.writeFileSync(instance.path("script-output", "output.txt"), "");
-	fs.writeFileSync(instance.path("script-output", "orders.txt"), "");
-	fs.writeFileSync(instance.path("script-output", "txbuffer.txt"), "");
-	fs.mkdirSync(instance.path("mods"));
-	fs.mkdirSync(instance.path("instanceMods"));
-    fs.mkdirSync(instance.path("scenarios"));
-    ncp("lib/scenarios", instance.path("scenarios"), err => {
-        if (err) console.error(err)
-    });
+	console.log(`Creating ${instance.path()}`);
+	await fs.ensureDir(instance.path());
+	await fs.ensureDir(instance.path("script-output"));
 
-	// fs.symlinkSync('../../../sharedMods', instance.path("mods"), 'junction') // This is broken because it can only take a file as first argument, not a folder
-	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
-read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
-write-data=${ instance.path() }\r\n
-	`);
+	let target = path.join("lib", "scenarios");
+	let link = instance.path("scenarios");
+	await fs.symlink(path.relative(path.dirname(link), target), link, 'junction');
 
-	// this line is probably not needed anymore but Im not gonna remove it
-	fs.copySync('sharedMods', instance.path("mods"));
+	await symlinkMods(instance, "sharedMods", console);
 	let instconf = {
-		"factorioPort": args.port || process.env.FACTORIOPORT || randomDynamicPort(),
-		"clientPort": args["rcon-port"] || process.env.RCONPORT || randomDynamicPort(),
-		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
-		"clientPassword": args["rcon-password"] || await generatePassword(10),
+		"id": Math.random() * 2 ** 31 | 0,
+		"factorioPort": args.port || process.env.FACTORIOPORT || null,
+		"clientPort": args["rcon-port"] || process.env.RCONPORT || null,
+		"__comment_clientPassword": "This is the rcon password. Will be randomly generated if null.",
+		"clientPassword": args["rcon-password"] || null,
 		"info": {}
 	}
 	console.log("Clusterio | Created instance with settings:")
@@ -362,11 +315,16 @@ write-data=${ instance.path() }\r\n
 	// create instance config
 	fs.writeFileSync(instance.path("config.json"), JSON.stringify(instconf, null, 4));
 
+	let server = new factorio.FactorioServer(path.join("factorio", "data"), instance.path(), {});
+	await server.init();
+
+	let serverSettings = await server.exampleSettings();
 	let name = "Clusterio instance: " + instance.name;
 	if (config.username) {
 		name = config.username + "'s clusterio " + instance.name;
 	}
-	let serversettings = {
+
+	let overrides = {
 		"name": name,
 		"description": config.description,
 		"tags": ["clusterio"],
@@ -375,70 +333,63 @@ write-data=${ instance.path() }\r\n
 		"username": config.username,
 		"token": config.token,
 		"game_password": config.game_password,
-		"verify_user_identity": config.verify_user_identity,
-		"admins": [config.username],
+		"require_user_verification": config.verify_user_identity,
 		"allow_commands": config.allow_commands,
 		"autosave_interval": 10,
 		"autosave_slots": 5,
 		"afk_autokick_interval": 0,
 		"auto_pause": config.auto_pause,
 	};
-	fs.writeFileSync(instance.path("server-settings.json"), JSON.stringify(serversettings, null, 4));
-    console.log("Server settings: "+JSON.stringify(serversettings, null, 4));
-    console.log("Creating save .....");
-    let factorio = child_process.spawn(
-        './' + config.factorioDirectory + '/bin/x64/factorio', [
-            '-c', instance.path("config.ini"),
-            // '--create', instance.path("saves", "save.zip"),
-            '--start-server-load-scenario', 'Hotpatch',
-            '--server-settings', instance.path("server-settings.json"),
-            '--rcon-port', Number(process.env.RCONPORT) || instconf.clientPort,
-            '--rcon-password', instconf.clientPassword,
-        ], {
-			'stdio': ['pipe', 'pipe', 'pipe'],
-			'detached': process.platform === "linux",
-        }
-    );
-    factorio.stdout.on("data", data => {
-        data = data.toString("utf8").replace(/(\r\n\t|\n|\r\t)/gm,"");
-        console.log(data);
-        if(data.includes("Starting RCON interface")){
-            let client = new Rcon({
-				packetResponseTimeout: 200000,
-			    maxPending: 5
-			});
-            client.connect({
-                host: 'localhost',
-                port: Number(process.env.RCONPORT) || instconf.clientPort,
-                password: instconf.clientPassword
-            });
-            client.onDidAuthenticate(() => {
-                console.log('Clusterio | RCON Authenticated!');
-            });
-            client.onDidConnect(() => {
-                console.log('Clusterio | RCON Connected, starting save');
-                client.send("/c game.server_save('hotpachSave')");
-            });
-        }
-        if(data.includes("Saving finished")){
-            console.log("Map saved as hotpachSave.zip, exiting...");
-            console.log("Instance created!")
-            process.exit(0);
-        }
-		if(data.includes("Downloading from auth server failed")){
-			console.error("Instance creation failed, unable to establish auth server connection.");
-			console.error("Deleting broken instance...");
-			
-			fileOps.deleteFolderRecursiveSync(path.resolve(config.instanceDirectory, process.argv[3]));
-			
-			process.exit(0);
+
+	for (let [name, value] of Object.entries(overrides)) {
+		if (!Object.hasOwnProperty.call(serverSettings, name)) {
+			throw Error(`Expected server settings to have a ${name} property`);
 		}
+		serverSettings[name] = value;
+	}
+
+	await fs.writeFile(instance.path("server-settings.json"), JSON.stringify(serverSettings, null, 4));
+	console.log("Server settings: ", serverSettings);
+	console.log("Creating save .....");
+
+	server.on('output', function(output) {
+		console.log("Fact: " + output.message);
 	});
+
+	server.on('rcon-ready', function() {
+		console.log("Clusterio | RCON connection established");
+	});
+
+	let waitUntilSaved = new Promise((resolve, reject) => {
+		let checkSaved = (output) => {
+			if (output.type === 'log' && output.message === "Saving finished") {
+				resolve();
+				server.off('output', checkSaved);
+			} else if (output.message === "Goodbye") {
+				reject(new Error("Server failed to save"));
+				server.off('output', checkSaved);
+			}
+		};
+
+		server.on('output', checkSaved);
+	});
+
+	await server.startScenario("Hotpatch");
+	await server.sendRcon("/c game.server_save('hotpatchSave')");
+	await waitUntilSaved;
+
+	await server.stop();
+	console.log("Clusterio | Successfully created instance");
 }
 
 async function startInstance(config, args, instance) {
 	var instanceconfig = JSON.parse(await fs.readFile(instance.path("config.json")));
-	instanceconfig.unique = stringUtils.hashCode(instanceconfig.clientPassword);
+	if (typeof instanceconfig.id !== "number" || isNaN(instanceconfig.id)) {
+		throw new Error(`${instance.path("config.json")} is missing id`);
+	}
+	// Temporary measure for backwards compatibility
+	instanceconfig.unique = instanceconfig.id;
+
 	if (process.env.FACTORIOPORT) {
 		instanceconfig.factorioPort = process.env.FACTORIOPORT;
 	}
@@ -465,132 +416,61 @@ async function startInstance(config, args, instance) {
 			console.log(`Log rotated as ${logFilename}`);
 		}
 	}catch(e){}
-	// Math.floor(Date.now()/1000)
-	// (new Date).toGMTString()
-	
-	// move mods from ./sharedMods to the instances mod directory
-	try{fs.mkdirSync(instance.path("instanceMods"));}catch(e){}
-	try{rmdirSync(instance.path("mods"));}catch(e){}
-	try {
-		// mods directory that will be emptied (deleted) when closing the server to facilitate seperation of instanceMods and sharedMods
-		fs.mkdirSync(instance.path("mods"));
-	} catch(e){}
-	console.log("Clusterio | Moving shared mods from sharedMods/ to instance/mods...");
-	fs.copySync('sharedMods', instance.path("mods"));
-	console.log("Clusterio | Moving instance specific mods from instance/instanceMods to instance/mods...");
-	fs.copySync(instance.path("instanceMods"), instance.path("mods"));
-	
-	// Set paths for factorio so it reads and writes from the correct place even if the instance is imported from somewhere else
-	fs.writeFileSync(instance.path("config.ini"), `[path]\r\n
-read-data=${ path.resolve(config.factorioDirectory, "data") }\r\n
-write-data=${ instance.path() }\r\n
-	`);
-	
-	// Spawn factorio server
-	//var serverprocess = child_process.exec(commandline);
-	fileOps.getNewestFile(instance.path("saves"), fs.readdirSync(instance.path("saves")),function(err, latestSave) {
-		if(err) {
-			console.error("ERROR!");
-			console.error("Your savefile seems to be missing. This might because you created an instance without having factorio\
- installed and configured properly. Try installing factorio and adding your savefile to instances/[instancename]/saves/\n");
-			throw err;
-		}
-		// implicit global
-		serverprocess = child_process.spawn(
-			'./' + config.factorioDirectory + '/bin/x64/factorio', [
-				'-c', instance.path("config.ini"),
-				'--start-server', latestSave.file,
-				'--rcon-port', args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
-				'--rcon-password', args["rcon-password"] || instanceconfig.clientPassword,
-				'--server-settings', instance.path("server-settings.json"),
-				'--port', args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort
-			], {
-				'stdio': ['pipe', 'pipe', 'pipe'],
-				'detached': process.platform === "linux",
-			}
-		);
 
-		serverprocess.on('close', code => {
-			console.log(`child process exited with code ${code}`);
+	await symlinkMods(instance, "sharedMods", console);
+
+	// Spawn factorio server
+	let latestSave = await fileOps.getNewestFile(instance.path("saves"));
+	if (latestSave === null) {
+		throw new Error(
+			"Your savefile seems to be missing. This might because you created an\n"+
+			"instance without having factorio installed and configured properly.\n"+
+			"Try installing factorio and adding your savefile to\n"+
+			"instances/[instancename]/saves/"
+		);
+	}
+
+	let options = {
+		gamePort: args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort,
+		rconPort: args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
+		rconPassword: args["rcon-password"] || instanceconfig.clientPassword,
+	};
+
+	let server = new factorio.FactorioServer(path.join("factorio", "data"), instance.path(), options);
+	await server.init();
+
+	// FactorioServer.init may have generated a random port or password
+	// if they were null.
+	instanceconfig.factorioPort = server.gamePort
+	instanceconfig.clientPort = server.rconPort
+	instanceconfig.clientPassword = server.rconPassword
+
+	server.on('output', function(output) {
+		console.log("Fact: " + output.message);
+	});
+
+	server.on('rcon-ready', function() {
+		console.log("Clusterio | RCON connection established");
+		instanceManagement(config, instance, instanceconfig, server); // XXX async function
+	});
+
+	let secondSigint = false
+	process.on('SIGINT', () => {
+		if (secondSigint) {
+			console.log("Caught second interrupt, terminating immediately");
+			process.exit(1);
+		}
+
+		secondSigint = true;
+		console.log("Caught interrupt signal, shutting down");
+		server.stop().then(() => {
+			// There's currently no shutdown mechanism for instance plugins so
+			// they keep the event loop alive.
 			process.exit();
 		});
-		serverprocess.stdout.on("data", data => {
-			// log("Stdout: " + data);
-			if(data.toString('utf8').includes("Couldn't parse RCON data: Maximum payload size exceeded")){
-				console.error("ERROR: RCON CONNECTION BROKE DUE TO TOO LARGE PACKET!");
-				console.error("Attempting reconnect...");
-				client.disconnect();
-				client.connect();
-			}
-			// we have to do this to make logs visible on linux and in powershell. Causes log duplication for people with CMD.
-			console.log('Fact: ' + data.toString("utf8").replace("\n", ""));
-		});
-		serverprocess.stderr.on('data', (chunk) => {
-			console.log('ERR: ' + chunk);
-		});
-
-		// connect to the server with rcon
-		if(true || process.platform != "linux"){
-			// IP, port, password
-			client = new Rcon({
-				packetResponseTimeout: 200000, // 200s, should allow for commands up to 1250kB in length
-			    maxPending: 5
-			});
-			// check the logfile to see if the RCON interface is running as there is no way to continue without it
-			// we read the log every 2 seconds and stop looping when we start connecting to factorio
-			function checkRcon() {
-				fs.readFile(instance.path("factorio-current.log"), function (err, data) {
-					// if (err) console.error(err);
-					if(data && data.indexOf('Starting RCON interface') > 0){
-						client.connect({
-							host: 'localhost',
-							port: args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
-							password: args["rcon-password"] || instanceconfig.clientPassword,
-						});
-					} else {
-						setTimeout(function(){
-							checkRcon();
-						},5000);
-					}
-				});
-			}
-			setTimeout(checkRcon, 5000);
-		
-			client.onDidAuthenticate(() => {
-				console.log('Clusterio | RCON Authenticated!');
-				instanceManagement(config, instance, instanceconfig); // start using rcons
-			});
-			client.onDidConnect(() => {
-				console.log('Clusterio | RCON Connected!');
-				// getID();
-			});
-			client.onDidDisconnect(() => {
-				console.log('Clusterio | RCON Disconnected!');
-				// process.exit(0); // exit because RCON disconnecting is undefined behaviour and we rather just wanna restart now
-			});
-			process.on('SIGINT', function () {
-				console.log("Caught interrupt signal, disconnecting RCON");
-				client.disconnect().then(()=>{
-					console.log("Rcon disconnected, Sending ^C");
-					// We don't actually do this on windows, because ctrl+c in windows CMD sends it to all subprocesses as well. Doing it twice will abort factorios save.
-					if(process.platform == "linux"){
-						serverprocess.kill("SIGINT");
-					}
-				});
-			});
-		} else if(process.platform == "linux"){
-			// don't open an RCON connection and just use stdio instead, does not work on windows.
-			instanceManagement(config, instance, instanceconfig);
-			process.on('SIGINT', function () {
-				console.log("Caught interrupt signal, sending ^C");
-				serverprocess.kill("SIGINT");
-			});
-		}
-
-		// set some globals
-		confirmedOrders = [];
-		lastSignalCheck = Date.now();
 	});
+
+	await server.start(latestSave);
 }
 
 async function startClient() {
@@ -641,14 +521,6 @@ async function startClient() {
 		return;
 	}
 
-	// messageInterface Management
-	setInterval(function(){
-		let command=commandBuffer.shift();
-		if(command){
-			messageInterfaceInternal(command[0], command[1], command[2], command[3]);
-		}
-	},config.msBetweenCommands || 50);
-
 	// handle commandline parameters
 	if (!command || command == "help" || command == "--help") {
 		printUsage();
@@ -679,7 +551,7 @@ async function startClient() {
 
 // ensure instancemanagement only ever runs once
 var _instanceInitialized;
-async function instanceManagement(config, instance, instanceconfig) {
+async function instanceManagement(config, instance, instanceconfig, server) {
 	if (_instanceInitialized) return;
 	_instanceInitialized = true;
 
@@ -719,14 +591,18 @@ async function instanceManagement(config, instance, instanceconfig) {
                     console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + data.toString('utf8'));
 					return true;
 				} else if (data && data.toString('utf8')[0] == "/"){
-					return messageInterface(data.toString('utf8'), callback);
+					let result = await server.sendRcon(data.toString('utf8'));
+					if (typeof callback === "function") {
+						callback(result);
+					}
+					return result;
 				}
 			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
 				socket, // socket.io connection to master (and ES6 destructuring, yay)
 			});
 			if(plugins[i].factorioOutput && typeof plugins[i].factorioOutput === "function"){
 				// when factorio logs a line, send it to the plugin. This includes things like autosaves, chat, errors etc
-				serverprocess.stdout.on("data", data => plugins[i].factorioOutput(data.toString()));
+				server.on('stdout', data => plugins[i].factorioOutput(data.toString()));
 			}
 			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
 				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
@@ -801,7 +677,7 @@ async function instanceManagement(config, instance, instanceconfig) {
 		setInterval(getID, 10000);
 		getID();
 		function getID() {
-			messageInterface("/silent-command rcon.print(#game.connected_players)", function(playerCount) {
+			server.sendRcon("/silent-command rcon.print(#game.connected_players)").then((playerCount) => {
 				var payload = {
 					time: Date.now(),
 					rconPort: instanceconfig.clientPort,
@@ -921,8 +797,7 @@ module.exports = {
 	// For testing only
 	_Instance: Instance,
 	_checkFilename: checkFilename,
-	_randomDynamicPort: randomDynamicPort,
-	_generatePassword: generatePassword,
+	_symlinkMods: symlinkMods,
 };
 
 if (module === require.main) {

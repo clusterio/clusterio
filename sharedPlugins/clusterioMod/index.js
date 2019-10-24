@@ -3,15 +3,23 @@ const fs = require("fs-extra");
 
 const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
-const stringUtils = require("lib/stringUtils.js");
 const checkHotpatchInstallation = require("lib/clusterTools/checkHotpatchInstallation");
 const getLua = require("lib/clusterTools/getLua");
 
 const pluginConfig = require("./config");
 const COMPRESS_LUA = false;
 
+function ensureFileSync(path) {
+	if (!fs.existsSync(path)) {
+		fs.outputFileSync(path, "");
+	}
+}
+
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
+		// Ugly global
+		global.confirmedOrders = [];
+
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
@@ -27,6 +35,10 @@ module.exports = class remoteCommands {
 				'x-access-token': this.config.masterAuthToken
 			},
 		};
+
+		ensureFileSync(instancedirectory + "/script-output/output.txt");
+		ensureFileSync(instancedirectory + "/script-output/orders.txt");
+		ensureFileSync(instancedirectory + "/script-output/txbuffer.txt");
 		
 		(async ()=>{
 			let hotpatchInstallStatus = await checkHotpatchInstallation(this.messageInterface);

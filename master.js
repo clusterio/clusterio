@@ -32,9 +32,9 @@ let config = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
-const getFactorioLocale = require("lib/getFactorioLocale");
 const pluginManager = require("lib/manager/pluginManager.js");
 const database = require("lib/database");
+const factorio = require("lib/factorio");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -670,19 +670,26 @@ app.post("/api/runCommand", authenticate.middleware, function(req,res) {
 		res.status(400).send({auth: true, message: "Error: invalid request.body"});
 	}
 });
+
+var localeCache;
 /**
 GET endpoint. Returns factorio's base locale as a JSON object.
 
 @memberof clusterioMaster
 @instance
 @alias api/getFactorioLocale
-@returns {object{}} 2 deep nested object with base game factorio locale as key:value pairs
+@returns {object<string, object>} 2 deep nested object with base game factorio locale as key:value pairs
 */
 app.get("/api/getFactorioLocale", function(req,res){
 	endpointHitCounter.labels(req.route.path).inc();
-	getFactorioLocale.asObject(config.factorioDirectory, "en", (err, factorioLocale) => {
-		res.send(factorioLocale);
-	});
+	if (!localeCache) {
+		factorio.getLocale(path.join(config.factorioDirectory, "data"), "en").then(locale => {
+			localeCache = locale;
+			res.send(localeCache);
+		});
+	} else {
+		res.send(localeCache);
+	}
 });
 
 /* Websockets for plugins */

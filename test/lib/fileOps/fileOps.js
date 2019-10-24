@@ -1,40 +1,24 @@
-const assert = require('assert');
-const fs = require('fs');
+const assert = require('assert').strict;
+const fs = require('fs-extra');
 const path = require('path');
 
 const fileOps = require('lib/fileOps');
 
-// create folders for testing
-function setupTestingEnv(){
-	if (!fs.existsSync(path.resolve(__dirname, "database"))){
-		fs.mkdirSync(path.resolve(__dirname, "database"));
-	}
-	if (!fs.existsSync(path.resolve(__dirname, "test"))){
-		fs.mkdirSync(path.resolve(__dirname, "test"));
-	}
-	if (!fs.existsSync(path.resolve(__dirname, "test/folder"))){
-		fs.mkdirSync(path.resolve(__dirname, "test/folder"));
-	}
-	if (!fs.existsSync(path.resolve(__dirname, "test/another folder"))){
-		fs.mkdirSync(path.resolve(__dirname, "test/another folder"));
-	}
-	if (!fs.existsSync(path.resolve(__dirname, "test/file.txt"))){
-		fs.writeFileSync(path.resolve(__dirname, "test/file.txt"), "contents");
-	}
-	if (!fs.existsSync(path.resolve(__dirname, "test/another file.txt"))){
-		fs.writeFileSync(path.resolve(__dirname, "test/another file.txt"), "more contents");
-	}
-	// we need this xfile to test a branch in fileOps.getNewestFile()s propagation
-	if (!fs.existsSync(path.resolve(__dirname, "test/xfile.txt"))){
-		fs.writeFileSync(path.resolve(__dirname, "test/xfile.txt"), "contents");
-	}
-}
-setupTestingEnv();
-setupTestingEnv(); // run twice to get branch coverage
 describe("fileOps.js", function(){
+	let baseDir = path.join("test", "temp", "fileOps");
+	async function setupTestingEnv() {
+		await fs.ensureDir(path.join(baseDir, "test", "folder"));
+		await fs.ensureDir(path.join(baseDir, "test", "another folder"));
+
+		await fs.outputFile(path.join(baseDir, "test", "file.txt"), "contents");
+		await fs.outputFile(path.join(baseDir, "test", "another file.txt"), "more contents");
+	}
+
+	before(setupTestingEnv);
+
 	describe("fileOps.getDirectoriesSync()", function(){
 		it("gets an array of directory names from a path", function(){
-			let directories = fileOps.getDirectoriesSync(path.resolve(__dirname, "test"));
+			let directories = fileOps.getDirectoriesSync(path.join(baseDir, "test"));
 			
 			// because there are no arrays for some reason
 			assert(typeof directories == "object");
@@ -43,7 +27,7 @@ describe("fileOps.js", function(){
 			assert(directories[0] == "another folder" && directories[1] == "folder");
 		});
 		it("does not return any filenames", function(){
-			let directories = fileOps.getDirectoriesSync(path.resolve(__dirname, "test"));
+			let directories = fileOps.getDirectoriesSync(path.join(baseDir, "test"));
 			
 			// this is a function to return directories, not files. So yeah.
 			assert(!directories.includes("file.txt") && !directories.includes("another file.txt"));
@@ -56,7 +40,7 @@ describe("fileOps.js", function(){
 	});
 	describe("fileOps.getFileNamesSync(path)", function(){
 		it("gets names of files in directory", function(){
-			let files = fileOps.getFileNamesSync(path.resolve(__dirname, "test"));
+			let files = fileOps.getFileNamesSync(path.join(baseDir, "test"));
 			assert(files.length > 0);
 			assert(files.includes("file.txt") && files.includes("another file.txt"));
 		});
@@ -67,42 +51,20 @@ describe("fileOps.js", function(){
 		});
 	});
 	describe("fileOps.getNewestFile()", function(){
-		it("gets the newest file in a directory async", function(done){
-			fileOps.getNewestFile(path.resolve(__dirname, "test/"), fileOps.getFileNamesSync(path.resolve(__dirname, "test")), function(err, newest){
-				assert(newest && typeof newest.file == "string");
-				done();
-			});
+		it("returns a string in a directory with files", async function() {
+			let newest = await fileOps.getNewestFile(path.join(baseDir, "test"));
+			assert.equal(typeof newest, "string");
 		});
-		it("throws if callback is missing", function(){
-			assert.throws(function(){
-				fileOps.getNewestFile("test", fileOps.getFileNamesSync(path.resolve(__dirname, "test")));
-			}, Error);
-		});
-		it("executes callback(err) if no files are provided", function(done){
-			fileOps.getNewestFile(path.resolve(__dirname, "test"), [], function(err, newest){
-				assert(err && typeof err == "object");
-				done();
-			});
-		});
-		it("executes callback(err) if launched without a directory", function(done){
-			fileOps.getNewestFile("", fileOps.getFileNamesSync(path.resolve(__dirname, "test")), function(err, newest){
-				assert(err);
-				done();
-			});
-		});
-		it("executes callback(err) when you do stupid shit", function(done){
-			fileOps.getNewestFile({thisWontWork: "but not crash either"}, {lolz:"yeah..."}, function(err, newest){
-				assert(err);
-				// ENOENT: no such file or directory, stat 'C:\**\factorioClusterio\lib\test\undefined'
-				done();
-			});
+		it("returns null if directory is empty", async function() {
+			let newest = await fileOps.getNewestFile(path.join(baseDir, "test", "folder"));
+			assert.equal(newest, null);
 		});
 	});
 	describe("fileOps.deleteFolderRecursiveSync(path)", function(){
 		it("deletes a folder and all files and folders in it", function(){
-			let x = fileOps.deleteFolderRecursiveSync(path.resolve(__dirname, "test"));
+			let x = fileOps.deleteFolderRecursiveSync(path.join(baseDir, "test"));
 			assert.throws(function(){
-				fs.statSync(path.resolve(__dirname, "test"));
+				fs.statSync(path.join(baseDir, "test"));
 			}, Error);
 			assert(x);
 			// give it some extra time because its sometimes very slow
@@ -114,11 +76,11 @@ describe("fileOps.js", function(){
 	});
 	describe("fileOps.deleteFolderRecursive(path)", function(){
 		it("deletes a folder and all files and folders in it, just like sync version", async function(){
-			setupTestingEnv();
-			assert(fs.statSync(path.resolve(__dirname, "test")));
-			let x = await fileOps.deleteFolderRecursive(path.resolve(__dirname, "test"));
+			await setupTestingEnv();
+			assert(fs.statSync(path.join(baseDir, "test")));
+			let x = await fileOps.deleteFolderRecursive(path.join(baseDir, "test"));
 			assert.throws(function(){
-				fs.statSync(path.resolve(__dirname, "test"));
+				fs.statSync(path.join(baseDir, "test"));
 			}, Error);
 			assert(x === undefined, "Promise version of this function does not have a return value upon success");
 			return true;
