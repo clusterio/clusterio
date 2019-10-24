@@ -41,6 +41,9 @@ Version 2.0.0
   /api/inventory, /api/inventoryAsObject and the web interface view for the
   storage page into the clusterioMod plugin.  If you disable this plugin
   then these things will not be available.
+- Removed undocumented --port and --rcon-port arguments to client.
+- Removed undocumented FACTORIOPORT and RCONPORT enviroment variable
+  handling in client.
 
 ### Breaking Changes
 

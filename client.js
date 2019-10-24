@@ -270,7 +270,7 @@ async function symlinkMods(instance, sharedMods, logger) {
 	}
 }
 
-async function createInstance(config, args, instance) {
+async function createInstance(config, instance) {
 	console.log(`Creating ${instance.path()}`);
 	await fs.ensureDir(instance.path());
 	await fs.ensureDir(instance.path("script-output"));
@@ -278,10 +278,10 @@ async function createInstance(config, args, instance) {
 	await symlinkMods(instance, "sharedMods", console);
 	let instconf = {
 		"id": Math.random() * 2 ** 31 | 0,
-		"factorioPort": args.port || process.env.FACTORIOPORT || null,
-		"clientPort": args["rcon-port"] || process.env.RCONPORT || null,
+		"factorioPort":  null,
+		"clientPort":  null,
 		"__comment_clientPassword": "This is the rcon password. Will be randomly generated if null.",
-		"clientPassword": args["rcon-password"] || null,
+		"clientPassword": null,
 		"info": {}
 	}
 	console.log("Clusterio | Created instance with settings:")
@@ -335,7 +335,7 @@ async function createInstance(config, args, instance) {
 	console.log("Clusterio | Successfully created instance");
 }
 
-async function startInstance(config, args, instance) {
+async function startInstance(config, instance) {
 	var instanceconfig = JSON.parse(await fs.readFile(instance.path("config.json")));
 	if (typeof instanceconfig.id !== "number" || isNaN(instanceconfig.id)) {
 		throw new Error(`${instance.path("config.json")} is missing id`);
@@ -343,12 +343,6 @@ async function startInstance(config, args, instance) {
 	// Temporary measure for backwards compatibility
 	instanceconfig.unique = instanceconfig.id;
 
-	if (process.env.FACTORIOPORT) {
-		instanceconfig.factorioPort = process.env.FACTORIOPORT;
-	}
-	if (process.env.RCONPORT) {
-		instanceconfig.rconPort = process.env.RCONPORT;
-	}
 	console.log("Deleting .tmp.zip files");
 	let savefiles = fs.readdirSync(instance.path("saves"));
 	for(i = 0; i < savefiles.length; i++){
@@ -419,9 +413,9 @@ async function startInstance(config, args, instance) {
 	await factorio.patch(instance.path("saves", latestSave), modules);
 
 	let options = {
-		gamePort: args.port || Number(process.env.FACTORIOPORT) || instanceconfig.factorioPort,
-		rconPort: args["rcon-port"] || Number(process.env.RCONPORT) || instanceconfig.clientPort,
-		rconPassword: args["rcon-password"] || instanceconfig.clientPassword,
+		gamePort: instanceconfig.factorioPort,
+		rconPort: instanceconfig.clientPort,
+		rconPassword: instanceconfig.clientPassword,
 	};
 
 	let server = new factorio.FactorioServer(path.join("factorio", "data"), instance.path(), options);
@@ -526,9 +520,9 @@ async function startClient() {
 		console.error("Usage: node client start [instanceName]");
 		process.exit(0);
 	} else if (command == "start" && !fs.existsSync(instance.path())) {
-		await createInstance(config, args, instance);
+		await createInstance(config, instance);
 	} else if (command == "start" && fs.existsSync(instance.path())) {
-		await startInstance(config, args, instance);
+		await startInstance(config, instance);
 	} else {
 		console.error("Invalid arguments, quitting.");
 		process.exit(1);
