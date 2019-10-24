@@ -51,6 +51,9 @@ Version 2.0.0
   directory inside the instance folder.
 - Hotpatch scenarios and code loading is no longer compatible with Clusterio.
   Breaks playerManager, serverSelect, and tranTeleports.
+- Removed getLua and getCommand from lib/clusterTools.  If you need to run
+  more than the most trivial of code in commands use the save patcher and
+  add in a remote interface.
 
 
 Version 1.2.2

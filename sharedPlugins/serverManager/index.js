@@ -2,7 +2,6 @@ const needle = require("needle");
 const fs = require("fs-extra");
 
 const pluginConfig = require("./config");
-const COMPRESS_LUA = false;
 
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
