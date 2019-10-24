@@ -439,6 +439,12 @@ async function startInstance(config, args, instance) {
 	let server = new factorio.FactorioServer(path.join("factorio", "data"), instance.path(), options);
 	await server.init();
 
+	// FactorioServer.init may have generated a random port or password
+	// if they were null.
+	instanceconfig.factorioPort = server.gamePort
+	instanceconfig.clientPort = server.rconPort
+	instanceconfig.clientPassword = server.rconPassword
+
 	server.on('output', function(output) {
 		console.log("Fact: " + output.message);
 	});
