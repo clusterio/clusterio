@@ -305,7 +305,7 @@ async function createInstance(config, args, instance) {
 		"id": Math.random() * 2 ** 31 | 0,
 		"factorioPort": args.port || process.env.FACTORIOPORT || null,
 		"clientPort": args["rcon-port"] || process.env.RCONPORT || null,
-		"__comment_clientPassword": "This is the rcon password. Its also used for making an instanceID. Make sure its unique and not blank.",
+		"__comment_clientPassword": "This is the rcon password. Will be randomly generated if null.",
 		"clientPassword": args["rcon-password"] || null,
 		"info": {}
 	}

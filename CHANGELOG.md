@@ -20,6 +20,9 @@ Version 2.0.0
   copied on instance creation.
 - Instance id is no longer derived from the rcon password, instead it's
   generated upon instance creation and stored in the instance config.
+- The game port, RCON port and RCON password instance config entries are are
+  now null by default, indicating that a random one will be generated every
+  time the instance is started.
 
 ### Breaking Changes
 
