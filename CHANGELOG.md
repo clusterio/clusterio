@@ -63,6 +63,14 @@ Version 2.0.0
   add in a remote interface.
 
 
+Version 1.2.3
+-------------
+
+- Disabled uploading mods to the master server by default as this is mostly
+  just a waste of bandwidth with the mod portal being integrated into the
+  game now.
+
+
 Version 1.2.2
 -------------
 
