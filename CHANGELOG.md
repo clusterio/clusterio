@@ -69,6 +69,8 @@ Version 1.2.3
 - Disabled uploading mods to the master server by default as this is mostly
   just a waste of bandwidth with the mod portal being integrated into the
   game now.
+- Fixed researchSync breaking with heavily modded games due to the tech tree
+  exceeding the default 100kb limit on JSON payloads.
 
 
 Version 1.2.2
