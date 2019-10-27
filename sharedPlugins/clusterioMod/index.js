@@ -3,11 +3,9 @@ const fs = require("fs-extra");
 
 const objectOps = require("lib/objectOps.js");
 const fileOps = require("lib/fileOps");
-const checkHotpatchInstallation = require("lib/clusterTools/checkHotpatchInstallation");
-const getLua = require("lib/clusterTools/getLua");
 
 const pluginConfig = require("./config");
-const COMPRESS_LUA = false;
+
 
 function ensureFileSync(path) {
 	if (!fs.existsSync(path)) {
@@ -39,16 +37,8 @@ module.exports = class remoteCommands {
 		ensureFileSync(instancedirectory + "/script-output/output.txt");
 		ensureFileSync(instancedirectory + "/script-output/orders.txt");
 		ensureFileSync(instancedirectory + "/script-output/txbuffer.txt");
-		
-		(async ()=>{
-			let hotpatchInstallStatus = await checkHotpatchInstallation(this.messageInterface);
-			this.messageInterface("Hotpach installation status: "+hotpatchInstallStatus);
-			if(hotpatchInstallStatus){
-				// let mainCode = await getLua("sharedPlugins/playerManager/lua/playerTracking.lua");
-				// if(mainCode) var returnValue = await messageInterface("/silent-command remote.call('hotpatch', 'update', '"+pluginConfig.name+"', '"+pluginConfig.version+"', '"+mainCode+"')");
-			}
-		})().catch(e => console.log(e));
-		
+
+
 		// flow/production statistics ------------------------------------------------------------
 		var oldFlowStats = false;
 		var oldTimestamp;

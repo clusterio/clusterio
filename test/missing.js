@@ -4,7 +4,6 @@
 require('lib/clusterTools');
 require('lib/dole_nn_base');
 require('lib/getInstances');
-require('lib/hash');
 require('lib/manager/instanceManager');
 require('lib/manager/modManager');
 require('lib/manager/pluginManager');

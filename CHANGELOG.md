@@ -4,6 +4,17 @@ Changelog
 Version 2.0.0
 -------------
 
+### Major Features
+
+- Replaced Hotpatch with save patching.  Removed the Hotpatch scenario and
+  the depency on it for getting code into the game.  Added a save patcher than
+  runs before starting up Factorio that patches in lua modules based on the
+  event_loader lib into the savegame.  Regular freeplay games can now be
+  used with Clusterio and will be compatible without having to convert them
+  to Hotpatch.
+
+### Changes
+
 - Fixed sslCert and sslPrivKey entries being ignored in the config.
 - Changed ssl key creation to be done at startup instead of on npm install.
 - Added error handling during master startup.
@@ -38,6 +49,11 @@ Version 2.0.0
 - Mods are no longer copied from the per instance instanceMods directory.
   If you need per instance mods you can now place them directly in the mods
   directory inside the instance folder.
+- Hotpatch scenarios and code loading is no longer compatible with Clusterio.
+  Breaks playerManager, serverSelect, and tranTeleports.
+- Removed getLua and getCommand from lib/clusterTools.  If you need to run
+  more than the most trivial of code in commands use the save patcher and
+  add in a remote interface.
 
 
 Version 1.2.2

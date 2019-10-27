@@ -1,9 +1,5 @@
 const needle = require("needle");
-const fs = require("fs-extra");
-const path = require("path");
 
-const clusterTools = require("lib/clusterTools")();
-const pluginConfig = require("./config");
 
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
@@ -36,11 +32,9 @@ module.exports = class remoteCommands {
 			});
 		}, 15000);
 	}
-	async getStats(){
-		let command = fs.readFileSync(path.join(__dirname, "Lua/exportStatistics.lua"), "utf8")//clusterTools.getLua(path.join(__dirname, "Lua/exportStatistics.lua"), false);
-		let string = await this.messageInterface(`/silent-command ${command}`);
-		var data;
-		eval(`data = ${string}`);
-		return data;
+
+	async getStats() {
+		let string = await this.messageInterface('/sc remote.call("statisticsExporter", "export")');
+		return JSON.parse(string);
 	}
 }
