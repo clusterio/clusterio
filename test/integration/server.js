@@ -1,4 +1,5 @@
 const assert = require("assert").strict;
+const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
 
@@ -163,6 +164,22 @@ describe("Integration of lib/factorio/server", function() {
 
 				server.off('output', filter);
 				assert(pass, "server did not output line from test scenario");
+			});
+		});
+
+		describe(".stop() hang detection", function() {
+			it("should detect factorio hanging on shutdown", async function() {
+				slowTest(this);
+				log(".start() for hang detection");
+
+				await server.start("test.zip");
+				if (!server._rconReady) {
+					await events.once(server, 'rcon-ready');
+				}
+				server.sendRcon("/c while true do end").catch(() => {});
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				log(".stop() for hang detection");
+				await server.stop();
 			});
 		});
 	});
