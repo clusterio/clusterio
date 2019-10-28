@@ -36,6 +36,10 @@ Version 2.0.0
   time the instance is started.
 - Removed the broken client download command as this would download
   pre-releases.
+- Moved the item database and HTTP definitions for /api/place, /api/remove,
+  /api/inventory, /api/inventoryAsObject and the web interface view for the
+  storage page into the clusterioMod plugin.  If you disable this plugin
+  then these things will not be available.
 
 ### Breaking Changes
 
