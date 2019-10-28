@@ -53,8 +53,6 @@
     "lib": "file:./lib",
     "luamin": "^1.0.4",
     "minimist": "^1.2.0",
-    "mkdirp": "^0.5.1",
-    "mkdirp-promise": "^5.0.1",
     "moment": "^2.22.2",
     "needle": "^2.4.0",
     "node-factorio-api": "^0.3.8",
