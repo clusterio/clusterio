@@ -1,6 +1,6 @@
 const needle = require("needle");
-const isJson = require("./isJson.js");
-const pluginConfig = require("./config.js");
+const isJson = require("./isJson");
+const pluginConfig = require("./config");
 
 const functions = require("./interfacingFunctions");
 

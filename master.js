@@ -7,17 +7,16 @@ combinator signals.
 @author Danielv123
 
 @example
-node master.js
+node master
 */
 
 // Attempt updating
-// const updater = require("./updater.js");
+// const updater = require("./updater");
 // updater.update().then(console.log);
 
 // argument parsing
 const args = require('minimist')(process.argv.slice(2));
 
-const averagedTimeSeries = require("averaged-timeseries");
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
@@ -32,7 +31,7 @@ let config = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
-const pluginManager = require("lib/manager/pluginManager.js");
+const pluginManager = require("lib/manager/pluginManager");
 const database = require("lib/database");
 const factorio = require("lib/factorio");
 
@@ -71,8 +70,8 @@ app.use(function(req, res, next){
 	next();
 });
 
-require("./routes.js")(app);
-require("./routes/api/getPictures.js")(app);
+require("./routes")(app);
+require("./routes/api/getPictures")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 
@@ -99,21 +98,6 @@ const prometheusWsUsageCounter = new Prometheus.Counter({
 	help: 'Websocket traffic',
 	labelNames: ["connectionType", "instanceID"],
 });
-const prometheusExportGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'export_gauge',
-	help: 'Items exported by instance',
-	labelNames: ["instanceID", "itemName"],
-});
-const prometheusImportGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'import_gauge',
-	help: 'Items imported by instance',
-	labelNames: ["instanceID", "itemName"],
-});
-const prometheusDoleFactorGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'dole_factor_gauge',
-	help: 'The current dole division factor for this item',
-	labelNames: ["itemName"],
-});
 const prometheusPlayerCountGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'player_count_gauge',
 	help: 'Amount of players connected to this cluster',
@@ -123,11 +107,6 @@ const prometheusUPSGauge = new Prometheus.Gauge({
 	name: prometheusPrefix+'UPS_gauge',
 	help: 'UPS of the current server',
 	labelNames: ["instanceID", "instanceName"],
-});
-const prometheusMasterInventoryGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'master_inventory_gauge',
-	help: 'Amount of items stored on master',
-	labelNames: ["itemName"],
 });
 /**
 GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
@@ -156,10 +135,14 @@ function registerMoreMetrics(){
 			if(slave.meta.tick && typeof slave.meta.tick === "number") prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.tick) || 0);
 		}catch(e){}
 	}
-	// inventory
-	for (let [key, count] of db.items._items) {
-		prometheusMasterInventoryGauge.labels(key).set(Number(count) || 0);
+
+	// plugins
+	for (let plugin of masterPlugins) {
+		if (plugin.main && plugin.main.onMetrics && typeof plugin.main.onMetrics == "function") {
+			plugin.main.onMetrics();
+		}
 	}
+
 	// Slave count
 	let numberOfActiveSlaves = 0;
 	for(let slave of db.slaves.values()){
@@ -175,26 +158,10 @@ async function loadDatabase(databaseDirectory) {
 	let slavesPath = path.resolve(databaseDirectory, "slaves.json");
 	console.log(`Loading ${slavesPath}`);
 	db.slaves = await database.loadJsonAsMap(slavesPath);
-
-	let itemsPath = path.resolve(databaseDirectory, "items.json");
-	console.log(`Loading ${itemsPath}`);
-	try {
-		let content = await fs.readFile(itemsPath);
-		db.items = new database.ItemDatabase(JSON.parse(content));
-
-	} catch (err) {
-		if (err.code === "ENOENT") {
-			console.log("Creating new item database");
-			db.items = new database.ItemDatabase();
-
-		} else {
-			throw err;
-		}
-	}
 }
 
 
-// store slaves and inventory in a .json full of JSON data
+// store slaves in a .json full of JSON data
 async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
@@ -208,14 +175,6 @@ async function shutdown() {
 			console.error(`Slave database too large, not saving (${db.slaves.size}`);
 		}
 
-		if (db.items && db.items.size < 50000) {
-			let file = path.resolve(config.databaseDirectory, "items.json");
-			console.log(`writing ${file}`);
-			let content = JSON.stringify(db.items.serialize());
-			await fs.outputFile(file, content);
-		} else if (db.items) {
-			console.error(`Item database too large, not saving (${db.items.size})`);
-		}
 		for(let i in masterPlugins){
 			let plugin = masterPlugins[i];
 			if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
@@ -410,213 +369,14 @@ app.post("/api/rconPasswords", authenticate.middleware, function(req, res) {
 	res.send(slaveCache.cache);
 });
 
-var recievedItemStatisticsBySlaveID = {};
-var sentItemStatisticsBySlaveID = {};
-// 
-/**
-POST endpoint for storing items in master's inventory.
-
-@memberof clusterioMaster
-@instance
-@alias api/place
-@param {itemStack} itemStack the number and type of items to store (see typedef)
-@param {string} [itemStack.instanceID="unknown"] the unique/instanceID which is a numerical value for an instance
-@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
-@returns {string} status either "success" or "failure"
-*/
-app.post("/api/place", authenticate.middleware, function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let x;
-	try {
-		x = JSON.parse(req.body);
-	} catch (e) {
-		x = req.body;
-	}
-	if(!x.instanceName) {
-		x.instanceName = "unknown";
-	}
-	if(!x.instanceID) {
-		x.instanceID = "unknown";
-		for (let [instanceID, slave] of db.slaves) {
-			if(slave.instanceName == req.body.instanceName) {
-				x.instanceID = instanceID;
-				break;
-			}
-		}
-	}
-	if(x.instanceID
-	&& x.instanceName
-	&& !isNaN(Number(x.count))
-	&& x.name
-	&& typeof x.name == "string"){
-		if(config.logItemTransfers){
-			console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.instanceID+")");
-		}
-		// gather statistics
-		let recievedItemStatistics = recievedItemStatisticsBySlaveID[x.instanceID];
-		if(recievedItemStatistics === undefined){
-			recievedItemStatistics = new averagedTimeSeries({
-				maxEntries: config.itemStats.maxEntries,
-				entriesPerSecond: config.itemStats.entriesPerSecond,
-				mergeMode: "add",
-			}, console.log);
-			recievedItemStatisticsBySlaveID[x.instanceID] = recievedItemStatistics;
-		}
-		recievedItemStatistics.add({
-			key:req.body.name,
-			value:req.body.count,
-		});
-		prometheusExportGauge.labels(x.instanceID, req.body.name).inc(Number(req.body.count) || 0);
-		// save items we get
-		
-		var count = Number(req.body.count);
-		db.items.addItem(req.body.name, count);
-
-		// Attempt confirming
-		res.send("success");
-	} else {
-		res.send("failure");
-	}
-});
-const routes_api_remove = require("./routes/api/remove.js");
-let neuralDole;
-
-/**
-POST endpoint to remove items from DB when client orders items.
-
-@memberof clusterioMaster
-@instance
-@alias api/remove
-@param {itemStack} itemStack the name of and the number of items to remove (see typedef)
-@param {string} [itemStack.instanceID="unknown"] the unique/instanceID which is a numerical value for an instance
-@param {string} [itemStack.instanceName="unknown"] the name of an instance for identification in statistics, as provided when launching it. ex node client.js start [name]
-@returns {itemStack} the number of items actually removed, may be lower than what was asked for due to shortages.
-*/
-app.post("/api/remove", authenticate.middleware, function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	// save items we get
-	var object = req.body;
-	if(!object.instanceID) {
-		object.instanceID = "unknown"
-	}
-	if(!object.instanceName) {
-		object.instanceName = "unknown";
-	}
-	if (db.slaves.has(String(object.instanceID))) {
-		object.instanceName = db.slaves.get(String(object.instanceID)).instanceName;
-	}
-	let itemCount = db.items.getItemCount(object.name);
-	if (
-		(config.disableImportsOfEverythingExceptElectricity === true || config.disableImportsOfEverythingExceptElectricity === "true" )
-		&& object.name != "electricity"
-	) {
-		if(config.logItemTransfers){
-			console.log('failure could not find ' + object.name);
-		}
-		res.send({name:object.name, count:0});
-	} else if(config.disableFairItemDistribution){
-		// Give out as much items as possible until there are 0 left. This might lead to one slave getting all the items and the rest nothing.
-		let numberToRemove = Math.min(Math.abs(Number(object.count)),itemCount);
-		db.items.removeItem(object.name, numberToRemove);
-		res.send({count: numberToRemove, name: object.name});
-
-		// track statistics and do graphing things
-		prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(numberToRemove) || 0);
-		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-		if(sentItemStatistics === undefined){
-			sentItemStatistics = new averagedTimeSeries({
-				maxEntries: config.itemStats.maxEntries,
-				entriesPerSecond: config.itemStats.entriesPerSecond,
-				mergeMode: "add",
-			}, console.log);
-		}
-		sentItemStatistics.add({
-			key:object.name,
-			value:numberToRemove,
-		});
-		//console.log(sentItemStatistics.data)
-		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
-	} else if(config.useNeuralNetDoleDivider){
-		// use fancy neural net to calculate a "fair" dole division rate.
-		neuralDole.divider({
-			res,
-			object,
-			config,
-			sentItemStatisticsBySlaveID,
-			prometheusImportGauge
-		})
-	} else {
-		// Use dole division. Makes it really slow to drain out the last little bit.
-		routes_api_remove.doleDivider({
-			itemCount,
-			object,
-			db,
-			sentItemStatisticsBySlaveID,
-			config,
-			prometheusDoleFactorGauge,
-			prometheusImportGauge,
-			req,res,
-		})
-	}
-});
-
-/**
-GET endpoint to read the masters current inventory of items.
-
-@memberof clusterioMaster
-@instance
-@alias api/inventory
-@returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
-*/
-// endpoint for getting an inventory of what we got
-app.get("/api/inventory", function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	// Check it and send it
-	var inventory = [];
-	for (let [name, count] of db.items._items) {
-		inventory.push({ name, count });
-	}
-	res.send(JSON.stringify(inventory));
-});
-/**
-GET endpoint to read the masters inventory as an object with key:value pairs
-
-@memberof clusterioMaster
-@instance
-@alias api/inventoryAsObject
-@returns {object} JSON {"iron-plate":100, "copper-plate":5}
-*/
-app.get("/api/inventoryAsObject", function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	// Check it and send it
-	res.send(JSON.stringify(db.items.serialise()));
-});
-
-/**
- GET endpoint to read the masters inventory as an object with key:value pairs
-
- @memberof clusterioMaster
- @instance
- @alias api/modData
- @returns {object} JSON
- */
-
 // wrap a request in an promise
-	async function downloadPage(url) {
-		return new Promise((resolve, reject) => {
-			request(url, (error, response, body) => {
-				resolve(body);
-			});
+async function downloadPage(url) {
+	return new Promise((resolve, reject) => {
+		request(url, (error, response, body) => {
+			resolve(body);
 		});
-	}
+	});
+}
 
 app.get("/api/modmeta", async function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -832,7 +592,10 @@ async function getPlugins(){
 						path: pluginConfig.pluginPath,
 						socketio: io,
 						express: app,
+						db,
 						Prometheus,
+						prometheusPrefix,
+						endpointHitCounter,
 					}),
 					pluginConfig,
 				});
@@ -900,12 +663,6 @@ async function startServer() {
 	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
-	setInterval(async function() {
-		let file = path.resolve(config.databaseDirectory, "items.json");
-		console.log(`autosaving ${file}`);
-		let content = JSON.stringify(db.items.serialize());
-		await fs.outputFile(file, content);
-	},config.autosaveInterval || 60000);
 	process.on('SIGINT', shutdown); // ctrl + c
 	process.on('SIGHUP', shutdown); // terminal closed
 
@@ -920,13 +677,6 @@ async function startServer() {
 
 	await loadDatabase(config.databaseDirectory);
 	authenticate.setAuthSecret(config.masterAuthSecret);
-
-	// Only initialize neural network when it's enabled, otherwise it might override gauge
-	if(config.useNeuralNetDoleDivider) {
-		neuralDole=new routes_api_remove.neuralDole({
-			db, gaugePrefix: prometheusPrefix
-		});
-	}
 
 	// Make sure we're actually going to listen on a port
 	let httpPort = args.masterPort || config.masterPort;

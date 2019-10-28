@@ -8,7 +8,7 @@ module.exports = class remoteCommands {
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
-		const pluginManager = require("lib/manager/pluginManager.js");
+		const pluginManager = require("lib/manager/pluginManager");
 		// const modManager = require("lib/manager/modManager");
 		this.socket.on("hello", () => {
 			this.socket.emit("registerServerManager");

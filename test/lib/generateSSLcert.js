@@ -2,7 +2,7 @@ var assert = require("assert");
 var fs = require("fs-extra");
 
 var fileOps = require("lib/fileOps");
-var generateSSLcert = require("lib/generateSSLcert.js")
+var generateSSLcert = require("lib/generateSSLcert")
 
 describe("generateSSLcert.js(options)", ()=>{
 	it("Creates a folder with a .crt and .key file in it", async function() {
@@ -12,7 +12,7 @@ describe("generateSSLcert.js(options)", ()=>{
 		assert(!await fs.exists(certPath)); // if it already exsits, the test might pass because of leftover data (which is bad)
 		
 		await generateSSLcert({
-			// bits:512, // supported, but I just use the default of 2048 for this test
+			bits: 512, // This is too small for real world usage, but faster to test
 			sslCertPath: certPath,
 			sslPrivKeyPath: privKeyPath,
 			doLogging: false,

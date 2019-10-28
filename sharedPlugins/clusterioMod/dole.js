@@ -1,6 +1,6 @@
 const averagedTimeSeries = require("averaged-timeseries")
 
-const doleNN = require("lib/dole_nn_base.js")
+const doleNN = require("./dole_nn_base")
 
 const Prometheus = require('prom-client');
 
@@ -19,7 +19,7 @@ class neuralDole {
     }
     
     constructor({
-		db, gaugePrefix
+		items, gaugePrefix
     }){
         // Set some storage variables for the dole divider
         this.prometheusNNDoleGauge = new Prometheus.Gauge({
@@ -27,8 +27,8 @@ class neuralDole {
             help: 'Current demand being supplied by Neural Network ; 1 means all demand covered, 0.5 means about half of each supply is covered, 0 means no items are given',
             labelNames: ["itemName"],
         });
-		this.db = db
-		this.itemsLastTick = new Map(db.items._items)
+		this.items = items
+		this.itemsLastTick = new Map(items._items)
         this.dole = {}
         this.carry = {}
         this.lastRequest = {}
@@ -36,7 +36,7 @@ class neuralDole {
 		this.debt= {}
 
         setInterval(()=>{
-			for (let [name, count] of this.db.items._items) {
+			for (let [name, count] of this.items._items) {
                 let magicData = doleNN.Tick(
                     count,
                     this.dole[name],
@@ -51,7 +51,7 @@ class neuralDole {
                 // DONE handle magicData[1] for graphing for our users
                 this.prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
             }
-			this.itemsLastTick = new Map(this.db.items._items)
+			this.itemsLastTick = new Map(this.items._items)
         }, 1000)
     }
     divider({
@@ -63,7 +63,7 @@ class neuralDole {
     }){
         let magicData = doleNN.Dose(
             object.count, // numReq
-			this.db.items.getItemCount(object.name),
+			this.items.getItemCount(object.name),
 			this.itemsLastTick.get(object.name) || 0,
             this.dole[object.name],
             this.carry[object.name+" "+object.instanceID] || 0,
@@ -85,9 +85,9 @@ class neuralDole {
 		this.debt[object.name+" "+object.instanceID] = magicData[3]
 
 		// Remove item from DB and send it
-		this.db.items.removeItem(object.name, magicData[0]);
+		this.items.removeItem(object.name, magicData[0]);
 		if(config.logItemTransfers){
-			console.log("removed: " + object.name + " " + magicData[0] + " . " + this.db.items.getItemCount(object.name) + " and sent to " + object.instanceID + " | " + object.instanceName);
+			console.log("removed: " + object.name + " " + magicData[0] + " . " + this.items.getItemCount(object.name) + " and sent to " + object.instanceID + " | " + object.instanceName);
 		}
 		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
 		if(sentItemStatistics === undefined){
@@ -95,7 +95,7 @@ class neuralDole {
 				maxEntries: config.itemStats.maxEntries,
 				entriesPerSecond: config.itemStats.entriesPerSecond,
 				mergeMode: "add",
-			}, console.log);
+			});
 		}
 		sentItemStatistics.add({
 			key:object.name,
@@ -112,11 +112,12 @@ class neuralDole {
     }
 }
 
-_doleDivisionFactor = {}; //If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
+// If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
+let _doleDivisionFactor = {};
 function doleDivider({
 	itemCount,
     object,
-	db,
+	items,
     sentItemStatisticsBySlaveID,
     config,
     prometheusDoleFactorGauge,
@@ -140,14 +141,14 @@ function doleDivider({
 		if (config.logItemTransfers) {
 			console.log("removed: " + object.name + " " + object.count + " . " + itemCount + " and sent to " + object.instanceID + " | " + object.instanceName);
 		}
-		db.items.removeItem(object.name, object.count)
+		items.removeItem(object.name, object.count)
 		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
 		if(sentItemStatistics === undefined){
 			sentItemStatistics = new averagedTimeSeries({
 				maxEntries: config.itemStats.maxEntries,
 				entriesPerSecond: config.itemStats.entriesPerSecond,
 				mergeMode: "add",
-			}, console.log);
+			});
 		}
 		sentItemStatistics.add({
 			key:object.name,

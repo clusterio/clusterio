@@ -3,3 +3,5 @@
 
 require('../index');
 require('../masterPlugin');
+require('../dole');
+require('../dole_nn_base');

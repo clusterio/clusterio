@@ -1,10 +1,8 @@
 const fs = require('fs-extra');
 const Tail = require('tail').Tail;
-const https = require('follow-redirects').https;
 const needle = require("needle");
 const child_process = require('child_process');
 const path = require('path');
-const syncRequest = require('sync-request');
 const request = require("request");
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
@@ -13,7 +11,7 @@ const asTable = require("as-table").configure({delimiter: ' | '});
 const util = require("util");
 
 // internal libraries
-const objectOps = require("lib/objectOps.js");
+const objectOps = require("lib/objectOps");
 const fileOps = require("lib/fileOps");
 const pluginManager = require("lib/manager/pluginManager");
 const modManager = require("lib/manager/modManager");
@@ -105,15 +103,15 @@ function needleOptionsWithTokenAuthHeader(config) {
 
 function printUsage() {
 	console.error("Usage: ");
-	console.error("node client.js start [instance name]");
-	console.error("node client.js list");
-	console.error("node client.js delete [instance]");
+	console.error("node client start [instance name]");
+	console.error("node client list");
+	console.error("node client delete [instance]");
 	console.error("To download the latest version of the Clusterio lua mod, do");
-	console.error("node client.js manage shared mods download clusterio");
+	console.error("node client manage shared mods download clusterio");
 	console.error("To download a clusterio plugin, do");
-	console.error("node client.js manage shared plugins install https://github.com/Danielv123/playerManager");
+	console.error("node client manage shared plugins install https://github.com/Danielv123/playerManager");
 	console.error("For more management options, do");
-	console.error("node client.js manage");
+	console.error("node client manage");
 }
 
 async function listInstances(config) {
@@ -133,14 +131,14 @@ async function listInstances(config) {
 
 async function manage(config, instance) {
 	// console.log("Launching mod manager");
-	//const fullUsage = 'node client.js manage [instance, "shared"] ["mods", "config"] ...';
+	//const fullUsage = 'node client manage [instance, "shared"] ["mods", "config"] ...';
 	function usage(instance, tool, action){
 		if(tool && tool == "mods"){
-			console.log('node client.js manage '+instance.name+' '+tool+' ["list", "search", "add", "remove"]');
+			console.log('node client manage '+instance.name+' '+tool+' ["list", "search", "add", "remove"]');
 		} else if(tool && tool == "plugins") {
-			console.log(`node client.js manage ${instance.name} ${tool} ["list", "add", "remove"]`);
+			console.log(`node client manage ${instance.name} ${tool} ["list", "add", "remove"]`);
 		} else {
-			console.log('node client.js manage '+(instance && instance.name || '[instance, "shared"]') +' '+ (tool || '["mods", "plugins"]') + ' ...');
+			console.log('node client manage '+(instance && instance.name || '[instance, "shared"]') +' '+ (tool || '["mods", "plugins"]') + ' ...');
 		}
 	}
 	const tool = process.argv[4] || "";
@@ -197,7 +195,7 @@ async function manage(config, instance) {
 
 async function deleteInstance(instance) {
 	if (instance === undefined) {
-		console.error("Usage: node client.js delete [instance]");
+		console.error("Usage: node client delete [instance]");
 		process.exit(1);
 	} else if (fs.existsSync(instance.path())) {
 		fileOps.deleteFolderRecursiveSync(instance.path()); // TODO: Check if this can cause i-craft users to format their server by using wrong paths
@@ -206,25 +204,6 @@ async function deleteInstance(instance) {
 	} else {
 		console.error("Instance not found: " + instance.name);
 		process.exit(0);
-	}
-}
-
-async function downloadMod() {
-	console.log("Downloading mods...");
-	// get JSON data about releases
-	let res = syncRequest('GET', 'https://api.github.com/repos/Danielv123/factorioClusterioMod/releases', {"headers":{"User-Agent":"factorioClusterio"}});
-	let url = JSON.parse(res.getBody())[0].assets[0].browser_download_url;
-	let name = JSON.parse(res.getBody())[0].assets[0].name;
-	if(url) {
-		console.log(url);
-		let file = fs.createWriteStream("sharedMods/"+name);
-		https.get(url, function(response) {
-			response.on('end', function () {
-				console.log("Downloaded "+name);
-				process.exit(0);
-			});
-			response.pipe(file);
-		}).end();
 	}
 }
 
@@ -542,11 +521,9 @@ async function startClient() {
 		// process.exit(0);
 	} else if (command == "delete") {
 		await deleteInstance(instance);
-	} else if (command == "download") {
-		await downloadMod();
 	} else if (command == "start" && instance === undefined) {
 		console.error("ERROR: No instanceName provided!");
-		console.error("Usage: node client.js start [instanceName]");
+		console.error("Usage: node client start [instanceName]");
 		process.exit(0);
 	} else if (command == "start" && !fs.existsSync(instance.path())) {
 		await createInstance(config, args, instance);
@@ -594,7 +571,7 @@ async function instanceManagement(config, instance, instanceconfig, server) {
 		}
 		if(pluginConfig.binary == "nodePackage" && pluginConfig.enabled){
 			// require plugin class and execute it
-			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index.js"));
+			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index"));
 			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
 				if(data && data.toString('utf8')[0] != "/") {
                     console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + data.toString('utf8'));

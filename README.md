@@ -112,7 +112,7 @@ Master and all slaves:
     tar -xf factorio.tar.gz
     npm install --only=production
     cp config.json.dist config.json
-    node ./lib/npmPostinstall.js
+    node ./lib/npmPostinstall
 
 downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
@@ -131,26 +131,26 @@ Pretty much all the blank fields should be filled in, except on the master where
 
 **Master**
 
-    node master.js
+    node master
 
 Or with pm2 (it's recommened to run it without pm2 first):
 
-    pm2 start master.js --name master
+    pm2 start master --name master
 
 
 **Server Host**
 
 To download the mod for all its non vanilla features and items, (optional, but very recommended)
 
-    node client.js manage shared mods add clusterio
+    node client manage shared mods add clusterio
 
 To create a new instance (its own save, set of mods and config files)
 
-    node client.js start [instancename]
+    node client start [instancename]
 
 To launch an instance with pm2
 
-    pm2 start --name [instancename] client.js -- start [instancename]
+    pm2 start --name [instancename] client -- start [instancename]
 
 use `nano config.json` to change settings.
 
@@ -196,9 +196,9 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 3. Follow the instructions in the bat file
 3. Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
 
-4. Run `node client.js manage shared mods add clusterio`
+4. Run `node client manage shared mods add clusterio`
 
-5. type `node master.js` to start the server
+5. type `node master` to start the server
 
 **Server Host**
 
@@ -210,7 +210,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 3.5 Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
 
-4. Type `node client.js start [instancename]` to create a new instance.
+4. Type `node client start [instancename]` to create a new instance.
 
 To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
@@ -268,19 +268,19 @@ TLDR: the tested fix is:
 
 ### Other fixes for other potential problems:
 
-Sometimes the install fails. Try `node ./lib/npmPostinstall.js` to complete it.
+Sometimes the install fails. Try `node ./lib/npmPostinstall` to complete it.
 
 
 ## Cheatsheet
 
 **To create a new instance/start it**
 
-    node client.js start [instanceName]
+    node client start [instanceName]
 
 **Other instance management tools:**
 ```
-node client.js delete [instanceName]
-node client.js list
+node client delete [instanceName]
+node client list
 ```
 **To update clusterio to the latest version:**
 
@@ -296,5 +296,5 @@ npm install --only=production
 
 3. Download the latest version of the factorioClusterioMod from its github repo
 ```
-node client.js manage shared mods add clusterio
+node client manage shared mods add clusterio
 ```
