@@ -34,6 +34,8 @@ Version 2.0.0
 - The game port, RCON port and RCON password instance config entries are are
   now null by default, indicating that a random one will be generated every
   time the instance is started.
+- Removed the broken client download command as this would download
+  pre-releases.
 
 ### Breaking Changes
 

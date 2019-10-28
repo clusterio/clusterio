@@ -1,10 +1,8 @@
 const fs = require('fs-extra');
 const Tail = require('tail').Tail;
-const https = require('follow-redirects').https;
 const needle = require("needle");
 const child_process = require('child_process');
 const path = require('path');
-const syncRequest = require('sync-request');
 const request = require("request");
 const deepmerge = require("deepmerge");
 const getMac = require('getmac').getMac;
@@ -206,25 +204,6 @@ async function deleteInstance(instance) {
 	} else {
 		console.error("Instance not found: " + instance.name);
 		process.exit(0);
-	}
-}
-
-async function downloadMod() {
-	console.log("Downloading mods...");
-	// get JSON data about releases
-	let res = syncRequest('GET', 'https://api.github.com/repos/Danielv123/factorioClusterioMod/releases', {"headers":{"User-Agent":"factorioClusterio"}});
-	let url = JSON.parse(res.getBody())[0].assets[0].browser_download_url;
-	let name = JSON.parse(res.getBody())[0].assets[0].name;
-	if(url) {
-		console.log(url);
-		let file = fs.createWriteStream("sharedMods/"+name);
-		https.get(url, function(response) {
-			response.on('end', function () {
-				console.log("Downloaded "+name);
-				process.exit(0);
-			});
-			response.pipe(file);
-		}).end();
 	}
 }
 
@@ -542,8 +521,6 @@ async function startClient() {
 		// process.exit(0);
 	} else if (command == "delete") {
 		await deleteInstance(instance);
-	} else if (command == "download") {
-		await downloadMod();
 	} else if (command == "start" && instance === undefined) {
 		console.error("ERROR: No instanceName provided!");
 		console.error("Usage: node client start [instanceName]");

@@ -9,7 +9,7 @@ WORKDIR factorioClusterio
 RUN mkdir instances sharedMods
 RUN cp config.json.dist config.json
 
-RUN node client download
+RUN node client manage shared mods add clusterio
 
 LABEL maintainer "Sir3lit@gmail.com"
 
