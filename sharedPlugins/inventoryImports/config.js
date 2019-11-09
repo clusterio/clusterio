@@ -17,4 +17,5 @@ module.exports = {
 	description: "Clusterio plugin to fill character logistic slots with master imports",
 	// We'll send everything in this file to your stdin. Beware.
 	scriptOutputFileSubscription: "inventoryImports.txt",
+	fileReadDelay: 100,
 }
