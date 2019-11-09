@@ -73,6 +73,8 @@ Version 1.2.3
   exceeding the default 100kb limit on JSON payloads.
 - Fixed the command inventoryImport sends referencing player instead of
   character, and trying to count the non-existant quick bar slots.
+- Fixed inventoryImport never receiving the script output after the default
+  mode for reading script output changed to tail mode.
 
 
 Version 1.2.2
