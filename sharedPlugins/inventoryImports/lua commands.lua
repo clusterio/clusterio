@@ -1,3 +1,4 @@
+-- WARNING: The commands in this file is not in sync with interfacingFunctions.js
 -- Lua cheatsheet
 
 /c game.write_file("test.txt",serpent.block(game.players["Danielv123"].get_quickbar().get_contents()))
