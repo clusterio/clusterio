@@ -13,6 +13,10 @@ Version 1.2.3
   character, and trying to count the non-existant quick bar slots.
 - Fixed inventoryImport never receiving the script output after the default
   mode for reading script output changed to tail mode.
+- Fixed desync caused by the mods and loaded mods arrays in Hotpatch getting
+  out of sync when plugins update their scenario mod code.  To fix existing
+  games you will need copy lib/scenarios/Hotpatch/hotpatch/mod-tools.lua
+  over the existing mod-tools.lua in the save's hotpatch folder.
 
 
 Version 1.2.2

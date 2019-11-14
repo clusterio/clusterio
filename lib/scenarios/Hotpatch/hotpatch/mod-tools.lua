@@ -461,8 +461,9 @@ install_mod = function(mod_name, mod_version, mod_code, mod_files)
     local index = find_installed_mod(mod_name)
     local mod = {}
     if index then
-        -- TODO: notify about installing over top of existing mod
-        mod = global.mods[index]
+        debug_log('attempt to install mod that is already installed, reinstalling: ' .. mod_name)
+        mod = table.remove(global.mods, index)
+        table.insert(global.mods, mod)
     else
         --next free index
         table.insert(global.mods, mod)
