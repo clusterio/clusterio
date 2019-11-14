@@ -177,28 +177,47 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 **Master**
 
-1. download and run https://puu.sh/toFHl/01eebbb333.bat
+1. Open PowerShell or Command prompt in the directory you want to install to and run the following commands.
 
-2. Copy config.json.dist to config.json
+        git clone -b 1.2.x https://github.com/clusterio/factorioClusterio
+        cd factorioClusterio
+        npm install --only=production
+        copy config.json.dist config.json
 
-3. Follow the instructions in the bat file
-3. Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
+2. Obtain Factorio by either of these two methods:
 
-4. Run `node client.js manage shared mods add clusterio`
+    - Via the stand alone version on from their website
 
-5. type `node master.js` to start the server
+        1. Download the MS Windows (64-bit zip package) from https://www.factorio.com/download
+
+        2. Open the zip file and drag the folder called "Factorio_0.17.x" into the factorioClusterio folder
+
+        3. Rename the folder to "factorio"
+
+    - Via steam installation
+
+        1. Locate the game files by right clicking the game in steam, selecting properties, then Local Files, then Browse local files.
+
+        2. Go to the parent folder of the folder that Steam opened and copy the Factorio folder into the factorioClusterio folder
+
+        3. Rename the folder to "factorio"
+
+
+3. Open `config.json` with a text editor and configure as desired.
+
+4. Run `node master.js` to generate the athentication token into secret-api-token.txt
+
+5. Run `node master.js` again to start the master server.
 
 **Server Host**
 
-1. download and run https://puu.sh/toFHl/01eebbb333.bat
+1. Do step 1 and 2 of the Master section above *OR* use the same folder that was created in that section.
 
-2. Copy config.json.dist to config.json
+2. Open `config.json` with a text editor and configure as desired.  You will need to set masterAuthToken to string found in secret-api-token.txt on the master server.
 
-3. Follow the instructions given.
+3. Optionally run the command `node client.js manage shared mods add clusterio` to add the clusterio mod (needed for item teleports.)
 
-3.5 Some of the instructions are outdated. If you get stuck somewhere, look at the Ubuntu section.
-
-4. Type `node client.js start [instancename]` to create a new instance.
+4. Run `node client.js start [instancename]` to create a new instance.  Repeat it again to start the instance.
 
 To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
