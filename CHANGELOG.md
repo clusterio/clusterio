@@ -17,6 +17,7 @@ Version 1.2.3
   out of sync when plugins update their scenario mod code.  To fix existing
   games you will need copy lib/scenarios/Hotpatch/hotpatch/mod-tools.lua
   over the existing mod-tools.lua in the save's hotpatch folder.
+- Updated the Windows install instructions.
 
 
 Version 1.2.2
