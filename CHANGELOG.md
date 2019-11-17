@@ -64,6 +64,8 @@ Version 2.0.0
 - Removed getLua and getCommand from lib/clusterTools.  If you need to run
   more than the most trivial of code in commands use the save patcher and
   add in a remote interface.
+- Removed mod uploading and distributing from the HTTP interface.  Breaks
+  the old unmaintained and no longer needed factorioClusterioClient.
 
 
 Version 1.2.3

@@ -275,54 +275,6 @@ app.post("/api/getSlaveMeta", function (req, res) {
 		res.send('{"INVALID_REQUEST":1}');
 	}
 });
-// mod management
-// should handle uploading and checking if mods are uploaded
-/**
-POST Check if a mod has been uploaded to the master before. Only checks against filename, not hash.
-@memberof clusterioMaster
-@instance
-@alias /api/checkMod
-*/
-app.post("/api/checkMod", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	let files = fs.readdirSync(path.join(config.databaseDirectory, "masterMods"));
-	let found = false;
-	files.forEach(file => {
-		if(file == req.body.modName) {
-			found = true;
-		}
-	});
-	if(!found) {
-		// we don't have mod, plz send
-		res.send(req.body.modName);
-	} else {
-		res.send("found");
-	}
-	res.end();
-});
-/**
-POST endpoint for uploading mods to the master server. Required for automatic mod downloads with factorioClusterioClient (electron app, see seperate repo)
-@memberof clusterioMaster
-@instance
-@alias /api/uploadMod
-*/
-app.post("/api/uploadMod", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	if (req.files && req.files.file) {
-		// console.log(req.files.file);
-		req.files.file.mv(path.resolve(config.databaseDirectory, "masterMods", req.files.file.name), function(err) {
-			if (err) {
-				res.status(500).send(err);
-			} else {
-				res.send('File uploaded!');
-				console.log("Uploaded mod: " + req.files.file.name);
-			}
-		});
-	} else {
-		res.send('No files were uploaded.');
-
-	}
-});
 /**
 Prepare the slaveCache for both /api/slaves calls
 */
@@ -670,12 +622,6 @@ async function startServer() {
 
 	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 	await fs.ensureDir(config.databaseDirectory);
-
-	const masterModFolder = path.join(config.databaseDirectory, "masterMods");
-	await fs.ensureDir(masterModFolder);
-
-	// mod downloads
-	app.use(express.static(masterModFolder));
 
 	await loadDatabase(config.databaseDirectory);
 	authenticate.setAuthSecret(config.masterAuthSecret);

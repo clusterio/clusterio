@@ -704,48 +704,6 @@ async function instanceManagement(config, instance, instanceconfig, server) {
 			});
 		}
 	});
-	// Mod uploading and management -----------------------------------------------
-	// get mod names and hashes
-	// string: instance, function: callback
-	
-	setTimeout(function(){hashMods(instance, uploadMods)}, 5000);
-	function uploadMods(modHashes) {
-		// [{modName:string,hash:string}, ... ]
-		for(let i=0;i<modHashes.length;i++){
-			let payload = {
-				modName: modHashes[i].modName,
-				hash: modHashes[i].hash,
-			};
-			needle.post(config.masterURL + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader(config), function (err, response, body) {
-				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
-				if(response && body && body == "found") {
-					console.log("master has mod "+modHashes[i].modName);
-				} else if (response && body && typeof body == "string") {
-					let mod = response.body;
-					if(config.uploadModsToMaster){
-						console.log("Sending mod: " + mod);
-						// Send mods master says it wants
-						// response.body is a string which is a modName.zip
-						var req = request.post({url: config.masterURL + '/api/uploadMod',
-							headers: {
-								"x-access-token": config.masterAuthToken,
-							},
-						}, function (err, resp, body) {
-							if (err) {
-								console.error(new Error("Unable to contact master server /api/uploadMod! Please check your config.json."));
-							} else {
-								console.log('URL: ' + body);
-							}
-						});
-						var form = req.form();
-						form.append('file', fs.createReadStream(instance.path("mods", mod)));
-					} else {
-						console.log("Not sending mod: " + mod + " to master because config.uploadModsToMaster is not enabled")
-					}
-				}
-			});
-		}
-	}
 } // END OF INSTANCE START ---------------------------------------------------------------------
 
 // string, function
