@@ -1,27 +1,32 @@
-var assert = require("assert");
-var fs = require("fs-extra");
+const assert = require("assert");
+const fs = require("fs-extra");
+const path = require("path");
 
-var fileOps = require("lib/fileOps");
-var generateSSLcert = require("lib/generateSSLcert")
+const generateSSLcert = require("lib/generateSSLcert")
 
 describe("generateSSLcert.js(options)", ()=>{
+	let testDir = "test/temp/certTest";
+	before(async function() {
+		await fs.remove(testDir);
+	});
+
 	it("Creates a folder with a .crt and .key file in it", async function() {
-		/* istanbul ignore if */ if (process.env.FAST_TEST) this.skip();
-		let certPath = "lib/certTestPlsDelete/cert.crt";
-		let privKeyPath = "lib/certTestPlsDelete/cert.key";
-		assert(!await fs.exists(certPath)); // if it already exsits, the test might pass because of leftover data (which is bad)
-		
+		this.timeout(1000);
+		if (process.env.FAST_TEST) {
+			this.skip();
+		}
+
+		let certPath = path.join(testDir, "cert.crt");
+		let privKeyPath = path.join(testDir, "cert.key");
+
 		await generateSSLcert({
 			bits: 512, // This is too small for real world usage, but faster to test
 			sslCertPath: certPath,
 			sslPrivKeyPath: privKeyPath,
 			doLogging: false,
 		});
-		
-		assert(await fs.exists(certPath)); // private key
-		assert(await fs.exists(privKeyPath)); // certificate file
-		
-		// remove certificates and data from the test
-		fileOps.deleteFolderRecursiveSync("lib/certTestPlsDelete");
-	}).timeout(10000);
+
+		assert(await fs.exists(certPath), "cert file was not created");
+		assert(await fs.exists(privKeyPath), "key file was not created");
+	});
 });
