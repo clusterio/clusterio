@@ -44,6 +44,7 @@ Version 2.0.0
 - Removed undocumented --port and --rcon-port arguments to client.
 - Removed undocumented FACTORIOPORT and RCONPORT enviroment variable
   handling in client.
+- Removed redundant call to /api/slaves in globalChat plugin.
 
 ### Breaking Changes
 
