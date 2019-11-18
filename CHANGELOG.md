@@ -69,6 +69,8 @@ Version 2.0.0
   add in a remote interface.
 - Removed mod uploading and distributing from the HTTP interface.  Breaks
   the old unmaintained and no longer needed factorioClusterioClient.
+- Removed the remoteCommands plugin and the old runCommand interface.  Breaks
+  playerManager and external tools sending commands.
 
 
 Version 1.2.3

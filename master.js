@@ -340,50 +340,6 @@ app.get("/api/modmeta", async function(req, res) {
 });
 
 
-/**
-POST endpoint for running commands on slaves.
-Requires x-access-token header to be set. Find you api token in secret-api-token.txt on the master (after running it once)
-
-@memberof clusterioMaster
-@instance
-@alias api/runCommand
-@param {object} JSON {instanceID:19412312, broadcast:false, command:"/c game.print('hello')"}
-@returns {object} Status {auth: bool, message: "Informative error", data:{}}
-*/
-app.post("/api/runCommand", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	// validate request.body
-	let body = req.body;
-
-	if (
-		body.broadcast
-		&& body.command
-		&& typeof body.command == "string"
-		&& body.command[0] == "/")
-	{
-		let instanceResponses = [];
-		for (let instanceID in wsSlaves) {
-			// skip loop if the property is from prototype
-			if (!wsSlaves.hasOwnProperty(instanceID)) continue;
-			wsSlaves[instanceID].runCommand(body.command);
-		}
-		res.status(200).send({auth: true, message: "success", response: "Cluster wide messaging initiated"});
-	} else if (
-		body.instanceID
-		&& wsSlaves[body.instanceID]
-		&& body.command
-		&& typeof body.command == "string"
-		&& body.command[0] == "/")
-	{
-		// execute command
-		wsSlaves[body.instanceID].runCommand(body.command, data => {
-			res.status(200).send({auth: true, message: "success", data});
-		});
-	} else {
-		res.status(400).send({auth: true, message: "Error: invalid request.body"});
-	}
-});
-
 var localeCache;
 /**
 GET endpoint. Returns factorio's base locale as a JSON object.
@@ -423,15 +379,6 @@ class wsSlave {
 			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			this.lastBeat = Date.now();
 		});
-		// handle command return values
-		this.commandsWaitingForReturn = {};
-		this.socket.on("runCommandReturnValue", resp => {
-			prometheusWsUsageCounter.labels('runCommandReturnValue', this.instanceID).inc();
-			if(resp.commandID && resp.body && this.commandsWaitingForReturn[resp.commandID] && this.commandsWaitingForReturn[resp.commandID].callback && typeof this.commandsWaitingForReturn[resp.commandID].callback == "function"){
-				this.commandsWaitingForReturn[resp.commandID].callback(resp.body);
-				delete this.commandsWaitingForReturn[resp.commandID];
-			}
-		});
 
 		this.socket.on("gameChat", data => {
 			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
@@ -454,11 +401,6 @@ class wsSlave {
 				});
 			}
 		});
-	}
-	runCommand(command, callback){
-		let commandID = Math.random().toString();
-		this.socket.emit("runCommand", {command, commandID});
-		if(commandID) this.commandsWaitingForReturn[commandID] = {callback, timestamp: Date.now()};
 	}
 }
 
