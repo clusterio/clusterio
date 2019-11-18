@@ -28,9 +28,7 @@
 	"username": "",
 	"__comment4": "Token from your factorio.com profile page. Required for MP and mod manager services.",
 	"token": "",
-	"__comment7": "Used for communication with the mod portal, not needed if you manage mods by hand",
-	"factorio_version": "0.16.41",
-	
+
 	"__comment5": "General user settings",
 	"verify_user_identity": true,
 	"auto_pause": false,

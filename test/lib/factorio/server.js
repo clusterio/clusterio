@@ -204,5 +204,11 @@ describe("lib/factorio/server", function() {
 				await assert.rejects(server.init(), new Error("Expected state new but state is init"));
 			});
 		});
+
+		describe(".version", function() {
+			it("should return the version detected", function() {
+				assert.equal(server.version, "0.1.1");
+			});
+		});
 	});
 });

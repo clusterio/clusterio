@@ -47,6 +47,8 @@ Version 2.0.0
 - Removed redundant call to /api/slaves in globalChat plugin.
 - Removed broken serverManager plugin.
 - Removed broken remote combinator signaling.
+- Removed factorio_version from config.  The version installed is auto
+  detected and used instead.
 
 ### Breaking Changes
 
