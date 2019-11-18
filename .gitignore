@@ -52,10 +52,6 @@ sharedPlugins/*
 !sharedPlugins/researchSync/
 !sharedPlugins/globalChat/
 !sharedPlugins/clusterioMod/
-!sharedPlugins/serverManager/
-sharedPlugins/serverManager/database/*
-sharedPlugins/serverManager/config.json
-sharedPlugins/serverManager/secret-api-token.txt
 !sharedPlugins/statisticsExporter/
 
 # File used for marking plugins as disabled
