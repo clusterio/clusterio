@@ -46,6 +46,7 @@ Version 2.0.0
   handling in client.
 - Removed redundant call to /api/slaves in globalChat plugin.
 - Removed broken serverManager plugin.
+- Removed broken remote combinator signaling.
 
 ### Breaking Changes
 
