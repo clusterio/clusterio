@@ -50,7 +50,6 @@ Version 2.0.0
   handling in client.
 - Removed redundant call to /api/slaves in globalChat plugin.
 - Removed broken serverManager plugin.
-- Removed broken remote combinator signaling.
 - Removed factorio_version from config.  The version installed is auto
   detected and used instead.
 - Removed the playerManager specific command CLI tools/delete_player.js.
@@ -96,6 +95,12 @@ Version 2.0.0
 - Removed the hello event from the socket connection handshake.  Breaks
   playerManager, trainTeleports, serverSelect, and discordChat
 - Changed the format of database/slaves.json.
+
+
+Version 1.2.4
+-------------
+
+- Removed broken remote combinator signaling.
 
 
 Version 1.2.3
