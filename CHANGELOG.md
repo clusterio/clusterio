@@ -5,6 +5,7 @@ Version 1.2.4
 -------------
 
 - Removed broken remote combinator signaling.
+- Fixed research sync endlessly updating already researched technologies
 
 
 Version 1.2.3
