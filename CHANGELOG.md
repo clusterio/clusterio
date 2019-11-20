@@ -49,6 +49,7 @@ Version 2.0.0
 - Removed broken remote combinator signaling.
 - Removed factorio_version from config.  The version installed is auto
   detected and used instead.
+- Removed the playerManager specific command CLI tools/delete_player.js.
 
 ### Breaking Changes
 

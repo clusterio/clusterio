@@ -35,7 +35,6 @@
     "bcrypt": "^3.0.6",
     "bcrypt-promise": "^2.0.0",
     "body-parser": "^1.18.2",
-    "cli": "^1.0.1",
     "cli-interact": "^0.1.9",
     "compression": "^1.7.2",
     "cookie-parser": "^1.4.3",
