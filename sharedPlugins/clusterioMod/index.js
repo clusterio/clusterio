@@ -35,61 +35,6 @@ module.exports = class remoteCommands {
 			}
 		})().catch(e => console.log(e));
 		
-		// flow/production statistics ------------------------------------------------------------
-		var oldFlowStats = false;
-		var oldTimestamp;
-		var oldFlowStats;
-		setInterval(function(){
-			fs.readFile(instancedirectory + "/script-output/flows.txt", {encoding: "utf8"}, function(err, data) {
-				if(!err && data) {
-					let timestamp = Date.now();
-					data = data.split("\n");
-					let flowStats = [];
-					for(let i = 0; i < data.length; i++) {
-						// try catch to remove any invalid json
-						try{
-							flowStats[flowStats.length] = JSON.parse(data[i]);
-						} catch (e) {
-							// console.log(" invalid json: " + i);
-							// some lines of JSON are invalid but don't worry, we just filter em out
-						}
-					}
-					// fluids
-					let flowStat1 = flowStats[flowStats.length-1].flows.player.input_counts
-					// items
-					let flowStat2 = flowStats[flowStats.length-2].flows.player.input_counts
-					// merge fluid and item flows
-					let totalFlows = {};
-					for(let key in flowStat1) totalFlows[key] = flowStat1[key];
-					for(let key in flowStat2) totalFlows[key] = flowStat2[key];
-					if(oldFlowStats && totalFlows && oldTimestamp) {
-						let payload = objectOps.deepclone(totalFlows);
-						// change from total reported to per time unit
-						for(let key in oldFlowStats) {
-							// get production per minute
-							payload[key] = Math.floor((payload[key] - oldFlowStats[key])/(timestamp - oldTimestamp)*60000);
-							if(payload[key] < 0) {
-								payload[key] = 0;
-							}
-						}
-						for(let key in payload) {
-							if(payload[key] == '0') {
-								delete payload[key];
-							}
-						}
-						console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-						needle.post(that.config.masterIP + ":" + that.config.masterPort + '/api/logStats', {timestamp: timestamp, instanceID: that.config.unique, data: payload}, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-							// we did it, keep going
-						});
-					}
-					oldTimestamp = timestamp;
-					oldFlowStats = totalFlows;
-					fs.writeFileSync(instancedirectory + "/script-output/flows.txt", "");
-				}
-			});
-			// we don't need to update stats quickly as that could be expensive
-		}, 60000*5);
-		
 		// provide items --------------------------------------------------------------
 		// trigger when something happens to output.txt
 		fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {
@@ -232,56 +177,6 @@ module.exports = class remoteCommands {
 		setTimeout(function(){
 			messageInterface("/silent-command remote.call('clusterio','setWorldID',"+that.config.unique+")")
 		}, 20000);
-		/* REMOTE SIGNALLING
-		 * send any signals the slave has been told to send
-		 * Fetch combinator signals from the server
-		*/
-		this.socket.on("processCombinatorSignal", circuitFrameWithMeta => {
-			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object" && circuitFrameWithMeta.frame && Array.isArray(circuitFrameWithMeta.frame)){
-				messageInterface("/silent-command remote.call('clusterio', 'receiveFrame', '"+JSON.stringify(circuitFrameWithMeta.frame)+"')");
-			}
-		});
-		// get outbound frames from file and send to master
-		// get array of lines in file, each line should correspond to a JSON encoded frame
-		let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
-		// if we actually got anything from the file, proceed and reset file
-		let readingTxBufferSoon = false;
-		let txBufferClearCounter = 0;
-		fs.watch(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (eventType, filename) => {
-			if(!readingTxBufferSoon){ // use a 100ms delay to avoid messing with rapid sequential writes from factorio (I think that might be a problem maybe?)
-				readingTxBufferSoon = true;
-				setTimeout(()=>{
-					txBufferClearCounter++;
-					fs.readFile(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (err, signals) => {
-						signals = signals.split("\n");
-						if (signals[0]) {
-							//if(txBufferClearCounter > 500){
-								fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-							//	txBufferClearCounter = 0;
-							//}
-							
-							// loop through all our frames
-							for (let i = 0; i < signals.length; i++) {
-								if (signals[i] && objectOps.isJSON(signals[i])) {
-									// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
-									// then we unpack and RCON in this.frame to the game later.
-									let framepart = JSON.parse(signals[i]);
-									let doneframe = {
-										time: Date.now(),
-										frame: framepart, // thats our array of objects(single signals);
-									}
-									// send to master using socket.io, opened at the top of instanceManagement()
-									this.socket.emit("combinatorSignal", doneframe);
-								} else {
-									// console.log("Invalid jsony: "+typeof signals[i])
-								}
-							}
-						}
-					});
-					readingTxBufferSoon = false;
-				},100);
-			}
-		});
 	}
 	async getCommand(file){
 		this.commandCache = this.commandCache || {};

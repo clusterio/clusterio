@@ -299,7 +299,6 @@ if (!command || command == "help" || command == "--help") {
 	fs.mkdirSync(instancedirectory + "/saves/");
 	fs.writeFileSync(instancedirectory + "/script-output/output.txt", "");
 	fs.writeFileSync(instancedirectory + "/script-output/orders.txt", "");
-	fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
 	fs.mkdirSync(instancedirectory + "/mods/");
 	fs.mkdirSync(instancedirectory + "/instanceMods/");
     fs.mkdirSync(instancedirectory + "/scenarios/");

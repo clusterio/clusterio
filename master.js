@@ -1,7 +1,6 @@
 /**
 Clusterio master server. Facilitates communication between slaves through
-a webserver, storing data related to slaves like production graphs and
-combinator signals.
+a webserver, storing data related to slaves like production graphs.
 
 @module clusterioMaster
 @author Danielv123
@@ -875,14 +874,6 @@ class wsSlave {
 		this.socket.on("heartbeat", () => {
 			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
 			this.lastBeat = Date.now();
-		});
-		this.socket.on("combinatorSignal", circuitFrameWithMeta => {
-			prometheusWsUsageCounter.labels('combinatorSignal', this.instanceID).inc();
-			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object"){
-				Object.keys(wsSlaves).forEach(instanceID => {
-					wsSlaves[instanceID].socket.emit("processCombinatorSignal", circuitFrameWithMeta);
-				});
-			}
 		});
 		// handle command return values
 		this.commandsWaitingForReturn = {};
