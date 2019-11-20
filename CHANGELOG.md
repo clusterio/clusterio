@@ -6,6 +6,7 @@ Version 1.2.4
 
 - Removed broken remote combinator signaling.
 - Fixed research sync endlessly updating already researched technologies
+- Removed obsolete item/fluid statistics from clusterioMod
 
 
 Version 1.2.3
