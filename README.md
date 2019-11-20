@@ -191,7 +191,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 1. Open PowerShell or Command prompt in the directory you want to install to and run the following commands.
 
-        git clone -b 1.2.x https://github.com/clusterio/factorioClusterio
+        git clone -b master https://github.com/clusterio/factorioClusterio
         cd factorioClusterio
         npm install --only=production
         copy config.json.dist config.json
