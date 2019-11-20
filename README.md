@@ -10,6 +10,8 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 ## Important notice
 
+**WARNING: The master branch is currently broken, do not use it!**
+
 This is the development branch for factorioClusterio 2.0 which is currently undergoing heavy
 restructuring and refactoring.  Expect plugins and existing installations to frequently break when
 using this branch.  If you don't want to be an alpha tester for 2.0 please use the stable
@@ -30,16 +32,14 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
 ### Table of contents
 
 * [Introduction & methodology](#introduction)
-
 * [Ubuntu setup](#ubuntu-setup)
-
 * [Windows setup](#windows-setup)
-
+* [Running Clusterio](#running-clusterio)
+  * [Master Server](#master-server)
+  * [Slaves](#slaves)
+  * [Instances](#instances)
 * [Optional plugins](#Plugins)
-
 * [Common problems](#Common-problems)
-
-* [Command cheatsheet](#cheatsheet)
 
 ## Introduction
 
@@ -123,39 +123,15 @@ Optional step (if you want to use pm2):
 Now you need to edit the `config.json` file. If you skip this step nothing will work.
 Pretty much all the blank fields should be filled in, except on the master where a few can be omitted.
 
-* You get the `masterAuthToken` from `secret-api-token.txt` in the master install dir after running the master twice.
-
 * You get your factorio matchmaking token from factorio.com
 
 * The `masterAuthSecret` should never be touched unless you want to invalidate everyones authentication tokens
-
-**Master**
-
-    node master
-
-Or with pm2 (it's recommened to run it without pm2 first):
-
-    pm2 start master --name master
-
-
-**Server Host**
-
-To download the mod for all its non vanilla features and items, (optional, but very recommended)
-
-    node client manage shared mods add clusterio
-
-To create a new instance (its own save, set of mods and config files)
-
-    node client start [instancename]
-
-To launch an instance with pm2
-
-    pm2 start --name [instancename] client -- start [instancename]
-
-use `nano config.json` to change settings.
-
 **Ubuntu with Docker**
 
+The Docker support for Clusterio is curently broken.  If you need it
+open an issue about it.
+
+<!--
 Clusterio has *very* limited support for using docker.
 
     sudo docker build -t clusterio --no-cache --force-rm factorioClusterio
@@ -165,6 +141,7 @@ Clusterio has *very* limited support for using docker.
 	sudo docker run --name slave -e MODE=client -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
+-->
 
 ## Windows setup
 
@@ -219,19 +196,9 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
 4. Run `node master` to generate the athentication token into secret-api-token.txt
 
-5. Run `node master` again to start the master server.
-
 **Server Host**
 
 1. Do step 1 and 2 of the Master section above *OR* use the same folder that was created in that section.
-
-2. Open `config.json` with a text editor and configure as desired.  You will need to set masterAuthToken to string found in secret-api-token.txt on the master server.
-
-3. Optionally run the command `node client manage shared mods add clusterio` to add the clusterio mod (needed for item teleports.)
-
-4. Run `node client start [instancename]` to create a new instance.  Repeat it again to start the instance.
-
-To connect to a master server running on a remote machine, open config.json with your favourite text editor (notepad++). You can also set it up to use the official server browser.
 
 Change `masterURL `to something like `http://203.0.113.33:8080` (provided by master server owner)
 
@@ -239,15 +206,73 @@ Change `masterAuthToken` to the value found in `secret-api-token.txt` on the mas
 
 Repeat step 4 for more servers on one machine. You should be able to find its port by looking at the slave section on master:8080 (the web interface)
 
-**GameClient**
 
-Fancy game client that does the following steps automatically, but is really old so be warned: [clusterioClient](https://github.com/Danielv123/factorioClusterioClient)
+## Running Clusterio
 
-1. Download the same version of the mod as the slave is running from [the mod portal](https://mods.factorio.com/mods/Danielv123/clusterio) or [github](https://github.com/Danielv123/factorioClusterioMod
+After following the installation instructions you can use the following
+commands to run Clusterio.
 
-2. Drop it into ./factorio/mods
 
-3. Run factorio and connect to slave as a normal MP game. You will find the port number to connect to at http://[masterAddress]:8080
+### Master Server
+
+It's necessary to run the master server in order for anything to work.
+Once you've completed the setup run the following command to start it
+up:
+
+    node master
+
+Or with pm2 (it's recommened to run it without pm2 first):
+
+    pm2 start master --name master
+
+
+### Slaves
+
+Slaves connect to the master server and are managed remotely from the
+master server.  In order for slaves to connect to the master server they
+need an authentication token from the master server.  This token is
+written to secret-api-token.txt on the master server the first time it
+is started.
+
+To set up the configuration for a new local slave run the following.
+
+    node client create-config --name "Local" --token "<token>"
+
+This will write a new `config-slave.json` file in the current directory
+(you can change the location with the `--config` option) with the name
+and token provided.  If you are connecting to a remote master server you
+will also need to pass the `--url <url to master server>` option.
+
+You can edit the config of a slave with the `node client edit-config`
+command.  Use `node client edit-config --help` for more information.
+
+Once the config is set up run the slave with
+
+    node client start
+
+
+### Instances
+
+Instances are created, managed and started from the master server.  For
+now the only interface available is the `clusterctl` command line tool
+included in Clusterio.  You can run this tool from any slave, or the
+master server without having to set up a config, if you want to manage
+the cluster from somewhere else see `node clusterctl create-config`.
+
+The basic operations to start a new instance is the following
+
+    node clusterctl create-instance --slave "Local" --name "My instance"
+    node clusterctl create-save --instance "My instance"
+    node clusterctl start-instance --instance "My instance"
+
+The first line creates the files and database entries for a new
+instance.  The second line creates a new savegame for the instance.  You
+could also upload your own save to the instance directory instead.  And
+finally the third line starts the instance.
+
+There are many more commands available with clusterctl.  See
+`node clusterctl --help` for more information.
+
 
 ## Plugins
 Here are the known Clusterio plugins in the wild:
@@ -257,7 +282,7 @@ Here are the known Clusterio plugins in the wild:
 
 ## Common problems
 
-### Cannot find module: `/../../config`
+### Cannot find module: `./config`
 
 Copy your config.json.dist to config.json and configure it.
 
@@ -288,32 +313,3 @@ TLDR: the tested fix is:
 ### Other fixes for other potential problems:
 
 Sometimes the install fails. Try `node ./lib/npmPostinstall` to complete it.
-
-
-## Cheatsheet
-
-**To create a new instance/start it**
-
-    node client start [instanceName]
-
-**Other instance management tools:**
-```
-node client delete [instanceName]
-node client list
-```
-**To update clusterio to the latest version:**
-
-1. Download the latest zip version of factorio for your platform manually from factorio.com. Place it in the project root folder and call it "factorio" (folder name is specified in config.json)
-
-2. Grab the latest version of the repo
-
-```
-git pull
-
-npm install --only=production
-```
-
-3. Download the latest version of the factorioClusterioMod from its github repo
-```
-node client manage shared mods add clusterio
-```

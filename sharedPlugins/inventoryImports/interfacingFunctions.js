@@ -140,11 +140,6 @@ function pollInventories(outputFile){
 
 	// Warning: This command is not in sync with lua commands.lua
 	return `/silent-command local a='{"players":{'local b=false;for c,d in pairs(game.players)do if d.connected and d.character then if b then a=a..','else b=true end;local e=game.players[c].get_inventory(defines.inventory.character_main).get_contents()local g={}for h=1,game.players[c].force.character_logistic_slot_count do g[h]=game.players[c].character.get_request_slot(h)end;a=a..'"'..c..'":{"inventory":{'local i=false;for j,k in pairs(e)do if i then a=a..','else i=true end;a=a..'"'..j..'":'..k end;a=a..'},"requestSlots":{'i=false;for j,k in pairs(g)do if i then a=a..','else i=true end;a=a..'"'..k['name']..'":'..k['count']end;a=a..'}}'end end;a=a.."}}"game.write_file("${outputFile}",a,true,0)`
-	/*
-	needle.post(config.masterURL+'/api/editSlaveMeta', {instanceID: config.unique, password: config.clientPassword, meta: {UPS:UPS}}, function(err, resp) {
-		// success?
-	});
-	*/
 }
 
 module.exports = {

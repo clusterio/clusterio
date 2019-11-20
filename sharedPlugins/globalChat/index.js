@@ -4,9 +4,9 @@ module.exports = class remoteCommands {
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		this.instances = {};
-		
-		this.socket.on("hello", () => this.socket.emit("registerChatReciever"));
-	
+
+		this.socket.emit("registerChatReciever");
+
 		this.socket.on("gameChat", async data => {
 			if(data.instanceID && data.instanceID != this.config.unique.toString()){
 				if(data.data.includes("[CHAT]")

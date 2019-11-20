@@ -50,9 +50,9 @@ describe("Integration of lib/factorio/server", function() {
 
 			it("contains the settings used by Clusterio", async function() {
 				let keysUsed = new Set([
-					"name", "description", "tags", "max_players", "visibility", "username", "token",
-					"game_password", "require_user_verification", "allow_commands", "autosave_interval",
-					"autosave_slots", "afk_autokick_interval", "auto_pause",
+					"name", "description", "tags", "visibility", "username", "token",
+					"game_password", "require_user_verification", "allow_commands",
+					"auto_pause",
 				]);
 
 				for (let key of Object.keys(settings)) {

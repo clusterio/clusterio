@@ -24,6 +24,7 @@ const crypto = require('crypto');
 const base64url = require('base64url');
 const moment = require("moment");
 const request = require("request");
+const version = require("./package").version;
 
 // constants
 let config = {};
@@ -33,6 +34,9 @@ const generateSSLcert = require("lib/generateSSLcert");
 const pluginManager = require("lib/manager/pluginManager");
 const database = require("lib/database");
 const factorio = require("lib/factorio");
+const schema = require("lib/schema");
+const link = require("lib/link");
+const errors = require("lib/errors");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -155,10 +159,22 @@ function registerMoreMetrics(){
 // set up database
 const db = {};
 
-async function loadDatabase(databaseDirectory) {
-	let slavesPath = path.resolve(databaseDirectory, "slaves.json");
-	console.log(`Loading ${slavesPath}`);
-	db.slaves = await database.loadJsonAsMap(slavesPath);
+/**
+ * Load Map from JSON file in the database directory.
+ */
+async function loadMap(databaseDirectory, file) {
+	let databasePath = path.resolve(databaseDirectory, file);
+	console.log(`Loading ${databasePath}`);
+	return await database.loadJsonArrayAsMap(databasePath);
+}
+
+/**
+ * Save Map to JSON file in the database directory.
+ */
+async function saveMap(databaseDirectory, file, map) {
+	let databasePath = path.resolve(config.databaseDirectory, file);
+	console.log(`Saving ${databasePath}`);
+	await database.saveMapAsJsonArray(databasePath, map);
 }
 
 
@@ -167,14 +183,8 @@ async function shutdown() {
 	console.log('Ctrl-C...');
 	let exitStartTime = Date.now();
 	try {
-		// set insane limit to slave length, if its longer than this we are probably being ddosed or something
-		if (db.slaves && db.slaves.size < 2000000) {
-			let file = path.resolve(config.databaseDirectory, "slaves.json");
-			console.log(`writing ${file}`);
-			await database.saveMapAsJson(file, db.slaves);
-		} else if (db.slaves) {
-			console.error(`Slave database too large, not saving (${db.slaves.size}`);
-		}
+		await saveMap(config.databaseDirectory, "slaves.json", db.slaves);
+		await saveMap(config.databaseDirectory, "instances.json", db.instances);
 
 		for(let i in masterPlugins){
 			let plugin = masterPlugins[i];
@@ -192,135 +202,6 @@ async function shutdown() {
 		process.exit(1)
 	}
 }
-
-/**
-POST World ID management. Slaves post here to tell the server they exist
-@memberof clusterioMaster
-@instance
-@alias /api/getID
-*/
-app.post("/api/getID", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	// request.body should be an object
-	// {rconPort, rconPassword, serverPort, mac, time}
-	// time us a unix timestamp we can use to check for how long the server has been unresponsive
-	// we should save that somewhere and give appropriate response
-	if(req.body){
-		if (!db.slaves.has(String(req.body.unique))) {
-			db.slaves.set(String(req.body.unique), {});
-		}
-		let slave = db.slaves.get(String(req.body.unique));
-		for(let k in req.body){
-			if(k != "meta" && req.body.hasOwnProperty(k)){
-				slave[k] = req.body[k];
-			}
-		}
-		// console.log("Slave registered: " + slave.mac + " : " + slave.serverPort+" at " + slave.publicIP + " with name " + slave.instanceName);
-	}
-});
-/**
-POST Allows you to add metadata related to slaves for other tools, like owner data, descriptions or statistics.
-@memberof clusterioMaster
-@instance
-@alias /api/editSlaveMeta
-*/
-app.post("/api/editSlaveMeta", authenticate.middleware, function(req,res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	// request.body should be an object
-	// {instanceID, pass, meta:{x,y,z}}
-
-	if(req.body && req.body.instanceID && req.body.meta){
-		if (db.slaves.has(String(req.body.instanceID))) {
-			let slave = db.slaves.get(String(req.body.instanceID));
-			if(!slave.meta) {
-				slave.meta = {};
-			}
-			slave.meta = deepmerge(slave.meta, req.body.meta, {clone:true});
-			let metaPortion = JSON.stringify(req.body.meta);
-			if(metaPortion.length > 50) {
-				metaPortion = metaPortion.substring(0,20) + "...";
-			}
-			// console.log("Updating slave "+slave.instanceName+": " + slave.mac + " : " + slave.serverPort+" at " + slave.publicIP, metaPortion);
-			res.sendStatus(200);
-		} else {
-			res.send("ERROR: Invalid instanceID or password")
-		}
-	}
-});
-
-/**
-POST Get metadata from a single slave. For whenever you find the data returned by /api/slaves overkill.
-@memberof clusterioMaster
-@instance
-@alias /api/getSlaveMeta
-*/
-app.post("/api/getSlaveMeta", function (req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	console.log("body", req.body);
-	if(req.body && req.body.instanceID){
-		if (db.slaves.has(String(req.body.instanceID))) {
-			let slave = db.slaves.get(String(req.body.instanceID));
-			console.log("returning meta for ", req.body.instanceID);
-			if(!slave.meta) {
-				slave.meta = {};
-			}
-			res.send(JSON.stringify(slave.meta))
-		} else {
-			res.status(404);
-			res.send('{"status": 404, "info": "Slave not registered"}')
-		}
-	} else {
-		res.status(400);
-		res.send('{"INVALID_REQUEST":1}');
-	}
-});
-/**
-Prepare the slaveCache for both /api/slaves calls
-*/
-let slaveCache = {
-	timestamp: Date.now(),
-};
-function getSlaves() {
-	if(!slaveCache.cache || Date.now() - slaveCache.timestamp > 5000) {
-		let copyOfSlaves = JSON.parse(JSON.stringify(database.mapToObject(db.slaves)));
-		slaveCache.cache = copyOfSlaves;
-		slaveCache.timestamp = Date.now();
-	}
-	return slaveCache;
-}
-/**
-GET endpoint for getting information about all our slaves
-@memberof clusterioMaster
-@instance
-@alias /api/slaves
-*/
-app.get("/api/slaves", function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let slaveCache = getSlaves();
-	for(key in slaveCache.cache) {
-		slaveCache.cache[key].rconPassword = "hidden";
-	}
-	res.send(slaveCache.cache);
-});
-/**
-POST endpoint for getting the rconPasswords of all our slaves
-@memberof clusterioMaster
-@instance
-@alias /api/rconPasswords
-*/
-app.post("/api/rconPasswords", authenticate.middleware, function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	let slaveCache = getSlaves();
-	let validKeys = ['rconPort', 'rconPassword', 'publicIP'];
-	for(key in slaveCache.cache) {
-		slaveCache.cache[key] = {'publicIP': slaveCache.cache[key].publicIP, 'rconPort': slaveCache.cache[key].rconPort, 'rconPassword': slaveCache.cache[key].rconPassword};
-	}
-	res.send(slaveCache.cache);
-});
 
 // wrap a request in an promise
 async function downloadPage(url) {
@@ -361,49 +242,170 @@ app.get("/api/getFactorioLocale", function(req,res){
 	}
 });
 
-/* Websockets for plugins */
+// socket.io connection for slaves
 var io = require("socket.io")({});
 const ioMetrics = require("socket.io-prometheus");
 ioMetrics(io);
 
 
-/* Websockets for send and recieve combinators */
-var wsSlaves = {};
-class wsSlave {
-	constructor(instanceID, socket){
-		this.instanceID = instanceID;
-		this.socket = socket;
-		this.lastBeat = Date.now();
+class BaseConnection extends link.Connection {
+	constructor(target, socket) {
+		super(target, socket);
+		link.attachAllMessages(this);
+	}
 
-		this.socket.on("heartbeat", () => {
-			prometheusWsUsageCounter.labels('heartbeat', this.instanceID).inc();
-			this.lastBeat = Date.now();
-		});
+	async forwardInstanceRequest(message, request) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
+			throw new errors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
 
-		this.socket.on("gameChat", data => {
-			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
-			if(typeof data === "object"){
-				data.timestamp = Date.now();
-				if(!global.wsChatRecievers) global.wsChatRecievers = [];
-				global.wsChatRecievers.forEach(socket => {
-					socket.emit("gameChat", data);
-				});
+		let connection = slaveConnections.get(instance.slaveId);
+		if (!connection) {
+			throw new errors.RequestError("Slave containing instance is not connected");
+		}
+
+		return await request.forward(connection, message);
+	}
+}
+
+let controlConnections = new Array();
+class ControlConnection extends BaseConnection {
+	constructor(registerData, socket) {
+		super('control', socket)
+
+		this._agent = registerData.agent;
+		this._version = registerData.version;
+
+		socket.on('disconnect', () => {
+			let index = controlConnections.indexOf(this);
+			if (index !== -1) {
+				controlConnections.splice(index, 1);
 			}
 		});
+	}
 
-		this.socket.on("alert", alert => {
-			prometheusWsUsageCounter.labels('alert', this.instanceID).inc();
-			if(typeof alert === "object"){
-				alert.timestamp = Date.now();
-				if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
-				global.wsAlertRecievers.forEach(socket => {
-					socket.emit("alert", alert);
-				});
+	async listSlavesRequestHandler(message) {
+		let list = [];
+		for (let slave of db.slaves.values()) {
+			list.push({
+				agent: slave.agent,
+				version: slave.version,
+				id: slave.id,
+				name: slave.name,
+				connected: slaveConnections.has(slave.id),
+			});
+		}
+		return { list };
+	}
+
+	async listInstancesRequestHandler(message) {
+		let list = [];
+		for (let instance of db.instances.values()) {
+			list.push({
+				id: instance.id,
+				name: instance.name,
+				slave_id: instance.slaveId,
+			});
+		}
+		return { list };
+	}
+
+	// XXX should probably add a hook for slave reuqests?
+	async createInstanceCommandRequestHandler(message) {
+		let { slave_id, name } = message.data;
+		let connection = slaveConnections.get(slave_id);
+		if (!connection) {
+			throw new errors.RequestError("Slave is not connected");
+		}
+
+		await link.requests.createInstance.send(connection, {
+			id: Math.random() * 2**31 | 0, // TODO: add id option
+			options: {
+				'name': name,
+				'description': config.description,
+				'visibility': config.visibility,
+				'username': config.username,
+				'token': config.token,
+				'game_password': config.game_password,
+				'verify_user_identity': config.verify_user_identity,
+				'allow_commands': config.allow_commands,
+				'auto_pause': config.auto_pause,
 			}
 		});
 	}
 }
 
+var slaveConnections = new Map();
+class SlaveConnection extends BaseConnection {
+	constructor(registerData, socket) {
+		super('slave', socket);
+
+		this._agent = registerData.agent;
+		this._id = registerData.id;
+		this._name = registerData.name;
+		this._version = registerData.version;
+
+		db.slaves.set(this._id, {
+			agent: this._agent,
+			id: this._id,
+			name: this._name,
+			version: this._version,
+		});
+
+		socket.on('message', () => {
+			prometheusWsUsageCounter.labels('message', "other").inc();
+		});
+
+		socket.on('disconnect', () => {
+			if (slaveConnections.get(this._id) === this) {
+				slaveConnections.delete(this._id);
+			}
+
+			// XXX for backwards compatibility only
+			if (global.wsChatRecievers) {
+				global.wsChatRecievers.delete(this._id);
+			}
+		});
+
+		// XXX for backwards compatibility only
+		socket.on("gameChat", data => {
+			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
+			if(typeof data === "object"){
+				data.timestamp = Date.now();
+				if(!global.wsChatRecievers) global.wsChatRecievers = new Map();
+				for (let slave of global.wsChatRecievers.values()) {
+					slave.socket.emit("gameChat", data);
+				}
+			}
+		});
+
+		socket.on("registerChatReciever", data => {
+			prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
+			if(!global.wsChatRecievers) global.wsChatRecievers = new Map();
+			global.wsChatRecievers.set(this._id, this);
+		});
+	}
+
+	async updateInstancesEventHandler(message) {
+		// Prune any instances previously had by the slave
+		for (let id of [...db.instances.keys()]) {
+			if (db.instances.get(id).slaveId === this._id) {
+				db.instances.delete(id);
+			}
+		}
+
+		for (let instance of message.data.instances) {
+			db.instances.set(instance.id, {
+				id: instance.id,
+				name: instance.name,
+				slaveId: this._id,
+			});
+		}
+	}
+}
+
+// Authentication middleware for socket.io connections
 io.use((socket, next) => {
 	let token = socket.handshake.query.token;
 	authenticate.check(token).then((result) => {
@@ -416,42 +418,65 @@ io.use((socket, next) => {
 	});
 });
 
+/**
+ * Returns true if value is a signed 32-bit integer
+ *
+ * @param value - value to test.
+ * @returns {Boolean}
+ *     true if value is an integer between -2**31 and 2**31-1.
+ */
+function isInteger(value) {
+	return value | 0 === value;
+}
+
+
 io.on('connection', function (socket) {
-	// cleanup dead sockets from disconnected people
-	let terminatedConnections = 0;
-	let currentConnections = Object.keys(wsSlaves).length;
-	[wsSlaves].forEach(list => {
-		Object.keys(list).forEach(connectionID => {
-			let connection = list[connectionID];
-			if(connection.lastBeat < (Date.now() - 30000)){
-				terminatedConnections++;
-				delete list[connectionID];
+	console.log(`SOCKET | new connection from ${socket.handshake.address}`);
+
+	// Start connection handshake
+	socket.send({ seq: 1, type: 'hello', data: { version }});
+
+	// Handle socket handshake
+	socket.once('message', (payload) => {
+		prometheusWsUsageCounter.labels('message', "other").inc();
+		if (!schema.clientHandshake(payload)) {
+			console.log(`SOCKET | closing ${socket.handshake.address} after receiving invalid handshake`, payload);
+			socket.send({ type: 'close', data: {
+				reason: "Invalid handshake",
+			}});
+			socket.disconnect(true);
+			return;
+		}
+
+		let { seq, type, data } = payload;
+		if (type === "register_slave") {
+			let connection = slaveConnections.get(data.id);
+			if (connection) {
+				console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
+				connection.close("Registered from another connection");
 			}
-		});
-	});
-	if(terminatedConnections > 0) console.log("SOCKET | There are currently "+currentConnections+" websocket connections, deleting "+terminatedConnections+" on timeout");
 
-	// tell our friend that we are listening
-	setTimeout(()=>socket.emit('hello', { hello: 'world' }), 5000);
+			console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
+			slaveConnections.set(data.id, new SlaveConnection(data, socket));
 
-	/* Websockets for send and recieve combinators */
-	socket.on("registerSlave", function(data) {
-		prometheusWsUsageCounter.labels('registerSlave', "other").inc();
-		if(data && data.instanceID){
-			wsSlaves[data.instanceID] = new wsSlave(data.instanceID, socket);
-			console.log("SOCKET | Created new wsSlave: "+ data.instanceID);
+		} else if (type === "register_control") {
+			console.log(`SOCKET | registered control from ${socket.handshake.address}`);
+			controlConnections.push(new ControlConnection(data, socket));
+
+		} else if (type === "close") {
+			console.log(`SOCKET | received close from ${socket.handshake.address}: ${data.reason}`);
+			socket.disconnect(true);
+			return;
 		}
 	});
-	socket.on("registerChatReciever", function(data){
-		prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
-		if(!global.wsChatRecievers) global.wsChatRecievers = [];
-		global.wsChatRecievers.push(socket);
-	});
+
+	// XXX TODO
+	/*
 	socket.on("registerAlertReciever", function(data){
 		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
 		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
 		global.wsAlertRecievers.push(socket);
-	});
+	});*/
 });
 
 // handle plugins on the master
@@ -556,7 +581,9 @@ async function startServer() {
 	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 	await fs.ensureDir(config.databaseDirectory);
 
-	await loadDatabase(config.databaseDirectory);
+	db.slaves = await loadMap(config.databaseDirectory, "slaves.json");
+	db.instances = await loadMap(config.databaseDirectory, "instances.json");
+
 	authenticate.setAuthSecret(config.masterAuthSecret);
 
 	// Make sure we're actually going to listen on a port

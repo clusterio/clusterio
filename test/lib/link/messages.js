@@ -1,0 +1,151 @@
+const assert = require('assert').strict;
+
+const link = require('lib/link');
+const errors = require('lib/errors');
+
+
+describe("lib/link/messages", function() {
+	let testSourceLink = new link.Link('source', 'target', null);
+	let testTargetLink = new link.Link('target', 'source', null);
+
+	let lastTargetSent;
+	testTargetLink.send = (type, data) => { lastTargetSent = { type, data }; };
+
+	describe("class Request", function() {
+		let testRequest = new link.Request({
+			type: 'test',
+			sources: 'source',
+			targets: 'target',
+		});
+
+		describe(".attach()", function() {
+			it("should attach validator to a source link", function() {
+				testRequest.attach(testSourceLink);
+				assert(testSourceLink._validators.has('test_response'), "Validator was not set");
+			});
+			it("should throw if missing handler on target link", function() {
+				assert.throws(
+					() => testRequest.attach(testTargetLink),
+					new Error("Missing handler for test_request on source-target link")
+				);
+			});
+
+			let handlerResult;
+			it("should attach handler to a target link", function() {
+				testRequest.attach(testTargetLink, async (message) => handlerResult );
+				assert(testTargetLink._handlers.has('test_request'), "Handler was not set");
+			});
+			it("should throw on handler returning object with seq", async function() {
+				handlerResult = { seq: 3 };
+				testTargetLink._handlers.get('test_request')({ seq: 2 });
+				let result = await new Promise(resolve => {
+					testTargetLink.send = (type, data) => resolve({ type, data });
+				});
+				assert.deepEqual(result, {
+					type: 'test_response',
+					data: {
+						error: "response contains reserved property 'seq'",
+						seq: 2,
+					},
+				});
+			});
+			it("should send result of calling the handler", async function() {
+				handlerResult = { test: "handler" };
+				testTargetLink._handlers.get('test_request')({ seq: 2 });
+				let result = await new Promise(resolve => {
+					testTargetLink.send = (type, data) => resolve({ type, data });
+				});
+				assert.deepEqual(result, {
+					type: 'test_response',
+					data: {
+						test: "handler",
+						seq: 2,
+					},
+				});
+			});
+			it("should implicitly send an empty object on empty return", async function() {
+				handlerResult = undefined;
+				testTargetLink._handlers.get('test_request')({ seq: 2 });
+				let result = await new Promise(resolve => {
+					testTargetLink.send = (type, data) => resolve({ type, data });
+				});
+				assert.deepEqual(result, {
+					type: 'test_response',
+					data: {
+						seq: 2,
+					},
+				});
+			});
+		});
+
+		describe(".send()", function() {
+			let request;
+			testSourceLink.send = (type, data) => {
+				request = { type, data };
+			};
+			it("should send request with send and use waitFor to get response", async function() {
+				testSourceLink.waitFor = (type, condition) => {
+					return { data: { type, request }};
+				};
+				assert.deepEqual(
+					await testRequest.send(testSourceLink, { test: "request" }),
+					{ type: 'test_response', request: { type: 'test_request', data: {test: "request" }}}
+				);
+			});
+			it("should throw error response", async function() {
+				testSourceLink.waitFor = (type, condition) => {
+					return { data: { error: "test error" }};
+				};
+				assert.rejects(
+					testRequest.send(testSourceLink),
+					new errors.RequestError("test error")
+				);
+			});
+		});
+	});
+
+	describe("class InstanceRequest", function() {
+	});
+
+	describe("class Event", function() {
+		let testEvent = new link.Event({
+			type: 'test',
+			sources: 'source',
+			targets: 'target',
+		});
+
+		describe(".attach()", function() {
+			it("should throw if missing handler on target link", function() {
+				assert.throws(
+					() => testEvent.attach(testTargetLink),
+					new Error("Missing handler for test_event on source-target link")
+				);
+			});
+			let called = false;
+			it("should attach handler and validator to a target link", function() {
+				testEvent.attach(testTargetLink, async (message) => { called = true; });
+				assert(testTargetLink._validators.has('test_event'), "Validator was not set");
+			});
+			it("should call the attached event handler", function() {
+				testTargetLink._handlers.get("test_event")();
+				assert(called, "Handler was not called");
+			});
+		});
+
+		describe(".send()", function() {
+			it("should send the event over the link", async function() {
+				let sentData = [];
+				testSourceLink.send = (type, data) => { sentData.push({ type, data }); };
+
+				testEvent.send(testSourceLink, { test: "event" });
+				assert.deepEqual(sentData, [{ type: "test_event", data: { test: "event" }}]);
+			});
+		});
+	});
+
+	describe("attachAllMessages()", function() {
+		it("does not throw", function() {
+			link.attachAllMessages(testSourceLink);
+		})
+	});
+});

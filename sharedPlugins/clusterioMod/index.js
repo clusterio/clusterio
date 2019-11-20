@@ -21,9 +21,6 @@ module.exports = class remoteCommands {
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
-		this.socket.on("hello", () => {
-			
-		});
 		const that = this;
 		const instance = process.argv[3];
 		const instancedirectory = this.config.instanceDirectory + '/' + instance;
