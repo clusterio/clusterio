@@ -283,6 +283,8 @@ class ControlConnection extends BaseConnection {
 				controlConnections.splice(index, 1);
 			}
 		});
+
+		this.instanceOutputSubscriptions = new Set();
 	}
 
 	async listSlavesRequestHandler(message) {
@@ -333,6 +335,10 @@ class ControlConnection extends BaseConnection {
 				'auto_pause': config.auto_pause,
 			}
 		});
+	}
+
+	async setInstanceOutputSubscriptionsRequestHandler(message) {
+		this.instanceOutputSubscriptions = new Set(message.data.instance_ids);
 	}
 }
 
@@ -401,6 +407,15 @@ class SlaveConnection extends BaseConnection {
 				name: instance.name,
 				slaveId: this._id,
 			});
+		}
+	}
+
+	async instanceOutputEventHandler(message) {
+		let { instance_id, output } = message.data;
+		for (let controlConnection of controlConnections) {
+			if (controlConnection.instanceOutputSubscriptions.has(instance_id)) {
+				link.events.instanceOutput.send(controlConnection, message.data);
+			}
 		}
 	}
 }

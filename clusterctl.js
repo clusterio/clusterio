@@ -4,10 +4,70 @@ const fs = require("fs-extra");
 const yargs = require("yargs");
 const version = require("./package").version;
 const asTable = require("as-table").configure({delimiter: ' | '});
+const chalk = require("chalk");
 
 const link = require("lib/link");
 const errors = require("lib/errors");
 
+
+/**
+ * Format a parsed Factorio output message with colors
+ *
+ * Formats a parsed Factorio output from lib/factorio into a readable
+ * colorized output using terminal escape codes that can be printed.
+ */
+function formatOutputColored(output) {
+	let time = "";
+	if (output.format === 'seconds') {
+		time = chalk.dim(output.time.padStart(8)) + ' ';
+	} else if (output.format === 'date') {
+		time = chalk.dim(output.time) + ' ';
+	}
+
+	let info = "";
+	if (output.type === 'log') {
+		let level = output.level;
+		if (level === "Info") {
+			level = chalk.bold.blueBright(level);
+		} else if (output.level === "Warning") {
+			level = chalk.bold.yellowBright(level);
+		} else if (output.level === "Error") {
+			level = chalk.bold.redBright(level);
+		}
+
+		info = level + ' ' + chalk.dim(output.file) + ': ';
+
+	} else if (output.type === 'action') {
+		info = '[' + chalk.yellow(output.action) + '] ';
+	}
+
+	return time + info + output.message;
+}
+
+/**
+ * Format a parsed Factorio output message
+ *
+ * Formats a parsed Factorio output from lib/factorio into a readable
+ * output string that can be printed
+ */
+function formatOutput(output) {
+	let time = "";
+	if (output.format === 'seconds') {
+		time = output.time.padStart(8) + ' ';
+	} else if (output.format === 'date') {
+		time = output.time + ' ';
+	}
+
+	let info = "";
+	if (output.type === 'log') {
+		info = output.level + ' ' + output.file + ': ';
+
+	} else if (output.type === 'action') {
+		info = '[' + output.action + '] ';
+	}
+
+	return time + info + output.message;
+}
 
 /**
  * Represens a command that can be runned by clusterctl
@@ -115,8 +175,10 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
 		let response = await link.requests.createSave.send(control, {
-			instance_id: await resolveInstance(control, args.instance),
+			instance_id: instanceId,
 		});
 		console.log(response);
 	},
@@ -129,8 +191,10 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
 		let response = await link.requests.startInstance.send(control, {
-			instance_id: await resolveInstance(control, args.instance),
+			instance_id: instanceId,
 		});
 		console.log(response);
 	},
@@ -143,8 +207,10 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
 		let response = await link.requests.stopInstance.send(control, {
-			instance_id: await resolveInstance(control, args.instance),
+			instance_id: instanceId,
 		});
 		console.log(response);
 	},
@@ -207,6 +273,15 @@ class Control extends link.Client {
 			agent: 'clusterctl',
 			version: version,
 		});
+	}
+
+	async instanceOutputEventHandler(message) {
+		let { instance_id, output } = message.data;
+		if (process.platform === "win32") {
+			console.log(formatOutput(output));
+		} else {
+			console.log(formatOutputColored(output));
+		}
 	}
 }
 

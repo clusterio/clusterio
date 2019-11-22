@@ -109,11 +109,6 @@ class Instance {
 	async createSave() {
 		console.log("Creating save .....");
 
-		// XXX Move to constructor and send to master
-		this.server.on('output', function(output) {
-			console.log("Fact: " + output.message);
-		});
-
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
 	}
@@ -187,10 +182,6 @@ class Instance {
 			modules.push(module);
 		}
 		await factorio.patch(this.path("saves", latestSave), modules);
-
-		this.server.on('output', (output) => {
-			console.log("Fact: " + output.message);
-		});
 
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
@@ -317,6 +308,7 @@ class Slave extends link.Client {
 		// XXX: race condition on multiple simultanious calls
 		let instance = await Instance.create(id, instanceDir, this.config.factorioDir, options);
 		this.instances.set(id, instance);
+		this.hookInstance(instance);
 		this.updateInstances();
 	}
 
@@ -376,12 +368,20 @@ class Slave extends link.Client {
 				console.log(`found instance ${instanceConfig.name} in ${instancePath}`);
 				let instance = new Instance(instancePath, this.config.factorioDir, instanceConfig);
 				await instance.init();
+				this.hookInstance(instance); // XXX this is the wrong place for this
 				instances.set(instanceConfig.id, instance);
 			}
 		}
 
 		return instances;
 	}
+
+	hookInstance(instance) {
+		instance.server.on('output', (output) => {
+			link.events.instanceOutput.send(this, { instance_id: instance.config.id, output })
+		});
+	}
+
 
 	updateInstances() {
 		let list = [];
