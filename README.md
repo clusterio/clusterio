@@ -23,7 +23,8 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
 
 ### Ways to support me/the project:
 
-* Contribute with code/documentation. Always nice to move the project forward
+* Contribute with code/documentation. See [Contributing](docs/contributing.md) for how to make pull
+  requests.  Always nice to move the project forward.
 
 * Support me monetarily on [patreon](https://www.patreon.com/danielv123) or paypal: danielv@live.no
 
