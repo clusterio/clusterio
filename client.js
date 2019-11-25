@@ -737,19 +737,19 @@ async function instanceManagement(instanceconfig) {
 	
 	setTimeout(function(){hashMods(instance, uploadMods)}, 5000);
 	function uploadMods(modHashes) {
-		// [{modName:string,hash:string}, ... ]
-		for(let i=0;i<modHashes.length;i++){
-			let payload = {
-				modName: modHashes[i].modName,
-				hash: modHashes[i].hash,
-			};
-			needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
-				if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
-				if(response && body && body == "found") {
-					console.log("master has mod "+modHashes[i].modName);
-				} else if (response && body && typeof body == "string") {
-					let mod = response.body;
-					if(config.uploadModsToMaster){
+		if (config.uploadModsToMaster) {
+			// [{modName:string,hash:string}, ... ]
+			for(let i=0;i<modHashes.length;i++){
+				let payload = {
+					modName: modHashes[i].modName,
+					hash: modHashes[i].hash,
+				};
+				needle.post(config.masterIP + ":" + config.masterPort + '/api/checkMod', payload, needleOptionsWithTokenAuthHeader, function (err, response, body) {
+					if(err) console.error("Unable to contact master server /api/checkMod! Please check your config.json.");
+					if(response && body && body == "found") {
+						console.log("master has mod "+modHashes[i].modName);
+					} else if (response && body && typeof body == "string") {
+						let mod = response.body;
 						console.log("Sending mod: " + mod);
 						// Send mods master says it wants
 						// response.body is a string which is a modName.zip
@@ -766,11 +766,11 @@ async function instanceManagement(instanceconfig) {
 						});
 						var form = req.form();
 						form.append('file', fs.createReadStream(config.instanceDirectory+"/"+instance+"/mods/"+mod));
-					} else {
-						console.log("Not sending mod: " + mod + " to master because config.uploadModsToMaster is not enabled")
 					}
-				}
-			});
+				});
+			}
+		} else {
+			console.log("Bypassing sending mods to master because config.uploadModsToMaster is not enabled")
 		}
 	}
 } // END OF INSTANCE START ---------------------------------------------------------------------
