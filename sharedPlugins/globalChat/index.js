@@ -1,15 +1,12 @@
-const needle = require("needle");
-
 module.exports = class remoteCommands {
 	constructor(mergedConfig, messageInterface, extras){
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
 		this.instances = {};
-		this.getInstanceName = require("lib/clusterTools/getInstanceName")(mergedConfig);
-		
-		this.socket.on("hello", () => this.socket.emit("registerChatReciever"));
-	
+
+		this.socket.emit("registerChatReciever");
+
 		this.socket.on("gameChat", async data => {
 			if(data.instanceID && data.instanceID != this.config.unique.toString()){
 				if(data.data.includes("[CHAT]")
@@ -25,11 +22,10 @@ module.exports = class remoteCommands {
 					words.shift();
 					                let message = words.join(" ").replace(/[";]/g, " ").replace(/[']/g,"").replace("/shout ", "").replace("!shout ","").replace(/\[gps=.*?\]/g, "").replace(/\[train=.*?\]/g, "");
 					
-                    let instance = await this.getInstanceName(data.instanceID);
                     if(data.data.includes("[gps=")){
                     	//Nothing
                     }else{
-                    	this.messageInterface("/silent-command game.print('[" + instance + "] " + message + "')");
+						this.messageInterface("/silent-command game.print('[" + data.instanceName + "] " + message + "')");
                     }
                 }
 			}
@@ -39,6 +35,7 @@ module.exports = class remoteCommands {
 		try{
 		this.socket.emit("gameChat", {
 			instanceID: this.config.unique.toString(),
+			instanceName: this.config.name,
 			data,
 		});
 		if(data.includes("[CHAT]") && data.includes("!info")){

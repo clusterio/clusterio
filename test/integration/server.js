@@ -4,6 +4,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const factorio = require("lib/factorio");
+const errors = require("lib/errors");
 
 
 describe("Integration of lib/factorio/server", function() {
@@ -50,9 +51,9 @@ describe("Integration of lib/factorio/server", function() {
 
 			it("contains the settings used by Clusterio", async function() {
 				let keysUsed = new Set([
-					"name", "description", "tags", "max_players", "visibility", "username", "token",
-					"game_password", "require_user_verification", "allow_commands", "autosave_interval",
-					"autosave_slots", "afk_autokick_interval", "auto_pause",
+					"name", "description", "tags", "visibility", "username", "token",
+					"game_password", "require_user_verification", "allow_commands",
+					"auto_pause",
 				]);
 
 				for (let key of Object.keys(settings)) {
@@ -180,6 +181,35 @@ describe("Integration of lib/factorio/server", function() {
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				log(".stop() for hang detection");
 				await server.stop();
+			});
+		});
+
+		describe(".start() termination detection", function() {
+			it("should tell if Factorio got killed", async function() {
+				// This does not work on Windows
+				if (process.platform == "win32") {
+					this.skip();
+				}
+				slowTest(this);
+				log(".start() for kill detection");
+
+				let startPromise = server.start("test.zip");
+				server.once('output', () => server._server.kill('SIGKILL'));
+
+				await assert.rejects(
+					startPromise,
+					new errors.EnvironmentError("Factorio server was unexpectedly killed, is the system low on memory?")
+				);
+			});
+
+			it("should tell if Factorio unexpectedly closed with a code", async function() {
+				slowTest(this);
+				log(".start() for unexpected close detection");
+
+				await assert.rejects(
+					server.start("does-not-exist.zip"),
+					new errors.EnvironmentError("Factorio server unexpectedly shut down with code 1")
+				);
 			});
 		});
 	});

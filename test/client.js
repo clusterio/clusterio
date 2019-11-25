@@ -6,7 +6,7 @@ const client = require("../client");
 
 describe("Client testing", function() {
 	describe("class Instance", function() {
-		let instance = new client._Instance("dir", "foo")
+		let instance = new client._Instance("dir", "factorioDir", { name:"foo" })
 		it("should give the name on .name", function() {
 			assert.equal(instance.name, "foo");
 		})
@@ -81,7 +81,7 @@ describe("Client testing", function() {
 		fs.outputFileSync(path.join(testDir, "shared", "mod_a.zip"), "a");
 		fs.outputFileSync(path.join(testDir, "shared", "mod_b.zip"), "b");
 		fs.outputFileSync(path.join(testDir, "shared", "mod.dat"), "c");
-		let instance = new client._Instance(path.join(testDir, "instance"), "test");
+		let instance = new client._Instance(path.join(testDir, "instance"), "factorioDir", { name: "test" });
 		fs.outputFileSync(instance.path("mods", "mod_i.zip"), "i");
 
 		let discardingLogger = {

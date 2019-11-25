@@ -51,11 +51,8 @@ class masterPlugin {
 
 	async onLoadFinish() {
 		this.items = await loadDatabase(this.config);
-		this.autosaveId = setInterval(async function() {
-			let file = path.join(this.config.databaseDirectory, "items.json");
-			console.log(`autosaving ${file}`);
-			let content = JSON.stringify(db.items.serialize());
-			await fs.outputFile(file, content);
+		this.autosaveId = setInterval(async () => {
+			await saveDatabase(this.config, this.items);
 		},this.config.autosaveInterval || 60000);
 
 		routes.addApiRoutes(

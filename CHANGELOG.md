@@ -12,6 +12,10 @@ Version 2.0.0
   event_loader lib into the savegame.  Regular freeplay games can now be
   used with Clusterio and will be compatible without having to convert them
   to Hotpatch.
+- Daemonized slaves.  Slaves now have the ability to run multiple Factorio
+  instances, starting and stopping them individually.  To manage this the
+  local command line interface has been replaced with a remote interface on
+  the master server that can be accessed through the clusterctl cli tool.
 
 ### Changes
 
@@ -41,6 +45,19 @@ Version 2.0.0
   /api/inventory, /api/inventoryAsObject and the web interface view for the
   storage page into the clusterioMod plugin.  If you disable this plugin
   then these things will not be available.
+- Removed undocumented --port and --rcon-port arguments to client.
+- Removed undocumented FACTORIOPORT and RCONPORT enviroment variable
+  handling in client.
+- Removed redundant call to /api/slaves in globalChat plugin.
+- Removed broken serverManager plugin.
+- Removed broken remote combinator signaling.
+- Removed factorio_version from config.  The version installed is auto
+  detected and used instead.
+- Removed the playerManager specific command CLI tools/delete_player.js.
+- Creating an instance, creating a save for an instance and starting an
+  instance is now three separate commands.
+- Removed oddball limits to slaves.json size.
+- Moved slave specific configuration into its own configuration file.
 
 ### Breaking Changes
 
@@ -61,6 +78,23 @@ Version 2.0.0
 - Removed getLua and getCommand from lib/clusterTools.  If you need to run
   more than the most trivial of code in commands use the save patcher and
   add in a remote interface.
+- Removed mod uploading and distributing from the HTTP interface.  Breaks
+  the old unmaintained and no longer needed factorioClusterioClient.
+- Removed the remoteCommands plugin and the old runCommand interface.  Breaks
+  playerManager and external tools sending commands.
+- Removed broken serverManager plugin.
+- Removed fields info, time, rconPort, rconPassword, serverPort, unique,
+  mods, instanceName, playerCount, mac, and meta from the slaves in the
+  slave database.
+- Removed getInstanceName and lib/clusterTools.  Breaks playerManager,
+  and discordChat.
+- Removed the /api/rconPasswords, and /api/slaves endpoints.  Breaks web
+  interface, trainTeleports, and discordChat.
+- Removed the /api/getSlaveMeta and /api/editSlaveMeta endpoints.  Breaks
+  researchSync, and UPSdisplay.
+- Removed the hello event from the socket connection handshake.  Breaks
+  playerManager, trainTeleports, serverSelect, and discordChat
+- Changed the format of database/slaves.json.
 
 
 Version 1.2.3

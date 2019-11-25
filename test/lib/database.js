@@ -60,7 +60,7 @@ describe("lib/database", function() {
 
 	describe("saveMapAsJson()", function() {
 		it("should save a mapping as JSON", async function() {
-			let testFile = 'test/json/save_map.json';
+			let testFile = 'test/temp/save_map.json';
 			async function deleteTestFile() {
 				try {
 					await fs.unlink(testFile);
@@ -81,7 +81,80 @@ describe("lib/database", function() {
 				await fs.readFile(testFile, {encoding: 'utf-8'}),
 				'{\n    "c": {},\n    "d": "foo"\n}'
 			);
+		});
+	});
+
+	describe("loadJsonArrayAsMap()", function() {
+		let badTypes = ['null', 'object', 'number', 'string', 'boolean'];
+
+		for (let type of badTypes) {
+			it(`should reject on ${type} JSON`, async function() {
+				await assert.rejects(
+					database.loadJsonArrayAsMap(`test/json/${type}.json`),
+					new Error(`Expected array but got ${type}`)
+				);
+			});
+		}
+
+		it("should reject on null element", async function() {
+			await assert.rejects(
+				database.loadJsonArrayAsMap('test/json/array_null.json'),
+				new Error("Expected all elements to be objects")
+			);
+		});
+
+		it("should reject on element missing id", async function() {
+			await assert.rejects(
+				database.loadJsonArrayAsMap('test/json/array_object.json'),
+				new Error("Expected all elements to have an id property")
+			);
+		});
+
+		it("should work on empty array JSON", async function() {
+			assert.deepEqual(
+				await database.loadJsonArrayAsMap('test/json/array.json'),
+				new Map()
+			);
+		});
+
+		it("should work on array JSON", async function() {
+			assert.deepEqual(
+				await database.loadJsonArrayAsMap('test/json/load_array_map.json'),
+				new Map([['a', {id: 'a'}], ['b', {id: 'b'}]])
+			);
+		});
+
+		it("should give an empty Map for non-existant file", async function() {
+			assert.deepEqual(
+				await database.loadJsonArrayAsMap('test/json/does-not-exist'),
+				new Map()
+			);
+		});
+	});
+
+	describe("saveMapAsJsonArray()", function() {
+		it("should save a mapping as JSON", async function() {
+			let testFile = 'test/temp/save_array_map.json';
+			async function deleteTestFile() {
+				try {
+					await fs.unlink(testFile);
+				} catch (err) {
+					/* istanbul ignore if */
+					if (err.code !== 'ENOENT') {
+						throw err;
+					}
+				}
+			}
+
 			await deleteTestFile();
+			await database.saveMapAsJsonArray(
+				testFile, new Map([['c', {id: 'c'}], ['d', {id: 'd'}]])
+			);
+
+			assert.equal(
+				await fs.readFile(testFile, {encoding: 'utf-8'}),
+				'[\n    {\n        "id": "c"\n    },\n    {\n        "id": "d"\n    }\n]'
+			);
 		});
 	});
 

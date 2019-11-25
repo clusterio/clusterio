@@ -1,14 +1,7 @@
 {
 	"__comment": "Where factorio folder. Should be in the same folder as this config file.",
 	"factorioDirectory": "./factorio",
-	"instanceDirectory": "./instances",
 	"databaseDirectory": "./database",
-	
-	"__comment1": "IP players should connect to to join your servers, should be portforwarded and stuff",
-	"publicIP": "localhost",
-	
-	"__comment2": "URL the master web server runs at, can be ignored on the master system.  Must not end with a slash",
-	"masterURL": "http://localhost:8080",
 	
 	"__commentMasterPort": "HTTP port for the master to listen to",
 	"masterPort": 8080,
@@ -18,9 +11,6 @@
 	"sslCert": "database/certificates/cert.crt",
 	"sslPrivKey": "database/certificates/cert.key",
 	
-	"__commentMasterAuthToken": "Authentication token to connect to the master server. Find it in secret-api-token.txt on the master.",
-	"masterAuthToken": "",
-	
 	"__commentAuthSecret": "This is a long random string used for generating authentication tokens. Do not share. Regenerates when secret-api-token.txt is deleted.",
 	"masterAuthSecret": "",
 	
@@ -28,9 +18,7 @@
 	"username": "",
 	"__comment4": "Token from your factorio.com profile page. Required for MP and mod manager services.",
 	"token": "",
-	"__comment7": "Used for communication with the mod portal, not needed if you manage mods by hand",
-	"factorio_version": "0.16.41",
-	
+
 	"__comment5": "General user settings",
 	"verify_user_identity": true,
 	"auto_pause": false,
@@ -50,7 +38,6 @@
 	"__comment6.5": "When the master is undersupplied, we have 3 different modes to 'fairly' distribute items. First to ask gets all, dole division using weird formula or experimental neural net tries to make stuff as fair as possible. Feel free to play around.",
 	"disableFairItemDistribution": false,
 	"useNeuralNetDoleDivider": true,
-	"uploadModsToMaster": false,
 	"msBetweenCommands": 10,
 	"allowRemoteCommandExecution": true,
 	"enableCrossServerShout": true,

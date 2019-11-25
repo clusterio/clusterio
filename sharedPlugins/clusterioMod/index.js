@@ -21,9 +21,6 @@ module.exports = class remoteCommands {
 		this.messageInterface = messageInterface;
 		this.config = mergedConfig;
 		this.socket = extras.socket;
-		this.socket.on("hello", () => {
-			
-		});
 		const that = this;
 		const instance = process.argv[3];
 		const instancedirectory = this.config.instanceDirectory + '/' + instance;
@@ -36,7 +33,6 @@ module.exports = class remoteCommands {
 
 		ensureFileSync(instancedirectory + "/script-output/output.txt");
 		ensureFileSync(instancedirectory + "/script-output/orders.txt");
-		ensureFileSync(instancedirectory + "/script-output/txbuffer.txt");
 
 
 		// flow/production statistics ------------------------------------------------------------
@@ -247,56 +243,6 @@ module.exports = class remoteCommands {
 		setTimeout(function(){
 			messageInterface("/silent-command remote.call('clusterio','setWorldID',"+that.config.unique+")")
 		}, 20000);
-		/* REMOTE SIGNALLING
-		 * send any signals the slave has been told to send
-		 * Fetch combinator signals from the server
-		*/
-		this.socket.on("processCombinatorSignal", circuitFrameWithMeta => {
-			if(circuitFrameWithMeta && typeof circuitFrameWithMeta == "object" && circuitFrameWithMeta.frame && Array.isArray(circuitFrameWithMeta.frame)){
-				messageInterface("/silent-command remote.call('clusterio', 'receiveFrame', '"+JSON.stringify(circuitFrameWithMeta.frame)+"')");
-			}
-		});
-		// get outbound frames from file and send to master
-		// get array of lines in file, each line should correspond to a JSON encoded frame
-		let signals = fs.readFileSync(instancedirectory + "/script-output/txbuffer.txt", "utf8").split("\n");
-		// if we actually got anything from the file, proceed and reset file
-		let readingTxBufferSoon = false;
-		let txBufferClearCounter = 0;
-		fs.watch(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (eventType, filename) => {
-			if(!readingTxBufferSoon){ // use a 100ms delay to avoid messing with rapid sequential writes from factorio (I think that might be a problem maybe?)
-				readingTxBufferSoon = true;
-				setTimeout(()=>{
-					txBufferClearCounter++;
-					fs.readFile(instancedirectory + "/script-output/txbuffer.txt", "utf-8", (err, signals) => {
-						signals = signals.split("\n");
-						if (signals[0]) {
-							//if(txBufferClearCounter > 500){
-								fs.writeFileSync(instancedirectory + "/script-output/txbuffer.txt", "");
-							//	txBufferClearCounter = 0;
-							//}
-							
-							// loop through all our frames
-							for (let i = 0; i < signals.length; i++) {
-								if (signals[i] && objectOps.isJSON(signals[i])) {
-									// signals[i] is a JSON array called a "frame" of signals. We timestamp it for storage on master
-									// then we unpack and RCON in this.frame to the game later.
-									let framepart = JSON.parse(signals[i]);
-									let doneframe = {
-										time: Date.now(),
-										frame: framepart, // thats our array of objects(single signals);
-									}
-									// send to master using socket.io, opened at the top of instanceManagement()
-									this.socket.emit("combinatorSignal", doneframe);
-								} else {
-									// console.log("Invalid jsony: "+typeof signals[i])
-								}
-							}
-						}
-					});
-					readingTxBufferSoon = false;
-				},100);
-			}
-		});
 	}
 	async factorioOutput(data){
 		

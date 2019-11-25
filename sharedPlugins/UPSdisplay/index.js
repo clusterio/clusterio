@@ -7,6 +7,7 @@ class UPSdisplay {
 		this.config = slaveConfig;
 		this.messageInterface = msgInterface;
 		this.socket = extras.socket;
+		this.slave = extras.slave;
 		
 		this.historicalTicks = [];
 		setInterval(() => {

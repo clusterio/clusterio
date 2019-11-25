@@ -1,3 +1,5 @@
+# Warning: This is currently broken as a result of
+# changes done in the 2.0 refactoring.
 FROM node:10
 RUN apt-get update && apt install git curl tar -y
 RUN mkdir factorioClusterio
@@ -18,4 +20,4 @@ VOLUME /factorioClusterio/instances
 VOLUME /factorioClusterio/sharedMods
 VOLUME /factorioClusterio/sharedPlugins
 
-CMD RCONPORT="$RCONPORT" FACTORIOPORT="$FACTORIOPORT" MODE="$MODE" node $MODE start $INSTANCE
+CMD MODE="$MODE" node $MODE start $INSTANCE
