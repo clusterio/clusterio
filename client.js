@@ -75,7 +75,7 @@ class Instance {
 		// save instance config
 		await fs.outputFile(instance.path("config.json"), JSON.stringify(instanceConfig, null, 4));
 
-		let serverSettings = await instance.server.exampleSettings();
+		let serverSettings = await factorio.FactorioServer.exampleSettings(path.join(factorioDir, "data"));
 		let gameName = "Clusterio instance: " + instance.name;
 		if (options.username) {
 			gameName = options.username + "'s clusterio " + instance.name;
