@@ -103,7 +103,7 @@ async function resolveInstance(control, instanceName) {
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
-		let response = await link.requests.listInstances.send(control);
+		let response = await link.messages.listInstances.send(control);
 		for (let instance of response.list) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
@@ -123,7 +123,7 @@ let commands = [];
 commands.push(new Command({
 	definition: ["list-slaves", "List slaves connected to the master"],
 	handler: async function(args, control) {
-		let response = await link.requests.listSlaves.send(control);
+		let response = await link.messages.listSlaves.send(control);
 		console.log(asTable(response.list));
 	},
 }));
@@ -131,7 +131,7 @@ commands.push(new Command({
 commands.push(new Command({
 	definition: ["list-instances", "List instances known to the master"],
 	handler: async function(args, control) {
-		let response = await link.requests.listInstances.send(control);
+		let response = await link.messages.listInstances.send(control);
 		console.log(asTable(response.list));
 	}
 }));
@@ -148,7 +148,7 @@ commands.push(new Command({
 		if (/^-?\d+$/.test(args.slave)) {
 			slaveId = parseInt(args.slave, 10);
 		} else {
-			let response = await link.requests.listSlaves.send(control);
+			let response = await link.messages.listSlaves.send(control);
 			for (let slave of response.list) {
 				if (slave.name === args.slave) {
 					slaveId = slave.id;
@@ -160,7 +160,7 @@ commands.push(new Command({
 				throw new errors.CommandError(`No slave named ${args.slave}`);
 			}
 		}
-		let response = await link.requests.createInstanceCommand.send(control, {
+		let response = await link.messages.createInstanceCommand.send(control, {
 			name: args.name,
 			slave_id: slaveId,
 		});
@@ -176,8 +176,8 @@ commands.push(new Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await resolveInstance(control, args.instance);
-		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
-		let response = await link.requests.createSave.send(control, {
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.createSave.send(control, {
 			instance_id: instanceId,
 		});
 		console.log(response);
@@ -192,8 +192,8 @@ commands.push(new Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await resolveInstance(control, args.instance);
-		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
-		let response = await link.requests.startInstance.send(control, {
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.startInstance.send(control, {
 			instance_id: instanceId,
 		});
 		console.log(response);
@@ -208,8 +208,8 @@ commands.push(new Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await resolveInstance(control, args.instance);
-		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
-		let response = await link.requests.stopInstance.send(control, {
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.stopInstance.send(control, {
 			instance_id: instanceId,
 		});
 		console.log(response);
@@ -223,7 +223,7 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await link.requests.deleteInstance.send(control, {
+		let response = await link.messages.deleteInstance.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
 		});
 		console.log(response);
@@ -238,7 +238,7 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await link.requests.sendRcon.send(control, {
+		let response = await link.messages.sendRcon.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
 			command: args.command
 		})

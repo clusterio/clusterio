@@ -254,7 +254,7 @@ class BaseConnection extends link.Connection {
 		link.attachAllMessages(this);
 	}
 
-	async forwardInstanceRequest(message, request) {
+	async forwardInstanceRequest(request, message) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${instance_id} does not exist`);
@@ -321,7 +321,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Slave is not connected");
 		}
 
-		await link.requests.createInstance.send(connection, {
+		await link.messages.createInstance.send(connection, {
 			id: Math.random() * 2**31 | 0, // TODO: add id option
 			options: {
 				'name': name,
@@ -414,7 +414,7 @@ class SlaveConnection extends BaseConnection {
 		let { instance_id, output } = message.data;
 		for (let controlConnection of controlConnections) {
 			if (controlConnection.instanceOutputSubscriptions.has(instance_id)) {
-				link.events.instanceOutput.send(controlConnection, message.data);
+				link.messages.instanceOutput.send(controlConnection, message.data);
 			}
 		}
 	}

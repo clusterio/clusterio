@@ -80,6 +80,19 @@ with an empty data payload.
 ```
 
 
+Events
+------
+
+Events are messages send in one direction over the link, that the
+receiver is expected to act upon, but not make any replies (for that
+there's [Requests](#requests).  By convention a message types ending in
+`*_event` is an event.  The data payload of an event consists solely of
+event specific properties.
+
+See [lib/link/messages.js](lib/link/messages.js) for the recognized
+events and their contents.
+
+
 Requests
 --------
 
@@ -100,8 +113,8 @@ error property in the data payload is sent instead.
 - seq - integer - The seq number of the request message.
 - error - string - Human readable text message describing the error.
 
-See [lib/link/requests.js](lib/link/requests.js) for the recognized
-requests and their implementation.
+See [lib/link/messages.js](lib/link/messages.js) for the recognized
+requests and their contents.
 
 
 Closing the connection

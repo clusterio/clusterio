@@ -289,7 +289,7 @@ class Slave extends link.Client {
 	 *
 	 * Called by the handler for InstanceRequest.
 	 */
-	async forwardInstanceRequest(message, handler) {
+	async forwardInstanceRequest(handler, message) {
 		let instance = this.instances.get(message.data.instance_id);
 		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -312,19 +312,19 @@ class Slave extends link.Client {
 		this.updateInstances();
 	}
 
-	async createSaveRequestHandler(instance, message) {
+	async createSaveInstanceRequestHandler(instance, message) {
 		await instance.createSave();
 	}
 
-	async startInstanceRequestHandler(instance, message) {
+	async startInstanceInstanceRequestHandler(instance, message) {
 		await instance.start(this.config, this.socket);
 	}
 
-	async stopInstanceRequestHandler(instance, message) {
+	async stopInstanceInstanceRequestHandler(instance, message) {
 		await instance.stop();
 	}
 
-	async deleteInstanceRequestHandler(instance, message) {
+	async deleteInstanceInstanceRequestHandler(instance, message) {
 		await instance.stop();
 		this.instances.delete(instance.config.id);
 
@@ -332,7 +332,7 @@ class Slave extends link.Client {
 		this.updateInstances();
 	}
 
-	async sendRconRequestHandler(instance, message) {
+	async sendRconInstanceRequestHandler(instance, message) {
 		let result = await instance.server.sendRcon(message.data.command);
 		return { result };
 	}
@@ -378,7 +378,7 @@ class Slave extends link.Client {
 
 	hookInstance(instance) {
 		instance.server.on('output', (output) => {
-			link.events.instanceOutput.send(this, { instance_id: instance.config.id, output })
+			link.messages.instanceOutput.send(this, { instance_id: instance.config.id, output })
 		});
 	}
 
@@ -391,7 +391,7 @@ class Slave extends link.Client {
 				name: instance.config.name,
 			});
 		}
-		link.events.updateInstances.send(this, { instances: list });
+		link.messages.updateInstances.send(this, { instances: list });
 	}
 
 	async start() {
