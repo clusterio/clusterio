@@ -45,31 +45,6 @@ function formatOutputColored(output) {
 }
 
 /**
- * Format a parsed Factorio output message
- *
- * Formats a parsed Factorio output from lib/factorio into a readable
- * output string that can be printed
- */
-function formatOutput(output) {
-	let time = "";
-	if (output.format === 'seconds') {
-		time = output.time.padStart(8) + ' ';
-	} else if (output.format === 'date') {
-		time = output.time + ' ';
-	}
-
-	let info = "";
-	if (output.type === 'log') {
-		info = output.level + ' ' + output.file + ': ';
-
-	} else if (output.type === 'action') {
-		info = '[' + output.action + '] ';
-	}
-
-	return time + info + output.message;
-}
-
-/**
  * Represens a command that can be runned by clusterctl
  */
 class Command {
@@ -282,11 +257,7 @@ class Control extends link.Link {
 
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
-		if (process.platform === "win32") {
-			console.log(formatOutput(output));
-		} else {
-			console.log(formatOutputColored(output));
-		}
+		console.log(formatOutputColored(output));
 	}
 }
 
@@ -435,7 +406,6 @@ async function startControl() {
 module.exports = {
 	// for testing only
 	_formatOutputColored: formatOutputColored,
-	_formatOutput: formatOutput,
 	_resolveInstance: resolveInstance,
 	_Control: Control,
 

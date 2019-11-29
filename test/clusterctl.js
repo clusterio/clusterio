@@ -22,14 +22,6 @@ describe("clusterctl", function() {
 			chalk.level = old;
 		});
 	});
-	describe("formatOutput()", function() {
-		it("should pass the test lines", function() {
-			for (let [reference, output] of testLines) {
-				let line = clusterctl._formatOutput(output);
-				assert.deepEqual(line, reference);
-			}
-		});
-	});
 
 	let mockConnector = new mock.MockConnector();
 	mockConnector.on('send', function(message) {
