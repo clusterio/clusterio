@@ -338,7 +338,7 @@ class Slave extends link.Link {
 		await instance.stop();
 		this.instances.delete(instance.config.id);
 
-		fs.remove(instance.path());
+		await fs.remove(instance.path());
 		this.updateInstances();
 	}
 
@@ -663,8 +663,6 @@ async function startClient() {
 	} else if (command == "manage"){
 		await manage(config, instance);
 		// process.exit(0);
-	} else if (command == "delete") {
-		await deleteInstance(instance);
 	*/
 }
 
