@@ -19,9 +19,9 @@ const errors = require("lib/errors");
 function formatOutputColored(output) {
 	let time = "";
 	if (output.format === 'seconds') {
-		time = chalk.dim(output.time.padStart(8)) + ' ';
+		time = chalk.yellow(output.time.padStart(8)) + ' ';
 	} else if (output.format === 'date') {
-		time = chalk.dim(output.time) + ' ';
+		time = chalk.yellow(output.time) + ' ';
 	}
 
 	let info = "";
@@ -35,7 +35,7 @@ function formatOutputColored(output) {
 			level = chalk.bold.redBright(level);
 		}
 
-		info = level + ' ' + chalk.dim(output.file) + ': ';
+		info = level + ' ' + chalk.gray(output.file) + ': ';
 
 	} else if (output.type === 'action') {
 		info = '[' + chalk.yellow(output.action) + '] ';
