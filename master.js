@@ -665,6 +665,10 @@ module.exports = {
 	_db: db,
 	_config: config,
 	_SocketIOServerConnector: SocketIOServerConnector,
+	_controlConnections: controlConnections,
+	_ControlConnection: ControlConnection,
+	_slaveConnections: slaveConnections,
+	_SlaveConnection: SlaveConnection,
 }
 
 if (module === require.main) {

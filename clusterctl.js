@@ -438,6 +438,8 @@ module.exports = {
 	_formatOutput: formatOutput,
 	_resolveInstance: resolveInstance,
 	_Control: Control,
+
+	_commands: commands,
 }
 
 

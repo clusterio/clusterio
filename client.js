@@ -820,6 +820,7 @@ module.exports = {
 	_Instance: Instance,
 	_checkFilename: checkFilename,
 	_symlinkMods: symlinkMods,
+	_Slave: Slave,
 };
 
 if (module === require.main) {
