@@ -45,7 +45,7 @@ describe("Integration of lib/factorio/server", function() {
 		describe(".exampleSettings()", function() {
 			let settings;
 			it("returns an object", async function() {
-				settings = await server.exampleSettings();
+				settings = await factorio.FactorioServer.exampleSettings(path.join("factorio", "data"));
 				assert(typeof settings === "object");
 			});
 

@@ -75,7 +75,7 @@ class Instance {
 		// save instance config
 		await fs.outputFile(instance.path("config.json"), JSON.stringify(instanceConfig, null, 4));
 
-		let serverSettings = await instance.server.exampleSettings();
+		let serverSettings = await factorio.FactorioServer.exampleSettings(path.join(factorioDir, "data"));
 		let gameName = "Clusterio instance: " + instance.name;
 		if (options.username) {
 			gameName = options.username + "'s clusterio " + instance.name;
@@ -197,7 +197,7 @@ class Instance {
 				clientPort: this.server.rconPort,
 				clientPassword: this.server.rconPassword,
 			}
-			instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
+			//instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
 		});
 
 		await this.server.start(latestSave);
@@ -235,17 +235,36 @@ class Instance {
 	}
 }
 
+class SlaveConnector extends link.SocketIOClientConnector {
+	constructor(slaveConfig) {
+		super(slaveConfig.masterURL, slaveConfig.masterAuthToken);
+
+		this.id = slaveConfig.id;
+		this.name = slaveConfig.name;
+	}
+
+	register() {
+		console.log("SOCKET | registering slave");
+		this.send('register_slave', {
+			agent: 'Clusterio Slave',
+			version,
+			id: this.id,
+			name: this.name,
+		});
+	}
+}
+
 /**
  * Handles running the slave
  *
  * Connects to the master server over the socket.io connection and manages
  * intsances.
  */
-class Slave extends link.Client {
+class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
-	constructor(slaveConfig) {
-		super('slave', slaveConfig.masterURL, slaveConfig.masterAuthToken);
+	constructor(connector, slaveConfig) {
+		super('slave', 'master', connector);
 		link.attachAllMessages(this);
 		this.config = {
 			id: slaveConfig.id,
@@ -256,16 +275,7 @@ class Slave extends link.Client {
 			masterToken: slaveConfig.masterAuthToken,
 			publicAddress: slaveConfig.publicIP,
 		}
-	}
 
-	register() {
-		console.log("SOCKET | registering slave");
-		this.send('register_slave', {
-			agent: 'Clusterio Slave',
-			version,
-			id: this.config.id,
-			name: this.config.name,
-		});
 	}
 
 	async _findNewInstanceDir(name) {
@@ -289,7 +299,7 @@ class Slave extends link.Client {
 	 *
 	 * Called by the handler for InstanceRequest.
 	 */
-	async forwardInstanceRequest(message, handler) {
+	async forwardInstanceRequest(handler, message) {
 		let instance = this.instances.get(message.data.instance_id);
 		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -312,27 +322,27 @@ class Slave extends link.Client {
 		this.updateInstances();
 	}
 
-	async createSaveRequestHandler(instance, message) {
+	async createSaveInstanceRequestHandler(instance, message) {
 		await instance.createSave();
 	}
 
-	async startInstanceRequestHandler(instance, message) {
+	async startInstanceInstanceRequestHandler(instance, message) {
 		await instance.start(this.config, this.socket);
 	}
 
-	async stopInstanceRequestHandler(instance, message) {
+	async stopInstanceInstanceRequestHandler(instance, message) {
 		await instance.stop();
 	}
 
-	async deleteInstanceRequestHandler(instance, message) {
+	async deleteInstanceInstanceRequestHandler(instance, message) {
 		await instance.stop();
 		this.instances.delete(instance.config.id);
 
-		fs.remove(instance.path());
+		await fs.remove(instance.path());
 		this.updateInstances();
 	}
 
-	async sendRconRequestHandler(instance, message) {
+	async sendRconInstanceRequestHandler(instance, message) {
 		let result = await instance.server.sendRcon(message.data.command);
 		return { result };
 	}
@@ -378,7 +388,7 @@ class Slave extends link.Client {
 
 	hookInstance(instance) {
 		instance.server.on('output', (output) => {
-			link.events.instanceOutput.send(this, { instance_id: instance.config.id, output })
+			link.messages.instanceOutput.send(this, { instance_id: instance.config.id, output })
 		});
 	}
 
@@ -391,7 +401,7 @@ class Slave extends link.Client {
 				name: instance.config.name,
 			});
 		}
-		link.events.updateInstances.send(this, { instances: list });
+		link.messages.updateInstances.send(this, { instances: list });
 	}
 
 	async start() {
@@ -626,7 +636,8 @@ async function startClient() {
 		return;
 	}
 
-	let slave = new Slave(slaveConfig);
+	let slaveConnector = new SlaveConnector(slaveConfig);
+	let slave = new Slave(slaveConnector, slaveConfig);
 
 	// Handle interrupts
 	let secondSigint = false
@@ -645,14 +656,13 @@ async function startClient() {
 		});
 	});
 
+	await slaveConnector.connect();
 	await slave.start();
 
 	/*
 	} else if (command == "manage"){
 		await manage(config, instance);
 		// process.exit(0);
-	} else if (command == "delete") {
-		await deleteInstance(instance);
 	*/
 }
 
@@ -690,7 +700,7 @@ async function instanceManagement(slaveConfig, instance, instanceconfig, server,
 		if(!global.subscribedFiles) {
 			global.subscribedFiles = {};
 		}
-		if(pluginConfig.binary == "nodePackage" && pluginConfig.enabled){
+		if (pluginConfig.enabled) {
 			// require plugin class and execute it
 			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index"));
 			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
@@ -810,6 +820,7 @@ module.exports = {
 	_Instance: Instance,
 	_checkFilename: checkFilename,
 	_symlinkMods: symlinkMods,
+	_Slave: Slave,
 };
 
 if (module === require.main) {

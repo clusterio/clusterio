@@ -19,9 +19,9 @@ const errors = require("lib/errors");
 function formatOutputColored(output) {
 	let time = "";
 	if (output.format === 'seconds') {
-		time = chalk.dim(output.time.padStart(8)) + ' ';
+		time = chalk.yellow(output.time.padStart(8)) + ' ';
 	} else if (output.format === 'date') {
-		time = chalk.dim(output.time) + ' ';
+		time = chalk.yellow(output.time) + ' ';
 	}
 
 	let info = "";
@@ -35,35 +35,10 @@ function formatOutputColored(output) {
 			level = chalk.bold.redBright(level);
 		}
 
-		info = level + ' ' + chalk.dim(output.file) + ': ';
+		info = level + ' ' + chalk.gray(output.file) + ': ';
 
 	} else if (output.type === 'action') {
 		info = '[' + chalk.yellow(output.action) + '] ';
-	}
-
-	return time + info + output.message;
-}
-
-/**
- * Format a parsed Factorio output message
- *
- * Formats a parsed Factorio output from lib/factorio into a readable
- * output string that can be printed
- */
-function formatOutput(output) {
-	let time = "";
-	if (output.format === 'seconds') {
-		time = output.time.padStart(8) + ' ';
-	} else if (output.format === 'date') {
-		time = output.time + ' ';
-	}
-
-	let info = "";
-	if (output.type === 'log') {
-		info = output.level + ' ' + output.file + ': ';
-
-	} else if (output.type === 'action') {
-		info = '[' + output.action + '] ';
 	}
 
 	return time + info + output.message;
@@ -103,7 +78,7 @@ async function resolveInstance(control, instanceName) {
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
-		let response = await link.requests.listInstances.send(control);
+		let response = await link.messages.listInstances.send(control);
 		for (let instance of response.list) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
@@ -123,7 +98,7 @@ let commands = [];
 commands.push(new Command({
 	definition: ["list-slaves", "List slaves connected to the master"],
 	handler: async function(args, control) {
-		let response = await link.requests.listSlaves.send(control);
+		let response = await link.messages.listSlaves.send(control);
 		console.log(asTable(response.list));
 	},
 }));
@@ -131,7 +106,7 @@ commands.push(new Command({
 commands.push(new Command({
 	definition: ["list-instances", "List instances known to the master"],
 	handler: async function(args, control) {
-		let response = await link.requests.listInstances.send(control);
+		let response = await link.messages.listInstances.send(control);
 		console.log(asTable(response.list));
 	}
 }));
@@ -148,7 +123,7 @@ commands.push(new Command({
 		if (/^-?\d+$/.test(args.slave)) {
 			slaveId = parseInt(args.slave, 10);
 		} else {
-			let response = await link.requests.listSlaves.send(control);
+			let response = await link.messages.listSlaves.send(control);
 			for (let slave of response.list) {
 				if (slave.name === args.slave) {
 					slaveId = slave.id;
@@ -160,7 +135,7 @@ commands.push(new Command({
 				throw new errors.CommandError(`No slave named ${args.slave}`);
 			}
 		}
-		let response = await link.requests.createInstanceCommand.send(control, {
+		let response = await link.messages.createInstanceCommand.send(control, {
 			name: args.name,
 			slave_id: slaveId,
 		});
@@ -176,8 +151,8 @@ commands.push(new Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await resolveInstance(control, args.instance);
-		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
-		let response = await link.requests.createSave.send(control, {
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.createSave.send(control, {
 			instance_id: instanceId,
 		});
 		console.log(response);
@@ -192,8 +167,8 @@ commands.push(new Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await resolveInstance(control, args.instance);
-		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
-		let response = await link.requests.startInstance.send(control, {
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.startInstance.send(control, {
 			instance_id: instanceId,
 		});
 		console.log(response);
@@ -208,8 +183,8 @@ commands.push(new Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await resolveInstance(control, args.instance);
-		await link.requests.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
-		let response = await link.requests.stopInstance.send(control, {
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.stopInstance.send(control, {
 			instance_id: instanceId,
 		});
 		console.log(response);
@@ -223,7 +198,7 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await link.requests.deleteInstance.send(control, {
+		let response = await link.messages.deleteInstance.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
 		});
 		console.log(response);
@@ -238,7 +213,7 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await link.requests.sendRcon.send(control, {
+		let response = await link.messages.sendRcon.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
 			command: args.command
 		})
@@ -253,20 +228,9 @@ commands = new Map([...commands.map(command => [command.name, command])]);
 
 
 /**
- * Handles running the control
- *
- * Connects to the master server over the socket.io connection and sends
- * commands to it.
+ * Connector for control connection to master server
  */
-class Control extends link.Client {
-
-	// I don't like God classes, but the alternative of putting all this state
-	// into global variables is not much better.
-	constructor(controlConfig) {
-		super('control', controlConfig.url, controlConfig.token);
-		link.attachAllMessages(this);
-	}
-
+class ControlConnector extends link.SocketIOClientConnector {
 	register() {
 		console.log("SOCKET | registering control");
 		this.send('register_control', {
@@ -274,14 +238,26 @@ class Control extends link.Client {
 			version: version,
 		});
 	}
+}
+
+/**
+ * Handles running the control
+ *
+ * Connects to the master server over the socket.io connection and sends
+ * commands to it.
+ */
+class Control extends link.Link {
+
+	// I don't like God classes, but the alternative of putting all this state
+	// into global variables is not much better.
+	constructor(connector) {
+		super('control', 'master', connector);
+		link.attachAllMessages(this);
+	}
 
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
-		if (process.platform === "win32") {
-			console.log(formatOutput(output));
-		} else {
-			console.log(formatOutputColored(output));
-		}
+		console.log(formatOutputColored(output));
 	}
 }
 
@@ -395,8 +371,9 @@ async function startControl() {
 		}
 	}
 
-	let control = new Control(controlConfig);
-	await control.connect();
+	let controlConnector = new ControlConnector(controlConfig.url, controlConfig.token);
+	let control = new Control(controlConnector);
+	await controlConnector.connect();
 
 	if (commands.has(commandName)) {
 		command = commands.get(commandName);
@@ -424,6 +401,15 @@ async function startControl() {
 	}
 
 	//XXX control.close("done");
+}
+
+module.exports = {
+	// for testing only
+	_formatOutputColored: formatOutputColored,
+	_resolveInstance: resolveInstance,
+	_Control: Control,
+
+	_commands: commands,
 }
 
 

@@ -24,6 +24,7 @@ const crypto = require('crypto');
 const base64url = require('base64url');
 const moment = require("moment");
 const request = require("request");
+const events = require("events");
 const version = require("./package").version;
 
 // constants
@@ -248,13 +249,13 @@ const ioMetrics = require("socket.io-prometheus");
 ioMetrics(io);
 
 
-class BaseConnection extends link.Connection {
-	constructor(target, socket) {
-		super(target, socket);
+class BaseConnection extends link.Link {
+	constructor(target, connector) {
+		super('master', target, connector);
 		link.attachAllMessages(this);
 	}
 
-	async forwardInstanceRequest(message, request) {
+	async forwardInstanceRequest(request, message) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${instance_id} does not exist`);
@@ -271,13 +272,13 @@ class BaseConnection extends link.Connection {
 
 let controlConnections = new Array();
 class ControlConnection extends BaseConnection {
-	constructor(registerData, socket) {
-		super('control', socket)
+	constructor(registerData, connector) {
+		super('control', connector)
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
 
-		socket.on('disconnect', () => {
+		this.connector.on('disconnect', () => {
 			let index = controlConnections.indexOf(this);
 			if (index !== -1) {
 				controlConnections.splice(index, 1);
@@ -321,7 +322,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Slave is not connected");
 		}
 
-		await link.requests.createInstance.send(connection, {
+		await link.messages.createInstance.send(connection, {
 			id: Math.random() * 2**31 | 0, // TODO: add id option
 			options: {
 				'name': name,
@@ -344,8 +345,8 @@ class ControlConnection extends BaseConnection {
 
 var slaveConnections = new Map();
 class SlaveConnection extends BaseConnection {
-	constructor(registerData, socket) {
-		super('slave', socket);
+	constructor(registerData, connector) {
+		super('slave', connector);
 
 		this._agent = registerData.agent;
 		this._id = registerData.id;
@@ -359,37 +360,14 @@ class SlaveConnection extends BaseConnection {
 			version: this._version,
 		});
 
-		socket.on('message', () => {
+		this.connector.on('message', () => {
 			prometheusWsUsageCounter.labels('message', "other").inc();
 		});
 
-		socket.on('disconnect', () => {
+		this.connector.on('disconnect', () => {
 			if (slaveConnections.get(this._id) === this) {
 				slaveConnections.delete(this._id);
 			}
-
-			// XXX for backwards compatibility only
-			if (global.wsChatRecievers) {
-				global.wsChatRecievers.delete(this._id);
-			}
-		});
-
-		// XXX for backwards compatibility only
-		socket.on("gameChat", data => {
-			prometheusWsUsageCounter.labels('gameChat', this.instanceID).inc();
-			if(typeof data === "object"){
-				data.timestamp = Date.now();
-				if(!global.wsChatRecievers) global.wsChatRecievers = new Map();
-				for (let slave of global.wsChatRecievers.values()) {
-					slave.socket.emit("gameChat", data);
-				}
-			}
-		});
-
-		socket.on("registerChatReciever", data => {
-			prometheusWsUsageCounter.labels("registerChatReciever", "other").inc();
-			if(!global.wsChatRecievers) global.wsChatRecievers = new Map();
-			global.wsChatRecievers.set(this._id, this);
 		});
 	}
 
@@ -414,7 +392,7 @@ class SlaveConnection extends BaseConnection {
 		let { instance_id, output } = message.data;
 		for (let controlConnection of controlConnections) {
 			if (controlConnection.instanceOutputSubscriptions.has(instance_id)) {
-				link.events.instanceOutput.send(controlConnection, message.data);
+				link.messages.instanceOutput.send(controlConnection, message.data);
 			}
 		}
 	}
@@ -445,21 +423,53 @@ function isInteger(value) {
 }
 
 
+/**
+ * Connector for master server connections
+ */
+class SocketIOServerConnector extends events.EventEmitter {
+	constructor(socket) {
+		super();
+
+		this._seq = 1;
+		this._socket = socket;
+
+		this._socket.on('message', message => {
+			this.emit('message', message);
+		});
+		this._socket.on('disconnect', () => {
+			this.emit('disconnect');
+		});
+	}
+
+	/**
+	 * Send a message over the socket
+	 *
+	 * @returns the sequence number of the message sent
+	 */
+	send(type, data = {}) {
+		this._socket.send({ seq: this._seq, type, data });
+		return this._seq++;
+	}
+
+	disconnect() {
+		this._socket.disconnect(true);
+	}
+}
+
 io.on('connection', function (socket) {
 	console.log(`SOCKET | new connection from ${socket.handshake.address}`);
 
 	// Start connection handshake
-	socket.send({ seq: 1, type: 'hello', data: { version }});
+	let connector = new SocketIOServerConnector(socket);
+	connector.send('hello', { version });
 
 	// Handle socket handshake
 	socket.once('message', (payload) => {
 		prometheusWsUsageCounter.labels('message', "other").inc();
 		if (!schema.clientHandshake(payload)) {
 			console.log(`SOCKET | closing ${socket.handshake.address} after receiving invalid handshake`, payload);
-			socket.send({ type: 'close', data: {
-				reason: "Invalid handshake",
-			}});
-			socket.disconnect(true);
+			connector.send('close', { reason: "Invalid handshake" });
+			connector.disconnect(true);
 			return;
 		}
 
@@ -472,26 +482,20 @@ io.on('connection', function (socket) {
 			}
 
 			console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
-			slaveConnections.set(data.id, new SlaveConnection(data, socket));
+			slaveConnections.set(data.id, new SlaveConnection(data, connector));
+			connector.send('ready');
 
 		} else if (type === "register_control") {
 			console.log(`SOCKET | registered control from ${socket.handshake.address}`);
-			controlConnections.push(new ControlConnection(data, socket));
+			controlConnections.push(new ControlConnection(data, connector));
+			connector.send('ready');
 
 		} else if (type === "close") {
 			console.log(`SOCKET | received close from ${socket.handshake.address}: ${data.reason}`);
-			socket.disconnect(true);
+			connector.disconnect();
 			return;
 		}
 	});
-
-	// XXX TODO
-	/*
-	socket.on("registerAlertReciever", function(data){
-		prometheusWsUsageCounter.labels("registerAlertReciever", "other").inc();
-		if(!global.wsAlertRecievers) global.wsAlertRecievers = [];
-		global.wsAlertRecievers.push(socket);
-	});*/
 });
 
 // handle plugins on the master
@@ -660,6 +664,11 @@ module.exports = {
 	// For testing only
 	_db: db,
 	_config: config,
+	_SocketIOServerConnector: SocketIOServerConnector,
+	_controlConnections: controlConnections,
+	_ControlConnection: ControlConnection,
+	_slaveConnections: slaveConnections,
+	_SlaveConnection: SlaveConnection,
 }
 
 if (module === require.main) {

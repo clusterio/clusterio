@@ -4,35 +4,12 @@ const events = require('events');
 const link = require("lib/link");
 const errors = require("lib/errors");
 const schema = require("lib/schema");
+const mock = require("../../mock");
 
-
-class MockSocket {
-	constructor() {
-		this.sentMessages = [];
-		this.events = new Map();
-		this.handshake = { address: "socket.test" };
-	}
-
-	send(message) {
-		this.sentMessages.push(message);
-	}
-
-	on(event, fn) {
-		this.events.set(event, fn);
-	}
-
-	disconnect() {
-		this.disconnectCalled = true;
-	}
-
-	close() {
-		this.closeCalled = true;
-	}
-};
 
 describe("lib/link/link", function() {
 	describe("class Link", function() {
-		let testLink = new link.Link('source', 'target', new MockSocket);
+		let testLink = new link.Link('source', 'target', new mock.MockConnector());
 		testLink.setValidator('simple', schema.compile({
 			properties: {
 				"data": {
@@ -121,23 +98,6 @@ describe("lib/link/link", function() {
 			});
 		});
 
-		describe(".disconnect()", function() {
-			it("is abstract", function() {
-				assert.throws(
-					() => testLink.disconnect(),
-					new Error("Abstract function")
-				);
-			});
-		});
-
-		describe(".send()", function() {
-			it("calls send on the socket", function() {
-				let seq = testLink.send('test', { test: true });
-				assert.deepEqual(testLink.socket.sentMessages, [{ seq, type: 'test', data: { test: true }}]);
-				testLink.socket.sentMessages = [];
-			});
-		});
-
 		describe("._processWaiters()", function() {
 			it("should call waiters", async function() {
 				let waiter = new Promise(resolve => {
@@ -194,143 +154,6 @@ describe("lib/link/link", function() {
 				);
 				assert.deepEqual(await result1, { type: 'waiter', seq: 5, data: {} });
 				assert.deepEqual(await result2, { type: 'waiter', seq: 5, data: {} });
-			});
-		});
-
-		describe(".close()", function() {
-			it("should send close and call disconnect", function() {
-				let called = false;
-				testLink.disconnect = () => { called = true; }
-				testLink.close("test reason");
-				assert.deepEqual(
-					testLink.socket.sentMessages,
-					[{ seq: testLink._seq - 1, type: 'close', data: { reason: "test reason" } }]
-				)
-				assert(called, ".disconnect() was not called");
-			});
-		});
-	});
-
-	describe("class Connection", function() {
-		let testConnection = new link.Connection('target', new MockSocket());
-		it("should send ready after constructor", function() {
-			assert.deepEqual(
-				testConnection.socket.sentMessages,
-				[{seq: 2, type: 'ready', data: {}}]
-			);
-			testConnection.socket.sentMessages = [];
-		});
-		it("should disconnect when receiving a close message", function() {
-			testConnection.socket.disconnectCalled = false;
-			testConnection.socket.events.get('message')({
-				seq: 1, type: 'close', data: { reason: "test close" }
-			});
-			assert(testConnection.socket.disconnectCalled, "Disconnect was not called");
-		});
-		it("should close when receiving an invalid message", function() {
-			testConnection.socket.events.get('message')({ invalid: true });
-			assert.deepEqual(
-				testConnection.socket.sentMessages,
-				[{seq: testConnection._seq - 1, type: 'close', data: { reason: "Invalid message: Malformed message" }}]
-			);
-			testConnection.socket.sentMessages = [];
-		});
-
-		describe(".disconnect()", function() {
-			it("should call disconnect on the socket", function() {
-				testConnection.socket.disconnectCalled = false;
-				testConnection.disconnect();
-				assert(testConnection.socket.disconnectCalled, "Disconnect was not called");
-			});
-		});
-	});
-
-	describe("class Client", function() {
-		let testClient = new link.Client('source', 'url', 'token');
-		testClient.socket = new MockSocket();
-		describe(".disconnect()", function() {
-			it("should call close on the socket", function() {
-				testClient.socket.closeCalled = false;
-				testClient.disconnect();
-				assert(testClient.socket.closeCalled, "Close was not called");
-			});
-		});
-
-		describe(".register()", function() {
-			it("is abstract", function() {
-				assert.throws(
-					() => testClient.register(),
-					new Error("Abstract function")
-				);
-			});
-		});
-
-		describe(".processHandshake()", function() {
-			it("should close on invalid message", function() {
-				testClient._processHandshake({ data: "invalid message" }),
-				assert.deepEqual(
-					testClient.socket.sentMessages,
-					[{seq: testClient._seq - 1, type: 'close', data: {
-						reason: "Invalid handshake" }
-					}]
-				);
-				testClient.socket.sentMessages = [];
-			});
-			it("should call register on hello", function() {
-				let called = false;
-				testClient.register = () => { called = true; };
-				testClient._processHandshake({ seq: 1, type: 'hello', data: { version: "test" }}),
-				assert(called, "register was not called");
-			});
-			it("should emit ready on ready", async function() {
-				let result = events.once(testClient._events, 'ready');
-				testClient._processHandshake({ seq: 1, type: 'ready', data: {}}),
-				await result;
-			});
-			it("should emit error on close", async function() {
-				let result = events.once(testClient._events, 'ready');
-				testClient._processHandshake({ seq: 1, type: 'close', data: { reason: "test" }}),
-				await assert.rejects(result, new Error("server closed during handshake: test"));
-			});
-		});
-
-		describe("._attachSocketHandlers()", function() {
-			it("should attach handlers", function() {
-				testClient._attachSocketHandlers();
-				assert(testClient.socket.events.size > 0, "No handlers were attached");
-			});
-			it("should throw on message received in invalid state", function() {
-				testClient._state = "new";
-				assert.throws(
-					() => testClient.socket.events.get('message')(),
-					new Error("Received message in unexpected state new")
-				);
-			});
-			it("should call _processHandshake on message in handshake state", function() {
-				testClient._state = "handshake";
-				let called = false;
-				testClient._processHandshake = () => { called = true; };
-				testClient.socket.events.get('message')();
-				assert(called, "_processHandshake was not called");
-			});
-			it("should call processMessage on message in ready state", function() {
-				testClient._state = "ready";
-				let called = false;
-				testClient.processMessage = () => { called = true; };
-				testClient.socket.events.get('message')();
-				assert(called, "processMessage was not called");
-				delete testClient.processMessage;
-			});
-			it("should close on invalid message in ready state", function() {
-				testClient._state = "ready";
-				testClient.socket.events.get('message')({ data: "invalid message"});
-				assert.deepEqual(
-					testClient.socket.sentMessages,
-					[{seq: testClient._seq - 1, type: 'close', data: {
-						reason: "Invalid message: Malformed message" }
-					}]
-				);
-				testClient.socket.sentMessages = [];
 			});
 		});
 	});

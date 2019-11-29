@@ -3,6 +3,7 @@ const request = require('supertest');
 const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 
+const mock = require('./mock');
 const master = require('../master');
 
 
@@ -42,5 +43,16 @@ describe('Master testing', function() {
 		for (let path of paths) {
 			it(`sends some HTML when accessing ${path}`, () => getValidate(path));
 		}
+	});
+
+	describe("class SocketIOServerConnector", function() {
+		let testConnector = new master._SocketIOServerConnector(new mock.MockSocket());
+		describe(".disconnect()", function() {
+			it("should call disconnect on the socket", function() {
+				testConnector._socket.disconnectCalled = false;
+				testConnector.disconnect();
+				assert(testConnector._socket.disconnectCalled, "Disconnect was not called");
+			});
+		});
 	});
 });

@@ -3,6 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const factorio = require("lib/factorio");
+const { testLines } = require("./lines");
 
 
 describe("lib/factorio/server", function() {
@@ -92,95 +93,6 @@ describe("lib/factorio/server", function() {
 	});
 
 	describe("parseOutput()", function() {
-		let testLines = new Map([
-			[
-				"   1.306 Info RemoteCommandProcessor.cpp:131: Starting RCON interface at port 4000",
-				{
-					format: 'seconds',
-					time: '1.306',
-					type: 'log',
-					level: 'Info',
-					file: "RemoteCommandProcessor.cpp:131",
-					message: "Starting RCON interface at port 4000",
-				}
-			],
-			[
-				" 640.910 Quitting: remote-quit.",
-				{
-					format: 'seconds',
-					time: '640.910',
-					type: 'generic',
-					message: "Quitting: remote-quit.",
-				}
-			],
-			[
-				"1641.421 Goodbye",
-				{
-					format: 'seconds',
-					time: '1641.421',
-					type: 'generic',
-					message: "Goodbye",
-				}
-			],
-			[
-				"2019-01-20 10:30:04 [JOIN] User joined the game",
-				{
-					format: 'date',
-					time: '2019-01-20 10:30:04',
-					type: 'action',
-					action: "JOIN",
-					message: "User joined the game",
-				}
-			],
-			[
-				"2019-01-20 10:30:07 [CHAT] User: chat message",
-				{
-					format: 'date',
-					time: '2019-01-20 10:30:07',
-					type: 'action',
-					action: "CHAT",
-					message: "User: chat message",
-				}
-			],
-			[
-				"2019-01-20 10:30:14 [COMMAND] User (command): blah",
-				{
-					format: 'date',
-					time: '2019-01-20 10:30:14',
-					type: 'action',
-					action: "COMMAND",
-					message: "User (command): blah",
-				}
-			],
-			[
-				"2019-01-20 10:30:14 Cannot execute command. Error: [string \"blah\"]:1: syntax error near <eof>",
-				{
-					format: 'date',
-					time: '2019-01-20 10:30:14',
-					type: 'generic',
-					message: "Cannot execute command. Error: [string \"blah\"]:1: syntax error near <eof>",
-				}
-			],
-			[
-				"2019-01-20 10:30:21 [LEAVE] User left the game",
-				{
-					format: 'date',
-					time: '2019-01-20 10:30:21',
-					type: 'action',
-					action: "LEAVE",
-					message: "User left the game",
-				}
-			],
-			[
-				"Error while running event level::on_nth_tick(1)",
-				{
-					format: 'none',
-					type: 'generic',
-					message: "Error while running event level::on_nth_tick(1)",
-				}
-			],
-		])
-
 		it("should parse the test lines", function() {
 			for (let [line, reference] of testLines) {
 				reference.source = 'test';
