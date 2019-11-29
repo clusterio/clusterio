@@ -15,8 +15,7 @@ describe("lib/link/messages", function() {
 	describe("class Request", function() {
 		let testRequest = new link.Request({
 			type: 'test',
-			sources: 'source',
-			targets: 'target',
+			links: ['source-target'],
 		});
 
 		describe(".attach()", function() {
@@ -114,8 +113,7 @@ describe("lib/link/messages", function() {
 	describe("class Event", function() {
 		let testEvent = new link.Event({
 			type: 'test',
-			sources: 'source',
-			targets: 'target',
+			links: ['source-target'],
 		});
 
 		describe(".attach()", function() {
