@@ -432,6 +432,12 @@ async function startControl() {
 	//XXX control.close("done");
 }
 
+module.exports = {
+	// for testing only
+	_formatOutputColored: formatOutputColored,
+	_formatOutput: formatOutput,
+}
+
 
 if (module === require.main) {
 	console.warn(`
