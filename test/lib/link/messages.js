@@ -2,11 +2,12 @@ const assert = require('assert').strict;
 
 const link = require('lib/link');
 const errors = require('lib/errors');
+const mock = require('../../mock');
 
 
 describe("lib/link/messages", function() {
-	let testSourceLink = new link.Link('source', 'target', null);
-	let testTargetLink = new link.Link('target', 'source', null);
+	let testSourceLink = new link.Link('source', 'target', new mock.MockConnector());
+	let testTargetLink = new link.Link('target', 'source', new mock.MockConnector());
 
 	let lastTargetSent;
 	testTargetLink.send = (type, data) => { lastTargetSent = { type, data }; };
@@ -39,7 +40,7 @@ describe("lib/link/messages", function() {
 				handlerResult = { seq: 3 };
 				testTargetLink._handlers.get('test_request')({ seq: 2 });
 				let result = await new Promise(resolve => {
-					testTargetLink.send = (type, data) => resolve({ type, data });
+					testTargetLink.connector.send = (type, data) => resolve({ type, data });
 				});
 				assert.deepEqual(result, {
 					type: 'test_response',
@@ -53,7 +54,7 @@ describe("lib/link/messages", function() {
 				handlerResult = { test: "handler" };
 				testTargetLink._handlers.get('test_request')({ seq: 2 });
 				let result = await new Promise(resolve => {
-					testTargetLink.send = (type, data) => resolve({ type, data });
+					testTargetLink.connector.send = (type, data) => resolve({ type, data });
 				});
 				assert.deepEqual(result, {
 					type: 'test_response',
@@ -67,7 +68,7 @@ describe("lib/link/messages", function() {
 				handlerResult = undefined;
 				testTargetLink._handlers.get('test_request')({ seq: 2 });
 				let result = await new Promise(resolve => {
-					testTargetLink.send = (type, data) => resolve({ type, data });
+					testTargetLink.connector.send = (type, data) => resolve({ type, data });
 				});
 				assert.deepEqual(result, {
 					type: 'test_response',
@@ -79,11 +80,11 @@ describe("lib/link/messages", function() {
 		});
 
 		describe(".send()", function() {
-			let request;
-			testSourceLink.send = (type, data) => {
-				request = { type, data };
-			};
 			it("should send request with send and use waitFor to get response", async function() {
+				let request;
+				testSourceLink.connector.send = (type, data) => {
+					request = { type, data };
+				};
 				testSourceLink.waitFor = (type, condition) => {
 					return { data: { type, request }};
 				};
@@ -91,6 +92,8 @@ describe("lib/link/messages", function() {
 					await testRequest.send(testSourceLink, { test: "request" }),
 					{ type: 'test_response', request: { type: 'test_request', data: {test: "request" }}}
 				);
+				delete testSourceLink.connector.send;
+				delete testSourceLink.waitFor;
 			});
 			it("should throw error response", async function() {
 				testSourceLink.waitFor = (type, condition) => {
@@ -100,6 +103,7 @@ describe("lib/link/messages", function() {
 					testRequest.send(testSourceLink),
 					new errors.RequestError("test error")
 				);
+				delete testSourceLink.waitFor;
 			});
 		});
 	});
@@ -134,11 +138,13 @@ describe("lib/link/messages", function() {
 
 		describe(".send()", function() {
 			it("should send the event over the link", async function() {
-				let sentData = [];
-				testSourceLink.send = (type, data) => { sentData.push({ type, data }); };
-
+				testSourceLink.connector.sentMessages = [];
 				testEvent.send(testSourceLink, { test: "event" });
-				assert.deepEqual(sentData, [{ type: "test_event", data: { test: "event" }}]);
+				let seq = testSourceLink.connector._seq - 1;
+				assert.deepEqual(
+					testSourceLink.connector.sentMessages,
+					[{ seq, type: "test_event", data: { test: "event" }}]
+				);
 			});
 		});
 	});

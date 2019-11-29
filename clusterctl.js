@@ -253,26 +253,31 @@ commands = new Map([...commands.map(command => [command.name, command])]);
 
 
 /**
- * Handles running the control
- *
- * Connects to the master server over the socket.io connection and sends
- * commands to it.
+ * Connector for control connection to master server
  */
-class Control extends link.Client {
-
-	// I don't like God classes, but the alternative of putting all this state
-	// into global variables is not much better.
-	constructor(controlConfig) {
-		super('control', controlConfig.url, controlConfig.token);
-		link.attachAllMessages(this);
-	}
-
+class ControlConnector extends link.SocketIOClientConnector {
 	register() {
 		console.log("SOCKET | registering control");
 		this.send('register_control', {
 			agent: 'clusterctl',
 			version: version,
 		});
+	}
+}
+
+/**
+ * Handles running the control
+ *
+ * Connects to the master server over the socket.io connection and sends
+ * commands to it.
+ */
+class Control extends link.Link {
+
+	// I don't like God classes, but the alternative of putting all this state
+	// into global variables is not much better.
+	constructor(connector) {
+		super('control', 'master', connector);
+		link.attachAllMessages(this);
 	}
 
 	async instanceOutputEventHandler(message) {
@@ -395,8 +400,9 @@ async function startControl() {
 		}
 	}
 
-	let control = new Control(controlConfig);
-	await control.connect();
+	let controlConnector = new ControlConnector(controlConfig.url, controlConfig.token);
+	let control = new Control(controlConnector);
+	await controlConnector.connect();
 
 	if (commands.has(commandName)) {
 		command = commands.get(commandName);

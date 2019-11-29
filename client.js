@@ -235,17 +235,36 @@ class Instance {
 	}
 }
 
+class SlaveConnector extends link.SocketIOClientConnector {
+	constructor(slaveConfig) {
+		super(slaveConfig.masterURL, slaveConfig.masterAuthToken);
+
+		this.id = slaveConfig.id;
+		this.name = slaveConfig.name;
+	}
+
+	register() {
+		console.log("SOCKET | registering slave");
+		this.send('register_slave', {
+			agent: 'Clusterio Slave',
+			version,
+			id: this.id,
+			name: this.name,
+		});
+	}
+}
+
 /**
  * Handles running the slave
  *
  * Connects to the master server over the socket.io connection and manages
  * intsances.
  */
-class Slave extends link.Client {
+class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
-	constructor(slaveConfig) {
-		super('slave', slaveConfig.masterURL, slaveConfig.masterAuthToken);
+	constructor(connector, slaveConfig) {
+		super('slave', 'master', connector);
 		link.attachAllMessages(this);
 		this.config = {
 			id: slaveConfig.id,
@@ -256,16 +275,7 @@ class Slave extends link.Client {
 			masterToken: slaveConfig.masterAuthToken,
 			publicAddress: slaveConfig.publicIP,
 		}
-	}
 
-	register() {
-		console.log("SOCKET | registering slave");
-		this.send('register_slave', {
-			agent: 'Clusterio Slave',
-			version,
-			id: this.config.id,
-			name: this.config.name,
-		});
 	}
 
 	async _findNewInstanceDir(name) {
@@ -626,7 +636,8 @@ async function startClient() {
 		return;
 	}
 
-	let slave = new Slave(slaveConfig);
+	let slaveConnector = new SlaveConnector(slaveConfig);
+	let slave = new Slave(slaveConnector, slaveConfig);
 
 	// Handle interrupts
 	let secondSigint = false
@@ -645,6 +656,7 @@ async function startClient() {
 		});
 	});
 
+	await slaveConnector.connect();
 	await slave.start();
 
 	/*
