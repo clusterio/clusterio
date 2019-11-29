@@ -436,6 +436,8 @@ module.exports = {
 	// for testing only
 	_formatOutputColored: formatOutputColored,
 	_formatOutput: formatOutput,
+	_resolveInstance: resolveInstance,
+	_Control: Control,
 }
 
 

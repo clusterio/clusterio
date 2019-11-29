@@ -36,8 +36,15 @@ class MockConnector extends events.EventEmitter {
 	}
 
 	send(type, data) {
-		this.sentMessages.push({ seq: this._seq, type, data });
+		let message = { seq: this._seq, type, data };
+		this.sentMessages.push(message);
+		setImmediate(() => this.emit('send', message));
 		return this._seq++;
+	}
+
+	close(reason) {
+		this.send('close', { reason });
+		this.disconnect();
 	}
 
 	disconnect() {
