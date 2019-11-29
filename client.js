@@ -197,7 +197,7 @@ class Instance {
 				clientPort: this.server.rconPort,
 				clientPassword: this.server.rconPassword,
 			}
-			instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
+			//instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
 		});
 
 		await this.server.start(latestSave);
