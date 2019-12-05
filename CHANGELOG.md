@@ -8,6 +8,8 @@ Version 1.2.4
 - Fixed research sync endlessly updating already researched technologies
 - Removed obsolete item/fluid statistics from clusterioMod
 - Removed per mod upload logging when config.uploadModsToMaster disabled
+- Fixed bcrypt failing to install on windows due to the new version not
+  having Windows binaries.
 
 
 Version 1.2.3
