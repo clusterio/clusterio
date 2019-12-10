@@ -63,7 +63,6 @@ describe("Integration of Clusterio", function() {
 			masterAuthToken: "invalid",
 			publicIP: "invalid",
 		});
-		testSlave.instances = await testSlave.findInstances();
 		testSlaveConnection = new master._SlaveConnection({ agent: "test", version, name: "slave", id: 4}, slaveServer);
 		master._slaveConnections.set(4, testSlaveConnection);
 	});

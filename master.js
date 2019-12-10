@@ -255,7 +255,7 @@ class BaseConnection extends link.Link {
 		link.attachAllMessages(this);
 	}
 
-	async forwardInstanceRequest(request, message) {
+	async forwardRequestToInstance(message, request) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${instance_id} does not exist`);
@@ -266,7 +266,7 @@ class BaseConnection extends link.Link {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
 
-		return await request.forward(connection, message);
+		return await request.send(connection, message.data);
 	}
 }
 
