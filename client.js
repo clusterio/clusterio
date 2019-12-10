@@ -82,13 +82,10 @@ class Instance extends link.Link{
 			clientPassword: null,
 		}
 
-		console.log(`Creating ${instanceDir}`);
+		console.log(`Clusterio | Creating ${instanceDir}`);
 		await fs.ensureDir(instanceDir);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
-
-		console.log("Clusterio | Created instance with settings:")
-		console.log(instanceConfig);
 
 		// save instance config
 		await fs.outputFile(path.join(instanceDir, "config.json"), JSON.stringify(instanceConfig, null, 4));
@@ -131,8 +128,6 @@ class Instance extends link.Link{
 		try{
 			let logPath = this.path("factorio-current.log");
 			let stat = await fs.stat(logPath);
-			console.log(stat)
-			console.log(stat.isFile())
 			if(stat.isFile()){
 				let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
 				await fs.rename(logPath, this.path(logFilename));
