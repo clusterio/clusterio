@@ -391,7 +391,7 @@ async function startControl() {
 			}
 		}
 
-		control.close("quit");
+		controlConnector.close("quit");
 		return; // ??
 	}
 
