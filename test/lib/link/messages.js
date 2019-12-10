@@ -26,7 +26,7 @@ describe("lib/link/messages", function() {
 			it("should throw if missing handler on target link", function() {
 				assert.throws(
 					() => testRequest.attach(testTargetLink),
-					new Error("Missing handler for test_request on source-target link")
+					new Error("Missing handler for test_request on target-source link")
 				);
 			});
 
@@ -120,7 +120,7 @@ describe("lib/link/messages", function() {
 			it("should throw if missing handler on target link", function() {
 				assert.throws(
 					() => testEvent.attach(testTargetLink),
-					new Error("Missing handler for test_event on source-target link")
+					new Error("Missing handler for test_event on target-source link")
 				);
 			});
 			let called = false;

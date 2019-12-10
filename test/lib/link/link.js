@@ -64,7 +64,7 @@ describe("lib/link/link", function() {
 			it("should throw on message without validator", function() {
 				assert.throws(
 					() => testLink.processMessage({ seq: 1, type: 'no_validator', data: {} }),
-					new errors.InvalidMessage("No validator for no_validator")
+					new errors.InvalidMessage("No validator for no_validator on source-target")
 				);
 			});
 			it("should throw on message failing validation", function() {
@@ -134,7 +134,7 @@ describe("lib/link/link", function() {
 			it("should throw on missing validator", async function() {
 				await assert.rejects(
 					testLink.waitFor('no_validator', {}),
-					new Error("no validator for no_validator")
+					new Error("No validator for no_validator on source-target")
 				);
 			});
 			it("should wait for a given message", async function() {
