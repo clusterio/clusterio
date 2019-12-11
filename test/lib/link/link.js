@@ -9,17 +9,49 @@ const mock = require("../../mock");
 
 describe("lib/link/link", function() {
 	describe("class Link", function() {
-		let testLink = new link.Link('source', 'target', new mock.MockConnector());
-		testLink.setValidator('simple', schema.compile({
-			properties: {
-				"data": {
-					type: 'object',
-					properties: {
-						"string": { type: 'string' },
+		let testConnector;
+		let testLink;
+
+		before(function() {
+			testConnector = new mock.MockConnector();
+			testLink = new link.Link('source', 'target', testConnector);
+			testLink.setValidator('simple', schema.compile({
+				properties: {
+					"data": {
+						type: 'object',
+						properties: {
+							"string": { type: 'string' },
+						},
 					},
 				},
-			},
-		}));
+			}));
+		});
+
+		it("should close connector on invalid messages", function() {
+			testConnector.sentMessages = [];
+			testConnector.emit('message', { invalid: true });
+			assert.deepEqual(
+				testConnector.sentMessages,
+				[{
+					seq: testConnector._seq - 1,
+					type: 'close',
+					data: { reason: "Invalid message: Malformed" },
+				}]
+			);
+		});
+
+		it("should disconnect on close", function() {
+			testConnector.disconnectCalled = false;
+			testConnector.emit('message', { seq: 1, type: 'close', data: { reason: "test" }});
+			assert(testConnector.disconnectCalled, "disconnect was not called");
+		});
+
+		it("should emitt error processing message to connector", async function() {
+			testLink.setHandler('throws', () => { throw new Error("Handler error"); }, () => true);
+			let result = events.once(testConnector, 'message');
+			testConnector.emit('message', { seq: 1, type: 'throws', data: {}});
+			await assert.rejects(result, new Error("Handler error"));
+		});
 
 		describe(".setValidator()", function() {
 			it("should set the validator", function() {
@@ -58,7 +90,7 @@ describe("lib/link/link", function() {
 			it("should throw on invalid message", function() {
 				assert.throws(
 					() => testLink.processMessage({ data: "invalid message" }),
-					new errors.InvalidMessage("Malformed message")
+					new errors.InvalidMessage("Malformed")
 				);
 			});
 			it("should throw on message without validator", function() {
@@ -130,7 +162,10 @@ describe("lib/link/link", function() {
 		});
 
 		describe(".waitFor()", function() {
-			testLink.setValidator('waiter', (message) => true);
+			before(function() {
+				testLink.setValidator('waiter', (message) => true);
+			});
+
 			it("should throw on missing validator", async function() {
 				await assert.rejects(
 					testLink.waitFor('no_validator', {}),
