@@ -300,6 +300,17 @@ class InstanceConnection extends link.Link {
 	async forwardEventToMaster(message, event) {
 		event.send(this.slave, message.data);
 	}
+
+	async broadcastEventToInstance(message, event) {
+		for (let instanceConnection of this.slave.instanceConnections.values()) {
+			if (instanceConnection === this) {
+				continue; // Do not broadcast back to the source
+			}
+
+			console.log("Broadcasting event");
+			event.send(instanceConnection, message.data);
+		}
+	}
 }
 
 class SlaveConnector extends link.SocketIOClientConnector {
@@ -375,6 +386,12 @@ class Slave extends link.Link {
 		}
 
 		return await request.send(instanceConnection, message.data);
+	}
+
+	async broadcastEventToInstance(message, event) {
+		for (let instanceConnection of this.instanceConnections.values()) {
+			event.send(instanceConnection, message.data);
+		}
 	}
 
 	async createInstanceRequestHandler(message) {

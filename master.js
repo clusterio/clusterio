@@ -267,6 +267,16 @@ class BaseConnection extends link.Link {
 
 		return await request.send(connection, message.data);
 	}
+
+	async broadcastEventToInstance(message, event) {
+		for (let slaveConnection of slaveConnections.values()) {
+			if (slaveConnection === this) {
+				continue; // Do not broadcast back to the source
+			}
+
+			event.send(slaveConnection, message.data);
+		}
+	}
 }
 
 let controlConnections = new Array();
