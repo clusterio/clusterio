@@ -2,11 +2,12 @@ const assert = require('assert').strict;
 const path = require('path');
 const fs = require('fs-extra');
 
+const link = require("lib/link");
 const client = require("../client");
 
 describe("Client testing", function() {
 	describe("class Instance", function() {
-		let instance = new client._Instance("dir", "factorioDir", { name:"foo" })
+		let instance = new client._Instance(new link.VirtualConnector(), "dir", "factorioDir", { name:"foo" });
 		it("should give the name on .name", function() {
 			assert.equal(instance.name, "foo");
 		})
@@ -81,7 +82,9 @@ describe("Client testing", function() {
 		fs.outputFileSync(path.join(testDir, "shared", "mod_a.zip"), "a");
 		fs.outputFileSync(path.join(testDir, "shared", "mod_b.zip"), "b");
 		fs.outputFileSync(path.join(testDir, "shared", "mod.dat"), "c");
-		let instance = new client._Instance(path.join(testDir, "instance"), "factorioDir", { name: "test" });
+		let instance = new client._Instance(
+			new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", { name: "test" }
+		);
 		fs.outputFileSync(instance.path("mods", "mod_i.zip"), "i");
 
 		let discardingLogger = {
@@ -125,6 +128,26 @@ describe("Client testing", function() {
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
 			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
+		});
+	});
+
+	describe("discoverInstances()", function() {
+		it("should discover test instance", async function() {
+			let logger = { log: () => {}, error: () => {} };
+			let instancePath = path.join("test", "file", "instances");
+			let instanceInfos = await client._discoverInstances(instancePath, logger);
+			assert.deepEqual(instanceInfos, new Map([
+				[1, {
+					config: {
+						id: 1,
+						name: "test",
+						factorioPort: null,
+						clientPort: null,
+						clientPassword: null
+					},
+					path: path.join(instancePath, "test"),
+				}],
+			]));
 		});
 	});
 });

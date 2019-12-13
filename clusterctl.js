@@ -139,7 +139,6 @@ commands.push(new Command({
 			name: args.name,
 			slave_id: slaveId,
 		});
-		console.log(response);
 	},
 }));
 
@@ -155,7 +154,6 @@ commands.push(new Command({
 		let response = await link.messages.createSave.send(control, {
 			instance_id: instanceId,
 		});
-		console.log(response);
 	},
 }));
 
@@ -171,7 +169,6 @@ commands.push(new Command({
 		let response = await link.messages.startInstance.send(control, {
 			instance_id: instanceId,
 		});
-		console.log(response);
 	},
 }));
 
@@ -187,7 +184,6 @@ commands.push(new Command({
 		let response = await link.messages.stopInstance.send(control, {
 			instance_id: instanceId,
 		});
-		console.log(response);
 	},
 }));
 
@@ -201,7 +197,6 @@ commands.push(new Command({
 		let response = await link.messages.deleteInstance.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
 		});
-		console.log(response);
 	},
 }));
 
@@ -396,7 +391,7 @@ async function startControl() {
 			}
 		}
 
-		control.close("quit");
+		controlConnector.close("quit");
 		return; // ??
 	}
 

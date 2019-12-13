@@ -18,6 +18,15 @@ describe("lib/link/messages", function() {
 			links: ['source-target'],
 		});
 
+		describe("constructor", function() {
+			it("should throw on invalid forwardTo", function() {
+				assert.throws(
+					() => new link.Request({ forwardTo: 'invalid'}),
+					new Error("Invalid forwardTo value invalid")
+				);
+			});
+		});
+
 		describe(".attach()", function() {
 			it("should attach validator to a source link", function() {
 				testRequest.attach(testSourceLink);
@@ -26,7 +35,7 @@ describe("lib/link/messages", function() {
 			it("should throw if missing handler on target link", function() {
 				assert.throws(
 					() => testRequest.attach(testTargetLink),
-					new Error("Missing handler for test_request on source-target link")
+					new Error("Missing handler for test_request on target-source link")
 				);
 			});
 
@@ -34,20 +43,6 @@ describe("lib/link/messages", function() {
 			it("should attach handler to a target link", function() {
 				testRequest.attach(testTargetLink, async (message) => handlerResult );
 				assert(testTargetLink._handlers.has('test_request'), "Handler was not set");
-			});
-			it("should throw on handler returning object with seq", async function() {
-				handlerResult = { seq: 3 };
-				testTargetLink._handlers.get('test_request')({ seq: 2 });
-				let result = await new Promise(resolve => {
-					testTargetLink.connector.send = (type, data) => resolve({ type, data });
-				});
-				assert.deepEqual(result, {
-					type: 'test_response',
-					data: {
-						error: "response contains reserved property 'seq'",
-						seq: 2,
-					},
-				});
 			});
 			it("should send result of calling the handler", async function() {
 				handlerResult = { test: "handler" };
@@ -107,20 +102,26 @@ describe("lib/link/messages", function() {
 		});
 	});
 
-	describe("class InstanceRequest", function() {
-	});
-
 	describe("class Event", function() {
 		let testEvent = new link.Event({
 			type: 'test',
 			links: ['source-target'],
 		});
 
+		describe("constructor", function() {
+			it("should throw on invalid forwardTo", function() {
+				assert.throws(
+					() => new link.Event({ forwardTo: 'invalid'}),
+					new Error("Invalid forwardTo value invalid")
+				);
+			});
+		});
+
 		describe(".attach()", function() {
 			it("should throw if missing handler on target link", function() {
 				assert.throws(
 					() => testEvent.attach(testTargetLink),
-					new Error("Missing handler for test_event on source-target link")
+					new Error("Missing handler for test_event on target-source link")
 				);
 			});
 			let called = false;

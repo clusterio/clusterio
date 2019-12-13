@@ -21,6 +21,10 @@ describe("fileOps.js", function(){
 			let newest = await fileOps.getNewestFile(path.join(baseDir, "test"));
 			assert.equal(typeof newest, "string");
 		});
+		it("returns null if all entries were filtered out", async function() {
+			let newest = await fileOps.getNewestFile(path.join(baseDir, "test"), (name) => !name.endsWith(".txt"));
+			assert.equal(newest, null);
+		});
 		it("returns null if directory is empty", async function() {
 			let newest = await fileOps.getNewestFile(path.join(baseDir, "test", "folder"));
 			assert.equal(newest, null);

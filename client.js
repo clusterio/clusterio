@@ -18,6 +18,7 @@ const hashFile = require('lib/hash').hashFile;
 const factorio = require("lib/factorio");
 const schema = require("lib/schema");
 const link = require("lib/link");
+const errors = require("lib/errors");
 
 // Uhm...
 var global = {};
@@ -25,8 +26,10 @@ var global = {};
 /**
  * Keeps track of the runtime parameters of an instance
  */
-class Instance {
-	constructor(dir, factorioDir, instanceConfig) {
+class Instance extends link.Link{
+	constructor(connector, dir, factorioDir, instanceConfig) {
+		super('instance', 'slave', connector);
+		link.attachAllMessages(this);
 		this._dir = dir;
 
 		// This is expected to change with the config system rewrite
@@ -47,12 +50,29 @@ class Instance {
 		this.server = new factorio.FactorioServer(
 			path.join(factorioDir, "data"), this._dir, serverOptions
 		);
+
+		this.server.on('output', (output) => {
+			link.messages.instanceOutput.send(this, { instance_id: this.config.id, output })
+		});
 	}
 
 	async init() {
 		await this.server.init();
 	}
 
+	/**
+	 * Creates a new empty instance directory
+	 *
+	 * Creates the neccessary files for starting up a new instance into the
+	 * provided instance directory.
+	 *
+	 * @param {Number} id -
+	 *     ID of the new instance.  Must be unique to the cluster.
+	 * @param {String} instanceDir -
+	 *     Directory to create the new instance into.
+	 * @param {String} factorioDir - Path to factorio installation.
+	 * @param {Object} options - Options for new instance.
+	 */
 	static async create(id, instanceDir, factorioDir, options) {
 		let instanceConfig = {
 			id,
@@ -62,23 +82,18 @@ class Instance {
 			clientPassword: null,
 		}
 
-		let instance = new this(instanceDir, factorioDir, instanceConfig);
-		await instance.init();
-		console.log(`Creating ${instance.path()}`);
-		await fs.ensureDir(instance.path());
-		await fs.ensureDir(instance.path("script-output"));
-
-		await symlinkMods(instance, "sharedMods", console);
-		console.log("Clusterio | Created instance with settings:")
-		console.log(instanceConfig);
+		console.log(`Clusterio | Creating ${instanceDir}`);
+		await fs.ensureDir(instanceDir);
+		await fs.ensureDir(path.join(instanceDir, "script-output"));
+		await fs.ensureDir(path.join(instanceDir, "saves"));
 
 		// save instance config
-		await fs.outputFile(instance.path("config.json"), JSON.stringify(instanceConfig, null, 4));
+		await fs.outputFile(path.join(instanceDir, "config.json"), JSON.stringify(instanceConfig, null, 4));
 
 		let serverSettings = await factorio.FactorioServer.exampleSettings(path.join(factorioDir, "data"));
-		let gameName = "Clusterio instance: " + instance.name;
+		let gameName = "Clusterio instance: " + options.name;
 		if (options.username) {
-			gameName = options.username + "'s clusterio " + instance.name;
+			gameName = options.username + "'s clusterio " + options.name;
 		}
 
 		let overrides = {
@@ -101,33 +116,18 @@ class Instance {
 			serverSettings[key] = value;
 		}
 
-		await fs.writeFile(instance.path("server-settings.json"), JSON.stringify(serverSettings, null, 4));
-
-		return instance;
+		await fs.writeFile(
+			path.join(instanceDir, "server-settings.json"),
+			JSON.stringify(serverSettings, null, 4)
+		);
 	}
 
-	async createSave() {
-		console.log("Creating save .....");
-
-		await this.server.create("world");
-		console.log("Clusterio | Successfully created save");
-	}
-
-	async start(slaveConfig, socket) {
-		console.log("Deleting .tmp.zip files");
-		let savefiles = fs.readdirSync(this.path("saves"));
-		for(let i = 0; i < savefiles.length; i++){
-			if(savefiles[i].substr(savefiles[i].length - 8, 8) == ".tmp.zip") {
-				fs.unlinkSync(this.path("saves", savefiles[i]));
-			}
-		}
+	async start(saveName, slaveConfig, socket) {
 		console.log("Clusterio | Rotating old logs...");
 		// clean old log file to avoid crash
 		try{
 			let logPath = this.path("factorio-current.log");
 			let stat = await fs.stat(logPath);
-			console.log(stat)
-			console.log(stat.isFile())
 			if(stat.isFile()){
 				let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
 				await fs.rename(logPath, this.path(logFilename));
@@ -136,17 +136,6 @@ class Instance {
 		}catch(e){}
 
 		await symlinkMods(this, "sharedMods", console);
-
-		// Spawn factorio server
-		let latestSave = await fileOps.getNewestFile(this.path("saves"));
-		if (latestSave === null) {
-			throw new Error(
-				"Your savefile seems to be missing. This might because you created an\n"+
-				"instance without having factorio installed and configured properly.\n"+
-				"Try installing factorio and adding your savefile to\n"+
-				"instances/[instancename]/saves/"
-			);
-		}
 
 		// Patch save with lua modules from plugins
 		console.log("Clusterio | Patching save");
@@ -181,7 +170,7 @@ class Instance {
 
 			modules.push(module);
 		}
-		await factorio.patch(this.path("saves", latestSave), modules);
+		await factorio.patch(this.path("saves", saveName), modules);
 
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
@@ -200,7 +189,7 @@ class Instance {
 			//instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
 		});
 
-		await this.server.start(latestSave);
+		await this.server.start(saveName);
 	}
 
 	/**
@@ -211,6 +200,36 @@ class Instance {
 		if (this.server._state === "running") {
 			await this.server.stop();
 		}
+	}
+
+	async startInstanceRequestHandler() {
+		// Find save to start
+		let latestSave = await fileOps.getNewestFile(
+			this.path("saves"), (name) => !name.endsWith('.tmp.zip')
+		);
+		if (latestSave === null) {
+			throw new errors.RequestError(
+				"No savefile was found to start the instance with."
+			);
+		}
+
+		await this.start(latestSave, this.config, this.socket);
+	}
+
+	async createSaveRequestHandler() {
+		console.log("Creating save .....");
+
+		await this.server.create("world");
+		console.log("Clusterio | Successfully created save");
+	}
+
+	async stopInstanceRequestHandler() {
+		await this.stop();
+	}
+
+	async sendRconRequestHandler(message) {
+		let result = await this.server.sendRcon(message.data.command);
+		return { result };
 	}
 
 	/**
@@ -232,6 +251,67 @@ class Instance {
 	 */
 	path(...parts) {
 		return path.join(this._dir, ...parts);
+	}
+}
+
+/**
+ * Searches for instances in the provided directory
+ *
+ * Looks through all sub-dirs of the provided directory for valid
+ * instance definitions and returns a mapping of instance id to
+ * instance info objects.
+ *
+ * @returns {Map<integer, Object>} mapping between instance
+ */
+async function discoverInstances(instancesDir, logger) {
+	let instanceInfos = new Map();
+	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
+		if (entry.isDirectory()) {
+			let instanceConfig;
+			let configPath = path.join(instancesDir, entry.name, "config.json");
+			try {
+				instanceConfig = JSON.parse(await fs.readFile(configPath));
+			} catch (err) {
+				if (err.code === "ENOENT") {
+					continue; // Ignore folders without config.json
+				}
+
+				logger.error(`Error occured while parsing ${configPath}: ${err}`);
+				continue;
+			}
+
+			// XXX should probably validate the entire config with a JSON Schema.
+			if (typeof instanceConfig.id !== "number" || isNaN(instanceConfig.id)) {
+				logger.error(`${configPath} is missing id`);
+				continue;
+			}
+
+			if (typeof instanceConfig.name !== "string") {
+				logger.error(`${configPath} is missing name`);
+				continue;
+			}
+
+			let instancePath = path.join(instancesDir, entry.name);
+			logger.log(`found instance ${instanceConfig.name} in ${instancePath}`);
+			instanceInfos.set(instanceConfig.id, {
+				path: instancePath,
+				config: instanceConfig,
+			});
+		}
+	}
+
+	return instanceInfos;
+}
+
+class InstanceConnection extends link.Link {
+	constructor(connector, slave) {
+		super('slave', 'instance', connector);
+		this.slave = slave;
+		link.attachAllMessages(this);
+	}
+
+	async forwardEventToMaster(message, event) {
+		event.send(this.slave, message.data);
 	}
 }
 
@@ -276,6 +356,8 @@ class Slave extends link.Link {
 			publicAddress: slaveConfig.publicIP,
 		}
 
+		this.instanceConnections = new Map();
+		this.instanceInfos = new Map();
 	}
 
 	async _findNewInstanceDir(name) {
@@ -294,125 +376,116 @@ class Slave extends link.Link {
 		return dir;
 	}
 
-	/**
-	 * Looks up the instance for an instance request handler
-	 *
-	 * Called by the handler for InstanceRequest.
-	 */
-	async forwardInstanceRequest(handler, message) {
-		let instance = this.instances.get(message.data.instance_id);
-		if (!instance) {
+	async forwardRequestToInstance(message, request) {
+		let instanceId = message.data.instance_id;
+		if (!this.instanceInfos.has(instanceId)) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
-		return await handler.call(this, instance, message);
+		let instanceConnection = this.instanceConnections.get(instanceId);
+		if (!instanceConnection) {
+			throw new errors.RequestError(`Instance ID ${instanceId} is not active`);
+		}
+
+		return await request.send(instanceConnection, message.data);
 	}
 
 	async createInstanceRequestHandler(message) {
 		let { id, options } = message.data;
-		if (this.instances.has(id)) {
+		if (this.instanceInfos.has(id)) {
 			throw new Error(`Instance with ID ${id} already exists`);
 		}
 
-		let instanceDir = await this._findNewInstanceDir(options.name);
 		// XXX: race condition on multiple simultanious calls
-		let instance = await Instance.create(id, instanceDir, this.config.factorioDir, options);
-		this.instances.set(id, instance);
-		this.hookInstance(instance);
-		this.updateInstances();
+		let instanceDir = await this._findNewInstanceDir(options.name);
+
+		await Instance.create(id, instanceDir, this.config.factorioDir, options);
+		await this.updateInstances();
 	}
 
-	async createSaveInstanceRequestHandler(instance, message) {
-		await instance.createSave();
-	}
-
-	async startInstanceInstanceRequestHandler(instance, message) {
-		await instance.start(this.config, this.socket);
-	}
-
-	async stopInstanceInstanceRequestHandler(instance, message) {
-		await instance.stop();
-	}
-
-	async deleteInstanceInstanceRequestHandler(instance, message) {
-		await instance.stop();
-		this.instances.delete(instance.config.id);
-
-		await fs.remove(instance.path());
-		this.updateInstances();
-	}
-
-	async sendRconInstanceRequestHandler(instance, message) {
-		let result = await instance.server.sendRcon(message.data.command);
-		return { result };
-	}
-
-	async findInstances() {
-		let instances = new Map();
-		for (let entry of await fs.readdir(this.config.instancesDir, { withFileTypes: true })) {
-			if (entry.isDirectory()) {
-				let instanceConfig;
-				let configPath = path.join(this.config.instancesDir, entry.name, "config.json");
-				try {
-					instanceConfig = JSON.parse(await fs.readFile(configPath));
-				} catch (err) {
-					if (err.code === "ENOENT") {
-						continue; // Ignore folders without config.json
-					}
-
-					console.error(`Error occured while parsing ${configPath}: ${err}`);
-				}
-
-				// XXX should probably validate the entire config with a JSON Schema.
-				if (typeof instanceConfig.id !== "number" || isNaN(instanceConfig.id)) {
-					console.error(`${configPath} is missing id`);
-					continue;
-				}
-
-				if (typeof instanceConfig.name !== "string") {
-					console.error(`${configPath} is missing name`);
-					continue;
-				}
-
-				let instancePath = path.join(this.config.instancesDir, entry.name);
-				console.log(`found instance ${instanceConfig.name} in ${instancePath}`);
-				let instance = new Instance(instancePath, this.config.factorioDir, instanceConfig);
-				await instance.init();
-				this.hookInstance(instance); // XXX this is the wrong place for this
-				instances.set(instanceConfig.id, instance);
-			}
+	/**
+	 * Initialize and connect an unloaded instance
+	 */
+	async _connectInstance(instanceId) {
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
-		return instances;
+		if (this.instanceConnections.has(instanceId)) {
+			throw new errors.RequestError(`Instance with ID ${instanceId} is active`);
+		}
+
+		let [connectionClient, connectionServer] = link.VirtualConnector.makePair();
+		let instanceConnection = new InstanceConnection(connectionServer, this);
+		let instance = new Instance(
+			connectionClient, instanceInfo.path, this.config.factorioDir, instanceInfo.config
+		);
+		await instance.init();
+
+		// XXX: race condition on multiple simultanious calls
+		this.instanceConnections.set(instanceId, instanceConnection);
+		return instanceConnection;
 	}
 
-	hookInstance(instance) {
-		instance.server.on('output', (output) => {
-			link.messages.instanceOutput.send(this, { instance_id: instance.config.id, output })
-		});
+	async startInstanceRequestHandler(message, request) {
+		let instanceConnection = await this._connectInstance(message.data.instance_id);
+		return await request.send(instanceConnection, message.data);
 	}
 
+	async createSaveRequestHandler(message, request) {
+		let instanceId = message.data.instance_id;
+		let instanceConnection = await this._connectInstance(instanceId);
+		await request.send(instanceConnection, message.data);
+		this.instanceConnections.delete(instanceId);
+	}
 
-	updateInstances() {
+	async stopInstanceRequestHandler(message, request) {
+		await this.forwardRequestToInstance(message, request);
+		this.instanceConnections.delete(message.data.instance_id);
+	}
+
+	async deleteInstanceRequestHandler(message) {
+		let instanceId = message.data.instance_id;
+		if (this.instanceConnections.has(instanceId)) {
+			throw new errors.RequestError(`Instance with ID ${instanceId} is active`);
+		}
+
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
+		}
+
+		await fs.remove(instanceInfo.path);
+		await this.updateInstances();
+	}
+
+	/**
+	 * Discover available instances
+	 *
+	 * Looks through the instances directory for instances and updates
+	 * the slave and master server with the new list of instances.
+	 */
+	async updateInstances() {
+		this.instanceInfos = await discoverInstances(this.config.instancesDir, console);
 		let list = [];
-		for (let instance of this.instances.values()) {
+		for (let instanceInfo of this.instanceInfos.values()) {
 			list.push({
-				id: instance.config.id,
-				name: instance.config.name,
+				id: instanceInfo.config.id,
+				name: instanceInfo.config.name,
 			});
 		}
 		link.messages.updateInstances.send(this, { instances: list });
 	}
 
 	async start() {
-		this.instances = await this.findInstances();
-		await this.connect();
-		this.updateInstances();
+		await this.updateInstances();
 	}
 
 	async stop() {
-		for (let instance of this.instances.values()) {
-			await instance.stop();
+		for (let instanceConnection of this.instanceConnections.values()) {
+			// XXX this neeeds more thought to it
+			// await instance.stop();
 		}
 	}
 }
@@ -820,6 +893,7 @@ module.exports = {
 	_Instance: Instance,
 	_checkFilename: checkFilename,
 	_symlinkMods: symlinkMods,
+	_discoverInstances: discoverInstances,
 	_Slave: Slave,
 };
 

@@ -255,7 +255,7 @@ class BaseConnection extends link.Link {
 		link.attachAllMessages(this);
 	}
 
-	async forwardInstanceRequest(request, message) {
+	async forwardRequestToInstance(message, request) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${instance_id} does not exist`);
@@ -266,7 +266,7 @@ class BaseConnection extends link.Link {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
 
-		return await request.forward(connection, message);
+		return await request.send(connection, message.data);
 	}
 }
 
@@ -542,9 +542,6 @@ async function getPlugins(){
 	return plugins;
 }
 
-// Errror class for known errors occuring during startup
-class StartupError extends Error { }
-
 /**
  * Calls listen on server capturing any errors that occurs
  * binding to the port.
@@ -552,7 +549,7 @@ class StartupError extends Error { }
 function listen(server, ...args) {
 	return new Promise((resolve, reject) => {
 		function wrapError(err) {
-			reject(new StartupError(
+			reject(new errors.StartupError(
 				`Server listening failed: ${err.message}`
 			));
 		}
@@ -640,7 +637,7 @@ async function startServer() {
 			privateKey = await fs.readFile(config.sslPrivKey);
 
 		} catch (err) {
-			throw new StartupError(
+			throw new errors.StartupError(
 				`Error loading ssl certificate: ${err.message}`
 			);
 		}
@@ -680,18 +677,18 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startServer().catch(err => {
-		if (!(err instanceof StartupError)) {
+		if (err instanceof errors.StartupError) {
+			console.error(`
++----------------------------------+
+| Unable to to start master server |
++----------------------------------+`
+			);
+		} else {
 			console.error(`
 +---------------------------------------------------------------+
 | Unexpected error occured while starting master, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues   |
 +---------------------------------------------------------------+`
-			);
-		} else {
-			console.error(`
-+----------------------------------+
-| Unable to to start master server |
-+----------------------------------+`
 			);
 		}
 

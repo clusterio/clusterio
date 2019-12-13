@@ -32,10 +32,9 @@ Factorio*
 /instances
 /sharedMods
 /database
-database/items.db
-config.json
-config-control.json
-config-slave.json
+/config.json
+/config-control.json
+/config-slave.json
 package-lock.json
 secret-api-token.txt
 mod_cache.json
