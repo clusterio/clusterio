@@ -1,27 +1,15 @@
 const fs = require('fs-extra');
-const Tail = require('tail').Tail;
-const needle = require("needle");
-const child_process = require('child_process');
 const path = require('path');
-const request = require("request");
-const deepmerge = require("deepmerge");
-const ioClient = require("socket.io-client");
-const util = require("util");
 const yargs = require("yargs");
 const version = require("./package").version;
 
 // internal libraries
-const objectOps = require("lib/objectOps");
 const fileOps = require("lib/fileOps");
-const pluginManager = require("lib/manager/pluginManager");
 const hashFile = require('lib/hash').hashFile;
 const factorio = require("lib/factorio");
-const schema = require("lib/schema");
 const link = require("lib/link");
 const errors = require("lib/errors");
 
-// Uhm...
-var global = {};
 
 /**
  * Keeps track of the runtime parameters of an instance
@@ -186,7 +174,6 @@ class Instance extends link.Link{
 				clientPort: this.server.rconPort,
 				clientPassword: this.server.rconPassword,
 			}
-			//instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
 		});
 
 		await this.server.start(saveName);
@@ -738,130 +725,6 @@ async function startClient() {
 		// process.exit(0);
 	*/
 }
-
-// ensure instancemanagement only ever runs once
-var _instanceInitialized;
-async function instanceManagement(slaveConfig, instance, instanceconfig, server, socket) {
-	if (_instanceInitialized) return;
-	_instanceInitialized = true;
-
-	let compatUrl = slaveConfig.masterUrl;
-	if (compatUrl.endsWith("/")) {
-		compatUrl = compatUrl.slice(0, -1);
-	}
-	let compatConfig = {
-		name: slaveConfig.name,
-		masterURL: compatUrl,
-		masterAuthToken: slaveConfig.masterToken,
-		publicIP: slaveConfig.publicAddress,
-		instanceDirectory: slaveConfig.instancesDir,
-		factorioDirectory: slaveConfig.factorioDir,
-	}
-
-    console.log("Started instanceManagement();");
-
-	// load plugins and execute onLoad event
-	let pluginsToLoad = await pluginManager.getPlugins();
-	let plugins = [];
-	
-	for(let i = 0; i < pluginsToLoad.length; i++){
-		let pluginLoadStarted = Date.now();
-		let combinedConfig = deepmerge(instanceconfig,compatConfig,{clone:true});
-		combinedConfig.instanceName = instance.name;
-		let pluginConfig = pluginsToLoad[i];
-		
-		if(!global.subscribedFiles) {
-			global.subscribedFiles = {};
-		}
-		if (pluginConfig.enabled) {
-			// require plugin class and execute it
-			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index"));
-			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
-				if(data && data.toString('utf8')[0] != "/") {
-                    console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + data.toString('utf8'));
-					return true;
-				} else if (data && data.toString('utf8')[0] == "/"){
-					let result = await server.sendRcon(data.toString('utf8'));
-					if (typeof callback === "function") {
-						callback(result);
-					}
-					return result;
-				}
-			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
-				socket, // socket.io connection to master (and ES6 destructuring, yay)
-			});
-			if(plugins[i].factorioOutput && typeof plugins[i].factorioOutput === "function"){
-				// when factorio logs a line, send it to the plugin. This includes things like autosaves, chat, errors etc
-				server.on('stdout', data => plugins[i].factorioOutput(data.toString()));
-			}
-			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
-				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
-					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
-					// between those plugins instead.
-					throw "FATAL ERROR IN " + pluginConfig.name + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
-				}
-				
-				let outputPath = instance.path(
-					"script-output",
-					pluginConfig.scriptOutputFileSubscription
-				);
-				if (!fs.existsSync(outputPath)) {
-					// Do something
-					fs.writeFileSync(outputPath, "");
-				}
-				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
-				console.log("Clusterio | Registered file subscription on "+outputPath);
-				
-
-				if(!pluginConfig.fileReadDelay || pluginConfig.fileReadDelay == 0) {
-					// only wipe the file on restart for now, should most likely be rotated during runtime too
-                    fs.writeFileSync(outputPath, "");
-                    let tail = new Tail(outputPath);
-                    tail.on("line", function (data) {
-                        plugins[i].scriptOutput(data);
-                    });
-                } else {
-                    fs.watch(outputPath, fileChangeHandler);
-                    // run once in case a plugin wrote out information before the plugin loaded fully
-                    // delay, so the socket got enough time to connect
-                    setTimeout(() => {
-                        fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
-                    }, 500);
-
-                    // send file contents to plugin for processing
-                    function fileChangeHandler(eventType, filename) {
-                        if (filename != null) {
-                            setTimeout(
-                                () => {
-                                    // get array of lines in file
-                                    let stuff = fs.readFileSync(instance.path("script-output", filename), "utf8").split("\n");
-
-                                    // if you found anything, reset the file
-                                    if (stuff[0]) {
-                                        fs.writeFileSync(instance.path("script-output", filename), "");
-                                    }
-                                    for (let o = 0; o < stuff.length; o++) {
-                                        if (stuff[o] && !stuff[o].includes('\u0000\u0000')) {
-                                            try {
-                                                plugins[i].scriptOutput(stuff[o]);
-                                            } catch (e) {
-                                                console.error(e)
-                                            }
-                                        }
-                                    }
-                                },
-                                pluginConfig.fileReadDelay || 0
-                            );
-                        }
-                    }
-                }
-            }
-			console.log(`Clusterio | Loaded plugin ${pluginsToLoad[i].name} in ${Date.now() - pluginLoadStarted}ms`);
-		} else {
-			// this plugin doesn't have a client portion. Maybe it runs on the master only?
-		}
-	}
-} // END OF INSTANCE START ---------------------------------------------------------------------
 
 // string, function
 // returns [{modName:string,hash:string}, ... ]

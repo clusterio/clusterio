@@ -98,6 +98,8 @@ Version 2.0.0
 - Removed the hello event from the socket connection handshake.  Breaks
   playerManager, trainTeleports, serverSelect, and discordChat
 - Changed the format of database/slaves.json.
+- Removed the output file subscription system.  Breaks inventoryImports,
+  playerManager, trainTeleports, serverSelect and researchSync.
 
 
 Version 1.2.4

@@ -32,7 +32,6 @@ let config = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
-const pluginManager = require("lib/manager/pluginManager");
 const database = require("lib/database");
 const factorio = require("lib/factorio");
 const schema = require("lib/schema");
@@ -502,44 +501,8 @@ io.on('connection', function (socket) {
 var masterPlugins = [];
 async function pluginManagement(){
 	let startPluginLoad = Date.now();
-	masterPlugins = await getPlugins();
+	// masterPlugins = await getPlugins();
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
-}
-
-async function getPlugins(){
-	let plugins = [];
-	let pluginsToLoad = await pluginManager.getPlugins();
-	for(let i = 0; i < pluginsToLoad.length; i++){
-		let pluginStartedLoading = Date.now(); // just for logging
-		let stats = await fs.stat(pluginsToLoad[i].pluginPath);
-		if(stats.isDirectory()){
-			let pluginConfig = pluginsToLoad[i];
-			if(pluginConfig.masterPlugin && pluginConfig.enabled){
-				let masterPlugin = require(path.resolve(pluginConfig.pluginPath, pluginConfig.masterPlugin));
-				plugins.push({
-					main:new masterPlugin({
-						config,
-						pluginConfig,
-						path: pluginConfig.pluginPath,
-						socketio: io,
-						express: app,
-						db,
-						Prometheus,
-						prometheusPrefix,
-						endpointHitCounter,
-					}),
-					pluginConfig,
-				});
-
-				console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
-			}
-		}
-	}
-	for(let i in plugins){
-		let plugin = plugins[i];
-		if(plugin.main.onLoadFinish && typeof plugin.main.onLoadFinish == "function") await plugin.main.onLoadFinish({plugins});
-	}
-	return plugins;
 }
 
 /**
