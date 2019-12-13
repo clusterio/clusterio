@@ -34,67 +34,6 @@ module.exports = class remoteCommands {
 		ensureFileSync(instancedirectory + "/script-output/output.txt");
 		ensureFileSync(instancedirectory + "/script-output/orders.txt");
 
-
-		// flow/production statistics ------------------------------------------------------------
-		var oldFlowStats = false;
-		var oldTimestamp;
-		var oldFlowStats;
-		setInterval(function(){
-			fs.readFile(instancedirectory + "/script-output/flows.txt", {encoding: "utf8"}, function(err, data) {
-				if(!err && data) {
-					let timestamp = Date.now();
-					data = data.split("\n");
-					let flowStats = [];
-					for(let i = 0; i < data.length; i++) {
-						// try catch to remove any invalid json
-						try{
-							flowStats[flowStats.length] = JSON.parse(data[i]);
-						} catch (e) {
-							// console.log(" invalid json: " + i);
-							// some lines of JSON are invalid but don't worry, we just filter em out
-						}
-					}
-					// fluids
-					let flowStat1 = flowStats[flowStats.length-1].flows.player.input_counts
-					// items
-					let flowStat2 = flowStats[flowStats.length-2].flows.player.input_counts
-					// merge fluid and item flows
-					let totalFlows = {};
-					for(let key in flowStat1) totalFlows[key] = flowStat1[key];
-					for(let key in flowStat2) totalFlows[key] = flowStat2[key];
-					if(oldFlowStats && totalFlows && oldTimestamp) {
-						let payload = objectOps.deepclone(totalFlows);
-						// change from total reported to per time unit
-						for(let key in oldFlowStats) {
-							// get production per minute
-							payload[key] = Math.floor((payload[key] - oldFlowStats[key])/(timestamp - oldTimestamp)*60000);
-							if(payload[key] < 0) {
-								payload[key] = 0;
-							}
-						}
-						for(let key in payload) {
-							if(payload[key] == '0') {
-								delete payload[key];
-							}
-						}
-						console.log("Recorded flows, copper plate since last time: " + payload["copper-plate"]);
-						needle.post(
-							that.config.masterURL + '/api/logStats',
-							{timestamp: timestamp, instanceID: that.config.unique, data: payload},
-							needleOptionsWithTokenAuthHeader,
-							function (err, response, body) {
-								// we did it, keep going
-							}
-						);
-					}
-					oldTimestamp = timestamp;
-					oldFlowStats = totalFlows;
-					fs.writeFileSync(instancedirectory + "/script-output/flows.txt", "");
-				}
-			});
-			// we don't need to update stats quickly as that could be expensive
-		}, 60000*5);
-		
 		// provide items --------------------------------------------------------------
 		// trigger when something happens to output.txt
 		fs.watch(instancedirectory + "/script-output/output.txt", function (eventType, filename) {

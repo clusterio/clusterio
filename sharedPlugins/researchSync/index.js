@@ -259,6 +259,11 @@ class ResearchSync {
             if (isNaN(cluster_techs[name].progress))
                 continue
 
+			// Ignore researched techs
+			if (!tech.infinite && tech.researched) {
+				continue;
+			}
+
 			// Do not update progress for infinite techs with a local level that's higher.
 			if (tech.infinite && tech.level > cluster_techs[name].level) {
 				continue;
