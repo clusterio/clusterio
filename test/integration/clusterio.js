@@ -88,39 +88,39 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("create-save", function() {
-			slowTest(this);
 			it("creates a save", async function() {
+				slowTest(this);
 				await clusterctl._commands.get("create-save").run({instance: "test"}, testControl);
 			});
 		});
 
 		describe("start-instance", function() {
-			slowTest(this);
 			it("starts the instance", async function() {
+				slowTest(this);
 				await clusterctl._commands.get("start-instance").run({instance: "test"}, testControl);
 				// TODO check that the instance actually stopped
 			});
 		});
 
 		describe("send-rcon", function() {
-			slowTest(this);
 			it("sends the command", async function() {
+				slowTest(this);
 				await clusterctl._commands.get("send-rcon").run({instance: "test", command: "test"}, testControl);
 				// TODO check that the command was received
 			});
 		});
 
 		describe("stop-instance", function() {
-			slowTest(this);
 			it("stops the instance", async function() {
+				slowTest(this);
 				await clusterctl._commands.get("stop-instance").run({instance: "test"}, testControl);
 				// TODO check that the instance actually stopped
 			});
 		});
 
 		describe("delete-instance", function() {
-			slowTest(this);
 			it("deletes the instance", async function() {
+				slowTest(this);
 				await clusterctl._commands.get("delete-instance").run({instance: "test"}, testControl);
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance was not deleted");
 			});
