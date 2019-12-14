@@ -297,6 +297,20 @@ class InstanceConnection extends link.Link {
 		link.attachAllMessages(this);
 	}
 
+	async forwardEventToInstance(message, event) {
+		let instanceId = message.data.instance_id;
+		if (!this.slave.instanceInfos.has(instanceId)) {
+			// Instance is probably on another slave
+			await this.slave.forwardEventToMaster(message, event);
+			return;
+		}
+
+		let instanceConnection = this.slave.instanceConnections.get(instanceId);
+		if (!instanceConnection) { return; }
+
+		event.send(instanceConnection, message.data);
+	}
+
 	async forwardEventToMaster(message, event) {
 		event.send(this.slave, message.data);
 	}
@@ -386,6 +400,16 @@ class Slave extends link.Link {
 		}
 
 		return await request.send(instanceConnection, message.data);
+	}
+
+	async forwardEventToInstance(message, event) {
+		let instanceId = message.data.instance_id;
+		if (!this.instanceInfos.has(instanceId)) { return; }
+
+		let instanceConnection = this.instanceConnections.get(instanceId);
+		if (!instanceConnection) { return; }
+
+		event.send(instanceConnection, message.data);
 	}
 
 	async broadcastEventToInstance(message, event) {

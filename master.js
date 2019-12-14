@@ -268,6 +268,16 @@ class BaseConnection extends link.Link {
 		return await request.send(connection, message.data);
 	}
 
+	async forwardEventToInstance(message, event) {
+		let instance = db.instance.get(message.data.instance_id);
+		if (!instance) { return; }
+
+		let connection = slaveConnection.get(instance.slaveId);
+		if (!connection) { return; }
+
+		event.send(connection, message.data);
+	}
+
 	async broadcastEventToInstance(message, event) {
 		for (let slaveConnection of slaveConnections.values()) {
 			if (slaveConnection === this) {
