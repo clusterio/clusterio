@@ -24,6 +24,7 @@ const crypto = require('crypto');
 const base64url = require('base64url');
 const moment = require("moment");
 const request = require("request");
+const setBlocking = require("set-blocking");
 const events = require("events");
 const version = require("./package").version;
 
@@ -49,6 +50,8 @@ const cookieParser = require('cookie-parser');
 const bodyParser = require("body-parser");
 const fileUpload = require('express-fileupload');
 var app = express();
+var httpServer;
+var httpsServer;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
@@ -176,9 +179,11 @@ async function saveMap(databaseDirectory, file, map) {
 }
 
 
-// store slaves in a .json full of JSON data
+/**
+ * Innitiate shutdown of master server
+ */
 async function shutdown() {
-	console.log('Ctrl-C...');
+	console.log('Shutting down');
 	let exitStartTime = Date.now();
 	try {
 		await saveMap(config.databaseDirectory, "slaves.json", db.slaves);
@@ -189,12 +194,37 @@ async function shutdown() {
 			await masterPlugin.onExit();
 			console.log(`Plugin ${pluginName} exited in ${Date.now() - startTime}ms`);
 		}
-		console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
-		process.exit(0);
-	} catch(e) {
-		console.log(e);
-		console.log("Clusterio failed to exit cleanly. Time elapsed: "+(Date.now()-exitStartTime)+"ms");
-		process.exit(1)
+
+		for (let controlConnection of controlConnections) {
+			controlConnection.connector.close("shutdown");
+		}
+
+		for (let slaveConnection of slaveConnections.values()) {
+			slaveConnection.connector.close("shutdown");
+		}
+
+		if (httpServer) {
+			console.log("Stopping HTTP server");
+			await new Promise(resolve => httpServer.close(resolve));
+		}
+
+		if (httpsServer) {
+			console.log("Stopping HTTPS server");
+			await new Promise(resolve => httpsServer.close(resolve));
+		}
+
+		console.log(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
+
+	} catch(err) {
+		setBlocking(true);
+		console.error(`
++--------------------------------------------------------------------+
+| Unexpected error occured while shutting down master, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues        |
++--------------------------------------------------------------------+`
+		);
+		console.error(err);
+		process.exit(1);
 	}
 }
 
@@ -468,6 +498,19 @@ class SocketIOServerConnector extends events.EventEmitter {
 		return this._seq++;
 	}
 
+	/**
+	 * Close the connection with the given reason.
+	 *
+	 * Sends a close message and disconnects the connector.
+	 */
+	close(reason) {
+		this.send('close', { reason });
+		this.disconnect();
+	}
+
+	/**
+	 * Immediatly close the connection
+	 */
 	disconnect() {
 		this._socket.disconnect(true);
 	}
@@ -495,7 +538,7 @@ io.on('connection', function (socket) {
 			let connection = slaveConnections.get(data.id);
 			if (connection) {
 				console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
-				connection.close("Registered from another connection");
+				connection.connector.close("Registered from another connection");
 			}
 
 			console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
@@ -602,8 +645,25 @@ async function startServer() {
 	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
-	process.on('SIGINT', shutdown); // ctrl + c
-	process.on('SIGHUP', shutdown); // terminal closed
+
+	let secondSigint = false
+	process.on('SIGINT', () => {
+		if (secondSigint) {
+			console.log("Caught second interrupt, terminating immediately");
+			process.exit(1);
+		}
+
+		secondSigint = true;
+		console.log("Caught interrupt signal, shutting down");
+		shutdown();
+	});
+
+	// terminal closed
+	process.on('SIGHUP', () => {
+		// No graceful cleanup, no warning out (stdout is likely closed.)
+		// Don't close the terminal with the clusterio master in it.
+		process.exit(1);
+	});
 
 	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 	await fs.ensureDir(config.databaseDirectory);
@@ -635,7 +695,7 @@ async function startServer() {
 
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
-		let httpServer = require("http").Server(app);
+		httpServer = require("http").Server(app);
 		await listen(httpServer, httpPort);
 		io.attach(httpServer);
 		console.log("Listening for HTTP on port %s...", httpServer.address().port);
@@ -653,7 +713,7 @@ async function startServer() {
 			);
 		}
 
-		let httpsServer = require("https").createServer({
+		httpsServer = require("https").createServer({
 			key: privateKey,
 			cert: certificate
 		}, app)
