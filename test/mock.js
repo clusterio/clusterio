@@ -1,5 +1,7 @@
 const events = require("events");
 
+const link = require("lib/link");
+
 
 class MockSocket {
 	constructor() {
@@ -23,7 +25,7 @@ class MockSocket {
 	close() {
 		this.closeCalled = true;
 	}
-};
+}
 
 class MockConnector extends events.EventEmitter {
 	constructor() {
@@ -50,9 +52,29 @@ class MockConnector extends events.EventEmitter {
 	disconnect() {
 		this.disconnectCalled = true;
 	}
-};
+}
+
+class MockServer {
+	constructor() {
+		this.rconCommands = [];
+	}
+
+	async sendRcon(command) {
+		this.rconCommands.push(command);
+	}
+}
+
+class MockInstance extends link.Link {
+	constructor() {
+		super('instance', 'slave', new MockConnector());
+		this.server = new MockServer();
+		this.name = "test";
+	}
+}
+
 
 module.exports = {
 	MockSocket,
 	MockConnector,
+	MockInstance,
 };

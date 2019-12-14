@@ -50,7 +50,6 @@ sharedPlugins/*
 !sharedPlugins/inventoryImports/
 !sharedPlugins/UPSdisplay/
 !sharedPlugins/researchSync/
-!sharedPlugins/globalChat/
 !sharedPlugins/clusterioMod/
 !sharedPlugins/statisticsExporter/
 

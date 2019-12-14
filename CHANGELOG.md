@@ -64,6 +64,9 @@ Version 2.0.0
 - Removed oddball limits to slaves.json size.
 - Moved slave specific configuration into its own configuration file.
 - Removed unused binary option from plugin config.
+- Removed info and shout command from globalChat plugin
+- Removed mirrorAllChat and enableCrossServerShout configuration options for
+  globalChat plugin.
 
 ### Breaking Changes
 
