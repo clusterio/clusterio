@@ -8,17 +8,20 @@ const client = require("../client");
 describe("Client testing", function() {
 	describe("class Instance", function() {
 		let instance = new client._Instance(new link.VirtualConnector(), "dir", "factorioDir", { name:"foo" });
-		it("should give the name on .name", function() {
-			assert.equal(instance.name, "foo");
-		})
+		describe(".name", function() {
+			it("should give the name of the instance", function() {
+				assert.equal(instance.name, "foo");
+			})
+		});
 
-		it("should give the path to it on .path()", function() {
-			assert.equal(instance.path(), "dir");
-		})
-
-		it("should join path on .path(...parts)", function() {
-			assert.equal(instance.path("bar"), path.join("dir", "bar"));
-		})
+		describe(".path()", function() {
+			it("should give the path when called without arguments", function() {
+				assert.equal(instance.path(), "dir");
+			})
+			it("should join path with arguments", function() {
+				assert.equal(instance.path("bar"), path.join("dir", "bar"));
+			})
+		});
 	});
 
 	describe("checkFilename()", function() {

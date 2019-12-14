@@ -3,6 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const link = require("lib/link");
+const plugin = require("lib/plugin");
 const master = require("../../master");
 const client = require("../../client");
 const clusterctl = require("../../clusterctl");
@@ -62,7 +63,7 @@ describe("Integration of Clusterio", function() {
 			masterURL: "http://invalid",
 			masterAuthToken: "invalid",
 			publicIP: "invalid",
-		});
+		}, await plugin.getPluginInfos("plugins"));
 		testSlaveConnection = new master._SlaveConnection({ agent: "test", version, name: "slave", id: 4}, slaveServer);
 		master._slaveConnections.set(4, testSlaveConnection);
 	});

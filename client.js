@@ -8,6 +8,7 @@ const fileOps = require("lib/fileOps");
 const hashFile = require('lib/hash').hashFile;
 const factorio = require("lib/factorio");
 const link = require("lib/link");
+const plugin = require("lib/plugin");
 const errors = require("lib/errors");
 
 
@@ -19,6 +20,8 @@ class Instance extends link.Link{
 		super('instance', 'slave', connector);
 		link.attachAllMessages(this);
 		this._dir = dir;
+
+		this.plugins = new Map();
 
 		// This is expected to change with the config system rewrite
 		this.config = {
@@ -41,11 +44,34 @@ class Instance extends link.Link{
 
 		this.server.on('output', (output) => {
 			link.messages.instanceOutput.send(this, { instance_id: this.config.id, output })
+
+			for (let [name, plugin] of this.plugins) {
+				plugin.onOutput(output).catch(err => {
+					console.error(`Plugin ${name} raised error in onOutput:`, err);
+				});
+			}
 		});
 	}
 
-	async init() {
+	async init(pluginInfos) {
 		await this.server.init();
+
+		// load plugins
+		for (let pluginInfo of pluginInfos) {
+			if (!pluginInfo.enabled || !pluginInfo.instanceEntrypoint) {
+				continue;
+			}
+
+			// require plugin class and initialize it
+			let pluginLoadStarted = Date.now();
+			let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
+			let instancePlugin = new InstancePlugin(pluginInfo, this);
+			await instancePlugin.init();
+			this.plugins.set(pluginInfo.name, instancePlugin);
+			plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+
+			console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		}
 	}
 
 	/**
@@ -133,8 +159,8 @@ class Instance extends link.Link{
 		// plugins that are not disabled.  This will most likely change in the
 		// future when the plugin refactor is done.
 		let modules = [];
-		for (let pluginName of await fs.readdir("sharedPlugins")) {
-			let pluginDir = path.join("sharedPlugins", pluginName);
+		for (let pluginName of await fs.readdir("plugins")) {
+			let pluginDir = path.join("plugins", pluginName);
 			if (await fs.pathExists(path.join(pluginDir, "DISABLED"))) {
 				continue;
 			}
@@ -177,6 +203,10 @@ class Instance extends link.Link{
 		});
 
 		await this.server.start(saveName);
+
+		for (let pluginInstance of this.plugins.values()) {
+			await pluginInstance.onStart();
+		}
 	}
 
 	/**
@@ -185,6 +215,10 @@ class Instance extends link.Link{
 	async stop() {
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
+			for (let pluginInstance of this.plugins.values()) {
+				await pluginInstance.onStop();
+			}
+
 			await this.server.stop();
 		}
 	}
@@ -295,6 +329,10 @@ class InstanceConnection extends link.Link {
 		super('slave', 'instance', connector);
 		this.slave = slave;
 		link.attachAllMessages(this);
+
+		for (let pluginInfo of slave.pluginInfos) {
+			plugin.attachPluginMessages(this, pluginInfo, null);
+		}
 	}
 
 	async forwardEventToInstance(message, event) {
@@ -355,9 +393,15 @@ class SlaveConnector extends link.SocketIOClientConnector {
 class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
-	constructor(connector, slaveConfig) {
+	constructor(connector, slaveConfig, pluginInfos) {
 		super('slave', 'master', connector);
 		link.attachAllMessages(this);
+
+		this.pluginInfos = pluginInfos;
+		for (let pluginInfo of pluginInfos) {
+			plugin.attachPluginMessages(this, pluginInfo, null);
+		}
+
 		this.config = {
 			id: slaveConfig.id,
 			name: slaveConfig.name,
@@ -449,7 +493,7 @@ class Slave extends link.Link {
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.factorioDir, instanceInfo.config
 		);
-		await instance.init();
+		await instance.init(this.pluginInfos);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);
@@ -709,7 +753,6 @@ async function startClient() {
 	const slaveConfig = JSON.parse(await fs.readFile(args.config));
 
 	await fs.ensureDir(slaveConfig.instanceDirectory);
-	await fs.ensureDir("sharedPlugins");
 	await fs.ensureDir("sharedMods");
 
 	// Set the process title, shows up as the title of the CMD window on windows
@@ -737,8 +780,9 @@ async function startClient() {
 		return;
 	}
 
+	let pluginInfos = await plugin.getPluginInfos("plugins");
 	let slaveConnector = new SlaveConnector(slaveConfig);
-	let slave = new Slave(slaveConnector, slaveConfig);
+	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts
 	let secondSigint = false

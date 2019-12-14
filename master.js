@@ -37,6 +37,7 @@ const factorio = require("lib/factorio");
 const schema = require("lib/schema");
 const link = require("lib/link");
 const errors = require("lib/errors");
+const plugin = require("lib/plugin");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -69,7 +70,6 @@ app.set('views', ['views', 'sharedPlugins']);
 app.use(function(req, res, next){
 	res.locals.res = res;
 	res.locals.req = req;
-	res.locals.masterPlugins = masterPlugins;
 	res.locals.slaves = db.slaves;
 	res.locals.moment = moment;
 	next();
@@ -142,10 +142,8 @@ function registerMoreMetrics(){
 	}
 
 	// plugins
-	for (let plugin of masterPlugins) {
-		if (plugin.main && plugin.main.onMetrics && typeof plugin.main.onMetrics == "function") {
-			plugin.main.onMetrics();
-		}
+	for (let masterPlugin of masterPlugins.values()) {
+		masterPlugin.onMetrics();
 	}
 
 	// Slave count
@@ -186,13 +184,10 @@ async function shutdown() {
 		await saveMap(config.databaseDirectory, "slaves.json", db.slaves);
 		await saveMap(config.databaseDirectory, "instances.json", db.instances);
 
-		for(let i in masterPlugins){
-			let plugin = masterPlugins[i];
-			if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
-				let startTime = Date.now();
-				await plugin.main.onExit();
-				console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
-			}
+		for (let [pluginName, masterPlugin] of masterPlugins) {
+			let startTime = Date.now();
+			await masterPlugin.onExit();
+			console.log(`Plugin ${pluginName} exited in ${Date.now() - startTime}ms`);
 		}
 		console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
 		process.exit(0);
@@ -252,6 +247,9 @@ class BaseConnection extends link.Link {
 	constructor(target, connector) {
 		super('master', target, connector);
 		link.attachAllMessages(this);
+		for (let masterPlugin of masterPlugins.values()) {
+			plugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
+		}
 	}
 
 	async forwardRequestToInstance(message, request) {
@@ -518,11 +516,41 @@ io.on('connection', function (socket) {
 });
 
 // handle plugins on the master
-var masterPlugins = [];
+var masterPlugins = new Map();
 async function pluginManagement(){
 	let startPluginLoad = Date.now();
-	// masterPlugins = await getPlugins();
+	masterPlugins = await loadPlugins();
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+}
+
+async function loadPlugins() {
+	let plugins = new Map();
+	for (pluginInfo of await plugin.getPluginInfos("plugins")) {
+		if (!pluginInfo.enabled) {
+			continue;
+		}
+
+		let pluginLoadStarted = Date.now();
+		let MasterPlugin = plugin.BaseMasterPlugin;
+		if (pluginInfo.masterEntrypoint) {
+			({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
+		}
+
+		let masterPlugin = new MasterPlugin(pluginInfo);
+		await masterPlugin.init();
+		plugins.set(pluginInfo.name, masterPlugin);
+
+		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		/*
+			main:new masterPlugin({
+			TODO?
+				config, socketio: io, express: app,
+				db, Prometheus, prometheusPrefix, endpointHitCounter,
+			}),
+			pluginConfig,
+		});*/
+	}
+	return plugins;
 }
 
 /**
@@ -666,6 +694,13 @@ I           version of clusterio.  Expect things to break. I
 | Unable to to start master server |
 +----------------------------------+`
 			);
+		} else if (err instanceof errors.PluginError) {
+			console.error(`
+Error: ${err.pluginName} plugin threw an unexpected error
+       during startup, please report it to the plugin author.
+--------------------------------------------------------------`
+			);
+			err = err.original;
 		} else {
 			console.error(`
 +---------------------------------------------------------------+

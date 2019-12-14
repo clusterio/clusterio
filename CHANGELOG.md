@@ -19,6 +19,9 @@ Version 2.0.0
 - Rewritten the communication between slaves and the master from scratch.  The
   new system is based on a WebSocket connection between the slaves and the
   master server and provides efficient validated bi-directonal communication.
+- Rewritten the plugin system from scratch.  Plugins now inherit from
+  a base class and use the same WebSocket connection Clusterio uses to
+  communicate.
 
 ### Changes
 
@@ -100,6 +103,11 @@ Version 2.0.0
 - Changed the format of database/slaves.json.
 - Removed the output file subscription system.  Breaks inventoryImports,
   playerManager, trainTeleports, serverSelect and researchSync.
+- Removed the factorioOutput hook from instance plugins.  The onOutput
+  hook provides parsed output instead.
+- Removed the onLoadFinish hook from master plugins.
+- Moved plugins from the sharedPlugins directory to plugins directory.
+- Implemented a new plugin system that replaces the old.  Breaks all plugins.
 
 
 Version 1.2.4

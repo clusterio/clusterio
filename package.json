@@ -5,7 +5,7 @@
   "repository": "https://github.com/clusterio/factorioClusterio",
   "main": "master.js",
   "scripts": {
-    "test": "mocha --exit --check-leaks -R spec --recursive test sharedPlugins/*/test",
+    "test": "mocha --exit --check-leaks -R spec --recursive test plugins/*/test",
     "fast-test": "FAST_TEST=y npm test",
     "cover": "nyc npm test",
     "fast-cover": "FAST_TEST=y nyc npm test",
@@ -17,7 +17,7 @@
   "nyc": {
     "exclude": [
       "test/**",
-      "sharedPlugins/*/test/**"
+      "plugins/*/test/**"
     ]
   },
   "keywords": [
