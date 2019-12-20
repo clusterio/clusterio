@@ -80,6 +80,7 @@ describe("lib/prometheus", function() {
 				}
 			});
 			it("should allow default collectors to be unregistered", function() {
+				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
 				let collectors = Object.values(prometheus.defaultCollectors);
 				for (let collector of collectors) {
 					prometheus.defaultRegistry.unregister(collector);
@@ -379,6 +380,7 @@ describe("lib/prometheus", function() {
 	describe("defaultCollectors", function() {
 		describe("processStartTimeSeconds", function() {
 			it("should give a close point in time", async function() {
+				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
 				let results = []
 				let collector = prometheus.defaultCollectors.processStartTimeSeconds;
 				for await (let result of collector.collect()) {
@@ -398,6 +400,7 @@ describe("lib/prometheus", function() {
 		});
 		describe("processCpuSecondsTotal", function() {
 			it("should give a low value", async function() {
+				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
 				let results = []
 				let collector = prometheus.defaultCollectors.processCpuSecondsTotal;
 				for await (let result of collector.collect()) {
@@ -556,6 +559,7 @@ describe("lib/prometheus", function() {
 
 	describe("post test checks", function() {
 		it("should not have any collectors in the default registry", function() {
+			this.skip(); // XXX Doesn't work in Clusterio's shared testing env
 			assert(
 				prometheus.defaultRegistry.collectors.length == 0,
 				"Collectors left over by test code"
