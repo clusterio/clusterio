@@ -48,7 +48,6 @@ saves
 !sharedPlugins/
 sharedPlugins/*
 !sharedPlugins/inventoryImports/
-!sharedPlugins/UPSdisplay/
 !sharedPlugins/researchSync/
 !sharedPlugins/clusterioMod/
 

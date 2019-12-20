@@ -71,6 +71,8 @@ Version 2.0.0
 - Removed info and shout command from globalChat plugin
 - Removed mirrorAllChat and enableCrossServerShout configuration options for
   globalChat plugin.
+- Removed UPSdisplay plugin.  UPS statistics is exported by the statistics
+  exporter plugin.
 
 ### Breaking Changes
 
