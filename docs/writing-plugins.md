@@ -301,3 +301,52 @@ plugin's `info.js` module.  In other words:
 For the Request class the send method is async and returns the response
 data received from the target it was sent to, or throws an error if the
 request failed.
+
+
+Collecting Statistics
+---------------------
+
+Clusterio comes with it's own Prometheus client implementation, one part
+due to Not Invented Here and another part due to collectors in
+prom-client being difficult to get to work nicely with collecting data
+from plugins optionally loaded at runtime on different computers.
+
+In its simplest form collecting data from a plugins consists of defining
+the metric and updating it somewhere in the plugin code.  For example:
+
+    const { Counter } = require('lib/prometheus');
+
+    const fooMetric = new Counter(
+        'clusterio_foo_metric', "Measures the level of foo",
+    );
+
+    // Somewhere in the master plugin code
+    fooMetric.inc();
+
+This works for master plugins, and the metric will be automatically
+available through the /metric HTTP endpoint.  For metrics that are
+per-instance you must define an `instance_id` label and set it
+accordingly, for example:
+
+    const { Counter } = require('lib/prometheus');
+
+    const barMetric = new Gauge(
+        'clusterio_bar_metric', "Bar instance level",
+        { labels: ['instance_id'] }
+    );
+
+    // Somewhere in the instance plugin code
+    barMetric.labels(String(this.config.id)).set(someValue);
+
+Metrics are automatically registered to the default registry, and this
+default registry is automatically polled by the master server on slaves.
+This means that it's important that you place the definition of the
+metric at module level so that it's not created more than once over the
+lifetime of a slave.  Since the metrics remember their values and would
+continue to be exported after an instance is shutdown there's code at
+instance shutdown that removes all the values where the `instance_id`
+label matches the id of the instance shut down.
+
+For statistics you need to update on collection there's an `onMetrics`
+hook on both master and instance plugins that is runned before the
+metrics in the default registry is collected.

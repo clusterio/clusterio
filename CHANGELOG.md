@@ -23,6 +23,10 @@ Version 2.0.0
   a base class and use the same WebSocket connection Clusterio uses to
   communicate.
 
+### Features
+
+- Added export of pollution statitics.
+
 ### Changes
 
 - Fixed sslCert and sslPrivKey entries being ignored in the config.
@@ -111,6 +115,18 @@ Version 2.0.0
 - Removed the onLoadFinish hook from master plugins.
 - Moved plugins from the sharedPlugins directory to plugins directory.
 - Implemented a new plugin system that replaces the old.  Breaks all plugins.
+- Removed express metric http_request_duration_milliseconds metric.
+- Removed socket.io metrics socket_io_connected, socket_io_connect_total,
+  socket_io_disconnect_total, socket_io_events_received_total,
+  socket_io_events_sent_total, socket_io_recieve_bytes, and
+  socket_io_transmit_bytes,
+- Removed clusterio_connected_instaces_gauge and added
+  clusterio_master_connected_clients_count in its place.
+- Renamed clusterio_player_count_gauge to clusterio_instance_player_count
+- Removed clusterio_UPS_gauge and added clusterio_instance_game_ticks_total in
+  its place.
+- Renamed clusterio_endpoint_hit_gauge to clusterio_http_enpoint_hits_total
+- Renamed clusterio_statistics_gauge to clusterio_instance_force_flows
 
 
 Version 1.2.4

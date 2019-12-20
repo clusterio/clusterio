@@ -39,6 +39,7 @@ const schema = require("lib/schema");
 const link = require("lib/link");
 const errors = require("lib/errors");
 const plugin = require("lib/plugin");
+const prometheus = require("lib/prometheus");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -83,79 +84,69 @@ require("./routes/api/getPictures")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 
-// set up logging software
-const prometheusPrefix = "clusterio_";
-const Prometheus = require('prom-client');
-const expressPrometheus = require('express-prometheus-request-metrics');
-Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
+const endpointHitCounter = new prometheus.Gauge(
+	'clusterio_master_http_endpoint_hits_total', "How many requests a particular endpoint has gotten",
+	{ labels: ['route'] }
+);
 
-// collect express request durations ms
-app.use(expressPrometheus(Prometheus));
-
-const endpointHitCounter = new Prometheus.Gauge({
-	name: prometheusPrefix+'endpoint_hit_gauge',
-	help: "How many requests a particular endpoint has gotten",
-	labelNames: ['route'],
-});
-const prometheusConnectedInstancesCounter = new Prometheus.Gauge({
-	name: prometheusPrefix+'connected_instaces_gauge',
-	help: "How many instances are currently connected to this master server",
-});
-const prometheusWsUsageCounter = new Prometheus.Counter({
-	name: prometheusPrefix+'websocket_usage_counter',
-	help: 'Websocket traffic',
-	labelNames: ["connectionType", "instanceID"],
-});
-const prometheusPlayerCountGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'player_count_gauge',
-	help: 'Amount of players connected to this cluster',
-	labelNames: ["instanceID", "instanceName"],
-});
-const prometheusUPSGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'UPS_gauge',
-	help: 'UPS of the current server',
-	labelNames: ["instanceID", "instanceName"],
-});
-/**
-GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
-@memberof clusterioMaster
-@instance
-@alias /metrics
-*/
-app.get('/metrics', (req, res) => {
+// Prometheus polling endpoint
+async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
-	res.set('Content-Type', Prometheus.register.contentType);
 
-	/// gather some static metrics
-	registerMoreMetrics();
-	res.end(Prometheus.register.metrics());
-});
-
-function registerMoreMetrics(){
-	for (let [instanceID, slave] of db.slaves) {
-		// playercount
-		try{
-			prometheusPlayerCountGauge.labels(instanceID, slave.instanceName).set(Number(slave.playerCount) || 0);
-		}catch(e){}
-		// UPS
-		try{
-			prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.UPS) || 60);
-			if(slave.meta.tick && typeof slave.meta.tick === "number") prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.tick) || 0);
-		}catch(e){}
-	}
-
-	// plugins
+	let results = []
 	for (let masterPlugin of masterPlugins.values()) {
-		masterPlugin.onMetrics();
+		let pluginResults = await masterPlugin.onMetrics();
+		if (pluginResults !== undefined) {
+			for await (let result of pluginResults) {
+				results.push(result)
+			}
+		}
 	}
 
-	// Slave count
-	let numberOfActiveSlaves = 0;
-	for(let slave of db.slaves.values()){
-		if(Date.now() - Number(slave.time) < 1000 * 30) numberOfActiveSlaves++;
+	let requests = [];
+	for (let slaveConnection of slaveConnections.values()) {
+		// XXX this needs a timeout
+		requests.push(link.messages.getMetrics.send(slaveConnection));
 	}
-	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
+
+	for await (let result of await prometheus.defaultRegistry.collect()) {
+		results.push(result);
+	}
+
+	let resultMap = new Map();
+	for (let response of await Promise.all(requests)) {
+		for (let result of response.results) {
+			if (!resultMap.has(result.metric.name)) {
+				resultMap.set(result.metric.name, result);
+
+			} else {
+				// Merge metrics received by multiple slaves
+				let stored = resultMap.get(result.metric.name);
+				stored.samples.push(...result.samples);
+			}
+		}
+	}
+
+	for (let result of resultMap.values()) {
+		results.push(prometheus.deserializeResult(result));
+	}
+
+	let text = await prometheus.exposition(results);
+	res.set('Content-Type', prometheus.exposition.contentType);
+	res.send(text);
 }
+app.get('/metrics', (req, res, next) => getMetrics(req, res, next).catch(next));
+
+
+const masterConnectedClientsCount = new prometheus.Gauge(
+	'clusterio_master_connected_clients_count', "How many clients are currently connected to this master server",
+	{
+		labels: ['type'], callback: async function(gauge) {
+			gauge.labels("slave").set(slaveConnections.size);
+			gauge.labels("control").set(controlConnections.length);
+		},
+	},
+);
 
 // set up database
 const db = {};
@@ -269,9 +260,6 @@ app.get("/api/getFactorioLocale", function(req,res){
 
 // socket.io connection for slaves
 var io = require("socket.io")({});
-const ioMetrics = require("socket.io-prometheus");
-ioMetrics(io);
-
 
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
@@ -408,7 +396,7 @@ class SlaveConnection extends BaseConnection {
 		});
 
 		this.connector.on('message', () => {
-			prometheusWsUsageCounter.labels('message', "other").inc();
+			// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		});
 
 		this.connector.on('disconnect', () => {
@@ -525,7 +513,7 @@ io.on('connection', function (socket) {
 
 	// Handle socket handshake
 	socket.once('message', (payload) => {
-		prometheusWsUsageCounter.labels('message', "other").inc();
+		// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		if (!schema.clientHandshake(payload)) {
 			console.log(`SOCKET | closing ${socket.handshake.address} after receiving invalid handshake`, payload);
 			connector.send('close', { reason: "Invalid handshake" });
@@ -588,7 +576,7 @@ async function loadPlugins() {
 			main:new masterPlugin({
 			TODO?
 				config, socketio: io, express: app,
-				db, Prometheus, prometheusPrefix, endpointHitCounter,
+				db,
 			}),
 			pluginConfig,
 		});*/

@@ -57,10 +57,12 @@ class MockConnector extends events.EventEmitter {
 class MockServer {
 	constructor() {
 		this.rconCommands = [];
+		this.rconCommandResults = new Map();
 	}
 
 	async sendRcon(command) {
 		this.rconCommands.push(command);
+		return this.rconCommandResults.get(command) || '';
 	}
 }
 
@@ -69,6 +71,9 @@ class MockInstance extends link.Link {
 		super('instance', 'slave', new MockConnector());
 		this.server = new MockServer();
 		this.name = "test";
+		this.config = {
+			id: 7357,
+		}
 	}
 }
 

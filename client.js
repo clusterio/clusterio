@@ -10,6 +10,7 @@ const factorio = require("lib/factorio");
 const link = require("lib/link");
 const plugin = require("lib/plugin");
 const errors = require("lib/errors");
+const prometheus = require('lib/prometheus');
 
 
 /**
@@ -221,6 +222,30 @@ class Instance extends link.Link{
 
 			await this.server.stop();
 		}
+
+		// Clear metrics this instance is exporting
+		for (let collector of prometheus.defaultRegistry.collectors) {
+			if (
+				collector instanceof prometheus.ValueCollector
+				&& collector.metric.labels.includes('instance_id')
+			) {
+				collector.removeAll({ instance_id: String(this.config.id) });
+			}
+		}
+	}
+
+	async getMetricsRequestHandler() {
+		let results = []
+		for (let pluginInstance of this.plugins.values()) {
+			let pluginResults = await pluginInstance.onMetrics();
+			if (pluginResults !== undefined) {
+				for await (let result of pluginResults) {
+					results.push(prometheus.serializeResult(result))
+				}
+			}
+		}
+
+		return { results };
 	}
 
 	async startInstanceRequestHandler() {
@@ -498,6 +523,32 @@ class Slave extends link.Link {
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);
 		return instanceConnection;
+	}
+
+	async getMetricsRequestHandler() {
+		let requests = [];
+		for (let instanceConnection of this.instanceConnections.values()) {
+			requests.push(link.messages.getMetrics.send(instanceConnection));
+		}
+
+		let results = [];
+		for (let response of await Promise.all(requests)) {
+			results.push(...response.results);
+		}
+
+		for await (let result of prometheus.defaultRegistry.collect()) {
+			if (result.metric.name.startsWith('process_')) {
+				results.push(prometheus.serializeResult(result, {
+					addLabels: { 'slave_id': String(this.config.id) },
+					metricName: result.metric.name.replace('process_', 'clusterio_slave_'),
+				}));
+
+			} else {
+				results.push(prometheus.serializeResult(result));
+			}
+		}
+
+		return { results };
 	}
 
 	async startInstanceRequestHandler(message, request) {
