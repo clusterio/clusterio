@@ -115,6 +115,12 @@ describe("lib/link/messages", function() {
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
+			it("should throw on invalid broadcastTo", function() {
+				assert.throws(
+					() => new link.Event({ broadcastTo: 'invalid'}),
+					new Error("Invalid broadcastTo value invalid")
+				);
+			});
 		});
 
 		describe(".attach()", function() {

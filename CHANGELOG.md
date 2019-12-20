@@ -19,6 +19,13 @@ Version 2.0.0
 - Rewritten the communication between slaves and the master from scratch.  The
   new system is based on a WebSocket connection between the slaves and the
   master server and provides efficient validated bi-directonal communication.
+- Rewritten the plugin system from scratch.  Plugins now inherit from
+  a base class and use the same WebSocket connection Clusterio uses to
+  communicate.
+
+### Features
+
+- Added export of pollution statitics.
 
 ### Changes
 
@@ -61,6 +68,11 @@ Version 2.0.0
 - Removed oddball limits to slaves.json size.
 - Moved slave specific configuration into its own configuration file.
 - Removed unused binary option from plugin config.
+- Removed info and shout command from globalChat plugin
+- Removed mirrorAllChat and enableCrossServerShout configuration options for
+  globalChat plugin.
+- Removed UPSdisplay plugin.  UPS statistics is exported by the statistics
+  exporter plugin.
 
 ### Breaking Changes
 
@@ -98,6 +110,25 @@ Version 2.0.0
 - Removed the hello event from the socket connection handshake.  Breaks
   playerManager, trainTeleports, serverSelect, and discordChat
 - Changed the format of database/slaves.json.
+- Removed the output file subscription system.  Breaks inventoryImports,
+  playerManager, trainTeleports, serverSelect and researchSync.
+- Removed the factorioOutput hook from instance plugins.  The onOutput
+  hook provides parsed output instead.
+- Removed the onLoadFinish hook from master plugins.
+- Moved plugins from the sharedPlugins directory to plugins directory.
+- Implemented a new plugin system that replaces the old.  Breaks all plugins.
+- Removed express metric http_request_duration_milliseconds metric.
+- Removed socket.io metrics socket_io_connected, socket_io_connect_total,
+  socket_io_disconnect_total, socket_io_events_received_total,
+  socket_io_events_sent_total, socket_io_recieve_bytes, and
+  socket_io_transmit_bytes,
+- Removed clusterio_connected_instaces_gauge and added
+  clusterio_master_connected_clients_count in its place.
+- Renamed clusterio_player_count_gauge to clusterio_instance_player_count
+- Removed clusterio_UPS_gauge and added clusterio_instance_game_ticks_total in
+  its place.
+- Renamed clusterio_endpoint_hit_gauge to clusterio_http_enpoint_hits_total
+- Renamed clusterio_statistics_gauge to clusterio_instance_force_flows
 
 
 Version 1.2.4

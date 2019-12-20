@@ -1,27 +1,17 @@
 const fs = require('fs-extra');
-const Tail = require('tail').Tail;
-const needle = require("needle");
-const child_process = require('child_process');
 const path = require('path');
-const request = require("request");
-const deepmerge = require("deepmerge");
-const ioClient = require("socket.io-client");
-const util = require("util");
 const yargs = require("yargs");
 const version = require("./package").version;
 
 // internal libraries
-const objectOps = require("lib/objectOps");
 const fileOps = require("lib/fileOps");
-const pluginManager = require("lib/manager/pluginManager");
 const hashFile = require('lib/hash').hashFile;
 const factorio = require("lib/factorio");
-const schema = require("lib/schema");
 const link = require("lib/link");
+const plugin = require("lib/plugin");
 const errors = require("lib/errors");
+const prometheus = require('lib/prometheus');
 
-// Uhm...
-var global = {};
 
 /**
  * Keeps track of the runtime parameters of an instance
@@ -31,6 +21,8 @@ class Instance extends link.Link{
 		super('instance', 'slave', connector);
 		link.attachAllMessages(this);
 		this._dir = dir;
+
+		this.plugins = new Map();
 
 		// This is expected to change with the config system rewrite
 		this.config = {
@@ -53,11 +45,34 @@ class Instance extends link.Link{
 
 		this.server.on('output', (output) => {
 			link.messages.instanceOutput.send(this, { instance_id: this.config.id, output })
+
+			for (let [name, plugin] of this.plugins) {
+				plugin.onOutput(output).catch(err => {
+					console.error(`Plugin ${name} raised error in onOutput:`, err);
+				});
+			}
 		});
 	}
 
-	async init() {
+	async init(pluginInfos) {
 		await this.server.init();
+
+		// load plugins
+		for (let pluginInfo of pluginInfos) {
+			if (!pluginInfo.enabled || !pluginInfo.instanceEntrypoint) {
+				continue;
+			}
+
+			// require plugin class and initialize it
+			let pluginLoadStarted = Date.now();
+			let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
+			let instancePlugin = new InstancePlugin(pluginInfo, this);
+			await instancePlugin.init();
+			this.plugins.set(pluginInfo.name, instancePlugin);
+			plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+
+			console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		}
 	}
 
 	/**
@@ -145,8 +160,8 @@ class Instance extends link.Link{
 		// plugins that are not disabled.  This will most likely change in the
 		// future when the plugin refactor is done.
 		let modules = [];
-		for (let pluginName of await fs.readdir("sharedPlugins")) {
-			let pluginDir = path.join("sharedPlugins", pluginName);
+		for (let pluginName of await fs.readdir("plugins")) {
+			let pluginDir = path.join("plugins", pluginName);
 			if (await fs.pathExists(path.join(pluginDir, "DISABLED"))) {
 				continue;
 			}
@@ -186,10 +201,13 @@ class Instance extends link.Link{
 				clientPort: this.server.rconPort,
 				clientPassword: this.server.rconPassword,
 			}
-			//instanceManagement(slaveConfig, this, compatConfig, this.server, socket); // XXX async function
 		});
 
 		await this.server.start(saveName);
+
+		for (let pluginInstance of this.plugins.values()) {
+			await pluginInstance.onStart();
+		}
 	}
 
 	/**
@@ -198,8 +216,36 @@ class Instance extends link.Link{
 	async stop() {
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
+			for (let pluginInstance of this.plugins.values()) {
+				await pluginInstance.onStop();
+			}
+
 			await this.server.stop();
 		}
+
+		// Clear metrics this instance is exporting
+		for (let collector of prometheus.defaultRegistry.collectors) {
+			if (
+				collector instanceof prometheus.ValueCollector
+				&& collector.metric.labels.includes('instance_id')
+			) {
+				collector.removeAll({ instance_id: String(this.config.id) });
+			}
+		}
+	}
+
+	async getMetricsRequestHandler() {
+		let results = []
+		for (let pluginInstance of this.plugins.values()) {
+			let pluginResults = await pluginInstance.onMetrics();
+			if (pluginResults !== undefined) {
+				for await (let result of pluginResults) {
+					results.push(prometheus.serializeResult(result))
+				}
+			}
+		}
+
+		return { results };
 	}
 
 	async startInstanceRequestHandler() {
@@ -308,10 +354,39 @@ class InstanceConnection extends link.Link {
 		super('slave', 'instance', connector);
 		this.slave = slave;
 		link.attachAllMessages(this);
+
+		for (let pluginInfo of slave.pluginInfos) {
+			plugin.attachPluginMessages(this, pluginInfo, null);
+		}
+	}
+
+	async forwardEventToInstance(message, event) {
+		let instanceId = message.data.instance_id;
+		if (!this.slave.instanceInfos.has(instanceId)) {
+			// Instance is probably on another slave
+			await this.slave.forwardEventToMaster(message, event);
+			return;
+		}
+
+		let instanceConnection = this.slave.instanceConnections.get(instanceId);
+		if (!instanceConnection) { return; }
+
+		event.send(instanceConnection, message.data);
 	}
 
 	async forwardEventToMaster(message, event) {
 		event.send(this.slave, message.data);
+	}
+
+	async broadcastEventToInstance(message, event) {
+		for (let instanceConnection of this.slave.instanceConnections.values()) {
+			if (instanceConnection === this) {
+				continue; // Do not broadcast back to the source
+			}
+
+			console.log("Broadcasting event");
+			event.send(instanceConnection, message.data);
+		}
 	}
 }
 
@@ -343,9 +418,15 @@ class SlaveConnector extends link.SocketIOClientConnector {
 class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
-	constructor(connector, slaveConfig) {
+	constructor(connector, slaveConfig, pluginInfos) {
 		super('slave', 'master', connector);
 		link.attachAllMessages(this);
+
+		this.pluginInfos = pluginInfos;
+		for (let pluginInfo of pluginInfos) {
+			plugin.attachPluginMessages(this, pluginInfo, null);
+		}
+
 		this.config = {
 			id: slaveConfig.id,
 			name: slaveConfig.name,
@@ -390,6 +471,22 @@ class Slave extends link.Link {
 		return await request.send(instanceConnection, message.data);
 	}
 
+	async forwardEventToInstance(message, event) {
+		let instanceId = message.data.instance_id;
+		if (!this.instanceInfos.has(instanceId)) { return; }
+
+		let instanceConnection = this.instanceConnections.get(instanceId);
+		if (!instanceConnection) { return; }
+
+		event.send(instanceConnection, message.data);
+	}
+
+	async broadcastEventToInstance(message, event) {
+		for (let instanceConnection of this.instanceConnections.values()) {
+			event.send(instanceConnection, message.data);
+		}
+	}
+
 	async createInstanceRequestHandler(message) {
 		let { id, options } = message.data;
 		if (this.instanceInfos.has(id)) {
@@ -421,11 +518,37 @@ class Slave extends link.Link {
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.factorioDir, instanceInfo.config
 		);
-		await instance.init();
+		await instance.init(this.pluginInfos);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);
 		return instanceConnection;
+	}
+
+	async getMetricsRequestHandler() {
+		let requests = [];
+		for (let instanceConnection of this.instanceConnections.values()) {
+			requests.push(link.messages.getMetrics.send(instanceConnection));
+		}
+
+		let results = [];
+		for (let response of await Promise.all(requests)) {
+			results.push(...response.results);
+		}
+
+		for await (let result of prometheus.defaultRegistry.collect()) {
+			if (result.metric.name.startsWith('process_')) {
+				results.push(prometheus.serializeResult(result, {
+					addLabels: { 'slave_id': String(this.config.id) },
+					metricName: result.metric.name.replace('process_', 'clusterio_slave_'),
+				}));
+
+			} else {
+				results.push(prometheus.serializeResult(result));
+			}
+		}
+
+		return { results };
 	}
 
 	async startInstanceRequestHandler(message, request) {
@@ -681,7 +804,6 @@ async function startClient() {
 	const slaveConfig = JSON.parse(await fs.readFile(args.config));
 
 	await fs.ensureDir(slaveConfig.instanceDirectory);
-	await fs.ensureDir("sharedPlugins");
 	await fs.ensureDir("sharedMods");
 
 	// Set the process title, shows up as the title of the CMD window on windows
@@ -709,8 +831,9 @@ async function startClient() {
 		return;
 	}
 
+	let pluginInfos = await plugin.getPluginInfos("plugins");
 	let slaveConnector = new SlaveConnector(slaveConfig);
-	let slave = new Slave(slaveConnector, slaveConfig);
+	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts
 	let secondSigint = false
@@ -738,130 +861,6 @@ async function startClient() {
 		// process.exit(0);
 	*/
 }
-
-// ensure instancemanagement only ever runs once
-var _instanceInitialized;
-async function instanceManagement(slaveConfig, instance, instanceconfig, server, socket) {
-	if (_instanceInitialized) return;
-	_instanceInitialized = true;
-
-	let compatUrl = slaveConfig.masterUrl;
-	if (compatUrl.endsWith("/")) {
-		compatUrl = compatUrl.slice(0, -1);
-	}
-	let compatConfig = {
-		name: slaveConfig.name,
-		masterURL: compatUrl,
-		masterAuthToken: slaveConfig.masterToken,
-		publicIP: slaveConfig.publicAddress,
-		instanceDirectory: slaveConfig.instancesDir,
-		factorioDirectory: slaveConfig.factorioDir,
-	}
-
-    console.log("Started instanceManagement();");
-
-	// load plugins and execute onLoad event
-	let pluginsToLoad = await pluginManager.getPlugins();
-	let plugins = [];
-	
-	for(let i = 0; i < pluginsToLoad.length; i++){
-		let pluginLoadStarted = Date.now();
-		let combinedConfig = deepmerge(instanceconfig,compatConfig,{clone:true});
-		combinedConfig.instanceName = instance.name;
-		let pluginConfig = pluginsToLoad[i];
-		
-		if(!global.subscribedFiles) {
-			global.subscribedFiles = {};
-		}
-		if (pluginConfig.enabled) {
-			// require plugin class and execute it
-			let pluginClass = require(path.resolve(pluginConfig.pluginPath, "index"));
-			plugins[i] = new pluginClass(combinedConfig, async function(data, callback){
-				if(data && data.toString('utf8')[0] != "/") {
-                    console.log("Clusterio | "+ pluginsToLoad[i].name + " | " + data.toString('utf8'));
-					return true;
-				} else if (data && data.toString('utf8')[0] == "/"){
-					let result = await server.sendRcon(data.toString('utf8'));
-					if (typeof callback === "function") {
-						callback(result);
-					}
-					return result;
-				}
-			}, { // extra functions to pass in object. Should have done it like this from the start, but won't break backwards compat.
-				socket, // socket.io connection to master (and ES6 destructuring, yay)
-			});
-			if(plugins[i].factorioOutput && typeof plugins[i].factorioOutput === "function"){
-				// when factorio logs a line, send it to the plugin. This includes things like autosaves, chat, errors etc
-				server.on('stdout', data => plugins[i].factorioOutput(data.toString()));
-			}
-			if(pluginConfig.scriptOutputFileSubscription && typeof pluginConfig.scriptOutputFileSubscription == "string"){
-				if(global.subscribedFiles[pluginConfig.scriptOutputFileSubscription]) {
-					// please choose a unique file to subscribe to. If you need plugins to share this interface, set up a direct communication
-					// between those plugins instead.
-					throw "FATAL ERROR IN " + pluginConfig.name + " FILE ALREADY SUBSCRIBED " + pluginConfig.scriptOutputFileSubscription;
-				}
-				
-				let outputPath = instance.path(
-					"script-output",
-					pluginConfig.scriptOutputFileSubscription
-				);
-				if (!fs.existsSync(outputPath)) {
-					// Do something
-					fs.writeFileSync(outputPath, "");
-				}
-				global.subscribedFiles[pluginConfig.scriptOutputFileSubscription] = true;
-				console.log("Clusterio | Registered file subscription on "+outputPath);
-				
-
-				if(!pluginConfig.fileReadDelay || pluginConfig.fileReadDelay == 0) {
-					// only wipe the file on restart for now, should most likely be rotated during runtime too
-                    fs.writeFileSync(outputPath, "");
-                    let tail = new Tail(outputPath);
-                    tail.on("line", function (data) {
-                        plugins[i].scriptOutput(data);
-                    });
-                } else {
-                    fs.watch(outputPath, fileChangeHandler);
-                    // run once in case a plugin wrote out information before the plugin loaded fully
-                    // delay, so the socket got enough time to connect
-                    setTimeout(() => {
-                        fileChangeHandler(false, pluginConfig.scriptOutputFileSubscription);
-                    }, 500);
-
-                    // send file contents to plugin for processing
-                    function fileChangeHandler(eventType, filename) {
-                        if (filename != null) {
-                            setTimeout(
-                                () => {
-                                    // get array of lines in file
-                                    let stuff = fs.readFileSync(instance.path("script-output", filename), "utf8").split("\n");
-
-                                    // if you found anything, reset the file
-                                    if (stuff[0]) {
-                                        fs.writeFileSync(instance.path("script-output", filename), "");
-                                    }
-                                    for (let o = 0; o < stuff.length; o++) {
-                                        if (stuff[o] && !stuff[o].includes('\u0000\u0000')) {
-                                            try {
-                                                plugins[i].scriptOutput(stuff[o]);
-                                            } catch (e) {
-                                                console.error(e)
-                                            }
-                                        }
-                                    }
-                                },
-                                pluginConfig.fileReadDelay || 0
-                            );
-                        }
-                    }
-                }
-            }
-			console.log(`Clusterio | Loaded plugin ${pluginsToLoad[i].name} in ${Date.now() - pluginLoadStarted}ms`);
-		} else {
-			// this plugin doesn't have a client portion. Maybe it runs on the master only?
-		}
-	}
-} // END OF INSTANCE START ---------------------------------------------------------------------
 
 // string, function
 // returns [{modName:string,hash:string}, ... ]

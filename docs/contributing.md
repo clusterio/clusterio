@@ -170,6 +170,8 @@ indents.  Should you be modifiying such code that is mixing spaces and
 tabs as indending you should update the indenting to use tabs _on the
 code you change_ while leaving the rest of the code untouched.
 
+Lua code should be indented with 4 spaces.
+
 
 ### Line Length
 

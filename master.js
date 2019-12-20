@@ -24,6 +24,7 @@ const crypto = require('crypto');
 const base64url = require('base64url');
 const moment = require("moment");
 const request = require("request");
+const setBlocking = require("set-blocking");
 const events = require("events");
 const version = require("./package").version;
 
@@ -32,12 +33,13 @@ let config = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
-const pluginManager = require("lib/manager/pluginManager");
 const database = require("lib/database");
 const factorio = require("lib/factorio");
 const schema = require("lib/schema");
 const link = require("lib/link");
 const errors = require("lib/errors");
+const plugin = require("lib/plugin");
+const prometheus = require("lib/prometheus");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -49,6 +51,8 @@ const cookieParser = require('cookie-parser');
 const bodyParser = require("body-parser");
 const fileUpload = require('express-fileupload');
 var app = express();
+var httpServer;
+var httpsServer;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
@@ -70,7 +74,6 @@ app.set('views', ['views', 'sharedPlugins']);
 app.use(function(req, res, next){
 	res.locals.res = res;
 	res.locals.req = req;
-	res.locals.masterPlugins = masterPlugins;
 	res.locals.slaves = db.slaves;
 	res.locals.moment = moment;
 	next();
@@ -81,81 +84,69 @@ require("./routes/api/getPictures")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 
-// set up logging software
-const prometheusPrefix = "clusterio_";
-const Prometheus = require('prom-client');
-const expressPrometheus = require('express-prometheus-request-metrics');
-Prometheus.collectDefaultMetrics({ timeout: 10000 }); // collects RAM usage etc every 10 s
+const endpointHitCounter = new prometheus.Gauge(
+	'clusterio_master_http_endpoint_hits_total', "How many requests a particular endpoint has gotten",
+	{ labels: ['route'] }
+);
 
-// collect express request durations ms
-app.use(expressPrometheus(Prometheus));
-
-const endpointHitCounter = new Prometheus.Gauge({
-	name: prometheusPrefix+'endpoint_hit_gauge',
-	help: "How many requests a particular endpoint has gotten",
-	labelNames: ['route'],
-});
-const prometheusConnectedInstancesCounter = new Prometheus.Gauge({
-	name: prometheusPrefix+'connected_instaces_gauge',
-	help: "How many instances are currently connected to this master server",
-});
-const prometheusWsUsageCounter = new Prometheus.Counter({
-	name: prometheusPrefix+'websocket_usage_counter',
-	help: 'Websocket traffic',
-	labelNames: ["connectionType", "instanceID"],
-});
-const prometheusPlayerCountGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'player_count_gauge',
-	help: 'Amount of players connected to this cluster',
-	labelNames: ["instanceID", "instanceName"],
-});
-const prometheusUPSGauge = new Prometheus.Gauge({
-	name: prometheusPrefix+'UPS_gauge',
-	help: 'UPS of the current server',
-	labelNames: ["instanceID", "instanceName"],
-});
-/**
-GET Prometheus metrics endpoint. Returns performance and usage metrics in a prometheus readable format.
-@memberof clusterioMaster
-@instance
-@alias /metrics
-*/
-app.get('/metrics', (req, res) => {
+// Prometheus polling endpoint
+async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
-	res.set('Content-Type', Prometheus.register.contentType);
 
-	/// gather some static metrics
-	registerMoreMetrics();
-	res.end(Prometheus.register.metrics());
-});
-
-function registerMoreMetrics(){
-	for (let [instanceID, slave] of db.slaves) {
-		// playercount
-		try{
-			prometheusPlayerCountGauge.labels(instanceID, slave.instanceName).set(Number(slave.playerCount) || 0);
-		}catch(e){}
-		// UPS
-		try{
-			prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.UPS) || 60);
-			if(slave.meta.tick && typeof slave.meta.tick === "number") prometheusUPSGauge.labels(instanceID, slave.instanceName).set(Number(slave.meta.tick) || 0);
-		}catch(e){}
-	}
-
-	// plugins
-	for (let plugin of masterPlugins) {
-		if (plugin.main && plugin.main.onMetrics && typeof plugin.main.onMetrics == "function") {
-			plugin.main.onMetrics();
+	let results = []
+	for (let masterPlugin of masterPlugins.values()) {
+		let pluginResults = await masterPlugin.onMetrics();
+		if (pluginResults !== undefined) {
+			for await (let result of pluginResults) {
+				results.push(result)
+			}
 		}
 	}
 
-	// Slave count
-	let numberOfActiveSlaves = 0;
-	for(let slave of db.slaves.values()){
-		if(Date.now() - Number(slave.time) < 1000 * 30) numberOfActiveSlaves++;
+	let requests = [];
+	for (let slaveConnection of slaveConnections.values()) {
+		// XXX this needs a timeout
+		requests.push(link.messages.getMetrics.send(slaveConnection));
 	}
-	prometheusConnectedInstancesCounter.set(numberOfActiveSlaves);
+
+	for await (let result of await prometheus.defaultRegistry.collect()) {
+		results.push(result);
+	}
+
+	let resultMap = new Map();
+	for (let response of await Promise.all(requests)) {
+		for (let result of response.results) {
+			if (!resultMap.has(result.metric.name)) {
+				resultMap.set(result.metric.name, result);
+
+			} else {
+				// Merge metrics received by multiple slaves
+				let stored = resultMap.get(result.metric.name);
+				stored.samples.push(...result.samples);
+			}
+		}
+	}
+
+	for (let result of resultMap.values()) {
+		results.push(prometheus.deserializeResult(result));
+	}
+
+	let text = await prometheus.exposition(results);
+	res.set('Content-Type', prometheus.exposition.contentType);
+	res.send(text);
 }
+app.get('/metrics', (req, res, next) => getMetrics(req, res, next).catch(next));
+
+
+const masterConnectedClientsCount = new prometheus.Gauge(
+	'clusterio_master_connected_clients_count', "How many clients are currently connected to this master server",
+	{
+		labels: ['type'], callback: async function(gauge) {
+			gauge.labels("slave").set(slaveConnections.size);
+			gauge.labels("control").set(controlConnections.length);
+		},
+	},
+);
 
 // set up database
 const db = {};
@@ -179,28 +170,52 @@ async function saveMap(databaseDirectory, file, map) {
 }
 
 
-// store slaves in a .json full of JSON data
+/**
+ * Innitiate shutdown of master server
+ */
 async function shutdown() {
-	console.log('Ctrl-C...');
+	console.log('Shutting down');
 	let exitStartTime = Date.now();
 	try {
 		await saveMap(config.databaseDirectory, "slaves.json", db.slaves);
 		await saveMap(config.databaseDirectory, "instances.json", db.instances);
 
-		for(let i in masterPlugins){
-			let plugin = masterPlugins[i];
-			if(plugin.main && plugin.main.onExit && typeof plugin.main.onExit == "function"){
-				let startTime = Date.now();
-				await plugin.main.onExit();
-				console.log("Plugin "+plugin.pluginConfig.name+" exited in "+(Date.now()-startTime)+"ms");
-			}
+		for (let [pluginName, masterPlugin] of masterPlugins) {
+			let startTime = Date.now();
+			await masterPlugin.onExit();
+			console.log(`Plugin ${pluginName} exited in ${Date.now() - startTime}ms`);
 		}
-		console.log("Clusterio cleanly exited in "+(Date.now()-exitStartTime)+"ms");
-		process.exit(0);
-	} catch(e) {
-		console.log(e);
-		console.log("Clusterio failed to exit cleanly. Time elapsed: "+(Date.now()-exitStartTime)+"ms");
-		process.exit(1)
+
+		for (let controlConnection of controlConnections) {
+			controlConnection.connector.close("shutdown");
+		}
+
+		for (let slaveConnection of slaveConnections.values()) {
+			slaveConnection.connector.close("shutdown");
+		}
+
+		if (httpServer) {
+			console.log("Stopping HTTP server");
+			await new Promise(resolve => httpServer.close(resolve));
+		}
+
+		if (httpsServer) {
+			console.log("Stopping HTTPS server");
+			await new Promise(resolve => httpsServer.close(resolve));
+		}
+
+		console.log(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
+
+	} catch(err) {
+		setBlocking(true);
+		console.error(`
++--------------------------------------------------------------------+
+| Unexpected error occured while shutting down master, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues        |
++--------------------------------------------------------------------+`
+		);
+		console.error(err);
+		process.exit(1);
 	}
 }
 
@@ -245,14 +260,14 @@ app.get("/api/getFactorioLocale", function(req,res){
 
 // socket.io connection for slaves
 var io = require("socket.io")({});
-const ioMetrics = require("socket.io-prometheus");
-ioMetrics(io);
-
 
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
 		super('master', target, connector);
 		link.attachAllMessages(this);
+		for (let masterPlugin of masterPlugins.values()) {
+			plugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
+		}
 	}
 
 	async forwardRequestToInstance(message, request) {
@@ -267,6 +282,26 @@ class BaseConnection extends link.Link {
 		}
 
 		return await request.send(connection, message.data);
+	}
+
+	async forwardEventToInstance(message, event) {
+		let instance = db.instance.get(message.data.instance_id);
+		if (!instance) { return; }
+
+		let connection = slaveConnection.get(instance.slaveId);
+		if (!connection) { return; }
+
+		event.send(connection, message.data);
+	}
+
+	async broadcastEventToInstance(message, event) {
+		for (let slaveConnection of slaveConnections.values()) {
+			if (slaveConnection === this) {
+				continue; // Do not broadcast back to the source
+			}
+
+			event.send(slaveConnection, message.data);
+		}
 	}
 }
 
@@ -361,7 +396,7 @@ class SlaveConnection extends BaseConnection {
 		});
 
 		this.connector.on('message', () => {
-			prometheusWsUsageCounter.labels('message', "other").inc();
+			// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		});
 
 		this.connector.on('disconnect', () => {
@@ -451,6 +486,19 @@ class SocketIOServerConnector extends events.EventEmitter {
 		return this._seq++;
 	}
 
+	/**
+	 * Close the connection with the given reason.
+	 *
+	 * Sends a close message and disconnects the connector.
+	 */
+	close(reason) {
+		this.send('close', { reason });
+		this.disconnect();
+	}
+
+	/**
+	 * Immediatly close the connection
+	 */
 	disconnect() {
 		this._socket.disconnect(true);
 	}
@@ -465,7 +513,7 @@ io.on('connection', function (socket) {
 
 	// Handle socket handshake
 	socket.once('message', (payload) => {
-		prometheusWsUsageCounter.labels('message', "other").inc();
+		// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		if (!schema.clientHandshake(payload)) {
 			console.log(`SOCKET | closing ${socket.handshake.address} after receiving invalid handshake`, payload);
 			connector.send('close', { reason: "Invalid handshake" });
@@ -478,7 +526,7 @@ io.on('connection', function (socket) {
 			let connection = slaveConnections.get(data.id);
 			if (connection) {
 				console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
-				connection.close("Registered from another connection");
+				connection.connector.close("Registered from another connection");
 			}
 
 			console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
@@ -499,45 +547,39 @@ io.on('connection', function (socket) {
 });
 
 // handle plugins on the master
-var masterPlugins = [];
+var masterPlugins = new Map();
 async function pluginManagement(){
 	let startPluginLoad = Date.now();
-	masterPlugins = await getPlugins();
+	masterPlugins = await loadPlugins();
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 }
 
-async function getPlugins(){
-	let plugins = [];
-	let pluginsToLoad = await pluginManager.getPlugins();
-	for(let i = 0; i < pluginsToLoad.length; i++){
-		let pluginStartedLoading = Date.now(); // just for logging
-		let stats = await fs.stat(pluginsToLoad[i].pluginPath);
-		if(stats.isDirectory()){
-			let pluginConfig = pluginsToLoad[i];
-			if(pluginConfig.masterPlugin && pluginConfig.enabled){
-				let masterPlugin = require(path.resolve(pluginConfig.pluginPath, pluginConfig.masterPlugin));
-				plugins.push({
-					main:new masterPlugin({
-						config,
-						pluginConfig,
-						path: pluginConfig.pluginPath,
-						socketio: io,
-						express: app,
-						db,
-						Prometheus,
-						prometheusPrefix,
-						endpointHitCounter,
-					}),
-					pluginConfig,
-				});
-
-				console.log("Loaded plugin "+pluginConfig.name+" in "+(Date.now() - pluginStartedLoading)+"ms");
-			}
+async function loadPlugins() {
+	let plugins = new Map();
+	for (pluginInfo of await plugin.getPluginInfos("plugins")) {
+		if (!pluginInfo.enabled) {
+			continue;
 		}
-	}
-	for(let i in plugins){
-		let plugin = plugins[i];
-		if(plugin.main.onLoadFinish && typeof plugin.main.onLoadFinish == "function") await plugin.main.onLoadFinish({plugins});
+
+		let pluginLoadStarted = Date.now();
+		let MasterPlugin = plugin.BaseMasterPlugin;
+		if (pluginInfo.masterEntrypoint) {
+			({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
+		}
+
+		let masterPlugin = new MasterPlugin(pluginInfo);
+		await masterPlugin.init();
+		plugins.set(pluginInfo.name, masterPlugin);
+
+		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		/*
+			main:new masterPlugin({
+			TODO?
+				config, socketio: io, express: app,
+				db,
+			}),
+			pluginConfig,
+		});*/
 	}
 	return plugins;
 }
@@ -591,8 +633,25 @@ async function startServer() {
 	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
-	process.on('SIGINT', shutdown); // ctrl + c
-	process.on('SIGHUP', shutdown); // terminal closed
+
+	let secondSigint = false
+	process.on('SIGINT', () => {
+		if (secondSigint) {
+			console.log("Caught second interrupt, terminating immediately");
+			process.exit(1);
+		}
+
+		secondSigint = true;
+		console.log("Caught interrupt signal, shutting down");
+		shutdown();
+	});
+
+	// terminal closed
+	process.on('SIGHUP', () => {
+		// No graceful cleanup, no warning out (stdout is likely closed.)
+		// Don't close the terminal with the clusterio master in it.
+		process.exit(1);
+	});
 
 	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
 	await fs.ensureDir(config.databaseDirectory);
@@ -624,7 +683,7 @@ async function startServer() {
 
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
-		let httpServer = require("http").Server(app);
+		httpServer = require("http").Server(app);
 		await listen(httpServer, httpPort);
 		io.attach(httpServer);
 		console.log("Listening for HTTP on port %s...", httpServer.address().port);
@@ -642,7 +701,7 @@ async function startServer() {
 			);
 		}
 
-		let httpsServer = require("https").createServer({
+		httpsServer = require("https").createServer({
 			key: privateKey,
 			cert: certificate
 		}, app)
@@ -683,6 +742,13 @@ I           version of clusterio.  Expect things to break. I
 | Unable to to start master server |
 +----------------------------------+`
 			);
+		} else if (err instanceof errors.PluginError) {
+			console.error(`
+Error: ${err.pluginName} plugin threw an unexpected error
+       during startup, please report it to the plugin author.
+--------------------------------------------------------------`
+			);
+			err = err.original;
 		} else {
 			console.error(`
 +---------------------------------------------------------------+
