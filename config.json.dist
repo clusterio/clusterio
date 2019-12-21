@@ -29,5 +29,4 @@
 		"public": true,
 		"lan": true
 	},
-	"allowRemoteCommandExecution": true
 }

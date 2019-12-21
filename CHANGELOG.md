@@ -134,6 +134,8 @@ Version 2.0.0
   disableImportsOfEverythingExceptElectricity from the master config.
 - Removed msBetweenCommands config option.  The RCON is instead limited to 5
   concurrent commands.
+- Removed allowRemoteCommandExecution config option.  Remote commands are
+  always allowed with the move to master managing slaves/instances.
 
 
 Version 1.2.4
