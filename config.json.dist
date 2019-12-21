@@ -29,6 +29,5 @@
 		"public": true,
 		"lan": true
 	},
-	"msBetweenCommands": 10,
 	"allowRemoteCommandExecution": true
 }

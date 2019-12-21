@@ -132,6 +132,8 @@ Version 2.0.0
 - Removed clusterioMod plugin specific config options logItemTransfers,
   disableFairItemDistribution useNeuralNetDoleDivider, autosaveInterval, and
   disableImportsOfEverythingExceptElectricity from the master config.
+- Removed msBetweenCommands config option.  The RCON is instead limited to 5
+  concurrent commands.
 
 
 Version 1.2.4
