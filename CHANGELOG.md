@@ -129,6 +129,9 @@ Version 2.0.0
   its place.
 - Renamed clusterio_endpoint_hit_gauge to clusterio_http_enpoint_hits_total
 - Renamed clusterio_statistics_gauge to clusterio_instance_force_flows
+- Removed clusterioMod plugin specific config options logItemTransfers,
+  disableFairItemDistribution useNeuralNetDoleDivider, autosaveInterval, and
+  disableImportsOfEverythingExceptElectricity from the master config.
 
 
 Version 1.2.4
