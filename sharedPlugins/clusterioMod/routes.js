@@ -1,7 +1,3 @@
-var recievedItemStatisticsBySlaveID = {};
-var sentItemStatisticsBySlaveID = {};
-
-const averagedTimeSeries = require("averaged-timeseries");
 const express = require("express");
 const path = require("path");
 
@@ -87,19 +83,6 @@ function addApiRoutes(
 				console.log("added: " + req.body.name + " " + req.body.count+" from "+x.instanceName+" ("+x.instanceID+")");
 			}
 			// gather statistics
-			let recievedItemStatistics = recievedItemStatisticsBySlaveID[x.instanceID];
-			if(recievedItemStatistics === undefined){
-				recievedItemStatistics = new averagedTimeSeries({
-					maxEntries: config.itemStats.maxEntries,
-					entriesPerSecond: config.itemStats.entriesPerSecond,
-					mergeMode: "add",
-				});
-				recievedItemStatisticsBySlaveID[x.instanceID] = recievedItemStatistics;
-			}
-			recievedItemStatistics.add({
-				key:req.body.name,
-				value:req.body.count,
-			});
 			prometheusExportGauge.labels(x.instanceID, req.body.name).inc(Number(req.body.count) || 0);
 			// save items we get
 			var count = Number(req.body.count);
@@ -160,27 +143,12 @@ function addApiRoutes(
 
 			// track statistics and do graphing things
 			prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(numberToRemove) || 0);
-			let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-			if(sentItemStatistics === undefined){
-				sentItemStatistics = new averagedTimeSeries({
-					maxEntries: config.itemStats.maxEntries,
-					entriesPerSecond: config.itemStats.entriesPerSecond,
-					mergeMode: "add",
-				});
-			}
-			sentItemStatistics.add({
-				key:object.name,
-				value:numberToRemove,
-			});
-			//console.log(sentItemStatistics.data)
-			sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 		} else if(config.useNeuralNetDoleDivider){
 			// use fancy neural net to calculate a "fair" dole division rate.
 			neuralDole.divider({
 				res,
 				object,
 				config,
-				sentItemStatisticsBySlaveID,
 				prometheusImportGauge
 			})
 		} else {
@@ -189,7 +157,6 @@ function addApiRoutes(
 				itemCount,
 				object,
 				db,
-				sentItemStatisticsBySlaveID,
 				config,
 				prometheusDoleFactorGauge,
 				prometheusImportGauge,

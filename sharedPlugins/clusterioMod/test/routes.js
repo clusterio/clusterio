@@ -21,7 +21,6 @@ describe("clusterioMod endpoints", function() {
 	app.use(bodyParser.json({ limit: '10mb', }));
 	app.use(bodyParser.urlencoded({ parameterLimit: 100000, limit: '10mb', extended: true }));
 	const config = {
-		itemStats: { maxEntries:60, entriesPerSecond: 1 / 60 },
 		disableFairItemDistribution: true,
 	};
 	const items = new database.ItemDatabase();

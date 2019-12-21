@@ -30,7 +30,6 @@
   },
   "dependencies": {
     "as-table": "^1.0.31",
-    "averaged-timeseries": "^1.4.0",
     "base64url": "^3.0.0",
     "bcrypt": "=3.0.6",
     "bcrypt-promise": "^2.0.0",

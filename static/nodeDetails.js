@@ -1,24 +1,3 @@
-// string, object, function(object)
-function post(url, data, callback) {
-	console.log("POST " + url + JSON.stringify(data));
-	var xhr = new XMLHttpRequest();
-	xhr.open("POST", url, true);
-	xhr.setRequestHeader("Content-type", "application/json");
-	xhr.onreadystatechange = function () {
-		if (xhr.readyState === 4 && xhr.status === 200) {
-			var json = JSON.parse(xhr.responseText);
-			callback(json);
-		}
-	};
-	xhr.send(JSON.stringify(data));
-}
-// function to sort arrays of objects after a keys value
-function sortByKey(array, key) {
-    return array.sort(function(a, b) {
-        var x = Number(a[key]); var y = Number(b[key]);
-        return ((x < y) ? 1 : ((x > y) ? -1 : 0));
-    });
-}
 function getParameterByName(name, url) {
     if (!url) url = window.location.href;
     name = name.replace(/[\[\]]/g, "\\$&");
@@ -158,17 +137,12 @@ function populateSlaveInfo(){
 		
 		HTML += "</div>"; // end of left container
 		
-		// chart
-		HTML += '<div id="' + slave.unique + '" class="productionGraph" style="width: calc(100% - 300px);"></div>';
 		// terminal
 		// HTML += '<div id="terminal"></div>';
 
 
 		
 		document.querySelector("#body > #details").innerHTML = HTML;
-		
-		// make production graph
-		makeGraph(slave.unique, slave.unique)
 		
 		// makeTerminal();
 
@@ -278,95 +252,4 @@ function maximizeTerminal(instant){
 	// since instant is a true/false value, Number will convert it to 1 or 0. Since 0 is falsy, || will turn it into 200.
 	setTimeout(() => $('#terminal')[0].style.transition = 'none', (Number(instant) || 200));
 	$('#terminal').draggable('enable');
-}
-
-// ID of slave, ID of canvasjs div without #
-function makeGraph(instanceID, selector) {
-	let chartIgnoreList = [
-		"water",
-		"steam"
-	];
-	post("api/getStats", {instanceID: instanceID}, function(data){
-		//console.log("Building chart " + instanceID + " with this data:")
-		//console.log(data)
-		if(data.length > 0) {
-			// find keys
-			let itemNames = [];
-			for(let key in data[data.length - 1].data) {
-				itemNames[itemNames.length] = key
-			}
-			let chartData = [];
-			for(let o = 0; o < itemNames.length; o++) {
-				if(!chartIgnoreList.includes(itemNames[o])){
-					chartData[chartData.length] = generateLineChartArray(data, itemNames[o]);
-				}
-			}
-			//console.log(chartData)
-			drawChart(selector, chartData)
-		}
-		// callback(data);
-	})
-}
-
-function generateLineChartArray(data, nameKey) {
-	let chartData = [];
-	for(let i = 0; i < data.length; i++) {
-		// only show recent data
-		if(data[i].timestamp > Date.now() - (24*60*60*1000)){
-			let y = data[i].data[nameKey];
-			if(!data[i].data[nameKey]) {
-				y = 0;
-			} else if(y < 0) {
-				y = 0;
-			}
-			chartData[chartData.length] = {
-				x: new Date(data[i].timestamp),
-				y: Number(y)
-			}
-		}
-	}
-	chartData = sortByKey(chartData, "x");
-	let xyz = {};
-	xyz.name = nameKey;
-	xyz.type = "line";
-	if(nameKey === "copper-wire"||nameKey === "iron-plate"||nameKey === "copper-plate"||nameKey === "electronic-circuit"||nameKey === "steel-plate"||nameKey === "advanced-circuit"||nameKey === "crude-oil"||nameKey === "petroleum-gas"){
-		xyz.showInLegend = true;
-	}
-	xyz.dataPoints = chartData;
-	return xyz;
-}
-
-function drawChart(selector, chartData, title) {
-	// selector is ID of element, ex "chartContainer" or "-123199123"
-	console.log(chartData);
-	chartsByID[selector] = new CanvasJS.Chart(selector, {
-		title:{
-			text: title || "Production graph"
-		},
-		toolTip:{   
-			content: "{name}: {y}"	  
-		},
-		zoomEnabled: true,
-		axisY:{
-			includeZero: true,
-		},
-		legend: {
-			cursor: "pointer",
-			itemclick: function (e) {
-				//console.log("legend click: " + e.dataPointIndex);
-				//console.log(e);
-				if (typeof (e.dataSeries.visible) === "undefined" || e.dataSeries.visible) {
-					e.dataSeries.visible = false;
-				} else {
-					e.dataSeries.visible = true;
-				}	
-				e.chart.render();
-			}
-		},
-		data: chartData
-	});
-	chart = chartsByID[selector];
-	// console.log(chart)
-	chart.render();
-	return chart;
 }
