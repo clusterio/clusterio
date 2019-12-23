@@ -101,11 +101,11 @@ Clusterio can also do a few other neat things, such as giving you access to epoc
 **Warning**: These instructions are for the unstable master version and is not
 recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
-NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
+JS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
 
 Master and all slaves:
 
-    wget -qO - https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    wget -qO - https://deb.nodesource.com/setup_11.x | sudo -E bash -
     sudo apt install -y nodejs python-dev git build-essential
     git clone -b master https://github.com/clusterio/factorioClusterio.git
     cd factorioClusterio
@@ -159,7 +159,7 @@ Game Client = The people connecting to the server
 
 **Requirements**
 
-download and install nodeJS 10 from http://nodejs.org
+download and install nodeJS 11.13+ from http://nodejs.org
 
 download and install git from https://git-scm.com/
 
