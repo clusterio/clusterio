@@ -101,7 +101,7 @@ Clusterio can also do a few other neat things, such as giving you access to epoc
 **Warning**: These instructions are for the unstable master version and is not
 recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
-JS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
+NodeJS does not support EOL ubuntu releases. Make sure you are on the most recent LTS release or newer.
 
 Master and all slaves:
 
