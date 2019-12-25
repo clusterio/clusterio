@@ -1,5 +1,3 @@
-const averagedTimeSeries = require("averaged-timeseries")
-
 const doleNN = require("./dole_nn_base")
 
 const Prometheus = require('prom-client');
@@ -58,7 +56,6 @@ class neuralDole {
         res,
         object,
         config,
-        sentItemStatisticsBySlaveID,
         prometheusImportGauge
     }){
         let magicData = doleNN.Dose(
@@ -89,20 +86,6 @@ class neuralDole {
 		if(config.logItemTransfers){
 			console.log("removed: " + object.name + " " + magicData[0] + " . " + this.items.getItemCount(object.name) + " and sent to " + object.instanceID + " | " + object.instanceName);
 		}
-		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-		if(sentItemStatistics === undefined){
-			sentItemStatistics = new averagedTimeSeries({
-				maxEntries: config.itemStats.maxEntries,
-				entriesPerSecond: config.itemStats.entriesPerSecond,
-				mergeMode: "add",
-			});
-		}
-		sentItemStatistics.add({
-			key:object.name,
-			value:magicData[0],
-		});
-		//console.log(sentItemStatistics.data)
-		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 		prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(magicData[0]) || 0);
 
 		res.send({
@@ -118,7 +101,6 @@ function doleDivider({
 	itemCount,
     object,
 	items,
-    sentItemStatisticsBySlaveID,
     config,
     prometheusDoleFactorGauge,
     prometheusImportGauge,
@@ -142,20 +124,6 @@ function doleDivider({
 			console.log("removed: " + object.name + " " + object.count + " . " + itemCount + " and sent to " + object.instanceID + " | " + object.instanceName);
 		}
 		items.removeItem(object.name, object.count)
-		let sentItemStatistics = sentItemStatisticsBySlaveID[object.instanceID];
-		if(sentItemStatistics === undefined){
-			sentItemStatistics = new averagedTimeSeries({
-				maxEntries: config.itemStats.maxEntries,
-				entriesPerSecond: config.itemStats.entriesPerSecond,
-				mergeMode: "add",
-			});
-		}
-		sentItemStatistics.add({
-			key:object.name,
-			value:object.count,
-		});
-		//console.log(sentItemStatistics.data)
-		sentItemStatisticsBySlaveID[object.instanceID] = sentItemStatistics;
 
         prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
         prometheusImportGauge.labels(object.instanceID, object.name).inc(object.count || 0);
