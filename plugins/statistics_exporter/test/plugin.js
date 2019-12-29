@@ -48,6 +48,24 @@ describe("statistics_exporter plugin", function() {
 					'7357', 'pollution_statistics', 'input', 'boiler').get(),
 				2000);
 			});
+			it("should pass on JSON parse errors", async function() {
+				let string = 'An error occured\n';
+				instancePlugin.instance.server.rconCommandResults.set(
+					'/sc remote.call("statistics_exporter", "export")', string
+				);
+
+				let errorMessage;
+				try {
+					JSON.parse(string);
+				} catch (err) {
+					errorMessage = err.message;
+				}
+
+				await assert.rejects(
+					instancePlugin.onMetrics(),
+					new Error(`Error parsing statistics JSON: ${errorMessage}, content "${string}"`)
+				);
+			});
 		});
 	});
 });
