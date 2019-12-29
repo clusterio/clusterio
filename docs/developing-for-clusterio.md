@@ -180,24 +180,46 @@ for some pointers if you get stuck.
 Clusterio Modules
 -----------------
 
-Modules are primarily used by plugins to inject code into Factorio
-games with the save patcher.  The save patcher puts modules into the
-`modules` folder of the Factorio save and adds code to `control.lua` to
+Modules are primarily used by plugins to inject code into Factorio games
+with the save patcher, though it's also possible to make stand alone
+modules that are loaded into the game if you don't need the capabilites
+of the plugin system.  The save patcher puts modules into the `modules`
+folder of the Factorio save and adds code to `control.lua` to
 load the modules by requiring it and passing the result of the require
 call to the `add_lib` function of the event_handler lib.  See the
 section on the [event_handler interface](#event_handler-interface) for a
-detailed description on how this works.
+detailed description on how the event_handler lib works.
+
+Stand alone modules are placed into the modules folder of Clusterio,
+plugin modules are located in the module folder of the plugin.  In
+either case a `module.json` file is required and has the following
+structure:
+
+```json
+{
+    "name": "my_module",
+    "load": ["foo.lua"]
+}
+```
+
+The following entries are supported in the module.json file:
+
+- `name`:
+    Name of the module, must match the folder the module is located in
+    for stand alone modules or the name of the plugin the module is
+    located in.
+- `load`:
+    Lua files to load with the `event_handler` lib.  They should be
+    specified as paths that's relative to the module and uses forward
+    slashes as directory sepparators.  Thus foo.lua will require a file
+    by that name and feed the result of that require to the event
+    handler lib.
 
 Because modules can be patched into an existing game you cannot rely on
 the `on_init` callback to be called in Clusterio Modules.  Nor can you
 rely on the `on_configuration_changed` callback, as this is not called
 when level code changes.  Instead you will have to initialize whatever
 global variable you need when you first use them.
-
-Currently any files in a folder named `lua` in a Clusterio plugin is
-assumed to be a module and will be patched into the save before starting
-up Factorio.  This will most likely change with the planned plugin
-restructuring.
 
 
 Clusterio Plugins

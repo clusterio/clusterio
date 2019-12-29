@@ -18,7 +18,8 @@ The basic file structure of a plugin is the following.
       +- instance.js
       +- test/
       |  +- plugin.js
-      +- lua/
+      +- module/
+         +- module.json
          +- plugin.lua
 
 The most important file is the `info.js` file.  Without it the plugin
@@ -69,6 +70,12 @@ The following properties are recognized:
 **messages**:
     Object with link messages definitions for this plugin.  See guide
     for [defining link messages](#defining-link-messages) below.
+
+The optional module folder contains a Clusterio module that will be
+patched into the save when the plugin is enabled.  See the section on
+[Clusterio Modules](developing-for-clusterio.md) in the Developing for
+Clusterio document.  The only restriction imposed on modules embedded
+into plugins is that they must be named the same as the plugin.
 
 While there is no standard for how to organize a plugin it's recommended
 to put the MasterPlugin class definition into master.js and the

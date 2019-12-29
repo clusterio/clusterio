@@ -155,37 +155,56 @@ class Instance extends link.Link{
 		// Patch save with lua modules from plugins
 		console.log("Clusterio | Patching save");
 
-		// For now it's assumed that all files in the lua folder of a plugin is
-		// to be patched in under the name of the plugin and loaded for all
-		// plugins that are not disabled.  This will most likely change in the
-		// future when the plugin refactor is done.
-		let modules = [];
-		for (let pluginName of await fs.readdir("plugins")) {
-			let pluginDir = path.join("plugins", pluginName);
-			if (await fs.pathExists(path.join(pluginDir, "DISABLED"))) {
+		// Find plugin modules to patch in
+		let modules = new Map();
+		for (let pluginName of this.plugins.keys()) {
+			let modulePath = path.join('plugins', pluginName, 'module');
+			if (!await fs.pathExists(modulePath)) {
 				continue;
 			}
 
-			if (!await fs.pathExists(path.join(pluginDir, "lua"))) {
-				continue;
+			let moduleJsonPath = path.join(modulePath, 'module.json');
+			if (!await fs.pathExists(moduleJsonPath)) {
+				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
 
-			let module = {
-				"name": pluginName,
-				"files": [],
-			};
-
-			for (let fileName of await fs.readdir(path.join(pluginDir, "lua"))) {
-				module["files"].push({
-					path: pluginName+"/"+fileName,
-					content: await fs.readFile(path.join(pluginDir, "lua", fileName)),
-					load: true,
-				});
+			let module = JSON.parse(await fs.readFile(moduleJsonPath));
+			if (module.name !== pluginName) {
+				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
 
-			modules.push(module);
+			module = Object.assign({
+				path: modulePath,
+				load: [],
+			}, module);
+			modules.set(module.name, module);
 		}
-		await factorio.patch(this.path("saves", saveName), modules);
+
+		for (let entry of await fs.readdir('modules', { withFileTypes: true })) {
+			if (entry.isDirectory()) {
+				if (modules.has(entry.name)) {
+					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
+				}
+
+				let moduleJsonPath = path.join('modules', entry.name, 'module.json');
+				if (!await fs.pathExists(moduleJsonPath)) {
+					throw new Error(`Module ${entry.name} is missing module.json`);
+				}
+
+				let module = JSON.parse(await fs.readFile(moduleJsonPath));
+				if (module.name !== entry.name) {
+					throw new Error(`Expected name of module ${entry.name} to match the directory name`);
+				}
+
+				module = Object.assign({
+					path: path.join('modules', entry.name),
+					load: [],
+				}, module);
+				modules.set(module.name, module);
+			}
+		}
+
+		await factorio.patch(this.path("saves", saveName), modules.values());
 
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
@@ -805,6 +824,7 @@ async function startClient() {
 
 	await fs.ensureDir(slaveConfig.instanceDirectory);
 	await fs.ensureDir("sharedMods");
+	await fs.ensureDir("modules");
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.

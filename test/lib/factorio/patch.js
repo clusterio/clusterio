@@ -59,7 +59,7 @@ describe("lib/factorio", function() {
 			'event_handler.add_lib(require("foo"))',
 			'',
 			'-- Clusterio modules',
-			'event_handler.add_lib(require("modules/bar"))',
+			'event_handler.add_lib(require("modules/spam/bar"))',
 			'',
 		].join('\n');
 		let patchInfo = {
