@@ -16,6 +16,7 @@ Contents
     - [Resolving Merge Conflicts](#resolving-merge-conflicts)
     - [Updating Your GitHub Fork](#updating-your-github-fork)
 - [Changelog](#changelog)
+- [Supported Node.js and Factorio Version](#supported-node.js-and-factorio-version)
 - [Code Style](#code-style)
     - [Indenting](#indenting)
     - [Line Length](#line-length)
@@ -153,6 +154,22 @@ There's a [Changelog](../CHANGELOG.md) in the root of the project.  If
 you make changes that are visible to users of this project you should
 add an entry to the changelog describing what has changed.  The format
 of this log should be self explanatory, please follow it carefully.
+
+
+Supported Node.js and Factorio Versions
+---------------------------------------
+
+Clusterio run on Node.js v12 and up, v11.13.0+ and v10.16.0+, make sure
+to check that the Node builtin API's and npm packages you use are
+supported on these versions.  The Travis CI tests are runned on whatever
+version of Node.js v10 is the default, which at the time of writing is
+v10.18.0.
+
+For Factorio Clusterio 2.0 aims to support version 0.17.69 and up,
+including the latest experimental release.  It's recommended that you
+use the lua API reference for 0.17.69, as there's no information on what
+version Factorio API's were introduced in.  The Travis CI tests are
+runned against latest experimental release.
 
 
 Code Style
