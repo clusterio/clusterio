@@ -27,12 +27,14 @@ describe("Integration of lib/factorio/patch", function() {
 				dependencies: {},
 				path: "test/file/modules/test",
 				load: [],
+				require: [],
 			}, {
 				name: "subdir",
 				version: "1.0.0",
 				dependencies: {},
 				path: "test/file/modules/subdir",
 				load: [],
+				require: [],
 			}]);
 
 			let zip = await jszip.loadAsync(await fs.readFile(savePath));

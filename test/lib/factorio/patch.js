@@ -60,6 +60,7 @@ describe("lib/factorio", function() {
 			'',
 			'-- Clusterio modules',
 			'event_handler.add_lib(require("modules/spam/bar"))',
+			'require("modules/spam/spam")',
 			'',
 		].join('\n');
 		let patchInfo = {
@@ -67,8 +68,9 @@ describe("lib/factorio", function() {
 			"modules": [{
 				"name": "spam",
 				"files": [
-					{ "path": "bar.lua", "load": true },
-					{ "path": "excluded.lua", "load": false },
+					{ "path": "bar.lua", "load": true, "require": false },
+					{ "path": "spam.lua", "load": false, "require": true },
+					{ "path": "excluded.lua", "load": false, "require": false },
 				],
 			}],
 		};

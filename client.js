@@ -178,6 +178,7 @@ class Instance extends link.Link{
 				dependencies: {},
 				path: modulePath,
 				load: [],
+				require: [],
 			}, module);
 			modules.set(module.name, module);
 		}
@@ -204,6 +205,7 @@ class Instance extends link.Link{
 					path: path.join('modules', entry.name),
 					dependencies: {},
 					load: [],
+					require: [],
 				}, module);
 				modules.set(module.name, module);
 			}

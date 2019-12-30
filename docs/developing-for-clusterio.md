@@ -184,11 +184,9 @@ Modules are primarily used by plugins to inject code into Factorio games
 with the save patcher, though it's also possible to make stand alone
 modules that are loaded into the game if you don't need the capabilites
 of the plugin system.  The save patcher puts modules into the `modules`
-folder of the Factorio save and adds code to `control.lua` to
-load the modules by requiring it and passing the result of the require
-call to the `add_lib` function of the event_handler lib.  See the
-section on the [event_handler interface](#event_handler-interface) for a
-detailed description on how the event_handler lib works.
+folder of the Factorio save and adds code to `control.lua` to load the
+module according to the `load` and `require` options to the module.json
+file.
 
 Stand alone modules are placed into the modules folder of Clusterio,
 plugin modules are located in the module folder of the plugin.  In
@@ -202,6 +200,7 @@ structure:
     "dependencies": {
         "foo": ">=0.4.2"
     },
+    "require": ["bar.lua"],
     "load": ["foo.lua"]
 }
 ```
@@ -225,12 +224,35 @@ The following entries are supported in the module.json file:
     supported.  The events for dependencies is invoked before the events
     of the dependent, and starting an instance will fail if the
     dependencies cannot be satisfied.
+- `require`:
+    Lua files to require in `control.lua`.  This should only really be
+    needed if you want to make a global function available for use in
+    Lua commands.  The paths are relative to the module's own folder and
+    should be specified using forward slashes as directory sepparators
+    if it's located in a sub directory in the module.
 - `load`:
-    Lua files to load with the `event_handler` lib.  They should be
-    specified as paths that's relative to the module and uses forward
-    slashes as directory sepparators.  Thus foo.lua will require a file
-    by that name and feed the result of that require to the event
-    handler lib.
+    Lua files to load with the `event_handler` lib, the result of
+    requiring the file will be passed to the `add_lib` function of the
+    `event_handler` lib in `control.lua`.  See the section on the
+    [event_handler interface](#event_handler-interface) for a detailed
+    description on how the `event_handler` lib works.  The paths are
+    relative to the module's own folder and should be specified using
+    forward slashes as directory sepparators if it's located in a sub
+    directory in the module.
+
+It's recommended to use the new style of defining modules in Lua, as
+well as avoid the use of global variables as much as possible.  This
+means always declearing your top level variables and functions local and
+exporting only the things you need in other files.  You can require
+other files in your module by prefixing your require paths with
+`modules/your_module_name/`.  It's also possible to require files from
+other modules this way too.
+
+The global variables and data stored in the global table is shared by
+all Clusterio modules as well as the scenario, so it's important that
+you use unique names.  It's recommended to prefix the global variables
+and data in the global table that your module has with the name of your
+module.
 
 Because modules can be patched into an existing game you cannot rely on
 the `on_init` callback to be called in Clusterio Modules.  Nor can you
