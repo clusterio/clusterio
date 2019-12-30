@@ -23,10 +23,14 @@ describe("Integration of lib/factorio/patch", function() {
 			slowTest(this);
 			await factorio.patch(savePath, [{
 				name: "test",
+				version: "1.0.0",
+				dependencies: {},
 				path: "test/file/modules/test",
 				load: [],
 			}, {
 				name: "subdir",
+				version: "1.0.0",
+				dependencies: {},
 				path: "test/file/modules/subdir",
 				load: [],
 			}]);

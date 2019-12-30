@@ -198,6 +198,10 @@ structure:
 ```json
 {
     "name": "my_module",
+    "version": "1.2.0",
+    "dependencies": {
+        "foo": ">=0.4.2"
+    },
     "load": ["foo.lua"]
 }
 ```
@@ -208,6 +212,19 @@ The following entries are supported in the module.json file:
     Name of the module, must match the folder the module is located in
     for stand alone modules or the name of the plugin the module is
     located in.
+- `version`:
+    Version of the module.  Must be compatible with [Semantic Versioning
+    2.0.0](https://semver.org/).  In plugin modules this defaults to the
+    version of the plugin otherwise it's required.
+- `dependencies`:
+    Optional mapping of modules this module depends on and their
+    version.  In the example `>=0.4.2` means that the foo module must be
+    at least version 0.4.2.  See the [Ranges
+    syntax](https://www.npmjs.com/package/semver#ranges) of the
+    node-semver package for a full description of what operators are
+    supported.  The events for dependencies is invoked before the events
+    of the dependent, and starting an instance will fail if the
+    dependencies cannot be satisfied.
 - `load`:
     Lua files to load with the `event_handler` lib.  They should be
     specified as paths that's relative to the module and uses forward

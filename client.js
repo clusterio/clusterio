@@ -157,7 +157,7 @@ class Instance extends link.Link{
 
 		// Find plugin modules to patch in
 		let modules = new Map();
-		for (let pluginName of this.plugins.keys()) {
+		for (let [pluginName, plugin] of this.plugins) {
 			let modulePath = path.join('plugins', pluginName, 'module');
 			if (!await fs.pathExists(modulePath)) {
 				continue;
@@ -174,12 +174,16 @@ class Instance extends link.Link{
 			}
 
 			module = Object.assign({
+				version: plugin.info.version,
+				dependencies: {},
 				path: modulePath,
 				load: [],
 			}, module);
 			modules.set(module.name, module);
 		}
 
+		// Find stand alone modules to load
+		// XXX for now it's assumed all available modules should be loaded.
 		for (let entry of await fs.readdir('modules', { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
@@ -198,13 +202,14 @@ class Instance extends link.Link{
 
 				module = Object.assign({
 					path: path.join('modules', entry.name),
+					dependencies: {},
 					load: [],
 				}, module);
 				modules.set(module.name, module);
 			}
 		}
 
-		await factorio.patch(this.path("saves", saveName), modules.values());
+		await factorio.patch(this.path("saves", saveName), [...modules.values()]);
 
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");

@@ -52,7 +52,9 @@ The following properties are recognized:
     Brief description of what the plugin does.  Currently not used.
 
 **version**:
-    Semver compatible version string of the plugin.  Currently not used.
+    Semver compatible version string of the plugin.  Currently only
+    servers as the default for the Clusterio module embedded in the
+    plugin, if any.
 
 **instanceEntrypoint**:
     Path to a Node.js module relative to the plugin directory which
