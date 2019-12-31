@@ -34,7 +34,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 	async chatEventHandler(message) {
 		// TODO check if cross server chat is enabled
 		let content = `[${message.data.instance_name}] ${removeTags(message.data.content)}`;
-		await this.instance.server.sendRcon(`/sc game.print('${escapeLuaString(content)}')`);
+		await this.instance.server.sendRcon(`/sc game.print('${escapeLuaString(content)}')`, true);
 	}
 
 	async onOutput(output) {
