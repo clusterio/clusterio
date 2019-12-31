@@ -215,18 +215,6 @@ class Instance extends link.Link{
 
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
-			// Temporary measure for backwards compatibility
-			let compatConfig = {
-				id: this.config.id,
-				unique: this.config.id,
-				name: this.config.name,
-
-				// FactorioServer.init may have generated a random port or password
-				// if they were null.
-				factorioPort: this.server.gamePort,
-				clientPort: this.server.rconPort,
-				clientPassword: this.server.rconPassword,
-			}
 		});
 
 		await this.server.start(saveName);
