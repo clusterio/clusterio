@@ -1,0 +1,6 @@
+{
+    "name": "clusterio",
+    "version": "0.0.0",
+    "dependencies": {},
+    "load": ["impl.lua"]
+}

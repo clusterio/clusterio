@@ -19,30 +19,6 @@ describe("global_chat plugin", function() {
 		});
 	});
 
-	describe("escapeLuaSrting", function() {
-		it("should escape backslashes", function() {
-			assert.equal(instance._escapeLuaString("\\a"), "\\\\a");
-		});
-		it("should escape double quotes", function() {
-			assert.equal(instance._escapeLuaString('"a"'), '\\"a\\"');
-		});
-		it("should escape single quotes", function() {
-			assert.equal(instance._escapeLuaString("'a'"), "\\'a\\'");
-		});
-		it("should escape nul bytes", function() {
-			assert.equal(instance._escapeLuaString("a\0b"), "a\\0b");
-		});
-		it("should escape newlines", function() {
-			assert.equal(instance._escapeLuaString("a\nb"), "a\\nb");
-		});
-		it("should escape carriage return", function() {
-			assert.equal(instance._escapeLuaString("a\rb"), "a\\rb");
-		});
-		it("should escape all combined", function() {
-			assert.equal(instance._escapeLuaString("a\\b\"c'd\0e\nf\rg"), "a\\\\b\\\"c\\'d\\0e\\nf\\rg");
-		});
-	});
-
 	describe("class InstancePlugin", function() {
 		let instancePlugin;
 

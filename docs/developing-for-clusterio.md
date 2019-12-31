@@ -223,7 +223,8 @@ The following entries are supported in the module.json file:
     node-semver package for a full description of what operators are
     supported.  The events for dependencies is invoked before the events
     of the dependent, and starting an instance will fail if the
-    dependencies cannot be satisfied.
+    dependencies cannot be satisfied.  If not specified it will default
+    to depending on `clusterio`.
 - `require`:
     Lua files to require in `control.lua`.  This should only really be
     needed if you want to make a global function available for use in

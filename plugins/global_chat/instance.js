@@ -1,4 +1,5 @@
 const plugin = require("lib/plugin");
+const luaTools = require("lib/luaTools");
 
 
 /**
@@ -6,20 +7,6 @@ const plugin = require("lib/plugin");
  */
 function removeTags(content) {
 	return content.replace(/(\[gps=-?\d+,-?\d+\]|\[train=\d+\])/g, "");
-}
-
-/**
- * Escapes a string for inclusion into a lua string
- */
-function escapeLuaString(content) {
-	return content
-		.replace(/\\/g, "\\\\")
-		.replace(/"/g, '\\"')
-		.replace(/'/g, "\\'")
-		.replace(/\0/g, "\\0")
-		.replace(/\n/g, "\\n")
-		.replace(/\r/g, "\\r")
-	;
 }
 
 class InstancePlugin extends plugin.BaseInstancePlugin {
@@ -34,7 +21,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 	async chatEventHandler(message) {
 		// TODO check if cross server chat is enabled
 		let content = `[${message.data.instance_name}] ${removeTags(message.data.content)}`;
-		await this.instance.server.sendRcon(`/sc game.print('${escapeLuaString(content)}')`, true);
+		await this.instance.server.sendRcon(`/sc game.print('${luaTools.escapeString(content)}')`, true);
 	}
 
 	async onOutput(output) {
@@ -54,5 +41,4 @@ module.exports = {
 
 	// For testing only
 	_removeTags: removeTags,
-	_escapeLuaString: escapeLuaString,
 }

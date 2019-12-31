@@ -11,6 +11,7 @@ const link = require("lib/link");
 const plugin = require("lib/plugin");
 const errors = require("lib/errors");
 const prometheus = require('lib/prometheus');
+const luaTools = require('lib/luaTools');
 
 
 /**
@@ -175,7 +176,7 @@ class Instance extends link.Link{
 
 			module = Object.assign({
 				version: plugin.info.version,
-				dependencies: {},
+				dependencies: { 'clusterio': '*' },
 				path: modulePath,
 				load: [],
 				require: [],
@@ -203,7 +204,7 @@ class Instance extends link.Link{
 
 				module = Object.assign({
 					path: path.join('modules', entry.name),
-					dependencies: {},
+					dependencies: { 'clusterio': '*' },
 					load: [],
 					require: [],
 				}, module);
@@ -218,10 +219,20 @@ class Instance extends link.Link{
 		});
 
 		await this.server.start(saveName);
+		await this.server.disableAchievements()
+		await this.updateInstanceData();
 
 		for (let pluginInstance of this.plugins.values()) {
 			await pluginInstance.onStart();
 		}
+	}
+
+	/**
+	 * Update instance information on the Factorio side
+	 */
+	async updateInstanceData() {
+		let name = luaTools.escapeString(this.config.name);
+		await this.server.sendRcon(`/sc clusterio_private.update_instance(${this.config.id}, "${name}")`, true);
 	}
 
 	/**
