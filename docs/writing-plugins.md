@@ -6,6 +6,18 @@ Node.js.  The plugin classes have pre-defined hooks that are called
 during various stages and operations of Clusterio.
 
 
+Contents
+--------
+
+- [Plugin Structure](#plugin-structure)
+- [Defining the plugin class](#defining-the-plugin-class)
+- [Defining Link Messages](#defining-link-messages)
+    - [Defining Events](#defining-events)
+    - [Defining Requests](#defining-requests)
+- [Sending Link Messages](#sending-link-messages)
+- [Collecting Statistics](#collecting-statistics)
+
+
 Plugin Structure
 ----------------
 
