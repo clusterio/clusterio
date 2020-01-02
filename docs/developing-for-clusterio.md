@@ -12,7 +12,6 @@ Contents
 - [Factorio Mods](#factorio-mods)
 - [Factorio Scenarios](#factorio-scenarios)
     - [event_handler interface](#event_handler-interface)
-- [Communicating between Clusterio and Factorio](#communicating-between-clusterio-and-factorio)
 - [Communicating with Clusterio](#communicating-with-clusterio)
 - [Clusterio Modules](#clusterio-modules)
 - [Clusterio Plugins](#clusterio-plugins)
@@ -156,15 +155,6 @@ event_handler to break and should therefore not be used.
 
 There's also the `add_libraries` function exported by event_handler,
 which accepts a table and calls `add_lib` for each value in the table.
-
-
-Communicating between Clusterio and Factorio
---------------------------------------------
-
-There is currently no standard interface for moving data between
-Clusterio and Factorio.  It's mostly a mix of RCON commands initiated
-from Clusterio plugins and writing out files with `game.write_file` that
-is picked up and parsed by plugins.
 
 
 Communicating with Clusterio

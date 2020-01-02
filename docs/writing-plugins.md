@@ -11,6 +11,7 @@ Contents
 
 - [Plugin Structure](#plugin-structure)
 - [Defining the plugin class](#defining-the-plugin-class)
+- [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
     - [Defining Events](#defining-events)
     - [Defining Requests](#defining-requests)
@@ -139,6 +140,74 @@ one forward all arguments to be the base class.  E.g.:
 The arguments passed may change, and attempting to modify them will
 result in unpredicatable behaviour.  The async init method always called
 immediatly after the constructor so there's little reason to do this.
+
+
+Communicating with Factorio
+---------------------------
+
+For pushing data into Factorio there's RCON which lets you send
+arbitrary Lua command to invoke whatever code you want in the game.
+This is done by calling sendRcon method on the instance's server object.
+For example:
+
+    async onStart() {
+        let response = await this.instance.server.sendRcon(
+            "/sc rcon.print('data')"
+        );
+
+        // Do stuff with response.
+    }
+
+
+Because data into Factorio is streamed at a rate of 3-6 kB/s by default
+it is recommended to avoid sending large commands as much as possible,
+and to strip down the data on the ones you send to only what's strictly
+necessary.  You can have lua code injected into the game via the module
+system and call that from RCON to avoid having to send code through the
+commands.
+
+For getting data out from Factorio there's both RCON and the `send_json`
+API of the Clusterio module.  Returning data via RCON is prefered if the
+action is initiated from the Node.js side.  The `send_json` API allows
+sending JSON payloads on channels that plugins can listen to.  From a
+plugin you listen for an event named ipc-channel_name in order to get
+data sent by `send_json`.  For example in the plugin code:
+
+    async init() {
+        this.server.on('ipc-my_plugin_foo', content =>
+            this.handleFoo(content).catch(err => console.log(
+                "Error handling foo:", foo
+            ))
+        );
+    }
+
+    async handleFoo(content) {
+        // Do stuff with content
+    }
+
+And then in the module for the plugin:
+
+    local clusterio_api = require('modules/clusterio/api')
+
+    -- inside some event handler
+    clusterio_api.send('my_plugin_foo', { data = 123 })
+
+It's recommended to either use the plugin name as the channel name or to
+prefix the channel name with the name of the plugin if you need multiple
+channels.  It's also important to catch any errors that might occur as
+they will otherwise be propogated to the instance code and kill the
+server.
+
+Data out from Factorio does not have the same limits as data into
+Factorio, RCON responses can be in 100kB range without causing issues,
+and payloads to the `send_json` API can be in the 4MB range provided the
+server has a fast enough storage system.
+
+**Note:** both `send_json` and RCON can operate out of order.  For
+`send_json` it's possible that payloads greater than 4kB are received
+after payloads that was sent at a later point in time.  For RCON,
+commands longer than 50 characters may end up being executed after
+shorter commands sent after it.
 
 
 Defining Link Messages
