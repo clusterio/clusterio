@@ -1,4 +1,4 @@
 {
     "name": "statistics_exporter",
-    "load": ["export.lua"]
+    "require": ["export.lua"]
 }

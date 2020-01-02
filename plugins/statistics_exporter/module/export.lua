@@ -5,7 +5,8 @@ local statistics = {
     "entity_build_count_statistics",
 }
 
-local function export()
+statistics_exporter = {}
+function statistics_exporter.export()
     local stats = {
         game_tick = game.tick,
         player_count = #game.connected_players,
@@ -31,9 +32,3 @@ local function export()
 
     rcon.print(game.table_to_json(stats))
 end
-
-return {
-    add_remote_interface = function()
-        remote.add_interface("statistics_exporter", { export = export })
-    end
-}
