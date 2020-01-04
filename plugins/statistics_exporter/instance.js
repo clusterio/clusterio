@@ -23,7 +23,12 @@ const instanceGameFlowStatistics = new Gauge(
 class InstancePlugin extends plugin.BaseInstancePlugin {
 	async onMetrics() {
 		let string = await this.instance.server.sendRcon('/sc remote.call("statistics_exporter", "export")');
-		let stats =  JSON.parse(string);
+		let stats;
+		try {
+			stats = JSON.parse(string);
+		} catch (err) {
+			throw new Error(`Error parsing statistics JSON: ${err.message}, content "${string}"`);
+		}
 
 		let instanceId = this.instance.config.id;
 		instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
