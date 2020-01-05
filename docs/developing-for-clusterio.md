@@ -14,6 +14,7 @@ Contents
     - [event_handler interface](#event_handler-interface)
 - [Communicating with Clusterio](#communicating-with-clusterio)
 - [Clusterio Modules](#clusterio-modules)
+    - [Clusterio Module API](#clusterio-module-api)
 - [Clusterio Plugins](#clusterio-plugins)
 
 
@@ -188,6 +189,7 @@ structure:
     "name": "my_module",
     "version": "1.2.0",
     "dependencies": {
+        "clusterio": "*",
         "foo": ">=0.4.2"
     },
     "require": ["bar.lua"],
@@ -248,8 +250,21 @@ module.
 Because modules can be patched into an existing game you cannot rely on
 the `on_init` callback to be called in Clusterio Modules.  Nor can you
 rely on the `on_configuration_changed` callback, as this is not called
-when level code changes.  Instead you will have to initialize whatever
-global variable you need when you first use them.
+when level code changes.  The `clusterio` module provides the custom
+`on_server_startup` event that can be used as a substitute, see the next
+section.
+
+
+### Clusterio Module API
+
+There's a builtin clusterio module that provides some tools for getting
+instance info and communicating to plugins, script events to listen for
+and a Factorio remote call API.  The available interfaces is documented
+in [modules/clusterio/api.lua](modules/clusterio/api.lua).  To use this
+API from another module, require it using something along the lines of
+`local clusterio_api = require("modules/clusterio/api")`.  Make sure to
+add `clusterio` as a dependency in your module.json if you use the
+dependency entry in it.
 
 
 Clusterio Plugins

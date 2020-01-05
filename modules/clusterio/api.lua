@@ -10,6 +10,18 @@ api.events = {
     --   instance_id: The id of the instance.
     --   instance_name: the name of the instance.
     on_instance_updated = script.generate_event_name(),
+
+    -- Raised when the server is starting up
+    -- This event serves as the stand-in for the on_init and
+    -- on_configuration_changed events for modules.  It is invoked as early
+    -- as possible, before most but not all other events, every time the
+    -- server is started up.
+
+    -- Use this event to initialize and and/or migrate the data structures
+    -- you need.  Keep in mind that Clusterio can switch from any version of
+    -- your module to any version of your module so it should be able to
+    -- handle both forwards and backwards migrations.
+    on_server_startup = script.generate_event_name(),
 }
 
 -- Send a table as json to Clusterio
@@ -50,4 +62,3 @@ end
 
 
 return api
-

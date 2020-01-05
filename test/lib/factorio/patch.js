@@ -52,6 +52,7 @@ describe("lib/factorio", function() {
 		let reference = [
 			'-- Auto generated scenario module loader created by Clusterio',
 			'-- Modifications to this file will be lost when loaded in Clusterio',
+			'clusterio_patch_number = 1',
 			'',
 			'local event_handler = require("event_handler")',
 			'',
@@ -64,6 +65,7 @@ describe("lib/factorio", function() {
 			'',
 		].join('\n');
 		let patchInfo = {
+			"patch_number": 1,
 			"scenario": { "modules": ["foo"] },
 			"modules": [{
 				"name": "spam",

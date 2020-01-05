@@ -190,7 +190,7 @@ And then in the module for the plugin:
     local clusterio_api = require('modules/clusterio/api')
 
     -- inside some event handler
-    clusterio_api.send('my_plugin_foo', { data = 123 })
+    clusterio_api.send_json('my_plugin_foo', { data = 123 })
 
 It's recommended to either use the plugin name as the channel name or to
 prefix the channel name with the name of the plugin if you need multiple
