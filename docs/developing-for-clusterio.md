@@ -12,9 +12,9 @@ Contents
 - [Factorio Mods](#factorio-mods)
 - [Factorio Scenarios](#factorio-scenarios)
     - [event_handler interface](#event_handler-interface)
-- [Communicating between Clusterio and Factorio](#communicating-between-clusterio-and-factorio)
 - [Communicating with Clusterio](#communicating-with-clusterio)
 - [Clusterio Modules](#clusterio-modules)
+    - [Clusterio Module API](#clusterio-module-api)
 - [Clusterio Plugins](#clusterio-plugins)
 
 
@@ -158,15 +158,6 @@ There's also the `add_libraries` function exported by event_handler,
 which accepts a table and calls `add_lib` for each value in the table.
 
 
-Communicating between Clusterio and Factorio
---------------------------------------------
-
-There is currently no standard interface for moving data between
-Clusterio and Factorio.  It's mostly a mix of RCON commands initiated
-from Clusterio plugins and writing out files with `game.write_file` that
-is picked up and parsed by plugins.
-
-
 Communicating with Clusterio
 ----------------------------
 
@@ -180,24 +171,100 @@ for some pointers if you get stuck.
 Clusterio Modules
 -----------------
 
-Modules are primarily used by plugins to inject code into Factorio
-games with the save patcher.  The save patcher puts modules into the
-`modules` folder of the Factorio save and adds code to `control.lua` to
-load the modules by requiring it and passing the result of the require
-call to the `add_lib` function of the event_handler lib.  See the
-section on the [event_handler interface](#event_handler-interface) for a
-detailed description on how this works.
+Modules are primarily used by plugins to inject code into Factorio games
+with the save patcher, though it's also possible to make stand alone
+modules that are loaded into the game if you don't need the capabilites
+of the plugin system.  The save patcher puts modules into the `modules`
+folder of the Factorio save and adds code to `control.lua` to load the
+module according to the `load` and `require` options to the module.json
+file.
+
+Stand alone modules are placed into the modules folder of Clusterio,
+plugin modules are located in the module folder of the plugin.  In
+either case a `module.json` file is required and has the following
+structure:
+
+```json
+{
+    "name": "my_module",
+    "version": "1.2.0",
+    "dependencies": {
+        "clusterio": "*",
+        "foo": ">=0.4.2"
+    },
+    "require": ["bar.lua"],
+    "load": ["foo.lua"]
+}
+```
+
+The following entries are supported in the module.json file:
+
+- `name`:
+    Name of the module, must match the folder the module is located in
+    for stand alone modules or the name of the plugin the module is
+    located in.
+- `version`:
+    Version of the module.  Must be compatible with [Semantic Versioning
+    2.0.0](https://semver.org/).  In plugin modules this defaults to the
+    version of the plugin otherwise it's required.
+- `dependencies`:
+    Optional mapping of modules this module depends on and their
+    version.  In the example `>=0.4.2` means that the foo module must be
+    at least version 0.4.2.  See the [Ranges
+    syntax](https://www.npmjs.com/package/semver#ranges) of the
+    node-semver package for a full description of what operators are
+    supported.  The events for dependencies is invoked before the events
+    of the dependent, and starting an instance will fail if the
+    dependencies cannot be satisfied.  If not specified it will default
+    to depending on `clusterio`.
+- `require`:
+    Lua files to require in `control.lua`.  This should only really be
+    needed if you want to make a global function available for use in
+    Lua commands.  The paths are relative to the module's own folder and
+    should be specified using forward slashes as directory sepparators
+    if it's located in a sub directory in the module.
+- `load`:
+    Lua files to load with the `event_handler` lib, the result of
+    requiring the file will be passed to the `add_lib` function of the
+    `event_handler` lib in `control.lua`.  See the section on the
+    [event_handler interface](#event_handler-interface) for a detailed
+    description on how the `event_handler` lib works.  The paths are
+    relative to the module's own folder and should be specified using
+    forward slashes as directory sepparators if it's located in a sub
+    directory in the module.
+
+It's recommended to use the new style of defining modules in Lua, as
+well as avoid the use of global variables as much as possible.  This
+means always declearing your top level variables and functions local and
+exporting only the things you need in other files.  You can require
+other files in your module by prefixing your require paths with
+`modules/your_module_name/`.  It's also possible to require files from
+other modules this way too.
+
+The global variables and data stored in the global table is shared by
+all Clusterio modules as well as the scenario, so it's important that
+you use unique names.  It's recommended to prefix the global variables
+and data in the global table that your module has with the name of your
+module.
 
 Because modules can be patched into an existing game you cannot rely on
 the `on_init` callback to be called in Clusterio Modules.  Nor can you
 rely on the `on_configuration_changed` callback, as this is not called
-when level code changes.  Instead you will have to initialize whatever
-global variable you need when you first use them.
+when level code changes.  The `clusterio` module provides the custom
+`on_server_startup` event that can be used as a substitute, see the next
+section.
 
-Currently any files in a folder named `lua` in a Clusterio plugin is
-assumed to be a module and will be patched into the save before starting
-up Factorio.  This will most likely change with the planned plugin
-restructuring.
+
+### Clusterio Module API
+
+There's a builtin clusterio module that provides some tools for getting
+instance info and communicating to plugins, script events to listen for
+and a Factorio remote call API.  The available interfaces is documented
+in [modules/clusterio/api.lua](modules/clusterio/api.lua).  To use this
+API from another module, require it using something along the lines of
+`local clusterio_api = require("modules/clusterio/api")`.  Make sure to
+add `clusterio` as a dependency in your module.json if you use the
+dependency entry in it.
 
 
 Clusterio Plugins

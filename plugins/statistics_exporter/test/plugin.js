@@ -16,7 +16,7 @@ describe("statistics_exporter plugin", function() {
 		describe(".onMetrics()", function() {
 			it("should record statistics", async function() {
 				instancePlugin.instance.server.rconCommandResults.set(
-					'/sc remote.call("statistics_exporter", "export")',
+					'/sc statistics_exporter.export()',
 					JSON.stringify({
 						game_tick: 100,
 						player_count: 3,
@@ -51,7 +51,7 @@ describe("statistics_exporter plugin", function() {
 			it("should pass on JSON parse errors", async function() {
 				let string = 'An error occured\n';
 				instancePlugin.instance.server.rconCommandResults.set(
-					'/sc remote.call("statistics_exporter", "export")', string
+					'/sc statistics_exporter.export()', string
 				);
 
 				let errorMessage;

@@ -11,6 +11,7 @@ const link = require("lib/link");
 const plugin = require("lib/plugin");
 const errors = require("lib/errors");
 const prometheus = require('lib/prometheus');
+const luaTools = require('lib/luaTools');
 
 
 /**
@@ -155,59 +156,83 @@ class Instance extends link.Link{
 		// Patch save with lua modules from plugins
 		console.log("Clusterio | Patching save");
 
-		// For now it's assumed that all files in the lua folder of a plugin is
-		// to be patched in under the name of the plugin and loaded for all
-		// plugins that are not disabled.  This will most likely change in the
-		// future when the plugin refactor is done.
-		let modules = [];
-		for (let pluginName of await fs.readdir("plugins")) {
-			let pluginDir = path.join("plugins", pluginName);
-			if (await fs.pathExists(path.join(pluginDir, "DISABLED"))) {
+		// Find plugin modules to patch in
+		let modules = new Map();
+		for (let [pluginName, plugin] of this.plugins) {
+			let modulePath = path.join('plugins', pluginName, 'module');
+			if (!await fs.pathExists(modulePath)) {
 				continue;
 			}
 
-			if (!await fs.pathExists(path.join(pluginDir, "lua"))) {
-				continue;
+			let moduleJsonPath = path.join(modulePath, 'module.json');
+			if (!await fs.pathExists(moduleJsonPath)) {
+				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
 
-			let module = {
-				"name": pluginName,
-				"files": [],
-			};
-
-			for (let fileName of await fs.readdir(path.join(pluginDir, "lua"))) {
-				module["files"].push({
-					path: pluginName+"/"+fileName,
-					content: await fs.readFile(path.join(pluginDir, "lua", fileName)),
-					load: true,
-				});
+			let module = JSON.parse(await fs.readFile(moduleJsonPath));
+			if (module.name !== pluginName) {
+				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
 
-			modules.push(module);
+			module = Object.assign({
+				version: plugin.info.version,
+				dependencies: { 'clusterio': '*' },
+				path: modulePath,
+				load: [],
+				require: [],
+			}, module);
+			modules.set(module.name, module);
 		}
-		await factorio.patch(this.path("saves", saveName), modules);
+
+		// Find stand alone modules to load
+		// XXX for now it's assumed all available modules should be loaded.
+		for (let entry of await fs.readdir('modules', { withFileTypes: true })) {
+			if (entry.isDirectory()) {
+				if (modules.has(entry.name)) {
+					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
+				}
+
+				let moduleJsonPath = path.join('modules', entry.name, 'module.json');
+				if (!await fs.pathExists(moduleJsonPath)) {
+					throw new Error(`Module ${entry.name} is missing module.json`);
+				}
+
+				let module = JSON.parse(await fs.readFile(moduleJsonPath));
+				if (module.name !== entry.name) {
+					throw new Error(`Expected name of module ${entry.name} to match the directory name`);
+				}
+
+				module = Object.assign({
+					path: path.join('modules', entry.name),
+					dependencies: { 'clusterio': '*' },
+					load: [],
+					require: [],
+				}, module);
+				modules.set(module.name, module);
+			}
+		}
+
+		await factorio.patch(this.path("saves", saveName), [...modules.values()]);
 
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
-			// Temporary measure for backwards compatibility
-			let compatConfig = {
-				id: this.config.id,
-				unique: this.config.id,
-				name: this.config.name,
-
-				// FactorioServer.init may have generated a random port or password
-				// if they were null.
-				factorioPort: this.server.gamePort,
-				clientPort: this.server.rconPort,
-				clientPassword: this.server.rconPassword,
-			}
 		});
 
 		await this.server.start(saveName);
+		await this.server.disableAchievements()
+		await this.updateInstanceData();
 
 		for (let pluginInstance of this.plugins.values()) {
 			await pluginInstance.onStart();
 		}
+	}
+
+	/**
+	 * Update instance information on the Factorio side
+	 */
+	async updateInstanceData() {
+		let name = luaTools.escapeString(this.config.name);
+		await this.server.sendRcon(`/sc clusterio_private.update_instance(${this.config.id}, "${name}")`, true);
 	}
 
 	/**
@@ -805,6 +830,7 @@ async function startClient() {
 
 	await fs.ensureDir(slaveConfig.instanceDirectory);
 	await fs.ensureDir("sharedMods");
+	await fs.ensureDir("modules");
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.

@@ -129,6 +129,13 @@ describe("Integration of lib/factorio/server", function() {
 				let result = await server.sendRcon("/sc rcon.print('success')");
 				assert.equal(result, 'success\n');
 			});
+			it("throws on non-empty response when enabled", async function() {
+				slowTest(this);
+				await assert.rejects(
+					server.sendRcon("/sc rcon.print('fail')", true),
+					new Error('Expected empty response but got "fail\n"')
+				);
+			});
 		});
 
 		describe(".stop()", function() {

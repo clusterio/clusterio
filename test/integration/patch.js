@@ -23,18 +23,29 @@ describe("Integration of lib/factorio/patch", function() {
 			slowTest(this);
 			await factorio.patch(savePath, [{
 				name: "test",
-				files: [{ path: "test.lua", content: "-- test" }]
+				version: "1.0.0",
+				dependencies: {},
+				path: "test/file/modules/test",
+				load: [],
+				require: [],
+			}, {
+				name: "subdir",
+				version: "1.0.0",
+				dependencies: {},
+				path: "test/file/modules/subdir",
+				load: [],
+				require: [],
 			}]);
 
 			let zip = await jszip.loadAsync(await fs.readFile(savePath));
-			let content = await zip.file("test/modules/test.lua").async("string");
-			assert.equal(content, "-- test");
+			assert.equal(await zip.file("test/modules/test/test.lua").async("string"), "-- test\n");
+			assert.equal(await zip.file("test/modules/subdir/dir/test.lua").async("string"), "-- test\n");
 		});
 		it("should remove old modules in a save", async function() {
 			slowTest(this);
-			await factorio.patch(savePath, [{ name: "test", files: [] }]);
+			await factorio.patch(savePath, []);
 			let zip = await jszip.loadAsync(await fs.readFile(savePath));
-			assert.equal(zip.file("test/modules/test.lua"), null);
+			assert.equal(zip.file("test/modules/test/test.lua"), null);
 		});
 	});
 });
