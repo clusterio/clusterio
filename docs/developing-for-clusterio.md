@@ -260,10 +260,10 @@ section.
 There's a builtin clusterio module that provides some tools for getting
 instance info and communicating to plugins, script events to listen for
 and a Factorio remote call API.  The available interfaces is documented
-in [modules/clusterio/api.lua](modules/clusterio/api.lua).  To use this
-API from another module, require it using something along the lines of
-`local clusterio_api = require("modules/clusterio/api")`.  Make sure to
-add `clusterio` as a dependency in your module.json if you use the
+in [modules/clusterio/api.lua](../modules/clusterio/api.lua).  To use
+this API from another module, require it using something along the lines
+of `local clusterio_api = require("modules/clusterio/api")`.  Make sure
+to add `clusterio` as a dependency in your module.json if you use the
 dependency entry in it.
 
 
