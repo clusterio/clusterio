@@ -116,10 +116,6 @@ Master and all slaves:
 
 downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
-Optional step (if you want to use pm2):
-
-    sudo npm install pm2 -g
-
 **Ubuntu with Docker**
 
 The Docker support for Clusterio is curently broken.  If you need it
@@ -199,10 +195,6 @@ Once you've completed the setup run the following command to start it
 up:
 
     node master run
-
-Or with pm2 (it's recommened to run it without pm2 first):
-
-    pm2 start master --name master
 
 
 ### Slaves
