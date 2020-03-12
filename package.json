@@ -69,6 +69,7 @@
   },
   "devDependencies": {
     "html5-validator": "^1.2.1",
+    "klaw": "^3.0.0",
     "mocha": "^6.2.0",
     "mocha-sinon": "^2.1.0",
     "mocha.parallel": "^0.15.5",
