@@ -53,7 +53,7 @@ class Instance extends link.Link{
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
-			if (!pluginInfo.instanceEntrypoint || this.config.group(pluginInfo.name).get("enabled")) {
+			if (!pluginInfo.instanceEntrypoint || !this.config.group(pluginInfo.name).get("enabled")) {
 				continue;
 			}
 
