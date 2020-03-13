@@ -408,8 +408,8 @@ The following properties are recognized by the Request constructor:
     Target to forward request to.  Can be either `'master'` to indicate
     a slave should forward it to the master server when receiving it
     from an instance or `'instance'` to indicate it should be forwarded
-    to the instances specified by the `instance_id` event property.
-    This works by using a default handler for the event at the links
+    to the instances specified by the `instance_id` request property.
+    This works by using a default handler for the request at the links
     that forward it.
 
 **requestProperties**:

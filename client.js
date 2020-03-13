@@ -358,6 +358,10 @@ class InstanceConnection extends link.Link {
 		}
 	}
 
+	async forwardRequestToMaster(message, request) {
+		return await request.send(this.slave, message.data);
+	}
+
 	async forwardEventToInstance(message, event) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
