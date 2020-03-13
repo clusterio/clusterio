@@ -670,13 +670,18 @@ async function loadPlugins(pluginInfos) {
 
 		let pluginLoadStarted = Date.now();
 		let MasterPlugin = plugin.BaseMasterPlugin;
-		if (pluginInfo.masterEntrypoint) {
-			({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
-		}
+		try {
+			if (pluginInfo.masterEntrypoint) {
+				({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
+			}
 
-		let masterPlugin = new MasterPlugin(pluginInfo);
-		await masterPlugin.init();
-		plugins.set(pluginInfo.name, masterPlugin);
+			let masterPlugin = new MasterPlugin(pluginInfo);
+			await masterPlugin.init();
+			plugins.set(pluginInfo.name, masterPlugin);
+
+		} catch (err) {
+			throw new errors.PluginError(pluginInfo.name, err)
+		}
 
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 		/*
