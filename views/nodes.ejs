@@ -17,27 +17,21 @@ for (let [id, slave] of locals.slaves) { %>
 			<div id="<%= id %>" class="slaveBox card mb-3">
 				<div class="card-body">
 					<h5 class="card-title"><a href='nodeDetails?instanceID=<%=id%>'>
-						<%= slave.instanceName %>
+						<%= slave.name %>
 					</a></h5>
 				</div>
 				<ul class="list-group list-group-flush">
 					<li class="list-group-item">ID: <%= id %></li>
-					<li class="list-group-item">Last seen: <%= moment(Number(slave.time)).format("DD.MM.YY, hh:mm") %></li>
-					<li class="list-group-item">Online players: <%= slave.playerCount %></li>
-					<li class="list-group-item">IP: <%= slave.publicIP %>:<%= slave.serverPort %></li>
-					<li class="list-group-item">Host: <%= slave.mac %></li>
 				</ul><%
-	for (let o in locals.masterPlugins) {
-		let plug = locals.masterPlugins[o];
+	for (let plug of locals.masterPlugins.values()) {
 		if (
-			plug.main
-			&& plug.main.ui
-			&& typeof plug.main.ui.slaveListing == "object"
-			&& Array.isArray(plug.main.ui.slaveListing)
+			plug
+			&& plug.ui
+			&& typeof plug.ui.slaveListing == "object"
+			&& Array.isArray(plug.ui.slaveListing)
 		) {
-			let slaveListingEntries = plug.main.ui.slaveListing;
-			for (let i in slaveListingEntries) {
-				let button = slaveListingEntries[i];
+			let slaveListingEntries = plug.ui.slaveListing;
+			for (let button of slaveListingEntries) {
 				if (button.getHtml && typeof button.getHtml == "function") { %>
 				<div class="plugin-link"><%- button.getHtml({slave}) %></div><%
 				}

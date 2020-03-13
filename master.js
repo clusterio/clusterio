@@ -67,12 +67,13 @@ app.use(compression());
 
 // dynamic HTML generations with EJS
 app.set('view engine', 'ejs');
-app.set('views', ['views', 'sharedPlugins']);
+app.set('views', ['views', 'plugins']);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
 	res.locals.res = res;
 	res.locals.req = req;
+	res.locals.masterPlugins = masterPlugins;
 	res.locals.slaves = db.slaves;
 	res.locals.moment = moment;
 	next();
