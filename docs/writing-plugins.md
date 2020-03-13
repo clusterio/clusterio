@@ -226,7 +226,7 @@ plugin you listen for an event named ipc-channel_name in order to get
 data sent by `send_json`.  For example in the plugin code:
 
     async init() {
-        this.server.on('ipc-my_plugin_foo', content =>
+        this.instance.server.on('ipc-my_plugin_foo', content =>
             this.handleFoo(content).catch(err => console.log(
                 "Error handling foo:", foo
             ))
@@ -478,7 +478,7 @@ accordingly, for example:
     );
 
     // Somewhere in the instance plugin code
-    barMetric.labels(String(this.config.id)).set(someValue);
+    barMetric.labels(String(this.instance.config.get("instance.id"))).set(someValue);
 
 Metrics are automatically registered to the default registry, and this
 default registry is automatically polled by the master server on slaves.

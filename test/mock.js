@@ -72,7 +72,10 @@ class MockInstance extends link.Link {
 		this.server = new MockServer();
 		this.name = "test";
 		this.config = {
-			id: 7357,
+			get: (name) => {
+				if (name === "instance.id") { return 7357 }
+				throw Error("Not implemented");
+			}
 		}
 	}
 }

@@ -30,7 +30,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 			throw new Error(`Error parsing statistics JSON: ${err.message}, content "${string}"`);
 		}
 
-		let instanceId = this.instance.config.id;
+		let instanceId = this.instance.config.get("instance.id");
 		instanceGameTicksTotal.labels(String(instanceId)).set(stats.game_tick);
 		instancePlayerCount.labels(String(instanceId)).set(stats.player_count);
 
