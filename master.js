@@ -675,7 +675,9 @@ async function loadPlugins(pluginInfos) {
 				({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
 			}
 
-			let masterPlugin = new MasterPlugin(pluginInfo);
+			let masterPlugin = new MasterPlugin(
+				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }
+			);
 			await masterPlugin.init();
 			plugins.set(pluginInfo.name, masterPlugin);
 
@@ -684,14 +686,6 @@ async function loadPlugins(pluginInfos) {
 		}
 
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
-		/*
-			main:new masterPlugin({
-			TODO?
-				config, socketio: io, express: app,
-				db,
-			}),
-			pluginConfig,
-		});*/
 	}
 	return plugins;
 }
