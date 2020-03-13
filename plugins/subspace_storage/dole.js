@@ -1,6 +1,18 @@
 const doleNN = require("./dole_nn_base")
 
-const Prometheus = require('prom-client');
+const prometheus = require("lib/prometheus");
+
+
+const prometheusNNDoleGauge = new prometheus.Gauge(
+	"clusterio_nn_dole_gauge",
+	"Current demand being supplied by Neural Network ; 1 means all demand covered, 0.5 means about half of each supply is covered, 0 means no items are given",
+	{ labels: ["resource"] }
+);
+const prometheusDoleFactorGauge = new prometheus.Gauge(
+	"clusterio_dole_factor_gauge",
+	"The current dole division factor for this resource",
+	{ labels: ["resource"] }
+);
 
 class neuralDole {
     
@@ -17,14 +29,9 @@ class neuralDole {
     }
     
     constructor({
-		items, gaugePrefix
+		items
     }){
         // Set some storage variables for the dole divider
-        this.prometheusNNDoleGauge = new Prometheus.Gauge({
-            name: gaugePrefix+'nn_dole_gauge',
-            help: 'Current demand being supplied by Neural Network ; 1 means all demand covered, 0.5 means about half of each supply is covered, 0 means no items are given',
-            labelNames: ["itemName"],
-        });
 		this.items = items
 		this.itemsLastTick = new Map(items._items)
         this.dole = {}
@@ -32,32 +39,26 @@ class neuralDole {
         this.lastRequest = {}
         this.stats=[]
 		this.debt= {}
+	}
+	doMagic() {
+		for (let [name, count] of this.items._items) {
+			let magicData = doleNN.Tick(
+				count,
+				this.dole[name],
+				this.itemsLastTick.get(name),
+				this.getRequestStats(name,5)
+			)
+			this.stats[name]=this.stats[name] || []
+			this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
+			if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
 
-        setInterval(()=>{
-			for (let [name, count] of this.items._items) {
-                let magicData = doleNN.Tick(
-                    count,
-                    this.dole[name],
-					this.itemsLastTick.get(name),
-                    this.getRequestStats(name,5)
-                )
-                this.stats[name]=this.stats[name] || []
-                this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
-                if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
-                
-                this.dole[name] = magicData[0]
-                // DONE handle magicData[1] for graphing for our users
-                this.prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
-            }
-			this.itemsLastTick = new Map(this.items._items)
-        }, 1000)
+			this.dole[name] = magicData[0]
+			// DONE handle magicData[1] for graphing for our users
+			prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
+		}
+		this.itemsLastTick = new Map(this.items._items)
     }
-    divider({
-        res,
-        object,
-		masterConfig,
-        prometheusImportGauge
-    }){
+    divider(object) {
         let magicData = doleNN.Dose(
             object.count, // numReq
 			this.items.getItemCount(object.name),
@@ -83,29 +84,18 @@ class neuralDole {
 
 		// Remove item from DB and send it
 		this.items.removeItem(object.name, magicData[0]);
-		if (masterConfig.get('log_item_transfers')) {
-			console.log("removed: " + object.name + " " + magicData[0] + " . " + this.items.getItemCount(object.name) + " and sent to " + object.instanceID + " | " + object.instanceName);
-		}
-		prometheusImportGauge.labels(object.instanceID, object.name).inc(Number(magicData[0]) || 0);
 
-		res.send({
-			name: object.name,
-			count: magicData[0],
-		})
+		return magicData[0];
     }
 }
 
 // If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 let _doleDivisionFactor = {};
 function doleDivider({
-	itemCount,
     object,
 	items,
-	masterConfig,
-    prometheusDoleFactorGauge,
-    prometheusImportGauge,
-    req,res,
 }){
+	let itemCount = items.getItemCount(object.name);
     const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
     const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
     
@@ -120,19 +110,15 @@ function doleDivider({
 	if (itemCount > object.count) {
         //If successful, increase dole
         _doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-		if (masterConfig.get('log_item_transfers')) {
-			console.log("removed: " + object.name + " " + object.count + " . " + itemCount + " and sent to " + object.instanceID + " | " + object.instanceName);
-		}
 		items.removeItem(object.name, object.count)
 
         prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
-        prometheusImportGauge.labels(object.instanceID, object.name).inc(object.count || 0);
-        res.send({count: object.count, name: object.name});
+        return object.count;
     } else {
         // if we didn't have enough, attempt giving out a smaller amount next time
         _doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
         prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
-        res.send({name:object.name, count:0});
+        return 0;
         //console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
     }
 }

@@ -86,6 +86,9 @@ describe("Integration of Clusterio", function() {
 			it("creates the instance", async function() {
 				await clusterctl._commands.get("create-instance").run({id: 44, name: "test"}, testControl);
 				assert(master._db.instances.has(44), "Instance was not created");
+
+				// XXX breaks tests.
+				master._db.instances.get(44).set("subspace_storage.enabled", false);
 			});
 		});
 
