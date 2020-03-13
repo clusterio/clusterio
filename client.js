@@ -567,14 +567,33 @@ class Slave extends link.Link {
 	}
 
 	async startInstanceRequestHandler(message, request) {
-		let instanceConnection = await this._connectInstance(message.data.instance_id);
-		return await request.send(instanceConnection, message.data);
+		let instanceId = message.data.instance_id;
+		let instanceConnection = await this._connectInstance(instanceId);
+		try {
+			return await request.send(instanceConnection, message.data);
+
+		} catch (err) {
+			await this.stopInstance(instanceId);
+			throw err;
+		}
 	}
 
 	async createSaveRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
-		await request.send(instanceConnection, message.data);
+		try {
+			await request.send(instanceConnection, message.data);
+			this.instanceConnections.delete(instanceId);
+
+		} catch (err) {
+			await this.stopInstance(instanceId);
+			throw err;
+		}
+	}
+
+	async stopInstance(instanceId) {
+		let instanceConnection = this.instanceConnections.get(instanceId);
+		await link.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
 		this.instanceConnections.delete(instanceId);
 	}
 
