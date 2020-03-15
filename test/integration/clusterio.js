@@ -89,6 +89,7 @@ describe("Integration of Clusterio", function() {
 
 				// XXX breaks tests.
 				master._db.instances.get(44).set("subspace_storage.enabled", false);
+				master._db.instances.get(44).set("research_sync.enabled", false);
 			});
 		});
 
