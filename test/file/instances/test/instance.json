@@ -1,0 +1,11 @@
+{
+    "groups": [
+        {
+            "name": "instance",
+            "fields": {
+                "id": 1,
+                "name": "test"
+            }
+        }
+    ]
+}

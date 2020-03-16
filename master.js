@@ -13,23 +13,21 @@ node master
 // const updater = require("./updater");
 // updater.update().then(console.log);
 
-// argument parsing
-const args = require('minimist')(process.argv.slice(2));
-
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const base64url = require('base64url');
 const moment = require("moment");
 const request = require("request");
 const setBlocking = require("set-blocking");
 const events = require("events");
+const yargs = require("yargs");
 const version = require("./package").version;
 
-// constants
-let config = {};
+// ugly globals
+let masterConfig;
+let masterConfigPath;
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -40,6 +38,7 @@ const link = require("lib/link");
 const errors = require("lib/errors");
 const plugin = require("lib/plugin");
 const prometheus = require("lib/prometheus");
+const config = require("lib/config");
 
 // homemade express middleware for token auth
 const authenticate = require("lib/authenticate");
@@ -160,15 +159,46 @@ async function loadMap(databaseDirectory, file) {
 	return await database.loadJsonArrayAsMap(databasePath);
 }
 
+async function loadInstances(databaseDirectory, file) {
+	let filePath = path.join(databaseDirectory, file);
+	console.log(`Loading ${filePath}`);
+
+	let instances = new Map();
+	try {
+		let serialized = JSON.parse(await fs.readFile(filePath));
+		for (let serializedConfig of serialized) {
+			let instanceConfig = new config.InstanceConfig();
+			await instanceConfig.load(serializedConfig);
+			instances.set(instanceConfig.get("instance.id"), instanceConfig);
+		}
+
+	} catch (err) {
+		if (err.code !== 'ENOENT') {
+			throw err;
+		}
+	}
+
+	return instances;
+}
+
 /**
  * Save Map to JSON file in the database directory.
  */
 async function saveMap(databaseDirectory, file, map) {
-	let databasePath = path.resolve(config.databaseDirectory, file);
+	let databasePath = path.resolve(databaseDirectory, file);
 	console.log(`Saving ${databasePath}`);
 	await database.saveMapAsJsonArray(databasePath, map);
 }
 
+async function saveInstances(databaseDirectory, file, instances) {
+	let filePath = path.join(databaseDirectory, file);
+	let serialized = [];
+	for (let instanceConfig of instances.values()) {
+		serialized.push(instanceConfig.serialize());
+	}
+
+	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
+}
 
 /**
  * Innitiate shutdown of master server
@@ -177,8 +207,11 @@ async function shutdown() {
 	console.log('Shutting down');
 	let exitStartTime = Date.now();
 	try {
-		await saveMap(config.databaseDirectory, "slaves.json", db.slaves);
-		await saveMap(config.databaseDirectory, "instances.json", db.instances);
+		console.log("Saving configs");
+		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
+
+		await saveMap(masterConfig.get('master.database_directory'), "slaves.json", db.slaves);
+		await saveInstances(masterConfig.get('master.database_directory'), "instances.json", db.instances);
 
 		for (let [pluginName, masterPlugin] of masterPlugins) {
 			let startTime = Date.now();
@@ -249,7 +282,7 @@ GET endpoint. Returns factorio's base locale as a JSON object.
 app.get("/api/getFactorioLocale", function(req,res){
 	endpointHitCounter.labels(req.route.path).inc();
 	if (!localeCache) {
-		factorio.getLocale(path.join(config.factorioDirectory, "data"), "en").then(locale => {
+		factorio.getLocale(path.join(masterConfig.get("master.factorio_directory"), "data"), "en").then(locale => {
 			localeCache = locale;
 			res.send(localeCache);
 		});
@@ -271,12 +304,17 @@ class BaseConnection extends link.Link {
 	}
 
 	async forwardRequestToInstance(message, request) {
-		let instance = db.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let connection = slaveConnections.get(instance.slaveId);
+		let slaveId = instanceConfig.get('instance.assigned_slave');
+		if (slaveId === null) {
+			throw new errors.RequestError("Instance is not assigned to a slave");
+		}
+
+		let connection = slaveConnections.get(slaveId);
 		if (!connection) {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
@@ -285,10 +323,13 @@ class BaseConnection extends link.Link {
 	}
 
 	async forwardEventToInstance(message, event) {
-		let instance = db.instance.get(message.data.instance_id);
-		if (!instance) { return; }
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) { return; }
 
-		let connection = slaveConnection.get(instance.slaveId);
+		let slaveId = instanceConfig.get('instance.assigned_slave');
+		if (slaveId === null) { return; }
+
+		let connection = slaveConnection.get(slaveId);
 		if (!connection) { return; }
 
 		event.send(connection, message.data);
@@ -339,37 +380,92 @@ class ControlConnection extends BaseConnection {
 
 	async listInstancesRequestHandler(message) {
 		let list = [];
-		for (let instance of db.instances.values()) {
+		for (let instanceConfig of db.instances.values()) {
 			list.push({
-				id: instance.id,
-				name: instance.name,
-				slave_id: instance.slaveId,
+				id: instanceConfig.get("instance.id"),
+				name: instanceConfig.get("instance.name"),
+				assigned_slave: instanceConfig.get("instance.assigned_slave"),
 			});
 		}
 		return { list };
 	}
 
 	// XXX should probably add a hook for slave reuqests?
-	async createInstanceCommandRequestHandler(message) {
-		let { slave_id, name } = message.data;
-		let connection = slaveConnections.get(slave_id);
-		if (!connection) {
-			throw new errors.RequestError("Slave is not connected");
+	async createInstanceRequestHandler(message) {
+		let instanceConfig = new config.InstanceConfig();
+		await instanceConfig.load(message.data.serialized_config);
+
+		let instanceId = instanceConfig.get("instance.id")
+		if (db.instances.has(instanceId)) {
+			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
+		}
+		db.instances.set(instanceId, instanceConfig);
+	}
+
+	async getInstanceConfigRequestHandler(message) {
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		await link.messages.createInstance.send(connection, {
-			id: Math.random() * 2**31 | 0, // TODO: add id option
-			options: {
-				'name': name,
-				'description': config.description,
-				'visibility': config.visibility,
-				'username': config.username,
-				'token': config.token,
-				'game_password': config.game_password,
-				'verify_user_identity': config.verify_user_identity,
-				'allow_commands': config.allow_commands,
-				'auto_pause': config.auto_pause,
+		return {
+			serialized_config: instanceConfig.serialize(),
+		}
+	}
+
+	async setInstanceConfigFieldRequestHandler(message) {
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+		}
+
+		if (message.data.field === "instance.assigned_slave") {
+			throw new errors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
+		}
+
+		if (message.data.field === "instance.id") {
+			// XXX is this worth implementing?  It's race condition galore.
+			throw new errors.RequestError("Setting instance.id is not supported");
+		}
+
+		instanceConfig.set(message.data.field, message.data.value);
+
+		// Push updated config to slave
+		let slaveId = instanceConfig.get('instance.assigned_slave');
+		if (slaveId) {
+			let connection = slaveConnections.get(slaveId);
+			if (connection) {
+				await link.messages.assignInstance.send(connection, {
+					instance_id: instanceConfig.get("instance.id"),
+					serialized_config: instanceConfig.serialize(),
+				});
 			}
+		}
+	}
+
+	async assignInstanceCommandRequestHandler(message, request) {
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+		}
+
+		// XXX: Should the instance be stopped if it's running on another slave?
+
+		let connection = slaveConnections.get(message.data.slave_id);
+		if (!connection) {
+			// The case of the slave not getting the assign instance message
+			// still have to be handled, so it's not a requirement that the
+			// target slave be connected to the master while doing the
+			// assignment, but it is IMHO a better user experience if this
+			// is the case.
+			throw new errors.RequestError("Target slave is not connected to the master server");
+		}
+
+		instanceConfig.set("instance.assigned_slave", message.data.slave_id)
+
+		return await link.messages.assignInstance.send(connection, {
+			instance_id: instanceConfig.get("instance.id"),
+			serialized_config: instanceConfig.serialize(),
 		});
 	}
 
@@ -407,18 +503,29 @@ class SlaveConnection extends BaseConnection {
 	}
 
 	async updateInstancesEventHandler(message) {
-		// Prune any instances previously had by the slave
-		for (let id of [...db.instances.keys()]) {
-			if (db.instances.get(id).slaveId === this._id) {
-				db.instances.delete(id);
+		// Push updated instance configs
+		for (let instanceConfig of db.instances.values()) {
+			if (instanceConfig.get("instance.assigned_slave") === this._id) {
+				await link.messages.assignInstance.send(this, {
+					instance_id: instanceConfig.get("instance.id"),
+					serialized_config: instanceConfig.serialize(),
+				});
 			}
 		}
 
+		// Assign instances the slave has but master does not
 		for (let instance of message.data.instances) {
-			db.instances.set(instance.id, {
-				id: instance.id,
-				name: instance.name,
-				slaveId: this._id,
+			let instanceConfig = new config.InstanceConfig();
+			await instanceConfig.load(instance.serialized_config);
+			if (db.instances.has(instanceConfig.get("instance.id"))) {
+				continue;
+			}
+
+			instanceConfig.set("instance.assigned_slave", this._id);
+			db.instances.set(instanceConfig.get("instance.id"), instanceConfig);
+			await link.messages.assignInstance.send(this, {
+				instance_id: instanceConfig.get("instance.id"),
+				serialized_config: instanceConfig.serialize(),
 			});
 		}
 	}
@@ -548,16 +655,16 @@ io.on('connection', function (socket) {
 
 // handle plugins on the master
 var masterPlugins = new Map();
-async function pluginManagement(){
+async function pluginManagement(pluginInfos) {
 	let startPluginLoad = Date.now();
-	masterPlugins = await loadPlugins();
+	masterPlugins = await loadPlugins(pluginInfos);
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 }
 
-async function loadPlugins() {
+async function loadPlugins(pluginInfos) {
 	let plugins = new Map();
-	for (pluginInfo of await plugin.getPluginInfos("plugins")) {
-		if (!pluginInfo.enabled) {
+	for (pluginInfo of pluginInfos) {
+		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
 			continue;
 		}
 
@@ -604,6 +711,10 @@ function listen(server, ...args) {
 	});
 }
 
+function _setConfig(config) {
+	masterConfig = config;
+}
+
 async function startServer() {
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
@@ -612,25 +723,54 @@ async function startServer() {
 	// add better stack traces on promise rejection
 	process.on('unhandledRejection', r => console.log(r));
 
-	console.log(`Requiring config from ${args.config || './config'}`);
-	config = require(args.config || './config');
+	// argument parsing
+	let args = yargs
+		.scriptName("master")
+		.usage("$0 <command> [options]")
+		.option("config", {
+			nargs: 1,
+			describe: "master config file to use",
+			default: "config-master.json",
+			type: "string",
+		})
+		.command("config", "Manage Master config", config.configCommand)
+		.command("run", "Run master server")
+		.demandCommand(1, "You need to specify a command to run")
+		.strict()
+		.argv
+	;
 
-	/** Sync */
-	function randomStringAsBase64Url(size) {
-	  return base64url(crypto.randomBytes(size));
+	console.log("Loading Plugin info");
+	let pluginInfos = await plugin.loadPluginInfos("plugins")
+	config.registerPluginConfigGroups(pluginInfos);
+	config.finalizeConfigs();
+
+	masterConfigPath = args.config;
+	console.log(`Loading config from ${masterConfigPath}`);
+	masterConfig = new config.MasterConfig();
+	try {
+		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
+
+	} catch (err) {
+		if (err.code === 'ENOENT') {
+			console.log("Config not found, initializing new config");
+			await masterConfig.init();
+
+		} else {
+			throw err;
+		}
 	}
 
-	if (!fs.existsSync("secret-api-token.txt")) {
-		config.masterAuthSecret = randomStringAsBase64Url(256);
-		fs.writeFileSync("config.json",JSON.stringify(config, null, 4));
-		fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
-			expiresIn: 86400*365 // expires in 1 year
-		}));
-		console.log("Generated new master authentication private key!");
-		process.exit(0);
+	let command = args._[0];
+	if (command === "config") {
+		await config.handleConfigCommand(args, masterConfig, masterConfigPath);
+		return;
 	}
+
+	// If we get here the command was run
+
 	// write an auth token to file
-	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, config.masterAuthSecret, {
+	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, masterConfig.get('master.auth_secret'), {
 		expiresIn: 86400*365 // expires in 1 year
 	}));
 
@@ -653,33 +793,34 @@ async function startServer() {
 		process.exit(1);
 	});
 
-	config.databaseDirectory = args.databaseDirectory || config.databaseDirectory || "./database";
-	await fs.ensureDir(config.databaseDirectory);
+	await fs.ensureDir(masterConfig.get('master.database_directory'));
 
-	db.slaves = await loadMap(config.databaseDirectory, "slaves.json");
-	db.instances = await loadMap(config.databaseDirectory, "instances.json");
+	db.slaves = await loadMap(masterConfig.get('master.database_directory'), "slaves.json");
+	db.instances = await loadInstances(masterConfig.get('master.database_directory'), "instances.json");
 
-	authenticate.setAuthSecret(config.masterAuthSecret);
+	authenticate.setAuthSecret(masterConfig.get('master.auth_secret'));
 
 	// Make sure we're actually going to listen on a port
-	let httpPort = args.masterPort || config.masterPort;
-	let httpsPort = args.sslPort || config.sslPort;
+	let httpPort = masterConfig.get('master.http_port');
+	let httpsPort = masterConfig.get('master.https_port');
 	if (!httpPort && !httpsPort) {
-		console.error("Error: at least one of httpPort and sslPort must be configured");
+		console.error("Error: at least one of http_port and https_port must be configured");
 		process.exit(1);
 	}
 
+	let tls_cert = masterConfig.get('master.tls_certificate');
+	let tls_key = masterConfig.get('master.tls_private_key');
 	// Create a self signed certificate if the certificate files doesn't exist
-	if (httpsPort && !await fs.exists(config.sslCert) && !await fs.exists(config.sslPrivKey)) {
+	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
 		await generateSSLcert({
-			sslCertPath: config.sslCert,
-			sslPrivKeyPath: config.sslPrivKey,
+			sslCertPath: tls_cert,
+			sslPrivKeyPath: tls_key,
 			doLogging: true,
 		});
 	}
 
 	// Load plugins
-	await pluginManagement();
+	await pluginManagement(pluginInfos);
 
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
@@ -692,8 +833,8 @@ async function startServer() {
 	if (httpsPort) {
 		let certificate, privateKey;
 		try {
-			certificate = await fs.readFile(config.sslCert);
-			privateKey = await fs.readFile(config.sslPrivKey);
+			certificate = await fs.readFile(tls_cert);
+			privateKey = await fs.readFile(tls_key);
 
 		} catch (err) {
 			throw new errors.StartupError(
@@ -719,7 +860,7 @@ module.exports = {
 
 	// For testing only
 	_db: db,
-	_config: config,
+	_setConfig,
 	_SocketIOServerConnector: SocketIOServerConnector,
 	_controlConnections: controlConnections,
 	_ControlConnection: ControlConnection,

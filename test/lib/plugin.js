@@ -34,12 +34,11 @@ describe("lib/plugin", function() {
 		})
 	});
 
-	describe("getPluginInfos()", function() {
+	describe("loadPluginInfos()", function() {
 		let baseDir = path.join('test', 'temp', 'plugin');
 		let emptyDir = path.join(baseDir, 'emptyDir');
 		let emptyPlugin = path.join(baseDir, 'emptyPlugin');
 		let testPlugin = path.join(baseDir, 'testPlugin');
-		let disabledPlugin = path.join(baseDir, 'disabledPlugin');
 		let brokenPlugin = path.join(baseDir, 'brokenPlugin');
 		let invalidPlugin = path.join(baseDir, 'invalidPlugin');
 		before(async function() {
@@ -54,46 +53,32 @@ describe("lib/plugin", function() {
 			}
 
 			await writePlugin(testPlugin, 'test');
-			await writePlugin(disabledPlugin, 'disabled');
-			await fs.outputFile(path.join(disabledPlugin, 'disabled', 'DISABLED'), "");
 			await writePlugin(brokenPlugin, 'broken');
 			await fs.outputFile(path.join(brokenPlugin, 'broken', 'info.js'), "Syntax Error");
 			await writePlugin(invalidPlugin, 'invalid', 'wrong');
 		});
 
 		it("should return an empty array for an empty directory", async function() {
-			assert.deepEqual(await plugin.getPluginInfos(emptyDir), []);
+			assert.deepEqual(await plugin.loadPluginInfos(emptyDir), []);
 		});
 		it("should ignore plugin dirs without info module", async function() {
-			assert.deepEqual(await plugin.getPluginInfos(emptyPlugin), []);
+			assert.deepEqual(await plugin.loadPluginInfos(emptyPlugin), []);
 		});
 		it("should discover test plugin", async function() {
 			assert.deepEqual(
-				await plugin.getPluginInfos(testPlugin),
-				[{ name: 'test', enabled: true }]
-			);
-		});
-		it("should discover disabled plugin", async function() {
-			assert.deepEqual(
-				await plugin.getPluginInfos(disabledPlugin),
-				[{ name: 'disabled', enabled: false }]
-			);
-		});
-		it("should discover disabled plugin", async function() {
-			assert.deepEqual(
-				await plugin.getPluginInfos(disabledPlugin),
-				[{ name: 'disabled', enabled: false }]
+				await plugin.loadPluginInfos(testPlugin),
+				[{ name: 'test' }]
 			);
 		});
 		it("should reject on broken plugin", async function() {
 			await assert.rejects(
-				plugin.getPluginInfos(brokenPlugin),
+				plugin.loadPluginInfos(brokenPlugin),
 				{ message: "PluginError: Unexpected identifier" }
 			);
 		});
 		it("should reject on invalid plugin", async function() {
 			await assert.rejects(
-				plugin.getPluginInfos(invalidPlugin),
+				plugin.loadPluginInfos(invalidPlugin),
 				{ message: `Plugin dir ${invalidPlugin}/invalid does not match the name of the plugin (wrong)` }
 			);
 		});

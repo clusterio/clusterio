@@ -4,6 +4,7 @@ const path = require("path");
 
 const link = require("lib/link");
 const plugin = require("lib/plugin");
+const config = require("lib/config");
 const master = require("../../master");
 const client = require("../../client");
 const clusterctl = require("../../clusterctl");
@@ -29,23 +30,21 @@ describe("Integration of Clusterio", function() {
 		test.timeout(20000);
 	}
 
+	async function createInstanceConfig(id, name, assignedSlave) {
+		let instanceConfig = new config.InstanceConfig()
+		await instanceConfig.init();
+		instanceConfig.set("instance.id", id);
+		instanceConfig.set("instance.name", name);
+		instanceConfig.set("instance.assigned_slave", assignedSlave);
+		return instanceConfig;
+	}
+
 	before(async function() {
 		master._db.slaves = new Map();
 		master._db.instances = new Map([
-			[11, { id: 11, name: "foo", slaveId: 4 }],
-			[21, { id: 21, name: "bar", slaveId: 5 }],
+			[11, await createInstanceConfig(11, "foo", 4)],
+			[21, await createInstanceConfig(21, "bar", 5)],
 		]);
-
-		Object.assign(master._config, {
-			description: "test",
-			visibility: { public: false, lan: false },
-			username: "test",
-			token: "",
-			game_password: "",
-			verify_user_identity: false,
-			allow_commands: "admins-only",
-			auto_pause: false,
-		});
 
 		let [controlClient, controlServer] = link.VirtualConnector.makePair();
 		testControl = new clusterctl._Control(controlClient);
@@ -54,16 +53,19 @@ describe("Integration of Clusterio", function() {
 
 		await fs.remove(instancesDir);
 		await fs.ensureDir(instancesDir)
+
+		let slaveConfig = new config.SlaveConfig();
+		await slaveConfig.init();
+		slaveConfig.set("slave.id", 4);
+		slaveConfig.set("slave.name", "slave");
+		slaveConfig.set("slave.instances_directory", instancesDir);
+		slaveConfig.set("slave.factorio_directory", "factorio");
+		slaveConfig.set("slave.master_url", "http://invalid");
+		slaveConfig.set("slave.master_token", "invalid");
+		slaveConfig.set("slave.public_address", "invalid");
+
 		let [slaveClient, slaveServer] = link.VirtualConnector.makePair();
-		testSlave = new client._Slave(slaveClient, {
-			id: 4,
-			name: "slave",
-			instanceDirectory: instancesDir,
-			factorioDirectory: "factorio",
-			masterURL: "http://invalid",
-			masterAuthToken: "invalid",
-			publicIP: "invalid",
-		}, await plugin.getPluginInfos("plugins"));
+		testSlave = new client._Slave(slaveClient, slaveConfig, await plugin.loadPluginInfos("plugins"));
 		testSlaveConnection = new master._SlaveConnection({ agent: "test", version, name: "slave", id: 4}, slaveServer);
 		master._slaveConnections.set(4, testSlaveConnection);
 	});
@@ -82,7 +84,14 @@ describe("Integration of Clusterio", function() {
 
 		describe("create-instances", function() {
 			it("creates the instance", async function() {
-				await clusterctl._commands.get("create-instance").run({name: "test", slave: "slave"}, testControl);
+				await clusterctl._commands.get("create-instance").run({id: 44, name: "test"}, testControl);
+				assert(master._db.instances.has(44), "Instance was not created");
+			});
+		});
+
+		describe("assign-instance", function() {
+			it("creates the instance", async function() {
+				await clusterctl._commands.get("assign-instance").run({instance: "test", slave: "slave"}, testControl);
 				assert(await fs.exists(path.join(instancesDir, "test")), "Instance was not created");
 			});
 		});

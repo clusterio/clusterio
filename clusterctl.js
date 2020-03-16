@@ -8,6 +8,7 @@ const chalk = require("chalk");
 
 const link = require("lib/link");
 const errors = require("lib/errors");
+const config = require("lib/config");
 
 
 /**
@@ -45,7 +46,7 @@ function formatOutputColored(output) {
 }
 
 /**
- * Represens a command that can be runned by clusterctl
+ * Represents a command that can be runned by clusterctl
  */
 class Command {
 	constructor({ definition, handler }) {
@@ -69,16 +70,16 @@ class Command {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param link - link to master server to query instance on.
- * @param instance - string with name or id of instance.
+ * @param client - link to master server to query instance on.
+ * @param instanceName - string with name or id of instance.
  * @returns {number} instance ID.
  */
-async function resolveInstance(control, instanceName) {
+async function resolveInstance(client, instanceName) {
 	let instanceId;
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
-		let response = await link.messages.listInstances.send(control);
+		let response = await link.messages.listInstances.send(client);
 		for (let instance of response.list) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
@@ -92,6 +93,37 @@ async function resolveInstance(control, instanceName) {
 	}
 
 	return instanceId;
+}
+
+/**
+ * Resolve a string into a slave ID
+ *
+ * Resolves a string with either an slave name or an id into an integer with
+ * the slave ID.
+ *
+ * @param client - link to master server to query slave on.
+ * @param slaveName - string with name or id of slave.
+ * @returns {number} slave ID.
+ */
+async function resolveSlave(client, slaveName) {
+	let slaveId;
+	if (/^-?\d+$/.test(slaveName)) {
+		slaveId = parseInt(slaveName, 10);
+	} else {
+		let response = await link.messages.listSlaves.send(client);
+		for (let slave of response.list) {
+			if (slave.name === slaveName) {
+				slaveId = slave.id;
+				break;
+			}
+		}
+
+		if (slaveId === undefined) {
+			throw new errors.CommandError(`No slave named ${slaveName}`);
+		}
+	}
+
+	return slaveId;
 }
 
 let commands = [];
@@ -113,30 +145,88 @@ commands.push(new Command({
 
 commands.push(new Command({
 	definition: ['create-instance', "Create an instance", (yargs) => {
-		yargs.options({
-			'name': { describe: "Name of the instance", nargs: 1, type: 'string', demandOption: true },
-			'slave': { describe: "Slave to create on", nargs: 1, type: 'string', demandOption: true },
+		// XXX TODO: set any specific options?
+		yargs.option('name', {
+			type: "string",
+			nargs: 1,
+			describe: "Instance name",
+			group: "Instance Config:",
+		});
+		yargs.option('id', {
+			type: "number",
+			nargs: 1,
+			describe: "Instance ID",
+			group: "Instance Config:",
+		});
+		yargs.option('base', {
+			type: "boolean",
+			nargs: 0,
+			describe: "Specify this is a base config",
+			group: "Instance Config:"
 		});
 	}],
 	handler: async function(args, control) {
-		let slaveId;
-		if (/^-?\d+$/.test(args.slave)) {
-			slaveId = parseInt(args.slave, 10);
-		} else {
-			let response = await link.messages.listSlaves.send(control);
-			for (let slave of response.list) {
-				if (slave.name === args.slave) {
-					slaveId = slave.id;
-					break;
-				}
-			}
+		let instanceConfig = new config.InstanceConfig();
+		await instanceConfig.init();
+		if (args.id) {
+			instanceConfig.set("instance.id", args.id);
+		}
+		if (args.name) {
+			instanceConfig.set("instance.name", args.name);
+		}
+		let serialized_config = instanceConfig.serialize();
+		let response = await link.messages.createInstance.send(control, { serialized_config });
+	},
+}));
 
-			if (slaveId === undefined) {
-				throw new errors.CommandError(`No slave named ${args.slave}`);
+commands.push(new Command({
+	definition: ["list-instance-config", "List configuration for an instance", (yargs) => {
+		yargs.option({
+			"instance": { describe: "Instance to list config for", nargs: 1, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		let response = await link.messages.getInstanceConfig.send(control, { instance_id: instanceId });
+
+		for (let group of response.serialized_config.groups) {
+			for (let [name, value] of Object.entries(group.fields)) {
+				console.log(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
 		}
-		let response = await link.messages.createInstanceCommand.send(control, {
-			name: args.name,
+	},
+}));
+
+commands.push(new Command({
+	definition: ["set-instance-config", "Set field in instance config", (yargs) => {
+		yargs.option({
+			"instance": { describe: "Instance to set config on", nargs: 1, type: "string", demandOption: true },
+			"field": { describe: "Field to set", nargs: 1, type: "string", demandOption: true },
+			"value": { describe: "Value to set", nargs: 1, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.messages.setInstanceConfigField.send(control, {
+			instance_id: instanceId,
+			field: args.field,
+			value: args.value,
+		});
+	},
+}));
+
+commands.push(new Command({
+	definition: ['assign-instance', "Assign instance to a slave", (yargs) => {
+		yargs.options({
+			'instance': { describe: "Instance to assign", nargs: 1, type: 'string', demandOption: true },
+			'slave': { describe: "Slave to assign to", nargs: 1, type: 'string', demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		let slaveId = await resolveSlave(control, args.slave);
+		await link.messages.assignInstanceCommand.send(control, {
+			instance_id: instanceId,
 			slave_id: slaveId,
 		});
 	},
@@ -256,20 +346,24 @@ class Control extends link.Link {
 	}
 }
 
-async function findCredentials() {
+async function findCredentials(controlConfig) {
 	// Try looking in the default master config location
 	try {
-		let masterConfig = JSON.parse(await fs.readFile("config.json"));
-		let token = jwt.sign({ id: "api" }, masterConfig.masterAuthSecret, { expiresIn: 600 });
+		let masterConfig = new config.MasterConfig();
+		await masterConfig.load(JSON.parse(await fs.readFile("config-master.json")));
+
+		let token = jwt.sign({ id: "api" }, masterConfig.get("master.auth_secret"), { expiresIn: 600 });
+		controlConfig.set("control.master_token", token);
 
 		let url;
-		if (masterConfig.sslPort) {
-			url = `https://localhost:${masterConfig.sslPort}`;
+		if (masterConfig.get("master.https_port")) {
+			url = `https://localhost:${masterConfig.get("master.https_port")}`;
 		} else {
-			url = `http://localhost:${masterConfig.masterPort}`;
+			url = `http://localhost:${masterConfig.get("master.http_port")}`;
 		}
+		controlConfig.set("control.master_url", url);
 
-		return { url, token };
+		return;
 
 	} catch (err) {
 		if (err.code !== "ENOENT") {
@@ -282,11 +376,12 @@ async function findCredentials() {
 	// authorizations, meaning that you cannot use a slave token to control
 	// the cluster.
 	try {
-		let slaveConfig = JSON.parse(await fs.readFile("config-slave.json"));
-		return {
-			url: slaveConfig.masterURL,
-			token: slaveConfig.masterAuthToken,
-		}
+		let slaveConfig = new config.SlaveConfig();
+		await slaveConfig.load(JSON.parse(await fs.readFile("config-slave.json")));
+
+		controlConfig.set("control.master_token", slaveConfig.get("slave.master_token"));
+		controlConfig.set("control.master_url", slaveConfig.get("slave.master_url"));
+		return;
 
 	} catch (err) {
 		if (err.code !== "ENOENT") {
@@ -296,6 +391,27 @@ async function findCredentials() {
 
 	throw new errors.StartupError("Couldn't find credentials to connect to the master server with");
 }
+
+
+class ControlGroup extends config.ConfigGroup {}
+ControlGroup.groupName = "control";
+ControlGroup.define({
+	name: "master_url",
+	description: "URL to connect to the master server at",
+	type: "string",
+	optional: true,
+});
+ControlGroup.define({
+	name: "master_token",
+	description: "Token to authenticate to master server with.",
+	type: "string",
+	optional: true,
+});
+ControlGroup.finalize();
+
+class ControlConfig extends config.Config { }
+ControlConfig.registerGroup(ControlGroup);
+ControlConfig.finalize();
 
 
 async function startControl() {
@@ -309,19 +425,8 @@ async function startControl() {
 			defaultDescription: "auto",
 			type: 'string',
 		})
-		.command('create-config', "Create control config", (yargs) => {
-			yargs.options({
-				'url': { describe: "Master URL", nargs: 1, type: 'string', default: "http://localhost:8080/" },
-				'token': { describe: "Master token", nargs: 1, type: 'string', demandOption: true },
-			});
-		})
-		.command('edit-config', "Edit control config", (yargs) => {
-			yargs.options({
-				'url': { describe: "Set master URL", nargs: 1, type: 'string' },
-				'token': { describe: "Set master token", nargs: 1, type: 'string' },
-			});
-		})
-		.command('show-config', "Show control config")
+		.command("control-config", "Manage Control config", config.configCommand)
+		.wrap(yargs.terminalWidth())
 	;
 
 	for (let command of commands.values()) {
@@ -333,40 +438,37 @@ async function startControl() {
 		.argv
 	;
 
-	let commandName = args._[0];
-	if (commandName === "create-config") {
-		await fs.outputFile(args.config, JSON.stringify({
-			url: args.url,
-			token: args.token,
-		}, null, 4), { flag: 'wx' });
-		return;
+	config.finalizeConfigs();
 
-	} else if (commandName === "edit-config") {
-		let controlConfig = JSON.parse(await fs.readFile(args.config));
-		if ('url' in args) controlConfig.url = args.url;
-		if ('token' in args) controlConfig.token = args.token;
-		await fs.outputFile(args.config, JSON.stringify(controlConfig, null, 4));
-		return;
-
-	} else if (commandName === "show-config") {
-		let controlConfig = JSON.parse(await fs.readFile(args.config));
-		console.log(controlConfig);
-		return;
-	}
-
-	// The remaining commands require connecting to the master server.
-	let controlConfig;
+	console.log(`Loading config from ${args.config}`);
+	let controlConfig = new ControlConfig();
 	try {
-		controlConfig = JSON.parse(await fs.readFile(args.config));
+		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
+
 	} catch (err) {
-		if (err.code === "ENOENT") {
-			controlConfig = await findCredentials();
+		if (err.code === 'ENOENT') {
+			console.log("Config not found, initializing new config");
+			await controlConfig.init();
+
 		} else {
 			throw err;
 		}
 	}
 
-	let controlConnector = new ControlConnector(controlConfig.url, controlConfig.token);
+	let commandName = args._[0];
+	if (commandName === "control-config") {
+		await config.handleConfigCommand(args, controlConfig, args.config);
+		return;
+	}
+
+	// The remaining commands require connecting to the master server.
+	if (!controlConfig.get("control.master_url") || !controlConfig.get("control.master_token")) {
+		await findCredentials(controlConfig);
+	}
+
+	let controlConnector = new ControlConnector(
+		controlConfig.get("control.master_url"), controlConfig.get("control.master_token")
+	);
 	let control = new Control(controlConnector);
 	await controlConnector.connect();
 
@@ -386,7 +488,7 @@ async function startControl() {
 				process.exitCode = 1;
 
 			} else {
-				control.close("error");
+				controlConnector.close("error");
 				throw err;
 			}
 		}

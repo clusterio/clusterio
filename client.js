@@ -12,6 +12,7 @@ const plugin = require("lib/plugin");
 const errors = require("lib/errors");
 const prometheus = require('lib/prometheus');
 const luaTools = require('lib/luaTools');
+const config = require('lib/config');
 
 
 /**
@@ -24,20 +25,12 @@ class Instance extends link.Link{
 		this._dir = dir;
 
 		this.plugins = new Map();
-
-		// This is expected to change with the config system rewrite
-		this.config = {
-			id: instanceConfig.id,
-			name: instanceConfig.name,
-			gamePort: instanceConfig.factorioPort,
-			rconPort: instanceConfig.clientPort,
-			rconPassword: instanceConfig.clientPassword,
-		}
+		this.config = instanceConfig;
 
 		let serverOptions = {
-			gamePort: this.config.gamePort,
-			rconPort: this.config.rconPort,
-			rconPassword: this.config.rconPassword,
+			gamePort: this.config.get('factorio.game_port'),
+			rconPort: this.config.get('factorio.rcon_port'),
+			rconPassword: this.config.get('factorio.rcon_password'),
 		};
 
 		this.server = new factorio.FactorioServer(
@@ -45,7 +38,7 @@ class Instance extends link.Link{
 		);
 
 		this.server.on('output', (output) => {
-			link.messages.instanceOutput.send(this, { instance_id: this.config.id, output })
+			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
 
 			for (let [name, plugin] of this.plugins) {
 				plugin.onOutput(output).catch(err => {
@@ -60,7 +53,7 @@ class Instance extends link.Link{
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
-			if (!pluginInfo.enabled || !pluginInfo.instanceEntrypoint) {
+			if (!pluginInfo.instanceEntrypoint || this.config.group(pluginInfo.name).get("enabled")) {
 				continue;
 			}
 
@@ -77,6 +70,30 @@ class Instance extends link.Link{
 	}
 
 	/**
+	 * Write the server-settings.json file
+	 *
+	 * Generate the server-settings.json file from the example file in the
+	 * data directory and override any settings configured in the instance's
+	 * factorio_settings config entry.
+	 */
+	async writeServerSettings() {
+		let serverSettings = await this.server.exampleSettings();
+		let overrides = this.config.get('factorio.settings');
+
+		for (let [key, value] of Object.entries(overrides)) {
+			if (!Object.hasOwnProperty.call(serverSettings, key)) {
+				console.log(`Warning: Server settings does not have the property '${key}'`);
+			}
+			serverSettings[key] = value;
+		}
+
+		await fs.writeFile(
+			this.server.writePath("server-settings.json"),
+			JSON.stringify(serverSettings, null, 4)
+		);
+	}
+
+	/**
 	 * Creates a new empty instance directory
 	 *
 	 * Creates the neccessary files for starting up a new instance into the
@@ -89,56 +106,17 @@ class Instance extends link.Link{
 	 * @param {String} factorioDir - Path to factorio installation.
 	 * @param {Object} options - Options for new instance.
 	 */
-	static async create(id, instanceDir, factorioDir, options) {
-		let instanceConfig = {
-			id,
-			name: options.name,
-			factorioPort:  null,
-			clientPort:  null,
-			clientPassword: null,
-		}
-
+	static async create(instanceConfig, instanceDir, factorioDir) {
 		console.log(`Clusterio | Creating ${instanceDir}`);
 		await fs.ensureDir(instanceDir);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
-
-		// save instance config
-		await fs.outputFile(path.join(instanceDir, "config.json"), JSON.stringify(instanceConfig, null, 4));
-
-		let serverSettings = await factorio.FactorioServer.exampleSettings(path.join(factorioDir, "data"));
-		let gameName = "Clusterio instance: " + options.name;
-		if (options.username) {
-			gameName = options.username + "'s clusterio " + options.name;
-		}
-
-		let overrides = {
-			"name": gameName,
-			"description": options.description,
-			"tags": ["clusterio"],
-			"visibility": options.visibility,
-			"username": options.username,
-			"token": options.token,
-			"game_password": options.game_password,
-			"require_user_verification": options.verify_user_identity,
-			"allow_commands": options.allow_commands,
-			"auto_pause": options.auto_pause,
-		};
-
-		for (let [key, value] of Object.entries(overrides)) {
-			if (!Object.hasOwnProperty.call(serverSettings, key)) {
-				throw Error(`Expected server settings to have a ${key} property`);
-			}
-			serverSettings[key] = value;
-		}
-
-		await fs.writeFile(
-			path.join(instanceDir, "server-settings.json"),
-			JSON.stringify(serverSettings, null, 4)
-		);
 	}
 
 	async start(saveName, slaveConfig, socket) {
+		console.log("Clusterio | Writing server-settings.json");
+		await this.writeServerSettings();
+
 		console.log("Clusterio | Rotating old logs...");
 		// clean old log file to avoid crash
 		try{
@@ -231,8 +209,9 @@ class Instance extends link.Link{
 	 * Update instance information on the Factorio side
 	 */
 	async updateInstanceData() {
-		let name = luaTools.escapeString(this.config.name);
-		await this.server.sendRcon(`/sc clusterio_private.update_instance(${this.config.id}, "${name}")`, true);
+		let name = luaTools.escapeString(this.config.get("instance.name"));
+		let id = this.config.get("instance.id");
+		await this.server.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
 	}
 
 	/**
@@ -254,7 +233,7 @@ class Instance extends link.Link{
 				collector instanceof prometheus.ValueCollector
 				&& collector.metric.labels.includes('instance_id')
 			) {
-				collector.removeAll({ instance_id: String(this.config.id) });
+				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
 		}
 	}
@@ -288,6 +267,9 @@ class Instance extends link.Link{
 	}
 
 	async createSaveRequestHandler() {
+		console.log("Clusterio | Writing server-settings.json");
+		await this.writeServerSettings();
+
 		console.log("Creating save .....");
 
 		await this.server.create("world");
@@ -309,7 +291,7 @@ class Instance extends link.Link{
 	 * This should not be used for filesystem paths.  See .path() for that.
 	 */
 	get name() {
-		return this.config.name;
+		return this.config.get("instance.name");
 	}
 
 	/**
@@ -330,7 +312,7 @@ class Instance extends link.Link{
  *
  * Looks through all sub-dirs of the provided directory for valid
  * instance definitions and returns a mapping of instance id to
- * instance info objects.
+ * instance config objects.
  *
  * @returns {Map<integer, Object>} mapping between instance
  */
@@ -338,10 +320,12 @@ async function discoverInstances(instancesDir, logger) {
 	let instanceInfos = new Map();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			let instanceConfig;
-			let configPath = path.join(instancesDir, entry.name, "config.json");
+			let instanceConfig = new config.InstanceConfig();
+			let configPath = path.join(instancesDir, entry.name, "instance.json");
+
 			try {
-				instanceConfig = JSON.parse(await fs.readFile(configPath));
+				await instanceConfig.load(JSON.parse(await fs.readFile(configPath)));
+
 			} catch (err) {
 				if (err.code === "ENOENT") {
 					continue; // Ignore folders without config.json
@@ -351,20 +335,9 @@ async function discoverInstances(instancesDir, logger) {
 				continue;
 			}
 
-			// XXX should probably validate the entire config with a JSON Schema.
-			if (typeof instanceConfig.id !== "number" || isNaN(instanceConfig.id)) {
-				logger.error(`${configPath} is missing id`);
-				continue;
-			}
-
-			if (typeof instanceConfig.name !== "string") {
-				logger.error(`${configPath} is missing name`);
-				continue;
-			}
-
 			let instancePath = path.join(instancesDir, entry.name);
-			logger.log(`found instance ${instanceConfig.name} in ${instancePath}`);
-			instanceInfos.set(instanceConfig.id, {
+			logger.log(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
+			instanceInfos.set(instanceConfig.get("instance.id"), {
 				path: instancePath,
 				config: instanceConfig,
 			});
@@ -387,14 +360,12 @@ class InstanceConnection extends link.Link {
 
 	async forwardEventToInstance(message, event) {
 		let instanceId = message.data.instance_id;
-		if (!this.slave.instanceInfos.has(instanceId)) {
+		let instanceConnection = this.slave.instanceConnections.get(instanceId);
+		if (!instanceConnection) {
 			// Instance is probably on another slave
 			await this.slave.forwardEventToMaster(message, event);
 			return;
 		}
-
-		let instanceConnection = this.slave.instanceConnections.get(instanceId);
-		if (!instanceConnection) { return; }
 
 		event.send(instanceConnection, message.data);
 	}
@@ -417,10 +388,10 @@ class InstanceConnection extends link.Link {
 
 class SlaveConnector extends link.SocketIOClientConnector {
 	constructor(slaveConfig) {
-		super(slaveConfig.masterURL, slaveConfig.masterAuthToken);
+		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.master_token"));
 
-		this.id = slaveConfig.id;
-		this.name = slaveConfig.name;
+		this.id = slaveConfig.get("slave.id");
+		this.name = slaveConfig.get("slave.name");
 	}
 
 	register() {
@@ -452,15 +423,7 @@ class Slave extends link.Link {
 			plugin.attachPluginMessages(this, pluginInfo, null);
 		}
 
-		this.config = {
-			id: slaveConfig.id,
-			name: slaveConfig.name,
-			instancesDir: slaveConfig.instanceDirectory,
-			factorioDir: slaveConfig.factorioDirectory,
-			masterUrl: slaveConfig.masterURL,
-			masterToken: slaveConfig.masterAuthToken,
-			publicAddress: slaveConfig.publicIP,
-		}
+		this.config = slaveConfig;
 
 		this.instanceConnections = new Map();
 		this.instanceInfos = new Map();
@@ -474,7 +437,7 @@ class Slave extends link.Link {
 		}
 
 		// For now add dashes until an unused directory name is found
-		let dir = path.join(this.config.instancesDir, name);
+		let dir = path.join(this.config.get("slave.instances_directory"), name);
 		while (await fs.pathExists(dir)) {
 			dir += '-';
 		}
@@ -490,7 +453,7 @@ class Slave extends link.Link {
 
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
-			throw new errors.RequestError(`Instance ID ${instanceId} is not active`);
+			throw new errors.RequestError(`Instance ID ${instanceId} is not running`);
 		}
 
 		return await request.send(instanceConnection, message.data);
@@ -512,17 +475,40 @@ class Slave extends link.Link {
 		}
 	}
 
-	async createInstanceRequestHandler(message) {
-		let { id, options } = message.data;
-		if (this.instanceInfos.has(id)) {
-			throw new Error(`Instance with ID ${id} already exists`);
+	async assignInstanceRequestHandler(message) {
+		let { instance_id, serialized_config } = message.data;
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (instanceInfo) {
+			instanceInfo.config.update(serialized_config);
+			console.log(`Clusterio | Updated config for ${instanceInfo.path}`);
+			// TODO: Notify of update if instance is running
+
+		} else {
+			let instanceConfig = new config.InstanceConfig();
+			await instanceConfig.load(serialized_config);
+
+			// XXX: race condition on multiple simultanious calls
+			let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+
+			await Instance.create(instanceConfig, instanceDir, this.config.get("slave.factorio_directory"));
+			instanceInfo = {
+				path: instanceDir,
+				config: instanceConfig,
+			};
+			this.instanceInfos.set(instance_id, instanceInfo);
+			console.log(`Clusterio | assigned instance ${instanceConfig.get("instance.name")}`);
 		}
 
-		// XXX: race condition on multiple simultanious calls
-		let instanceDir = await this._findNewInstanceDir(options.name);
 
-		await Instance.create(id, instanceDir, this.config.factorioDir, options);
-		await this.updateInstances();
+		// save a copy of the instance config
+		let warnedOutput = Object.assign(
+			{ _warning: "Changes to this file will be overwritten by the master server's copy." },
+			instanceInfo.config.serialize()
+		);
+		await fs.outputFile(
+			path.join(instanceInfo.path, "instance.json"),
+			JSON.stringify(warnedOutput, null, 4)
+		);
 	}
 
 	/**
@@ -535,13 +521,13 @@ class Slave extends link.Link {
 		}
 
 		if (this.instanceConnections.has(instanceId)) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} is active`);
+			throw new errors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
 		let [connectionClient, connectionServer] = link.VirtualConnector.makePair();
 		let instanceConnection = new InstanceConnection(connectionServer, this);
 		let instance = new Instance(
-			connectionClient, instanceInfo.path, this.config.factorioDir, instanceInfo.config
+			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
 		await instance.init(this.pluginInfos);
 
@@ -564,7 +550,7 @@ class Slave extends link.Link {
 		for await (let result of prometheus.defaultRegistry.collect()) {
 			if (result.metric.name.startsWith('process_')) {
 				results.push(prometheus.serializeResult(result, {
-					addLabels: { 'slave_id': String(this.config.id) },
+					addLabels: { 'slave_id': String(this.config.get("slave.id")) },
 					metricName: result.metric.name.replace('process_', 'clusterio_slave_'),
 				}));
 
@@ -596,7 +582,7 @@ class Slave extends link.Link {
 	async deleteInstanceRequestHandler(message) {
 		let instanceId = message.data.instance_id;
 		if (this.instanceConnections.has(instanceId)) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} is active`);
+			throw new errors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
 		let instanceInfo = this.instanceInfos.get(instanceId);
@@ -605,7 +591,7 @@ class Slave extends link.Link {
 		}
 
 		await fs.remove(instanceInfo.path);
-		await this.updateInstances();
+		this.instanceInfos.delete(instanceId);
 	}
 
 	/**
@@ -615,12 +601,11 @@ class Slave extends link.Link {
 	 * the slave and master server with the new list of instances.
 	 */
 	async updateInstances() {
-		this.instanceInfos = await discoverInstances(this.config.instancesDir, console);
+		this.instanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
 		let list = [];
 		for (let instanceInfo of this.instanceInfos.values()) {
 			list.push({
-				id: instanceInfo.config.id,
-				name: instanceInfo.config.name,
+				serialized_config: instanceInfo.config.serialize(),
 			});
 		}
 		link.messages.updateInstances.send(this, { instances: list });
@@ -755,80 +740,42 @@ async function startClient() {
 			default: 'config-slave.json',
 			type: 'string',
 		})
-		.command('create-config', "Create slave config", (yargs) => {
-			yargs.options({
-				'name': { describe: "Name of the slave", nargs: 1, type: 'string', demandOption: true },
-				'url': { describe: "Master URL", nargs: 1, type: 'string', default: "http://localhost:8080/" },
-				'token': { describe: "Master token", nargs: 1, type: 'string', demandOption: true },
-				'ip': { describe: "Public facing IP", nargs: 1, type: 'string', default: "localhost" },
-				'instances-dir': { describe: "Instances directory", nargs: 1, type: 'string', default: "instances" },
-				'factorio-dir': { describe: "Factorio directory", nargs: 1, type: 'string', default: "factorio" },
-				'id': {
-					describe: "Numeric id of the slave",
-					nargs: 1,
-					type: 'number',
-					default: Math.random() * 2**31 | 0,
-					defaultDescription: "random id",
-				},
-			});
-		})
-		.command('edit-config', "Edit slave config", (yargs) => {
-			yargs.options({
-				'name': { describe: "Set name of the slave", nargs: 1, type: 'string' },
-				'url': { describe: "Set master URL", nargs: 1, type: 'string' },
-				'token': { describe: "Set master token", nargs: 1, type: 'string' },
-				'ip': { describe: "Set public facing IP", nargs: 1, type: 'string' },
-				'instances-dir': { describe: "Set instances directory", nargs: 1, type: 'string' },
-				'factorio-dir': { describe: "Set Factorio directory", nargs: 1, type: 'string' },
-				'id': { describe: "Set id of the slave", nargs: 1, type: 'number' },
-			});
-		})
-		.command('show-config', "Show slave config")
+		.command("config", "Manage Slave config", config.configCommand)
 		.command('start', "Start slave")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
 	;
 
+	console.log("Loading Plugin info");
+	let pluginInfos = await plugin.loadPluginInfos("plugins");
+	config.registerPluginConfigGroups(pluginInfos);
+	config.finalizeConfigs();
+
+	console.log(`Loading config from ${args.config}`);
+	let slaveConfig = new config.SlaveConfig();
+	try {
+		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
+
+	} catch (err) {
+		if (err.code === 'ENOENT') {
+			console.log("Config not found, initializing new config");
+			await slaveConfig.init();
+
+		} else {
+			throw err;
+		}
+	}
+
 	let command = args._[0];
-
-	if (command === "create-config") {
-		await fs.outputFile(args.config, JSON.stringify({
-			name: args.name,
-			masterURL: args.url,
-			masterAuthToken: args.token,
-			publicIP: args.ip,
-			instanceDirectory: args.instancesDir,
-			factorioDirectory: args.factorioDir,
-			id: args.id,
-		}, null, 4), { flag: 'wx' });
-		return;
-
-	} else if (command == "edit-config") {
-		let slaveConfig = JSON.parse(await fs.readFile(args.config));
-		if ('name' in args) slaveConfig.name = args.name;
-		if ('url' in args) slaveConfig.masterURL = args.url;
-		if ('token' in args) slaveConfig.masterAuthToken = args.token;
-		if ('ip' in args) slaveConfig.publicIP = args.ip;
-		if ('instancesDir' in args) slaveConfig.instanceDirectory = args.instancesDir;
-		if ('factorioDir' in args) slaveConfig.factorioDirectory = args.factorioDir;
-		if ('id' in args) slaveConfig.id = args.id;
-		await fs.outputFile(args.config, JSON.stringify(slaveConfig, null, 4));
-		return;
-
-	} else if (command == "show-config") {
-		let slaveConfig = JSON.parse(await fs.readFile(args.config));
-		console.log(slaveConfig);
+	if (command === "config") {
+		await config.handleConfigCommand(args, slaveConfig, args.config);
 		return;
 	}
 
 	// If we get here the command was start
 
-	// handle commandline parameters
-	console.log(`Loading ${args.config}`);
-	const slaveConfig = JSON.parse(await fs.readFile(args.config));
-
-	await fs.ensureDir(slaveConfig.instanceDirectory);
+	await fs.ensureDir(slaveConfig.get("slave.instances_directory"));
 	await fs.ensureDir("sharedMods");
 	await fs.ensureDir("modules");
 
@@ -837,27 +784,26 @@ async function startClient() {
 	process.title = "clusterioClient";
 
 	// make sure we have the master access token
-	if(!slaveConfig.masterAuthToken || typeof slaveConfig.masterAuthToken !== "string"){
+	if (slaveConfig.get("slave.master_token") === "enter token here") {
 		console.error("ERROR invalid config!");
 		console.error(
 			"Master server now needs an access token for write operations. As clusterio\n"+
-			"slaves depends upon this, please add your token to config.json in the field\n"+
-			"named masterAuthToken.  You can retrieve your auth token from the master in\n"+
-			"secret-api-token.txt after running it once."
+			"slaves depends upon this, please set your token using the command node client\n"+
+			"config set slave.master_token <token>.  You can retrieve your auth token from\n"+
+			"the master in secret-api-token.txt after running it once."
 		);
 		process.exitCode = 1;
 		return;
 	}
 
 	// make sure url ends with /
-	if (!slaveConfig.masterURL.endsWith("/")) {
+	if (!slaveConfig.get("slave.master_url").endsWith("/")) {
 		console.error("ERROR invalid config!");
-		console.error("masterURL (set with --url) must end with '/'");
+		console.error("slave.master_url must end with '/'");
 		process.exitCode = 1;
 		return;
 	}
 
-	let pluginInfos = await plugin.getPluginInfos("plugins");
 	let slaveConnector = new SlaveConnector(slaveConfig);
 	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 

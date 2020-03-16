@@ -113,21 +113,9 @@ Master and all slaves:
     wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
     npm install --only=production
-    cp config.json.dist config.json
-    node ./lib/npmPostinstall
 
 downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
-Optional step (if you want to use pm2):
-
-    sudo npm install pm2 -g
-
-Now you need to edit the `config.json` file. If you skip this step nothing will work.
-Pretty much all the blank fields should be filled in, except on the master where a few can be omitted.
-
-* You get your factorio matchmaking token from factorio.com
-
-* The `masterAuthSecret` should never be touched unless you want to invalidate everyones authentication tokens
 **Ubuntu with Docker**
 
 The Docker support for Clusterio is curently broken.  If you need it
@@ -174,7 +162,6 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
         git clone -b master https://github.com/clusterio/factorioClusterio
         cd factorioClusterio
         npm install --only=production
-        copy config.json.dist config.json
 
 2. Obtain Factorio by either of these two methods:
 
@@ -195,21 +182,6 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
         3. Rename the folder to "factorio"
 
 
-3. Open `config.json` with a text editor and configure as desired.
-
-4. Run `node master` to generate the athentication token into secret-api-token.txt
-
-**Server Host**
-
-1. Do step 1 and 2 of the Master section above *OR* use the same folder that was created in that section.
-
-Change `masterURL `to something like `http://203.0.113.33:8080` (provided by master server owner)
-
-Change `masterAuthToken` to the value found in `secret-api-token.txt` on the master server
-
-Repeat step 4 for more servers on one machine. You should be able to find its port by looking at the slave section on master:8080 (the web interface)
-
-
 ## Running Clusterio
 
 After following the installation instructions you can use the following
@@ -222,11 +194,7 @@ It's necessary to run the master server in order for anything to work.
 Once you've completed the setup run the following command to start it
 up:
 
-    node master
-
-Or with pm2 (it's recommened to run it without pm2 first):
-
-    pm2 start master --name master
+    node master run
 
 
 ### Slaves
@@ -234,20 +202,21 @@ Or with pm2 (it's recommened to run it without pm2 first):
 Slaves connect to the master server and are managed remotely from the
 master server.  In order for slaves to connect to the master server they
 need an authentication token from the master server.  This token is
-written to secret-api-token.txt on the master server the first time it
-is started.
+written to secret-api-token.txt on the master server when it is started
+up.
 
 To set up the configuration for a new local slave run the following.
 
-    node client create-config --name "Local" --token "<token>"
+    node client config set slave.name "Local"
+    node client config set slave.master_token "<token>"
 
 This will write a new `config-slave.json` file in the current directory
 (you can change the location with the `--config` option) with the name
 and token provided.  If you are connecting to a remote master server you
-will also need to pass the `--url <url to master server>` option.
+will also need to set the `slave.master_url` option to that url.
 
-You can edit the config of a slave with the `node client edit-config`
-command.  Use `node client edit-config --help` for more information.
+You can list the config of a slave with the `node client config list`
+command.  Use `node client config --help` for more information.
 
 Once the config is set up run the slave with
 
@@ -260,21 +229,26 @@ Instances are created, managed and started from the master server.  For
 now the only interface available is the `clusterctl` command line tool
 included in Clusterio.  You can run this tool from any slave, or the
 master server without having to set up a config, if you want to manage
-the cluster from somewhere else see `node clusterctl create-config`.
+the cluster from somewhere else you will need to set the
+`control.master_url` and `control.master_token` options with the  `node
+clusterctl control-config set` command:
 
 The basic operations to start a new instance is the following
 
-    node clusterctl create-instance --slave "Local" --name "My instance"
+    node clusterctl create-instance --name "My instance"
+    node clusterctl assign-instance --instance "My instance" --slave "Local"
     node clusterctl create-save --instance "My instance"
     node clusterctl start-instance --instance "My instance"
 
-The first line creates the files and database entries for a new
-instance.  The second line creates a new savegame for the instance.  You
-could also upload your own save to the instance directory instead.  And
-finally the third line starts the instance.
+The first line creates the instance configuration on the master server.
+The second assigns the instance to a slave which creates the instance
+directory and files needed to run the instance on the given slave.  The
+third line creates a new savegame for the instance.  You could also
+upload your own save to the instance directory instead.  And finally the
+fourth line starts the instance.
 
 There are many more commands available with clusterctl.  See
-`node clusterctl --help` for more information.
+`node clusterctl --help` for a full list of them.
 
 
 ## Plugins
@@ -284,10 +258,6 @@ Here are the known Clusterio plugins in the wild:
 3. [TrainTeleports](https://github.com/Godmave/clusterioTrainTeleports) - Allows you to teleport cargotrains between servers.
 
 ## Common problems
-
-### Cannot find module: `./config`
-
-Copy your config.json.dist to config.json and configure it.
 
 ### EACCESS [...] LISTEN 443
 

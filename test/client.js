@@ -3,11 +3,19 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const link = require("lib/link");
+const config = require("lib/config");
 const client = require("../client");
 
 describe("Client testing", function() {
 	describe("class Instance", function() {
-		let instance = new client._Instance(new link.VirtualConnector(), "dir", "factorioDir", { name:"foo" });
+		let instance;
+		before(async function() {
+			let instanceConfig = new config.InstanceConfig();
+			await instanceConfig.init();
+			instanceConfig.set("instance.name", "foo");
+			instance = new client._Instance(new link.VirtualConnector(), "dir", "factorioDir", instanceConfig);
+		});
+
 		describe(".name", function() {
 			it("should give the name of the instance", function() {
 				assert.equal(instance.name, "foo");
@@ -77,23 +85,30 @@ describe("Client testing", function() {
 	});
 
 	describe("symlinkMods()", function() {
-		// Remove previous test output
 		let testDir = path.join("test", "temp", "symlink");
-		fs.removeSync(testDir);
-
-		// Add some test mods
-		fs.outputFileSync(path.join(testDir, "shared", "mod_a.zip"), "a");
-		fs.outputFileSync(path.join(testDir, "shared", "mod_b.zip"), "b");
-		fs.outputFileSync(path.join(testDir, "shared", "mod.dat"), "c");
-		let instance = new client._Instance(
-			new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", { name: "test" }
-		);
-		fs.outputFileSync(instance.path("mods", "mod_i.zip"), "i");
-
 		let discardingLogger = {
 			warning: function() { },
 			log: function() { },
 		}
+
+		let instance;
+		before(async function() {
+			// Remove previous test output
+			await fs.remove(testDir);
+
+			// Add some test mods
+			await fs.outputFile(path.join(testDir, "shared", "mod_a.zip"), "a");
+			await fs.outputFile(path.join(testDir, "shared", "mod_b.zip"), "b");
+			await fs.outputFile(path.join(testDir, "shared", "mod.dat"), "c");
+
+			let instanceConfig = new config.InstanceConfig();
+			await instanceConfig.init();
+			instanceConfig.set("instance.name", "test");
+			instance = new client._Instance(
+				new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
+			);
+			await fs.outputFile(instance.path("mods", "mod_i.zip"), "i");
+		});
 
 		it("should link mods and data files", async function() {
 			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
@@ -139,15 +154,15 @@ describe("Client testing", function() {
 			let logger = { log: () => {}, error: () => {} };
 			let instancePath = path.join("test", "file", "instances");
 			let instanceInfos = await client._discoverInstances(instancePath, logger);
+
+			let referenceConfig = new config.InstanceConfig();
+			await referenceConfig.init();
+			referenceConfig.set("instance.id", 1);
+			referenceConfig.set("instance.name", "test");
+
 			assert.deepEqual(instanceInfos, new Map([
 				[1, {
-					config: {
-						id: 1,
-						name: "test",
-						factorioPort: null,
-						clientPort: null,
-						clientPassword: null
-					},
+					config: referenceConfig,
 					path: path.join(instancePath, "test"),
 				}],
 			]));
