@@ -50,7 +50,7 @@ class Instance extends link.Link{
 		});
 	}
 
-	async init(pluginInfos) {
+	async init(pluginInfos, slave) {
 		await this.server.init();
 
 		// load plugins
@@ -62,7 +62,7 @@ class Instance extends link.Link{
 			// require plugin class and initialize it
 			let pluginLoadStarted = Date.now();
 			let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
-			let instancePlugin = new InstancePlugin(pluginInfo, this);
+			let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
 			await instancePlugin.init();
 			this.plugins.set(pluginInfo.name, instancePlugin);
 			plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
@@ -543,7 +543,7 @@ class Slave extends link.Link {
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
-		await instance.init(this.pluginInfos);
+		await instance.init(this.pluginInfos, this);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);
