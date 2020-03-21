@@ -67,12 +67,13 @@ app.use(compression());
 
 // dynamic HTML generations with EJS
 app.set('view engine', 'ejs');
-app.set('views', ['views', 'sharedPlugins']);
+app.set('views', ['views', 'plugins']);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
 	res.locals.res = res;
 	res.locals.req = req;
+	res.locals.masterPlugins = masterPlugins;
 	res.locals.slaves = db.slaves;
 	res.locals.moment = moment;
 	next();
@@ -670,23 +671,22 @@ async function loadPlugins(pluginInfos) {
 
 		let pluginLoadStarted = Date.now();
 		let MasterPlugin = plugin.BaseMasterPlugin;
-		if (pluginInfo.masterEntrypoint) {
-			({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
+		try {
+			if (pluginInfo.masterEntrypoint) {
+				({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
+			}
+
+			let masterPlugin = new MasterPlugin(
+				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }
+			);
+			await masterPlugin.init();
+			plugins.set(pluginInfo.name, masterPlugin);
+
+		} catch (err) {
+			throw new errors.PluginError(pluginInfo.name, err)
 		}
 
-		let masterPlugin = new MasterPlugin(pluginInfo);
-		await masterPlugin.init();
-		plugins.set(pluginInfo.name, masterPlugin);
-
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
-		/*
-			main:new masterPlugin({
-			TODO?
-				config, socketio: io, express: app,
-				db,
-			}),
-			pluginConfig,
-		});*/
 	}
 	return plugins;
 }

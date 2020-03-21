@@ -32,26 +32,30 @@ function clusterio_private.update_instance(new_id, new_name)
 end
 
 
-function impl.add_remote_interface()
-    remote.add_interface('clusterio_api', {
-        -- Returns a table of events raised by clusterio
-        get_events = function()
-            return api.events
-        end,
+-- This is not part of the add_remote_interface callback to ensure it is
+-- available when the clusterio_lib mod is loaded.  The reason this is
+-- neccessary is that on_init for newly added mods happen before on_load
+-- for existing mods, and the add_remote_interface callback is done in
+-- on_load.  See https://forums.factorio.com/viewtopic.php?f=25&t=81552 for
+-- more details.
+remote.add_interface('clusterio_api', {
+    get_events = function()
+        return api.events
+    end,
 
-        -- Returns the instance id the game is run under
-        -- This may change over time and/or be nil.
-        get_instance_id = function()
-            return global.clusterio.instance_id
-        end,
+    get_instance_id = function()
+        return global.clusterio.instance_id
+    end,
 
-        -- Returns the name of the instance the game runs under.
-        -- This may change over time and/or be nil.
-        get_instance_name = function()
-            return global.clusterio.instance_name
-        end,
-    })
-end
+    get_instance_name = function()
+        return global.clusterio.instance_name
+    end,
+
+    get_file_no = function()
+        global.clusterio_file_no = (global.clusterio_file_no or 0) + 1
+        return global.clusterio_file_no
+    end,
+})
 
 
 return impl

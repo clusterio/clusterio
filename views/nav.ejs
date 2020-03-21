@@ -8,17 +8,15 @@
     <div class="nav-item mr-1">
         <a class="nav-link align-middle" href="/nodes">Slaves</a>
     </div><%
-for(let o in locals.masterPlugins) {
-    let plug = locals.masterPlugins[o];
+for (let plug of locals.masterPlugins.values()) {
     if (
-        plug.main
-        && plug.main.ui
-        && typeof plug.main.ui.sidebar == "object"
-        && Array.isArray(plug.main.ui.sidebar)
+        plug
+        && plug.ui
+        && typeof plug.ui.sidebar == "object"
+        && Array.isArray(plug.ui.sidebar)
     ) {
-        let sidebarEntries = plug.main.ui.sidebar;
-        for (let i in sidebarEntries) {
-            let button = sidebarEntries[i];
+        let sidebarEntries = plug.ui.sidebar;
+        for (let button of sidebarEntries) {
             if (button.getHtml && typeof button.getHtml == "function") { %>
         <%- button.getHtml() %><%
             }

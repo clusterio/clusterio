@@ -1,0 +1,5 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+  Major Features:
+    - API for mods to interact with Clusterio
+    - Serialization library for converting items to JSON compatible tables.

@@ -14,7 +14,7 @@ Contents
     - [event_handler interface](#event_handler-interface)
 - [Communicating with Clusterio](#communicating-with-clusterio)
 - [Clusterio Modules](#clusterio-modules)
-    - [Clusterio Module API](#clusterio-module-api)
+- [Clusterio Lua API](#clusterio-lua-api)
 - [Clusterio Plugins](#clusterio-plugins)
 
 
@@ -216,7 +216,8 @@ The following entries are supported in the module.json file:
     supported.  The events for dependencies is invoked before the events
     of the dependent, and starting an instance will fail if the
     dependencies cannot be satisfied.  If not specified it will default
-    to depending on `clusterio`.
+    to depending on `clusterio`.  Make sure to add `clusterio` to your
+    dependencies if you add other dependencies and depend on the Lua API.
 - `require`:
     Lua files to require in `control.lua`.  This should only really be
     needed if you want to make a global function available for use in
@@ -250,21 +251,133 @@ module.
 Because modules can be patched into an existing game you cannot rely on
 the `on_init` callback to be called in Clusterio Modules.  Nor can you
 rely on the `on_configuration_changed` callback, as this is not called
-when level code changes.  The `clusterio` module provides the custom
+when level code changes.  The Clusterio Lua API provides the custom
 `on_server_startup` event that can be used as a substitute, see the next
 section.
 
 
-### Clusterio Module API
+Clusterio Lua API
+-----------------
 
-There's a builtin clusterio module that provides some tools for getting
-instance info and communicating to plugins, script events to listen for
-and a Factorio remote call API.  The available interfaces is documented
-in [modules/clusterio/api.lua](../modules/clusterio/api.lua).  To use
-this API from another module, require it using something along the lines
-of `local clusterio_api = require("modules/clusterio/api")`.  Make sure
-to add `clusterio` as a dependency in your module.json if you use the
-dependency entry in it.
+Clusterio provides a save patched module as well as a regular Factorio
+mod for interfacing with Clusterio.  This includes tools sending data to
+plugins, script events to listen for, and an item serialization module.
+
+
+### clusterio_api library
+
+**require path**  
+From a module  
+`local clusterio_api = require("modules/clusterio/api")`  
+From a mod  
+`local clusterio_api = require("__clusterio_lib__/api")`
+
+Provides the main interface to Clusterio from within the game.  When
+using the mod version you must call `init` before it'll function
+properly.
+
+#### init
+
+<sub>Mod version only</sub>
+
+Initialize the API.  This should be called from both the `on_init` and
+`on_load` events in your mod, and before this is called certain features
+will not be available, most notably the events table.
+
+#### clusterio_api.events
+
+Table of events raised by clusterio.  If the game is started outside of
+Clusterio then none of these events will be raised.
+
+In the mod version this table does not exist before the `init` function
+is called.
+
+##### on_instance_updated
+
+Raised after the name and id of an instance has been updated.  This may
+occur even if the id and name didn't change.
+
+Event data:
+- `instance_id`: The id of the instance.
+- `instance_name`: the name of the instance.
+
+##### on_server_startup
+
+Raised when Clusterio is starting up the server.  It can be used to
+initialize clusterio related features in a mod, and as a stand-in for
+the `on_init` and `on_configuration_changed` event for modules.  It is
+invoked on the first tick the server runs after the save has been
+patched, before most other events.
+
+Use this event to initialize and and/or migrate the data structures
+you need.  Keep in mind that both mods and Clusterio modules can switch
+from any version to any version so it should be able to handle both
+forwards and backwards migrations gracefully.
+
+#### clusterio_api.send_json(channel, data)
+
+Send json data to Clusterio over the given channel.  The `data` argument
+should be table that can be serialized with `game.table_to_json`.
+Clusterio plugins can listen to channels and will receive an event with
+the data sent here.  See the [Communicating with Factorio
+section](writing-plugins.md#communicating-with-factorio) in the Writing
+Plugins document for more information.
+
+If the game is started outside of Clusterio the data will be sent, but
+since there's no code following stdout to pick it up it will be lost.
+
+**Note**: Payloads greater than 4 MB will cause stuttering in the game.
+
+**Note**: This is not a binary safe way of sending data.  Strings
+embedded into the tables sent must be valid UTF-8 text.
+
+Parameters:
+- `channel`: string identifying which channel to send it on.
+- `data`: table that can be converted to JSON with game.table_to_json
+
+
+### serialize library
+
+**require path**  
+From a module  
+`local serialize = require("modules/clusterio/serialize")`  
+From a mod  
+`local serialize = require("__clusterio_lib__/serialize")`
+
+Serializes inventories and item stacks into a table that in turn can be
+converted into JSON with `game.table_to_json`.  Properly handles the
+extra data for most items.
+
+#### serialize.serialize_equipment_grid(LuaEquipmentGrid)
+
+Returns a table containing a serialized representation of the equipment
+grid passed.
+
+#### serialize.deserialize_equipment_grid(LuaEquipmentGrid, serialized_grid)
+
+Deserialize a previously serialized equipment grid into the target
+LuaEquipmentGrid.  Overwrites all content in the target.
+
+#### serialize.serialize_item_stack(LuaItemStack, destination_table)
+
+Serialize the LuaItemStack passed into the target destination_table.
+The destination_table should be a new empty table.
+
+#### serialize.deserialize_item_stack(LuaItemStack, serialized_stack)
+
+Deserialize a previously serialized item stack into the target
+LuaItemStack.  Overwrites the content of the item stack.
+
+#### serialize.serialize_inventory(LuaInventory)
+
+Returns a table containing a serialized representation of the inventory
+passed.
+
+#### serialize.deserialize_inventory(LuaInventory, serialized_inventory)
+
+Deserialize a previously serialized inventory into the target
+LuaInventory.  Overwrites slots that has content in the serialized
+inventory.
 
 
 Clusterio Plugins

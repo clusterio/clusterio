@@ -226,7 +226,7 @@ plugin you listen for an event named ipc-channel_name in order to get
 data sent by `send_json`.  For example in the plugin code:
 
     async init() {
-        this.server.on('ipc-my_plugin_foo', content =>
+        this.instance.server.on('ipc-my_plugin_foo', content =>
             this.handleFoo(content).catch(err => console.log(
                 "Error handling foo:", foo
             ))
@@ -408,8 +408,8 @@ The following properties are recognized by the Request constructor:
     Target to forward request to.  Can be either `'master'` to indicate
     a slave should forward it to the master server when receiving it
     from an instance or `'instance'` to indicate it should be forwarded
-    to the instances specified by the `instance_id` event property.
-    This works by using a default handler for the event at the links
+    to the instances specified by the `instance_id` request property.
+    This works by using a default handler for the request at the links
     that forward it.
 
 **requestProperties**:
@@ -478,7 +478,7 @@ accordingly, for example:
     );
 
     // Somewhere in the instance plugin code
-    barMetric.labels(String(this.config.id)).set(someValue);
+    barMetric.labels(String(this.instance.config.get("instance.id"))).set(someValue);
 
 Metrics are automatically registered to the default registry, and this
 default registry is automatically polled by the master server on slaves.
