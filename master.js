@@ -23,6 +23,7 @@ const request = require("request");
 const setBlocking = require("set-blocking");
 const events = require("events");
 const yargs = require("yargs");
+const WebSocket = require("ws");
 const version = require("./package").version;
 
 // ugly globals
@@ -292,9 +293,6 @@ app.get("/api/getFactorioLocale", function(req,res){
 	}
 });
 
-// socket.io connection for slaves
-var io = require("socket.io")({});
-
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
 		super('master', target, connector);
@@ -541,17 +539,9 @@ class SlaveConnection extends BaseConnection {
 	}
 }
 
-// Authentication middleware for socket.io connections
-io.use((socket, next) => {
-	let token = socket.handshake.query.token;
-	authenticate.check(token).then((result) => {
-		if (result.ok) {
-			next();
-		} else {
-			console.error(`SOCKET | authentication failed for ${socket.handshake.address}`);
-			next(new Error(result.msg));
-		}
-	});
+const wss = new WebSocket.Server({
+	noServer: true,
+	path: "/api/socket",
 });
 
 /**
@@ -569,7 +559,7 @@ function isInteger(value) {
 /**
  * Connector for master server connections
  */
-class SocketIOServerConnector extends events.EventEmitter {
+class WebSocketServerConnector extends events.EventEmitter {
 	constructor(socket) {
 		super();
 
@@ -577,9 +567,9 @@ class SocketIOServerConnector extends events.EventEmitter {
 		this._socket = socket;
 
 		this._socket.on('message', message => {
-			this.emit('message', message);
+			this.emit('message', JSON.parse(message));
 		});
-		this._socket.on('disconnect', () => {
+		this._socket.on('close', (code, reason) => {
 			this.emit('disconnect');
 		});
 	}
@@ -590,7 +580,7 @@ class SocketIOServerConnector extends events.EventEmitter {
 	 * @returns the sequence number of the message sent
 	 */
 	send(type, data = {}) {
-		this._socket.send({ seq: this._seq, type, data });
+		this._socket.send(JSON.stringify({ seq: this._seq, type, data }));
 		return this._seq++;
 	}
 
@@ -601,53 +591,73 @@ class SocketIOServerConnector extends events.EventEmitter {
 	 */
 	close(reason) {
 		this.send('close', { reason });
-		this.disconnect();
+		this._socket.close();
 	}
 
 	/**
 	 * Immediatly close the connection
 	 */
 	disconnect() {
-		this._socket.disconnect(true);
+		this._socket.terminate();
 	}
 }
 
-io.on('connection', function (socket) {
-	console.log(`SOCKET | new connection from ${socket.handshake.address}`);
+wss.on('connection', function (socket, req) {
+	console.log(`SOCKET | new connection from ${socket.remoteAddress}`);
 
 	// Start connection handshake
-	let connector = new SocketIOServerConnector(socket);
+	let connector = new WebSocketServerConnector(socket);
 	connector.send('hello', { version });
 
 	// Handle socket handshake
 	socket.once('message', (payload) => {
+		payload = JSON.parse(payload);
+
 		// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		if (!schema.clientHandshake(payload)) {
-			console.log(`SOCKET | closing ${socket.handshake.address} after receiving invalid handshake`, payload);
-			connector.send('close', { reason: "Invalid handshake" });
-			connector.disconnect(true);
+			console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake`, payload);
+			connector.close("Invalid handshake");
 			return;
 		}
 
 		let { seq, type, data } = payload;
-		if (type === "register_slave") {
-			let connection = slaveConnections.get(data.id);
-			if (connection) {
-				console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
-				connection.connector.close("Registered from another connection");
-			}
+		if (["register_slave", "register_control"].includes(type)) {
+			authenticate.check(data.token).then((result) => {
+				if (result.ok) {
+					if (type === "register_slave") {
+						let connection = slaveConnections.get(data.id);
+						if (connection) {
+							console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
+							connection.connector.close("Registered from another connection");
+						}
 
-			console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
-			slaveConnections.set(data.id, new SlaveConnection(data, connector));
-			connector.send('ready');
+						console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
+						slaveConnections.set(data.id, new SlaveConnection(data, connector));
+						connector.send('ready');
 
-		} else if (type === "register_control") {
-			console.log(`SOCKET | registered control from ${socket.handshake.address}`);
-			controlConnections.push(new ControlConnection(data, connector));
-			connector.send('ready');
+					} else { // type === "register_control"
+						console.log(`SOCKET | registered control from ${req.socket.remoteAddress}`);
+						controlConnections.push(new ControlConnection(data, connector));
+						connector.send('ready');
+					}
+
+				} else {
+					console.error(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
+					connector.close("Authentication failed");
+				}
+			}).catch((err) => {
+				console.error(`
++---------------------------------------------------------------------+
+| Unexpected error occured while authenticating client, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues         |
++---------------------------------------------------------------------+`
+				);
+				console.error(err);
+				connection.close("Unexpected error");
+			});
 
 		} else if (type === "close") {
-			console.log(`SOCKET | received close from ${socket.handshake.address}: ${data.reason}`);
+			console.log(`SOCKET | received close from ${req.socket.remoteAddress}: ${data.reason}`);
 			connector.disconnect();
 			return;
 		}
@@ -693,10 +703,21 @@ async function loadPlugins(pluginInfos) {
 
 /**
  * Calls listen on server capturing any errors that occurs
- * binding to the port.
+ * binding to the port.  Also adds handler for WebSocket
+ * upgrade event.
  */
 function listen(server, ...args) {
 	return new Promise((resolve, reject) => {
+		server.on("upgrade", (req, socket, head) => {
+			console.log("handling upgrade");
+
+			// For reasons that defy common sense, the connection event has
+			// to be emitted explictly when using noServer.
+			wss.handleUpgrade(req, socket, head, (ws) => {
+				wss.emit('connection', ws, req);
+			});
+		});
+
 		function wrapError(err) {
 			reject(new errors.StartupError(
 				`Server listening failed: ${err.message}`
@@ -826,7 +847,6 @@ async function startServer() {
 	if (httpPort) {
 		httpServer = require("http").Server(app);
 		await listen(httpServer, httpPort);
-		io.attach(httpServer);
 		console.log("Listening for HTTP on port %s...", httpServer.address().port);
 	}
 
@@ -847,10 +867,6 @@ async function startServer() {
 			cert: certificate
 		}, app)
 		await listen(httpsServer, httpsPort);
-
-		// XXX I'm uncertain whether or not socket.io actually supports
-		// attaching to multiple servers at the same time.
-		io.attach(httpsServer);
 		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
 	}
 }
@@ -861,7 +877,7 @@ module.exports = {
 	// For testing only
 	_db: db,
 	_setConfig,
-	_SocketIOServerConnector: SocketIOServerConnector,
+	_WebSocketServerConnector: WebSocketServerConnector,
 	_controlConnections: controlConnections,
 	_ControlConnection: ControlConnection,
 	_slaveConnections: slaveConnections,

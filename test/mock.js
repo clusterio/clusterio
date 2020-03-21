@@ -7,7 +7,6 @@ class MockSocket {
 	constructor() {
 		this.sentMessages = [];
 		this.events = new Map();
-		this.handshake = { address: "socket.test" };
 	}
 
 	send(message) {
@@ -18,8 +17,8 @@ class MockSocket {
 		this.events.set(event, fn);
 	}
 
-	disconnect() {
-		this.disconnectCalled = true;
+	terminate() {
+		this.terminateCalled = true;
 	}
 
 	close() {

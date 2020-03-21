@@ -1,4 +1,3 @@
-const io = require("socket.io-client");
 const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
@@ -315,10 +314,16 @@ commands = new Map([...commands.map(command => [command.name, command])]);
 /**
  * Connector for control connection to master server
  */
-class ControlConnector extends link.SocketIOClientConnector {
+class ControlConnector extends link.WebSocketClientConnector {
+	constructor(url, token) {
+		super(url);
+		this._token = token;
+	}
+
 	register() {
 		console.log("SOCKET | registering control");
 		this.send('register_control', {
+			token: this._token,
 			agent: 'clusterctl',
 			version: version,
 		});
@@ -328,8 +333,7 @@ class ControlConnector extends link.SocketIOClientConnector {
 /**
  * Handles running the control
  *
- * Connects to the master server over the socket.io connection and sends
- * commands to it.
+ * Connects to the master server over WebSocket and sends commands to it.
  */
 class Control extends link.Link {
 

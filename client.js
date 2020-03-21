@@ -390,17 +390,19 @@ class InstanceConnection extends link.Link {
 	}
 }
 
-class SlaveConnector extends link.SocketIOClientConnector {
+class SlaveConnector extends link.WebSocketClientConnector {
 	constructor(slaveConfig) {
-		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.master_token"));
+		super(slaveConfig.get("slave.master_url"));
 
 		this.id = slaveConfig.get("slave.id");
 		this.name = slaveConfig.get("slave.name");
+		this._token = slaveConfig.get("slave.master_token");
 	}
 
 	register() {
 		console.log("SOCKET | registering slave");
 		this.send('register_slave', {
+			token: this._token,
 			agent: 'Clusterio Slave',
 			version,
 			id: this.id,
@@ -412,8 +414,7 @@ class SlaveConnector extends link.SocketIOClientConnector {
 /**
  * Handles running the slave
  *
- * Connects to the master server over the socket.io connection and manages
- * intsances.
+ * Connects to the master server over the WebSocket and manages intsances.
  */
 class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state

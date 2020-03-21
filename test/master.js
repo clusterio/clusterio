@@ -63,13 +63,13 @@ describe('Master testing', function() {
 		}
 	});
 
-	describe("class SocketIOServerConnector", function() {
-		let testConnector = new master._SocketIOServerConnector(new mock.MockSocket());
+	describe("class WebSocketServerConnector", function() {
+		let testConnector = new master._WebSocketServerConnector(new mock.MockSocket());
 		describe(".disconnect()", function() {
 			it("should call disconnect on the socket", function() {
-				testConnector._socket.disconnectCalled = false;
+				testConnector._socket.terminateCalled = false;
 				testConnector.disconnect();
-				assert(testConnector._socket.disconnectCalled, "Disconnect was not called");
+				assert(testConnector._socket.terminateCalled, "Terminate was not called");
 			});
 		});
 	});

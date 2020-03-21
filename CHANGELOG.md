@@ -143,6 +143,7 @@ Version 2.0.0
 - Removed `--databaseDirectory`, `--masterPort`, and `--sslPort` command line
   arguments from the master server.
 - Implemented a new config system that replaces the old.  Breaks all plugins.
+- Removed usage of socket.io entirely in favor of a plain WebSocket connection.
 
 
 Version 1.2.4
