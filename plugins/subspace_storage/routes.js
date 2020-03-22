@@ -29,6 +29,7 @@ function addApiRoutes(app, items, endpointHitCounter) {
 		for (let [name, count] of items._items) {
 			inventory.push({ name, count });
 		}
+		res.type("json");
 		res.send(JSON.stringify(inventory));
 	});
 
@@ -45,6 +46,7 @@ function addApiRoutes(app, items, endpointHitCounter) {
 		res.header("Access-Control-Allow-Origin", "*");
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 		// Check it and send it
+		res.type("json");
 		res.send(JSON.stringify(items.serialise()));
 	});
 }
