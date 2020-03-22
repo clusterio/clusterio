@@ -79,7 +79,7 @@ before(async function() {
 });
 
 after(async function() {
-	this.timeout(200000);
+	this.timeout(20000);
 	if (slaveProcess) {
 		console.log("Shutting down slave");
 		slaveProcess.kill("SIGINT");

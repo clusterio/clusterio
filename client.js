@@ -640,10 +640,10 @@ class Slave extends link.Link {
 	}
 
 	async stop() {
-		for (let instanceConnection of this.instanceConnections.values()) {
-			// XXX this neeeds more thought to it
-			// await instance.stop();
+		for (let instanceId of this.instanceConnections.keys()) {
+			await this.stopInstance(instanceId);
 		}
+		this.connector.close("shutdown");
 	}
 }
 
@@ -841,10 +841,15 @@ async function startClient() {
 
 		secondSigint = true;
 		console.log("Caught interrupt signal, shutting down");
-		slave.stop().then(() => {
-			// There's currently no shutdown mechanism for instance plugins so
-			// they keep the event loop alive.
-			process.exit();
+		slave.stop().catch(err => {
+			console.error(`
++---------------------------------------------------------------+
+| Unexpected error occured while stopping slave, please report  |
+| it to https://github.com/clusterio/factorioClusterio/issues   |
++---------------------------------------------------------------+`
+			);
+			console.error(err);
+			process.exit(1);
 		});
 	});
 
