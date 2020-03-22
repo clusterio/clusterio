@@ -82,12 +82,12 @@ after(async function() {
 	this.timeout(200000);
 	if (slaveProcess) {
 		console.log("Shutting down slave");
-		slaveProcess.kill();
+		slaveProcess.kill("SIGINT");
 		await events.once(slaveProcess, "exit");
 	}
 	if (masterProcess) {
 		console.log("Shutting down master");
-		masterProcess.kill();
+		masterProcess.kill("SIGINT");
 		await events.once(masterProcess, "exit");
 	}
 });
