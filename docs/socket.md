@@ -5,21 +5,9 @@ Socket.io protocol
 slaves, and unless you're developing Clusterio it's probably not going
 to be very useful for you.</sub>
 
-The protocol is built on the [socket.io](https://socket.io/) library
-which lets mulitple streams be multiplexed in many different ways over
-the same connection and abstracts away reconnection logic.
-Unfortunately I've been unable to figure what the message delivery
-guarantees of the library is, so whether or not messages can be lost is
-still an unknown, I assume that messages are delivered as long as a
-connection is maintained or manages to reconnect.
-
-While there are many mechanisms to multiplex streams, the core
-communication between the master server and slaves is done entirely by
-sending single POJO payloads over the `message` event.  There's a
-shortcut for sending these via the `.send` method of the socket.io
-sockets.
-
-These messages contain the following three properties:
+The protocol is built on WebSocket and uses JSON encoded text messages
+to communicate to and from the master server.  These messages contain
+the following three properties:
 - seq - integer - The sequence number of the message
 - type - string - The type of message
 - data - object - Message data
@@ -28,7 +16,7 @@ These messages contain the following three properties:
 Handshake
 ---------
 
-Upon connecting to the socket.io endpoint the server will respond with a
+Upon connecting to the WebSocket endpoint the server will respond with a
 `hello` message containing the master server version as the data.  The
 client is then expected to send a `register_slave` or `register_control`
 message back depending on what kind of client it is.  If the register

@@ -7,6 +7,10 @@ const config = require("lib/config");
 const client = require("../client");
 
 describe("Client testing", function() {
+	before(function() {
+		config.InstanceConfig.finalize();
+	});
+
 	describe("class Instance", function() {
 		let instance;
 		before(async function() {

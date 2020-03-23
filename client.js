@@ -390,17 +390,19 @@ class InstanceConnection extends link.Link {
 	}
 }
 
-class SlaveConnector extends link.SocketIOClientConnector {
+class SlaveConnector extends link.WebSocketClientConnector {
 	constructor(slaveConfig) {
-		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.master_token"));
+		super(slaveConfig.get("slave.master_url"));
 
 		this.id = slaveConfig.get("slave.id");
 		this.name = slaveConfig.get("slave.name");
+		this._token = slaveConfig.get("slave.master_token");
 	}
 
 	register() {
 		console.log("SOCKET | registering slave");
 		this.send('register_slave', {
+			token: this._token,
 			agent: 'Clusterio Slave',
 			version,
 			id: this.id,
@@ -412,8 +414,7 @@ class SlaveConnector extends link.SocketIOClientConnector {
 /**
  * Handles running the slave
  *
- * Connects to the master server over the socket.io connection and manages
- * intsances.
+ * Connects to the master server over the WebSocket and manages intsances.
  */
 class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
@@ -639,10 +640,10 @@ class Slave extends link.Link {
 	}
 
 	async stop() {
-		for (let instanceConnection of this.instanceConnections.values()) {
-			// XXX this neeeds more thought to it
-			// await instance.stop();
+		for (let instanceId of this.instanceConnections.keys()) {
+			await this.stopInstance(instanceId);
 		}
+		this.connector.close("shutdown");
 	}
 }
 
@@ -840,10 +841,15 @@ async function startClient() {
 
 		secondSigint = true;
 		console.log("Caught interrupt signal, shutting down");
-		slave.stop().then(() => {
-			// There's currently no shutdown mechanism for instance plugins so
-			// they keep the event loop alive.
-			process.exit();
+		slave.stop().catch(err => {
+			console.error(`
++---------------------------------------------------------------+
+| Unexpected error occured while stopping slave, please report  |
+| it to https://github.com/clusterio/factorioClusterio/issues   |
++---------------------------------------------------------------+`
+			);
+			console.error(err);
+			process.exit(1);
 		});
 	});
 

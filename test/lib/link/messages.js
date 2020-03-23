@@ -16,6 +16,9 @@ describe("lib/link/messages", function() {
 		let testRequest = new link.Request({
 			type: 'test',
 			links: ['source-target'],
+			requestProperties: {
+				"test": { type: "string" },
+			},
 		});
 
 		describe("constructor", function() {
@@ -93,8 +96,8 @@ describe("lib/link/messages", function() {
 				testSourceLink.waitFor = (type, condition) => {
 					return { data: { error: "test error" }};
 				};
-				assert.rejects(
-					testRequest.send(testSourceLink),
+				await assert.rejects(
+					testRequest.send(testSourceLink, { test: "blah" }),
 					new errors.RequestError("test error")
 				);
 				delete testSourceLink.waitFor;
@@ -106,6 +109,9 @@ describe("lib/link/messages", function() {
 		let testEvent = new link.Event({
 			type: 'test',
 			links: ['source-target'],
+			eventProperties: {
+				"test": { type: "string" },
+			},
 		});
 
 		describe("constructor", function() {

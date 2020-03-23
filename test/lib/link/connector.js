@@ -6,14 +6,14 @@ const link = require('lib/link');
 
 
 describe("lib/link/connectors", function() {
-	describe("class SocketIOClientConnector", function() {
-		let testConnector = new link.SocketIOClientConnector('source', 'url', 'token');
+	describe("class WebSocketClientConnector", function() {
+		let testConnector = new link.WebSocketClientConnector('source', 'url');
 		testConnector._socket = new mock.MockSocket();
 		describe(".disconnect()", function() {
-			it("should call close on the socket", function() {
-				testConnector._socket.closeCalled = false;
+			it("should call terminate on the socket", function() {
+				testConnector._socket.terminateCalled = false;
 				testConnector.disconnect();
-				assert(testConnector._socket.closeCalled, "Close was not called");
+				assert(testConnector._socket.terminateCalled, "Close was not called");
 			});
 		});
 
@@ -30,21 +30,22 @@ describe("lib/link/connectors", function() {
 			it("calls send on the socket", function() {
 				testConnector._socket.sentMessages = [];
 				let seq = testConnector.send('test', { test: true });
-				assert.deepEqual(testConnector._socket.sentMessages, [{ seq, type: 'test', data: { test: true }}]);
+				assert.deepEqual(
+					testConnector._socket.sentMessages.map(JSON.parse),
+					[{ seq, type: 'test', data: { test: true }}]
+				);
 			});
 		});
 
 		describe(".close()", function() {
-			it("should send close and call disconnect", function() {
+			it("should send close", function() {
 				testConnector._socket.sentMessages = [];
 				let called = false;
-				testConnector.disconnect = () => { called = true; }
 				testConnector.close("test reason");
 				assert.deepEqual(
-					testConnector._socket.sentMessages,
+					testConnector._socket.sentMessages.map(JSON.parse),
 					[{ seq: testConnector._seq - 1, type: 'close', data: { reason: "test reason" } }]
 				)
-				assert(called, ".disconnect() was not called");
 			});
 		});
 
@@ -53,7 +54,7 @@ describe("lib/link/connectors", function() {
 				testConnector._socket.sentMessages = [];
 				testConnector._processHandshake({ data: "invalid message" }),
 				assert.deepEqual(
-					testConnector._socket.sentMessages,
+					testConnector._socket.sentMessages.map(JSON.parse),
 					[{seq: testConnector._seq - 1, type: 'close', data: {
 						reason: "Invalid handshake" }
 					}]
@@ -85,7 +86,7 @@ describe("lib/link/connectors", function() {
 			it("should throw on message received in invalid state", function() {
 				testConnector._state = "new";
 				assert.throws(
-					() => testConnector._socket.events.get('message')(),
+					() => testConnector._socket.events.get("message")("{}"),
 					new Error("Received message in unexpected state new")
 				);
 			});
@@ -93,15 +94,15 @@ describe("lib/link/connectors", function() {
 				testConnector._state = "handshake";
 				let called = false;
 				testConnector._processHandshake = () => { called = true; };
-				testConnector._socket.events.get('message')();
+				testConnector._socket.events.get("message")("{}");
 				assert(called, "_processHandshake was not called");
 			});
 			it("should emit message on message in ready state", async function() {
 				testConnector._socket.sentMessages = [];
 				testConnector._state = "ready";
 				let result = events.once(testConnector, 'message');
-				testConnector._socket.events.get('message')("message");
-				assert.deepEqual(await result, ["message"]);
+				testConnector._socket.events.get("message")('{"message":true}');
+				assert.deepEqual(await result, [{ message: true }]);
 			});
 		});
 	});
