@@ -33,7 +33,9 @@ async function exec(...args) {
 
 function spawn(name, cmd, waitFor) {
 	return new Promise((resolve, reject) => {
-		let process = child_process.spawn(cmd, { shell: true });
+		console.log(cmd);
+		let parts = cmd.split(" ");
+		let process = child_process.spawn(parts[0], parts.slice(1));
 		let stdout = new server._LineSplitter((line) => {
 			line = line.toString("utf8");
 			if (line.startsWith(waitFor)) {
