@@ -9,6 +9,16 @@ const events = require("events");
 const server = require("lib/factorio/server");
 
 
+// Mark that this test takes a lot of time, or depeneds on a test
+// that takes a lot of time.
+function slowTest(test) {
+	if (process.env.FAST_TEST) {
+		test.skip();
+	}
+
+	test.timeout(20000);
+}
+
 async function get(path) {
 	let res = await needle("get", `https://localhost:4443${path}`, { rejectUnauthorized: false });
 	if (res.statusCode != 200) {
@@ -97,6 +107,7 @@ after(async function() {
 
 
 module.exports = {
+	slowTest,
 	get,
 	exec,
 
