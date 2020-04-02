@@ -90,7 +90,7 @@ describe("lib/link/link", function() {
 			it("should throw on invalid message", function() {
 				assert.throws(
 					() => testLink.processMessage({ data: "invalid message" }),
-					new errors.InvalidMessage("Malformed")
+					{ message: "Malformed" }
 				);
 			});
 			it("should throw on message without validator", function() {
@@ -102,7 +102,7 @@ describe("lib/link/link", function() {
 			it("should throw on message failing validation", function() {
 				assert.throws(
 					() => testLink.processMessage({ seq: 1, type: 'simple', data: { string: 1 }}),
-					new errors.InvalidMessage("Validation failed for simple")
+					{ message: "Validation failed for simple" }
 				);
 			});
 			it("should throw on unhandled message", function() {
