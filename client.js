@@ -236,6 +236,11 @@ class Instance extends link.Link{
 				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
 		}
+
+		// Notify plugins of exit
+		for (let pluginInstance of this.plugins.values()) {
+			await pluginInstance.onExit();
+		}
 	}
 
 	async getMetricsRequestHandler() {
@@ -274,6 +279,11 @@ class Instance extends link.Link{
 
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
+
+		// Notify plugins of exit
+		for (let pluginInstance of this.plugins.values()) {
+			await pluginInstance.onExit();
+		}
 	}
 
 	async stopInstanceRequestHandler() {
