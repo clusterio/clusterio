@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const path = require('path');
 const yargs = require("yargs");
+const events = require("events");
 const version = require("./package").version;
 
 // internal libraries
@@ -402,21 +403,18 @@ class InstanceConnection extends link.Link {
 
 class SlaveConnector extends link.WebSocketClientConnector {
 	constructor(slaveConfig) {
-		super(slaveConfig.get("slave.master_url"));
-
-		this.id = slaveConfig.get("slave.id");
-		this.name = slaveConfig.get("slave.name");
-		this._token = slaveConfig.get("slave.master_token");
+		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.reconnect_delay"));
+		this.slaveConfig = slaveConfig;
 	}
 
 	register() {
 		console.log("SOCKET | registering slave");
-		this.send('register_slave', {
-			token: this._token,
-			agent: 'Clusterio Slave',
+		this.sendHandshake("register_slave", {
+			token: this.slaveConfig.get("slave.master_token"),
+			agent: "Clusterio Slave",
 			version,
-			id: this.id,
-			name: this.name,
+			id: this.slaveConfig.get("slave.id"),
+			name: this.slaveConfig.get("slave.name"),
 		});
 	}
 }
@@ -649,11 +647,13 @@ class Slave extends link.Link {
 		await this.updateInstances();
 	}
 
-	async stop() {
+	async shutdown() {
+		await link.messages.shutdownConnection.send(this);
 		for (let instanceId of this.instanceConnections.keys()) {
 			await this.stopInstance(instanceId);
 		}
-		this.connector.close("shutdown");
+		this.connector.close(1001, "Slave Shutdown");
+		await events.once(this.connector, "close");
 	}
 }
 
@@ -851,7 +851,7 @@ async function startClient() {
 
 		secondSigint = true;
 		console.log("Caught interrupt signal, shutting down");
-		slave.stop().catch(err => {
+		slave.shutdown().catch(err => {
 			console.error(`
 +---------------------------------------------------------------+
 | Unexpected error occured while stopping slave, please report  |

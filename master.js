@@ -222,11 +222,15 @@ async function shutdown() {
 		}
 
 		for (let controlConnection of controlConnections) {
-			controlConnection.connector.close("shutdown");
+			controlConnection.connector.close(1001, "Server Quit");
 		}
 
 		for (let slaveConnection of slaveConnections.values()) {
-			slaveConnection.connector.close("shutdown");
+			slaveConnection.connector.close(1001, "Server Quit");
+		}
+
+		for (let socket of pendingSockets) {
+			socket.close(1001, "Server Quit");
 		}
 
 		if (httpServer) {
@@ -537,6 +541,12 @@ class SlaveConnection extends BaseConnection {
 			}
 		}
 	}
+
+	async shutdown(code, reason) {
+		await link.messages.shutdownConnection.send(this);
+		this.connector.close(code, reason);
+		await events.once(this.connector, "close");
+	}
 }
 
 const wss = new WebSocket.Server({
@@ -559,110 +569,277 @@ function isInteger(value) {
 /**
  * Connector for master server connections
  */
-class WebSocketServerConnector extends events.EventEmitter {
-	constructor(socket) {
+class WebSocketServerConnector extends link.WebSocketBaseConnector {
+	constructor(socket, sessionId) {
 		super();
 
-		this._seq = 1;
 		this._socket = socket;
+		this._sessionId = sessionId;
 
-		this._socket.on('message', message => {
-			this.emit('message', JSON.parse(message));
-		});
-		this._socket.on('close', (code, reason) => {
-			this.emit('disconnect');
-		});
+		// The following states are used in the server connector
+		// handshake: Wating for client to (re)connect.
+		// connected: Connection is online
+		// closing: Connection is in the process of being closed.
+		// closed: Connection has been closed
+		this._state = "handshake";
+	}
+
+	_check(expectedStates) {
+		if (!expectedStates.includes(this._state)) {
+			throw new Error(
+				`Expected state ${expectedStates} but state is ${this._state}`
+			);
+		}
 	}
 
 	/**
-	 * Send a message over the socket
+	 * Send ready over the socket
 	 *
-	 * @returns the sequence number of the message sent
+	 * Sends the ready message over the socket to initiate the session.
 	 */
-	send(type, data = {}) {
-		this._socket.send(JSON.stringify({ seq: this._seq, type, data }));
-		return this._seq++;
+	ready(sessionToken) {
+		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
+		this._socket.send(JSON.stringify({
+			seq: null,
+			type: "ready",
+			data: {
+				session_token: sessionToken,
+				heartbeat_interval: this._heartbeatInterval,
+			},
+		}));
+
+		this._state = "connected";
+		this._attachSocketHandlers();
+	}
+
+	/**
+	 * Continue connection with the given socket
+	 *
+	 * Terminates the current socket and contiunes the session over the
+	 * socket given from the message sequence given.
+	 */
+	continue(socket, lastSeq) {
+		this._socket.terminate();
+		this._socket = socket;
+
+		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
+		this._socket.send(JSON.stringify({
+			seq: null,
+			type: "continue",
+			data: {
+				last_seq: this._lastReceivedSeq,
+				heartbeat_interval: this._heartbeatInterval,
+			},
+		}));
+
+		this._state = "connected";
+		this._attachSocketHandlers();
+		this._dropSendBufferSeq(lastSeq);
+		for (let message of this._sendBuffer) {
+			this._socket.send(JSON.stringify(message));
+		}
+	}
+
+	_attachSocketHandlers() {
+		this.startHeartbeat();
+
+		this._socket.on("close", (code, reason) => {
+			console.log(`SOCKET | Close (code: ${code}, reason: ${reason})`);
+			if (this._state === "closing") {
+				this._lastReceivedSeq = null;
+				this._sendBuffer.length = 0;
+				this._state = "closed";
+				activeConnections.delete(this._sessionId);
+
+				if (this._connected) {
+					this.emit("close");
+					this._connected = false;
+				}
+
+			} else {
+				this._state = "handshake";
+
+				if (this._connected) {
+					this.emit("dropped");
+					this._connected = false;
+				}
+			}
+
+			this.stopHeartbeat();
+		});
+
+		this._socket.on("error", err => {
+			// It's assumed that close is always called by ws
+			console.error("SOCKET | Error:", err);
+		});
+
+		this._socket.on("open", () => {
+			console.log("SOCKET | Open");
+		});
+		this._socket.on("ping", data => {
+			console.log(`SOCKET | Ping (data: ${data}`);
+		});
+		this._socket.on("pong", data => {
+			console.log(`SOCKET | Pong (data: ${data}`);
+		});
+
+		// Handle messages
+		this._socket.on("message", data => {
+			let message = JSON.parse(data);
+			if (["connected", "closing"].includes(this._state)) {
+				if (message.seq !== null) {
+					this._lastReceivedSeq = message.seq;
+				}
+
+				if (message.type === "heartbeat") {
+					this._processHeartbeat(message);
+
+				} else {
+					this.emit("message", message);
+				}
+
+			} else {
+				throw new Error(`Received message in unexpected state ${this._state}`);
+			}
+		});
 	}
 
 	/**
 	 * Close the connection with the given reason.
 	 *
-	 * Sends a close message and disconnects the connector.
+	 * Sends a close frame and disconnects the connector.
 	 */
-	close(reason) {
-		this.send('close', { reason });
-		this._socket.close();
-	}
+	close(code, reason) {
+		if (this._state === "new") {
+			return;
+		}
 
-	/**
-	 * Immediatly close the connection
-	 */
-	disconnect() {
-		this._socket.terminate();
+		this.stopHeartbeat();
+
+		if (["handshake", "connected"].includes(this._state)) {
+			this._socket.close(code, reason);
+		}
+
+		this._state = "closing";
 	}
 }
 
-wss.on('connection', function (socket, req) {
-	console.log(`SOCKET | new connection from ${socket.remoteAddress}`);
+let pendingSockets = new Set();
+let activeConnectors = new Map();
 
-	// Start connection handshake
-	let connector = new WebSocketServerConnector(socket);
-	connector.send('hello', { version });
+wss.on("connection", function (socket, req) {
+	console.log(`SOCKET | new connection from ${req.socket.remoteAddress}`);
 
-	// Handle socket handshake
-	socket.once('message', (payload) => {
-		payload = JSON.parse(payload);
+	// Start connection handshake.
+	socket.send(JSON.stringify({ seq: null, type: "hello", data: { version }}));
 
-		// XXX prometheusWsUsageCounter.labels('message', "other").inc();
-		if (!schema.clientHandshake(payload)) {
-			console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake`, payload);
-			connector.close("Invalid handshake");
-			return;
-		}
+	function attachHandler() {
+		pendingSockets.add(socket);
 
-		let { seq, type, data } = payload;
-		if (["register_slave", "register_control"].includes(type)) {
-			authenticate.check(data.token).then((result) => {
-				if (result.ok) {
-					if (type === "register_slave") {
-						let connection = slaveConnections.get(data.id);
-						if (connection) {
-							console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
-							connection.connector.close("Registered from another connection");
-						}
+		let timeoutId = setTimeout(() => {
+			console.log(`SOCKET | closing ${req.socket.remoteAddress} after timing out on handshake`);
+			socket.close(1008, "Handshake timeout");
+			pendingSockets.delete(socket);
+		}, 30*1000);
 
-						console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
-						slaveConnections.set(data.id, new SlaveConnection(data, connector));
-						connector.send('ready');
-
-					} else { // type === "register_control"
-						console.log(`SOCKET | registered control from ${req.socket.remoteAddress}`);
-						controlConnections.push(new ControlConnection(data, connector));
-						connector.send('ready');
-					}
-
-				} else {
-					console.error(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
-					connector.close("Authentication failed");
-				}
-			}).catch((err) => {
+		socket.once("message", (message) => {
+			clearTimeout(timeoutId);
+			pendingSockets.delete(socket);
+			handleHandshake(
+				message, socket, req, attachHandler
+			).catch(err => {
 				console.error(`
-+---------------------------------------------------------------------+
-| Unexpected error occured while authenticating client, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues         |
-+---------------------------------------------------------------------+`
++----------------------------------------------------------------+
+| Unexpected error occured in WebSocket handshake, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues    |
++----------------------------------------------------------------+`
 				);
 				console.error(err);
-				connection.close("Unexpected error");
+				socket.close(1011, "Unexpected error");
 			});
+		});
+	}
 
-		} else if (type === "close") {
-			console.log(`SOCKET | received close from ${req.socket.remoteAddress}: ${data.reason}`);
-			connector.disconnect();
+	attachHandler();
+});
+
+let nextSessionId = 1;
+
+// Unique string for the session token audience
+let masterSession = `session-${Date.now()}`;
+
+// Handle socket handshake
+async function handleHandshake(message, socket, req, attachHandler) {
+	try {
+		message = JSON.parse(message);
+	} catch (err) {
+		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid JSON`);
+		socket.close(1001, "Invalid JSON");
+		return;
+	}
+
+	if (!schema.clientHandshake(message)) {
+		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake:`, message);
+		socket.close(1001, "Bad handshake");
+		return;
+	}
+
+	let { seq, type, data } = message;
+
+	if (type === "resume") {
+		let connector;
+		try {
+			let payload = jwt.verify(
+				data.session_token,
+				masterConfig.get("master.auth_secret"),
+				{ audience: masterSession }
+			);
+
+			connector = activeConnectors.get(payload.sid);
+			if (!connector) {
+				throw new Error();
+			}
+
+		} catch(err) {
+			socket.send(JSON.stringify({ seq: null, type: "invalidate", data: {}}));
+			attachHandler();
 			return;
 		}
-	});
-});
+
+		connector.continue(socket, data.last_seq);
+		return
+	}
+
+	let result = await authenticate.check(data.token);
+
+	if (!result.ok) {
+		console.error(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
+		socket.close(4003, "Authentication failed");
+		return;
+	}
+
+	let sessionId = nextSessionId++;
+	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId, }, masterConfig.get("master.auth_secret"));
+	let connector = new WebSocketServerConnector(socket, sessionId);
+	activeConnectors.set(sessionId, connector);
+
+	if (type === "register_slave") {
+		let connection = slaveConnections.get(data.id);
+		if (connection) {
+			console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
+			await connection.shutdown();
+		}
+
+		console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
+		slaveConnections.set(data.id, new SlaveConnection(data, connector));
+
+	} else if (type === "register_control") {
+		console.log(`SOCKET | registered control from ${req.socket.remoteAddress}`);
+		controlConnections.push(new ControlConnection(data, connector));
+	}
+
+	connector.ready(sessionToken);
+}
 
 // handle plugins on the master
 var masterPlugins = new Map();

@@ -6,16 +6,35 @@ const link = require('lib/link');
 
 
 describe("lib/link/connectors", function() {
-	describe("class WebSocketClientConnector", function() {
-		let testConnector = new link.WebSocketClientConnector('source', 'url');
-		testConnector._socket = new mock.MockSocket();
-		describe(".disconnect()", function() {
-			it("should call terminate on the socket", function() {
-				testConnector._socket.terminateCalled = false;
-				testConnector.disconnect();
-				assert(testConnector._socket.terminateCalled, "Close was not called");
+	describe("class WebSocketBaseConnector", function() {
+		let testConnector = new link.WebSocketBaseConnector();
+
+		describe("._dropSendBufferSeq()", function() {
+			beforeEach(function() {
+				testConnector._sendBuffer = [
+					{ seq: 1, type: "test", data: {} },
+					{ seq: 2, type: "test", data: {} },
+					{ seq: 4, type: "test", data: {} },
+				];
+			});
+			it("should do nothing if passed null", function() {
+				testConnector._dropSendBufferSeq(null);
+				assert(testConnector._sendBuffer.length === 3, "entries were dropped");
+			});
+			it("should drop up to sequence", function() {
+				testConnector._dropSendBufferSeq(2);
+				assert.equal(testConnector._sendBuffer.length, 1, "incorrect number of entries dropped");
+			});
+			it("should ignore holes", function() {
+				testConnector._dropSendBufferSeq(3);
+				assert.equal(testConnector._sendBuffer.length, 1, "incorrect number of entries dropped");
 			});
 		});
+	});
+
+	describe("class WebSocketClientConnector", function() {
+		let testConnector = new link.WebSocketClientConnector('url', 1);
+		testConnector._socket = new mock.MockSocket();
 
 		describe(".register()", function() {
 			it("is abstract", function() {
@@ -26,8 +45,21 @@ describe("lib/link/connectors", function() {
 			});
 		});
 
+		describe(".sendHandshake()", function() {
+			it("calls send on the socket", function() {
+				testConnector._state = "handshake";
+				testConnector._socket.sentMessages = [];
+				testConnector.sendHandshake('test', { test: true });
+				assert.deepEqual(
+					testConnector._socket.sentMessages.map(JSON.parse),
+					[{ seq: null, type: 'test', data: { test: true }}]
+				);
+			});
+		});
+
 		describe(".send()", function() {
 			it("calls send on the socket", function() {
+				testConnector._state = "connected";
 				testConnector._socket.sentMessages = [];
 				let seq = testConnector.send('test', { test: true });
 				assert.deepEqual(
@@ -38,43 +70,32 @@ describe("lib/link/connectors", function() {
 		});
 
 		describe(".close()", function() {
-			it("should send close", function() {
-				testConnector._socket.sentMessages = [];
-				let called = false;
+			it("should call close", function() {
+				testConnector._socket.closeCalled = false;
 				testConnector.close("test reason");
-				assert.deepEqual(
-					testConnector._socket.sentMessages.map(JSON.parse),
-					[{ seq: testConnector._seq - 1, type: 'close', data: { reason: "test reason" } }]
-				)
+				assert(testConnector._socket.closeCalled, "Close was not called on the socket");
 			});
 		});
 
 		describe(".processHandshake()", function() {
 			it("should close on invalid message", function() {
-				testConnector._socket.sentMessages = [];
+				testConnector._socket.closeCalled = false;
 				testConnector._processHandshake({ data: "invalid message" }),
-				assert.deepEqual(
-					testConnector._socket.sentMessages.map(JSON.parse),
-					[{seq: testConnector._seq - 1, type: 'close', data: {
-						reason: "Invalid handshake" }
-					}]
-				);
+				assert(testConnector._socket.closeCalled, "Close was not called on the socket");
 			});
 			it("should call register on hello", function() {
 				let called = false;
 				testConnector.register = () => { called = true; };
-				testConnector._processHandshake({ seq: 1, type: 'hello', data: { version: "test" }}),
+				testConnector._processHandshake({ seq: 1, type: 'hello', data: { version: "test" }});
 				assert(called, "register was not called");
 			});
-			it("should emit ready on ready", async function() {
-				let result = events.once(testConnector, 'ready');
-				testConnector._processHandshake({ seq: 1, type: 'ready', data: {}}),
+			it("should emit connected on ready", async function() {
+				let result = events.once(testConnector, 'connected');
+				testConnector._processHandshake(
+					{ seq: 1, type: 'ready', data: { session_token: "x", heartbeat_interval: 10 }}
+				);
 				await result;
-			});
-			it("should emit error on close", async function() {
-				let result = events.once(testConnector, 'ready');
-				testConnector._processHandshake({ seq: 1, type: 'close', data: { reason: "test" }}),
-				await assert.rejects(result, new Error("server closed during handshake: test"));
+				clearInterval(testConnector._heartbeatId);
 			});
 		});
 
@@ -97,9 +118,9 @@ describe("lib/link/connectors", function() {
 				testConnector._socket.events.get("message")("{}");
 				assert(called, "_processHandshake was not called");
 			});
-			it("should emit message on message in ready state", async function() {
+			it("should emit message on message in connected state", async function() {
 				testConnector._socket.sentMessages = [];
-				testConnector._state = "ready";
+				testConnector._state = "connected";
 				let result = events.once(testConnector, 'message');
 				testConnector._socket.events.get("message")('{"message":true}');
 				assert.deepEqual(await result, [{ message: true }]);

@@ -29,6 +29,8 @@ Version 2.0.0
 ### Features
 
 - Added export of pollution statitics.
+- Reconnection logic that esures no data is dropped talking to the master
+  server provided the session can be resumed.
 
 ### Changes
 

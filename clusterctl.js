@@ -4,6 +4,7 @@ const yargs = require("yargs");
 const version = require("./package").version;
 const asTable = require("as-table").configure({delimiter: ' | '});
 const chalk = require("chalk");
+const events = require("events");
 
 const link = require("lib/link");
 const errors = require("lib/errors");
@@ -315,16 +316,16 @@ commands = new Map([...commands.map(command => [command.name, command])]);
  * Connector for control connection to master server
  */
 class ControlConnector extends link.WebSocketClientConnector {
-	constructor(url, token) {
-		super(url);
+	constructor(url, reconnectDelay, token) {
+		super(url, reconnectDelay);
 		this._token = token;
 	}
 
 	register() {
 		console.log("SOCKET | registering control");
-		this.send('register_control', {
+		this.sendHandshake("register_control", {
 			token: this._token,
-			agent: 'clusterctl',
+			agent: "clusterctl",
 			version: version,
 		});
 	}
@@ -347,6 +348,12 @@ class Control extends link.Link {
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
 		console.log(formatOutputColored(output));
+	}
+
+	async shutdown() {
+		await link.messages.shutdownConnection.send(this);
+		this.connector.close(1001, "Control Quit")
+		await events.once(this.connector, "close");
 	}
 }
 
@@ -411,6 +418,13 @@ ControlGroup.define({
 	type: "string",
 	optional: true,
 });
+ControlGroup.define({
+	name: "reconnect_delay",
+	title: "Reconnect Delay",
+	description: "Maximum delay to wait before attempting to reconnect WebSocket",
+	type: "number",
+	initial_value: 2,
+});
 ControlGroup.finalize();
 
 class ControlConfig extends config.Config { }
@@ -471,10 +485,19 @@ async function startControl() {
 	}
 
 	let controlConnector = new ControlConnector(
-		controlConfig.get("control.master_url"), controlConfig.get("control.master_token")
+		controlConfig.get("control.master_url"),
+		controlConfig.get("control.reconnect_delay"),
+		controlConfig.get("control.master_token")
 	);
 	let control = new Control(controlConnector);
-	await controlConnector.connect();
+	try {
+		await controlConnector.connect();
+	} catch(err) {
+		if (err instanceof errors.AuthenticationFailed) {
+			throw new errors.StartupError(err.message);
+		}
+		throw err;
+	}
 
 	if (commands.has(commandName)) {
 		command = commands.get(commandName);
@@ -492,13 +515,12 @@ async function startControl() {
 				process.exitCode = 1;
 
 			} else {
-				controlConnector.close("error");
 				throw err;
 			}
-		}
 
-		controlConnector.close("quit");
-		return; // ??
+		} finally {
+			await control.shutdown();
+		}
 	}
 
 	//XXX control.close("done");
