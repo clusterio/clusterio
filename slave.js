@@ -278,6 +278,7 @@ class Instance extends link.Link{
 		await this.writeServerSettings();
 
 		console.log("Creating save .....");
+		await symlinkMods(this, "sharedMods", console);
 
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
