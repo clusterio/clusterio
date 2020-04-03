@@ -347,6 +347,12 @@ class BaseConnection extends link.Link {
 			event.send(slaveConnection, message.data);
 		}
 	}
+
+	async shutdown(code, reason) {
+		await link.messages.shutdownConnection.send(this);
+		this.connector.close(code, reason);
+		await events.once(this.connector, "close");
+	}
 }
 
 let controlConnections = new Array();
@@ -357,7 +363,7 @@ class ControlConnection extends BaseConnection {
 		this._agent = registerData.agent;
 		this._version = registerData.version;
 
-		this.connector.on('disconnect', () => {
+		this.connector.on("close", () => {
 			let index = controlConnections.indexOf(this);
 			if (index !== -1) {
 				controlConnections.splice(index, 1);
@@ -498,7 +504,7 @@ class SlaveConnection extends BaseConnection {
 			// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		});
 
-		this.connector.on('disconnect', () => {
+		this.connector.on("close", () => {
 			if (slaveConnections.get(this._id) === this) {
 				slaveConnections.delete(this._id);
 			}
@@ -541,12 +547,6 @@ class SlaveConnection extends BaseConnection {
 			}
 		}
 	}
-
-	async shutdown(code, reason) {
-		await link.messages.shutdownConnection.send(this);
-		this.connector.close(code, reason);
-		await events.once(this.connector, "close");
-	}
 }
 
 const wss = new WebSocket.Server({
@@ -582,6 +582,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		// closing: Connection is in the process of being closed.
 		// closed: Connection has been closed
 		this._state = "handshake";
+		this._connected = false;
 	}
 
 	_check(expectedStates) {
@@ -609,7 +610,9 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		}));
 
 		this._state = "connected";
+		this._connected = true;
 		this._attachSocketHandlers();
+		this.emit("connected");
 	}
 
 	/**
@@ -633,11 +636,13 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		}));
 
 		this._state = "connected";
+		this._connected = true;
 		this._attachSocketHandlers();
 		this._dropSendBufferSeq(lastSeq);
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
+		this.emit("connected");
 	}
 
 	_attachSocketHandlers() {
@@ -649,7 +654,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 				this._lastReceivedSeq = null;
 				this._sendBuffer.length = 0;
 				this._state = "closed";
-				activeConnections.delete(this._sessionId);
+				activeConnectors.delete(this._sessionId);
 
 				if (this._connected) {
 					this.emit("close");
@@ -715,12 +720,8 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		}
 
 		this.stopHeartbeat();
-
-		if (["handshake", "connected"].includes(this._state)) {
-			this._socket.close(code, reason);
-		}
-
 		this._state = "closing";
+		this._socket.close(code, reason);
 	}
 }
 
@@ -826,7 +827,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	if (type === "register_slave") {
 		let connection = slaveConnections.get(data.id);
 		if (connection) {
-			console.log(`SOCKET | disconecting existing connection for slave ${data.id}`);
+			console.log(`SOCKET | disconnecting existing connection for slave ${data.id}`);
 			await connection.shutdown();
 		}
 
