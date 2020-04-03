@@ -761,13 +761,13 @@ async function symlinkMods(instance, sharedMods, logger) {
 	}
 }
 
-async function startClient() {
+async function startSlave() {
 	// add better stack traces on promise rejection
 	process.on('unhandledRejection', r => console.log(r));
 
 	// argument parsing
 	const args = yargs
-		.scriptName("client")
+		.scriptName("slave")
 		.usage("$0 <command> [options]")
 		.option('config', {
 			nargs: 1,
@@ -776,7 +776,7 @@ async function startClient() {
 			type: 'string',
 		})
 		.command("config", "Manage Slave config", config.configCommand)
-		.command('start', "Start slave")
+		.command("run", "Run slave")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
@@ -808,7 +808,7 @@ async function startClient() {
 		return;
 	}
 
-	// If we get here the command was start
+	// If we get here the command was run
 
 	await fs.ensureDir(slaveConfig.get("slave.instances_directory"));
 	await fs.ensureDir("sharedMods");
@@ -816,14 +816,14 @@ async function startClient() {
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioClient";
+	process.title = "clusterioSlave";
 
 	// make sure we have the master access token
 	if (slaveConfig.get("slave.master_token") === "enter token here") {
 		console.error("ERROR invalid config!");
 		console.error(
 			"Master server now needs an access token for write operations. As clusterio\n"+
-			"slaves depends upon this, please set your token using the command node client\n"+
+			"slaves depends upon this, please set your token using the command node slave\n"+
 			"config set slave.master_token <token>.  You can retrieve your auth token from\n"+
 			"the master in secret-api-token.txt after running it once."
 		);
@@ -916,12 +916,12 @@ I           version of clusterio.  Expect things to break. I
 +==========================================================+
 `
 	);
-	startClient().catch(err => {
+	startSlave().catch(err => {
 		console.error(`
-+---------------------------------------------------------------+
-| Unexpected error occured while starting client, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues   |
-+---------------------------------------------------------------+`
++--------------------------------------------------------------+
+| Unexpected error occured while starting slave, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues  |
++--------------------------------------------------------------+`
 		);
 
 		console.error(err);

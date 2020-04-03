@@ -81,6 +81,7 @@ Version 2.0.0
 - Removed UPSdisplay plugin.  UPS statistics is exported by the statistics
   exporter plugin.
 - Master server now defaults to hosting on https on port 8443.
+- Renamed client to slave.
 
 ### Breaking Changes
 
