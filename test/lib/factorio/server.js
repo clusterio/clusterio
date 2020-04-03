@@ -166,7 +166,7 @@ describe("lib/factorio/server", function() {
 	});
 
 	describe("class FactorioServer", function() {
-		let writePath = path.join("test", "temp", "should_not_exist");
+		let writePath = path.join("temp", "test", "server");
 		let server = new factorio.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
 
 		describe(".init()", function() {

@@ -1,5 +1,6 @@
 const assert = require("assert").strict;
 const fs = require("fs-extra");
+const path = require("path");
 
 const database = require("lib/database");
 
@@ -60,7 +61,7 @@ describe("lib/database", function() {
 
 	describe("saveMapAsJson()", function() {
 		it("should save a mapping as JSON", async function() {
-			let testFile = 'test/temp/save_map.json';
+			let testFile = path.join("temp", "test", "save_map.json");
 			async function deleteTestFile() {
 				try {
 					await fs.unlink(testFile);
@@ -134,7 +135,7 @@ describe("lib/database", function() {
 
 	describe("saveMapAsJsonArray()", function() {
 		it("should save a mapping as JSON", async function() {
-			let testFile = 'test/temp/save_array_map.json';
+			let testFile = path.join("temp", "test", "save_array_map.json");
 			async function deleteTestFile() {
 				try {
 					await fs.unlink(testFile);

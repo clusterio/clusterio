@@ -7,5 +7,5 @@ before_install:
   - npm install -g codecov
 script:
   - npm run-script ci-cover
-  - cat test/temp/integration/log.txt
+  - cat temp/test/integration/log.txt
   - codecov -f coverage/lcov.info

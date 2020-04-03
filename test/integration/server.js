@@ -20,7 +20,7 @@ describe("Integration of lib/factorio/server", function() {
 	});
 
 	describe("class FactorioServer", function() {
-		let writePath = path.join("test", "temp", "integration");
+		let writePath = path.join("temp", "test", "integration");
 		let server = new factorio.FactorioServer("factorio", writePath, {});
 		let logFile;
 

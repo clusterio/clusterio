@@ -32,11 +32,11 @@ let slaveProcess;
 
 let url = "https://localhost:4443/";
 let token = jwt.sign({ id: "api" }, "TestSecretDoNotUse");
-let instancesDir = path.join("test", "temp", "instances");
-let databaseDir = path.join("test", "temp", "databse");
-let masterConfigPath = path.join("test", "temp", "master-integration.json");
-let slaveConfigPath = path.join("test", "temp", "slave-integration.json");
-let controlConfigPath = path.join("test", "temp", "control-integration.json");
+let instancesDir = path.join("temp", "test", "instances");
+let databaseDir = path.join("temp", "test", "databse");
+let masterConfigPath = path.join("temp", "test", "master-integration.json");
+let slaveConfigPath = path.join("temp", "test", "slave-integration.json");
+let controlConfigPath = path.join("temp", "test", "control-integration.json");
 
 async function exec(...args) {
 	console.log(args[0]);

@@ -13,7 +13,7 @@ require("./server")
 
 describe("Integration of lib/factorio/patch", function() {
 	describe("patch()", function() {
-		let savePath = path.join("test", "temp", "integration", "saves", "test.zip");
+		let savePath = path.join("temp", "test", "integration", "saves", "test.zip");
 		it("should patch a freeplay game", async function() {
 			slowTest(this);
 			await factorio.patch(savePath, [{
