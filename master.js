@@ -411,6 +411,18 @@ class ControlConnection extends BaseConnection {
 		db.instances.set(instanceId, instanceConfig);
 	}
 
+	async deleteInstanceRequestHandler(message, request) {
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+		}
+
+		if (instanceConfig.get('instance.assigned_slave') !== null) {
+			await this.forwardRequestToInstance(message, request);
+		}
+		db.instances.delete(message.data.instance_id);
+	}
+
 	async getInstanceConfigRequestHandler(message) {
 		let instanceConfig = db.instances.get(message.data.instance_id);
 		if (!instanceConfig) {
