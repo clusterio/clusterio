@@ -29,13 +29,14 @@ class Instance extends link.Link{
 		this.config = instanceConfig;
 
 		let serverOptions = {
+			version: this.config.get("factorio.version"),
 			gamePort: this.config.get('factorio.game_port'),
 			rconPort: this.config.get('factorio.rcon_port'),
 			rconPassword: this.config.get('factorio.rcon_password'),
 		};
 
 		this.server = new factorio.FactorioServer(
-			path.join(factorioDir, "data"), this._dir, serverOptions
+			factorioDir, this._dir, serverOptions
 		);
 
 		this.server.on('output', (output) => {

@@ -167,19 +167,25 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
     - Via the stand alone version on from their website
 
-        1. Download the MS Windows (64-bit zip package) from https://www.factorio.com/download
+        1.  Create a new folder named "factorio" in the the factorioClusterio
+            folder.
 
-        2. Open the zip file and drag the folder called "Factorio_0.17.x" into the factorioClusterio folder
+        2.  Download the MS Windows (64-bit zip package) from
+            https://www.factorio.com/download .
 
-        3. Rename the folder to "factorio"
+        3.  Open the zip file and drag the folder called "Factorio_0.x.y" into
+            the factorio folder created in step 1.
 
     - Via steam installation
 
-        1. Locate the game files by right clicking the game in steam, selecting properties, then Local Files, then Browse local files.
+        1.  Create a new folder named "factorio" in the the factorioClusterio
+            folder.
 
-        2. Go to the parent folder of the folder that Steam opened and copy the Factorio folder into the factorioClusterio folder
+        2.  Locate the game files by right clicking the game in steam,
+            selecting properties, then Local Files, then Browse local files.
 
-        3. Rename the folder to "factorio"
+        3.  Go to the parent folder of the folder that Steam opened and copy
+            the Factorio folder into the factorio folder created in step 1.
 
 
 ## Running Clusterio

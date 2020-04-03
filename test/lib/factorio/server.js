@@ -13,10 +13,71 @@ describe("lib/factorio/server", function() {
 			let version = await factorio._getVersion(path.join("test", "file", "changelog-test.txt"));
 			assert.equal(version, "0.1.1");
 		});
-		it("should throw if unable to find the version", async function() {
+		it("should return null if unable to find the version", async function() {
+			let version = await factorio._getVersion(path.join("test", "file", "changelog-bad.txt"));
+			assert.equal(version, null);
+		});
+		it("should return null if file does not exist", async function() {
+			let version = await factorio._getVersion(path.join("test", "file", "does-not-exist.txt"));
+			assert.equal(version, null);
+		});
+	});
+
+	describe("_versionOrder()", function() {
+		it("should sort an array of versions", function() {
+			let versions = ["1.2.3", "0.1.4", "0.1.2", "1.2.3", "0.1.5", "1.10.2"];
+			versions.sort(factorio._versionOrder);
+			assert.deepEqual(
+				versions,
+				["1.10.2", "1.2.3", "1.2.3", "0.1.5", "0.1.4", "0.1.2"]
+			);
+		});
+	});
+
+	describe("_findVersion()", function() {
+		it("should find a given install dir with latest as target", async function() {
+			let installDir = path.join("test", "file", "factorio");
+			let [dir, version] = await factorio._findVersion(installDir, "latest");
+			assert.equal(dir, path.join(installDir, "data"));
+			assert.equal(version, "0.1.1");
+		});
+		it("should find a given install dir with correct version as target", async function() {
+			let installDir = path.join("test", "file", "factorio");
+			let [dir, version] = await factorio._findVersion(installDir, "0.1.1");
+			assert.equal(dir, path.join(installDir, "data"));
+			assert.equal(version, "0.1.1");
+		});
+		it("should reject if the install dir version does not match target version", async function() {
+			let installDir = path.join("test", "file", "factorio");
 			await assert.rejects(
-				factorio._getVersion(path.join("test", "file", "changelog-bad.txt")),
-				new Error("Unable to determine the version of Factorio")
+				factorio._findVersion(installDir, "0.1.2"),
+				new Error("Factorio version 0.1.2 was requested, but install directory contains 0.1.1")
+			);
+		});
+		it("should search given directory for latest Factorio install", async function() {
+			let installDir = path.join("test", "file");
+			let [dir, version] = await factorio._findVersion(installDir, "latest");
+			assert.equal(dir, path.join(installDir, "factorio", "data"));
+			assert.equal(version, "0.1.1");
+		});
+		it("should search given directory for given Factorio install", async function() {
+			let installDir = path.join("test", "file");
+			let [dir, version] = await factorio._findVersion(installDir, "0.1.1");
+			assert.equal(dir, path.join(installDir, "factorio", "data"));
+			assert.equal(version, "0.1.1");
+		});
+		it("should reject if no factorio install with the given version was found", async function() {
+			let installDir = path.join("test", "file");
+			await assert.rejects(
+				factorio._findVersion(installDir, "0.1.2"),
+				new Error("Unable to find Factorio version 0.1.2")
+			);
+		});
+		it("should reject if no factorio install was found", async function() {
+			let installDir = path.join("test", "file", "instances");
+			await assert.rejects(
+				factorio._findVersion(installDir, "latest"),
+				new Error(`Unable to find any Factorio install in ${installDir}`)
 			);
 		});
 	});
@@ -106,7 +167,7 @@ describe("lib/factorio/server", function() {
 
 	describe("class FactorioServer", function() {
 		let writePath = path.join("test", "temp", "should_not_exist");
-		let server = new factorio.FactorioServer(path.join("test", "file", "factorio", "data"), writePath, {});
+		let server = new factorio.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
 
 		describe(".init()", function() {
 			it("should not throw on first call", async function() {

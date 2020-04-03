@@ -31,6 +31,8 @@ Version 2.0.0
 - Added export of pollution statitics.
 - Reconnection logic that esures no data is dropped talking to the master
   server provided the session can be resumed.
+- Added support for having multiple Factorio installs and selecting which
+  version to use on a per instance basis.
 
 ### Changes
 
