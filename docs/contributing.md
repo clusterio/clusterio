@@ -176,7 +176,19 @@ Code Style
 ----------
 
 The style of the code is a bit of a mixed bag at the moment.  But there
-are at least two things that have been agreed upon.
+are at least a few things that have been agreed upon.
+
+
+### Strings
+
+JavaScript and Lua code should use double quoted strings (`"string"`)
+for all strings with the only exception that strings that contain double
+quotes may use single quotes (i.e., `'String with "quotes"'`.)  For
+JavaScript template literals may also be used where appropriate.
+
+There are places in the codebase that are using `'single'` quoted
+strings.  Should you be modifying such code use double quotes on new and
+modified lines and leave the rest untouched.
 
 
 ### Indenting
