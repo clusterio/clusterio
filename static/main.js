@@ -1,6 +1,5 @@
 
 (function (){
-	ensureSetting("Display offline slaves", "boolean", false);
 	ensureSetting("Periodically update storage screen", "boolean", true);
 }())
 
