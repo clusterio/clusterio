@@ -31,7 +31,7 @@ describe("lib/database", function() {
 		for (let type of badTypes) {
 			it(`should reject on ${type} JSON`, async function() {
 				await assert.rejects(
-					database.loadJsonAsMap(`test/json/${type}.json`),
+					database.loadJsonAsMap(path.join("test", "file", "json", `${type}.json`)),
 					new Error(`Expected object but got ${type}`)
 				);
 			});
@@ -39,21 +39,21 @@ describe("lib/database", function() {
 
 		it("should work on empty object JSON", async function() {
 			assert.deepEqual(
-				await database.loadJsonAsMap('test/json/object.json'),
+				await database.loadJsonAsMap(path.join("test", "file", "json", "object.json")),
 				new Map()
 			);
 		});
 
 		it("should work on object JSON", async function() {
 			assert.deepEqual(
-				await database.loadJsonAsMap('test/json/load_map.json'),
+				await database.loadJsonAsMap(path.join("test", "file", "json", "load_map.json")),
 				new Map([['a', 1], ['b', true]])
 			);
 		});
 
 		it("should give an empty Map for non-existant file", async function() {
 			assert.deepEqual(
-				await database.loadJsonAsMap('test/json/does-not-exist'),
+				await database.loadJsonAsMap(path.join("test", "file", "json", "does-not-exist")),
 				new Map()
 			);
 		});
@@ -91,7 +91,7 @@ describe("lib/database", function() {
 		for (let type of badTypes) {
 			it(`should reject on ${type} JSON`, async function() {
 				await assert.rejects(
-					database.loadJsonArrayAsMap(`test/json/${type}.json`),
+					database.loadJsonArrayAsMap(path.join("test", "file", "json", `${type}.json`)),
 					new Error(`Expected array but got ${type}`)
 				);
 			});
@@ -99,35 +99,35 @@ describe("lib/database", function() {
 
 		it("should reject on null element", async function() {
 			await assert.rejects(
-				database.loadJsonArrayAsMap('test/json/array_null.json'),
+				database.loadJsonArrayAsMap(path.join("test", "file", "json", "array_null.json")),
 				new Error("Expected all elements to be objects")
 			);
 		});
 
 		it("should reject on element missing id", async function() {
 			await assert.rejects(
-				database.loadJsonArrayAsMap('test/json/array_object.json'),
+				database.loadJsonArrayAsMap(path.join("test", "file", "json", "array_object.json")),
 				new Error("Expected all elements to have an id property")
 			);
 		});
 
 		it("should work on empty array JSON", async function() {
 			assert.deepEqual(
-				await database.loadJsonArrayAsMap('test/json/array.json'),
+				await database.loadJsonArrayAsMap(path.join("test", "file", "json", "array.json")),
 				new Map()
 			);
 		});
 
 		it("should work on array JSON", async function() {
 			assert.deepEqual(
-				await database.loadJsonArrayAsMap('test/json/load_array_map.json'),
+				await database.loadJsonArrayAsMap(path.join("test", "file", "json", "load_array_map.json")),
 				new Map([['a', {id: 'a'}], ['b', {id: 'b'}]])
 			);
 		});
 
 		it("should give an empty Map for non-existant file", async function() {
 			assert.deepEqual(
-				await database.loadJsonArrayAsMap('test/json/does-not-exist'),
+				await database.loadJsonArrayAsMap(path.join("test", "file", "json", "does-not-exist")),
 				new Map()
 			);
 		});
