@@ -133,11 +133,20 @@ Version 2.0.0
   socket_io_transmit_bytes,
 - Removed clusterio_connected_instaces_gauge and added
   clusterio_master_connected_clients_count in its place.
-- Renamed clusterio_player_count_gauge to clusterio_instance_player_count
-- Removed clusterio_UPS_gauge and added clusterio_instance_game_ticks_total in
-  its place.
+- Renamed clusterio_player_count_gauge to
+  clusterio_statistics_exporter_instance_player_count
+- Removed clusterio_UPS_gauge and added
+  clusterio_statistics_exporter_instance_game_ticks_total in its place.
 - Renamed clusterio_endpoint_hit_gauge to clusterio_http_enpoint_hits_total
-- Renamed clusterio_statistics_gauge to clusterio_instance_force_flows
+- Renamed clusterio_statistics_gauge to
+  clusterio_statistics_exporter_instance_force_flows
+- Renamed clusterio_nn_dole_gauge to clusterio_subspace_storage_nn_dole_gauge.
+- Renamed clusterio_dole_factor_gauge to
+  clusterio_subspace_storage_dole_factor_gauge.
+- Renamed clusterio_import_gauge to clusterio_subspace_storage_import_total.
+- Renamed clusterio_export_gauge to clusterio_subspace_storage_export_total.
+- Renamed clusterio_master_inventory_gauge to
+  clusterio_subspace_storage_master_inventory.
 - Removed clusterioMod plugin specific config options logItemTransfers,
   disableFairItemDistribution useNeuralNetDoleDivider, autosaveInterval, and
   disableImportsOfEverythingExceptElectricity from the master config.

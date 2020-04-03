@@ -10,25 +10,25 @@ const routes = require("./routes");
 const dole = require("./dole");
 
 
-const prometheusExportGauge = new prometheus.Gauge(
-	"clusterio_export_gauge",
+const exportCounter = new prometheus.Counter(
+	"clusterio_subspace_storage_export_total",
 	"Resources exported by instance",
 	{ labels: ["instance_id", "resource"] }
 );
-const prometheusImportGauge = new prometheus.Gauge(
-	"clusterio_import_gauge",
+const importCounter = new prometheus.Counter(
+	"clusterio_subspace_storage_import_total",
 	"Resources imported by instance",
 	{ labels: ["instance_id", "resource"] }
+);
+const masterInventoryGauge = new prometheus.Gauge(
+	"clusterio_subspace_storage_master_inventory",
+	"Amount of resources stored on master",
+	{ labels: ["resource"] }
 );
 
 
 class MasterPlugin extends plugin.BaseMasterPlugin {
 	async init() {
-		this.prometheusMasterInventoryGauge = new prometheus.Gauge(
-			"clusterio_master_inventory_gauge",
-			"Amount of resources stored on master",
-			{ labels: ["resource"] }
-		);
 
 		this.ui = {
 			sidebar: [
@@ -91,7 +91,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 
 		for (let item of message.data.items) {
 			this.items.addItem(item[0], item[1]);
-			prometheusExportGauge.labels(String(instanceId), item[0]).inc(item[1]);
+			exportCounter.labels(String(instanceId), item[0]).inc(item[1]);
 		}
 
 		this.updateStorage();
@@ -152,7 +152,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 
 		if (itemsRemoved.length) {
 			for (let item of itemsRemoved) {
-				prometheusImportGauge.labels(String(instanceId), item[0]).inc(item[1]);
+				importCounter.labels(String(instanceId), item[0]).inc(item[1]);
 			}
 
 			this.updateStorage();
@@ -171,7 +171,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 	onMetrics() {
 		if (this.items) {
 			for (let [key, count] of this.items._items) {
-				this.prometheusMasterInventoryGauge.labels(key).set(Number(count) || 0);
+				masterInventoryGauge.labels(key).set(Number(count) || 0);
 			}
 		}
 	}
