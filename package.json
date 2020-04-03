@@ -10,6 +10,7 @@
     "cover": "nyc npm test",
     "fast-cover": "FAST_TEST=y nyc npm test",
     "ci-cover": "nyc --reporter=lcovonly npm run-script test",
+    "docs": "jsdoc --configure docs/jsdoc.json",
     "install": "node lib/npmPostinstall",
     "bundle-dependencies": "bundle-dependencies"
   },
@@ -67,6 +68,7 @@
   },
   "devDependencies": {
     "html5-validator": "^1.2.1",
+    "jsdoc": "^3.6.3",
     "klaw": "^3.0.0",
     "mocha": "^6.2.0",
     "mocha-sinon": "^2.1.0",

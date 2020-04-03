@@ -1,0 +1,23 @@
+{
+    "plugins": [
+        "plugins/markdown"
+    ],
+    "tags": {
+        "allowUnknownTags": false
+    },
+    "opts": {
+        "destination": "docs/api",
+        "recurse": true
+    },
+    "source": {
+        "include": [
+            "master.js",
+            "slave.js",
+            "clusterctl.js",
+            "lib/",
+            "plugins/",
+            "routes/",
+            "routes.js"
+        ]
+    }
+}
