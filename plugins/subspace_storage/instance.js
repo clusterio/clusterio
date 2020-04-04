@@ -32,7 +32,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
 	}
 
-	async onStop() {
+	onExit() {
 		clearInterval(this.pingId);
 	}
 

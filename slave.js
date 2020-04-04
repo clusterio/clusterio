@@ -60,6 +60,19 @@ class Instance extends link.Link{
 				});
 			}
 		});
+
+		this.server.on("error", err => {
+			console.log(`Error in instance ${this.name}:`, err);
+		});
+
+		this.server.on("exit", err => {
+			link.messages.instanceStopped.send(this);
+
+			// Notify plugins of exit
+			for (let pluginInstance of this.plugins.values()) {
+				pluginInstance.onExit();
+			}
+		});
 	}
 
 	async init(pluginInfos, slave) {
@@ -250,11 +263,6 @@ class Instance extends link.Link{
 				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
 		}
-
-		// Notify plugins of exit
-		for (let pluginInstance of this.plugins.values()) {
-			await pluginInstance.onExit();
-		}
 	}
 
 	async getMetricsRequestHandler() {
@@ -294,11 +302,6 @@ class Instance extends link.Link{
 
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
-
-		// Notify plugins of exit
-		for (let pluginInstance of this.plugins.values()) {
-			await pluginInstance.onExit();
-		}
 	}
 
 	async stopInstanceRequestHandler() {
@@ -373,9 +376,10 @@ async function discoverInstances(instancesDir, logger) {
 }
 
 class InstanceConnection extends link.Link {
-	constructor(connector, slave) {
+	constructor(connector, slave, instanceId) {
 		super('slave', 'instance', connector);
 		this.slave = slave;
+		this.instanceId = instanceId;
 		link.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
@@ -412,6 +416,10 @@ class InstanceConnection extends link.Link {
 			console.log("Broadcasting event");
 			event.send(instanceConnection, message.data);
 		}
+	}
+
+	async instanceStoppedEventHandler(message) {
+		this.slave.instanceConnections.delete(this.instanceId);
 	}
 }
 
@@ -552,7 +560,7 @@ class Slave extends link.Link {
 		}
 
 		let [connectionClient, connectionServer] = link.VirtualConnector.makePair();
-		let instanceConnection = new InstanceConnection(connectionServer, this);
+		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
@@ -604,25 +612,12 @@ class Slave extends link.Link {
 	async createSaveRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
-		try {
-			await request.send(instanceConnection, message.data);
-			this.instanceConnections.delete(instanceId);
-
-		} catch (err) {
-			await this.stopInstance(instanceId);
-			throw err;
-		}
+		await request.send(instanceConnection, message.data);
 	}
 
 	async stopInstance(instanceId) {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		await link.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
-		this.instanceConnections.delete(instanceId);
-	}
-
-	async stopInstanceRequestHandler(message, request) {
-		await this.forwardRequestToInstance(message, request);
-		this.instanceConnections.delete(message.data.instance_id);
 	}
 
 	async deleteInstanceRequestHandler(message) {

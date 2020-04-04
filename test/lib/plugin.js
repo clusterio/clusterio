@@ -18,7 +18,7 @@ describe("lib/plugin", function() {
 		it("should define defaults for hooks", async function() {
 			await instancePlugin.onStart();
 			await instancePlugin.onStop();
-			await instancePlugin.onExit();
+			instancePlugin.onExit();
 			await instancePlugin.onOutput({});
 		})
 	});
