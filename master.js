@@ -72,6 +72,7 @@ app.set('views', ['views', 'plugins']);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
+	res.locals.root = masterConfig.get("master.web_root");
 	res.locals.res = res;
 	res.locals.req = req;
 	res.locals.masterPlugins = masterPlugins;

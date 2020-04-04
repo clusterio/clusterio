@@ -62,7 +62,7 @@ function updateInventory() {
 			drawcontents(data);
 		}
 	}
-	xmlhttp.open("GET", "/api/inventory", true);
+	xmlhttp.open("GET", `${root}api/inventory`, true);
 	xmlhttp.send();
 }
 if(JSON.parse(localStorage.settings)["Periodically update storage screen"]) {

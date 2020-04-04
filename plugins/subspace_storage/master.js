@@ -30,12 +30,13 @@ const masterInventoryGauge = new prometheus.Gauge(
 class MasterPlugin extends plugin.BaseMasterPlugin {
 	async init() {
 
+		let root = this.master.config.get("master.web_root");
 		this.ui = {
 			sidebar: [
 				{
 					getHtml: () => `
     <div class="nav-item mr-1">
-        <a class="nav-link align-middle" href="/subspace_storage/storage">Storage</a>
+        <a class="nav-link align-middle" href="${root}subspace_storage/storage">Storage</a>
     </div>`,
 				},
 			],

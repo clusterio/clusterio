@@ -33,6 +33,8 @@ Version 2.0.0
   server provided the session can be resumed.
 - Added support for having multiple Factorio installs and selecting which
   version to use on a per instance basis.
+- Added config to specify which path the master interface is accessed under,
+  allowing it to be proxied behind web-server.
 
 ### Changes
 

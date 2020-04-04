@@ -198,7 +198,7 @@ function getImageFromName(name){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["fluid-name"][name], ' ', '_').toLowerCase()) + ".png";
 	} else if(factorioLocale["equipment-name"] && factorioLocale["equipment-name"][name]){
 		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["equipment-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else return "/pictures/unknown-item.png";
+	} else return `${root}pictures/unknown-item.png`;
 }
 window.factorioLocale = {};
 $.getJSON("/api/getFactorioLocale", (locale) => {
@@ -252,6 +252,6 @@ var imagelinks = {
 	"battery-mk2-equipment": "/pictures/Battery_MK2.png",
 	"personal-roboport-mk2-equipment": "/pictures/Personal_roboport_MK2.png",
 }
-var populateImageLinks = async () => (await getJSON("/api/getPictures")).forEach(img => imagelinks[img.name] = img.path)
+var populateImageLinks = async () => (await getJSON(`${root}api/getPictures`)).forEach(img => imagelinks[img.name] = img.path)
 
 populateImageLinks()
