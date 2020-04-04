@@ -36,6 +36,7 @@ Version 2.0.0
 - Added config to specify which path the master interface is accessed under,
   allowing it to be proxied behind web-server.
 - Added WebSocket usage statistics.
+- Added commands sent statistic.
 
 ### Changes
 

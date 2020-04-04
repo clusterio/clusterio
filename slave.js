@@ -16,6 +16,12 @@ const luaTools = require('lib/luaTools');
 const config = require('lib/config');
 
 
+const instanceRconCommandsCounter = new prometheus.Counter(
+	"clusterio_instance_rcon_commands_total",
+	"How many commands have been sent to the instance",
+	{ labels: ["instance_id"] }
+);
+
 /**
  * Keeps track of the runtime parameters of an instance
  */
@@ -38,6 +44,12 @@ class Instance extends link.Link{
 		this.server = new factorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
+
+		let originalSendRcon = this.server.sendRcon;
+		this.server.sendRcon = (...args) => {
+			instanceRconCommandsCounter.labels(String(this.config.get("instance.id"))).inc();
+			return originalSendRcon.call(this.server, ...args);
+		}
 
 		this.server.on('output', (output) => {
 			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
