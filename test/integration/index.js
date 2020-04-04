@@ -9,6 +9,16 @@ const events = require("events");
 const server = require("lib/factorio/server");
 
 
+// Mark that this test takes a lot of time, or depeneds on a test
+// that takes a lot of time.
+function slowTest(test) {
+	if (process.env.FAST_TEST) {
+		test.skip();
+	}
+
+	test.timeout(20000);
+}
+
 async function get(path) {
 	let res = await needle("get", `https://localhost:4443${path}`, { rejectUnauthorized: false });
 	if (res.statusCode != 200) {
@@ -20,6 +30,8 @@ async function get(path) {
 let masterProcess;
 let slaveProcess;
 
+let url = "https://localhost:4443/";
+let token = jwt.sign({ id: "api" }, "TestSecretDoNotUse");
 let instancesDir = path.join("test", "temp", "instances");
 let databaseDir = path.join("test", "temp", "databse");
 let masterConfigPath = path.join("test", "temp", "master-integration.json");
@@ -61,16 +73,16 @@ before(async function() {
 	await fs.remove(slaveConfigPath);
 	await fs.remove(controlConfigPath);
 
-	let token = jwt.sign({ id: "api" }, "TestSecretDoNotUse");
 	await exec(`node master --config ${masterConfigPath} config set master.database_directory ${databaseDir}`);
 	await exec(`node master --config ${masterConfigPath} config set master.auth_secret TestSecretDoNotUse`);
 	await exec(`node master --config ${masterConfigPath} config set master.http_port 8880`);
 	await exec(`node master --config ${masterConfigPath} config set master.https_port 4443`);
+	await exec(`node master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
 
 	await exec(`node client --config ${slaveConfigPath} config set slave.id 4`);
 	await exec(`node client --config ${slaveConfigPath} config set slave.name slave`);
 	await exec(`node client --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
-	await exec(`node client --config ${slaveConfigPath} config set slave.master_url "https://localhost:4443/"`);
+	await exec(`node client --config ${slaveConfigPath} config set slave.master_url "${url}"`);
 	await exec(`node client --config ${slaveConfigPath} config set slave.master_token "${token}"`);
 
 	await exec(`node clusterctl --config ${controlConfigPath} control-config set control.master_url "https://localhost:4443/"`);
@@ -97,9 +109,12 @@ after(async function() {
 
 
 module.exports = {
+	slowTest,
 	get,
 	exec,
 
+	url,
+	token,
 	instancesDir,
 	databaseDir,
 	masterConfigPath,

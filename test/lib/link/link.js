@@ -27,25 +27,6 @@ describe("lib/link/link", function() {
 			}));
 		});
 
-		it("should close connector on invalid messages", function() {
-			testConnector.sentMessages = [];
-			testConnector.emit('message', { invalid: true });
-			assert.deepEqual(
-				testConnector.sentMessages,
-				[{
-					seq: testConnector._seq - 1,
-					type: 'close',
-					data: { reason: "Invalid message: Malformed" },
-				}]
-			);
-		});
-
-		it("should disconnect on close", function() {
-			testConnector.disconnectCalled = false;
-			testConnector.emit('message', { seq: 1, type: 'close', data: { reason: "test" }});
-			assert(testConnector.disconnectCalled, "disconnect was not called");
-		});
-
 		it("should emitt error processing message to connector", async function() {
 			testLink.setHandler('throws', () => { throw new Error("Handler error"); }, () => true);
 			let result = events.once(testConnector, 'message');
@@ -90,7 +71,7 @@ describe("lib/link/link", function() {
 			it("should throw on invalid message", function() {
 				assert.throws(
 					() => testLink.processMessage({ data: "invalid message" }),
-					new errors.InvalidMessage("Malformed")
+					{ message: "Malformed" }
 				);
 			});
 			it("should throw on message without validator", function() {
@@ -102,7 +83,7 @@ describe("lib/link/link", function() {
 			it("should throw on message failing validation", function() {
 				assert.throws(
 					() => testLink.processMessage({ seq: 1, type: 'simple', data: { string: 1 }}),
-					new errors.InvalidMessage("Validation failed for simple")
+					{ message: "Validation failed for simple" }
 				);
 			});
 			it("should throw on unhandled message", function() {

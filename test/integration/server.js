@@ -6,6 +6,8 @@ const path = require("path");
 const factorio = require("lib/factorio");
 const errors = require("lib/errors");
 
+const { slowTest } = require("./index");
+
 
 describe("Integration of lib/factorio/server", function() {
 	describe("_getVersion()", function() {
@@ -66,16 +68,6 @@ describe("Integration of lib/factorio/server", function() {
 				);
 			});
 		});
-
-		// Mark that this test takes a lot of time, or depeneds on a test
-		// that takes a lot of time.
-		function slowTest(test) {
-			if (process.env.FAST_TEST) {
-				test.skip();
-			}
-
-			test.timeout(20000);
-		}
 
 		function log(message) {
 			logFile.write("=================== " + message + "\n");

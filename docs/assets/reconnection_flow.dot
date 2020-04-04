@@ -1,0 +1,23 @@
+digraph "Client Reconnection Flow" {
+    node [shape=box];
+    graph [newrank=true];
+
+    reconnect [label="Reconnect"];
+    wait_hello [label="Wait for hello"];
+    resume_session [label="Resume session"];
+    new_session [label="New session" style="dashed"];
+    wait_continue [label="Wait for continue"];
+    connected [label="Connected"];
+    lost_connection [label="Connection lost or\nunexpectedly closed\nwhile reconnecting" style="dotted"];
+    abort [label="Abort"];
+
+    { rank="same"; wait_continue; new_session };
+
+    lost_connection -> reconnect [label="Wait random delay"];
+    reconnect -> wait_hello [label="Connect to /api/socket"];
+    wait_hello -> resume_session [label="Receive hello"];
+    resume_session -> wait_continue [label="Send resume"];
+    wait_continue -> abort [label="Connection closed with 4003"];
+    wait_continue -> new_session [label="Receive invalidate"];
+    wait_continue -> connected [label="Receive ready"];
+}

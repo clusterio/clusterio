@@ -4,18 +4,7 @@ const path = require("path");
 const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 
-const { get, exec, controlConfigPath, instancesDir } = require("./index");
-
-
-// Mark that this test takes a lot of time, or depeneds on a test
-// that takes a lot of time.
-function slowTest(test) {
-	if (process.env.FAST_TEST) {
-		test.skip();
-	}
-
-	test.timeout(20000);
-}
+const { slowTest, get, exec, controlConfigPath, instancesDir } = require("./index");
 
 
 describe("Integration of Clusterio", function() {

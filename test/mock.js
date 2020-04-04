@@ -42,15 +42,6 @@ class MockConnector extends events.EventEmitter {
 		setImmediate(() => this.emit('send', message));
 		return this._seq++;
 	}
-
-	close(reason) {
-		this.send('close', { reason });
-		this.disconnect();
-	}
-
-	disconnect() {
-		this.disconnectCalled = true;
-	}
 }
 
 class MockServer {
