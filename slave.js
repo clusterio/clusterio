@@ -503,7 +503,6 @@ class InstanceConnection extends link.Link {
 				continue; // Do not broadcast back to the source
 			}
 
-			console.log("Broadcasting event");
 			event.send(instanceConnection, message.data);
 		}
 	}
