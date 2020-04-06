@@ -54,6 +54,7 @@ class Instance extends link.Link{
 			rconPassword: this.config.get('factorio.rcon_password'),
 		};
 
+		this._running = false;
 		this.server = new factorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
@@ -80,6 +81,7 @@ class Instance extends link.Link{
 	}
 
 	notifyExit() {
+		this._running = false;
 		link.messages.instanceStopped.send(this);
 
 		// Clear metrics this instance is exporting
@@ -288,6 +290,8 @@ class Instance extends link.Link{
 		for (let pluginInstance of this.plugins.values()) {
 			await pluginInstance.onStart();
 		}
+
+		this._running = true;
 	}
 
 	/**
@@ -303,6 +307,8 @@ class Instance extends link.Link{
 	 * Stop the instance
 	 */
 	async stop() {
+		this._running = false;
+
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
 			for (let pluginInstance of this.plugins.values()) {
@@ -315,11 +321,13 @@ class Instance extends link.Link{
 
 	async getMetricsRequestHandler() {
 		let results = []
-		for (let pluginInstance of this.plugins.values()) {
-			let pluginResults = await pluginInstance.onMetrics();
-			if (pluginResults !== undefined) {
-				for await (let result of pluginResults) {
-					results.push(prometheus.serializeResult(result))
+		if (this._running) {
+			for (let pluginInstance of this.plugins.values()) {
+				let pluginResults = await pluginInstance.onMetrics();
+				if (pluginResults !== undefined) {
+					for await (let result of pluginResults) {
+						results.push(prometheus.serializeResult(result))
+					}
 				}
 			}
 		}
