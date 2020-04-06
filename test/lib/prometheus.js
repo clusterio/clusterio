@@ -419,6 +419,46 @@ describe("lib/prometheus", function() {
 				);
 			});
 		});
+		describe("processResidentMemoryBytes", function() {
+			it("should give a low value", async function() {
+				let results = []
+				let collector = prometheus.defaultCollectors.processResidentMemoryBytes;
+				for await (let result of collector.collect()) {
+					results.push(result);
+				}
+
+				assert(
+					results.length == 1,
+					"collector did not give exactly one result"
+				);
+
+				let value = results[0].samples.get('')
+				assert(
+					value < 200e6 && value > 0,
+					`resident memory is not between 0 and 200 MB (${value})`
+				);
+			});
+		});
+		describe("processHeapBytes", function() {
+			it("should give a low value", async function() {
+				let results = []
+				let collector = prometheus.defaultCollectors.processHeapBytes;
+				for await (let result of collector.collect()) {
+					results.push(result);
+				}
+
+				assert(
+					results.length == 1,
+					"collector did not give exactly one result"
+				);
+
+				let value = results[0].samples.get('')
+				assert(
+					value < 200e6 && value > 0,
+					`heap is not between 0 and 200 MB (${value})`
+				);
+			});
+		});
 	});
 
 	describe("exposition()", function() {
