@@ -312,7 +312,7 @@ describe("lib/prometheus", function() {
 			});
 		});
 		describe(".remove()", function() {
-			it("should remove a label set created with .label()", function() {
+			it("should remove a label set created with .labels()", function() {
 				let gauge = new prometheus.Gauge(
 					'test', "Help", { register: false, labels: ['a', 'b'] }
 				);
@@ -328,7 +328,7 @@ describe("lib/prometheus", function() {
 			});
 		});
 		describe(".removeAll()", function() {
-			it("should remove a label set created with .label()", function() {
+			it("should remove a label set created with .labels()", function() {
 				let gauge = new prometheus.Gauge(
 					'test', "Help", { register: false, labels: ['a', 'b'] }
 				);
@@ -358,7 +358,7 @@ describe("lib/prometheus", function() {
 			});
 		});
 		describe(".clear()", function() {
-			it("should remove all label sets created with .label()", function() {
+			it("should remove all label sets created with .labels()", function() {
 				let gauge = new prometheus.Gauge(
 					'test', "Help", { register: false, labels: ['a', 'b'] }
 				);
