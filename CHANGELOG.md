@@ -37,6 +37,7 @@ Version 2.0.0
   allowing it to be proxied behind web-server.
 - Added WebSocket usage statistics.
 - Added commands sent statistic.
+- Added Factorio server CPU and memory usage statistic.
 
 ### Changes
 

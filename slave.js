@@ -2,6 +2,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const yargs = require("yargs");
 const events = require("events");
+const pidusage = require("pidusage");
 const version = require("./package").version;
 
 // internal libraries
@@ -19,6 +20,18 @@ const config = require('lib/config');
 const instanceRconCommandsCounter = new prometheus.Counter(
 	"clusterio_instance_rcon_commands_total",
 	"How many commands have been sent to the instance",
+	{ labels: ["instance_id"] }
+);
+
+const instanceFactorioCpuTime = new prometheus.Gauge(
+	"clusterio_instance_factorio_cpu_time_total",
+	"Factorio CPU time spent in seconds.",
+	{ labels: ["instance_id"] }
+);
+
+const instanceFactorioMemoryUsage = new prometheus.Gauge(
+	"clusterio_instance_factorio_resident_memory_bytes",
+	"Factorio resident memory size in bytes.",
 	{ labels: ["instance_id"] }
 );
 
@@ -309,6 +322,13 @@ class Instance extends link.Link{
 					results.push(prometheus.serializeResult(result))
 				}
 			}
+		}
+
+		let pid = this.server.pid;
+		if (pid) {
+			let stats = await pidusage(pid);
+			instanceFactorioCpuTime.labels(String(this.config.get("instance.id"))).set(stats.ctime / 1000);
+			instanceFactorioMemoryUsage.labels(String(this.config.get("instance.id"))).set(stats.memory);
 		}
 
 		return { results };
@@ -702,6 +722,9 @@ class Slave extends link.Link {
 		}
 		this.connector.close(1001, "Slave Shutdown");
 		await events.once(this.connector, "close");
+
+		// Clear silly interval in pidfile library.
+		pidusage.clear();
 	}
 }
 
