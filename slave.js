@@ -35,6 +35,12 @@ const instanceFactorioMemoryUsage = new prometheus.Gauge(
 	{ labels: ["instance_id"] }
 );
 
+const instanceFactorioAutosaveSize = new prometheus.Gauge(
+	"clusterio_instance_factorio_autosave_bytes",
+	"Size of Factorio server autosave in bytes.",
+	{ labels: ["instance_id"] }
+);
+
 /**
  * Keeps track of the runtime parameters of an instance
  */
@@ -78,6 +84,17 @@ class Instance extends link.Link{
 		this.server.on("error", err => {
 			console.log(`Error in instance ${this.name}:`, err);
 		});
+
+		this.server.on("autosave-finished", name => {
+			this._autosave(name).catch(err => {
+				console.error("Error handling autosave-finished:", err);
+			});
+		});
+	}
+
+	async _autosave(name) {
+		let stat = await fs.stat(this.path("saves", `${name}.zip`));
+		instanceFactorioAutosaveSize.labels(String(this.config.get("instance.id"))).set(stat.size);
 	}
 
 	notifyExit() {

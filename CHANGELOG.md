@@ -38,6 +38,7 @@ Version 2.0.0
 - Added WebSocket usage statistics.
 - Added commands sent statistic.
 - Added Factorio server CPU and memory usage statistic.
+- Added Factorio autosave size statistic.
 
 ### Changes
 
