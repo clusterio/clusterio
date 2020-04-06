@@ -10,8 +10,6 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 ## Important notice
 
-**WARNING: The master branch is currently broken, do not use it!**
-
 This is the development branch for factorioClusterio 2.0 which is currently undergoing heavy
 restructuring and refactoring.  Expect plugins and existing installations to frequently break when
 using this branch.  If you don't want to be an alpha tester for 2.0 please use the stable
