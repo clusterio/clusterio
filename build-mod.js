@@ -23,11 +23,23 @@ async function main() {
 			'build': { describe: "Build mod", type: 'boolean', default: true },
 			'pack': { describe: "Pack into zip file", type: 'boolean', default: true },
 			'output-dir': { describe: "Path to output built mod", nargs: 1, type: 'string', default: "dist" },
+			"bump-patch": { describe: "Increment patch number of build", type: "boolean", default: false },
+			"factorio-version": { describe: "Override factorio_version", type: "string" },
 		})
 		.argv
 	;
 
 	let info = JSON.parse(await fs.readFile(path.join(sourceDir, "info.json")));
+
+	if (args.bumpPatch) {
+		let [major, minor, patch] = info.version.split(".");
+		patch = String(Number.parseInt(patch, 10) + 1);
+		info.version = [major, minor, patch].join(".");
+	}
+
+	if (args.factorioVersion) {
+		info.factorio_version = args.factorioVersion;
+	}
 
 	if (args.clean) {
 		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/
@@ -67,6 +79,8 @@ async function main() {
 				zip.file(path.posix.join(modName, path.basename(filePath)), fs.createReadStream(filePath));
 			}
 
+			zip.file(path.posix.join(modName, "info.json"), JSON.stringify(info, null, 4));
+
 			let modPath = path.join(args.outputDir, `${modName}.zip`);
 			console.log(`Writing ${modPath}`);
 			let writeStream = zip.generateNodeStream().pipe(fs.createWriteStream(modPath));
@@ -83,6 +97,8 @@ async function main() {
 			for (let filePath of additionalFiles) {
 				await fs.copy(filePath, path.join(modDir, path.basename(filePath)));
 			}
+
+			await fs.writeFile(path.join(modDir, "info.json"), JSON.stringify(info, null, 4));
 		}
 	}
 }

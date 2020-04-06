@@ -2,6 +2,18 @@
 -- Based on code from playerManager and trainTeleports
 local serialize = {}
 
+-- 0.17 compatibility
+local supports_bar, get_bar, has_bar
+if (pcall(function() local mods = script.active_mods end)) then
+    supports_bar = "supports_bar"
+    get_bar = "get_bar"
+    set_bar = "set_bar"
+else
+    supports_bar = "hasbar"
+    get_bar = "getbar"
+    set_bar = "setbar"
+end
+
 -- Equipment Grids are serialized into an array of equipment entries
 -- where ench entry is a table with the following fields:
 --   n: name
@@ -181,8 +193,8 @@ end
 -- It's also possible that the slot is empty but has a slot filter.
 function serialize.serialize_inventory(inventory)
     local serialized = {}
-    if inventory.hasbar() and inventory.getbar() <= #inventory then
-        serialized.b = inventory.getbar()
+    if inventory[supports_bar]() and inventory[get_bar]() <= #inventory then
+        serialized.b = inventory[get_bar]()
     end
 
     serialized.i = {}
@@ -227,8 +239,8 @@ function serialize.serialize_inventory(inventory)
 end
 
 function serialize.deserialize_inventory(inventory, serialized)
-    if serialized.b and inventory.hasbar() then
-        inventory.setbar(serialized.b)
+    if serialized.b and inventory[supports_bar]() then
+        inventory[set_bar](serialized.b)
     end
 
     local last_slot_index = 0
