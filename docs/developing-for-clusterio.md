@@ -383,7 +383,5 @@ inventory.
 Clusterio Plugins
 -----------------
 
-The plugin interface is undergoing a major rewrite, and will be
-documented once that is done.  See
-[issue #220](https://github.com/clusterio/factorioClusterio/issues/220)
-for details.
+See the [Writing Plugins](writing-plugins.md) document for details on
+the plugin interface and how to write plugins for Clusterio.
