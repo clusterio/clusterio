@@ -64,15 +64,25 @@ class Instance extends link.Link{
 		this.server.on("error", err => {
 			console.log(`Error in instance ${this.name}:`, err);
 		});
+	}
 
-		this.server.on("exit", err => {
-			link.messages.instanceStopped.send(this);
+	notifyExit() {
+		link.messages.instanceStopped.send(this);
 
-			// Notify plugins of exit
-			for (let pluginInstance of this.plugins.values()) {
-				pluginInstance.onExit();
+		// Clear metrics this instance is exporting
+		for (let collector of prometheus.defaultRegistry.collectors) {
+			if (
+				collector instanceof prometheus.ValueCollector
+				&& collector.metric.labels.includes('instance_id')
+			) {
+				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
-		});
+		}
+
+		// Notify plugins of exit
+		for (let pluginInstance of this.plugins.values()) {
+			pluginInstance.onExit();
+		}
 	}
 
 	async init(pluginInfos, slave) {
@@ -223,6 +233,7 @@ class Instance extends link.Link{
 			console.log("Clusterio | RCON connection established");
 		});
 
+		this.server.on("exit", () => this.notifyExit());
 		await this.server.start(saveName);
 		await this.server.disableAchievements()
 		await this.updateInstanceData();
@@ -254,15 +265,6 @@ class Instance extends link.Link{
 			await this.server.stop();
 		}
 
-		// Clear metrics this instance is exporting
-		for (let collector of prometheus.defaultRegistry.collectors) {
-			if (
-				collector instanceof prometheus.ValueCollector
-				&& collector.metric.labels.includes('instance_id')
-			) {
-				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
-			}
-		}
 	}
 
 	async getMetricsRequestHandler() {
@@ -300,6 +302,7 @@ class Instance extends link.Link{
 		console.log("Creating save .....");
 		await symlinkMods(this, "sharedMods", console);
 
+		this.server.on("exit", () => this.notifyExit());
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
 	}
@@ -600,13 +603,7 @@ class Slave extends link.Link {
 	async startInstanceRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
-		try {
-			return await request.send(instanceConnection, message.data);
-
-		} catch (err) {
-			await this.stopInstance(instanceId);
-			throw err;
-		}
+		return await request.send(instanceConnection, message.data);
 	}
 
 	async createSaveRequestHandler(message, request) {
