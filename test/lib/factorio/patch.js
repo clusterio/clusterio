@@ -212,7 +212,7 @@ describe("lib/factorio", function() {
 		it("should throw on unknown scenario", async function() {
 			let zip = new jszip();
 			zip.file("world/control.lua", "-- unknown\n");
-			let zipPath = path.join("test", "temp", "patch.zip");
+			let zipPath = path.join("temp", "test", "patch.zip");
 			await fs.outputFile(zipPath, await zip.generateAsync({type: "nodebuffer"}))
 
 			await assert.rejects(

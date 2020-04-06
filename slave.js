@@ -16,6 +16,12 @@ const luaTools = require('lib/luaTools');
 const config = require('lib/config');
 
 
+const instanceRconCommandsCounter = new prometheus.Counter(
+	"clusterio_instance_rcon_commands_total",
+	"How many commands have been sent to the instance",
+	{ labels: ["instance_id"] }
+);
+
 /**
  * Keeps track of the runtime parameters of an instance
  */
@@ -29,14 +35,21 @@ class Instance extends link.Link{
 		this.config = instanceConfig;
 
 		let serverOptions = {
+			version: this.config.get("factorio.version"),
 			gamePort: this.config.get('factorio.game_port'),
 			rconPort: this.config.get('factorio.rcon_port'),
 			rconPassword: this.config.get('factorio.rcon_password'),
 		};
 
 		this.server = new factorio.FactorioServer(
-			path.join(factorioDir, "data"), this._dir, serverOptions
+			factorioDir, this._dir, serverOptions
 		);
+
+		let originalSendRcon = this.server.sendRcon;
+		this.server.sendRcon = (...args) => {
+			instanceRconCommandsCounter.labels(String(this.config.get("instance.id"))).inc();
+			return originalSendRcon.call(this.server, ...args);
+		}
 
 		this.server.on('output', (output) => {
 			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
@@ -47,9 +60,22 @@ class Instance extends link.Link{
 				});
 			}
 		});
+
+		this.server.on("error", err => {
+			console.log(`Error in instance ${this.name}:`, err);
+		});
+
+		this.server.on("exit", err => {
+			link.messages.instanceStopped.send(this);
+
+			// Notify plugins of exit
+			for (let pluginInstance of this.plugins.values()) {
+				pluginInstance.onExit();
+			}
+		});
 	}
 
-	async init(pluginInfos) {
+	async init(pluginInfos, slave) {
 		await this.server.init();
 
 		// load plugins
@@ -61,7 +87,7 @@ class Instance extends link.Link{
 			// require plugin class and initialize it
 			let pluginLoadStarted = Date.now();
 			let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
-			let instancePlugin = new InstancePlugin(pluginInfo, this);
+			let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
 			await instancePlugin.init();
 			this.plugins.set(pluginInfo.name, instancePlugin);
 			plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
@@ -237,11 +263,6 @@ class Instance extends link.Link{
 				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
 		}
-
-		// Notify plugins of exit
-		for (let pluginInstance of this.plugins.values()) {
-			await pluginInstance.onExit();
-		}
 	}
 
 	async getMetricsRequestHandler() {
@@ -277,14 +298,10 @@ class Instance extends link.Link{
 		await this.writeServerSettings();
 
 		console.log("Creating save .....");
+		await symlinkMods(this, "sharedMods", console);
 
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
-
-		// Notify plugins of exit
-		for (let pluginInstance of this.plugins.values()) {
-			await pluginInstance.onExit();
-		}
 	}
 
 	async stopInstanceRequestHandler() {
@@ -359,9 +376,10 @@ async function discoverInstances(instancesDir, logger) {
 }
 
 class InstanceConnection extends link.Link {
-	constructor(connector, slave) {
+	constructor(connector, slave, instanceId) {
 		super('slave', 'instance', connector);
 		this.slave = slave;
+		this.instanceId = instanceId;
 		link.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
@@ -398,6 +416,10 @@ class InstanceConnection extends link.Link {
 			console.log("Broadcasting event");
 			event.send(instanceConnection, message.data);
 		}
+	}
+
+	async instanceStoppedEventHandler(message) {
+		this.slave.instanceConnections.delete(this.instanceId);
 	}
 }
 
@@ -538,11 +560,11 @@ class Slave extends link.Link {
 		}
 
 		let [connectionClient, connectionServer] = link.VirtualConnector.makePair();
-		let instanceConnection = new InstanceConnection(connectionServer, this);
+		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
-		await instance.init(this.pluginInfos);
+		await instance.init(this.pluginInfos, this);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);
@@ -590,25 +612,12 @@ class Slave extends link.Link {
 	async createSaveRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
-		try {
-			await request.send(instanceConnection, message.data);
-			this.instanceConnections.delete(instanceId);
-
-		} catch (err) {
-			await this.stopInstance(instanceId);
-			throw err;
-		}
+		await request.send(instanceConnection, message.data);
 	}
 
 	async stopInstance(instanceId) {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		await link.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
-		this.instanceConnections.delete(instanceId);
-	}
-
-	async stopInstanceRequestHandler(message, request) {
-		await this.forwardRequestToInstance(message, request);
-		this.instanceConnections.delete(message.data.instance_id);
 	}
 
 	async deleteInstanceRequestHandler(message) {
@@ -760,13 +769,13 @@ async function symlinkMods(instance, sharedMods, logger) {
 	}
 }
 
-async function startClient() {
+async function startSlave() {
 	// add better stack traces on promise rejection
 	process.on('unhandledRejection', r => console.log(r));
 
 	// argument parsing
 	const args = yargs
-		.scriptName("client")
+		.scriptName("slave")
 		.usage("$0 <command> [options]")
 		.option('config', {
 			nargs: 1,
@@ -775,7 +784,7 @@ async function startClient() {
 			type: 'string',
 		})
 		.command("config", "Manage Slave config", config.configCommand)
-		.command('start', "Start slave")
+		.command("run", "Run slave")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
@@ -807,7 +816,7 @@ async function startClient() {
 		return;
 	}
 
-	// If we get here the command was start
+	// If we get here the command was run
 
 	await fs.ensureDir(slaveConfig.get("slave.instances_directory"));
 	await fs.ensureDir("sharedMods");
@@ -815,14 +824,14 @@ async function startClient() {
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioClient";
+	process.title = "clusterioSlave";
 
 	// make sure we have the master access token
 	if (slaveConfig.get("slave.master_token") === "enter token here") {
 		console.error("ERROR invalid config!");
 		console.error(
 			"Master server now needs an access token for write operations. As clusterio\n"+
-			"slaves depends upon this, please set your token using the command node client\n"+
+			"slaves depends upon this, please set your token using the command node slave\n"+
 			"config set slave.master_token <token>.  You can retrieve your auth token from\n"+
 			"the master in secret-api-token.txt after running it once."
 		);
@@ -915,12 +924,12 @@ I           version of clusterio.  Expect things to break. I
 +==========================================================+
 `
 	);
-	startClient().catch(err => {
+	startSlave().catch(err => {
 		console.error(`
-+---------------------------------------------------------------+
-| Unexpected error occured while starting client, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues   |
-+---------------------------------------------------------------+`
++--------------------------------------------------------------+
+| Unexpected error occured while starting slave, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues  |
++--------------------------------------------------------------+`
 		);
 
 		console.error(err);

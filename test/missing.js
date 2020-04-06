@@ -3,4 +3,3 @@
 
 require('lib/manager/modManager');
 require('lib/npmPostinstall.js');
-require('lib/typedef');

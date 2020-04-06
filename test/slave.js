@@ -4,9 +4,9 @@ const fs = require('fs-extra');
 
 const link = require("lib/link");
 const config = require("lib/config");
-const client = require("../client");
+const slave = require("../slave");
 
-describe("Client testing", function() {
+describe("Slave testing", function() {
 	before(function() {
 		config.InstanceConfig.finalize();
 	});
@@ -17,7 +17,7 @@ describe("Client testing", function() {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "foo");
-			instance = new client._Instance(new link.VirtualConnector(), "dir", "factorioDir", instanceConfig);
+			instance = new slave._Instance(new link.VirtualConnector(), "dir", "factorioDir", instanceConfig);
 		});
 
 		describe(".name", function() {
@@ -38,11 +38,11 @@ describe("Client testing", function() {
 
 	describe("checkFilename()", function() {
 		it("should allow a basic name", function() {
-			client._checkFilename("file");
+			slave._checkFilename("file");
 		});
 
 		function check(item, msg) {
-			assert.throws(() => client._checkFilename(item), new Error(msg));
+			assert.throws(() => slave._checkFilename(item), new Error(msg));
 		}
 
 		it("should throw on non-string", function() {
@@ -89,7 +89,7 @@ describe("Client testing", function() {
 	});
 
 	describe("symlinkMods()", function() {
-		let testDir = path.join("test", "temp", "symlink");
+		let testDir = path.join("temp", "test", "symlink");
 		let discardingLogger = {
 			warning: function() { },
 			log: function() { },
@@ -108,14 +108,14 @@ describe("Client testing", function() {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "test");
-			instance = new client._Instance(
+			instance = new slave._Instance(
 				new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
 			);
 			await fs.outputFile(instance.path("mods", "mod_i.zip"), "i");
 		});
 
 		it("should link mods and data files", async function() {
-			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
 
 			assert.equal(await fs.readFile(instance.path("mods", "mod_a.zip"), "utf-8"), "a");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
@@ -125,14 +125,14 @@ describe("Client testing", function() {
 
 		it("should ignore directories", async function() {
 			await fs.ensureDir(path.join(testDir, "shared", "dir"));
-			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
 
 			assert(!await fs.exists(instance.path("mods", "dir"), "utf-8"), "dir was unxpectedly linked");
 		});
 
 		it("should ignore files", async function() {
 			await fs.outputFile(path.join(testDir, "shared", "file"), "f");
-			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
 
 			assert(!await fs.exists(instance.path("mods", "file"), "utf-8"), "dir was unxpectedly linked");
 		});
@@ -144,7 +144,7 @@ describe("Client testing", function() {
 			}
 
 			await fs.unlink(path.join(testDir, "shared", "mod_a.zip"));
-			await client._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
 
 			await assert.rejects(fs.lstat(instance.path("mods", "mod_a.zip")), { code: "ENOENT" });
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
@@ -157,7 +157,7 @@ describe("Client testing", function() {
 		it("should discover test instance", async function() {
 			let logger = { log: () => {}, error: () => {} };
 			let instancePath = path.join("test", "file", "instances");
-			let instanceInfos = await client._discoverInstances(instancePath, logger);
+			let instanceInfos = await slave._discoverInstances(instancePath, logger);
 
 			let referenceConfig = new config.InstanceConfig();
 			await referenceConfig.init();

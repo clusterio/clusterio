@@ -31,6 +31,12 @@ Version 2.0.0
 - Added export of pollution statitics.
 - Reconnection logic that esures no data is dropped talking to the master
   server provided the session can be resumed.
+- Added support for having multiple Factorio installs and selecting which
+  version to use on a per instance basis.
+- Added config to specify which path the master interface is accessed under,
+  allowing it to be proxied behind web-server.
+- Added WebSocket usage statistics.
+- Added commands sent statistic.
 
 ### Changes
 
@@ -79,6 +85,7 @@ Version 2.0.0
 - Removed UPSdisplay plugin.  UPS statistics is exported by the statistics
   exporter plugin.
 - Master server now defaults to hosting on https on port 8443.
+- Renamed client to slave.
 
 ### Breaking Changes
 
@@ -130,11 +137,20 @@ Version 2.0.0
   socket_io_transmit_bytes,
 - Removed clusterio_connected_instaces_gauge and added
   clusterio_master_connected_clients_count in its place.
-- Renamed clusterio_player_count_gauge to clusterio_instance_player_count
-- Removed clusterio_UPS_gauge and added clusterio_instance_game_ticks_total in
-  its place.
+- Renamed clusterio_player_count_gauge to
+  clusterio_statistics_exporter_instance_player_count
+- Removed clusterio_UPS_gauge and added
+  clusterio_statistics_exporter_instance_game_ticks_total in its place.
 - Renamed clusterio_endpoint_hit_gauge to clusterio_http_enpoint_hits_total
-- Renamed clusterio_statistics_gauge to clusterio_instance_force_flows
+- Renamed clusterio_statistics_gauge to
+  clusterio_statistics_exporter_instance_force_flows
+- Renamed clusterio_nn_dole_gauge to clusterio_subspace_storage_nn_dole_gauge.
+- Renamed clusterio_dole_factor_gauge to
+  clusterio_subspace_storage_dole_factor_gauge.
+- Renamed clusterio_import_gauge to clusterio_subspace_storage_import_total.
+- Renamed clusterio_export_gauge to clusterio_subspace_storage_export_total.
+- Renamed clusterio_master_inventory_gauge to
+  clusterio_subspace_storage_master_inventory.
 - Removed clusterioMod plugin specific config options logItemTransfers,
   disableFairItemDistribution useNeuralNetDoleDivider, autosaveInterval, and
   disableImportsOfEverythingExceptElectricity from the master config.
@@ -146,6 +162,7 @@ Version 2.0.0
   arguments from the master server.
 - Implemented a new config system that replaces the old.  Breaks all plugins.
 - Removed usage of socket.io entirely in favor of a plain WebSocket connection.
+- Renamed clusterioMod plugin to subspace_storage.
 
 
 Version 1.2.4

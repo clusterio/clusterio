@@ -32,11 +32,11 @@ let slaveProcess;
 
 let url = "https://localhost:4443/";
 let token = jwt.sign({ id: "api" }, "TestSecretDoNotUse");
-let instancesDir = path.join("test", "temp", "instances");
-let databaseDir = path.join("test", "temp", "databse");
-let masterConfigPath = path.join("test", "temp", "master-integration.json");
-let slaveConfigPath = path.join("test", "temp", "slave-integration.json");
-let controlConfigPath = path.join("test", "temp", "control-integration.json");
+let instancesDir = path.join("temp", "test", "instances");
+let databaseDir = path.join("temp", "test", "databse");
+let masterConfigPath = path.join("temp", "test", "master-integration.json");
+let slaveConfigPath = path.join("temp", "test", "slave-integration.json");
+let controlConfigPath = path.join("temp", "test", "control-integration.json");
 
 async function exec(...args) {
 	console.log(args[0]);
@@ -79,17 +79,17 @@ before(async function() {
 	await exec(`node master --config ${masterConfigPath} config set master.https_port 4443`);
 	await exec(`node master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
 
-	await exec(`node client --config ${slaveConfigPath} config set slave.id 4`);
-	await exec(`node client --config ${slaveConfigPath} config set slave.name slave`);
-	await exec(`node client --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
-	await exec(`node client --config ${slaveConfigPath} config set slave.master_url "${url}"`);
-	await exec(`node client --config ${slaveConfigPath} config set slave.master_token "${token}"`);
+	await exec(`node slave --config ${slaveConfigPath} config set slave.id 4`);
+	await exec(`node slave --config ${slaveConfigPath} config set slave.name slave`);
+	await exec(`node slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
+	await exec(`node slave --config ${slaveConfigPath} config set slave.master_url "${url}"`);
+	await exec(`node slave --config ${slaveConfigPath} config set slave.master_token "${token}"`);
 
 	await exec(`node clusterctl --config ${controlConfigPath} control-config set control.master_url "https://localhost:4443/"`);
 	await exec(`node clusterctl --config ${controlConfigPath} control-config set control.master_token "${token}"`);
 
 	masterProcess = await spawn("master:", `node master --config ${masterConfigPath} run`, "All plugins loaded");
-	slaveProcess = await spawn("slave:", `node client --config ${slaveConfigPath} start`, "SOCKET | received ready from master");
+	slaveProcess = await spawn("slave:", `node slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
 });
 
 after(async function() {

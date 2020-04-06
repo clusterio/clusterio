@@ -3,19 +3,19 @@ const { Gauge } = require('lib/prometheus');
 
 
 const instancePlayerCount = new Gauge(
-	'clusterio_instance_player_count', "Amount of players connected to this cluster",
+	"clusterio_statistics_exporter_instance_player_count", "Amount of players connected to this cluster",
 	{ labels: ['instance_id'] }
 );
 const instanceGameTicksTotal = new Gauge(
-	'clusterio_instance_game_ticks_total', "Game tick an instance has progressed to",
+	"clusterio_statistics_exporter_instance_game_ticks_total", "Game tick an instance has progressed to",
 	{ labels: ['instance_id'] }
 );
 const instanceForceFlowStatistics = new Gauge(
-	'clusterio_instance_force_flow_statistics', "Items/fluids/enemies/buildings produced/built/killed by a force",
+	"clusterio_statistics_exporter_instance_force_flow_statistics", "Items/fluids/enemies/buildings produced/built/killed by a force",
 	{ labels: ['instance_id', 'force', 'statistic', 'direction', 'name'] },
 );
 const instanceGameFlowStatistics = new Gauge(
-	'clusterio_instance_game_flow_statistics', "Pollution produced/consumed in the game",
+	"clusterio_statistics_exporter_instance_game_flow_statistics", "Pollution produced/consumed in the game",
 	{ labels: ['instance_id', 'statistic', 'direction', 'name'] },
 );
 

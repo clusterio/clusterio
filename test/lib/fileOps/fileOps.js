@@ -5,7 +5,7 @@ const path = require('path');
 const fileOps = require('lib/fileOps');
 
 describe("fileOps.js", function(){
-	let baseDir = path.join("test", "temp", "fileOps");
+	let baseDir = path.join("temp", "test", "fileOps");
 	async function setupTestingEnv() {
 		await fs.ensureDir(path.join(baseDir, "test", "folder"));
 		await fs.ensureDir(path.join(baseDir, "test", "another folder"));

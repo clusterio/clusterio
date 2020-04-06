@@ -2,7 +2,7 @@
 Clusterio master server. Facilitates communication between slaves through
 a webserver, storing data related to slaves like production graphs.
 
-@module clusterioMaster
+@module
 @author Danielv123
 
 @example
@@ -72,6 +72,7 @@ app.set('views', ['views', 'plugins']);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
+	res.locals.root = masterConfig.get("master.web_root");
 	res.locals.res = res;
 	res.locals.req = req;
 	res.locals.masterPlugins = masterPlugins;
@@ -85,9 +86,36 @@ require("./routes/api/getPictures")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 
-const endpointHitCounter = new prometheus.Gauge(
-	'clusterio_master_http_endpoint_hits_total', "How many requests a particular endpoint has gotten",
+const endpointHitCounter = new prometheus.Counter(
+	"clusterio_master_http_endpoint_hits_total",
+	"How many requests a particular HTTP endpoint has gotten",
 	{ labels: ['route'] }
+);
+
+const wsMessageCounter = new prometheus.Counter(
+	"clusterio_master_websocket_message_total",
+	"How many messages have been received over WebSocket on the master server",
+	{ labels: ["direction"] }
+);
+
+const wsConnectionsCounter = new prometheus.Counter(
+	"clusterio_master_websocket_connections_total",
+	"How many WebSocket connections have been initiated on the master server"
+);
+
+const wsRejectedConnectionsCounter = new prometheus.Counter(
+	"clusterio_master_websocket_rejected_connections_total",
+	"How many WebSocket connections have been rejected during the handshake on the master server"
+);
+
+const wsActiveConnectionsGauge = new prometheus.Gauge(
+	"clusterio_master_websocket_active_connections",
+	"How many WebSocket connections are currently open to the master server"
+);
+
+const wsActiveSlavesGauge = new prometheus.Gauge(
+	"clusterio_master_active_slaves",
+	"How many slaves are currently connected to the master"
 );
 
 // Prometheus polling endpoint
@@ -131,6 +159,10 @@ async function getMetrics(req, res, next) {
 	for (let result of resultMap.values()) {
 		results.push(prometheus.deserializeResult(result));
 	}
+
+	wsActiveConnectionsGauge.set(activeConnectors.size);
+	wsActiveSlavesGauge.set(slaveConnections.size);
+
 
 	let text = await prometheus.exposition(results);
 	res.set('Content-Type', prometheus.exposition.contentType);
@@ -411,6 +443,18 @@ class ControlConnection extends BaseConnection {
 		db.instances.set(instanceId, instanceConfig);
 	}
 
+	async deleteInstanceRequestHandler(message, request) {
+		let instanceConfig = db.instances.get(message.data.instance_id);
+		if (!instanceConfig) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+		}
+
+		if (instanceConfig.get('instance.assigned_slave') !== null) {
+			await this.forwardRequestToInstance(message, request);
+		}
+		db.instances.delete(message.data.instance_id);
+	}
+
 	async getInstanceConfigRequestHandler(message) {
 		let instanceConfig = db.instances.get(message.data.instance_id);
 		if (!instanceConfig) {
@@ -498,10 +542,6 @@ class SlaveConnection extends BaseConnection {
 			id: this._id,
 			name: this._name,
 			version: this._version,
-		});
-
-		this.connector.on('message', () => {
-			// XXX prometheusWsUsageCounter.labels('message', "other").inc();
 		});
 
 		this.connector.on("close", () => {
@@ -731,6 +771,15 @@ let activeConnectors = new Map();
 wss.on("connection", function (socket, req) {
 	console.log(`SOCKET | new connection from ${req.socket.remoteAddress}`);
 
+	// Track statistics
+	wsConnectionsCounter.inc();
+	socket.on("message", () => { wsMessageCounter.labels("in").inc(); });
+	let originalSend = socket.send;
+	socket.send = (...args) => {
+		wsMessageCounter.labels("out").inc();
+		return originalSend.call(socket, ...args);
+	};
+
 	// Start connection handshake.
 	socket.send(JSON.stringify({ seq: null, type: "hello", data: { version }}));
 
@@ -739,6 +788,7 @@ wss.on("connection", function (socket, req) {
 
 		let timeoutId = setTimeout(() => {
 			console.log(`SOCKET | closing ${req.socket.remoteAddress} after timing out on handshake`);
+			wsRejectedConnectionsCounter.inc();
 			socket.close(1008, "Handshake timeout");
 			pendingSockets.delete(socket);
 		}, 30*1000);
@@ -756,6 +806,7 @@ wss.on("connection", function (socket, req) {
 +----------------------------------------------------------------+`
 				);
 				console.error(err);
+				wsRejectedConnectionsCounter.inc();
 				socket.close(1011, "Unexpected error");
 			});
 		});
@@ -775,12 +826,14 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		message = JSON.parse(message);
 	} catch (err) {
 		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid JSON`);
+		wsRejectedConnectionsCounter.inc();
 		socket.close(1001, "Invalid JSON");
 		return;
 	}
 
 	if (!schema.clientHandshake(message)) {
 		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake:`, message);
+		wsRejectedConnectionsCounter.inc();
 		socket.close(1001, "Bad handshake");
 		return;
 	}
@@ -815,6 +868,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 
 	if (!result.ok) {
 		console.error(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
+		wsRejectedConnectionsCounter.inc();
 		socket.close(4003, "Authentication failed");
 		return;
 	}

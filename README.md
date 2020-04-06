@@ -128,7 +128,7 @@ Clusterio has *very* limited support for using docker.
 
 	sudo docker run --name master -e MODE=master -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
 
-	sudo docker run --name slave -e MODE=client -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
+	sudo docker run --name slave -e MODE=slave -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
 The -v flag is used to specify the instance directory. Your instances (save files etc) will be stored there.
 -->
@@ -142,7 +142,7 @@ Clusterio is built up of multiple parts. Here is a quick guide:
 
 Master = master.js
 
-Server host (Slave) = client.js + factorio server
+Server host (Slave) = slave.js + factorio server
 
 Game Client = The people connecting to the server
 
@@ -167,19 +167,25 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
 
     - Via the stand alone version on from their website
 
-        1. Download the MS Windows (64-bit zip package) from https://www.factorio.com/download
+        1.  Create a new folder named "factorio" in the the factorioClusterio
+            folder.
 
-        2. Open the zip file and drag the folder called "Factorio_0.17.x" into the factorioClusterio folder
+        2.  Download the MS Windows (64-bit zip package) from
+            https://www.factorio.com/download .
 
-        3. Rename the folder to "factorio"
+        3.  Open the zip file and drag the folder called "Factorio_0.x.y" into
+            the factorio folder created in step 1.
 
     - Via steam installation
 
-        1. Locate the game files by right clicking the game in steam, selecting properties, then Local Files, then Browse local files.
+        1.  Create a new folder named "factorio" in the the factorioClusterio
+            folder.
 
-        2. Go to the parent folder of the folder that Steam opened and copy the Factorio folder into the factorioClusterio folder
+        2.  Locate the game files by right clicking the game in steam,
+            selecting properties, then Local Files, then Browse local files.
 
-        3. Rename the folder to "factorio"
+        3.  Go to the parent folder of the folder that Steam opened and copy
+            the Factorio folder into the factorio folder created in step 1.
 
 
 ## Running Clusterio
@@ -207,20 +213,20 @@ up.
 
 To set up the configuration for a new local slave run the following.
 
-    node client config set slave.name "Local"
-    node client config set slave.master_token "<token>"
+    node slave config set slave.name "Local"
+    node slave config set slave.master_token "<token>"
 
 This will write a new `config-slave.json` file in the current directory
 (you can change the location with the `--config` option) with the name
 and token provided.  If you are connecting to a remote master server you
 will also need to set the `slave.master_url` option to that url.
 
-You can list the config of a slave with the `node client config list`
-command.  Use `node client config --help` for more information.
+You can list the config of a slave with the `node slave config list`
+command.  Use `node slave config --help` for more information.
 
 Once the config is set up run the slave with
 
-    node client start
+    node slave run
 
 
 ### Instances

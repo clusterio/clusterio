@@ -5,7 +5,7 @@ const path = require("path");
 const generateSSLcert = require("lib/generateSSLcert")
 
 describe("generateSSLcert.js(options)", ()=>{
-	let testDir = "test/temp/certTest";
+	let testDir = path.join("temp", "test", "certTest");
 	before(async function() {
 		await fs.remove(testDir);
 	});

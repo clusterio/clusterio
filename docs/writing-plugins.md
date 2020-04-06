@@ -459,21 +459,24 @@ the metric and updating it somewhere in the plugin code.  For example:
     const { Counter } = require('lib/prometheus');
 
     const fooMetric = new Counter(
-        'clusterio_foo_metric', "Measures the level of foo",
+        'clusterio_foo_frobber_foo_metric', "Measures the level of foo",
     );
 
     // Somewhere in the master plugin code
     fooMetric.inc();
 
 This works for master plugins, and the metric will be automatically
-available through the /metric HTTP endpoint.  For metrics that are
-per-instance you must define an `instance_id` label and set it
-accordingly, for example:
+available through the /metric HTTP endpoint.  It's recommended that
+plugin metrics follow `clusterio_<plugin_name>_<metric_name>` as the
+naming scheme.
+
+For metrics that are per-instance you must define an `instance_id` label and
+set it accordingly, for example:
 
     const { Counter } = require('lib/prometheus');
 
     const barMetric = new Gauge(
-        'clusterio_bar_metric', "Bar instance level",
+        'clusterio_foo_frobber_bar_metric', "Bar instance level",
         { labels: ['instance_id'] }
     );
 

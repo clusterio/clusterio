@@ -22,16 +22,17 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 	async onStart() {
 		this.pingId = setInterval(() => {
 			this.instance.server.sendRcon(
-				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0"
+				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true
 			).catch(unexpectedError);
 		}, 5000);
 
 		let response = await this.info.messages.getStorage.send(this.instance);
+		// TODO Diff with dump of invdata produce minimal command to sync
 		let itemsJson = luaTools.escapeString(JSON.stringify(response.items));
-		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`);
+		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
 	}
 
-	async onStop() {
+	onExit() {
 		clearInterval(this.pingId);
 	}
 
@@ -66,7 +67,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		}
 
 		let itemsJson = luaTools.escapeString(JSON.stringify(response.items));
-		await this.instance.server.sendRcon(`/sc __subspace_storage__ Import("${itemsJson}")`);
+		await this.instance.server.sendRcon(`/sc __subspace_storage__ Import("${itemsJson}")`, true);
 	}
 
 	// combinator signals ---------------------------------------------------------
@@ -85,7 +86,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);
 
 		let itemsJson = luaTools.escapeString(JSON.stringify(items));
-		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`);
+		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
 	}
 }
 

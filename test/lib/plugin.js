@@ -18,7 +18,7 @@ describe("lib/plugin", function() {
 		it("should define defaults for hooks", async function() {
 			await instancePlugin.onStart();
 			await instancePlugin.onStop();
-			await instancePlugin.onExit();
+			instancePlugin.onExit();
 			await instancePlugin.onOutput({});
 		})
 	});
@@ -35,7 +35,7 @@ describe("lib/plugin", function() {
 	});
 
 	describe("loadPluginInfos()", function() {
-		let baseDir = path.join('test', 'temp', 'plugin');
+		let baseDir = path.join("temp", "test", "plugin");
 		let emptyDir = path.join(baseDir, 'emptyDir');
 		let emptyPlugin = path.join(baseDir, 'emptyPlugin');
 		let testPlugin = path.join(baseDir, 'testPlugin');
