@@ -251,6 +251,7 @@ commands.push(new Command({
 	definition: ['start-instance', "Start instance", (yargs) => {
 		yargs.options({
 			'instance': { describe: "Instance to start", nargs: 1, type: 'string', demandOption: true },
+			'save': { describe: "Save load, defaults to latest", nargs: 1, type: 'string' },
 		});
 	}],
 	handler: async function(args, control) {
@@ -258,6 +259,7 @@ commands.push(new Command({
 		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
 		let response = await link.messages.startInstance.send(control, {
 			instance_id: instanceId,
+			save: args.save || null,
 		});
 	},
 }));

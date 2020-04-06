@@ -141,7 +141,6 @@ class Instance extends link.Link{
 	 * @param {String} instanceDir -
 	 *     Directory to create the new instance into.
 	 * @param {String} factorioDir - Path to factorio installation.
-	 * @param {Object} options - Options for new instance.
 	 */
 	static async create(instanceConfig, instanceDir, factorioDir) {
 		console.log(`Clusterio | Creating ${instanceDir}`);
@@ -150,7 +149,18 @@ class Instance extends link.Link{
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
 
-	async start(saveName, slaveConfig, socket) {
+	/**
+	 * Prepare a save for starting
+	 *
+	 * Writes server settings, links mods, creates a new save if no save is
+	 * passed, and patches it with modules.
+	 *
+	 * @param {String|null} saveName -
+	 *     Save to prepare from the instance saves directory.  Creates a new
+	 *     save if null.
+	 * @returns {String} Name of the save prepared.
+	 */
+	async prepare(saveName) {
 		console.log("Clusterio | Writing server-settings.json");
 		await this.writeServerSettings();
 
@@ -167,6 +177,20 @@ class Instance extends link.Link{
 		}catch(e){}
 
 		await symlinkMods(this, "sharedMods", console);
+
+		// Use latest save if no save was specified
+		if (saveName === null) {
+			saveName = await fileOps.getNewestFile(
+				this.path("saves"), (name) => !name.endsWith('.tmp.zip')
+			);
+		}
+
+		// Create save if no save was found.
+		if (saveName === null) {
+			console.log("Clusterio | Creating new save")
+			await this.server.create("world.zip");
+			saveName = "world.zip";
+		}
 
 		// Patch save with lua modules from plugins
 		console.log("Clusterio | Patching save");
@@ -228,7 +252,17 @@ class Instance extends link.Link{
 		}
 
 		await factorio.patch(this.path("saves", saveName), [...modules.values()]);
+		return saveName;
+	}
 
+	/**
+	 * Start Factorio server
+	 *
+	 * Launches the Factorio server for this instance with the given save.
+	 *
+	 * @param {String} saveName - Name of save game to load.
+	 */
+	async start(saveName) {
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
 		});
@@ -264,7 +298,6 @@ class Instance extends link.Link{
 
 			await this.server.stop();
 		}
-
 	}
 
 	async getMetricsRequestHandler() {
@@ -281,26 +314,35 @@ class Instance extends link.Link{
 		return { results };
 	}
 
-	async startInstanceRequestHandler() {
-		// Find save to start
-		let latestSave = await fileOps.getNewestFile(
-			this.path("saves"), (name) => !name.endsWith('.tmp.zip')
-		);
-		if (latestSave === null) {
-			throw new errors.RequestError(
-				"No savefile was found to start the instance with."
-			);
+	async startInstanceRequestHandler(message) {
+		let saveName = message.data.save;
+		try {
+			saveName = await this.prepare(saveName)
+		} catch (err) {
+			this.notifyExit();
+			throw err;
 		}
 
-		await this.start(latestSave, this.config, this.socket);
+		try {
+			await this.start(saveName, this.config, this.socket);
+		} catch (err) {
+			await this.stop();
+			throw err;
+		}
 	}
 
 	async createSaveRequestHandler() {
-		console.log("Clusterio | Writing server-settings.json");
-		await this.writeServerSettings();
+		try {
+			console.log("Clusterio | Writing server-settings.json");
+			await this.writeServerSettings();
 
-		console.log("Creating save .....");
-		await symlinkMods(this, "sharedMods", console);
+			console.log("Creating save .....");
+			await symlinkMods(this, "sharedMods", console);
+
+		} catch (err) {
+			this.notifyExit();
+			throw err;
+		}
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.create("world");

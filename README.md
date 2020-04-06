@@ -243,15 +243,13 @@ The basic operations to start a new instance is the following
 
     node clusterctl create-instance --name "My instance"
     node clusterctl assign-instance --instance "My instance" --slave "Local"
-    node clusterctl create-save --instance "My instance"
     node clusterctl start-instance --instance "My instance"
 
 The first line creates the instance configuration on the master server.
 The second assigns the instance to a slave which creates the instance
 directory and files needed to run the instance on the given slave.  The
-third line creates a new savegame for the instance.  You could also
-upload your own save to the instance directory instead.  And finally the
-fourth line starts the instance.
+third line starts the instance, which creates a new save if there are no
+save games present.
 
 There are many more commands available with clusterctl.  See
 `node clusterctl --help` for a full list of them.
