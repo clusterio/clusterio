@@ -12,7 +12,7 @@ class TestControl extends link.Link {
 		link.attachAllMessages(this);
 	}
 
-	async shutdownConnectionRequestHandler() { }
+	async prepareDisconnectRequestHandler() { }
 	async instanceOutputEventHandler() { }
 }
 

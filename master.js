@@ -381,7 +381,7 @@ class BaseConnection extends link.Link {
 	}
 
 	async shutdown(code, reason) {
-		await link.messages.shutdownConnection.send(this);
+		await link.messages.prepareDisconnect.send(this);
 		this.connector.close(code, reason);
 		await events.once(this.connector, "close");
 	}

@@ -353,7 +353,7 @@ class Control extends link.Link {
 	}
 
 	async shutdown() {
-		await link.messages.shutdownConnection.send(this);
+		await link.messages.prepareDisconnect.send(this);
 		this.connector.close(1001, "Control Quit")
 		await events.once(this.connector, "close");
 	}

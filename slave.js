@@ -740,7 +740,7 @@ class Slave extends link.Link {
 	}
 
 	async shutdown() {
-		await link.messages.shutdownConnection.send(this);
+		await link.messages.prepareDisconnect.send(this);
 		for (let instanceId of this.instanceConnections.keys()) {
 			await this.stopInstance(instanceId);
 		}
