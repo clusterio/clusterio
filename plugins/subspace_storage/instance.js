@@ -77,8 +77,8 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		// XXX this should be done on the lua side
 		// Ensure counts don't overflow
 		for (let item of items) {
-			if (item[1] > 0x7ffffff) {
-				item[1] = 0x7ffffff;
+			if (item[1] > 0x7fffffff) {
+				item[1] = 0x7fffffff;
 			}
 		}
 
