@@ -29,6 +29,7 @@ const version = require("./package").version;
 // ugly globals
 let masterConfig;
 let masterConfigPath;
+let stopAcceptingNewSessions = false;
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -253,27 +254,40 @@ async function shutdown() {
 			console.log(`Plugin ${pluginName} exited in ${Date.now() - startTime}ms`);
 		}
 
+		stopAcceptingNewSessions = true;
+
+		let disconnectTasks = [];
 		for (let controlConnection of controlConnections) {
-			controlConnection.connector.close(1001, "Server Quit");
+			controlConnection.connector.setTimeout(masterConfig.get("master.connector_shutdown_timeout"));
+			disconnectTasks.push(controlConnection.disconnect(1001, "Server Quit"));
 		}
 
 		for (let slaveConnection of slaveConnections.values()) {
-			slaveConnection.connector.close(1001, "Server Quit");
+			slaveConnection.connector.setTimeout(masterConfig.get("master.connector_shutdown_timeout"));
+			disconnectTasks.push(slaveConnection.disconnect(1001, "Server Quit"));
+		}
+
+		console.log(`Waiting for ${disconnectTasks.length} connectors to close`);
+		for (let task of disconnectTasks) {
+			try {
+				await task;
+			} catch (err) {
+				if (!(err instanceof errors.SessionLost)) {
+					console.log("Unexpected error disconnecting connector");
+					console.log(err);
+				}
+			}
 		}
 
 		for (let socket of pendingSockets) {
 			socket.close(1001, "Server Quit");
 		}
 
-		if (httpServer) {
-			console.log("Stopping HTTP server");
-			await new Promise(resolve => httpServer.close(resolve));
-		}
-
-		if (httpsServer) {
-			console.log("Stopping HTTPS server");
-			await new Promise(resolve => httpsServer.close(resolve));
-		}
+		let stopTasks = [];
+		console.log("Stopping HTTP(S) server");
+		if (httpServer) { stopTasks.push(new Promise(resolve => httpServer.close(resolve))); }
+		if (httpsServer) { stopTasks.push(new Promise(resolve => httpsServer.close(resolve))); }
+		await Promise.all(stopTasks);
 
 		console.log(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
 
@@ -380,10 +394,22 @@ class BaseConnection extends link.Link {
 		}
 	}
 
-	async shutdown(code, reason) {
-		await link.messages.prepareDisconnect.send(this);
-		this.connector.close(code, reason);
-		await events.once(this.connector, "close");
+	async prepareDisconnectRequestHandler(message, request) {
+		this.connector.setClosing();
+		return await super.prepareDisconnectRequestHandler(message, request);
+	}
+
+	async disconnect(code, reason) {
+		try {
+			await link.messages.prepareDisconnect.send(this);
+		} catch (err) {
+			if (!(err instanceof errors.SessionLost)) {
+				console.error("Unexpected error preparing disconnect");
+				console.error(err);
+			}
+		}
+
+		await this.connector.close(code, reason);
 	}
 }
 
@@ -617,12 +643,13 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this._sessionId = sessionId;
 
 		// The following states are used in the server connector
-		// handshake: Wating for client to (re)connect.
+		// handshake: Waiting for client to (re)connect.
 		// connected: Connection is online
 		// closing: Connection is in the process of being closed.
 		// closed: Connection has been closed
 		this._state = "handshake";
 		this._connected = false;
+		this._timeout = 15 * 60;
 	}
 
 	_check(expectedStates) {
@@ -665,6 +692,11 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this._socket.terminate();
 		this._socket = socket;
 
+		if (this._timeoutId) {
+			clearTimeout(this._timeoutId);
+			this._timeoutId = null;
+		}
+
 		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
 		this._socket.send(JSON.stringify({
 			seq: null,
@@ -685,6 +717,26 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this.emit("connected");
 	}
 
+	setTimeout(timeout) {
+		if (this._timeoutId) {
+			clearTimeout(this._timeoutId);
+		}
+
+		this._timeoutId = setTimeout(() => { this._timedOut() }, timeout * 1000);
+		this._timeout = timeout;
+	}
+
+	_timedOut() {
+		console.log("SOCKET | Connection timed out");
+		this._timeoutId = null;
+		this._lastReceivedSeq = null;
+		this._sendBuffer.length = 0;
+		this._state = "closed";
+		activeConnectors.delete(this._sessionId);
+		this.emit("close");
+		this.emit("invalidate");
+	}
+
 	_attachSocketHandlers() {
 		this.startHeartbeat();
 
@@ -697,17 +749,19 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 				activeConnectors.delete(this._sessionId);
 
 				if (this._connected) {
-					this.emit("close");
 					this._connected = false;
+					this.emit("close");
+				}
+
+				if (this._timeoutId) {
+					clearTimeout(this._timeoutId);
+					this._timeoutId = null;
 				}
 
 			} else {
 				this._state = "handshake";
-
-				if (this._connected) {
-					this.emit("dropped");
-					this._connected = false;
-				}
+				this.emit("dropped");
+				this._timeoutId = setTimeout(() => { this._timedOut() }, this._timeout * 1000);
 			}
 
 			this.stopHeartbeat();
@@ -754,14 +808,15 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 *
 	 * Sends a close frame and disconnects the connector.
 	 */
-	close(code, reason) {
-		if (this._state === "new") {
+	async close(code, reason) {
+		if (this._state === "closed") {
 			return;
 		}
 
 		this.stopHeartbeat();
 		this._state = "closing";
 		this._socket.close(code, reason);
+		await events.once(this, "close")
 	}
 }
 
@@ -827,14 +882,14 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	} catch (err) {
 		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid JSON`);
 		wsRejectedConnectionsCounter.inc();
-		socket.close(1001, "Invalid JSON");
+		socket.close(1002, "Invalid JSON");
 		return;
 	}
 
 	if (!schema.clientHandshake(message)) {
 		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake:`, message);
 		wsRejectedConnectionsCounter.inc();
-		socket.close(1001, "Bad handshake");
+		socket.close(1002, "Bad handshake");
 		return;
 	}
 
@@ -864,6 +919,13 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		return
 	}
 
+	if (stopAcceptingNewSessions) {
+		console.log(`SOCKET | closing ${req.socket.remoteAddress}, server is shutting down`);
+		wsRejectedConnectionsCounter.inc();
+		socket.close(1001, "Shutting down");
+		return;
+	}
+
 	let result = await authenticate.check(data.token);
 
 	if (!result.ok) {
@@ -882,7 +944,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		let connection = slaveConnections.get(data.id);
 		if (connection) {
 			console.log(`SOCKET | disconnecting existing connection for slave ${data.id}`);
-			await connection.shutdown();
+			await connection.disconnect(1008, "Registered from another connection");
 		}
 
 		console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);

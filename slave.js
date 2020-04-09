@@ -739,13 +739,25 @@ class Slave extends link.Link {
 		await this.updateInstances();
 	}
 
+	/**
+	 * Stops all instances and closes the connection
+	 */
 	async shutdown() {
-		await link.messages.prepareDisconnect.send(this);
+		this.connector.setTimeout(30);
+
+		try {
+			await link.messages.prepareDisconnect.send(this);
+		} catch (err) {
+			if (!(err instanceof errors.SessionLost)) {
+				console.error("Unexpected error preparing disconnect");
+				console.error(err);
+			}
+		}
+
 		for (let instanceId of this.instanceConnections.keys()) {
 			await this.stopInstance(instanceId);
 		}
-		this.connector.close(1001, "Slave Shutdown");
-		await events.once(this.connector, "close");
+		await this.connector.close(1001, "Slave Shutdown");
 
 		// Clear silly interval in pidfile library.
 		pidusage.clear();

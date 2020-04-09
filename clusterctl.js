@@ -353,9 +353,17 @@ class Control extends link.Link {
 	}
 
 	async shutdown() {
-		await link.messages.prepareDisconnect.send(this);
-		this.connector.close(1001, "Control Quit")
-		await events.once(this.connector, "close");
+		this.connector.setTimeout(30);
+
+		try {
+			await link.messages.prepareDisconnect.send(this);
+		} catch (err) {
+			if (!(err instanceof SessionLost)) {
+				throw err;
+			}
+		}
+
+		await this.connector.close(1001, "Control Quit")
 	}
 }
 
@@ -501,6 +509,14 @@ async function startControl() {
 		throw err;
 	}
 
+	process.on("SIGINT", () => {
+		console.log("Caught interrupt signal, closing connection");
+		control.shutdown().catch(err => {
+			console.error(err);
+			process.exit(1);
+		});
+	});
+
 	if (commands.has(commandName)) {
 		command = commands.get(commandName);
 
@@ -524,8 +540,6 @@ async function startControl() {
 			await control.shutdown();
 		}
 	}
-
-	//XXX control.close("done");
 }
 
 module.exports = {
