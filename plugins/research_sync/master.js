@@ -12,7 +12,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		this.progressToBroadcast = new Set();
 	}
 
-	async onExit() {
+	async onShutdown() {
 		if (this.progressBroadcastId) {
 			clearTimeout(this.progressBroadcastId);
 		}

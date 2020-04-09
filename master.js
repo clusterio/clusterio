@@ -250,8 +250,8 @@ async function shutdown() {
 
 		for (let [pluginName, masterPlugin] of masterPlugins) {
 			let startTime = Date.now();
-			await masterPlugin.onExit();
-			console.log(`Plugin ${pluginName} exited in ${Date.now() - startTime}ms`);
+			await masterPlugin.onShutdown();
+			console.log(`Plugin ${pluginName} shutdown in ${Date.now() - startTime}ms`);
 		}
 
 		stopAcceptingNewSessions = true;
