@@ -110,8 +110,8 @@ after(async function() {
 
 // Ensure the test processes are stopped.
 process.on("exit", () => {
-	slaveProcess.kill();
-	masterProcess.kill();
+	if (slaveProcess) { slaveProcess.kill(); }
+	if (masterProcess) { masterProcess.kill(); }
 });
 
 
