@@ -30,6 +30,7 @@ const version = require("./package").version;
 let masterConfig;
 let masterConfigPath;
 let stopAcceptingNewSessions = false;
+let debugEvents = new events.EventEmitter();
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -429,6 +430,16 @@ class ControlConnection extends BaseConnection {
 		});
 
 		this.instanceOutputSubscriptions = new Set();
+
+		this.ws_dumper = null;
+		this.connector.on("connected", () => {
+			this.connector._socket.clusterio_ignore_dump = !!this.ws_dumper;
+		});
+		this.connector.on("close", () => {
+			if (this.ws_dumper) {
+				debugEvents.off("message", this.ws_dumper);
+			}
+		});
 	}
 
 	async listSlavesRequestHandler(message) {
@@ -550,6 +561,14 @@ class ControlConnection extends BaseConnection {
 
 	async setInstanceOutputSubscriptionsRequestHandler(message) {
 		this.instanceOutputSubscriptions = new Set(message.data.instance_ids);
+	}
+
+	async debugDumpWsRequestHandler(message) {
+		this.ws_dumper = data => {
+			link.messages.debugWsMessage.send(this, data);
+		};
+		this.connector._socket.clusterio_ignore_dump = true;
+		debugEvents.on("message", this.ws_dumper)
 	}
 }
 
@@ -828,10 +847,18 @@ wss.on("connection", function (socket, req) {
 
 	// Track statistics
 	wsConnectionsCounter.inc();
-	socket.on("message", () => { wsMessageCounter.labels("in").inc(); });
+	socket.on("message", (message) => {
+		wsMessageCounter.labels("in").inc();
+		if (!socket.clusterio_ignore_dump) {
+			debugEvents.emit("message", { direction: "in", content: message });
+		}
+	});
 	let originalSend = socket.send;
 	socket.send = (...args) => {
 		wsMessageCounter.labels("out").inc();
+		if (typeof args[0] === "string" && !socket.clusterio_ignore_dump) {
+			debugEvents.emit("message", { direction: "out", content: args[0] });
+		}
 		return originalSend.call(socket, ...args);
 	};
 

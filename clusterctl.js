@@ -310,6 +310,14 @@ commands.push(new Command({
 	},
 }));
 
+commands.push(new Command({
+	definition: ["debug-dump-ws", "Dump WebSocket messages sent and received by master", (yargs) => { }],
+	handler: async function(args, control) {
+		await link.messages.debugDumpWs.send(control);
+		return new Promise(() => {});
+	},
+}));
+
 // Convert to mapping from name to command instance
 commands = new Map([...commands.map(command => [command.name, command])]);
 
@@ -350,6 +358,10 @@ class Control extends link.Link {
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
 		console.log(formatOutputColored(output));
+	}
+
+	async debugWsMessageEventHandler(message) {
+		console.log("WS", message.data.direction, message.data.content);
 	}
 
 	async shutdown() {

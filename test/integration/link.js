@@ -12,6 +12,7 @@ class TestControl extends link.Link {
 		link.attachAllMessages(this);
 	}
 
+	async debugWsMessageEventHandler() { }
 	async prepareDisconnectRequestHandler() { }
 	async instanceOutputEventHandler() { }
 }
