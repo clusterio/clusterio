@@ -77,6 +77,7 @@ before(async function() {
 	await exec(`node master --config ${masterConfigPath} config set master.auth_secret TestSecretDoNotUse`);
 	await exec(`node master --config ${masterConfigPath} config set master.http_port 8880`);
 	await exec(`node master --config ${masterConfigPath} config set master.https_port 4443`);
+	await exec(`node master --config ${masterConfigPath} config set master.tls_bits 512`);
 	await exec(`node master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
 	await exec(`node master --config ${masterConfigPath} config set master.connector_shutdown_timeout 2`);
 

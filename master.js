@@ -1155,6 +1155,7 @@ async function startServer() {
 	// Create a self signed certificate if the certificate files doesn't exist
 	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
 		await generateSSLcert({
+			bits: masterConfig.get("master.tls_bits"),
 			sslCertPath: tls_cert,
 			sslPrivKeyPath: tls_key,
 			doLogging: true,
