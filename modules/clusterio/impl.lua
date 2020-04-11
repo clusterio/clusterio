@@ -18,6 +18,9 @@ impl.events[api.events.on_server_startup] = function()
             instance_name = nil,
         }
     end
+
+    -- Replay will just desync after the save is patched
+    game.disable_replay()
 end
 
 -- Internal API

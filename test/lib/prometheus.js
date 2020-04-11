@@ -312,7 +312,7 @@ describe("lib/prometheus", function() {
 			});
 		});
 		describe(".remove()", function() {
-			it("should remove a label set created with .label()", function() {
+			it("should remove a label set created with .labels()", function() {
 				let gauge = new prometheus.Gauge(
 					'test', "Help", { register: false, labels: ['a', 'b'] }
 				);
@@ -328,7 +328,7 @@ describe("lib/prometheus", function() {
 			});
 		});
 		describe(".removeAll()", function() {
-			it("should remove a label set created with .label()", function() {
+			it("should remove a label set created with .labels()", function() {
 				let gauge = new prometheus.Gauge(
 					'test', "Help", { register: false, labels: ['a', 'b'] }
 				);
@@ -358,7 +358,7 @@ describe("lib/prometheus", function() {
 			});
 		});
 		describe(".clear()", function() {
-			it("should remove all label sets created with .label()", function() {
+			it("should remove all label sets created with .labels()", function() {
 				let gauge = new prometheus.Gauge(
 					'test', "Help", { register: false, labels: ['a', 'b'] }
 				);
@@ -416,6 +416,48 @@ describe("lib/prometheus", function() {
 				assert(
 					value < 5 && value > 0,
 					`process time is not between 0 and 5 seconds (${value})`
+				);
+			});
+		});
+		describe("processResidentMemoryBytes", function() {
+			it("should give a low value", async function() {
+				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
+				let results = []
+				let collector = prometheus.defaultCollectors.processResidentMemoryBytes;
+				for await (let result of collector.collect()) {
+					results.push(result);
+				}
+
+				assert(
+					results.length == 1,
+					"collector did not give exactly one result"
+				);
+
+				let value = results[0].samples.get('')
+				assert(
+					value < 200e6 && value > 0,
+					`resident memory is not between 0 and 200 MB (${value})`
+				);
+			});
+		});
+		describe("processHeapBytes", function() {
+			it("should give a low value", async function() {
+				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
+				let results = []
+				let collector = prometheus.defaultCollectors.processHeapBytes;
+				for await (let result of collector.collect()) {
+					results.push(result);
+				}
+
+				assert(
+					results.length == 1,
+					"collector did not give exactly one result"
+				);
+
+				let value = results[0].samples.get('')
+				assert(
+					value < 200e6 && value > 0,
+					`heap is not between 0 and 200 MB (${value})`
 				);
 			});
 		});

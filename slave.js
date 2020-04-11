@@ -2,6 +2,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const yargs = require("yargs");
 const events = require("events");
+const pidusage = require("pidusage");
 const version = require("./package").version;
 
 // internal libraries
@@ -19,6 +20,24 @@ const config = require('lib/config');
 const instanceRconCommandsCounter = new prometheus.Counter(
 	"clusterio_instance_rcon_commands_total",
 	"How many commands have been sent to the instance",
+	{ labels: ["instance_id"] }
+);
+
+const instanceFactorioCpuTime = new prometheus.Gauge(
+	"clusterio_instance_factorio_cpu_time_total",
+	"Factorio CPU time spent in seconds.",
+	{ labels: ["instance_id"] }
+);
+
+const instanceFactorioMemoryUsage = new prometheus.Gauge(
+	"clusterio_instance_factorio_resident_memory_bytes",
+	"Factorio resident memory size in bytes.",
+	{ labels: ["instance_id"] }
+);
+
+const instanceFactorioAutosaveSize = new prometheus.Gauge(
+	"clusterio_instance_factorio_autosave_bytes",
+	"Size of Factorio server autosave in bytes.",
 	{ labels: ["instance_id"] }
 );
 
@@ -41,6 +60,7 @@ class Instance extends link.Link{
 			rconPassword: this.config.get('factorio.rcon_password'),
 		};
 
+		this._running = false;
 		this.server = new factorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
@@ -65,14 +85,36 @@ class Instance extends link.Link{
 			console.log(`Error in instance ${this.name}:`, err);
 		});
 
-		this.server.on("exit", err => {
-			link.messages.instanceStopped.send(this);
-
-			// Notify plugins of exit
-			for (let pluginInstance of this.plugins.values()) {
-				pluginInstance.onExit();
-			}
+		this.server.on("autosave-finished", name => {
+			this._autosave(name).catch(err => {
+				console.error("Error handling autosave-finished:", err);
+			});
 		});
+	}
+
+	async _autosave(name) {
+		let stat = await fs.stat(this.path("saves", `${name}.zip`));
+		instanceFactorioAutosaveSize.labels(String(this.config.get("instance.id"))).set(stat.size);
+	}
+
+	notifyExit() {
+		this._running = false;
+		link.messages.instanceStopped.send(this);
+
+		// Clear metrics this instance is exporting
+		for (let collector of prometheus.defaultRegistry.collectors) {
+			if (
+				collector instanceof prometheus.ValueCollector
+				&& collector.metric.labels.includes('instance_id')
+			) {
+				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
+			}
+		}
+
+		// Notify plugins of exit
+		for (let pluginInstance of this.plugins.values()) {
+			pluginInstance.onExit();
+		}
 	}
 
 	async init(pluginInfos, slave) {
@@ -131,7 +173,6 @@ class Instance extends link.Link{
 	 * @param {String} instanceDir -
 	 *     Directory to create the new instance into.
 	 * @param {String} factorioDir - Path to factorio installation.
-	 * @param {Object} options - Options for new instance.
 	 */
 	static async create(instanceConfig, instanceDir, factorioDir) {
 		console.log(`Clusterio | Creating ${instanceDir}`);
@@ -140,7 +181,18 @@ class Instance extends link.Link{
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
 
-	async start(saveName, slaveConfig, socket) {
+	/**
+	 * Prepare a save for starting
+	 *
+	 * Writes server settings, links mods, creates a new save if no save is
+	 * passed, and patches it with modules.
+	 *
+	 * @param {String|null} saveName -
+	 *     Save to prepare from the instance saves directory.  Creates a new
+	 *     save if null.
+	 * @returns {String} Name of the save prepared.
+	 */
+	async prepare(saveName) {
 		console.log("Clusterio | Writing server-settings.json");
 		await this.writeServerSettings();
 
@@ -157,6 +209,20 @@ class Instance extends link.Link{
 		}catch(e){}
 
 		await symlinkMods(this, "sharedMods", console);
+
+		// Use latest save if no save was specified
+		if (saveName === null) {
+			saveName = await fileOps.getNewestFile(
+				this.path("saves"), (name) => !name.endsWith('.tmp.zip')
+			);
+		}
+
+		// Create save if no save was found.
+		if (saveName === null) {
+			console.log("Clusterio | Creating new save")
+			await this.server.create("world.zip");
+			saveName = "world.zip";
+		}
 
 		// Patch save with lua modules from plugins
 		console.log("Clusterio | Patching save");
@@ -218,11 +284,22 @@ class Instance extends link.Link{
 		}
 
 		await factorio.patch(this.path("saves", saveName), [...modules.values()]);
+		return saveName;
+	}
 
+	/**
+	 * Start Factorio server
+	 *
+	 * Launches the Factorio server for this instance with the given save.
+	 *
+	 * @param {String} saveName - Name of save game to load.
+	 */
+	async start(saveName) {
 		this.server.on('rcon-ready', () => {
 			console.log("Clusterio | RCON connection established");
 		});
 
+		this.server.on("exit", () => this.notifyExit());
 		await this.server.start(saveName);
 		await this.server.disableAchievements()
 		await this.updateInstanceData();
@@ -230,6 +307,8 @@ class Instance extends link.Link{
 		for (let pluginInstance of this.plugins.values()) {
 			await pluginInstance.onStart();
 		}
+
+		this._running = true;
 	}
 
 	/**
@@ -245,6 +324,8 @@ class Instance extends link.Link{
 	 * Stop the instance
 	 */
 	async stop() {
+		this._running = false;
+
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
 			for (let pluginInstance of this.plugins.values()) {
@@ -253,53 +334,62 @@ class Instance extends link.Link{
 
 			await this.server.stop();
 		}
-
-		// Clear metrics this instance is exporting
-		for (let collector of prometheus.defaultRegistry.collectors) {
-			if (
-				collector instanceof prometheus.ValueCollector
-				&& collector.metric.labels.includes('instance_id')
-			) {
-				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
-			}
-		}
 	}
 
 	async getMetricsRequestHandler() {
 		let results = []
-		for (let pluginInstance of this.plugins.values()) {
-			let pluginResults = await pluginInstance.onMetrics();
-			if (pluginResults !== undefined) {
-				for await (let result of pluginResults) {
-					results.push(prometheus.serializeResult(result))
+		if (this._running) {
+			for (let pluginInstance of this.plugins.values()) {
+				let pluginResults = await pluginInstance.onMetrics();
+				if (pluginResults !== undefined) {
+					for await (let result of pluginResults) {
+						results.push(prometheus.serializeResult(result))
+					}
 				}
 			}
+		}
+
+		let pid = this.server.pid;
+		if (pid) {
+			let stats = await pidusage(pid);
+			instanceFactorioCpuTime.labels(String(this.config.get("instance.id"))).set(stats.ctime / 1000);
+			instanceFactorioMemoryUsage.labels(String(this.config.get("instance.id"))).set(stats.memory);
 		}
 
 		return { results };
 	}
 
-	async startInstanceRequestHandler() {
-		// Find save to start
-		let latestSave = await fileOps.getNewestFile(
-			this.path("saves"), (name) => !name.endsWith('.tmp.zip')
-		);
-		if (latestSave === null) {
-			throw new errors.RequestError(
-				"No savefile was found to start the instance with."
-			);
+	async startInstanceRequestHandler(message) {
+		let saveName = message.data.save;
+		try {
+			saveName = await this.prepare(saveName)
+		} catch (err) {
+			this.notifyExit();
+			throw err;
 		}
 
-		await this.start(latestSave, this.config, this.socket);
+		try {
+			await this.start(saveName, this.config, this.socket);
+		} catch (err) {
+			await this.stop();
+			throw err;
+		}
 	}
 
 	async createSaveRequestHandler() {
-		console.log("Clusterio | Writing server-settings.json");
-		await this.writeServerSettings();
+		try {
+			console.log("Clusterio | Writing server-settings.json");
+			await this.writeServerSettings();
 
-		console.log("Creating save .....");
-		await symlinkMods(this, "sharedMods", console);
+			console.log("Creating save .....");
+			await symlinkMods(this, "sharedMods", console);
 
+		} catch (err) {
+			this.notifyExit();
+			throw err;
+		}
+
+		this.server.on("exit", () => this.notifyExit());
 		await this.server.create("world");
 		console.log("Clusterio | Successfully created save");
 	}
@@ -413,7 +503,6 @@ class InstanceConnection extends link.Link {
 				continue; // Do not broadcast back to the source
 			}
 
-			console.log("Broadcasting event");
 			event.send(instanceConnection, message.data);
 		}
 	}
@@ -600,13 +689,7 @@ class Slave extends link.Link {
 	async startInstanceRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
-		try {
-			return await request.send(instanceConnection, message.data);
-
-		} catch (err) {
-			await this.stopInstance(instanceId);
-			throw err;
-		}
+		return await request.send(instanceConnection, message.data);
 	}
 
 	async createSaveRequestHandler(message, request) {
@@ -656,13 +739,28 @@ class Slave extends link.Link {
 		await this.updateInstances();
 	}
 
+	/**
+	 * Stops all instances and closes the connection
+	 */
 	async shutdown() {
-		await link.messages.shutdownConnection.send(this);
+		this.connector.setTimeout(30);
+
+		try {
+			await link.messages.prepareDisconnect.send(this);
+		} catch (err) {
+			if (!(err instanceof errors.SessionLost)) {
+				console.error("Unexpected error preparing disconnect");
+				console.error(err);
+			}
+		}
+
 		for (let instanceId of this.instanceConnections.keys()) {
 			await this.stopInstance(instanceId);
 		}
-		this.connector.close(1001, "Slave Shutdown");
-		await events.once(this.connector, "close");
+		await this.connector.close(1001, "Slave Shutdown");
+
+		// Clear silly interval in pidfile library.
+		pidusage.clear();
 	}
 }
 

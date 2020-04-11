@@ -251,6 +251,7 @@ commands.push(new Command({
 	definition: ['start-instance', "Start instance", (yargs) => {
 		yargs.options({
 			'instance': { describe: "Instance to start", nargs: 1, type: 'string', demandOption: true },
+			'save': { describe: "Save load, defaults to latest", nargs: 1, type: 'string' },
 		});
 	}],
 	handler: async function(args, control) {
@@ -258,6 +259,7 @@ commands.push(new Command({
 		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
 		let response = await link.messages.startInstance.send(control, {
 			instance_id: instanceId,
+			save: args.save || null,
 		});
 	},
 }));
@@ -308,6 +310,14 @@ commands.push(new Command({
 	},
 }));
 
+commands.push(new Command({
+	definition: ["debug-dump-ws", "Dump WebSocket messages sent and received by master", (yargs) => { }],
+	handler: async function(args, control) {
+		await link.messages.debugDumpWs.send(control);
+		return new Promise(() => {});
+	},
+}));
+
 // Convert to mapping from name to command instance
 commands = new Map([...commands.map(command => [command.name, command])]);
 
@@ -350,10 +360,22 @@ class Control extends link.Link {
 		console.log(formatOutputColored(output));
 	}
 
+	async debugWsMessageEventHandler(message) {
+		console.log("WS", message.data.direction, message.data.content);
+	}
+
 	async shutdown() {
-		await link.messages.shutdownConnection.send(this);
-		this.connector.close(1001, "Control Quit")
-		await events.once(this.connector, "close");
+		this.connector.setTimeout(30);
+
+		try {
+			await link.messages.prepareDisconnect.send(this);
+		} catch (err) {
+			if (!(err instanceof SessionLost)) {
+				throw err;
+			}
+		}
+
+		await this.connector.close(1001, "Control Quit")
 	}
 }
 
@@ -499,6 +521,14 @@ async function startControl() {
 		throw err;
 	}
 
+	process.on("SIGINT", () => {
+		console.log("Caught interrupt signal, closing connection");
+		control.shutdown().catch(err => {
+			console.error(err);
+			process.exit(1);
+		});
+	});
+
 	if (commands.has(commandName)) {
 		command = commands.get(commandName);
 
@@ -522,8 +552,6 @@ async function startControl() {
 			await control.shutdown();
 		}
 	}
-
-	//XXX control.close("done");
 }
 
 module.exports = {

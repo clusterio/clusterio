@@ -177,7 +177,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		}
 	}
 
-	async onExit() {
+	async onShutdown() {
 		clearInterval(this.autosaveId);
 		clearInterval(this.doleMagicId);
 		await saveDatabase(this.master.config, this.items);

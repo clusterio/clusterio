@@ -253,28 +253,29 @@ requests and their contents.
 - error - string - Human readable text message describing the error.
 
 
-Graceful shutdown
------------------
+Graceful Disconnect
+-------------------
 
 To ensure no data is lost when closing the link it's important to
-send connection shutdown request and wait for it to complete before
+send a prepare disconnect request and wait for it to complete before
 closing the WebSocket.  Either party of the link can send this request
 and the party sending the request should be the one that initates the
 close of the WebSocket.
 
-### `connection_shutdown_request`
+### `prepare_disconnect_request`
 
-Request graceful shutdown of the connection.  The receiving party should
+Request graceful disconnect of the connection.  The receiving party should
 stop tasks that send events and requests over the link and wait for
 pending requests it has over the link to complete, but it should not
 stop responding to requests sent to it.  Only after this process is done
 should the response be sent.
 
-### `connection_shutdown_response`
+### `prepare_disconnect_response`
 
-Signals the shutdown is complete and that the connection can be closed.
-The party that initiatied the shutdown request may still send other
-requests/events over the link to finish its part of the shutdown.
+Signals the preparation for disconnect is complete and that the
+connection can be closed.  The party that initiatied the prepare
+disconnect request may still send other requests/events over the link to
+finish its part of the disconnection proceedure.
 
 If the error response variant is received it should be logged if
 possible and treated as a success.

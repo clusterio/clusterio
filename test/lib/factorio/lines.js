@@ -109,6 +109,28 @@ let testLines = new Map([
 			message: "Error while running event level::on_nth_tick(1)",
 		}
 	],
+	[
+		"4802.763 Info AppManager.cpp:287: Saving to _autosave4 (blocking).",
+		{
+			format: "seconds",
+			time: "4802.763",
+			type: "log",
+			level: "Info",
+			file: "AppManager.cpp:287",
+			message: "Saving to _autosave4 (blocking).",
+		}
+	],
+	[
+		"4202.780 Info AppManagerStates.cpp:1802: Saving finished",
+		{
+			format: "seconds",
+			time: "4202.780",
+			type: "log",
+			level: "Info",
+			file: "AppManagerStates.cpp:1802",
+			message: "Saving finished",
+		}
+	],
 ])
 
 module.exports = {

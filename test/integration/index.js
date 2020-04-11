@@ -77,7 +77,11 @@ before(async function() {
 	await exec(`node master --config ${masterConfigPath} config set master.auth_secret TestSecretDoNotUse`);
 	await exec(`node master --config ${masterConfigPath} config set master.http_port 8880`);
 	await exec(`node master --config ${masterConfigPath} config set master.https_port 4443`);
+	await exec(`node master --config ${masterConfigPath} config set master.tls_certificate ${path.join(databaseDir, "cert.crt")}`);
+	await exec(`node master --config ${masterConfigPath} config set master.tls_private_key ${path.join(databaseDir, "cert.key")}`);
+	await exec(`node master --config ${masterConfigPath} config set master.tls_bits 1024`);
 	await exec(`node master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
+	await exec(`node master --config ${masterConfigPath} config set master.connector_shutdown_timeout 2`);
 
 	await exec(`node slave --config ${slaveConfigPath} config set slave.id 4`);
 	await exec(`node slave --config ${slaveConfigPath} config set slave.name slave`);
@@ -106,6 +110,11 @@ after(async function() {
 	}
 });
 
+// Ensure the test processes are stopped.
+process.on("exit", () => {
+	if (slaveProcess) { slaveProcess.kill(); }
+	if (masterProcess) { masterProcess.kill(); }
+});
 
 
 module.exports = {

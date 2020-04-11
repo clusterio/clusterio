@@ -16,6 +16,7 @@ describe("lib/plugin", function() {
 			await instancePlugin.init();
 		})
 		it("should define defaults for hooks", async function() {
+			await instancePlugin.onMetrics();
 			await instancePlugin.onStart();
 			await instancePlugin.onStop();
 			instancePlugin.onExit();
@@ -30,7 +31,8 @@ describe("lib/plugin", function() {
 			await masterPlugin.init();
 		})
 		it("should define defaults for hooks", async function() {
-			await masterPlugin.onExit();
+			await masterPlugin.onMetrics();
+			await masterPlugin.onShutdown();
 		})
 	});
 
