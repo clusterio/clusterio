@@ -329,12 +329,12 @@ The following properties are recognized by the Event constructor:
     for the event at the links that forward it.
 
 **broadcastTo**:
-    Target to broadcast this message towards.  Currently only
-    `'instance'` is supported and means the event will be broadcast to
-    all instances downstream of the target it's sent to, but not back
-    from where it came from.  This means that sending an event to a
-    slave from an instance will cause it to be broadcast to all
-    instances of that slave except for the instance it came from.
+    Target to broadcast this message towards.  A value of "instance" means
+    the event will be broadcast to all instances downstream of the target
+    it's sent to, but not back from where it came from. Currently, only
+    "instance" is supported. This means that sending an event to a slave
+    from an instance will cause it to be broadcast to all instances of
+    that slave except for the instance it came from.
 
 **eventProperties**:
     Object with properties mapping to a JSON schema of that property
@@ -430,10 +430,10 @@ Sending Link Messages
 
 Link messages are sent by calling the `.send()` method on the
 Event/Request instance with the link you want to send it over and the
-data to send.  For instance plugins the link is the instance itself
-which is accessible through the `.instance` property on the plugin.  The
-`.info` property of the plugin class exposes the data exported from the
-plugin's `info.js` module.  In other words:
+data to send. For `InstancePlugin` code the link to the slave is the
+`instance` itself, which is accessible through the `.instance` property
+of the InstancePlugin. The `.info` property of the plugin class exposes
+the data exported from the plugin's `info.js` module.  In other words:
 
     // In an InstancePlugin class
     async frobnicate() {
