@@ -22,7 +22,7 @@ Factorio Mods
 -------------
 
 Factorio mods that do not interact with Clusterio should not have any
-conciderations that need to be taken into account for them to work with
+considerations that need to be taken into account for them to work with
 Clusterio.
 
 
@@ -36,12 +36,12 @@ Clusterio to work.  The main limitation is that the
 lib must be used, and control.lua cannot contain any code other than
 calls to event_handler loading the relevant libs of the scenario.
 This is because the control.lua file will be overwritten by the save
-patcher.  Scenarios also cannot use the event registring functions
+patcher.  Scenarios also cannot use the event registering functions
 exposed by `script` such as `script.on_event` or `script.on_nth_tick` as
 using these will overwrite the handlers registered by the
 event_handler lib.
 
-A breif description of the usage of the event_handler library is
+A brief description of the usage of the event_handler library is
 provided in the [event_handler interface](#event_handler-interface)
 section.
 
@@ -82,10 +82,10 @@ a part of Factorio since at least 0.17.4, and was moved from base to
 core in 0.17.63 but is still not documented anywhere.  A brief
 description is provided here for this reason.</sub>
 
-The event_handler lib provides a simple interface for registring
+The event_handler lib provides a simple interface for registering
 multiple callbacks to the same events without having to be concerned
 with callback chaining or overwriting callbacks defined elsewhere.  It
-works by taking over the task of registring the actual callbacks with
+works by taking over the task of registering the actual callbacks with
 Factorio, providing its own interface for the rest of the code to use.
 
 The sole function of interest exported by event_handler is `add_lib`
@@ -111,11 +111,11 @@ of which are optional:
 - `add_remote_interface`:
     Callback called before on_init/on_load callbacks<sup>[1]</sup>.  It
     has no special meaning and receives no arguments but should be used
-    for registring remote interfaces.
+    for registering remote interfaces.
 - `add_commands`:
     Callback called before on_init/on_load callbacks<sup>[1]</sup>.  It
     has no special meaning and receives no arguments but should be used
-    for registring commands.
+    for registering commands.
 
 <sub>1: Before 0.17.69 these callbacks were called after
 on_init/on_load.</sub>
@@ -298,7 +298,7 @@ Raised after the name and id of an instance has been updated.  This may
 occur even if the id and name didn't change.
 
 Event data:
-- `instance_id`: The id of the instance.
+- `instance_id`: the id of the instance.
 - `instance_name`: the name of the instance.
 
 ##### on_server_startup
@@ -309,14 +309,14 @@ the `on_init` and `on_configuration_changed` event for modules.  It is
 invoked on the first tick the server runs after the save has been
 patched, before most other events.
 
-Use this event to initialize and and/or migrate the data structures
+Use this event to initialize and/or migrate the data structures
 you need.  Keep in mind that both mods and Clusterio modules can switch
 from any version to any version so it should be able to handle both
 forwards and backwards migrations gracefully.
 
 #### clusterio_api.send_json(channel, data)
 
-Send json data to Clusterio over the given channel.  The `data` argument
+Send JSON data to Clusterio over the given channel.  The `data` argument
 should be table that can be serialized with `game.table_to_json`.
 Clusterio plugins can listen to channels and will receive an event with
 the data sent here.  See the [Communicating with Factorio
@@ -376,7 +376,7 @@ passed.
 #### serialize.deserialize_inventory(LuaInventory, serialized_inventory)
 
 Deserialize a previously serialized inventory into the target
-LuaInventory.  Overwrites slots that has content in the serialized
+LuaInventory.  Overwrites slots that have content in the serialized
 inventory.
 
 
