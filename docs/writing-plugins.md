@@ -351,9 +351,8 @@ cluster.  For this to work, you will need to specify `instance-slave`,
 `slave-master`, `master-slave`, and `slave-instance` as the links.
 
 Keep in mind when forwarding events that if the target an event is being
-forwarded to is not online, the event will be dropped.  If you need a
-confirmation that the message was received, use a request.
-
+forwarded to is not online, the event will be dropped.  Use a request if
+you need a confirmation that the message was received.
 
 ### Definining Requests
 
