@@ -187,7 +187,7 @@ function replaceAll(target, search, replacement) {
 
 function getImageFromName(name){
 	if(imagelinks[name]){
-		return imagelinks[name];
+		return root + imagelinks[name].slice(1);
 	} else if(imagedata[name]) {
 		return "https://wiki.factorio.com/images/" + imagedata[name] + ".png";
 	} else if(factorioLocale["entity-name"] && factorioLocale["entity-name"][name]){
@@ -201,7 +201,7 @@ function getImageFromName(name){
 	} else return `${root}pictures/unknown-item.png`;
 }
 window.factorioLocale = {};
-$.getJSON("/api/getFactorioLocale", (locale) => {
+$.getJSON(`${root}api/getFactorioLocale`, (locale) => {
 	window.factorioLocale = locale;
 });
 // image data
