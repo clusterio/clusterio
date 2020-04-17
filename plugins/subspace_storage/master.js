@@ -139,6 +139,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 					let count = dole.doleDivider({
 						object: { name: item[0], count: item[1], instanceId, instanceName},
 						items: this.items,
+						logItemTransfers: this.master.config.get("subspace_storage.log_item_transfers"),
 					});
 					if (count > 0) {
 						itemsRemoved.push([item[0], count]);
