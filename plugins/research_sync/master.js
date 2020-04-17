@@ -67,6 +67,17 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 			return;
 		}
 
+		// Handle contributon to the next level of a researched technology
+		if (tech.level === level - 1 && tech.researched) {
+			tech.researched = false;
+			tech.level = level;
+		}
+
+		// Ignore contributions to higher levels
+		if (tech.level < level) {
+			return;
+		}
+
 		let newProgress = tech.progress + contribution;
 		if (newProgress < 1) {
 			tech.progress = newProgress;
@@ -125,12 +136,15 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 				}
 
 				if (tech.level < level || researched) {
+					// Send update if the unlocked level is greater
+					if (level - !researched > tech.level - !tech.researched) {
+						for (let slaveConnection of this.master.slaveConnections.values()) {
+							this.info.messages.finished.send(slaveConnection, { name, level: level - !researched });
+						}
+					}
 					tech.level = level;
 					tech.progress = progress;
 					tech.researched = researched;
-					for (let slaveConnection of this.master.slaveConnections.values()) {
-						this.info.messages.finished.send(slaveConnection, { name, level });
-					}
 
 					if (progress) {
 						this.progressToBroadcast.add(name);
