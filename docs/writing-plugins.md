@@ -44,7 +44,7 @@ will not recognized by Clusterio.  Here's an example of it:
     module.exports = {
         name: "foo_frobber",
         title: "Foo Frobber",
-        description: "Does advance frobnication",
+        description: "Does advanced frobnication",
         version: "0.8.1",
         instanceEntrypoint: "instance",
         masterEntrypoint: "master",
@@ -73,12 +73,12 @@ The following properties are recognized:
 **instanceEntrypoint**:
     Path to a Node.js module relative to the plugin directory which
     contains the InstancePlugin class definition for this plugin.  This
-    is an optional paramater.  A plugin can be for instances only but
+    is an optional paramater.  A plugin can be for instances only, but
     for it to be able to send any messages to other instances it will
     still have to be loaded on the master server.
 
 **InstanceConfigGroup**:
-    Subclass of `PluginConfigGroup` to defining the per instance
+    Subclass of `PluginConfigGroup` for defining the per instance
     configuration fields for this plugin.  See [Plugin
     Configuration](#plugin-configuration)
 
@@ -89,7 +89,7 @@ The following properties are recognized:
     master server.
 
 **MasterConfigGroup**:
-    Subclass of `PluginConfigGroup` to defining the master server
+    Subclass of `PluginConfigGroup` for defining the master server
     configuration fields for this plugin.  See [Plugin
     Configuration](#plugin-configuration)
 
@@ -106,10 +106,10 @@ into plugins is that they must be named the same as the plugin.
 While there is no standard for how to organize a plugin it's recommended
 to put the MasterPlugin class definition into master.js and the
 InstancePlugin class definition into instance.js.  You can put them into
-whatever file you want (even the same one for both)
+whatever file you want (even the same one for both).
 
 For both instanceEntrypoint and masterEntrypoint the path should not end
-with .js and it should use forward slashes for directory sepparators if
+with .js and it should use forward slashes for directory separators if
 any.
 
 
@@ -117,7 +117,7 @@ Defining the plugin class
 -------------------------
 
 The plugin class should derive from its respective base class defined in
-`lib/plugin`.  For example to define a MasterPlugin class the following
+`lib/plugin`.  For example, to define a MasterPlugin class the following
 code can be used:
 
     const plugin = require('lib/plugin');
@@ -136,11 +136,11 @@ code can be used:
     }
 
 For the instance plugin it's exactly the same except "Master" is
-replaced with "Instance".  The available hooks that you can override is
-documented on the base class [in lib/plugin.js](../lib/plugin.js).
+replaced with "Instance".  The available hooks that you can override are
+documented in the base class [in lib/plugin.js](../lib/plugin.js).
 
 It's best to avoid defining a constructor, but if you insist on defining
-one forward all arguments to be the base class.  E.g.:
+one, forward all arguments to the base class.  E.g.:
 
         constructor(...args) {
             super(...args);
@@ -149,8 +149,8 @@ one forward all arguments to be the base class.  E.g.:
         }
 
 The arguments passed may change, and attempting to modify them will
-result in unpredicatable behaviour.  The async init method always called
-immediatly after the constructor so there's little reason to do this.
+result in unpredicatable behaviour.  The async init method is always called
+immediatly after the constructor, so there's little reason to do this.
 
 
 Defining Configuration
@@ -197,9 +197,9 @@ for more details on how this system works.
 Communicating with Factorio
 ---------------------------
 
-For pushing data into Factorio there's RCON which lets you send
-arbitrary Lua command to invoke whatever code you want in the game.
-This is done by calling sendRcon method on the instance's server object.
+For pushing data into Factorio there's RCON, which lets you send
+arbitrary Lua commands to invoke whatever code you want in the game.
+This is done by calling the `sendRcon` method on the instance's server object.
 For example:
 
     async onStart() {
@@ -211,7 +211,7 @@ For example:
     }
 
 
-Because data into Factorio is streamed at a rate of 3-6 kB/s by default
+Because data into Factorio is streamed at a rate of 3-6 kB/s by default,
 it is recommended to avoid sending large commands as much as possible,
 and to strip down the data on the ones you send to only what's strictly
 necessary.  You can have lua code injected into the game via the module
@@ -222,7 +222,7 @@ For getting data out from Factorio there's both RCON and the `send_json`
 API of the Clusterio module.  Returning data via RCON is prefered if the
 action is initiated from the Node.js side.  The `send_json` API allows
 sending JSON payloads on channels that plugins can listen to.  From a
-plugin you listen for an event named ipc-channel_name in order to get
+plugin you listen for an event named `ipc-channel_name` in order to get
 data sent by `send_json`.  For example in the plugin code:
 
     async init() {
@@ -257,7 +257,7 @@ server has a fast enough storage system.
 
 **Note:** both `send_json` and RCON can operate out of order.  For
 `send_json` it's possible that payloads greater than 4kB are received
-after payloads that was sent at a later point in time.  For RCON,
+after payloads that were sent at a later point in time.  For RCON,
 commands longer than 50 characters may end up being executed after
 shorter commands sent after it.
 
@@ -269,18 +269,18 @@ You will most likely have to communicate with the master or other
 instances in your plugin for it to do anything useful.  For this there's
 a WebSocket communication channel established between the slaves and the
 master server that plugins can define their own messages to send over
-it.  This channel is bi-directional and all messages send over it are
+it.  This channel is bi-directional and all messages sent over it are
 validated with a JSON schema (see [this guide][guide] for an
-introduction to writing JSON schema.)
+introduction to writing JSON schema).
 
 [guide]: https://json-schema.org/learn/getting-started-step-by-step.html
 
-There are currently two kinds of messages that can be defined.  Events
-and requests.  Events are simple one way notifications that invoke a
-handler on target it's sent to.  Requests are pairs of request and
+There are currently two kinds of messages that can be defined: events
+and requests.  Events are simple one-way notifications that invoke a
+handler on the target it's sent to.  Requests are pairs of request and
 response messages where the request is sent to the target and the
 response is the reply back from the target.  The requests are similar to
-HTTP requests only that both parties of a link may innitiate one.
+HTTP requests, in that both parties of a link may initiate one.
 
 
 ### Defining Events
@@ -303,65 +303,64 @@ the event, for example the following could be defined in `info.js`:
     },
 
 This specifies an event that can be sent from the master to a slave,
-and from a slave to an instance.  And that the event must contain the
-property `frobnication_type` with a string value in the data payload.
+and from a slave to an instance.  It also specifies that the event must contain the
+property `frobnication_type`, with a string value in the data payload.
 It will also be forwarded by slaves to a specific instance.
 
 The following properties are recognized by the Event constructor:
 
 **type**:
-    The message type sent over the wire.  This can be any string but
-    it must be unique across all plugins and it's recommended that it is
+    The message type sent over the wire.  This can be any string, but
+    it must be unique across all plugins, and it's recommended that it is
     of format `plugin_name:message_name`.  The suffix `_event` will be
-    appened to the type.
+    appended to the type.
 
 **links**:
     An array of strings describing which links this event can be sent
     over.  Direction matters, `'master-slave'` means the event can be
-    sent from the master to slave, but can't be sent back the other way
+    sent from the master to the slave, but can't be sent back the other way,
     unless `'slave-master'` is also present in the links array.
 
 **forwardTo**:
-    Target to forward event to.  Can be either `'master'` to indicate a
-    slave should forward it to the master server or `'instance'` to
+    Target to forward an event to.  Can either be `'master'`, to indicate a
+    slave should forward it to the master server, or `'instance'`, to
     indicate it should be forwarded to the instances specified by the
     `instance_id` event property.  This works by using a default handler
     for the event at the links that forward it.
 
 **broadcastTo**:
-    Target to broadcast this message towards.  Currently only
-    `'instance'` is supported and means the event will be broadcast to
-    all instances downstream of the target it's sent to, but not back
-    from where it came from.  This means that sending an event to a
-    slave from an instance will cause it to be broadcast to all
-    instances of that slave except for the instance it came from.
+    Target to broadcast this message towards.  A value of "instance" means
+    the event will be broadcast to all instances downstream of the target
+    it's sent to, but not back from where it came from. Currently, only
+    "instance" is supported. This means that sending an event to a slave
+    that slave except for the instance it came from.
+    from an instance will cause it to be broadcast to all instances of
 
 **eventProperties**:
     Object with properties mapping to a JSON schema of that property
     that specifies what's valid to send in the event.  This is
-    equivalent to using the `properties` keyword in JSON schema except
+    equivalent to using the `properties` keyword in JSON schema, except
     that the properties specified are implicitly required and additional
     properties are not allowed.  See [this guide][guide] for an
-    introduction to writing JSON schemas
+    introduction to writing JSON schemas.
 
 The forwardTo and broadcastTo can be combined such that specifying
 `'master'` as the forwardTo value and `'instance'` as the broadcastTo
 value will cause the event to be broadcast to all instances in the
-cluster.  For this to work you will need to specify instance-slave,
-slave-master and master-slave, slave-instance as the links.
+cluster.  For this to work, you will need to specify `instance-slave`,
+`slave-master`, `master-slave`, and `slave-instance` as the links.
 
 Keep in mind when forwarding events that if the target an event is being
-forwarded to is not online the event will be dropped.  If you need a
-confirmation that the message was received use a request.
-
+forwarded to is not online, the event will be dropped.  Use a request if
+you need a confirmation that the message was received.
 
 ### Definining Requests
 
 Requests are defined as properties of the messages object exported by
 `info.js` that map to instances of the `Request` class from `lib/link`.
-The name of the property correspond to the handler invoked on the plugin
+The name of the property corresponds to the handler invoked on the plugin
 class.  The Request constructor takes an object of properties that define
-the event, for example the following could be defined in `info.js`:
+the event. For example, the following could be defined in `info.js`:
 
     messages: {
         reportFrobnication: new link.Request({
@@ -382,40 +381,40 @@ the event, for example the following could be defined in `info.js`:
 
 This specifies a request that can be sent from the master to a slave,
 and from a slave to an instance.  The request data must contain the
-property `verbosity` with an integer number as the value as well as the
+property `verbosity` with an integer number as the value, as well as the
 `instance_id` property (implied by `forwardTo: 'instance'`), and the
 response sent must contain a `report` property mapping to an array of
-strings.  When received by a slave it will also be forwarded to the
+strings.  When received by a slave, it will also be forwarded to the
 instance specified by `instance_id`.
 
 The following properties are recognized by the Request constructor:
 
 **type**:
-    The message type sent over the wire.  This can be any string but
-    it must be unique across all plugins and it's recommended that it is
+    The message type sent over the wire.  This can be any string, but
+    it must be unique across all plugins, and it's recommended that it is
     of format `plugin_name:message_name`.  The suffix `_request` will be
-    appened to the type for the request message sent, and the suffix
+    appended to the type for the request message sent, and the suffix
     `_response` will be appended to the type for the response.
 
 **links**:
     An array of strings describing which links this request can be sent
-    over.  Direction matters, `'master-slave'` means the request can be
-    sent from the master to slave and the slave can reply to the master,
-    but the slave can't sent a request to the master unless
+    over.  Direction matters; `'master-slave'` means the request can be
+    sent from the master to the slave and the slave can reply to the master,
+    but the slave can't send a request to the master unless
     `'slave-master'` is also present in the links array.
 
 **forwardTo**:
-    Target to forward request to.  Can be either `'master'` to indicate
+    Target to forward the request to.  Can either be `'master'` to indicate
     a slave should forward it to the master server when receiving it
-    from an instance or `'instance'` to indicate it should be forwarded
+    from an instance, or `'instance'` to indicate it should be forwarded
     to the instances specified by the `instance_id` request property.
-    This works by using a default handler for the request at the links
+    This works by using a default handler for the request by the links
     that forward it.
 
 **requestProperties**:
     Object with properties mapping to a JSON schema of that property
     that specifies what's valid to send in the request.  This is
-    equivalent to using the `properties` keyword in JSON schema except
+    equivalent to using the `properties` keyword in JSON schema, except
     that the properties specified are implicitly required and additional
     properties are not allowed.  See [this guide][guide] for an
     introduction to writing JSON schemas
@@ -430,10 +429,10 @@ Sending Link Messages
 
 Link messages are sent by calling the `.send()` method on the
 Event/Request instance with the link you want to send it over and the
-data to send.  For instance plugins the link is the instance itself
-which is accessible through the `.instance` property on the plugin.  The
-`.info` property of the plugin class exposes the data exported from the
-plugin's `info.js` module.  In other words:
+data to send. For `InstancePlugin` code the link to the slave is the
+`instance` itself, which is accessible through the `.instance` property
+of the `InstancePlugin`. The `.info` property of the plugin class exposes
+the data exported from the plugin's `info.js` module.  In other words:
 
     // In an InstancePlugin class
     async frobnicate() {
@@ -448,12 +447,12 @@ request failed.
 Collecting Statistics
 ---------------------
 
-Clusterio comes with it's own Prometheus client implementation, one part
+Clusterio comes with its own Prometheus client implementation, one part
 due to Not Invented Here and another part due to collectors in
 prom-client being difficult to get to work nicely with collecting data
 from plugins optionally loaded at runtime on different computers.
 
-In its simplest form collecting data from a plugins consists of defining
+In its simplest form collecting data from plugins consists of defining
 the metric and updating it somewhere in the plugin code.  For example:
 
     const { Counter } = require('lib/prometheus');
@@ -470,7 +469,7 @@ available through the /metric HTTP endpoint.  It's recommended that
 plugin metrics follow `clusterio_<plugin_name>_<metric_name>` as the
 naming scheme.
 
-For metrics that are per-instance you must define an `instance_id` label and
+For metrics that are per-instance, you must define an `instance_id` label and
 set it accordingly, for example:
 
     const { Counter } = require('lib/prometheus');
@@ -488,10 +487,10 @@ default registry is automatically polled by the master server on slaves.
 This means that it's important that you place the definition of the
 metric at module level so that it's not created more than once over the
 lifetime of a slave.  Since the metrics remember their values and would
-continue to be exported after an instance is shutdown there's code at
+continue to be exported after an instance is shutdown, there's code at
 instance shutdown that removes all the values where the `instance_id`
 label matches the id of the instance shut down.
 
 For statistics you need to update on collection there's an `onMetrics`
-hook on both master and instance plugins that is runned before the
-metrics in the default registry is collected.
+hook on both master and instance plugins that is run before the
+metrics in the default registry are collected.
