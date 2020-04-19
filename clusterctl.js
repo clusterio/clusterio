@@ -370,7 +370,7 @@ class Control extends link.Link {
 		try {
 			await link.messages.prepareDisconnect.send(this);
 		} catch (err) {
-			if (!(err instanceof SessionLost)) {
+			if (!(err instanceof errors.SessionLost)) {
 				throw err;
 			}
 		}

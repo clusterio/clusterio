@@ -197,7 +197,7 @@ function research_sync.research_technology(name, level)
         tech.researched = true
 
         if tech.name:find("-%d+$") then
-            game.print {"", "Researched ", {"technology-name." .. tech.name:gsub("-%d+$", "")}, level}
+            game.print {"", "Researched ", {"technology-name." .. tech.name:gsub("-%d+$", "")}, " ", level}
         else
             game.print {"", "Researched ", {"technology-name." .. tech.name}}
         end

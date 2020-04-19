@@ -94,6 +94,7 @@ let _doleDivisionFactor = {};
 function doleDivider({
     object,
 	items,
+	logItemTransfers,
 }){
 	let itemCount = items.getItemCount(object.name);
     const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
@@ -102,7 +103,7 @@ function doleDivider({
     const originalCount = Number(object.count) || 0;
     object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
     object.count = Math.round(object.count);
-	if (itemCount > 40) {
+	if (logItemTransfers) {
 		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${itemCount} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${itemCount > object.count?'stocked':'short'}.`);
 	}
 
