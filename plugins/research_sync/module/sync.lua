@@ -141,7 +141,8 @@ function research_sync.sync_technologies(data)
     for _, tech_data in pairs(game.json_to_table(data)) do
         local tech = force.technologies[tech_data[nameIndex]]
         if tech and tech.enabled and tech.level <= tech_data[levelIndex] then
-            tech.level = tech_data[levelIndex]
+            tech.level = math.min(tech_data[levelIndex], tech.prototype.max_level)
+
             local progress
             if tech_data[researchedIndex] then
                 tech.researched = true
@@ -186,6 +187,10 @@ function research_sync.research_technology(name, level)
     local tech = force.technologies[name]
     if not tech or not tech.enabled or tech.level > level then
         return
+    end
+
+    if level > tech.prototype.max_level then
+        level = tech.prototype.max_level
     end
 
     global.research_sync.ignore_research_finished = true
