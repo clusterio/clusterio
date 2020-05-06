@@ -73,9 +73,9 @@ The following properties are recognized:
 **instanceEntrypoint**:
     Path to a Node.js module relative to the plugin directory which
     contains the InstancePlugin class definition for this plugin.  This
-    is an optional paramater.  A plugin can be for instances only, but
-    for it to be able to send any messages to other instances it will
-    still have to be loaded on the master server.
+    is an optional paramater.  A plugin may have code only for instances
+    but it must still be loaded on the master in order for it to be
+    possible to load it on an instance.
 
 **InstanceConfigGroup**:
     Subclass of `PluginConfigGroup` for defining the per instance

@@ -31,6 +31,7 @@ let masterConfig;
 let masterConfigPath;
 let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
+let pluginList = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -581,12 +582,14 @@ class SlaveConnection extends BaseConnection {
 		this._id = registerData.id;
 		this._name = registerData.name;
 		this._version = registerData.version;
+		this._plugins = registerData.plugins;
 
 		db.slaves.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
 			version: this._version,
+			plugins: this._plugins,
 		});
 
 		this.connector.on("close", () => {
@@ -863,7 +866,10 @@ wss.on("connection", function (socket, req) {
 	};
 
 	// Start connection handshake.
-	socket.send(JSON.stringify({ seq: null, type: "hello", data: { version }}));
+	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
+		version,
+		plugins: pluginList
+	}}));
 
 	function attachHandler() {
 		pendingSockets.add(socket);
@@ -999,6 +1005,8 @@ async function loadPlugins(pluginInfos) {
 		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
 			continue;
 		}
+
+		pluginList[pluginInfo.name] = pluginInfo.version;
 
 		let pluginLoadStarted = Date.now();
 		let MasterPlugin = plugin.BaseMasterPlugin;

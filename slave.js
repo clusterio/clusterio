@@ -117,12 +117,16 @@ class Instance extends link.Link{
 		}
 	}
 
-	async init(pluginInfos, slave) {
+	async init(pluginInfos, masterPlugins, slave) {
 		await this.server.init();
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
-			if (!pluginInfo.instanceEntrypoint || !this.config.group(pluginInfo.name).get("enabled")) {
+			if (
+				!pluginInfo.instanceEntrypoint
+				|| !Object.hasOwnProperty.call(masterPlugins, pluginInfo.name)
+				|| !this.config.group(pluginInfo.name).get("enabled")
+			) {
 				continue;
 			}
 
@@ -513,19 +517,26 @@ class InstanceConnection extends link.Link {
 }
 
 class SlaveConnector extends link.WebSocketClientConnector {
-	constructor(slaveConfig) {
+	constructor(slaveConfig, pluginInfos) {
 		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.reconnect_delay"));
 		this.slaveConfig = slaveConfig;
+		this.pluginInfos = pluginInfos;
 	}
 
 	register() {
 		console.log("SOCKET | registering slave");
+		let plugins = {};
+		for (let pluginInfo of this.pluginInfos) {
+			plugins[pluginInfo.name] = pluginInfo.version;
+		}
+
 		this.sendHandshake("register_slave", {
 			token: this.slaveConfig.get("slave.master_token"),
 			agent: "Clusterio Slave",
 			version,
 			id: this.slaveConfig.get("slave.id"),
 			name: this.slaveConfig.get("slave.name"),
+			plugins,
 		});
 	}
 }
@@ -653,7 +664,7 @@ class Slave extends link.Link {
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
-		await instance.init(this.pluginInfos, this);
+		await instance.init(this.pluginInfos, this.connector.plugins, this);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);
@@ -945,7 +956,7 @@ async function startSlave() {
 		return;
 	}
 
-	let slaveConnector = new SlaveConnector(slaveConfig);
+	let slaveConnector = new SlaveConnector(slaveConfig, pluginInfos);
 	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts

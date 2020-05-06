@@ -114,6 +114,9 @@ Handshake messages
 Sent by the master server when the WebSocket connection has been opened.
 
 - version - string - The version of the master, e.g. "2.0.0".
+- plugins - Object&lt;string, string&gt; -
+    Object mapping plugin names to plugin version for plugins that are
+    loaded on the master server.
 
 ### `register_slave`
 
@@ -124,6 +127,9 @@ Slave handshake for establishing a new connection session.
 - version - string - The protocol version of the slave, e.g. "2.0.0".
 - name - string - Name of the slave.
 - id - integer - ID of the slave.
+- plugins - Object&lt;string, string&gt; -
+    Object mapping plugin names to plugin version for plugins that are
+    available on the slave.  Currently not used by the master server.
 
 ### `register_control`
 
