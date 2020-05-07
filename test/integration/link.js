@@ -12,8 +12,12 @@ class TestControl extends link.Link {
 		link.attachAllMessages(this);
 	}
 
+	async prepareDisconnectRequestHandler(message, request) {
+		this.connector.setClosing();
+		return await super.prepareDisconnectRequestHandler(message, request);
+	}
+
 	async debugWsMessageEventHandler() { }
-	async prepareDisconnectRequestHandler() { }
 	async instanceOutputEventHandler() { }
 }
 
@@ -63,9 +67,5 @@ describe("Integration of lib/link", function() {
 		controlConnector.stopHeartbeat();
 		await events.once(controlConnector, "invalidate");
 		await events.once(controlConnector, "connect");
-	});
-
-	after(async function() {
-		controlConnector.close(1001, "Test Quit");
 	});
 });
