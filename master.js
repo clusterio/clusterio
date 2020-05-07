@@ -433,7 +433,7 @@ class ControlConnection extends BaseConnection {
 		this.instanceOutputSubscriptions = new Set();
 
 		this.ws_dumper = null;
-		this.connector.on("connected", () => {
+		this.connector.on("connect", () => {
 			this.connector._socket.clusterio_ignore_dump = !!this.ws_dumper;
 		});
 		this.connector.on("close", () => {
@@ -701,7 +701,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this._state = "connected";
 		this._connected = true;
 		this._attachSocketHandlers();
-		this.emit("connected");
+		this.emit("connect");
 	}
 
 	/**
@@ -736,7 +736,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
-		this.emit("connected");
+		this.emit("connect");
 	}
 
 	setTimeout(timeout) {
@@ -782,7 +782,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 
 			} else {
 				this._state = "handshake";
-				this.emit("dropped");
+				this.emit("drop");
 				this._timeoutId = setTimeout(() => { this._timedOut() }, this._timeout * 1000);
 			}
 
