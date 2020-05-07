@@ -1,3 +1,15 @@
+/**
+ * Clusterio slave
+ *
+ * Connects to the master server and hosts Factorio servers that can
+ * communicate with the cluster.  It is remotely controlled by {@link
+ * module:master}.
+ *
+ * @module
+ * @author Danielv123, Hornwitser
+ * @example
+ * node slave run
+ */
 const fs = require('fs-extra');
 const path = require('path');
 const yargs = require("yargs");

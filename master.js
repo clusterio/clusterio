@@ -1,13 +1,16 @@
 /**
-Clusterio master server. Facilitates communication between slaves through
-a webserver, storing data related to slaves like production graphs.
-
-@module
-@author Danielv123
-
-@example
-node master
-*/
+ * Clusterio master server
+ *
+ * Facilitates communication between slaves and control of the cluster
+ * through WebSocet connections, and hosts a webserver for browser
+ * interfaces and Prometheus statistics export.  It is remotely controlled
+ * by {@link module:clusterctl}.
+ *
+ * @module
+ * @author Danielv123, Hornwitser
+ * @example
+ * node master run
+ */
 
 // Attempt updating
 // const updater = require("./updater");
@@ -345,6 +348,11 @@ app.get("/api/getFactorioLocale", function(req,res){
 	}
 });
 
+/**
+ * Base class for master server connections
+ *
+ * @extends module:lib/link.Link
+ */
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
 		super('master', target, connector);
@@ -574,6 +582,11 @@ class ControlConnection extends BaseConnection {
 }
 
 var slaveConnections = new Map();
+/**
+ * Represents the connection to a slave
+ *
+ * @extends module:master~BaseConnection
+ */
 class SlaveConnection extends BaseConnection {
 	constructor(registerData, connector) {
 		super('slave', connector);
@@ -647,7 +660,8 @@ const wss = new WebSocket.Server({
  *
  * @param value - value to test.
  * @returns {Boolean}
- *     true if value is an integer between -2**31 and 2**31-1.
+ *     true if value is an integer between -2<sup>31</sup> and
+ *     2<sup>31</sup>-1.
  */
 function isInteger(value) {
 	return value | 0 === value;
@@ -656,6 +670,8 @@ function isInteger(value) {
 
 /**
  * Connector for master server connections
+ *
+ * @extends module:lib/link.WebSocketBaseConnector
  */
 class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	constructor(socket, sessionId) {

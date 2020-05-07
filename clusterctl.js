@@ -1,3 +1,7 @@
+/**
+ * Command line interface for controlling a Clusterio cluster
+ * @module
+ */
 const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
@@ -16,6 +20,8 @@ const config = require("lib/config");
  *
  * Formats a parsed Factorio output from lib/factorio into a readable
  * colorized output using terminal escape codes that can be printed.
+ *
+ * @private
  */
 function formatOutputColored(output) {
 	let time = "";
@@ -73,6 +79,7 @@ class Command {
  * @param client - link to master server to query instance on.
  * @param instanceName - string with name or id of instance.
  * @returns {number} instance ID.
+ * @private
  */
 async function resolveInstance(client, instanceName) {
 	let instanceId;
@@ -104,6 +111,7 @@ async function resolveInstance(client, instanceName) {
  * @param client - link to master server to query slave on.
  * @param slaveName - string with name or id of slave.
  * @returns {number} slave ID.
+ * @private
  */
 async function resolveSlave(client, slaveName) {
 	let slaveId;
@@ -324,6 +332,7 @@ commands = new Map([...commands.map(command => [command.name, command])]);
 
 /**
  * Connector for control connection to master server
+ * @private
  */
 class ControlConnector extends link.WebSocketClientConnector {
 	constructor(url, reconnectDelay, token) {
