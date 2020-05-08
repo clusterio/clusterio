@@ -129,6 +129,17 @@ class Instance extends link.Link{
 		}
 	}
 
+	async _loadPlugin(pluginInfo, slave) {
+		let pluginLoadStarted = Date.now();
+		let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
+		let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
+		this.plugins.set(pluginInfo.name, instancePlugin);
+		await instancePlugin.init();
+		plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+
+		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+	}
+
 	async init(pluginInfos, masterPlugins, slave) {
 		await this.server.init();
 
@@ -142,15 +153,12 @@ class Instance extends link.Link{
 				continue;
 			}
 
-			// require plugin class and initialize it
-			let pluginLoadStarted = Date.now();
-			let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
-			let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
-			await instancePlugin.init();
-			this.plugins.set(pluginInfo.name, instancePlugin);
-			plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
-
-			console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+			try {
+				await this._loadPlugin(pluginInfo, slave);
+			} catch (err) {
+				this.notifyExit();
+				throw err;
+			}
 		}
 	}
 
