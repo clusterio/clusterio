@@ -17,6 +17,7 @@ Contents
     - [Defining Events](#defining-events)
     - [Defining Requests](#defining-requests)
 - [Sending Link Messages](#sending-link-messages)
+    - [Handling connection events](#handling-connection-events)
 - [Collecting Statistics](#collecting-statistics)
 
 
@@ -442,6 +443,51 @@ the data exported from the plugin's `info.js` module.  In other words:
 For the Request class the send method is async and returns the response
 data received from the target it was sent to, or throws an error if the
 request failed.
+
+
+### Handling connection events
+
+There are a few connection related events that plugins neeed to repsond
+to in order to avoid data loss and connection problems.  The most
+important is the prepare disconnect for the link between master and
+slave.  This is signaled to `MasterPlugin` classes via the
+`onPrepareSlaveDisconnect` hook and to `InstancePlugin` classes via the
+`onPrepareMasterDisconnect` hook.
+
+After the prepare disconnect the connection will be closed, which will
+result in pending requests and events being dropped.  Plugins must
+respond to the prepare disconnect by stopping any processess it does
+that send events or requests over the link in question.  This can be
+accomplished either through listening for the prepare disconnect hook,
+or by checking the `connected` or `closing` property of the connector
+for the master/slave connection.  For example the sending of an event
+from an `InstancePlugin` class can be stopped while the connection is
+closing by using the following code:
+
+    if (!this.slave.connector.closing) {
+        this.info.messages.frobnicate.send(this.instance, { foo: "bar" });
+    }
+
+If the event or request needs to be sent to the master it can be put
+into a queue stored on the plugin instance and sent out when the
+connection is established again.  The re-establishement of the
+connection is  notified to plugins via the `connect` event to the
+`onMasterConnectionEvent` and `onSlaveConnectionEvent` hooks.
+
+The second connection event which is of lesser importance to respond to
+is the `drop` connection event served through `onMasterConnectionEvent`
+for `InstancePlugin` classes and through `onSlaveConnectionEvent` for
+`MasterPlugin` classes.  This is raised when the connection between the
+master and slave in question is lost, most likely due to networking
+issues.  When in the dropped state the slave will keep trying to
+reconnect to the master server in order to re-establish it, and if
+successful no events or requests will be lost.  However while in the
+dropped state any requests and events sent gets queued up in memory
+until the connection is re-established.  This means that if your plugin
+sends a lot of events or requests, they can end up being queued up in a
+buffer for a long time and sent out all at once.  To avoid this you
+should be throtteling and/or stopping your requests/events after `drop`
+has been raised, and continue back as normal when `connect` is raised.
 
 
 Collecting Statistics

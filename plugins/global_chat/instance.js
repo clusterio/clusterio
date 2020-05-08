@@ -13,12 +13,17 @@ function removeTags(content) {
 }
 
 class InstancePlugin extends plugin.BaseInstancePlugin {
-	constructor(...args) {
-		super(...args);
+	async init() {
+		this.messageQueue = [];
 	}
 
-	async init() {
-		// XXX Nothing?
+	onMasterConnectionEvent(event) {
+		if (event === "connect") {
+			for (let message of this.messageQueue) {
+				this.sendChat(message);
+			}
+			this.messageQueue = [];
+		}
 	}
 
 	async chatEventHandler(message) {
@@ -27,12 +32,20 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		await this.instance.server.sendRcon(`/sc game.print('${luaTools.escapeString(content)}')`, true);
 	}
 
+	sendChat(message) {
+		this.info.messages.chat.send(this.instance, {
+			instance_name: this.instance.name,
+			content: message,
+		});
+	}
+
 	async onOutput(output) {
 		if (output.type === "action" && output.action === "CHAT") {
-			this.info.messages.chat.send(this.instance, {
-				instance_name: this.instance.name,
-				content: output.message,
-			});
+			if (this.slave.connector.connected) {
+				this.sendChat(output.message);
+			} else {
+				this.messageQueue.push(output.message);
+			}
 		}
 	}
 

@@ -360,6 +360,18 @@ class Instance extends link.Link{
 		}
 	}
 
+	async masterConnectionEventEventHandler(message) {
+		for (let pluginInstance of this.plugins.values()) {
+			pluginInstance.onMasterConnectionEvent(message.data.event);
+		}
+	}
+
+	async prepareMasterDisconnectRequestHandler() {
+		for (let pluginInstance of this.plugins.values()) {
+			await pluginInstance.onPrepareMasterDisconnect();
+		}
+	}
+
 	async getMetricsRequestHandler() {
 		let results = []
 		if (this._running) {
@@ -582,6 +594,14 @@ class Slave extends link.Link {
 
 		this.instanceConnections = new Map();
 		this.instanceInfos = new Map();
+
+		for (let event of ["connect", "drop", "close"]) {
+			this.connector.on(event, () => {
+				for (let instanceConnection of this.instanceConnections.values()) {
+					link.messages.masterConnectionEvent.send(instanceConnection, { event });
+				}
+			});
+		}
 	}
 
 	async _findNewInstanceDir(name) {
@@ -768,6 +788,14 @@ class Slave extends link.Link {
 
 	async start() {
 		await this.updateInstances();
+	}
+
+	async prepareDisconnectRequestHandler(message, request) {
+		for (let instanceConnection of this.instanceConnections.values()) {
+			await link.messages.prepareMasterDisconnect.send(instanceConnection);
+		}
+		this.connector.setClosing();
+		return await super.prepareDisconnectRequestHandler(message, request);
 	}
 
 	/**

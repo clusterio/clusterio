@@ -388,15 +388,15 @@ class BaseConnection extends link.Link {
 		let slaveId = instanceConfig.get('instance.assigned_slave');
 		if (slaveId === null) { return; }
 
-		let connection = slaveConnection.get(slaveId);
-		if (!connection) { return; }
+		let connection = slaveConnections.get(slaveId);
+		if (!connection || connection.closing) { return; }
 
 		event.send(connection, message.data);
 	}
 
 	async broadcastEventToInstance(message, event) {
 		for (let slaveConnection of slaveConnections.values()) {
-			if (slaveConnection === this) {
+			if (slaveConnection === this || slaveConnection.connector.closing) {
 				continue; // Do not broadcast back to the source
 			}
 
@@ -405,6 +405,9 @@ class BaseConnection extends link.Link {
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onPrepareSlaveDisconnect(this);
+		}
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
 	}
@@ -574,7 +577,9 @@ class ControlConnection extends BaseConnection {
 
 	async debugDumpWsRequestHandler(message) {
 		this.ws_dumper = data => {
-			link.messages.debugWsMessage.send(this, data);
+			if (this.connector.connected) {
+				link.messages.debugWsMessage.send(this, data);
+			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;
 		debugEvents.on("message", this.ws_dumper)
@@ -610,6 +615,14 @@ class SlaveConnection extends BaseConnection {
 				slaveConnections.delete(this._id);
 			}
 		});
+
+		for (let event of ["connect", "drop", "close"]) {
+			this.connector.on(event, () => {
+				for (let masterPlugin of masterPlugins.values()) {
+					masterPlugin.onSlaveConnectionEvent(this, event);
+				}
+			});
+		}
 	}
 
 	async updateInstancesEventHandler(message) {
