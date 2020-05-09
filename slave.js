@@ -15,6 +15,7 @@ const path = require('path');
 const yargs = require("yargs");
 const events = require("events");
 const pidusage = require("pidusage");
+const setBlocking = require("set-blocking");
 const version = require("./package").version;
 
 // internal libraries
@@ -595,6 +596,37 @@ class Slave extends link.Link {
 		this.instanceConnections = new Map();
 		this.instanceInfos = new Map();
 
+		this._disconnecting = false;
+		this._shuttingDown = false;
+		this.connector.on("close", () => {
+			if (this._shuttingDown) {
+				return;
+			}
+
+			if (this._disconnecting) {
+				this._disconnecting = false;
+				this.connector.connect().catch((err) => {
+					console.error("ERROR: Unexpected error reconnecting to master");
+					console.error(err);
+					this.shutdown().catch((err) => {
+						setBlocking(true);
+						console.error("ERROR: Unexpected error during shutdown");
+						console.error(err);
+						process.exit(1)
+					});
+				});
+
+			} else {
+				console.error("ERROR: Master connection was unexpectedly closed");
+				this.shutdown().catch((err) => {
+					setBlocking(true);
+					console.error("ERROR: Unexpected error during shutdown");
+					console.error(err);
+					process.exit(1)
+				});
+			}
+		});
+
 		for (let event of ["connect", "drop", "close"]) {
 			this.connector.on(event, () => {
 				for (let instanceConnection of this.instanceConnections.values()) {
@@ -791,6 +823,7 @@ class Slave extends link.Link {
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
+		this._disconnecting = true;
 		for (let instanceConnection of this.instanceConnections.values()) {
 			await link.messages.prepareMasterDisconnect.send(instanceConnection);
 		}
@@ -802,6 +835,7 @@ class Slave extends link.Link {
 	 * Stops all instances and closes the connection
 	 */
 	async shutdown() {
+		this._shuttingDown = true;
 		this.connector.setTimeout(30);
 
 		try {
