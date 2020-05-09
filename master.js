@@ -1006,6 +1006,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		let connection = slaveConnections.get(data.id);
 		if (connection) {
 			console.log(`SOCKET | disconnecting existing connection for slave ${data.id}`);
+			connection.connector.setTimeout(15); // Slave connection is likely stalled
 			await connection.disconnect(1008, "Registered from another connection");
 		}
 
