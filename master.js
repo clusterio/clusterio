@@ -630,6 +630,36 @@ class SlaveConnection extends BaseConnection {
 		}
 	}
 
+	async instanceInitializedEventHandler(message, event) {
+		let instance = db.instances.get(message.data.instance_id);
+		let prev = instance.status;
+		instance.status = "initialized";
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`)
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onInstanceStatusChanged(instance, prev);
+		}
+	}
+
+	async instanceStartedEventHandler(message, event) {
+		let instance = db.instances.get(message.data.instance_id);
+		let prev = instance.status;
+		instance.status = "running";
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`)
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onInstanceStatusChanged(instance, prev);
+		}
+	}
+
+	async instanceStoppedEventHandler(message, event) {
+		let instance = db.instances.get(message.data.instance_id);
+		let prev = instance.status;
+		instance.status = "stopped";
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`)
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onInstanceStatusChanged(instance, prev);
+		}
+	}
+
 	async updateInstancesEventHandler(message) {
 		// Push updated instance configs
 		for (let instance of db.instances.values()) {
@@ -645,7 +675,19 @@ class SlaveConnection extends BaseConnection {
 		for (let instance of message.data.instances) {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(instance.serialized_config);
-			if (db.instances.has(instanceConfig.get("instance.id"))) {
+
+			let masterInstance = db.instances.get(instanceConfig.get("instance.id"))
+			if (masterInstance) {
+				// Already have this instance, update state instead
+				if (masterInstance.status !== instance.status) {
+					let prev = masterInstance.status;
+					masterInstance.status = instance.status;
+					if (prev !== undefined) {
+						for (let masterPlugin of masterPlugins.values()) {
+							await masterPlugin.onInstanceStatusChanged(instance, prev);
+						}
+					}
+				}
 				continue;
 			}
 

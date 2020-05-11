@@ -22,7 +22,7 @@ describe("lib/plugin", function() {
 			instancePlugin.onExit();
 			await instancePlugin.onOutput({});
 			instancePlugin.onMasterConnectionEvent("connect");
-			instancePlugin.onPrepareMasterDisconnect();
+			await instancePlugin.onPrepareMasterDisconnect();
 		})
 	});
 
@@ -33,10 +33,11 @@ describe("lib/plugin", function() {
 			await masterPlugin.init();
 		})
 		it("should define defaults for hooks", async function() {
+			await masterPlugin.onInstanceStatusChanged({}, "running", "initialized");
 			await masterPlugin.onMetrics();
 			await masterPlugin.onShutdown();
 			masterPlugin.onSlaveConnectionEvent({}, "connect");
-			masterPlugin.onPrepareSlaveDisconnect({});
+			await masterPlugin.onPrepareSlaveDisconnect({});
 		})
 	});
 

@@ -112,7 +112,7 @@ class Instance extends link.Link{
 
 	notifyExit() {
 		this._running = false;
-		link.messages.instanceStopped.send(this);
+		link.messages.instanceStopped.send(this, { instance_id: this.config.get("instance.id") });
 
 		// Clear metrics this instance is exporting
 		for (let collector of prometheus.defaultRegistry.collectors) {
@@ -166,7 +166,7 @@ class Instance extends link.Link{
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
-		link.messages.instanceInitialized.send(this, { plugins });
+		link.messages.instanceInitialized.send(this, { instance_id: this.config.get("instance.id"), plugins });
 	}
 
 	/**
@@ -340,6 +340,7 @@ class Instance extends link.Link{
 		}
 
 		this._running = true;
+		link.messages.instanceStarted.send(this, { instance_id: this.config.get("instance.id") });
 	}
 
 	/**
@@ -514,6 +515,7 @@ class InstanceConnection extends link.Link {
 		this.slave = slave;
 		this.instanceId = instanceId;
 		this.plugins = new Map();
+		this.status = "stopped";
 		link.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
@@ -552,12 +554,21 @@ class InstanceConnection extends link.Link {
 		}
 	}
 
-	async instanceInitializedEventHandler(message) {
+	async instanceInitializedEventHandler(message, event) {
+		this.status = "initialized";
 		this.plugins = new Map(Object.entries(message.data.plugins));
+		this.forwardEventToMaster(message, event);
 	}
 
-	async instanceStoppedEventHandler(message) {
+	async instanceStartedEventHandler(message, event) {
+		this.status = "running";
+		this.forwardEventToMaster(message, event);
+	}
+
+	async instanceStoppedEventHandler(message, event) {
+		this.status = "stopped";
 		this.slave.instanceConnections.delete(this.instanceId);
+		this.forwardEventToMaster(message, event);
 	}
 }
 
@@ -615,6 +626,23 @@ class Slave extends link.Link {
 
 		this._disconnecting = false;
 		this._shuttingDown = false;
+
+		this.connector.on("connect", () => {
+			if (this._shuttingDown) {
+				return;
+			}
+
+			this.updateInstances().catch((err) => {
+				console.error("ERROR: Unexpected error updating instances");
+				console.error(err);
+				this.shutdown().catch((err) => {
+					setBlocking(true);
+					console.error("ERROR: Unexpected error during shutdown");
+					console.error(err);
+					process.exit(1)
+				});
+			});;
+		});
 
 		this.connector.on("close", () => {
 			if (this._shuttingDown) {
@@ -835,16 +863,14 @@ class Slave extends link.Link {
 	async updateInstances() {
 		this.instanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
 		let list = [];
-		for (let instanceInfo of this.instanceInfos.values()) {
+		for (let [instanceId, instanceInfo] of this.instanceInfos) {
+			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push({
 				serialized_config: instanceInfo.config.serialize(),
+				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
 		link.messages.updateInstances.send(this, { instances: list });
-	}
-
-	async start() {
-		await this.updateInstances();
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
@@ -1089,7 +1115,6 @@ async function startSlave() {
 	});
 
 	await slaveConnector.connect();
-	await slave.start();
 
 	/*
 	} else if (command == "manage"){
