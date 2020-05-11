@@ -209,7 +209,7 @@ async function loadInstances(databaseDirectory, file) {
 		for (let serializedConfig of serialized) {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(serializedConfig);
-			instances.set(instanceConfig.get("instance.id"), instanceConfig);
+			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig });
 		}
 
 	} catch (err) {
@@ -233,8 +233,8 @@ async function saveMap(databaseDirectory, file, map) {
 async function saveInstances(databaseDirectory, file, instances) {
 	let filePath = path.join(databaseDirectory, file);
 	let serialized = [];
-	for (let instanceConfig of instances.values()) {
-		serialized.push(instanceConfig.serialize());
+	for (let instance of instances.values()) {
+		serialized.push(instance.config.serialize());
 	}
 
 	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
@@ -363,12 +363,12 @@ class BaseConnection extends link.Link {
 	}
 
 	async forwardRequestToInstance(message, request) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let slaveId = instanceConfig.get('instance.assigned_slave');
+		let slaveId = instance.config.get('instance.assigned_slave');
 		if (slaveId === null) {
 			throw new errors.RequestError("Instance is not assigned to a slave");
 		}
@@ -385,10 +385,10 @@ class BaseConnection extends link.Link {
 	}
 
 	async forwardEventToInstance(message, event) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) { return; }
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) { return; }
 
-		let slaveId = instanceConfig.get('instance.assigned_slave');
+		let slaveId = instance.config.get('instance.assigned_slave');
 		if (slaveId === null) { return; }
 
 		let connection = slaveConnections.get(slaveId);
@@ -475,11 +475,11 @@ class ControlConnection extends BaseConnection {
 
 	async listInstancesRequestHandler(message) {
 		let list = [];
-		for (let instanceConfig of db.instances.values()) {
+		for (let instance of db.instances.values()) {
 			list.push({
-				id: instanceConfig.get("instance.id"),
-				name: instanceConfig.get("instance.name"),
-				assigned_slave: instanceConfig.get("instance.assigned_slave"),
+				id: instance.config.get("instance.id"),
+				name: instance.config.get("instance.name"),
+				assigned_slave: instance.config.get("instance.assigned_slave"),
 			});
 		}
 		return { list };
@@ -494,35 +494,35 @@ class ControlConnection extends BaseConnection {
 		if (db.instances.has(instanceId)) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
-		db.instances.set(instanceId, instanceConfig);
+		db.instances.set(instanceId, { config: instanceConfig });
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		if (instanceConfig.get('instance.assigned_slave') !== null) {
+		if (instance.config.get('instance.assigned_slave') !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
 		db.instances.delete(message.data.instance_id);
 	}
 
 	async getInstanceConfigRequestHandler(message) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		return {
-			serialized_config: instanceConfig.serialize(),
+			serialized_config: instance.config.serialize(),
 		}
 	}
 
 	async setInstanceConfigFieldRequestHandler(message) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
@@ -535,24 +535,24 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Setting instance.id is not supported");
 		}
 
-		instanceConfig.set(message.data.field, message.data.value);
+		instance.config.set(message.data.field, message.data.value);
 
 		// Push updated config to slave
-		let slaveId = instanceConfig.get('instance.assigned_slave');
+		let slaveId = instance.config.get('instance.assigned_slave');
 		if (slaveId) {
 			let connection = slaveConnections.get(slaveId);
 			if (connection) {
 				await link.messages.assignInstance.send(connection, {
-					instance_id: instanceConfig.get("instance.id"),
-					serialized_config: instanceConfig.serialize(),
+					instance_id: instance.config.get("instance.id"),
+					serialized_config: instance.config.serialize(),
 				});
 			}
 		}
 	}
 
 	async assignInstanceCommandRequestHandler(message, request) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
@@ -568,11 +568,11 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Target slave is not connected to the master server");
 		}
 
-		instanceConfig.set("instance.assigned_slave", message.data.slave_id)
+		instance.config.set("instance.assigned_slave", message.data.slave_id)
 
 		return await link.messages.assignInstance.send(connection, {
-			instance_id: instanceConfig.get("instance.id"),
-			serialized_config: instanceConfig.serialize(),
+			instance_id: instance.config.get("instance.id"),
+			serialized_config: instance.config.serialize(),
 		});
 	}
 
@@ -632,11 +632,11 @@ class SlaveConnection extends BaseConnection {
 
 	async updateInstancesEventHandler(message) {
 		// Push updated instance configs
-		for (let instanceConfig of db.instances.values()) {
-			if (instanceConfig.get("instance.assigned_slave") === this._id) {
+		for (let instance of db.instances.values()) {
+			if (instance.config.get("instance.assigned_slave") === this._id) {
 				await link.messages.assignInstance.send(this, {
-					instance_id: instanceConfig.get("instance.id"),
-					serialized_config: instanceConfig.serialize(),
+					instance_id: instance.config.get("instance.id"),
+					serialized_config: instance.config.serialize(),
 				});
 			}
 		}
@@ -650,7 +650,7 @@ class SlaveConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_slave", this._id);
-			db.instances.set(instanceConfig.get("instance.id"), instanceConfig);
+			db.instances.set(instanceConfig.get("instance.id"), { config: instanceConfig });
 			await link.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize(),
