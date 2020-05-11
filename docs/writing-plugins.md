@@ -311,10 +311,10 @@ It will also be forwarded by slaves to a specific instance.
 The following properties are recognized by the Event constructor:
 
 **type**:
-    The message type sent over the wire.  This can be any string, but
-    it must be unique across all plugins, and it's recommended that it is
-    of format `plugin_name:message_name`.  The suffix `_event` will be
-    appended to the type.
+    The message type sent over the wire.  This must start with the name
+    of the plugin followed by colon and and be unique for the plugin.
+    The type of the message sent over the socket will have the suffix
+    `_event` appended to it.
 
 **links**:
     An array of strings describing which links this event can be sent
@@ -391,11 +391,11 @@ instance specified by `instance_id`.
 The following properties are recognized by the Request constructor:
 
 **type**:
-    The message type sent over the wire.  This can be any string, but
-    it must be unique across all plugins, and it's recommended that it is
-    of format `plugin_name:message_name`.  The suffix `_request` will be
-    appended to the type for the request message sent, and the suffix
-    `_response` will be appended to the type for the response.
+    The message type sent over the wire.  This must start with the name
+    of the plugin followed by colon and and be unique for the plugin.
+    The type of the message sent over the socket will have the suffix
+    `_request` appended to it for the request and `_response` appended
+    to it for the response.
 
 **links**:
     An array of strings describing which links this request can be sent

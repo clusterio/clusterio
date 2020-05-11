@@ -141,14 +141,14 @@ class Instance extends link.Link{
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
 
-	async init(pluginInfos, masterPlugins, slave) {
+	async init(pluginInfos, slave) {
 		await this.server.init();
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
-				|| !Object.hasOwnProperty.call(masterPlugins, pluginInfo.name)
+				|| !slave.serverPlugins.has(pluginInfo.name)
 				|| !this.config.group(pluginInfo.name).get("enabled")
 			) {
 				continue;
@@ -161,6 +161,12 @@ class Instance extends link.Link{
 				throw err;
 			}
 		}
+
+		let plugins = {}
+		for (let [name, plugin] of this.plugins) {
+			plugins[name] = plugin.info.version;
+		}
+		link.messages.instanceInitialized.send(this, { plugins });
 	}
 
 	/**
@@ -507,6 +513,7 @@ class InstanceConnection extends link.Link {
 		super('slave', 'instance', connector);
 		this.slave = slave;
 		this.instanceId = instanceId;
+		this.plugins = new Map();
 		link.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
@@ -526,6 +533,7 @@ class InstanceConnection extends link.Link {
 			await this.slave.forwardEventToMaster(message, event);
 			return;
 		}
+		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
 
 		event.send(instanceConnection, message.data);
 	}
@@ -536,12 +544,16 @@ class InstanceConnection extends link.Link {
 
 	async broadcastEventToInstance(message, event) {
 		for (let instanceConnection of this.slave.instanceConnections.values()) {
-			if (instanceConnection === this) {
-				continue; // Do not broadcast back to the source
-			}
+			// Do not broadcast back to the source
+			if (instanceConnection === this) { continue; }
+			if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { continue; }
 
 			event.send(instanceConnection, message.data);
 		}
+	}
+
+	async instanceInitializedEventHandler(message) {
+		this.plugins = new Map(Object.entries(message.data.plugins));
 	}
 
 	async instanceStoppedEventHandler(message) {
@@ -596,8 +608,14 @@ class Slave extends link.Link {
 		this.instanceConnections = new Map();
 		this.instanceInfos = new Map();
 
+		this.connector.on("hello", data => {
+			this.serverVersion = data.version;
+			this.serverPlugins = new Map(Object.entries(data.plugins));
+		});
+
 		this._disconnecting = false;
 		this._shuttingDown = false;
+
 		this.connector.on("close", () => {
 			if (this._shuttingDown) {
 				return;
@@ -663,6 +681,10 @@ class Slave extends link.Link {
 			throw new errors.RequestError(`Instance ID ${instanceId} is not running`);
 		}
 
+		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
+			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`)
+		}
+
 		return await request.send(instanceConnection, message.data);
 	}
 
@@ -672,12 +694,15 @@ class Slave extends link.Link {
 
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		if (!instanceConnection) { return; }
+		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
 
 		event.send(instanceConnection, message.data);
 	}
 
 	async broadcastEventToInstance(message, event) {
 		for (let instanceConnection of this.instanceConnections.values()) {
+			if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { continue; }
+
 			event.send(instanceConnection, message.data);
 		}
 	}
@@ -736,7 +761,7 @@ class Slave extends link.Link {
 		let instance = new Instance(
 			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
-		await instance.init(this.pluginInfos, this.connector.plugins, this);
+		await instance.init(this.pluginInfos, this);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);

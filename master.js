@@ -377,6 +377,9 @@ class BaseConnection extends link.Link {
 		if (!connection) {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
+		if (request.plugin && !connection.plugins.has(request.plugin)) {
+			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`)
+		}
 
 		return await request.send(connection, message.data);
 	}
@@ -390,15 +393,17 @@ class BaseConnection extends link.Link {
 
 		let connection = slaveConnections.get(slaveId);
 		if (!connection || connection.closing) { return; }
+		if (event.plugin && !connection.plugins.has(event.plugin)) { return; }
 
 		event.send(connection, message.data);
 	}
 
 	async broadcastEventToInstance(message, event) {
 		for (let slaveConnection of slaveConnections.values()) {
-			if (slaveConnection === this || slaveConnection.connector.closing) {
-				continue; // Do not broadcast back to the source
-			}
+			// Do not broadcast back to the source
+			if (slaveConnection === this) { continue; }
+			if (slaveConnection.connector.closing) { continue; }
+			if (event.plugin && !slaveConnection.plugins.has(event.plugin)) { continue; }
 
 			event.send(slaveConnection, message.data);
 		}
@@ -600,14 +605,14 @@ class SlaveConnection extends BaseConnection {
 		this._id = registerData.id;
 		this._name = registerData.name;
 		this._version = registerData.version;
-		this._plugins = registerData.plugins;
+		this.plugins = new Map(Object.entries(registerData.plugins));
 
 		db.slaves.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
 			version: this._version,
-			plugins: this._plugins,
+			plugins: registerData.plugins,
 		});
 
 		this.connector.on("close", () => {

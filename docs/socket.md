@@ -129,7 +129,7 @@ Slave handshake for establishing a new connection session.
 - id - integer - ID of the slave.
 - plugins - Object&lt;string, string&gt; -
     Object mapping plugin names to plugin version for plugins that are
-    available on the slave.  Currently not used by the master server.
+    available on the slave.
 
 ### `register_control`
 
