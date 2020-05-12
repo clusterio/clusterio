@@ -49,9 +49,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 
 		this.lastProgressBroadcast = Date.now();
 		if (techs.length) {
-			for (let slaveConnection of this.master.slaveConnections.values()) {
-				this.info.messages.progress.send(slaveConnection, { technologies: techs });
-			}
+			this.broadcastEventToSlaves(this.info.messages.progress, { technologies: techs });
 		}
 	}
 
@@ -89,12 +87,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 			tech.progress = null;
 			this.progressToBroadcast.delete(name);
 
-			for (let slaveConnection of this.master.slaveConnections.values()) {
-				this.info.messages.finished.send(slaveConnection, {
-					name,
-					level: tech.level
-				});
-			}
+			this.broadcastEventToSlaves(this.info.messages.finished, { name, level: tech.level });
 		}
 	}
 
@@ -125,9 +118,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) != level) {
-					for (let slaveConnection of this.master.slaveConnections.values()) {
-						this.info.messages.finished.send(slaveConnection, { name, level });
-					}
+					this.broadcastEventToSlaves(this.info.messages.finished, { name, level });
 				}
 
 			} else {
@@ -138,9 +129,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
 					if (level - !researched > tech.level - !tech.researched) {
-						for (let slaveConnection of this.master.slaveConnections.values()) {
-							this.info.messages.finished.send(slaveConnection, { name, level: level - !researched });
-						}
+						this.broadcastEventToSlaves(this.info.messages.finished, { name, level: level - !researched });
 					}
 					tech.level = level;
 					tech.progress = progress;

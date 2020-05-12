@@ -77,9 +77,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		}
 
 		itemsToUpdate = [...itemsToUpdate.entries()];
-		for (let slaveConnection of this.master.slaveConnections.values()) {
-			this.info.messages.updateStorage.send(slaveConnection, { items: itemsToUpdate });
-		}
+		this.broadcastEventToSlaves(this.info.messages.updateStorage, { items: itemsToUpdate });
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 	}
 

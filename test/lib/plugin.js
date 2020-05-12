@@ -21,6 +21,8 @@ describe("lib/plugin", function() {
 			await instancePlugin.onStop();
 			instancePlugin.onExit();
 			await instancePlugin.onOutput({});
+			instancePlugin.onMasterConnectionEvent("connect");
+			await instancePlugin.onPrepareMasterDisconnect();
 		})
 	});
 
@@ -31,8 +33,11 @@ describe("lib/plugin", function() {
 			await masterPlugin.init();
 		})
 		it("should define defaults for hooks", async function() {
+			await masterPlugin.onInstanceStatusChanged({}, "running", "initialized");
 			await masterPlugin.onMetrics();
 			await masterPlugin.onShutdown();
+			masterPlugin.onSlaveConnectionEvent({}, "connect");
+			await masterPlugin.onPrepareSlaveDisconnect({});
 		})
 	});
 
@@ -92,19 +97,25 @@ describe("lib/plugin", function() {
 
 	describe("attachPluginMessages()", function() {
 		let mockLink = new link.Link('source', 'target', new mock.MockConnector());
-		let mockEvent = new link.Event({ type: 'test', links: ['target-source'] });
+		let mockEvent = new link.Event({ type: "test:test", links: ["target-source"] });
 		it("should accept pluginInfo without messages", function() {
 			plugin.attachPluginMessages(mockLink, {}, null);
 		});
 		it("should attach handler for the given message", function() {
 			let mockEventEventHandler = function() {};
-			plugin.attachPluginMessages(mockLink, { messages: { mockEvent }}, { mockEventEventHandler });
-			assert(mockLink._handlers.get('test_event'), "handler was not registered");
+			plugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, { mockEventEventHandler });
+			assert(mockLink._handlers.get("test:test_event"), "handler was not registered");
 		});
 		it("should throw if missing handler for the given message", function() {
 			assert.throws(
-				() => plugin.attachPluginMessages(mockLink, { messages: { mockEvent }}, {}),
-				new Error("Missing handler for test_event on source-target link")
+				() => plugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, {}),
+				new Error("Missing handler for test:test_event on source-target link")
+			);
+		});
+		it("should throw if message starts with the wrong prefix", function() {
+			assert.throws(
+				() => plugin.attachPluginMessages(mockLink, { name: "foo", messages: { mockEvent }}, {}),
+				new Error('Type of mockEvent message must start with "foo:"')
 			);
 		});
 	});

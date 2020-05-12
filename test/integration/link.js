@@ -12,8 +12,12 @@ class TestControl extends link.Link {
 		link.attachAllMessages(this);
 	}
 
+	async prepareDisconnectRequestHandler(message, request) {
+		this.connector.setClosing();
+		return await super.prepareDisconnectRequestHandler(message, request);
+	}
+
 	async debugWsMessageEventHandler() { }
-	async prepareDisconnectRequestHandler() { }
 	async instanceOutputEventHandler() { }
 }
 
@@ -45,27 +49,23 @@ describe("Integration of lib/link", function() {
 
 	it("should reconnect on connection lost", async function() {
 		controlConnector._socket.close(1008, "Test");
-		await events.once(controlConnector, "connected");
+		await events.once(controlConnector, "connect");
 	});
 
 	it("should reconnect on connection terminated", async function() {
 		controlConnector._socket.terminate();
-		await events.once(controlConnector, "connected");
+		await events.once(controlConnector, "connect");
 	});
 
 	it("should reconnect on connection heartbeat timeout", async function() {
 		controlConnector.stopHeartbeat();
-		await events.once(controlConnector, "connected");
+		await events.once(controlConnector, "connect");
 	});
 
 	it("should invalidate on reconnection with bad session token", async function() {
 		controlConnector._sessionToken = "blah";
 		controlConnector.stopHeartbeat();
 		await events.once(controlConnector, "invalidate");
-		await events.once(controlConnector, "connected");
-	});
-
-	after(async function() {
-		controlConnector.close(1001, "Test Quit");
+		await events.once(controlConnector, "connect");
 	});
 });

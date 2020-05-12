@@ -1,13 +1,16 @@
 /**
-Clusterio master server. Facilitates communication between slaves through
-a webserver, storing data related to slaves like production graphs.
-
-@module
-@author Danielv123
-
-@example
-node master
-*/
+ * Clusterio master server
+ *
+ * Facilitates communication between slaves and control of the cluster
+ * through WebSocet connections, and hosts a webserver for browser
+ * interfaces and Prometheus statistics export.  It is remotely controlled
+ * by {@link module:clusterctl}.
+ *
+ * @module
+ * @author Danielv123, Hornwitser
+ * @example
+ * node master run
+ */
 
 // Attempt updating
 // const updater = require("./updater");
@@ -31,6 +34,7 @@ let masterConfig;
 let masterConfigPath;
 let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
+let pluginList = {};
 
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
@@ -205,7 +209,7 @@ async function loadInstances(databaseDirectory, file) {
 		for (let serializedConfig of serialized) {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(serializedConfig);
-			instances.set(instanceConfig.get("instance.id"), instanceConfig);
+			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig });
 		}
 
 	} catch (err) {
@@ -229,8 +233,8 @@ async function saveMap(databaseDirectory, file, map) {
 async function saveInstances(databaseDirectory, file, instances) {
 	let filePath = path.join(databaseDirectory, file);
 	let serialized = [];
-	for (let instanceConfig of instances.values()) {
-		serialized.push(instanceConfig.serialize());
+	for (let instance of instances.values()) {
+		serialized.push(instance.config.serialize());
 	}
 
 	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
@@ -344,6 +348,11 @@ app.get("/api/getFactorioLocale", function(req,res){
 	}
 });
 
+/**
+ * Base class for master server connections
+ *
+ * @extends module:lib/link.Link
+ */
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
 		super('master', target, connector);
@@ -354,12 +363,12 @@ class BaseConnection extends link.Link {
 	}
 
 	async forwardRequestToInstance(message, request) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let slaveId = instanceConfig.get('instance.assigned_slave');
+		let slaveId = instance.config.get('instance.assigned_slave');
 		if (slaveId === null) {
 			throw new errors.RequestError("Instance is not assigned to a slave");
 		}
@@ -368,34 +377,42 @@ class BaseConnection extends link.Link {
 		if (!connection) {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
+		if (request.plugin && !connection.plugins.has(request.plugin)) {
+			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`)
+		}
 
 		return await request.send(connection, message.data);
 	}
 
 	async forwardEventToInstance(message, event) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) { return; }
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) { return; }
 
-		let slaveId = instanceConfig.get('instance.assigned_slave');
+		let slaveId = instance.config.get('instance.assigned_slave');
 		if (slaveId === null) { return; }
 
-		let connection = slaveConnection.get(slaveId);
-		if (!connection) { return; }
+		let connection = slaveConnections.get(slaveId);
+		if (!connection || connection.closing) { return; }
+		if (event.plugin && !connection.plugins.has(event.plugin)) { return; }
 
 		event.send(connection, message.data);
 	}
 
 	async broadcastEventToInstance(message, event) {
 		for (let slaveConnection of slaveConnections.values()) {
-			if (slaveConnection === this) {
-				continue; // Do not broadcast back to the source
-			}
+			// Do not broadcast back to the source
+			if (slaveConnection === this) { continue; }
+			if (slaveConnection.connector.closing) { continue; }
+			if (event.plugin && !slaveConnection.plugins.has(event.plugin)) { continue; }
 
 			event.send(slaveConnection, message.data);
 		}
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onPrepareSlaveDisconnect(this);
+		}
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
 	}
@@ -432,7 +449,7 @@ class ControlConnection extends BaseConnection {
 		this.instanceOutputSubscriptions = new Set();
 
 		this.ws_dumper = null;
-		this.connector.on("connected", () => {
+		this.connector.on("connect", () => {
 			this.connector._socket.clusterio_ignore_dump = !!this.ws_dumper;
 		});
 		this.connector.on("close", () => {
@@ -458,11 +475,11 @@ class ControlConnection extends BaseConnection {
 
 	async listInstancesRequestHandler(message) {
 		let list = [];
-		for (let instanceConfig of db.instances.values()) {
+		for (let instance of db.instances.values()) {
 			list.push({
-				id: instanceConfig.get("instance.id"),
-				name: instanceConfig.get("instance.name"),
-				assigned_slave: instanceConfig.get("instance.assigned_slave"),
+				id: instance.config.get("instance.id"),
+				name: instance.config.get("instance.name"),
+				assigned_slave: instance.config.get("instance.assigned_slave"),
 			});
 		}
 		return { list };
@@ -477,35 +494,35 @@ class ControlConnection extends BaseConnection {
 		if (db.instances.has(instanceId)) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
-		db.instances.set(instanceId, instanceConfig);
+		db.instances.set(instanceId, { config: instanceConfig });
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		if (instanceConfig.get('instance.assigned_slave') !== null) {
+		if (instance.config.get('instance.assigned_slave') !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
 		db.instances.delete(message.data.instance_id);
 	}
 
 	async getInstanceConfigRequestHandler(message) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		return {
-			serialized_config: instanceConfig.serialize(),
+			serialized_config: instance.config.serialize(),
 		}
 	}
 
 	async setInstanceConfigFieldRequestHandler(message) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
@@ -518,24 +535,24 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Setting instance.id is not supported");
 		}
 
-		instanceConfig.set(message.data.field, message.data.value);
+		instance.config.set(message.data.field, message.data.value);
 
 		// Push updated config to slave
-		let slaveId = instanceConfig.get('instance.assigned_slave');
+		let slaveId = instance.config.get('instance.assigned_slave');
 		if (slaveId) {
 			let connection = slaveConnections.get(slaveId);
 			if (connection) {
 				await link.messages.assignInstance.send(connection, {
-					instance_id: instanceConfig.get("instance.id"),
-					serialized_config: instanceConfig.serialize(),
+					instance_id: instance.config.get("instance.id"),
+					serialized_config: instance.config.serialize(),
 				});
 			}
 		}
 	}
 
 	async assignInstanceCommandRequestHandler(message, request) {
-		let instanceConfig = db.instances.get(message.data.instance_id);
-		if (!instanceConfig) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
@@ -551,11 +568,11 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Target slave is not connected to the master server");
 		}
 
-		instanceConfig.set("instance.assigned_slave", message.data.slave_id)
+		instance.config.set("instance.assigned_slave", message.data.slave_id)
 
 		return await link.messages.assignInstance.send(connection, {
-			instance_id: instanceConfig.get("instance.id"),
-			serialized_config: instanceConfig.serialize(),
+			instance_id: instance.config.get("instance.id"),
+			serialized_config: instance.config.serialize(),
 		});
 	}
 
@@ -565,7 +582,9 @@ class ControlConnection extends BaseConnection {
 
 	async debugDumpWsRequestHandler(message) {
 		this.ws_dumper = data => {
-			link.messages.debugWsMessage.send(this, data);
+			if (this.connector.connected) {
+				link.messages.debugWsMessage.send(this, data);
+			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;
 		debugEvents.on("message", this.ws_dumper)
@@ -573,6 +592,11 @@ class ControlConnection extends BaseConnection {
 }
 
 var slaveConnections = new Map();
+/**
+ * Represents the connection to a slave
+ *
+ * @extends module:master~BaseConnection
+ */
 class SlaveConnection extends BaseConnection {
 	constructor(registerData, connector) {
 		super('slave', connector);
@@ -581,12 +605,14 @@ class SlaveConnection extends BaseConnection {
 		this._id = registerData.id;
 		this._name = registerData.name;
 		this._version = registerData.version;
+		this.plugins = new Map(Object.entries(registerData.plugins));
 
 		db.slaves.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
 			version: this._version,
+			plugins: registerData.plugins,
 		});
 
 		this.connector.on("close", () => {
@@ -594,15 +620,53 @@ class SlaveConnection extends BaseConnection {
 				slaveConnections.delete(this._id);
 			}
 		});
+
+		for (let event of ["connect", "drop", "close"]) {
+			this.connector.on(event, () => {
+				for (let masterPlugin of masterPlugins.values()) {
+					masterPlugin.onSlaveConnectionEvent(this, event);
+				}
+			});
+		}
+	}
+
+	async instanceInitializedEventHandler(message, event) {
+		let instance = db.instances.get(message.data.instance_id);
+		let prev = instance.status;
+		instance.status = "initialized";
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`)
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onInstanceStatusChanged(instance, prev);
+		}
+	}
+
+	async instanceStartedEventHandler(message, event) {
+		let instance = db.instances.get(message.data.instance_id);
+		let prev = instance.status;
+		instance.status = "running";
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`)
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onInstanceStatusChanged(instance, prev);
+		}
+	}
+
+	async instanceStoppedEventHandler(message, event) {
+		let instance = db.instances.get(message.data.instance_id);
+		let prev = instance.status;
+		instance.status = "stopped";
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`)
+		for (let masterPlugin of masterPlugins.values()) {
+			await masterPlugin.onInstanceStatusChanged(instance, prev);
+		}
 	}
 
 	async updateInstancesEventHandler(message) {
 		// Push updated instance configs
-		for (let instanceConfig of db.instances.values()) {
-			if (instanceConfig.get("instance.assigned_slave") === this._id) {
+		for (let instance of db.instances.values()) {
+			if (instance.config.get("instance.assigned_slave") === this._id) {
 				await link.messages.assignInstance.send(this, {
-					instance_id: instanceConfig.get("instance.id"),
-					serialized_config: instanceConfig.serialize(),
+					instance_id: instance.config.get("instance.id"),
+					serialized_config: instance.config.serialize(),
 				});
 			}
 		}
@@ -611,12 +675,24 @@ class SlaveConnection extends BaseConnection {
 		for (let instance of message.data.instances) {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(instance.serialized_config);
-			if (db.instances.has(instanceConfig.get("instance.id"))) {
+
+			let masterInstance = db.instances.get(instanceConfig.get("instance.id"))
+			if (masterInstance) {
+				// Already have this instance, update state instead
+				if (masterInstance.status !== instance.status) {
+					let prev = masterInstance.status;
+					masterInstance.status = instance.status;
+					if (prev !== undefined) {
+						for (let masterPlugin of masterPlugins.values()) {
+							await masterPlugin.onInstanceStatusChanged(instance, prev);
+						}
+					}
+				}
 				continue;
 			}
 
 			instanceConfig.set("instance.assigned_slave", this._id);
-			db.instances.set(instanceConfig.get("instance.id"), instanceConfig);
+			db.instances.set(instanceConfig.get("instance.id"), { config: instanceConfig });
 			await link.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize(),
@@ -644,7 +720,8 @@ const wss = new WebSocket.Server({
  *
  * @param value - value to test.
  * @returns {Boolean}
- *     true if value is an integer between -2**31 and 2**31-1.
+ *     true if value is an integer between -2<sup>31</sup> and
+ *     2<sup>31</sup>-1.
  */
 function isInteger(value) {
 	return value | 0 === value;
@@ -653,6 +730,8 @@ function isInteger(value) {
 
 /**
  * Connector for master server connections
+ *
+ * @extends module:lib/link.WebSocketBaseConnector
  */
 class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	constructor(socket, sessionId) {
@@ -698,7 +777,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this._state = "connected";
 		this._connected = true;
 		this._attachSocketHandlers();
-		this.emit("connected");
+		this.emit("connect");
 	}
 
 	/**
@@ -733,7 +812,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
-		this.emit("connected");
+		this.emit("connect");
 	}
 
 	setTimeout(timeout) {
@@ -779,7 +858,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 
 			} else {
 				this._state = "handshake";
-				this.emit("dropped");
+				this.emit("drop");
 				this._timeoutId = setTimeout(() => { this._timedOut() }, this._timeout * 1000);
 			}
 
@@ -863,7 +942,10 @@ wss.on("connection", function (socket, req) {
 	};
 
 	// Start connection handshake.
-	socket.send(JSON.stringify({ seq: null, type: "hello", data: { version }}));
+	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
+		version,
+		plugins: pluginList
+	}}));
 
 	function attachHandler() {
 		pendingSockets.add(socket);
@@ -971,6 +1053,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		let connection = slaveConnections.get(data.id);
 		if (connection) {
 			console.log(`SOCKET | disconnecting existing connection for slave ${data.id}`);
+			connection.connector.setTimeout(15); // Slave connection is likely stalled
 			await connection.disconnect(1008, "Registered from another connection");
 		}
 
@@ -999,6 +1082,8 @@ async function loadPlugins(pluginInfos) {
 		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
 			continue;
 		}
+
+		pluginList[pluginInfo.name] = pluginInfo.version;
 
 		let pluginLoadStarted = Date.now();
 		let MasterPlugin = plugin.BaseMasterPlugin;

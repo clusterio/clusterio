@@ -34,6 +34,9 @@ class MockConnector extends events.EventEmitter {
 		this.sentMessages = [];
 		this.events = new Map();
 		this.handshake = { address: "socket.test" };
+
+		this.connected = true;
+		this.closing = false;
 	}
 
 	send(type, data) {
@@ -70,9 +73,16 @@ class MockInstance extends link.Link {
 	}
 }
 
+class MockSlave extends link.Link {
+	constructor() {
+		super('slave', 'master', new MockConnector());
+	}
+}
+
 
 module.exports = {
 	MockSocket,
 	MockConnector,
 	MockInstance,
+	MockSlave,
 };

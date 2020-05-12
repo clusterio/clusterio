@@ -1,8 +1,21 @@
+/**
+ * Clusterio slave
+ *
+ * Connects to the master server and hosts Factorio servers that can
+ * communicate with the cluster.  It is remotely controlled by {@link
+ * module:master}.
+ *
+ * @module
+ * @author Danielv123, Hornwitser
+ * @example
+ * node slave run
+ */
 const fs = require('fs-extra');
 const path = require('path');
 const yargs = require("yargs");
 const events = require("events");
 const pidusage = require("pidusage");
+const setBlocking = require("set-blocking");
 const version = require("./package").version;
 
 // internal libraries
@@ -99,7 +112,7 @@ class Instance extends link.Link{
 
 	notifyExit() {
 		this._running = false;
-		link.messages.instanceStopped.send(this);
+		link.messages.instanceStopped.send(this, { instance_id: this.config.get("instance.id") });
 
 		// Clear metrics this instance is exporting
 		for (let collector of prometheus.defaultRegistry.collectors) {
@@ -117,25 +130,43 @@ class Instance extends link.Link{
 		}
 	}
 
+	async _loadPlugin(pluginInfo, slave) {
+		let pluginLoadStarted = Date.now();
+		let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
+		let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
+		this.plugins.set(pluginInfo.name, instancePlugin);
+		await instancePlugin.init();
+		plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+
+		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+	}
+
 	async init(pluginInfos, slave) {
 		await this.server.init();
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
-			if (!pluginInfo.instanceEntrypoint || !this.config.group(pluginInfo.name).get("enabled")) {
+			if (
+				!pluginInfo.instanceEntrypoint
+				|| !slave.serverPlugins.has(pluginInfo.name)
+				|| !this.config.group(pluginInfo.name).get("enabled")
+			) {
 				continue;
 			}
 
-			// require plugin class and initialize it
-			let pluginLoadStarted = Date.now();
-			let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
-			let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
-			await instancePlugin.init();
-			this.plugins.set(pluginInfo.name, instancePlugin);
-			plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
-
-			console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+			try {
+				await this._loadPlugin(pluginInfo, slave);
+			} catch (err) {
+				this.notifyExit();
+				throw err;
+			}
 		}
+
+		let plugins = {}
+		for (let [name, plugin] of this.plugins) {
+			plugins[name] = plugin.info.version;
+		}
+		link.messages.instanceInitialized.send(this, { instance_id: this.config.get("instance.id"), plugins });
 	}
 
 	/**
@@ -309,6 +340,7 @@ class Instance extends link.Link{
 		}
 
 		this._running = true;
+		link.messages.instanceStarted.send(this, { instance_id: this.config.get("instance.id") });
 	}
 
 	/**
@@ -333,6 +365,18 @@ class Instance extends link.Link{
 			}
 
 			await this.server.stop();
+		}
+	}
+
+	async masterConnectionEventEventHandler(message) {
+		for (let pluginInstance of this.plugins.values()) {
+			pluginInstance.onMasterConnectionEvent(message.data.event);
+		}
+	}
+
+	async prepareMasterDisconnectRequestHandler() {
+		for (let pluginInstance of this.plugins.values()) {
+			await pluginInstance.onPrepareMasterDisconnect();
 		}
 	}
 
@@ -470,6 +514,8 @@ class InstanceConnection extends link.Link {
 		super('slave', 'instance', connector);
 		this.slave = slave;
 		this.instanceId = instanceId;
+		this.plugins = new Map();
+		this.status = "stopped";
 		link.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
@@ -489,6 +535,7 @@ class InstanceConnection extends link.Link {
 			await this.slave.forwardEventToMaster(message, event);
 			return;
 		}
+		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
 
 		event.send(instanceConnection, message.data);
 	}
@@ -499,33 +546,53 @@ class InstanceConnection extends link.Link {
 
 	async broadcastEventToInstance(message, event) {
 		for (let instanceConnection of this.slave.instanceConnections.values()) {
-			if (instanceConnection === this) {
-				continue; // Do not broadcast back to the source
-			}
+			// Do not broadcast back to the source
+			if (instanceConnection === this) { continue; }
+			if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { continue; }
 
 			event.send(instanceConnection, message.data);
 		}
 	}
 
-	async instanceStoppedEventHandler(message) {
+	async instanceInitializedEventHandler(message, event) {
+		this.status = "initialized";
+		this.plugins = new Map(Object.entries(message.data.plugins));
+		this.forwardEventToMaster(message, event);
+	}
+
+	async instanceStartedEventHandler(message, event) {
+		this.status = "running";
+		this.forwardEventToMaster(message, event);
+	}
+
+	async instanceStoppedEventHandler(message, event) {
+		this.status = "stopped";
 		this.slave.instanceConnections.delete(this.instanceId);
+		this.forwardEventToMaster(message, event);
 	}
 }
 
 class SlaveConnector extends link.WebSocketClientConnector {
-	constructor(slaveConfig) {
+	constructor(slaveConfig, pluginInfos) {
 		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.reconnect_delay"));
 		this.slaveConfig = slaveConfig;
+		this.pluginInfos = pluginInfos;
 	}
 
 	register() {
 		console.log("SOCKET | registering slave");
+		let plugins = {};
+		for (let pluginInfo of this.pluginInfos) {
+			plugins[pluginInfo.name] = pluginInfo.version;
+		}
+
 		this.sendHandshake("register_slave", {
 			token: this.slaveConfig.get("slave.master_token"),
 			agent: "Clusterio Slave",
 			version,
 			id: this.slaveConfig.get("slave.id"),
 			name: this.slaveConfig.get("slave.name"),
+			plugins,
 		});
 	}
 }
@@ -551,6 +618,68 @@ class Slave extends link.Link {
 
 		this.instanceConnections = new Map();
 		this.instanceInfos = new Map();
+
+		this.connector.on("hello", data => {
+			this.serverVersion = data.version;
+			this.serverPlugins = new Map(Object.entries(data.plugins));
+		});
+
+		this._disconnecting = false;
+		this._shuttingDown = false;
+
+		this.connector.on("connect", () => {
+			if (this._shuttingDown) {
+				return;
+			}
+
+			this.updateInstances().catch((err) => {
+				console.error("ERROR: Unexpected error updating instances");
+				console.error(err);
+				this.shutdown().catch((err) => {
+					setBlocking(true);
+					console.error("ERROR: Unexpected error during shutdown");
+					console.error(err);
+					process.exit(1)
+				});
+			});;
+		});
+
+		this.connector.on("close", () => {
+			if (this._shuttingDown) {
+				return;
+			}
+
+			if (this._disconnecting) {
+				this._disconnecting = false;
+				this.connector.connect().catch((err) => {
+					console.error("ERROR: Unexpected error reconnecting to master");
+					console.error(err);
+					this.shutdown().catch((err) => {
+						setBlocking(true);
+						console.error("ERROR: Unexpected error during shutdown");
+						console.error(err);
+						process.exit(1)
+					});
+				});
+
+			} else {
+				console.error("ERROR: Master connection was unexpectedly closed");
+				this.shutdown().catch((err) => {
+					setBlocking(true);
+					console.error("ERROR: Unexpected error during shutdown");
+					console.error(err);
+					process.exit(1)
+				});
+			}
+		});
+
+		for (let event of ["connect", "drop", "close"]) {
+			this.connector.on(event, () => {
+				for (let instanceConnection of this.instanceConnections.values()) {
+					link.messages.masterConnectionEvent.send(instanceConnection, { event });
+				}
+			});
+		}
 	}
 
 	async _findNewInstanceDir(name) {
@@ -580,6 +709,10 @@ class Slave extends link.Link {
 			throw new errors.RequestError(`Instance ID ${instanceId} is not running`);
 		}
 
+		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
+			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`)
+		}
+
 		return await request.send(instanceConnection, message.data);
 	}
 
@@ -589,12 +722,15 @@ class Slave extends link.Link {
 
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		if (!instanceConnection) { return; }
+		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
 
 		event.send(instanceConnection, message.data);
 	}
 
 	async broadcastEventToInstance(message, event) {
 		for (let instanceConnection of this.instanceConnections.values()) {
+			if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { continue; }
+
 			event.send(instanceConnection, message.data);
 		}
 	}
@@ -727,22 +863,30 @@ class Slave extends link.Link {
 	async updateInstances() {
 		this.instanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
 		let list = [];
-		for (let instanceInfo of this.instanceInfos.values()) {
+		for (let [instanceId, instanceInfo] of this.instanceInfos) {
+			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push({
 				serialized_config: instanceInfo.config.serialize(),
+				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
 		link.messages.updateInstances.send(this, { instances: list });
 	}
 
-	async start() {
-		await this.updateInstances();
+	async prepareDisconnectRequestHandler(message, request) {
+		this._disconnecting = true;
+		for (let instanceConnection of this.instanceConnections.values()) {
+			await link.messages.prepareMasterDisconnect.send(instanceConnection);
+		}
+		this.connector.setClosing();
+		return await super.prepareDisconnectRequestHandler(message, request);
 	}
 
 	/**
 	 * Stops all instances and closes the connection
 	 */
 	async shutdown() {
+		this._shuttingDown = true;
 		this.connector.setTimeout(30);
 
 		try {
@@ -945,7 +1089,7 @@ async function startSlave() {
 		return;
 	}
 
-	let slaveConnector = new SlaveConnector(slaveConfig);
+	let slaveConnector = new SlaveConnector(slaveConfig, pluginInfos);
 	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts
@@ -971,7 +1115,6 @@ async function startSlave() {
 	});
 
 	await slaveConnector.connect();
-	await slave.start();
 
 	/*
 	} else if (command == "manage"){

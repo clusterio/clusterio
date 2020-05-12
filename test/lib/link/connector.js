@@ -86,11 +86,11 @@ describe("lib/link/connectors", function() {
 			it("should call register on hello", function() {
 				let called = false;
 				testConnector.register = () => { called = true; };
-				testConnector._processHandshake({ seq: 1, type: 'hello', data: { version: "test" }});
+				testConnector._processHandshake({ seq: 1, type: 'hello', data: { version: "test", plugins: {} }});
 				assert(called, "register was not called");
 			});
-			it("should emit connected on ready", async function() {
-				let result = events.once(testConnector, 'connected');
+			it("should emit connect on ready", async function() {
+				let result = events.once(testConnector, "connect");
 				testConnector._processHandshake(
 					{ seq: 1, type: 'ready', data: { session_token: "x", heartbeat_interval: 10 }}
 				);
