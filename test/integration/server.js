@@ -167,6 +167,23 @@ describe("Integration of lib/factorio/server", function() {
 			});
 		});
 
+		describe(".start() error handling", function() {
+			it("should handle factorio erroring out", async function() {
+				slowTest(this);
+				log(".start() for error handling");
+
+				await server.start("test.zip");
+				if (!server._rconReady) {
+					await events.once(server, "rcon-ready");
+				}
+				server.sendRcon("/c script.on_nth_tick(1, function() o.o = 1 end)").catch(() => {});
+
+				function discard() { }
+				server.on("error", discard);
+				await new Promise(resolve => server.once("exit", resolve));
+				server.off("error", discard);
+			});
+		});
 		describe(".stop() hang detection", function() {
 			it("should detect factorio hanging on shutdown", async function() {
 				slowTest(this);
