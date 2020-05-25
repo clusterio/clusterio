@@ -35,10 +35,25 @@ function drawcontents(data) {
 		if (itemIcon.getAttribute("class") !== iconClass) {
 			itemIcon.setAttribute("class", iconClass);
 		}
-		
+
+		let localeName = item.name;
+		let meta = factorioItemMetadata.get(item.name);
+		if (meta && meta.localised_name) {
+			// TODO implement the locale to name conversion.
+			localeName = factorioLocale.get(meta.localised_name[0]);
+		} else {
+			for (let section of ["item-name", "entity-name", "fluid-name", "equipment-name"]) {
+				let name = factorioLocale.get(`${section}.${item.name}`);
+				if (name) {
+					localeName = name;
+					break;
+				}
+			}
+		}
+
 		const name = row.querySelector('.name');
-		if(name.textContent !== item.name) {
-			name.textContent = item.name;
+		if(name.textContent !== localeName) {
+			name.textContent = localeName;
 		}
 		
 		const count = row.querySelector('.count');
