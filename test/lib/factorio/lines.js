@@ -121,6 +121,17 @@ let testLines = new Map([
 		}
 	],
 	[
+		"  10.806 Info AppManager.cpp:394: Saving game as C:\\factorio\\saves\\world.zip",
+		{
+			format: "seconds",
+			time: "10.806",
+			type: "log",
+			level: "Info",
+			file: "AppManager.cpp:394",
+			message: "Saving game as C:\\factorio\\saves\\world.zip",
+		}
+	],
+	[
 		"4202.780 Info AppManagerStates.cpp:1802: Saving finished",
 		{
 			format: "seconds",
