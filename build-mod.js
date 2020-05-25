@@ -40,6 +40,10 @@ async function build(args) {
 		info.factorio_version = args.factorioVersion;
 	}
 
+	if (args.dependencies) {
+		info.dependencies = args.dependencies;
+	}
+
 	if (args.clean) {
 		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/
 		for (let entry of await fs.readdir(args.outputDir)) {

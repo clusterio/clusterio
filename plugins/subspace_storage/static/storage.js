@@ -26,14 +26,14 @@ function drawcontents(data) {
 		let row = rows[i];
 		if(!row) {
 			row = document.createElement('tr');
-			row.innerHTML = "<td><img width=32 height=32></td><td class=name></td><td class=count></td>";
+			row.innerHTML = "<td><div></div></td><td class=name></td><td class=count></td>";
 			table.appendChild(row);
 		}
 		
-		const img = row.querySelector('img');
-		const imgName = getImageFromName(item.name);
-		if(img.getAttribute('src') !== imgName) {
-			img.setAttribute('src',imgName);
+		const itemIcon = row.querySelector("div");
+		const iconClass = getItemIconClass(item.name);
+		if (itemIcon.getAttribute("class") !== iconClass) {
+			itemIcon.setAttribute("class", iconClass);
 		}
 		
 		const name = row.querySelector('.name');

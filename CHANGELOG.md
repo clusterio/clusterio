@@ -39,6 +39,7 @@ Version 2.0.0
 - Added commands sent statistic.
 - Added Factorio server CPU and memory usage statistic.
 - Added Factorio autosave size statistic.
+- Added support for extracting locale and item icons from Factorio and mods.
 
 ### Changes
 

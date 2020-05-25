@@ -80,3 +80,9 @@ input:checked + .slider:before {
 .slider.round:before {
     border-radius: 50%;
 }
+
+.item-unknown-item {
+    background: url("pictures/unknown-item.png");
+    height: 32px;
+    width: 32px;
+}

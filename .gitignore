@@ -41,8 +41,7 @@ Factorio*
 package-lock.json
 secret-api-token.txt
 mod_cache.json
-static/pictures/spritesheet.js
-static/pictures/spritesheet.png
+static/export
 static/external
 saves
 /temp/

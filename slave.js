@@ -438,6 +438,20 @@ class Instance extends link.Link{
 		console.log("Clusterio | Successfully created save");
 	}
 
+	async exportDataRequestHandler() {
+		try {
+			console.log("Clusterio | Writing server-settings.json");
+			await this.writeServerSettings();
+
+			console.log("Exporting data .....");
+			await symlinkMods(this, "sharedMods", console);
+			await factorio.exportData(this.server);
+
+		} finally {
+			this.notifyExit();
+		}
+	}
+
 	async stopInstanceRequestHandler() {
 		await this.stop();
 	}
@@ -829,6 +843,12 @@ class Slave extends link.Link {
 	}
 
 	async createSaveRequestHandler(message, request) {
+		let instanceId = message.data.instance_id;
+		let instanceConnection = await this._connectInstance(instanceId);
+		await request.send(instanceConnection, message.data);
+	}
+
+	async exportDataRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		await request.send(instanceConnection, message.data);

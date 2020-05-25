@@ -39,7 +39,6 @@ let pluginList = {};
 // homebrew modules
 const generateSSLcert = require("lib/generateSSLcert");
 const database = require("lib/database");
-const factorio = require("lib/factorio");
 const schema = require("lib/schema");
 const link = require("lib/link");
 const errors = require("lib/errors");
@@ -88,7 +87,6 @@ app.use(function(req, res, next){
 });
 
 require("./routes")(app);
-require("./routes/api/getPictures")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static('static'));
 
@@ -326,27 +324,6 @@ app.get("/api/modmeta", async function(req, res) {
 	res.send(modData);
 });
 
-
-var localeCache;
-/**
-GET endpoint. Returns factorio's base locale as a JSON object.
-
-@memberof clusterioMaster
-@instance
-@alias api/getFactorioLocale
-@returns {object<string, object>} 2 deep nested object with base game factorio locale as key:value pairs
-*/
-app.get("/api/getFactorioLocale", function(req,res){
-	endpointHitCounter.labels(req.route.path).inc();
-	if (!localeCache) {
-		factorio.getLocale(path.join(masterConfig.get("master.factorio_directory"), "data"), "en").then(locale => {
-			localeCache = locale;
-			res.send(localeCache);
-		});
-	} else {
-		res.send(localeCache);
-	}
-});
 
 /**
  * Base class for master server connections
