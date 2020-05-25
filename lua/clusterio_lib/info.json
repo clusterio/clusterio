@@ -5,5 +5,8 @@
     "author": "Clusterio Team",
     "homepage": "https://github.com/clusterio/factorioClusterio",
     "description": "Library for interfacing with Clusterio.  Warning: work in progress alpha.",
-    "factorio_version": "0.17"
+    "factorio_version": "0.17",
+    "additional_files": [
+        ["modules", "clusterio", "serialize.lua"]
+    ]
 }
