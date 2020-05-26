@@ -27,6 +27,7 @@ const setBlocking = require("set-blocking");
 const events = require("events");
 const yargs = require("yargs");
 const WebSocket = require("ws");
+const JSZip = require("jszip");
 const version = require("./package").version;
 
 // ugly globals
@@ -174,6 +175,45 @@ async function getMetrics(req, res, next) {
 }
 app.get('/metrics', (req, res, next) => getMetrics(req, res, next).catch(next));
 
+// Handle an uploaded export package.
+async function uploadExport(req, res, next) {
+	endpointHitCounter.labels(req.route.path).inc();
+	if (req.get("Content-Type") !== "application/zip") {
+		res.sendStatus(415);
+		return;
+	}
+
+	let data = [];
+	for await (let chunk of req) {
+		data.push(chunk);
+	}
+	data = Buffer.concat(data);
+	let zip = await JSZip.loadAsync(data);
+	delete data;
+
+	// This is hardcoded to prevent path expansion attacks
+	let exportFiles = [
+		"export/item-spritesheet.png",
+		"export/item-metadata.json",
+		"export/locale.json",
+	];
+
+	for (let filePath of exportFiles) {
+		let file = zip.file(filePath);
+		if (!file) {
+			continue;
+		}
+
+		let name = path.posix.basename(filePath);
+		await fs.outputFile(path.join("static", "export", name), await file.async("nodebuffer"));
+	}
+
+	res.sendStatus(200);
+}
+app.put("/api/upload-export",
+	authenticate.middleware,
+	(req, res, next) => uploadExport(req, res, next).catch(next)
+);
 
 const masterConnectedClientsCount = new prometheus.Gauge(
 	'clusterio_master_connected_clients_count', "How many clients are currently connected to this master server",

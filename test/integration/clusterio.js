@@ -62,7 +62,7 @@ describe("Integration of Clusterio", function() {
 			it("exports the data", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} export-data --instance test`);
-				assert(await fs.exists(path.join("temp", "export.zip")), "Export was not created");
+				assert(await fs.exists(path.join("static", "export", "locale.json")), "Export was not created");
 			});
 		});
 

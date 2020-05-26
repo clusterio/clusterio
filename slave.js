@@ -16,6 +16,7 @@ const yargs = require("yargs");
 const events = require("events");
 const pidusage = require("pidusage");
 const setBlocking = require("set-blocking");
+const phin = require("phin");
 const version = require("./package").version;
 
 // internal libraries
@@ -446,7 +447,23 @@ class Instance extends link.Link{
 
 			console.log("Exporting data .....");
 			await symlinkMods(this, "sharedMods", console);
-			await factorio.exportData(this.server);
+			let zip = await factorio.exportData(this.server);
+
+			let content = await zip.generateAsync({ type: "nodebuffer" });
+			let url = new URL(this._slave.config.get("slave.master_url"));
+			url.pathname += "api/upload-export";
+			let response = await phin({
+				url, method: "PUT",
+				data: content,
+				core: { rejectUnauthorized: false },
+				headers: {
+					"Content-Type": "application/zip",
+					"x-access-token": this._slave.config.get("slave.master_token"),
+				},
+			});
+			if (response.statusCode !== 200) {
+				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`)
+			}
 
 		} finally {
 			this.notifyExit();
