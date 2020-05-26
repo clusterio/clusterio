@@ -1,9 +1,0 @@
-{
-    "name": "clusterio_lib",
-    "version": "0.1.1",
-    "title": "Clusterio Library (Alpha)",
-    "author": "Clusterio Team",
-    "homepage": "https://github.com/clusterio/factorioClusterio",
-    "description": "Library for interfacing with Clusterio.  Warning: work in progress alpha.",
-    "factorio_version": "0.17"
-}

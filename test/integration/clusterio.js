@@ -8,19 +8,6 @@ const { slowTest, get, exec, controlConfigPath, instancesDir } = require("./inde
 
 
 describe("Integration of Clusterio", function() {
-	describe("master http api", function() {
-		describe("GET /api/getFactorioLocale", function() {
-			it("should get the basegame factorio locale", async function() {
-				let res = await get("/api/getFactorioLocale");
-				let object = res.body;
-
-				// test that it is looks like a factorio locale
-				assert.equal(typeof object, "object");
-				assert.equal(object["entity-name"]["fish"], "Fish");
-				assert.equal(object["entity-name"]["small-lamp"], "Lamp");
-			});
-		});
-	});
 	parallel("master web interface", function() {
 		this.timeout(6000);
 
@@ -68,6 +55,14 @@ describe("Integration of Clusterio", function() {
 			it("creates a save", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} create-save --instance test`);
+			});
+		});
+
+		describe("export-data", function() {
+			it("exports the data", async function() {
+				slowTest(this);
+				await exec(`node clusterctl --config ${controlConfigPath} export-data --instance test`);
+				assert(await fs.exists(path.join("temp", "export.zip")), "Export was not created");
 			});
 		});
 

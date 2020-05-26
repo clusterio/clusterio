@@ -256,6 +256,21 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
+	definition: ['export-data', "Export item icons and locale from instance", (yargs) => {
+		yargs.options({
+			'instance': { describe: "Instance to export from", nargs: 1, type: 'string', demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.exportData.send(control, {
+			instance_id: instanceId,
+		});
+	},
+}));
+
+commands.push(new Command({
 	definition: ['start-instance', "Start instance", (yargs) => {
 		yargs.options({
 			'instance': { describe: "Instance to start", nargs: 1, type: 'string', demandOption: true },

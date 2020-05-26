@@ -185,73 +185,34 @@ function replaceAll(target, search, replacement) {
 		return target.split(search).join(replacement);
 };
 
-function getImageFromName(name){
-	if(imagelinks[name]){
-		return root + imagelinks[name].slice(1);
-	} else if(imagedata[name]) {
-		return "https://wiki.factorio.com/images/" + imagedata[name] + ".png";
-	} else if(factorioLocale["entity-name"] && factorioLocale["entity-name"][name]){
-		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["entity-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else if(factorioLocale["item-name"] && factorioLocale["item-name"][name]){
-		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["item-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else if(factorioLocale["fluid-name"] && factorioLocale["fluid-name"][name]){
-		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["fluid-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else if(factorioLocale["equipment-name"] && factorioLocale["equipment-name"][name]){
-		return "https://wiki.factorio.com/images/" + capitalizeFirstLetter(replaceAll(factorioLocale["equipment-name"][name], ' ', '_').toLowerCase()) + ".png";
-	} else return `${root}pictures/unknown-item.png`;
+function getItemIconClass(name) {
+	if (factorioItemMetadata.has(name)) {
+		return `item-${name}`;
+	} else {
+		return "item-unknown-item";
+	}
 }
-window.factorioLocale = {};
-$.getJSON(`${root}api/getFactorioLocale`, (locale) => {
-	window.factorioLocale = locale;
+window.factorioLocale = new Map();
+$.getJSON(`${root}export/locale.json`, (locale) => {
+	window.factorioLocale = new Map(locale);
 });
-// image data
-// key is the name of the item in the database, value is the name of the image on wiki.factorio.com/images/*
-// this list has to include all entities that doesn't just follow the simple capitalize first letter convention
-/* Notice from bilka: All icon images hosted on this Wiki have been renamed to use their in-game names, with underscores. If your external tool references these icons, please correct your links. */
-var imagedata = {
-	"put-combinator": "Decider_combinator",
-	"smart-train-stop": "Train_stop",
-	"raw-fish": "Fish",
-	"solar-panel-equipment": "Portable_solar_panel",
-	"diesel-locomotive": "Locomotive", // pre 0.15 loco name
-	"small-lamp": "Lamp",
-	"tree-02": "Green_tree",
-	"tree-02-red": "Green_tree",
-	"tree-03": "Green_tree",
-	"tree-04": "Green_tree",
-	"tree-05": "Green_tree",
-	"tree-07": "Green_tree",
-	"tree-09": "Green_tree",
-	"tree-09-brown": "Green_tree",
-	"tree-09-red": "Green_tree",
-	"dead-tree-desert": "Dead_tree_desert",
-	"sand-rock-big": "Rock_big",
-	// "biter-spawner" missing, but can't find png for it on wiki
-	// "spitter-spawner"
-	
-}
+window.factorioItemMetadata = new Map();
+$.getJSON(`${root}export/item-metadata.json`, (itemMetadata) => {
+	window.factorioItemMetadata = new Map(itemMetadata);
+	console.log(factorioItemMetadata.get("electronic-circuit"));
+	let style = document.createElement("style");
+	style.type = "text/css";
+	document.head.appendChild(style);
 
-// value:link pairs where you can add modded item icons that are missing
-var imagelinks = {
-	"crude-oil-barrel": "/pictures/Crude_oil_barrel.png",
-	"heavy-oil-barrel": "/pictures/Heavy_oil_barrel.png",
-	"light-oil-barrel": "/pictures/Light_oil_barrel.png",
-	"petroleum-gas-barrel": "/pictures/Petroleum_gas_barrel.png",
-	"sulfuric-acid-barrel": "/pictures/Sulfuric_acid_barrel.png",
-	"water-barrel": "/pictures/Water_barrel.png",
-	"lubricant-barrel": "/pictures/Lubricant_barrel.png",
-	"power-armor-mk2": "/pictures/Power_armor_MK2.png",
-	"fictional-modded-item": "/pictures/fictional-modded-item.png",
-	"raw-fish": "/pictures/Fish.png",
-	"rail": "/pictures/rail.png",
-	"effectivity-module-1": "/pictures/green_module_1.png",
-	"effectivity-module-2": "/pictures/green_module_2.png",
-	"effectivity-module-3": "/pictures/green_module_3.png",
-	"piercing-shotgun-shell": "/pictures/piercing_shotgun_shells.png",
-	"energy-shield-mk2-equipment": "/pictures/Energy_shield_MK2.png",
-	"battery-mk2-equipment": "/pictures/Battery_MK2.png",
-	"personal-roboport-mk2-equipment": "/pictures/Personal_roboport_MK2.png",
-}
-var populateImageLinks = async () => (await getJSON(`${root}api/getPictures`)).forEach(img => imagelinks[img.name] = img.path)
-
-populateImageLinks()
+	for (let [name, meta] of itemMetadata) {
+		style.sheet.insertRule([
+			`.item-${name} {`,
+			` background-image: url("${root}export/item-spritesheet.png");`,
+			" background-repeat: no-repeat;",
+			` background-position: -${meta.x}px -${meta.y}px;`,
+			` height: ${meta.size}px;`,
+			` width: ${meta.size}px;`,
+			"}\n",
+		].join(""));
+	}
+});
