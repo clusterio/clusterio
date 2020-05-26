@@ -16,6 +16,7 @@ const yargs = require("yargs");
 const events = require("events");
 const pidusage = require("pidusage");
 const setBlocking = require("set-blocking");
+const phin = require("phin");
 const version = require("./package").version;
 
 // internal libraries
@@ -58,9 +59,10 @@ const instanceFactorioAutosaveSize = new prometheus.Gauge(
  * Keeps track of the runtime parameters of an instance
  */
 class Instance extends link.Link{
-	constructor(connector, dir, factorioDir, instanceConfig) {
+	constructor(slave, connector, dir, factorioDir, instanceConfig) {
 		super('instance', 'slave', connector);
 		link.attachAllMessages(this);
+		this._slave = slave;
 		this._dir = dir;
 
 		this.plugins = new Map();
@@ -141,21 +143,21 @@ class Instance extends link.Link{
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
 
-	async init(pluginInfos, slave) {
+	async init(pluginInfos) {
 		await this.server.init();
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
-				|| !slave.serverPlugins.has(pluginInfo.name)
+				|| !this._slave.serverPlugins.has(pluginInfo.name)
 				|| !this.config.group(pluginInfo.name).get("enabled")
 			) {
 				continue;
 			}
 
 			try {
-				await this._loadPlugin(pluginInfo, slave);
+				await this._loadPlugin(pluginInfo, this._slave);
 			} catch (err) {
 				this.notifyExit();
 				throw err;
@@ -445,7 +447,23 @@ class Instance extends link.Link{
 
 			console.log("Exporting data .....");
 			await symlinkMods(this, "sharedMods", console);
-			await factorio.exportData(this.server);
+			let zip = await factorio.exportData(this.server);
+
+			let content = await zip.generateAsync({ type: "nodebuffer" });
+			let url = new URL(this._slave.config.get("slave.master_url"));
+			url.pathname += "api/upload-export";
+			let response = await phin({
+				url, method: "PUT",
+				data: content,
+				core: { rejectUnauthorized: false },
+				headers: {
+					"Content-Type": "application/zip",
+					"x-access-token": this._slave.config.get("slave.master_token"),
+				},
+			});
+			if (response.statusCode !== 200) {
+				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`)
+			}
 
 		} finally {
 			this.notifyExit();
@@ -801,9 +819,9 @@ class Slave extends link.Link {
 		let [connectionClient, connectionServer] = link.VirtualConnector.makePair();
 		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
 		let instance = new Instance(
-			connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
+			this, connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
-		await instance.init(this.pluginInfos, this);
+		await instance.init(this.pluginInfos);
 
 		// XXX: race condition on multiple simultanious calls
 		this.instanceConnections.set(instanceId, instanceConnection);

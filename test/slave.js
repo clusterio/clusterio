@@ -17,7 +17,7 @@ describe("Slave testing", function() {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "foo");
-			instance = new slave._Instance(new link.VirtualConnector(), "dir", "factorioDir", instanceConfig);
+			instance = new slave._Instance({}, new link.VirtualConnector(), "dir", "factorioDir", instanceConfig);
 		});
 
 		describe(".name", function() {
@@ -109,7 +109,7 @@ describe("Slave testing", function() {
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "test");
 			instance = new slave._Instance(
-				new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
+				{}, new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
 			);
 			await fs.outputFile(instance.path("mods", "mod_i.zip"), "i");
 		});

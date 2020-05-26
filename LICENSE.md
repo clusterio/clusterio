@@ -19,8 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-The icons for angels modded items located in /static/pictures/ are licensed
-by https://mods.factorio.com/user/Arch666Angel under CC BY-NC-ND 4.0
-https://creativecommons.org/licenses/by-nc-nd/4.0/
-
