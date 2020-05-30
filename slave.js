@@ -89,11 +89,7 @@ class Instance extends link.Link{
 		this.server.on('output', (output) => {
 			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
 
-			for (let [name, plugin] of this.plugins) {
-				plugin.onOutput(output).catch(err => {
-					console.error(`Plugin ${name} raised error in onOutput:`, err);
-				});
-			}
+			plugin.invokeHook(this.plugins, "onOutput", output);
 		});
 
 		this.server.on("error", err => {
@@ -337,9 +333,7 @@ class Instance extends link.Link{
 		await this.server.disableAchievements()
 		await this.updateInstanceData();
 
-		for (let pluginInstance of this.plugins.values()) {
-			await pluginInstance.onStart();
-		}
+		await plugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
 		link.messages.instanceStarted.send(this, { instance_id: this.config.get("instance.id") });
@@ -362,35 +356,26 @@ class Instance extends link.Link{
 
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
-			for (let pluginInstance of this.plugins.values()) {
-				await pluginInstance.onStop();
-			}
-
+			await plugin.invokeHook(this.plugins, "onStop");
 			await this.server.stop();
 		}
 	}
 
 	async masterConnectionEventEventHandler(message) {
-		for (let pluginInstance of this.plugins.values()) {
-			pluginInstance.onMasterConnectionEvent(message.data.event);
-		}
+		await plugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
 	}
 
 	async prepareMasterDisconnectRequestHandler() {
-		for (let pluginInstance of this.plugins.values()) {
-			await pluginInstance.onPrepareMasterDisconnect();
-		}
+		await plugin.invokeHook(this.plugins, "onPrepareMasterDisconnect");
 	}
 
 	async getMetricsRequestHandler() {
 		let results = []
 		if (this._running) {
-			for (let pluginInstance of this.plugins.values()) {
-				let pluginResults = await pluginInstance.onMetrics();
-				if (pluginResults !== undefined) {
-					for await (let result of pluginResults) {
-						results.push(prometheus.serializeResult(result))
-					}
+			let pluginResults = await plugin.invokeHook(this.plugins, "onMetrics");
+			for (let metricIterator of pluginResults) {
+				for await (let metric of metricIterator) {
+					results.push(prometheus.serializeResult(metric))
 				}
 			}
 		}

@@ -128,12 +128,10 @@ async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
 
 	let results = []
-	for (let masterPlugin of masterPlugins.values()) {
-		let pluginResults = await masterPlugin.onMetrics();
-		if (pluginResults !== undefined) {
-			for await (let result of pluginResults) {
-				results.push(result)
-			}
+	let pluginResults = await plugin.invokeHook(masterPlugins, "onMetrics");
+	for (let metricIterator of pluginResults) {
+		for await (let metric of metricIterator) {
+			results.push(metric)
 		}
 	}
 
@@ -291,11 +289,7 @@ async function shutdown() {
 		await saveMap(masterConfig.get('master.database_directory'), "slaves.json", db.slaves);
 		await saveInstances(masterConfig.get('master.database_directory'), "instances.json", db.instances);
 
-		for (let [pluginName, masterPlugin] of masterPlugins) {
-			let startTime = Date.now();
-			await masterPlugin.onShutdown();
-			console.log(`Plugin ${pluginName} shutdown in ${Date.now() - startTime}ms`);
-		}
+		await plugin.invokeHook(masterPlugins, "onShutdown");
 
 		stopAcceptingNewSessions = true;
 
@@ -427,9 +421,7 @@ class BaseConnection extends link.Link {
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
-		for (let masterPlugin of masterPlugins.values()) {
-			await masterPlugin.onPrepareSlaveDisconnect(this);
-		}
+		await plugin.invokeHook(masterPlugins, "onPrepareSlaveDisconnect", this);
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
 	}
@@ -652,9 +644,7 @@ class SlaveConnection extends BaseConnection {
 		let prev = instance.status;
 		instance.status = "initialized";
 		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`)
-		for (let masterPlugin of masterPlugins.values()) {
-			await masterPlugin.onInstanceStatusChanged(instance, prev);
-		}
+		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async instanceStartedEventHandler(message, event) {
@@ -662,9 +652,7 @@ class SlaveConnection extends BaseConnection {
 		let prev = instance.status;
 		instance.status = "running";
 		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`)
-		for (let masterPlugin of masterPlugins.values()) {
-			await masterPlugin.onInstanceStatusChanged(instance, prev);
-		}
+		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async instanceStoppedEventHandler(message, event) {
@@ -672,9 +660,7 @@ class SlaveConnection extends BaseConnection {
 		let prev = instance.status;
 		instance.status = "stopped";
 		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`)
-		for (let masterPlugin of masterPlugins.values()) {
-			await masterPlugin.onInstanceStatusChanged(instance, prev);
-		}
+		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async updateInstancesEventHandler(message) {
@@ -700,9 +686,7 @@ class SlaveConnection extends BaseConnection {
 					let prev = masterInstance.status;
 					masterInstance.status = instance.status;
 					if (prev !== undefined) {
-						for (let masterPlugin of masterPlugins.values()) {
-							await masterPlugin.onInstanceStatusChanged(instance, prev);
-						}
+						await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 					}
 				}
 				continue;
