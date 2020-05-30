@@ -68,6 +68,11 @@ class Instance extends link.Link{
 		this.plugins = new Map();
 		this.config = instanceConfig;
 
+		this._configFieldChanged = (group, field, prev) => {
+			plugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
+		};
+		this.config.on("fieldChanged", this._configFieldChanged);
+
 		let serverOptions = {
 			version: this.config.get("factorio.version"),
 			gamePort: this.config.get('factorio.game_port'),
@@ -111,6 +116,8 @@ class Instance extends link.Link{
 	notifyExit() {
 		this._running = false;
 		link.messages.instanceStopped.send(this, { instance_id: this.config.get("instance.id") });
+
+		this.config.off("fieldChanged", this._configFieldChanged);
 
 		// Clear metrics this instance is exporting
 		for (let collector of prometheus.defaultRegistry.collectors) {
@@ -756,7 +763,7 @@ class Slave extends link.Link {
 		let { instance_id, serialized_config } = message.data;
 		let instanceInfo = this.instanceInfos.get(instance_id);
 		if (instanceInfo) {
-			instanceInfo.config.update(serialized_config);
+			instanceInfo.config.update(serialized_config, true);
 			console.log(`Clusterio | Updated config for ${instanceInfo.path}`);
 			// TODO: Notify of update if instance is running
 
