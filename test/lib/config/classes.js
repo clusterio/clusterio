@@ -156,6 +156,14 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		describe("get name", function() {
+			it("should give the name of the group", async function() {
+				let testInstance = new TestGroup();
+				await testInstance.init();
+				assert.equal(testInstance.name, "test_group");
+			});
+		});
+
 		describe(".serialize()", function() {
 			it("should serialize a basic group", async function() {
 				let testInstance = new TestGroup();
