@@ -224,6 +224,26 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
+	definition: ["set-instance-config-prop", "Set property of field in instance config", (yargs) => {
+		yargs.option({
+			"instance": { describe: "Instance to set config on", nargs: 1, type: "string", demandOption: true },
+			"field": { describe: "Field to set", nargs: 1, type: "string", demandOption: true },
+			"prop": { describe: "Property to set", nargs: 1, type: "string", demandOption: true },
+			"value": { describe: "JSON parsed value to set", nargs: 1, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.messages.setInstanceConfigProp.send(control, {
+			instance_id: instanceId,
+			field: args.field,
+			prop: args.prop,
+			value: JSON.parse(args.value),
+		});
+	},
+}));
+
+commands.push(new Command({
 	definition: ['assign-instance', "Assign instance to a slave", (yargs) => {
 		yargs.options({
 			'instance': { describe: "Instance to assign", nargs: 1, type: 'string', demandOption: true },

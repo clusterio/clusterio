@@ -529,6 +529,19 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
+	async updateInstanceConfig(instance) {
+		let slaveId = instance.config.get("instance.assigned_slave");
+		if (slaveId) {
+			let connection = slaveConnections.get(slaveId);
+			if (connection) {
+				await link.messages.assignInstance.send(connection, {
+					instance_id: instance.config.get("instance.id"),
+					serialized_config: instance.config.serialize(),
+				});
+			}
+		}
+	}
+
 	async setInstanceConfigFieldRequestHandler(message) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
@@ -545,18 +558,18 @@ class ControlConnection extends BaseConnection {
 		}
 
 		instance.config.set(message.data.field, message.data.value);
+		await this.updateInstanceConfig(instance);
+	}
 
-		// Push updated config to slave
-		let slaveId = instance.config.get('instance.assigned_slave');
-		if (slaveId) {
-			let connection = slaveConnections.get(slaveId);
-			if (connection) {
-				await link.messages.assignInstance.send(connection, {
-					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize(),
-				});
-			}
+	async setInstanceConfigPropRequestHandler(message) {
+		let instance = db.instances.get(message.data.instance_id);
+		if (!instance) {
+			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
+
+		let {field, prop, value} = message.data;
+		instance.config.setProp(field, prop, value);
+		await this.updateInstanceConfig(instance);
 	}
 
 	async assignInstanceCommandRequestHandler(message, request) {

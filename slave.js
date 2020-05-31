@@ -17,6 +17,7 @@ const events = require("events");
 const pidusage = require("pidusage");
 const setBlocking = require("set-blocking");
 const phin = require("phin");
+const util = require("util");
 const version = require("./package").version;
 
 // internal libraries
@@ -55,6 +56,49 @@ const instanceFactorioAutosaveSize = new prometheus.Gauge(
 	{ labels: ["instance_id"] }
 );
 
+function applyAsConfig(name) {
+	return async function action(server, value) {
+		if (name === "tags" && value instanceof Array) {
+			// Replace spaces with non-break spaces and delimit by spaces.
+			// This does change the defined tags, but there doesn't seem to
+			// be a way to include a space into a tag from the console.
+			value = value.map(tag => tag.replace(/ /g, "\u00a0")).join(" ");
+		}
+		try {
+			await server.sendRcon(`/config set ${name} ${value}`);
+		} catch (err) {
+			console.error(`Error applying server setting ${name}`, err);
+		}
+	}
+}
+
+const serverSettingsActions = {
+	"afk_autokick_interval": applyAsConfig("afk-auto-kick"),
+	"allow_commands": applyAsConfig("allow-commands"),
+	"autosave_interval": applyAsConfig("autosave-interval"),
+	"autosave_only_on_server": applyAsConfig("autosave-only-on-server"),
+	"description": applyAsConfig("description"),
+	"ignore_player_limit_for_returning_players": applyAsConfig("ignore-player-limit-for-returning-players"),
+	"max_players": applyAsConfig("max-players"),
+	"max_upload_slots": applyAsConfig("max-upload-slots"),
+	"max_upload_in_kilobytes_per_second": applyAsConfig("max-upload-speed"),
+	"name": applyAsConfig("name"),
+	"only_admins_can_pause_the_game": applyAsConfig("only-admins-can-pause"),
+	"game_password": applyAsConfig("password"),
+	"require_user_verification": applyAsConfig("require-user-verification"),
+	"tags": applyAsConfig("tags"),
+	"visibility": async function action(server, value) {
+		for (let scope of ["lan", "public", "steam"]) {
+			try {
+				let enabled = Boolean(value[scope]);
+				await server.sendRcon(`/config set visibility-${scope} ${enabled}`);
+			} catch (err) {
+				console.error(`Error applying visibility ${scope}`, err);
+			}
+		}
+	},
+};
+
 /**
  * Keeps track of the runtime parameters of an instance
  */
@@ -69,7 +113,13 @@ class Instance extends link.Link{
 		this.config = instanceConfig;
 
 		this._configFieldChanged = (group, field, prev) => {
-			plugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
+			let hook = () => plugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
+
+			if (group.name === "factorio" && field === "settings") {
+				this.updateFactorioSettings(group.get(field), prev).finally(hook);
+			} else {
+				hook();
+			}
 		};
 		this.config.on("fieldChanged", this._configFieldChanged);
 
@@ -175,15 +225,16 @@ class Instance extends link.Link{
 	}
 
 	/**
-	 * Write the server-settings.json file
+	 * Resolve the effective Factorio server settings
 	 *
-	 * Generate the server-settings.json file from the example file in the
-	 * data directory and override any settings configured in the instance's
-	 * factorio_settings config entry.
+	 * Use the example settings as the basis and override it with all the
+	 * entries from the given settings object.
+	 *
+	 * @param {Object} overrides - Server settings to override.
+	 * @returns server example settings with the given settings applied over it.
 	 */
-	async writeServerSettings() {
+	async resolveServerSettings(overrides) {
 		let serverSettings = await this.server.exampleSettings();
-		let overrides = this.config.get('factorio.settings');
 
 		for (let [key, value] of Object.entries(overrides)) {
 			if (!Object.hasOwnProperty.call(serverSettings, key)) {
@@ -192,6 +243,18 @@ class Instance extends link.Link{
 			serverSettings[key] = value;
 		}
 
+		return serverSettings;
+	}
+
+	/**
+	 * Write the server-settings.json file
+	 *
+	 * Generate the server-settings.json file from the example file in the
+	 * data directory and override any settings configured in the instance's
+	 * factorio_settings config entry.
+	 */
+	async writeServerSettings() {
+		let serverSettings = await this.resolveServerSettings(this.config.get("factorio.settings"));
 		await fs.writeFile(
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, 4)
@@ -355,6 +418,17 @@ class Instance extends link.Link{
 		await this.server.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
 	}
 
+	async updateFactorioSettings(current, previous) {
+		current = await this.resolveServerSettings(current);
+		previous = await this.resolveServerSettings(previous);
+
+		for (let [key, action] of Object.entries(serverSettingsActions)) {
+			if (current[key] !== undefined && !util.isDeepStrictEqual(current[key], previous[key])) {
+				await action(this.server, current[key]);
+			}
+		}
+	}
+
 	/**
 	 * Stop the instance
 	 */
@@ -497,13 +571,15 @@ class Instance extends link.Link{
  * Searches for instances in the provided directory
  *
  * Looks through all sub-dirs of the provided directory for valid
- * instance definitions and returns a mapping of instance id to
- * instance config objects.
+ * instance definitions and updates the mapping of instance id to
+ * instanceInfo objects.
  *
- * @returns {Map<integer, Object>} mapping between instance
+ * @param {Map<integer, Object>} instanceInfos -
+ *     mapping between instance id and information about this instance.
+ * @param {string} instancesDir - Directory containing instances
+ * @param logger - console like logging interface.
  */
-async function discoverInstances(instancesDir, logger) {
-	let instanceInfos = new Map();
+async function discoverInstances(instanceInfos, instancesDir, logger) {
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
 			let instanceConfig = new config.InstanceConfig();
@@ -521,6 +597,11 @@ async function discoverInstances(instancesDir, logger) {
 				continue;
 			}
 
+			// Ignore instances we have already discovered before.
+			if (instanceInfos.has(instanceConfig.get("instance.id"))) {
+				continue;
+			}
+
 			let instancePath = path.join(instancesDir, entry.name);
 			logger.log(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
@@ -529,8 +610,6 @@ async function discoverInstances(instancesDir, logger) {
 			});
 		}
 	}
-
-	return instanceInfos;
 }
 
 class InstanceConnection extends link.Link {
@@ -891,7 +970,7 @@ class Slave extends link.Link {
 	 * the slave and master server with the new list of instances.
 	 */
 	async updateInstances() {
-		this.instanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
+		await discoverInstances(this.instanceInfos, this.config.get("slave.instances_directory"), console);
 		let list = [];
 		for (let [instanceId, instanceInfo] of this.instanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
