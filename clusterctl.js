@@ -470,34 +470,6 @@ async function findCredentials(controlConfig) {
 }
 
 
-class ControlGroup extends config.ConfigGroup {}
-ControlGroup.groupName = "control";
-ControlGroup.define({
-	name: "master_url",
-	description: "URL to connect to the master server at",
-	type: "string",
-	optional: true,
-});
-ControlGroup.define({
-	name: "master_token",
-	description: "Token to authenticate to master server with.",
-	type: "string",
-	optional: true,
-});
-ControlGroup.define({
-	name: "reconnect_delay",
-	title: "Reconnect Delay",
-	description: "Maximum delay to wait before attempting to reconnect WebSocket",
-	type: "number",
-	initial_value: 2,
-});
-ControlGroup.finalize();
-
-class ControlConfig extends config.Config { }
-ControlConfig.registerGroup(ControlGroup);
-ControlConfig.finalize();
-
-
 async function startControl() {
 	yargs
 		.scriptName("clusterctl")
@@ -525,7 +497,7 @@ async function startControl() {
 	config.finalizeConfigs();
 
 	console.log(`Loading config from ${args.config}`);
-	let controlConfig = new ControlConfig();
+	let controlConfig = new config.ControlConfig();
 	try {
 		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
 
