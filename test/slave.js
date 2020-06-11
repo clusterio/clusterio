@@ -157,7 +157,8 @@ describe("Slave testing", function() {
 		it("should discover test instance", async function() {
 			let logger = { log: () => {}, error: () => {} };
 			let instancePath = path.join("test", "file", "instances");
-			let instanceInfos = await slave._discoverInstances(instancePath, logger);
+			let instanceInfos = new Map();
+			await slave._discoverInstances(instanceInfos, instancePath, logger);
 
 			let referenceConfig = new config.InstanceConfig();
 			await referenceConfig.init();

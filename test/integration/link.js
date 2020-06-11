@@ -1,31 +1,8 @@
 const assert = require("assert").strict;
 const events = require("events");
 
-const link = require("lib/link");
+const { TestControlConnector, TestControl, get, exec, url, token } = require("./index");
 
-const { get, exec, url, token } = require("./index");
-
-
-class TestControl extends link.Link {
-	constructor(connector) {
-		super("control", "master", connector);
-		link.attachAllMessages(this);
-	}
-
-	async prepareDisconnectRequestHandler(message, request) {
-		this.connector.setClosing();
-		return await super.prepareDisconnectRequestHandler(message, request);
-	}
-
-	async debugWsMessageEventHandler() { }
-	async instanceOutputEventHandler() { }
-}
-
-class TestControlConnector extends link.WebSocketClientConnector {
-	register() {
-		this.sendHandshake("register_control", { token: this.token, agent: "clusterctl", version: "test" });
-	}
-}
 
 describe("Integration of lib/link", function() {
 	let control;

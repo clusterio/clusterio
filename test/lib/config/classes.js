@@ -73,7 +73,7 @@ describe("lib/config/classes", function() {
 				TestGroup.define({ name: "test", type: "string", optional: true });
 				TestGroup.define({ name: "func", type: "number", initial_value: () => 42 });
 				TestGroup.define({ name: "bool", type: "boolean", initial_value: false, optional: true });
-				TestGroup.define({ name: "json", type: "object", initial_value: {} });
+				TestGroup.define({ name: "json", type: "object", initial_value: {}, optional: true });
 
 				assert(TestGroup._definitions.has("test"), "field test was not defined");
 				assert(TestGroup._definitions.has("func"), "field func was not defined");
@@ -156,6 +156,14 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		describe("get name", function() {
+			it("should give the name of the group", async function() {
+				let testInstance = new TestGroup();
+				await testInstance.init();
+				assert.equal(testInstance.name, "test_group");
+			});
+		});
+
 		describe(".serialize()", function() {
 			it("should serialize a basic group", async function() {
 				let testInstance = new TestGroup();
@@ -177,7 +185,7 @@ describe("lib/config/classes", function() {
 		describe(".load()", function() {
 			it("should load a basic group", async function() {
 				let testInstance = new TestGroup();
-				await testInstance.load({ name: "test_group", fields: {
+				await testInstance.load(null, { name: "test_group", fields: {
 					enum: "c",
 					test: "blah",
 					func: 22,
@@ -193,7 +201,7 @@ describe("lib/config/classes", function() {
 			});
 			it("should load defaults for missing serialized fields", async function() {
 				let testInstance = new TestGroup();
-				await testInstance.load({ name: "test_group", fields: { enum: "a" } });
+				await testInstance.load(null, { name: "test_group", fields: { enum: "a" } });
 
 				assert.equal(testInstance.get("enum"), "a");
 				assert.equal(testInstance.get("test"), null);
@@ -213,7 +221,7 @@ describe("lib/config/classes", function() {
 				}
 
 				let testInstance = new TestGroup();
-				await testInstance.load({ name: "test_group", fields: testFields });
+				await testInstance.load(null, { name: "test_group", fields: testFields });
 
 				assert.deepEqual(testInstance.serialize().fields, testFields);
 			});
@@ -223,7 +231,7 @@ describe("lib/config/classes", function() {
 			it("should skip updating invalid values", async function() {
 				let testInstance = new TestGroup();
 				await testInstance.init();
-				testInstance.update({ name: "test_group", fields: { enum: "wrong", test: 3, func: null }});
+				testInstance.update({ name: "test_group", fields: { enum: "wrong", test: 3, func: null }}, false);
 
 				assert.equal(testInstance.get("enum"), "b");
 				assert.equal(testInstance.get("test"), null);
@@ -237,19 +245,19 @@ describe("lib/config/classes", function() {
 					new Error("Expected object, not undefined for ConfigGroup")
 				);
 				assert.throws(
-					() => testInstance.update({}),
+					() => testInstance.update({}, false),
 					new Error("Expected group name test_group, not undefined")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group" }),
+					() => testInstance.update({ name: "test_group" }, false),
 					new Error("Expected fields to be an object, not undefined")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group", fields: []}),
+					() => testInstance.update({ name: "test_group", fields: []}, false),
 					new Error("Expected fields to be an object, not array")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group", fields: null}),
+					() => testInstance.update({ name: "test_group", fields: null}, false),
 					new Error("Expected fields to be an object, not null")
 				);
 			});
@@ -257,9 +265,9 @@ describe("lib/config/classes", function() {
 
 		describe(".set()", function() {
 			let testInstance;
-			before(function() {
+			before(async function() {
 				testInstance = new TestGroup();
-				testInstance.update({ name: "test_group", fields: {
+				await testInstance.load(null, { name: "test_group", fields: {
 					enum: "a", test: "blah", func: 27,
 				}});
 			});
@@ -267,7 +275,7 @@ describe("lib/config/classes", function() {
 			it("should throw if field does not exist", function() {
 				assert.throws(
 					() => testInstance.set("bar", 1),
-					new Error("No field named 'bar'")
+					new classes.InvalidField("No field named 'bar'")
 				);
 			})
 
@@ -351,6 +359,42 @@ describe("lib/config/classes", function() {
 				);
 			});
 		});
+
+		describe(".setProp()", function() {
+			let testInstance;
+			before(async function() {
+				testInstance = new TestGroup();
+				await testInstance.load(null, { name: "test_group", fields: {
+					enum: "a", test: "blah", func: 27,
+				}});
+			});
+
+			it("should throw if field does not exist", function() {
+				assert.throws(
+					() => testInstance.setProp("bar", 1),
+					new classes.InvalidField("No field named 'bar'")
+				);
+			})
+
+			it("should throw if field is not an object", function() {
+				assert.throws(
+					() => testInstance.setProp("enum", "a"),
+					new classes.InvalidField("Cannot set property on non-object field 'enum'")
+				);
+			})
+
+			it("should work if field is an object", function() {
+				testInstance.set("json", { prev: 32, test: false });
+				testInstance.setProp("json", "test", true);
+				assert.deepEqual(testInstance.get("json"), { prev: 32, test: true });
+			});
+
+			it("should handle field being null", function() {
+				testInstance.set("json", null);
+				testInstance.setProp("json", "test", true);
+				assert.deepEqual(testInstance.get("json"), { test: true });
+			});
+		});
 	});
 
 	describe("Config", function() {
@@ -364,7 +408,7 @@ describe("lib/config/classes", function() {
 			AlphaGroup.define({ name: "foo", type: "string", optional: true });
 			AlphaGroup.finalize();
 			TestConfig.registerGroup(AlphaGroup);
-			BetaGroup.define({ name: "bar", type: "number", initial_value: 2 });
+			BetaGroup.define({ name: "bar", type: "object", initial_value: {} });
 			BetaGroup.finalize();
 			TestConfig.registerGroup(BetaGroup);
 		});
@@ -416,7 +460,7 @@ describe("lib/config/classes", function() {
 				let testInstance = new TestConfig();
 				await testInstance.init();
 				assert.equal(testInstance.get("alpha.foo"), null);
-				assert.equal(testInstance.get("beta.bar"), 2);
+				assert.deepEqual(testInstance.get("beta.bar"), {});
 			})
 		});
 
@@ -432,7 +476,7 @@ describe("lib/config/classes", function() {
 						},
 						{
 							name: "beta",
-							fields: { bar: 2 },
+							fields: { bar: {} },
 						}
 					]
 				});
@@ -461,7 +505,7 @@ describe("lib/config/classes", function() {
 				await testInstance.load({ groups: [{ name: "alpha", fields: { foo: "a" }}] });
 
 				assert.equal(testInstance.get("alpha.foo"), "a");
-				assert.equal(testInstance.get("beta.bar"), 2);
+				assert.deepEqual(testInstance.get("beta.bar"), {});
 			});
 
 			it("should preserve unknown groups when serialized back", async function() {
@@ -476,7 +520,7 @@ describe("lib/config/classes", function() {
 					},
 					{
 						name: "beta",
-						fields: { bar: 20 },
+						fields: { bar: { value: 20 }},
 					}
 				]
 
@@ -498,9 +542,9 @@ describe("lib/config/classes", function() {
 					},
 					{
 						name: "beta",
-						fields: { bar: 30 },
+						fields: { bar: { value: 30 }},
 					}
-				]});
+				]}, false);
 
 				assert.deepEqual(testInstance.serialize(), {
 					groups: [
@@ -514,7 +558,7 @@ describe("lib/config/classes", function() {
 						},
 						{
 							name: "beta",
-							fields: { bar: 30 },
+							fields: { bar: { value: 30 }},
 						}
 					],
 				});
@@ -563,5 +607,35 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		describe("fieldChanged event", function() {
+			let testInstance;
+			let called;
+			beforeEach(async function() {
+				testInstance = new TestConfig();
+				await testInstance.init();
+
+				called = false;
+				testInstance.once("fieldChanged", (group, field, prev) => {
+					if (group.name === "beta" && field === "bar") {
+						called = true;
+					}
+				});
+			});
+
+			it("should be called when setting a field", async function() {
+				testInstance.set("beta.bar", { value: 1 });
+				assert(called, "fieldChanged was not called");
+			});
+
+			it("should be called when updating a config", async function() {
+				testInstance.update({ groups: [{ name: "beta", fields: { bar: { value: 1 }}}]}, true);
+				assert(called, "fieldChanged was not called");
+			});
+
+			it("should be called when setting a prop", async function() {
+				testInstance.setProp("beta.bar", "value", 2);
+				assert(called, "fieldChanged was not called");
+			});
+		});
 	});
 });
