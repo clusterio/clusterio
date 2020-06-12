@@ -13,7 +13,7 @@ describe("Integration of lib/link", function() {
 		control = new TestControl(controlConnector);
 		await assert.rejects(
 			controlConnector.connect(),
-			new Error("Authentication failed")
+			new Error("Authentication failed: jwt malformed")
 		);
 	});
 

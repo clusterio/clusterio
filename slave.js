@@ -1275,14 +1275,19 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startSlave().catch(err => {
-		console.error(`
+		if (err instanceof errors.AuthenticationFailed) {
+			console.error(err.message);
+
+		} else {
+			console.error(`
 +--------------------------------------------------------------+
 | Unexpected error occured while starting slave, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues  |
 +--------------------------------------------------------------+`
-		);
+			);
+			console.error(err);
+		}
 
-		console.error(err);
 		process.exit(1);
 	});
 }
