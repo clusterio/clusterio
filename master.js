@@ -187,7 +187,7 @@ async function uploadExport(req, res, next) {
 	}
 	data = Buffer.concat(data);
 	let zip = await JSZip.loadAsync(data);
-	delete data;
+	data = null;
 
 	// This is hardcoded to prevent path expansion attacks
 	let exportFiles = [
