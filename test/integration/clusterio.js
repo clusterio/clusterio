@@ -4,7 +4,9 @@ const path = require("path");
 const validateHTML = require('html5-validator');
 const parallel = require('mocha.parallel');
 
-const { slowTest, get, exec, sendRcon, controlConfigPath, instancesDir } = require("./index");
+const link = require("lib/link");
+
+const { slowTest, get, exec, sendRcon, getControl, controlConfigPath, instancesDir } = require("./index");
 
 
 describe("Integration of Clusterio", function() {
@@ -180,6 +182,78 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} delete-instance --instance test`);
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance was not deleted");
+			});
+		});
+
+		describe("list-permissions", function() {
+			it("runs", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} list-permissions`);
+			});
+		});
+
+		describe("list-roles", function() {
+			it("runs", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} list-roles`);
+			});
+		});
+
+		describe("create-role", function() {
+			it("should create the given role", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} create-role --name temp --description "A temp role" --permissions core.control.connect`);
+				let result = await link.messages.listRoles.send(getControl());
+				let role = result.list.find(role => role.name === "temp");
+				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"]});
+			});
+		});
+
+		describe("edit-role", function() {
+			it("should modify the given role", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} edit-role --role temp --name new --description "A new role" --permissions`);
+				let result = await link.messages.listRoles.send(getControl());
+				let role = result.list.find(role => role.name === "new");
+				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: []});
+			});
+		});
+
+		describe("delete-role", function() {
+			it("should modify the given role", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} delete-role --role new`);
+				let result = await link.messages.listRoles.send(getControl());
+				let role = result.list.find(role => role.name === "new");
+				assert(!role, "Role was not deleted");
+			});
+		});
+
+		describe("list-users", function() {
+			it("runs", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} list-users`);
+			});
+		});
+
+		describe("create-user", function() {
+			it("should create the given user", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} create-user --name temp`);
+				let result = await link.messages.listUsers.send(getControl());
+				let user = result.list.find(user => user.name === "temp");
+				assert(user, "user was not created");
+			});
+		});
+
+		describe("edit-user-roles", function() {
+			it("should set the roles on the user", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} edit-user-roles --name temp --roles Admin`);
+				let result = await link.messages.listUsers.send(getControl());
+				let user = result.list.find(user => user.name === "temp");
+				assert.deepEqual(user.roles, [0]);
+			});
+		});
+
+		describe("delete-user", function() {
+			it("should delete the user", async function() {
+				await exec(`node clusterctl --config ${controlConfigPath} delete-user --name temp`);
+				let result = await link.messages.listUsers.send(getControl());
+				let user = result.list.find(user => user.name === "temp");
+				assert(!user, "user was note deleted");
 			});
 		});
 	});

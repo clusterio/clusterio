@@ -192,7 +192,22 @@ After following the installation instructions you can use the following
 commands to run Clusterio.
 
 
-### Master Server
+### Setting up an admin account
+
+Before you can manage the cluster you need to bootstrap an admin account
+for it.  Replace `<username>` with your Factorio username (do not make
+up a new username here).
+
+    node master bootstrap create-admin <username>
+    node master bootstrap create-ctl-config <username>
+
+The first command creates a user account with the given name and
+promotes it to a cluster admin.  The second one sets up a
+`config-control.json` config for clusterctl to connect to the master
+server under the given user account.
+
+
+### Running the master Server
 
 It's necessary to run the master server in order for anything to work.
 Once you've completed the setup run the following command to start it
@@ -205,22 +220,21 @@ up:
 
 Slaves connect to the master server and are managed remotely from the
 master server.  In order for slaves to connect to the master server they
-need an authentication token from the master server.  This token is
-written to secret-api-token.txt on the master server when it is started
-up.
+need a valid authentication token, you can create a slave config with
+a valid token with the following command.
 
-To set up the configuration for a new local slave run the following.
-
-    node slave config set slave.name "Local"
-    node slave config set slave.master_token "<token>"
+    node clusterctl create-slave-config --name Local --generate-token
 
 This will write a new `config-slave.json` file in the current directory
-(you can change the location with the `--config` option) with the name
-and token provided.  If you are connecting to a remote master server you
-will also need to set the `slave.master_url` option to that url.
+(you can change the location with the `--output` option) with the name,
+token and url to connect to the master server with.  If you are making
+the config for a remote slave you will need to have set the
+`master.external_address` option to the URL the master server can be
+reached on.
 
-You can list the config of a slave with the `node slave config list`
-command.  Use `node slave config --help` for more information.
+You can list the config of a slave on the slave itself with the `node
+slave config list` command.  Use `node slave config --help` for more
+information.
 
 Once the config is set up run the slave with
 

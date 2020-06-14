@@ -46,9 +46,7 @@ const errors = require("lib/errors");
 const plugin = require("lib/plugin");
 const prometheus = require("lib/prometheus");
 const config = require("lib/config");
-
-// homemade express middleware for token auth
-const authenticate = require("lib/authenticate");
+const users = require("lib/users");
 
 const express = require("express");
 const compression = require('compression');
@@ -78,7 +76,8 @@ app.set('views', ['views', 'plugins']);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
-	res.locals.root = masterConfig.get("master.web_root");
+	let externalAddress = masterConfig.get("master.external_address");
+	res.locals.root = externalAddress ? new URL(externalAddress).pathname : "/";
 	res.locals.res = res;
 	res.locals.req = req;
 	res.locals.masterPlugins = masterPlugins;
@@ -173,6 +172,25 @@ async function getMetrics(req, res, next) {
 }
 app.get('/metrics', (req, res, next) => getMetrics(req, res, next).catch(next));
 
+
+function validateSlaveToken(req, res, next) {
+	let token = req.header("x-access-token");
+	if (!token) {
+		res.sendStatus(401);
+		return;
+	}
+
+	try {
+		jwt.verify(token, masterConfig.get("master.auth_secret"), { audience: "slave" });
+
+	} catch (err) {
+		res.sendStatus(401);
+		return;
+	}
+
+	next();
+}
+
 // Handle an uploaded export package.
 async function uploadExport(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -209,7 +227,7 @@ async function uploadExport(req, res, next) {
 	res.sendStatus(200);
 }
 app.put("/api/upload-export",
-	authenticate.middleware,
+	validateSlaveToken,
 	(req, res, next) => uploadExport(req, res, next).catch(next)
 );
 
@@ -257,6 +275,54 @@ async function loadInstances(databaseDirectory, file) {
 	return instances;
 }
 
+async function loadUsers(databaseDirectory, file) {
+	let loadedRoles = new Map();
+	let loadedUsers = new Map();
+	try {
+		let content = JSON.parse(await fs.readFile(path.join(databaseDirectory, file)));
+		for (let serializedRole of content.roles) {
+			let role = new users.Role(serializedRole);
+			loadedRoles.set(role.id, role);
+		}
+
+		for (let serializedUser of content.users) {
+			let user = new users.User(serializedUser, loadedRoles);
+			loadedUsers.set(user.name, user);
+		}
+
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			throw err;
+		}
+
+		// Create default roles if loading failed
+		users.ensureDefaultAdminRole(loadedRoles);
+		users.ensureDefaultPlayerRole(loadedRoles);
+	}
+
+	db.roles = loadedRoles;
+	db.users = loadedUsers;
+}
+
+/**
+ * Create a new user
+ *
+ * Creates a new user instances and add it to the user database.
+ *
+ * @param {string} name - Name of the user to create.
+ * @returns {module:lib/users.User} newly created user.
+ */
+function createUser(name) {
+	if (db.users.has(name)) {
+		throw new Error(`User '${name}' already exists`)
+	}
+
+	let defaultRoleId = masterConfig.get("master.default_role_id");
+	user = new users.User({ name, roles: [defaultRoleId] }, db.roles);
+	db.users.set(name, user);
+	return user;
+}
+
 /**
  * Save Map to JSON file in the database directory.
  */
@@ -276,6 +342,25 @@ async function saveInstances(databaseDirectory, file, instances) {
 	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
 }
 
+async function saveUsers(databaseDirectory, file) {
+	let filePath = path.join(databaseDirectory, file);
+	let serializedRoles = [];
+	for (let role of db.roles.values()) {
+		serializedRoles.push(role.serialize());
+	}
+
+	let serializedUsers = [];
+	for (let user of db.users.values()) {
+		serializedUsers.push(user.serialize());
+	}
+
+	let serialized = {
+		users: serializedUsers,
+		roles: serializedRoles,
+	};
+	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
+}
+
 /**
  * Innitiate shutdown of master server
  */
@@ -288,6 +373,7 @@ async function shutdown() {
 
 		await saveMap(masterConfig.get('master.database_directory'), "slaves.json", db.slaves);
 		await saveInstances(masterConfig.get('master.database_directory'), "instances.json", db.instances);
+		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
 
 		await plugin.invokeHook(masterPlugins, "onShutdown");
 
@@ -442,11 +528,17 @@ class BaseConnection extends link.Link {
 
 let controlConnections = new Array();
 class ControlConnection extends BaseConnection {
-	constructor(registerData, connector) {
+	constructor(registerData, connector, user) {
 		super('control', connector)
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
+
+		/**
+		 * The user making this connection.
+		 * @type {module:lib/user.User}
+		 */
+		this.user = user;
 
 		this.connector.on("close", () => {
 			let index = controlConnections.indexOf(this);
@@ -480,6 +572,32 @@ class ControlConnection extends BaseConnection {
 			});
 		}
 		return { list };
+	}
+
+	generateSlaveToken(slaveId) {
+		return jwt.sign({ aud: "slave", slave: slaveId }, masterConfig.get("master.auth_secret"));
+	}
+
+	async generateSlaveTokenRequestHandler(message) {
+		return { token: generateSlaveToken(message.data.slave_id) };
+	}
+
+	async createSlaveConfigRequestHandler(message) {
+		let slaveConfig = new config.SlaveConfig();
+		await slaveConfig.init();
+
+		slaveConfig.set("slave.master_url", getMasterUrl());
+		if (message.data.id !== null) {
+			slaveConfig.set("slave.id", message.data.id);
+		}
+		if (message.data.name !== null) {
+			slaveConfig.set("slave.name", message.data.name);
+		}
+		if (message.data.generate_token) {
+			this.user.checkPermission("core.slave.generate_token");
+			slaveConfig.set("slave.master_token", this.generateSlaveToken(slaveConfig.get("slave.id")));
+		}
+		return { serialized_config: slaveConfig.serialize() };
 	}
 
 	async listInstancesRequestHandler(message) {
@@ -602,6 +720,115 @@ class ControlConnection extends BaseConnection {
 		this.instanceOutputSubscriptions = new Set(message.data.instance_ids);
 	}
 
+	async listPermissionsRequestHandler(message) {
+		let list = [];
+		for (let permission of users.permissions.values()) {
+			list.push({
+				name: permission.name,
+				title: permission.title,
+				description: permission.description,
+			});
+		}
+		return { list };
+	}
+
+	async listRolesRequestHandler(message) {
+		let list = [];
+		for (let role of db.roles.values()) {
+			list.push({
+				id: role.id,
+				name: role.name,
+				description: role.description,
+				permissions: [...role.permissions],
+			});
+		}
+		return { list };
+	}
+
+	async createRoleRequestHandler(message) {
+		let lastId = Math.max.apply(null, [...db.roles.keys()]);
+
+		// Start at 5 to leave space for future default roles
+		let id = Math.max(5, lastId+1);
+		db.roles.set(id, new users.Role({ id, ...message.data}));
+		return { id };
+	}
+
+	async updateRoleRequestHandler(message) {
+		let { id, name, description, permissions } = message.data;
+		let role = db.roles.get(id);
+		if (!role) {
+			throw new errors.RequestError(`Role with ID ${id} does not exist`);
+		}
+
+		role.name = name;
+		role.description = description;
+		role.permissions = new Set(permissions);
+	}
+
+	async grantDefaultRolePermissionsRequestHandler(message) {
+		let role = db.roles.get(message.data.id);
+		if (!role) {
+			throw new errors.RequestError(`Role with ID ${message.data.id} does not exist`);
+		}
+
+		role.grantDefaultPermissions();
+	}
+
+	async deleteRoleRequestHandler(message) {
+		let id = message.data.id;
+		let role = db.roles.get(id);
+		if (!role) {
+			throw new errors.RequestError(`Role with ID ${id} does not exist`);
+		}
+
+		db.roles.delete(id);
+		for (let user of db.users.values()) {
+			user.roles.delete(role);
+		}
+	}
+
+	async listUsersRequestHandler(message) {
+		let list = [];
+		for (let user of db.users.values()) {
+			list.push({
+				name: user.name,
+				roles: [...user.roles].map(role => role.id),
+				instances: [...user.instances],
+			});
+		}
+		return { list };
+	}
+
+	async createUserRequestHandler(message) {
+		createUser(message.data.name);
+	}
+
+	async updateUserRolesRequestHandler(message) {
+		let user = db.users.get(message.data.name);
+		if (!user) {
+			throw new errors.RequestError(`User '${message.data.name}' does not exist`);
+		}
+
+		let resolvedRoles = new Set();
+		for (let roleId of message.data.roles) {
+			let role = db.roles.get(roleId);
+			if (!role) {
+				throw new errors.RequestError(`Role with ID ${roleId} does not exist`);
+			}
+
+			resolvedRoles.add(role);
+		}
+
+		user.roles = resolvedRoles;
+	}
+
+	async deleteUserRequestHandler(message) {
+		if (!db.users.delete(message.data.name)) {
+			throw new errors.RequestError(`User '${message.data.name}' does not exist`);
+		}
+	}
+
 	async debugDumpWsRequestHandler(message) {
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
@@ -721,6 +948,23 @@ class SlaveConnection extends BaseConnection {
 				link.messages.instanceOutput.send(controlConnection, message.data);
 			}
 		}
+	}
+
+	async playerEventEventHandler(message) {
+		let {instance_id, name, type} = message.data;
+		let user = db.users.get(name);
+		if (!user) {
+			user = createUser(name);
+		}
+
+		if (type === "join") {
+			user.notifyJoin(instance_id);
+		} else if (type === "leave") {
+			user.notifyLeave(instance_id);
+		}
+
+		let instance = db.instances.get(instance_id);
+		await plugin.invokeHook(masterPlugins, "onPlayerEvent", instance, message.data);
 	}
 }
 
@@ -1049,12 +1293,41 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		return;
 	}
 
-	let result = await authenticate.check(data.token);
+	// Validate token
+	let user;
+	try {
+		if (type === "register_slave") {
+			let tokenPayload = jwt.verify(
+				data.token,
+				masterConfig.get("master.auth_secret"),
+				{ audience: "slave" }
+			);
 
-	if (!result.ok) {
+			if (tokenPayload.slave !== data.id) {
+				throw new Error("missmatched slave id");
+			}
+
+		} else if (type === "register_control") {
+			let tokenPayload = jwt.verify(
+				data.token,
+				masterConfig.get("master.auth_secret"),
+				{ audience: "user" }
+			);
+
+			user = db.users.get(tokenPayload.user);
+			if (!user) {
+				throw new Error("invalid user");
+			}
+			if (tokenPayload.iat < user.tokenValidAfter) {
+				throw new Error("invalid token");
+			}
+			user.checkPermission("core.control.connect");
+		}
+
+	} catch (err) {
 		console.error(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
 		wsRejectedConnectionsCounter.inc();
-		socket.close(4003, "Authentication failed");
+		socket.close(4003, `Authentication failed: ${err.message}`);
 		return;
 	}
 
@@ -1076,7 +1349,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 
 	} else if (type === "register_control") {
 		console.log(`SOCKET | registered control from ${req.socket.remoteAddress}`);
-		controlConnections.push(new ControlConnection(data, connector));
+		controlConnections.push(new ControlConnection(data, connector, user));
 	}
 
 	connector.ready(sessionToken);
@@ -1156,6 +1429,21 @@ function _setConfig(config) {
 	masterConfig = config;
 }
 
+/**
+ * Returns the URL needed to connect to the master server.
+ */
+function getMasterUrl() {
+	let url = masterConfig.get("master.external_address")
+	if (!url) {
+		if (masterConfig.get("master.https_port")) {
+			url = `https://localhost:${masterConfig.get("master.https_port")}/`;
+		} else {
+			url = `http://localhost:${masterConfig.get("master.http_port")}/`;
+		}
+	}
+	return url;
+}
+
 async function startServer() {
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
@@ -1175,6 +1463,17 @@ async function startServer() {
 			type: "string",
 		})
 		.command("config", "Manage Master config", config.configCommand)
+		.command("bootstrap", "Bootstrap access to cluster", yargs => {
+			yargs
+				.command("create-admin <name>", "Create a cluster admin")
+				.command("create-ctl-config <name>", "Create clusterctl config for the given user", yargs => {
+					yargs.option("output", {
+						describe: "Path to output config (- for stdout)", type: "string",
+						nargs: 1, default: "config-control.json",
+					});
+				})
+				.demandCommand(1, "You need to specify a command to run")
+		})
 		.command("run", "Run master server")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -1206,14 +1505,54 @@ async function startServer() {
 	if (command === "config") {
 		await config.handleConfigCommand(args, masterConfig, masterConfigPath);
 		return;
+
+	} else if (command === "bootstrap") {
+		let subCommand = args._[1];
+		await loadUsers(masterConfig.get("master.database_directory"), "users.json");
+		if (subCommand === "create-admin") {
+			if (!args.name) {
+				console.error("name cannot be blank");
+				process.exitCode = 1;
+				return;
+			}
+
+			let admin = db.users.get(args.name);
+			if (!admin) {
+				admin = createUser(args.name);
+			}
+
+			let adminRole = users.ensureDefaultAdminRole(db.roles);
+			admin.roles.add(adminRole);
+			await saveUsers(masterConfig.get("master.database_directory"), "users.json");
+
+		} else if (subCommand === "create-ctl-config") {
+			let admin = db.users.get(args.name);
+			if (!admin) {
+				console.error(`No user named '${args.name}'`);
+				process.exitCode = 1;
+				return;
+			}
+			let controlConfig = new config.ControlConfig();
+			await controlConfig.init();
+
+			controlConfig.set("control.master_url", getMasterUrl());
+			controlConfig.set("control.master_token", admin.createToken(masterConfig.get("master.auth_secret")));
+
+			let content = JSON.stringify(controlConfig.serialize(), null, 4);
+			if (args.output === "-") {
+				console.log(content);
+			} else {
+				console.log(`Writing ${args.output}`);
+				await fs.outputFile(args.output, content);
+			}
+		}
+
+		// Save config in case the auth_secret was generated during this invocation.
+		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
+		return;
 	}
 
 	// If we get here the command was run
-
-	// write an auth token to file
-	fs.writeFileSync("secret-api-token.txt", jwt.sign({ id: "api" }, masterConfig.get('master.auth_secret'), {
-		expiresIn: 86400*365 // expires in 1 year
-	}));
 
 	let secondSigint = false
 	process.on('SIGINT', () => {
@@ -1238,8 +1577,7 @@ async function startServer() {
 
 	db.slaves = await loadMap(masterConfig.get('master.database_directory'), "slaves.json");
 	db.instances = await loadInstances(masterConfig.get('master.database_directory'), "instances.json");
-
-	authenticate.setAuthSecret(masterConfig.get('master.auth_secret'));
+	await loadUsers(masterConfig.get("master.database_directory"), "users.json");
 
 	// Make sure we're actually going to listen on a port
 	let httpPort = masterConfig.get('master.http_port');

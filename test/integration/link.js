@@ -1,8 +1,10 @@
 const assert = require("assert").strict;
 const events = require("events");
+const jwt = require("jsonwebtoken");
 
-const { TestControlConnector, TestControl, get, exec, url, token } = require("./index");
+const { TestControlConnector, TestControl, get, exec, url } = require("./index");
 
+let token = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
 
 describe("Integration of lib/link", function() {
 	let control;

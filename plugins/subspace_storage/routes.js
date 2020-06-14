@@ -1,7 +1,6 @@
 const express = require("express");
 const path = require("path");
 
-const authenticate = require("lib/authenticate");
 const prometheus = require("lib/prometheus");
 
 

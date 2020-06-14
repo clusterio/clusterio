@@ -13,3 +13,14 @@ it.  Mods on the other hand work without modifications.
 with a patcher called Hotpatch, but due to the difficulty in supporting
 run time patching and the lack of documentation it was replace it with
 save patching instead.</sub>
+
+
+User Accounts
+-------------
+
+The master server creates and stores accounts for all Factorio users
+that log into instances under its control.  These accounts are used to
+store per player data and authorize management of the cluster.  By
+default users accounts are assigned a Player role that gives a limited
+read access to the cluster resources, and admins of the cluster can be
+assigned an Admin role to get access to manage it.

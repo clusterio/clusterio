@@ -54,7 +54,7 @@ let slaveProcess;
 let control;
 
 let url = "https://localhost:4443/";
-let token = jwt.sign({ id: "api" }, "TestSecretDoNotUse");
+let controlToken = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
 let instancesDir = path.join("temp", "test", "instances");
 let databaseDir = path.join("temp", "test", "databse");
 let masterConfigPath = path.join("temp", "test", "master-integration.json");
@@ -69,6 +69,10 @@ async function exec(...args) {
 async function sendRcon(instanceId, command) {
 	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command })
 	return response.result;
+}
+
+function getControl() {
+	return control;
 }
 
 function spawn(name, cmd, waitFor) {
@@ -111,20 +115,18 @@ before(async function() {
 	await exec(`node master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
 	await exec(`node master --config ${masterConfigPath} config set master.connector_shutdown_timeout 2`);
 
-	await exec(`node slave --config ${slaveConfigPath} config set slave.id 4`);
-	await exec(`node slave --config ${slaveConfigPath} config set slave.name slave`);
-	await exec(`node slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
-	await exec(`node slave --config ${slaveConfigPath} config set slave.master_url "${url}"`);
-	await exec(`node slave --config ${slaveConfigPath} config set slave.master_token "${token}"`);
-
-	await exec(`node clusterctl --config ${controlConfigPath} control-config set control.master_url "https://localhost:4443/"`);
-	await exec(`node clusterctl --config ${controlConfigPath} control-config set control.master_token "${token}"`);
+	await exec(`node master --config ${masterConfigPath} bootstrap create-admin test`);
+	await exec(`node master --config ${masterConfigPath} bootstrap create-ctl-config test --output ${controlConfigPath}`);
 
 	masterProcess = await spawn("master:", `node master --config ${masterConfigPath} run`, "All plugins loaded");
+
+	await exec(`node clusterctl --config ${controlConfigPath} create-slave-config --id 4 --name slave --generate-token --output ${slaveConfigPath}`);
+	await exec(`node slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
+
 	slaveProcess = await spawn("slave:", `node slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
 
 	let controlConnector = new TestControlConnector(url, 2);
-	controlConnector.token = token;
+	controlConnector.token = controlToken;
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
 });
@@ -157,10 +159,9 @@ module.exports = {
 	get,
 	exec,
 	sendRcon,
-	control,
+	getControl,
 
 	url,
-	token,
 	instancesDir,
 	databaseDir,
 	masterConfigPath,

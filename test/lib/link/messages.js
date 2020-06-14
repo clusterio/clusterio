@@ -24,7 +24,7 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Request({ forwardTo: 'invalid'}),
+					() => new link.Request({ links: [], forwardTo: 'invalid'}),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});

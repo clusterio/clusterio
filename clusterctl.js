@@ -134,6 +134,47 @@ async function resolveSlave(client, slaveName) {
 	return slaveId;
 }
 
+/**
+ * Resolve a string into a role object
+ *
+ * Resolves a string with either a role name or an id into an object
+ * representing the role.
+ *
+ * @param client - link to master server to query role on.
+ * @param roleName - string with name or id of role.
+ * @returns {Object} Role info.
+ * @private
+ */
+async function resolveRole(client, roleName) {
+	let response = await link.messages.listRoles.send(client);
+
+	let resolvedRole;
+	if (/^-?\d+$/.test(roleName)) {
+		let roleId = parseInt(roleName, 10);
+		for (let role of response.list) {
+			if (role.id === roleId) {
+				resolvedRole = role;
+				break;
+			}
+		}
+
+	} else {
+		for (let role of response.list) {
+			if (role.name === roleName) {
+				resolvedRole = role;
+				break;
+			}
+		}
+	}
+
+	if (!resolvedRole) {
+		throw new errors.CommandError(`No role named ${roleName}`);
+	}
+
+	return resolvedRole;
+}
+
+
 let commands = [];
 commands.push(new Command({
 	definition: ["list-slaves", "List slaves connected to the master"],
@@ -142,6 +183,50 @@ commands.push(new Command({
 		console.log(asTable(response.list));
 	},
 }));
+
+commands.push(new Command({
+	definition: ["generate-slave-token", "Generate token for a slave", (yargs) => {
+		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", demandOption: true });
+	}],
+	handler: async function(args, control) {
+		let response = await link.messages.generateSlaveToken.send(control, { slave_id: args.id });
+		console.log(response.token);
+	},
+}));
+
+commands.push(new Command({
+	definition: ["create-slave-config", "Create slave config", (yargs) => {
+		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", default: null });
+		yargs.option("name", { type: "string", nargs: 1, describe: "Slave name", default: null });
+		yargs.option("generate-token", {
+			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false
+		});
+		yargs.option("output", {
+			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json"
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await link.messages.createSlaveConfig.send(control, {
+			id: args.id, name: args.name, generate_token: args.generateToken,
+		});
+
+		let content = JSON.stringify(response.serialized_config, null, 4);
+		if (args.output === "-") {
+			console.log(content);
+		} else {
+			console.log(`Writing ${args.output}`);
+			try {
+				await fs.outputFile(args.output, content, { flag: "wx" });
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					throw new errors.CommandError(`File ${args.output} already exists`);
+				}
+				throw err;
+			}
+		}
+	},
+}));
+
 
 commands.push(new Command({
 	definition: ["list-instances", "List instances known to the master"],
@@ -354,6 +439,149 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
+	definition: ["list-permissions", "List permissions in the cluster"],
+	handler: async function(args, control) {
+		let response = await link.messages.listPermissions.send(control);
+		console.log(asTable(response.list));
+	},
+}));
+
+commands.push(new Command({
+	definition: ["list-roles", "List roles in the cluster"],
+	handler: async function(args, control) {
+		let response = await link.messages.listRoles.send(control);
+		console.log(asTable(response.list));
+	},
+}));
+
+commands.push(new Command({
+	definition: ["create-role", "Create a new role", (yargs) => {
+		yargs.options({
+			"name": { describe: "Name of role to create", nargs: 1, type: "string", demandOption: true },
+			"description": { describe: "Description for role", nargs: 1, type: "string", default: "" },
+			"permissions": { describe: "Permissions role grants", nargs: 1, array: true, type: "string", default: [] },
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await link.messages.createRole.send(control, {
+			name: args.name,
+			description: args.description,
+			permissions: args.permissions
+		});
+		console.log(`Created role ID ${response.id}`);
+	},
+}));
+
+commands.push(new Command({
+	definition: ["edit-role", "Edit existing role", (yargs) => {
+		yargs.options({
+			"role": { describe: "Role to edit", nargs: 1, type: "string", demandOption: true },
+			"name": { describe: "New name for role", nargs: 1, type: "string" },
+			"description": { describe: "New description for role", nargs: 1, type: "string" },
+			"permissions": { describe: "New permissions for role", array: true, type: "string" },
+			"grant-default": { describe: "Add default permissions to role", nargs: 0, type: "boolean" },
+		});
+	}],
+	handler: async function(args, control) {
+		let role = await resolveRole(control, args.role);
+
+		if (args.name !== undefined) {
+			role.name = args.name;
+		}
+		if (args.description !== undefined) {
+			role.description = args.description;
+		}
+		if (args.permissions !== undefined) {
+			role.permissions = args.permissions;
+		}
+		await link.messages.updateRole.send(control, role);
+
+		if (args.grantDefault) {
+			await link.messages.grantDefaultRolePermissions.send(control, { id: role.id });
+		}
+	},
+}));
+
+commands.push(new Command({
+	definition: ["delete-role", "Delete role", (yargs) => {
+		yargs.options({
+			"role": { describe: "Role to delete", nargs: 1, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let role = await resolveRole(control, args.role)
+		await link.messages.deleteRole.send(control, { id: role.id });
+	},
+}));
+
+
+commands.push(new Command({
+	definition: ["list-users", "List user in the cluster"],
+	handler: async function(args, control) {
+		let response = await link.messages.listUsers.send(control);
+		console.log(asTable(response.list));
+	},
+}));
+
+commands.push(new Command({
+	definition: ["create-user", "Create a user", (yargs) => {
+		yargs.options({
+			"name": { describe: "Name of user to create", nargs: 1, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		await link.messages.createUser.send(control, { name: args.name });
+	},
+}));
+
+commands.push(new Command({
+	definition: ["edit-user-roles", "Edit user roles", (yargs) => {
+		yargs.options({
+			"name": { describe: "Name of user to change roles for", nargs: 1, type: "string", demandOption: true },
+			"roles": { describe: "roles to assign", array: true, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await link.messages.listRoles.send(control);
+
+		let resolvedRoles = [];
+		for (let roleName of args.roles) {
+			if (/^-?\d+$/.test(roleName)) {
+				let roleId = parseInt(roleName, 10);
+				resolvedRoles.push(roleId);
+
+			} else {
+				let found = false;
+				for (let role of response.list) {
+					if (role.name === roleName) {
+						resolvedRoles.push(role.id);
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					throw new errors.CommandError(`No role named ${roleName}`);
+				}
+			}
+		}
+
+		await link.messages.updateUserRoles.send(control, { name: args.name, roles: resolvedRoles });
+	},
+}));
+
+commands.push(new Command({
+	definition: ["delete-user", "Delete user", (yargs) => {
+		yargs.options({
+			"name": { describe: "Name of user to delete", nargs: 1, type: "string", demandOption: true },
+		});
+	}],
+	handler: async function(args, control) {
+		await link.messages.deleteUser.send(control, { name: args.name });
+	},
+}));
+
+commands.push(new Command({
 	definition: ["debug-dump-ws", "Dump WebSocket messages sent and received by master", (yargs) => { }],
 	handler: async function(args, control) {
 		await link.messages.debugDumpWs.send(control);
@@ -423,52 +651,6 @@ class Control extends link.Link {
 	}
 }
 
-async function findCredentials(controlConfig) {
-	// Try looking in the default master config location
-	try {
-		let masterConfig = new config.MasterConfig();
-		await masterConfig.load(JSON.parse(await fs.readFile("config-master.json")));
-
-		let token = jwt.sign({ id: "api" }, masterConfig.get("master.auth_secret"), { expiresIn: 600 });
-		controlConfig.set("control.master_token", token);
-
-		let url;
-		if (masterConfig.get("master.https_port")) {
-			url = `https://localhost:${masterConfig.get("master.https_port")}`;
-		} else {
-			url = `http://localhost:${masterConfig.get("master.http_port")}`;
-		}
-		controlConfig.set("control.master_url", url);
-
-		return;
-
-	} catch (err) {
-		if (err.code !== "ENOENT") {
-			throw err;
-		}
-	}
-
-	// Try looking in the default slave config location
-	// In the future it's likely that tokens will be assigned more granular
-	// authorizations, meaning that you cannot use a slave token to control
-	// the cluster.
-	try {
-		let slaveConfig = new config.SlaveConfig();
-		await slaveConfig.load(JSON.parse(await fs.readFile("config-slave.json")));
-
-		controlConfig.set("control.master_token", slaveConfig.get("slave.master_token"));
-		controlConfig.set("control.master_url", slaveConfig.get("slave.master_url"));
-		return;
-
-	} catch (err) {
-		if (err.code !== "ENOENT") {
-			throw err;
-		}
-	}
-
-	throw new errors.StartupError("Couldn't find credentials to connect to the master server with");
-}
-
 
 async function startControl() {
 	yargs
@@ -519,7 +701,9 @@ async function startControl() {
 
 	// The remaining commands require connecting to the master server.
 	if (!controlConfig.get("control.master_url") || !controlConfig.get("control.master_token")) {
-		await findCredentials(controlConfig);
+		console.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
+		process.exitCode = 1;
+		return;
 	}
 
 	let controlConnector = new ControlConnector(

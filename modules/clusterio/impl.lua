@@ -23,6 +23,16 @@ impl.events[api.events.on_server_startup] = function()
     game.disable_replay()
 end
 
+impl.events[defines.events.on_player_joined_game] = function(event)
+    local player = game.players[event.player_index]
+    api.send_json("player_event", { type = "join", name = player.name })
+end
+
+impl.events[defines.events.on_player_left_game] = function(event)
+    local player = game.players[event.player_index]
+    api.send_json("player_event", { type = "leave", name = player.name })
+end
+
 -- Internal API
 clusterio_private = {}
 function clusterio_private.update_instance(new_id, new_name)
