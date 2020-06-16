@@ -258,15 +258,15 @@ describe("lib/prometheus", function() {
 			});
 			it("should require all labels set at creation", function() {
 				assert.throws(
-					() => gauge.labels({a: "1"}),
+					() => gauge.labels({ a: "1" }),
 					new Error("Missing label 'b'")
 				);
 				assert.throws(
-					() => gauge.labels({b: "1"}),
+					() => gauge.labels({ b: "1" }),
 					new Error("Missing label 'a'")
 				);
 				assert.throws(
-					() => gauge.labels({a: "1", b: "2", c: "3"}),
+					() => gauge.labels({ a: "1", b: "2", c: "3" }),
 					new Error("Extra label 'c'")
 				);
 				assert.throws(
@@ -280,7 +280,7 @@ describe("lib/prometheus", function() {
 			});
 			it("should throw if label value is not a string", function() {
 				assert.throws(
-					() => gauge.labels({a: "1", b: 2}),
+					() => gauge.labels({ a: "1", b: 2 }),
 					new Error("Expected value for label 'b' to be a string")
 				);
 				assert.throws(
@@ -289,13 +289,13 @@ describe("lib/prometheus", function() {
 				);
 			});
 			it("should initialize a value for the label set", function() {
-				gauge.labels({ a: "1", b: "2"});
+				gauge.labels({ a: "1", b: "2" });
 				assert(gauge._values.has('a="1",b="2"'), "value was not set");
 				gauge.labels("4", "5");
 				assert(gauge._values.has('a="4",b="5"'), "value was not set");
 			});
 			it("should return a child supporting the usual methods", function() {
-				let child = gauge.labels({ a: "1", b: "2"});
+				let child = gauge.labels({ a: "1", b: "2" });
 				child.get();
 				child.inc();
 				child.dec();
@@ -316,8 +316,8 @@ describe("lib/prometheus", function() {
 				let gauge = new prometheus.Gauge(
 					"test", "Help", { register: false, labels: ["a", "b"] }
 				);
-				gauge.labels({ a: "1", b: "2"});
-				gauge.remove({ a: "1", b: "2"});
+				gauge.labels({ a: "1", b: "2" });
+				gauge.remove({ a: "1", b: "2" });
 				assert(!gauge._values.has('a="1",b="2"'), "value was not removed");
 			});
 			it("should throw when removing the empty label set", function() {
@@ -335,7 +335,7 @@ describe("lib/prometheus", function() {
 				gauge.labels("1", "2");
 				gauge.labels("1", "3");
 				gauge.labels("4", "6");
-				gauge.removeAll({a: "1"});
+				gauge.removeAll({ a: "1" });
 				assert(gauge._values.size <= 1, "Matching labels remained");
 				assert(
 					gauge._values.has('a="4",b="6"'),
@@ -353,7 +353,7 @@ describe("lib/prometheus", function() {
 					"test", "Help", { register: false, labels: ["a", "b"] }
 				);
 				gauge.labels('x\\\\\n\"\"\n\\', "2");
-				gauge.removeAll({a: 'x\\\\\n\"\"\n\\'});
+				gauge.removeAll({ a: 'x\\\\\n\"\"\n\\' });
 				assert(gauge._values.size === 0, "Matching labels remained");
 			});
 		});
@@ -362,9 +362,9 @@ describe("lib/prometheus", function() {
 				let gauge = new prometheus.Gauge(
 					"test", "Help", { register: false, labels: ["a", "b"] }
 				);
-				gauge.labels({ a: "1", b: "2"});
-				gauge.labels({ a: "3", b: "4"});
-				gauge.labels({ a: "5", b: "6"});
+				gauge.labels({ a: "1", b: "2" });
+				gauge.labels({ a: "3", b: "4" });
+				gauge.labels({ a: "5", b: "6" });
 				gauge.clear();
 				assert(gauge._values.size == 0, "values was not cleared");
 			});
@@ -485,10 +485,10 @@ describe("lib/prometheus", function() {
 		it("should format labeled metrics", async function() {
 			let registry = new prometheus.CollectorRegistry();
 			let gauge = new prometheus.Gauge(
-				"test", "Help", { register: false, labels: ["a", "b"]}
+				"test", "Help", { register: false, labels: ["a", "b"] }
 			);
-			gauge.labels({a: "1", b: "2"});
-			gauge.labels({b: "y", a: "x"});
+			gauge.labels({ a: "1", b: "2" });
+			gauge.labels({ b: "y", a: "x" });
 			registry.register(gauge);
 			let exposition = await prometheus.exposition(registry.collect());
 			assert.equal(
@@ -502,11 +502,11 @@ describe("lib/prometheus", function() {
 		it("should format Infinity and NaN", async function() {
 			let registry = new prometheus.CollectorRegistry();
 			let gauge = new prometheus.Gauge(
-				"test", "Help", { register: false, labels: ["n"]}
+				"test", "Help", { register: false, labels: ["n"] }
 			);
-			gauge.labels({n: "1"}).set(Infinity);
-			gauge.labels({n: "2"}).set(-Infinity);
-			gauge.labels({n: "3"}).set(NaN);
+			gauge.labels({ n: "1" }).set(Infinity);
+			gauge.labels({ n: "2" }).set(-Infinity);
+			gauge.labels({ n: "3" }).set(NaN);
 			registry.register(gauge);
 			let exposition = await prometheus.exposition(registry.collect());
 			assert.equal(
@@ -542,7 +542,7 @@ describe("lib/prometheus", function() {
 					samples: new Map([["", 2]]),
 				}, { addLabels: { c: "8" }}),
 				{
-					metric: {type: "type", name: "name", help: "Help", labels: ["c"]},
+					metric: { type: "type", name: "name", help: "Help", labels: ["c"] },
 					samples: [['c="8"', 2]],
 				}
 			);
@@ -552,7 +552,7 @@ describe("lib/prometheus", function() {
 					samples: new Map([['a="4"', 3]]),
 				}, { addLabels: { c: "8" }}),
 				{
-					metric: {type: "type", name: "name", help: "Help", labels: ["a", "c"]},
+					metric: { type: "type", name: "name", help: "Help", labels: ["a", "c"] },
 					samples: [['a="4",c="8"', 3]],
 				}
 			);
@@ -564,7 +564,7 @@ describe("lib/prometheus", function() {
 					samples: new Map([["", 2]]),
 				}, { metricName: "new", }),
 				{
-					metric: {type: "type", name: "new", help: "Help", labels: []},
+					metric: { type: "type", name: "new", help: "Help", labels: [] },
 					samples: [["", 2]],
 				}
 			);
@@ -574,7 +574,7 @@ describe("lib/prometheus", function() {
 					samples: new Map([["", 2]]),
 				}, { metricHelp: "old", }),
 				{
-					metric: {type: "type", name: "name", help: "old", labels: []},
+					metric: { type: "type", name: "name", help: "old", labels: [] },
 					samples: [["", 2]],
 				}
 			);

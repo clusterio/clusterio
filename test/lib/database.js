@@ -20,7 +20,7 @@ describe("lib/database", function() {
 		it("should throw convert a map to an object", function() {
 			assert.deepEqual(
 				database.mapToObject(new Map([["a", 1], ["b", true]])),
-				{"a": 1, "b": true}
+				{ "a": 1, "b": true }
 			);
 		});
 	});
@@ -79,7 +79,7 @@ describe("lib/database", function() {
 			);
 
 			assert.equal(
-				await fs.readFile(testFile, {encoding: "utf-8"}),
+				await fs.readFile(testFile, { encoding: "utf-8" }),
 				'{\n    "c": {},\n    "d": "foo"\n}'
 			);
 		});
@@ -121,7 +121,7 @@ describe("lib/database", function() {
 		it("should work on array JSON", async function() {
 			assert.deepEqual(
 				await database.loadJsonArrayAsMap(path.join("test", "file", "json", "load_array_map.json")),
-				new Map([["a", {id: "a"}], ["b", {id: "b"}]])
+				new Map([["a", { id: "a" }], ["b", { id: "b" }]])
 			);
 		});
 
@@ -149,11 +149,11 @@ describe("lib/database", function() {
 
 			await deleteTestFile();
 			await database.saveMapAsJsonArray(
-				testFile, new Map([["c", {id: "c"}], ["d", {id: "d"}]])
+				testFile, new Map([["c", { id: "c" }], ["d", { id: "d" }]])
 			);
 
 			assert.equal(
-				await fs.readFile(testFile, {encoding: "utf-8"}),
+				await fs.readFile(testFile, { encoding: "utf-8" }),
 				'[\n    {\n        "id": "c"\n    },\n    {\n        "id": "d"\n    }\n]'
 			);
 		});
@@ -167,18 +167,18 @@ describe("lib/database", function() {
 			});
 
 			it("should restore the passed serialized database", function() {
-				let items = new database.ItemDatabase({"a": 1, "b": 2});
+				let items = new database.ItemDatabase({ "a": 1, "b": 2 });
 				assert.deepEqual(items._items, new Map([["a", 1], ["b", 2]]));
 			});
 
 			it("should throw on invalid serialized database", function() {
 				assert.throws(
-					() => new database.ItemDatabase({"a": NaN}),
+					() => new database.ItemDatabase({ "a": NaN }),
 					new Error("count must be a number")
 				);
 
 				assert.throws(
-					() => new database.ItemDatabase({"a": "a"}),
+					() => new database.ItemDatabase({ "a": "a" }),
 					new Error("count must be a number")
 				);
 			});
@@ -186,26 +186,26 @@ describe("lib/database", function() {
 
 		describe(".serialize()", function() {
 			it("should return a serialized database", function() {
-				let items = new database.ItemDatabase({"a": 10});
-				assert.deepEqual(items.serialize(), {"a": 10});
+				let items = new database.ItemDatabase({ "a": 10 });
+				assert.deepEqual(items.serialize(), { "a": 10 });
 			});
 
 			it("should remove zero count entries", function() {
-				let items = new database.ItemDatabase({"a": 0});
+				let items = new database.ItemDatabase({ "a": 0 });
 				assert.deepEqual(items.serialize(), {});
 			});
 		});
 
 		describe(".size", function() {
 			it("should give an approximate size of the database", function() {
-				let items = new database.ItemDatabase({"a": 10});
+				let items = new database.ItemDatabase({ "a": 10 });
 				assert.equal(items.size, 1);
 			});
 		});
 
 		describe(".getItemCount()", function() {
 			it("should return the count of the given item", function() {
-				let items = new database.ItemDatabase({"a": 10});
+				let items = new database.ItemDatabase({ "a": 10 });
 				assert.equal(items.getItemCount("a"), 10);
 			});
 
@@ -231,7 +231,7 @@ describe("lib/database", function() {
 			});
 
 			it("should add an existing item", function() {
-				let items = new database.ItemDatabase({"a": 10});
+				let items = new database.ItemDatabase({ "a": 10 });
 				items.addItem("a", 10);
 				assert.deepEqual(items._items, new Map([["a", 20]]));
 			});
@@ -259,7 +259,7 @@ describe("lib/database", function() {
 
 		describe(".removeItem()", function() {
 			it("should remove an existing item", function() {
-				let items = new database.ItemDatabase({"a": 20});
+				let items = new database.ItemDatabase({ "a": 20 });
 				items.removeItem("a", 10);
 				assert.deepEqual(items._items, new Map([["a", 10]]));
 			});

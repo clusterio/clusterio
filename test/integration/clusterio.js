@@ -202,7 +202,7 @@ describe("Integration of Clusterio", function() {
 				await exec(`node clusterctl --config ${controlConfigPath} create-role --name temp --description "A temp role" --permissions core.control.connect`);
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "temp");
-				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"]});
+				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] });
 			});
 		});
 
@@ -211,7 +211,7 @@ describe("Integration of Clusterio", function() {
 				await exec(`node clusterctl --config ${controlConfigPath} edit-role --role temp --name new --description "A new role" --permissions`);
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "new");
-				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: []});
+				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
 		});
 

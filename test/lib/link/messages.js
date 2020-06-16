@@ -24,7 +24,7 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Request({ links: [], forwardTo: "invalid"}),
+					() => new link.Request({ links: [], forwardTo: "invalid" }),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
@@ -87,7 +87,7 @@ describe("lib/link/messages", function() {
 				};
 				assert.deepEqual(
 					await testRequest.send(testSourceLink, { test: "request" }),
-					{ type: "test_response", request: { type: "test_request", data: {test: "request" }}}
+					{ type: "test_response", request: { type: "test_request", data: { test: "request" }}}
 				);
 				delete testSourceLink.connector.send;
 				delete testSourceLink.waitFor;
@@ -117,13 +117,13 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Event({ forwardTo: "invalid"}),
+					() => new link.Event({ forwardTo: "invalid" }),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
 			it("should throw on invalid broadcastTo", function() {
 				assert.throws(
-					() => new link.Event({ broadcastTo: "invalid"}),
+					() => new link.Event({ broadcastTo: "invalid" }),
 					new Error("Invalid broadcastTo value invalid")
 				);
 			});

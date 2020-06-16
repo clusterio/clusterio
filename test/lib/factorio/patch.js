@@ -213,7 +213,7 @@ describe("lib/factorio", function() {
 			let zip = new jszip();
 			zip.file("world/control.lua", "-- unknown\n");
 			let zipPath = path.join("temp", "test", "patch.zip");
-			await fs.outputFile(zipPath, await zip.generateAsync({type: "nodebuffer"}));
+			await fs.outputFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
 
 			await assert.rejects(
 				factorio.patch(zipPath, []),

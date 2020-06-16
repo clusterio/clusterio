@@ -136,7 +136,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 			} else if (method === "dole") {
 				for (let item of message.data.items) {
 					let count = dole.doleDivider({
-						object: { name: item[0], count: item[1], instanceId, instanceName},
+						object: { name: item[0], count: item[1], instanceId, instanceName },
 						items: this.items,
 						logItemTransfers: this.master.config.get("subspace_storage.log_item_transfers"),
 					});

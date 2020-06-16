@@ -685,7 +685,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let {field, prop, value} = message.data;
+		let { field, prop, value } = message.data;
 		instance.config.setProp(field, prop, value);
 		await this.updateInstanceConfig(instance);
 	}
@@ -750,7 +750,7 @@ class ControlConnection extends BaseConnection {
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		db.roles.set(id, new users.Role({ id, ...message.data}));
+		db.roles.set(id, new users.Role({ id, ...message.data }));
 		return { id };
 	}
 
@@ -951,7 +951,7 @@ class SlaveConnection extends BaseConnection {
 	}
 
 	async playerEventEventHandler(message) {
-		let {instance_id, name, type} = message.data;
+		let { instance_id, name, type } = message.data;
 		let user = db.users.get(name);
 		if (!user) {
 			user = createUser(name);

@@ -23,7 +23,7 @@ describe("objectOps.js", function(){
 	});*/
 	describe("objectOps.deepclone()", function(){
 		it("deep clones javascript objects", function(){
-			var obj1 = {hello:"world", cat:{legs:4, name:"Kitty", colors:["brown", "yellow", "purple"]}};
+			var obj1 = { hello:"world", cat:{ legs:4, name:"Kitty", colors:["brown", "yellow", "purple"] }};
 			var obj2 = {};
 			obj2 = objectOps.deepclone(obj1);
 			

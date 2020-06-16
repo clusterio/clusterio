@@ -49,7 +49,7 @@ class neuralDole {
 				this.getRequestStats(name,5)
 			);
 			this.stats[name]=this.stats[name] || [];
-			this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
+			this.stats[name].unshift({ req:0,given:0 });//stats[name][0] is the one we currently collect
 			if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
 
 			this.dole[name] = magicData[0];

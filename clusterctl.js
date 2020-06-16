@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
 const version = require("./package").version;
-const asTable = require("as-table").configure({delimiter: " | "});
+const asTable = require("as-table").configure({ delimiter: " | " });
 const chalk = require("chalk");
 const events = require("events");
 

@@ -116,4 +116,4 @@ outputs[1]=sigmoid3(outputs[1]);
 	return [sigmoid0(outputs[0]),avg];
 }
 
-module.exports = {Dose,Tick};
+module.exports = { Dose,Tick };

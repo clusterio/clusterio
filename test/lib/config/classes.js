@@ -253,11 +253,11 @@ describe("lib/config/classes", function() {
 					new Error("Expected fields to be an object, not undefined")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group", fields: []}, false),
+					() => testInstance.update({ name: "test_group", fields: [] }, false),
 					new Error("Expected fields to be an object, not array")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group", fields: null}, false),
+					() => testInstance.update({ name: "test_group", fields: null }, false),
 					new Error("Expected fields to be an object, not null")
 				);
 			});

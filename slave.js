@@ -1253,7 +1253,7 @@ function hashMods(instance, callback) {
 			return null;
 		} else {
 			return hashFile(instance.path("mods", name)).then(hash => (
-				{modName: name, hash: hash}
+				{ modName: name, hash: hash }
 			));
 		}
 	}
