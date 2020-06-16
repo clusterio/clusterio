@@ -64,4 +64,4 @@ module.exports = {
 	_instanceGameTicksTotal: instanceGameTicksTotal,
 	_instanceForceFlowStatistics: instanceForceFlowStatistics,
 	_instanceGameFlowStatistics: instanceGameFlowStatistics,
-}
+};

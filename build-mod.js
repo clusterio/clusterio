@@ -45,7 +45,7 @@ async function build(args) {
 	}
 
 	if (args.clean) {
-		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/
+		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/;
 		for (let entry of await fs.readdir(args.outputDir)) {
 			let match = splitter.exec(entry);
 			if (match) {
@@ -111,7 +111,7 @@ async function build(args) {
 }
 
 if (module === require.main) {
-	main().catch(err => { console.log(err) });
+	main().catch(err => { console.log(err); });
 }
 
 module.exports = {

@@ -228,13 +228,13 @@ describe("lib/database", function() {
 				let items = new database.ItemDatabase();
 				items.addItem("a", 10);
 				assert.deepEqual(items._items, new Map([["a", 10]]));
-			})
+			});
 
 			it("should add an existing item", function() {
 				let items = new database.ItemDatabase({"a": 10});
 				items.addItem("a", 10);
 				assert.deepEqual(items._items, new Map([["a", 20]]));
-			})
+			});
 
 			it("should throw on invalid name", function() {
 				let items = new database.ItemDatabase();
@@ -262,13 +262,13 @@ describe("lib/database", function() {
 				let items = new database.ItemDatabase({"a": 20});
 				items.removeItem("a", 10);
 				assert.deepEqual(items._items, new Map([["a", 10]]));
-			})
+			});
 
 			it("should turn a non-existing item negative", function() {
 				let items = new database.ItemDatabase();
 				items.removeItem("a", 10);
 				assert.deepEqual(items._items, new Map([["a", -10]]));
-			})
+			});
 
 			it("should throw on invalid name", function() {
 				let items = new database.ItemDatabase();

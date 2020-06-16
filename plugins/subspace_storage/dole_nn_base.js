@@ -7,17 +7,17 @@ function sigmoid0(x)
 function sigmoid1(x)
 {
 	if (x>=0.0) {
-		return 1.0
+		return 1.0;
 	} else {
-		return 0.0
+		return 0.0;
 	}
 }
 function sigmoid2(x)
 {
 	if (x>=0.0){
-		return x
+		return x;
 	} else {
-		return 0.0
+		return 0.0;
 	}
 }
 function sigmoid3(x)
@@ -116,4 +116,4 @@ outputs[1]=sigmoid3(outputs[1]);
 	return [sigmoid0(outputs[0]),avg];
 }
 
-module.exports = {Dose,Tick}
+module.exports = {Dose,Tick};

@@ -126,11 +126,11 @@ const wsActiveSlavesGauge = new prometheus.Gauge(
 async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
 
-	let results = []
+	let results = [];
 	let pluginResults = await plugin.invokeHook(masterPlugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
-			results.push(metric)
+			results.push(metric);
 		}
 	}
 
@@ -314,7 +314,7 @@ async function loadUsers(databaseDirectory, file) {
  */
 function createUser(name) {
 	if (db.users.has(name)) {
-		throw new Error(`User '${name}' already exists`)
+		throw new Error(`User '${name}' already exists`);
 	}
 
 	let defaultRoleId = masterConfig.get("master.default_role_id");
@@ -475,7 +475,7 @@ class BaseConnection extends link.Link {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
 		if (request.plugin && !connection.plugins.has(request.plugin)) {
-			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`)
+			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
 		}
 
 		return await request.send(connection, message.data);
@@ -529,7 +529,7 @@ class BaseConnection extends link.Link {
 let controlConnections = new Array();
 class ControlConnection extends BaseConnection {
 	constructor(registerData, connector, user) {
-		super("control", connector)
+		super("control", connector);
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
@@ -617,7 +617,7 @@ class ControlConnection extends BaseConnection {
 		let instanceConfig = new config.InstanceConfig();
 		await instanceConfig.load(message.data.serialized_config);
 
-		let instanceId = instanceConfig.get("instance.id")
+		let instanceId = instanceConfig.get("instance.id");
 		if (db.instances.has(instanceId)) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
@@ -644,7 +644,7 @@ class ControlConnection extends BaseConnection {
 
 		return {
 			serialized_config: instance.config.serialize(),
-		}
+		};
 	}
 
 	async updateInstanceConfig(instance) {
@@ -708,7 +708,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Target slave is not connected to the master server");
 		}
 
-		instance.config.set("instance.assigned_slave", message.data.slave_id)
+		instance.config.set("instance.assigned_slave", message.data.slave_id);
 
 		return await link.messages.assignInstance.send(connection, {
 			instance_id: instance.config.get("instance.id"),
@@ -836,7 +836,7 @@ class ControlConnection extends BaseConnection {
 			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;
-		debugEvents.on("message", this.ws_dumper)
+		debugEvents.on("message", this.ws_dumper);
 	}
 }
 
@@ -883,7 +883,7 @@ class SlaveConnection extends BaseConnection {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
 		instance.status = "initialized";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`)
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -891,7 +891,7 @@ class SlaveConnection extends BaseConnection {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
 		instance.status = "running";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`)
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -899,7 +899,7 @@ class SlaveConnection extends BaseConnection {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
 		instance.status = "stopped";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`)
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -919,7 +919,7 @@ class SlaveConnection extends BaseConnection {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(instance.serialized_config);
 
-			let masterInstance = db.instances.get(instanceConfig.get("instance.id"))
+			let masterInstance = db.instances.get(instanceConfig.get("instance.id"));
 			if (masterInstance) {
 				// Already have this instance, update state instead
 				if (masterInstance.status !== instance.status) {
@@ -1022,7 +1022,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 * Sends the ready message over the socket to initiate the session.
 	 */
 	ready(sessionToken) {
-		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
+		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval");
 		this._socket.send(JSON.stringify({
 			seq: null,
 			type: "ready",
@@ -1053,7 +1053,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 			this._timeoutId = null;
 		}
 
-		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
+		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval");
 		this._socket.send(JSON.stringify({
 			seq: null,
 			type: "continue",
@@ -1078,7 +1078,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 			clearTimeout(this._timeoutId);
 		}
 
-		this._timeoutId = setTimeout(() => { this._timedOut() }, timeout * 1000);
+		this._timeoutId = setTimeout(() => { this._timedOut(); }, timeout * 1000);
 		this._timeout = timeout;
 	}
 
@@ -1117,7 +1117,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 			} else {
 				this._state = "handshake";
 				this.emit("drop");
-				this._timeoutId = setTimeout(() => { this._timedOut() }, this._timeout * 1000);
+				this._timeoutId = setTimeout(() => { this._timedOut(); }, this._timeout * 1000);
 			}
 
 			this.stopHeartbeat();
@@ -1172,7 +1172,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this.stopHeartbeat();
 		this._state = "closing";
 		this._socket.close(code, reason);
-		await events.once(this, "close")
+		await events.once(this, "close");
 	}
 }
 
@@ -1283,7 +1283,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		}
 
 		connector.continue(socket, data.last_seq);
-		return
+		return;
 	}
 
 	if (stopAcceptingNewSessions) {
@@ -1386,7 +1386,7 @@ async function loadPlugins(pluginInfos) {
 			plugins.set(pluginInfo.name, masterPlugin);
 
 		} catch (err) {
-			throw new errors.PluginError(pluginInfo.name, err)
+			throw new errors.PluginError(pluginInfo.name, err);
 		}
 
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
@@ -1433,7 +1433,7 @@ function _setConfig(config) {
  * Returns the URL needed to connect to the master server.
  */
 function getMasterUrl() {
-	let url = masterConfig.get("master.external_address")
+	let url = masterConfig.get("master.external_address");
 	if (!url) {
 		if (masterConfig.get("master.https_port")) {
 			url = `https://localhost:${masterConfig.get("master.https_port")}/`;
@@ -1472,7 +1472,7 @@ async function startServer() {
 						nargs: 1, default: "config-control.json",
 					});
 				})
-				.demandCommand(1, "You need to specify a command to run")
+				.demandCommand(1, "You need to specify a command to run");
 		})
 		.command("run", "Run master server")
 		.demandCommand(1, "You need to specify a command to run")
@@ -1481,7 +1481,7 @@ async function startServer() {
 	;
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await plugin.loadPluginInfos("plugins")
+	let pluginInfos = await plugin.loadPluginInfos("plugins");
 	config.registerPluginConfigGroups(pluginInfos);
 	config.finalizeConfigs();
 
@@ -1554,7 +1554,7 @@ async function startServer() {
 
 	// If we get here the command was run
 
-	let secondSigint = false
+	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
 			console.log("Caught second interrupt, terminating immediately");
@@ -1624,7 +1624,7 @@ async function startServer() {
 		httpsServer = require("https").createServer({
 			key: privateKey,
 			cert: certificate
-		}, app)
+		}, app);
 		await listen(httpsServer, httpsPort);
 		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
 	}
@@ -1641,7 +1641,7 @@ module.exports = {
 	_ControlConnection: ControlConnection,
 	_slaveConnections: slaveConnections,
 	_SlaveConnection: SlaveConnection,
-}
+};
 
 if (module === require.main) {
 	console.warn(`

@@ -67,7 +67,7 @@ async function exec(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command })
+	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command });
 	return response.result;
 }
 
@@ -86,8 +86,8 @@ function spawn(name, cmd, waitFor) {
 				resolve(process);
 			}
 			console.log(name, line);
-		})
-		let stderr = new server._LineSplitter((line) => { console.log(name, line.toString("utf8")); })
+		});
+		let stderr = new server._LineSplitter((line) => { console.log(name, line.toString("utf8")); });
 		process.stdout.on("data", chunk => { stdout.data(chunk); });
 		process.stdout.on("close", () => { stdout.end(); });
 		process.stderr.on("data", chunk => { stderr.data(chunk); });

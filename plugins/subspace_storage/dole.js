@@ -1,4 +1,4 @@
-const doleNN = require("./dole_nn_base")
+const doleNN = require("./dole_nn_base");
 
 const prometheus = require("lib/prometheus");
 
@@ -32,13 +32,13 @@ class neuralDole {
 		items
     }){
         // Set some storage variables for the dole divider
-		this.items = items
-		this.itemsLastTick = new Map(items._items)
-        this.dole = {}
-        this.carry = {}
-        this.lastRequest = {}
-        this.stats=[]
-		this.debt= {}
+		this.items = items;
+		this.itemsLastTick = new Map(items._items);
+        this.dole = {};
+        this.carry = {};
+        this.lastRequest = {};
+        this.stats=[];
+		this.debt= {};
 	}
 	doMagic() {
 		for (let [name, count] of this.items._items) {
@@ -47,16 +47,16 @@ class neuralDole {
 				this.dole[name],
 				this.itemsLastTick.get(name),
 				this.getRequestStats(name,5)
-			)
-			this.stats[name]=this.stats[name] || []
+			);
+			this.stats[name]=this.stats[name] || [];
 			this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
 			if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
 
-			this.dole[name] = magicData[0]
+			this.dole[name] = magicData[0];
 			// DONE handle magicData[1] for graphing for our users
 			prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
 		}
-		this.itemsLastTick = new Map(this.items._items)
+		this.itemsLastTick = new Map(this.items._items);
     }
     divider(object) {
         let magicData = doleNN.Dose(
@@ -68,19 +68,19 @@ class neuralDole {
             this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
             this.getRequestStats(object.name,5),
 			this.debt[object.name+" "+object.instanceID] || 0
-        )
+        );
         if ((this.stats[object.name] || []).length>0)
         {
             this.stats[object.name][0].req+=Number(object.count);
             this.stats[object.name][0].given+=Number(magicData[0]);
         }
-        this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count
+        this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count;
         //0.Number of items to give in that dose
         //1.New dole for item X
         //2.New carry for item X slave Y
-        this.dole[object.name] = magicData[1]
-        this.carry[object.name+" "+object.instanceID] = magicData[2]
-		this.debt[object.name+" "+object.instanceID] = magicData[3]
+        this.dole[object.name] = magicData[1];
+        this.carry[object.name+" "+object.instanceID] = magicData[2];
+		this.debt[object.name+" "+object.instanceID] = magicData[3];
 
 		// Remove item from DB and send it
 		this.items.removeItem(object.name, magicData[0]);
@@ -111,7 +111,7 @@ function doleDivider({
 	if (itemCount > object.count) {
         //If successful, increase dole
         _doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-		items.removeItem(object.name, object.count)
+		items.removeItem(object.name, object.count);
 
         prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
         return object.count;
@@ -127,4 +127,4 @@ function doleDivider({
 module.exports = {
     doleDivider,
     neuralDole
-}
+};

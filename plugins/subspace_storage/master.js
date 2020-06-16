@@ -47,8 +47,8 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 		this.autosaveId = setInterval(() => {
 			saveDatabase(this.master.config, this.items).catch(err => {
-				console.log("Unexpected error autosaving items in subspace_storage")
-				console.log("-----------------------------------------------------")
+				console.log("Unexpected error autosaving items in subspace_storage");
+				console.log("-----------------------------------------------------");
 				console.log(err);
 			});
 		}, this.master.config.get("subspace_storage.autosave_interval") * 1000);
@@ -56,7 +56,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		this.neuralDole = new dole.neuralDole({ items: this.items });
 		this.doleMagicId = setInterval(() => {
 			if (this.master.config.get("subspace_storage.division_method") === "neural_dole") {
-				this.neuralDole.doMagic()
+				this.neuralDole.doMagic();
 			}
 		}, 1000);
 
@@ -97,7 +97,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		this.updateStorage();
 
 		if (this.master.config.get("subspace_storage.log_item_transfers")) {
-			console.log(`Imported the following from ${message.data.instance_id}:`)
+			console.log(`Imported the following from ${message.data.instance_id}:`);
 			console.log(message.data.items);
 		}
 	}
@@ -166,7 +166,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 
 		return {
 			items: itemsRemoved,
-		}
+		};
 	}
 
 	onMetrics() {

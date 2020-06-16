@@ -9,7 +9,7 @@ const { slowTest } = require("./index");
 
 
 // The server integration test is required to run before this one
-require("./server")
+require("./server");
 
 describe("Integration of lib/factorio/patch", function() {
 	describe("patch()", function() {

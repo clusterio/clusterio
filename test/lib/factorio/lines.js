@@ -142,8 +142,8 @@ let testLines = new Map([
 			message: "Saving finished",
 		}
 	],
-])
+]);
 
 module.exports = {
 	testLines,
-}
+};

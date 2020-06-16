@@ -53,4 +53,4 @@ function addApiRoutes(app, items, endpointHitCounter) {
 module.exports = {
 	addWebRoutes,
 	addApiRoutes,
-}
+};

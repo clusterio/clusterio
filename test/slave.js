@@ -23,16 +23,16 @@ describe("Slave testing", function() {
 		describe(".name", function() {
 			it("should give the name of the instance", function() {
 				assert.equal(instance.name, "foo");
-			})
+			});
 		});
 
 		describe(".path()", function() {
 			it("should give the path when called without arguments", function() {
 				assert.equal(instance.path(), "dir");
-			})
+			});
 			it("should join path with arguments", function() {
 				assert.equal(instance.path("bar"), path.join("dir", "bar"));
-			})
+			});
 		});
 	});
 
@@ -93,7 +93,7 @@ describe("Slave testing", function() {
 		let discardingLogger = {
 			warning: function() { },
 			log: function() { },
-		}
+		};
 
 		let instance;
 		before(async function() {

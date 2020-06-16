@@ -38,7 +38,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 	}
 
 	broadcastProgress() {
-		let techs = []
+		let techs = [];
 		for (let name of this.progressToBroadcast) {
 			let tech = this.technologies.get(name);
 			if (tech.progress) {
@@ -58,7 +58,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		let tech = this.technologies.get(name);
 		if (!tech) {
 			tech = { level, progress: 0, researched: false };
-			this.technologies.set(name, tech)
+			this.technologies.set(name, tech);
 
 		// Ignore contribution to already researched technologies
 		} else if (tech.level > level || tech.level === level && tech.researched) {
@@ -96,7 +96,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		let tech = this.technologies.get(name);
 		if (!tech || tech.level <= level) {
 			this.progressToBroadcast.delete(name);
-			this.technologies.set(name, { level, progress: null, researched: true })
+			this.technologies.set(name, { level, progress: null, researched: true });
 		}
 	}
 
@@ -151,10 +151,10 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 
 		let technologies = [];
 		for (let [name, tech] of this.technologies) {
-			technologies.push([ name, tech.level, tech.progress, tech.researched ])
+			technologies.push([ name, tech.level, tech.progress, tech.researched ]);
 		}
 
-		return { technologies }
+		return { technologies };
 	}
 }
 
@@ -184,4 +184,4 @@ async function saveTechnologies(masterConfig, technologies) {
 
 module.exports = {
 	MasterPlugin
-}
+};

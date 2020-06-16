@@ -62,6 +62,6 @@ describe("global_chat plugin", function() {
 				}
 				assert(count > 0, "no lines were tested");
 			});
-		})
+		});
 	});
 });

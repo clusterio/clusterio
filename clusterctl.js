@@ -431,7 +431,7 @@ commands.push(new Command({
 		let response = await link.messages.sendRcon.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
 			command: args.command
-		})
+		});
 
 		// Factorio includes a newline in it's response output.
 		process.stdout.write(response.result);
@@ -509,7 +509,7 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let role = await resolveRole(control, args.role)
+		let role = await resolveRole(control, args.role);
 		await link.messages.deleteRole.send(control, { id: role.id });
 	},
 }));
@@ -647,7 +647,7 @@ class Control extends link.Link {
 			}
 		}
 
-		await this.connector.close(1001, "Control Quit")
+		await this.connector.close(1001, "Control Quit");
 	}
 }
 
@@ -733,7 +733,7 @@ async function startControl() {
 		command = commands.get(commandName);
 
 		try {
-			await command.run(args, control)
+			await command.run(args, control);
 
 		} catch (err) {
 			if (err instanceof errors.CommandError) {
@@ -761,7 +761,7 @@ module.exports = {
 	_Control: Control,
 
 	_commands: commands,
-}
+};
 
 
 if (module === require.main) {

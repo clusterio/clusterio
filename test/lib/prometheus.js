@@ -8,7 +8,7 @@ describe("lib/prometheus", function() {
 		let registry;
 		beforeEach(function() {
 			registry = new prometheus.CollectorRegistry();
-		})
+		});
 
 		describe(".register()", function() {
 			it("should register a collector", function() {
@@ -208,7 +208,7 @@ describe("lib/prometheus", function() {
 							name, "Help", { register: false }
 						),
 						new Error(`Invalid name '${name}'`)
-					)
+					);
 				}
 			});
 			it("should throw on invalid label names", function() {
@@ -218,7 +218,7 @@ describe("lib/prometheus", function() {
 							"test", "Help", { register: false, labels: [name] }
 						),
 						new Error(`Invalid label '${name}'`)
-					)
+					);
 				}
 			});
 			it("should throw on missing name", function() {
@@ -336,7 +336,7 @@ describe("lib/prometheus", function() {
 				gauge.labels("1", "3");
 				gauge.labels("4", "6");
 				gauge.removeAll({a: "1"});
-				assert(gauge._values.size <= 1, "Matching labels remained")
+				assert(gauge._values.size <= 1, "Matching labels remained");
 				assert(
 					gauge._values.has('a="4",b="6"'),
 					"Non-matching label was removed"
@@ -351,10 +351,10 @@ describe("lib/prometheus", function() {
 			it("should handle special characters", function() {
 				let gauge = new prometheus.Gauge(
 					"test", "Help", { register: false, labels: ["a", "b"] }
-				)
+				);
 				gauge.labels('x\\\\\n\"\"\n\\', "2");
 				gauge.removeAll({a: 'x\\\\\n\"\"\n\\'});
-				assert(gauge._values.size === 0, "Matching labels remained")
+				assert(gauge._values.size === 0, "Matching labels remained");
 			});
 		});
 		describe(".clear()", function() {
@@ -381,7 +381,7 @@ describe("lib/prometheus", function() {
 		describe("processStartTimeSeconds", function() {
 			it("should give a close point in time", async function() {
 				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
-				let results = []
+				let results = [];
 				let collector = prometheus.defaultCollectors.processStartTimeSeconds;
 				for await (let result of collector.collect()) {
 					results.push(result);
@@ -401,7 +401,7 @@ describe("lib/prometheus", function() {
 		describe("processCpuSecondsTotal", function() {
 			it("should give a low value", async function() {
 				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
-				let results = []
+				let results = [];
 				let collector = prometheus.defaultCollectors.processCpuSecondsTotal;
 				for await (let result of collector.collect()) {
 					results.push(result);
@@ -412,7 +412,7 @@ describe("lib/prometheus", function() {
 					"collector did not give exactly one result"
 				);
 
-				let value = results[0].samples.get("")
+				let value = results[0].samples.get("");
 				assert(
 					value < 5 && value > 0,
 					`process time is not between 0 and 5 seconds (${value})`
@@ -422,7 +422,7 @@ describe("lib/prometheus", function() {
 		describe("processResidentMemoryBytes", function() {
 			it("should give a low value", async function() {
 				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
-				let results = []
+				let results = [];
 				let collector = prometheus.defaultCollectors.processResidentMemoryBytes;
 				for await (let result of collector.collect()) {
 					results.push(result);
@@ -433,7 +433,7 @@ describe("lib/prometheus", function() {
 					"collector did not give exactly one result"
 				);
 
-				let value = results[0].samples.get("")
+				let value = results[0].samples.get("");
 				assert(
 					value < 200e6 && value > 0,
 					`resident memory is not between 0 and 200 MB (${value})`
@@ -443,7 +443,7 @@ describe("lib/prometheus", function() {
 		describe("processHeapBytes", function() {
 			it("should give a low value", async function() {
 				this.skip(); // XXX Doesn't work in Clusterio's shared testing env
-				let results = []
+				let results = [];
 				let collector = prometheus.defaultCollectors.processHeapBytes;
 				for await (let result of collector.collect()) {
 					results.push(result);
@@ -454,7 +454,7 @@ describe("lib/prometheus", function() {
 					"collector did not give exactly one result"
 				);
 
-				let value = results[0].samples.get("")
+				let value = results[0].samples.get("");
 				assert(
 					value < 200e6 && value > 0,
 					`heap is not between 0 and 200 MB (${value})`
@@ -533,7 +533,7 @@ describe("lib/prometheus", function() {
 			assert.deepEqual(
 				prometheus.serializeResult(deserializedResult),
 				serializedResult
-			)
+			);
 		});
 		it("should support adding labels", function() {
 			assert.deepEqual(
@@ -595,7 +595,7 @@ describe("lib/prometheus", function() {
 			assert.deepEqual(
 				prometheus.deserializeResult(serializedResult),
 				deserializedResult
-			)
+			);
 		});
 	});
 

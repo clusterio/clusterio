@@ -66,10 +66,10 @@ class MockInstance extends link.Link {
 		this.name = "test";
 		this.config = {
 			get: (name) => {
-				if (name === "instance.id") { return 7357 }
+				if (name === "instance.id") { return 7357; }
 				throw Error("Not implemented");
 			}
-		}
+		};
 	}
 }
 

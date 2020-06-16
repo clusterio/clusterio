@@ -69,7 +69,7 @@ function applyAsConfig(name) {
 		} catch (err) {
 			console.error(`Error applying server setting ${name}`, err);
 		}
-	}
+	};
 }
 
 const serverSettingsActions = {
@@ -139,10 +139,10 @@ class Instance extends link.Link{
 		this.server.sendRcon = (...args) => {
 			instanceRconCommandsCounter.labels(String(this.config.get("instance.id"))).inc();
 			return originalSendRcon.call(this.server, ...args);
-		}
+		};
 
 		this.server.on("output", (output) => {
-			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
+			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
 
 			plugin.invokeHook(this.plugins, "onOutput", output);
 		});
@@ -225,7 +225,7 @@ class Instance extends link.Link{
 			}
 		}
 
-		let plugins = {}
+		let plugins = {};
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
@@ -326,7 +326,7 @@ class Instance extends link.Link{
 
 		// Create save if no save was found.
 		if (saveName === null) {
-			console.log("Clusterio | Creating new save")
+			console.log("Clusterio | Creating new save");
 			await this.server.create("world.zip");
 			saveName = "world.zip";
 		}
@@ -408,7 +408,7 @@ class Instance extends link.Link{
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.start(saveName);
-		await this.server.disableAchievements()
+		await this.server.disableAchievements();
 		await this.updateInstanceData();
 
 		await plugin.invokeHook(this.plugins, "onStart");
@@ -459,12 +459,12 @@ class Instance extends link.Link{
 	}
 
 	async getMetricsRequestHandler() {
-		let results = []
+		let results = [];
 		if (this._running) {
 			let pluginResults = await plugin.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
-					results.push(prometheus.serializeResult(metric))
+					results.push(prometheus.serializeResult(metric));
 				}
 			}
 		}
@@ -482,7 +482,7 @@ class Instance extends link.Link{
 	async startInstanceRequestHandler(message) {
 		let saveName = message.data.save;
 		try {
-			saveName = await this.prepare(saveName)
+			saveName = await this.prepare(saveName);
 		} catch (err) {
 			this.notifyExit();
 			throw err;
@@ -536,7 +536,7 @@ class Instance extends link.Link{
 				},
 			});
 			if (response.statusCode !== 200) {
-				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`)
+				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`);
 			}
 
 		} finally {
@@ -750,7 +750,7 @@ class Slave extends link.Link {
 					setBlocking(true);
 					console.error("ERROR: Unexpected error during shutdown");
 					console.error(err);
-					process.exit(1)
+					process.exit(1);
 				});
 			});;
 		});
@@ -769,7 +769,7 @@ class Slave extends link.Link {
 						setBlocking(true);
 						console.error("ERROR: Unexpected error during shutdown");
 						console.error(err);
-						process.exit(1)
+						process.exit(1);
 					});
 				});
 
@@ -779,7 +779,7 @@ class Slave extends link.Link {
 					setBlocking(true);
 					console.error("ERROR: Unexpected error during shutdown");
 					console.error(err);
-					process.exit(1)
+					process.exit(1);
 				});
 			}
 		});
@@ -795,7 +795,7 @@ class Slave extends link.Link {
 
 	async _findNewInstanceDir(name) {
 		try {
-			checkFilename(name)
+			checkFilename(name);
 		} catch (err) {
 			throw new Error(`Instance name ${err.message}`);
 		}
@@ -821,7 +821,7 @@ class Slave extends link.Link {
 		}
 
 		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
-			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`)
+			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`);
 		}
 
 		return await request.send(instanceConnection, message.data);
@@ -1210,7 +1210,7 @@ async function startSlave() {
 	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts
-	let secondSigint = false
+	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
 			console.log("Caught second interrupt, terminating immediately");

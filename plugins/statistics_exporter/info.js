@@ -6,4 +6,4 @@ module.exports = {
 	description: "Exports statistics to Prometheus",
 	version: "2.0.0-alpha",
 	instanceEntrypoint: "instance",
-}
+};

@@ -14,7 +14,7 @@ describe("lib/plugin", function() {
 		it("should be constructible", async function() {
 			instancePlugin = new plugin.BaseInstancePlugin();
 			await instancePlugin.init();
-		})
+		});
 		it("should define defaults for hooks", async function() {
 			await instancePlugin.onMetrics();
 			await instancePlugin.onStart();
@@ -23,7 +23,7 @@ describe("lib/plugin", function() {
 			await instancePlugin.onOutput({});
 			instancePlugin.onMasterConnectionEvent("connect");
 			await instancePlugin.onPrepareMasterDisconnect();
-		})
+		});
 	});
 
 	describe("class BaseMasterPlugin", function() {
@@ -31,14 +31,14 @@ describe("lib/plugin", function() {
 		it("should be constructible", async function() {
 			masterPlugin = new plugin.BaseMasterPlugin();
 			await masterPlugin.init();
-		})
+		});
 		it("should define defaults for hooks", async function() {
 			await masterPlugin.onInstanceStatusChanged({}, "running", "initialized");
 			await masterPlugin.onMetrics();
 			await masterPlugin.onShutdown();
 			masterPlugin.onSlaveConnectionEvent({}, "connect");
 			await masterPlugin.onPrepareSlaveDisconnect({});
-		})
+		});
 	});
 
 	describe("loadPluginInfos()", function() {

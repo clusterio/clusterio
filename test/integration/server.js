@@ -149,7 +149,7 @@ describe("Integration of lib/factorio/server", function() {
 				slowTest(this);
 				log(".startScenario()");
 
-				let pass = false
+				let pass = false;
 				function filter(output) {
 					if (output.message === "test_scenario init") {
 						pass = true;

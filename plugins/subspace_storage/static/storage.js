@@ -11,7 +11,7 @@ function drawcontents(data) {
         const search = new RegExp(searchArgs, "i");
         data = data.filter(function(item) {
 		return search.test(item.name);
-	})
+	});
 	
 	sortByKey(data, "count");
 	
@@ -76,7 +76,7 @@ function updateInventory() {
 			let data = JSON.parse(xmlhttp.responseText);
 			drawcontents(data);
 		}
-	}
+	};
 	xmlhttp.open("GET", `${root}api/inventory`, true);
 	xmlhttp.send();
 }

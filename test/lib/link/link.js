@@ -97,7 +97,7 @@ describe("lib/link/link", function() {
 		describe("._processHandler()", function() {
 			it("should call the handler", function() {
 				let handled = [];
-				testLink.setHandler("handled", (message) => handled.push(message), (message) => true)
+				testLink.setHandler("handled", (message) => handled.push(message), (message) => true);
 				testLink._processHandler({ seq: 1, type: "handled", data: { test: "foo" } });
 				assert.deepEqual(handled, [{ seq: 1, type: "handled", data: { test: "foo" } }]);
 			});

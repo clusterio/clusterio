@@ -163,6 +163,6 @@ describe("lib/link/messages", function() {
 	describe("attachAllMessages()", function() {
 		it("does not throw", function() {
 			link.attachAllMessages(testSourceLink);
-		})
+		});
 	});
 });

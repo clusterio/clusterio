@@ -5,8 +5,8 @@ const luaTools = require("lib/luaTools");
 
 
 function unexpectedError(err) {
-	console.log("Unexpected error in research_sync")
-	console.log("---------------------------------")
+	console.log("Unexpected error in research_sync");
+	console.log("---------------------------------");
 	console.log(err);
 }
 
@@ -78,4 +78,4 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 
 module.exports = {
 	InstancePlugin,
-}
+};

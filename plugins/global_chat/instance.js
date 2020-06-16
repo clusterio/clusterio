@@ -57,4 +57,4 @@ module.exports = {
 
 	// For testing only
 	_removeTags: removeTags,
-}
+};
