@@ -1,6 +1,7 @@
 /**
  * @module
  */
+"use strict";
 const plugin = require("lib/plugin");
 const luaTools = require("lib/luaTools");
 

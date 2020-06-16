@@ -2,6 +2,7 @@
  * Command line interface for controlling a Clusterio cluster
  * @module
  */
+"use strict";
 const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
@@ -730,7 +731,7 @@ async function startControl() {
 	});
 
 	if (commands.has(commandName)) {
-		command = commands.get(commandName);
+		let command = commands.get(commandName);
 
 		try {
 			await command.run(args, control);

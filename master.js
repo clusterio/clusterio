@@ -16,6 +16,7 @@
 // const updater = require("./updater");
 // updater.update().then(console.log);
 
+"use strict";
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
@@ -318,7 +319,7 @@ function createUser(name) {
 	}
 
 	let defaultRoleId = masterConfig.get("master.default_role_id");
-	user = new users.User({ name, roles: [defaultRoleId] }, db.roles);
+	let user = new users.User({ name, roles: [defaultRoleId] }, db.roles);
 	db.users.set(name, user);
 	return user;
 }
@@ -1365,7 +1366,7 @@ async function pluginManagement(pluginInfos) {
 
 async function loadPlugins(pluginInfos) {
 	let plugins = new Map();
-	for (pluginInfo of pluginInfos) {
+	for (let pluginInfo of pluginInfos) {
 		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
 			continue;
 		}

@@ -1,5 +1,6 @@
 //Sigmoids...
 
+"use strict";
 function sigmoid0(x)
 {
 	return x/(1+Math.abs(x));

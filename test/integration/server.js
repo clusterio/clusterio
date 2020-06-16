@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const events = require("events");
 const fs = require("fs-extra");

@@ -1,3 +1,4 @@
+"use strict";
 const needle = require("needle");
 
 const plugin = require("lib/plugin");

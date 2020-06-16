@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const users = require("lib/users");
 

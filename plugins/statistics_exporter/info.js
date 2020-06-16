@@ -1,3 +1,4 @@
+"use strict";
 let link = require("lib/link");
 
 module.exports = {

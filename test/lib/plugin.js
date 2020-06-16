@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");

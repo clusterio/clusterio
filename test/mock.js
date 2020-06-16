@@ -1,3 +1,4 @@
+"use strict";
 const events = require("events");
 
 const link = require("lib/link");

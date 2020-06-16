@@ -1,4 +1,5 @@
 // function to draw data we recieve from ajax requests
+"use strict";
 _lastData = [];
 function drawcontents(data) {
 	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.

@@ -1,3 +1,4 @@
+"use strict";
 const doleNN = require("./dole_nn_base");
 
 const prometheus = require("lib/prometheus");

@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 
 const prometheus = require("lib/prometheus");

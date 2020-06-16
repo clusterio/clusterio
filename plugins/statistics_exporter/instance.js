@@ -1,3 +1,4 @@
+"use strict";
 const plugin = require("lib/plugin");
 const { Gauge } = require("lib/prometheus");
 
