@@ -42,7 +42,7 @@ class MockConnector extends events.EventEmitter {
 	send(type, data) {
 		let message = { seq: this._seq, type, data };
 		this.sentMessages.push(message);
-		setImmediate(() => this.emit('send', message));
+		setImmediate(() => this.emit("send", message));
 		return this._seq++;
 	}
 }
@@ -55,13 +55,13 @@ class MockServer {
 
 	async sendRcon(command) {
 		this.rconCommands.push(command);
-		return this.rconCommandResults.get(command) || '';
+		return this.rconCommandResults.get(command) || "";
 	}
 }
 
 class MockInstance extends link.Link {
 	constructor() {
-		super('instance', 'slave', new MockConnector());
+		super("instance", "slave", new MockConnector());
 		this.server = new MockServer();
 		this.name = "test";
 		this.config = {
@@ -75,7 +75,7 @@ class MockInstance extends link.Link {
 
 class MockSlave extends link.Link {
 	constructor() {
-		super('slave', 'master', new MockConnector());
+		super("slave", "master", new MockConnector());
 	}
 }
 

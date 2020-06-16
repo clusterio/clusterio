@@ -12,11 +12,11 @@ async function main() {
 	const args = yargs
 		.scriptName("build")
 		.options({
-			'clean': { describe: "Remove previous builds", type: 'boolean', default: false },
-			'build': { describe: "Build mod", type: 'boolean', default: true },
-			'pack': { describe: "Pack into zip file", type: 'boolean', default: true },
+			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
+			"build": { describe: "Build mod", type: "boolean", default: true },
+			"pack": { describe: "Pack into zip file", type: "boolean", default: true },
 			"source-dir": { describe: "Path to mod source files", nargs: 1, type: "string", default: libPath },
-			'output-dir': { describe: "Path to output built mod", nargs: 1, type: 'string', default: "dist" },
+			"output-dir": { describe: "Path to output built mod", nargs: 1, type: "string", default: "dist" },
 			"bump-patch": { describe: "Increment patch number of build", type: "boolean", default: false },
 			"factorio-version": { describe: "Override factorio_version", type: "string" },
 		})
@@ -66,7 +66,7 @@ async function build(args) {
 		if (args.pack) {
 			let zip = new JSZip();
 			let walker = klaw(args.sourceDir)
-				.on('data', item => {
+				.on("data", item => {
 					if (item.stats.isFile()) {
 						// On Windows the path created uses backslashes as the directory sepparator
 						// but the zip file needs to use forward slashes.  We can't use the posix
@@ -76,7 +76,7 @@ async function build(args) {
 					}
 				})
 			;
-			await events.once(walker, 'end');
+			await events.once(walker, "end");
 
 			for (let pathParts of info.additional_files || []) {
 				let filePath = path.join(...pathParts);
@@ -89,7 +89,7 @@ async function build(args) {
 			let modPath = path.join(args.outputDir, `${modName}.zip`);
 			console.log(`Writing ${modPath}`);
 			let writeStream = zip.generateNodeStream().pipe(fs.createWriteStream(modPath));
-			await events.once(writeStream, 'finish');
+			await events.once(writeStream, "finish");
 
 		} else {
 			let modDir = path.join(args.outputDir, modName);

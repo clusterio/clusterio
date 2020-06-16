@@ -1,5 +1,5 @@
-var assert = require('assert');
-var objectOps = require('lib/objectOps');
+var assert = require("assert");
+var objectOps = require("lib/objectOps");
 
 describe("objectOps.js", function(){
 	/*describe("objectOps.clone()", function(){

@@ -10,8 +10,8 @@
  * @example
  * node slave run
  */
-const fs = require('fs-extra');
-const path = require('path');
+const fs = require("fs-extra");
+const path = require("path");
 const yargs = require("yargs");
 const events = require("events");
 const pidusage = require("pidusage");
@@ -22,14 +22,14 @@ const version = require("./package").version;
 
 // internal libraries
 const fileOps = require("lib/fileOps");
-const hashFile = require('lib/hash').hashFile;
+const hashFile = require("lib/hash").hashFile;
 const factorio = require("lib/factorio");
 const link = require("lib/link");
 const plugin = require("lib/plugin");
 const errors = require("lib/errors");
-const prometheus = require('lib/prometheus');
-const luaTools = require('lib/luaTools');
-const config = require('lib/config');
+const prometheus = require("lib/prometheus");
+const luaTools = require("lib/luaTools");
+const config = require("lib/config");
 
 
 const instanceRconCommandsCounter = new prometheus.Counter(
@@ -104,7 +104,7 @@ const serverSettingsActions = {
  */
 class Instance extends link.Link{
 	constructor(slave, connector, dir, factorioDir, instanceConfig) {
-		super('instance', 'slave', connector);
+		super("instance", "slave", connector);
 		link.attachAllMessages(this);
 		this._slave = slave;
 		this._dir = dir;
@@ -125,9 +125,9 @@ class Instance extends link.Link{
 
 		let serverOptions = {
 			version: this.config.get("factorio.version"),
-			gamePort: this.config.get('factorio.game_port'),
-			rconPort: this.config.get('factorio.rcon_port'),
-			rconPassword: this.config.get('factorio.rcon_password'),
+			gamePort: this.config.get("factorio.game_port"),
+			rconPort: this.config.get("factorio.rcon_port"),
+			rconPassword: this.config.get("factorio.rcon_password"),
 		};
 
 		this._running = false;
@@ -141,7 +141,7 @@ class Instance extends link.Link{
 			return originalSendRcon.call(this.server, ...args);
 		}
 
-		this.server.on('output', (output) => {
+		this.server.on("output", (output) => {
 			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
 
 			plugin.invokeHook(this.plugins, "onOutput", output);
@@ -181,7 +181,7 @@ class Instance extends link.Link{
 		for (let collector of prometheus.defaultRegistry.collectors) {
 			if (
 				collector instanceof prometheus.ValueCollector
-				&& collector.metric.labels.includes('instance_id')
+				&& collector.metric.labels.includes("instance_id")
 			) {
 				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
@@ -320,7 +320,7 @@ class Instance extends link.Link{
 		// Use latest save if no save was specified
 		if (saveName === null) {
 			saveName = await fileOps.getNewestFile(
-				this.path("saves"), (name) => !name.endsWith('.tmp.zip')
+				this.path("saves"), (name) => !name.endsWith(".tmp.zip")
 			);
 		}
 
@@ -337,12 +337,12 @@ class Instance extends link.Link{
 		// Find plugin modules to patch in
 		let modules = new Map();
 		for (let [pluginName, plugin] of this.plugins) {
-			let modulePath = path.join('plugins', pluginName, 'module');
+			let modulePath = path.join("plugins", pluginName, "module");
 			if (!await fs.pathExists(modulePath)) {
 				continue;
 			}
 
-			let moduleJsonPath = path.join(modulePath, 'module.json');
+			let moduleJsonPath = path.join(modulePath, "module.json");
 			if (!await fs.pathExists(moduleJsonPath)) {
 				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
@@ -354,7 +354,7 @@ class Instance extends link.Link{
 
 			module = Object.assign({
 				version: plugin.info.version,
-				dependencies: { 'clusterio': '*' },
+				dependencies: { "clusterio": "*" },
 				path: modulePath,
 				load: [],
 				require: [],
@@ -364,13 +364,13 @@ class Instance extends link.Link{
 
 		// Find stand alone modules to load
 		// XXX for now it's assumed all available modules should be loaded.
-		for (let entry of await fs.readdir('modules', { withFileTypes: true })) {
+		for (let entry of await fs.readdir("modules", { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
 
-				let moduleJsonPath = path.join('modules', entry.name, 'module.json');
+				let moduleJsonPath = path.join("modules", entry.name, "module.json");
 				if (!await fs.pathExists(moduleJsonPath)) {
 					throw new Error(`Module ${entry.name} is missing module.json`);
 				}
@@ -381,8 +381,8 @@ class Instance extends link.Link{
 				}
 
 				module = Object.assign({
-					path: path.join('modules', entry.name),
-					dependencies: { 'clusterio': '*' },
+					path: path.join("modules", entry.name),
+					dependencies: { "clusterio": "*" },
 					load: [],
 					require: [],
 				}, module);
@@ -402,7 +402,7 @@ class Instance extends link.Link{
 	 * @param {String} saveName - Name of save game to load.
 	 */
 	async start(saveName) {
-		this.server.on('rcon-ready', () => {
+		this.server.on("rcon-ready", () => {
 			console.log("Clusterio | RCON connection established");
 		});
 
@@ -622,7 +622,7 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 
 class InstanceConnection extends link.Link {
 	constructor(connector, slave, instanceId) {
-		super('slave', 'instance', connector);
+		super("slave", "instance", connector);
 		this.slave = slave;
 		this.instanceId = instanceId;
 		this.plugins = new Map();
@@ -717,7 +717,7 @@ class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
 	constructor(connector, slaveConfig, pluginInfos) {
-		super('slave', 'master', connector);
+		super("slave", "master", connector);
 		link.attachAllMessages(this);
 
 		this.pluginInfos = pluginInfos;
@@ -803,7 +803,7 @@ class Slave extends link.Link {
 		// For now add dashes until an unused directory name is found
 		let dir = path.join(this.config.get("slave.instances_directory"), name);
 		while (await fs.pathExists(dir)) {
-			dir += '-';
+			dir += "-";
 		}
 
 		return dir;
@@ -919,10 +919,10 @@ class Slave extends link.Link {
 		}
 
 		for await (let result of prometheus.defaultRegistry.collect()) {
-			if (result.metric.name.startsWith('process_')) {
+			if (result.metric.name.startsWith("process_")) {
 				results.push(prometheus.serializeResult(result, {
-					addLabels: { 'slave_id': String(this.config.get("slave.id")) },
-					metricName: result.metric.name.replace('process_', 'clusterio_slave_'),
+					addLabels: { "slave_id": String(this.config.get("slave.id")) },
+					metricName: result.metric.name.replace("process_", "clusterio_slave_"),
 				}));
 
 			} else {
@@ -1034,10 +1034,10 @@ function checkFilename(name) {
 	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 	const badNames = [
 		// Relative path components
-		'.', '..',
+		".", "..",
 
 		// Reserved filenames in Windows
-		'CON', 'PRN', 'AUX', 'NUL',
+		"CON", "PRN", "AUX", "NUL",
 		...oneToNine.map(n => `COM${n}`),
 		...oneToNine.map(n => `LPT${n}`),
 	];
@@ -1099,7 +1099,7 @@ async function symlinkMods(instance, sharedMods, logger) {
 	let instanceModsEntries = new Set(await fs.readdir(instance.path("mods")));
 	for (let entry of await fs.readdir(sharedMods, { withFileTypes: true })) {
 		if (entry.isFile()) {
-			if (['.zip', '.dat'].includes(path.extname(entry.name))) {
+			if ([".zip", ".dat"].includes(path.extname(entry.name))) {
 				if (!instanceModsEntries.has(entry.name)) {
 					logger.log(`linking ${entry.name} from ${sharedMods}`);
 					let target = path.join(sharedMods, entry.name);
@@ -1130,17 +1130,17 @@ async function symlinkMods(instance, sharedMods, logger) {
 
 async function startSlave() {
 	// add better stack traces on promise rejection
-	process.on('unhandledRejection', r => console.log(r));
+	process.on("unhandledRejection", r => console.log(r));
 
 	// argument parsing
 	const args = yargs
 		.scriptName("slave")
 		.usage("$0 <command> [options]")
-		.option('config', {
+		.option("config", {
 			nargs: 1,
 			describe: "slave config file to use",
-			default: 'config-slave.json',
-			type: 'string',
+			default: "config-slave.json",
+			type: "string",
 		})
 		.command("config", "Manage Slave config", config.configCommand)
 		.command("run", "Run slave")
@@ -1160,7 +1160,7 @@ async function startSlave() {
 		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
-		if (err.code === 'ENOENT') {
+		if (err.code === "ENOENT") {
 			console.log("Config not found, initializing new config");
 			await slaveConfig.init();
 
@@ -1211,7 +1211,7 @@ async function startSlave() {
 
 	// Handle interrupts
 	let secondSigint = false
-	process.on('SIGINT', () => {
+	process.on("SIGINT", () => {
 		if (secondSigint) {
 			console.log("Caught second interrupt, terminating immediately");
 			process.exit(1);

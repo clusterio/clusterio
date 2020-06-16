@@ -1,21 +1,21 @@
-const assert = require('assert').strict;
+const assert = require("assert").strict;
 
-const link = require('lib/link');
-const errors = require('lib/errors');
-const mock = require('../../mock');
+const link = require("lib/link");
+const errors = require("lib/errors");
+const mock = require("../../mock");
 
 
 describe("lib/link/messages", function() {
-	let testSourceLink = new link.Link('source', 'target', new mock.MockConnector());
-	let testTargetLink = new link.Link('target', 'source', new mock.MockConnector());
+	let testSourceLink = new link.Link("source", "target", new mock.MockConnector());
+	let testTargetLink = new link.Link("target", "source", new mock.MockConnector());
 
 	let lastTargetSent;
 	testTargetLink.send = (type, data) => { lastTargetSent = { type, data }; };
 
 	describe("class Request", function() {
 		let testRequest = new link.Request({
-			type: 'test',
-			links: ['source-target'],
+			type: "test",
+			links: ["source-target"],
 			requestProperties: {
 				"test": { type: "string" },
 			},
@@ -24,7 +24,7 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Request({ links: [], forwardTo: 'invalid'}),
+					() => new link.Request({ links: [], forwardTo: "invalid"}),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
@@ -33,7 +33,7 @@ describe("lib/link/messages", function() {
 		describe(".attach()", function() {
 			it("should attach validator to a source link", function() {
 				testRequest.attach(testSourceLink);
-				assert(testSourceLink._validators.has('test_response'), "Validator was not set");
+				assert(testSourceLink._validators.has("test_response"), "Validator was not set");
 			});
 			it("should throw if missing handler on target link", function() {
 				assert.throws(
@@ -45,16 +45,16 @@ describe("lib/link/messages", function() {
 			let handlerResult;
 			it("should attach handler to a target link", function() {
 				testRequest.attach(testTargetLink, async (message) => handlerResult );
-				assert(testTargetLink._handlers.has('test_request'), "Handler was not set");
+				assert(testTargetLink._handlers.has("test_request"), "Handler was not set");
 			});
 			it("should send result of calling the handler", async function() {
 				handlerResult = { test: "handler" };
-				testTargetLink._handlers.get('test_request')({ seq: 2 });
+				testTargetLink._handlers.get("test_request")({ seq: 2 });
 				let result = await new Promise(resolve => {
 					testTargetLink.connector.send = (type, data) => resolve({ type, data });
 				});
 				assert.deepEqual(result, {
-					type: 'test_response',
+					type: "test_response",
 					data: {
 						test: "handler",
 						seq: 2,
@@ -63,12 +63,12 @@ describe("lib/link/messages", function() {
 			});
 			it("should implicitly send an empty object on empty return", async function() {
 				handlerResult = undefined;
-				testTargetLink._handlers.get('test_request')({ seq: 2 });
+				testTargetLink._handlers.get("test_request")({ seq: 2 });
 				let result = await new Promise(resolve => {
 					testTargetLink.connector.send = (type, data) => resolve({ type, data });
 				});
 				assert.deepEqual(result, {
-					type: 'test_response',
+					type: "test_response",
 					data: {
 						seq: 2,
 					},
@@ -87,7 +87,7 @@ describe("lib/link/messages", function() {
 				};
 				assert.deepEqual(
 					await testRequest.send(testSourceLink, { test: "request" }),
-					{ type: 'test_response', request: { type: 'test_request', data: {test: "request" }}}
+					{ type: "test_response", request: { type: "test_request", data: {test: "request" }}}
 				);
 				delete testSourceLink.connector.send;
 				delete testSourceLink.waitFor;
@@ -107,8 +107,8 @@ describe("lib/link/messages", function() {
 
 	describe("class Event", function() {
 		let testEvent = new link.Event({
-			type: 'test',
-			links: ['source-target'],
+			type: "test",
+			links: ["source-target"],
 			eventProperties: {
 				"test": { type: "string" },
 			},
@@ -117,13 +117,13 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Event({ forwardTo: 'invalid'}),
+					() => new link.Event({ forwardTo: "invalid"}),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
 			it("should throw on invalid broadcastTo", function() {
 				assert.throws(
-					() => new link.Event({ broadcastTo: 'invalid'}),
+					() => new link.Event({ broadcastTo: "invalid"}),
 					new Error("Invalid broadcastTo value invalid")
 				);
 			});
@@ -139,7 +139,7 @@ describe("lib/link/messages", function() {
 			let called = false;
 			it("should attach handler and validator to a target link", function() {
 				testEvent.attach(testTargetLink, async (message) => { called = true; });
-				assert(testTargetLink._validators.has('test_event'), "Validator was not set");
+				assert(testTargetLink._validators.has("test_event"), "Validator was not set");
 			});
 			it("should call the attached event handler", function() {
 				testTargetLink._handlers.get("test_event")();

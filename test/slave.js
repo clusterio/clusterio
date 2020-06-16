@@ -1,6 +1,6 @@
-const assert = require('assert').strict;
-const path = require('path');
-const fs = require('fs-extra');
+const assert = require("assert").strict;
+const path = require("path");
+const fs = require("fs-extra");
 
 const link = require("lib/link");
 const config = require("lib/config");
@@ -65,19 +65,19 @@ describe("Slave testing", function() {
 		});
 
 		it("should throw on CON, PRN, AUX, NUL, COM1, LPT1", function() {
-			for (let bad of ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'LPT1']) {
+			for (let bad of ["CON", "PRN", "AUX", "NUL", "COM1", "LPT1"]) {
 				check(
-					bad, 'cannot be named any of . ..'
-					+' CON PRN AUX NUL COM1-9 and LPT1-9'
+					bad, "cannot be named any of . .."
+					+" CON PRN AUX NUL COM1-9 and LPT1-9"
 				);
 			}
 		});
 
 		it("should throw on . and ..", function() {
-			for (let bad of ['.', '..']) {
+			for (let bad of [".", ".."]) {
 				check(
-					bad, 'cannot be named any of . ..'
-					+' CON PRN AUX NUL COM1-9 and LPT1-9'
+					bad, "cannot be named any of . .."
+					+" CON PRN AUX NUL COM1-9 and LPT1-9"
 				);
 			}
 		});

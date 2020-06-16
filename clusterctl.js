@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
 const version = require("./package").version;
-const asTable = require("as-table").configure({delimiter: ' | '});
+const asTable = require("as-table").configure({delimiter: " | "});
 const chalk = require("chalk");
 const events = require("events");
 
@@ -25,14 +25,14 @@ const config = require("lib/config");
  */
 function formatOutputColored(output) {
 	let time = "";
-	if (output.format === 'seconds') {
-		time = chalk.yellow(output.time.padStart(8)) + ' ';
-	} else if (output.format === 'date') {
-		time = chalk.yellow(output.time) + ' ';
+	if (output.format === "seconds") {
+		time = chalk.yellow(output.time.padStart(8)) + " ";
+	} else if (output.format === "date") {
+		time = chalk.yellow(output.time) + " ";
 	}
 
 	let info = "";
-	if (output.type === 'log') {
+	if (output.type === "log") {
 		let level = output.level;
 		if (level === "Info") {
 			level = chalk.bold.blueBright(level);
@@ -42,10 +42,10 @@ function formatOutputColored(output) {
 			level = chalk.bold.redBright(level);
 		}
 
-		info = level + ' ' + chalk.gray(output.file) + ': ';
+		info = level + " " + chalk.gray(output.file) + ": ";
 
-	} else if (output.type === 'action') {
-		info = '[' + chalk.yellow(output.action) + '] ';
+	} else if (output.type === "action") {
+		info = "[" + chalk.yellow(output.action) + "] ";
 	}
 
 	return time + info + output.message;
@@ -237,21 +237,21 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['create-instance', "Create an instance", (yargs) => {
+	definition: ["create-instance", "Create an instance", (yargs) => {
 		// XXX TODO: set any specific options?
-		yargs.option('name', {
+		yargs.option("name", {
 			type: "string",
 			nargs: 1,
 			describe: "Instance name",
 			group: "Instance Config:",
 		});
-		yargs.option('id', {
+		yargs.option("id", {
 			type: "number",
 			nargs: 1,
 			describe: "Instance ID",
 			group: "Instance Config:",
 		});
-		yargs.option('base', {
+		yargs.option("base", {
 			type: "boolean",
 			nargs: 0,
 			describe: "Specify this is a base config",
@@ -329,10 +329,10 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['assign-instance', "Assign instance to a slave", (yargs) => {
+	definition: ["assign-instance", "Assign instance to a slave", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to assign", nargs: 1, type: 'string', demandOption: true },
-			'slave': { describe: "Slave to assign to", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to assign", nargs: 1, type: "string", demandOption: true },
+			"slave": { describe: "Slave to assign to", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -346,9 +346,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['create-save', "Create a new save on an instance", (yargs) => {
+	definition: ["create-save", "Create a new save on an instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to create on", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to create on", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -361,9 +361,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['export-data', "Export item icons and locale from instance", (yargs) => {
+	definition: ["export-data", "Export item icons and locale from instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to export from", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to export from", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -376,10 +376,10 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['start-instance', "Start instance", (yargs) => {
+	definition: ["start-instance", "Start instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to start", nargs: 1, type: 'string', demandOption: true },
-			'save': { describe: "Save load, defaults to latest", nargs: 1, type: 'string' },
+			"instance": { describe: "Instance to start", nargs: 1, type: "string", demandOption: true },
+			"save": { describe: "Save load, defaults to latest", nargs: 1, type: "string" },
 		});
 	}],
 	handler: async function(args, control) {
@@ -393,9 +393,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['stop-instance', "Stop instance", (yargs) => {
+	definition: ["stop-instance", "Stop instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to stop", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to stop", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -408,9 +408,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['delete-instance', "Delete instance", (yargs) => {
+	definition: ["delete-instance", "Delete instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to delete", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to delete", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -421,10 +421,10 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['send-rcon', "Send RCON command", (yargs) => {
+	definition: ["send-rcon", "Send RCON command", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to sent to", nargs: 1, type: 'string', demandOption: true },
-			'command': { describe: "command to send", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to sent to", nargs: 1, type: "string", demandOption: true },
+			"command": { describe: "command to send", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -623,7 +623,7 @@ class Control extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
 	constructor(connector) {
-		super('control', 'master', connector);
+		super("control", "master", connector);
 		link.attachAllMessages(this);
 	}
 
@@ -656,12 +656,12 @@ async function startControl() {
 	yargs
 		.scriptName("clusterctl")
 		.usage("$0 <command> [options]")
-		.option('config', {
+		.option("config", {
 			nargs: 1,
 			describe: "config file to get credentails from",
 			default: "config-control.json",
 			defaultDescription: "auto",
-			type: 'string',
+			type: "string",
 		})
 		.command("control-config", "Manage Control config", config.configCommand)
 		.wrap(yargs.terminalWidth())
@@ -684,7 +684,7 @@ async function startControl() {
 		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
-		if (err.code === 'ENOENT') {
+		if (err.code === "ENOENT") {
 			console.log("Config not found, initializing new config");
 			await controlConfig.init();
 

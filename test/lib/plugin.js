@@ -1,11 +1,11 @@
-const assert = require('assert').strict;
-const fs = require('fs-extra');
-const path = require('path');
+const assert = require("assert").strict;
+const fs = require("fs-extra");
+const path = require("path");
 
-const mock = require('../mock');
-const link = require('lib/link');
-const plugin = require('lib/plugin');
-const errors = require('lib/errors');
+const mock = require("../mock");
+const link = require("lib/link");
+const plugin = require("lib/plugin");
+const errors = require("lib/errors");
 
 
 describe("lib/plugin", function() {
@@ -43,26 +43,26 @@ describe("lib/plugin", function() {
 
 	describe("loadPluginInfos()", function() {
 		let baseDir = path.join("temp", "test", "plugin");
-		let emptyDir = path.join(baseDir, 'emptyDir');
-		let emptyPlugin = path.join(baseDir, 'emptyPlugin');
-		let testPlugin = path.join(baseDir, 'testPlugin');
-		let brokenPlugin = path.join(baseDir, 'brokenPlugin');
-		let invalidPlugin = path.join(baseDir, 'invalidPlugin');
+		let emptyDir = path.join(baseDir, "emptyDir");
+		let emptyPlugin = path.join(baseDir, "emptyPlugin");
+		let testPlugin = path.join(baseDir, "testPlugin");
+		let brokenPlugin = path.join(baseDir, "brokenPlugin");
+		let invalidPlugin = path.join(baseDir, "invalidPlugin");
 		before(async function() {
 			await fs.ensureDir(emptyDir);
-			await fs.ensureDir(path.join(emptyPlugin, 'empty'));
+			await fs.ensureDir(path.join(emptyPlugin, "empty"));
 
 			async function writePlugin(pluginPath, name, infoName = name) {
 				await fs.outputFile(
-					path.join(pluginPath, name, 'info.js'),
+					path.join(pluginPath, name, "info.js"),
 					`module.exports = { name: "${infoName}" };`
 				);
 			}
 
-			await writePlugin(testPlugin, 'test');
-			await writePlugin(brokenPlugin, 'broken');
-			await fs.outputFile(path.join(brokenPlugin, 'broken', 'info.js'), "Syntax Error");
-			await writePlugin(invalidPlugin, 'invalid', 'wrong');
+			await writePlugin(testPlugin, "test");
+			await writePlugin(brokenPlugin, "broken");
+			await fs.outputFile(path.join(brokenPlugin, "broken", "info.js"), "Syntax Error");
+			await writePlugin(invalidPlugin, "invalid", "wrong");
 		});
 
 		it("should return an empty array for an empty directory", async function() {
@@ -74,7 +74,7 @@ describe("lib/plugin", function() {
 		it("should discover test plugin", async function() {
 			assert.deepEqual(
 				await plugin.loadPluginInfos(testPlugin),
-				[{ name: 'test' }]
+				[{ name: "test" }]
 			);
 		});
 		it("should reject on broken plugin", async function() {
@@ -91,12 +91,12 @@ describe("lib/plugin", function() {
 		});
 
 		after(async function() {
-			await fs.unlink(path.join(brokenPlugin, 'broken', 'info.js'));
+			await fs.unlink(path.join(brokenPlugin, "broken", "info.js"));
 		});
 	});
 
 	describe("attachPluginMessages()", function() {
-		let mockLink = new link.Link('source', 'target', new mock.MockConnector());
+		let mockLink = new link.Link("source", "target", new mock.MockConnector());
 		let mockEvent = new link.Event({ type: "test:test", links: ["target-source"] });
 		it("should accept pluginInfo without messages", function() {
 			plugin.attachPluginMessages(mockLink, {}, null);

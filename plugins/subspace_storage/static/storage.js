@@ -7,8 +7,8 @@ function drawcontents(data) {
         // allow searching for multiple criteria separated by space
         var searchArgs = document.querySelector("#search").value;
         searchArgs = searchArgs.trim();
-        searchArgs = '(' + searchArgs.replace(/ +/g,")|(") + ')';
-        const search = new RegExp(searchArgs, 'i');
+        searchArgs = "(" + searchArgs.replace(/ +/g,")|(") + ")";
+        const search = new RegExp(searchArgs, "i");
         data = data.filter(function(item) {
 		return search.test(item.name);
 	})
@@ -25,7 +25,7 @@ function drawcontents(data) {
 		
 		let row = rows[i];
 		if(!row) {
-			row = document.createElement('tr');
+			row = document.createElement("tr");
 			row.innerHTML = "<td><div></div></td><td class=name></td><td class=count></td>";
 			table.appendChild(row);
 		}
@@ -51,13 +51,13 @@ function drawcontents(data) {
 			}
 		}
 
-		const name = row.querySelector('.name');
+		const name = row.querySelector(".name");
 		if(name.textContent !== localeName) {
 			name.textContent = localeName;
 		}
 		
-		const count = row.querySelector('.count');
-		if(count.textContent !== ''+item.count) {
+		const count = row.querySelector(".count");
+		if(count.textContent !== ""+item.count) {
 			count.textContent = item.count;
 		}
 	});
@@ -93,6 +93,6 @@ function sortByKey(array, key) {
     });
 }
 
-document.querySelector("#search").addEventListener('input', function() {
+document.querySelector("#search").addEventListener("input", function() {
 	drawcontents();
 });

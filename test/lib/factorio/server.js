@@ -157,8 +157,8 @@ describe("lib/factorio/server", function() {
 	describe("parseOutput()", function() {
 		it("should parse the test lines", function() {
 			for (let [line, reference] of testLines) {
-				reference.source = 'test';
-				let output = factorio._parseOutput(line, 'test');
+				reference.source = "test";
+				let output = factorio._parseOutput(line, "test");
 				delete output.received;
 				assert.deepEqual(output, reference);
 			}
@@ -187,46 +187,46 @@ describe("lib/factorio/server", function() {
 
 		describe("._handleIpc()", function() {
 			it("should emit the correct ipc event", async function() {
-				let waiter = events.once(server, 'ipc-channel');
+				let waiter = events.once(server, "ipc-channel");
 				await server._handleIpc(Buffer.from('\f$ipc:channel?j"value"'));
 				let result = await waiter;
 				assert.equal(result[0], "value");
 			});
 			it("should handle special characters in channel name", async function() {
-				let waiter = events.once(server, 'ipc-$ ?\x00\x0a:');
+				let waiter = events.once(server, "ipc-$ ?\x00\x0a:");
 				await server._handleIpc(Buffer.from('\f$ipc:$ \\x3f\\x00\\x0a:?j"value"'));
 				let result = await waiter;
 				assert.equal(result[0], "value");
 			});
 			it("should throw on malformed ipc line", async function() {
 				await assert.rejects(
-					server._handleIpc(Buffer.from('\f$ipc:blah')),
+					server._handleIpc(Buffer.from("\f$ipc:blah")),
 					new Error('Malformed IPC line "\f$ipc:blah"')
 				);
 			})
 			it("should throw on unknown type", async function() {
 				await assert.rejects(
-					server._handleIpc(Buffer.from('\f$ipc:channel??')),
+					server._handleIpc(Buffer.from("\f$ipc:channel??")),
 					new Error("Unknown IPC type '?'")
 				);
 			})
 			it("should throw on unknown file type", async function() {
 				await assert.rejects(
-					server._handleIpc(Buffer.from('\f$ipc:channel?ffoo.invalid')),
+					server._handleIpc(Buffer.from("\f$ipc:channel?ffoo.invalid")),
 					new Error("Unknown IPC file format 'invalid'")
 				);
 			})
 			it("should throw on file name with slash", async function() {
 				await assert.rejects(
-					server._handleIpc(Buffer.from('\f$ipc:channel?fa/b')),
+					server._handleIpc(Buffer.from("\f$ipc:channel?fa/b")),
 					new Error("Invalid IPC file name 'a/b'")
 				);
 			})
 			it("should load and delete json file", async function() {
-				let filePath = server.writePath('script-output', 'data.json');
+				let filePath = server.writePath("script-output", "data.json");
 				await fs.outputFile(filePath, '{"data":"spam"}');
-				let waiter = events.once(server, 'ipc-channel');
-				await server._handleIpc(Buffer.from('\f$ipc:channel?fdata.json'));
+				let waiter = events.once(server, "ipc-channel");
+				await server._handleIpc(Buffer.from("\f$ipc:channel?fdata.json"));
 				let result = await waiter;
 				assert.deepEqual(result[0], { "data": "spam" });
 				assert(!await fs.pathExists(filePath), "File was not deleted");

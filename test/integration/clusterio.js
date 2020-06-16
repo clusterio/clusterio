@@ -1,8 +1,8 @@
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
-const validateHTML = require('html5-validator');
-const parallel = require('mocha.parallel');
+const validateHTML = require("html5-validator");
+const parallel = require("mocha.parallel");
 
 const link = require("lib/link");
 

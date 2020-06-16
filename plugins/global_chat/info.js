@@ -10,10 +10,10 @@ module.exports = {
 
 	messages: {
 		chat: new link.Event({
-			type: 'global_chat:chat',
-			links: ['instance-slave', 'slave-master', 'master-slave', 'slave-instance'],
-			forwardTo: 'master',
-			broadcastTo: 'instance',
+			type: "global_chat:chat",
+			links: ["instance-slave", "slave-master", "master-slave", "slave-instance"],
+			forwardTo: "master",
+			broadcastTo: "instance",
 			eventProperties: {
 				"instance_name": { type: "string" },
 				"content": { type: "string" },

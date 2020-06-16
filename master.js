@@ -19,8 +19,8 @@
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const moment = require("moment");
 const request = require("request");
 const setBlocking = require("set-blocking");
@@ -49,30 +49,30 @@ const config = require("lib/config");
 const users = require("lib/users");
 
 const express = require("express");
-const compression = require('compression');
-const cookieParser = require('cookie-parser');
+const compression = require("compression");
+const cookieParser = require("cookie-parser");
 // Required for express post requests
 const bodyParser = require("body-parser");
-const fileUpload = require('express-fileupload');
+const fileUpload = require("express-fileupload");
 var app = express();
 var httpServer;
 var httpsServer;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
-	limit: '10mb',
+	limit: "10mb",
 }));
 app.use(bodyParser.urlencoded({
 	parameterLimit: 100000,
-	limit: '10mb',
+	limit: "10mb",
 	extended: true
 }));
 app.use(fileUpload());
 app.use(compression());
 
 // dynamic HTML generations with EJS
-app.set('view engine', 'ejs');
-app.set('views', ['views', 'plugins']);
+app.set("view engine", "ejs");
+app.set("views", ["views", "plugins"]);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
@@ -88,12 +88,12 @@ app.use(function(req, res, next){
 
 require("./routes")(app);
 // Set folder to serve static content from (the website)
-app.use(express.static('static'));
+app.use(express.static("static"));
 
 const endpointHitCounter = new prometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
 	"How many requests a particular HTTP endpoint has gotten",
-	{ labels: ['route'] }
+	{ labels: ["route"] }
 );
 
 const wsMessageCounter = new prometheus.Counter(
@@ -167,10 +167,10 @@ async function getMetrics(req, res, next) {
 
 
 	let text = await prometheus.exposition(results);
-	res.set('Content-Type', prometheus.exposition.contentType);
+	res.set("Content-Type", prometheus.exposition.contentType);
 	res.send(text);
 }
-app.get('/metrics', (req, res, next) => getMetrics(req, res, next).catch(next));
+app.get("/metrics", (req, res, next) => getMetrics(req, res, next).catch(next));
 
 
 function validateSlaveToken(req, res, next) {
@@ -232,9 +232,9 @@ app.put("/api/upload-export",
 );
 
 const masterConnectedClientsCount = new prometheus.Gauge(
-	'clusterio_master_connected_clients_count', "How many clients are currently connected to this master server",
+	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
 	{
-		labels: ['type'], callback: async function(gauge) {
+		labels: ["type"], callback: async function(gauge) {
 			gauge.labels("slave").set(slaveConnections.size);
 			gauge.labels("control").set(controlConnections.length);
 		},
@@ -267,7 +267,7 @@ async function loadInstances(databaseDirectory, file) {
 		}
 
 	} catch (err) {
-		if (err.code !== 'ENOENT') {
+		if (err.code !== "ENOENT") {
 			throw err;
 		}
 	}
@@ -365,14 +365,14 @@ async function saveUsers(databaseDirectory, file) {
  * Innitiate shutdown of master server
  */
 async function shutdown() {
-	console.log('Shutting down');
+	console.log("Shutting down");
 	let exitStartTime = Date.now();
 	try {
 		console.log("Saving configs");
 		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 
-		await saveMap(masterConfig.get('master.database_directory'), "slaves.json", db.slaves);
-		await saveInstances(masterConfig.get('master.database_directory'), "instances.json", db.instances);
+		await saveMap(masterConfig.get("master.database_directory"), "slaves.json", db.slaves);
+		await saveInstances(masterConfig.get("master.database_directory"), "instances.json", db.instances);
 		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
 
 		await plugin.invokeHook(masterPlugins, "onShutdown");
@@ -439,7 +439,7 @@ async function downloadPage(url) {
 app.get("/api/modmeta", async function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	res.header("Access-Control-Allow-Origin", "*");
-	res.setHeader('Content-Type', 'application/json');
+	res.setHeader("Content-Type", "application/json");
 	let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
 	res.send(modData);
 });
@@ -452,7 +452,7 @@ app.get("/api/modmeta", async function(req, res) {
  */
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
-		super('master', target, connector);
+		super("master", target, connector);
 		link.attachAllMessages(this);
 		for (let masterPlugin of masterPlugins.values()) {
 			plugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
@@ -465,7 +465,7 @@ class BaseConnection extends link.Link {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let slaveId = instance.config.get('instance.assigned_slave');
+		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) {
 			throw new errors.RequestError("Instance is not assigned to a slave");
 		}
@@ -485,7 +485,7 @@ class BaseConnection extends link.Link {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) { return; }
 
-		let slaveId = instance.config.get('instance.assigned_slave');
+		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) { return; }
 
 		let connection = slaveConnections.get(slaveId);
@@ -529,7 +529,7 @@ class BaseConnection extends link.Link {
 let controlConnections = new Array();
 class ControlConnection extends BaseConnection {
 	constructor(registerData, connector, user) {
-		super('control', connector)
+		super("control", connector)
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
@@ -630,7 +630,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		if (instance.config.get('instance.assigned_slave') !== null) {
+		if (instance.config.get("instance.assigned_slave") !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
 		db.instances.delete(message.data.instance_id);
@@ -848,7 +848,7 @@ var slaveConnections = new Map();
  */
 class SlaveConnection extends BaseConnection {
 	constructor(registerData, connector) {
-		super('slave', connector);
+		super("slave", connector);
 
 		this._agent = registerData.agent;
 		this._id = registerData.id;
@@ -1407,7 +1407,7 @@ function listen(server, ...args) {
 			// For reasons that defy common sense, the connection event has
 			// to be emitted explictly when using noServer.
 			wss.handleUpgrade(req, socket, head, (ws) => {
-				wss.emit('connection', ws, req);
+				wss.emit("connection", ws, req);
 			});
 		});
 
@@ -1417,9 +1417,9 @@ function listen(server, ...args) {
 			));
 		}
 
-		server.once('error', wrapError);
+		server.once("error", wrapError);
 		server.listen(...args, () => {
-			server.off('error', wrapError);
+			server.off("error", wrapError);
 			resolve();
 		});
 	});
@@ -1450,7 +1450,7 @@ async function startServer() {
 	process.title = "clusterioMaster";
 
 	// add better stack traces on promise rejection
-	process.on('unhandledRejection', r => console.log(r));
+	process.on("unhandledRejection", r => console.log(r));
 
 	// argument parsing
 	let args = yargs
@@ -1492,7 +1492,7 @@ async function startServer() {
 		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
 
 	} catch (err) {
-		if (err.code === 'ENOENT') {
+		if (err.code === "ENOENT") {
 			console.log("Config not found, initializing new config");
 			await masterConfig.init();
 
@@ -1555,7 +1555,7 @@ async function startServer() {
 	// If we get here the command was run
 
 	let secondSigint = false
-	process.on('SIGINT', () => {
+	process.on("SIGINT", () => {
 		if (secondSigint) {
 			console.log("Caught second interrupt, terminating immediately");
 			process.exit(1);
@@ -1567,28 +1567,28 @@ async function startServer() {
 	});
 
 	// terminal closed
-	process.on('SIGHUP', () => {
+	process.on("SIGHUP", () => {
 		// No graceful cleanup, no warning out (stdout is likely closed.)
 		// Don't close the terminal with the clusterio master in it.
 		process.exit(1);
 	});
 
-	await fs.ensureDir(masterConfig.get('master.database_directory'));
+	await fs.ensureDir(masterConfig.get("master.database_directory"));
 
-	db.slaves = await loadMap(masterConfig.get('master.database_directory'), "slaves.json");
-	db.instances = await loadInstances(masterConfig.get('master.database_directory'), "instances.json");
+	db.slaves = await loadMap(masterConfig.get("master.database_directory"), "slaves.json");
+	db.instances = await loadInstances(masterConfig.get("master.database_directory"), "instances.json");
 	await loadUsers(masterConfig.get("master.database_directory"), "users.json");
 
 	// Make sure we're actually going to listen on a port
-	let httpPort = masterConfig.get('master.http_port');
-	let httpsPort = masterConfig.get('master.https_port');
+	let httpPort = masterConfig.get("master.http_port");
+	let httpsPort = masterConfig.get("master.https_port");
 	if (!httpPort && !httpsPort) {
 		console.error("Error: at least one of http_port and https_port must be configured");
 		process.exit(1);
 	}
 
-	let tls_cert = masterConfig.get('master.tls_certificate');
-	let tls_key = masterConfig.get('master.tls_private_key');
+	let tls_cert = masterConfig.get("master.tls_certificate");
+	let tls_key = masterConfig.get("master.tls_private_key");
 	// Create a self signed certificate if the certificate files doesn't exist
 	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
 		await generateSSLcert({

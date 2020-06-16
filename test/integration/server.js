@@ -32,7 +32,7 @@ describe("Integration of lib/factorio/server", function() {
 
 			await fs.ensureDir(writePath);
 			logFile = fs.createWriteStream(path.join(writePath, "log.txt"), "utf8");
-			server.on('output', function(output) {
+			server.on("output", function(output) {
 				logFile.write(JSON.stringify(output) + "\n");
 			});
 
@@ -119,7 +119,7 @@ describe("Integration of lib/factorio/server", function() {
 				log(".sendRcon()");
 
 				let result = await server.sendRcon("/sc rcon.print('success')");
-				assert.equal(result, 'success\n');
+				assert.equal(result, "success\n");
 			});
 			it("throws on non-empty response when enabled", async function() {
 				slowTest(this);
@@ -155,14 +155,14 @@ describe("Integration of lib/factorio/server", function() {
 						pass = true;
 					}
 				}
-				server.on('output', filter);
+				server.on("output", filter);
 
 				await server.startScenario("test_scenario");
 
 				log(".stop()");
 				await server.stop();
 
-				server.off('output', filter);
+				server.off("output", filter);
 				assert(pass, "server did not output line from test scenario");
 			});
 		});
@@ -191,7 +191,7 @@ describe("Integration of lib/factorio/server", function() {
 
 				await server.start("test.zip");
 				if (!server._rconReady) {
-					await events.once(server, 'rcon-ready');
+					await events.once(server, "rcon-ready");
 				}
 				server.sendRcon("/c while true do end").catch(() => {});
 				await new Promise((resolve) => setTimeout(resolve, 300));
@@ -210,7 +210,7 @@ describe("Integration of lib/factorio/server", function() {
 				log(".start() for kill detection");
 
 				let startPromise = server.start("test.zip");
-				server.once('output', () => server._server.kill('SIGKILL'));
+				server.once("output", () => server._server.kill("SIGKILL"));
 
 				await assert.rejects(
 					startPromise,

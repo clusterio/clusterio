@@ -1,10 +1,10 @@
-const assert = require('assert').strict;
-const chalk = require('chalk');
+const assert = require("assert").strict;
+const chalk = require("chalk");
 
-const errors = require('lib/errors');
-const { testLines } = require('./lib/factorio/lines');
-const clusterctl = require('../clusterctl.js');
-const mock = require('./mock');
+const errors = require("lib/errors");
+const { testLines } = require("./lib/factorio/lines");
+const clusterctl = require("../clusterctl.js");
+const mock = require("./mock");
 
 
 describe("clusterctl", function() {
@@ -24,13 +24,13 @@ describe("clusterctl", function() {
 	});
 
 	let mockConnector = new mock.MockConnector();
-	mockConnector.on('send', function(message) {
-		if (message.type === 'list_instances_request') {
-			this.emit('message', {
-				seq: 1, type: 'list_instances_response',
+	mockConnector.on("send", function(message) {
+		if (message.type === "list_instances_request") {
+			this.emit("message", {
+				seq: 1, type: "list_instances_response",
 				data: {
 					seq: message.seq,
-					list: [{ id: 57, assigned_slave: 4, name: 'Test Instance' }],
+					list: [{ id: 57, assigned_slave: 4, name: "Test Instance" }],
 				},
 			});
 		}
