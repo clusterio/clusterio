@@ -156,6 +156,14 @@ class Instance extends link.Link{
 				console.error("Error handling autosave-finished:", err);
 			});
 		});
+
+		this.server.on("ipc-player_event", event => {
+			link.messages.playerEvent.send(this, {
+				instance_id: this.config.get("instance.id"),
+				...event,
+			});
+			plugin.invokeHook(this.plugins, "onPlayerEvent", event);
+		});
 	}
 
 	async _autosave(name) {
@@ -1181,10 +1189,10 @@ async function startSlave() {
 	if (slaveConfig.get("slave.master_token") === "enter token here") {
 		console.error("ERROR invalid config!");
 		console.error(
-			"Master server now needs an access token for write operations. As clusterio\n"+
+			"Master server requires an access token for socket operations. As clusterio\n"+
 			"slaves depends upon this, please set your token using the command node slave\n"+
-			"config set slave.master_token <token>.  You can retrieve your auth token from\n"+
-			"the master in secret-api-token.txt after running it once."
+			"config set slave.master_token <token>.  You can generate an auth token using\n"+
+			"using node clusterctl generate-slave-token."
 		);
 		process.exitCode = 1;
 		return;
@@ -1275,14 +1283,19 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startSlave().catch(err => {
-		console.error(`
+		if (err instanceof errors.AuthenticationFailed) {
+			console.error(err.message);
+
+		} else {
+			console.error(`
 +--------------------------------------------------------------+
 | Unexpected error occured while starting slave, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues  |
 +--------------------------------------------------------------+`
-		);
+			);
+			console.error(err);
+		}
 
-		console.error(err);
 		process.exit(1);
 	});
 }

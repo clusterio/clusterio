@@ -40,6 +40,8 @@ Version 2.0.0
 - Added Factorio server CPU and memory usage statistic.
 - Added Factorio autosave size statistic.
 - Added support for extracting locale and item icons from Factorio and mods.
+- Added integrated user management for controlling access and storing per
+  player data.
 
 ### Changes
 
@@ -92,8 +94,7 @@ Version 2.0.0
 
 ### Breaking Changes
 
-- lib/authenticate no longer requires config to be passed to it.  Breaks
-  playerManager.
+- Removed lib/authenticate.  Breaks playerManager.
 - The masterIP and masterPort config entries has been merged into masterURL.
   Breaks discordChat, playerManager, serverSelect, trainTeleports and
   clusterioModel.
@@ -166,6 +167,7 @@ Version 2.0.0
 - Implemented a new config system that replaces the old.  Breaks all plugins.
 - Removed usage of socket.io entirely in favor of a plain WebSocket connection.
 - Renamed clusterioMod plugin to subspace_storage.
+- Master no longer creates secret-api-token.txt.
 
 
 Version 1.2.4

@@ -30,7 +30,8 @@ const masterInventoryGauge = new prometheus.Gauge(
 class MasterPlugin extends plugin.BaseMasterPlugin {
 	async init() {
 
-		let root = this.master.config.get("master.web_root");
+		let externalAddress = this.master.config.get("master.external_address");
+		let root = externalAddress ? new URL(externalAddress).pathname : "/";
 		this.ui = {
 			sidebar: [
 				{

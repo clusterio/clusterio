@@ -39,7 +39,6 @@ Factorio*
 /config-control.json
 /config-slave.json
 package-lock.json
-secret-api-token.txt
 mod_cache.json
 static/export
 static/external
