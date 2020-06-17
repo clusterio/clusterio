@@ -535,7 +535,7 @@ class BaseConnection extends link.Link {
 	}
 }
 
-let controlConnections = new Array();
+let controlConnections = [];
 class ControlConnection extends BaseConnection {
 	constructor(registerData, connector, user) {
 		super("control", connector);
@@ -560,7 +560,7 @@ class ControlConnection extends BaseConnection {
 
 		this.ws_dumper = null;
 		this.connector.on("connect", () => {
-			this.connector._socket.clusterio_ignore_dump = !!this.ws_dumper;
+			this.connector._socket.clusterio_ignore_dump = Boolean(this.ws_dumper);
 		});
 		this.connector.on("close", () => {
 			if (this.ws_dumper) {
@@ -880,6 +880,7 @@ class SlaveConnection extends BaseConnection {
 		});
 
 		for (let event of ["connect", "drop", "close"]) {
+			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let masterPlugin of masterPlugins.values()) {
 					masterPlugin.onSlaveConnectionEvent(this, event);
@@ -991,7 +992,7 @@ const wss = new WebSocket.Server({
  *     2<sup>31</sup>-1.
  */
 function isInteger(value) {
-	return value | 0 === value;
+	return (value | 0) === value;
 }
 
 

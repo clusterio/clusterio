@@ -45,7 +45,7 @@ describe("lib/link/messages", function() {
 
 			let handlerResult;
 			it("should attach handler to a target link", function() {
-				testRequest.attach(testTargetLink, async (message) => handlerResult );
+				testRequest.attach(testTargetLink, async (message) => handlerResult);
 				assert(testTargetLink._handlers.has("test_request"), "Handler was not set");
 			});
 			it("should send result of calling the handler", async function() {
@@ -83,9 +83,7 @@ describe("lib/link/messages", function() {
 				testSourceLink.connector.send = (type, data) => {
 					request = { type, data };
 				};
-				testSourceLink.waitFor = (type, condition) => {
-					return { data: { type, request }};
-				};
+				testSourceLink.waitFor = (type, condition) => ({ data: { type, request }});
 				assert.deepEqual(
 					await testRequest.send(testSourceLink, { test: "request" }),
 					{ type: "test_response", request: { type: "test_request", data: { test: "request" }}}
@@ -94,9 +92,7 @@ describe("lib/link/messages", function() {
 				delete testSourceLink.waitFor;
 			});
 			it("should throw error response", async function() {
-				testSourceLink.waitFor = (type, condition) => {
-					return { data: { error: "test error" }};
-				};
+				testSourceLink.waitFor = (type, condition) => ({ data: { error: "test error" }});
 				await assert.rejects(
 					testRequest.send(testSourceLink, { test: "blah" }),
 					new errors.RequestError("test error")

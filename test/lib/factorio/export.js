@@ -18,5 +18,5 @@ describe("lib/factorio/export", function() {
 			let locale = await factorio._exportLocale(testServer, new Map(), ["base"], "en");
 			assert.deepEqual(locale, new Map([["test.key-a", "1"], ["test.key-b", "2"]]));
 		});
-	});;
+	});
 });

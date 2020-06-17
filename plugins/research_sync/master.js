@@ -112,7 +112,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		}
 
 		for (let instanceTech of message.data.technologies) {
-			let [name, level, progress, researched] =  instanceTech;
+			let [name, level, progress, researched] = instanceTech;
 			let tech = this.technologies.get(name);
 			if (!tech) {
 				this.technologies.set(name, { level, progress, researched });
@@ -152,7 +152,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 
 		let technologies = [];
 		for (let [name, tech] of this.technologies) {
-			technologies.push([ name, tech.level, tech.progress, tech.researched ]);
+			technologies.push([name, tech.level, tech.progress, tech.researched]);
 		}
 
 		return { technologies };

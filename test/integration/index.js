@@ -23,6 +23,7 @@ class TestControl extends link.Link {
 	}
 
 	async debugWsMessageEventHandler() { }
+
 	async instanceOutputEventHandler() { }
 }
 
@@ -35,6 +36,7 @@ class TestControlConnector extends link.WebSocketClientConnector {
 // Mark that this test takes a lot of time, or depeneds on a test
 // that takes a lot of time.
 function slowTest(test) {
+	// eslint-disable-next-line no-process-env
 	if (process.env.FAST_TEST) {
 		test.skip();
 	}

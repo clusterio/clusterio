@@ -287,7 +287,7 @@ describe("lib/config/classes", function() {
 			});
 
 			it("should work if field is in enum", function() {
-				testInstance.set("enum", "c"),
+				testInstance.set("enum", "c");
 				assert.equal(testInstance.get("enum"), "c");
 			});
 
@@ -299,7 +299,7 @@ describe("lib/config/classes", function() {
 			});
 
 			it("should work if field is optional", function() {
-				testInstance.set("test", "spam"),
+				testInstance.set("test", "spam");
 				assert.equal(testInstance.get("test"), "spam");
 			});
 
@@ -311,7 +311,7 @@ describe("lib/config/classes", function() {
 			});
 
 			it("should treat empty string as null", function() {
-				testInstance.set("test", ""),
+				testInstance.set("test", "");
 				assert.equal(testInstance.get("test"), null);
 			});
 
@@ -451,7 +451,8 @@ describe("lib/config/classes", function() {
 			});
 			it("should construct a finalized class", function() {
 				TestConfig.finalize();
-				new TestConfig();
+				let config = new TestConfig();
+				assert(config);
 			});
 		});
 

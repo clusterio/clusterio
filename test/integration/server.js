@@ -27,7 +27,7 @@ describe("Integration of lib/factorio/server", function() {
 
 		before(async function() {
 			// Delete result from previous run of these tests
-			if (fs.existsSync(writePath)) {
+			if (await fs.pathExists(writePath)) {
 				await fs.remove(writePath);
 			}
 

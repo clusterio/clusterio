@@ -523,7 +523,7 @@ describe("lib/prometheus", function() {
 
 	let serializedResult = {
 		metric: { type: "type", name: "name", help: "Help", labels: ["a", "b"] },
-		samples: [ ['a="1",b="2"', 1], ['a="3",b="4"', 5] ],
+		samples: [['a="1",b="2"', 1], ['a="3",b="4"', 5]],
 	};
 	let deserializedResult = {
 		metric: new prometheus.Metric("type", "name", "Help", ["a", "b"]),

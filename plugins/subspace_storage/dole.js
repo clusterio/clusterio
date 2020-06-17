@@ -16,7 +16,7 @@ const prometheusDoleFactorGauge = new prometheus.Gauge(
 );
 
 class neuralDole {
-    
+
 	getRequestStats(itemname,samples)
 	{
 		var sum=0;
@@ -28,7 +28,7 @@ class neuralDole {
 		if (sum==0) return 0.1;
 		return sum/samples;
 	}
-    
+
 	constructor({
 		items,
 	}){
@@ -41,6 +41,7 @@ class neuralDole {
 		this.stats=[];
 		this.debt= {};
 	}
+
 	doMagic() {
 		for (let [name, count] of this.items._items) {
 			let magicData = doleNN.Tick(
@@ -50,7 +51,7 @@ class neuralDole {
 				this.getRequestStats(name,5)
 			);
 			this.stats[name]=this.stats[name] || [];
-			this.stats[name].unshift({ req:0,given:0 });//stats[name][0] is the one we currently collect
+			this.stats[name].unshift({ req: 0, given: 0 });//stats[name][0] is the one we currently collect
 			if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
 
 			this.dole[name] = magicData[0];
@@ -59,6 +60,7 @@ class neuralDole {
 		}
 		this.itemsLastTick = new Map(this.items._items);
 	}
+
 	divider(object) {
 		let magicData = doleNN.Dose(
 			object.count, // numReq
@@ -100,7 +102,7 @@ function doleDivider({
 	let itemCount = items.getItemCount(object.name);
 	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
 	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
-    
+
 	const originalCount = Number(object.count) || 0;
 	object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
 	object.count = Math.round(object.count);

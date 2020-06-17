@@ -81,7 +81,7 @@ describe("lib/link/connectors", function() {
 		describe(".processHandshake()", function() {
 			it("should close on invalid message", function() {
 				testConnector._socket.closeCalled = false;
-				testConnector._processHandshake({ data: "invalid message" }),
+				testConnector._processHandshake({ data: "invalid message" });
 				assert(testConnector._socket.closeCalled, "Close was not called on the socket");
 			});
 			it("should call register on hello", function() {

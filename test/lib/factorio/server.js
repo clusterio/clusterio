@@ -93,7 +93,7 @@ describe("lib/factorio/server", function() {
 
 		it("should return a port number in the dynamic range", function() {
 			function validate(port) {
-				return 49152 <= port && port <= 65535;
+				return (49152 <= port && port <= 65535);
 			}
 			for (let i=0; i < 20; i++) {
 				assert(validate(factorio._randomDynamicPort()));

@@ -56,7 +56,7 @@ describe("lib/link/link", function() {
 				);
 			});
 			it("should set the handler", function() {
-				let handler = (message) => {};
+				function handler(message) { }
 				testLink.setHandler("handler_test", handler, (message) => true);
 				assert.equal(testLink._handlers.get("handler_test"), handler);
 			});

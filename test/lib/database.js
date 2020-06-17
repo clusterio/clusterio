@@ -13,7 +13,7 @@ describe("lib/database", function() {
 				new Error("Expected all keys to be string but got number")
 			);
 			assert.throws(
-				() => database.mapToObject(new Map([[Symbol(), 1]])),
+				() => database.mapToObject(new Map([[Symbol("test"), 1]])),
 				new Error("Expected all keys to be string but got symbol")
 			);
 		});

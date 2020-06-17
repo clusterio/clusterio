@@ -13,24 +13,24 @@ function drawcontents(data) {
 	data = data.filter(function(item) {
 		return search.test(item.name);
 	});
-	
+
 	sortByKey(data, "count");
-	
+
 	const table = document.querySelector("#contents tbody"); //tables have tbody inserted automatically
 	const rows = table.children;
-	
+
 	//update existing rows or create new ones
 	data.forEach(function(item, i) {
 		// format count to have .s in it for large number readability (1,000,000)
 		item.count = item.count.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-		
+
 		let row = rows[i];
 		if(!row) {
 			row = document.createElement("tr");
 			row.innerHTML = "<td><div></div></td><td class=name></td><td class=count></td>";
 			table.appendChild(row);
 		}
-		
+
 		const itemIcon = row.querySelector("div");
 		const iconClass = getItemIconClass(item.name);
 		if (itemIcon.getAttribute("class") !== iconClass) {
@@ -56,13 +56,13 @@ function drawcontents(data) {
 		if(name.textContent !== localeName) {
 			name.textContent = localeName;
 		}
-		
+
 		const count = row.querySelector(".count");
-		if(count.textContent !== ""+item.count) {
+		if(count.textContent !== String(item.count)) {
 			count.textContent = item.count;
 		}
 	});
-	
+
 	//remove excess rows, for example, after filtering
 	while (data.length < rows.length) {
 		table.removeChild(rows[data.length]);

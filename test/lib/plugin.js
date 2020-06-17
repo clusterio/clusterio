@@ -103,7 +103,7 @@ describe("lib/plugin", function() {
 			plugin.attachPluginMessages(mockLink, {}, null);
 		});
 		it("should attach handler for the given message", function() {
-			let mockEventEventHandler = function() {};
+			function mockEventEventHandler() { };
 			plugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, { mockEventEventHandler });
 			assert(mockLink._handlers.get("test:test_event"), "handler was not registered");
 		});

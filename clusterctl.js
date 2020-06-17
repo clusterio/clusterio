@@ -69,7 +69,7 @@ class Command {
 	}
 
 	async run(args, control) {
-		await this._handler.call(this, args, control);
+		await this._handler(args, control);
 	}
 }
 

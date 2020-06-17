@@ -23,7 +23,6 @@ const version = require("./package").version;
 
 // internal libraries
 const fileOps = require("lib/fileOps");
-const hashFile = require("lib/hash").hashFile;
 const factorio = require("lib/factorio");
 const link = require("lib/link");
 const plugin = require("lib/plugin");
@@ -88,7 +87,7 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async function action(server, value) {
+	"visibility": async (server, value) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
 				let enabled = Boolean(value[scope]);
@@ -352,13 +351,14 @@ class Instance extends link.Link{
 				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
 
-			module = Object.assign({
+			module = {
 				version: plugin.info.version,
 				dependencies: { "clusterio": "*" },
 				path: modulePath,
 				load: [],
 				require: [],
-			}, module);
+				...module,
+			};
 			modules.set(module.name, module);
 		}
 
@@ -380,12 +380,13 @@ class Instance extends link.Link{
 					throw new Error(`Expected name of module ${entry.name} to match the directory name`);
 				}
 
-				module = Object.assign({
+				module = {
 					path: path.join("modules", entry.name),
 					dependencies: { "clusterio": "*" },
 					load: [],
 					require: [],
-				}, module);
+					...module,
+				};
 				modules.set(module.name, module);
 			}
 		}
@@ -754,7 +755,7 @@ class Slave extends link.Link {
 					console.error(err);
 					process.exit(1);
 				});
-			});;
+			});
 		});
 
 		this.connector.on("close", () => {
@@ -874,10 +875,10 @@ class Slave extends link.Link {
 
 
 		// save a copy of the instance config
-		let warnedOutput = Object.assign(
-			{ _warning: "Changes to this file will be overwritten by the master server's copy." },
-			instanceInfo.config.serialize()
-		);
+		let warnedOutput = {
+			_warning: "Changes to this file will be overwritten by the master server's copy.",
+			...instanceInfo.config.serialize(),
+		};
 		await fs.outputFile(
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
@@ -1237,37 +1238,6 @@ async function startSlave() {
 	});
 
 	await slaveConnector.connect();
-
-	/*
-	} else if (command == "manage"){
-		await manage(config, instance);
-		// process.exit(0);
-	*/
-}
-
-// string, function
-// returns [{modName:string,hash:string}, ... ]
-function hashMods(instance, callback) {
-	if(!callback) {
-		throw new Error("ERROR in function hashMods NO CALLBACK");
-	}
-
-	function hashMod(name) {
-		if (path.extname(name) != ".zip") {
-			// Can't hash unzipped mods, return null that's filtered out later
-			return null;
-		} else {
-			return hashFile(instance.path("mods", name)).then(hash => (
-				{ modName: name, hash: hash }
-			));
-		}
-	}
-
-	let promises = fs.readdirSync(instance.path("mods")).map(hashMod);
-	Promise.all(promises).then(hashes => {
-		// Remove null entries from hashMod
-		callback(hashes.filter(entry => entry !== null));
-	});
 }
 
 module.exports = {

@@ -156,7 +156,7 @@ describe("Integration of Clusterio", function() {
 					],
 				];
 
-				for (let [prop, value, , ] of testConfigs) {
+				for (let [prop, value, ,] of testConfigs) {
 					value = `"'${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}'"`;
 					let args = `--instance test --field factorio.settings --prop ${prop} --value ${value}`;
 					await exec(`node clusterctl --config ${controlConfigPath} set-instance-config-prop ${args}`);
