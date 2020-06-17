@@ -11,6 +11,7 @@ Contents
 
 - [Workflow](#workflow)
     - [Starting a Feature Branch](#starting-a-feature-branch)
+    - [Checking your code for errors](#checking-your-code-for-errors)
     - [Submitting a Pull Request](#submitting-a-pull-request)
     - [Editing your Feature Branch](#editing-your-feature-branch)
     - [Resolving Merge Conflicts](#resolving-merge-conflicts)
@@ -74,6 +75,18 @@ correctly.  Now you can make a feature branch based on this with.
 The name of the branch is not important, as long as it's not a name
 you've used before.  But it's nice to have its name be somewhat
 descriptive of what it implements.
+
+
+### Checking your code for errors
+
+There's automated tests and linting setup for the project.  Please do
+add tests for any code you add and run both:
+
+    npm run test
+    npm run lint
+
+To check that your changes pass the integration tests as well as the
+ESLint rules set up for the project.
 
 
 ### Submitting a Pull Request
