@@ -30,7 +30,7 @@ class neuralDole {
 	}
     
 	constructor({
-		items
+		items,
 	}){
 		// Set some storage variables for the dole divider
 		this.items = items;
@@ -127,5 +127,5 @@ function doleDivider({
 
 module.exports = {
 	doleDivider,
-	neuralDole
+	neuralDole,
 };

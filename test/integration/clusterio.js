@@ -114,7 +114,7 @@ describe("Integration of Clusterio", function() {
 					],
 					[
 						"ignore_player_limit_for_returning_players", true,
-						"ignore-player-limit-for-returning-players", "Ignore player limit for returning players: true."
+						"ignore-player-limit-for-returning-players", "Ignore player limit for returning players: true.",
 					],
 					[
 						"max_players", 11,

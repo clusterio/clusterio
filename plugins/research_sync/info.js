@@ -14,7 +14,7 @@ const technologies = {
 			{ type: "integer" },
 			{ type: ["null", "number"] },
 			{ type: "boolean" },
-		]
+		],
 	},
 };
 

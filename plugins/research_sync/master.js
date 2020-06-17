@@ -184,5 +184,5 @@ async function saveTechnologies(masterConfig, technologies) {
 
 
 module.exports = {
-	MasterPlugin
+	MasterPlugin,
 };

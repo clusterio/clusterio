@@ -202,10 +202,10 @@ commands.push(new Command({
 		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", default: null });
 		yargs.option("name", { type: "string", nargs: 1, describe: "Slave name", default: null });
 		yargs.option("generate-token", {
-			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false
+			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false,
 		});
 		yargs.option("output", {
-			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json"
+			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json",
 		});
 	}],
 	handler: async function(args, control) {
@@ -236,7 +236,7 @@ commands.push(new Command({
 	handler: async function(args, control) {
 		let response = await link.messages.listInstances.send(control);
 		console.log(asTable(response.list));
-	}
+	},
 }));
 
 commands.push(new Command({
@@ -258,7 +258,7 @@ commands.push(new Command({
 			type: "boolean",
 			nargs: 0,
 			describe: "Specify this is a base config",
-			group: "Instance Config:"
+			group: "Instance Config:",
 		});
 	}],
 	handler: async function(args, control) {
@@ -433,7 +433,7 @@ commands.push(new Command({
 	handler: async function(args, control) {
 		let response = await link.messages.sendRcon.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
-			command: args.command
+			command: args.command,
 		});
 
 		// Factorio includes a newline in it's response output.
@@ -469,7 +469,7 @@ commands.push(new Command({
 		let response = await link.messages.createRole.send(control, {
 			name: args.name,
 			description: args.description,
-			permissions: args.permissions
+			permissions: args.permissions,
 		});
 		console.log(`Created role ID ${response.id}`);
 	},

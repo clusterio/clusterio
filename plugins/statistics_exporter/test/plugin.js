@@ -24,16 +24,16 @@ describe("statistics_exporter plugin", function() {
 						force_flow_statistics: {
 							player: {
 								item_production_statistics: {
-									input: { "inserter": 10, },
-									output: { "iron-plate": 24, }
+									input: { "inserter": 10 },
+									output: { "iron-plate": 24 },
 								},
-							}
+							},
 						},
 						game_flow_statistics: {
 							pollution_statistics: {
 								input: { "boiler": 2000 },
 								output: { "tree-proxy": 560 },
-							}
+							},
 						},
 					})
 				);

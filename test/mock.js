@@ -69,7 +69,7 @@ class MockInstance extends link.Link {
 			get: (name) => {
 				if (name === "instance.id") { return 7357; }
 				throw Error("Not implemented");
-			}
+			},
 		};
 	}
 }

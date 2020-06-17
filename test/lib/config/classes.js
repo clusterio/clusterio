@@ -25,35 +25,35 @@ describe("lib/config/classes", function() {
 				for (let [def, error] of [
 					[
 						{ name: "a", type: "invalid", optional: true },
-						"invalid is not a valid type"
+						"invalid is not a valid type",
 					],
 					[
 						{ name: [], type: "string", optional: true },
-						"name must be a string"
+						"name must be a string",
 					],
 					[
 						{ name: "a", type: "string", enum: true, optional: true },
-						"enum must be an array"
+						"enum must be an array",
 					],
 					[
 						{ name: "a", title: 2, type: "string", optional: true },
-						"title must be a string"
+						"title must be a string",
 					],
 					[
 						{ name: "a", description: 2, type: "string", optional: true },
-						"description must be a string"
+						"description must be a string",
 					],
 					[
 						{ name: "a", type: "string", optional: "yes" },
-						"optional must be a boolean"
+						"optional must be a boolean",
 					],
 					[
 						{ name: "a", type: "string", initial_value: 1 },
-						"initial_value must match the type or be a function"
+						"initial_value must match the type or be a function",
 					],
 					[
 						{ name: "a", type: "string" },
-						"Non-optional field a needs an initial_value"
+						"Non-optional field a needs an initial_value",
 					],
 				]) {
 					assert.throws(() => TestGroup.define(def), new Error(error));
@@ -477,8 +477,8 @@ describe("lib/config/classes", function() {
 						{
 							name: "beta",
 							fields: { bar: {} },
-						}
-					]
+						},
+					],
 				});
 			});
 		});
@@ -521,7 +521,7 @@ describe("lib/config/classes", function() {
 					{
 						name: "beta",
 						fields: { bar: { value: 20 }},
-					}
+					},
 				];
 
 				let testInstance = new TestConfig();
@@ -543,7 +543,7 @@ describe("lib/config/classes", function() {
 					{
 						name: "beta",
 						fields: { bar: { value: 30 }},
-					}
+					},
 				]}, false);
 
 				assert.deepEqual(testInstance.serialize(), {
@@ -559,7 +559,7 @@ describe("lib/config/classes", function() {
 						{
 							name: "beta",
 							fields: { bar: { value: 30 }},
-						}
+						},
 					],
 				});
 			});

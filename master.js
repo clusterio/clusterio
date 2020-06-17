@@ -66,7 +66,7 @@ app.use(bodyParser.json({
 app.use(bodyParser.urlencoded({
 	parameterLimit: 100000,
 	limit: "10mb",
-	extended: true
+	extended: true,
 }));
 app.use(fileUpload());
 app.use(compression());
@@ -1220,7 +1220,7 @@ wss.on("connection", function (socket, req) {
 	// Start connection handshake.
 	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
 		version,
-		plugins: pluginList
+		plugins: pluginList,
 	}}));
 
 	function attachHandler() {
@@ -1350,7 +1350,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	}
 
 	let sessionId = nextSessionId++;
-	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId, }, masterConfig.get("master.auth_secret"));
+	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId }, masterConfig.get("master.auth_secret"));
 	let connector = new WebSocketServerConnector(socket, sessionId);
 	activeConnectors.set(sessionId, connector);
 
@@ -1647,7 +1647,7 @@ async function startServer() {
 
 		httpsServer = require("https").createServer({
 			key: privateKey,
-			cert: certificate
+			cert: certificate,
 		}, app);
 		await listen(httpsServer, httpsPort);
 		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);

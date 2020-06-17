@@ -523,7 +523,7 @@ describe("lib/prometheus", function() {
 
 	let serializedResult = {
 		metric: { type: "type", name: "name", help: "Help", labels: ["a", "b"] },
-		samples: [ ['a="1",b="2"', 1], ['a="3",b="4"', 5], ]
+		samples: [ ['a="1",b="2"', 1], ['a="3",b="4"', 5] ],
 	};
 	let deserializedResult = {
 		metric: new prometheus.Metric("type", "name", "Help", ["a", "b"]),
@@ -563,7 +563,7 @@ describe("lib/prometheus", function() {
 				prometheus.serializeResult({
 					metric: new prometheus.Metric("type", "name", "Help"),
 					samples: new Map([["", 2]]),
-				}, { metricName: "new", }),
+				}, { metricName: "new" }),
 				{
 					metric: { type: "type", name: "new", help: "Help", labels: [] },
 					samples: [["", 2]],
@@ -573,7 +573,7 @@ describe("lib/prometheus", function() {
 				prometheus.serializeResult({
 					metric: new prometheus.Metric("type", "name", "Help"),
 					samples: new Map([["", 2]]),
-				}, { metricHelp: "old", }),
+				}, { metricHelp: "old" }),
 				{
 					metric: { type: "type", name: "name", help: "old", labels: [] },
 					samples: [["", 2]],
