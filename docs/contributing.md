@@ -189,11 +189,7 @@ JavaScript template literals may also be used where appropriate.
 
 ### Indenting
 
-JavaScript code should be indented with tabs.  There are places in the
-codebase that are mixing tabs and spaces or uses only spaces for
-indents.  Should you be modifiying such code that is mixing spaces and
-tabs as indending you should update the indenting to use tabs _on the
-code you change_ while leaving the rest of the code untouched.
+JavaScript code should be indented with tabs.
 
 Lua code should be indented with 4 spaces.
 

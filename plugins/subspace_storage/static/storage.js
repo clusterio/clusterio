@@ -5,12 +5,12 @@ function drawcontents(data) {
 	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
 	_lastData = data;
 
-        // allow searching for multiple criteria separated by space
-        var searchArgs = document.querySelector("#search").value;
-        searchArgs = searchArgs.trim();
-        searchArgs = "(" + searchArgs.replace(/ +/g,")|(") + ")";
-        const search = new RegExp(searchArgs, "i");
-        data = data.filter(function(item) {
+	// allow searching for multiple criteria separated by space
+	var searchArgs = document.querySelector("#search").value;
+	searchArgs = searchArgs.trim();
+	searchArgs = "(" + searchArgs.replace(/ +/g,")|(") + ")";
+	const search = new RegExp(searchArgs, "i");
+	data = data.filter(function(item) {
 		return search.test(item.name);
 	});
 	
@@ -89,9 +89,9 @@ if(JSON.parse(localStorage.settings)["Periodically update storage screen"]) {
 
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
-    array.sort(function(a, b) {
-        return b[key] - a[key];
-    });
+	array.sort(function(a, b) {
+		return b[key] - a[key];
+	});
 }
 
 document.querySelector("#search").addEventListener("input", function() {

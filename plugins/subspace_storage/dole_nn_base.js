@@ -56,12 +56,12 @@ function Dose(numreq,instore,store_last_tick,dole,carry,prev_req,numreq_total_ad
 	var outputs=[0,0,0,0];
 	//NN: Please don't touch :), code is generated
 	
-outputs[0]=inputs[7]*0.8058582544;
-outputs[0]=sigmoid2(outputs[0]);
-outputs[1]=sigmoid0(outputs[1]);
-outputs[2]=sigmoid0(outputs[2]);
-outputs[3]=inputs[6]*0.2294657379;
-outputs[3]=sigmoid0(outputs[3]);
+	outputs[0]=inputs[7]*0.8058582544;
+	outputs[0]=sigmoid2(outputs[0]);
+	outputs[1]=sigmoid0(outputs[1]);
+	outputs[2]=sigmoid0(outputs[2]);
+	outputs[3]=inputs[6]*0.2294657379;
+	outputs[3]=sigmoid0(outputs[3]);
 
 	debt=debt || 0;
 	if (outputs[0]>0.99) outputs[0]=1.0;
@@ -103,11 +103,11 @@ function Tick(instore,dole,store_last_tick,numreq_total_adj)
 	var outputs=[0,0];
 	//NN: Please don't touch :), code is generated
 	
-outputs[0]=inputs[3]*0.9364774823;
-outputs[0]=outputs[0]*1.0*0.4590721726;
-outputs[0]=sigmoid2(outputs[0]);
-outputs[1]=outputs[0]*1.828422785;
-outputs[1]=sigmoid3(outputs[1]);
+	outputs[0]=inputs[3]*0.9364774823;
+	outputs[0]=outputs[0]*1.0*0.4590721726;
+	outputs[0]=sigmoid2(outputs[0]);
+	outputs[1]=outputs[0]*1.828422785;
+	outputs[1]=sigmoid3(outputs[1]);
 
 	avg=outputs[1];
 	if (numreq_total_adj<0.11) avg=1;//When no item's are requested, result is 0.1 ; In that case there is no deficit, so return 1 = 100% demand fulfilled
