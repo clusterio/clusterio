@@ -1,9 +1,10 @@
-const assert = require('assert').strict;
+"use strict";
+const assert = require("assert").strict;
 
-const mock = require('../../../test/mock');
-const lines = require('../../../test/lib/factorio/lines');
-const instance = require('../instance');
-const info = require('../info');
+const mock = require("../../../test/mock");
+const lines = require("../../../test/lib/factorio/lines");
+const instance = require("../instance");
+const info = require("../info");
 
 
 describe("global_chat plugin", function() {
@@ -62,6 +63,6 @@ describe("global_chat plugin", function() {
 				}
 				assert(count > 0, "no lines were tested");
 			});
-		})
+		});
 	});
 });

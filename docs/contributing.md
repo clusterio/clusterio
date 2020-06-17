@@ -11,6 +11,7 @@ Contents
 
 - [Workflow](#workflow)
     - [Starting a Feature Branch](#starting-a-feature-branch)
+    - [Checking your code for errors](#checking-your-code-for-errors)
     - [Submitting a Pull Request](#submitting-a-pull-request)
     - [Editing your Feature Branch](#editing-your-feature-branch)
     - [Resolving Merge Conflicts](#resolving-merge-conflicts)
@@ -74,6 +75,18 @@ correctly.  Now you can make a feature branch based on this with.
 The name of the branch is not important, as long as it's not a name
 you've used before.  But it's nice to have its name be somewhat
 descriptive of what it implements.
+
+
+### Checking your code for errors
+
+There's automated tests and linting setup for the project.  Please do
+add tests for any code you add and run both:
+
+    npm run test
+    npm run lint
+
+To check that your changes pass the integration tests as well as the
+ESLint rules set up for the project.
 
 
 ### Submitting a Pull Request
@@ -183,21 +196,13 @@ are at least a few things that have been agreed upon.
 
 JavaScript and Lua code should use double quoted strings (`"string"`)
 for all strings with the only exception that strings that contain double
-quotes may use single quotes (i.e., `'String with "quotes"'`.)  For
+quotes may use single quotes (i.e., `'String with "quotes"'`).
 JavaScript template literals may also be used where appropriate.
-
-There are places in the codebase that are using `'single'` quoted
-strings.  Should you be modifying such code use double quotes on new and
-modified lines and leave the rest untouched.
 
 
 ### Indenting
 
-JavaScript code should be indented with tabs.  There are places in the
-codebase that are mixing tabs and spaces or uses only spaces for
-indents.  Should you be modifiying such code that is mixing spaces and
-tabs as indending you should update the indenting to use tabs _on the
-code you change_ while leaving the rest of the code untouched.
+JavaScript code should be indented with tabs.
 
 Lua code should be indented with 4 spaces.
 

@@ -25,35 +25,35 @@ describe("lib/config/classes", function() {
 				for (let [def, error] of [
 					[
 						{ name: "a", type: "invalid", optional: true },
-						"invalid is not a valid type"
+						"invalid is not a valid type",
 					],
 					[
 						{ name: [], type: "string", optional: true },
-						"name must be a string"
+						"name must be a string",
 					],
 					[
 						{ name: "a", type: "string", enum: true, optional: true },
-						"enum must be an array"
+						"enum must be an array",
 					],
 					[
 						{ name: "a", title: 2, type: "string", optional: true },
-						"title must be a string"
+						"title must be a string",
 					],
 					[
 						{ name: "a", description: 2, type: "string", optional: true },
-						"description must be a string"
+						"description must be a string",
 					],
 					[
 						{ name: "a", type: "string", optional: "yes" },
-						"optional must be a boolean"
+						"optional must be a boolean",
 					],
 					[
 						{ name: "a", type: "string", initial_value: 1 },
-						"initial_value must match the type or be a function"
+						"initial_value must match the type or be a function",
 					],
 					[
 						{ name: "a", type: "string" },
-						"Non-optional field a needs an initial_value"
+						"Non-optional field a needs an initial_value",
 					],
 				]) {
 					assert.throws(() => TestGroup.define(def), new Error(error));
@@ -97,13 +97,13 @@ describe("lib/config/classes", function() {
 					enum: ["a", "b", "c"],
 					optional: true,
 					initial_value: "b",
-				}
+				};
 				TestGroup.define(field);
 				// Generated properties
 				field.fullName = "test_group.enum";
 
 				assert.deepEqual(TestGroup._definitions.get("enum"), field);
-			})
+			});
 		});
 
 		describe("get definitions", function() {
@@ -191,7 +191,7 @@ describe("lib/config/classes", function() {
 					func: 22,
 					bool: null,
 					json: { valid: true },
-				}})
+				}});
 
 				assert.equal(testInstance.get("enum"), "c");
 				assert.equal(testInstance.get("test"), "blah");
@@ -218,7 +218,7 @@ describe("lib/config/classes", function() {
 					alpha: null,
 					beta: "decay",
 					gamma: 99,
-				}
+				};
 
 				let testInstance = new TestGroup();
 				await testInstance.load(null, { name: "test_group", fields: testFields });
@@ -253,11 +253,11 @@ describe("lib/config/classes", function() {
 					new Error("Expected fields to be an object, not undefined")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group", fields: []}, false),
+					() => testInstance.update({ name: "test_group", fields: [] }, false),
 					new Error("Expected fields to be an object, not array")
 				);
 				assert.throws(
-					() => testInstance.update({ name: "test_group", fields: null}, false),
+					() => testInstance.update({ name: "test_group", fields: null }, false),
 					new Error("Expected fields to be an object, not null")
 				);
 			});
@@ -277,43 +277,43 @@ describe("lib/config/classes", function() {
 					() => testInstance.set("bar", 1),
 					new classes.InvalidField("No field named 'bar'")
 				);
-			})
+			});
 
 			it("should throw if field is not in enum", function() {
 				assert.throws(
 					() => testInstance.set("enum", "bar"),
 					new Error("Expected one of [a, b, c], not bar")
 				);
-			})
+			});
 
 			it("should work if field is in enum", function() {
-				testInstance.set("enum", "c"),
+				testInstance.set("enum", "c");
 				assert.equal(testInstance.get("enum"), "c");
-			})
+			});
 
 			it("should throw if field is not optional", function() {
 				assert.throws(
 					() => testInstance.set("func", null),
 					new Error("Field func cannot be null")
 				);
-			})
+			});
 
 			it("should work if field is optional", function() {
-				testInstance.set("test", "spam"),
+				testInstance.set("test", "spam");
 				assert.equal(testInstance.get("test"), "spam");
-			})
+			});
 
 			it("should throw if field is of wrong type", function() {
 				assert.throws(
 					() => testInstance.set("test", 1),
 					new Error("Expected type of test to be string, not number")
 				);
-			})
+			});
 
 			it("should treat empty string as null", function() {
-				testInstance.set("test", ""),
+				testInstance.set("test", "");
 				assert.equal(testInstance.get("test"), null);
-			})
+			});
 
 			it("should auto convert string to boolean if possible", function() {
 				testInstance.set("bool", "true");
@@ -374,14 +374,14 @@ describe("lib/config/classes", function() {
 					() => testInstance.setProp("bar", 1),
 					new classes.InvalidField("No field named 'bar'")
 				);
-			})
+			});
 
 			it("should throw if field is not an object", function() {
 				assert.throws(
 					() => testInstance.setProp("enum", "a"),
 					new classes.InvalidField("Cannot set property on non-object field 'enum'")
 				);
-			})
+			});
 
 			it("should work if field is an object", function() {
 				testInstance.set("json", { prev: 32, test: false });
@@ -451,7 +451,8 @@ describe("lib/config/classes", function() {
 			});
 			it("should construct a finalized class", function() {
 				TestConfig.finalize();
-				new TestConfig();
+				let config = new TestConfig();
+				assert(config);
 			});
 		});
 
@@ -461,7 +462,7 @@ describe("lib/config/classes", function() {
 				await testInstance.init();
 				assert.equal(testInstance.get("alpha.foo"), null);
 				assert.deepEqual(testInstance.get("beta.bar"), {});
-			})
+			});
 		});
 
 		describe(".serialize()", function() {
@@ -477,10 +478,10 @@ describe("lib/config/classes", function() {
 						{
 							name: "beta",
 							fields: { bar: {} },
-						}
-					]
+						},
+					],
 				});
-			})
+			});
 		});
 
 		describe(".load()", function() {
@@ -521,8 +522,8 @@ describe("lib/config/classes", function() {
 					{
 						name: "beta",
 						fields: { bar: { value: 20 }},
-					}
-				]
+					},
+				];
 
 				let testInstance = new TestConfig();
 				await testInstance.load({ groups: testGroups });
@@ -543,7 +544,7 @@ describe("lib/config/classes", function() {
 					{
 						name: "beta",
 						fields: { bar: { value: 30 }},
-					}
+					},
 				]}, false);
 
 				assert.deepEqual(testInstance.serialize(), {
@@ -559,10 +560,10 @@ describe("lib/config/classes", function() {
 						{
 							name: "beta",
 							fields: { bar: { value: 30 }},
-						}
+						},
 					],
 				});
-			})
+			});
 		});
 
 		describe(".group()", function() {
@@ -580,14 +581,14 @@ describe("lib/config/classes", function() {
 				let testInstance = new TestConfig();
 				await testInstance.init();
 
-				assert.throws(() => testInstance.get("invalid"), new Error("No config group named 'invalid'"))
+				assert.throws(() => testInstance.get("invalid"), new Error("No config group named 'invalid'"));
 			});
 
 			it("should throw if no field is specified", async function() {
 				let testInstance = new TestConfig();
 				await testInstance.init();
 
-				assert.throws(() => testInstance.get("alpha"), new Error("No field named ''"))
+				assert.throws(() => testInstance.get("alpha"), new Error("No field named ''"));
 			});
 		});
 

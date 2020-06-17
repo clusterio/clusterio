@@ -1,3 +1,4 @@
+"use strict";
 const link = require("lib/link");
 const config = require("lib/config");
 
@@ -50,7 +51,7 @@ const items = {
 			{ type: "integer" },
 		],
 	},
-}
+};
 
 module.exports = {
 	name: "subspace_storage",
@@ -103,4 +104,4 @@ module.exports = {
 			},
 		}),
 	},
-}
+};

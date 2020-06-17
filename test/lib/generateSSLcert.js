@@ -1,10 +1,11 @@
+"use strict";
 const assert = require("assert");
 const fs = require("fs-extra");
 const path = require("path");
 
-const generateSSLcert = require("lib/generateSSLcert")
+const generateSSLcert = require("lib/generateSSLcert");
 
-describe("generateSSLcert.js(options)", ()=>{
+describe("generateSSLcert.js(options)", function() {
 	let testDir = path.join("temp", "test", "certTest");
 	before(async function() {
 		await fs.remove(testDir);
@@ -12,6 +13,7 @@ describe("generateSSLcert.js(options)", ()=>{
 
 	it("Creates a folder with a .crt and .key file in it", async function() {
 		this.timeout(1000);
+		// eslint-disable-next-line no-process-env
 		if (process.env.FAST_TEST) {
 			this.skip();
 		}

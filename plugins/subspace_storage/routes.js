@@ -1,3 +1,4 @@
+"use strict";
 const express = require("express");
 const path = require("path");
 
@@ -53,4 +54,4 @@ function addApiRoutes(app, items, endpointHitCounter) {
 module.exports = {
 	addWebRoutes,
 	addApiRoutes,
-}
+};

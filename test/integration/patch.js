@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const jszip = require("jszip");
@@ -9,7 +10,7 @@ const { slowTest } = require("./index");
 
 
 // The server integration test is required to run before this one
-require("./server")
+require("./server");
 
 describe("Integration of lib/factorio/patch", function() {
 	describe("patch()", function() {

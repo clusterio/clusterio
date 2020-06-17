@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const events = require("events");
 const fs = require("fs-extra");
@@ -26,13 +27,13 @@ describe("Integration of lib/factorio/server", function() {
 
 		before(async function() {
 			// Delete result from previous run of these tests
-			if (fs.existsSync(writePath)) {
+			if (await fs.pathExists(writePath)) {
 				await fs.remove(writePath);
 			}
 
 			await fs.ensureDir(writePath);
 			logFile = fs.createWriteStream(path.join(writePath, "log.txt"), "utf8");
-			server.on('output', function(output) {
+			server.on("output", function(output) {
 				logFile.write(JSON.stringify(output) + "\n");
 			});
 
@@ -119,7 +120,7 @@ describe("Integration of lib/factorio/server", function() {
 				log(".sendRcon()");
 
 				let result = await server.sendRcon("/sc rcon.print('success')");
-				assert.equal(result, 'success\n');
+				assert.equal(result, "success\n");
 			});
 			it("throws on non-empty response when enabled", async function() {
 				slowTest(this);
@@ -149,20 +150,20 @@ describe("Integration of lib/factorio/server", function() {
 				slowTest(this);
 				log(".startScenario()");
 
-				let pass = false
+				let pass = false;
 				function filter(output) {
 					if (output.message === "test_scenario init") {
 						pass = true;
 					}
 				}
-				server.on('output', filter);
+				server.on("output", filter);
 
 				await server.startScenario("test_scenario");
 
 				log(".stop()");
 				await server.stop();
 
-				server.off('output', filter);
+				server.off("output", filter);
 				assert(pass, "server did not output line from test scenario");
 			});
 		});
@@ -191,7 +192,7 @@ describe("Integration of lib/factorio/server", function() {
 
 				await server.start("test.zip");
 				if (!server._rconReady) {
-					await events.once(server, 'rcon-ready');
+					await events.once(server, "rcon-ready");
 				}
 				server.sendRcon("/c while true do end").catch(() => {});
 				await new Promise((resolve) => setTimeout(resolve, 300));
@@ -210,7 +211,7 @@ describe("Integration of lib/factorio/server", function() {
 				log(".start() for kill detection");
 
 				let startPromise = server.start("test.zip");
-				server.once('output', () => server._server.kill('SIGKILL'));
+				server.once("output", () => server._server.kill("SIGKILL"));
 
 				await assert.rejects(
 					startPromise,

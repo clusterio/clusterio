@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const jszip = require("jszip");
@@ -50,20 +51,20 @@ describe("lib/factorio", function() {
 
 	describe("generateLoader()", function() {
 		let reference = [
-			'-- Auto generated scenario module loader created by Clusterio',
-			'-- Modifications to this file will be lost when loaded in Clusterio',
-			'clusterio_patch_number = 1',
-			'',
+			"-- Auto generated scenario module loader created by Clusterio",
+			"-- Modifications to this file will be lost when loaded in Clusterio",
+			"clusterio_patch_number = 1",
+			"",
 			'local event_handler = require("event_handler")',
-			'',
-			'-- Scenario modules',
+			"",
+			"-- Scenario modules",
 			'event_handler.add_lib(require("foo"))',
-			'',
-			'-- Clusterio modules',
+			"",
+			"-- Clusterio modules",
 			'event_handler.add_lib(require("modules/spam/bar"))',
 			'require("modules/spam/spam")',
-			'',
-		].join('\n');
+			"",
+		].join("\n");
 		let patchInfo = {
 			"patch_number": 1,
 			"scenario": { "modules": ["foo"] },
@@ -85,15 +86,15 @@ describe("lib/factorio", function() {
 	describe("reorderDependencies()", function() {
 		it("should reorder to satisfy simple dependency", function() {
 			let modules = [
-				{ name: 'a', version: '1.0.0', dependencies: {'b': '*'} },
-				{ name: 'b', version: '1.0.0', dependencies: {} },
+				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
+				{ name: "b", version: "1.0.0", dependencies: {} },
 			];
 			factorio._reorderDependencies(modules);
-			assert(modules[0].name === 'b', "Dependency was not reorederd");
+			assert(modules[0].name === "b", "Dependency was not reorederd");
 		});
 		it("should throw on invalid version", function() {
 			let modules = [
-				{ name: 'a', version: 'foo', dependencies: {} },
+				{ name: "a", version: "foo", dependencies: {} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
@@ -102,7 +103,7 @@ describe("lib/factorio", function() {
 		});
 		it("should throw on invalid version range", function() {
 			let modules = [
-				{ name: 'a', version: '1.0.0', dependencies: {'b': 'invalid'} },
+				{ name: "a", version: "1.0.0", dependencies: {"b": "invalid"} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
@@ -111,16 +112,16 @@ describe("lib/factorio", function() {
 		});
 		it("should throw on missing dependency", function() {
 			let modules = [
-				{ name: 'a', version: '1.0.0', dependencies: {'b': '*'} },
+				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
 				new Error("Missing dependency b for module a")
 			);
 			modules = [
-				{ name: 'a', version: '1.0.0', dependencies: {'b': '*'} },
-				{ name: 'b', version: '1.0.0', dependencies: {'c': '*'} },
-				{ name: 'c', version: '1.0.0', dependencies: {'d': '*'} },
+				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
+				{ name: "b", version: "1.0.0", dependencies: {"c": "*"} },
+				{ name: "c", version: "1.0.0", dependencies: {"d": "*"} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
@@ -129,8 +130,8 @@ describe("lib/factorio", function() {
 		});
 		it("should throw on outdated dependency", function() {
 			let modules = [
-				{ name: 'a', version: '1.0.0', dependencies: {} },
-				{ name: 'b', version: '1.0.0', dependencies: {'a': '>=2'} },
+				{ name: "a", version: "1.0.0", dependencies: {} },
+				{ name: "b", version: "1.0.0", dependencies: {"a": ">=2"} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
@@ -139,18 +140,18 @@ describe("lib/factorio", function() {
 		});
 		it("should throw on dependency loops", function() {
 			let modules = [
-				{ name: 'a', version: '1.0.0', dependencies: {'b': '*'} },
-				{ name: 'b', version: '1.0.0', dependencies: {'a': '*'} },
+				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
+				{ name: "b", version: "1.0.0", dependencies: {"a": "*"} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
 				new Error("Module dependency loop detected: a -> b -> a")
 			);
 			modules = [
-				{ name: 'd', version: '1.0.0', dependencies: {'b': '*'} },
-				{ name: 'a', version: '1.0.0', dependencies: {'b': '*'} },
-				{ name: 'b', version: '1.0.0', dependencies: {'c': '*'} },
-				{ name: 'c', version: '1.0.0', dependencies: {'a': '*'} },
+				{ name: "d", version: "1.0.0", dependencies: {"b": "*"} },
+				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
+				{ name: "b", version: "1.0.0", dependencies: {"c": "*"} },
+				{ name: "c", version: "1.0.0", dependencies: {"a": "*"} },
 			];
 			assert.throws(
 				() => factorio._reorderDependencies(modules),
@@ -170,7 +171,7 @@ describe("lib/factorio", function() {
 				}
 			}
 
-			let names = ['a', 'b', 'c'];
+			let names = ["a", "b", "c"];
 			let successCount = 0;
 			const bitCount = names.length * (names.length - 1);
 			for (let i=0; i < 2**bitCount; i++) {
@@ -186,10 +187,10 @@ describe("lib/factorio", function() {
 					let dependencies = {};
 					for (let k=0; k < names.length - 1; k++) {
 						if (bits[k + j * (names.length - 1)]) {
-							dependencies[names[k + (k >= j)]] = '*';
+							dependencies[names[k + (k >= j)]] = "*";
 						}
 					}
-					modules.push({ name, version: '1.0.0', dependencies });
+					modules.push({ name, version: "1.0.0", dependencies });
 				}
 				let success = false;
 				try {
@@ -213,7 +214,7 @@ describe("lib/factorio", function() {
 			let zip = new jszip();
 			zip.file("world/control.lua", "-- unknown\n");
 			let zipPath = path.join("temp", "test", "patch.zip");
-			await fs.outputFile(zipPath, await zip.generateAsync({type: "nodebuffer"}))
+			await fs.outputFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
 
 			await assert.rejects(
 				factorio.patch(zipPath, []),

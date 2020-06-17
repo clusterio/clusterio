@@ -1,3 +1,4 @@
+"use strict";
 const needle = require("needle");
 
 const plugin = require("lib/plugin");
@@ -5,8 +6,8 @@ const luaTools = require("lib/luaTools");
 
 
 function unexpectedError(err) {
-	console.log("Unexpected error in research_sync")
-	console.log("---------------------------------")
+	console.log("Unexpected error in research_sync");
+	console.log("---------------------------------");
 	console.log(err);
 }
 
@@ -78,4 +79,4 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 
 module.exports = {
 	InstancePlugin,
-}
+};

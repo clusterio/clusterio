@@ -1,12 +1,16 @@
 /**
  * @module
  */
+"use strict";
 const plugin = require("lib/plugin");
 const luaTools = require("lib/luaTools");
 
 
 /**
  * Removes gps and train tags from messags
+ *
+ * @param {string} content - string to strip tags from.
+ * @returns {string} stripped string.
  */
 function removeTags(content) {
 	return content.replace(/(\[gps=-?\d+,-?\d+\]|\[train=\d+\])/g, "");
@@ -57,4 +61,4 @@ module.exports = {
 
 	// For testing only
 	_removeTags: removeTags,
-}
+};

@@ -16,11 +16,12 @@
 // const updater = require("./updater");
 // updater.update().then(console.log);
 
+"use strict";
 const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
-const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const moment = require("moment");
 const request = require("request");
 const setBlocking = require("set-blocking");
@@ -49,30 +50,30 @@ const config = require("lib/config");
 const users = require("lib/users");
 
 const express = require("express");
-const compression = require('compression');
-const cookieParser = require('cookie-parser');
+const compression = require("compression");
+const cookieParser = require("cookie-parser");
 // Required for express post requests
 const bodyParser = require("body-parser");
-const fileUpload = require('express-fileupload');
+const fileUpload = require("express-fileupload");
 var app = express();
 var httpServer;
 var httpsServer;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
-	limit: '10mb',
+	limit: "10mb",
 }));
 app.use(bodyParser.urlencoded({
 	parameterLimit: 100000,
-	limit: '10mb',
-	extended: true
+	limit: "10mb",
+	extended: true,
 }));
 app.use(fileUpload());
 app.use(compression());
 
 // dynamic HTML generations with EJS
-app.set('view engine', 'ejs');
-app.set('views', ['views', 'plugins']);
+app.set("view engine", "ejs");
+app.set("views", ["views", "plugins"]);
 
 // give ejs access to some interesting information
 app.use(function(req, res, next){
@@ -88,12 +89,12 @@ app.use(function(req, res, next){
 
 require("./routes")(app);
 // Set folder to serve static content from (the website)
-app.use(express.static('static'));
+app.use(express.static("static"));
 
 const endpointHitCounter = new prometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
 	"How many requests a particular HTTP endpoint has gotten",
-	{ labels: ['route'] }
+	{ labels: ["route"] }
 );
 
 const wsMessageCounter = new prometheus.Counter(
@@ -126,11 +127,11 @@ const wsActiveSlavesGauge = new prometheus.Gauge(
 async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
 
-	let results = []
+	let results = [];
 	let pluginResults = await plugin.invokeHook(masterPlugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
-			results.push(metric)
+			results.push(metric);
 		}
 	}
 
@@ -167,10 +168,10 @@ async function getMetrics(req, res, next) {
 
 
 	let text = await prometheus.exposition(results);
-	res.set('Content-Type', prometheus.exposition.contentType);
+	res.set("Content-Type", prometheus.exposition.contentType);
 	res.send(text);
 }
-app.get('/metrics', (req, res, next) => getMetrics(req, res, next).catch(next));
+app.get("/metrics", (req, res, next) => getMetrics(req, res, next).catch(next));
 
 
 function validateSlaveToken(req, res, next) {
@@ -232,9 +233,9 @@ app.put("/api/upload-export",
 );
 
 const masterConnectedClientsCount = new prometheus.Gauge(
-	'clusterio_master_connected_clients_count', "How many clients are currently connected to this master server",
+	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
 	{
-		labels: ['type'], callback: async function(gauge) {
+		labels: ["type"], callback: async function(gauge) {
 			gauge.labels("slave").set(slaveConnections.size);
 			gauge.labels("control").set(controlConnections.length);
 		},
@@ -246,6 +247,10 @@ const db = {};
 
 /**
  * Load Map from JSON file in the database directory.
+ *
+ * @param {string} databaseDirectory - Path to master database directory.
+ * @param {string} file - Name of file to load.
+ * @returns {Map} file loaded as a map.
  */
 async function loadMap(databaseDirectory, file) {
 	let databasePath = path.resolve(databaseDirectory, file);
@@ -267,7 +272,7 @@ async function loadInstances(databaseDirectory, file) {
 		}
 
 	} catch (err) {
-		if (err.code !== 'ENOENT') {
+		if (err.code !== "ENOENT") {
 			throw err;
 		}
 	}
@@ -314,17 +319,21 @@ async function loadUsers(databaseDirectory, file) {
  */
 function createUser(name) {
 	if (db.users.has(name)) {
-		throw new Error(`User '${name}' already exists`)
+		throw new Error(`User '${name}' already exists`);
 	}
 
 	let defaultRoleId = masterConfig.get("master.default_role_id");
-	user = new users.User({ name, roles: [defaultRoleId] }, db.roles);
+	let user = new users.User({ name, roles: [defaultRoleId] }, db.roles);
 	db.users.set(name, user);
 	return user;
 }
 
 /**
  * Save Map to JSON file in the database directory.
+ *
+ * @param {string} databaseDirectory - Path to master database directory.
+ * @param {string} file - Name of file to save.
+ * @param {Map} map - Mapping to save into file.
  */
 async function saveMap(databaseDirectory, file, map) {
 	let databasePath = path.resolve(databaseDirectory, file);
@@ -365,14 +374,14 @@ async function saveUsers(databaseDirectory, file) {
  * Innitiate shutdown of master server
  */
 async function shutdown() {
-	console.log('Shutting down');
+	console.log("Shutting down");
 	let exitStartTime = Date.now();
 	try {
 		console.log("Saving configs");
 		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 
-		await saveMap(masterConfig.get('master.database_directory'), "slaves.json", db.slaves);
-		await saveInstances(masterConfig.get('master.database_directory'), "instances.json", db.instances);
+		await saveMap(masterConfig.get("master.database_directory"), "slaves.json", db.slaves);
+		await saveInstances(masterConfig.get("master.database_directory"), "instances.json", db.instances);
 		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
 
 		await plugin.invokeHook(masterPlugins, "onShutdown");
@@ -439,7 +448,7 @@ async function downloadPage(url) {
 app.get("/api/modmeta", async function(req, res) {
 	endpointHitCounter.labels(req.route.path).inc();
 	res.header("Access-Control-Allow-Origin", "*");
-	res.setHeader('Content-Type', 'application/json');
+	res.setHeader("Content-Type", "application/json");
 	let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
 	res.send(modData);
 });
@@ -452,7 +461,7 @@ app.get("/api/modmeta", async function(req, res) {
  */
 class BaseConnection extends link.Link {
 	constructor(target, connector) {
-		super('master', target, connector);
+		super("master", target, connector);
 		link.attachAllMessages(this);
 		for (let masterPlugin of masterPlugins.values()) {
 			plugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
@@ -465,7 +474,7 @@ class BaseConnection extends link.Link {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let slaveId = instance.config.get('instance.assigned_slave');
+		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) {
 			throw new errors.RequestError("Instance is not assigned to a slave");
 		}
@@ -475,7 +484,7 @@ class BaseConnection extends link.Link {
 			throw new errors.RequestError("Slave containing instance is not connected");
 		}
 		if (request.plugin && !connection.plugins.has(request.plugin)) {
-			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`)
+			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
 		}
 
 		return await request.send(connection, message.data);
@@ -485,7 +494,7 @@ class BaseConnection extends link.Link {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) { return; }
 
-		let slaveId = instance.config.get('instance.assigned_slave');
+		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) { return; }
 
 		let connection = slaveConnections.get(slaveId);
@@ -526,10 +535,10 @@ class BaseConnection extends link.Link {
 	}
 }
 
-let controlConnections = new Array();
+let controlConnections = [];
 class ControlConnection extends BaseConnection {
 	constructor(registerData, connector, user) {
-		super('control', connector)
+		super("control", connector);
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
@@ -551,7 +560,7 @@ class ControlConnection extends BaseConnection {
 
 		this.ws_dumper = null;
 		this.connector.on("connect", () => {
-			this.connector._socket.clusterio_ignore_dump = !!this.ws_dumper;
+			this.connector._socket.clusterio_ignore_dump = Boolean(this.ws_dumper);
 		});
 		this.connector.on("close", () => {
 			if (this.ws_dumper) {
@@ -617,7 +626,7 @@ class ControlConnection extends BaseConnection {
 		let instanceConfig = new config.InstanceConfig();
 		await instanceConfig.load(message.data.serialized_config);
 
-		let instanceId = instanceConfig.get("instance.id")
+		let instanceId = instanceConfig.get("instance.id");
 		if (db.instances.has(instanceId)) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
@@ -630,7 +639,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		if (instance.config.get('instance.assigned_slave') !== null) {
+		if (instance.config.get("instance.assigned_slave") !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
 		db.instances.delete(message.data.instance_id);
@@ -644,7 +653,7 @@ class ControlConnection extends BaseConnection {
 
 		return {
 			serialized_config: instance.config.serialize(),
-		}
+		};
 	}
 
 	async updateInstanceConfig(instance) {
@@ -685,7 +694,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
-		let {field, prop, value} = message.data;
+		let { field, prop, value } = message.data;
 		instance.config.setProp(field, prop, value);
 		await this.updateInstanceConfig(instance);
 	}
@@ -708,7 +717,7 @@ class ControlConnection extends BaseConnection {
 			throw new errors.RequestError("Target slave is not connected to the master server");
 		}
 
-		instance.config.set("instance.assigned_slave", message.data.slave_id)
+		instance.config.set("instance.assigned_slave", message.data.slave_id);
 
 		return await link.messages.assignInstance.send(connection, {
 			instance_id: instance.config.get("instance.id"),
@@ -750,7 +759,7 @@ class ControlConnection extends BaseConnection {
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		db.roles.set(id, new users.Role({ id, ...message.data}));
+		db.roles.set(id, new users.Role({ id, ...message.data }));
 		return { id };
 	}
 
@@ -836,7 +845,7 @@ class ControlConnection extends BaseConnection {
 			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;
-		debugEvents.on("message", this.ws_dumper)
+		debugEvents.on("message", this.ws_dumper);
 	}
 }
 
@@ -848,7 +857,7 @@ var slaveConnections = new Map();
  */
 class SlaveConnection extends BaseConnection {
 	constructor(registerData, connector) {
-		super('slave', connector);
+		super("slave", connector);
 
 		this._agent = registerData.agent;
 		this._id = registerData.id;
@@ -871,6 +880,7 @@ class SlaveConnection extends BaseConnection {
 		});
 
 		for (let event of ["connect", "drop", "close"]) {
+			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let masterPlugin of masterPlugins.values()) {
 					masterPlugin.onSlaveConnectionEvent(this, event);
@@ -883,7 +893,7 @@ class SlaveConnection extends BaseConnection {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
 		instance.status = "initialized";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`)
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -891,7 +901,7 @@ class SlaveConnection extends BaseConnection {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
 		instance.status = "running";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`)
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -899,7 +909,7 @@ class SlaveConnection extends BaseConnection {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
 		instance.status = "stopped";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`)
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -919,7 +929,7 @@ class SlaveConnection extends BaseConnection {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(instance.serialized_config);
 
-			let masterInstance = db.instances.get(instanceConfig.get("instance.id"))
+			let masterInstance = db.instances.get(instanceConfig.get("instance.id"));
 			if (masterInstance) {
 				// Already have this instance, update state instead
 				if (masterInstance.status !== instance.status) {
@@ -951,7 +961,7 @@ class SlaveConnection extends BaseConnection {
 	}
 
 	async playerEventEventHandler(message) {
-		let {instance_id, name, type} = message.data;
+		let { instance_id, name, type } = message.data;
 		let user = db.users.get(name);
 		if (!user) {
 			user = createUser(name);
@@ -976,13 +986,13 @@ const wss = new WebSocket.Server({
 /**
  * Returns true if value is a signed 32-bit integer
  *
- * @param value - value to test.
+ * @param {number} value - value to test.
  * @returns {Boolean}
  *     true if value is an integer between -2<sup>31</sup> and
  *     2<sup>31</sup>-1.
  */
 function isInteger(value) {
-	return value | 0 === value;
+	return (value | 0) === value;
 }
 
 
@@ -1020,9 +1030,12 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 * Send ready over the socket
 	 *
 	 * Sends the ready message over the socket to initiate the session.
+	 *
+	 * @param {string} sessionToken -
+	 *     the session token to send to the client.
 	 */
 	ready(sessionToken) {
-		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
+		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval");
 		this._socket.send(JSON.stringify({
 			seq: null,
 			type: "ready",
@@ -1043,6 +1056,9 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 *
 	 * Terminates the current socket and contiunes the session over the
 	 * socket given from the message sequence given.
+	 *
+	 * @param {module:net.Socket} socket - New socket to continue on.
+	 * @param {number} lastSeq - The last message the client received.
 	 */
 	continue(socket, lastSeq) {
 		this._socket.terminate();
@@ -1053,7 +1069,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 			this._timeoutId = null;
 		}
 
-		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval")
+		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval");
 		this._socket.send(JSON.stringify({
 			seq: null,
 			type: "continue",
@@ -1078,7 +1094,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 			clearTimeout(this._timeoutId);
 		}
 
-		this._timeoutId = setTimeout(() => { this._timedOut() }, timeout * 1000);
+		this._timeoutId = setTimeout(() => { this._timedOut(); }, timeout * 1000);
 		this._timeout = timeout;
 	}
 
@@ -1117,7 +1133,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 			} else {
 				this._state = "handshake";
 				this.emit("drop");
-				this._timeoutId = setTimeout(() => { this._timedOut() }, this._timeout * 1000);
+				this._timeoutId = setTimeout(() => { this._timedOut(); }, this._timeout * 1000);
 			}
 
 			this.stopHeartbeat();
@@ -1163,6 +1179,9 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 * Close the connection with the given reason.
 	 *
 	 * Sends a close frame and disconnects the connector.
+	 *
+	 * @param {number} code - WebSocket close code.
+	 * @param {string} reason - WebSocket close reason.
 	 */
 	async close(code, reason) {
 		if (this._state === "closed") {
@@ -1172,7 +1191,7 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 		this.stopHeartbeat();
 		this._state = "closing";
 		this._socket.close(code, reason);
-		await events.once(this, "close")
+		await events.once(this, "close");
 	}
 }
 
@@ -1202,7 +1221,7 @@ wss.on("connection", function (socket, req) {
 	// Start connection handshake.
 	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
 		version,
-		plugins: pluginList
+		plugins: pluginList,
 	}}));
 
 	function attachHandler() {
@@ -1283,7 +1302,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		}
 
 		connector.continue(socket, data.last_seq);
-		return
+		return;
 	}
 
 	if (stopAcceptingNewSessions) {
@@ -1332,7 +1351,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	}
 
 	let sessionId = nextSessionId++;
-	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId, }, masterConfig.get("master.auth_secret"));
+	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId }, masterConfig.get("master.auth_secret"));
 	let connector = new WebSocketServerConnector(socket, sessionId);
 	activeConnectors.set(sessionId, connector);
 
@@ -1365,7 +1384,7 @@ async function pluginManagement(pluginInfos) {
 
 async function loadPlugins(pluginInfos) {
 	let plugins = new Map();
-	for (pluginInfo of pluginInfos) {
+	for (let pluginInfo of pluginInfos) {
 		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
 			continue;
 		}
@@ -1386,7 +1405,7 @@ async function loadPlugins(pluginInfos) {
 			plugins.set(pluginInfo.name, masterPlugin);
 
 		} catch (err) {
-			throw new errors.PluginError(pluginInfo.name, err)
+			throw new errors.PluginError(pluginInfo.name, err);
 		}
 
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
@@ -1398,6 +1417,10 @@ async function loadPlugins(pluginInfos) {
  * Calls listen on server capturing any errors that occurs
  * binding to the port.  Also adds handler for WebSocket
  * upgrade event.
+ *
+ * @param {module:net.Server} server - Server to start the listening on.
+ * @param {*} args - Arguments to the .listen() call on the server.
+ * @returns {Promise} promise that resolves the server is listening.
  */
 function listen(server, ...args) {
 	return new Promise((resolve, reject) => {
@@ -1407,7 +1430,7 @@ function listen(server, ...args) {
 			// For reasons that defy common sense, the connection event has
 			// to be emitted explictly when using noServer.
 			wss.handleUpgrade(req, socket, head, (ws) => {
-				wss.emit('connection', ws, req);
+				wss.emit("connection", ws, req);
 			});
 		});
 
@@ -1417,9 +1440,9 @@ function listen(server, ...args) {
 			));
 		}
 
-		server.once('error', wrapError);
+		server.once("error", wrapError);
 		server.listen(...args, () => {
-			server.off('error', wrapError);
+			server.off("error", wrapError);
 			resolve();
 		});
 	});
@@ -1431,9 +1454,11 @@ function _setConfig(config) {
 
 /**
  * Returns the URL needed to connect to the master server.
+ *
+ * @returns {string} master URL.
  */
 function getMasterUrl() {
-	let url = masterConfig.get("master.external_address")
+	let url = masterConfig.get("master.external_address");
 	if (!url) {
 		if (masterConfig.get("master.https_port")) {
 			url = `https://localhost:${masterConfig.get("master.https_port")}/`;
@@ -1450,7 +1475,7 @@ async function startServer() {
 	process.title = "clusterioMaster";
 
 	// add better stack traces on promise rejection
-	process.on('unhandledRejection', r => console.log(r));
+	process.on("unhandledRejection", r => console.log(r));
 
 	// argument parsing
 	let args = yargs
@@ -1472,7 +1497,7 @@ async function startServer() {
 						nargs: 1, default: "config-control.json",
 					});
 				})
-				.demandCommand(1, "You need to specify a command to run")
+				.demandCommand(1, "You need to specify a command to run");
 		})
 		.command("run", "Run master server")
 		.demandCommand(1, "You need to specify a command to run")
@@ -1481,7 +1506,7 @@ async function startServer() {
 	;
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await plugin.loadPluginInfos("plugins")
+	let pluginInfos = await plugin.loadPluginInfos("plugins");
 	config.registerPluginConfigGroups(pluginInfos);
 	config.finalizeConfigs();
 
@@ -1492,7 +1517,7 @@ async function startServer() {
 		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
 
 	} catch (err) {
-		if (err.code === 'ENOENT') {
+		if (err.code === "ENOENT") {
 			console.log("Config not found, initializing new config");
 			await masterConfig.init();
 
@@ -1554,8 +1579,8 @@ async function startServer() {
 
 	// If we get here the command was run
 
-	let secondSigint = false
-	process.on('SIGINT', () => {
+	let secondSigint = false;
+	process.on("SIGINT", () => {
 		if (secondSigint) {
 			console.log("Caught second interrupt, terminating immediately");
 			process.exit(1);
@@ -1567,28 +1592,28 @@ async function startServer() {
 	});
 
 	// terminal closed
-	process.on('SIGHUP', () => {
+	process.on("SIGHUP", () => {
 		// No graceful cleanup, no warning out (stdout is likely closed.)
 		// Don't close the terminal with the clusterio master in it.
 		process.exit(1);
 	});
 
-	await fs.ensureDir(masterConfig.get('master.database_directory'));
+	await fs.ensureDir(masterConfig.get("master.database_directory"));
 
-	db.slaves = await loadMap(masterConfig.get('master.database_directory'), "slaves.json");
-	db.instances = await loadInstances(masterConfig.get('master.database_directory'), "instances.json");
+	db.slaves = await loadMap(masterConfig.get("master.database_directory"), "slaves.json");
+	db.instances = await loadInstances(masterConfig.get("master.database_directory"), "instances.json");
 	await loadUsers(masterConfig.get("master.database_directory"), "users.json");
 
 	// Make sure we're actually going to listen on a port
-	let httpPort = masterConfig.get('master.http_port');
-	let httpsPort = masterConfig.get('master.https_port');
+	let httpPort = masterConfig.get("master.http_port");
+	let httpsPort = masterConfig.get("master.https_port");
 	if (!httpPort && !httpsPort) {
 		console.error("Error: at least one of http_port and https_port must be configured");
 		process.exit(1);
 	}
 
-	let tls_cert = masterConfig.get('master.tls_certificate');
-	let tls_key = masterConfig.get('master.tls_private_key');
+	let tls_cert = masterConfig.get("master.tls_certificate");
+	let tls_key = masterConfig.get("master.tls_private_key");
 	// Create a self signed certificate if the certificate files doesn't exist
 	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
 		await generateSSLcert({
@@ -1623,8 +1648,8 @@ async function startServer() {
 
 		httpsServer = require("https").createServer({
 			key: privateKey,
-			cert: certificate
-		}, app)
+			cert: certificate,
+		}, app);
 		await listen(httpsServer, httpsPort);
 		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
 	}
@@ -1641,7 +1666,7 @@ module.exports = {
 	_ControlConnection: ControlConnection,
 	_slaveConnections: slaveConnections,
 	_SlaveConnection: SlaveConnection,
-}
+};
 
 if (module === require.main) {
 	console.warn(`

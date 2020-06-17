@@ -1,6 +1,7 @@
-const assert = require('assert').strict;
+"use strict";
+const assert = require("assert").strict;
 
-const luaTools = require('lib/luaTools');
+const luaTools = require("lib/luaTools");
 
 
 describe("lib/luaTools", function() {

@@ -1,4 +1,5 @@
-const doleNN = require("./dole_nn_base")
+"use strict";
+const doleNN = require("./dole_nn_base");
 
 const prometheus = require("lib/prometheus");
 
@@ -15,31 +16,32 @@ const prometheusDoleFactorGauge = new prometheus.Gauge(
 );
 
 class neuralDole {
-    
-    getRequestStats(itemname,samples)
-    {
-        var sum=0;
-        samples=Math.min(samples,(this.stats[itemname] || []).length-1);
-        if (samples<1) return 0.1;
-        for (var i = 1; i <= samples; i++) {
-            sum+=this.stats[itemname][i].req;
-        }
-        if (sum==0) return 0.1;
-        return sum/samples;
-    }
-    
-    constructor({
-		items
-    }){
-        // Set some storage variables for the dole divider
-		this.items = items
-		this.itemsLastTick = new Map(items._items)
-        this.dole = {}
-        this.carry = {}
-        this.lastRequest = {}
-        this.stats=[]
-		this.debt= {}
+
+	getRequestStats(itemname,samples)
+	{
+		var sum=0;
+		samples=Math.min(samples,(this.stats[itemname] || []).length-1);
+		if (samples<1) return 0.1;
+		for (var i = 1; i <= samples; i++) {
+			sum+=this.stats[itemname][i].req;
+		}
+		if (sum==0) return 0.1;
+		return sum/samples;
 	}
+
+	constructor({
+		items,
+	}){
+		// Set some storage variables for the dole divider
+		this.items = items;
+		this.itemsLastTick = new Map(items._items);
+		this.dole = {};
+		this.carry = {};
+		this.lastRequest = {};
+		this.stats=[];
+		this.debt= {};
+	}
+
 	doMagic() {
 		for (let [name, count] of this.items._items) {
 			let magicData = doleNN.Tick(
@@ -47,84 +49,85 @@ class neuralDole {
 				this.dole[name],
 				this.itemsLastTick.get(name),
 				this.getRequestStats(name,5)
-			)
-			this.stats[name]=this.stats[name] || []
-			this.stats[name].unshift({req:0,given:0});//stats[name][0] is the one we currently collect
+			);
+			this.stats[name]=this.stats[name] || [];
+			this.stats[name].unshift({ req: 0, given: 0 });//stats[name][0] is the one we currently collect
 			if (this.stats[name].length>10) this.stats[name].pop();//remove if too many samples in stats
 
-			this.dole[name] = magicData[0]
+			this.dole[name] = magicData[0];
 			// DONE handle magicData[1] for graphing for our users
 			prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
 		}
-		this.itemsLastTick = new Map(this.items._items)
-    }
-    divider(object) {
-        let magicData = doleNN.Dose(
-            object.count, // numReq
+		this.itemsLastTick = new Map(this.items._items);
+	}
+
+	divider(object) {
+		let magicData = doleNN.Dose(
+			object.count, // numReq
 			this.items.getItemCount(object.name),
 			this.itemsLastTick.get(object.name) || 0,
-            this.dole[object.name],
-            this.carry[object.name+" "+object.instanceID] || 0,
-            this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
-            this.getRequestStats(object.name,5),
+			this.dole[object.name],
+			this.carry[object.name+" "+object.instanceID] || 0,
+			this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] || 0,
+			this.getRequestStats(object.name,5),
 			this.debt[object.name+" "+object.instanceID] || 0
-        )
-        if ((this.stats[object.name] || []).length>0)
-        {
-            this.stats[object.name][0].req+=Number(object.count);
-            this.stats[object.name][0].given+=Number(magicData[0]);
-        }
-        this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count
-        //0.Number of items to give in that dose
-        //1.New dole for item X
-        //2.New carry for item X slave Y
-        this.dole[object.name] = magicData[1]
-        this.carry[object.name+" "+object.instanceID] = magicData[2]
-		this.debt[object.name+" "+object.instanceID] = magicData[3]
+		);
+		if ((this.stats[object.name] || []).length>0)
+		{
+			this.stats[object.name][0].req+=Number(object.count);
+			this.stats[object.name][0].given+=Number(magicData[0]);
+		}
+		this.lastRequest[object.name+"_"+object.instanceID+"_"+object.instanceName] = object.count;
+		//0.Number of items to give in that dose
+		//1.New dole for item X
+		//2.New carry for item X slave Y
+		this.dole[object.name] = magicData[1];
+		this.carry[object.name+" "+object.instanceID] = magicData[2];
+		this.debt[object.name+" "+object.instanceID] = magicData[3];
 
 		// Remove item from DB and send it
 		this.items.removeItem(object.name, magicData[0]);
 
 		return magicData[0];
-    }
+	}
 }
 
 // If the server regularly can't fulfill requests, this number grows until it can. Then it slowly shrinks back down.
 let _doleDivisionFactor = {};
 function doleDivider({
-    object,
+	object,
 	items,
 	logItemTransfers,
 }){
 	let itemCount = items.getItemCount(object.name);
-    const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
-    const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
-    
-    const originalCount = Number(object.count) || 0;
-    object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
-    object.count = Math.round(object.count);
+	const doleDivisionRetardation = 10; //lower rates will equal more dramatic swings
+	const maxDoleDivision = 250; //a higher cap will divide the store more ways, but will take longer to recover as supplies increase
+
+	const originalCount = Number(object.count) || 0;
+	object.count /= ((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation;
+	object.count = Math.round(object.count);
 	if (logItemTransfers) {
-		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${itemCount} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${itemCount > object.count?'stocked':'short'}.`);
+		console.info(`Serving ${object.count}/${originalCount} ${object.name} from ${itemCount} ${object.name} with dole division factor ${(_doleDivisionFactor[object.name]||0)} (real=${((_doleDivisionFactor[object.name]||0)+doleDivisionRetardation)/doleDivisionRetardation}), item is ${itemCount > object.count?"stocked":"short"}.`);
 	}
 
 	// Update existing items if item name already exists
 	if (itemCount > object.count) {
-        //If successful, increase dole
-        _doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
-		items.removeItem(object.name, object.count)
+		//If successful, increase dole
+		_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name]||0)||1, 1) - 1;
+		items.removeItem(object.name, object.count);
 
-        prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
-        return object.count;
-    } else {
-        // if we didn't have enough, attempt giving out a smaller amount next time
-        _doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
-        prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
-        return 0;
-        //console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
-    }
+		prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
+		return object.count;
+	} else {
+		// if we didn't have enough, attempt giving out a smaller amount next time
+		_doleDivisionFactor[object.name] = Math.min(maxDoleDivision, Math.max((_doleDivisionFactor[object.name]||0)||1, 1) * 2);
+		prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
+		return 0;
+		//console.log('failure out of ' + object.name + " | " + object.count + " from " + object.instanceID + " ("+object.instanceName+")");
+	}
 }
 
 module.exports = {
-    doleDivider,
-    neuralDole
-}
+	doleDivider,
+	neuralDole,
+};

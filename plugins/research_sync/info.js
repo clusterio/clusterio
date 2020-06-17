@@ -1,3 +1,4 @@
+"use strict";
 const link = require("lib/link");
 
 
@@ -13,7 +14,7 @@ const technologies = {
 			{ type: "integer" },
 			{ type: ["null", "number"] },
 			{ type: "boolean" },
-		]
+		],
 	},
 };
 
@@ -77,4 +78,4 @@ module.exports = {
 			},
 		}),
 	},
-}
+};

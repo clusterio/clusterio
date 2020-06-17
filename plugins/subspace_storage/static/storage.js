@@ -1,35 +1,36 @@
 // function to draw data we recieve from ajax requests
+"use strict";
 _lastData = [];
 function drawcontents(data) {
 	data = data || _lastData; //Cache data so we can drawcontents without waiting for the server, for the search box.
 	_lastData = data;
 
-        // allow searching for multiple criteria separated by space
-        var searchArgs = document.querySelector("#search").value;
-        searchArgs = searchArgs.trim();
-        searchArgs = '(' + searchArgs.replace(/ +/g,")|(") + ')';
-        const search = new RegExp(searchArgs, 'i');
-        data = data.filter(function(item) {
+	// allow searching for multiple criteria separated by space
+	var searchArgs = document.querySelector("#search").value;
+	searchArgs = searchArgs.trim();
+	searchArgs = "(" + searchArgs.replace(/ +/g,")|(") + ")";
+	const search = new RegExp(searchArgs, "i");
+	data = data.filter(function(item) {
 		return search.test(item.name);
-	})
-	
+	});
+
 	sortByKey(data, "count");
-	
+
 	const table = document.querySelector("#contents tbody"); //tables have tbody inserted automatically
 	const rows = table.children;
-	
+
 	//update existing rows or create new ones
 	data.forEach(function(item, i) {
 		// format count to have .s in it for large number readability (1,000,000)
 		item.count = item.count.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-		
+
 		let row = rows[i];
 		if(!row) {
-			row = document.createElement('tr');
+			row = document.createElement("tr");
 			row.innerHTML = "<td><div></div></td><td class=name></td><td class=count></td>";
 			table.appendChild(row);
 		}
-		
+
 		const itemIcon = row.querySelector("div");
 		const iconClass = getItemIconClass(item.name);
 		if (itemIcon.getAttribute("class") !== iconClass) {
@@ -51,17 +52,17 @@ function drawcontents(data) {
 			}
 		}
 
-		const name = row.querySelector('.name');
+		const name = row.querySelector(".name");
 		if(name.textContent !== localeName) {
 			name.textContent = localeName;
 		}
-		
-		const count = row.querySelector('.count');
-		if(count.textContent !== ''+item.count) {
+
+		const count = row.querySelector(".count");
+		if(count.textContent !== String(item.count)) {
 			count.textContent = item.count;
 		}
 	});
-	
+
 	//remove excess rows, for example, after filtering
 	while (data.length < rows.length) {
 		table.removeChild(rows[data.length]);
@@ -76,7 +77,7 @@ function updateInventory() {
 			let data = JSON.parse(xmlhttp.responseText);
 			drawcontents(data);
 		}
-	}
+	};
 	xmlhttp.open("GET", `${root}api/inventory`, true);
 	xmlhttp.send();
 }
@@ -88,11 +89,11 @@ if(JSON.parse(localStorage.settings)["Periodically update storage screen"]) {
 
 // function to sort arrays of objects after a keys value
 function sortByKey(array, key) {
-    array.sort(function(a, b) {
-        return b[key] - a[key];
-    });
+	array.sort(function(a, b) {
+		return b[key] - a[key];
+	});
 }
 
-document.querySelector("#search").addEventListener('input', function() {
+document.querySelector("#search").addEventListener("input", function() {
 	drawcontents();
 });

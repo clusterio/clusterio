@@ -1,8 +1,9 @@
+"use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
-const validateHTML = require('html5-validator');
-const parallel = require('mocha.parallel');
+const validateHTML = require("html5-validator");
+const parallel = require("mocha.parallel");
 
 const link = require("lib/link");
 
@@ -113,7 +114,7 @@ describe("Integration of Clusterio", function() {
 					],
 					[
 						"ignore_player_limit_for_returning_players", true,
-						"ignore-player-limit-for-returning-players", "Ignore player limit for returning players: true."
+						"ignore-player-limit-for-returning-players", "Ignore player limit for returning players: true.",
 					],
 					[
 						"max_players", 11,
@@ -155,7 +156,7 @@ describe("Integration of Clusterio", function() {
 					],
 				];
 
-				for (let [prop, value, , ] of testConfigs) {
+				for (let [prop, value, ,] of testConfigs) {
 					value = `"'${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}'"`;
 					let args = `--instance test --field factorio.settings --prop ${prop} --value ${value}`;
 					await exec(`node clusterctl --config ${controlConfigPath} set-instance-config-prop ${args}`);
@@ -202,7 +203,7 @@ describe("Integration of Clusterio", function() {
 				await exec(`node clusterctl --config ${controlConfigPath} create-role --name temp --description "A temp role" --permissions core.control.connect`);
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "temp");
-				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"]});
+				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] });
 			});
 		});
 
@@ -211,7 +212,7 @@ describe("Integration of Clusterio", function() {
 				await exec(`node clusterctl --config ${controlConfigPath} edit-role --role temp --name new --description "A new role" --permissions`);
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "new");
-				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: []});
+				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
 		});
 

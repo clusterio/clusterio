@@ -2,11 +2,12 @@
  * Command line interface for controlling a Clusterio cluster
  * @module
  */
+"use strict";
 const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
 const version = require("./package").version;
-const asTable = require("as-table").configure({delimiter: ' | '});
+const asTable = require("as-table").configure({ delimiter: " | " });
 const chalk = require("chalk");
 const events = require("events");
 
@@ -21,18 +22,20 @@ const config = require("lib/config");
  * Formats a parsed Factorio output from lib/factorio into a readable
  * colorized output using terminal escape codes that can be printed.
  *
+ * @param {Object} output - Factorio server output.
+ * @returns {string} terminal colorized message.
  * @private
  */
 function formatOutputColored(output) {
 	let time = "";
-	if (output.format === 'seconds') {
-		time = chalk.yellow(output.time.padStart(8)) + ' ';
-	} else if (output.format === 'date') {
-		time = chalk.yellow(output.time) + ' ';
+	if (output.format === "seconds") {
+		time = chalk.yellow(output.time.padStart(8)) + " ";
+	} else if (output.format === "date") {
+		time = chalk.yellow(output.time) + " ";
 	}
 
 	let info = "";
-	if (output.type === 'log') {
+	if (output.type === "log") {
 		let level = output.level;
 		if (level === "Info") {
 			level = chalk.bold.blueBright(level);
@@ -42,10 +45,10 @@ function formatOutputColored(output) {
 			level = chalk.bold.redBright(level);
 		}
 
-		info = level + ' ' + chalk.gray(output.file) + ': ';
+		info = level + " " + chalk.gray(output.file) + ": ";
 
-	} else if (output.type === 'action') {
-		info = '[' + chalk.yellow(output.action) + '] ';
+	} else if (output.type === "action") {
+		info = "[" + chalk.yellow(output.action) + "] ";
 	}
 
 	return time + info + output.message;
@@ -66,7 +69,7 @@ class Command {
 	}
 
 	async run(args, control) {
-		await this._handler.call(this, args, control);
+		await this._handler(args, control);
 	}
 }
 
@@ -76,8 +79,8 @@ class Command {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param client - link to master server to query instance on.
- * @param instanceName - string with name or id of instance.
+ * @param {module:lib/link.Link} client - link to master server to query instance on.
+ * @param {string} instanceName - string with name or id of instance.
  * @returns {number} instance ID.
  * @private
  */
@@ -108,8 +111,8 @@ async function resolveInstance(client, instanceName) {
  * Resolves a string with either an slave name or an id into an integer with
  * the slave ID.
  *
- * @param client - link to master server to query slave on.
- * @param slaveName - string with name or id of slave.
+ * @param {module:lib/link.Link} client - link to master server to query slave on.
+ * @param {string} slaveName - string with name or id of slave.
  * @returns {number} slave ID.
  * @private
  */
@@ -140,8 +143,8 @@ async function resolveSlave(client, slaveName) {
  * Resolves a string with either a role name or an id into an object
  * representing the role.
  *
- * @param client - link to master server to query role on.
- * @param roleName - string with name or id of role.
+ * @param {module:lib/link.Link} client - link to master server to query role on.
+ * @param {string} roleName - string with name or id of role.
  * @returns {Object} Role info.
  * @private
  */
@@ -199,10 +202,10 @@ commands.push(new Command({
 		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", default: null });
 		yargs.option("name", { type: "string", nargs: 1, describe: "Slave name", default: null });
 		yargs.option("generate-token", {
-			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false
+			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false,
 		});
 		yargs.option("output", {
-			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json"
+			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json",
 		});
 	}],
 	handler: async function(args, control) {
@@ -233,29 +236,29 @@ commands.push(new Command({
 	handler: async function(args, control) {
 		let response = await link.messages.listInstances.send(control);
 		console.log(asTable(response.list));
-	}
+	},
 }));
 
 commands.push(new Command({
-	definition: ['create-instance', "Create an instance", (yargs) => {
+	definition: ["create-instance", "Create an instance", (yargs) => {
 		// XXX TODO: set any specific options?
-		yargs.option('name', {
+		yargs.option("name", {
 			type: "string",
 			nargs: 1,
 			describe: "Instance name",
 			group: "Instance Config:",
 		});
-		yargs.option('id', {
+		yargs.option("id", {
 			type: "number",
 			nargs: 1,
 			describe: "Instance ID",
 			group: "Instance Config:",
 		});
-		yargs.option('base', {
+		yargs.option("base", {
 			type: "boolean",
 			nargs: 0,
 			describe: "Specify this is a base config",
-			group: "Instance Config:"
+			group: "Instance Config:",
 		});
 	}],
 	handler: async function(args, control) {
@@ -329,10 +332,10 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['assign-instance', "Assign instance to a slave", (yargs) => {
+	definition: ["assign-instance", "Assign instance to a slave", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to assign", nargs: 1, type: 'string', demandOption: true },
-			'slave': { describe: "Slave to assign to", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to assign", nargs: 1, type: "string", demandOption: true },
+			"slave": { describe: "Slave to assign to", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -346,9 +349,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['create-save', "Create a new save on an instance", (yargs) => {
+	definition: ["create-save", "Create a new save on an instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to create on", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to create on", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -361,9 +364,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['export-data', "Export item icons and locale from instance", (yargs) => {
+	definition: ["export-data", "Export item icons and locale from instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to export from", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to export from", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -376,10 +379,10 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['start-instance', "Start instance", (yargs) => {
+	definition: ["start-instance", "Start instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to start", nargs: 1, type: 'string', demandOption: true },
-			'save': { describe: "Save load, defaults to latest", nargs: 1, type: 'string' },
+			"instance": { describe: "Instance to start", nargs: 1, type: "string", demandOption: true },
+			"save": { describe: "Save load, defaults to latest", nargs: 1, type: "string" },
 		});
 	}],
 	handler: async function(args, control) {
@@ -393,9 +396,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['stop-instance', "Stop instance", (yargs) => {
+	definition: ["stop-instance", "Stop instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to stop", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to stop", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -408,9 +411,9 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['delete-instance', "Delete instance", (yargs) => {
+	definition: ["delete-instance", "Delete instance", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to delete", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to delete", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
@@ -421,17 +424,17 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
-	definition: ['send-rcon', "Send RCON command", (yargs) => {
+	definition: ["send-rcon", "Send RCON command", (yargs) => {
 		yargs.options({
-			'instance': { describe: "Instance to sent to", nargs: 1, type: 'string', demandOption: true },
-			'command': { describe: "command to send", nargs: 1, type: 'string', demandOption: true },
+			"instance": { describe: "Instance to sent to", nargs: 1, type: "string", demandOption: true },
+			"command": { describe: "command to send", nargs: 1, type: "string", demandOption: true },
 		});
 	}],
 	handler: async function(args, control) {
 		let response = await link.messages.sendRcon.send(control, {
 			instance_id: await resolveInstance(control, args.instance),
-			command: args.command
-		})
+			command: args.command,
+		});
 
 		// Factorio includes a newline in it's response output.
 		process.stdout.write(response.result);
@@ -466,7 +469,7 @@ commands.push(new Command({
 		let response = await link.messages.createRole.send(control, {
 			name: args.name,
 			description: args.description,
-			permissions: args.permissions
+			permissions: args.permissions,
 		});
 		console.log(`Created role ID ${response.id}`);
 	},
@@ -509,7 +512,7 @@ commands.push(new Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let role = await resolveRole(control, args.role)
+		let role = await resolveRole(control, args.role);
 		await link.messages.deleteRole.send(control, { id: role.id });
 	},
 }));
@@ -623,7 +626,7 @@ class Control extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
 	constructor(connector) {
-		super('control', 'master', connector);
+		super("control", "master", connector);
 		link.attachAllMessages(this);
 	}
 
@@ -647,7 +650,7 @@ class Control extends link.Link {
 			}
 		}
 
-		await this.connector.close(1001, "Control Quit")
+		await this.connector.close(1001, "Control Quit");
 	}
 }
 
@@ -656,12 +659,12 @@ async function startControl() {
 	yargs
 		.scriptName("clusterctl")
 		.usage("$0 <command> [options]")
-		.option('config', {
+		.option("config", {
 			nargs: 1,
 			describe: "config file to get credentails from",
 			default: "config-control.json",
 			defaultDescription: "auto",
-			type: 'string',
+			type: "string",
 		})
 		.command("control-config", "Manage Control config", config.configCommand)
 		.wrap(yargs.terminalWidth())
@@ -684,7 +687,7 @@ async function startControl() {
 		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
-		if (err.code === 'ENOENT') {
+		if (err.code === "ENOENT") {
 			console.log("Config not found, initializing new config");
 			await controlConfig.init();
 
@@ -730,10 +733,10 @@ async function startControl() {
 	});
 
 	if (commands.has(commandName)) {
-		command = commands.get(commandName);
+		let command = commands.get(commandName);
 
 		try {
-			await command.run(args, control)
+			await command.run(args, control);
 
 		} catch (err) {
 			if (err instanceof errors.CommandError) {
@@ -761,7 +764,7 @@ module.exports = {
 	_Control: Control,
 
 	_commands: commands,
-}
+};
 
 
 if (module === require.main) {

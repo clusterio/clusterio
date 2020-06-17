@@ -1,3 +1,4 @@
+"use strict";
 const path = require("path");
 const fs = require("fs-extra");
 const child_process = require("child_process");
@@ -22,6 +23,7 @@ class TestControl extends link.Link {
 	}
 
 	async debugWsMessageEventHandler() { }
+
 	async instanceOutputEventHandler() { }
 }
 
@@ -34,6 +36,7 @@ class TestControlConnector extends link.WebSocketClientConnector {
 // Mark that this test takes a lot of time, or depeneds on a test
 // that takes a lot of time.
 function slowTest(test) {
+	// eslint-disable-next-line no-process-env
 	if (process.env.FAST_TEST) {
 		test.skip();
 	}
@@ -67,7 +70,7 @@ async function exec(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command })
+	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command });
 	return response.result;
 }
 
@@ -86,8 +89,8 @@ function spawn(name, cmd, waitFor) {
 				resolve(process);
 			}
 			console.log(name, line);
-		})
-		let stderr = new server._LineSplitter((line) => { console.log(name, line.toString("utf8")); })
+		});
+		let stderr = new server._LineSplitter((line) => { console.log(name, line.toString("utf8")); });
 		process.stdout.on("data", chunk => { stdout.data(chunk); });
 		process.stdout.on("close", () => { stdout.end(); });
 		process.stderr.on("data", chunk => { stderr.data(chunk); });

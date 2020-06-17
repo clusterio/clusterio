@@ -10,8 +10,9 @@
  * @example
  * node slave run
  */
-const fs = require('fs-extra');
-const path = require('path');
+"use strict";
+const fs = require("fs-extra");
+const path = require("path");
 const yargs = require("yargs");
 const events = require("events");
 const pidusage = require("pidusage");
@@ -22,14 +23,13 @@ const version = require("./package").version;
 
 // internal libraries
 const fileOps = require("lib/fileOps");
-const hashFile = require('lib/hash').hashFile;
 const factorio = require("lib/factorio");
 const link = require("lib/link");
 const plugin = require("lib/plugin");
 const errors = require("lib/errors");
-const prometheus = require('lib/prometheus');
-const luaTools = require('lib/luaTools');
-const config = require('lib/config');
+const prometheus = require("lib/prometheus");
+const luaTools = require("lib/luaTools");
+const config = require("lib/config");
 
 
 const instanceRconCommandsCounter = new prometheus.Counter(
@@ -69,7 +69,7 @@ function applyAsConfig(name) {
 		} catch (err) {
 			console.error(`Error applying server setting ${name}`, err);
 		}
-	}
+	};
 }
 
 const serverSettingsActions = {
@@ -87,7 +87,7 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async function action(server, value) {
+	"visibility": async (server, value) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
 				let enabled = Boolean(value[scope]);
@@ -104,7 +104,7 @@ const serverSettingsActions = {
  */
 class Instance extends link.Link{
 	constructor(slave, connector, dir, factorioDir, instanceConfig) {
-		super('instance', 'slave', connector);
+		super("instance", "slave", connector);
 		link.attachAllMessages(this);
 		this._slave = slave;
 		this._dir = dir;
@@ -125,9 +125,9 @@ class Instance extends link.Link{
 
 		let serverOptions = {
 			version: this.config.get("factorio.version"),
-			gamePort: this.config.get('factorio.game_port'),
-			rconPort: this.config.get('factorio.rcon_port'),
-			rconPassword: this.config.get('factorio.rcon_password'),
+			gamePort: this.config.get("factorio.game_port"),
+			rconPort: this.config.get("factorio.rcon_port"),
+			rconPassword: this.config.get("factorio.rcon_password"),
 		};
 
 		this._running = false;
@@ -139,10 +139,10 @@ class Instance extends link.Link{
 		this.server.sendRcon = (...args) => {
 			instanceRconCommandsCounter.labels(String(this.config.get("instance.id"))).inc();
 			return originalSendRcon.call(this.server, ...args);
-		}
+		};
 
-		this.server.on('output', (output) => {
-			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output })
+		this.server.on("output", (output) => {
+			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
 
 			plugin.invokeHook(this.plugins, "onOutput", output);
 		});
@@ -181,7 +181,7 @@ class Instance extends link.Link{
 		for (let collector of prometheus.defaultRegistry.collectors) {
 			if (
 				collector instanceof prometheus.ValueCollector
-				&& collector.metric.labels.includes('instance_id')
+				&& collector.metric.labels.includes("instance_id")
 			) {
 				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
 			}
@@ -225,7 +225,7 @@ class Instance extends link.Link{
 			}
 		}
 
-		let plugins = {}
+		let plugins = {};
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
@@ -239,7 +239,8 @@ class Instance extends link.Link{
 	 * entries from the given settings object.
 	 *
 	 * @param {Object} overrides - Server settings to override.
-	 * @returns server example settings with the given settings applied over it.
+	 * @returns {Object}
+	 *     server example settings with the given settings applied over it.
 	 */
 	async resolveServerSettings(overrides) {
 		let serverSettings = await this.server.exampleSettings();
@@ -275,13 +276,11 @@ class Instance extends link.Link{
 	 * Creates the neccessary files for starting up a new instance into the
 	 * provided instance directory.
 	 *
-	 * @param {Number} id -
-	 *     ID of the new instance.  Must be unique to the cluster.
 	 * @param {String} instanceDir -
 	 *     Directory to create the new instance into.
 	 * @param {String} factorioDir - Path to factorio installation.
 	 */
-	static async create(instanceConfig, instanceDir, factorioDir) {
+	static async create(instanceDir, factorioDir) {
 		console.log(`Clusterio | Creating ${instanceDir}`);
 		await fs.ensureDir(instanceDir);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
@@ -320,13 +319,13 @@ class Instance extends link.Link{
 		// Use latest save if no save was specified
 		if (saveName === null) {
 			saveName = await fileOps.getNewestFile(
-				this.path("saves"), (name) => !name.endsWith('.tmp.zip')
+				this.path("saves"), (name) => !name.endsWith(".tmp.zip")
 			);
 		}
 
 		// Create save if no save was found.
 		if (saveName === null) {
-			console.log("Clusterio | Creating new save")
+			console.log("Clusterio | Creating new save");
 			await this.server.create("world.zip");
 			saveName = "world.zip";
 		}
@@ -337,12 +336,12 @@ class Instance extends link.Link{
 		// Find plugin modules to patch in
 		let modules = new Map();
 		for (let [pluginName, plugin] of this.plugins) {
-			let modulePath = path.join('plugins', pluginName, 'module');
+			let modulePath = path.join("plugins", pluginName, "module");
 			if (!await fs.pathExists(modulePath)) {
 				continue;
 			}
 
-			let moduleJsonPath = path.join(modulePath, 'module.json');
+			let moduleJsonPath = path.join(modulePath, "module.json");
 			if (!await fs.pathExists(moduleJsonPath)) {
 				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
@@ -352,25 +351,26 @@ class Instance extends link.Link{
 				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
 
-			module = Object.assign({
+			module = {
 				version: plugin.info.version,
-				dependencies: { 'clusterio': '*' },
+				dependencies: { "clusterio": "*" },
 				path: modulePath,
 				load: [],
 				require: [],
-			}, module);
+				...module,
+			};
 			modules.set(module.name, module);
 		}
 
 		// Find stand alone modules to load
 		// XXX for now it's assumed all available modules should be loaded.
-		for (let entry of await fs.readdir('modules', { withFileTypes: true })) {
+		for (let entry of await fs.readdir("modules", { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
 
-				let moduleJsonPath = path.join('modules', entry.name, 'module.json');
+				let moduleJsonPath = path.join("modules", entry.name, "module.json");
 				if (!await fs.pathExists(moduleJsonPath)) {
 					throw new Error(`Module ${entry.name} is missing module.json`);
 				}
@@ -380,12 +380,13 @@ class Instance extends link.Link{
 					throw new Error(`Expected name of module ${entry.name} to match the directory name`);
 				}
 
-				module = Object.assign({
-					path: path.join('modules', entry.name),
-					dependencies: { 'clusterio': '*' },
+				module = {
+					path: path.join("modules", entry.name),
+					dependencies: { "clusterio": "*" },
 					load: [],
 					require: [],
-				}, module);
+					...module,
+				};
 				modules.set(module.name, module);
 			}
 		}
@@ -402,13 +403,13 @@ class Instance extends link.Link{
 	 * @param {String} saveName - Name of save game to load.
 	 */
 	async start(saveName) {
-		this.server.on('rcon-ready', () => {
+		this.server.on("rcon-ready", () => {
 			console.log("Clusterio | RCON connection established");
 		});
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.start(saveName);
-		await this.server.disableAchievements()
+		await this.server.disableAchievements();
 		await this.updateInstanceData();
 
 		await plugin.invokeHook(this.plugins, "onStart");
@@ -459,12 +460,12 @@ class Instance extends link.Link{
 	}
 
 	async getMetricsRequestHandler() {
-		let results = []
+		let results = [];
 		if (this._running) {
 			let pluginResults = await plugin.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
-					results.push(prometheus.serializeResult(metric))
+					results.push(prometheus.serializeResult(metric));
 				}
 			}
 		}
@@ -482,7 +483,7 @@ class Instance extends link.Link{
 	async startInstanceRequestHandler(message) {
 		let saveName = message.data.save;
 		try {
-			saveName = await this.prepare(saveName)
+			saveName = await this.prepare(saveName);
 		} catch (err) {
 			this.notifyExit();
 			throw err;
@@ -536,7 +537,7 @@ class Instance extends link.Link{
 				},
 			});
 			if (response.statusCode !== 200) {
-				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`)
+				throw Error(`Upload failed: ${response.statusCode} ${response.statusMessage}: ${response.body}`);
 			}
 
 		} finally {
@@ -569,6 +570,8 @@ class Instance extends link.Link{
 	 * the directory of the instance.  For example instance.path("mods")
 	 * returns a path to the mods directory of the instance.  If no parts are
 	 * given it returns a path to the directory of the instance.
+	 *
+	 * @returns {string} path in instance directory.
 	 */
 	path(...parts) {
 		return path.join(this._dir, ...parts);
@@ -585,7 +588,7 @@ class Instance extends link.Link{
  * @param {Map<integer, Object>} instanceInfos -
  *     mapping between instance id and information about this instance.
  * @param {string} instancesDir - Directory containing instances
- * @param logger - console like logging interface.
+ * @param {Object} logger - console like logging interface.
  */
 async function discoverInstances(instanceInfos, instancesDir, logger) {
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
@@ -622,7 +625,7 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 
 class InstanceConnection extends link.Link {
 	constructor(connector, slave, instanceId) {
-		super('slave', 'instance', connector);
+		super("slave", "instance", connector);
 		this.slave = slave;
 		this.instanceId = instanceId;
 		this.plugins = new Map();
@@ -717,7 +720,7 @@ class Slave extends link.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
 	constructor(connector, slaveConfig, pluginInfos) {
-		super('slave', 'master', connector);
+		super("slave", "master", connector);
 		link.attachAllMessages(this);
 
 		this.pluginInfos = pluginInfos;
@@ -750,9 +753,9 @@ class Slave extends link.Link {
 					setBlocking(true);
 					console.error("ERROR: Unexpected error during shutdown");
 					console.error(err);
-					process.exit(1)
+					process.exit(1);
 				});
-			});;
+			});
 		});
 
 		this.connector.on("close", () => {
@@ -769,7 +772,7 @@ class Slave extends link.Link {
 						setBlocking(true);
 						console.error("ERROR: Unexpected error during shutdown");
 						console.error(err);
-						process.exit(1)
+						process.exit(1);
 					});
 				});
 
@@ -779,7 +782,7 @@ class Slave extends link.Link {
 					setBlocking(true);
 					console.error("ERROR: Unexpected error during shutdown");
 					console.error(err);
-					process.exit(1)
+					process.exit(1);
 				});
 			}
 		});
@@ -795,7 +798,7 @@ class Slave extends link.Link {
 
 	async _findNewInstanceDir(name) {
 		try {
-			checkFilename(name)
+			checkFilename(name);
 		} catch (err) {
 			throw new Error(`Instance name ${err.message}`);
 		}
@@ -803,7 +806,7 @@ class Slave extends link.Link {
 		// For now add dashes until an unused directory name is found
 		let dir = path.join(this.config.get("slave.instances_directory"), name);
 		while (await fs.pathExists(dir)) {
-			dir += '-';
+			dir += "-";
 		}
 
 		return dir;
@@ -821,7 +824,7 @@ class Slave extends link.Link {
 		}
 
 		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
-			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`)
+			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`);
 		}
 
 		return await request.send(instanceConnection, message.data);
@@ -861,7 +864,7 @@ class Slave extends link.Link {
 			// XXX: race condition on multiple simultanious calls
 			let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
 
-			await Instance.create(instanceConfig, instanceDir, this.config.get("slave.factorio_directory"));
+			await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
 			instanceInfo = {
 				path: instanceDir,
 				config: instanceConfig,
@@ -872,10 +875,10 @@ class Slave extends link.Link {
 
 
 		// save a copy of the instance config
-		let warnedOutput = Object.assign(
-			{ _warning: "Changes to this file will be overwritten by the master server's copy." },
-			instanceInfo.config.serialize()
-		);
+		let warnedOutput = {
+			_warning: "Changes to this file will be overwritten by the master server's copy.",
+			...instanceInfo.config.serialize(),
+		};
 		await fs.outputFile(
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
@@ -884,6 +887,9 @@ class Slave extends link.Link {
 
 	/**
 	 * Initialize and connect an unloaded instance
+	 *
+	 * @param {number} instanceId - ID of instance to initialize.
+	 * @returns {module:slave~InstanceConnection} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
 		let instanceInfo = this.instanceInfos.get(instanceId);
@@ -919,10 +925,10 @@ class Slave extends link.Link {
 		}
 
 		for await (let result of prometheus.defaultRegistry.collect()) {
-			if (result.metric.name.startsWith('process_')) {
+			if (result.metric.name.startsWith("process_")) {
 				results.push(prometheus.serializeResult(result, {
-					addLabels: { 'slave_id': String(this.config.get("slave.id")) },
-					metricName: result.metric.name.replace('process_', 'clusterio_slave_'),
+					addLabels: { "slave_id": String(this.config.get("slave.id")) },
+					metricName: result.metric.name.replace("process_", "clusterio_slave_"),
 				}));
 
 			} else {
@@ -1034,10 +1040,10 @@ function checkFilename(name) {
 	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 	const badNames = [
 		// Relative path components
-		'.', '..',
+		".", "..",
 
 		// Reserved filenames in Windows
-		'CON', 'PRN', 'AUX', 'NUL',
+		"CON", "PRN", "AUX", "NUL",
 		...oneToNine.map(n => `COM${n}`),
 		...oneToNine.map(n => `LPT${n}`),
 	];
@@ -1099,7 +1105,7 @@ async function symlinkMods(instance, sharedMods, logger) {
 	let instanceModsEntries = new Set(await fs.readdir(instance.path("mods")));
 	for (let entry of await fs.readdir(sharedMods, { withFileTypes: true })) {
 		if (entry.isFile()) {
-			if (['.zip', '.dat'].includes(path.extname(entry.name))) {
+			if ([".zip", ".dat"].includes(path.extname(entry.name))) {
 				if (!instanceModsEntries.has(entry.name)) {
 					logger.log(`linking ${entry.name} from ${sharedMods}`);
 					let target = path.join(sharedMods, entry.name);
@@ -1130,17 +1136,17 @@ async function symlinkMods(instance, sharedMods, logger) {
 
 async function startSlave() {
 	// add better stack traces on promise rejection
-	process.on('unhandledRejection', r => console.log(r));
+	process.on("unhandledRejection", r => console.log(r));
 
 	// argument parsing
 	const args = yargs
 		.scriptName("slave")
 		.usage("$0 <command> [options]")
-		.option('config', {
+		.option("config", {
 			nargs: 1,
 			describe: "slave config file to use",
-			default: 'config-slave.json',
-			type: 'string',
+			default: "config-slave.json",
+			type: "string",
 		})
 		.command("config", "Manage Slave config", config.configCommand)
 		.command("run", "Run slave")
@@ -1160,7 +1166,7 @@ async function startSlave() {
 		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
-		if (err.code === 'ENOENT') {
+		if (err.code === "ENOENT") {
 			console.log("Config not found, initializing new config");
 			await slaveConfig.init();
 
@@ -1210,8 +1216,8 @@ async function startSlave() {
 	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts
-	let secondSigint = false
-	process.on('SIGINT', () => {
+	let secondSigint = false;
+	process.on("SIGINT", () => {
 		if (secondSigint) {
 			console.log("Caught second interrupt, terminating immediately");
 			process.exit(1);
@@ -1232,37 +1238,6 @@ async function startSlave() {
 	});
 
 	await slaveConnector.connect();
-
-	/*
-	} else if (command == "manage"){
-		await manage(config, instance);
-		// process.exit(0);
-	*/
-}
-
-// string, function
-// returns [{modName:string,hash:string}, ... ]
-function hashMods(instance, callback) {
-	if(!callback) {
-		throw new Error("ERROR in function hashMods NO CALLBACK");
-	}
-
-	function hashMod(name) {
-		if (path.extname(name) != ".zip") {
-			// Can't hash unzipped mods, return null that's filtered out later
-			return null;
-		} else {
-			return hashFile(instance.path("mods", name)).then(hash => (
-				{modName: name, hash: hash}
-			));
-		}
-	}
-
-	let promises = fs.readdirSync(instance.path("mods")).map(hashMod);
-	Promise.all(promises).then(hashes => {
-		// Remove null entries from hashMod
-		callback(hashes.filter(entry => entry !== null));
-	});
 }
 
 module.exports = {

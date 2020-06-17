@@ -1,3 +1,4 @@
+"use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
@@ -12,21 +13,21 @@ describe("lib/database", function() {
 				new Error("Expected all keys to be string but got number")
 			);
 			assert.throws(
-				() => database.mapToObject(new Map([[Symbol(), 1]])),
+				() => database.mapToObject(new Map([[Symbol("test"), 1]])),
 				new Error("Expected all keys to be string but got symbol")
 			);
 		});
 
 		it("should throw convert a map to an object", function() {
 			assert.deepEqual(
-				database.mapToObject(new Map([['a', 1], ['b', true]])),
-				{'a': 1, 'b': true}
+				database.mapToObject(new Map([["a", 1], ["b", true]])),
+				{ "a": 1, "b": true }
 			);
 		});
 	});
 
 	describe("loadJsonAsMap()", function() {
-		let badTypes = ['null', 'array', 'number', 'string', 'boolean'];
+		let badTypes = ["null", "array", "number", "string", "boolean"];
 
 		for (let type of badTypes) {
 			it(`should reject on ${type} JSON`, async function() {
@@ -47,7 +48,7 @@ describe("lib/database", function() {
 		it("should work on object JSON", async function() {
 			assert.deepEqual(
 				await database.loadJsonAsMap(path.join("test", "file", "json", "load_map.json")),
-				new Map([['a', 1], ['b', true]])
+				new Map([["a", 1], ["b", true]])
 			);
 		});
 
@@ -67,7 +68,7 @@ describe("lib/database", function() {
 					await fs.unlink(testFile);
 				} catch (err) {
 					/* istanbul ignore if */
-					if (err.code !== 'ENOENT') {
+					if (err.code !== "ENOENT") {
 						throw err;
 					}
 				}
@@ -75,18 +76,18 @@ describe("lib/database", function() {
 
 			await deleteTestFile();
 			await database.saveMapAsJson(
-				testFile, new Map([['c', {}], ['d', "foo"]])
+				testFile, new Map([["c", {}], ["d", "foo"]])
 			);
 
 			assert.equal(
-				await fs.readFile(testFile, {encoding: 'utf-8'}),
+				await fs.readFile(testFile, { encoding: "utf-8" }),
 				'{\n    "c": {},\n    "d": "foo"\n}'
 			);
 		});
 	});
 
 	describe("loadJsonArrayAsMap()", function() {
-		let badTypes = ['null', 'object', 'number', 'string', 'boolean'];
+		let badTypes = ["null", "object", "number", "string", "boolean"];
 
 		for (let type of badTypes) {
 			it(`should reject on ${type} JSON`, async function() {
@@ -121,7 +122,7 @@ describe("lib/database", function() {
 		it("should work on array JSON", async function() {
 			assert.deepEqual(
 				await database.loadJsonArrayAsMap(path.join("test", "file", "json", "load_array_map.json")),
-				new Map([['a', {id: 'a'}], ['b', {id: 'b'}]])
+				new Map([["a", { id: "a" }], ["b", { id: "b" }]])
 			);
 		});
 
@@ -141,7 +142,7 @@ describe("lib/database", function() {
 					await fs.unlink(testFile);
 				} catch (err) {
 					/* istanbul ignore if */
-					if (err.code !== 'ENOENT') {
+					if (err.code !== "ENOENT") {
 						throw err;
 					}
 				}
@@ -149,11 +150,11 @@ describe("lib/database", function() {
 
 			await deleteTestFile();
 			await database.saveMapAsJsonArray(
-				testFile, new Map([['c', {id: 'c'}], ['d', {id: 'd'}]])
+				testFile, new Map([["c", { id: "c" }], ["d", { id: "d" }]])
 			);
 
 			assert.equal(
-				await fs.readFile(testFile, {encoding: 'utf-8'}),
+				await fs.readFile(testFile, { encoding: "utf-8" }),
 				'[\n    {\n        "id": "c"\n    },\n    {\n        "id": "d"\n    }\n]'
 			);
 		});
@@ -167,18 +168,18 @@ describe("lib/database", function() {
 			});
 
 			it("should restore the passed serialized database", function() {
-				let items = new database.ItemDatabase({'a': 1, 'b': 2});
-				assert.deepEqual(items._items, new Map([['a', 1], ['b', 2]]));
+				let items = new database.ItemDatabase({ "a": 1, "b": 2 });
+				assert.deepEqual(items._items, new Map([["a", 1], ["b", 2]]));
 			});
 
 			it("should throw on invalid serialized database", function() {
 				assert.throws(
-					() => new database.ItemDatabase({'a': NaN}),
+					() => new database.ItemDatabase({ "a": NaN }),
 					new Error("count must be a number")
 				);
 
 				assert.throws(
-					() => new database.ItemDatabase({'a': 'a'}),
+					() => new database.ItemDatabase({ "a": "a" }),
 					new Error("count must be a number")
 				);
 			});
@@ -186,32 +187,32 @@ describe("lib/database", function() {
 
 		describe(".serialize()", function() {
 			it("should return a serialized database", function() {
-				let items = new database.ItemDatabase({'a': 10});
-				assert.deepEqual(items.serialize(), {'a': 10});
+				let items = new database.ItemDatabase({ "a": 10 });
+				assert.deepEqual(items.serialize(), { "a": 10 });
 			});
 
 			it("should remove zero count entries", function() {
-				let items = new database.ItemDatabase({'a': 0});
+				let items = new database.ItemDatabase({ "a": 0 });
 				assert.deepEqual(items.serialize(), {});
 			});
 		});
 
 		describe(".size", function() {
 			it("should give an approximate size of the database", function() {
-				let items = new database.ItemDatabase({'a': 10});
+				let items = new database.ItemDatabase({ "a": 10 });
 				assert.equal(items.size, 1);
 			});
 		});
 
 		describe(".getItemCount()", function() {
 			it("should return the count of the given item", function() {
-				let items = new database.ItemDatabase({'a': 10});
-				assert.equal(items.getItemCount('a'), 10);
+				let items = new database.ItemDatabase({ "a": 10 });
+				assert.equal(items.getItemCount("a"), 10);
 			});
 
 			it("should return zero if item does not exist", function() {
 				let items = new database.ItemDatabase();
-				assert.equal(items.getItemCount('b'), 0);
+				assert.equal(items.getItemCount("b"), 0);
 			});
 
 			it("should throw on invalid name", function() {
@@ -226,15 +227,15 @@ describe("lib/database", function() {
 		describe(".addItem()", function() {
 			it("should add a new item", function() {
 				let items = new database.ItemDatabase();
-				items.addItem('a', 10);
-				assert.deepEqual(items._items, new Map([['a', 10]]));
-			})
+				items.addItem("a", 10);
+				assert.deepEqual(items._items, new Map([["a", 10]]));
+			});
 
 			it("should add an existing item", function() {
-				let items = new database.ItemDatabase({'a': 10});
-				items.addItem('a', 10);
-				assert.deepEqual(items._items, new Map([['a', 20]]));
-			})
+				let items = new database.ItemDatabase({ "a": 10 });
+				items.addItem("a", 10);
+				assert.deepEqual(items._items, new Map([["a", 20]]));
+			});
 
 			it("should throw on invalid name", function() {
 				let items = new database.ItemDatabase();
@@ -247,11 +248,11 @@ describe("lib/database", function() {
 			it("should throw on invalid count", function() {
 				let items = new database.ItemDatabase();
 				assert.throws(
-					() => items.addItem('a', NaN),
+					() => items.addItem("a", NaN),
 					new Error("count must be a number")
 				);
 				assert.throws(
-					() => items.addItem('a', "1"),
+					() => items.addItem("a", "1"),
 					new Error("count must be a number")
 				);
 			});
@@ -259,16 +260,16 @@ describe("lib/database", function() {
 
 		describe(".removeItem()", function() {
 			it("should remove an existing item", function() {
-				let items = new database.ItemDatabase({'a': 20});
-				items.removeItem('a', 10);
-				assert.deepEqual(items._items, new Map([['a', 10]]));
-			})
+				let items = new database.ItemDatabase({ "a": 20 });
+				items.removeItem("a", 10);
+				assert.deepEqual(items._items, new Map([["a", 10]]));
+			});
 
 			it("should turn a non-existing item negative", function() {
 				let items = new database.ItemDatabase();
-				items.removeItem('a', 10);
-				assert.deepEqual(items._items, new Map([['a', -10]]));
-			})
+				items.removeItem("a", 10);
+				assert.deepEqual(items._items, new Map([["a", -10]]));
+			});
 
 			it("should throw on invalid name", function() {
 				let items = new database.ItemDatabase();
@@ -281,11 +282,11 @@ describe("lib/database", function() {
 			it("should throw on invalid count", function() {
 				let items = new database.ItemDatabase();
 				assert.throws(
-					() => items.removeItem('a', 'b'),
+					() => items.removeItem("a", "b"),
 					new Error("count must be a number")
 				);
 				assert.throws(
-					() => items.removeItem('a', "1"),
+					() => items.removeItem("a", "1"),
 					new Error("count must be a number")
 				);
 			});

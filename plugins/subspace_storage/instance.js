@@ -1,11 +1,12 @@
+"use strict";
 const fs = require("fs-extra");
 
 const plugin = require("lib/plugin");
 const luaTools = require("lib/luaTools");
 
 function unexpectedError(err) {
-	console.log("Unexpected error in subspace_storage")
-	console.log("------------------------------------")
+	console.log("Unexpected error in subspace_storage");
+	console.log("------------------------------------");
 	console.log(err);
 }
 
@@ -44,7 +45,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		});
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
-			console.log("Exported the following to master:")
+			console.log("Exported the following to master:");
 			console.log(items);
 		}
 	}
@@ -62,7 +63,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		}
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
-			console.log("Imported following from master:")
+			console.log("Imported following from master:");
 			console.log(response.items);
 		}
 

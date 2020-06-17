@@ -11,3 +11,4 @@ script:
   - npm run-script ci-cover
   - cat temp/test/integration/log.txt
   - codecov -f coverage/lcov.info
+  - npm run-script lint
