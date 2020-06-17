@@ -16,7 +16,6 @@
             "clusterctl.js",
             "lib/",
             "plugins/",
-            "routes/",
             "routes.js"
         ],
         "excludePattern": "node_modules"

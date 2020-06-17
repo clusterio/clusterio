@@ -240,7 +240,8 @@ class Instance extends link.Link{
 	 * entries from the given settings object.
 	 *
 	 * @param {Object} overrides - Server settings to override.
-	 * @returns server example settings with the given settings applied over it.
+	 * @returns {Object}
+	 *     server example settings with the given settings applied over it.
 	 */
 	async resolveServerSettings(overrides) {
 		let serverSettings = await this.server.exampleSettings();
@@ -276,13 +277,11 @@ class Instance extends link.Link{
 	 * Creates the neccessary files for starting up a new instance into the
 	 * provided instance directory.
 	 *
-	 * @param {Number} id -
-	 *     ID of the new instance.  Must be unique to the cluster.
 	 * @param {String} instanceDir -
 	 *     Directory to create the new instance into.
 	 * @param {String} factorioDir - Path to factorio installation.
 	 */
-	static async create(instanceConfig, instanceDir, factorioDir) {
+	static async create(instanceDir, factorioDir) {
 		console.log(`Clusterio | Creating ${instanceDir}`);
 		await fs.ensureDir(instanceDir);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
@@ -570,6 +569,8 @@ class Instance extends link.Link{
 	 * the directory of the instance.  For example instance.path("mods")
 	 * returns a path to the mods directory of the instance.  If no parts are
 	 * given it returns a path to the directory of the instance.
+	 *
+	 * @returns {string} path in instance directory.
 	 */
 	path(...parts) {
 		return path.join(this._dir, ...parts);
@@ -586,7 +587,7 @@ class Instance extends link.Link{
  * @param {Map<integer, Object>} instanceInfos -
  *     mapping between instance id and information about this instance.
  * @param {string} instancesDir - Directory containing instances
- * @param logger - console like logging interface.
+ * @param {Object} logger - console like logging interface.
  */
 async function discoverInstances(instanceInfos, instancesDir, logger) {
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
@@ -862,7 +863,7 @@ class Slave extends link.Link {
 			// XXX: race condition on multiple simultanious calls
 			let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
 
-			await Instance.create(instanceConfig, instanceDir, this.config.get("slave.factorio_directory"));
+			await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
 			instanceInfo = {
 				path: instanceDir,
 				config: instanceConfig,
@@ -885,6 +886,9 @@ class Slave extends link.Link {
 
 	/**
 	 * Initialize and connect an unloaded instance
+	 *
+	 * @param {number} instanceId - ID of instance to initialize.
+	 * @returns {module:slave~InstanceConnection} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
 		let instanceInfo = this.instanceInfos.get(instanceId);

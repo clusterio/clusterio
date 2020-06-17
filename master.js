@@ -247,6 +247,10 @@ const db = {};
 
 /**
  * Load Map from JSON file in the database directory.
+ *
+ * @param {string} databaseDirectory - Path to master database directory.
+ * @param {string} file - Name of file to load.
+ * @returns {Map} file loaded as a map.
  */
 async function loadMap(databaseDirectory, file) {
 	let databasePath = path.resolve(databaseDirectory, file);
@@ -326,6 +330,10 @@ function createUser(name) {
 
 /**
  * Save Map to JSON file in the database directory.
+ *
+ * @param {string} databaseDirectory - Path to master database directory.
+ * @param {string} file - Name of file to save.
+ * @param {Map} map - Mapping to save into file.
  */
 async function saveMap(databaseDirectory, file, map) {
 	let databasePath = path.resolve(databaseDirectory, file);
@@ -977,7 +985,7 @@ const wss = new WebSocket.Server({
 /**
  * Returns true if value is a signed 32-bit integer
  *
- * @param value - value to test.
+ * @param {number} value - value to test.
  * @returns {Boolean}
  *     true if value is an integer between -2<sup>31</sup> and
  *     2<sup>31</sup>-1.
@@ -1021,6 +1029,9 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 * Send ready over the socket
 	 *
 	 * Sends the ready message over the socket to initiate the session.
+	 *
+	 * @param {string} sessionToken -
+	 *     the session token to send to the client.
 	 */
 	ready(sessionToken) {
 		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval");
@@ -1044,6 +1055,9 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 *
 	 * Terminates the current socket and contiunes the session over the
 	 * socket given from the message sequence given.
+	 *
+	 * @param {module:net.Socket} socket - New socket to continue on.
+	 * @param {number} lastSeq - The last message the client received.
 	 */
 	continue(socket, lastSeq) {
 		this._socket.terminate();
@@ -1164,6 +1178,9 @@ class WebSocketServerConnector extends link.WebSocketBaseConnector {
 	 * Close the connection with the given reason.
 	 *
 	 * Sends a close frame and disconnects the connector.
+	 *
+	 * @param {number} code - WebSocket close code.
+	 * @param {string} reason - WebSocket close reason.
 	 */
 	async close(code, reason) {
 		if (this._state === "closed") {
@@ -1399,6 +1416,10 @@ async function loadPlugins(pluginInfos) {
  * Calls listen on server capturing any errors that occurs
  * binding to the port.  Also adds handler for WebSocket
  * upgrade event.
+ *
+ * @param {module:net.Server} server - Server to start the listening on.
+ * @param {*} args - Arguments to the .listen() call on the server.
+ * @returns {Promise} promise that resolves the server is listening.
  */
 function listen(server, ...args) {
 	return new Promise((resolve, reject) => {
@@ -1432,6 +1453,8 @@ function _setConfig(config) {
 
 /**
  * Returns the URL needed to connect to the master server.
+ *
+ * @returns {string} master URL.
  */
 function getMasterUrl() {
 	let url = masterConfig.get("master.external_address");

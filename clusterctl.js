@@ -22,6 +22,8 @@ const config = require("lib/config");
  * Formats a parsed Factorio output from lib/factorio into a readable
  * colorized output using terminal escape codes that can be printed.
  *
+ * @param {Object} output - Factorio server output.
+ * @returns {string} terminal colorized message.
  * @private
  */
 function formatOutputColored(output) {
@@ -77,8 +79,8 @@ class Command {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param client - link to master server to query instance on.
- * @param instanceName - string with name or id of instance.
+ * @param {module:lib/link.Link} client - link to master server to query instance on.
+ * @param {string} instanceName - string with name or id of instance.
  * @returns {number} instance ID.
  * @private
  */
@@ -109,8 +111,8 @@ async function resolveInstance(client, instanceName) {
  * Resolves a string with either an slave name or an id into an integer with
  * the slave ID.
  *
- * @param client - link to master server to query slave on.
- * @param slaveName - string with name or id of slave.
+ * @param {module:lib/link.Link} client - link to master server to query slave on.
+ * @param {string} slaveName - string with name or id of slave.
  * @returns {number} slave ID.
  * @private
  */
@@ -141,8 +143,8 @@ async function resolveSlave(client, slaveName) {
  * Resolves a string with either a role name or an id into an object
  * representing the role.
  *
- * @param client - link to master server to query role on.
- * @param roleName - string with name or id of role.
+ * @param {module:lib/link.Link} client - link to master server to query role on.
+ * @param {string} roleName - string with name or id of role.
  * @returns {Object} Role info.
  * @private
  */
