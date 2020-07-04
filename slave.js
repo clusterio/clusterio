@@ -330,6 +330,10 @@ class Instance extends link.Link{
 			saveName = "world.zip";
 		}
 
+		if (!this.config.get("factorio.enable_save_patching")) {
+			return saveName;
+		}
+
 		// Patch save with lua modules from plugins
 		console.log("Clusterio | Patching save");
 
@@ -409,8 +413,11 @@ class Instance extends link.Link{
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.start(saveName);
-		await this.server.disableAchievements();
-		await this.updateInstanceData();
+
+		if (this.config.get("factorio.enable_save_patching")) {
+			await this.server.disableAchievements();
+			await this.updateInstanceData();
+		}
 
 		await plugin.invokeHook(this.plugins, "onStart");
 

@@ -22,6 +22,12 @@ const instanceGameFlowStatistics = new Gauge(
 
 
 class InstancePlugin extends plugin.BaseInstancePlugin {
+	async init() {
+		if (!this.instance.config.get("factorio.enable_save_patching")) {
+			throw new Error("statistics_exporter plugin requires save patching.");
+		}
+	}
+
 	async onMetrics() {
 		let string = await this.instance.server.sendRcon("/sc statistics_exporter.export()");
 		let stats;

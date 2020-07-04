@@ -13,6 +13,10 @@ function unexpectedError(err) {
 
 class InstancePlugin extends plugin.BaseInstancePlugin {
 	async init() {
+		if (!this.instance.config.get("factorio.enable_save_patching")) {
+			throw new Error("research_sync plugin requires save patching.");
+		}
+
 		this.instance.server.on("ipc-research_sync:contribution", (tech) => {
 			this.researchContribution(tech).catch(unexpectedError);
 		});

@@ -9,6 +9,10 @@ based on the built in
 library to Factorio and requires scenarios to be coded specifically for
 it.  Mods on the other hand work without modifications.
 
+This can be disabled with the `factorio.enable_save_patching` config on
+a per instance basis, however disabling it means that modules are not
+loaded into the game and most plugins will not function.
+
 <sub>1: Before version 2.0 of Clusterio this was done at runtime
 with a patcher called Hotpatch, but due to the difficulty in supporting
 run time patching and the lack of documentation it was replace it with
