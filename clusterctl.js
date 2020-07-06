@@ -383,6 +383,7 @@ commands.push(new Command({
 		yargs.options({
 			"instance": { describe: "Instance to start", nargs: 1, type: "string", demandOption: true },
 			"save": { describe: "Save load, defaults to latest", nargs: 1, type: "string" },
+			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args, control) {
@@ -400,6 +401,7 @@ commands.push(new Command({
 		yargs.options({
 			"instance": { describe: "Instance to start", nargs: 1, type: "string", demandOption: true },
 			"scenario": { describe: "Scenario to load", nargs: 1, type: "string" },
+			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args, control) {
@@ -752,10 +754,12 @@ async function startControl() {
 	if (commands.has(commandName)) {
 		let command = commands.get(commandName);
 
+		let keepOpen = Boolean(args.keepOpen);
 		try {
 			await command.run(args, control);
 
 		} catch (err) {
+			keepOpen = false;
 			if (err instanceof errors.CommandError) {
 				console.error(`Error running command: ${err.message}`);
 				process.exitCode = 1;
@@ -769,7 +773,9 @@ async function startControl() {
 			}
 
 		} finally {
-			await control.shutdown();
+			if (!keepOpen) {
+				await control.shutdown();
+			}
 		}
 	}
 }
