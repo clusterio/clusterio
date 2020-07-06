@@ -396,6 +396,23 @@ commands.push(new Command({
 }));
 
 commands.push(new Command({
+	definition: ["load-scenario", "Start instance by loading a scenario", (yargs) => {
+		yargs.options({
+			"instance": { describe: "Instance to start", nargs: 1, type: "string", demandOption: true },
+			"scenario": { describe: "Scenario to load", nargs: 1, type: "string" },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await resolveInstance(control, args.instance);
+		await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		let response = await link.messages.loadScenario.send(control, {
+			instance_id: instanceId,
+			scenario: args.scenario || null,
+		});
+	},
+}));
+
+commands.push(new Command({
 	definition: ["stop-instance", "Stop instance", (yargs) => {
 		yargs.options({
 			"instance": { describe: "Instance to stop", nargs: 1, type: "string", demandOption: true },
