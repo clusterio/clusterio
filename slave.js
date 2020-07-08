@@ -288,17 +288,11 @@ class Instance extends link.Link{
 	}
 
 	/**
-	 * Prepare a save for starting
+	 * Prepare instance for starting
 	 *
-	 * Writes server settings, links mods, creates a new save if no save is
-	 * passed, and patches it with modules.
-	 *
-	 * @param {String|null} saveName -
-	 *     Save to prepare from the instance saves directory.  Creates a new
-	 *     save if null.
-	 * @returns {String} Name of the save prepared.
+	 * Writes server settings and links mods.
 	 */
-	async prepare(saveName) {
+	async prepare() {
 		console.log("Clusterio | Writing server-settings.json");
 		await this.writeServerSettings();
 
@@ -315,7 +309,19 @@ class Instance extends link.Link{
 		}catch(e){}
 
 		await symlinkMods(this, "sharedMods", console);
+	}
 
+	/**
+	 * Prepare a save for starting
+	 *
+	 * Creates a new save if no save is passed and patches it with modules.
+	 *
+	 * @param {String|null} saveName -
+	 *     Save to prepare from the instance saves directory.  Creates a new
+	 *     save if null.
+	 * @returns {String} Name of the save prepared.
+	 */
+	async prepareSave(saveName) {
 		// Use latest save if no save was specified
 		if (saveName === null) {
 			saveName = await fileOps.getNewestFile(
@@ -328,6 +334,10 @@ class Instance extends link.Link{
 			console.log("Clusterio | Creating new save");
 			await this.server.create("world.zip");
 			saveName = "world.zip";
+		}
+
+		if (!this.config.get("factorio.enable_save_patching")) {
+			return saveName;
 		}
 
 		// Patch save with lua modules from plugins
@@ -409,8 +419,33 @@ class Instance extends link.Link{
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.start(saveName);
-		await this.server.disableAchievements();
-		await this.updateInstanceData();
+
+		if (this.config.get("factorio.enable_save_patching")) {
+			await this.server.disableAchievements();
+			await this.updateInstanceData();
+		}
+
+		await plugin.invokeHook(this.plugins, "onStart");
+
+		this._running = true;
+		link.messages.instanceStarted.send(this, { instance_id: this.config.get("instance.id") });
+	}
+
+	/**
+	 * Start Factorio server by loading a scenario
+	 *
+	 * Launches the Factorio server for this instance with the given
+	 * scenario.
+	 *
+	 * @param {String} scenario - Name of scenario to load.
+	 */
+	async startScenario(scenario) {
+		this.server.on("rcon-ready", () => {
+			console.log("Clusterio | RCON connection established");
+		});
+
+		this.server.on("exit", () => this.notifyExit());
+		await this.server.startScenario(scenario);
 
 		await plugin.invokeHook(this.plugins, "onStart");
 
@@ -483,14 +518,36 @@ class Instance extends link.Link{
 	async startInstanceRequestHandler(message) {
 		let saveName = message.data.save;
 		try {
-			saveName = await this.prepare(saveName);
+			await this.prepare();
+			saveName = await this.prepareSave(saveName);
 		} catch (err) {
 			this.notifyExit();
 			throw err;
 		}
 
 		try {
-			await this.start(saveName, this.config, this.socket);
+			await this.start(saveName);
+		} catch (err) {
+			await this.stop();
+			throw err;
+		}
+	}
+
+	async loadScenarioRequestHandler(message) {
+		if (this.config.get("factorio.enable_save_patching")) {
+			this.notifyExit();
+			throw new errors.RequestError("Load scenario cannot be used with save patching enabled");
+		}
+
+		try {
+			await this.prepare();
+		} catch (err) {
+			this.notifyExit();
+			throw err;
+		}
+
+		try {
+			await this.startScenario(message.data.scenario);
 		} catch (err) {
 			await this.stop();
 			throw err;
@@ -940,6 +997,12 @@ class Slave extends link.Link {
 	}
 
 	async startInstanceRequestHandler(message, request) {
+		let instanceId = message.data.instance_id;
+		let instanceConnection = await this._connectInstance(instanceId);
+		return await request.send(instanceConnection, message.data);
+	}
+
+	async loadScenarioRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		return await request.send(instanceConnection, message.data);

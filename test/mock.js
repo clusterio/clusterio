@@ -68,6 +68,7 @@ class MockInstance extends link.Link {
 		this.config = {
 			get: (name) => {
 				if (name === "instance.id") { return 7357; }
+				if (name === "factorio.enable_save_patching") { return true; }
 				throw Error("Not implemented");
 			},
 		};

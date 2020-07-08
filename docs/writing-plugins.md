@@ -195,6 +195,20 @@ where appropriate.  See [Configuration System](configuration-system.md)
 for more details on how this system works.
 
 
+### Handling Invalid Configuration
+
+If the plugin requires a certain feature to be enabled to function it
+should throw an error during init if this is not the case.  The most
+common such feature is the save patching, which can be disabled to run
+vanilla or scenarios not compatible with Clusterio.  For example:
+
+    async init() {
+        if (!this.instance.config.get("factorio.enable_save_patching")) {
+            throw new Error("foo_frobber plugin requires save patching.");
+        }
+    }
+
+
 Communicating with Factorio
 ---------------------------
 
