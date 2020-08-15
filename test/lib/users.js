@@ -81,6 +81,8 @@ describe("lib/users", function() {
 
 			test_roundtrip({ name: "admin", roles: [1] });
 			test_roundtrip({ name: "user", roles: [2], token_valid_after: 12345 });
+			test_roundtrip({ name: "user", is_admin: true, is_whitelisted: true });
+			test_roundtrip({ name: "user", is_banned: true, ban_reason: "Bad user" });
 		});
 		it("should ignore invalid roles", function() {
 			let user = new users.User({ name: "test", roles: [1, 4, 55] }, roles);

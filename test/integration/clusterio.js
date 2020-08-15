@@ -242,9 +242,53 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		async function getUsers() {
+			let result = await link.messages.listUsers.send(getControl());
+			return new Map(result.list.map(user => [user.name, user]));
+		}
+
+		describe("user set-admin/whitelisted/banned", function() {
+			let lists = ["admin", "whitelisted", "banned"];
+			it("should add and remove the given user to the list", async function() {
+				slowTest(this);
+				await link.messages.createUser.send(getControl(), { name: "list_test" });
+				let user = (await getUsers()).get("list_test");
+				for (let list of lists) {
+					assert.equal(user[`is_${list}`], false, `unexpected ${list} status`);
+					await execCtl(`user set-${list} list_test`);
+				}
+				user = (await getUsers()).get("list_test");
+				for (let list of lists) {
+					assert.equal(user[`is_${list}`], true, `unexpected ${list} status`);
+					let remove = { admin: "--revoke", whitelisted: "--remove", banned: "--pardon" }[list];
+					await execCtl(`user set-${list} ${remove} list_test`);
+				}
+				user = (await getUsers()).get("list_test");
+				for (let list of lists) {
+					assert.equal(user[`is_${list}`], false, `unexpected ${list} status`);
+				}
+			});
+			it("should not create the user if not instructed to", async function() {
+				for (let list of lists) {
+					try {
+						await execCtl(`user set-${list} no_create_test`);
+					} catch (err) { /* ignore */ }
+				}
+				let user = (await getUsers()).get("no_create_test");
+				assert.equal(user, undefined, "user was unexpectedly created");
+			});
+			it("should create the user if instructed to", async function() {
+				for (let list of lists) {
+					await execCtl(`user set-${list} --create test_create_${list}`);
+					let user = (await getUsers()).get(`test_create_${list}`);
+					assert.equal(user && user[`is_${list}`], true, `user not created and added to ${list}`);
+				}
+			});
+		});
+
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
-				await execCtl(`user set-roles temp Admin`);
+				await execCtl("user set-roles temp Admin");
 				let result = await link.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert.deepEqual(user.roles, [0]);
