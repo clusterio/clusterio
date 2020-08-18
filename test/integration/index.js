@@ -123,7 +123,8 @@ before(async function() {
 
 	masterProcess = await spawn("master:", `node master --config ${masterConfigPath} run`, "All plugins loaded");
 
-	await exec(`node clusterctl --config ${controlConfigPath} create-slave-config --id 4 --name slave --generate-token --output ${slaveConfigPath}`);
+	let createArgs = `--id 4 --name slave --generate-token --output ${slaveConfigPath}`;
+	await exec(`node clusterctl --config ${controlConfigPath} slave create-config ${createArgs}`);
 	await exec(`node slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
 
 	slaveProcess = await spawn("slave:", `node slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
