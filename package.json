@@ -42,7 +42,7 @@
     "deepmerge": "^4.0.0",
     "ejs": "^2.5.7",
     "express": "^4.16.2",
-    "express-fileupload": "1.1.5",
+    "express-fileupload": "1.2.0",
     "follow-redirects": "^1.5.0",
     "fs-extra": "^8.1.0",
     "ini": "^1.3.5",
