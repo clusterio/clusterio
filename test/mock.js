@@ -81,10 +81,17 @@ class MockSlave extends link.Link {
 	}
 }
 
+class MockControl extends link.Link {
+	constructor(connector) {
+		super("control", "master", connector);
+	}
+}
+
 
 module.exports = {
 	MockSocket,
 	MockConnector,
 	MockInstance,
 	MockSlave,
+	MockControl,
 };

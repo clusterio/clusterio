@@ -223,7 +223,7 @@ master server.  In order for slaves to connect to the master server they
 need a valid authentication token, you can create a slave config with
 a valid token with the following command.
 
-    node clusterctl create-slave-config --name Local --generate-token
+    node clusterctl slave create-config --name Local --generate-token
 
 This will write a new `config-slave.json` file in the current directory
 (you can change the location with the `--output` option) with the name,
@@ -253,9 +253,9 @@ clusterctl control-config set` command:
 
 The basic operations to start a new instance is the following
 
-    node clusterctl create-instance --name "My instance"
-    node clusterctl assign-instance --instance "My instance" --slave "Local"
-    node clusterctl start-instance --instance "My instance"
+    node clusterctl instance create "My instance"
+    node clusterctl instance assign "My instance" "Local"
+    node clusterctl instance start "My instance"
 
 The first line creates the instance configuration on the master server.
 The second assigns the instance to a slave which creates the instance

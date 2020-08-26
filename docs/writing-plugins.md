@@ -19,6 +19,7 @@ Contents
 - [Sending Link Messages](#sending-link-messages)
     - [Handling connection events](#handling-connection-events)
 - [Collecting Statistics](#collecting-statistics)
+- [Adding Custom Commands to clusterctl](#adding-custom-commands-to-clusterctl)
 
 
 Plugin Structure
@@ -31,6 +32,7 @@ The basic file structure of a plugin is the following.
       +- package.json
       +- master.js
       +- instance.js
+      +- control.js
       +- test/
       |  +- plugin.js
       +- module/
@@ -94,6 +96,12 @@ The following properties are recognized:
     configuration fields for this plugin.  See [Plugin
     Configuration](#plugin-configuration)
 
+**controlEntrypoint**:
+    Path to a Node.js module relative to the plugin directory which
+    contains the ControlPlugin class definition for this plugin.  This
+    is an optional paramater.  A plugin can be made that only runs on
+    the clusterctl side.
+
 **messages**:
     Object with link messages definitions for this plugin.  See guide
     for [defining link messages](#defining-link-messages) below.
@@ -137,8 +145,9 @@ code can be used:
     }
 
 For the instance plugin it's exactly the same except "Master" is
-replaced with "Instance".  The available hooks that you can override are
-documented in the base class [in lib/plugin.js](../lib/plugin.js).
+replaced with "Instance", and for the clusterctl plugin "Control" is
+used.  The available hooks that you can override are documented in the
+base class [in lib/plugin.js](../lib/plugin.js).
 
 It's best to avoid defining a constructor, but if you insist on defining
 one, forward all arguments to the base class.  E.g.:
@@ -318,46 +327,60 @@ the event, for example the following could be defined in `info.js`:
     },
 
 This specifies an event that can be sent from the master to a slave,
-and from a slave to an instance.  It also specifies that the event must contain the
-property `frobnication_type`, with a string value in the data payload.
-It will also be forwarded by slaves to a specific instance.
+and from a slave to an instance.  It also specifies that the event must
+contain the property `frobnication_type`, with a string value in the
+data payload.  It will also be forwarded by slaves to a specific
+instance.
 
 The following properties are recognized by the Event constructor:
 
-**type**:
-    The message type sent over the wire.  This must start with the name
-    of the plugin followed by colon and and be unique for the plugin.
-    The type of the message sent over the socket will have the suffix
-    `_event` appended to it.
+#### type
 
-**links**:
-    An array of strings describing which links this event can be sent
-    over.  Direction matters, `'master-slave'` means the event can be
-    sent from the master to the slave, but can't be sent back the other way,
-    unless `'slave-master'` is also present in the links array.
+The message type sent over the wire.  This must start with the name of
+the plugin followed by colon and and be unique for the plugin.  The type
+of the message sent over the socket will have the suffix `_event`
+appended to it.
 
-**forwardTo**:
-    Target to forward an event to.  Can either be `'master'`, to indicate a
-    slave should forward it to the master server, or `'instance'`, to
-    indicate it should be forwarded to the instances specified by the
-    `instance_id` event property.  This works by using a default handler
-    for the event at the links that forward it.
+#### links
 
-**broadcastTo**:
-    Target to broadcast this message towards.  A value of "instance" means
-    the event will be broadcast to all instances downstream of the target
-    it's sent to, but not back from where it came from. Currently, only
-    "instance" is supported. This means that sending an event to a slave
-    that slave except for the instance it came from.
-    from an instance will cause it to be broadcast to all instances of
+An array of strings describing which links this event can be sent over.
+Direction matters, `'master-slave'` means the event can be sent from the
+master to the slave, but can't be sent back the other way, unless
+`'slave-master'` is also present in the links array.
 
-**eventProperties**:
-    Object with properties mapping to a JSON schema of that property
-    that specifies what's valid to send in the event.  This is
-    equivalent to using the `properties` keyword in JSON schema, except
-    that the properties specified are implicitly required and additional
-    properties are not allowed.  See [this guide][guide] for an
-    introduction to writing JSON schemas.
+The available endpoints are `master`, `slave`, `instance`, and
+`control`.  Master talks with slave and control, and slave talks to
+instance.  The full chain must be specified as the individual links in
+order for a message to travers multiple hops, (i.e., for a message to go
+from master to instance it must have both `'master-slave'` and
+`'slave-instance'` in the links array).  See `forwardTo` and
+`broadcastTo` for ways to forward an event to the next link in a chain.
+
+#### forwardTo
+
+Target to forward an event to.  Can either be `'master'`, to indicate a
+slave should forward it to the master server, or `'instance'`, to
+indicate it should be forwarded to the instances specified by the
+`instance_id` event property.  This works by using a default handler for
+the event at the links that forward it.
+
+#### broadcastTo
+
+Target to broadcast this message towards.  A value of "instance" means
+the event will be broadcast to all instances downstream of the target
+it's sent to, but not back from where it came from. Currently, only
+"instance" is supported. This means that sending an event to a slave
+that slave except for the instance it came from.  from an instance will
+cause it to be broadcast to all instances of
+
+#### eventProperties
+
+Object with properties mapping to a JSON schema of that property that
+specifies what's valid to send in the event.  This is equivalent to
+using the `properties` keyword in JSON schema, except that the
+properties specified are implicitly required and additional properties
+are not allowed.  See [this guide][guide] for an introduction to writing
+JSON schemas.
 
 The forwardTo and broadcastTo can be combined such that specifying
 `'master'` as the forwardTo value and `'instance'` as the broadcastTo
@@ -404,39 +427,51 @@ instance specified by `instance_id`.
 
 The following properties are recognized by the Request constructor:
 
-**type**:
-    The message type sent over the wire.  This must start with the name
-    of the plugin followed by colon and and be unique for the plugin.
-    The type of the message sent over the socket will have the suffix
-    `_request` appended to it for the request and `_response` appended
-    to it for the response.
+#### type
 
-**links**:
-    An array of strings describing which links this request can be sent
-    over.  Direction matters; `'master-slave'` means the request can be
-    sent from the master to the slave and the slave can reply to the master,
-    but the slave can't send a request to the master unless
-    `'slave-master'` is also present in the links array.
+The message type sent over the wire.  This must start with the name of
+the plugin followed by colon and and be unique for the plugin.  The type
+of the message sent over the socket will have the suffix `_request`
+appended to it for the request and `_response` appended to it for the
+response.
 
-**forwardTo**:
-    Target to forward the request to.  Can either be `'master'` to indicate
-    a slave should forward it to the master server when receiving it
-    from an instance, or `'instance'` to indicate it should be forwarded
-    to the instances specified by the `instance_id` request property.
-    This works by using a default handler for the request by the links
-    that forward it.
+#### links
 
-**requestProperties**:
-    Object with properties mapping to a JSON schema of that property
-    that specifies what's valid to send in the request.  This is
-    equivalent to using the `properties` keyword in JSON schema, except
-    that the properties specified are implicitly required and additional
-    properties are not allowed.  See [this guide][guide] for an
-    introduction to writing JSON schemas
+An array of strings describing which links this request can be sent
+over.  Direction matters; `'master-slave'` means the request can be sent
+from the master to the slave and the slave can reply to the master, but
+the slave can't send a request to the master unless `'slave-master'` is
+also present in the links array.
 
-**responseProperties**:
-    Same as the requestProperties only for the response sent back by the
-    target.
+The available endpoints are `master`, `slave`, `instance`, and
+`control`.  Master talks with slave and control, and slave talks to
+instance.  The full chain must be specified as the individual links in
+order for a message to travers multiple hops, (i.e., for a message to go
+from master to instance it must have both `'master-slave'` and
+`'slave-instance'` in the links array).  See `forwardTo` for ways to
+forward a request to the next link in a chain.
+
+#### forwardTo
+
+Target to forward the request to.  Can either be `'master'` to indicate
+a slave should forward it to the master server when receiving it from an
+instance, or `'instance'` to indicate it should be forwarded to the
+instances specified by the `instance_id` request property.  This works
+by using a default handler for the request by the links that forward it.
+
+#### requestProperties
+
+Object with properties mapping to a JSON schema of that property that
+specifies what's valid to send in the request.  This is equivalent to
+using the `properties` keyword in JSON schema, except that the
+properties specified are implicitly required and additional properties
+are not allowed.  See [this guide][guide] for an introduction to writing
+JSON schemas
+
+#### responseProperties
+
+Same as the requestProperties only for the response sent back by the
+target.
 
 
 Sending Link Messages
@@ -554,3 +589,66 @@ label matches the id of the instance shut down.
 For statistics you need to update on collection there's an `onMetrics`
 hook on both master and instance plugins that is run before the
 metrics in the default registry are collected.
+
+
+Adding Custom Commands to clusterctl
+------------------------------------
+
+The control entrypoint for plugins allows you to extend clustectl with
+your own commands.  The creation of custom commands typically starts
+with defining a command tree for the plugin:
+
+    const { Command, CommandTree } = require("lib/command");
+    const fooFrobberCommands = new CommandTree({
+        name: "foo-frobber", description: "Foo Frobber Plugin commands"
+    });
+
+Then commands are added to the the plugin's command tree:
+
+    const info = require("./info");
+
+    fooFrobberCommands.add(new Command({
+        definition: ["frobnicate <type>", "Do frobnications", (yargs) => {
+            yargs.positional("level", {
+                describe: "type of frobnication", type: "string"
+            });
+        }],
+        handler: async function(args, control) {
+            await info.messages.frobnicate.send(control, {
+                instance_name: "Console",
+                content: args.message,
+            });
+        },
+    }));
+
+For a command the `definition` is the arguments to pass to
+[yargs.command](http://yargs.js.org/docs/#api-reference-commandcmd-desc-builder-handler)
+(see also
+[yargs.positional](http://yargs.js.org/docs/#api-reference-positionalkey-opt)
+and
+[yargs.options](http://yargs.js.org/docs/#api-reference-optionskey-opt)
+for setting up positional and optional arguments to commands).  The
+`handler` is an async function that's invoked when the command is
+executed and it's passed the parsed command line arguments and a
+reference to the `Control` class of clusterctl.  It's possible to optain
+a reference to the plugin class with `control.plugins.get(info.name)`.
+
+Note that messages sent from clusterctl needs to have
+`"control-master"` as a part of the links array for it to be accepted by
+the master server, see [Defining Link Messages](#defining-link-messages)
+for how to define the messages that can be sent to the master.
+
+To have the command tree become part of clusterctl it needs to be added
+to the rootCommand tree in `addCommands` callback of the Control plugin:
+
+    const plugin = require("lib/plugin");
+
+    class ControlPlugin extends plugin.BaseControlPlugin {
+        async addCommands(rootCommand) {
+            rootCommand.add(fooFrobberCommands);
+        }
+    }
+
+    module.exports = {
+        ControlPlugin,
+    }

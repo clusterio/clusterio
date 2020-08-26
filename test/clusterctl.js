@@ -2,10 +2,8 @@
 const assert = require("assert").strict;
 const chalk = require("chalk");
 
-const errors = require("lib/errors");
 const { testLines } = require("./lib/factorio/lines");
 const clusterctl = require("../clusterctl.js");
-const mock = require("./mock");
 
 
 describe("clusterctl", function() {
@@ -21,35 +19,6 @@ describe("clusterctl", function() {
 			}
 
 			chalk.level = old;
-		});
-	});
-
-	let mockConnector = new mock.MockConnector();
-	mockConnector.on("send", function(message) {
-		if (message.type === "list_instances_request") {
-			this.emit("message", {
-				seq: 1, type: "list_instances_response",
-				data: {
-					seq: message.seq,
-					list: [{ id: 57, assigned_slave: 4, name: "Test Instance" }],
-				},
-			});
-		}
-	});
-	let testControl = new clusterctl._Control(mockConnector);
-
-	describe("resolveInstance", function() {
-		it("should pass an integer like string back", async function() {
-			assert.equal(await clusterctl._resolveInstance(null, "123"), 123);
-		});
-		it("should resolve an instance name with the master server", async function() {
-			assert.equal(await clusterctl._resolveInstance(testControl, "Test Instance"), 57);
-		});
-		it("should throw if instance is not found", async function() {
-			await assert.rejects(
-				clusterctl._resolveInstance(testControl, "invalid"),
-				new errors.CommandError("No instance named invalid")
-			);
 		});
 	});
 });

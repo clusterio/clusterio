@@ -8,11 +8,12 @@ module.exports = {
 	description: "Forwards chat between instances.",
 	version: "2.0.0-alpha",
 	instanceEntrypoint: "instance",
+	controlEntrypoint: "control",
 
 	messages: {
 		chat: new link.Event({
 			type: "global_chat:chat",
-			links: ["instance-slave", "slave-master", "master-slave", "slave-instance"],
+			links: ["instance-slave", "slave-master", "master-slave", "slave-instance", "control-master"],
 			forwardTo: "master",
 			broadcastTo: "instance",
 			eventProperties: {
