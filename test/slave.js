@@ -92,7 +92,7 @@ describe("Slave testing", function() {
 	describe("symlinkMods()", function() {
 		let testDir = path.join("temp", "test", "symlink");
 		let discardingLogger = {
-			warning: function() { },
+			warn: function() { },
 			log: function() { },
 		};
 
