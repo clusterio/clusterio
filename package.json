@@ -32,8 +32,6 @@
   "dependencies": {
     "as-table": "^1.0.31",
     "base64url": "^3.0.0",
-    "bcrypt": "=3.0.6",
-    "bcrypt-promise": "^2.0.0",
     "body-parser": "^1.18.2",
     "chalk": "^3.0.0",
     "cli-interact": "^0.1.9",
