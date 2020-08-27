@@ -30,38 +30,38 @@ describe("Integration of Clusterio", function() {
 
 
 	describe("clusterctl", function() {
-		describe("list-slaves", function() {
+		describe("slave list", function() {
 			it("runs", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} slave list`);
 			});
 		});
-		describe("list-instances", function() {
+		describe("instance list", function() {
 			it("runs", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} instance list`);
 			});
 		});
 
-		describe("create-instances", function() {
+		describe("instance create", function() {
 			it("runs", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} instance create test --id 44`);
 			});
 		});
 
-		describe("assign-instance", function() {
+		describe("instance assign", function() {
 			it("creates the instance files", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} instance assign test 4`);
 				assert(await fs.exists(path.join(instancesDir, "test")), "Instance was not created");
 			});
 		});
 
-		describe("create-save", function() {
+		describe("instance create-save", function() {
 			it("creates a save", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} instance create-save test`);
 			});
 		});
 
-		describe("export-data", function() {
+		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} instance export-data test`);
@@ -69,7 +69,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("start-instance", function() {
+		describe("instance start", function() {
 			it("starts the instance", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} instance start test`);
@@ -77,7 +77,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("send-rcon", function() {
+		describe("instance send-rcon", function() {
 			it("sends the command", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} instance send-rcon test test`);
@@ -85,7 +85,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("set-instance-config-prop", function() {
+		describe("instance config set-prop", function() {
 			it("applies factorio settings while running", async function() {
 				slowTest(this);
 
@@ -170,7 +170,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("stop-instance", function() {
+		describe("instance stop", function() {
 			it("stops the instance", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} instance stop test`);
@@ -178,7 +178,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("delete-instance", function() {
+		describe("instance delete", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);
 				await exec(`node clusterctl --config ${controlConfigPath} instance delete test`);
@@ -186,19 +186,19 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("list-permissions", function() {
+		describe("permission list", function() {
 			it("runs", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} permission list`);
 			});
 		});
 
-		describe("list-roles", function() {
+		describe("role list", function() {
 			it("runs", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} role list`);
 			});
 		});
 
-		describe("create-role", function() {
+		describe("role create", function() {
 			it("should create the given role", async function() {
 				let args = "--description \"A temp role\" --permissions core.control.connect";
 				await exec(`node clusterctl --config ${controlConfigPath} role create temp ${args}`);
@@ -208,7 +208,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("edit-role", function() {
+		describe("role edit", function() {
 			it("should modify the given role", async function() {
 				let args = "--name new --description \"A new role\" --permissions";
 				await exec(`node clusterctl --config ${controlConfigPath} role edit temp ${args}`);
@@ -218,7 +218,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("delete-role", function() {
+		describe("role delete", function() {
 			it("should modify the given role", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} role delete new`);
 				let result = await link.messages.listRoles.send(getControl());
@@ -227,13 +227,13 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("list-users", function() {
+		describe("user list", function() {
 			it("runs", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} user list`);
 			});
 		});
 
-		describe("create-user", function() {
+		describe("user create", function() {
 			it("should create the given user", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} user create temp`);
 				let result = await link.messages.listUsers.send(getControl());
@@ -242,7 +242,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("edit-user-roles", function() {
+		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} user set-roles temp Admin`);
 				let result = await link.messages.listUsers.send(getControl());
@@ -251,7 +251,7 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("delete-user", function() {
+		describe("user delete", function() {
 			it("should delete the user", async function() {
 				await exec(`node clusterctl --config ${controlConfigPath} user delete temp`);
 				let result = await link.messages.listUsers.send(getControl());
