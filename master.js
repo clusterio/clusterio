@@ -329,6 +329,7 @@ app.post("/api/getID", authenticate.middleware, function(req,res) {
 		}
 		// console.log("Slave registered: " + slaves[req.body.unique].mac + " : " + slaves[req.body.unique].serverPort+" at " + slaves[req.body.unique].publicIP + " with name " + slaves[req.body.unique].instanceName);
 	}
+	res.sendStatus(200);
 });
 /**
 POST Allows you to add metadata related to slaves for other tools, like owner data, descriptions or statistics.
