@@ -71,13 +71,20 @@ describe("lib/users", function() {
 			[2, new users.Role({ id: 2, name: "b", description: "b role", permissions: ["test"] })],
 		]);
 		it("should round trip serialize", function() {
-			let orig = new users.User({ name: "admin", roles: [1] }, roles);
-			let copy = new users.User(orig.serialize(), roles);
-			assert.deepEqual(copy, orig);
+			function test_roundtrip(serialized) {
+				let user = new users.User(serialized, roles);
+				let user_serialized = user.serialize();
+				assert.deepEqual(user_serialized, serialized);
+				let user_deserialized = new users.User(user_serialized, roles);
+				assert.deepEqual(user_deserialized, user);
+			}
 
-			orig = new users.User({ name: "user", roles: [2], tokenValidAfter: 12345 }, roles);
-			copy = new users.User(orig.serialize(), roles);
-			assert.deepEqual(copy, orig);
+			test_roundtrip({ name: "admin", roles: [1] });
+			test_roundtrip({ name: "user", roles: [2], token_valid_after: 12345 });
+		});
+		it("should ignore invalid roles", function() {
+			let user = new users.User({ name: "test", roles: [1, 4, 55] }, roles);
+			assert.equal(user.roles.size, 1, "Unexpected count of roles");
 		});
 		it("should track online users", function() {
 			let user = new users.User({ name: "admin", roles: [1] }, roles);
