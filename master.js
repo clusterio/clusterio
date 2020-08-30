@@ -616,6 +616,7 @@ class ControlConnection extends BaseConnection {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
 				assigned_slave: instance.config.get("instance.assigned_slave"),
+				status: instance.status,
 			});
 		}
 		return { list };
