@@ -7,7 +7,7 @@ const parallel = require("mocha.parallel");
 
 const link = require("lib/link");
 
-const { slowTest, get, exec, sendRcon, getControl, controlConfigPath, instancesDir } = require("./index");
+const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
 
 describe("Integration of Clusterio", function() {
@@ -32,24 +32,24 @@ describe("Integration of Clusterio", function() {
 	describe("clusterctl", function() {
 		describe("slave list", function() {
 			it("runs", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} slave list`);
+				await execCtl("slave list");
 			});
 		});
 		describe("instance list", function() {
 			it("runs", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} instance list`);
+				await execCtl("instance list");
 			});
 		});
 
 		describe("instance create", function() {
 			it("runs", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} instance create test --id 44`);
+				await execCtl("instance create test --id 44");
 			});
 		});
 
 		describe("instance assign", function() {
 			it("creates the instance files", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} instance assign test 4`);
+				await execCtl("instance assign test 4");
 				assert(await fs.exists(path.join(instancesDir, "test")), "Instance was not created");
 			});
 		});
@@ -57,14 +57,14 @@ describe("Integration of Clusterio", function() {
 		describe("instance create-save", function() {
 			it("creates a save", async function() {
 				slowTest(this);
-				await exec(`node clusterctl --config ${controlConfigPath} instance create-save test`);
+				await execCtl("instance create-save test");
 			});
 		});
 
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
-				await exec(`node clusterctl --config ${controlConfigPath} instance export-data test`);
+				await execCtl("instance export-data test");
 				assert(await fs.exists(path.join("static", "export", "locale.json")), "Export was not created");
 			});
 		});
@@ -72,7 +72,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance start", function() {
 			it("starts the instance", async function() {
 				slowTest(this);
-				await exec(`node clusterctl --config ${controlConfigPath} instance start test`);
+				await execCtl("instance start test");
 				// TODO check that the instance actually started
 			});
 		});
@@ -80,7 +80,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance send-rcon", function() {
 			it("sends the command", async function() {
 				slowTest(this);
-				await exec(`node clusterctl --config ${controlConfigPath} instance send-rcon test test`);
+				await execCtl("instance send-rcon test test");
 				// TODO check that the command was received
 			});
 		});
@@ -159,7 +159,7 @@ describe("Integration of Clusterio", function() {
 				for (let [prop, value, ,] of testConfigs) {
 					value = `"'${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}'"`;
 					let args = `test factorio.settings ${prop} ${value}`;
-					await exec(`node clusterctl --config ${controlConfigPath} instance config set-prop ${args}`);
+					await execCtl(`instance config set-prop ${args}`);
 				}
 
 				// Do this afterwards to leave enough to time for the
@@ -173,7 +173,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance stop", function() {
 			it("stops the instance", async function() {
 				slowTest(this);
-				await exec(`node clusterctl --config ${controlConfigPath} instance stop test`);
+				await execCtl("instance stop test");
 				// TODO check that the instance actually stopped
 			});
 		});
@@ -181,27 +181,27 @@ describe("Integration of Clusterio", function() {
 		describe("instance delete", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);
-				await exec(`node clusterctl --config ${controlConfigPath} instance delete test`);
+				await execCtl("instance delete test");
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance was not deleted");
 			});
 		});
 
 		describe("permission list", function() {
 			it("runs", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} permission list`);
+				await execCtl("permission list");
 			});
 		});
 
 		describe("role list", function() {
 			it("runs", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} role list`);
+				await execCtl("role list");
 			});
 		});
 
 		describe("role create", function() {
 			it("should create the given role", async function() {
 				let args = "--description \"A temp role\" --permissions core.control.connect";
-				await exec(`node clusterctl --config ${controlConfigPath} role create temp ${args}`);
+				await execCtl(`role create temp ${args}`);
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "temp");
 				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] });
@@ -211,7 +211,7 @@ describe("Integration of Clusterio", function() {
 		describe("role edit", function() {
 			it("should modify the given role", async function() {
 				let args = "--name new --description \"A new role\" --permissions";
-				await exec(`node clusterctl --config ${controlConfigPath} role edit temp ${args}`);
+				await execCtl(`role edit temp ${args}`);
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "new");
 				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: [] });
@@ -220,7 +220,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("role delete", function() {
 			it("should modify the given role", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} role delete new`);
+				await execCtl("role delete new");
 				let result = await link.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "new");
 				assert(!role, "Role was not deleted");
@@ -229,13 +229,13 @@ describe("Integration of Clusterio", function() {
 
 		describe("user list", function() {
 			it("runs", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} user list`);
+				await execCtl("user list");
 			});
 		});
 
 		describe("user create", function() {
 			it("should create the given user", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} user create temp`);
+				await execCtl("user create temp");
 				let result = await link.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert(user, "user was not created");
@@ -244,7 +244,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} user set-roles temp Admin`);
+				await execCtl(`user set-roles temp Admin`);
 				let result = await link.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert.deepEqual(user.roles, [0]);
@@ -253,7 +253,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("user delete", function() {
 			it("should delete the user", async function() {
-				await exec(`node clusterctl --config ${controlConfigPath} user delete temp`);
+				await execCtl("user delete temp");
 				let result = await link.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert(!user, "user was note deleted");
