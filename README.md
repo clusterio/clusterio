@@ -171,7 +171,7 @@ reboot when you are done, then proceed to the next steps. *reboots matter*
         2.  Download the MS Windows (64-bit zip package) from
             https://www.factorio.com/download .
 
-        3.  Open the zip file and drag the folder called "Factorio_0.x.y" into
+        3.  Open the zip file and drag the folder called "Factorio_x.y.z" into
             the factorio folder created in step 1.
 
     - Via steam installation
