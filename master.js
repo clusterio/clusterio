@@ -17,7 +17,6 @@
 // updater.update().then(console.log);
 
 "use strict";
-const deepmerge = require("deepmerge");
 const path = require("path");
 const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
