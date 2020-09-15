@@ -53,7 +53,7 @@
     "moment": "^2.22.2",
     "needle": "^2.4.0",
     "node-factorio-api": "^0.3.8",
-    "node-forge": "^0.7.1",
+    "node-forge": "^0.10.0",
     "phin": "^3.4.1",
     "pidusage": "^2.0.18",
     "rcon-client": "^4.2.0",
