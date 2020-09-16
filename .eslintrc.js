@@ -18,6 +18,7 @@ module.exports = {
 			},
 			"rules": {
 				"prefer-arrow-callback": "off",
+				"no-invalid-this": "off",
 			},
 		},
 	],
@@ -96,7 +97,7 @@ module.exports = {
 		"max-statements": "off",
 		"max-statements-per-line": "off",
 		"multiline-comment-style": ["warn", "separate-lines"],
-		"multiline-ternary": "warn",
+		"multiline-ternary": "off",
 		"new-cap": "warn",
 		"new-parens": "error",
 		"newline-after-var": "off",

@@ -408,6 +408,52 @@ userCommands.add(new command.Command({
 }));
 
 userCommands.add(new command.Command({
+	definition: ["set-admin <user>", "Promote or demote a user to admin", (yargs) => {
+		yargs.positional("user", { describe: "Name of user set admin status for", type: "string" });
+		yargs.options({
+			"revoke": { describe: "Revoke admin status", nargs: 0, type: "boolean", default: false },
+			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		await link.messages.setUserAdmin.send(control, {
+			name: args.user, create: args.create, admin: !args.revoke,
+		});
+	},
+}));
+
+userCommands.add(new command.Command({
+	definition: ["set-whitelisted <user>", "Add or remove user from the whitelist", (yargs) => {
+		yargs.positional("user", { describe: "Name of user to set whitelist status for", type: "string" });
+		yargs.options({
+			"remove": { describe: "Remove from whitelist", nargs: 0, type: "boolean", default: false },
+			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		await link.messages.setUserWhitelisted.send(control, {
+			name: args.user, create: args.create, whitelisted: !args.remove,
+		});
+	},
+}));
+
+userCommands.add(new command.Command({
+	definition: ["set-banned <user>", "Ban or pardon user from banlist", (yargs) => {
+		yargs.positional("user", { describe: "Name of user to set ban status for", type: "string" });
+		yargs.options({
+			"pardon": { describe: "Remove from banlist", nargs: 0, type: "boolean", default: false },
+			"reason": { describe: "Ban reason", nargs: 1, type: "string", default: "" },
+			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		await link.messages.setUserBanned.send(control, {
+			name: args.user, create: args.create, banned: !args.pardon, reason: args.reason,
+		});
+	},
+}));
+
+userCommands.add(new command.Command({
 	definition: ["set-roles <user> [roles...]", "Replace user roles", (yargs) => {
 		yargs.positional("user", { describe: "Name of user to change roles for", type: "string" });
 		yargs.positional("roles", { describe: "roles to assign", type: "string" });

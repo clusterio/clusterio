@@ -504,7 +504,7 @@ class BaseConnection extends link.Link {
 		event.send(connection, message.data);
 	}
 
-	async broadcastEventToInstance(message, event) {
+	async broadcastEventToSlaves(message, event) {
 		for (let slaveConnection of slaveConnections.values()) {
 			// Do not broadcast back to the source
 			if (slaveConnection === this) { continue; }
@@ -513,6 +513,10 @@ class BaseConnection extends link.Link {
 
 			event.send(slaveConnection, message.data);
 		}
+	}
+
+	async broadcastEventToInstance(message, event) {
+		await this.broadcastEventToSlaves(message, event);
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
@@ -803,6 +807,9 @@ class ControlConnection extends BaseConnection {
 			list.push({
 				name: user.name,
 				roles: [...user.roles].map(role => role.id),
+				is_admin: user.isAdmin,
+				is_banned: user.isBanned,
+				is_whitelisted: user.isWhitelisted,
 				instances: [...user.instances],
 			});
 		}
@@ -832,10 +839,71 @@ class ControlConnection extends BaseConnection {
 		user.roles = resolvedRoles;
 	}
 
+	async setUserAdminRequestHandler(message) {
+		let { name, create, admin } = message.data;
+		let user = db.users.get(name);
+		if (!user) {
+			if (create) {
+				this.user.checkPermission("core.user.create");
+				user = createUser(name);
+			} else {
+				throw new errors.RequestError(`User '${name}' does not exist`);
+			}
+		}
+
+		user.isAdmin = admin;
+		this.broadcastEventToSlaves({ data: { name, admin }}, link.messages.adminlistUpdate);
+	}
+
+	async setUserBannedRequestHandler(message) {
+		let { name, create, banned, reason } = message.data;
+		let user = db.users.get(name);
+		if (!user) {
+			if (create) {
+				this.user.checkPermission("core.user.create");
+				user = createUser(name);
+			} else {
+				throw new errors.RequestError(`User '${name}' does not exist`);
+			}
+		}
+
+		user.isBanned = banned;
+		user.banReason = reason;
+		this.broadcastEventToSlaves({ data: { name, banned, reason }}, link.messages.banlistUpdate);
+	}
+
+	async setUserWhitelistedRequestHandler(message) {
+		let { name, create, whitelisted } = message.data;
+		let user = db.users.get(name);
+		if (!user) {
+			if (create) {
+				this.user.checkPermission("core.user.create");
+				user = createUser(name);
+			} else {
+				throw new errors.RequestError(`User '${name}' does not exist`);
+			}
+		}
+
+		user.isWhitelisted = whitelisted;
+		this.broadcastEventToSlaves({ data: { name, whitelisted }}, link.messages.whitelistUpdate);
+	}
+
 	async deleteUserRequestHandler(message) {
-		if (!db.users.delete(message.data.name)) {
+		let user = db.users.get(message.data.name);
+		if (!user) {
 			throw new errors.RequestError(`User '${message.data.name}' does not exist`);
 		}
+
+		if (user.is_admin) {
+			this.broadcastEventToSlaves({ data: { name, admin: false }}, link.messages.adminlistUpdate);
+		}
+		if (user.is_whitelisted) {
+			this.broadcastEventToSlaves({ data: { name, whitelisted: false }}, link.messages.whitelistUpdate);
+		}
+		if (user.is_banned) {
+			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, link.messages.banlistUpdate);
+		}
+		db.users.delete(message.data.name);
 	}
 
 	async debugDumpWsRequestHandler(message) {
@@ -949,6 +1017,25 @@ class SlaveConnection extends BaseConnection {
 				serialized_config: instanceConfig.serialize(),
 			});
 		}
+
+		// Push lists to make sure they are in sync.
+		let adminlist = [];
+		let banlist = [];
+		let whitelist = [];
+
+		for (let user of db.users.values()) {
+			if (user.isAdmin) {
+				adminlist.push(user.name);
+			}
+			if (user.isBanned) {
+				banlist.push([user.name, user.banReason]);
+			}
+			if (user.isWhitelisted) {
+				whitelist.push(user.name);
+			}
+		}
+
+		link.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
 	}
 
 	async instanceOutputEventHandler(message) {
@@ -1548,6 +1635,7 @@ async function startServer() {
 
 			let adminRole = users.ensureDefaultAdminRole(db.roles);
 			admin.roles.add(adminRole);
+			admin.isAdmin = true;
 			await saveUsers(masterConfig.get("master.database_directory"), "users.json");
 
 		} else if (subCommand === "create-ctl-config") {

@@ -69,6 +69,11 @@ async function exec(...args) {
 	return await util.promisify(child_process.exec)(...args);
 }
 
+async function execCtl(...args) {
+	args[0] = `node clusterctl --config ${controlConfigPath} ${args[0]}`;
+	return await exec(...args);
+}
+
 async function sendRcon(instanceId, command) {
 	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command });
 	return response.result;
@@ -124,7 +129,7 @@ before(async function() {
 	masterProcess = await spawn("master:", `node master --config ${masterConfigPath} run`, "All plugins loaded");
 
 	let createArgs = `--id 4 --name slave --generate-token --output ${slaveConfigPath}`;
-	await exec(`node clusterctl --config ${controlConfigPath} slave create-config ${createArgs}`);
+	await execCtl(`slave create-config ${createArgs}`);
 	await exec(`node slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
 
 	slaveProcess = await spawn("slave:", `node slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
@@ -162,6 +167,7 @@ module.exports = {
 	slowTest,
 	get,
 	exec,
+	execCtl,
 	sendRcon,
 	getControl,
 

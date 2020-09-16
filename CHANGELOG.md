@@ -42,6 +42,8 @@ Version 2.0.0
 - Added support for extracting locale and item icons from Factorio and mods.
 - Added integrated user management for controlling access and storing per
   player data.
+- Added synchronization of in-game adminlist, banlist and whitelist to
+  Clusterio core.  Previously this was handled by the playerManager plugin.
 
 ### Changes
 

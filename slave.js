@@ -117,6 +117,8 @@ class Instance extends link.Link{
 
 			if (group.name === "factorio" && field === "settings") {
 				this.updateFactorioSettings(group.get(field), prev).finally(hook);
+			} else if (group.name === "factorio" && field === "enable_whitelist") {
+				this.updateFactorioWhitelist(group.get(field)).finally(hook);
 			} else {
 				hook();
 			}
@@ -128,6 +130,7 @@ class Instance extends link.Link{
 			gamePort: this.config.get("factorio.game_port"),
 			rconPort: this.config.get("factorio.rcon_port"),
 			rconPassword: this.config.get("factorio.rcon_password"),
+			enableWhitelist: this.config.get("factorio.enable_whitelist"),
 		};
 
 		this._running = false;
@@ -290,11 +293,37 @@ class Instance extends link.Link{
 	/**
 	 * Prepare instance for starting
 	 *
-	 * Writes server settings and links mods.
+	 * Writes server settings, admin/ban/white-lists and links mods.
 	 */
 	async prepare() {
 		console.log("Clusterio | Writing server-settings.json");
 		await this.writeServerSettings();
+
+		if (this.config.get("factorio.sync_adminlist")) {
+			console.log("Clusterio | Writing server-adminlist.json");
+			fs.outputFile(
+				this.server.writePath("server-adminlist.json"),
+				JSON.stringify([...this._slave.adminlist], null, 4)
+			);
+		}
+
+		if (this.config.get("factorio.sync_banlist")) {
+			console.log("Clusterio | Writing server-banlist.json");
+			fs.outputFile(
+				this.server.writePath("server-banlist.json"),
+				JSON.stringify([...this._slave.banlist].map(
+					([username, reason]) => ({ username, reason })
+				), null, 4),
+			);
+		}
+
+		if (this.config.get("factorio.sync_whitelist")) {
+			console.log("Clusterio | Writing server-whitelist.json");
+			fs.outputFile(
+				this.server.writePath("server-whitelist.json"),
+				JSON.stringify([...this._slave.whitelist], null, 4)
+			);
+		}
 
 		console.log("Clusterio | Rotating old logs...");
 		// clean old log file to avoid crash
@@ -472,6 +501,60 @@ class Instance extends link.Link{
 			}
 		}
 	}
+
+	/**
+	 * Enable or disable the player whitelist
+	 *
+	 * @param {boolean} enable -
+	 *     True to enable the whitelist, False to disable the whitelist.
+	 */
+	async updateFactorioWhitelist(enable) {
+		if (!enable) {
+			await this.server.sendRcon("/whitelist disable");
+		}
+
+		if (this.config.get("factorio.sync_whitelist")) {
+			await this.server.sendRcon("/whitelist clear");
+			for (let player of this._slave.whitelist) {
+				await this.server.sendRcon(`/whitelist ${player}`);
+			}
+		}
+
+		if (enable) {
+			await this.server.sendRcon("/whitelist enable");
+		}
+	}
+
+	async adminlistUpdateEventHandler(message) {
+		if (!this.config.get("factorio.sync_adminlist")) {
+			return;
+		}
+
+		let { name, admin } = message.data;
+		let command = admin ? `/promote ${name}` : `/demote ${name}`;
+		await this.server.sendRcon(command);
+	}
+
+	async banlistUpdateEventHandler(message) {
+		if (!this.config.get("factorio.sync_banlist")) {
+			return;
+		}
+
+		let { name, banned, reason } = message.data;
+		let command = banned ? `/ban ${name} ${reason}` : `/unban ${name}`;
+		await this.server.sendRcon(command);
+	}
+
+	async whitelistUpdateEventHandler(message) {
+		if (!this.config.get("factorio.sync_whitelist")) {
+			return;
+		}
+
+		let { name, whitelisted } = message.data;
+		let command = whitelisted ? `/whitelist add ${name}` : `/whiteliste remove ${name}`;
+		await this.server.sendRcon(command);
+	}
+
 
 	/**
 	 * Stop the instance
@@ -790,6 +873,10 @@ class Slave extends link.Link {
 		this.instanceConnections = new Map();
 		this.instanceInfos = new Map();
 
+		this.adminlist = new Set();
+		this.banlist = new Map();
+		this.whitelist = new Set();
+
 		this.connector.on("hello", data => {
 			this.serverVersion = data.version;
 			this.serverPlugins = new Map(Object.entries(data.plugins));
@@ -903,6 +990,83 @@ class Slave extends link.Link {
 			if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { continue; }
 
 			event.send(instanceConnection, message.data);
+		}
+	}
+
+	async syncUserListsEventHandler(message) {
+		let updateList = (list, updatedList, prop, event) => {
+			let added = new Set(updatedList);
+			let removed = new Set(list);
+			list.forEach(Set.prototype.delete.bind(added));
+			updatedList.forEach(Set.prototype.delete.bind(removed));
+
+			for (let name of added) {
+				list.add(name);
+				this.broadcastEventToInstance(
+					{ data: { name, [prop]: true }}, event
+				);
+			}
+
+			for (let name of removed) {
+				list.delete(name);
+				this.broadcastEventToInstance(
+					{ data: { name, [prop]: false }}, event
+				);
+			}
+		};
+
+		updateList(this.adminlist, message.data.adminlist, "admin", link.messages.adminlistUpdate);
+		updateList(this.whitelist, message.data.whitelist, "whitelisted", link.messages.whitelistUpdate);
+
+		let updatedBanlist = new Map(message.data.banlist);
+		let addedOrChanged = new Map(updatedBanlist);
+		let removed = new Set(this.banlist.keys());
+		removed.forEach((name, reason) => {
+			if (addedOrChanged.get(name) === reason) {
+				addedOrChanged.delete(name);
+			}
+		});
+		updatedBanlist.forEach(Set.prototype.delete.bind(removed));
+
+		for (let [name, reason] of addedOrChanged) {
+			this.banlist.set(name, reason);
+			this.broadcastEventToInstance(
+				{ data: { name, banned: true, reason }}, link.messages.banlistUpdate
+			);
+		}
+
+		for (let name of removed) {
+			this.banlist.delete(name);
+			this.broadcastEventToInstance(
+				{ data: { name, banned: false, reason: "" }}, link.messages.banlistUpdate
+			);
+		}
+	}
+
+	async adminlistUpdateEventHandler(message) {
+		let { name, admin } = message.data;
+		if (admin) {
+			this.adminlist.add(name);
+		} else {
+			this.adminlist.delete(name);
+		}
+	}
+
+	async banlistUpdateEventHandler(message) {
+		let { name, banned, reason } = message.data;
+		if (banned) {
+			this.banlist.set(name, reason);
+		} else {
+			this.banlist.delete(name);
+		}
+	}
+
+	async whitelistUpdateEventHandler(message) {
+		let { name, whitelisted } = message.data;
+		if (whitelisted) {
+			this.whitelist.add(name);
+		} else {
+			this.whitelist.delete(name);
 		}
 	}
 
