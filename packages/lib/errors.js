@@ -1,6 +1,6 @@
 /**
  * Errors thrown in Clusterio
- * @module
+ * @module lib/errors
  */
 "use strict";
 

@@ -1,6 +1,6 @@
 /**
  * JSON schemas used for validating link messages
- * @module
+ * @module lib/schema
  */
 "use strict";
 const ajv = new (require("ajv"))({

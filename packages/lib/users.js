@@ -4,7 +4,7 @@
  * Defines data types for users, roles and permissions.
  *
  * @author Hornwitser
- * @module
+ * @module lib/users
  */
 "use strict";
 const jwt = require("jsonwebtoken");

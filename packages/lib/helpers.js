@@ -1,6 +1,6 @@
 /**
  * Collection of small utilites that are useful in multiple places.
- * @module
+ * @module lib/helpers
  */
 "use strict";
 

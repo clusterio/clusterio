@@ -1,6 +1,6 @@
 /**
  * Plugin interfaces and utilities.
- * @module
+ * @module lib/plugin
  */
 "use strict";
 const fs = require("fs-extra");
@@ -42,7 +42,7 @@ class BaseInstancePlugin {
 
 		/**
 		 * Instance the plugin started for
-		 * @type {module:slave~Instance}
+		 * @type {module:slave/slave~Instance}
 		 */
 		this.instance = instance;
 
@@ -52,7 +52,7 @@ class BaseInstancePlugin {
 		 * With the exepction of accessing the slave's config you should
 		 * avoid ineracting with the slave object directly.
 		 *
-		 * @type {module:slave~Slave}
+		 * @type {module:slave/slave~Slave}
 		 */
 		this.slave = slave;
 	}
@@ -181,7 +181,7 @@ class BaseInstancePlugin {
 	 * Plugins must stop sending messages to the master, or are forwarded
 	 * via the master server after the prepare disconnect has been handled.
 	 *
-	 * @param {module:master~SlaveConnection} connection -
+	 * @param {module:master/master~SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareMasterDisconnect(connection) { }
@@ -283,7 +283,7 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the slave has been closed.
 	 *
-	 * @param {module:master~SlaveConnection} connection -
+	 * @param {module:master/master~SlaveConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, and close
 	 */
@@ -298,7 +298,7 @@ class BaseMasterPlugin {
 	 * Plugins must stop sending messages to the slave in question after the
 	 * prepare disconnect has been handled.
 	 *
-	 * @param {module:master~SlaveConnection} connection -
+	 * @param {module:master/master~SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareSlaveDisconnect(connection) { }
@@ -369,7 +369,7 @@ class BaseControlPlugin {
 	 * module:lib/command.CommandTree} to.
 	 *
 	 * @param {module:lib/command.CommandTree} rootCommand -
-	 *     Root of the clusterctl command tree.
+	 *     Root of the clusterioctl command tree.
 	 */
 	async addCommands(rootCommand) { }
 }

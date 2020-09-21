@@ -4,7 +4,7 @@
  * Data types and utilites for commands to clusterioctl's CLI.
  *
  * @author Hornwitser
- * @module
+ * @module lib/command
  */
 "use strict";
 const link = require("@clusterio/lib/link");
@@ -25,7 +25,7 @@ class Command {
 	 * @param {function(args, control)} handler -
 	 *     Async function invoked when the command is executed.  Is given
 	 *     the parsed args and a reference to the {@link
-	 *     module:clusterctl.Control} instance.
+	 *     module:ctl/ctl.Control} instance.
 	 */
 	constructor({ definition, handler }) {
 		if (definition[0] instanceof Array) {

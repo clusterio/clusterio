@@ -5,9 +5,9 @@
  *
  * Connects to the master server and hosts Factorio servers that can
  * communicate with the cluster.  It is remotely controlled by {@link
- * module:master}.
+ * module:master/master}.
  *
- * @module
+ * @module slave/slave
  * @author Danielv123, Hornwitser
  * @example
  * npx clusterioslave run
@@ -1114,7 +1114,7 @@ class Slave extends link.Link {
 	 * Initialize and connect an unloaded instance
 	 *
 	 * @param {number} instanceId - ID of instance to initialize.
-	 * @returns {module:slave~InstanceConnection} connection to instance.
+	 * @returns {module:slave/slave~InstanceConnection} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
 		let instanceInfo = this.instanceInfos.get(instanceId);

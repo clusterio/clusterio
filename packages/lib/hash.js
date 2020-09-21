@@ -1,6 +1,6 @@
 /**
  * Hashing functions
- * @module
+ * @module lib/hash
  */
 "use strict";
 const crypto = require("crypto");

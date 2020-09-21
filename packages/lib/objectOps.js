@@ -1,6 +1,6 @@
 /**
  * Helper functions related to objects
- * @module
+ * @module lib/objectOps
  */
 "use strict";
 

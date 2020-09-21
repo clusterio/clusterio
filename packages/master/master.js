@@ -6,9 +6,9 @@
  * Facilitates communication between slaves and control of the cluster
  * through WebSocet connections, and hosts a webserver for browser
  * interfaces and Prometheus statistics export.  It is remotely controlled
- * by {@link module:@clusterio/ctl/ctl}.
+ * by {@link module:ctl/ctl}.
  *
- * @module
+ * @module master/master
  * @author Danielv123, Hornwitser
  * @example
  * npx clusteriomaster run

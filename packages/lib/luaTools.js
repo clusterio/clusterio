@@ -1,6 +1,6 @@
 /**
  * Utilities for dealing with Lua
- * @module
+ * @module lib/luaTools
  */
 "use strict";
 

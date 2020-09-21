@@ -1,7 +1,7 @@
 /**
  * Implementation of master databases
  *
- * @module
+ * @module lib/database
  * @author Hornwitser
  */
 

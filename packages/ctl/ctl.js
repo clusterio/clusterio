@@ -2,7 +2,7 @@
 
 /**
  * Command line interface for controlling a Clusterio cluster
- * @module
+ * @module ctl/ctl
  */
 "use strict";
 const fs = require("fs-extra");
