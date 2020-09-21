@@ -13,9 +13,9 @@ the startup, and the groups and their fields for disabled plugins will
 still be created.
 
 The built-in config groups and their fields are defined in
-[lib/config/definitions.js](/packages/lib/config/definitions.js) while
-plugins can add their own config groups to the `MasterConfigGroup` and
-`InstanceConfigGroup` properties of the `info.js` export using
+[packages/lib/config/definitions.js](/packages/lib/config/definitions.js)
+while plugins can add their own config groups to the `MasterConfigGroup`
+and `InstanceConfigGroup` properties of the `info.js` export using
 subclasses of `PluginConfigGroup`.  The plugin group has the enabled
 field pre-defined on it, and it's used to enable/disable plugins.
 
