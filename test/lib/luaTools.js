@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 
-const luaTools = require("lib/luaTools");
+const luaTools = require("@clusterio/lib/luaTools");
 
 
 describe("lib/luaTools", function() {

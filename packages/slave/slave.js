@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * Clusterio slave
  *
@@ -8,7 +10,7 @@
  * @module
  * @author Danielv123, Hornwitser
  * @example
- * node slave run
+ * npx clusterioslave run
  */
 "use strict";
 const fs = require("fs-extra");
@@ -22,14 +24,14 @@ const util = require("util");
 const version = require("./package").version;
 
 // internal libraries
-const fileOps = require("lib/fileOps");
-const factorio = require("lib/factorio");
-const link = require("lib/link");
-const plugin = require("lib/plugin");
-const errors = require("lib/errors");
-const prometheus = require("lib/prometheus");
-const luaTools = require("lib/luaTools");
-const config = require("lib/config");
+const fileOps = require("@clusterio/lib/fileOps");
+const factorio = require("@clusterio/lib/factorio");
+const link = require("@clusterio/lib/link");
+const plugin = require("@clusterio/lib/plugin");
+const errors = require("@clusterio/lib/errors");
+const prometheus = require("@clusterio/lib/prometheus");
+const luaTools = require("@clusterio/lib/luaTools");
+const config = require("@clusterio/lib/config");
 
 
 const instanceRconCommandsCounter = new prometheus.Counter(
@@ -198,7 +200,9 @@ class Instance extends link.Link{
 
 	async _loadPlugin(pluginInfo, slave) {
 		let pluginLoadStarted = Date.now();
-		let { InstancePlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.instanceEntrypoint}`);
+		// XXX Does not work on Windows
+		let pluginPath = path.relative(__dirname, path.join("plugins", pluginInfo.name));
+		let { InstancePlugin } = require(path.join(pluginPath, pluginInfo.instanceEntrypoint));
 		let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
@@ -1423,9 +1427,9 @@ async function startSlave() {
 		console.error("ERROR invalid config!");
 		console.error(
 			"Master server requires an access token for socket operations. As clusterio\n"+
-			"slaves depends upon this, please set your token using the command node slave\n"+
-			"config set slave.master_token <token>.  You can generate an auth token using\n"+
-			"using node clusterctl generate-slave-token."
+			"slaves depends upon this, please set your token using the command npx\n"+
+			"clusterioslave config set slave.master_token <token>.  You can generate an\n"+
+			"auth token using npx clusterctl generate-slave-token."
 		);
 		process.exitCode = 1;
 		return;

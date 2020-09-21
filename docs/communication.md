@@ -49,9 +49,10 @@ Message
 
 There's two types of messages currently implemented apart from the
 Link builtin close message and that's Request and Event.  The builtin
-messages are defined in [lib/link/messages.js](../lib/link/messages.js)
-and are attached to links via the attachAllMessages function, which is
-usally called in the Link subclass constructor.
+messages are defined in
+[lib/link/messages.js](/package/lib/link/messages.js) and are attached
+to links via the attachAllMessages function, which is usally called in
+the Link subclass constructor.
 
 The messages define which links they are valid on and only attaches
 handlers for those links.  There's also a forwarding mechanism for when

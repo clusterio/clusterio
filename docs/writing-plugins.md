@@ -42,7 +42,7 @@ The basic file structure of a plugin is the following.
 The most important file is the `info.js` file.  Without it the plugin
 will not recognized by Clusterio.  Here's an example of it:
 
-    const link = require('lib/link'); // For messages
+    const link = require('@clusterio/lib/link'); // For messages
 
     module.exports = {
         name: "foo_frobber",
@@ -129,7 +129,7 @@ The plugin class should derive from its respective base class defined in
 `lib/plugin`.  For example, to define a MasterPlugin class the following
 code can be used:
 
-    const plugin = require('lib/plugin');
+    const plugin = require('@clusterio/lib/plugin');
 
     class MasterPlugin extends plugin.BaseMasterPlugin {
         async init() {
@@ -147,7 +147,7 @@ code can be used:
 For the instance plugin it's exactly the same except "Master" is
 replaced with "Instance", and for the clusterctl plugin "Control" is
 used.  The available hooks that you can override are documented in the
-base class [in lib/plugin.js](../lib/plugin.js).
+base class [in lib/plugin.js](/packages/lib/plugin.js).
 
 It's best to avoid defining a constructor, but if you insist on defining
 one, forward all arguments to the base class.  E.g.:
@@ -173,7 +173,7 @@ take advantage of it by subclassing `PluginConfigGroup`, setting the
 and passing it as either `MasterConfigGroup` or `InstanceConfigGroup` in
 the `info.js` export.  For example in info.js:
 
-    const config = require("lib/config");
+    const config = require("@clusterio/lib/config");
 
     class MasterConfigGroup extends config.PluginConfigGroup { }
     MasterConfigGroup.groupName = "foo_frobber";
@@ -550,7 +550,7 @@ from plugins optionally loaded at runtime on different computers.
 In its simplest form collecting data from plugins consists of defining
 the metric and updating it somewhere in the plugin code.  For example:
 
-    const { Counter } = require('lib/prometheus');
+    const { Counter } = require('@clusterio/lib/prometheus');
 
     const fooMetric = new Counter(
         'clusterio_foo_frobber_foo_metric', "Measures the level of foo",
@@ -567,7 +567,7 @@ naming scheme.
 For metrics that are per-instance, you must define an `instance_id` label and
 set it accordingly, for example:
 
-    const { Counter } = require('lib/prometheus');
+    const { Counter } = require('@clusterio/lib/prometheus');
 
     const barMetric = new Gauge(
         'clusterio_foo_frobber_bar_metric', "Bar instance level",
@@ -598,7 +598,7 @@ The control entrypoint for plugins allows you to extend clustectl with
 your own commands.  The creation of custom commands typically starts
 with defining a command tree for the plugin:
 
-    const { Command, CommandTree } = require("lib/command");
+    const { Command, CommandTree } = require("@clusterio/lib/command");
     const fooFrobberCommands = new CommandTree({
         name: "foo-frobber", description: "Foo Frobber Plugin commands"
     });
@@ -641,7 +641,7 @@ for how to define the messages that can be sent to the master.
 To have the command tree become part of clusterctl it needs to be added
 to the rootCommand tree in `addCommands` callback of the Control plugin:
 
-    const plugin = require("lib/plugin");
+    const plugin = require("@clusterio/lib/plugin");
 
     class ControlPlugin extends plugin.BaseControlPlugin {
         async addCommands(rootCommand) {

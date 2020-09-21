@@ -2,7 +2,7 @@
 const assert = require("assert").strict;
 const path = require("path");
 
-const factorio = require("lib/factorio");
+const factorio = require("@clusterio/lib/factorio");
 
 
 describe("Integration of lib/factorio/export", function() {

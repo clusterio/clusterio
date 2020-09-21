@@ -3,16 +3,16 @@ Managing a Cluster
 
 Clusterio clusers are managed through the master server by using the
 `clusterctl` command line interface which is invoked by running
-`node clusterctl <command>` in the clusterio directory.  This document
-uses the shorthand `ctl> foo` to indicate `node clusterctl foo` should
+`npx clusterctl <command>` in the clusterio directory.  This document
+uses the shorthand `ctl> foo` to indicate `npx clusterctl foo` should
 be executed.  Mandatory parameters are shown in `<angles bracket>` and
 optional pameters are in `[square brackets]`.
 
 Before `clusterctl` can be used it needs to be configured for the
 cluster it will connect to.  The easiest way to do this is to run
-`node master bootstrap create-ctl-config <username>` on the master
-server, which creates the necessary `config-control.json` for managing
-the cluster as the given user.
+`npx clusteriomaster bootstrap create-ctl-config <username>` on the
+master server, which creates the necessary `config-control.json` for
+managing the cluster as the given user.
 
 
 Slaves

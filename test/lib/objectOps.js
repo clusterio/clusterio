@@ -1,6 +1,6 @@
 "use strict";
 var assert = require("assert");
-var objectOps = require("lib/objectOps");
+var objectOps = require("@clusterio/lib/objectOps");
 
 describe("objectOps.js", function(){
 	describe("objectOps.deepclone()", function(){

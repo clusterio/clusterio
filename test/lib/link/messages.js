@@ -1,8 +1,8 @@
 "use strict";
 const assert = require("assert").strict;
 
-const link = require("lib/link");
-const errors = require("lib/errors");
+const link = require("@clusterio/lib/link");
+const errors = require("@clusterio/lib/errors");
 const mock = require("../../mock");
 
 

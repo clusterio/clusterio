@@ -3,8 +3,8 @@
 const events = require("events");
 const WebSocket = require("ws");
 
-const schema = require("lib/schema");
-const errors = require("lib/errors");
+const schema = require("@clusterio/lib/schema");
+const errors = require("@clusterio/lib/errors");
 
 
 /**

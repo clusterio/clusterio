@@ -1,0 +1,27 @@
+{
+  "name": "@clusterio/ctl",
+  "description": "Clusterio command line management tool",
+  "author": "Hornwitser",
+  "license": "MIT",
+  "version": "2.0.0-alpha0",
+  "main": "clusterctl.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "clusterctl": "./clusterctl.js"
+  },
+  "keywords": [
+    "factorio"
+  ],
+  "engines": {
+    "node": ">=10.16 <11 || >= 11.13"
+  },
+  "dependencies": {
+    "@clusterio/lib": "=2.0.0-alpha0",
+    "as-table": "^1.0.31",
+    "chalk": "^3.0.0",
+    "fs-extra": "^8.1.0",
+    "yargs": "^14.2.0"
+  }
+}

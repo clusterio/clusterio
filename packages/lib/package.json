@@ -1,0 +1,26 @@
+{
+  "name": "@clusterio/lib",
+  "description": "Shared library for Clusterio",
+  "version": "2.0.0-alpha0",
+  "repository": "https://github.com/clusterio/factorioClusterio",
+  "license": "MIT",
+  "keywords": [
+    "factorio"
+  ],
+  "engines": {
+    "node": ">=10.16 <11 || >= 11.13"
+  },
+  "dependencies": {
+    "fs-extra": "^8.1.0",
+    "ini": "^1.3.5",
+    "jimp": "^0.12.1",
+    "jsonwebtoken": "^8.2.1",
+    "jszip": "^3.2.2",
+    "klaw": "^3.0.0",
+    "node-forge": "^0.10.0",
+    "rcon-client": "^4.2.0",
+    "semver": "^7.1.1",
+    "ws": "^7.2.3",
+    "yargs": "^14.2.0"
+  }
+}

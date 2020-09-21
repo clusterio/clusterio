@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 
-const prometheus = require("lib/prometheus");
+const prometheus = require("@clusterio/lib/prometheus");
 
 
 describe("lib/prometheus", function() {

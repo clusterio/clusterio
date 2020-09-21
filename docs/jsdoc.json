@@ -11,12 +11,12 @@
     },
     "source": {
         "include": [
-            "master.js",
-            "slave.js",
-            "clusterctl.js",
-            "lib/",
-            "plugins/",
-            "routes.js"
+            "packages/master/src/",
+            "packages/master/master.js",
+            "packages/slave/slave.js",
+            "packages/ctl/clusterctl.js",
+            "packages/lib/",
+            "plugins/"
         ],
         "excludePattern": "node_modules"
     }

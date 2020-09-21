@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 
-const helpers = require("lib/helpers");
+const helpers = require("@clusterio/lib/helpers");
 
 
 describe("lib/helpers", function() {

@@ -6,7 +6,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const errors = require("lib/errors");
+const errors = require("@clusterio/lib/errors");
 
 
 /**
@@ -392,7 +392,9 @@ async function loadPluginInfos(baseDir) {
 
 		try {
 			// Note: Require path is relative to this module
-			pluginInfo = require(path.posix.join("..", baseDir, pluginDir, "info"));
+			// XXX Does not work on Windows
+			let pluginPath = path.relative(__dirname, path.join(baseDir, pluginDir));
+			pluginInfo = require(path.join(pluginPath, "info"));
 
 		} catch (err) {
 			if (err.code === "MODULE_NOT_FOUND") {

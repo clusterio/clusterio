@@ -3,12 +3,12 @@ const path = require("path");
 const fs = require("fs-extra");
 const child_process = require("child_process");
 const jwt = require("jsonwebtoken");
-const needle = require("needle");
+const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
-const link = require("lib/link");
-const server = require("lib/factorio/server");
+const link = require("@clusterio/lib/link");
+const server = require("@clusterio/lib/factorio/server");
 
 
 class TestControl extends link.Link {
@@ -45,7 +45,11 @@ function slowTest(test) {
 }
 
 async function get(path) {
-	let res = await needle("get", `https://localhost:4443${path}`, { rejectUnauthorized: false });
+	let res = await phin({
+		method: "GET",
+		url: `https://localhost:4443${path}`,
+		core: { rejectUnauthorized: false },
+	});
 	if (res.statusCode != 200) {
 		throw new Error(`Got response code ${res.statusCode}, content: ${res.body}`);
 	}
@@ -70,7 +74,7 @@ async function exec(...args) {
 }
 
 async function execCtl(...args) {
-	args[0] = `node clusterctl --config ${controlConfigPath} ${args[0]}`;
+	args[0] = `node packages/ctl --config ${controlConfigPath} ${args[0]}`;
 	return await exec(...args);
 }
 
@@ -113,26 +117,26 @@ before(async function() {
 	await fs.remove(slaveConfigPath);
 	await fs.remove(controlConfigPath);
 
-	await exec(`node master --config ${masterConfigPath} config set master.database_directory ${databaseDir}`);
-	await exec(`node master --config ${masterConfigPath} config set master.auth_secret TestSecretDoNotUse`);
-	await exec(`node master --config ${masterConfigPath} config set master.http_port 8880`);
-	await exec(`node master --config ${masterConfigPath} config set master.https_port 4443`);
-	await exec(`node master --config ${masterConfigPath} config set master.tls_certificate ${path.join(databaseDir, "cert.crt")}`);
-	await exec(`node master --config ${masterConfigPath} config set master.tls_private_key ${path.join(databaseDir, "cert.key")}`);
-	await exec(`node master --config ${masterConfigPath} config set master.tls_bits 1024`);
-	await exec(`node master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
-	await exec(`node master --config ${masterConfigPath} config set master.connector_shutdown_timeout 2`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.database_directory ${databaseDir}`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.auth_secret TestSecretDoNotUse`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.http_port 8880`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.https_port 4443`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.tls_certificate ${path.join(databaseDir, "cert.crt")}`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.tls_private_key ${path.join(databaseDir, "cert.key")}`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.tls_bits 1024`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
+	await exec(`node packages/master --config ${masterConfigPath} config set master.connector_shutdown_timeout 2`);
 
-	await exec(`node master --config ${masterConfigPath} bootstrap create-admin test`);
-	await exec(`node master --config ${masterConfigPath} bootstrap create-ctl-config test --output ${controlConfigPath}`);
+	await exec(`node packages/master --config ${masterConfigPath} bootstrap create-admin test`);
+	await exec(`node packages/master --config ${masterConfigPath} bootstrap create-ctl-config test --output ${controlConfigPath}`);
 
-	masterProcess = await spawn("master:", `node master --config ${masterConfigPath} run`, "All plugins loaded");
+	masterProcess = await spawn("master:", `node packages/master --config ${masterConfigPath} run`, "All plugins loaded");
 
 	let createArgs = `--id 4 --name slave --generate-token --output ${slaveConfigPath}`;
 	await execCtl(`slave create-config ${createArgs}`);
-	await exec(`node slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
+	await exec(`node packages/slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
 
-	slaveProcess = await spawn("slave:", `node slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
+	slaveProcess = await spawn("slave:", `node packages/slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
 
 	let controlConnector = new TestControlConnector(url, 2);
 	controlConnector.token = controlToken;

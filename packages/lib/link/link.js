@@ -1,9 +1,9 @@
 // Implementation of Link class
 "use strict";
 
-const schema = require("lib/schema");
-const errors = require("lib/errors");
-const messages = require("lib/link/messages");
+const schema = require("@clusterio/lib/schema");
+const errors = require("@clusterio/lib/errors");
+const messages = require("./messages");
 
 // Some definitions for the terminology used here:
 // link: Either side of a master - client connection

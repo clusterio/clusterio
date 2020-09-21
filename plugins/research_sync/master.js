@@ -2,7 +2,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const plugin = require("lib/plugin");
+const plugin = require("@clusterio/lib/plugin");
 
 
 class MasterPlugin extends plugin.BaseMasterPlugin {

@@ -7,7 +7,7 @@ const jszip = require("jszip");
 const path = require("path");
 const semver = require("semver");
 
-const hash = require("lib/hash");
+const hash = require("@clusterio/lib/hash");
 
 
 const knownScenarios = {

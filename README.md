@@ -105,12 +105,13 @@ supported on EOL Ubuntu releases so make sure you're on a recent release of Ubun
 Master and all slaves:
 
     wget -qO - https://deb.nodesource.com/setup_12.x | sudo -E bash -
-    sudo apt install -y nodejs python-dev git build-essential
-    git clone -b master https://github.com/clusterio/factorioClusterio.git
-    cd factorioClusterio
+    sudo apt install -y nodejs
+    mkdir clusterio
+    cd clusterio
+    npm init -y
+    npm install @clusterio/master @clusterio/slave @clusterio/ctl
     wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
     tar -xf factorio.tar.gz
-    npm install --only=production
 
 downloads and installs nodejs, git and clusterio. To specify a version, change "latest" in the link to a version number like 0.14.21.
 
@@ -136,30 +137,19 @@ The -v flag is used to specify the instance directory. Your instances (save file
 **Warning**: These instructions are for the unstable master version and is not
 recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
-Clusterio is built up of multiple parts. Here is a quick guide:
-
-Master = master.js
-
-Server host (Slave) = slave.js + factorio server
-
-Game Client = The people connecting to the server
-
 **Requirements**
 
 download and install nodeJS 12 from http://nodejs.org.  Clusterio runs on Node.js v12 and
 up, v11.13.0+ and v10.16.0+.
 
-download and install git from https://git-scm.com/
-
-reboot when you are done, then proceed to the next steps. *reboots matter*
-
 **Master**
 
 1. Open PowerShell or Command prompt in the directory you want to install to and run the following commands.
 
-        git clone -b master https://github.com/clusterio/factorioClusterio
-        cd factorioClusterio
-        npm install --only=production
+        mkdir clusterio
+        cd clusterio
+        npm init -y
+        npm install @clusterio/master @clusterio/slave @clusterio/ctl
 
 2. Obtain Factorio by either of these two methods:
 
@@ -198,8 +188,8 @@ Before you can manage the cluster you need to bootstrap an admin account
 for it.  Replace `<username>` with your Factorio username (do not make
 up a new username here).
 
-    node master bootstrap create-admin <username>
-    node master bootstrap create-ctl-config <username>
+    npx clusteriomaster bootstrap create-admin <username>
+    npx clusteriomaster bootstrap create-ctl-config <username>
 
 The first command creates a user account with the given name and
 promotes it to a cluster admin.  The second one sets up a
@@ -213,7 +203,7 @@ It's necessary to run the master server in order for anything to work.
 Once you've completed the setup run the following command to start it
 up:
 
-    node master run
+    npx clusteriomaster run
 
 
 ### Slaves
@@ -223,7 +213,7 @@ master server.  In order for slaves to connect to the master server they
 need a valid authentication token, you can create a slave config with
 a valid token with the following command.
 
-    node clusterctl slave create-config --name Local --generate-token
+    npx clusterctl slave create-config --name Local --generate-token
 
 This will write a new `config-slave.json` file in the current directory
 (you can change the location with the `--output` option) with the name,
@@ -232,13 +222,13 @@ the config for a remote slave you will need to have set the
 `master.external_address` option to the URL the master server can be
 reached on.
 
-You can list the config of a slave on the slave itself with the `node
-slave config list` command.  Use `node slave config --help` for more
-information.
+You can list the config of a slave on the slave itself with the `npx
+clusterioslave config list` command.  Use `npx clusterioslave config
+--help` for more information.
 
 Once the config is set up run the slave with
 
-    node slave run
+    npx clusterioslave run
 
 
 ### Instances
@@ -253,9 +243,9 @@ clusterctl control-config set` command:
 
 The basic operations to start a new instance is the following
 
-    node clusterctl instance create "My instance"
-    node clusterctl instance assign "My instance" "Local"
-    node clusterctl instance start "My instance"
+    npx clusterctl instance create "My instance"
+    npx clusterctl instance assign "My instance" "Local"
+    npx clusterctl instance start "My instance"
 
 The first line creates the instance configuration on the master server.
 The second assigns the instance to a slave which creates the instance
@@ -264,7 +254,7 @@ third line starts the instance, which creates a new save if there are no
 save games present.
 
 There are many more commands available with clusterctl.  See
-`node clusterctl --help` for a full list of them.
+`npx clusterctl --help` for a full list of them.
 
 
 ## Plugins
@@ -298,7 +288,3 @@ TLDR: the tested fix is:
 - select TCP and select specific local ports and type in the ports that you want to open (comma separated) and click next > 3 times
 
 - give the rule a name (like 'web server' or something), give it a description (optionally) and click finish
-
-### Other fixes for other potential problems:
-
-Sometimes the install fails. Try `node ./lib/npmPostinstall` to complete it.

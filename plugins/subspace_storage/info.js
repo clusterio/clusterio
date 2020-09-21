@@ -1,6 +1,6 @@
 "use strict";
-const link = require("lib/link");
-const config = require("lib/config");
+const link = require("@clusterio/lib/link");
+const config = require("@clusterio/lib/config");
 
 class MasterConfigGroup extends config.PluginConfigGroup {}
 MasterConfigGroup.groupName = "subspace_storage";

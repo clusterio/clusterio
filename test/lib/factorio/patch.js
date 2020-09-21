@@ -4,7 +4,7 @@ const fs = require("fs-extra");
 const jszip = require("jszip");
 const path = require("path");
 
-const factorio = require("lib/factorio");
+const factorio = require("@clusterio/lib/factorio");
 
 
 describe("lib/factorio", function() {

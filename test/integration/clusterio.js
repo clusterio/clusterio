@@ -5,7 +5,7 @@ const path = require("path");
 const validateHTML = require("html5-validator");
 const parallel = require("mocha.parallel");
 
-const link = require("lib/link");
+const link = require("@clusterio/lib/link");
 
 const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
@@ -18,7 +18,7 @@ describe("Integration of Clusterio", function() {
 		for (let path of paths) {
 			it(`sends some HTML when accessing ${path}`, async function() {
 				let res = await get(path);
-				let validation = await validateHTML(res.body);
+				let validation = await validateHTML(res.body.toString());
 				let filtered = validation.messages.filter(msg => msg.type !== "info");
 				assert(
 					filtered.length === 0,

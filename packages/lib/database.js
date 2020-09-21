@@ -8,7 +8,7 @@
 "use strict";
 const fs = require("fs-extra");
 
-const { basicType } = require("lib/helpers");
+const { basicType } = require("@clusterio/lib/helpers");
 
 
 /**

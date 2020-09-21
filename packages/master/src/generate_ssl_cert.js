@@ -13,7 +13,7 @@ module.exports = async function({
 	doLogging = false,
 } = {}){
 	function log(t) {
-		if(doLogging) console.log("lib/generateSSLcert.js | "+t);
+		if(doLogging) console.log("src/generate_ssl_cert.js | "+t);
 	}
 	log("Generating SSL certificate with "+bits+" bits at "+sslCertPath);
 

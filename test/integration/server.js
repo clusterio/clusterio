@@ -4,8 +4,8 @@ const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
 
-const factorio = require("lib/factorio");
-const errors = require("lib/errors");
+const factorio = require("@clusterio/lib/factorio");
+const errors = require("@clusterio/lib/errors");
 
 const { slowTest } = require("./index");
 

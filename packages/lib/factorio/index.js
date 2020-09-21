@@ -5,7 +5,7 @@
  */
 "use strict";
 module.exports = {
-	...require("lib/factorio/export"),
-	...require("lib/factorio/patch"),
-	...require("lib/factorio/server"),
+	...require("./export"),
+	...require("./patch"),
+	...require("./server"),
 };

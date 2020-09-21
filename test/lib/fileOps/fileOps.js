@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 
-const fileOps = require("lib/fileOps");
+const fileOps = require("@clusterio/lib/fileOps");
 
 describe("fileOps.js", function(){
 	let baseDir = path.join("temp", "test", "fileOps");

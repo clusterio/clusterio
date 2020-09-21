@@ -11,6 +11,7 @@ Contents
 
 - [Workflow](#workflow)
     - [Starting a Feature Branch](#starting-a-feature-branch)
+    - [Setting up the Development Environment](#setting-up-the-development-environment)
     - [Checking your code for errors](#checking-your-code-for-errors)
     - [Submitting a Pull Request](#submitting-a-pull-request)
     - [Editing your Feature Branch](#editing-your-feature-branch)
@@ -54,6 +55,19 @@ the main repository as a remote.
 After this running `git fetch upstream` will get the updated branches
 from the main repository.  Do not run `git pull upstream` it will mess
 thing up!
+
+
+### Setting up the Development Environment
+
+The project is organized into several packages that are all managed
+through Lerna.  In order to get the development environment up and
+running you will need to run the following commands:
+
+    npm install
+    npx lerna bootstrap
+
+This installs dependencies needed by tests and links the packages up so
+they work from the git work tree.
 
 
 ### Starting a Feature Branch

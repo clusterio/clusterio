@@ -1,21 +1,23 @@
+#!/usr/bin/env node
+
 /**
  * Command line interface for controlling a Clusterio cluster
  * @module
  */
 "use strict";
-const jwt = require("jsonwebtoken");
 const fs = require("fs-extra");
 const yargs = require("yargs");
 const version = require("./package").version;
 const asTable = require("as-table").configure({ delimiter: " | " });
 const chalk = require("chalk");
 const events = require("events");
+const path = require("path");
 
-const link = require("lib/link");
-const errors = require("lib/errors");
-const config = require("lib/config");
-const plugin = require("lib/plugin");
-const command = require("lib/command");
+const link = require("@clusterio/lib/link");
+const errors = require("@clusterio/lib/errors");
+const config = require("@clusterio/lib/config");
+const plugin = require("@clusterio/lib/plugin");
+const command = require("@clusterio/lib/command");
 
 
 /**
@@ -608,7 +610,9 @@ async function startControl() {
 			continue;
 		}
 
-		let { ControlPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.controlEntrypoint}`);
+		// XXX Does not work on Windows
+		let pluginPath = path.relative(__dirname, path.join("plugins", pluginInfo.name));
+		let { ControlPlugin } = require(path.join(pluginPath, pluginInfo.controlEntrypoint));
 		let controlPlugin = new ControlPlugin(pluginInfo);
 		controlPlugins.set(pluginInfo.name, controlPlugin);
 		await controlPlugin.init();

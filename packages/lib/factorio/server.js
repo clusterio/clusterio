@@ -9,7 +9,7 @@ const crypto = require("crypto");
 
 const ini = require("ini");
 const rconClient = require("rcon-client");
-const errors = require("lib/errors");
+const errors = require("@clusterio/lib/errors");
 
 
 /**

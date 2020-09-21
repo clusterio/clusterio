@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 /**
  * Clusterio master server
  *
@@ -9,7 +11,7 @@
  * @module
  * @author Danielv123, Hornwitser
  * @example
- * node master run
+ * npx clusteriomaster run
  */
 
 // Attempt updating
@@ -38,15 +40,15 @@ let debugEvents = new events.EventEmitter();
 let pluginList = {};
 
 // homebrew modules
-const generateSSLcert = require("lib/generateSSLcert");
-const database = require("lib/database");
-const schema = require("lib/schema");
-const link = require("lib/link");
-const errors = require("lib/errors");
-const plugin = require("lib/plugin");
-const prometheus = require("lib/prometheus");
-const config = require("lib/config");
-const users = require("lib/users");
+const generateSSLcert = require("./src/generate_ssl_cert");
+const database = require("@clusterio/lib/database");
+const schema = require("@clusterio/lib/schema");
+const link = require("@clusterio/lib/link");
+const errors = require("@clusterio/lib/errors");
+const plugin = require("@clusterio/lib/plugin");
+const prometheus = require("@clusterio/lib/prometheus");
+const config = require("@clusterio/lib/config");
+const users = require("@clusterio/lib/users");
 
 const express = require("express");
 const compression = require("compression");
@@ -86,9 +88,10 @@ app.use(function(req, res, next){
 	next();
 });
 
-require("./routes")(app);
+require("./src/routes")(app);
 // Set folder to serve static content from (the website)
-app.use(express.static("static"));
+app.use(express.static(path.join(__dirname, "static")));
+app.use(express.static("static")); // Used for data export files
 
 const endpointHitCounter = new prometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
@@ -1481,7 +1484,9 @@ async function loadPlugins(pluginInfos) {
 		let MasterPlugin = plugin.BaseMasterPlugin;
 		try {
 			if (pluginInfo.masterEntrypoint) {
-				({ MasterPlugin } = require(`./plugins/${pluginInfo.name}/${pluginInfo.masterEntrypoint}`));
+				// XXX Does not work on Windows
+				let pluginPath = path.relative(__dirname, path.join("plugins", pluginInfo.name));
+				({ MasterPlugin } = require(path.join(pluginPath, pluginInfo.masterEntrypoint)));
 			}
 
 			let masterPlugin = new MasterPlugin(

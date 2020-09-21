@@ -1,7 +1,7 @@
 // Message definitions for links
 "use strict";
-const schema = require("lib/schema");
-const errors = require("lib/errors");
+const schema = require("@clusterio/lib/schema");
+const errors = require("@clusterio/lib/errors");
 
 /**
  * Represents a message that can be sent over the link

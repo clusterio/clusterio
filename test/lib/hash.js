@@ -4,7 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const stream = require("stream");
 
-const hash = require("lib/hash");
+const hash = require("@clusterio/lib/hash");
 
 
 describe("lib/hash", function() {

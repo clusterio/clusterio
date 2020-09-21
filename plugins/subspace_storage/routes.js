@@ -2,7 +2,7 @@
 const express = require("express");
 const path = require("path");
 
-const prometheus = require("lib/prometheus");
+const prometheus = require("@clusterio/lib/prometheus");
 
 
 function addWebRoutes(app) {

@@ -7,8 +7,8 @@
  * @module
  */
 "use strict";
-const link = require("lib/link");
-const errors = require("lib/errors");
+const link = require("@clusterio/lib/link");
+const errors = require("@clusterio/lib/errors");
 
 /**
  * Represents a command that can be runned by clusterctl

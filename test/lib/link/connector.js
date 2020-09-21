@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const events = require("events");
 
 const mock = require("../../mock");
-const link = require("lib/link");
+const link = require("@clusterio/lib/link");
 
 
 describe("lib/link/connectors", function() {

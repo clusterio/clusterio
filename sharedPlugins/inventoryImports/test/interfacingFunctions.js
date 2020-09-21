@@ -2,7 +2,7 @@ const assert = require("assert");
 const child_process = require("child_process");
 const functions = require("../interfacingFunctions");
 const luamin = require("luamin");
-const isFactorioCommand = require("lib/isFactorioCommand");
+const isFactorioCommand = require("@clusterio/lib/isFactorioCommand");
 const nock = require("nock");
 
 // sinon does weird prototype manipulation and so doen't need to be saved to anything.

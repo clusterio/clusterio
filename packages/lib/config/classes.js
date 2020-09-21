@@ -4,7 +4,7 @@
 const events = require("events");
 const util = require("util");
 
-const { basicType } = require("lib/helpers");
+const { basicType } = require("@clusterio/lib/helpers");
 
 
 /**

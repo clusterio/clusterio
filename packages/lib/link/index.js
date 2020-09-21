@@ -5,7 +5,7 @@
  */
 "use strict";
 module.exports = {
-	...require("lib/link/link"),
-	...require("lib/link/messages"),
-	...require("lib/link/connectors"),
+	...require("./link"),
+	...require("./messages"),
+	...require("./connectors"),
 };

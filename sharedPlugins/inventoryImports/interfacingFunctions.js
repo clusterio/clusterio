@@ -1,4 +1,4 @@
-const objectOps = require("lib/objectOps");
+const objectOps = require("@clusterio/lib/objectOps");
 const needle = require("needle");
 const pluginConfig = require("./config")
 const isJson = require("./isJson")
