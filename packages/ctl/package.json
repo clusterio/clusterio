@@ -4,12 +4,12 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha0",
-  "main": "clusterctl.js",
+  "main": "ctl.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusterctl": "./clusterctl.js"
+    "clusterioctl": "./ctl.js"
   },
   "keywords": [
     "factorio"

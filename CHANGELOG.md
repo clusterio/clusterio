@@ -15,7 +15,7 @@ Version 2.0.0
 - Daemonized slaves.  Slaves now have the ability to run multiple Factorio
   instances, starting and stopping them individually.  To manage this the
   local command line interface has been replaced with a remote interface on
-  the master server that can be accessed through the clusterctl cli tool.
+  the master server that can be accessed through the clusterioctl cli tool.
 - Rewritten the communication between slaves and the master from scratch.  The
   new system is based on a WebSocket connection between the slaves and the
   master server and provides efficient validated bi-directonal communication.

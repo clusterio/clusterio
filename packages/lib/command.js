@@ -1,7 +1,7 @@
 /**
  * Command library
  *
- * Data types and utilites for commands to clusterctl's CLI.
+ * Data types and utilites for commands to clusterioctl's CLI.
  *
  * @author Hornwitser
  * @module
@@ -11,7 +11,7 @@ const link = require("@clusterio/lib/link");
 const errors = require("@clusterio/lib/errors");
 
 /**
- * Represents a command that can be runned by clusterctl
+ * Represents a command that can be runned by clusterioctl
  * @static
  */
 class Command {
@@ -52,7 +52,7 @@ class Command {
  * A node in the command tree that can hold commands and sub trees
  *
  * Container which can contain {@link module:lib/command.Command}s and other
- * CommandTrees.  This is used by clusterctl to hold the full tree of
+ * CommandTrees.  This is used by clusterioctl to hold the full tree of
  * available commands, you may extend this tree by using a control plugin,
  * see {@link module:lib/plugin.BaseControlPlugin#addCommands}
  *

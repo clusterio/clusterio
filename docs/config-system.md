@@ -6,7 +6,7 @@ configuration system in Clusterio, and unless you're developing
 Clusterio it's probably not going to be very useful for you.</sub>
 
 Clusterio uses a group based configuration system to manage settings for
-the master server, instances, slaves, and the clusterctl utility.
+the master server, instances, slaves, and the clusterioctl utility.
 Plugins get their own config group for the master server and instances
 which they can add their own fields to.  The fields are defined early in
 the startup, and the groups and their fields for disabled plugins will

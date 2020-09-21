@@ -14,7 +14,7 @@
             "packages/master/src/",
             "packages/master/master.js",
             "packages/slave/slave.js",
-            "packages/ctl/clusterctl.js",
+            "packages/ctl/ctl.js",
             "packages/lib/",
             "plugins/"
         ],

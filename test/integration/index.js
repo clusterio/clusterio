@@ -29,7 +29,7 @@ class TestControl extends link.Link {
 
 class TestControlConnector extends link.WebSocketClientConnector {
 	register() {
-		this.sendHandshake("register_control", { token: this.token, agent: "clusterctl", version: "test" });
+		this.sendHandshake("register_control", { token: this.token, agent: "clusterioctl", version: "test" });
 	}
 }
 

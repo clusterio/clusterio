@@ -1429,7 +1429,7 @@ async function startSlave() {
 			"Master server requires an access token for socket operations. As clusterio\n"+
 			"slaves depends upon this, please set your token using the command npx\n"+
 			"clusterioslave config set slave.master_token <token>.  You can generate an\n"+
-			"auth token using npx clusterctl generate-slave-token."
+			"auth token using npx clusterioctl generate-slave-token."
 		);
 		process.exitCode = 1;
 		return;

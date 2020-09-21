@@ -29,7 +29,7 @@ describe("Integration of Clusterio", function() {
 	});
 
 
-	describe("clusterctl", function() {
+	describe("clusterioctl", function() {
 		describe("slave list", function() {
 			it("runs", async function() {
 				await execCtl("slave list");

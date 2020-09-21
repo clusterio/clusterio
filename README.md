@@ -193,7 +193,7 @@ up a new username here).
 
 The first command creates a user account with the given name and
 promotes it to a cluster admin.  The second one sets up a
-`config-control.json` config for clusterctl to connect to the master
+`config-control.json` config for clusterioctl to connect to the master
 server under the given user account.
 
 
@@ -213,7 +213,7 @@ master server.  In order for slaves to connect to the master server they
 need a valid authentication token, you can create a slave config with
 a valid token with the following command.
 
-    npx clusterctl slave create-config --name Local --generate-token
+    npx clusterioctl slave create-config --name Local --generate-token
 
 This will write a new `config-slave.json` file in the current directory
 (you can change the location with the `--output` option) with the name,
@@ -234,18 +234,18 @@ Once the config is set up run the slave with
 ### Instances
 
 Instances are created, managed and started from the master server.  For
-now the only interface available is the `clusterctl` command line tool
+now the only interface available is the `clusterioctl` command line tool
 included in Clusterio.  You can run this tool from any slave, or the
 master server without having to set up a config, if you want to manage
 the cluster from somewhere else you will need to set the
 `control.master_url` and `control.master_token` options with the  `node
-clusterctl control-config set` command:
+clusterioctl control-config set` command:
 
 The basic operations to start a new instance is the following
 
-    npx clusterctl instance create "My instance"
-    npx clusterctl instance assign "My instance" "Local"
-    npx clusterctl instance start "My instance"
+    npx clusterioctl instance create "My instance"
+    npx clusterioctl instance assign "My instance" "Local"
+    npx clusterioctl instance start "My instance"
 
 The first line creates the instance configuration on the master server.
 The second assigns the instance to a slave which creates the instance
@@ -253,8 +253,8 @@ directory and files needed to run the instance on the given slave.  The
 third line starts the instance, which creates a new save if there are no
 save games present.
 
-There are many more commands available with clusterctl.  See
-`npx clusterctl --help` for a full list of them.
+There are many more commands available with clusterioctl.  See
+`npx clusterioctl --help` for a full list of them.
 
 
 ## Plugins

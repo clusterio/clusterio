@@ -6,7 +6,7 @@
  * Facilitates communication between slaves and control of the cluster
  * through WebSocet connections, and hosts a webserver for browser
  * interfaces and Prometheus statistics export.  It is remotely controlled
- * by {@link module:clusterctl}.
+ * by {@link module:@clusterio/ctl/ctl}.
  *
  * @module
  * @author Danielv123, Hornwitser
@@ -1582,7 +1582,7 @@ async function startServer() {
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
-				.command("create-ctl-config <name>", "Create clusterctl config for the given user", yargs => {
+				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {
 						describe: "Path to output config (- for stdout)", type: "string",
 						nargs: 1, default: "config-control.json",

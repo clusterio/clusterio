@@ -19,7 +19,7 @@ Contents
 - [Sending Link Messages](#sending-link-messages)
     - [Handling connection events](#handling-connection-events)
 - [Collecting Statistics](#collecting-statistics)
-- [Adding Custom Commands to clusterctl](#adding-custom-commands-to-clusterctl)
+- [Adding Custom Commands to clusterioctl](#adding-custom-commands-to-clusterioctl)
 
 
 Plugin Structure
@@ -100,7 +100,7 @@ The following properties are recognized:
     Path to a Node.js module relative to the plugin directory which
     contains the ControlPlugin class definition for this plugin.  This
     is an optional paramater.  A plugin can be made that only runs on
-    the clusterctl side.
+    the clusterioctl side.
 
 **messages**:
     Object with link messages definitions for this plugin.  See guide
@@ -145,7 +145,7 @@ code can be used:
     }
 
 For the instance plugin it's exactly the same except "Master" is
-replaced with "Instance", and for the clusterctl plugin "Control" is
+replaced with "Instance", and for the clusterioctl plugin "Control" is
 used.  The available hooks that you can override are documented in the
 base class [in lib/plugin.js](/packages/lib/plugin.js).
 
@@ -591,8 +591,8 @@ hook on both master and instance plugins that is run before the
 metrics in the default registry are collected.
 
 
-Adding Custom Commands to clusterctl
-------------------------------------
+Adding Custom Commands to clusterioctl
+--------------------------------------
 
 The control entrypoint for plugins allows you to extend clustectl with
 your own commands.  The creation of custom commands typically starts
@@ -630,15 +630,15 @@ and
 for setting up positional and optional arguments to commands).  The
 `handler` is an async function that's invoked when the command is
 executed and it's passed the parsed command line arguments and a
-reference to the `Control` class of clusterctl.  It's possible to optain
+reference to the `Control` class of clusterioctl.  It's possible to optain
 a reference to the plugin class with `control.plugins.get(info.name)`.
 
-Note that messages sent from clusterctl needs to have
+Note that messages sent from clusterioctl needs to have
 `"control-master"` as a part of the links array for it to be accepted by
 the master server, see [Defining Link Messages](#defining-link-messages)
 for how to define the messages that can be sent to the master.
 
-To have the command tree become part of clusterctl it needs to be added
+To have the command tree become part of clusterioctl it needs to be added
 to the rootCommand tree in `addCommands` callback of the Control plugin:
 
     const plugin = require("@clusterio/lib/plugin");

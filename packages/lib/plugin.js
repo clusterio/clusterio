@@ -339,10 +339,10 @@ class BaseMasterPlugin {
 }
 
 /**
- * Base class for clusterctl plugins
+ * Base class for clusterioctl plugins
  *
  * Control plugins are subclasses of this class which get instantiated by
- * clusterctl in order to extend its functionallity.  To be discovered the
+ * clusterioctl in order to extend its functionallity.  To be discovered the
  * class must be exported under the name `ControlPlugin` in the module
  * specified by the `controlEntrypoint` in the plugin's info.js file.
  *
@@ -364,7 +364,7 @@ class BaseControlPlugin {
 	/**
 	 * Called to add commands to the command line interface.
 	 *
-	 * Invoked by clusterctl to let plugins add commands.  `rootCommand` is
+	 * Invoked by clusterioctl to let plugins add commands.  `rootCommand` is
 	 * the top level command node which the plugin should add its own {@link
 	 * module:lib/command.CommandTree} to.
 	 *

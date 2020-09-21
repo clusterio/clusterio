@@ -522,7 +522,7 @@ class ControlConnector extends link.WebSocketClientConnector {
 		console.log("SOCKET | registering control");
 		this.sendHandshake("register_control", {
 			token: this._token,
-			agent: "clusterctl",
+			agent: "clusterioctl",
 			version: version,
 		});
 	}
@@ -577,7 +577,7 @@ class Control extends link.Link {
 
 async function startControl() {
 	yargs
-		.scriptName("clusterctl")
+		.scriptName("clusterioctl")
 		.usage("$0 <command> [options]")
 		.option("config", {
 			nargs: 1,
@@ -591,7 +591,7 @@ async function startControl() {
 		.strict()
 	;
 
-	const rootCommands = new command.CommandTree({ name: "clusterctl", description: "Manage cluster" });
+	const rootCommands = new command.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
 	rootCommands.add(slaveCommands);
 	rootCommands.add(instanceCommands);
 	rootCommands.add(permissionCommands);
@@ -741,9 +741,9 @@ I           version of clusterio.  Expect things to break. I
 			);
 		} else {
 			console.error(`
-+-------------------------------+
-| Unable to to start clusterctl |
-+-------------------------------+`
++---------------------------------+
+| Unable to to start clusterioctl |
++---------------------------------+`
 			);
 		}
 
