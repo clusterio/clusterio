@@ -197,6 +197,7 @@ describe("Integration of Clusterio", function() {
 				}
 			});
 			it("should not create the user if not instructed to", async function() {
+				slowTest(this);
 				for (let list of lists) {
 					try {
 						await execCtl(`user set-${list} no_create_test`);
@@ -206,6 +207,7 @@ describe("Integration of Clusterio", function() {
 				assert.equal(user, undefined, "user was unexpectedly created");
 			});
 			it("should create the user if instructed to", async function() {
+				slowTest(this);
 				for (let list of lists) {
 					await execCtl(`user set-${list} --create test_create_${list}`);
 					let user = (await getUsers()).get(`test_create_${list}`);
