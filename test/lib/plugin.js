@@ -4,9 +4,9 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const mock = require("../mock");
-const link = require("lib/link");
-const plugin = require("lib/plugin");
-const errors = require("lib/errors");
+const link = require("@clusterio/lib/link");
+const plugin = require("@clusterio/lib/plugin");
+const errors = require("@clusterio/lib/errors");
 
 
 describe("lib/plugin", function() {

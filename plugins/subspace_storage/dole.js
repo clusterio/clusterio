@@ -1,7 +1,7 @@
 "use strict";
 const doleNN = require("./dole_nn_base");
 
-const prometheus = require("lib/prometheus");
+const prometheus = require("@clusterio/lib/prometheus");
 
 
 const prometheusNNDoleGauge = new prometheus.Gauge(

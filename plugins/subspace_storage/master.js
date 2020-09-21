@@ -2,9 +2,9 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const database = require("lib/database");
-const plugin = require("lib/plugin");
-const prometheus = require("lib/prometheus");
+const database = require("@clusterio/lib/database");
+const plugin = require("@clusterio/lib/plugin");
+const prometheus = require("@clusterio/lib/prometheus");
 
 const routes = require("./routes");
 const dole = require("./dole");

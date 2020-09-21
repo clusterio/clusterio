@@ -1,7 +1,7 @@
 "use strict";
-const plugin = require("lib/plugin");
+const plugin = require("@clusterio/lib/plugin");
 const info = require("./info");
-const command = require("lib/command");
+const command = require("@clusterio/lib/command");
 
 
 const globalChatCommands = new command.CommandTree({ name: "global-chat", description: "Global Chat plugin commands" });

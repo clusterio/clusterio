@@ -230,8 +230,8 @@ there's [Requests](#requests).  By convention message types ending in
 `*_event` are events.  The data payload of an event consists solely of
 event specific properties.
 
-See [lib/link/messages.js](/lib/link/messages.js) for the recognized
-events and their contents.
+See [packages/lib/link/messages.js](/packages/lib/link/messages.js) for
+the recognized events and their contents.
 
 
 Requests
@@ -245,8 +245,8 @@ replied to with a corresponding `*_response` message.  If an error
 occured while processing the request an error response containing an
 error property in the data payload is sent instead.
 
-See [lib/link/messages.js](/lib/link/messages.js) for the recognized
-requests and their contents.
+See [packages/lib/link/messages.js](/packages/lib/link/messages.js) for
+the recognized requests and their contents.
 
 ### `*_response`
 

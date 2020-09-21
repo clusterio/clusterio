@@ -3,7 +3,7 @@ const assert = require("assert");
 const fs = require("fs-extra");
 const path = require("path");
 
-const generateSSLcert = require("lib/generateSSLcert");
+const generateSSLcert = require("@clusterio/master/src/generate_ssl_cert");
 
 describe("generateSSLcert.js(options)", function() {
 	let testDir = path.join("temp", "test", "certTest");

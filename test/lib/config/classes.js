@@ -1,5 +1,5 @@
 "use strict";
-const classes = require("lib/config/classes");
+const classes = require("@clusterio/lib/config/classes");
 const assert = require("assert").strict;
 
 

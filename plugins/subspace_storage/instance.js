@@ -1,8 +1,8 @@
 "use strict";
 const fs = require("fs-extra");
 
-const plugin = require("lib/plugin");
-const luaTools = require("lib/luaTools");
+const plugin = require("@clusterio/lib/plugin");
+const luaTools = require("@clusterio/lib/luaTools");
 
 function unexpectedError(err) {
 	console.log("Unexpected error in subspace_storage");

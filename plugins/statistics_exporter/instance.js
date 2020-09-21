@@ -1,6 +1,6 @@
 "use strict";
-const plugin = require("lib/plugin");
-const { Gauge } = require("lib/prometheus");
+const plugin = require("@clusterio/lib/plugin");
+const { Gauge } = require("@clusterio/lib/prometheus");
 
 
 const instancePlayerCount = new Gauge(

@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 
-const database = require("lib/database");
+const database = require("@clusterio/lib/database");
 
 describe("lib/database", function() {
 	describe("mapToObject()", function() {

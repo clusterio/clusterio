@@ -1,8 +1,6 @@
 "use strict";
-const needle = require("needle");
-
-const plugin = require("lib/plugin");
-const luaTools = require("lib/luaTools");
+const plugin = require("@clusterio/lib/plugin");
+const luaTools = require("@clusterio/lib/luaTools");
 
 
 function unexpectedError(err) {

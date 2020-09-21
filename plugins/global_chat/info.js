@@ -1,6 +1,6 @@
 "use strict";
-let link = require("lib/link");
-let plugin = require("lib/plugin");
+let link = require("@clusterio/lib/link");
+let plugin = require("@clusterio/lib/plugin");
 
 module.exports = {
 	name: "global_chat",

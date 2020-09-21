@@ -3,9 +3,9 @@ const assert = require("assert").strict;
 const path = require("path");
 const fs = require("fs-extra");
 
-const link = require("lib/link");
-const config = require("lib/config");
-const slave = require("../slave");
+const link = require("@clusterio/lib/link");
+const config = require("@clusterio/lib/config");
+const slave = require("@clusterio/slave/slave");
 
 describe("Slave testing", function() {
 	before(function() {

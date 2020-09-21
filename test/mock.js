@@ -1,7 +1,7 @@
 "use strict";
 const events = require("events");
 
-const link = require("lib/link");
+const link = require("@clusterio/lib/link");
 
 
 class MockSocket {

@@ -2,5 +2,4 @@
 // required here in order to track coverage for them.
 
 "use strict";
-require("lib/manager/modManager");
-require("lib/npmPostinstall.js");
+require("@clusterio/master/npm_post_install.js");

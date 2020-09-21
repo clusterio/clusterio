@@ -5,7 +5,7 @@ const path = require("path");
 const validateHTML = require("html5-validator");
 const parallel = require("mocha.parallel");
 
-const link = require("lib/link");
+const link = require("@clusterio/lib/link");
 
 const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
@@ -18,7 +18,7 @@ describe("Integration of Clusterio", function() {
 		for (let path of paths) {
 			it(`sends some HTML when accessing ${path}`, async function() {
 				let res = await get(path);
-				let validation = await validateHTML(res.body);
+				let validation = await validateHTML(res.body.toString());
 				let filtered = validation.messages.filter(msg => msg.type !== "info");
 				assert(
 					filtered.length === 0,
@@ -29,7 +29,7 @@ describe("Integration of Clusterio", function() {
 	});
 
 
-	describe("clusterctl", function() {
+	describe("clusterioctl", function() {
 		describe("slave list", function() {
 			it("runs", async function() {
 				await execCtl("slave list");
@@ -197,6 +197,7 @@ describe("Integration of Clusterio", function() {
 				}
 			});
 			it("should not create the user if not instructed to", async function() {
+				slowTest(this);
 				for (let list of lists) {
 					try {
 						await execCtl(`user set-${list} no_create_test`);
@@ -206,6 +207,7 @@ describe("Integration of Clusterio", function() {
 				assert.equal(user, undefined, "user was unexpectedly created");
 			});
 			it("should create the user if instructed to", async function() {
+				slowTest(this);
 				for (let list of lists) {
 					await execCtl(`user set-${list} --create test_create_${list}`);
 					let user = (await getUsers()).get(`test_create_${list}`);

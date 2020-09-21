@@ -2,9 +2,9 @@
 const assert = require("assert").strict;
 const events = require("events");
 
-const link = require("lib/link");
-const errors = require("lib/errors");
-const schema = require("lib/schema");
+const link = require("@clusterio/lib/link");
+const errors = require("@clusterio/lib/errors");
+const schema = require("@clusterio/lib/schema");
 const mock = require("../../mock");
 
 
