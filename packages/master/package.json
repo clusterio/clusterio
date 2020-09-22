@@ -6,8 +6,7 @@
   "version": "2.0.0-alpha0",
   "main": "master.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "install": "node npm_post_install"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
     "clusteriomaster": "./master.js"
@@ -23,16 +22,13 @@
     "body-parser": "^1.18.2",
     "compression": "^1.7.2",
     "cookie-parser": "^1.4.3",
-    "ejs": "^2.5.7",
     "express": "^4.16.2",
     "express-fileupload": "1.2.0",
     "fs-extra": "^8.1.0",
     "jsonwebtoken": "^8.2.1",
     "jszip": "^3.2.2",
-    "moment": "^2.22.2",
     "node-factorio-api": "^0.3.8",
     "node-forge": "^0.10.0",
-    "request": "^2.83.0",
     "set-blocking": "^2.0.0",
     "ws": "^7.2.3",
     "yargs": "^14.2.0"

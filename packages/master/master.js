@@ -23,8 +23,6 @@ const path = require("path");
 const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const moment = require("moment");
-const request = require("request");
 const setBlocking = require("set-blocking");
 const events = require("events");
 const yargs = require("yargs");
@@ -72,23 +70,6 @@ app.use(bodyParser.urlencoded({
 app.use(fileUpload());
 app.use(compression());
 
-// dynamic HTML generations with EJS
-app.set("view engine", "ejs");
-app.set("views", ["views", "plugins"]);
-
-// give ejs access to some interesting information
-app.use(function(req, res, next){
-	let externalAddress = masterConfig.get("master.external_address");
-	res.locals.root = externalAddress ? new URL(externalAddress).pathname : "/";
-	res.locals.res = res;
-	res.locals.req = req;
-	res.locals.masterPlugins = masterPlugins;
-	res.locals.slaves = db.slaves;
-	res.locals.moment = moment;
-	next();
-});
-
-require("./src/routes")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static(path.join(__dirname, "static")));
 app.use(express.static("static")); // Used for data export files
@@ -437,24 +418,6 @@ async function shutdown() {
 		process.exit(1);
 	}
 }
-
-// wrap a request in an promise
-async function downloadPage(url) {
-	return new Promise((resolve, reject) => {
-		request(url, (error, response, body) => {
-			resolve(body);
-		});
-	});
-}
-
-app.get("/api/modmeta", async function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.setHeader("Content-Type", "application/json");
-	let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
-	res.send(modData);
-});
-
 
 /**
  * Base class for master server connections

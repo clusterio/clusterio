@@ -30,19 +30,6 @@ const masterInventoryGauge = new prometheus.Gauge(
 class MasterPlugin extends plugin.BaseMasterPlugin {
 	async init() {
 
-		let externalAddress = this.master.config.get("master.external_address");
-		let root = externalAddress ? new URL(externalAddress).pathname : "/";
-		this.ui = {
-			sidebar: [
-				{
-					getHtml: () => `
-    <div class="nav-item mr-1">
-        <a class="nav-link align-middle" href="${root}subspace_storage/storage">Storage</a>
-    </div>`,
-				},
-			],
-		};
-
 		this.items = await loadDatabase(this.master.config);
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 		this.autosaveId = setInterval(() => {
@@ -61,7 +48,6 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 		}, 1000);
 
 		routes.addApiRoutes(this.master.app, this.items, this.metrics.endpointHitCounter);
-		routes.addWebRoutes(this.master.app);
 	}
 
 	updateStorage() {
