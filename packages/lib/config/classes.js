@@ -2,8 +2,8 @@
 "use strict";
 
 const events = require("events");
-const util = require("util");
 
+const isDeepStrictEqual = require("../is_deep_strict_equal");
 const { basicType } = require("@clusterio/lib/helpers");
 
 
@@ -415,7 +415,7 @@ class ConfigGroup {
 
 		let prev = this._fields.get(name);
 		this._fields.set(name, value);
-		if (this._config && !util.isDeepStrictEqual(value, prev)) {
+		if (this._config && !isDeepStrictEqual(value, prev)) {
 			this._config.emit("fieldChanged", this, name, prev);
 		}
 	}
@@ -452,7 +452,7 @@ class ConfigGroup {
 
 		updated[prop] = value;
 		this._fields.set(name, updated);
-		if (this._config && !util.isDeepStrictEqual(updated, prev)) {
+		if (this._config && !isDeepStrictEqual(updated, prev)) {
 			this._config.emit("fieldChanged", this, name, prev);
 		}
 	}
@@ -502,7 +502,7 @@ class ConfigGroup {
 
 			let prev = this._fields.get(name);
 			this._fields.set(name, value);
-			if (notify && this._config && !util.isDeepStrictEqual(value, prev)) {
+			if (notify && this._config && !isDeepStrictEqual(value, prev)) {
 				this._config.emit("fieldChanged", this, name, prev);
 			}
 		}
