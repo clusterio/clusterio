@@ -1553,7 +1553,9 @@ async function startServer() {
 				})
 				.demandCommand(1, "You need to specify a command to run");
 		})
-		.command("run", "Run master server")
+		.command("run", "Run master server", yargs => {
+			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
+		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
@@ -1633,6 +1635,16 @@ async function startServer() {
 	}
 
 	// If we get here the command was run
+
+	if (args.dev) {
+		console.log("Development mode enabled");
+		const webpack = require("webpack");
+		const middleware = require("webpack-dev-middleware");
+		const webpackConfig = require("./webpack.config");
+
+		const compiler = webpack(webpackConfig({}));
+		app.use(middleware(compiler, {}));
+	}
 
 	let secondSigint = false;
 	process.on("SIGINT", () => {

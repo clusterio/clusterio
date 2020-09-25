@@ -1,5 +1,5 @@
 import React, { Component } from "react"
-import { Card, Table, Button, List, Popover, Select, Divider, Input, Form, Col, Row, Checkbox, Space } from "antd"
+import { Card, Button, Popover, Select, Divider, Input, Form, Col, Row, Checkbox, Space } from "antd"
 import {
     listSlaves,
     listInstances,
@@ -15,7 +15,9 @@ import {
 } from "../../util/wslink"
 import DataTable from "../../components/data-table"
 import notify from "../../util/notify"
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons"
+import DeleteOutlined from "@ant-design/icons/DeleteOutlined"
+import EditOutlined from "@ant-design/icons/EditOutlined"
+import PlusOutlined from "@ant-design/icons/PlusOutlined"
 
 const { Option } = Select
 
@@ -27,8 +29,8 @@ export class InstanceView extends Component {
             slaves: [],
             logLines: [{ message: "Logviewer. Follows the latest logs if you scroll to the bottom. Does not store logs past the lifetime of this tab" }],
         }
+        this.messagesEndRef = React.createRef()
     }
-    messagesEndRef = React.createRef()
     navigate(url) {
         this.props.history.push(url);
     }
@@ -50,7 +52,7 @@ export class InstanceView extends Component {
             // this.messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
         }
     }
-    getData = async () => {
+    async getData() {
         let id = this.props.match.params.id
 
         let instances = await listInstances()
@@ -67,7 +69,7 @@ export class InstanceView extends Component {
             config
         })
     }
-    start = async () => {
+    async start() {
         this.setState({
             starting: true,
         })
@@ -88,7 +90,7 @@ export class InstanceView extends Component {
         })
         this.getData()
     }
-    stop = async () => {
+    async stop() {
         this.setState({
             stopping: true,
         })
@@ -108,7 +110,7 @@ export class InstanceView extends Component {
         })
         this.getData()
     }
-    createSave = async () => {
+    async createSave() {
         this.setState({
             creatingSave: true,
         })
@@ -127,7 +129,7 @@ export class InstanceView extends Component {
             creatingSave: false,
         })
     }
-    onConfigEditFinish = async values => {
+    async onConfigEditFinish(values) {
         console.log("Completed config edit with", values)
         for (let k in values) {
             if (values[k] !== this.getInstanceConfigAsKvObject(this.state.config)[k]) {
@@ -150,28 +152,29 @@ export class InstanceView extends Component {
     render() {
         console.log(this.state)
         let { instance, slaves } = this.state
+        let slave = slaves && slaves.find(x => x.id === instance.assigned_slave);
         return <Card>
             <h2>{instance.name}</h2>
             <p>ID: {instance.id}</p>
-            <p>Slave: {slaves?.find(x => x.id === instance.assigned_slave)?.name}</p>
+            <p>Slave: {slave && slave.name}</p>
             {instance.status !== "running" && <Button
                 loading={this.state.starting}
                 type="primary"
-                onClick={this.start}
+                onClick={this.start.bind(this)}
             >
                 Start server
             </Button>}
             {instance.status !== "stopped" && <Button
                 loading={this.state.stopping}
                 type="primary"
-                onClick={this.stop}
+                onClick={this.stop.bind(this)}
             >
                 Stop server
             </Button>}
             {instance.status !== "running" && <Button
                 loading={this.state.creatingSave}
                 type="primary"
-                onClick={this.createSave}
+                onClick={this.createSave.bind(this)}
             >
                 Create save
             </Button>}
@@ -283,7 +286,7 @@ export class InstanceView extends Component {
             <Form
                 {...layout}
                 initialValues={this.getInstanceConfigAsKvObject(config)}
-                onFinish={this.onConfigEditFinish}
+                onFinish={this.onConfigEditFinish.bind(this)}
             >
                 {this.state.editingConfig ?
                     <Form.Item>

@@ -1,5 +1,5 @@
 import React, { Component } from "react"
-import { Card, Table } from "antd"
+import { Card } from "antd"
 import { listSlaves, listInstances, listRoles, createRole } from "../../util/wslink"
 import DataTable from "../../components/data-table"
 

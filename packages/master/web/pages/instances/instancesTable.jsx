@@ -1,8 +1,8 @@
 import React, { Component } from "react"
-import { Card, Table } from "antd"
+import { Card } from "antd"
 import { listSlaves, listInstances, createInstance } from "../../util/wslink"
 import DataTable from "../../components/data-table"
-const config = require("../../lib/config")
+const config = require("@clusterio/lib/config")
 
 export class InstancesTable extends Component {
     constructor(props) {

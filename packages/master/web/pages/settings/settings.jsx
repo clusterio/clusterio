@@ -1,5 +1,5 @@
 import React, { Component } from "react"
-import { Card, Button, Select, Input, Form } from "antd"
+import { Card, Button, Input, Form } from "antd"
 
 const layout = {
     labelCol: {

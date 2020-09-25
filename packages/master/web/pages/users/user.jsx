@@ -1,17 +1,6 @@
 import React, { Component } from "react"
-import { Card, Table, Button, List, Popover, Select, Divider, Input, Form, Col, Row, Checkbox, Space, Transfer } from "antd"
+import { Card, Button, Popover, Select, Transfer } from "antd";
 import {
-    listSlaves,
-    listInstances,
-    startInstance,
-    stopInstance,
-    setInstanceOutputSubscriptions,
-    deleteInstance,
-    assignInstance,
-    createSave,
-    getInstanceConfig,
-    setInstanceConfigField,
-    sendRcon,
     deleteUser,
     listUsers,
     listRoles,
@@ -19,7 +8,7 @@ import {
 } from "../../util/wslink"
 import DataTable from "../../components/data-table"
 import notify from "../../util/notify"
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons"
+import DeleteOutlined from "@ant-design/icons/DeleteOutlined"
 
 const { Option } = Select
 
@@ -29,15 +18,15 @@ export class UserView extends Component {
         this.state = {
             user: {}
         }
+        this.messagesEndRef = React.createRef();
     }
-    messagesEndRef = React.createRef()
     navigate(url) {
         this.props.history.push(url);
     }
     async componentDidMount() {
         await this.getData()
     }
-    getData = async () => {
+    async getData() {
         let name = this.props.match.params.id
 
         let users = await listUsers()
@@ -48,7 +37,7 @@ export class UserView extends Component {
             roles,
         })
     }
-    handleChange = async targetKeys => {
+    async handleChange(targetKeys) {
         this.setState({
             user: {
                 ...this.state.user,
@@ -73,7 +62,7 @@ export class UserView extends Component {
                 showSearch
                 filterOption={(inputValue, option) => option.name.toLowerCase().indexOf(inputValue.toLowerCase()) > -1}
                 targetKeys={user.roles}
-                onChange={this.handleChange}
+                onChange={this.handleChange.bind(this)}
                 render={item => item.name}
             />
             <Popover

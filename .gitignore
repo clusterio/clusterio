@@ -41,7 +41,6 @@ Factorio*
 package-lock.json
 mod_cache.json
 static/export
-packages/master/static/external
 saves
 /temp/
 

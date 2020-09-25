@@ -1,23 +1,9 @@
-import {
-    Layout,
-    Menu,
-    Avatar,
-} from "antd";
-import 'antd/dist/antd.dark.css';
-import {
-    UnorderedListOutlined,
-    UserOutlined,
-    SettingOutlined,
-    GoldOutlined,
-    FileTextOutlined,
-    ScheduleOutlined,
-} from "@ant-design/icons";
+import { Layout, Menu } from "antd";
 
 import { withRouter } from "react-router-dom";
 import { BrowserRouter as Router, Route, Link } from "react-router-dom";
 
 import React, { Component } from "react";
-import { Helmet } from "react-helmet";
 import { Dashboard } from "../pages/dashboard";
 import { InstancesTable } from "../pages/instances/instancesTable";
 import { SlavesTable } from "../pages/slaves/slavesTable"
@@ -39,8 +25,6 @@ class SiteLayout extends Component {
         const { location } = props;
 
         // this.history = useHistory();
-
-        this.onCollapse = this.onCollapse.bind(this);
 
         this.state = {
             collapsed: false,
@@ -76,19 +60,11 @@ class SiteLayout extends Component {
         return (
             <Router>
                 <Layout style={{ minHeight: "100vh" }}>
-                    <Helmet>
-                        <meta charSet="utf-8" />
-                        <title>Clusterio 2.0</title>
-                        <link
-                            href="https://fonts.googleapis.com/css?family=Titillium+Web:200,400&display=swap"
-                            rel="stylesheet"
-                        ></link>
-                    </Helmet>
                     {document.location.search !== "?hideExtras" ? (
                         <Sider
                             collapsible
                             collapsed={this.state.collapsed}
-                            onCollapse={this.onCollapse}
+                            onCollapse={this.onCollapse.bind(this)}
                             width={250}
                             breakpoint="lg"
                         >

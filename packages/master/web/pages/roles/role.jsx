@@ -1,5 +1,8 @@
 import React, { Component } from "react"
-import { Card, Table, Button, List, Popover, Select, Divider, Input, Form, Col, Row, Checkbox, Space, Transfer } from "antd"
+
+import { Card, Button, Popover, Select, Transfer } from "antd"
+import DeleteOutlined from "@ant-design/icons/DeleteOutlined"
+
 import {
     listSlaves,
     listInstances,
@@ -21,7 +24,6 @@ import {
 } from "../../util/wslink"
 import DataTable from "../../components/data-table"
 import notify from "../../util/notify"
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons"
 
 const { Option } = Select
 
@@ -31,15 +33,15 @@ export class RoleView extends Component {
         this.state = {
             role: {}
         }
+        this.messagesEndRef = React.createRef()
     }
-    messagesEndRef = React.createRef()
     navigate(url) {
         this.props.history.push(url);
     }
     async componentDidMount() {
         await this.getData()
     }
-    getData = async () => {
+    async getData() {
         let id = this.props.match.params.id
 
         let roles = await listRoles()
@@ -50,7 +52,7 @@ export class RoleView extends Component {
             permissions,
         })
     }
-    handleChange = async targetKeys => {
+    async handleChange(targetKeys) {
         this.setState({
             role: {
                 ...this.state.role,
@@ -62,7 +64,7 @@ export class RoleView extends Component {
             permissions: targetKeys,
         })
         console.log("Updated user roles", response)
-    };
+    }
     render() {
         console.log(this.state)
         let { role, permissions } = this.state
@@ -103,7 +105,7 @@ export class RoleView extends Component {
                 showSearch
                 filterOption={(inputValue, option) => option.name.toLowerCase().indexOf(inputValue.toLowerCase()) > -1}
                 targetKeys={role.permissions}
-                onChange={this.handleChange}
+                onChange={this.handleChange.bind(this)}
                 render={item => item.name}
             />
         </Card>

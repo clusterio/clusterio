@@ -1,49 +1,41 @@
-const link = require("./../lib/link");
-const plugin = require("./../lib/plugin");
-const errors = require("./../lib/errors");
-const chalk = require("chalk");
+const link = require("@clusterio/lib/link");
+const plugin = require("@clusterio/lib/plugin");
+const errors = require("@clusterio/lib/errors");
+
 /**
- * Format a parsed Factorio output message with colors
+ * Format a parsed Factorio output message
  *
- * Formats a parsed Factorio output from lib/factorio into a readable
- * colorized output using terminal escape codes that can be printed.
+ * Formats a parsed Factorio output from lib/factorio back into the
+ * text string it was parsed from.
  *
  * @param {Object} output - Factorio server output.
- * @returns {string} terminal colorized message.
+ * @returns {string} origial output text.
  * @private
  */
-function formatOutputColored(output) {
+function formatOutput(output) {
 	let time = "";
 	if (output.format === "seconds") {
-		time = chalk.yellow(output.time.padStart(8)) + " ";
+		time = `${output.time.padStart(8)} `;
 	} else if (output.format === "date") {
-		time = chalk.yellow(output.time) + " ";
+		time = `${output.time} `;
 	}
 
 	let info = "";
 	if (output.type === "log") {
-		let level = output.level;
-		if (level === "Info") {
-			level = chalk.bold.blueBright(level);
-		} else if (output.level === "Warning") {
-			level = chalk.bold.yellowBright(level);
-		} else if (output.level === "Error") {
-			level = chalk.bold.redBright(level);
-		}
-
-		info = level + " " + chalk.gray(output.file) + ": ";
+		info = `${output.level} ${output.file}: `;
 
 	} else if (output.type === "action") {
-		info = "[" + chalk.yellow(output.action) + "] ";
+		info = `[${output.action}] `;
 	}
 
-	return time + info + output.message;
+	return `${time}${info}${output.message}`;
 }
+
 /**
  * Connector for control connection to master server
  * @private
  */
-class ControlConnector extends link.WebSocketClientConnector {
+export class ControlConnector extends link.WebSocketClientConnector {
     constructor(url, reconnectDelay, token) {
         super(url, reconnectDelay);
         this._token = token;
@@ -53,7 +45,7 @@ class ControlConnector extends link.WebSocketClientConnector {
         console.log("SOCKET | registering control");
         this.sendHandshake("register_control", {
             token: this._token,
-            agent: "clusterctl",
+            agent: "web",
             version: "2.0.0-alpha",
         });
     }
@@ -65,16 +57,15 @@ class ControlConnector extends link.WebSocketClientConnector {
  * Connects to the master server over WebSocket and sends commands to it.
  * @static
  */
-class Control extends link.Link {
-
+export class Control extends link.Link {
     constructor(connector, controlPlugins) {
         super("control", "master", connector);
         link.attachAllMessages(this);
 
-		/**
-		 * Mapping of plugin names to their instance for loaded plugins.
-		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
-		 */
+        /**
+         * Mapping of plugin names to their instance for loaded plugins.
+         * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
+         */
         this.plugins = controlPlugins;
         for (let controlPlugin of controlPlugins.values()) {
             plugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
@@ -83,7 +74,7 @@ class Control extends link.Link {
 
     async instanceOutputEventHandler(message) {
         let { instance_id, output } = message.data;
-        console.log(formatOutputColored(output));
+        console.log(formatOutput(output));
         window.instanceOutputEventHandler && window.instanceOutputEventHandler({instance_id, output})
     }
 
@@ -104,9 +95,4 @@ class Control extends link.Link {
 
         await this.connector.close(1001, "Control Quit");
     }
-}
-
-export {
-    ControlConnector,
-    Control
 }

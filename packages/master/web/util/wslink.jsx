@@ -1,11 +1,13 @@
 import { Control, ControlConnector } from "./../util/websocket"
-import * as errors from "./../lib/errors"
-import * as link from "./../lib/link"
+import * as errors from "@clusterio/lib/errors"
+import * as link from "@clusterio/lib/link"
+import config from "@clusterio/lib/config"
 
 let control, controlConnector
 
 // Create WS connection to master. Used by all components through the interface exported here.
 (async () => {
+    config.finalizeConfigs();
     controlConnector = new ControlConnector(
         localStorage.getItem("master_url"),
         10, // Reconnect delay
@@ -16,31 +18,7 @@ let control, controlConnector
         await controlConnector.connect();
     } catch (err) {
         console.log(err)
-        if (err instanceof errors.AuthenticationFailed) {
-            throw new errors.StartupError(err.message);
-        }
-        throw err;
     }
-    let response = await link.messages.listSlaves.send(control);
-
-    // console.log(response.list);
-    console.log(link.messages)
-    let data = {}
-    // for (let key in {
-    //     ...link.messages,
-    // }) {
-    //     if (link.messages[key].constructor.name === "Request") {
-    //         let resp, error
-    //         try{
-    //         resp = await link.messages[key].send(control)
-    //         } catch(e){
-    //             error = e
-    //         }
-    //         data[key] = resp
-    //         data[key].error = error
-    //     }
-    // }
-    // console.log(data)
 })()
 
 let listSlaves = createListFunction("listSlaves")
