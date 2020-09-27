@@ -36,6 +36,7 @@ let masterConfigPath;
 let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
 let pluginList = {};
+let devMiddleware;
 
 // homebrew modules
 const generateSSLcert = require("./src/generate_ssl_cert");
@@ -370,6 +371,10 @@ async function shutdown() {
 		await plugin.invokeHook(masterPlugins, "onShutdown");
 
 		stopAcceptingNewSessions = true;
+
+		if (devMiddleware) {
+			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+		}
 
 		let disconnectTasks = [];
 		for (let controlConnection of controlConnections) {
@@ -1636,14 +1641,16 @@ async function startServer() {
 
 	// If we get here the command was run
 
+	// Start webpack development server if enabled
 	if (args.dev) {
-		console.log("Development mode enabled");
+		console.log("Webpack development mode enabled");
 		const webpack = require("webpack");
-		const middleware = require("webpack-dev-middleware");
+		const webpackDevMiddleware = require("webpack-dev-middleware");
 		const webpackConfig = require("./webpack.config");
 
 		const compiler = webpack(webpackConfig({}));
-		app.use(middleware(compiler, {}));
+		devMiddleware = webpackDevMiddleware(compiler, {});
+		app.use(devMiddleware);
 	}
 
 	let secondSigint = false;
