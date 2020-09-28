@@ -5,7 +5,7 @@ import { Route, Link, withRouter } from "react-router-dom";
 import React, { Component } from "react";
 import { Dashboard } from "../pages/dashboard";
 import { InstancesTable } from "../pages/instances/instancesTable";
-import { SlavesTable } from "../pages/slaves/slavesTable"
+import { SlavesTable } from "../pages/slaves/slavesTable";
 import { UsersTable } from "../pages/users/usersTable";
 import { RolesTable } from "../pages/roles/rolesTable";
 import { PermissionsTable } from "../pages/permissions/permissionsTable";
@@ -35,7 +35,7 @@ class SiteLayout extends Component {
 	}
 
 	onCollapse() {
-		this.setState({ collapsed: !this.state.collapsed })
+		this.setState({ collapsed: !this.state.collapsed });
 	}
 
 	titleCase(text) {
@@ -44,10 +44,10 @@ class SiteLayout extends Component {
 
 	replaceParametersInUrl({ endpoint, params }) {
 		let path = endpoint;
-		console.log("endpoint", params)
+		console.log("endpoint", params);
 		Object.keys(params).forEach(key => {
-			path = path.replace(":" + key, params[key])
-		})
+			path = path.replace(":" + key, params[key]);
+		});
 
 		return path;
 	}

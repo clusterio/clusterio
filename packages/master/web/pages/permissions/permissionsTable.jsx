@@ -1,11 +1,11 @@
-import React, { Component } from "react"
-import { Card } from "antd"
-import { listSlaves, listInstances, listPermissions } from "../../util/wslink"
-import DataTable from "../../components/data-table"
+import React, { Component } from "react";
+import { Card } from "antd";
+import { listSlaves, listInstances, listPermissions } from "../../util/wslink";
+import DataTable from "../../components/data-table";
 
 export class PermissionsTable extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 	}
 	navigate(url) {
 		this.props.history.push(url);
@@ -19,12 +19,12 @@ export class PermissionsTable extends Component {
 					onRow: (record, rowIndex) => {
 						return {
 							onClick: event => {
-								this.navigate(`/permissions/${record.id}/view`)
+								this.navigate(`/permissions/${record.id}/view`);
 							}
-						}
+						};
 					}
 				}}
 			/>
-		</Card>
+		</Card>;
 	}
 }

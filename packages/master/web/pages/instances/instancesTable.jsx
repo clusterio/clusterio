@@ -1,12 +1,12 @@
-import React, { Component } from "react"
-import { Card } from "antd"
-import { listSlaves, listInstances, createInstance } from "../../util/wslink"
-import DataTable from "../../components/data-table"
-const config = require("@clusterio/lib/config")
+import React, { Component } from "react";
+import { Card } from "antd";
+import { listSlaves, listInstances, createInstance } from "../../util/wslink";
+import DataTable from "../../components/data-table";
+const config = require("@clusterio/lib/config");
 
 export class InstancesTable extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 	}
 	navigate(url) {
 		this.props.history.push(url);
@@ -23,11 +23,11 @@ export class InstancesTable extends Component {
 					insert: async args => {
 						let instanceConfig = new config.InstanceConfig();
 						await instanceConfig.init();
-						console.log("Base config", instanceConfig)
+						console.log("Base config", instanceConfig);
 						instanceConfig.set("instance.name", args.name);
 						let serialized_config = instanceConfig.serialize();
-						let response = await createInstance(serialized_config)
-						console.log("Created instance", response)
+						let response = await createInstance(serialized_config);
+						console.log("Created instance", response);
 					}
 				}}
 				DataFunction={listInstances}
@@ -35,12 +35,12 @@ export class InstancesTable extends Component {
 					onRow: (record, rowIndex) => {
 						return {
 							onClick: event => {
-								this.navigate(`/instances/${record.id}/view`)
+								this.navigate(`/instances/${record.id}/view`);
 							}
-						}
+						};
 					}
 				}}
 			/>
-		</Card>
+		</Card>;
 	}
 }

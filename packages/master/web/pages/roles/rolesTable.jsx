@@ -1,11 +1,11 @@
-import React, { Component } from "react"
-import { Card } from "antd"
-import { listSlaves, listInstances, listRoles, createRole } from "../../util/wslink"
-import DataTable from "../../components/data-table"
+import React, { Component } from "react";
+import { Card } from "antd";
+import { listSlaves, listInstances, listRoles, createRole } from "../../util/wslink";
+import DataTable from "../../components/data-table";
 
 export class RolesTable extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 	}
 	navigate(url) {
 		this.props.history.push(url);
@@ -23,8 +23,8 @@ export class RolesTable extends Component {
 						title: "Description"
 					}],
 					insert: async args => {
-						let response = await createRole({name: args.name, description: args.description})
-						console.log("Created role",response)
+						let response = await createRole({name: args.name, description: args.description});
+						console.log("Created role",response);
 					}
 				}}
 				DataFunction={listRoles}
@@ -32,12 +32,12 @@ export class RolesTable extends Component {
 					onRow: (record, rowIndex) => {
 						return {
 							onClick: event => {
-								this.navigate(`/roles/${record.id}/view`)
+								this.navigate(`/roles/${record.id}/view`);
 							}
-						}
+						};
 					}
 				}}
 			/>
-		</Card>
+		</Card>;
 	}
 }

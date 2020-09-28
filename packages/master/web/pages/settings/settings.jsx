@@ -1,5 +1,5 @@
-import React, { Component } from "react"
-import { Card, Button, Input, Form } from "antd"
+import React, { Component } from "react";
+import { Card, Button, Input, Form } from "antd";
 
 const layout = {
 	labelCol: {
@@ -18,16 +18,16 @@ const tailLayout = {
 
 export class Settings extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 		this.state = {
 			role: {}
-		}
+		};
 	}
 	navigate(url) {
 		this.props.history.push(url);
 	}
 	render() {
-		console.log(this.state)
+		console.log(this.state);
 		return <Card>
 			<h2>Web interface settings</h2>
 			<Form
@@ -38,12 +38,12 @@ export class Settings extends Component {
 					master_token: localStorage.getItem("master_token"),
 				}}
 				onFinish={values => {
-					console.log("Saving settings",values)
+					console.log("Saving settings",values);
 					for(let key of Object.keys(values)){
-						localStorage.setItem(key, values[key].replace("https://", "wss://").replace("http://", "ws://"))
+						localStorage.setItem(key, values[key].replace("https://", "wss://").replace("http://", "ws://"));
 					}
 					// Force refresh to apply changes
-					document.location = document.location
+					document.location = document.location;
 				}}
 			>
 				<Form.Item
@@ -76,6 +76,6 @@ export class Settings extends Component {
 					</Button>
 				</Form.Item>
 			</Form>
-		</Card>
+		</Card>;
 	}
 }

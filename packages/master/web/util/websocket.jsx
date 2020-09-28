@@ -75,7 +75,7 @@ export class Control extends link.Link {
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
 		console.log(formatOutput(output));
-		window.instanceOutputEventHandler && window.instanceOutputEventHandler({instance_id, output})
+		window.instanceOutputEventHandler && window.instanceOutputEventHandler({instance_id, output});
 	}
 
 	async debugWsMessageEventHandler(message) {

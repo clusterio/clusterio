@@ -1,6 +1,6 @@
 import React, { Component } from "react";
 import { Collapse, Row, Col, Modal, Table, Form, Input, Button, Popover } from "antd";
-import PlusOutlined from "@ant-design/icons/PlusOutlined"
+import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import notify from "../util/notify";
@@ -21,7 +21,7 @@ const { Panel } = Collapse;
 class DataTable extends Component {
 	constructor(props) {
 		super(props);
-		if (!this.props.DataFunction) throw new Error("DataFunction not defined")
+		if (!this.props.DataFunction) throw new Error("DataFunction not defined");
 		this.state = {
 			pagination: {
 				pageSize: 100,
@@ -32,11 +32,11 @@ class DataTable extends Component {
 			tableData: [],
 			showEditModal: false,
 			record: {},
-		}
+		};
 	}
 
 	componentDidMount() {
-		this.getData()
+		this.getData();
 	}
 
 	async getData(pagination, filters, sorter) {
@@ -51,12 +51,12 @@ class DataTable extends Component {
             }
             sorter = {}
         */
-		pagination = pagination || this.state.pagination
-		filters = filters || this.state.filters
-		sorter = sorter || this.state.sorter
+		pagination = pagination || this.state.pagination;
+		filters = filters || this.state.filters;
+		sorter = sorter || this.state.sorter;
 		// console.log(pagination, filters, sorter)
 
-		let data = await this.props.DataFunction()
+		let data = await this.props.DataFunction();
 		// await fetchApi(this.state.dataUrl, "post", {
 		//     database: this.props.Database,
 		//     table: this.props.Table,
@@ -66,14 +66,14 @@ class DataTable extends Component {
 		//     sorter,
 		//     recordIdField: this.props.RecordIdField || "Id", // Sort by this
 		// })
-		console.log(data)
-		data = data || {}
+		console.log(data);
+		data = data || {};
 		this.setState({
 			tableData: this.props.CustomDataFilterFunction ? this.props.CustomDataFilterFunction(data) : data,
 			pagination: { ...pagination, ...data.pagination },
 			sorter,
 			filters,
-		})
+		});
 	}
 
 	showEditModal(record, index) {
@@ -81,40 +81,40 @@ class DataTable extends Component {
 			this.setState({
 				record: record,
 				showEditModal: true,
-			})
+			});
 	}
 	hideEditModal() {
 		this.setState({
 			showEditModal: false,
 			inserting: false,
 			record: {}
-		})
+		});
 	}
 	async onEditFinish(values) {
-		console.log("Finished editing", values)
+		console.log("Finished editing", values);
 
 		if (this.state.inserting) { // Create new record
-			var status = {}
-			await this.props.AddRecord.insert(values)
+			var status = {};
+			await this.props.AddRecord.insert(values);
 		} else { // Edit existing record, capable of doing sparse updates
-			var status = {}
-			await this.props.Editable.insert(values)
+			var status = {};
+			await this.props.Editable.insert(values);
 		}
 		this.setState({
 			showEditModal: false,
 			inserting: false,
 			record: {},
-		})
+		});
 		// Force refresh of data
-		this.getData()
+		this.getData();
 	}
 	async deleteRecord(record) {
-		delete record.key
+		delete record.key;
 		// Delete "null" values as they seem to cause deletes to fail silently when the value is null and field type is float
 		for (let key in record) {
-			if (record[key] === null) delete record[key]
+			if (record[key] === null) delete record[key];
 		}
-		var status = {}
+		var status = {};
 		//  await fetchApi(`/api/${this.props.Server}/tableData/record`, "delete", {
 		//     database: this.props.Database,
 		//     table: this.props.Table,
@@ -122,13 +122,13 @@ class DataTable extends Component {
 		//     record,
 		// }, undefined, true)
 
-		console.log("Deleted record", status)
+		console.log("Deleted record", status);
 
-		if (status.ok) notify("success", status.msg, "success")
-		if (!status.ok) notify("error", status.msg, "error")
+		if (status.ok) notify("success", status.msg, "success");
+		if (!status.ok) notify("error", status.msg, "error");
 
 		// Force refresh of data
-		this.getData()
+		this.getData();
 	}
 	render() {
 		let tableProps = {
@@ -141,31 +141,31 @@ class DataTable extends Component {
                 */
 				let externalOnRow = {
 					...(this.props.TableProps && this.props.TableProps.onRow && this.props.TableProps.onRow(record, rowIndex)),
-				}
+				};
 				return {
 					onClick: event => {
 						if (event.target.type !== "button") {
-							console.log("onRow", record, rowIndex)
-							if (this.props.Editable) this.showEditModal(record, rowIndex)
-							if (externalOnRow.onClick) externalOnRow.onClick(event)
+							console.log("onRow", record, rowIndex);
+							if (this.props.Editable) this.showEditModal(record, rowIndex);
+							if (externalOnRow.onClick) externalOnRow.onClick(event);
 						}
 					},
 					onDoubleClick: event => {
-						if (externalOnRow.onDoubleClick) externalOnRow.onDoubleClick(event)
+						if (externalOnRow.onDoubleClick) externalOnRow.onDoubleClick(event);
 					},
 					onContextMenu: event => {
-						if (externalOnRow.onContextMenu) externalOnRow.onContextMenu(event)
+						if (externalOnRow.onContextMenu) externalOnRow.onContextMenu(event);
 					},
 					onMouseEnter: event => {
-						if (externalOnRow.onMouseEnter) externalOnRow.onMouseEnter(event)
+						if (externalOnRow.onMouseEnter) externalOnRow.onMouseEnter(event);
 					},
 					onMouseLeave: event => {
-						if (externalOnRow.onMouseLeave) externalOnRow.onMouseLeave(event)
+						if (externalOnRow.onMouseLeave) externalOnRow.onMouseLeave(event);
 					},
-				}
+				};
 			}
-		}
-		let columns = this.props.columns || this.inferColumns(this.state.tableData)
+		};
+		let columns = this.props.columns || this.inferColumns(this.state.tableData);
 		if (this.props.DeleteRecord && !columns.find(x => x.dataIndex === "notInUse")) columns.push({
 			// Add delete button on the right
 			dataIndex: "notInUse",
@@ -176,7 +176,7 @@ class DataTable extends Component {
 						type="primary"
 						danger
 						onClick={() => {
-							this.deleteRecord(record)
+							this.deleteRecord(record);
 						}}
 					>
                         Slett permanent
@@ -188,7 +188,7 @@ class DataTable extends Component {
 					<DeleteOutlined />
 				</Button>
 			</Popover>
-		})
+		});
 
 		return <>
 			<Row>
@@ -207,7 +207,7 @@ class DataTable extends Component {
 							return {
 								...x, // Add a 4th parameter to the stock render function with all of our table data
 								render: x.render ? (...originalParams) => x.render(...originalParams, this.state.tableData) : undefined
-							}
+							};
 						})}
 						dataSource={this.state.tableData}
 						pagination={this.state.pagination.total > 10 ? this.state.pagination : false}
@@ -245,12 +245,12 @@ class DataTable extends Component {
 								(this.state.inserting && this.props.AddRecord && this.props.AddRecord.fields) // Use externally supplied form input fields
                                 || this.props.columns.filter && this.props.columns.filter(x => x.dataIndex !== "notInUse") // Generate input fields from external columns
                                 || this.inferColumns(this.state.tableData)).map(col => { // Generate input fields from autogenerated columns (only works with existing data)
-								console.log(this.state.record)
+								console.log(this.state.record);
 								return <Form.Item key={col.dataIndex} label={col.title} name={col.dataIndex}>
 									{col.renderEdit && col.renderEdit(this.state.record[col.dataIndex], this.state.record, undefined /* Non spec compliant, is supposed to be index of record */, this.state.tableData) || <Input
 										placeholder={this.state.record[col.dataIndex]}
 									/>}
-								</Form.Item>
+								</Form.Item>;
 							})
 						}
 						<Form.Item>
@@ -261,24 +261,24 @@ class DataTable extends Component {
 					</Form>}
 				</Modal>
 			</Row>
-		</>
+		</>;
 	}
 	inferColumns(data) {
 		// Look at the data and find columns and how to display them. Can be overridden by props.Columns if more customization is needed
-		let columns = []
+		let columns = [];
 		data.forEach(row => {
 			Object.keys(row).filter(x => x !== "key").forEach(key => {
-				let existing = columns.find(col => col.key === key)
+				let existing = columns.find(col => col.key === key);
 				if (!existing) {
 					columns.push({
 						key: key,
 						title: key,
 						dataIndex: key,
-					})
+					});
 				}
-			})
-		})
-		return columns
+			});
+		});
+		return columns;
 	}
 }
 

@@ -1,7 +1,7 @@
-import React, { Component } from "react"
+import React, { Component } from "react";
 
-import { Card, Button, Popover, Select, Transfer } from "antd"
-import DeleteOutlined from "@ant-design/icons/DeleteOutlined"
+import { Card, Button, Popover, Select, Transfer } from "antd";
+import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import {
 	listSlaves,
@@ -21,36 +21,36 @@ import {
 	setRoles,
 	listPermissions,
 	updateRole,
-} from "../../util/wslink"
-import DataTable from "../../components/data-table"
-import notify from "../../util/notify"
+} from "../../util/wslink";
+import DataTable from "../../components/data-table";
+import notify from "../../util/notify";
 
-const { Option } = Select
+const { Option } = Select;
 
 export class RoleView extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 		this.state = {
 			role: {}
-		}
-		this.messagesEndRef = React.createRef()
+		};
+		this.messagesEndRef = React.createRef();
 	}
 	navigate(url) {
 		this.props.history.push(url);
 	}
 	async componentDidMount() {
-		await this.getData()
+		await this.getData();
 	}
 	async getData() {
-		let id = this.props.match.params.id
+		let id = this.props.match.params.id;
 
-		let roles = await listRoles()
-		let permissions = await listPermissions()
+		let roles = await listRoles();
+		let permissions = await listPermissions();
 
 		this.setState({
 			role: roles.find(x => x.id === Number(id)),
 			permissions,
-		})
+		});
 	}
 	async handleChange(targetKeys) {
 		this.setState({
@@ -62,12 +62,12 @@ export class RoleView extends Component {
 		let response = await updateRole({
 			...this.state.role,
 			permissions: targetKeys,
-		})
-		console.log("Updated user roles", response)
+		});
+		console.log("Updated user roles", response);
 	}
 	render() {
-		console.log(this.state)
-		let { role, permissions } = this.state
+		console.log(this.state);
+		let { role, permissions } = this.state;
 		return <Card>
 			<Popover
 				content={
@@ -75,9 +75,9 @@ export class RoleView extends Component {
 						type="primary"
 						danger
 						onClick={async () => {
-							await deleteUser({ role: role.name })
-							notify("Deleted role " + role.name, "success")
-							this.navigate("/roles")
+							await deleteUser({ role: role.name });
+							notify("Deleted role " + role.name, "success");
+							this.navigate("/roles");
 						}}
 					>
                         Delete this role permanently
@@ -108,6 +108,6 @@ export class RoleView extends Component {
 				onChange={this.handleChange.bind(this)}
 				render={item => item.name}
 			/>
-		</Card>
+		</Card>;
 	}
 }

@@ -1,5 +1,5 @@
-import React, { Component } from "react"
-import { Card, Button, Popover, Select, Divider, Input, Form, Col, Row, Checkbox, Space } from "antd"
+import React, { Component } from "react";
+import { Card, Button, Popover, Select, Divider, Input, Form, Col, Row, Checkbox, Space } from "antd";
 import {
 	listSlaves,
 	listInstances,
@@ -12,146 +12,146 @@ import {
 	getInstanceConfig,
 	setInstanceConfigField,
 	sendRcon,
-} from "../../util/wslink"
-import DataTable from "../../components/data-table"
-import notify from "../../util/notify"
-import DeleteOutlined from "@ant-design/icons/DeleteOutlined"
-import EditOutlined from "@ant-design/icons/EditOutlined"
-import PlusOutlined from "@ant-design/icons/PlusOutlined"
+} from "../../util/wslink";
+import DataTable from "../../components/data-table";
+import notify from "../../util/notify";
+import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
+import EditOutlined from "@ant-design/icons/EditOutlined";
+import PlusOutlined from "@ant-design/icons/PlusOutlined";
 
-const { Option } = Select
+const { Option } = Select;
 
 export class InstanceView extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 		this.state = {
 			instance: {},
 			slaves: [],
 			logLines: [{ message: "Logviewer. Follows the latest logs if you scroll to the bottom. Does not store logs past the lifetime of this tab" }],
-		}
-		this.messagesEndRef = React.createRef()
+		};
+		this.messagesEndRef = React.createRef();
 	}
 	navigate(url) {
 		this.props.history.push(url);
 	}
 	async componentDidMount() {
-		let id = this.props.match.params.id
+		let id = this.props.match.params.id;
 
-		await this.getData()
+		await this.getData();
 
 		await setInstanceOutputSubscriptions({
 			instance_id: Number(id),
-		})
+		});
 		window.instanceOutputEventHandler = ({ instance_id, output }) => {
 			if (instance_id === Number(id)) {
 				this.setState({
 					logLines: [...this.state.logLines, output],
-				})
+				});
 			}
 			// Automatically scroll to bottom on new line.
 			// this.messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-		}
+		};
 	}
 	async getData() {
-		let id = this.props.match.params.id
+		let id = this.props.match.params.id;
 
-		let instances = await listInstances()
-		let slaves = await listSlaves()
+		let instances = await listInstances();
+		let slaves = await listSlaves();
 
 		this.setState({
 			instance: instances.find(x => x.id === Number(id)),
 			slaves,
-		})
+		});
 
-		let config = await getInstanceConfig({ instance_id: Number(id) })
-		console.log(config)
+		let config = await getInstanceConfig({ instance_id: Number(id) });
+		console.log(config);
 		this.setState({
 			config
-		})
+		});
 	}
 	async start() {
 		this.setState({
 			starting: true,
-		})
+		});
 		try {
 			await startInstance({
 				instance_id: this.state.instance.id,
 				save: null,
-			})
+			});
 		} catch (e) {
-			notify("Error starting instance", "error", e.message)
+			notify("Error starting instance", "error", e.message);
 			return this.setState({
 				starting: false,
-			})
+			});
 		}
-		notify("Instance started")
+		notify("Instance started");
 		this.setState({
 			starting: false,
-		})
-		this.getData()
+		});
+		this.getData();
 	}
 	async stop() {
 		this.setState({
 			stopping: true,
-		})
+		});
 		try {
 			await stopInstance({
 				instance_id: this.state.instance.id,
-			})
+			});
 		} catch (e) {
-			notify("Error stopping instance", "error", e.message)
+			notify("Error stopping instance", "error", e.message);
 			return this.setState({
 				stopping: false,
-			})
+			});
 		}
-		notify("Instance stopped")
+		notify("Instance stopped");
 		this.setState({
 			stopping: false,
-		})
-		this.getData()
+		});
+		this.getData();
 	}
 	async createSave() {
 		this.setState({
 			creatingSave: true,
-		})
+		});
 		try {
 			await createSave({
 				instance_id: this.state.instance.id,
-			})
+			});
 		} catch (e) {
-			notify("Error creating save", "error", e.message)
+			notify("Error creating save", "error", e.message);
 			return this.setState({
 				creatingSave: false,
-			})
+			});
 		}
-		notify("Save created", "success")
+		notify("Save created", "success");
 		this.setState({
 			creatingSave: false,
-		})
+		});
 	}
 	async onConfigEditFinish(values) {
-		console.log("Completed config edit with", values)
+		console.log("Completed config edit with", values);
 		for (let k in values) {
 			if (values[k] !== this.getInstanceConfigAsKvObject(this.state.config)[k]) {
-				let value = values[k]
-				if (typeof value === "boolean") value = value.toString()
-				console.log("Setting", k, value)
+				let value = values[k];
+				if (typeof value === "boolean") value = value.toString();
+				console.log("Setting", k, value);
 				await setInstanceConfigField({
 					instance_id: this.state.instance.id,
 					field: k,
 					value: value,
-				})
+				});
 			}
 		}
-		notify("Set configuration fields", "success")
+		notify("Set configuration fields", "success");
 		this.setState({
 			editingConfig: false
-		})
-		this.getData()
+		});
+		this.getData();
 	}
 	render() {
-		console.log(this.state)
-		let { instance, slaves } = this.state
+		console.log(this.state);
+		let { instance, slaves } = this.state;
 		let slave = slaves && slaves.find(x => x.id === instance.assigned_slave);
 		return <Card>
 			<h2>{instance.name}</h2>
@@ -184,9 +184,9 @@ export class InstanceView extends Component {
 						width: "200px"
 					}}
 					onChange={async newSlaveId => {
-						let result = await assignInstance({ instance_id: instance.id, slave_id: newSlaveId })
-						notify("Assigned to slave", "success")
-						this.getData()
+						let result = await assignInstance({ instance_id: instance.id, slave_id: newSlaveId });
+						notify("Assigned to slave", "success");
+						this.getData();
 					}}
 					>
 						{this.state.slaves.map(slave => <Option defaultValue={instance.assigned_slave} value={slave.id} key={slave.id}>
@@ -208,8 +208,8 @@ export class InstanceView extends Component {
 						danger
 						onClick={async () => {
 							await deleteInstance({ instance_id: instance.id });
-							notify("Deleted instance " + instance.id, "success")
-							this.navigate("/instances")
+							notify("Deleted instance " + instance.id, "success");
+							this.navigate("/instances");
 						}}
 					>
                         Delete this instance permanently
@@ -245,7 +245,7 @@ export class InstanceView extends Component {
 			{/* rcon input field */}
 			<Form
 				onFinish={async values => {
-					await sendRcon({ instance_id: instance.id, command: values.command })
+					await sendRcon({ instance_id: instance.id, command: values.command });
 				}}
 			>
 				<Form.Item
@@ -256,16 +256,16 @@ export class InstanceView extends Component {
 				</Form.Item>
 			</Form>
 			{this.state.config && this.renderConfig(this.state.config)}
-		</Card>
+		</Card>;
 	}
 	getInstanceConfigAsKvObject(config) {
-		let object = {}
+		let object = {};
 		for (let group of config.serialized_config.groups) {
 			for (let fieldName in group.fields) {
-				object[group.name + "." + fieldName] = group.fields[fieldName]
+				object[group.name + "." + fieldName] = group.fields[fieldName];
 			}
 		}
-		return object
+		return object;
 	}
 	renderConfig(config) {
 		const layout = {
@@ -316,33 +316,33 @@ export class InstanceView extends Component {
 					</>)}
 				</Row>
 			</Form>
-		</Card>
+		</Card>;
 	}
 }
 
 function renderDisplayField(value) {
 	if (typeof value === "object") {
-		return JSON.stringify(value)
+		return JSON.stringify(value);
 	}
 	if (typeof value === "boolean") {
-		return <Checkbox />
+		return <Checkbox />;
 	}
-	return value.toString()
+	return value.toString();
 }
 function renderFormField(value) {
 	if (typeof value === "object") {
-		return <ObjectInput />
+		return <ObjectInput />;
 	}
 	if (typeof value === "boolean") {
-		return <Checkbox />
+		return <Checkbox />;
 	}
-	return <Input />
+	return <Input />;
 }
 
 class ObjectInput extends Component {
 	constructor(props) {
-		super(props)
-		console.log(this.props)
+		super(props);
+		console.log(this.props);
 		/*
             value: {
                 auto_pause: false,
@@ -351,26 +351,26 @@ class ObjectInput extends Component {
             id: "factorio.settings",
             onChange: f()
         */
-		this.state = {}
+		this.state = {};
 	}
 	onChange(e, key) {
 		if (e.target.type === "checkbox") {
 			// if (e.target.checked !== undefined) {
 			// Its a checkbox, set value to true/false
-			let value = { ...this.props.value }
-			value[key] = e.target.checked || false
-			this.props.onChange(value)
+			let value = { ...this.props.value };
+			value[key] = e.target.checked || false;
+			this.props.onChange(value);
 		} else if (e.target.type === "text") {
 			// } else if (e.target.value !== undefined) {
 			// its probably a text input
-			let value = { ...this.props.value }
-			value[key] = e.target.value || ""
-			this.props.onChange(value)
+			let value = { ...this.props.value };
+			value[key] = e.target.value || "";
+			this.props.onChange(value);
 		}
 	}
 	render() {
-		let { value } = this.props
-		let ret = []
+		let { value } = this.props;
+		let ret = [];
 		for (let key in value) {
 			if (typeof value[key] === "boolean") {
 				ret.push(<Checkbox
@@ -380,7 +380,7 @@ class ObjectInput extends Component {
 				>
 					{key}
 				</Checkbox>
-				)
+				);
 			} else if (typeof value[key] === "string") {
 				ret.push(<div
 					key={key}
@@ -388,7 +388,7 @@ class ObjectInput extends Component {
 						value={value[key]}
 						onChange={e => this.onChange(e, key)}
 					/></div>
-				)
+				);
 			}
 		}
 		ret.push(<Popover
@@ -397,11 +397,11 @@ class ObjectInput extends Component {
 				<Input onChange={e => this.setState({ newInput: e.target.value })} />
 				<Button
 					onClick={e => {
-						this.onChange({ target: { value: "", type: "text" } }, this.state.newInput)
+						this.onChange({ target: { value: "", type: "text" } }, this.state.newInput);
 						this.setState({
 							newInput: undefined,
 							addPopoverVisible: false,
-						})
+						});
 					}}
 				><PlusOutlined />Add property</Button>
 			</>}
@@ -414,16 +414,16 @@ class ObjectInput extends Component {
 			>
 				<PlusOutlined />Add property
 			</Button>
-		</Popover>)
-		return <Space direction="vertical">{ret}</Space>
+		</Popover>);
+		return <Space direction="vertical">{ret}</Space>;
 	}
 }
 class ConfigFormItem extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 	}
 	render() {
-		let { field, group, editingConfig } = this.props
+		let { field, group, editingConfig } = this.props;
 		return <Form.Item
 			label={field}
 			name={group.name + "." + field}
@@ -434,6 +434,6 @@ class ConfigFormItem extends Component {
 				:
 				renderDisplayField(group.fields[field])
 			}
-		</Form.Item>
+		</Form.Item>;
 	}
 }

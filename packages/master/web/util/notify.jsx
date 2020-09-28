@@ -11,5 +11,5 @@ export default function notify(message, type = "info", description) {
 		description,
 		placement: "bottomRight",
 	});
-	if (typeof message !== "string") console.error(message)
+	if (typeof message !== "string") console.error(message);
 }

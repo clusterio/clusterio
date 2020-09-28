@@ -1,11 +1,11 @@
-import React, { Component } from "react"
-import { Card } from "antd"
-import { listSlaves, listInstances, listUsers, createUser } from "../../util/wslink"
-import DataTable from "../../components/data-table"
+import React, { Component } from "react";
+import { Card } from "antd";
+import { listSlaves, listInstances, listUsers, createUser } from "../../util/wslink";
+import DataTable from "../../components/data-table";
 
 export class UsersTable extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 	}
 	navigate(url) {
 		this.props.history.push(url);
@@ -20,8 +20,8 @@ export class UsersTable extends Component {
 						title: "Name"
 					}],
 					insert: async args => {
-						let response = await createUser({name: args.name})
-						console.log("Created user",response)
+						let response = await createUser({name: args.name});
+						console.log("Created user",response);
 					}
 				}}
 				DataFunction={listUsers}
@@ -29,12 +29,12 @@ export class UsersTable extends Component {
 					onRow: (record, rowIndex) => {
 						return {
 							onClick: event => {
-								this.navigate(`/users/${record.name}/view`)
+								this.navigate(`/users/${record.name}/view`);
 							}
-						}
+						};
 					}
 				}}
 			/>
-		</Card>
+		</Card>;
 	}
 }

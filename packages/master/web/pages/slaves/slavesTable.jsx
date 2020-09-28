@@ -1,11 +1,11 @@
-import React, { Component } from "react"
+import React, { Component } from "react";
 import { Card } from "antd";
-import { listSlaves, listInstances } from "../../util/wslink"
-import DataTable from "../../components/data-table"
+import { listSlaves, listInstances } from "../../util/wslink";
+import DataTable from "../../components/data-table";
 
 export class SlavesTable extends Component {
 	constructor(props) {
-		super(props)
+		super(props);
 	}
 	navigate(url) {
 		this.props.history.push(url);
@@ -19,12 +19,12 @@ export class SlavesTable extends Component {
 					onRow: (record, rowIndex) => {
 						return {
 							onClick: event => {
-								this.navigate(`/slaves/${record.id}/view`)
+								this.navigate(`/slaves/${record.id}/view`);
 							}
-						}
+						};
 					}
 				}}
 			/>
-		</Card>
+		</Card>;
 	}
 }
