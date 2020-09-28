@@ -223,7 +223,7 @@ class DataTable extends Component {
 				</Col>
 				<Modal
 					visible={this.state.showEditModal}
-					onCancel={this.hideEditModal}
+					onCancel={this.hideEditModal.bind(this)}
 					footer={null}
 					title={
 						<h2>{this.state.inserting ? "Legg til" : "Rediger"}</h2>
