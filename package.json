@@ -27,13 +27,11 @@
     "@clusterio/slave": "file:./packages/slave",
     "eslint": "^7.2.0",
     "fs-extra": "^8.1.0",
-    "html5-validator": "^1.2.1",
     "jsdoc": "^3.6.3",
     "jsonwebtoken": "^8.2.1",
     "jszip": "^3.2.2",
     "lerna": "^3.22.1",
     "mocha": "^6.2.0",
-    "mocha.parallel": "^0.15.5",
     "nyc": "^14.1.1",
     "phin": "^3.4.1"
   }

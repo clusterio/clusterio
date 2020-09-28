@@ -433,7 +433,7 @@ function attachPluginMessages(link, pluginInfo, plugin) {
 			throw new Error(`Type of ${name} message must start with "${pluginInfo.name}:"`);
 		}
 
-		let handler = name + messageFormat.constructor.name + "Handler";
+		let handler = name + messageFormat.handlerSuffix;
 		if (plugin === null || !plugin[handler]) {
 			messageFormat.attach(link);
 

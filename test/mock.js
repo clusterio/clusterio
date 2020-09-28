@@ -18,6 +18,23 @@ class MockSocket {
 		this.events.set(event, fn);
 	}
 
+	/* eslint-disable accessor-pairs */
+	set onclose(fn) {
+		this.on("close", (code, reason) => fn({ code, reason }));
+	}
+
+	set onerror(fn) {
+		this.on("error", fn);
+	}
+
+	set onopen(fn) {
+		this.on("open", fn);
+	}
+
+	set onmessage(fn) {
+		this.on("message", (data) => fn({ data }));
+	}
+
 	terminate() {
 		this.terminateCalled = true;
 	}

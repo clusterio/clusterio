@@ -1,7 +1,7 @@
 // Connection adapters for Links
 "use strict";
 const events = require("events");
-const WebSocket = require("ws");
+const WebSocket = require("isomorphic-ws");
 
 const schema = require("@clusterio/lib/schema");
 const errors = require("@clusterio/lib/errors");
@@ -236,11 +236,17 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		// Open WebSocket to master
 		console.log(`SOCKET | connecting to ${url}`);
 
-		this._socket = new WebSocket(url, {
-			// For now we do not verify TLS certificates since the default setup is
-			// to create a self-signed certificate.
-			rejectUnauthorized: false,
-		});
+		// eslint-disable-next-line no-process-env
+		if (process.env.APP_ENV === "browser") {
+			this._socket = new WebSocket(url);
+
+		} else {
+			this._socket = new WebSocket(url, {
+				// For now we do not verify TLS certificates since the default setup is
+				// to create a self-signed certificate.
+				rejectUnauthorized: false,
+			});
+		}
 
 		this._attachSocketHandlers();
 	}
@@ -277,11 +283,11 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	}
 
 	_attachSocketHandlers() {
-		this._socket.on("close", (code, reason) => {
-			console.log(`SOCKET | Close (code: ${code}, reason: ${reason})`);
+		this._socket.onclose = event => {
+			console.log(`SOCKET | Close (code: ${event.code}, reason: ${event.reason})`);
 			// Authentication failed
-			if (code === 4003) {
-				this.emit("error", new errors.AuthenticationFailed(reason));
+			if (event.code === 4003) {
+				this.emit("error", new errors.AuthenticationFailed(event.reason));
 				this._state = "closing";
 			}
 
@@ -303,26 +309,20 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 
 			this.stopHeartbeat();
-		});
+		};
 
-		this._socket.on("error", err => {
+		this._socket.onerror = event => {
 			// It's assumed that close is always called by ws
-			console.error("SOCKET | Error:", err);
-		});
+			console.error("SOCKET | Error:", event);
+		};
 
-		this._socket.on("open", () => {
+		this._socket.onopen = () => {
 			console.log("SOCKET | Open");
-		});
-		this._socket.on("ping", data => {
-			console.log(`SOCKET | Ping (data: ${data}`);
-		});
-		this._socket.on("pong", data => {
-			console.log(`SOCKET | Pong (data: ${data}`);
-		});
+		};
 
 		// Handle messages
-		this._socket.on("message", data => {
-			let message = JSON.parse(data);
+		this._socket.onmessage = event => {
+			let message = JSON.parse(event.data);
 			if (this._state === "handshake") {
 				this._processHandshake(message);
 
@@ -341,7 +341,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			} else {
 				throw new Error(`Received message in unexpected state ${this._state}`);
 			}
-		});
+		};
 	}
 
 	_processHandshake(message) {

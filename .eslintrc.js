@@ -2,7 +2,6 @@
 module.exports = {
 	"env": {
 		"node": true,
-		"browser": true,
 		"commonjs": true,
 		"es6": true,
 	},
@@ -19,6 +18,18 @@ module.exports = {
 			"rules": {
 				"prefer-arrow-callback": "off",
 				"no-invalid-this": "off",
+			},
+		},
+		{
+			"files": ["packages/master/web/**/*.jsx"],
+			"env": {
+				"browser": true,
+			},
+			"parserOptions": {
+				"sourceType": "module",
+				"ecmaFeatures": {
+					"jsx": true,
+				},
 			},
 		},
 	],
@@ -44,6 +55,8 @@ module.exports = {
 			{
 				"arrays": "always-multiline",
 				"objects": "always-multiline",
+				"imports": "always-multiline",
+				"exports": "always-multiline",
 				"functions": "only-multiline",
 			},
 		],
@@ -229,7 +242,7 @@ module.exports = {
 		"semi": "error",
 		"semi-spacing": "error",
 		"semi-style": "off",
-		"sort-imports": "error",
+		"sort-imports": "off",
 		"sort-keys": "off",
 		"sort-vars": "error",
 		"space-before-blocks": "warn",

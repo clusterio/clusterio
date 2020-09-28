@@ -1,15 +1,16 @@
 "use strict";
-module.exports = function(app) {
-	app.get("/", function(req, res) {
-		res.render("index");
-	});
-	app.get("/nodes", function(req, res) {
-		res.render("nodes");
-	});
-	app.get("/settings", function(req, res) {
-		res.render("settings");
-	});
-	app.get("/nodeDetails", function(req, res) {
-		res.render("nodeDetails");
-	});
-};
+// Routes used in the web interface and served by the master server
+module.exports = [
+	"/",
+	"/instances",
+	"/instances/:id/view",
+	"/slaves",
+	"/slaves/:id/view",
+	"/users",
+	"/users/:id/view",
+	"/roles",
+	"/roles/:id/view",
+	"/permissions",
+	"/permissions/:id/view",
+	"/settings",
+];

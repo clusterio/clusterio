@@ -23,8 +23,6 @@ const path = require("path");
 const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const moment = require("moment");
-const request = require("request");
 const setBlocking = require("set-blocking");
 const events = require("events");
 const yargs = require("yargs");
@@ -38,9 +36,11 @@ let masterConfigPath;
 let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
 let pluginList = {};
+let devMiddleware;
 
 // homebrew modules
 const generateSSLcert = require("./src/generate_ssl_cert");
+const routes = require("./src/routes");
 const database = require("@clusterio/lib/database");
 const schema = require("@clusterio/lib/schema");
 const link = require("@clusterio/lib/link");
@@ -72,23 +72,26 @@ app.use(bodyParser.urlencoded({
 app.use(fileUpload());
 app.use(compression());
 
-// dynamic HTML generations with EJS
-app.set("view engine", "ejs");
-app.set("views", ["views", "plugins"]);
 
-// give ejs access to some interesting information
-app.use(function(req, res, next){
-	let externalAddress = masterConfig.get("master.external_address");
-	res.locals.root = externalAddress ? new URL(externalAddress).pathname : "/";
-	res.locals.res = res;
-	res.locals.req = req;
-	res.locals.masterPlugins = masterPlugins;
-	res.locals.slaves = db.slaves;
-	res.locals.moment = moment;
-	next();
-});
+// Servers the web interface with the root path set apropriately.
+function serveWeb(route) {
+	// The depth is is the number of slashes in the route minus one, but due
+	// to lenient matching on trailing slashes in the route we need to
+	// compensate if the request path contains a slash but not the route,
+	// and vice versa.
+	let routeDepth = (route.match(/\//g) || []).length - 1 - (route.slice(-1) === "/");
+	return function(req, res, next) {
+		let depth = routeDepth + (req.path.slice(-1) === "/");
+		let webRoot = "../".repeat(depth) || "./";
+		fs.readFile(path.join(__dirname, "web", "index.html"), "utf8").then((content) => {
+			res.type("text/html");
+			res.send(content.replace(/__WEB_ROOT__/g, webRoot));
+		}).catch(err => {
+			next(err);
+		});
+	};
+}
 
-require("./src/routes")(app);
 // Set folder to serve static content from (the website)
 app.use(express.static(path.join(__dirname, "static")));
 app.use(express.static("static")); // Used for data export files
@@ -390,6 +393,10 @@ async function shutdown() {
 
 		stopAcceptingNewSessions = true;
 
+		if (devMiddleware) {
+			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+		}
+
 		let disconnectTasks = [];
 		for (let controlConnection of controlConnections) {
 			controlConnection.connector.setTimeout(masterConfig.get("master.connector_shutdown_timeout"));
@@ -437,24 +444,6 @@ async function shutdown() {
 		process.exit(1);
 	}
 }
-
-// wrap a request in an promise
-async function downloadPage(url) {
-	return new Promise((resolve, reject) => {
-		request(url, (error, response, body) => {
-			resolve(body);
-		});
-	});
-}
-
-app.get("/api/modmeta", async function(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.header("Access-Control-Allow-Origin", "*");
-	res.setHeader("Content-Type", "application/json");
-	let modData = await downloadPage("https://mods.factorio.com/api/mods/" + req.query.modname);
-	res.send(modData);
-});
-
 
 /**
  * Base class for master server connections
@@ -1590,7 +1579,9 @@ async function startServer() {
 				})
 				.demandCommand(1, "You need to specify a command to run");
 		})
-		.command("run", "Run master server")
+		.command("run", "Run master server", yargs => {
+			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
+		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
@@ -1671,6 +1662,18 @@ async function startServer() {
 
 	// If we get here the command was run
 
+	// Start webpack development server if enabled
+	if (args.dev) {
+		console.log("Webpack development mode enabled");
+		const webpack = require("webpack");
+		const webpackDevMiddleware = require("webpack-dev-middleware");
+		const webpackConfig = require("./webpack.config");
+
+		const compiler = webpack(webpackConfig({}));
+		devMiddleware = webpackDevMiddleware(compiler, {});
+		app.use(devMiddleware);
+	}
+
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
@@ -1714,6 +1717,16 @@ async function startServer() {
 			sslPrivKeyPath: tls_key,
 			doLogging: true,
 		});
+	}
+
+	// Add routes for the web interface
+	for (let route of routes) {
+		app.get(route, serveWeb(route));
+	}
+	for (let pluginInfo of pluginInfos) {
+		for (let route of pluginInfo.routes || []) {
+			app.get(route, serveWeb(route));
+		}
 	}
 
 	// Load plugins

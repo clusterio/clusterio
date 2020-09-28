@@ -5,11 +5,6 @@ const path = require("path");
 const prometheus = require("@clusterio/lib/prometheus");
 
 
-function addWebRoutes(app) {
-	app.use("/subspace_storage", express.static(path.join(__dirname, "static")));
-	app.get("/subspace_storage/storage", (req, res) => { res.render("subspace_storage/views/storage"); });
-}
-
 function addApiRoutes(app, items, endpointHitCounter) {
 
 	/**
@@ -52,6 +47,5 @@ function addApiRoutes(app, items, endpointHitCounter) {
 }
 
 module.exports = {
-	addWebRoutes,
 	addApiRoutes,
 };

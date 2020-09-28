@@ -2,8 +2,6 @@
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
-const validateHTML = require("html5-validator");
-const parallel = require("mocha.parallel");
 
 const link = require("@clusterio/lib/link");
 
@@ -11,24 +9,6 @@ const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("
 
 
 describe("Integration of Clusterio", function() {
-	parallel("master web interface", function() {
-		this.timeout(6000);
-
-		let paths = ["/", "/nodes", "/settings", "/nodeDetails"];
-		for (let path of paths) {
-			it(`sends some HTML when accessing ${path}`, async function() {
-				let res = await get(path);
-				let validation = await validateHTML(res.body.toString());
-				let filtered = validation.messages.filter(msg => msg.type !== "info");
-				assert(
-					filtered.length === 0,
-					"there are HTML errors on the page, please fix: "+JSON.stringify(validation.messages, null, 4)
-				);
-			});
-		}
-	});
-
-
 	describe("clusterioctl", function() {
 		describe("slave list", function() {
 			it("runs", async function() {
