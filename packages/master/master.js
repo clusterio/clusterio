@@ -273,7 +273,8 @@ async function loadInstances(databaseDirectory, file) {
 		for (let serializedConfig of serialized) {
 			let instanceConfig = new config.InstanceConfig();
 			await instanceConfig.load(serializedConfig);
-			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig });
+			let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
+			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig, status });
 		}
 
 	} catch (err) {
@@ -625,7 +626,7 @@ class ControlConnection extends BaseConnection {
 		if (db.instances.has(instanceId)) {
 			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
-		db.instances.set(instanceId, { config: instanceConfig });
+		db.instances.set(instanceId, { config: instanceConfig, status: "unassigned" });
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
@@ -948,27 +949,11 @@ class SlaveConnection extends BaseConnection {
 		}
 	}
 
-	async instanceInitializedEventHandler(message, event) {
+	async instanceStatusChangedEventHandler(message, event) {
 		let instance = db.instances.get(message.data.instance_id);
 		let prev = instance.status;
-		instance.status = "initialized";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Initialized`);
-		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
-	}
-
-	async instanceStartedEventHandler(message, event) {
-		let instance = db.instances.get(message.data.instance_id);
-		let prev = instance.status;
-		instance.status = "running";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Started`);
-		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
-	}
-
-	async instanceStoppedEventHandler(message, event) {
-		let instance = db.instances.get(message.data.instance_id);
-		let prev = instance.status;
-		instance.status = "stopped";
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} Stopped`);
+		instance.status = message.data.status;
+		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -994,15 +979,16 @@ class SlaveConnection extends BaseConnection {
 				if (masterInstance.status !== instance.status) {
 					let prev = masterInstance.status;
 					masterInstance.status = instance.status;
-					if (prev !== undefined) {
-						await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
-					}
+					await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 				}
 				continue;
 			}
 
 			instanceConfig.set("instance.assigned_slave", this._id);
-			db.instances.set(instanceConfig.get("instance.id"), { config: instanceConfig });
+			db.instances.set(instanceConfig.get("instance.id"), {
+				config: instanceConfig,
+				status: instance.status,
+			});
 			await link.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize(),

@@ -176,9 +176,15 @@ class Instance extends link.Link{
 		instanceFactorioAutosaveSize.labels(String(this.config.get("instance.id"))).set(stat.size);
 	}
 
+	notifyStatus(status) {
+		link.messages.instanceStatusChanged.send(this, {
+			instance_id: this.config.get("instance.id"), status,
+		});
+	}
+
 	notifyExit() {
 		this._running = false;
-		link.messages.instanceStopped.send(this, { instance_id: this.config.get("instance.id") });
+		this.notifyStatus("stopped");
 
 		this.config.off("fieldChanged", this._configFieldChanged);
 
@@ -461,7 +467,7 @@ class Instance extends link.Link{
 		await plugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
-		link.messages.instanceStarted.send(this, { instance_id: this.config.get("instance.id") });
+		this.notifyStatus("running");
 	}
 
 	/**
@@ -483,7 +489,7 @@ class Instance extends link.Link{
 		await plugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
-		link.messages.instanceStarted.send(this, { instance_id: this.config.get("instance.id") });
+		this.notifyStatus("running");
 	}
 
 	/**
@@ -642,6 +648,7 @@ class Instance extends link.Link{
 	}
 
 	async createSaveRequestHandler() {
+		this.notifyStatus("creating_save");
 		try {
 			console.log("Clusterio | Writing server-settings.json");
 			await this.writeServerSettings();
@@ -660,6 +667,7 @@ class Instance extends link.Link{
 	}
 
 	async exportDataRequestHandler() {
+		this.notifyStatus("exporting_data");
 		try {
 			console.log("Clusterio | Writing server-settings.json");
 			await this.writeServerSettings();
@@ -813,19 +821,14 @@ class InstanceConnection extends link.Link {
 	}
 
 	async instanceInitializedEventHandler(message, event) {
-		this.status = "initialized";
 		this.plugins = new Map(Object.entries(message.data.plugins));
-		this.forwardEventToMaster(message, event);
 	}
 
-	async instanceStartedEventHandler(message, event) {
-		this.status = "running";
-		this.forwardEventToMaster(message, event);
-	}
-
-	async instanceStoppedEventHandler(message, event) {
-		this.status = "stopped";
-		this.slave.instanceConnections.delete(this.instanceId);
+	async instanceStatusChangedEventHandler(message, event) {
+		this.status = message.data.status;
+		if (this.status === "stopped") {
+			this.slave.instanceConnections.delete(this.instanceId);
+		}
 		this.forwardEventToMaster(message, event);
 	}
 }
@@ -1108,6 +1111,9 @@ class Slave extends link.Link {
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
 		);
+
+		// Notify master the instance is no longer usassigned
+		link.messages.instanceStatusChanged.send(this, { instance_id, status: "stopped" });
 	}
 
 	/**
