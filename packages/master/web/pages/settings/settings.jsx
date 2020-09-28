@@ -20,12 +20,14 @@ export class Settings extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			role: {}
+			role: {},
 		};
 	}
+
 	navigate(url) {
 		this.props.history.push(url);
 	}
+
 	render() {
 		console.log(this.state);
 		return <Card>
@@ -39,7 +41,7 @@ export class Settings extends Component {
 				}}
 				onFinish={values => {
 					console.log("Saving settings",values);
-					for(let key of Object.keys(values)){
+					for (let key of Object.keys(values)){
 						localStorage.setItem(key, values[key].replace("https://", "wss://").replace("http://", "ws://"));
 					}
 					// Force refresh to apply changes
@@ -52,7 +54,7 @@ export class Settings extends Component {
 					rules={[
 						{
 							required: true,
-							message: 'Please input master url, ex ws://localhost:8080 or wss://localhost:8443/ . For SSL connections, ensure you have a valid certificate.',
+							message: "Please input master url, ex ws://localhost:8080 or wss://localhost:8443/ . For SSL connections, ensure you have a valid certificate.",
 						},
 					]}
 				>
@@ -64,7 +66,7 @@ export class Settings extends Component {
 					rules={[
 						{
 							required: true,
-							message: 'Please input your user auth token from config-control.json',
+							message: "Please input your user auth token from config-control.json",
 						},
 					]}
 				>
@@ -72,7 +74,7 @@ export class Settings extends Component {
 				</Form.Item>
 				<Form.Item {...tailLayout}>
 					<Button type="primary" htmlType="submit">
-                        Save
+						Save
 					</Button>
 				</Form.Item>
 			</Form>

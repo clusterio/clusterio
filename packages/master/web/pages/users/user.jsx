@@ -16,16 +16,19 @@ export class UserView extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			user: {}
+			user: {},
 		};
 		this.messagesEndRef = React.createRef();
 	}
+
 	navigate(url) {
 		this.props.history.push(url);
 	}
+
 	async componentDidMount() {
 		await this.getData();
 	}
+
 	async getData() {
 		let name = this.props.match.params.id;
 
@@ -37,12 +40,13 @@ export class UserView extends Component {
 			roles,
 		});
 	}
+
 	async handleChange(targetKeys) {
 		this.setState({
 			user: {
 				...this.state.user,
-				roles: targetKeys
-			}
+				roles: targetKeys,
+			},
 		});
 		let response = await setRoles({
 			name: this.state.user.name,
@@ -50,6 +54,7 @@ export class UserView extends Component {
 		});
 		console.log("Updated user roles",response);
 	};
+
 	render() {
 		console.log(this.state);
 		let { user, roles } = this.state;
@@ -76,7 +81,7 @@ export class UserView extends Component {
 							this.navigate("/users");
 						}}
 					>
-                        Delete this user from the cluster
+						Delete this user from the cluster
 					</Button>
 				}
 				trigger="click"

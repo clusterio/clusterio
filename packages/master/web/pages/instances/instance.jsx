@@ -31,9 +31,11 @@ export class InstanceView extends Component {
 		};
 		this.messagesEndRef = React.createRef();
 	}
+
 	navigate(url) {
 		this.props.history.push(url);
 	}
+
 	async componentDidMount() {
 		let id = this.props.match.params.id;
 
@@ -52,6 +54,7 @@ export class InstanceView extends Component {
 			// this.messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
 		};
 	}
+
 	async getData() {
 		let id = this.props.match.params.id;
 
@@ -66,9 +69,10 @@ export class InstanceView extends Component {
 		let config = await getInstanceConfig({ instance_id: Number(id) });
 		console.log(config);
 		this.setState({
-			config
+			config,
 		});
 	}
+
 	async start() {
 		this.setState({
 			starting: true,
@@ -80,9 +84,10 @@ export class InstanceView extends Component {
 			});
 		} catch (e) {
 			notify("Error starting instance", "error", e.message);
-			return this.setState({
+			this.setState({
 				starting: false,
 			});
+			return;
 		}
 		notify("Instance started");
 		this.setState({
@@ -90,6 +95,7 @@ export class InstanceView extends Component {
 		});
 		this.getData();
 	}
+
 	async stop() {
 		this.setState({
 			stopping: true,
@@ -100,9 +106,10 @@ export class InstanceView extends Component {
 			});
 		} catch (e) {
 			notify("Error stopping instance", "error", e.message);
-			return this.setState({
+			this.setState({
 				stopping: false,
 			});
+			return;
 		}
 		notify("Instance stopped");
 		this.setState({
@@ -110,6 +117,7 @@ export class InstanceView extends Component {
 		});
 		this.getData();
 	}
+
 	async createSave() {
 		this.setState({
 			creatingSave: true,
@@ -120,15 +128,17 @@ export class InstanceView extends Component {
 			});
 		} catch (e) {
 			notify("Error creating save", "error", e.message);
-			return this.setState({
+			this.setState({
 				creatingSave: false,
 			});
+			return;
 		}
 		notify("Save created", "success");
 		this.setState({
 			creatingSave: false,
 		});
 	}
+
 	async onConfigEditFinish(values) {
 		console.log("Completed config edit with", values);
 		for (let k in values) {
@@ -145,10 +155,11 @@ export class InstanceView extends Component {
 		}
 		notify("Set configuration fields", "success");
 		this.setState({
-			editingConfig: false
+			editingConfig: false,
 		});
 		this.getData();
 	}
+
 	render() {
 		console.log(this.state);
 		let { instance, slaves } = this.state;
@@ -162,26 +173,26 @@ export class InstanceView extends Component {
 				type="primary"
 				onClick={this.start.bind(this)}
 			>
-                Start server
+				Start server
 			</Button>}
 			{instance.status !== "stopped" && <Button
 				loading={this.state.stopping}
 				type="primary"
 				onClick={this.stop.bind(this)}
 			>
-                Stop server
+				Stop server
 			</Button>}
 			{instance.status !== "running" && <Button
 				loading={this.state.creatingSave}
 				type="primary"
 				onClick={this.createSave.bind(this)}
 			>
-                Create save
+				Create save
 			</Button>}
 			<Popover
 				content={
 					<Select style={{
-						width: "200px"
+						width: "200px",
 					}}
 					onChange={async newSlaveId => {
 						let result = await assignInstance({ instance_id: instance.id, slave_id: newSlaveId });
@@ -198,7 +209,7 @@ export class InstanceView extends Component {
 				type={instance.status === "unassigned" ? "primary" : "default"}
 			>
 				<Button>
-                    Assign to slave
+					Assign to slave
 				</Button>
 			</Popover>
 			<Popover
@@ -212,7 +223,7 @@ export class InstanceView extends Component {
 							this.navigate("/instances");
 						}}
 					>
-                        Delete this instance permanently
+						Delete this instance permanently
 					</Button>
 				}
 				trigger="click"
@@ -224,16 +235,16 @@ export class InstanceView extends Component {
 			<style>
 				{/* Scroll sticks to bottom of terminal window after manually scrolling to the bottom */}
 				{`#scroller * {
-                    /* don't allow the children of the scrollable element to be selected as an anchor node */
-                    overflow-anchor: none;
-                }
-                #anchor {
-                    /* allow the final child to be selected as an anchor node */
-                    overflow-anchor: auto;
+					/* don't allow the children of the scrollable element to be selected as an anchor node */
+					overflow-anchor: none;
+				}
+				#anchor {
+					/* allow the final child to be selected as an anchor node */
+					overflow-anchor: auto;
 
-                    /* anchor nodes are required to have non-zero area */
-                    height: 1px;
-                }`}
+					/* anchor nodes are required to have non-zero area */
+					height: 1px;
+				}`}
 			</style>
 			<div id="scroller" style={{
 				height: "300px",
@@ -258,15 +269,17 @@ export class InstanceView extends Component {
 			{this.state.config && this.renderConfig(this.state.config)}
 		</Card>;
 	}
+
 	getInstanceConfigAsKvObject(config) {
 		let object = {};
 		for (let group of config.serialized_config.groups) {
-			for (let fieldName in group.fields) {
+			for (let fieldName of Object.keys(group.fields)) {
 				object[group.name + "." + fieldName] = group.fields[fieldName];
 			}
 		}
 		return object;
 	}
+
 	renderConfig(config) {
 		const layout = {
 			labelCol: {
@@ -291,7 +304,7 @@ export class InstanceView extends Component {
 				{this.state.editingConfig ?
 					<Form.Item>
 						<Button type="primary" htmlType="submit">
-                            Save config changes
+							Save config changes
 						</Button>
 					</Form.Item>
 					:
@@ -306,10 +319,10 @@ export class InstanceView extends Component {
 								// orientation="left"
 							>{group.name}</Divider>
 							{/* {Object.keys(group.fields).map(field => <>
-                                <span>{field}: </span>
-                                <span>{JSON.stringify(group.fields[field])}</span>
-                                <br />
-                            </>)} */}
+								<span>{field}: </span>
+								<span>{JSON.stringify(group.fields[field])}</span>
+								<br />
+							</>)} */}
 							{console.log(group)}
 							{Object.keys(group.fields).map(field => <ConfigFormItem field={field} group={group} editingConfig={this.state.editingConfig} />)}
 						</Col>
@@ -344,15 +357,16 @@ class ObjectInput extends Component {
 		super(props);
 		console.log(this.props);
 		/*
-            value: {
-                auto_pause: false,
-                tags: ["clusterio"]
-            },
-            id: "factorio.settings",
-            onChange: f()
-        */
+			value: {
+				auto_pause: false,
+				tags: ["clusterio"]
+			},
+			id: "factorio.settings",
+			onChange: f()
+		*/
 		this.state = {};
 	}
+
 	onChange(e, key) {
 		if (e.target.type === "checkbox") {
 			// if (e.target.checked !== undefined) {
@@ -368,6 +382,7 @@ class ObjectInput extends Component {
 			this.props.onChange(value);
 		}
 	}
+
 	render() {
 		let { value } = this.props;
 		let ret = [];
@@ -418,10 +433,8 @@ class ObjectInput extends Component {
 		return <Space direction="vertical">{ret}</Space>;
 	}
 }
+
 class ConfigFormItem extends Component {
-	constructor(props) {
-		super(props);
-	}
 	render() {
 		let { field, group, editingConfig } = this.props;
 		return <Form.Item

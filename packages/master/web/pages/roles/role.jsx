@@ -31,16 +31,19 @@ export class RoleView extends Component {
 	constructor(props) {
 		super(props);
 		this.state = {
-			role: {}
+			role: {},
 		};
 		this.messagesEndRef = React.createRef();
 	}
+
 	navigate(url) {
 		this.props.history.push(url);
 	}
+
 	async componentDidMount() {
 		await this.getData();
 	}
+
 	async getData() {
 		let id = this.props.match.params.id;
 
@@ -52,12 +55,13 @@ export class RoleView extends Component {
 			permissions,
 		});
 	}
+
 	async handleChange(targetKeys) {
 		this.setState({
 			role: {
 				...this.state.role,
-				permissions: targetKeys
-			}
+				permissions: targetKeys,
+			},
 		});
 		let response = await updateRole({
 			...this.state.role,
@@ -65,6 +69,7 @@ export class RoleView extends Component {
 		});
 		console.log("Updated user roles", response);
 	}
+
 	render() {
 		console.log(this.state);
 		let { role, permissions } = this.state;
@@ -80,7 +85,7 @@ export class RoleView extends Component {
 							this.navigate("/roles");
 						}}
 					>
-                        Delete this role permanently
+						Delete this role permanently
 					</Button>
 				}
 				trigger="click"
@@ -93,11 +98,11 @@ export class RoleView extends Component {
 			<h3>Assign roles</h3>
 			<style>
 				{`
-                .ant-transfer-list{
-                    width: calc( 50% - 34px );
-                    height: 500px;
-                }
-                `}
+				.ant-transfer-list{
+					width: calc( 50% - 34px );
+					height: 500px;
+				}
+				`}
 			</style>
 			<Transfer
 				titles={["Available", "Assigned"]}

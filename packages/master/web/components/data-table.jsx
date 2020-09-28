@@ -10,7 +10,7 @@ const { Panel } = Collapse;
 /**
  * Display data in table. Allows for editing data by clicking rows in the table.
  * Basic usage: <DataTable Server="SQL08" DataSource="sql" Database="HDG1" Table="[dbo].[ReportInfo]" />
- * 
+ *
  * DataFunction - String, corresponds to export from util/wslink. Same as ws message name.
  * columns - Array of objects, optional, same as <Table />. Note the lowercase c
  * Editable - Boolean - Allow editing
@@ -25,7 +25,7 @@ class DataTable extends Component {
 		this.state = {
 			pagination: {
 				pageSize: 100,
-				current: 1
+				current: 1,
 			},
 			filters: this.props.Filters,
 			sorter: {},
@@ -41,16 +41,16 @@ class DataTable extends Component {
 
 	async getData(pagination, filters, sorter) {
 		/*
-            pagination = {
-                pageSize: 10, // items per page
-                current: 1, // page number
-                total: 123, // Total amount of items
-            }
-            filters = {
-                ReportId: 123
-            }
-            sorter = {}
-        */
+			pagination = {
+				pageSize: 10, // items per page
+				current: 1, // page number
+				total: 123, // Total amount of items
+			}
+			filters = {
+				ReportId: 123
+			}
+			sorter = {}
+		*/
 		pagination = pagination || this.state.pagination;
 		filters = filters || this.state.filters;
 		sorter = sorter || this.state.sorter;
@@ -77,27 +77,28 @@ class DataTable extends Component {
 	}
 
 	showEditModal(record, index) {
-		if (!this.state.showEditModal)
+		if (!this.state.showEditModal) {
 			this.setState({
 				record: record,
 				showEditModal: true,
 			});
+		}
 	}
+
 	hideEditModal() {
 		this.setState({
 			showEditModal: false,
 			inserting: false,
-			record: {}
+			record: {},
 		});
 	}
+
 	async onEditFinish(values) {
 		console.log("Finished editing", values);
 
 		if (this.state.inserting) { // Create new record
-			var status = {};
 			await this.props.AddRecord.insert(values);
 		} else { // Edit existing record, capable of doing sparse updates
-			var status = {};
 			await this.props.Editable.insert(values);
 		}
 		this.setState({
@@ -108,6 +109,7 @@ class DataTable extends Component {
 		// Force refresh of data
 		this.getData();
 	}
+
 	async deleteRecord(record) {
 		delete record.key;
 		// Delete "null" values as they seem to cause deletes to fail silently when the value is null and field type is float
@@ -130,15 +132,16 @@ class DataTable extends Component {
 		// Force refresh of data
 		this.getData();
 	}
+
 	render() {
 		let tableProps = {
 			...this.props.TableProps || {},
 			onRow: (record, rowIndex) => {
 				/*
-                    To allow for extending functionality, we take a TableProps argument from props and pass it through to the Table component.
-                    Since we are also using onRow internaly here, we handle the externally provided events ourselves by passing along the event
-                    object. This way the end user isn't affected by our event handlers.
-                */
+					To allow for extending functionality, we take a TableProps argument from props and pass it through to the Table component.
+					Since we are also using onRow internaly here, we handle the externally provided events ourselves by passing along the event
+					object. This way the end user isn't affected by our event handlers.
+				*/
 				let externalOnRow = {
 					...(this.props.TableProps && this.props.TableProps.onRow && this.props.TableProps.onRow(record, rowIndex)),
 				};
@@ -163,7 +166,7 @@ class DataTable extends Component {
 						if (externalOnRow.onMouseLeave) externalOnRow.onMouseLeave(event);
 					},
 				};
-			}
+			},
 		};
 		let columns = this.props.columns || this.inferColumns(this.state.tableData);
 		if (this.props.DeleteRecord && !columns.find(x => x.dataIndex === "notInUse")) columns.push({
@@ -179,7 +182,7 @@ class DataTable extends Component {
 							this.deleteRecord(record);
 						}}
 					>
-                        Slett permanent
+						Slett permanent
 					</Button>
 				}
 				trigger="click"
@@ -187,7 +190,7 @@ class DataTable extends Component {
 				<Button danger style={{ float: "right", fontSize: "16px" }}>
 					<DeleteOutlined />
 				</Button>
-			</Popover>
+			</Popover>,
 		});
 
 		return <>
@@ -195,27 +198,25 @@ class DataTable extends Component {
 				<Col span={24}>
 					<style>
 						{`
-                            .editableTable .ant-table-tbody > tr {
-                                cursor:pointer
-                            }
-                        `}
+							.editableTable .ant-table-tbody > tr {
+								cursor:pointer
+							}
+						`}
 					</style>
 					<Table
 						className={this.props.Editable && "editableTable"}
 						{...tableProps}
-						columns={columns.map(x => {
-							return {
-								...x, // Add a 4th parameter to the stock render function with all of our table data
-								render: x.render ? (...originalParams) => x.render(...originalParams, this.state.tableData) : undefined
-							};
-						})}
+						columns={columns.map(x => ({
+							...x, // Add a 4th parameter to the stock render function with all of our table data
+							render: x.render ? (...originalParams) => x.render(...originalParams, this.state.tableData) : undefined,
+						}))}
 						dataSource={this.state.tableData}
 						pagination={this.state.pagination.total > 10 ? this.state.pagination : false}
 						onChange={this.getData.bind(this)}
 					/>
 					{this.props.AddRecord && <Button type="primary" onClick={() => this.setState({
 						showEditModal: true,
-						inserting: true
+						inserting: true,
 					})}>
 						<PlusOutlined />Add
 					</Button>}
@@ -243,8 +244,8 @@ class DataTable extends Component {
 
 							(
 								(this.state.inserting && this.props.AddRecord && this.props.AddRecord.fields) // Use externally supplied form input fields
-                                || this.props.columns.filter && this.props.columns.filter(x => x.dataIndex !== "notInUse") // Generate input fields from external columns
-                                || this.inferColumns(this.state.tableData)).map(col => { // Generate input fields from autogenerated columns (only works with existing data)
+								|| this.props.columns.filter && this.props.columns.filter(x => x.dataIndex !== "notInUse") // Generate input fields from external columns
+								|| this.inferColumns(this.state.tableData)).map(col => { // Generate input fields from autogenerated columns (only works with existing data)
 								console.log(this.state.record);
 								return <Form.Item key={col.dataIndex} label={col.title} name={col.dataIndex}>
 									{col.renderEdit && col.renderEdit(this.state.record[col.dataIndex], this.state.record, undefined /* Non spec compliant, is supposed to be index of record */, this.state.tableData) || <Input
@@ -263,6 +264,7 @@ class DataTable extends Component {
 			</Row>
 		</>;
 	}
+
 	inferColumns(data) {
 		// Look at the data and find columns and how to display them. Can be overridden by props.Columns if more customization is needed
 		let columns = [];

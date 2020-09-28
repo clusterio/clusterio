@@ -27,38 +27,38 @@ let listUsers = createListFunction("listUsers", "name");
 let listRoles = createListFunction("listRoles");
 let listPermissions = createListFunction("listPermissions", "name");
 
-let startInstance = async function ({ instance_id, save = null }) {
+async function startInstance({ instance_id, save = null }) {
 	return await link.messages.startInstance.send(control, { instance_id, save });
 };
-let stopInstance = async function ({ instance_id }) {
+async function stopInstance({ instance_id }) {
 	return await link.messages.stopInstance.send(control, { instance_id });
 };
-let createInstance = async function (serialized_config) {
+async function createInstance(serialized_config) {
 	return await link.messages.createInstance.send(control, { serialized_config });
 };
-let deleteInstance = async function ({ instance_id }) {
+async function deleteInstance({ instance_id }) {
 	return await link.messages.deleteInstance.send(control, { instance_id });
 };
-let assignInstance = async function ({ instance_id, slave_id }) {
+async function assignInstance({ instance_id, slave_id }) {
 	return await link.messages.assignInstanceCommand.send(control, {
 		instance_id,
 		slave_id,
 	});
 };
-let createSave = async function ({ instance_id }) {
+async function createSave({ instance_id }) {
 	return await link.messages.createSave.send(control, { instance_id });
 };
-let getInstanceConfig = async function ({ instance_id }) {
+async function getInstanceConfig({ instance_id }) {
 	return await link.messages.getInstanceConfig.send(control, { instance_id });
 };
-let setInstanceConfigField = async function ({ instance_id, field, value }) {
+async function setInstanceConfigField({ instance_id, field, value }) {
 	return await link.messages.setInstanceConfigField.send(control, {
 		instance_id,
 		field,
 		value: typeof value === "object" ? JSON.stringify(value) : value,
 	});
 };
-let setInstanceConfigProp = async function ({ instance_id, field, prop, value }) {
+async function setInstanceConfigProp({ instance_id, field, prop, value }) {
 	return await link.messages.setInstanceConfigProp.send(control, {
 		instance_id,
 		field,
@@ -66,32 +66,32 @@ let setInstanceConfigProp = async function ({ instance_id, field, prop, value })
 		value, // JSON Object
 	});
 };
-let sendRcon = async function ({ instance_id, command }) {
+async function sendRcon({ instance_id, command }) {
 	return await link.messages.sendRcon.send(control, { instance_id, command });
 };
-let setInstanceOutputSubscriptions = async function ({ instance_id }) {
+async function setInstanceOutputSubscriptions({ instance_id }) {
 	return await link.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instance_id] });
 };
 
-let createUser = async function ({ name }) {
+async function createUser({ name }) {
 	return await link.messages.createUser.send(control, { name });
 };
-let deleteUser = async function ({ name }) {
+async function deleteUser({ name }) {
 	return await link.messages.deleteUser.send(control, { name });
 };
-let setRoles = async function ({ name, roles }) {
+async function setRoles({ name, roles }) {
 	return await link.messages.updateUserRoles.send(control, {
 		name,
 		roles,
 	});
 };
 
-let createRole = async function ({ name, description, permissions = [] }) {
+async function createRole({ name, description, permissions = [] }) {
 	return await link.messages.createRole.send(control, { name, description, permissions });
 };
-let updateRole = async function ({ id, name, description, permissions }) {
+async function updateRole({ id, name, description, permissions }) {
 	return await link.messages.updateRole.send(control, {
-		id, name, description, permissions
+		id, name, description, permissions,
 	});
 };
 
@@ -120,15 +120,15 @@ export {
 };
 
 function createListFunction(name, key) {
-	return async () => {
-		return (await link.messages[name].send(control)).list.map(addKey(key || "id"));
-	};
+	return async () => (
+		(await link.messages[name].send(control)).list.map(addKey(key || "id"))
+	);
 }
 function addKey(key) {
 	return function (el) {
 		return {
 			...el,
-			key: el[key]
+			key: el[key],
 		};
 	};
 }

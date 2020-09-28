@@ -63,9 +63,9 @@ export class Control extends link.Link {
 		link.attachAllMessages(this);
 
 		/**
-         * Mapping of plugin names to their instance for loaded plugins.
-         * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
-         */
+		 * Mapping of plugin names to their instance for loaded plugins.
+		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
+		 */
 		this.plugins = controlPlugins;
 		for (let controlPlugin of controlPlugins.values()) {
 			plugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
@@ -75,7 +75,9 @@ export class Control extends link.Link {
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
 		console.log(formatOutput(output));
-		window.instanceOutputEventHandler && window.instanceOutputEventHandler({instance_id, output});
+		if (window.instanceOutputEventHandler) {
+			window.instanceOutputEventHandler({instance_id, output});
+		}
 	}
 
 	async debugWsMessageEventHandler(message) {

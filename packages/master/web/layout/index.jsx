@@ -30,7 +30,7 @@ class SiteLayout extends Component {
 			setTags: [],
 			location,
 			siteSettings: {},
-			factoryModel: []
+			factoryModel: [],
 		};
 	}
 
@@ -153,9 +153,9 @@ class SiteLayout extends Component {
 					</Content>
 					<Footer style={{
 						// background: "#F4F4F4",
-						textAlign: "center"
+						textAlign: "center",
 					}}>
-                        Clusterio 2.0 web interface https://github.com/clusterio
+						Clusterio 2.0 web interface https://github.com/clusterio
 					</Footer>
 				</Layout>
 			</Layout>
