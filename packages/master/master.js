@@ -40,6 +40,7 @@ let devMiddleware;
 
 // homebrew modules
 const generateSSLcert = require("./src/generate_ssl_cert");
+const routes = require("./src/routes");
 const database = require("@clusterio/lib/database");
 const schema = require("@clusterio/lib/schema");
 const link = require("@clusterio/lib/link");
@@ -70,6 +71,26 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(fileUpload());
 app.use(compression());
+
+
+// Servers the web interface with the root path set apropriately.
+function serveWeb(route) {
+	// The depth is is the number of slashes in the route minus one, but due
+	// to lenient matching on trailing slashes in the route we need to
+	// compensate if the request path contains a slash but not the route,
+	// and vice versa.
+	let routeDepth = (route.match(/\//g) || []).length - 1 - (route.slice(-1) === "/");
+	return function(req, res, next) {
+		let depth = routeDepth + (req.path.slice(-1) === "/");
+		let webRoot = "../".repeat(depth) || "./";
+		fs.readFile(path.join(__dirname, "web", "index.html"), "utf8").then((content) => {
+			res.type("text/html");
+			res.send(content.replace(/__WEB_ROOT__/g, webRoot));
+		}).catch(err => {
+			next(err);
+		});
+	};
+}
 
 // Set folder to serve static content from (the website)
 app.use(express.static(path.join(__dirname, "static")));
@@ -1696,6 +1717,16 @@ async function startServer() {
 			sslPrivKeyPath: tls_key,
 			doLogging: true,
 		});
+	}
+
+	// Add routes for the web interface
+	for (let route of routes) {
+		app.get(route, serveWeb(route));
+	}
+	for (let pluginInfo of pluginInfos) {
+		for (let route of pluginInfo.routes || []) {
+			app.get(route, serveWeb(route));
+		}
 	}
 
 	// Load plugins

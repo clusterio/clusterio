@@ -1,7 +1,6 @@
 "use strict";
 const path = require("path");
 const webpack = require("webpack");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 
 module.exports = (env = {}) => ({
@@ -19,9 +18,6 @@ module.exports = (env = {}) => ({
 		new CleanWebpackPlugin(),
 		new webpack.DefinePlugin({
 			"process.env.APP_ENV": JSON.stringify("browser"),
-		}),
-		new HtmlWebpackPlugin({
-			template: "web/index.html",
 		}),
 
 		// Make sure ant-design icons use the ES variant
