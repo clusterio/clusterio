@@ -14,6 +14,10 @@ module.exports = (env = {}) => ({
 		filename: "bundle.js",
 		path: path.resolve(__dirname, "static"),
 	},
+	performance: {
+		maxAssetSize: 2**21,
+		maxEntrypointSize: 2**21,
+	},
 	plugins: [
 		new CleanWebpackPlugin(),
 		new webpack.DefinePlugin({
