@@ -36,19 +36,19 @@ function formatOutput(output) {
  * @private
  */
 export class ControlConnector extends link.WebSocketClientConnector {
-    constructor(url, reconnectDelay, token) {
-        super(url, reconnectDelay);
-        this._token = token;
-    }
+	constructor(url, reconnectDelay, token) {
+		super(url, reconnectDelay);
+		this._token = token;
+	}
 
-    register() {
-        console.log("SOCKET | registering control");
-        this.sendHandshake("register_control", {
-            token: this._token,
-            agent: "web",
-            version: "2.0.0-alpha",
-        });
-    }
+	register() {
+		console.log("SOCKET | registering control");
+		this.sendHandshake("register_control", {
+			token: this._token,
+			agent: "web",
+			version: "2.0.0-alpha",
+		});
+	}
 }
 
 /**
@@ -58,41 +58,41 @@ export class ControlConnector extends link.WebSocketClientConnector {
  * @static
  */
 export class Control extends link.Link {
-    constructor(connector, controlPlugins) {
-        super("control", "master", connector);
-        link.attachAllMessages(this);
+	constructor(connector, controlPlugins) {
+		super("control", "master", connector);
+		link.attachAllMessages(this);
 
-        /**
+		/**
          * Mapping of plugin names to their instance for loaded plugins.
          * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
          */
-        this.plugins = controlPlugins;
-        for (let controlPlugin of controlPlugins.values()) {
-            plugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
-        }
-    }
+		this.plugins = controlPlugins;
+		for (let controlPlugin of controlPlugins.values()) {
+			plugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
+		}
+	}
 
-    async instanceOutputEventHandler(message) {
-        let { instance_id, output } = message.data;
-        console.log(formatOutput(output));
-        window.instanceOutputEventHandler && window.instanceOutputEventHandler({instance_id, output})
-    }
+	async instanceOutputEventHandler(message) {
+		let { instance_id, output } = message.data;
+		console.log(formatOutput(output));
+		window.instanceOutputEventHandler && window.instanceOutputEventHandler({instance_id, output})
+	}
 
-    async debugWsMessageEventHandler(message) {
-        console.log("WS", message.data.direction, message.data.content);
-    }
+	async debugWsMessageEventHandler(message) {
+		console.log("WS", message.data.direction, message.data.content);
+	}
 
-    async shutdown() {
-        this.connector.setTimeout(30);
+	async shutdown() {
+		this.connector.setTimeout(30);
 
-        try {
-            await link.messages.prepareDisconnect.send(this);
-        } catch (err) {
-            if (!(err instanceof errors.SessionLost)) {
-                throw err;
-            }
-        }
+		try {
+			await link.messages.prepareDisconnect.send(this);
+		} catch (err) {
+			if (!(err instanceof errors.SessionLost)) {
+				throw err;
+			}
+		}
 
-        await this.connector.close(1001, "Control Quit");
-    }
+		await this.connector.close(1001, "Control Quit");
+	}
 }

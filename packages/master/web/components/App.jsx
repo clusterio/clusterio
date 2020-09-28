@@ -5,9 +5,9 @@ import basename from "../basename";
 import Layout from "../layout";
 
 export default function App() {
-    return (
-        <BrowserRouter basename={basename}>
-            <Layout />
-        </BrowserRouter>
-    );
+	return (
+		<BrowserRouter basename={basename}>
+			<Layout />
+		</BrowserRouter>
+	);
 }
