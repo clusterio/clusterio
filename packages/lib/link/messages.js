@@ -66,6 +66,7 @@ class Request extends Message {
 		this.links = links;
 		this.permission = permission || null;
 		this.forwardTo = forwardTo;
+		this.handlerSuffix = "RequestHandler";
 
 		this.requestType = type + "_request";
 		this.responseType = type + "_response";
@@ -681,6 +682,7 @@ class Event extends Message {
 		this.links = links;
 		this.forwardTo = forwardTo;
 		this.broadcastTo = broadcastTo;
+		this.handlerSuffix = "EventHandler";
 
 		if (forwardTo === "instance") {
 			eventProperties = {
@@ -956,7 +958,7 @@ messages.playerEvent = new Event({
  */
 function attachAllMessages(link) {
 	for (let [name, message] of Object.entries(messages)) {
-		message.attach(link, link[name + message.constructor.name + "Handler"]);
+		message.attach(link, link[name + message.handlerSuffix]);
 	}
 }
 
