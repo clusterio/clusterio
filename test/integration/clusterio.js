@@ -8,6 +8,16 @@ const link = require("@clusterio/lib/link");
 const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
 
+async function getInstances() {
+	let result = await link.messages.listInstances.send(getControl());
+	return new Map(result.list.map(instance => [instance.id, instance]));
+}
+
+async function checkInstanceStatus(id, status) {
+	let instances = await getInstances();
+	assert.equal(instances.get(44).status, status, "incorrect instance status");
+}
+
 describe("Integration of Clusterio", function() {
 	describe("clusterioctl", function() {
 		describe("slave list", function() {
@@ -22,15 +32,19 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance create", function() {
-			it("runs", async function() {
+			it("creates the instance", async function() {
 				await execCtl("instance create test --id 44");
+				let instances = await getInstances();
+				assert(instances.has(44), "instance was not created");
+				assert.equal(instances.get(44).status, "unassigned", "incorrect instance status");
 			});
 		});
 
 		describe("instance assign", function() {
 			it("creates the instance files", async function() {
 				await execCtl("instance assign test 4");
-				assert(await fs.exists(path.join(instancesDir, "test")), "Instance was not created");
+				assert(await fs.exists(path.join(instancesDir, "test")), "Instance directory was not created");
+				await checkInstanceStatus(44, "stopped");
 			});
 		});
 
@@ -38,6 +52,7 @@ describe("Integration of Clusterio", function() {
 			it("creates a save", async function() {
 				slowTest(this);
 				await execCtl("instance create-save test");
+				await checkInstanceStatus(44, "stopped");
 			});
 		});
 
@@ -46,6 +61,7 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				await execCtl("instance export-data test");
 				assert(await fs.exists(path.join("static", "export", "locale.json")), "Export was not created");
+				await checkInstanceStatus(44, "stopped");
 			});
 		});
 
@@ -53,7 +69,7 @@ describe("Integration of Clusterio", function() {
 			it("starts the instance", async function() {
 				slowTest(this);
 				await execCtl("instance start test");
-				// TODO check that the instance actually started
+				await checkInstanceStatus(44, "running");
 			});
 		});
 
@@ -200,7 +216,7 @@ describe("Integration of Clusterio", function() {
 			it("stops the instance", async function() {
 				slowTest(this);
 				await execCtl("instance stop test");
-				// TODO check that the instance actually stopped
+				await checkInstanceStatus(44, "stopped");
 			});
 		});
 
@@ -208,7 +224,9 @@ describe("Integration of Clusterio", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);
 				await execCtl("instance delete test");
-				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance was not deleted");
+				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance files was not deleted");
+				let instances = await getInstances();
+				assert(!instances.has(44), "instance was not deleted from master");
 			});
 		});
 

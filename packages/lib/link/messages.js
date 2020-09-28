@@ -290,11 +290,14 @@ messages.listInstances = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["name", "id", "assigned_slave"],
+				required: ["name", "id", "assigned_slave", "status"],
 				properties: {
 					"name": { type: "string" },
 					"id": { type: "integer" },
 					"assigned_slave": { type: ["null", "integer"] },
+					"status": { enum: [
+						"unknown", "unassigned", "stopped", "starting", "running", "creating_save", "exporting_data",
+					]},
 				},
 			},
 		},
