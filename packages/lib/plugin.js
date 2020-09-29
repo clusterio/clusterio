@@ -226,10 +226,23 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the master server has received notice from a slave that
 	 * the running status of an instance has changed.  The possible statuses
-	 * are `stopped` meaning it is not loaded or running, `initialized`
-	 * meaning the instance has initialized and is starting up the Factorio
-	 * server, and `running` which means the Factorio server it manages is
-	 * up and running.
+	 * that can be notified about are:
+	 * - `stopped`: Instance is no longer running.
+	 * - `starting`: Instance is in the process of starting up.
+	 * - `running`: Instance startup completed and is now running.
+	 * - `creating_save`: Instance is in the process of creating a save.
+	 * - `exporting_data`: Instance is in the process of exporting item
+	 *   icons and locale data.
+	 *
+	 * On master startup all known instances gets the status `unknown` if
+	 * they are assigned to a slave, when the slave then connects to the
+	 * master and informs of the current status of its instances this hook
+	 * is invoked for all those instances.  You can detect this situation by
+	 * checking if prev equals `unknown`.
+	 *
+	 * Note that it's possible for status change notification to get lost in
+	 * the case of network outages if reconnect fails to re-establish the
+	 * session between the master server and the slave.
 	 *
 	 * @param {Object} instance - the instance that changed.
 	 * @param {string} prev - the previous status of the instance.

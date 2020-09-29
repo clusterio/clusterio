@@ -24,7 +24,7 @@ describe("lib/command", function() {
 				seq: 1, type: "list_instances_response",
 				data: {
 					seq: message.seq,
-					list: [{ id: 57, assigned_slave: 4, name: "Test Instance" }],
+					list: [{ id: 57, assigned_slave: 4, name: "Test Instance", status: "stopped" }],
 				},
 			});
 		} else if (message.type === "list_roles_request") {

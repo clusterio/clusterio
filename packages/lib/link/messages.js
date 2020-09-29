@@ -290,11 +290,14 @@ messages.listInstances = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["name", "id", "assigned_slave"],
+				required: ["name", "id", "assigned_slave", "status"],
 				properties: {
 					"name": { type: "string" },
 					"id": { type: "integer" },
 					"assigned_slave": { type: ["null", "integer"] },
+					"status": { enum: [
+						"unknown", "unassigned", "stopped", "starting", "running", "creating_save", "exporting_data",
+					]},
 				},
 			},
 		},
@@ -804,7 +807,7 @@ messages.debugWsMessage = new Event({
 
 messages.instanceInitialized = new Event({
 	type: "instance_initialized",
-	links: ["instance-slave", "slave-master"],
+	links: ["instance-slave"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"plugins": {
@@ -813,18 +816,14 @@ messages.instanceInitialized = new Event({
 		},
 	},
 });
-messages.instanceStarted = new Event({
-	type: "instance_started",
+messages.instanceStatusChanged = new Event({
+	type: "instance_status_changed",
 	links: ["instance-slave", "slave-master"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
-	},
-});
-messages.instanceStopped = new Event({
-	type: "instance_stopped",
-	links: ["instance-slave", "slave-master"],
-	eventProperties: {
-		"instance_id": { type: "integer" },
+		"status": { enum: [
+			"stopped", "starting", "running", "creating_save", "exporting_data",
+		]},
 	},
 });
 
@@ -840,7 +839,9 @@ messages.updateInstances = new Event({
 				required: ["serialized_config", "status"],
 				properties: {
 					"serialized_config": { type: "object" },
-					"status": { enum: ["stopped", "initialized", "running"] },
+					"status": { enum: [
+						"stopped", "starting", "running", "creating_save", "exporting_data",
+					]},
 				},
 			},
 		},
