@@ -29,6 +29,7 @@ const yargs = require("yargs");
 const WebSocket = require("ws");
 const JSZip = require("jszip");
 const version = require("./package").version;
+const util = require("util");
 
 // ugly globals
 let masterConfig;
@@ -1595,6 +1596,14 @@ async function startServer() {
 		}
 	}
 
+	if (!masterConfig.get("master.auth_secret")) {
+		console.log("Generating new master authentication secret");
+		let asyncRandomBytes = util.promisify(crypto.randomBytes);
+		let bytes = await asyncRandomBytes(256);
+		masterConfig.set("master.auth_secret", bytes.toString("base64"));
+		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
+	}
+
 	let command = args._[0];
 	if (command === "config") {
 		await config.handleConfigCommand(args, masterConfig, masterConfigPath);
@@ -1642,8 +1651,6 @@ async function startServer() {
 			}
 		}
 
-		// Save config in case the auth_secret was generated during this invocation.
-		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 		return;
 	}
 
