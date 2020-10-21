@@ -34,6 +34,8 @@ const util = require("util");
 // ugly globals
 let masterConfig;
 let masterConfigPath;
+let masterPlugins = new Map();
+let pluginInfos = new Map();
 let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
 let pluginList = {};
@@ -50,6 +52,7 @@ const plugin = require("@clusterio/lib/plugin");
 const prometheus = require("@clusterio/lib/prometheus");
 const config = require("@clusterio/lib/config");
 const users = require("@clusterio/lib/users");
+const sharedCommands = require("@clusterio/lib/shared_commands");
 
 const express = require("express");
 const compression = require("compression");
@@ -1441,7 +1444,6 @@ async function handleHandshake(message, socket, req, attachHandler) {
 }
 
 // handle plugins on the master
-var masterPlugins = new Map();
 async function pluginManagement(pluginInfos) {
 	let startPluginLoad = Date.now();
 	masterPlugins = await loadPlugins(pluginInfos);
@@ -1461,9 +1463,7 @@ async function loadPlugins(pluginInfos) {
 		let MasterPlugin = plugin.BaseMasterPlugin;
 		try {
 			if (pluginInfo.masterEntrypoint) {
-				// XXX Does not work on Windows
-				let pluginPath = path.relative(__dirname, path.join("plugins", pluginInfo.name));
-				({ MasterPlugin } = require(path.join(pluginPath, pluginInfo.masterEntrypoint)));
+				({ MasterPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.masterEntrypoint)));
 			}
 
 			let masterPlugin = new MasterPlugin(
@@ -1555,6 +1555,13 @@ async function startServer() {
 			default: "config-master.json",
 			type: "string",
 		})
+		.option("plugin-list", {
+			nargs: 1,
+			describe: "File containing list of plugins available with their install path",
+			default: "plugin-list.json",
+			type: "string",
+		})
+		.command("plugin", "Manage available plugins", sharedCommands.pluginCommand)
 		.command("config", "Manage Master config", config.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
@@ -1575,8 +1582,25 @@ async function startServer() {
 		.argv
 	;
 
+	console.log(`Loading available plugins from ${args.pluginList}`);
+	let pluginList = new Map();
+	try {
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			throw err;
+		}
+	}
+
+	// If the command is plugin management we don't try to load plugins
+	let command = args._[0];
+	if (command === "plugin") {
+		await sharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		return;
+	}
+
 	console.log("Loading Plugin info");
-	let pluginInfos = await plugin.loadPluginInfos("plugins");
+	pluginInfos = await plugin.loadPluginInfos(pluginList);
 	config.registerPluginConfigGroups(pluginInfos);
 	config.finalizeConfigs();
 
@@ -1604,7 +1628,6 @@ async function startServer() {
 		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 	}
 
-	let command = args._[0];
 	if (command === "config") {
 		await config.handleConfigCommand(args, masterConfig, masterConfigPath);
 		return;

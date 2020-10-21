@@ -33,11 +33,11 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
 * [Introduction & methodology](#introduction)
 * [Ubuntu setup](#ubuntu-setup)
 * [Windows setup](#windows-setup)
+* [Installing Plugins](#installing-plugins)
 * [Running Clusterio](#running-clusterio)
   * [Master Server](#master-server)
   * [Slaves](#slaves)
   * [Instances](#instances)
-* [Optional plugins](#Plugins)
 * [Common problems](#Common-problems)
 
 ## Introduction
@@ -176,6 +176,29 @@ up, v11.13.0+ and v10.16.0+.
             the Factorio folder into the factorio folder created in step 1.
 
 
+## Installing Plugins
+
+Installing plugins to make them work with Clusterio consists of two
+steps.  First install the package via npm, for example
+
+    npm install @clusterio/plugin-subspace_storage
+
+Then tell clusterio that this plugin exists by adding it as a plugin.
+
+    npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
+
+This adds it to the default `plugin-list.json` file which in the shared
+folder setup is loaded by master, slave and ctl.  If you have slaves or
+ctl installed on separate computers (or directories) then you need to
+repeat the plugin install process for all of them.  The clusteriomaster,
+clusterioslave and clusterioctl commands has the plugin sub-command
+so you do not need to install clusteriomaster to add plugins.
+
+For development purposes the `plugin add` command supports adding
+plugins by the absolute path to them, or a relative path that must start
+with either . or .. (which will then be resolved to an absolute path).
+
+
 ## Running Clusterio
 
 After following the installation instructions you can use the following
@@ -256,12 +279,6 @@ save games present.
 There are many more commands available with clusterioctl.  See
 `npx clusterioctl --help` for a full list of them.
 
-
-## Plugins
-Here are the known Clusterio plugins in the wild:
-1. [Player Manager](https://github.com/Danielv123/playerManager) - Adds player management to the Web UI and shared inventory handling (beta)
-2. [DiscordChat](https://github.com/jakedraddy/ClusterioDiscordChat) - Logs in-game chat/joins/leave messages on all instances to a Discord webhook.
-3. [TrainTeleports](https://github.com/Godmave/clusterioTrainTeleports) - Allows you to teleport cargotrains between servers.
 
 ## Common problems
 

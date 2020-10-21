@@ -394,6 +394,7 @@ function configCommand(yargs) {
 		.command("show <field>", "Show value of the given config field")
 		.command("list", "List all configuration fields and their values")
 		.demandCommand(1, "You need to specify a command to run")
+		.help()
 		.strict()
 	;
 }

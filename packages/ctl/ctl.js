@@ -18,6 +18,7 @@ const errors = require("@clusterio/lib/errors");
 const config = require("@clusterio/lib/config");
 const plugin = require("@clusterio/lib/plugin");
 const command = require("@clusterio/lib/command");
+const sharedCommands = require("@clusterio/lib/shared_commands");
 
 
 /**
@@ -586,11 +587,38 @@ async function startControl() {
 			defaultDescription: "auto",
 			type: "string",
 		})
+		.option("plugin-list", {
+			nargs: 1,
+			describe: "File containing list of plugins available with their install path",
+			default: "plugin-list.json",
+			type: "string",
+		})
+		.command("plugin", "Manage available plugins", sharedCommands.pluginCommand)
 		.command("control-config", "Manage Control config", config.configCommand)
 		.wrap(yargs.terminalWidth())
-		.strict()
+		.help(false) // Disable help to avoid triggering it on the first parse.
 	;
 
+	// Parse the args first to get the configured plugin list.
+	let args = yargs.argv;
+
+	console.log(`Loading available plugins from ${args.pluginList}`);
+	let pluginList = new Map();
+	try {
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			throw err;
+		}
+	}
+
+	// If the command is plugin management we don't try to load plugins
+	if (args._[0] === "plugin") {
+		await sharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		return;
+	}
+
+	// Add all cluster management commands including ones from plugins
 	const rootCommands = new command.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
 	rootCommands.add(slaveCommands);
 	rootCommands.add(instanceCommands);
@@ -600,7 +628,7 @@ async function startControl() {
 	rootCommands.add(debugCommands);
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await plugin.loadPluginInfos("plugins");
+	let pluginInfos = await plugin.loadPluginInfos(pluginList);
 	config.registerPluginConfigGroups(pluginInfos);
 	config.finalizeConfigs();
 
@@ -610,9 +638,7 @@ async function startControl() {
 			continue;
 		}
 
-		// XXX Does not work on Windows
-		let pluginPath = path.relative(__dirname, path.join("plugins", pluginInfo.name));
-		let { ControlPlugin } = require(path.join(pluginPath, pluginInfo.controlEntrypoint));
+		let { ControlPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.controlEntrypoint));
 		let controlPlugin = new ControlPlugin(pluginInfo);
 		controlPlugins.set(pluginInfo.name, controlPlugin);
 		await controlPlugin.init();
@@ -625,7 +651,12 @@ async function startControl() {
 		}
 	}
 
-	const args = yargs.argv;
+	// Reparse after commands have been added with help and strict checking.
+	args = yargs
+		.help()
+		.strict()
+		.argv
+	;
 
 	console.log(`Loading config from ${args.config}`);
 	let controlConfig = new config.ControlConfig();
