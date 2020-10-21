@@ -79,6 +79,9 @@ async function build(args) {
 
 			for (let pathParts of info.additional_files || []) {
 				let filePath = path.join(args.sourceDir, ...pathParts);
+				if (!await fs.pathExists(filePath)) {
+					throw new Error(`Additional file ${filePath} does not exist`);
+				}
 				zip.file(path.posix.join(modName, path.basename(filePath)), fs.createReadStream(filePath));
 			}
 			delete info.additional_files;
