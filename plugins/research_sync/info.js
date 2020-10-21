@@ -22,7 +22,6 @@ module.exports = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",
-	version: "2.0.0-alpha",
 	instanceEntrypoint: "instance",
 	masterEntrypoint: "master",
 

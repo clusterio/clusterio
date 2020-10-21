@@ -2,7 +2,7 @@
   "name": "root",
   "private": true,
   "scripts": {
-    "test": "mocha --exit --check-leaks -R spec --recursive test",
+    "test": "mocha --exit --check-leaks -R spec --recursive test plugins/*/test",
     "fast-test": "FAST_TEST=y npm test",
     "cover": "nyc npm test",
     "fast-cover": "FAST_TEST=y nyc npm test",

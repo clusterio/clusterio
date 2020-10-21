@@ -57,7 +57,6 @@ module.exports = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
-	version: "2.0.0-alpha",
 	instanceEntrypoint: "instance",
 	InstanceConfigGroup,
 
