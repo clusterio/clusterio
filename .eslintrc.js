@@ -150,7 +150,16 @@ module.exports = {
 		"no-lonely-if": "error",
 		"no-loop-func": "error",
 		"no-magic-numbers": "off",
-		"no-mixed-operators": "warn",
+		"no-mixed-operators": [
+			"error",
+			{
+				"groups": [
+					["&", "|", "^", "~", "<<", ">>", ">>>"],
+					["==", "!=", "===", "!==", ">", ">=", "<", "<="],
+					["in", "instanceof"],
+				],
+			},
+		],
 		"no-mixed-requires": "error",
 		"no-multi-assign": "error",
 		"no-multi-spaces": "error",
