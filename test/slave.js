@@ -140,7 +140,7 @@ describe("Slave testing", function() {
 
 		it("should unlink removed mods", async function() {
 			// This does not work on Windows
-			if (process.platform == "win32") {
+			if (process.platform === "win32") {
 				this.skip();
 			}
 

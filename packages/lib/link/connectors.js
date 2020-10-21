@@ -352,7 +352,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		let { seq, type, data } = message;
-		if (type == "hello") {
+		if (type === "hello") {
 			console.log(`SOCKET | received hello from master version ${data.version}`);
 			this.emit("hello", data);
 			if (this._sessionToken) {

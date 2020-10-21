@@ -25,7 +25,9 @@ class neuralDole {
 		for (var i = 1; i <= samples; i++) {
 			sum+=this.stats[itemname][i].req;
 		}
-		if (sum==0) return 0.1;
+		if (sum === 0) {
+			return 0.1;
+		}
 		return sum/samples;
 	}
 

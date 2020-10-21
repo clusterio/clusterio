@@ -183,7 +183,7 @@ async function generatePassword(length) {
 
 			if (validChar(byte)) {
 				password += String.fromCharCode(byte);
-				if (password.length == length) {
+				if (password.length === length) {
 					return password;
 				}
 			}

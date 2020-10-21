@@ -50,7 +50,7 @@ async function get(path) {
 		url: `https://localhost:4443${path}`,
 		core: { rejectUnauthorized: false },
 	});
-	if (res.statusCode != 200) {
+	if (res.statusCode !== 200) {
 		throw new Error(`Got response code ${res.statusCode}, content: ${res.body}`);
 	}
 	return res;

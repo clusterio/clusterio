@@ -87,7 +87,7 @@ describe("lib/prometheus", function() {
 					prometheus.defaultRegistry.unregister(collector);
 				}
 				assert(
-					prometheus.defaultRegistry.collectors.length == 0,
+					prometheus.defaultRegistry.collectors.length === 0,
 					"Collectors left over after removing the default ones"
 				);
 			});
@@ -367,7 +367,7 @@ describe("lib/prometheus", function() {
 				gauge.labels({ a: "3", b: "4" });
 				gauge.labels({ a: "5", b: "6" });
 				gauge.clear();
-				assert(gauge._values.size == 0, "values was not cleared");
+				assert(gauge._values.size === 0, "values was not cleared");
 			});
 			it("should throw when used on an unlabled metric", function() {
 				let gauge = new prometheus.Gauge("test", "Help", { register: false });
@@ -389,7 +389,7 @@ describe("lib/prometheus", function() {
 				}
 
 				assert(
-					results.length == 1,
+					results.length === 1,
 					"collector did not give exactly one result"
 				);
 
@@ -409,7 +409,7 @@ describe("lib/prometheus", function() {
 				}
 
 				assert(
-					results.length == 1,
+					results.length === 1,
 					"collector did not give exactly one result"
 				);
 
@@ -430,7 +430,7 @@ describe("lib/prometheus", function() {
 				}
 
 				assert(
-					results.length == 1,
+					results.length === 1,
 					"collector did not give exactly one result"
 				);
 
@@ -451,7 +451,7 @@ describe("lib/prometheus", function() {
 				}
 
 				assert(
-					results.length == 1,
+					results.length === 1,
 					"collector did not give exactly one result"
 				);
 
@@ -604,7 +604,7 @@ describe("lib/prometheus", function() {
 		it("should not have any collectors in the default registry", function() {
 			this.skip(); // XXX Doesn't work in Clusterio's shared testing env
 			assert(
-				prometheus.defaultRegistry.collectors.length == 0,
+				prometheus.defaultRegistry.collectors.length === 0,
 				"Collectors left over by test code"
 			);
 		});

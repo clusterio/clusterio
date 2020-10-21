@@ -46,7 +46,9 @@ function Dose(numreq,instore,store_last_tick,dole,carry,prev_req,numreq_total_ad
 	numreq=Number(numreq);
 	instore=Number(instore);
 	var instore_adj=instore;
-	if (instore_adj==0) instore_adj=0.1;
+	if (instore_adj === 0) {
+		instore_adj = 0.1;
+	}
 
 	var b=Math.trunc(prev_req/instore_adj*numreq);
 	var inp1=[numreq,instore_adj,store_last_tick/numreq,dole,carry];//0..4
@@ -97,7 +99,9 @@ function Dose(numreq,instore,store_last_tick,dole,carry,prev_req,numreq_total_ad
 function Tick(instore,dole,store_last_tick,numreq_total_adj)
 {
 	var instore_adj=instore;
-	if (instore_adj==0) instore_adj=0.1;
+	if (instore_adj === 0) {
+		instore_adj = 0.1;
+	}
 	var inputs=[instore,dole,store_last_tick/instore_adj,store_last_tick/numreq_total_adj,store_last_tick,numreq_total_adj];
 	var internal=new Array(10).fill(0);
 	var outputs=[0,0];

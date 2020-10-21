@@ -55,7 +55,7 @@ async function loadJsonAsMap(filePath) {
 		return new Map(Object.entries(parsed));
 
 	} catch (err) {
-		if (err.code == "ENOENT") {
+		if (err.code === "ENOENT") {
 			// File does not exist, return empty map
 			return new Map();
 
@@ -117,7 +117,7 @@ async function loadJsonArrayAsMap(filePath) {
 		return map;
 
 	} catch (err) {
-		if (err.code == "ENOENT") {
+		if (err.code === "ENOENT") {
 			// File does not exist, return empty map
 			return new Map();
 

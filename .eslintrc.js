@@ -73,7 +73,7 @@ module.exports = {
 		"dot-location": ["error", "property"],
 		"dot-notation": ["warn", { "allowKeywords": true }],
 		"eol-last": "error",
-		"eqeqeq": "warn",
+		"eqeqeq": "error",
 		"func-call-spacing": "error",
 		"func-name-matching": "error",
 		"func-names": "off",

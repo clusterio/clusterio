@@ -39,7 +39,7 @@ module.exports.isJSON = function(string){
 	} catch (e){
 		return false;
 	}
-	if(typeof x == "object" || typeof string == "object"){
+	if (typeof x === "object" || typeof string === "object"){
 		stringIsJson = true;
 	}
 	return stringIsJson;

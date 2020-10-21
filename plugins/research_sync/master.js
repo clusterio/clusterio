@@ -118,7 +118,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 				this.technologies.set(name, { level, progress, researched });
 				if (progress) {
 					this.progressToBroadcast.add(name);
-				} else if (researched || baseLevel(name) != level) {
+				} else if (researched || baseLevel(name) !== level) {
 					this.broadcastEventToSlaves(this.info.messages.finished, { name, level });
 				}
 
