@@ -63,18 +63,20 @@ let control;
 let url = "https://localhost:4443/";
 let controlToken = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
 let instancesDir = path.join("temp", "test", "instances");
-let databaseDir = path.join("temp", "test", "databse");
-let masterConfigPath = path.join("temp", "test", "master-integration.json");
-let slaveConfigPath = path.join("temp", "test", "slave-integration.json");
-let controlConfigPath = path.join("temp", "test", "control-integration.json");
+let databaseDir = path.join("temp", "test", "database");
+let pluginListPath = path.join("temp", "test", "plugin-list.json");
+let masterConfigPath = path.join("temp", "test", "config-master.json");
+let slaveConfigPath = path.join("temp", "test", "config-slave.json");
+let controlConfigPath = path.join("temp", "test", "config-control.json");
 
-async function exec(...args) {
-	console.log(args[0]);
-	return await util.promisify(child_process.exec)(...args);
+async function exec(command, options = {}) {
+	console.log(command);
+	options = { cwd: path.join("temp", "test"), ...options };
+	return await util.promisify(child_process.exec)(command, options);
 }
 
 async function execCtl(...args) {
-	args[0] = `node packages/ctl --config ${controlConfigPath} ${args[0]}`;
+	args[0] = `node ../../packages/ctl ${args[0]}`;
 	return await exec(...args);
 }
 
@@ -91,7 +93,7 @@ function spawn(name, cmd, waitFor) {
 	return new Promise((resolve, reject) => {
 		console.log(cmd);
 		let parts = cmd.split(" ");
-		let process = child_process.spawn(parts[0], parts.slice(1));
+		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
 		let stdout = new server._LineSplitter((line) => {
 			line = line.toString("utf8");
 			if (line.startsWith(waitFor)) {
@@ -113,30 +115,30 @@ before(async function() {
 	await fs.remove(databaseDir);
 	await fs.remove(instancesDir);
 
+	await fs.remove(pluginListPath);
 	await fs.remove(masterConfigPath);
 	await fs.remove(slaveConfigPath);
 	await fs.remove(controlConfigPath);
 
-	await exec(`node packages/master --config ${masterConfigPath} config set master.database_directory ${databaseDir}`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.auth_secret TestSecretDoNotUse`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.http_port 8880`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.https_port 4443`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.tls_certificate ${path.join(databaseDir, "cert.crt")}`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.tls_private_key ${path.join(databaseDir, "cert.key")}`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.tls_bits 1024`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.heartbeat_interval 0.25`);
-	await exec(`node packages/master --config ${masterConfigPath} config set master.connector_shutdown_timeout 2`);
+	await fs.ensureDir(path.join("temp", "test"));
 
-	await exec(`node packages/master --config ${masterConfigPath} bootstrap create-admin test`);
-	await exec(`node packages/master --config ${masterConfigPath} bootstrap create-ctl-config test --output ${controlConfigPath}`);
+	await exec("node ../../packages/master config set master.auth_secret TestSecretDoNotUse");
+	await exec("node ../../packages/master config set master.http_port 8880");
+	await exec("node ../../packages/master config set master.https_port 4443");
+	await exec("node ../../packages/master config set master.tls_bits 1024");
+	await exec("node ../../packages/master config set master.heartbeat_interval 0.25");
+	await exec("node ../../packages/master config set master.connector_shutdown_timeout 2");
 
-	masterProcess = await spawn("master:", `node packages/master --config ${masterConfigPath} run`, "All plugins loaded");
+	await exec("node ../../packages/master bootstrap create-admin test");
+	await exec("node ../../packages/master bootstrap create-ctl-config test");
 
-	let createArgs = `--id 4 --name slave --generate-token --output ${slaveConfigPath}`;
+	masterProcess = await spawn("master:", "node ../../packages/master run", "All plugins loaded");
+
+	let createArgs = "--id 4 --name slave --generate-token";
 	await execCtl(`slave create-config ${createArgs}`);
-	await exec(`node packages/slave --config ${slaveConfigPath} config set slave.instances_directory ${instancesDir}`);
 
-	slaveProcess = await spawn("slave:", `node packages/slave --config ${slaveConfigPath} run`, "SOCKET | received ready from master");
+	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
+	slaveProcess = await spawn("slave:", "node ../../packages/slave run", "SOCKET | received ready from master");
 
 	let controlConnector = new TestControlConnector(url, 2);
 	controlConnector.token = controlToken;

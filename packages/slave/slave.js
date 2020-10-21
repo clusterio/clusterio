@@ -411,14 +411,14 @@ class Instance extends link.Link{
 		}
 
 		// Find stand alone modules to load
-		// XXX for now it's assumed all available modules should be loaded.
-		for (let entry of await fs.readdir("modules", { withFileTypes: true })) {
+		// XXX for now only the included clusterio module is loaded
+		for (let entry of await fs.readdir(path.join(__dirname, "modules"), { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
 
-				let moduleJsonPath = path.join("modules", entry.name, "module.json");
+				let moduleJsonPath = path.join(__dirname, "modules", entry.name, "module.json");
 				if (!await fs.pathExists(moduleJsonPath)) {
 					throw new Error(`Module ${entry.name} is missing module.json`);
 				}
@@ -429,7 +429,7 @@ class Instance extends link.Link{
 				}
 
 				module = {
-					path: path.join("modules", entry.name),
+					path: path.join(__dirname, "modules", entry.name),
 					dependencies: { "clusterio": "*" },
 					load: [],
 					require: [],

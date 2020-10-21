@@ -8,14 +8,13 @@ const yargs = require("yargs");
 
 
 async function main() {
-	const libPath = path.join("lua", "clusterio_lib");
 	const args = yargs
 		.scriptName("build")
 		.options({
 			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
 			"build": { describe: "Build mod", type: "boolean", default: true },
 			"pack": { describe: "Pack into zip file", type: "boolean", default: true },
-			"source-dir": { describe: "Path to mod source files", nargs: 1, type: "string", default: libPath },
+			"source-dir": { describe: "Path to mod source files", nargs: 1, type: "string", demandOption: true },
 			"output-dir": { describe: "Path to output built mod", nargs: 1, type: "string", default: "dist" },
 			"bump-patch": { describe: "Increment patch number of build", type: "boolean", default: false },
 			"factorio-version": { describe: "Override factorio_version", type: "string" },
@@ -79,7 +78,7 @@ async function build(args) {
 			await events.once(walker, "end");
 
 			for (let pathParts of info.additional_files || []) {
-				let filePath = path.join(...pathParts);
+				let filePath = path.join(args.sourceDir, ...pathParts);
 				zip.file(path.posix.join(modName, path.basename(filePath)), fs.createReadStream(filePath));
 			}
 			delete info.additional_files;
