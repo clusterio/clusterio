@@ -42,17 +42,17 @@ let pluginList = {};
 let devMiddleware;
 
 // homebrew modules
-const generateSSLcert = require("./src/generate_ssl_cert");
+const generateSslCert = require("./src/generate_ssl_cert");
 const routes = require("./src/routes");
-const database = require("@clusterio/lib/database");
-const schema = require("@clusterio/lib/schema");
-const link = require("@clusterio/lib/link");
-const errors = require("@clusterio/lib/errors");
-const plugin = require("@clusterio/lib/plugin");
-const prometheus = require("@clusterio/lib/prometheus");
-const config = require("@clusterio/lib/config");
-const users = require("@clusterio/lib/users");
-const sharedCommands = require("@clusterio/lib/shared_commands");
+const libDatabase = require("@clusterio/lib/database");
+const libSchema = require("@clusterio/lib/schema");
+const libLink = require("@clusterio/lib/link");
+const libErrors = require("@clusterio/lib/errors");
+const libPlugin = require("@clusterio/lib/plugin");
+const libPrometheus = require("@clusterio/lib/prometheus");
+const libConfig = require("@clusterio/lib/config");
+const libUsers = require("@clusterio/lib/users");
+const libSharedCommands = require("@clusterio/lib/shared_commands");
 
 const express = require("express");
 const compression = require("compression");
@@ -100,34 +100,34 @@ function serveWeb(route) {
 app.use(express.static(path.join(__dirname, "static")));
 app.use(express.static("static")); // Used for data export files
 
-const endpointHitCounter = new prometheus.Counter(
+const endpointHitCounter = new libPrometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
 	"How many requests a particular HTTP endpoint has gotten",
 	{ labels: ["route"] }
 );
 
-const wsMessageCounter = new prometheus.Counter(
+const wsMessageCounter = new libPrometheus.Counter(
 	"clusterio_master_websocket_message_total",
 	"How many messages have been received over WebSocket on the master server",
 	{ labels: ["direction"] }
 );
 
-const wsConnectionsCounter = new prometheus.Counter(
+const wsConnectionsCounter = new libPrometheus.Counter(
 	"clusterio_master_websocket_connections_total",
 	"How many WebSocket connections have been initiated on the master server"
 );
 
-const wsRejectedConnectionsCounter = new prometheus.Counter(
+const wsRejectedConnectionsCounter = new libPrometheus.Counter(
 	"clusterio_master_websocket_rejected_connections_total",
 	"How many WebSocket connections have been rejected during the handshake on the master server"
 );
 
-const wsActiveConnectionsGauge = new prometheus.Gauge(
+const wsActiveConnectionsGauge = new libPrometheus.Gauge(
 	"clusterio_master_websocket_active_connections",
 	"How many WebSocket connections are currently open to the master server"
 );
 
-const wsActiveSlavesGauge = new prometheus.Gauge(
+const wsActiveSlavesGauge = new libPrometheus.Gauge(
 	"clusterio_master_active_slaves",
 	"How many slaves are currently connected to the master"
 );
@@ -137,7 +137,7 @@ async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
 
 	let results = [];
-	let pluginResults = await plugin.invokeHook(masterPlugins, "onMetrics");
+	let pluginResults = await libPlugin.invokeHook(masterPlugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
@@ -147,10 +147,10 @@ async function getMetrics(req, res, next) {
 	let requests = [];
 	for (let slaveConnection of slaveConnections.values()) {
 		// XXX this needs a timeout
-		requests.push(link.messages.getMetrics.send(slaveConnection));
+		requests.push(libLink.messages.getMetrics.send(slaveConnection));
 	}
 
-	for await (let result of await prometheus.defaultRegistry.collect()) {
+	for await (let result of await libPrometheus.defaultRegistry.collect()) {
 		results.push(result);
 	}
 
@@ -169,15 +169,15 @@ async function getMetrics(req, res, next) {
 	}
 
 	for (let result of resultMap.values()) {
-		results.push(prometheus.deserializeResult(result));
+		results.push(libPrometheus.deserializeResult(result));
 	}
 
 	wsActiveConnectionsGauge.set(activeConnectors.size);
 	wsActiveSlavesGauge.set(slaveConnections.size);
 
 
-	let text = await prometheus.exposition(results);
-	res.set("Content-Type", prometheus.exposition.contentType);
+	let text = await libPrometheus.exposition(results);
+	res.set("Content-Type", libPrometheus.exposition.contentType);
 	res.send(text);
 }
 app.get("/metrics", (req, res, next) => getMetrics(req, res, next).catch(next));
@@ -241,7 +241,7 @@ app.put("/api/upload-export",
 	(req, res, next) => uploadExport(req, res, next).catch(next)
 );
 
-const masterConnectedClientsCount = new prometheus.Gauge(
+const masterConnectedClientsCount = new libPrometheus.Gauge(
 	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
 	{
 		labels: ["type"], callback: async function(gauge) {
@@ -264,7 +264,7 @@ const db = {};
 async function loadMap(databaseDirectory, file) {
 	let databasePath = path.resolve(databaseDirectory, file);
 	console.log(`Loading ${databasePath}`);
-	return await database.loadJsonArrayAsMap(databasePath);
+	return await libDatabase.loadJsonArrayAsMap(databasePath);
 }
 
 async function loadInstances(databaseDirectory, file) {
@@ -275,7 +275,7 @@ async function loadInstances(databaseDirectory, file) {
 	try {
 		let serialized = JSON.parse(await fs.readFile(filePath));
 		for (let serializedConfig of serialized) {
-			let instanceConfig = new config.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig();
 			await instanceConfig.load(serializedConfig);
 			let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
 			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig, status });
@@ -296,12 +296,12 @@ async function loadUsers(databaseDirectory, file) {
 	try {
 		let content = JSON.parse(await fs.readFile(path.join(databaseDirectory, file)));
 		for (let serializedRole of content.roles) {
-			let role = new users.Role(serializedRole);
+			let role = new libUsers.Role(serializedRole);
 			loadedRoles.set(role.id, role);
 		}
 
 		for (let serializedUser of content.users) {
-			let user = new users.User(serializedUser, loadedRoles);
+			let user = new libUsers.User(serializedUser, loadedRoles);
 			loadedUsers.set(user.name, user);
 		}
 
@@ -311,8 +311,8 @@ async function loadUsers(databaseDirectory, file) {
 		}
 
 		// Create default roles if loading failed
-		users.ensureDefaultAdminRole(loadedRoles);
-		users.ensureDefaultPlayerRole(loadedRoles);
+		libUsers.ensureDefaultAdminRole(loadedRoles);
+		libUsers.ensureDefaultPlayerRole(loadedRoles);
 	}
 
 	db.roles = loadedRoles;
@@ -333,7 +333,7 @@ function createUser(name) {
 	}
 
 	let defaultRoleId = masterConfig.get("master.default_role_id");
-	let user = new users.User({ name, roles: [defaultRoleId] }, db.roles);
+	let user = new libUsers.User({ name, roles: [defaultRoleId] }, db.roles);
 	db.users.set(name, user);
 	return user;
 }
@@ -348,7 +348,7 @@ function createUser(name) {
 async function saveMap(databaseDirectory, file, map) {
 	let databasePath = path.resolve(databaseDirectory, file);
 	console.log(`Saving ${databasePath}`);
-	await database.saveMapAsJsonArray(databasePath, map);
+	await libDatabase.saveMapAsJsonArray(databasePath, map);
 }
 
 async function saveInstances(databaseDirectory, file, instances) {
@@ -394,7 +394,7 @@ async function shutdown() {
 		await saveInstances(masterConfig.get("master.database_directory"), "instances.json", db.instances);
 		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
 
-		await plugin.invokeHook(masterPlugins, "onShutdown");
+		await libPlugin.invokeHook(masterPlugins, "onShutdown");
 
 		stopAcceptingNewSessions = true;
 
@@ -418,7 +418,7 @@ async function shutdown() {
 			try {
 				await task;
 			} catch (err) {
-				if (!(err instanceof errors.SessionLost)) {
+				if (!(err instanceof libErrors.SessionLost)) {
 					console.log("Unexpected error disconnecting connector");
 					console.log(err);
 				}
@@ -455,32 +455,32 @@ async function shutdown() {
  *
  * @extends module:lib/link.Link
  */
-class BaseConnection extends link.Link {
+class BaseConnection extends libLink.Link {
 	constructor(target, connector) {
 		super("master", target, connector);
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 		for (let masterPlugin of masterPlugins.values()) {
-			plugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
+			libPlugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
 		}
 	}
 
 	async forwardRequestToInstance(message, request) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) {
-			throw new errors.RequestError("Instance is not assigned to a slave");
+			throw new libErrors.RequestError("Instance is not assigned to a slave");
 		}
 
 		let connection = slaveConnections.get(slaveId);
 		if (!connection) {
-			throw new errors.RequestError("Slave containing instance is not connected");
+			throw new libErrors.RequestError("Slave containing instance is not connected");
 		}
 		if (request.plugin && !connection.plugins.has(request.plugin)) {
-			throw new errors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
+			throw new libErrors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
 		}
 
 		return await request.send(connection, message.data);
@@ -516,16 +516,16 @@ class BaseConnection extends link.Link {
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
-		await plugin.invokeHook(masterPlugins, "onPrepareSlaveDisconnect", this);
+		await libPlugin.invokeHook(masterPlugins, "onPrepareSlaveDisconnect", this);
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
 	}
 
 	async disconnect(code, reason) {
 		try {
-			await link.messages.prepareDisconnect.send(this);
+			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
-			if (!(err instanceof errors.SessionLost)) {
+			if (!(err instanceof libErrors.SessionLost)) {
 				console.error("Unexpected error preparing disconnect");
 				console.error(err);
 			}
@@ -592,7 +592,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async createSlaveConfigRequestHandler(message) {
-		let slaveConfig = new config.SlaveConfig();
+		let slaveConfig = new libConfig.SlaveConfig();
 		await slaveConfig.init();
 
 		slaveConfig.set("slave.master_url", getMasterUrl());
@@ -624,12 +624,12 @@ class ControlConnection extends BaseConnection {
 
 	// XXX should probably add a hook for slave reuqests?
 	async createInstanceRequestHandler(message) {
-		let instanceConfig = new config.InstanceConfig();
+		let instanceConfig = new libConfig.InstanceConfig();
 		await instanceConfig.load(message.data.serialized_config);
 
 		let instanceId = instanceConfig.get("instance.id");
 		if (db.instances.has(instanceId)) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} already exists`);
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
 		db.instances.set(instanceId, { config: instanceConfig, status: "unassigned" });
 	}
@@ -637,7 +637,7 @@ class ControlConnection extends BaseConnection {
 	async deleteInstanceRequestHandler(message, request) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		if (instance.config.get("instance.assigned_slave") !== null) {
@@ -649,7 +649,7 @@ class ControlConnection extends BaseConnection {
 	async getInstanceConfigRequestHandler(message) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		return {
@@ -662,7 +662,7 @@ class ControlConnection extends BaseConnection {
 		if (slaveId) {
 			let connection = slaveConnections.get(slaveId);
 			if (connection) {
-				await link.messages.assignInstance.send(connection, {
+				await libLink.messages.assignInstance.send(connection, {
 					instance_id: instance.config.get("instance.id"),
 					serialized_config: instance.config.serialize(),
 				});
@@ -673,16 +673,16 @@ class ControlConnection extends BaseConnection {
 	async setInstanceConfigFieldRequestHandler(message) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		if (message.data.field === "instance.assigned_slave") {
-			throw new errors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
+			throw new libErrors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
 		}
 
 		if (message.data.field === "instance.id") {
 			// XXX is this worth implementing?  It's race condition galore.
-			throw new errors.RequestError("Setting instance.id is not supported");
+			throw new libErrors.RequestError("Setting instance.id is not supported");
 		}
 
 		instance.config.set(message.data.field, message.data.value);
@@ -692,7 +692,7 @@ class ControlConnection extends BaseConnection {
 	async setInstanceConfigPropRequestHandler(message) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		let { field, prop, value } = message.data;
@@ -703,7 +703,7 @@ class ControlConnection extends BaseConnection {
 	async assignInstanceCommandRequestHandler(message, request) {
 		let instance = db.instances.get(message.data.instance_id);
 		if (!instance) {
-			throw new errors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
 		}
 
 		// XXX: Should the instance be stopped if it's running on another slave?
@@ -715,12 +715,12 @@ class ControlConnection extends BaseConnection {
 			// target slave be connected to the master while doing the
 			// assignment, but it is IMHO a better user experience if this
 			// is the case.
-			throw new errors.RequestError("Target slave is not connected to the master server");
+			throw new libErrors.RequestError("Target slave is not connected to the master server");
 		}
 
 		instance.config.set("instance.assigned_slave", message.data.slave_id);
 
-		return await link.messages.assignInstance.send(connection, {
+		return await libLink.messages.assignInstance.send(connection, {
 			instance_id: instance.config.get("instance.id"),
 			serialized_config: instance.config.serialize(),
 		});
@@ -732,7 +732,7 @@ class ControlConnection extends BaseConnection {
 
 	async listPermissionsRequestHandler(message) {
 		let list = [];
-		for (let permission of users.permissions.values()) {
+		for (let permission of libUsers.permissions.values()) {
 			list.push({
 				name: permission.name,
 				title: permission.title,
@@ -760,7 +760,7 @@ class ControlConnection extends BaseConnection {
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		db.roles.set(id, new users.Role({ id, ...message.data }));
+		db.roles.set(id, new libUsers.Role({ id, ...message.data }));
 		return { id };
 	}
 
@@ -768,7 +768,7 @@ class ControlConnection extends BaseConnection {
 		let { id, name, description, permissions } = message.data;
 		let role = db.roles.get(id);
 		if (!role) {
-			throw new errors.RequestError(`Role with ID ${id} does not exist`);
+			throw new libErrors.RequestError(`Role with ID ${id} does not exist`);
 		}
 
 		role.name = name;
@@ -779,7 +779,7 @@ class ControlConnection extends BaseConnection {
 	async grantDefaultRolePermissionsRequestHandler(message) {
 		let role = db.roles.get(message.data.id);
 		if (!role) {
-			throw new errors.RequestError(`Role with ID ${message.data.id} does not exist`);
+			throw new libErrors.RequestError(`Role with ID ${message.data.id} does not exist`);
 		}
 
 		role.grantDefaultPermissions();
@@ -789,7 +789,7 @@ class ControlConnection extends BaseConnection {
 		let id = message.data.id;
 		let role = db.roles.get(id);
 		if (!role) {
-			throw new errors.RequestError(`Role with ID ${id} does not exist`);
+			throw new libErrors.RequestError(`Role with ID ${id} does not exist`);
 		}
 
 		db.roles.delete(id);
@@ -820,14 +820,14 @@ class ControlConnection extends BaseConnection {
 	async updateUserRolesRequestHandler(message) {
 		let user = db.users.get(message.data.name);
 		if (!user) {
-			throw new errors.RequestError(`User '${message.data.name}' does not exist`);
+			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
 		}
 
 		let resolvedRoles = new Set();
 		for (let roleId of message.data.roles) {
 			let role = db.roles.get(roleId);
 			if (!role) {
-				throw new errors.RequestError(`Role with ID ${roleId} does not exist`);
+				throw new libErrors.RequestError(`Role with ID ${roleId} does not exist`);
 			}
 
 			resolvedRoles.add(role);
@@ -844,12 +844,12 @@ class ControlConnection extends BaseConnection {
 				this.user.checkPermission("core.user.create");
 				user = createUser(name);
 			} else {
-				throw new errors.RequestError(`User '${name}' does not exist`);
+				throw new libErrors.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
 		user.isAdmin = admin;
-		this.broadcastEventToSlaves({ data: { name, admin }}, link.messages.adminlistUpdate);
+		this.broadcastEventToSlaves({ data: { name, admin }}, libLink.messages.adminlistUpdate);
 	}
 
 	async setUserBannedRequestHandler(message) {
@@ -860,13 +860,13 @@ class ControlConnection extends BaseConnection {
 				this.user.checkPermission("core.user.create");
 				user = createUser(name);
 			} else {
-				throw new errors.RequestError(`User '${name}' does not exist`);
+				throw new libErrors.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
 		user.isBanned = banned;
 		user.banReason = reason;
-		this.broadcastEventToSlaves({ data: { name, banned, reason }}, link.messages.banlistUpdate);
+		this.broadcastEventToSlaves({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
 	}
 
 	async setUserWhitelistedRequestHandler(message) {
@@ -877,28 +877,28 @@ class ControlConnection extends BaseConnection {
 				this.user.checkPermission("core.user.create");
 				user = createUser(name);
 			} else {
-				throw new errors.RequestError(`User '${name}' does not exist`);
+				throw new libErrors.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
 		user.isWhitelisted = whitelisted;
-		this.broadcastEventToSlaves({ data: { name, whitelisted }}, link.messages.whitelistUpdate);
+		this.broadcastEventToSlaves({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
 	}
 
 	async deleteUserRequestHandler(message) {
 		let user = db.users.get(message.data.name);
 		if (!user) {
-			throw new errors.RequestError(`User '${message.data.name}' does not exist`);
+			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
 		}
 
 		if (user.is_admin) {
-			this.broadcastEventToSlaves({ data: { name, admin: false }}, link.messages.adminlistUpdate);
+			this.broadcastEventToSlaves({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
 		}
 		if (user.is_whitelisted) {
-			this.broadcastEventToSlaves({ data: { name, whitelisted: false }}, link.messages.whitelistUpdate);
+			this.broadcastEventToSlaves({ data: { name, whitelisted: false }}, libLink.messages.whitelistUpdate);
 		}
 		if (user.is_banned) {
-			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, link.messages.banlistUpdate);
+			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
 		}
 		db.users.delete(message.data.name);
 	}
@@ -906,7 +906,7 @@ class ControlConnection extends BaseConnection {
 	async debugDumpWsRequestHandler(message) {
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
-				link.messages.debugWsMessage.send(this, data);
+				libLink.messages.debugWsMessage.send(this, data);
 			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;
@@ -959,14 +959,14 @@ class SlaveConnection extends BaseConnection {
 		let prev = instance.status;
 		instance.status = message.data.status;
 		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
+		await libPlugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async updateInstancesEventHandler(message) {
 		// Push updated instance configs
 		for (let instance of db.instances.values()) {
 			if (instance.config.get("instance.assigned_slave") === this._id) {
-				await link.messages.assignInstance.send(this, {
+				await libLink.messages.assignInstance.send(this, {
 					instance_id: instance.config.get("instance.id"),
 					serialized_config: instance.config.serialize(),
 				});
@@ -975,7 +975,7 @@ class SlaveConnection extends BaseConnection {
 
 		// Assign instances the slave has but master does not
 		for (let instance of message.data.instances) {
-			let instanceConfig = new config.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig();
 			await instanceConfig.load(instance.serialized_config);
 
 			let masterInstance = db.instances.get(instanceConfig.get("instance.id"));
@@ -984,7 +984,7 @@ class SlaveConnection extends BaseConnection {
 				if (masterInstance.status !== instance.status) {
 					let prev = masterInstance.status;
 					masterInstance.status = instance.status;
-					await plugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
+					await libPlugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 				}
 				continue;
 			}
@@ -994,7 +994,7 @@ class SlaveConnection extends BaseConnection {
 				config: instanceConfig,
 				status: instance.status,
 			});
-			await link.messages.assignInstance.send(this, {
+			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize(),
 			});
@@ -1017,14 +1017,14 @@ class SlaveConnection extends BaseConnection {
 			}
 		}
 
-		link.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
+		libLink.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
 	}
 
 	async instanceOutputEventHandler(message) {
 		let { instance_id, output } = message.data;
 		for (let controlConnection of controlConnections) {
 			if (controlConnection.instanceOutputSubscriptions.has(instance_id)) {
-				link.messages.instanceOutput.send(controlConnection, message.data);
+				libLink.messages.instanceOutput.send(controlConnection, message.data);
 			}
 		}
 	}
@@ -1043,7 +1043,7 @@ class SlaveConnection extends BaseConnection {
 		}
 
 		let instance = db.instances.get(instance_id);
-		await plugin.invokeHook(masterPlugins, "onPlayerEvent", instance, message.data);
+		await libPlugin.invokeHook(masterPlugins, "onPlayerEvent", instance, message.data);
 	}
 }
 
@@ -1070,7 +1070,7 @@ function isInteger(value) {
  *
  * @extends module:lib/link.WebSocketBaseConnector
  */
-class WebSocketServerConnector extends link.WebSocketBaseConnector {
+class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 	constructor(socket, sessionId) {
 		super();
 
@@ -1341,7 +1341,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		return;
 	}
 
-	if (!schema.clientHandshake(message)) {
+	if (!libSchema.clientHandshake(message)) {
 		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake:`, message);
 		wsRejectedConnectionsCounter.inc();
 		socket.close(1002, "Bad handshake");
@@ -1460,7 +1460,7 @@ async function loadPlugins(pluginInfos) {
 		pluginList[pluginInfo.name] = pluginInfo.version;
 
 		let pluginLoadStarted = Date.now();
-		let MasterPlugin = plugin.BaseMasterPlugin;
+		let MasterPlugin = libPlugin.BaseMasterPlugin;
 		try {
 			if (pluginInfo.masterEntrypoint) {
 				({ MasterPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.masterEntrypoint)));
@@ -1473,7 +1473,7 @@ async function loadPlugins(pluginInfos) {
 			plugins.set(pluginInfo.name, masterPlugin);
 
 		} catch (err) {
-			throw new errors.PluginError(pluginInfo.name, err);
+			throw new libErrors.PluginError(pluginInfo.name, err);
 		}
 
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
@@ -1503,7 +1503,7 @@ function listen(server, ...args) {
 		});
 
 		function wrapError(err) {
-			reject(new errors.StartupError(
+			reject(new libErrors.StartupError(
 				`Server listening failed: ${err.message}`
 			));
 		}
@@ -1561,8 +1561,8 @@ async function startServer() {
 			default: "plugin-list.json",
 			type: "string",
 		})
-		.command("plugin", "Manage available plugins", sharedCommands.pluginCommand)
-		.command("config", "Manage Master config", config.configCommand)
+		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
+		.command("config", "Manage Master config", libConfig.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
@@ -1595,18 +1595,18 @@ async function startServer() {
 	// If the command is plugin management we don't try to load plugins
 	let command = args._[0];
 	if (command === "plugin") {
-		await sharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
 		return;
 	}
 
 	console.log("Loading Plugin info");
-	pluginInfos = await plugin.loadPluginInfos(pluginList);
-	config.registerPluginConfigGroups(pluginInfos);
-	config.finalizeConfigs();
+	pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	libConfig.registerPluginConfigGroups(pluginInfos);
+	libConfig.finalizeConfigs();
 
 	masterConfigPath = args.config;
 	console.log(`Loading config from ${masterConfigPath}`);
-	masterConfig = new config.MasterConfig();
+	masterConfig = new libConfig.MasterConfig();
 	try {
 		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
 
@@ -1629,7 +1629,7 @@ async function startServer() {
 	}
 
 	if (command === "config") {
-		await config.handleConfigCommand(args, masterConfig, masterConfigPath);
+		await libConfig.handleConfigCommand(args, masterConfig, masterConfigPath);
 		return;
 
 	} else if (command === "bootstrap") {
@@ -1647,7 +1647,7 @@ async function startServer() {
 				admin = createUser(args.name);
 			}
 
-			let adminRole = users.ensureDefaultAdminRole(db.roles);
+			let adminRole = libUsers.ensureDefaultAdminRole(db.roles);
 			admin.roles.add(adminRole);
 			admin.isAdmin = true;
 			await saveUsers(masterConfig.get("master.database_directory"), "users.json");
@@ -1659,7 +1659,7 @@ async function startServer() {
 				process.exitCode = 1;
 				return;
 			}
-			let controlConfig = new config.ControlConfig();
+			let controlConfig = new libConfig.ControlConfig();
 			await controlConfig.init();
 
 			controlConfig.set("control.master_url", getMasterUrl());
@@ -1728,7 +1728,7 @@ async function startServer() {
 	let tls_key = masterConfig.get("master.tls_private_key");
 	// Create a self signed certificate if the certificate files doesn't exist
 	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
-		await generateSSLcert({
+		await generateSslCert({
 			bits: masterConfig.get("master.tls_bits"),
 			sslCertPath: tls_cert,
 			sslPrivKeyPath: tls_key,
@@ -1763,7 +1763,7 @@ async function startServer() {
 			privateKey = await fs.readFile(tls_key);
 
 		} catch (err) {
-			throw new errors.StartupError(
+			throw new libErrors.StartupError(
 				`Error loading ssl certificate: ${err.message}`
 			);
 		}
@@ -1799,13 +1799,13 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startServer().catch(err => {
-		if (err instanceof errors.StartupError) {
+		if (err instanceof libErrors.StartupError) {
 			console.error(`
 +----------------------------------+
 | Unable to to start master server |
 +----------------------------------+`
 			);
-		} else if (err instanceof errors.PluginError) {
+		} else if (err instanceof libErrors.PluginError) {
 			console.error(`
 Error: ${err.pluginName} plugin threw an unexpected error
        during startup, please report it to the plugin author.

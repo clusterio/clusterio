@@ -24,36 +24,36 @@ const util = require("util");
 const version = require("./package").version;
 
 // internal libraries
-const fileOps = require("@clusterio/lib/fileOps");
-const factorio = require("@clusterio/lib/factorio");
-const link = require("@clusterio/lib/link");
-const plugin = require("@clusterio/lib/plugin");
-const errors = require("@clusterio/lib/errors");
-const prometheus = require("@clusterio/lib/prometheus");
-const luaTools = require("@clusterio/lib/luaTools");
-const config = require("@clusterio/lib/config");
-const sharedCommands = require("@clusterio/lib/shared_commands");
+const libFileOps = require("@clusterio/lib/file_ops");
+const libFactorio = require("@clusterio/lib/factorio");
+const libLink = require("@clusterio/lib/link");
+const libPlugin = require("@clusterio/lib/plugin");
+const libErrors = require("@clusterio/lib/errors");
+const libPrometheus = require("@clusterio/lib/prometheus");
+const libLuaTools = require("@clusterio/lib/lua_tools");
+const libConfig = require("@clusterio/lib/config");
+const libSharedCommands = require("@clusterio/lib/shared_commands");
 
 
-const instanceRconCommandsCounter = new prometheus.Counter(
+const instanceRconCommandsCounter = new libPrometheus.Counter(
 	"clusterio_instance_rcon_commands_total",
 	"How many commands have been sent to the instance",
 	{ labels: ["instance_id"] }
 );
 
-const instanceFactorioCpuTime = new prometheus.Gauge(
+const instanceFactorioCpuTime = new libPrometheus.Gauge(
 	"clusterio_instance_factorio_cpu_time_total",
 	"Factorio CPU time spent in seconds.",
 	{ labels: ["instance_id"] }
 );
 
-const instanceFactorioMemoryUsage = new prometheus.Gauge(
+const instanceFactorioMemoryUsage = new libPrometheus.Gauge(
 	"clusterio_instance_factorio_resident_memory_bytes",
 	"Factorio resident memory size in bytes.",
 	{ labels: ["instance_id"] }
 );
 
-const instanceFactorioAutosaveSize = new prometheus.Gauge(
+const instanceFactorioAutosaveSize = new libPrometheus.Gauge(
 	"clusterio_instance_factorio_autosave_bytes",
 	"Size of Factorio server autosave in bytes.",
 	{ labels: ["instance_id"] }
@@ -105,10 +105,10 @@ const serverSettingsActions = {
 /**
  * Keeps track of the runtime parameters of an instance
  */
-class Instance extends link.Link{
+class Instance extends libLink.Link{
 	constructor(slave, connector, dir, factorioDir, instanceConfig) {
 		super("instance", "slave", connector);
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 		this._slave = slave;
 		this._dir = dir;
 
@@ -116,7 +116,7 @@ class Instance extends link.Link{
 		this.config = instanceConfig;
 
 		this._configFieldChanged = (group, field, prev) => {
-			let hook = () => plugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
+			let hook = () => libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
 
 			if (group.name === "factorio" && field === "settings") {
 				this.updateFactorioSettings(group.get(field), prev).finally(hook);
@@ -137,7 +137,7 @@ class Instance extends link.Link{
 		};
 
 		this._running = false;
-		this.server = new factorio.FactorioServer(
+		this.server = new libFactorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
 
@@ -148,9 +148,9 @@ class Instance extends link.Link{
 		};
 
 		this.server.on("output", (output) => {
-			link.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
+			libLink.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
 
-			plugin.invokeHook(this.plugins, "onOutput", output);
+			libPlugin.invokeHook(this.plugins, "onOutput", output);
 		});
 
 		this.server.on("error", err => {
@@ -164,11 +164,11 @@ class Instance extends link.Link{
 		});
 
 		this.server.on("ipc-player_event", event => {
-			link.messages.playerEvent.send(this, {
+			libLink.messages.playerEvent.send(this, {
 				instance_id: this.config.get("instance.id"),
 				...event,
 			});
-			plugin.invokeHook(this.plugins, "onPlayerEvent", event);
+			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 		});
 	}
 
@@ -178,7 +178,7 @@ class Instance extends link.Link{
 	}
 
 	notifyStatus(status) {
-		link.messages.instanceStatusChanged.send(this, {
+		libLink.messages.instanceStatusChanged.send(this, {
 			instance_id: this.config.get("instance.id"), status,
 		});
 	}
@@ -190,9 +190,9 @@ class Instance extends link.Link{
 		this.config.off("fieldChanged", this._configFieldChanged);
 
 		// Clear metrics this instance is exporting
-		for (let collector of prometheus.defaultRegistry.collectors) {
+		for (let collector of libPrometheus.defaultRegistry.collectors) {
 			if (
-				collector instanceof prometheus.ValueCollector
+				collector instanceof libPrometheus.ValueCollector
 				&& collector.metric.labels.includes("instance_id")
 			) {
 				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
@@ -211,7 +211,7 @@ class Instance extends link.Link{
 		let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
-		plugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+		libPlugin.attachPluginMessages(this, pluginInfo, instancePlugin);
 
 		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
@@ -241,7 +241,7 @@ class Instance extends link.Link{
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
-		link.messages.instanceInitialized.send(this, { instance_id: this.config.get("instance.id"), plugins });
+		libLink.messages.instanceInitialized.send(this, { instance_id: this.config.get("instance.id"), plugins });
 	}
 
 	/**
@@ -362,7 +362,7 @@ class Instance extends link.Link{
 	async prepareSave(saveName) {
 		// Use latest save if no save was specified
 		if (saveName === null) {
-			saveName = await fileOps.getNewestFile(
+			saveName = await libFileOps.getNewestFile(
 				this.path("saves"), (name) => !name.endsWith(".tmp.zip")
 			);
 		}
@@ -440,7 +440,7 @@ class Instance extends link.Link{
 			}
 		}
 
-		await factorio.patch(this.path("saves", saveName), [...modules.values()]);
+		await libFactorio.patch(this.path("saves", saveName), [...modules.values()]);
 		return saveName;
 	}
 
@@ -464,7 +464,7 @@ class Instance extends link.Link{
 			await this.updateInstanceData();
 		}
 
-		await plugin.invokeHook(this.plugins, "onStart");
+		await libPlugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
 		this.notifyStatus("running");
@@ -486,7 +486,7 @@ class Instance extends link.Link{
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.startScenario(scenario);
 
-		await plugin.invokeHook(this.plugins, "onStart");
+		await libPlugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
 		this.notifyStatus("running");
@@ -496,7 +496,7 @@ class Instance extends link.Link{
 	 * Update instance information on the Factorio side
 	 */
 	async updateInstanceData() {
-		let name = luaTools.escapeString(this.config.get("instance.name"));
+		let name = libLuaTools.escapeString(this.config.get("instance.name"));
 		let id = this.config.get("instance.id");
 		await this.server.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
 	}
@@ -574,26 +574,26 @@ class Instance extends link.Link{
 
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
-			await plugin.invokeHook(this.plugins, "onStop");
+			await libPlugin.invokeHook(this.plugins, "onStop");
 			await this.server.stop();
 		}
 	}
 
 	async masterConnectionEventEventHandler(message) {
-		await plugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
+		await libPlugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
 	}
 
 	async prepareMasterDisconnectRequestHandler() {
-		await plugin.invokeHook(this.plugins, "onPrepareMasterDisconnect");
+		await libPlugin.invokeHook(this.plugins, "onPrepareMasterDisconnect");
 	}
 
 	async getMetricsRequestHandler() {
 		let results = [];
 		if (this._running) {
-			let pluginResults = await plugin.invokeHook(this.plugins, "onMetrics");
+			let pluginResults = await libPlugin.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
-					results.push(prometheus.serializeResult(metric));
+					results.push(libPrometheus.serializeResult(metric));
 				}
 			}
 		}
@@ -629,7 +629,7 @@ class Instance extends link.Link{
 	async loadScenarioRequestHandler(message) {
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
-			throw new errors.RequestError("Load scenario cannot be used with save patching enabled");
+			throw new libErrors.RequestError("Load scenario cannot be used with save patching enabled");
 		}
 
 		try {
@@ -674,7 +674,7 @@ class Instance extends link.Link{
 
 			console.log("Exporting data .....");
 			await symlinkMods(this, "sharedMods", console);
-			let zip = await factorio.exportData(this.server);
+			let zip = await libFactorio.exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._slave.config.get("slave.master_url"));
@@ -745,7 +745,7 @@ class Instance extends link.Link{
 async function discoverInstances(instanceInfos, instancesDir, logger) {
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			let instanceConfig = new config.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig();
 			let configPath = path.join(instancesDir, entry.name, "instance.json");
 
 			try {
@@ -775,17 +775,17 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 	}
 }
 
-class InstanceConnection extends link.Link {
+class InstanceConnection extends libLink.Link {
 	constructor(connector, slave, instanceId) {
 		super("slave", "instance", connector);
 		this.slave = slave;
 		this.instanceId = instanceId;
 		this.plugins = new Map();
 		this.status = "stopped";
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
-			plugin.attachPluginMessages(this, pluginInfo, null);
+			libPlugin.attachPluginMessages(this, pluginInfo, null);
 		}
 	}
 
@@ -833,7 +833,7 @@ class InstanceConnection extends link.Link {
 	}
 }
 
-class SlaveConnector extends link.WebSocketClientConnector {
+class SlaveConnector extends libLink.WebSocketClientConnector {
 	constructor(slaveConfig, pluginInfos) {
 		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.reconnect_delay"));
 		this.slaveConfig = slaveConfig;
@@ -863,16 +863,16 @@ class SlaveConnector extends link.WebSocketClientConnector {
  *
  * Connects to the master server over the WebSocket and manages intsances.
  */
-class Slave extends link.Link {
+class Slave extends libLink.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
 	constructor(connector, slaveConfig, pluginInfos) {
 		super("slave", "master", connector);
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 
 		this.pluginInfos = pluginInfos;
 		for (let pluginInfo of pluginInfos) {
-			plugin.attachPluginMessages(this, pluginInfo, null);
+			libPlugin.attachPluginMessages(this, pluginInfo, null);
 		}
 
 		this.config = slaveConfig;
@@ -941,7 +941,7 @@ class Slave extends link.Link {
 		for (let event of ["connect", "drop", "close"]) {
 			this.connector.on(event, () => {
 				for (let instanceConnection of this.instanceConnections.values()) {
-					link.messages.masterConnectionEvent.send(instanceConnection, { event });
+					libLink.messages.masterConnectionEvent.send(instanceConnection, { event });
 				}
 			});
 		}
@@ -966,16 +966,16 @@ class Slave extends link.Link {
 	async forwardRequestToInstance(message, request) {
 		let instanceId = message.data.instance_id;
 		if (!this.instanceInfos.has(instanceId)) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
-			throw new errors.RequestError(`Instance ID ${instanceId} is not running`);
+			throw new libErrors.RequestError(`Instance ID ${instanceId} is not running`);
 		}
 
 		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
-			throw new errors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`);
+			throw new libErrors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`);
 		}
 
 		return await request.send(instanceConnection, message.data);
@@ -1022,8 +1022,8 @@ class Slave extends link.Link {
 			}
 		};
 
-		updateList(this.adminlist, message.data.adminlist, "admin", link.messages.adminlistUpdate);
-		updateList(this.whitelist, message.data.whitelist, "whitelisted", link.messages.whitelistUpdate);
+		updateList(this.adminlist, message.data.adminlist, "admin", libLink.messages.adminlistUpdate);
+		updateList(this.whitelist, message.data.whitelist, "whitelisted", libLink.messages.whitelistUpdate);
 
 		let updatedBanlist = new Map(message.data.banlist);
 		let addedOrChanged = new Map(updatedBanlist);
@@ -1038,14 +1038,14 @@ class Slave extends link.Link {
 		for (let [name, reason] of addedOrChanged) {
 			this.banlist.set(name, reason);
 			this.broadcastEventToInstance(
-				{ data: { name, banned: true, reason }}, link.messages.banlistUpdate
+				{ data: { name, banned: true, reason }}, libLink.messages.banlistUpdate
 			);
 		}
 
 		for (let name of removed) {
 			this.banlist.delete(name);
 			this.broadcastEventToInstance(
-				{ data: { name, banned: false, reason: "" }}, link.messages.banlistUpdate
+				{ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate
 			);
 		}
 	}
@@ -1086,7 +1086,7 @@ class Slave extends link.Link {
 			// TODO: Notify of update if instance is running
 
 		} else {
-			let instanceConfig = new config.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig();
 			await instanceConfig.load(serialized_config);
 
 			// XXX: race condition on multiple simultanious calls
@@ -1113,7 +1113,7 @@ class Slave extends link.Link {
 		);
 
 		// Notify master the instance is no longer usassigned
-		link.messages.instanceStatusChanged.send(this, { instance_id, status: "stopped" });
+		libLink.messages.instanceStatusChanged.send(this, { instance_id, status: "stopped" });
 	}
 
 	/**
@@ -1125,14 +1125,14 @@ class Slave extends link.Link {
 	async _connectInstance(instanceId) {
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (!instanceInfo) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
 		if (this.instanceConnections.has(instanceId)) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} is running`);
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
-		let [connectionClient, connectionServer] = link.VirtualConnector.makePair();
+		let [connectionClient, connectionServer] = libLink.VirtualConnector.makePair();
 		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
 		let instance = new Instance(
 			this, connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
@@ -1147,7 +1147,7 @@ class Slave extends link.Link {
 	async getMetricsRequestHandler() {
 		let requests = [];
 		for (let instanceConnection of this.instanceConnections.values()) {
-			requests.push(link.messages.getMetrics.send(instanceConnection));
+			requests.push(libLink.messages.getMetrics.send(instanceConnection));
 		}
 
 		let results = [];
@@ -1155,15 +1155,15 @@ class Slave extends link.Link {
 			results.push(...response.results);
 		}
 
-		for await (let result of prometheus.defaultRegistry.collect()) {
+		for await (let result of libPrometheus.defaultRegistry.collect()) {
 			if (result.metric.name.startsWith("process_")) {
-				results.push(prometheus.serializeResult(result, {
+				results.push(libPrometheus.serializeResult(result, {
 					addLabels: { "slave_id": String(this.config.get("slave.id")) },
 					metricName: result.metric.name.replace("process_", "clusterio_slave_"),
 				}));
 
 			} else {
-				results.push(prometheus.serializeResult(result));
+				results.push(libPrometheus.serializeResult(result));
 			}
 		}
 
@@ -1196,18 +1196,18 @@ class Slave extends link.Link {
 
 	async stopInstance(instanceId) {
 		let instanceConnection = this.instanceConnections.get(instanceId);
-		await link.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
+		await libLink.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
 	}
 
 	async deleteInstanceRequestHandler(message) {
 		let instanceId = message.data.instance_id;
 		if (this.instanceConnections.has(instanceId)) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} is running`);
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (!instanceInfo) {
-			throw new errors.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
 		await fs.remove(instanceInfo.path);
@@ -1230,13 +1230,13 @@ class Slave extends link.Link {
 				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
-		link.messages.updateInstances.send(this, { instances: list });
+		libLink.messages.updateInstances.send(this, { instances: list });
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
 		this._disconnecting = true;
 		for (let instanceConnection of this.instanceConnections.values()) {
-			await link.messages.prepareMasterDisconnect.send(instanceConnection);
+			await libLink.messages.prepareMasterDisconnect.send(instanceConnection);
 		}
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
@@ -1250,9 +1250,9 @@ class Slave extends link.Link {
 		this.connector.setTimeout(30);
 
 		try {
-			await link.messages.prepareDisconnect.send(this);
+			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
-			if (!(err instanceof errors.SessionLost)) {
+			if (!(err instanceof libErrors.SessionLost)) {
 				console.error("Unexpected error preparing disconnect");
 				console.error(err);
 			}
@@ -1391,8 +1391,8 @@ async function startSlave() {
 			default: "plugin-list.json",
 			type: "string",
 		})
-		.command("plugin", "Manage available plugins", sharedCommands.pluginCommand)
-		.command("config", "Manage Slave config", config.configCommand)
+		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
+		.command("config", "Manage Slave config", libConfig.configCommand)
 		.command("run", "Run slave")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -1412,17 +1412,17 @@ async function startSlave() {
 	// If the command is plugin management we don't try to load plugins
 	let command = args._[0];
 	if (command === "plugin") {
-		await sharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
 		return;
 	}
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await plugin.loadPluginInfos(pluginList);
-	config.registerPluginConfigGroups(pluginInfos);
-	config.finalizeConfigs();
+	let pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	libConfig.registerPluginConfigGroups(pluginInfos);
+	libConfig.finalizeConfigs();
 
 	console.log(`Loading config from ${args.config}`);
-	let slaveConfig = new config.SlaveConfig();
+	let slaveConfig = new libConfig.SlaveConfig();
 	try {
 		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
 
@@ -1437,7 +1437,7 @@ async function startSlave() {
 	}
 
 	if (command === "config") {
-		await config.handleConfigCommand(args, slaveConfig, args.config);
+		await libConfig.handleConfigCommand(args, slaveConfig, args.config);
 		return;
 	}
 
@@ -1518,7 +1518,7 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startSlave().catch(err => {
-		if (err instanceof errors.AuthenticationFailed) {
+		if (err instanceof libErrors.AuthenticationFailed) {
 			console.error(err.message);
 
 		} else {

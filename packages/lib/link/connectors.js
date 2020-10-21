@@ -3,8 +3,8 @@
 const events = require("events");
 const WebSocket = require("isomorphic-ws");
 
-const schema = require("@clusterio/lib/schema");
-const errors = require("@clusterio/lib/errors");
+const libSchema = require("@clusterio/lib/schema");
+const libErrors = require("@clusterio/lib/errors");
 
 
 /**
@@ -60,10 +60,10 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	}
 
 	_processHeartbeat(message) {
-		if (!schema.heartbeat(message)) {
+		if (!libSchema.heartbeat(message)) {
 			console.log("SOCKET | closing after received invalid heartbeat:", message);
 			this._socket.close(1002, "Invalid heartbeat");
-			console.log(schema.heartbeat.errors);
+			console.log(libSchema.heartbeat.errors);
 			return;
 		}
 
@@ -100,7 +100,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	 */
 	send(type, data) {
 		if (!["handshake", "connected", "closing"].includes(this._state)) {
-			throw new errors.SessionLost("No session");
+			throw new libErrors.SessionLost("No session");
 		}
 		let message = { seq: this._seq, type, data };
 		this._sendBuffer.push(message);
@@ -287,7 +287,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			console.log(`SOCKET | Close (code: ${event.code}, reason: ${event.reason})`);
 			// Authentication failed
 			if (event.code === 4003) {
-				this.emit("error", new errors.AuthenticationFailed(event.reason));
+				this.emit("error", new libErrors.AuthenticationFailed(event.reason));
 				this._state = "closing";
 			}
 
@@ -345,7 +345,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	}
 
 	_processHandshake(message) {
-		if (!schema.serverHandshake(message)) {
+		if (!libSchema.serverHandshake(message)) {
 			console.log("SOCKET | closing after received invalid handshake:", message);
 			this._socket.close(1002, "Invalid handshake");
 			return;

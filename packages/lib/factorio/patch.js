@@ -7,7 +7,7 @@ const jszip = require("jszip");
 const path = require("path");
 const semver = require("semver");
 
-const hash = require("@clusterio/lib/hash");
+const libHash = require("@clusterio/lib/hash");
 
 
 const knownScenarios = {
@@ -225,7 +225,7 @@ async function patch(savePath, modules) {
 	// No info file present, try to detect if it's a known compatible scenario.
 	} else {
 		let controlStream = root.file("control.lua").nodeStream("nodebuffer");
-		let controlHash = await hash.hashStream(controlStream);
+		let controlHash = await libHash.hashStream(controlStream);
 
 		if (controlHash in knownScenarios) {
 			patchInfo = {

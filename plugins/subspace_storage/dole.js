@@ -1,15 +1,15 @@
 "use strict";
 const doleNN = require("./dole_nn_base");
 
-const prometheus = require("@clusterio/lib/prometheus");
+const { Gauge } = require("@clusterio/lib/prometheus");
 
 
-const prometheusNNDoleGauge = new prometheus.Gauge(
+const prometheusNNDoleGauge = new Gauge(
 	"clusterio_subspace_storage_nn_dole_gauge",
 	"Current demand being supplied by Neural Network ; 1 means all demand covered, 0.5 means about half of each supply is covered, 0 means no items are given",
 	{ labels: ["resource"] }
 );
-const prometheusDoleFactorGauge = new prometheus.Gauge(
+const prometheusDoleFactorGauge = new Gauge(
 	"clusterio_subspace_storage_dole_factor_gauge",
 	"The current dole division factor for this resource",
 	{ labels: ["resource"] }

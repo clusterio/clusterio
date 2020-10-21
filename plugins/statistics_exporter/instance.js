@@ -1,5 +1,5 @@
 "use strict";
-const plugin = require("@clusterio/lib/plugin");
+const libPlugin = require("@clusterio/lib/plugin");
 const { Gauge } = require("@clusterio/lib/prometheus");
 
 
@@ -21,7 +21,7 @@ const instanceGameFlowStatistics = new Gauge(
 );
 
 
-class InstancePlugin extends plugin.BaseInstancePlugin {
+class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("statistics_exporter plugin requires save patching.");

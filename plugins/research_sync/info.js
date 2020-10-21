@@ -1,5 +1,5 @@
 "use strict";
-const link = require("@clusterio/lib/link");
+const libLink = require("@clusterio/lib/link");
 
 
 // schema used for syncing technologies to and from the master
@@ -26,7 +26,7 @@ module.exports = {
 	masterEntrypoint: "master",
 
 	messages: {
-		contribution: new link.Event({
+		contribution: new libLink.Event({
 			type: "research_sync:contribution",
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",
@@ -36,7 +36,7 @@ module.exports = {
 				"contribution": { type: "number" },
 			},
 		}),
-		progress: new link.Event({
+		progress: new libLink.Event({
 			type: "research_sync:progress",
 			links: ["master-slave", "slave-instance"],
 			broadcastTo: "instance",
@@ -55,7 +55,7 @@ module.exports = {
 				},
 			},
 		}),
-		finished: new link.Event({
+		finished: new libLink.Event({
 			type: "research_sync:finished",
 			links: ["instance-slave", "slave-master", "master-slave", "slave-instance"],
 			forwardTo: "master",
@@ -65,7 +65,7 @@ module.exports = {
 				"level": { type: "integer" },
 			},
 		}),
-		syncTechnologies: new link.Request({
+		syncTechnologies: new libLink.Request({
 			type: "research_sync:sync_technologies",
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",

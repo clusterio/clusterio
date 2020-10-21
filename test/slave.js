@@ -3,22 +3,22 @@ const assert = require("assert").strict;
 const path = require("path");
 const fs = require("fs-extra");
 
-const link = require("@clusterio/lib/link");
-const config = require("@clusterio/lib/config");
+const libLink = require("@clusterio/lib/link");
+const libConfig = require("@clusterio/lib/config");
 const slave = require("@clusterio/slave/slave");
 
 describe("Slave testing", function() {
 	before(function() {
-		config.InstanceConfig.finalize();
+		libConfig.InstanceConfig.finalize();
 	});
 
 	describe("class Instance", function() {
 		let instance;
 		before(async function() {
-			let instanceConfig = new config.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig();
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "foo");
-			instance = new slave._Instance({}, new link.VirtualConnector(), "dir", "factorioDir", instanceConfig);
+			instance = new slave._Instance({}, new libLink.VirtualConnector(), "dir", "factorioDir", instanceConfig);
 		});
 
 		describe(".name", function() {
@@ -106,11 +106,11 @@ describe("Slave testing", function() {
 			await fs.outputFile(path.join(testDir, "shared", "mod_b.zip"), "b");
 			await fs.outputFile(path.join(testDir, "shared", "mod.dat"), "c");
 
-			let instanceConfig = new config.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig();
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "test");
 			instance = new slave._Instance(
-				{}, new link.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
+				{}, new libLink.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
 			);
 			await fs.outputFile(instance.path("mods", "mod_i.zip"), "i");
 		});
@@ -161,7 +161,7 @@ describe("Slave testing", function() {
 			let instanceInfos = new Map();
 			await slave._discoverInstances(instanceInfos, instancePath, logger);
 
-			let referenceConfig = new config.InstanceConfig();
+			let referenceConfig = new libConfig.InstanceConfig();
 			await referenceConfig.init();
 			referenceConfig.set("instance.id", 1);
 			referenceConfig.set("instance.name", "test");

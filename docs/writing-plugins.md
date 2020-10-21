@@ -55,7 +55,7 @@ clusterioctl.  Note that it's important that the path starts with ./ or
 For a plugin the most important file is the `info.js` file.  Without it
 the plugin will not recognized by Clusterio.  Here's an example of it:
 
-    const link = require('@clusterio/lib/link'); // For messages
+    const libLink = require('@clusterio/lib/link'); // For messages
 
     module.exports = {
         name: "foo_frobber",
@@ -136,9 +136,9 @@ The plugin class should derive from its respective base class defined in
 `lib/plugin`.  For example, to define a MasterPlugin class the following
 code can be used:
 
-    const plugin = require('@clusterio/lib/plugin');
+    const libPlugin = require('@clusterio/lib/plugin');
 
-    class MasterPlugin extends plugin.BaseMasterPlugin {
+    class MasterPlugin extends libPlugin.BaseMasterPlugin {
         async init() {
             this.foo = 42;
             await this.startFrobnication();
@@ -180,9 +180,9 @@ take advantage of it by subclassing `PluginConfigGroup`, setting the
 and passing it as either `MasterConfigGroup` or `InstanceConfigGroup` in
 the `info.js` export.  For example in info.js:
 
-    const config = require("@clusterio/lib/config");
+    const libConfig = require("@clusterio/lib/config");
 
-    class MasterConfigGroup extends config.PluginConfigGroup { }
+    class MasterConfigGroup extends libConfig.PluginConfigGroup { }
     MasterConfigGroup.groupName = "foo_frobber";
     MasterConfigGroup.define({
         name: "level",
@@ -323,7 +323,7 @@ class.  The Event constructor takes an object of properties that define
 the event, for example the following could be defined in `info.js`:
 
     messages: {
-        startFrobnication: new link.Event({
+        startFrobnication: new libLink.Event({
             type: 'foo_frobber:start_frobnication',
             links: ['master-slave', 'slave-instance'],
             forwardTo: 'instance',
@@ -408,7 +408,7 @@ class.  The Request constructor takes an object of properties that define
 the event. For example, the following could be defined in `info.js`:
 
     messages: {
-        reportFrobnication: new link.Request({
+        reportFrobnication: new libLink.Request({
             type: 'foo_frobber:report_frobnication',
             links: ['master-slave', 'slave-instance'],
             forwardTo: 'instance',
@@ -648,9 +648,9 @@ for how to define the messages that can be sent to the master.
 To have the command tree become part of clusterioctl it needs to be added
 to the rootCommand tree in `addCommands` callback of the Control plugin:
 
-    const plugin = require("@clusterio/lib/plugin");
+    const libPlugin = require("@clusterio/lib/plugin");
 
-    class ControlPlugin extends plugin.BaseControlPlugin {
+    class ControlPlugin extends libPlugin.BaseControlPlugin {
         async addCommands(rootCommand) {
             rootCommand.add(fooFrobberCommands);
         }

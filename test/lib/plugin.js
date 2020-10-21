@@ -4,16 +4,15 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const mock = require("../mock");
-const link = require("@clusterio/lib/link");
-const plugin = require("@clusterio/lib/plugin");
-const errors = require("@clusterio/lib/errors");
+const libLink = require("@clusterio/lib/link");
+const libPlugin = require("@clusterio/lib/plugin");
 
 
 describe("lib/plugin", function() {
 	describe("class BaseInstancePlugin", function() {
 		let instancePlugin;
 		it("should be constructible", async function() {
-			instancePlugin = new plugin.BaseInstancePlugin();
+			instancePlugin = new libPlugin.BaseInstancePlugin();
 			await instancePlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
@@ -30,7 +29,7 @@ describe("lib/plugin", function() {
 	describe("class BaseMasterPlugin", function() {
 		let masterPlugin;
 		it("should be constructible", async function() {
-			masterPlugin = new plugin.BaseMasterPlugin();
+			masterPlugin = new libPlugin.BaseMasterPlugin();
 			await masterPlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
@@ -68,50 +67,52 @@ describe("lib/plugin", function() {
 
 		it("should throw on missing plugin", async function() {
 			await assert.rejects(
-				plugin.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
+				libPlugin.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
 				new RegExp(`^Error: PluginError: Cannot find module '${missingPlugin}/info'`)
 			);
 		});
 		it("should load test plugin", async function() {
 			assert.deepEqual(
-				await plugin.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
+				await libPlugin.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
 				[{ name: "test", version: "0.0.1", requirePath: path.resolve(testPlugin) }]
 			);
 		});
 		it("should reject on broken plugin", async function() {
 			await assert.rejects(
-				plugin.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
+				libPlugin.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
 				{ message: "PluginError: Unexpected identifier" }
 			);
 		});
 		it("should reject on invalid plugin", async function() {
 			await assert.rejects(
-				plugin.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
+				libPlugin.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
 				{ message: `Expected plugin at ${path.resolve(invalidPlugin)} to be named invalid but got wrong` }
 			);
 		});
 	});
 
 	describe("attachPluginMessages()", function() {
-		let mockLink = new link.Link("source", "target", new mock.MockConnector());
-		let mockEvent = new link.Event({ type: "test:test", links: ["target-source"] });
+		let mockLink = new libLink.Link("source", "target", new mock.MockConnector());
+		let mockEvent = new libLink.Event({ type: "test:test", links: ["target-source"] });
 		it("should accept pluginInfo without messages", function() {
-			plugin.attachPluginMessages(mockLink, {}, null);
+			libPlugin.attachPluginMessages(mockLink, {}, null);
 		});
 		it("should attach handler for the given message", function() {
 			function mockEventEventHandler() { };
-			plugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, { mockEventEventHandler });
+			libPlugin.attachPluginMessages(
+				mockLink, { name: "test", messages: { mockEvent }}, { mockEventEventHandler }
+			);
 			assert(mockLink._handlers.get("test:test_event"), "handler was not registered");
 		});
 		it("should throw if missing handler for the given message", function() {
 			assert.throws(
-				() => plugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, {}),
+				() => libPlugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, {}),
 				new Error("Missing handler for test:test_event on source-target link")
 			);
 		});
 		it("should throw if message starts with the wrong prefix", function() {
 			assert.throws(
-				() => plugin.attachPluginMessages(mockLink, { name: "foo", messages: { mockEvent }}, {}),
+				() => libPlugin.attachPluginMessages(mockLink, { name: "foo", messages: { mockEvent }}, {}),
 				new Error('Type of mockEvent message must start with "foo:"')
 			);
 		});
@@ -132,15 +133,15 @@ describe("lib/plugin", function() {
 			}],
 		]);
 		it("should invoke the hook on the plugin", async function() {
-			await plugin.invokeHook(plugins, "test");
+			await libPlugin.invokeHook(plugins, "test");
 			assert(betaTestCalled, "Hook was not called");
 		});
 		it("should pass and return args", async function() {
-			let result = await plugin.invokeHook(plugins, "pass", 1234);
+			let result = await libPlugin.invokeHook(plugins, "pass", 1234);
 			assert.deepEqual(result, [1234]);
 		});
 		it("should ignore errors", async function() {
-			await plugin.invokeHook(plugins, "error");
+			await libPlugin.invokeHook(plugins, "error");
 		});
 	});
 });

@@ -4,8 +4,8 @@ const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
 
-const factorio = require("@clusterio/lib/factorio");
-const errors = require("@clusterio/lib/errors");
+const libFactorio = require("@clusterio/lib/factorio");
+const libErrors = require("@clusterio/lib/errors");
 
 const { slowTest } = require("./index");
 
@@ -13,7 +13,7 @@ const { slowTest } = require("./index");
 describe("Integration of lib/factorio/server", function() {
 	describe("_getVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
-			let version = await factorio._getVersion(path.join("factorio", "data", "changelog.txt"));
+			let version = await libFactorio._getVersion(path.join("factorio", "data", "changelog.txt"));
 			if (!/^\d+\.\d+\.\d+$/.test(version)) {
 				assert.fail(`Detected version '${version}' does not followed the format x.y.z`);
 			}
@@ -22,7 +22,7 @@ describe("Integration of lib/factorio/server", function() {
 
 	describe("class FactorioServer", function() {
 		let writePath = path.join("temp", "test", "integration");
-		let server = new factorio.FactorioServer("factorio", writePath, {});
+		let server = new libFactorio.FactorioServer("factorio", writePath, {});
 		let logFile;
 
 		before(async function() {
@@ -215,7 +215,9 @@ describe("Integration of lib/factorio/server", function() {
 
 				await assert.rejects(
 					startPromise,
-					new errors.EnvironmentError("Factorio server was unexpectedly killed, is the system low on memory?")
+					new libErrors.EnvironmentError(
+						"Factorio server was unexpectedly killed, is the system low on memory?"
+					)
 				);
 			});
 
@@ -225,7 +227,7 @@ describe("Integration of lib/factorio/server", function() {
 
 				await assert.rejects(
 					server.start("does-not-exist.zip"),
-					new errors.EnvironmentError("Factorio server unexpectedly shut down with code 1")
+					new libErrors.EnvironmentError("Factorio server unexpectedly shut down with code 1")
 				);
 			});
 		});

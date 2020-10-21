@@ -1,8 +1,8 @@
 "use strict";
 const fs = require("fs-extra");
 
-const plugin = require("@clusterio/lib/plugin");
-const luaTools = require("@clusterio/lib/luaTools");
+const libPlugin = require("@clusterio/lib/plugin");
+const libLuaTools = require("@clusterio/lib/lua_tools");
 
 function unexpectedError(err) {
 	console.log("Unexpected error in subspace_storage");
@@ -10,7 +10,7 @@ function unexpectedError(err) {
 	console.log(err);
 }
 
-class InstancePlugin extends plugin.BaseInstancePlugin {
+class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
 		this.instance.server.on("ipc-subspace_storage:output", (output) => {
 			this.provideItems(output).catch(unexpectedError);
@@ -29,7 +29,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 
 		let response = await this.info.messages.getStorage.send(this.instance);
 		// TODO Diff with dump of invdata produce minimal command to sync
-		let itemsJson = luaTools.escapeString(JSON.stringify(response.items));
+		let itemsJson = libLuaTools.escapeString(JSON.stringify(response.items));
 		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
 	}
 
@@ -67,7 +67,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 			console.log(response.items);
 		}
 
-		let itemsJson = luaTools.escapeString(JSON.stringify(response.items));
+		let itemsJson = libLuaTools.escapeString(JSON.stringify(response.items));
 		await this.instance.server.sendRcon(`/sc __subspace_storage__ Import("${itemsJson}")`, true);
 	}
 
@@ -86,7 +86,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		// XXX this should be moved to instance/clusterio api
 		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);
 
-		let itemsJson = luaTools.escapeString(JSON.stringify(items));
+		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
 		await this.instance.server.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
 	}
 }

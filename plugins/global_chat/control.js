@@ -1,11 +1,13 @@
 "use strict";
-const plugin = require("@clusterio/lib/plugin");
+const libPlugin = require("@clusterio/lib/plugin");
 const info = require("./info");
-const command = require("@clusterio/lib/command");
+const libCommand = require("@clusterio/lib/command");
 
 
-const globalChatCommands = new command.CommandTree({ name: "global-chat", description: "Global Chat plugin commands" });
-globalChatCommands.add(new command.Command({
+const globalChatCommands = new libCommand.CommandTree({
+	name: "global-chat", description: "Global Chat plugin commands",
+});
+globalChatCommands.add(new libCommand.Command({
 	definition: ["shout <message>", "Send message to all instances", (yargs) => {
 		yargs.positional("message", { describe: "message to send", type: "string" });
 	}],
@@ -17,7 +19,7 @@ globalChatCommands.add(new command.Command({
 	},
 }));
 
-class ControlPlugin extends plugin.BaseControlPlugin {
+class ControlPlugin extends libPlugin.BaseControlPlugin {
 	async addCommands(rootCommand) {
 		rootCommand.add(globalChatCommands);
 	}

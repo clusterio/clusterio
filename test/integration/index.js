@@ -7,14 +7,14 @@ const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
-const link = require("@clusterio/lib/link");
+const libLink = require("@clusterio/lib/link");
 const server = require("@clusterio/lib/factorio/server");
 
 
-class TestControl extends link.Link {
+class TestControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "master", connector);
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
@@ -27,7 +27,7 @@ class TestControl extends link.Link {
 	async instanceOutputEventHandler() { }
 }
 
-class TestControlConnector extends link.WebSocketClientConnector {
+class TestControlConnector extends libLink.WebSocketClientConnector {
 	register() {
 		this.sendHandshake("register_control", { token: this.token, agent: "clusterioctl", version: "test" });
 	}
@@ -81,7 +81,7 @@ async function execCtl(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command });
+	let response = await libLink.messages.sendRcon.send(control, { instance_id: instanceId, command });
 	return response.result;
 }
 

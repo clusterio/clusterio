@@ -7,8 +7,8 @@
  * @module lib/command
  */
 "use strict";
-const link = require("@clusterio/lib/link");
-const errors = require("@clusterio/lib/errors");
+const libLink = require("@clusterio/lib/link");
+const libErrors = require("@clusterio/lib/errors");
 
 /**
  * Represents a command that can be runned by clusterioctl
@@ -150,7 +150,7 @@ async function resolveSlave(client, slaveName) {
 	if (/^-?\d+$/.test(slaveName)) {
 		slaveId = parseInt(slaveName, 10);
 	} else {
-		let response = await link.messages.listSlaves.send(client);
+		let response = await libLink.messages.listSlaves.send(client);
 		for (let slave of response.list) {
 			if (slave.name === slaveName) {
 				slaveId = slave.id;
@@ -159,7 +159,7 @@ async function resolveSlave(client, slaveName) {
 		}
 
 		if (slaveId === undefined) {
-			throw new errors.CommandError(`No slave named ${slaveName}`);
+			throw new libErrors.CommandError(`No slave named ${slaveName}`);
 		}
 	}
 
@@ -182,7 +182,7 @@ async function resolveInstance(client, instanceName) {
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
-		let response = await link.messages.listInstances.send(client);
+		let response = await libLink.messages.listInstances.send(client);
 		for (let instance of response.list) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
@@ -191,7 +191,7 @@ async function resolveInstance(client, instanceName) {
 		}
 
 		if (instanceId === undefined) {
-			throw new errors.CommandError(`No instance named ${instanceName}`);
+			throw new libErrors.CommandError(`No instance named ${instanceName}`);
 		}
 	}
 
@@ -210,7 +210,7 @@ async function resolveInstance(client, instanceName) {
  * @static
  */
 async function retrieveRole(client, roleName) {
-	let response = await link.messages.listRoles.send(client);
+	let response = await libLink.messages.listRoles.send(client);
 
 	let resolvedRole;
 	if (/^-?\d+$/.test(roleName)) {
@@ -232,7 +232,7 @@ async function retrieveRole(client, roleName) {
 	}
 
 	if (!resolvedRole) {
-		throw new errors.CommandError(`No role named ${roleName}`);
+		throw new libErrors.CommandError(`No role named ${roleName}`);
 	}
 
 	return resolvedRole;

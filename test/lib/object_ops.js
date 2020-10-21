@@ -1,13 +1,13 @@
 "use strict";
 var assert = require("assert");
-var objectOps = require("@clusterio/lib/objectOps");
+var libObjectOps = require("@clusterio/lib/object_ops");
 
-describe("objectOps.js", function(){
-	describe("objectOps.deepclone()", function(){
+describe("lib/object_ops", function(){
+	describe("deepclone()", function(){
 		it("deep clones javascript objects", function(){
 			var obj1 = { hello: "world", cat: { legs: 4, name: "Kitty", colors: ["brown", "yellow", "purple"] }};
 			var obj2 = {};
-			obj2 = objectOps.deepclone(obj1);
+			obj2 = libObjectOps.deepclone(obj1);
 
 			obj1.cat.colors = "black";
 			assert.equal(obj1.cat.colors, "black");
@@ -15,7 +15,7 @@ describe("objectOps.js", function(){
 		});
 		it("throws on non JSON parameters", function(){
 			assert.throws(function(){
-				let y = objectOps.deepclone(objectOps.deepclone);
+				let y = libObjectOps.deepclone(libObjectOps.deepclone);
 			});
 		});
 	});

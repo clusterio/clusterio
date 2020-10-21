@@ -20,6 +20,7 @@ Contents
 - [Changelog](#changelog)
 - [Supported Node.js and Factorio Version](#supported-node.js-and-factorio-version)
 - [Code Style](#code-style)
+    - [Naming Style](#naming-style)
     - [Indenting](#indenting)
     - [Line Length](#line-length)
 
@@ -204,6 +205,29 @@ Code Style
 
 The style of the code is a bit of a mixed bag at the moment.  But there
 are at least a few things that have been agreed upon.
+
+
+### Naming style
+
+JavaScript variables in general uses camelCase.  The exception is for
+classes/constructors which use PascalCase and variables destructured
+from over the wire objects.
+
+Fields in configs and messages sent over links uses
+lowercase_underscore.
+
+JavaScript files are named using lowercase_underscore for files that
+export multiple items.  Files containing and exporting a single class
+should be named the same as the class in PascalCase.
+
+Imported modules from the lib package are prefixed with lib to make them
+easier to distinguish, as the names tend to be very generic.  E.g.:
+
+    const libLink = require("lib/link");
+    const libLuaTools = require("lib/lua_tools");
+
+
+For lua code lowercase_underscore is used for everything.
 
 
 ### Strings

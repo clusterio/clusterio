@@ -1,8 +1,6 @@
 "use strict";
 const path = require("path");
 
-const prometheus = require("@clusterio/lib/prometheus");
-
 
 function addApiRoutes(app, items, endpointHitCounter) {
 

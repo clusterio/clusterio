@@ -3,13 +3,13 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 
-const link = require("@clusterio/lib/link");
+const libLink = require("@clusterio/lib/link");
 
 const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
 
 async function getInstances() {
-	let result = await link.messages.listInstances.send(getControl());
+	let result = await libLink.messages.listInstances.send(getControl());
 	return new Map(result.list.map(instance => [instance.id, instance]));
 }
 
@@ -170,14 +170,14 @@ describe("Integration of Clusterio", function() {
 
 		describe("user set-admin/whitelisted/banned", function() {
 			async function getUsers() {
-				let result = await link.messages.listUsers.send(getControl());
+				let result = await libLink.messages.listUsers.send(getControl());
 				return new Map(result.list.map(user => [user.name, user]));
 			}
 
 			let lists = ["admin", "whitelisted", "banned"];
 			it("should add and remove the given user to the list", async function() {
 				slowTest(this);
-				await link.messages.createUser.send(getControl(), { name: "list_test" });
+				await libLink.messages.createUser.send(getControl(), { name: "list_test" });
 				let user = (await getUsers()).get("list_test");
 				for (let list of lists) {
 					assert.equal(user[`is_${list}`], false, `unexpected ${list} status`);
@@ -248,7 +248,7 @@ describe("Integration of Clusterio", function() {
 			it("should create the given role", async function() {
 				let args = "--description \"A temp role\" --permissions core.control.connect";
 				await execCtl(`role create temp ${args}`);
-				let result = await link.messages.listRoles.send(getControl());
+				let result = await libLink.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "temp");
 				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] });
 			});
@@ -258,7 +258,7 @@ describe("Integration of Clusterio", function() {
 			it("should modify the given role", async function() {
 				let args = "--name new --description \"A new role\" --permissions";
 				await execCtl(`role edit temp ${args}`);
-				let result = await link.messages.listRoles.send(getControl());
+				let result = await libLink.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "new");
 				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
@@ -267,7 +267,7 @@ describe("Integration of Clusterio", function() {
 		describe("role delete", function() {
 			it("should modify the given role", async function() {
 				await execCtl("role delete new");
-				let result = await link.messages.listRoles.send(getControl());
+				let result = await libLink.messages.listRoles.send(getControl());
 				let role = result.list.find(role => role.name === "new");
 				assert(!role, "Role was not deleted");
 			});
@@ -282,7 +282,7 @@ describe("Integration of Clusterio", function() {
 		describe("user create", function() {
 			it("should create the given user", async function() {
 				await execCtl("user create temp");
-				let result = await link.messages.listUsers.send(getControl());
+				let result = await libLink.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert(user, "user was not created");
 			});
@@ -291,7 +291,7 @@ describe("Integration of Clusterio", function() {
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
 				await execCtl("user set-roles temp Admin");
-				let result = await link.messages.listUsers.send(getControl());
+				let result = await libLink.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert.deepEqual(user.roles, [0]);
 			});
@@ -300,7 +300,7 @@ describe("Integration of Clusterio", function() {
 		describe("user delete", function() {
 			it("should delete the user", async function() {
 				await execCtl("user delete temp");
-				let result = await link.messages.listUsers.send(getControl());
+				let result = await libLink.messages.listUsers.send(getControl());
 				let user = result.list.find(user => user.name === "temp");
 				assert(!user, "user was note deleted");
 			});

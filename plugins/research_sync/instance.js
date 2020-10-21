@@ -1,6 +1,6 @@
 "use strict";
-const plugin = require("@clusterio/lib/plugin");
-const luaTools = require("@clusterio/lib/luaTools");
+const libPlugin = require("@clusterio/lib/plugin");
+const libLuaTools = require("@clusterio/lib/lua_tools");
 
 
 function unexpectedError(err) {
@@ -9,7 +9,7 @@ function unexpectedError(err) {
 	console.log(err);
 }
 
-class InstancePlugin extends plugin.BaseInstancePlugin {
+class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("research_sync plugin requires save patching.");
@@ -28,7 +28,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 	}
 
 	async progressEventHandler(message) {
-		let techsJson = luaTools.escapeString(JSON.stringify(message.data.technologies));
+		let techsJson = libLuaTools.escapeString(JSON.stringify(message.data.technologies));
 		await this.instance.server.sendRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
 	}
 
@@ -39,7 +39,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 	async finishedEventHandler(message) {
 		let { name, level, researched } = message.data;
 		await this.instance.server.sendRcon(
-			`/sc research_sync.research_technology("${luaTools.escapeString(name)}", ${level})`, true
+			`/sc research_sync.research_technology("${libLuaTools.escapeString(name)}", ${level})`, true
 		);
 	}
 
@@ -73,7 +73,7 @@ class InstancePlugin extends plugin.BaseInstancePlugin {
 		}
 
 		if (techsToSync.length) {
-			let syncJson = luaTools.escapeString(JSON.stringify(techsToSync));
+			let syncJson = libLuaTools.escapeString(JSON.stringify(techsToSync));
 			await this.instance.server.sendRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
 		}
 	}

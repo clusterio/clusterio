@@ -2,32 +2,32 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const database = require("@clusterio/lib/database");
-const plugin = require("@clusterio/lib/plugin");
-const prometheus = require("@clusterio/lib/prometheus");
+const libDatabase = require("@clusterio/lib/database");
+const libPlugin = require("@clusterio/lib/plugin");
+const { Counter, Gauge } = require("@clusterio/lib/prometheus");
 
 const routes = require("./routes");
 const dole = require("./dole");
 
 
-const exportCounter = new prometheus.Counter(
+const exportCounter = new Counter(
 	"clusterio_subspace_storage_export_total",
 	"Resources exported by instance",
 	{ labels: ["instance_id", "resource"] }
 );
-const importCounter = new prometheus.Counter(
+const importCounter = new Counter(
 	"clusterio_subspace_storage_import_total",
 	"Resources imported by instance",
 	{ labels: ["instance_id", "resource"] }
 );
-const masterInventoryGauge = new prometheus.Gauge(
+const masterInventoryGauge = new Gauge(
 	"clusterio_subspace_storage_master_inventory",
 	"Amount of resources stored on master",
 	{ labels: ["resource"] }
 );
 
 
-class MasterPlugin extends plugin.BaseMasterPlugin {
+class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 
 		this.items = await loadDatabase(this.master.config);
@@ -175,12 +175,12 @@ async function loadDatabase(config) {
 	console.log(`Loading ${itemsPath}`);
 	try {
 		let content = await fs.readFile(itemsPath);
-		return new database.ItemDatabase(JSON.parse(content));
+		return new libDatabase.ItemDatabase(JSON.parse(content));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
 			console.log("Creating new item database");
-			return new database.ItemDatabase();
+			return new libDatabase.ItemDatabase();
 
 		} else {
 			throw err;

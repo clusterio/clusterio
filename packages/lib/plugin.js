@@ -5,7 +5,7 @@
 "use strict";
 const path = require("path");
 
-const errors = require("@clusterio/lib/errors");
+const libErrors = require("@clusterio/lib/errors");
 
 
 /**
@@ -409,11 +409,11 @@ async function loadPluginInfos(pluginList) {
 			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
 
 		} catch (err) {
-			throw new errors.PluginError(pluginName, err);
+			throw new libErrors.PluginError(pluginName, err);
 		}
 
 		if (pluginInfo.name !== pluginName) {
-			throw new errors.EnvironmentError(
+			throw new libErrors.EnvironmentError(
 				`Expected plugin at ${pluginPath} to be named ${pluginName} but got ${pluginInfo.name}`
 			);
 		}

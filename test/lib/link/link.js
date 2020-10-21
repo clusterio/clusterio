@@ -2,9 +2,9 @@
 const assert = require("assert").strict;
 const events = require("events");
 
-const link = require("@clusterio/lib/link");
-const errors = require("@clusterio/lib/errors");
-const schema = require("@clusterio/lib/schema");
+const libLink = require("@clusterio/lib/link");
+const libErrors = require("@clusterio/lib/errors");
+const libSchema = require("@clusterio/lib/schema");
 const mock = require("../../mock");
 
 
@@ -15,8 +15,8 @@ describe("lib/link/link", function() {
 
 		before(function() {
 			testConnector = new mock.MockConnector();
-			testLink = new link.Link("source", "target", testConnector);
-			testLink.setValidator("simple", schema.compile({
+			testLink = new libLink.Link("source", "target", testConnector);
+			testLink.setValidator("simple", libSchema.compile({
 				properties: {
 					"data": {
 						type: "object",
@@ -78,7 +78,7 @@ describe("lib/link/link", function() {
 			it("should throw on message without validator", function() {
 				assert.throws(
 					() => testLink.processMessage({ seq: 1, type: "no_validator", data: {} }),
-					new errors.InvalidMessage("No validator for no_validator on source-target")
+					new libErrors.InvalidMessage("No validator for no_validator on source-target")
 				);
 			});
 			it("should throw on message failing validation", function() {
@@ -90,7 +90,7 @@ describe("lib/link/link", function() {
 			it("should throw on unhandled message", function() {
 				assert.throws(
 					() => testLink.processMessage({ seq: 1, type: "simple", data: { string: "a" }}),
-					new errors.InvalidMessage("Unhandled message simple")
+					new libErrors.InvalidMessage("Unhandled message simple")
 				);
 			});
 		});

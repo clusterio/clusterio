@@ -1,5 +1,4 @@
 "use strict";
-let link = require("@clusterio/lib/link");
 
 module.exports = {
 	name: "statistics_exporter",
