@@ -93,14 +93,16 @@ function labelsToKey(labels, metricLabels) {
 function keyToLabels(key) {
 	let labels = new Map();
 
-	if (key !== "") for (let pair of key.split(",")) {
-		let [name, value] = pair.split("=", 2);
-		labels.set(name, value
-			.slice(1, -1)
-			.replace(/\\"/g, "\"")
-			.replace(/\\n/g, "\n")
-			.replace(/\\\\/g, "\\")
-		);
+	if (key !== "") {
+		for (let pair of key.split(",")) {
+			let [name, value] = pair.split("=", 2);
+			labels.set(name, value
+				.slice(1, -1)
+				.replace(/\\"/g, "\"")
+				.replace(/\\n/g, "\n")
+				.replace(/\\\\/g, "\\")
+			);
+		}
 	}
 
 	return labels;
@@ -124,10 +126,15 @@ class ValueCollector extends Collector {
 		let register = true;
 		let callback = null;
 		for (let [key, value] of Object.entries(options)) {
-			if (key === "labels") { labels = value; }
-			else if (key === "register") { register = value; }
-			else if (key === "callback") { callback = value; }
-			else { throw new Error(`Unrecognized option '${key}'`); }
+			if (key === "labels") {
+				labels = value;
+			} else if (key === "register") {
+				register = value;
+			} else if (key === "callback") {
+				callback = value;
+			} else {
+				throw new Error(`Unrecognized option '${key}'`);
+			}
 		}
 
 		// Make sure we don't register to the default registry if metric throws.
@@ -311,11 +318,11 @@ function escapeHelp(help) {
 function formatValue(value) {
 	if (value === Infinity) {
 		return "+Inf";
-	} else if (value === -Infinity) {
-		return "-Inf";
-	} else {
-		return value.toString();
 	}
+	if (value === -Infinity) {
+		return "-Inf";
+	}
+	return value.toString();
 }
 
 async function* expositionLines(resultsIterator) {
@@ -356,10 +363,15 @@ function serializeResult(result, options = {}) {
 	let metricName = result.metric.name;
 	let metricHelp = result.metric.help;
 	for (let [name, value] of Object.entries(options)) {
-		if (name === "addLabels") { addLabels = value; }
-		else if (name === "metricName") { metricName = value; }
-		else if (name === "metricHelp") { metricHelp = value; }
-		else { throw new Error(`Unrecognized option '${name}'`); }
+		if (name === "addLabels") {
+			addLabels = value;
+		} else if (name === "metricName") {
+			metricName = value;
+		} else if (name === "metricHelp") {
+			metricHelp = value;
+		} else {
+			throw new Error(`Unrecognized option '${name}'`);
+		}
 	}
 
 	let samples;
@@ -371,8 +383,11 @@ function serializeResult(result, options = {}) {
 		samples = new Map();
 		let key = labelsToKey([addLabels], [...Object.keys(addLabels)]);
 		for (let [labels, value] of result.samples.entries()) {
-			if (labels === "") { samples.set(key, value); }
-			else { samples.set(`${labels},${key}`, value); }
+			if (labels === "") {
+				samples.set(key, value);
+			} else {
+				samples.set(`${labels},${key}`, value);
+			}
 		}
 	}
 
