@@ -2,7 +2,6 @@
 const assert = require("assert").strict;
 const fs = require("fs");
 const path = require("path");
-const stream = require("stream");
 
 const libHash = require("@clusterio/lib/hash");
 

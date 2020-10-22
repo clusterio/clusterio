@@ -192,7 +192,7 @@ module.exports = {
 		"no-script-url": "error",
 		"no-self-compare": "error",
 		"no-sequences": "error",
-		"no-shadow": "warn",
+		"no-shadow": ["error", { "allow": ["yargs"] }],
 		"no-spaced-func": "error",
 		"no-sync": "error",
 		"no-tabs": ["error", { "allowIndentationTabs": true }],

@@ -130,19 +130,19 @@ async function exportItems(server, modVersions, items) {
 	let pos = 0;
 
 	let iconCache = new Map();
-	async function loadIcon(path, iconSize, iconMipmaps) {
-		let icon = iconCache.get(path);
+	async function loadIcon(iconPath, iconSize, iconMipmaps) {
+		let icon = iconCache.get(iconPath);
 		if (icon === undefined) {
-			let fileContent = await loadFile(server, modVersions, path);
+			let fileContent = await loadFile(server, modVersions, iconPath);
 			if (fileContent) {
 				icon = await Jimp.read(fileContent);
 				icon.crop(0, 0, iconSize, iconSize);
-				iconCache.set(path, icon);
+				iconCache.set(iconPath, icon);
 			} else {
 				icon = null;
-				console.log(`Warning: ${path} not found`);
+				console.log(`Warning: ${iconPath} not found`);
 			}
-			iconCache.set(path, icon);
+			iconCache.set(iconPath, icon);
 		}
 		return icon;
 	}

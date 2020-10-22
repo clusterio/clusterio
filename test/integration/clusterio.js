@@ -249,8 +249,11 @@ describe("Integration of Clusterio", function() {
 				let args = "--description \"A temp role\" --permissions core.control.connect";
 				await execCtl(`role create temp ${args}`);
 				let result = await libLink.messages.listRoles.send(getControl());
-				let role = result.list.find(role => role.name === "temp");
-				assert.deepEqual(role, { id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] });
+				let tempRole = result.list.find(role => role.name === "temp");
+				assert.deepEqual(
+					tempRole,
+					{ id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] }
+				);
 			});
 		});
 
@@ -259,8 +262,8 @@ describe("Integration of Clusterio", function() {
 				let args = "--name new --description \"A new role\" --permissions";
 				await execCtl(`role edit temp ${args}`);
 				let result = await libLink.messages.listRoles.send(getControl());
-				let role = result.list.find(role => role.name === "new");
-				assert.deepEqual(role, { id: 5, name: "new", description: "A new role", permissions: [] });
+				let newRole = result.list.find(role => role.name === "new");
+				assert.deepEqual(newRole, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
 		});
 
@@ -268,8 +271,8 @@ describe("Integration of Clusterio", function() {
 			it("should modify the given role", async function() {
 				await execCtl("role delete new");
 				let result = await libLink.messages.listRoles.send(getControl());
-				let role = result.list.find(role => role.name === "new");
-				assert(!role, "Role was not deleted");
+				let newRole = result.list.find(role => role.name === "new");
+				assert(!newRole, "Role was not deleted");
 			});
 		});
 
@@ -283,8 +286,8 @@ describe("Integration of Clusterio", function() {
 			it("should create the given user", async function() {
 				await execCtl("user create temp");
 				let result = await libLink.messages.listUsers.send(getControl());
-				let user = result.list.find(user => user.name === "temp");
-				assert(user, "user was not created");
+				let tempUser = result.list.find(user => user.name === "temp");
+				assert(tempUser, "user was not created");
 			});
 		});
 
@@ -292,8 +295,8 @@ describe("Integration of Clusterio", function() {
 			it("should set the roles on the user", async function() {
 				await execCtl("user set-roles temp Admin");
 				let result = await libLink.messages.listUsers.send(getControl());
-				let user = result.list.find(user => user.name === "temp");
-				assert.deepEqual(user.roles, [0]);
+				let tempUser = result.list.find(user => user.name === "temp");
+				assert.deepEqual(tempUser.roles, [0]);
 			});
 		});
 
@@ -301,8 +304,8 @@ describe("Integration of Clusterio", function() {
 			it("should delete the user", async function() {
 				await execCtl("user delete temp");
 				let result = await libLink.messages.listUsers.send(getControl());
-				let user = result.list.find(user => user.name === "temp");
-				assert(!user, "user was note deleted");
+				let tempUser = result.list.find(user => user.name === "temp");
+				assert(!tempUser, "user was note deleted");
 			});
 		});
 	});

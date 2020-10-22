@@ -371,8 +371,8 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._sessionToken = data.session_token;
 			this._heartbeatInterval = data.heartbeat_interval;
 			this.startHeartbeat();
-			for (let message of this._sendBuffer) {
-				this._socket.send(JSON.stringify(message));
+			for (let bufferedMessage of this._sendBuffer) {
+				this._socket.send(JSON.stringify(bufferedMessage));
 			}
 			this._startedReconnect = null;
 			this._connected = true;
@@ -384,8 +384,8 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._heartbeatInterval = data.heartbeat_interval;
 			this.startHeartbeat();
 			this._dropSendBufferSeq(data.last_seq);
-			for (let message of this._sendBuffer) {
-				this._socket.send(JSON.stringify(message));
+			for (let bufferedMessage of this._sendBuffer) {
+				this._socket.send(JSON.stringify(bufferedMessage));
 			}
 			this._startedReconnect = null;
 			this._connected = true;

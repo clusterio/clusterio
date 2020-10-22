@@ -44,10 +44,10 @@ function slowTest(test) {
 	test.timeout(20000);
 }
 
-async function get(path) {
+async function get(urlPath) {
 	let res = await phin({
 		method: "GET",
-		url: `https://localhost:4443${path}`,
+		url: `https://localhost:4443${urlPath}`,
 		core: { rejectUnauthorized: false },
 	});
 	if (res.statusCode !== 200) {

@@ -169,8 +169,8 @@ function reorderDependencies(modules) {
 	// the module depends on a module that satisfy any of these conditions.
 
 	let remaining = new Map();
-	for (let modules of hold.values()) {
-		for (let module of modules) {
+	for (let heldModules of hold.values()) {
+		for (let module of heldModules) {
 			remaining.set(module.name, module);
 		}
 	}

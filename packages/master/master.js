@@ -38,7 +38,7 @@ let masterPlugins = new Map();
 let pluginInfos = new Map();
 let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
-let pluginList = {};
+let loadedPlugins = {};
 let devMiddleware;
 
 // homebrew modules
@@ -1290,7 +1290,7 @@ wss.on("connection", function (socket, req) {
 	// Start connection handshake.
 	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
 		version,
-		plugins: pluginList,
+		plugins: loadedPlugins,
 	}}));
 
 	function attachHandler() {
@@ -1444,20 +1444,20 @@ async function handleHandshake(message, socket, req, attachHandler) {
 }
 
 // handle plugins on the master
-async function pluginManagement(pluginInfos) {
+async function pluginManagement() {
 	let startPluginLoad = Date.now();
-	masterPlugins = await loadPlugins(pluginInfos);
+	masterPlugins = await loadPlugins();
 	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
 }
 
-async function loadPlugins(pluginInfos) {
+async function loadPlugins() {
 	let plugins = new Map();
 	for (let pluginInfo of pluginInfos) {
 		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
 			continue;
 		}
 
-		pluginList[pluginInfo.name] = pluginInfo.version;
+		loadedPlugins[pluginInfo.name] = pluginInfo.version;
 
 		let pluginLoadStarted = Date.now();
 		let MasterPlugin = libPlugin.BaseMasterPlugin;
@@ -1747,7 +1747,7 @@ async function startServer() {
 	}
 
 	// Load plugins
-	await pluginManagement(pluginInfos);
+	await pluginManagement();
 
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {

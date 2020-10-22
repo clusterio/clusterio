@@ -900,12 +900,13 @@ class Slave extends libLink.Link {
 			this.updateInstances().catch((err) => {
 				console.error("ERROR: Unexpected error updating instances");
 				console.error(err);
-				this.shutdown().catch((err) => {
-					setBlocking(true);
-					console.error("ERROR: Unexpected error during shutdown");
-					console.error(err);
-					process.exit(1);
-				});
+				return this.shutdown();
+
+			}).catch((err) => {
+				setBlocking(true);
+				console.error("ERROR: Unexpected error during shutdown");
+				console.error(err);
+				process.exit(1);
 			});
 		});
 
@@ -919,12 +920,13 @@ class Slave extends libLink.Link {
 				this.connector.connect().catch((err) => {
 					console.error("ERROR: Unexpected error reconnecting to master");
 					console.error(err);
-					this.shutdown().catch((err) => {
-						setBlocking(true);
-						console.error("ERROR: Unexpected error during shutdown");
-						console.error(err);
-						process.exit(1);
-					});
+					return this.shutdown();
+
+				}).catch((err) => {
+					setBlocking(true);
+					console.error("ERROR: Unexpected error during shutdown");
+					console.error(err);
+					process.exit(1);
 				});
 
 			} else {
