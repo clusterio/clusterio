@@ -1751,7 +1751,7 @@ async function startServer() {
 
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
-		httpServer = require("http").Server(app);
+		httpServer = new (require("http").Server)(app);
 		await listen(httpServer, httpPort);
 		console.log("Listening for HTTP on port %s...", httpServer.address().port);
 	}

@@ -3,7 +3,7 @@
 "use strict";
 const events = require("events");
 const fs = require("fs-extra");
-const jszip = require("jszip");
+const JSZip = require("jszip");
 const path = require("path");
 const semver = require("semver");
 
@@ -27,7 +27,7 @@ const knownScenarios = {
  * Returns the name of the folder that all files in the zip file is
  * contained in.  Throws an error if there are multiple such folders.
  *
- * @param {module:jszip.JSZip} zip - Zip to search through.
+ * @param {JSZip} zip - Zip to search through.
  * @returns {string} name of the root folder.
  * @memberof module:lib/factorio
  * @private
@@ -213,7 +213,7 @@ function reorderDependencies(modules) {
  * @memberof module:lib/factorio
  */
 async function patch(savePath, modules) {
-	let zip = await jszip.loadAsync(await fs.readFile(savePath));
+	let zip = await JSZip.loadAsync(await fs.readFile(savePath));
 	let root = zip.folder(findRoot(zip));
 
 	let patchInfoFile = root.file("clusterio.json");

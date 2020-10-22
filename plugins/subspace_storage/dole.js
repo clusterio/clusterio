@@ -15,7 +15,7 @@ const prometheusDoleFactorGauge = new Gauge(
 	{ labels: ["resource"] }
 );
 
-class neuralDole {
+class NeuralDole {
 
 	getRequestStats(itemname,samples)
 	{
@@ -46,7 +46,7 @@ class neuralDole {
 
 	doMagic() {
 		for (let [name, count] of this.items._items) {
-			let magicData = doleNN.Tick(
+			let magicData = doleNN.tick(
 				count,
 				this.dole[name],
 				this.itemsLastTick.get(name),
@@ -64,7 +64,7 @@ class neuralDole {
 	}
 
 	divider(object) {
-		let magicData = doleNN.Dose(
+		let magicData = doleNN.dose(
 			object.count, // numReq
 			this.items.getItemCount(object.name),
 			this.itemsLastTick.get(object.name) || 0,
@@ -131,5 +131,5 @@ function doleDivider({
 
 module.exports = {
 	doleDivider,
-	neuralDole,
+	NeuralDole,
 };

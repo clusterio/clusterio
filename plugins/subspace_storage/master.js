@@ -40,7 +40,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			});
 		}, this.master.config.get("subspace_storage.autosave_interval") * 1000);
 
-		this.neuralDole = new dole.neuralDole({ items: this.items });
+		this.neuralDole = new dole.NeuralDole({ items: this.items });
 		this.doleMagicId = setInterval(() => {
 			if (this.master.config.get("subspace_storage.division_method") === "neural_dole") {
 				this.neuralDole.doMagic();

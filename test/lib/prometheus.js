@@ -582,7 +582,7 @@ describe("lib/prometheus", function() {
 		});
 		it("should throw on unrecoginzed option", function() {
 			assert.throws(
-				() => new prometheus.serializeResult({
+				() => prometheus.serializeResult({
 					metric: new prometheus.Metric("type", "name", "Help"),
 					samples: new Map([["", 3]]),
 				}, { invalid: true }),

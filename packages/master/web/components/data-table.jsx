@@ -56,6 +56,7 @@ class DataTable extends Component {
 		sorter = sorter || this.state.sorter;
 		// console.log(pagination, filters, sorter)
 
+		// eslint-disable-next-line new-cap
 		let data = await this.props.DataFunction();
 		// await fetchApi(this.state.dataUrl, "post", {
 		//     database: this.props.Database,
@@ -69,6 +70,7 @@ class DataTable extends Component {
 		console.log(data);
 		data = data || {};
 		this.setState({
+			// eslint-disable-next-line new-cap
 			tableData: this.props.CustomDataFilterFunction ? this.props.CustomDataFilterFunction(data) : data,
 			pagination: { ...pagination, ...data.pagination },
 			sorter,

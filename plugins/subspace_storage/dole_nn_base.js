@@ -41,8 +41,7 @@ function sigmoid3(x)
 //1.New dole for item X
 //2.New carry for item X slave Y
 //3.New debt
-function Dose(numreq,instore,store_last_tick,dole,carry,prev_req,numreq_total_adj,debt)
-{
+function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_total_adj, debt) {
 	numreq=Number(numreq);
 	instore=Number(instore);
 	var instore_adj=instore;
@@ -96,8 +95,7 @@ function Dose(numreq,instore,store_last_tick,dole,carry,prev_req,numreq_total_ad
 //Returns: Array of 2 elements
 //0.New dole for item X
 //1.Guessed percentage average of items supplied in last 10 ticks
-function Tick(instore,dole,store_last_tick,numreq_total_adj)
-{
+function tick(instore, dole, store_last_tick, numreq_total_adj) {
 	var instore_adj=instore;
 	if (instore_adj === 0) {
 		instore_adj = 0.1;
@@ -121,4 +119,4 @@ function Tick(instore,dole,store_last_tick,numreq_total_adj)
 	return [sigmoid0(outputs[0]),avg];
 }
 
-module.exports = { Dose,Tick };
+module.exports = { dose, tick };
