@@ -44,55 +44,51 @@ describe("lib/plugin", function() {
 
 	describe("loadPluginInfos()", function() {
 		let baseDir = path.join("temp", "test", "plugin");
-		let emptyDir = path.join(baseDir, "emptyDir");
-		let emptyPlugin = path.join(baseDir, "emptyPlugin");
-		let testPlugin = path.join(baseDir, "testPlugin");
-		let brokenPlugin = path.join(baseDir, "brokenPlugin");
-		let invalidPlugin = path.join(baseDir, "invalidPlugin");
+		let missingPlugin = path.join(baseDir, "missing_plugin");
+		let testPlugin = path.join(baseDir, "test_plugin");
+		let brokenPlugin = path.join(baseDir, "broken_plugin");
+		let invalidPlugin = path.join(baseDir, "invalid_plugin");
 		before(async function() {
-			await fs.ensureDir(emptyDir);
-			await fs.ensureDir(path.join(emptyPlugin, "empty"));
-
-			async function writePlugin(pluginPath, name, infoName = name) {
+			async function writePlugin(pluginPath, infoName) {
 				await fs.outputFile(
-					path.join(pluginPath, name, "info.js"),
+					path.join(pluginPath, "info.js"),
 					`module.exports = { name: "${infoName}" };`
+				);
+				await fs.outputFile(
+					path.join(pluginPath, "package.json"),
+					'{ "version": "0.0.1" }'
 				);
 			}
 
 			await writePlugin(testPlugin, "test");
 			await writePlugin(brokenPlugin, "broken");
-			await fs.outputFile(path.join(brokenPlugin, "broken", "info.js"), "Syntax Error");
-			await writePlugin(invalidPlugin, "invalid", "wrong");
+			await fs.outputFile(path.join(brokenPlugin, "info.js"), "Syntax Error");
+			await writePlugin(invalidPlugin, "wrong");
 		});
 
-		it("should return an empty array for an empty directory", async function() {
-			assert.deepEqual(await plugin.loadPluginInfos(emptyDir), []);
+		it("should throw on missing plugin", async function() {
+			await assert.rejects(
+				plugin.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
+				new RegExp(`^Error: PluginError: Cannot find module '${missingPlugin}/info'`)
+			);
 		});
-		it("should ignore plugin dirs without info module", async function() {
-			assert.deepEqual(await plugin.loadPluginInfos(emptyPlugin), []);
-		});
-		it("should discover test plugin", async function() {
+		it("should load test plugin", async function() {
 			assert.deepEqual(
-				await plugin.loadPluginInfos(testPlugin),
-				[{ name: "test" }]
+				await plugin.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
+				[{ name: "test", version: "0.0.1", requirePath: path.resolve(testPlugin) }]
 			);
 		});
 		it("should reject on broken plugin", async function() {
 			await assert.rejects(
-				plugin.loadPluginInfos(brokenPlugin),
+				plugin.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
 				{ message: "PluginError: Unexpected identifier" }
 			);
 		});
 		it("should reject on invalid plugin", async function() {
 			await assert.rejects(
-				plugin.loadPluginInfos(invalidPlugin),
-				{ message: `Plugin dir ${invalidPlugin}/invalid does not match the name of the plugin (wrong)` }
+				plugin.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
+				{ message: `Expected plugin at ${path.resolve(invalidPlugin)} to be named invalid but got wrong` }
 			);
-		});
-
-		after(async function() {
-			await fs.unlink(path.join(brokenPlugin, "broken", "info.js"));
 		});
 	});
 

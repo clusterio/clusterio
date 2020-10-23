@@ -1,9 +1,6 @@
 // Core definitions for the configuration system
 "use strict";
 
-const util = require("util");
-const crypto = require("crypto");
-const path = require("path");
 const fs = require("fs-extra");
 
 const classes = require("./classes");
@@ -76,12 +73,7 @@ MasterGroup.define({
 		+"  Should be a long string of random letters and numbers."
 		+"  Do not share this.",
 	type: "string",
-	initial_value: async function() {
-		console.log("Generating new master authentication secret");
-		let asyncRandomBytes = util.promisify(crypto.randomBytes);
-		let bytes = await asyncRandomBytes(256);
-		return bytes.toString("base64");
-	},
+	optional: true,
 });
 MasterGroup.define({
 	name: "heartbeat_interval",
@@ -402,6 +394,7 @@ function configCommand(yargs) {
 		.command("show <field>", "Show value of the given config field")
 		.command("list", "List all configuration fields and their values")
 		.demandCommand(1, "You need to specify a command to run")
+		.help()
 		.strict()
 	;
 }

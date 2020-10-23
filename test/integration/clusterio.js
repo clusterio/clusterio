@@ -59,8 +59,10 @@ describe("Integration of Clusterio", function() {
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
+				let exportPath = path.join("temp", "test", "static", "export", "locale.json");
+				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
-				assert(await fs.exists(path.join("static", "export", "locale.json")), "Export was not created");
+				assert(await fs.exists(exportPath), "Export was not created");
 				await checkInstanceStatus(44, "stopped");
 			});
 		});

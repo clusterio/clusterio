@@ -35,6 +35,7 @@ Factorio*
 /instances
 /sharedMods
 /database
+/plugin-list.json
 /config-master.json
 /config-control.json
 /config-slave.json
@@ -43,16 +44,6 @@ mod_cache.json
 static/export
 saves
 /temp/
-
-# weird pattern to ignore sharedPlugins except not ignore some core modules
-!sharedPlugins/
-sharedPlugins/*
-!sharedPlugins/inventoryImports/
-!sharedPlugins/researchSync/
-!sharedPlugins/clusterioMod/
-
-# File used for marking plugins as disabled
-sharedPlugins/*/DISABLED
 
 # IDE
 .idea/

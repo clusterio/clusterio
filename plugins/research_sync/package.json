@@ -1,0 +1,21 @@
+{
+  "name": "@clusterio/plugin-research_sync",
+  "version": "2.0.0-alpha0",
+  "description": "Clusterio plugin for synchronizing research between Factorio servers",
+  "author": "Hornwitser <github@hornwitser.no>",
+  "homepage": "https://github.com/clusterio/factorioClusterio#readme",
+  "license": "MIT",
+  "repository": "clusterio/factorioClusterio",
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/clusterio/factorioClusterio/issues"
+  },
+  "peerDependencies": {
+    "@clusterio/lib": "^2.0.0-alpha0"
+  },
+  "ependencies": {
+    "fs-extra": "^8.1.0"
+  }
+}

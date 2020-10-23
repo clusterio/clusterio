@@ -32,6 +32,7 @@ const errors = require("@clusterio/lib/errors");
 const prometheus = require("@clusterio/lib/prometheus");
 const luaTools = require("@clusterio/lib/luaTools");
 const config = require("@clusterio/lib/config");
+const sharedCommands = require("@clusterio/lib/shared_commands");
 
 
 const instanceRconCommandsCounter = new prometheus.Counter(
@@ -206,9 +207,7 @@ class Instance extends link.Link{
 
 	async _loadPlugin(pluginInfo, slave) {
 		let pluginLoadStarted = Date.now();
-		// XXX Does not work on Windows
-		let pluginPath = path.relative(__dirname, path.join("plugins", pluginInfo.name));
-		let { InstancePlugin } = require(path.join(pluginPath, pluginInfo.instanceEntrypoint));
+		let { InstancePlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint));
 		let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
@@ -385,7 +384,8 @@ class Instance extends link.Link{
 		// Find plugin modules to patch in
 		let modules = new Map();
 		for (let [pluginName, plugin] of this.plugins) {
-			let modulePath = path.join("plugins", pluginName, "module");
+			let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
+			let modulePath = path.join(path.dirname(pluginPackagePath), "module");
 			if (!await fs.pathExists(modulePath)) {
 				continue;
 			}
@@ -412,14 +412,14 @@ class Instance extends link.Link{
 		}
 
 		// Find stand alone modules to load
-		// XXX for now it's assumed all available modules should be loaded.
-		for (let entry of await fs.readdir("modules", { withFileTypes: true })) {
+		// XXX for now only the included clusterio module is loaded
+		for (let entry of await fs.readdir(path.join(__dirname, "modules"), { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
 
-				let moduleJsonPath = path.join("modules", entry.name, "module.json");
+				let moduleJsonPath = path.join(__dirname, "modules", entry.name, "module.json");
 				if (!await fs.pathExists(moduleJsonPath)) {
 					throw new Error(`Module ${entry.name} is missing module.json`);
 				}
@@ -430,7 +430,7 @@ class Instance extends link.Link{
 				}
 
 				module = {
-					path: path.join("modules", entry.name),
+					path: path.join(__dirname, "modules", entry.name),
 					dependencies: { "clusterio": "*" },
 					load: [],
 					require: [],
@@ -1385,6 +1385,13 @@ async function startSlave() {
 			default: "config-slave.json",
 			type: "string",
 		})
+		.option("plugin-list", {
+			nargs: 1,
+			describe: "File containing list of plugins available with their install path",
+			default: "plugin-list.json",
+			type: "string",
+		})
+		.command("plugin", "Manage available plugins", sharedCommands.pluginCommand)
 		.command("config", "Manage Slave config", config.configCommand)
 		.command("run", "Run slave")
 		.demandCommand(1, "You need to specify a command to run")
@@ -1392,8 +1399,25 @@ async function startSlave() {
 		.argv
 	;
 
+	console.log(`Loading available plugins from ${args.pluginList}`);
+	let pluginList = new Map();
+	try {
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			throw err;
+		}
+	}
+
+	// If the command is plugin management we don't try to load plugins
+	let command = args._[0];
+	if (command === "plugin") {
+		await sharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		return;
+	}
+
 	console.log("Loading Plugin info");
-	let pluginInfos = await plugin.loadPluginInfos("plugins");
+	let pluginInfos = await plugin.loadPluginInfos(pluginList);
 	config.registerPluginConfigGroups(pluginInfos);
 	config.finalizeConfigs();
 
@@ -1412,7 +1436,6 @@ async function startSlave() {
 		}
 	}
 
-	let command = args._[0];
 	if (command === "config") {
 		await config.handleConfigCommand(args, slaveConfig, args.config);
 		return;

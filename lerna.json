@@ -1,6 +1,7 @@
 {
   "packages": [
-    "packages/*"
+    "packages/*",
+    "plugins/*"
   ],
   "version": "2.0.0-alpha0"
 }

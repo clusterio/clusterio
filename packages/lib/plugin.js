@@ -3,7 +3,6 @@
  * @module lib/plugin
  */
 "use strict";
-const fs = require("fs-extra");
 const path = require("path");
 
 const errors = require("@clusterio/lib/errors");
@@ -390,39 +389,37 @@ class BaseControlPlugin {
 /**
  * Load plugin information
  *
- * Searches through the plugin directory and loads each plugin's info
- * module.  Once loaded the info modules will not be reloaded should this
- * function be called again.
+ * Loads plugin info modules for the paths to the given plugins.  Once
+ * loaded the info modules will not be reloaded should this function be
+ * called again.
  *
- * @param {string} baseDir - posix relative path to plugin directory.
- * @returns {Map<string, Object>} mapping of plugin name to info module.
+ * @param {Map<string, string>} pluginList -
+ *     Mapping of plugin name to require path for the plugins to load.
+ * @returns {Array<Object>} Array of plugin info modules.
  * @static
  */
-async function loadPluginInfos(baseDir) {
+async function loadPluginInfos(pluginList) {
 	let plugins = [];
-	for (let pluginDir of await fs.readdir(baseDir)) {
+	for (let [pluginName, pluginPath] of pluginList) {
 		let pluginInfo;
+		let pluginPackage;
 
 		try {
-			// Note: Require path is relative to this module
-			// XXX Does not work on Windows
-			let pluginPath = path.relative(__dirname, path.join(baseDir, pluginDir));
-			pluginInfo = require(path.join(pluginPath, "info"));
+			pluginInfo = require(path.posix.join(pluginPath, "info"));
+			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
 
 		} catch (err) {
-			if (err.code === "MODULE_NOT_FOUND") {
-				continue;
-			} else {
-				throw new errors.PluginError(pluginDir, err);
-			}
+			throw new errors.PluginError(pluginName, err);
 		}
 
-		if (pluginInfo.name !== pluginDir) {
+		if (pluginInfo.name !== pluginName) {
 			throw new errors.EnvironmentError(
-				`Plugin dir ${baseDir}/${pluginDir} does not match the name of the plugin (${pluginInfo.name})`
+				`Expected plugin at ${pluginPath} to be named ${pluginName} but got ${pluginInfo.name}`
 			);
 		}
 
+		pluginInfo.requirePath = pluginPath;
+		pluginInfo.version = pluginPackage.version;
 		plugins.push(pluginInfo);
 	}
 	return plugins;
