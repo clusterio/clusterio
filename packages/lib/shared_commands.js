@@ -39,7 +39,7 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 
 	if (command === "add") {
 		let pluginPath = args.path;
-		if (/\.\.?[\/\\]/.test(pluginPath)) {
+		if (/^\.\.?[\/\\]/.test(pluginPath)) {
 			pluginPath = path.resolve(pluginPath);
 		}
 
@@ -59,7 +59,7 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 			return;
 		}
 
-		pluginList.set(pluginInfo.name, args.path);
+		pluginList.set(pluginInfo.name, pluginPath);
 		await fs.outputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
 		console.log(`Added ${pluginInfo.name}`);
 
