@@ -12,8 +12,10 @@
   "bugs": {
     "url": "https://github.com/clusterio/factorioClusterio/issues"
   },
+  "peerDependencies": {
+    "@clusterio/lib": "^2.0.0-alpha0"
+  },
   "dependencies": {
-    "@clusterio/lib": ">=2.0.0-alpha0",
     "fs-extra": "^8.1.0"
   }
 }
