@@ -384,7 +384,8 @@ class Instance extends link.Link{
 		// Find plugin modules to patch in
 		let modules = new Map();
 		for (let [pluginName, plugin] of this.plugins) {
-			let modulePath = path.join("plugins", pluginName, "module");
+			let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
+			let modulePath = path.join(path.dirname(pluginPackagePath), "module");
 			if (!await fs.pathExists(modulePath)) {
 				continue;
 			}
