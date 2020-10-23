@@ -39,8 +39,21 @@ The basic file structure of a plugin is the following.
          +- module.json
          +- plugin.lua
 
-The most important file is the `info.js` file.  Without it the plugin
-will not recognized by Clusterio.  Here's an example of it:
+Clusterio plugins are Node.js packages that can be published on npm for
+ease of installation and distribution.  The usual guides for creating
+such packages apply.  At minimum the `package.json` file must contain a
+version entry.
+
+A possible workflow for developing plugins is to place the plugin in a
+sub-directory of where clusterio has been installed, and rely on Node.js
+searching up the folder heirarchy for it to find `@clusterio/lib`.  To
+add it to `plugin-list.json` so that it gets loaded use the `plugin add
+<path>` sub-command to either clusteriomaster, clusterioslave or
+clusterioctl.  Note that it's important that the path starts with ./ or
+../ (use .\ or ..\ on Windows).
+
+For a plugin the most important file is the `info.js` file.  Without it
+the plugin will not recognized by Clusterio.  Here's an example of it:
 
     const link = require('@clusterio/lib/link'); // For messages
 
@@ -48,7 +61,6 @@ will not recognized by Clusterio.  Here's an example of it:
         name: "foo_frobber",
         title: "Foo Frobber",
         description: "Does advanced frobnication",
-        version: "0.8.1",
         instanceEntrypoint: "instance",
         masterEntrypoint: "master",
         messages: {
@@ -67,11 +79,6 @@ The following properties are recognized:
 
 **description**:
     Brief description of what the plugin does.  Currently not used.
-
-**version**:
-    Semver compatible version string of the plugin.  Currently only
-    servers as the default for the Clusterio module embedded in the
-    plugin, if any.
 
 **instanceEntrypoint**:
     Path to a Node.js module relative to the plugin directory which

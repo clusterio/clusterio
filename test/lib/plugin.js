@@ -54,6 +54,10 @@ describe("lib/plugin", function() {
 					path.join(pluginPath, "info.js"),
 					`module.exports = { name: "${infoName}" };`
 				);
+				await fs.outputFile(
+					path.join(pluginPath, "package.json"),
+					'{ "version": "0.0.1" }'
+				);
 			}
 
 			await writePlugin(testPlugin, "test");
@@ -71,7 +75,7 @@ describe("lib/plugin", function() {
 		it("should load test plugin", async function() {
 			assert.deepEqual(
 				await plugin.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
-				[{ name: "test", requirePath: path.resolve(testPlugin) }]
+				[{ name: "test", version: "0.0.1", requirePath: path.resolve(testPlugin) }]
 			);
 		});
 		it("should reject on broken plugin", async function() {

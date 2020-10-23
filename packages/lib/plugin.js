@@ -402,9 +402,11 @@ async function loadPluginInfos(pluginList) {
 	let plugins = [];
 	for (let [pluginName, pluginPath] of pluginList) {
 		let pluginInfo;
+		let pluginPackage;
 
 		try {
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
+			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
 
 		} catch (err) {
 			throw new errors.PluginError(pluginName, err);
@@ -417,6 +419,7 @@ async function loadPluginInfos(pluginList) {
 		}
 
 		pluginInfo.requirePath = pluginPath;
+		pluginInfo.version = pluginPackage.version;
 		plugins.push(pluginInfo);
 	}
 	return plugins;
