@@ -51,5 +51,8 @@
     "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
     "webpack-dev-middleware": "^3.7.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
