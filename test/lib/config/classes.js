@@ -415,14 +415,14 @@ describe("lib/config/classes", function() {
 
 		describe(".registerGroup()", function() {
 			it("should throw if the class is finalized", function() {
-				class TestConfig extends classes.Config { }
-				TestConfig.finalize();
+				class FinalizedConfig extends classes.Config { }
+				FinalizedConfig.finalize();
 				class TestGroup extends classes.ConfigGroup { }
 				TestGroup.groupName = "test";
 				TestGroup.finalize();
 
 				assert.throws(
-					() => TestConfig.registerGroup(TestGroup),
+					() => FinalizedConfig.registerGroup(TestGroup),
 					new Error("Cannot register group on finalized config")
 				);
 			});

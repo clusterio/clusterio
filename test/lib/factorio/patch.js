@@ -1,49 +1,49 @@
 "use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
-const jszip = require("jszip");
+const JSZip = require("jszip");
 const path = require("path");
 
-const factorio = require("@clusterio/lib/factorio");
+const libFactorio = require("@clusterio/lib/factorio");
 
 
 describe("lib/factorio", function() {
 	describe("findRoot()", function() {
 		it("should find the root of a zip", function() {
-			let zip = new jszip();
+			let zip = new JSZip();
 			zip.file("root/foo.txt", "");
 			zip.file("root/bar.txt", "");
 
-			assert.equal(factorio._findRoot(zip), "root");
+			assert.equal(libFactorio._findRoot(zip), "root");
 		});
 
 		it("should throw if files are at the root of the zip", function() {
-			let zip = new jszip();
+			let zip = new JSZip();
 			zip.file("root/foo.txt", "");
 			zip.file("bar.txt", "");
 
 			assert.throws(
-				() => factorio._findRoot(zip),
+				() => libFactorio._findRoot(zip),
 				new Error("Zip contains file 'bar.txt' in root dir")
 			);
 		});
 
 		it("should throw if there are multiple root dirs", function() {
-			let zip = new jszip();
+			let zip = new JSZip();
 			zip.file("root-1/foo.txt", "");
 			zip.file("root-2/bar.txt", "");
 
 			assert.throws(
-				() => factorio._findRoot(zip),
+				() => libFactorio._findRoot(zip),
 				new Error("Zip contains multiple root folders")
 			);
 		});
 
 		it("should throw if given an empty zip file", function() {
-			let zip = new jszip();
+			let zip = new JSZip();
 
 			assert.throws(
-				() => factorio._findRoot(zip),
+				() => libFactorio._findRoot(zip),
 				new Error("Empty zip file")
 			);
 		});
@@ -79,7 +79,7 @@ describe("lib/factorio", function() {
 		};
 
 		it("should produce output matching the reference", function() {
-			assert.equal(factorio._generateLoader(patchInfo), reference);
+			assert.equal(libFactorio._generateLoader(patchInfo), reference);
 		});
 	});
 
@@ -89,7 +89,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
 				{ name: "b", version: "1.0.0", dependencies: {} },
 			];
-			factorio._reorderDependencies(modules);
+			libFactorio._reorderDependencies(modules);
 			assert(modules[0].name === "b", "Dependency was not reorederd");
 		});
 		it("should throw on invalid version", function() {
@@ -97,7 +97,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "foo", dependencies: {} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Invalid version 'foo' for module a")
 			);
 		});
@@ -106,7 +106,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "1.0.0", dependencies: {"b": "invalid"} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Invalid version range 'invalid' for dependency b on module a")
 			);
 		});
@@ -115,7 +115,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Missing dependency b for module a")
 			);
 			modules = [
@@ -124,7 +124,7 @@ describe("lib/factorio", function() {
 				{ name: "c", version: "1.0.0", dependencies: {"d": "*"} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Missing dependency d for module c")
 			);
 		});
@@ -134,7 +134,7 @@ describe("lib/factorio", function() {
 				{ name: "b", version: "1.0.0", dependencies: {"a": ">=2"} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Module b requires a >=2")
 			);
 		});
@@ -144,7 +144,7 @@ describe("lib/factorio", function() {
 				{ name: "b", version: "1.0.0", dependencies: {"a": "*"} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Module dependency loop detected: a -> b -> a")
 			);
 			modules = [
@@ -154,7 +154,7 @@ describe("lib/factorio", function() {
 				{ name: "c", version: "1.0.0", dependencies: {"a": "*"} },
 			];
 			assert.throws(
-				() => factorio._reorderDependencies(modules),
+				() => libFactorio._reorderDependencies(modules),
 				new Error("Module dependency loop detected: b -> c -> a -> b")
 			);
 		});
@@ -194,7 +194,7 @@ describe("lib/factorio", function() {
 				}
 				let success = false;
 				try {
-					factorio._reorderDependencies(modules);
+					libFactorio._reorderDependencies(modules);
 					success = true;
 				} catch (err) { }
 				if (success) {
@@ -211,13 +211,13 @@ describe("lib/factorio", function() {
 
 	describe("patch()", function() {
 		it("should throw on unknown scenario", async function() {
-			let zip = new jszip();
+			let zip = new JSZip();
 			zip.file("world/control.lua", "-- unknown\n");
 			let zipPath = path.join("temp", "test", "patch.zip");
 			await fs.outputFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
 
 			await assert.rejects(
-				factorio.patch(zipPath, []),
+				libFactorio.patch(zipPath, []),
 				new Error("Unable to patch save, unknown scenario (3acc3be3861144e55604f5ac2f2555071885ebc4)")
 			);
 		});

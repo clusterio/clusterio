@@ -1,5 +1,5 @@
 /**
- * @module lib/fileOps
+ * @module lib/file_ops
  */
 "use strict";
 const fs = require("fs-extra");

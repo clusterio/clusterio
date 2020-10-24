@@ -1,6 +1,6 @@
-const link = require("@clusterio/lib/link");
-const plugin = require("@clusterio/lib/plugin");
-const errors = require("@clusterio/lib/errors");
+const libLink = require("@clusterio/lib/link");
+const libPlugin = require("@clusterio/lib/plugin");
+const libErrors = require("@clusterio/lib/errors");
 
 /**
  * Format a parsed Factorio output message
@@ -35,7 +35,7 @@ function formatOutput(output) {
  * Connector for control connection to master server
  * @private
  */
-export class ControlConnector extends link.WebSocketClientConnector {
+export class ControlConnector extends libLink.WebSocketClientConnector {
 	constructor(url, reconnectDelay, token) {
 		super(url, reconnectDelay);
 		this._token = token;
@@ -57,10 +57,10 @@ export class ControlConnector extends link.WebSocketClientConnector {
  * Connects to the master server over WebSocket and sends commands to it.
  * @static
  */
-export class Control extends link.Link {
+export class Control extends libLink.Link {
 	constructor(connector, controlPlugins) {
 		super("control", "master", connector);
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
@@ -68,7 +68,7 @@ export class Control extends link.Link {
 		 */
 		this.plugins = controlPlugins;
 		for (let controlPlugin of controlPlugins.values()) {
-			plugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
+			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
 		}
 	}
 
@@ -88,9 +88,9 @@ export class Control extends link.Link {
 		this.connector.setTimeout(30);
 
 		try {
-			await link.messages.prepareDisconnect.send(this);
+			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
-			if (!(err instanceof errors.SessionLost)) {
+			if (!(err instanceof libErrors.SessionLost)) {
 				throw err;
 			}
 		}

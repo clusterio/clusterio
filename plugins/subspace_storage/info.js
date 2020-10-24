@@ -1,8 +1,8 @@
 "use strict";
-const link = require("@clusterio/lib/link");
-const config = require("@clusterio/lib/config");
+const libLink = require("@clusterio/lib/link");
+const libConfig = require("@clusterio/lib/config");
 
-class MasterConfigGroup extends config.PluginConfigGroup {}
+class MasterConfigGroup extends libConfig.PluginConfigGroup {}
 MasterConfigGroup.groupName = "subspace_storage";
 MasterConfigGroup.define({
 	name: "autosave_interval",
@@ -28,7 +28,7 @@ MasterConfigGroup.define({
 });
 MasterConfigGroup.finalize();
 
-class InstanceConfigGroup extends config.PluginConfigGroup {}
+class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
 InstanceConfigGroup.groupName = "subspace_storage";
 InstanceConfigGroup.define({
 	name: "log_item_transfers",
@@ -65,7 +65,7 @@ module.exports = {
 
 	messages: {
 		// XXX this should be a request to be reliable
-		place: new link.Event({
+		place: new libLink.Event({
 			type: "subspace_storage:place",
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",
@@ -74,7 +74,7 @@ module.exports = {
 				"items": items,
 			},
 		}),
-		remove: new link.Request({
+		remove: new libLink.Request({
 			type: "subspace_storage:remove",
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",
@@ -86,7 +86,7 @@ module.exports = {
 				"items": items,
 			},
 		}),
-		getStorage: new link.Request({
+		getStorage: new libLink.Request({
 			type: "subspace_storage:get_storage",
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",
@@ -94,7 +94,7 @@ module.exports = {
 				"items": items,
 			},
 		}),
-		updateStorage: new link.Event({
+		updateStorage: new libLink.Event({
 			type: "subspace_storage:update_storage",
 			links: ["master-slave", "slave-instance"],
 			broadcastTo: "instance",

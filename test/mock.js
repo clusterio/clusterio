@@ -1,7 +1,7 @@
 "use strict";
 const events = require("events");
 
-const link = require("@clusterio/lib/link");
+const libLink = require("@clusterio/lib/link");
 
 
 class MockSocket {
@@ -77,7 +77,7 @@ class MockServer {
 	}
 }
 
-class MockInstance extends link.Link {
+class MockInstance extends libLink.Link {
 	constructor() {
 		super("instance", "slave", new MockConnector());
 		this.server = new MockServer();
@@ -92,13 +92,13 @@ class MockInstance extends link.Link {
 	}
 }
 
-class MockSlave extends link.Link {
+class MockSlave extends libLink.Link {
 	constructor() {
 		super("slave", "master", new MockConnector());
 	}
 }
 
-class MockControl extends link.Link {
+class MockControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "master", connector);
 	}

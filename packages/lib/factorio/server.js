@@ -9,7 +9,7 @@ const crypto = require("crypto");
 
 const ini = require("ini");
 const rconClient = require("rcon-client");
-const errors = require("@clusterio/lib/errors");
+const libErrors = require("@clusterio/lib/errors");
 
 
 /**
@@ -183,7 +183,7 @@ async function generatePassword(length) {
 
 			if (validChar(byte)) {
 				password += String.fromCharCode(byte);
-				if (password.length == length) {
+				if (password.length === length) {
 					return password;
 				}
 			}
@@ -705,7 +705,7 @@ class FactorioServer extends events.EventEmitter {
 			if (this._state !== "stopping") {
 				if (this._unexpected.length === 0) {
 					if (signal === "SIGKILL") {
-						this.emit("error", new errors.EnvironmentError(
+						this.emit("error", new libErrors.EnvironmentError(
 							"Factorio server was unexpectedly killed, is the system low on memory?"
 						));
 

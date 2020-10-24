@@ -1,7 +1,7 @@
 // Message definitions for links
 "use strict";
-const schema = require("@clusterio/lib/schema");
-const errors = require("@clusterio/lib/errors");
+const libSchema = require("@clusterio/lib/schema");
+const libErrors = require("@clusterio/lib/errors");
 
 /**
  * Represents a message that can be sent over the link
@@ -88,7 +88,7 @@ class Request extends Message {
 			throw new Error(`Invalid forwardTo value ${forwardTo}`);
 		}
 
-		this._requestValidator = schema.compile({
+		this._requestValidator = libSchema.compile({
 			$schema: "http://json-schema.org/draft-07/schema#",
 			properties: {
 				"type": { const: this.requestType },
@@ -100,7 +100,7 @@ class Request extends Message {
 			},
 		});
 
-		this._responseValidator = schema.compile({
+		this._responseValidator = libSchema.compile({
 			$schema: "http://json-schema.org/draft-07/schema#",
 			properties: {
 				"type": { const: this.responseType },
@@ -195,7 +195,7 @@ class Request extends Message {
 					link.connector.send(this.responseType, { ...response, seq: message.seq });
 
 				}).catch(err => {
-					if (!(err instanceof errors.RequestError)) {
+					if (!(err instanceof libErrors.RequestError)) {
 						console.error(`Unexpected error while responding to ${this.requestType}`, err);
 					}
 					link.connector.send(this.responseType, { seq: message.seq, error: err.message });
@@ -223,7 +223,7 @@ class Request extends Message {
 		let seq = link.connector.send(this.requestType, data);
 		let responseMessage = await link.waitFor(this.responseType, { seq });
 		if (responseMessage.data.error) {
-			throw new errors.RequestError(responseMessage.data.error);
+			throw new libErrors.RequestError(responseMessage.data.error);
 		}
 		return responseMessage.data;
 	}
@@ -702,7 +702,7 @@ class Event extends Message {
 		}
 
 		this.eventType = type + "_event";
-		this._eventValidator = schema.compile({
+		this._eventValidator = libSchema.compile({
 			$schema: "http://json-schema.org/draft-07/schema#",
 			properties: {
 				"type": { const: this.eventType },

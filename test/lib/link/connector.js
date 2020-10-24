@@ -3,12 +3,12 @@ const assert = require("assert").strict;
 const events = require("events");
 
 const mock = require("../../mock");
-const link = require("@clusterio/lib/link");
+const libLink = require("@clusterio/lib/link");
 
 
 describe("lib/link/connectors", function() {
 	describe("class WebSocketBaseConnector", function() {
-		let testConnector = new link.WebSocketBaseConnector();
+		let testConnector = new libLink.WebSocketBaseConnector();
 
 		describe("._dropSendBufferSeq()", function() {
 			beforeEach(function() {
@@ -34,7 +34,7 @@ describe("lib/link/connectors", function() {
 	});
 
 	describe("class WebSocketClientConnector", function() {
-		let testConnector = new link.WebSocketClientConnector("url", 1);
+		let testConnector = new libLink.WebSocketClientConnector("url", 1);
 		testConnector._socket = new mock.MockSocket();
 
 		describe(".register()", function() {

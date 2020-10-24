@@ -3,9 +3,9 @@ const assert = require("assert");
 const fs = require("fs-extra");
 const path = require("path");
 
-const generateSSLcert = require("@clusterio/master/src/generate_ssl_cert");
+const generateSslCert = require("@clusterio/master/src/generate_ssl_cert");
 
-describe("generateSSLcert.js(options)", function() {
+describe("generate_ssl_cert", function() {
 	let testDir = path.join("temp", "test", "certTest");
 	before(async function() {
 		await fs.remove(testDir);
@@ -21,7 +21,7 @@ describe("generateSSLcert.js(options)", function() {
 		let certPath = path.join(testDir, "cert.crt");
 		let privKeyPath = path.join(testDir, "cert.key");
 
-		await generateSSLcert({
+		await generateSslCert({
 			bits: 512, // This is too small for real world usage, but faster to test
 			sslCertPath: certPath,
 			sslPrivKeyPath: privKeyPath,

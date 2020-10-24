@@ -1,8 +1,8 @@
 // Implementation of Link class
 "use strict";
 
-const schema = require("@clusterio/lib/schema");
-const errors = require("@clusterio/lib/errors");
+const libSchema = require("@clusterio/lib/schema");
+const libErrors = require("@clusterio/lib/errors");
 const messages = require("./messages");
 
 // Some definitions for the terminology used here:
@@ -34,7 +34,7 @@ class Link {
 			try {
 				this.processMessage(payload);
 			} catch (err) {
-				if (err instanceof errors.InvalidMessage) {
+				if (err instanceof libErrors.InvalidMessage) {
 					console.error(`Invalid message on ${this.source}-${this.target} link: ${err.message}`);
 					if (err.errors) {
 						console.error(err.errors);
@@ -48,7 +48,7 @@ class Link {
 		connector.on("invalidate", () => {
 			for (let waiterType of this._waiters.values()) {
 				for (let waiter of waiterType) {
-					waiter.reject(new errors.SessionLost("Session Lost"));
+					waiter.reject(new libErrors.SessionLost("Session Lost"));
 				}
 			}
 
@@ -58,7 +58,7 @@ class Link {
 		connector.on("close", () => {
 			for (let waiterType of this._waiters.values()) {
 				for (let waiter of waiterType) {
-					waiter.reject(new errors.SessionLost("Session Closed"));
+					waiter.reject(new libErrors.SessionLost("Session Closed"));
 				}
 			}
 
@@ -78,17 +78,17 @@ class Link {
 	 *     handlers/waiters were invoked to handle the message.
 	 */
 	processMessage(message) {
-		if (!schema.message(message)) {
-			throw new errors.InvalidMessage("Malformed", schema.message.errors);
+		if (!libSchema.message(message)) {
+			throw new libErrors.InvalidMessage("Malformed", libSchema.message.errors);
 		}
 
 		let validator = this._validators.get(message.type);
 		if (!validator) {
-			throw new errors.InvalidMessage(`No validator for ${message.type} on ${this.source}-${this.target}`);
+			throw new libErrors.InvalidMessage(`No validator for ${message.type} on ${this.source}-${this.target}`);
 		}
 
 		if (!validator(message)) {
-			throw new errors.InvalidMessage(`Validation failed for ${message.type}`, validator.errors);
+			throw new libErrors.InvalidMessage(`Validation failed for ${message.type}`, validator.errors);
 		}
 
 		let hadHandlers = this._processHandler(message);
@@ -96,7 +96,7 @@ class Link {
 
 		if (!hadWaiters && !hadHandlers) {
 			// XXX console.error(`Unhandled message: ${JSON.stringify(message, null, 4)}`);
-			throw new errors.InvalidMessage(`Unhandled message ${message.type}`);
+			throw new libErrors.InvalidMessage(`Unhandled message ${message.type}`);
 		}
 	}
 

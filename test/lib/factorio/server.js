@@ -4,22 +4,22 @@ const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
 
-const factorio = require("@clusterio/lib/factorio");
+const libFactorio = require("@clusterio/lib/factorio");
 const { testLines } = require("./lines");
 
 
 describe("lib/factorio/server", function() {
 	describe("_getVersion()", function() {
 		it("should get the version from a changelog", async function() {
-			let version = await factorio._getVersion(path.join("test", "file", "changelog-test.txt"));
+			let version = await libFactorio._getVersion(path.join("test", "file", "changelog-test.txt"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should return null if unable to find the version", async function() {
-			let version = await factorio._getVersion(path.join("test", "file", "changelog-bad.txt"));
+			let version = await libFactorio._getVersion(path.join("test", "file", "changelog-bad.txt"));
 			assert.equal(version, null);
 		});
 		it("should return null if file does not exist", async function() {
-			let version = await factorio._getVersion(path.join("test", "file", "does-not-exist.txt"));
+			let version = await libFactorio._getVersion(path.join("test", "file", "does-not-exist.txt"));
 			assert.equal(version, null);
 		});
 	});
@@ -27,7 +27,7 @@ describe("lib/factorio/server", function() {
 	describe("_versionOrder()", function() {
 		it("should sort an array of versions", function() {
 			let versions = ["1.2.3", "0.1.4", "0.1.2", "1.2.3", "0.1.5", "1.10.2"];
-			versions.sort(factorio._versionOrder);
+			versions.sort(libFactorio._versionOrder);
 			assert.deepEqual(
 				versions,
 				["1.10.2", "1.2.3", "1.2.3", "0.1.5", "0.1.4", "0.1.2"]
@@ -38,46 +38,46 @@ describe("lib/factorio/server", function() {
 	describe("_findVersion()", function() {
 		it("should find a given install dir with latest as target", async function() {
 			let installDir = path.join("test", "file", "factorio");
-			let [dir, version] = await factorio._findVersion(installDir, "latest");
+			let [dir, version] = await libFactorio._findVersion(installDir, "latest");
 			assert.equal(dir, path.join(installDir, "data"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should find a given install dir with correct version as target", async function() {
 			let installDir = path.join("test", "file", "factorio");
-			let [dir, version] = await factorio._findVersion(installDir, "0.1.1");
+			let [dir, version] = await libFactorio._findVersion(installDir, "0.1.1");
 			assert.equal(dir, path.join(installDir, "data"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should reject if the install dir version does not match target version", async function() {
 			let installDir = path.join("test", "file", "factorio");
 			await assert.rejects(
-				factorio._findVersion(installDir, "0.1.2"),
+				libFactorio._findVersion(installDir, "0.1.2"),
 				new Error("Factorio version 0.1.2 was requested, but install directory contains 0.1.1")
 			);
 		});
 		it("should search given directory for latest Factorio install", async function() {
 			let installDir = path.join("test", "file");
-			let [dir, version] = await factorio._findVersion(installDir, "latest");
+			let [dir, version] = await libFactorio._findVersion(installDir, "latest");
 			assert.equal(dir, path.join(installDir, "factorio", "data"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should search given directory for given Factorio install", async function() {
 			let installDir = path.join("test", "file");
-			let [dir, version] = await factorio._findVersion(installDir, "0.1.1");
+			let [dir, version] = await libFactorio._findVersion(installDir, "0.1.1");
 			assert.equal(dir, path.join(installDir, "factorio", "data"));
 			assert.equal(version, "0.1.1");
 		});
 		it("should reject if no factorio install with the given version was found", async function() {
 			let installDir = path.join("test", "file");
 			await assert.rejects(
-				factorio._findVersion(installDir, "0.1.2"),
+				libFactorio._findVersion(installDir, "0.1.2"),
 				new Error("Unable to find Factorio version 0.1.2")
 			);
 		});
 		it("should reject if no factorio install was found", async function() {
 			let installDir = path.join("test", "file", "instances");
 			await assert.rejects(
-				factorio._findVersion(installDir, "latest"),
+				libFactorio._findVersion(installDir, "latest"),
 				new Error(`Unable to find any Factorio install in ${installDir}`)
 			);
 		});
@@ -85,7 +85,7 @@ describe("lib/factorio/server", function() {
 
 	describe("randomDynamicPort()", function() {
 		it("should return a port number", function() {
-			let port = factorio._randomDynamicPort();
+			let port = libFactorio._randomDynamicPort();
 			assert.equal(typeof port, "number");
 			assert(Number.isInteger(port));
 			assert(0 <= port && port < 2**16);
@@ -96,31 +96,31 @@ describe("lib/factorio/server", function() {
 				return (49152 <= port && port <= 65535);
 			}
 			for (let i=0; i < 20; i++) {
-				assert(validate(factorio._randomDynamicPort()));
+				assert(validate(libFactorio._randomDynamicPort()));
 			}
 		});
 	});
 
 	describe("generatePassword()", function() {
 		it("should return a string", async function() {
-			let password = await factorio._generatePassword(1);
+			let password = await libFactorio._generatePassword(1);
 			assert.equal(typeof password, "string");
 		});
 
 		it("should return a string of the given length", async function() {
-			let password = await factorio._generatePassword(10);
+			let password = await libFactorio._generatePassword(10);
 			assert.equal(password.length, 10);
 		});
 
 		it("should contain only a-z, A-Z, 0-9", async function() {
-			let password = await factorio._generatePassword(10);
+			let password = await libFactorio._generatePassword(10);
 			assert(/^[a-zA-Z0-9]+$/.test(password), `${password} failed test`);
 		});
 	});
 
 	describe("class LineSplitter", function() {
 		function createSplitter(lines) {
-			return new factorio._LineSplitter(line => lines.push(line.toString("utf-8")));
+			return new libFactorio._LineSplitter(line => lines.push(line.toString("utf-8")));
 		}
 
 		it("should split three lines", function() {
@@ -159,7 +159,7 @@ describe("lib/factorio/server", function() {
 		it("should parse the test lines", function() {
 			for (let [line, reference] of testLines) {
 				reference.source = "test";
-				let output = factorio._parseOutput(line, "test");
+				let output = libFactorio._parseOutput(line, "test");
 				delete output.received;
 				assert.deepEqual(output, reference);
 			}
@@ -168,7 +168,7 @@ describe("lib/factorio/server", function() {
 
 	describe("class FactorioServer", function() {
 		let writePath = path.join("temp", "test", "server");
-		let server = new factorio.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
+		let server = new libFactorio.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
 
 		describe(".init()", function() {
 			it("should not throw on first call", async function() {

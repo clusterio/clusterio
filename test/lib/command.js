@@ -1,9 +1,9 @@
 "use strict";
 const assert = require("assert").strict;
 
-const command = require("@clusterio/lib/command");
-const errors = require("@clusterio/lib/errors");
-const link = require("@clusterio/lib/link");
+const libCommand = require("@clusterio/lib/command");
+const libErrors = require("@clusterio/lib/errors");
+const libLink = require("@clusterio/lib/link");
 const mock = require("../mock");
 
 
@@ -39,49 +39,49 @@ describe("lib/command", function() {
 	});
 
 	let testControl = new mock.MockControl(mockConnector);
-	link.messages.listSlaves.attach(testControl);
-	link.messages.listInstances.attach(testControl);
-	link.messages.listRoles.attach(testControl);
+	libLink.messages.listSlaves.attach(testControl);
+	libLink.messages.listInstances.attach(testControl);
+	libLink.messages.listRoles.attach(testControl);
 
 	describe("resolveSlave", function() {
 		it("should pass an integer like string back", async function() {
-			assert.equal(await command.resolveSlave(null, "123"), 123);
+			assert.equal(await libCommand.resolveSlave(null, "123"), 123);
 		});
 		it("should resolve a slave name with the master server", async function() {
-			assert.equal(await command.resolveSlave(testControl, "Test Slave"), 11);
+			assert.equal(await libCommand.resolveSlave(testControl, "Test Slave"), 11);
 		});
 		it("should throw if slave is not found", async function() {
 			await assert.rejects(
-				command.resolveSlave(testControl, "invalid"),
-				new errors.CommandError("No slave named invalid")
+				libCommand.resolveSlave(testControl, "invalid"),
+				new libErrors.CommandError("No slave named invalid")
 			);
 		});
 	});
 	describe("resolveInstance", function() {
 		it("should pass an integer like string back", async function() {
-			assert.equal(await command.resolveInstance(null, "123"), 123);
+			assert.equal(await libCommand.resolveInstance(null, "123"), 123);
 		});
 		it("should resolve an instance name with the master server", async function() {
-			assert.equal(await command.resolveInstance(testControl, "Test Instance"), 57);
+			assert.equal(await libCommand.resolveInstance(testControl, "Test Instance"), 57);
 		});
 		it("should throw if instance is not found", async function() {
 			await assert.rejects(
-				command.resolveInstance(testControl, "invalid"),
-				new errors.CommandError("No instance named invalid")
+				libCommand.resolveInstance(testControl, "invalid"),
+				new libErrors.CommandError("No instance named invalid")
 			);
 		});
 	});
 	describe("retrieveRole", function() {
 		it("should retrieve a role by id from an integer like string", async function() {
-			assert.deepEqual(await command.retrieveRole(testControl, "28"), testRole);
+			assert.deepEqual(await libCommand.retrieveRole(testControl, "28"), testRole);
 		});
 		it("should retrieve a role by name from a string", async function() {
-			assert.deepEqual(await command.retrieveRole(testControl, "Test Role"), testRole);
+			assert.deepEqual(await libCommand.retrieveRole(testControl, "Test Role"), testRole);
 		});
 		it("should throw if role is not found", async function() {
 			await assert.rejects(
-				command.retrieveRole(testControl, "invalid"),
-				new errors.CommandError("No role named invalid")
+				libCommand.retrieveRole(testControl, "invalid"),
+				new libErrors.CommandError("No role named invalid")
 			);
 		});
 	});

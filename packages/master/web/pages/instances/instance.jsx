@@ -200,8 +200,10 @@ export class InstanceView extends Component {
 						this.getData();
 					}}
 					>
-						{this.state.slaves.map(slave => <Option defaultValue={instance.assigned_slave} value={slave.id} key={slave.id}>
-							{slave.name}
+						{this.state.slaves.map(newSlave => <Option
+							defaultValue={instance.assigned_slave} value={newSlave.id} key={newSlave.id}
+						>
+							{newSlave.name}
 						</Option>)}
 					</Select>
 				}

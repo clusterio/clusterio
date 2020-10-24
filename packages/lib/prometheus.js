@@ -13,9 +13,9 @@ class Metric {
 			throw new Error(`Invalid name '${name}'`);
 		}
 
-		for (let name of labels) {
-			if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
-				throw new Error(`Invalid label '${name}'`);
+		for (let label of labels) {
+			if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(label)) {
+				throw new Error(`Invalid label '${label}'`);
 			}
 		}
 
@@ -93,17 +93,31 @@ function labelsToKey(labels, metricLabels) {
 function keyToLabels(key) {
 	let labels = new Map();
 
-	if (key !== "") for (let pair of key.split(",")) {
-		let [name, value] = pair.split("=", 2);
-		labels.set(name, value
-			.slice(1, -1)
-			.replace(/\\"/g, "\"")
-			.replace(/\\n/g, "\n")
-			.replace(/\\\\/g, "\\")
-		);
+	if (key !== "") {
+		for (let pair of key.split(",")) {
+			let [name, value] = pair.split("=", 2);
+			labels.set(name, value
+				.slice(1, -1)
+				.replace(/\\"/g, "\"")
+				.replace(/\\n/g, "\n")
+				.replace(/\\\\/g, "\\")
+			);
+		}
 	}
 
 	return labels;
+}
+
+function removeMatchingLabels(mapping, labels) {
+	for (let key of mapping.keys()) {
+		let candidate = keyToLabels(key);
+		let hasLabels = Object.entries(labels).every(([name, value]) => (
+			candidate.get(name) === value
+		));
+		if (hasLabels) {
+			mapping.delete(key);
+		}
+	}
 }
 
 class ValueCollector extends Collector {
@@ -111,11 +125,16 @@ class ValueCollector extends Collector {
 		let labels = [];
 		let register = true;
 		let callback = null;
-		for (let [name, value] of Object.entries(options)) {
-			if (name === "labels") { labels = value; }
-			else if (name === "register") { register = value; }
-			else if (name === "callback") { callback = value; }
-			else { throw new Error(`Unrecognized option '${name}'`); }
+		for (let [key, value] of Object.entries(options)) {
+			if (key === "labels") {
+				labels = value;
+			} else if (key === "register") {
+				register = value;
+			} else if (key === "callback") {
+				callback = value;
+			} else {
+				throw new Error(`Unrecognized option '${key}'`);
+			}
 		}
 
 		// Make sure we don't register to the default registry if metric throws.
@@ -162,18 +181,6 @@ class ValueCollector extends Collector {
 	removeAll(labels) {
 		if (!Object.keys(labels).length) {
 			throw new Error("labels cannot be empty");
-		}
-
-		function removeMatchingLabels(mapping, labels) {
-			for (let key of mapping.keys()) {
-				let candidate = keyToLabels(key);
-				let hasLabels = Object.entries(labels).every(([name, value]) => (
-					candidate.get(name) === value
-				));
-				if (hasLabels) {
-					mapping.delete(key);
-				}
-			}
 		}
 
 		removeMatchingLabels(this._values, labels);
@@ -311,11 +318,11 @@ function escapeHelp(help) {
 function formatValue(value) {
 	if (value === Infinity) {
 		return "+Inf";
-	} else if (value === -Infinity) {
-		return "-Inf";
-	} else {
-		return value.toString();
 	}
+	if (value === -Infinity) {
+		return "-Inf";
+	}
+	return value.toString();
 }
 
 async function* expositionLines(resultsIterator) {
@@ -341,11 +348,11 @@ async function* expositionLines(resultsIterator) {
 }
 
 async function exposition(resultsIterator = defaultRegistry.collect()) {
-	let exposition = "";
+	let lines = "";
 	for await (let line of expositionLines(resultsIterator)) {
-		exposition += line;
+		lines += line;
 	}
-	return exposition;
+	return lines;
 }
 
 // HTTP Content-Type for the exposition format that's implemented
@@ -356,10 +363,15 @@ function serializeResult(result, options = {}) {
 	let metricName = result.metric.name;
 	let metricHelp = result.metric.help;
 	for (let [name, value] of Object.entries(options)) {
-		if (name === "addLabels") { addLabels = value; }
-		else if (name === "metricName") { metricName = value; }
-		else if (name === "metricHelp") { metricHelp = value; }
-		else { throw new Error(`Unrecognized option '${name}'`); }
+		if (name === "addLabels") {
+			addLabels = value;
+		} else if (name === "metricName") {
+			metricName = value;
+		} else if (name === "metricHelp") {
+			metricHelp = value;
+		} else {
+			throw new Error(`Unrecognized option '${name}'`);
+		}
 	}
 
 	let samples;
@@ -371,8 +383,11 @@ function serializeResult(result, options = {}) {
 		samples = new Map();
 		let key = labelsToKey([addLabels], [...Object.keys(addLabels)]);
 		for (let [labels, value] of result.samples.entries()) {
-			if (labels === "") { samples.set(key, value); }
-			else { samples.set(`${labels},${key}`, value); }
+			if (labels === "") {
+				samples.set(key, value);
+			} else {
+				samples.set(`${labels},${key}`, value);
+			}
 		}
 	}
 

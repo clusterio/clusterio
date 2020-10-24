@@ -443,12 +443,7 @@ class ConfigGroup {
 		}
 
 		let prev = this._fields.get(name);
-		let updated = {};
-		if (prev !== null) {
-			for (let [key, value] of Object.entries(prev)) {
-				updated[key] = value;
-			}
-		}
+		let updated = {...prev || {}};
 
 		updated[prop] = value;
 		this._fields.set(name, updated);

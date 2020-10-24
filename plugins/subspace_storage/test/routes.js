@@ -17,7 +17,9 @@ describe("subspace_storage endpoints", function() {
 
 			let contains20SteelPlate = false;
 			inventory.forEach(itemStack => {
-				if(itemStack.name == "steel-plate" && itemStack.count >= 20) contains20SteelPlate = true;
+				if (itemStack.name === "steel-plate" && itemStack.count >= 20) {
+					contains20SteelPlate = true;
+				}
 			});
 			assert(contains20SteelPlate, "Please ensure there are at least 20 steel plate in the inventory");
 		});

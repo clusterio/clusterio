@@ -3,11 +3,11 @@
 "use strict";
 const events = require("events");
 const fs = require("fs-extra");
-const jszip = require("jszip");
+const JSZip = require("jszip");
 const path = require("path");
 const semver = require("semver");
 
-const hash = require("@clusterio/lib/hash");
+const libHash = require("@clusterio/lib/hash");
 
 
 const knownScenarios = {
@@ -27,7 +27,7 @@ const knownScenarios = {
  * Returns the name of the folder that all files in the zip file is
  * contained in.  Throws an error if there are multiple such folders.
  *
- * @param {module:jszip.JSZip} zip - Zip to search through.
+ * @param {JSZip} zip - Zip to search through.
  * @returns {string} name of the root folder.
  * @memberof module:lib/factorio
  * @private
@@ -169,8 +169,8 @@ function reorderDependencies(modules) {
 	// the module depends on a module that satisfy any of these conditions.
 
 	let remaining = new Map();
-	for (let modules of hold.values()) {
-		for (let module of modules) {
+	for (let heldModules of hold.values()) {
+		for (let module of heldModules) {
 			remaining.set(module.name, module);
 		}
 	}
@@ -213,7 +213,7 @@ function reorderDependencies(modules) {
  * @memberof module:lib/factorio
  */
 async function patch(savePath, modules) {
-	let zip = await jszip.loadAsync(await fs.readFile(savePath));
+	let zip = await JSZip.loadAsync(await fs.readFile(savePath));
 	let root = zip.folder(findRoot(zip));
 
 	let patchInfoFile = root.file("clusterio.json");
@@ -225,7 +225,7 @@ async function patch(savePath, modules) {
 	// No info file present, try to detect if it's a known compatible scenario.
 	} else {
 		let controlStream = root.file("control.lua").nodeStream("nodebuffer");
-		let controlHash = await hash.hashStream(controlStream);
+		let controlHash = await libHash.hashStream(controlStream);
 
 		if (controlHash in knownScenarios) {
 			patchInfo = {

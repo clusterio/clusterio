@@ -7,14 +7,14 @@ const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
-const link = require("@clusterio/lib/link");
+const libLink = require("@clusterio/lib/link");
 const server = require("@clusterio/lib/factorio/server");
 
 
-class TestControl extends link.Link {
+class TestControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "master", connector);
-		link.attachAllMessages(this);
+		libLink.attachAllMessages(this);
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
@@ -27,7 +27,7 @@ class TestControl extends link.Link {
 	async instanceOutputEventHandler() { }
 }
 
-class TestControlConnector extends link.WebSocketClientConnector {
+class TestControlConnector extends libLink.WebSocketClientConnector {
 	register() {
 		this.sendHandshake("register_control", { token: this.token, agent: "clusterioctl", version: "test" });
 	}
@@ -44,13 +44,13 @@ function slowTest(test) {
 	test.timeout(20000);
 }
 
-async function get(path) {
+async function get(urlPath) {
 	let res = await phin({
 		method: "GET",
-		url: `https://localhost:4443${path}`,
+		url: `https://localhost:4443${urlPath}`,
 		core: { rejectUnauthorized: false },
 	});
-	if (res.statusCode != 200) {
+	if (res.statusCode !== 200) {
 		throw new Error(`Got response code ${res.statusCode}, content: ${res.body}`);
 	}
 	return res;
@@ -81,7 +81,7 @@ async function execCtl(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	let response = await link.messages.sendRcon.send(control, { instance_id: instanceId, command });
+	let response = await libLink.messages.sendRcon.send(control, { instance_id: instanceId, command });
 	return response.result;
 }
 

@@ -2,10 +2,10 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const plugin = require("@clusterio/lib/plugin");
+const libPlugin = require("@clusterio/lib/plugin");
 
 
-class MasterPlugin extends plugin.BaseMasterPlugin {
+class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 		this.technologies = await loadTechnologies(this.master.config);
 		this.lastProgressBroadcast = Date.now();
@@ -118,7 +118,7 @@ class MasterPlugin extends plugin.BaseMasterPlugin {
 				this.technologies.set(name, { level, progress, researched });
 				if (progress) {
 					this.progressToBroadcast.add(name);
-				} else if (researched || baseLevel(name) != level) {
+				} else if (researched || baseLevel(name) !== level) {
 					this.broadcastEventToSlaves(this.info.messages.finished, { name, level });
 				}
 

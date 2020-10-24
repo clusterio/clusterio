@@ -1,20 +1,20 @@
 "use strict";
 const assert = require("assert").strict;
 
-const link = require("@clusterio/lib/link");
-const errors = require("@clusterio/lib/errors");
+const libLink = require("@clusterio/lib/link");
+const libErrors = require("@clusterio/lib/errors");
 const mock = require("../../mock");
 
 
 describe("lib/link/messages", function() {
-	let testSourceLink = new link.Link("source", "target", new mock.MockConnector());
-	let testTargetLink = new link.Link("target", "source", new mock.MockConnector());
+	let testSourceLink = new libLink.Link("source", "target", new mock.MockConnector());
+	let testTargetLink = new libLink.Link("target", "source", new mock.MockConnector());
 
 	let lastTargetSent;
 	testTargetLink.send = (type, data) => { lastTargetSent = { type, data }; };
 
 	describe("class Request", function() {
-		let testRequest = new link.Request({
+		let testRequest = new libLink.Request({
 			type: "test",
 			links: ["source-target"],
 			requestProperties: {
@@ -25,7 +25,7 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Request({ links: [], forwardTo: "invalid" }),
+					() => new libLink.Request({ links: [], forwardTo: "invalid" }),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
@@ -95,7 +95,7 @@ describe("lib/link/messages", function() {
 				testSourceLink.waitFor = (type, condition) => ({ data: { error: "test error" }});
 				await assert.rejects(
 					testRequest.send(testSourceLink, { test: "blah" }),
-					new errors.RequestError("test error")
+					new libErrors.RequestError("test error")
 				);
 				delete testSourceLink.waitFor;
 			});
@@ -103,7 +103,7 @@ describe("lib/link/messages", function() {
 	});
 
 	describe("class Event", function() {
-		let testEvent = new link.Event({
+		let testEvent = new libLink.Event({
 			type: "test",
 			links: ["source-target"],
 			eventProperties: {
@@ -114,13 +114,13 @@ describe("lib/link/messages", function() {
 		describe("constructor", function() {
 			it("should throw on invalid forwardTo", function() {
 				assert.throws(
-					() => new link.Event({ forwardTo: "invalid" }),
+					() => new libLink.Event({ forwardTo: "invalid" }),
 					new Error("Invalid forwardTo value invalid")
 				);
 			});
 			it("should throw on invalid broadcastTo", function() {
 				assert.throws(
-					() => new link.Event({ broadcastTo: "invalid" }),
+					() => new libLink.Event({ broadcastTo: "invalid" }),
 					new Error("Invalid broadcastTo value invalid")
 				);
 			});
@@ -159,7 +159,7 @@ describe("lib/link/messages", function() {
 
 	describe("attachAllMessages()", function() {
 		it("does not throw", function() {
-			link.attachAllMessages(testSourceLink);
+			libLink.attachAllMessages(testSourceLink);
 		});
 	});
 });

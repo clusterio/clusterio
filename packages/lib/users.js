@@ -64,11 +64,11 @@ function definePermission({ name, title, description, grantByDefault=false }) {
  * @static
  */
 class Role {
-	constructor({ id, name, description, permissions }) {
-		this.id = id;
-		this.name = name;
-		this.description = description;
-		this.permissions = new Set(permissions);
+	constructor(serializedRole) {
+		this.id = serializedRole.id;
+		this.name = serializedRole.name;
+		this.description = serializedRole.description;
+		this.permissions = new Set(serializedRole.permissions);
 	}
 
 	serialize() {
