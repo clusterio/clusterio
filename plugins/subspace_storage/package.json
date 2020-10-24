@@ -1,6 +1,6 @@
 {
   "name": "@clusterio/plugin-subspace_storage",
-  "version": "2.0.0-alpha0",
+  "version": "2.0.0-alpha.0",
   "description": "Clusterio plugin for sharing storage between Factorio servers",
   "author": "Hornwitser <github@hornwitser.no>",
   "homepage": "https://github.com/clusterio/clusterio#readme",
@@ -13,7 +13,7 @@
     "url": "https://github.com/clusterio/factorioClusterio/issues"
   },
   "peerDependencies": {
-    "@clusterio/lib": "^2.0.0-alpha0"
+    "@clusterio/lib": "^2.0.0-alpha.0"
   },
   "dependencies": {
     "fs-extra": "^8.1.0"
