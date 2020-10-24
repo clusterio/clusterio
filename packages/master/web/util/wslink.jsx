@@ -1,25 +1,7 @@
-import { Control, ControlConnector } from "./../util/websocket";
 import * as errors from "@clusterio/lib/errors";
 import * as link from "@clusterio/lib/link";
-import config from "@clusterio/lib/config";
 
-let control, controlConnector;
-
-// Create WS connection to master. Used by all components through the interface exported here.
-(async () => {
-	config.finalizeConfigs();
-	controlConnector = new ControlConnector(
-		localStorage.getItem("master_url"),
-		10, // Reconnect delay
-		localStorage.getItem("master_token"),
-	);
-	control = new Control(controlConnector, []);
-	try {
-		await controlConnector.connect();
-	} catch (err) {
-		console.log(err);
-	}
-})();
+// Note: control is created as in bootstrap.jsx as a global.
 
 let listSlaves = createListFunction("listSlaves");
 let listInstances = createListFunction("listInstances");

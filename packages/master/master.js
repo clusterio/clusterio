@@ -201,6 +201,16 @@ function validateSlaveToken(req, res, next) {
 	next();
 }
 
+app.get("/api/plugins", (req, res) => {
+	let plugins = [];
+	for (let pluginInfo of pluginInfos) {
+		let name = pluginInfo.name;
+		let enabled = masterPlugins.has(name) && masterConfig.group(name).get("enabled");
+		plugins.push({ name, enabled });
+	}
+	res.send(plugins);
+});
+
 // Handle an uploaded export package.
 async function uploadExport(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -1744,6 +1754,11 @@ async function startServer() {
 		for (let route of pluginInfo.routes || []) {
 			app.get(route, serveWeb(route));
 		}
+
+		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
+		let staticPath = path.join(path.dirname(pluginPackagePath), "static");
+		console.log(`/plugin/${pluginInfo.name}`, staticPath);
+		app.use(`/plugin/${pluginInfo.name}`, express.static(staticPath));
 	}
 
 	// Load plugins

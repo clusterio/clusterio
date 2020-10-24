@@ -36,7 +36,6 @@ export class Settings extends Component {
 				{...layout}
 				name="basic"
 				initialValues={{
-					master_url: localStorage.getItem("master_url"),
 					master_token: localStorage.getItem("master_token"),
 				}}
 				onFinish={values => {
@@ -48,18 +47,6 @@ export class Settings extends Component {
 					document.location = document.location;
 				}}
 			>
-				<Form.Item
-					label="Master URL"
-					name="master_url"
-					rules={[
-						{
-							required: true,
-							message: "Please input master url, ex ws://localhost:8080 or wss://localhost:8443/ . For SSL connections, ensure you have a valid certificate.",
-						},
-					]}
-				>
-					<Input />
-				</Form.Item>
 				<Form.Item
 					label="User auth token"
 					name="master_token"

@@ -6,7 +6,7 @@
   "version": "2.0.0-alpha.0",
   "main": "master.js",
   "scripts": {
-    "build": "webpack --env.production",
+    "build": "webpack-cli --env.production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
@@ -42,15 +42,17 @@
     "babel-loader": "^8.1.0",
     "clean-webpack-plugin": "^3.0.0",
     "css-loader": "^4.3.0",
+    "events": "^3.2.0",
     "fast-deep-equal": "^3.1.3",
     "null-loader": "^4.0.0",
+    "path-browserify": "^1.0.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-router-dom": "^5.2.0",
     "style-loader": "^1.2.1",
-    "webpack": "^4.44.2",
     "webpack-cli": "^3.3.12",
-    "webpack-dev-middleware": "^3.7.2"
+    "webpack-dev-middleware": "^3.7.2",
+    "webpack-merge": "^5.2.0"
   },
   "publishConfig": {
     "access": "public"
