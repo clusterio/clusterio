@@ -25,6 +25,8 @@ Version 2.0.0
 - New configuration system with support for initializing configs when needed,
   modifying config entries using built-in commands, and updating instance
   configuration remotely.
+- Packaged and uploaded to npm again, greatly simplifying distribution and
+  installation of both Clusterio and plugins.
 
 ### Features
 
