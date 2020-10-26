@@ -19,7 +19,7 @@
     "node": ">=10.16 <11 || >= 11.13"
   },
   "dependencies": {
-    "@clusterio/lib": "=2.0.0-alpha.0",
+    "@clusterio/lib": "^2.0.0-alpha.0",
     "body-parser": "^1.18.2",
     "compression": "^1.7.2",
     "cookie-parser": "^1.4.3",

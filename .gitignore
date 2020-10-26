@@ -45,6 +45,9 @@ static/export
 saves
 /temp/
 
+# Web build
+/packages/master/static
+
 # IDE
 .idea/
 .vs/

@@ -18,7 +18,7 @@
     "node": ">=10.16 <11 || >= 11.13"
   },
   "dependencies": {
-    "@clusterio/lib": "=2.0.0-alpha.0",
+    "@clusterio/lib": "^2.0.0-alpha.0",
     "fs-extra": "^8.1.0",
     "phin": "^3.4.1",
     "pidusage": "^2.0.18",
