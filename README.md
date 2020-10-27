@@ -30,7 +30,9 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
 
 ### Table of contents
 
-* [Introduction & methodology](#introduction)
+* [Introduction](#introduction)
+* [Features](#features)
+* [Plugins](#plugins)
 * [Ubuntu setup](#ubuntu-setup)
 * [Windows setup](#windows-setup)
 * [Installing Plugins](#installing-plugins)
@@ -40,59 +42,59 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
   * [Instances](#instances)
 * [Common problems](#Common-problems)
 
+
 ## Introduction
 
-Features:
+Clusterio is a clustered Factorio server manager that provides the
+tooling for implementing cross server interactions in Factorio.  It
+was previously best known for implementing cross server transfer and
+cloud storage of items via teleporter chests.  But this functionality
+has been pulled out of Clusterio into its own plugin for Clusterio named
+[Subspace Storage](https://github.com/clusterio/factorioClusterioMod).
 
-- Entities to send/recieve items
-
-- Cross dimensional storage
-
-- Sending of liquids
-
-- Sending of circuit network signals
-
-- Inventory combinator to display item levels in the cluster (and epoch time)
-
-- Reporting of graphs and UPS on master interface (Also has extensive Prometheus reporting)
-
-Optional extras (see [Plugins](#Plugins))
-
-- Have your inventory synchronize across servers
-
-- Teleport trans from the border of one world to te next
-
-- Show in-game chat in discord
+By itself Clusterio does change the gameplay in any way, you could even
+use Clusterio to manage completely vanilla Factorio servers.  Plugins do
+the work of modding in the visible changes into the game, see the
+[Plugins section](#plugins) for ready made plugins you can install into
+a Clusterio cluster.
 
 
-Connection diagram:
+## Features
 
-![http://i.imgur.com/7FdVfgB.png](http://i.imgur.com/7FdVfgB.png)
+- Clustered Factorio server management allowing you manage the running
+  of Factorio servers across a fleet of physical servers from both a web
+  interface and a command line interface.
 
-There can be any number of clients connected to each slave, and any number of slaves connected to a master but there can only be one master server in each cluster.
+- User list management for synchronizing in-game admins, whitelisted
+  users, and bans to all the servers in the cluster.
 
-**How does it work?**
+- Integrated support for exporting statistics for the whole cluster to
+  Prometheus via a single metrics endpoint.
 
-Traditional factorio mods have always been limited by the games deterministic design. This gives us a very bug free and predictable game, but doesn't allow us cool stuff such as internet communication.
-Clusterio exploits one of the games logging features, game.write_file and RCON to communicate between servers. Sending an item from one server to another takes this path:
+- Extensive plugin support for adding your own cross server features to
+  Factorio using Clusterio's communication backbone.
 
-1. server1: Chest has stuff in it, write the contents to a file and delete them from the game world
 
-2. client.js on server1: File has stuff in it, parse and send to the master for storage
+## Plugins
 
-3. master: server1 gave us stuff, store it in the storage and write some statistics
+The heart of Clusterio is its plugin syste.  Plugins add functionality
+to Factorio servers, Clusterio itself or both.  These are the plugins
+supported and maintained by the Clusterio developers:
 
-4. server2: get-chest is empty, write a request to file
+- [Global Chat](/plugins/global_chat/README.md): share the in-game chat
+  between servers.
+- [Research Sync](/plugins/research_sync/README.md): synchronize
+  research progress and technologies unlocked between servers.
+- [Statistics Exporter](/plugins/statistics_exporter/README.md): collect
+  in-game statistics from all the servers and makes it available to the
+  Prometheus endpoint on the master server.
+- [Subspace Storage](https://github.com/clusterio/factorioClusterioMod):
+  Provide shared storage that can transport items between servers via
+  teleport chests.
 
-5. client.js on server2: Request file has stuff in it, parse and send a request to master for more items of that type
+Want to make your own plugin?  Check out the documentation on [Writing
+Plugins](/docs/writing-plugins.md) for where to start.
 
-6. master: server2 asked for stuff, check if we have enough and how much demand there is, then send however much is appropriate back
-
-7. client.js on server2: We were allowed to import x of item y, run command /c remote.call("clusterio", "importMany", "{'copper-plate':120}")
-
-This process works the same for both items and liquids, independent on what mods are used. Yes, modded items are fully supported.
-
-Clusterio can also do a few other neat things, such as giving you access to epoch time, syncing player inventories between servers, keeping track of playtime (playerManager plugin), teleporting trains between servers (trainTeleports) and exporting tons of factorio related statistics to Prometheus for graphing in grafana.
 
 ## Ubuntu setup
 
