@@ -101,7 +101,7 @@ Plugins](/docs/writing-plugins.md) for where to start.
 **Warning**: These instructions are for the unstable master version and is not
 recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
-Clusterio runs on Node.js v12 and up, v11.13.0+ and v10.16.0+.  Node.js itself is not
+Clusterio runs on Node.js v12 and up, and v10.16.0+.  Node.js itself is not
 supported on EOL Ubuntu releases so make sure you're on a recent release of Ubuntu.
 
 Master and all slaves:
@@ -142,7 +142,7 @@ recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable
 **Requirements**
 
 download and install nodeJS 12 from http://nodejs.org.  Clusterio runs on Node.js v12 and
-up, v11.13.0+ and v10.16.0+.
+up, and v10.16.0+.
 
 **Master**
 
