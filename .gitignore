@@ -47,6 +47,7 @@ saves
 
 # Web build
 /packages/master/static
+/plugins/*/static
 
 # IDE
 .idea/
