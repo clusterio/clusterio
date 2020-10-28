@@ -36,6 +36,9 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
 * [Ubuntu setup](#ubuntu-setup)
 * [Windows setup](#windows-setup)
 * [Installing Plugins](#installing-plugins)
+* [Configure Master Server](#configure-master-server)
+  * [Hosting Behind Proxy](#hosting-behind-proxy)
+  * [Setting up an admin account](#setting-up-an-admin-account)
 * [Running Clusterio](#running-clusterio)
   * [Master Server](#master-server)
   * [Slaves](#slaves)
@@ -201,10 +204,65 @@ plugins by the absolute path to them, or a relative path that must start
 with either . or .. (which will then be resolved to an absolute path).
 
 
-## Running Clusterio
+## Configure Master Server
 
-After following the installation instructions you can use the following
-commands to run Clusterio.
+By default the master server will create a self signed TLS certificate
+and listen on HTTPS on port 8443.  You can change the port used with the
+command
+
+    npx clusteriomaster config set master.https_port 1234
+
+If you plan to make your cluster available externally set the address
+that it will be accessible under with, for example
+
+    npx clusteriomaster config set master.external_address https://192.0.2.4:8443/
+
+Change the url to reflect the IP, protocol, and port the master server
+is accessible under, dns names are also supported.  If proxyed under a
+sub-path include the sub path as well and make sure the URL ends with a
+slash.
+
+You can list the config of the master server with the `npx
+clusteriomaster config list` command.  See the [readme for
+@clusterio/master](/packages/master/README.md) for more
+information.
+
+
+### Hosting Behind Proxy
+
+If you want to host the master server behind a reverse proxy the
+recommended setup is to disable HTTPS and host it on a high port
+over HTTP to which you point your proxy to.  For example to configure
+port 8080 as the HTTP port for the master server.
+
+    npx clusteriomaster config set master.https_port # unsets https_port
+    npx clusteriomaster config set master.http_port 8080
+
+The proxy can then forward requests to a sub-path like `/cluster/` to
+`http://localhost:8080/`.
+
+Additianlly WebSocket connections to api/socket relative to the sub-path
+the interface is hosted under also needs to be forwarded.  See below for
+the specifics of setting this up on Apache.
+
+
+#### Apache Config
+
+To proxy with Apache make sure that proxy_module, proxy_http_module and
+proxy_wstunnel_module is loaded in the config, then add the following
+directives to wherever is the approriate place for your flavour of
+Apache config organization.
+
+```apache
+<Location /cluster/>
+    ProxyPass "http://localhost:8080/"
+</location>
+<Location /cluster/api/socket>
+    ProxyPass "ws://localhost:8080/api/socket"
+</Location>
+```
+
+Pay attention to the use of trailing slashes, they are important.
 
 
 ### Setting up an admin account
@@ -222,7 +280,13 @@ promotes it to a cluster admin.  The second one sets up a
 server under the given user account.
 
 
-### Running the master Server
+## Running Clusterio
+
+After following the installation and master configuration instructions
+you can use the following commands to run Clusterio.
+
+
+### Master Server
 
 It's necessary to run the master server in order for anything to work.
 Once you've completed the setup run the following command to start it
