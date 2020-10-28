@@ -1,1 +1,1 @@
-import("./bootstrap");
+import("@clusterio/web_ui/src/bootstrap");

@@ -3,7 +3,7 @@ const path = require("path");
 const webpack = require("webpack");
 const { merge } = require("webpack-merge");
 
-const common = require("@clusterio/master/webpack.common");
+const common = require("@clusterio/web_ui/webpack.common");
 
 module.exports = (env = {}) => merge(common(env), {
 	entry: "./web/index.jsx",
@@ -21,6 +21,7 @@ module.exports = (env = {}) => merge(common(env), {
 			},
 			shared: {
 				"@clusterio/lib": { import: false },
+				"@clusterio/web_ui": { import: false },
 				"ajv": { import: false },
 				"antd": { import: false },
 				"react": { import: false },

@@ -1,0 +1,30 @@
+{
+  "name": "@clusterio/web_ui",
+  "description": "Clusterio web interface implementation",
+  "author": "Hornwitser",
+  "license": "MIT",
+  "version": "2.0.0-alpha.1",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "clusterio"
+  ],
+  "engines": {
+    "node": ">=10.16 <11 || >= 12"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^4.2.2",
+    "@clusterio/lib": "^2.0.0-alpha.1",
+    "antd": "^4.6.5",
+    "clean-webpack-plugin": "^3.0.0",
+    "events": "^3.2.0",
+    "path-browserify": "^1.0.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "react-router-dom": "^5.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
