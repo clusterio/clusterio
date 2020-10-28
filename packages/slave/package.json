@@ -3,7 +3,7 @@
   "description": "Implementation of Clusterio slave server",
   "author": "Hornwitser",
   "license": "MIT",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.1",
   "main": "slave.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -18,7 +18,7 @@
     "node": ">=10.16 <11 || >= 12"
   },
   "dependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.0",
+    "@clusterio/lib": "^2.0.0-alpha.1",
     "fs-extra": "^8.1.0",
     "phin": "^3.4.1",
     "pidusage": "^2.0.18",
