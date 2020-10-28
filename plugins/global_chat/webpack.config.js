@@ -6,6 +6,7 @@ const { merge } = require("webpack-merge");
 const common = require("@clusterio/web_ui/webpack.common");
 
 module.exports = (env = {}) => merge(common(env), {
+	context: __dirname,
 	entry: "./web/index.jsx",
 	output: {
 		filename: "bundle.js",
