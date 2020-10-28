@@ -1,7 +1,7 @@
 Managing a Cluster
 ==================
 
-Clusterio clusers are managed through the master server by using the
+Clusterio clusters are managed through the master server by using the
 `clusterioctl` command line interface which is invoked by running
 `npx clusterioctl <command>` in the clusterio directory.  This document
 uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` should
