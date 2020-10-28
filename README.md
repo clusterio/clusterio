@@ -248,8 +248,8 @@ the config for a remote slave you will need to have set the
 reached on.
 
 You can list the config of a slave on the slave itself with the `npx
-clusterioslave config list` command.  Use `npx clusterioslave config
---help` for more information.
+clusterioslave config list` command.  See the [readme for
+@clusterio/slave](/packages/slave/README.md) for more information.
 
 Once the config is set up run the slave with
 
@@ -278,7 +278,8 @@ directory and files needed to run the instance on the given slave.  The
 third line starts the instance, which creates a new save if there are no
 save games present.
 
-There are many more commands available with clusterioctl.  See
+There are many more commands available with clusterioctl.  See the
+[Managing a Cluster](/docs/managing-a-cluster.md) document or
 `npx clusterioctl --help` for a full list of them.
 
 
