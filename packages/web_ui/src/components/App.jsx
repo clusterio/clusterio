@@ -1,13 +1,85 @@
-import React from "react";
+import events from "events";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
 import basename from "../basename";
-import Layout from "../layout";
+import SiteLayout from "../layout";
+import ControlContext from "./ControlContext";
+import LoginForm from "./LoginForm";
 
-export default function App() {
+import { Card, Spin } from "antd";
+
+
+export default function App(props) {
+	let [connected, setConnected] = useState(false);
+	let [token, setToken] = useState(localStorage.getItem("master_token") || null);
+	let connector = props.control.connector;
+
+	function clearToken() {
+		setToken(null);
+		localStorage.removeItem("master_token");
+	}
+
+	useEffect(() => {
+		console.log("Effect called");
+
+		function onConnect() {
+			localStorage.setItem("master_token", token);
+			setConnected(true);
+		}
+
+		function onClose() {
+			setConnected(false);
+		}
+
+		function onError(err) {
+			console.error("Unexpected error in connector", err);
+			clearToken();
+			setConnected(false);
+		}
+
+		connector.on("connect", onConnect);
+		connector.on("close", onClose);
+		connector.on("error", onError);
+
+		if (token && !connected) {
+			connector.token = token;
+			connector.connect();
+		}
+
+		return () => {
+			connector.off("error", onError);
+			connector.off("close", onClose);
+			connector.off("connect", onConnect);
+		};
+	});
+
+	let page;
+	if (connected) {
+		page = <SiteLayout/>;
+
+	} else if (token) {
+		page = <div className="login-container">
+			<Card>
+				<h1>Connecting</h1>
+				<Spin size="large"/>
+			</Card>
+		</div>;
+
+	} else {
+		page = <div className="login-container">
+			<Card>
+				<h1>Clusterio</h1>
+				<LoginForm setToken={setToken} />
+			</Card>
+		</div>;
+	}
+
 	return (
-		<BrowserRouter basename={basename}>
-			<Layout />
-		</BrowserRouter>
+		<ControlContext.Provider value={props.control}>
+			<BrowserRouter basename={basename}>
+				{page}
+			</BrowserRouter>
+		</ControlContext.Provider>
 	);
 }

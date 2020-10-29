@@ -21,7 +21,7 @@ module.exports = {
 			},
 		},
 		{
-			"files": ["packages/master/web/**/*.jsx"],
+			"files": ["packages/web_ui/src/**/*.jsx", "plugins/*/web/**/*.jsx"],
 			"env": {
 				"browser": true,
 			},

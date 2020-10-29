@@ -12,7 +12,6 @@ import { PermissionsTable } from "../pages/permissions/permissionsTable";
 import { InstanceView } from "../pages/instances/instance";
 import { UserView } from "../pages/users/user";
 import { RoleView } from "../pages/roles/role";
-import { Settings } from "../pages/settings/settings";
 
 const { Content, Footer, Sider } = Layout;
 const { SubMenu } = Menu;
@@ -118,10 +117,6 @@ class SiteLayout extends Component {
 								<span>Permissions</span>
 								<Link to="/permissions" />
 							</Menu.Item>
-							<Menu.Item key="settings">
-								<span>Settings</span>
-								<Link to="/settings" />
-							</Menu.Item>
 						</Menu>
 					</Sider>
 				) : (
@@ -149,7 +144,6 @@ class SiteLayout extends Component {
 						<Route exact path="/roles/:id/view" component={RoleView} />
 						<Route exact path="/permissions" component={PermissionsTable} />
 						<Route exact path="/permissions/:id/view" component={PermissionsTable} />
-						<Route exact path="/settings" component={Settings} />
 					</Content>
 					<Footer style={{
 						// background: "#F4F4F4",

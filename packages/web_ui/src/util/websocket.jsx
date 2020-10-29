@@ -1,6 +1,7 @@
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
 const libErrors = require("@clusterio/lib/errors");
+const version = require("../../package.json").version;
 
 /**
  * Format a parsed Factorio output message
@@ -36,17 +37,21 @@ function formatOutput(output) {
  * @private
  */
 export class ControlConnector extends libLink.WebSocketClientConnector {
-	constructor(url, reconnectDelay, token) {
+	constructor(url, reconnectDelay) {
 		super(url, reconnectDelay);
-		this._token = token;
+		this.token = null;
 	}
 
 	register() {
+		if (!this.token) {
+			throw new Error("Token not set");
+		}
+
 		console.log("SOCKET | registering control");
 		this.sendHandshake("register_control", {
-			token: this._token,
-			agent: "web",
-			version: "2.0.0-alpha",
+			token: this.token,
+			agent: "Clusterio Web UI",
+			version,
 		});
 	}
 }
