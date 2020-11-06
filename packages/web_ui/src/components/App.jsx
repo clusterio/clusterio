@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
 import basename from "../basename";
-import SiteLayout from "../layout";
+import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
 import LoginForm from "./LoginForm";
 
@@ -21,8 +21,6 @@ export default function App(props) {
 	}
 
 	useEffect(() => {
-		console.log("Effect called");
-
 		function onConnect() {
 			localStorage.setItem("master_token", token);
 			setConnected(true);

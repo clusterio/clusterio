@@ -71,7 +71,7 @@ module.exports = {
 		"default-case-last": "error",
 		"default-param-last": "error",
 		"dot-location": ["error", "property"],
-		"dot-notation": ["warn", { "allowKeywords": true }],
+		"dot-notation": ["warn", { "allowPattern": "^[a-z]+(_[a-z]+)*$" }],
 		"eol-last": "error",
 		"eqeqeq": "error",
 		"func-call-spacing": "error",

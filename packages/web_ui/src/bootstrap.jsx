@@ -63,8 +63,7 @@ async function load() {
 	wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
 
 	let controlConnector = new ControlConnector(wsUrl, 10);
-	// XXX come up with a better way of sharing this
-	window.control = new Control(controlConnector, []);
+	let control = new Control(controlConnector, []);
 
 	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
 }
