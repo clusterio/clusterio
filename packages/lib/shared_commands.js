@@ -6,6 +6,9 @@
 const fs = require("fs-extra");
 const path = require("path");
 
+const libConfig = require("./config");
+
+
 /**
  * Yargs plugin command
  *
@@ -80,7 +83,80 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 	}
 }
 
+
+/**
+ * Yargs config command
+ *
+ * Can be passed to yargs.command to implement a config command.  Use
+ * handleConfigCommand to do the requested action.
+ *
+ * @param {Object} yargs - yargs command builder.
+ */
+function configCommand(yargs) {
+	yargs
+		.command("set <field> [value]", "Set config field")
+		.command("show <field>", "Show value of the given config field")
+		.command("list", "List all configuration fields and their values")
+		.demandCommand(1, "You need to specify a command to run")
+		.help()
+		.strict()
+	;
+}
+
+/**
+ * Handle yargs command
+ *
+ * Handle the actions that are made available by configCommand.
+ *
+ * @param {Object} args - yargs args object.
+ * @param {module:lib/config.Config} instance - Config instance.
+ * @param {string} configPath - Path to configuration file.
+ */
+async function handleConfigCommand(args, instance, configPath) {
+	let command = args._[1];
+
+	if (command === "list") {
+		for (let GroupClass of instance.constructor.groups.values()) {
+			for (let def of GroupClass.definitions.values()) {
+				let value = instance.get(def.fullName);
+				console.log(`${def.fullName} ${JSON.stringify(value)}`);
+			}
+		}
+
+	} else if (command === "show") {
+		try {
+			console.log(instance.get(args.field));
+		} catch (err) {
+			if (err instanceof libConfig.InvalidField) {
+				console.error(err.message);
+			} else {
+				throw err;
+			}
+		}
+
+	} else if (command === "set") {
+		if (args.value === undefined) {
+			args.value = null;
+		}
+
+		try {
+			instance.set(args.field, args.value);
+			await fs.outputFile(configPath, JSON.stringify(instance.serialize(), null, 4));
+		} catch (err) {
+			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
+				console.error(err.message);
+			} else {
+				throw err;
+			}
+		}
+	}
+}
+
+
 module.exports = {
 	pluginCommand,
 	handlePluginCommand,
+
+	configCommand,
+	handleConfigCommand,
 };

@@ -1574,7 +1574,7 @@ async function startServer() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Master config", libConfig.configCommand)
+		.command("config", "Manage Master config", libSharedCommands.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
@@ -1641,7 +1641,7 @@ async function startServer() {
 	}
 
 	if (command === "config") {
-		await libConfig.handleConfigCommand(args, masterConfig, masterConfigPath);
+		await libSharedCommands.handleConfigCommand(args, masterConfig, masterConfigPath);
 		return;
 
 	} else if (command === "bootstrap") {

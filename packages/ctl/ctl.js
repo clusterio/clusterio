@@ -595,7 +595,7 @@ async function startControl() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("control-config", "Manage Control config", libConfig.configCommand)
+		.command("control-config", "Manage Control config", libSharedCommands.configCommand)
 		.wrap(yargs.terminalWidth())
 		.help(false) // Disable help to avoid triggering it on the first parse.
 	;
@@ -681,7 +681,7 @@ async function startControl() {
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await libConfig.handleConfigCommand(args, controlConfig, args.config);
+		await libSharedCommands.handleConfigCommand(args, controlConfig, args.config);
 		return;
 	}
 

@@ -1395,7 +1395,7 @@ async function startSlave() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Slave config", libConfig.configCommand)
+		.command("config", "Manage Slave config", libSharedCommands.configCommand)
 		.command("run", "Run slave")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -1440,7 +1440,7 @@ async function startSlave() {
 	}
 
 	if (command === "config") {
-		await libConfig.handleConfigCommand(args, slaveConfig, args.config);
+		await libSharedCommands.handleConfigCommand(args, slaveConfig, args.config);
 		return;
 	}
 
