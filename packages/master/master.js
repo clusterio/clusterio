@@ -49,6 +49,7 @@ const libSchema = require("@clusterio/lib/schema");
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
 const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libConfig = require("@clusterio/lib/config");
 const libUsers = require("@clusterio/lib/users");
@@ -1611,7 +1612,7 @@ async function startServer() {
 	}
 
 	console.log("Loading Plugin info");
-	pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 

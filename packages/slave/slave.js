@@ -28,6 +28,7 @@ const libFileOps = require("@clusterio/lib/file_ops");
 const libFactorio = require("@clusterio/lib/factorio");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libLuaTools = require("@clusterio/lib/lua_tools");
@@ -1419,7 +1420,7 @@ async function startSlave() {
 	}
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 

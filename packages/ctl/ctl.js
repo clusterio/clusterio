@@ -17,6 +17,7 @@ const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
 const libConfig = require("@clusterio/lib/config");
 const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libCommand = require("@clusterio/lib/command");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 
@@ -628,7 +629,7 @@ async function startControl() {
 	rootCommands.add(debugCommands);
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
