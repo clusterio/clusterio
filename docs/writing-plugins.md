@@ -55,7 +55,7 @@ clusterioctl.  Note that it's important that the path starts with ./ or
 For a plugin the most important file is the `info.js` file.  Without it
 the plugin will not recognized by Clusterio.  Here's an example of it:
 
-    const libLink = require('@clusterio/lib/link'); // For messages
+    const libLink = require("@clusterio/lib/link"); // For messages
 
     module.exports = {
         name: "foo_frobber",
@@ -136,7 +136,7 @@ The plugin class should derive from its respective base class defined in
 `lib/plugin`.  For example, to define a MasterPlugin class the following
 code can be used:
 
-    const libPlugin = require('@clusterio/lib/plugin');
+    const libPlugin = require("@clusterio/lib/plugin");
 
     class MasterPlugin extends libPlugin.BaseMasterPlugin {
         async init() {
@@ -257,7 +257,7 @@ plugin you listen for an event named `ipc-channel_name` in order to get
 data sent by `send_json`.  For example in the plugin code:
 
     async init() {
-        this.instance.server.on('ipc-my_plugin_foo', content =>
+        this.instance.server.on("ipc-my_plugin_foo", content =>
             this.handleFoo(content).catch(err => console.log(
                 "Error handling foo:", foo
             ))
@@ -270,10 +270,10 @@ data sent by `send_json`.  For example in the plugin code:
 
 And then in the module for the plugin:
 
-    local clusterio_api = require('modules/clusterio/api')
+    local clusterio_api = require("modules/clusterio/api")
 
     -- inside some event handler
-    clusterio_api.send_json('my_plugin_foo', { data = 123 })
+    clusterio_api.send_json("my_plugin_foo", { data = 123 })
 
 It's recommended to either use the plugin name as the channel name or to
 prefix the channel name with the name of the plugin if you need multiple
@@ -324,9 +324,9 @@ the event, for example the following could be defined in `info.js`:
 
     messages: {
         startFrobnication: new libLink.Event({
-            type: 'foo_frobber:start_frobnication',
-            links: ['master-slave', 'slave-instance'],
-            forwardTo: 'instance',
+            type: "foo_frobber:start_frobnication",
+            links: ["master-slave", "slave-instance"],
+            forwardTo: "instance",
             eventProperties: {
                 "frobnication_type": { type: "string" },
             },
@@ -351,22 +351,22 @@ appended to it.
 #### links
 
 An array of strings describing which links this event can be sent over.
-Direction matters, `'master-slave'` means the event can be sent from the
+Direction matters, `"master-slave"` means the event can be sent from the
 master to the slave, but can't be sent back the other way, unless
-`'slave-master'` is also present in the links array.
+`"slave-master"` is also present in the links array.
 
 The available endpoints are `master`, `slave`, `instance`, and
 `control`.  Master talks with slave and control, and slave talks to
 instance.  The full chain must be specified as the individual links in
 order for a message to travers multiple hops, (i.e., for a message to go
-from master to instance it must have both `'master-slave'` and
-`'slave-instance'` in the links array).  See `forwardTo` and
+from master to instance it must have both `"master-slave"` and
+`"slave-instance"` in the links array).  See `forwardTo` and
 `broadcastTo` for ways to forward an event to the next link in a chain.
 
 #### forwardTo
 
-Target to forward an event to.  Can either be `'master'`, to indicate a
-slave should forward it to the master server, or `'instance'`, to
+Target to forward an event to.  Can either be `"master"`, to indicate a
+slave should forward it to the master server, or `"instance"`, to
 indicate it should be forwarded to the instances specified by the
 `instance_id` event property.  This works by using a default handler for
 the event at the links that forward it.
@@ -390,7 +390,7 @@ are not allowed.  See [this guide][guide] for an introduction to writing
 JSON schemas.
 
 The forwardTo and broadcastTo can be combined such that specifying
-`'master'` as the forwardTo value and `'instance'` as the broadcastTo
+`"master"` as the forwardTo value and `"instance"` as the broadcastTo
 value will cause the event to be broadcast to all instances in the
 cluster.  For this to work, you will need to specify `instance-slave`,
 `slave-master`, `master-slave`, and `slave-instance` as the links.
@@ -409,9 +409,9 @@ the event. For example, the following could be defined in `info.js`:
 
     messages: {
         reportFrobnication: new libLink.Request({
-            type: 'foo_frobber:report_frobnication',
-            links: ['master-slave', 'slave-instance'],
-            forwardTo: 'instance',
+            type: "foo_frobber:report_frobnication",
+            links: ["master-slave", "slave-instance"],
+            forwardTo: "instance",
             requestProperties: {
                 "verbosity": { type: "integer" },
             },
@@ -427,7 +427,7 @@ the event. For example, the following could be defined in `info.js`:
 This specifies a request that can be sent from the master to a slave,
 and from a slave to an instance.  The request data must contain the
 property `verbosity` with an integer number as the value, as well as the
-`instance_id` property (implied by `forwardTo: 'instance'`), and the
+`instance_id` property (implied by `forwardTo: "instance"`), and the
 response sent must contain a `report` property mapping to an array of
 strings.  When received by a slave, it will also be forwarded to the
 instance specified by `instance_id`.
@@ -445,24 +445,24 @@ response.
 #### links
 
 An array of strings describing which links this request can be sent
-over.  Direction matters; `'master-slave'` means the request can be sent
+over.  Direction matters; `"master-slave"` means the request can be sent
 from the master to the slave and the slave can reply to the master, but
-the slave can't send a request to the master unless `'slave-master'` is
+the slave can't send a request to the master unless `"slave-master"` is
 also present in the links array.
 
 The available endpoints are `master`, `slave`, `instance`, and
 `control`.  Master talks with slave and control, and slave talks to
 instance.  The full chain must be specified as the individual links in
 order for a message to travers multiple hops, (i.e., for a message to go
-from master to instance it must have both `'master-slave'` and
-`'slave-instance'` in the links array).  See `forwardTo` for ways to
+from master to instance it must have both `"master-slave"` and
+`"slave-instance"` in the links array).  See `forwardTo` for ways to
 forward a request to the next link in a chain.
 
 #### forwardTo
 
-Target to forward the request to.  Can either be `'master'` to indicate
+Target to forward the request to.  Can either be `"master"` to indicate
 a slave should forward it to the master server when receiving it from an
-instance, or `'instance'` to indicate it should be forwarded to the
+instance, or `"instance"` to indicate it should be forwarded to the
 instances specified by the `instance_id` request property.  This works
 by using a default handler for the request by the links that forward it.
 
@@ -557,10 +557,10 @@ from plugins optionally loaded at runtime on different computers.
 In its simplest form collecting data from plugins consists of defining
 the metric and updating it somewhere in the plugin code.  For example:
 
-    const { Counter } = require('@clusterio/lib/prometheus');
+    const { Counter } = require("@clusterio/lib/prometheus");
 
     const fooMetric = new Counter(
-        'clusterio_foo_frobber_foo_metric', "Measures the level of foo",
+        "clusterio_foo_frobber_foo_metric", "Measures the level of foo",
     );
 
     // Somewhere in the master plugin code
@@ -574,11 +574,11 @@ naming scheme.
 For metrics that are per-instance, you must define an `instance_id` label and
 set it accordingly, for example:
 
-    const { Counter } = require('@clusterio/lib/prometheus');
+    const { Counter } = require("@clusterio/lib/prometheus");
 
     const barMetric = new Gauge(
-        'clusterio_foo_frobber_bar_metric', "Bar instance level",
-        { labels: ['instance_id'] }
+        "clusterio_foo_frobber_bar_metric", "Bar instance level",
+        { labels: ["instance_id"] }
     );
 
     // Somewhere in the instance plugin code
