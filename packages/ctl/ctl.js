@@ -73,7 +73,7 @@ slaveCommands.add(new libCommand.Command({
 		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", demandOption: true });
 	}],
 	handler: async function(args, control) {
-		let response = await link.messages.generateSlaveToken.send(control, { slave_id: args.id });
+		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: args.id });
 		console.log(response.token);
 	},
 }));

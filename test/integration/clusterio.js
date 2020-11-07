@@ -25,6 +25,11 @@ describe("Integration of Clusterio", function() {
 				await execCtl("slave list");
 			});
 		});
+		describe("slave generate-token", function() {
+			it("runs", async function() {
+				await execCtl("slave generate-token --id 42");
+			});
+		});
 		describe("instance list", function() {
 			it("runs", async function() {
 				await execCtl("instance list");

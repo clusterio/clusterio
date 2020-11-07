@@ -598,7 +598,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async generateSlaveTokenRequestHandler(message) {
-		return { token: generateSlaveToken(message.data.slave_id) };
+		return { token: this.generateSlaveToken(message.data.slave_id) };
 	}
 
 	async createSlaveConfigRequestHandler(message) {
