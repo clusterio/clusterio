@@ -8,6 +8,7 @@ import libConfig from "@clusterio/lib/config";
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";
 
+
 async function loadScript(url) {
 	let script = document.createElement("script");
 	script.src = url;
@@ -61,17 +62,10 @@ async function load() {
 	let wsUrl = new URL(window.webRoot, document.location);
 	wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
 
-	let controlConnector = new ControlConnector(wsUrl, 10, localStorage.getItem("master_token"));
-	// XXX come up with a better way of sharing this
-	window.control = new Control(controlConnector, []);
-	try {
-		await controlConnector.connect();
-	} catch (err) {
-		// XXX: What now?
-		console.log(err);
-	}
+	let controlConnector = new ControlConnector(wsUrl, 10);
+	let control = new Control(controlConnector, []);
 
-	ReactDOM.render(<App />, document.getElementById("root"));
+	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
 }
 
 load().catch(console.log);

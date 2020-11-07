@@ -3,9 +3,10 @@ const path = require("path");
 const webpack = require("webpack");
 const { merge } = require("webpack-merge");
 
-const common = require("./webpack.common");
+const common = require("@clusterio/web_ui/webpack.common");
 
 module.exports = (env = {}) => merge(common(env), {
+	context: __dirname,
 	entry: "./web/index.jsx",
 	devServer: {
 		contentBase: "./static",
@@ -19,6 +20,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "master",
 			shared: {
 				"@clusterio/lib": { singleton: true },
+				"@clusterio/web_ui": { singleton: true },
 				"ajv": {},
 				"antd": { singleton: true },
 				"react": { singleton: true },

@@ -30,6 +30,10 @@ module.exports = (env = {}) => ({
 				use: "null-loader",
 			},
 			{
+				test: /node_modules.jsonwebtoken/,
+				use: "null-loader",
+			},
+			{
 				test: /\.css$/,
 				use: [
 					"style-loader",
@@ -58,6 +62,10 @@ module.exports = (env = {}) => ({
 						presets: ["@babel/preset-react"],
 					},
 				},
+			},
+			{
+				test: /\.png$/,
+				use: "file-loader",
 			},
 		],
 	},

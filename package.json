@@ -21,6 +21,8 @@
     "node": ">=10.16 <11 || >= 12"
   },
   "devDependencies": {
+    "@babel/core": "^7.12.3",
+    "@babel/preset-react": "^7.12.1",
     "@clusterio/ctl": "file:./packages/ctl",
     "@clusterio/lib": "file:./packages/lib",
     "@clusterio/master": "file:packages/master",

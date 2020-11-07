@@ -1,0 +1,122 @@
+@import '~antd/dist/antd.dark.css';
+
+body {
+	margin: 0;
+}
+
+[data-theme="compact"] p, p {
+	margin: 0;
+}
+
+.row-links{
+	cursor: pointer;
+}
+
+.login-container {
+	min-height: 100vh;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.site-layout-content {
+	background: #141414;
+	padding: 24px;
+	margin: 0;
+	flex-grow: 0;
+}
+
+.site-layout-sider {
+	z-index: 0;
+}
+
+.header {
+	padding-left: 250px;
+}
+
+.site-name {
+	position: absolute;
+	left: 112px;
+	font-size: 18pt;
+	font-weight: 400;
+}
+
+.site-logo {
+	position: absolute;
+	left: 36px;
+	width: 64px;
+	height: 64px;
+	background-image: url("./images/logo.png");
+	background-size: 64px;
+}
+
+.rcon-result code {
+	display: block;
+	background: #000;
+	border-color: #252525;
+	max-height: 200px;
+	overflow-y: auto;
+	white-space: pre-wrap;
+}
+
+/* see https://blog.eqrion.net/pin-to-bottom/ for how scroll anchors works */
+.instance-console code * {
+	overflow-anchor: none;
+}
+
+.instance-console code .scroll-anchor {
+	overflow-anchor: auto;
+	height: 1px;
+}
+
+.instance-console code {
+	display: block;
+	margin: 0;
+	background: #000;
+	border-color: #252525;
+	height: 300px;
+	overflow-y: scroll;
+}
+
+.instance-console .factorio-time {
+	color: #afaf1f;
+}
+
+.instance-console .factorio-filename {
+	color: #808080;
+}
+
+.instance-console .factorio-info {
+	font-weight: bold;
+	color: #4646ea;
+}
+
+.instance-console .factorio-warning {
+	font-weight: bold;
+	color: #afaf1f;
+}
+
+.instance-console .factorio-error {
+	font-weight: bold;
+	color: #ad3939;
+}
+
+.instance-console .factorio-action {
+	color: #afaf1f;
+}
+
+.config-container {
+	background-color: #111111;
+}
+
+.config-container .ant-form-item {
+	margin: 0;
+}
+
+.config-container .filter-node .ant-tree-node-content-wrapper {
+	background: #2a1912;
+}
+
+.json-input {
+	font-family: monospace;
+}
