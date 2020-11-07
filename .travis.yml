@@ -11,6 +11,5 @@ script:
   - curl -o temp/test/sharedMods/subspace_storage_1.99.1.zip -L https://github.com/clusterio/factorioClusterioMod/releases/download/1.99.1/subspace_storage_1.99.1.zip
   - npx lerna run build
   - npm run-script ci-cover
-  - cat temp/test/integration/log.txt
   - codecov -f coverage/lcov.info
   - npm run-script lint
