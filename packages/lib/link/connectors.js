@@ -34,7 +34,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
 		let dropCount = 0;
 		for (let index = 0; index < this._sendBuffer.length; index++) {
 			if (this._sendBuffer[index].seq <= seq) {
-				dropCount++;
+				dropCount += 1;
 			} else {
 				break;
 			}
@@ -102,12 +102,14 @@ class WebSocketBaseConnector extends events.EventEmitter {
 		if (!["handshake", "connected", "closing"].includes(this._state)) {
 			throw new libErrors.SessionLost("No session");
 		}
-		let message = { seq: this._seq, type, data };
+		let seq = this._seq;
+		this._seq += 1;
+		let message = { seq, type, data };
 		this._sendBuffer.push(message);
 		if (["connected", "closing"].includes(this._state)) {
 			this._socket.send(JSON.stringify(message));
 		}
-		return this._seq++;
+		return seq;
 	}
 
 	/**
@@ -450,8 +452,10 @@ class VirtualConnector extends events.EventEmitter {
 	 * @returns {number} the sequence number of the message sent
 	 */
 	send(type, data) {
-		this.other.emit("message", { seq: this._seq, type, data });
-		return this._seq++;
+		let seq = this._seq;
+		this._seq += 1;
+		this.other.emit("message", { seq, type, data });
+		return seq;
 	}
 }
 

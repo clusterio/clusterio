@@ -199,7 +199,7 @@ describe("lib/factorio", function() {
 				} catch (err) { }
 				if (success) {
 					validate(modules);
-					successCount++;
+					successCount += 1;
 				}
 			}
 

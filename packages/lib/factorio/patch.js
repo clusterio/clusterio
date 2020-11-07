@@ -152,7 +152,7 @@ function reorderDependencies(modules) {
 
 		// No unmet dependencies, record and continue
 		present.set(module.name, module.version);
-		index++;
+		index += 1;
 
 		if (hold.has(module.name)) {
 			modules.splice(index, 0, ...hold.get(module.name));

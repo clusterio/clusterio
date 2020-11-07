@@ -24,7 +24,7 @@ describe("Integration of lib/factorio/export", function() {
 
 				// Value is always a string, nearly always truthy
 				if (!value) {
-					empty_keys++;
+					empty_keys += 1;
 				}
 				assert.equal(typeof value, "string");
 			}

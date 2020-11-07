@@ -1429,7 +1429,8 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		return;
 	}
 
-	let sessionId = nextSessionId++;
+	let sessionId = nextSessionId;
+	nextSessionId += 1;
 	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId }, masterConfig.get("master.auth_secret"));
 	let connector = new WebSocketServerConnector(socket, sessionId);
 	activeConnectors.set(sessionId, connector);
