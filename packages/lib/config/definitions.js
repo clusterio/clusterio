@@ -69,9 +69,9 @@ MasterGroup.define({
 	name: "auth_secret",
 	title: "Master Authentication Secret",
 	description:
-		"Secret used to generate and verify authentication tokens."
-		+"  Should be a long string of random letters and numbers."
-		+"  Do not share this.",
+		"Secret used to generate and verify authentication tokens.  " +
+		"Should be a long string of random letters and numbers.  " +
+		"Do not share this.",
 	type: "string",
 	optional: true,
 });

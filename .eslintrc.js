@@ -224,7 +224,14 @@ module.exports = {
 		"one-var": "off",
 		"one-var-declaration-per-line": "error",
 		"operator-assignment": "off",
-		"operator-linebreak": "warn",
+		"operator-linebreak": ["error", "after", {
+			"overrides": {
+				"?": "before",
+				":": "before",
+				"||": "before",
+				"&&": "before",
+			},
+		}],
 		"padded-blocks": "off",
 		"padding-line-between-statements": "error",
 		"prefer-arrow-callback": "warn",

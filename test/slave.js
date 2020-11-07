@@ -67,19 +67,13 @@ describe("Slave testing", function() {
 
 		it("should throw on CON, PRN, AUX, NUL, COM1, LPT1", function() {
 			for (let bad of ["CON", "PRN", "AUX", "NUL", "COM1", "LPT1"]) {
-				check(
-					bad, "cannot be named any of . .."
-					+" CON PRN AUX NUL COM1-9 and LPT1-9"
-				);
+				check(bad, "cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9");
 			}
 		});
 
 		it("should throw on . and ..", function() {
 			for (let bad of [".", ".."]) {
-				check(
-					bad, "cannot be named any of . .."
-					+" CON PRN AUX NUL COM1-9 and LPT1-9"
-				);
+				check(bad, "cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9");
 			}
 		});
 
