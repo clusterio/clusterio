@@ -311,7 +311,7 @@ and requests.  Events are simple one-way notifications that invoke a
 handler on the target it's sent to.  Requests are pairs of request and
 response messages where the request is sent to the target and the
 response is the reply back from the target.  The requests are similar to
-HTTP requests, in that both parties of a link may initiate one.
+HTTP requests, except both parties of a link may initiate one.
 
 
 ### Defining Events
