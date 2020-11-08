@@ -6,7 +6,7 @@ const { Content } = Layout;
 
 export default function PageLayout(props) {
 	return <>
-		<Breadcrumb style={{ margin: "16px 0 16px 28px" }}>
+		<Breadcrumb className="site-breadcrumb">
 			{props.nav.map((part, index) => <Breadcrumb.Item key={index}>
 				{part.path ? <Link to={part.path}>{part.name}</Link> : part.name}
 			</Breadcrumb.Item>)}

@@ -26,6 +26,38 @@ body {
 	flex-grow: 0;
 }
 
+.site-layout {
+	overflow-x: hidden;
+}
+
+.site-layout-content-container {
+	min-width: 100%;
+}
+
+.site-breadcrumb {
+	margin: 16px 0 16px 52px;
+}
+
+@media (min-width: 576px) {
+	.site-layout-content-container {
+		padding: 0 24px 24px;
+	}
+
+	.site-breadcrumb {
+		margin-left: 28px;
+	}
+}
+
+@media (min-width: 768px) {
+	.site-layout {
+		overflow-x: initial;
+	}
+
+	.site-layout-content-container {
+		min-width: initial;
+	}
+}
+
 .site-layout-sider {
 	z-index: 0;
 }
