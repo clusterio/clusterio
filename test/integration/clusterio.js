@@ -5,7 +5,7 @@ const path = require("path");
 
 const libLink = require("@clusterio/lib/link");
 
-const { slowTest, get, execCtl, sendRcon, getControl, instancesDir } = require("./index");
+const { slowTest, get, exec, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
 
 async function getInstances() {
@@ -19,6 +19,20 @@ async function checkInstanceStatus(id, status) {
 }
 
 describe("Integration of Clusterio", function() {
+	describe("clusteriomaster", function() {
+		describe("bootstrap generate-user-token", function() {
+			it("work for existing user", async function() {
+				await exec("node ../../packages/master bootstrap generate-user-token test");
+			});
+
+			it("fails if user does not exist", async function() {
+				await assert.rejects(
+					exec("node ../../packages/master bootstrap generate-user-token invalid")
+				);
+			});
+		});
+	});
+
 	describe("clusterioctl", function() {
 		describe("slave list", function() {
 			it("runs", async function() {

@@ -1578,6 +1578,7 @@ async function startServer() {
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
+				.command("generate-user-token <name>", "Generate authentication token for the given user")
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {
 						describe: "Path to output config (- for stdout)", type: "string",
@@ -1663,6 +1664,15 @@ async function startServer() {
 			admin.roles.add(adminRole);
 			admin.isAdmin = true;
 			await saveUsers(masterConfig.get("master.database_directory"), "users.json");
+
+		} else if (subCommand === "generate-user-token") {
+			let user = db.users.get(args.name);
+			if (!user) {
+				console.error(`No user named '${args.name}'`);
+				process.exitCode = 1;
+				return;
+			}
+			console.log(user.createToken(masterConfig.get("master.auth_secret")));
 
 		} else if (subCommand === "create-ctl-config") {
 			let admin = db.users.get(args.name);
