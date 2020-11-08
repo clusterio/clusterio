@@ -716,7 +716,7 @@ async function instanceManagement(instanceconfig) {
 							console.error(err);
 						} else if (response && response.body) {
 							// In the future we might be interested in whether or not we actually manage to send it, but honestly I don't care.
-							if (response.body.toLowerCase() !== "ok") {
+							if (typeof response.body !== "string" || response.body.toLowerCase() !== "ok") {
                                 console.log("Got no \"ok\" while registering our precense with master "+config.masterIP+" at " + payload.time);
                                 console.log(response.body);
                             }
