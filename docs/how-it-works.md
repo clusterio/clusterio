@@ -27,4 +27,4 @@ that log into instances under its control.  These accounts are used to
 store per player data and authorize management of the cluster.  By
 default users accounts are assigned a Player role that gives a limited
 read access to the cluster resources, and admins of the cluster can be
-assigned an Admin role to get access to manage it.
+assigned a Cluster Admin role to get access to manage it.

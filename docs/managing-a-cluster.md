@@ -107,7 +107,7 @@ Replaces the roles the user has in the cluster with a new list of roles.
 Calling with an empty roles argument will remove all roles from the
 user.
 
-By default there's a roled named Admin which grants access to
+By default there's a roled named Cluster Admin which grants access to
 everything and a role named Player which grants a limited read access to
 the cluster, see [the section on roles](#roles) for more information
 about setting up roles and permissions.

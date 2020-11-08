@@ -102,7 +102,7 @@ class Role {
 function ensureDefaultAdminRole(roles) {
 	let admin = roles.get(0);
 	if (!admin) {
-		admin = new Role({ id: 0, name: "Admin", description: "Cluster wide administrator." });
+		admin = new Role({ id: 0, name: "Cluster Admin", description: "Cluster wide administrator." });
 		roles.set(0, admin);
 	}
 	admin.permissions.add("core.admin");

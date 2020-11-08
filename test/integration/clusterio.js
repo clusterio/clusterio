@@ -312,7 +312,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
-				await execCtl("user set-roles temp Admin");
+				await execCtl('user set-roles temp "Cluster Admin"');
 				let result = await libLink.messages.listUsers.send(getControl());
 				let tempUser = result.list.find(user => user.name === "temp");
 				assert.deepEqual(tempUser.roles, [0]);
