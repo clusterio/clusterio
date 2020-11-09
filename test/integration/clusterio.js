@@ -185,6 +185,10 @@ describe("Integration of Clusterio", function() {
 					assert.equal(await sendRcon(44, `/config get ${configName}`), `${expectedResult}\n`);
 				}
 			});
+			it("should not change the instance status", async function() {
+				slowTest(this);
+				await checkInstanceStatus(44, "running");
+			});
 		});
 
 		describe("user set-admin/whitelisted/banned", function() {

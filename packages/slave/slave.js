@@ -139,6 +139,7 @@ class Instance extends libLink.Link{
 			stripPaths: this.config.get("factorio.strip_paths"),
 		};
 
+		this._status = "stopped";
 		this._running = false;
 		this.server = new libFactorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
@@ -181,9 +182,21 @@ class Instance extends libLink.Link{
 	}
 
 	notifyStatus(status) {
+		this._status = status;
 		libLink.messages.instanceStatusChanged.send(this, {
 			instance_id: this.config.get("instance.id"), status,
 		});
+	}
+
+	/**
+	 * Current state of the instance
+	 *
+	 * One of stopped, starting, running, creating_save and exporting_data
+	 *
+	 * @returns {string} instance status.
+	 */
+	get status() {
+		return this._status;
 	}
 
 	notifyExit() {
@@ -220,6 +233,7 @@ class Instance extends libLink.Link{
 	}
 
 	async init(pluginInfos) {
+		this.notifyStatus("starting");
 		await this.server.init();
 
 		// load plugins
@@ -1088,7 +1102,6 @@ class Slave extends libLink.Link {
 		if (instanceInfo) {
 			instanceInfo.config.update(serialized_config, true);
 			console.log(`Clusterio | Updated config for ${instanceInfo.path}`);
-			// TODO: Notify of update if instance is running
 
 		} else {
 			let instanceConfig = new libConfig.InstanceConfig();
@@ -1104,8 +1117,17 @@ class Slave extends libLink.Link {
 			};
 			this.instanceInfos.set(instance_id, instanceInfo);
 			console.log(`Clusterio | assigned instance ${instanceConfig.get("instance.name")}`);
+
 		}
 
+		// Somewhat hacky, but in the event of a lost session the status is
+		// resent on assigment since the master server sends an assigment
+		// request for all the instances it knows should be on this slave.
+		let instanceConnection = this.instanceConnections.get(instance_id);
+		libLink.messages.instanceStatusChanged.send(this, {
+			instance_id,
+			status: instanceConnection ? instanceConnection.status : "stopped",
+		});
 
 		// save a copy of the instance config
 		let warnedOutput = {
@@ -1116,9 +1138,6 @@ class Slave extends libLink.Link {
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
 		);
-
-		// Notify master the instance is no longer usassigned
-		libLink.messages.instanceStatusChanged.send(this, { instance_id, status: "stopped" });
 	}
 
 	/**
@@ -1142,10 +1161,10 @@ class Slave extends libLink.Link {
 		let instance = new Instance(
 			this, connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
 		);
+
+		this.instanceConnections.set(instanceId, instanceConnection);
 		await instance.init(this.pluginInfos);
 
-		// XXX: race condition on multiple simultanious calls
-		this.instanceConnections.set(instanceId, instanceConnection);
 		return instanceConnection;
 	}
 
