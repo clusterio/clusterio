@@ -251,6 +251,12 @@ FactorioGroup.define({
 	},
 });
 FactorioGroup.define({
+	name: "verbose_logging",
+	description: "Enable verbose logging on the Factorio server",
+	type: "boolean",
+	initial_value: false,
+});
+FactorioGroup.define({
 	name: "strip_paths",
 	description: "Strip down instance paths in the log",
 	type: "boolean",

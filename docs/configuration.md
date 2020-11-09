@@ -280,6 +280,14 @@ here overrides the properties there.
 Defaults to {"tags":["clusterio"],"auto_pause":false}.
 
 
+### factorio.verbose_logging
+
+Pass the `--verbose` flag to Factorio when starting the server.  This
+prints more messages to the log.
+
+Defaults to false
+
+
 ### factorio.strip_paths
 
 Strip down absolute paths in the server log going to files inside the

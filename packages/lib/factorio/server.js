@@ -513,6 +513,8 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {number} options.gamePort - UDP port to host game on.
 	 * @param {number} options.rconPort - TCP port to use for RCON.
 	 * @param {string} options.rconPassword - Password use for RCON.
+	 * @param {boolean} options.enableWhitelist - Turn on whitelisting.
+	 * @param {boolean} options.verboseLogging - Enable verbose logging.
 	 * @param {boolean} options.stripPaths - Strip paths in the console.
 	 */
 	constructor(factorioDir, writeDir, options) {
@@ -534,6 +536,8 @@ class FactorioServer extends events.EventEmitter {
 		this.rconPassword = options.rconPassword;
 		/** Enable player whitelist */
 		this.enableWhitelist = options.enableWhitelist;
+		/** Enable verbose logging */
+		this.verboseLogging = options.verboseLogging;
 		this._state = "new";
 		this._server = null;
 		this._rconClient = null;
@@ -810,6 +814,7 @@ class FactorioServer extends events.EventEmitter {
 			[
 				"--config", this.writePath("config.ini"),
 				"--create", this.writePath("saves", name),
+				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
 				detached: true,
@@ -852,6 +857,7 @@ class FactorioServer extends events.EventEmitter {
 				"--rcon-port", this.rconPort,
 				"--rcon-password", this.rconPassword,
 				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
+				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
 				detached: true,
@@ -886,6 +892,7 @@ class FactorioServer extends events.EventEmitter {
 				"--rcon-port", this.rconPort,
 				"--rcon-password", this.rconPassword,
 				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
+				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
 				detached: true,
