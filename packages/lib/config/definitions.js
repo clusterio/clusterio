@@ -78,7 +78,7 @@ MasterGroup.define({
 	title: "Heartbeat Interval",
 	description: "Interval heartbeats are sent out on WebSocket connections",
 	type: "number",
-	initial_value: 60,
+	initial_value: 45,
 });
 MasterGroup.define({
 	name: "connector_shutdown_timeout",

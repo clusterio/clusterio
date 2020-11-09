@@ -84,7 +84,7 @@ heartbeat interval it will be considered stale and closed.  A lower
 value means less time between connections going stale and them being
 closed.
 
-Defaults to 60
+Defaults to 45
 
 
 ### master.connector_shutdown_timeout
