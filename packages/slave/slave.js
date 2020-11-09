@@ -135,6 +135,7 @@ class Instance extends libLink.Link{
 			rconPort: this.config.get("factorio.rcon_port"),
 			rconPassword: this.config.get("factorio.rcon_password"),
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
+			stripPaths: this.config.get("factorio.strip_paths"),
 		};
 
 		this._running = false;

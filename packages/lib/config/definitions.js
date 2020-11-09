@@ -251,6 +251,12 @@ FactorioGroup.define({
 	},
 });
 FactorioGroup.define({
+	name: "strip_paths",
+	description: "Strip down instance paths in the log",
+	type: "boolean",
+	initial_value: true,
+});
+FactorioGroup.define({
 	name: "sync_adminlist",
 	description: "Synchronize adminlist with master server",
 	type: "boolean",

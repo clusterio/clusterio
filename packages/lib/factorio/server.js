@@ -13,6 +13,22 @@ const libErrors = require("@clusterio/lib/errors");
 
 
 /**
+ * Escapes text for inclusion in a RegExp
+ *
+ * Adds \ character in front of special meta characters in the passsed in
+ * text so that it can be embedded into a RegExp and only match the text.
+ *
+ * See https://stackoverflow.com/a/9310752
+ *
+ * @param {string} text - Text to escape RegExp meta chars in.
+ * @returns {string} escaped text.
+ * @inner
+ */
+function escapeRegExp(text) {
+	return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+}
+
+/**
  * Determines the version of Factorio the datadir is pointing to by
  * reading the changelog.txt in it.
  *
@@ -497,6 +513,7 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {number} options.gamePort - UDP port to host game on.
 	 * @param {number} options.rconPort - TCP port to use for RCON.
 	 * @param {string} options.rconPassword - Password use for RCON.
+	 * @param {boolean} options.stripPaths - Strip paths in the console.
 	 */
 	constructor(factorioDir, writeDir, options) {
 		super();
@@ -522,6 +539,19 @@ class FactorioServer extends events.EventEmitter {
 		this._rconClient = null;
 		this._rconReady = false;
 		this._gameReady = false;
+
+		if (options.stripPaths) {
+			let chars = new Set(this.writePath("temp"));
+			chars.delete(":"); // Having a colon could lead to matching the line number
+			chars = [...chars].join("");
+
+			this._stripRegExp = new RegExp(
+				`(${escapeRegExp(this.writePath("temp", "currently-playing", path.sep))})|` +
+				`(${escapeRegExp(this.writePath(path.sep))})|` +
+				`(\\.\\.\\.[${chars}]*?currently-playing\\${path.sep})`,
+				"g"
+			);
+		}
 
 		// Array of possible causes for an unexpected shutdown
 		this._unexpected = [];
@@ -606,7 +636,13 @@ class FactorioServer extends events.EventEmitter {
 
 		this.emit(source, line);
 
-		let output = parseOutput(line.toString("utf-8"), source);
+		line = line.toString("utf-8");
+		if (this._stripRegExp) {
+			line = line.replace(this._stripRegExp, "");
+		}
+
+
+		let output = parseOutput(line, source);
 		heuristicLoop: for (let heuristic of outputHeuristics) {
 			for (let [name, expected] of Object.entries(heuristic.filter)) {
 				if (!Object.hasOwnProperty.call(output, name)) {

@@ -280,6 +280,26 @@ here overrides the properties there.
 Defaults to {"tags":["clusterio"],"auto_pause":false}.
 
 
+### factorio.strip_paths
+
+Strip down absolute paths in the server log going to files inside the
+instance directory such that they are relative to the instance
+directory.  This improves the signal to noise ratio of the log.
+
+Sample output when disabled:
+
+    0.487 Loading map /srv/clusterio/instances/test/saves/world.zip: 2615888 bytes.
+    0.614 Checksum for script /srv/clusterio/instances/test/temp/currently-playing/control.lua: 2390553941
+    1.277 Script @/srv/clusterio/instances/test/temp/currently-playing/modules/example/test.lua:7: Example log line.
+
+Sample output when enabled:
+
+    0.487 Loading map saves/world.zip: 2615888 bytes.
+    0.614 Checksum for script temp/currently-playing/control.lua: 2390553941
+    1.277 Script @modules/example/test.lua:7: Example log line.
+
+Defaults to true
+
 ### factorio.sync_adminlist
 
 Synchronize in-game admin list with admin status of the users in
