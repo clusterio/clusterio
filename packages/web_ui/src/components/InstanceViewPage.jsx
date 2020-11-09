@@ -83,7 +83,11 @@ function formatOutputColored(output, key) {
 	let info = "";
 	if (output.type === "log") {
 		let level = output.level;
-		if (level === "Info") {
+		if (level === "Script") {
+			level = <span className="factorio-script">{level}</span>;
+		} else if (level === "Verbose") {
+			level = <span className="factorio-verbose">{level}</span>;
+		} else if (level === "Info") {
 			level = <span className="factorio-info">{level}</span>;
 		} else if (output.level === "Warning") {
 			level = <span className="factorio-warning">{level}</span>;

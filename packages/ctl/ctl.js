@@ -43,7 +43,11 @@ function formatOutputColored(output) {
 	let info = "";
 	if (output.type === "log") {
 		let level = output.level;
-		if (level === "Info") {
+		if (level === "Script") {
+			level = chalk.bold.greenBright(level);
+		} else if (level === "Verbose") {
+			level = chalk.bold.gray(level);
+		} else if (level === "Info") {
 			level = chalk.bold.blueBright(level);
 		} else if (output.level === "Warning") {
 			level = chalk.bold.yellowBright(level);

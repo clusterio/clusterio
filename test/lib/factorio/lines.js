@@ -143,6 +143,51 @@ let testLines = new Map([
 			message: "Saving finished",
 		},
 	],
+	[
+		"   1.277 Script @/srv/clusterio/instances/test/temp/currently-playing/modules/example/test.lua:7: " +
+		"Example log line.",
+		{
+			format: "seconds",
+			time: "1.277",
+			type: "log",
+			level: "Script",
+			file: "@/srv/clusterio/instances/test/temp/currently-playing/modules/example/test.lua:7",
+			message: "Example log line.",
+		},
+	],
+	[
+		"   1.277 Script @C:\\My Cluster\\temp\\current-save\\file.lua:7: Contrived :12: example",
+		{
+			format: "seconds",
+			time: "1.277",
+			type: "log",
+			level: "Script",
+			file: "@C:\\My Cluster\\temp\\current-save\\file.lua:7",
+			message: "Contrived :12: example",
+		},
+	],
+	[
+		" 344.683 Script =(command):1: test",
+		{
+			format: "seconds",
+			time: "344.683",
+			type: "log",
+			level: "Script",
+			file: "=(command):1",
+			message: "test",
+		},
+	],
+	[
+		"   0.751 Verbose ModManager.cpp:554: Time to load mods: 0.746762",
+		{
+			format: "seconds",
+			time: "0.751",
+			type: "log",
+			level: "Verbose",
+			file: "ModManager.cpp:554",
+			message: "Time to load mods: 0.746762",
+		},
+	],
 ]);
 
 module.exports = {

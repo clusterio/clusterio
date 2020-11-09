@@ -318,13 +318,15 @@ function parseOutput(line, source) {
 		// A seconds output has two different kinds of formats: The first is a
 		// log level and source location and has a format of
 		// "Level File.cpp:123: message"
-		const secLogRegex = /^(\w+) (\w+\.cpp:\d+): (.*)$/;
+		// "Script @/path/to/file.lua:123: message"
+		// "Script =(command):123: message"
+		const secLogRegex = /^(\w+) ((\w+\.cpp:\d+)|([@=].*?:\d+)): (.*)$/;
 		let secLogMatch = secLogRegex.exec(secContent);
 		if (secLogMatch) {
 			output.type = "log";
 			output.level = secLogMatch[1];
 			output.file = secLogMatch[2];
-			output.message = secLogMatch[3];
+			output.message = secLogMatch[5];
 
 		// The other possibility is that the content is a generic message
 		} else {
