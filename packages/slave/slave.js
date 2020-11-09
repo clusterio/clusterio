@@ -28,6 +28,7 @@ const libFileOps = require("@clusterio/lib/file_ops");
 const libFactorio = require("@clusterio/lib/factorio");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libLuaTools = require("@clusterio/lib/lua_tools");
@@ -1394,7 +1395,7 @@ async function startSlave() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Slave config", libConfig.configCommand)
+		.command("config", "Manage Slave config", libSharedCommands.configCommand)
 		.command("run", "Run slave")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -1419,7 +1420,7 @@ async function startSlave() {
 	}
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
@@ -1439,7 +1440,7 @@ async function startSlave() {
 	}
 
 	if (command === "config") {
-		await libConfig.handleConfigCommand(args, slaveConfig, args.config);
+		await libSharedCommands.handleConfigCommand(args, slaveConfig, args.config);
 		return;
 	}
 

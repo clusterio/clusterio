@@ -21,7 +21,7 @@ MasterConfigGroup.define({
 });
 MasterConfigGroup.define({
 	name: "log_item_transfers",
-	title: "Log Item Trassfers",
+	title: "Log Item Transfers",
 	description: "Spam master console with item transfers done.",
 	type: "boolean",
 	initial_value: false,
@@ -32,7 +32,7 @@ class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
 InstanceConfigGroup.groupName = "subspace_storage";
 InstanceConfigGroup.define({
 	name: "log_item_transfers",
-	title: "Log Item Trassfers",
+	title: "Log Item Transfers",
 	description: "Spam slave console with item transfers done.",
 	type: "boolean",
 	initial_value: false,

@@ -110,6 +110,13 @@ exist in the cluster and grant it full cluster admin permission.  You
 should be using your own Factorio multiplayer username here.
 
 
+#### `bootstrap generate-user-token <name>`
+
+Generate an access token for logging in and possibly managing the
+cluster from the given user account.  This can be used both in the web
+interface and as the `master_token` to connect with clusterioctl.
+
+
 #### `bootstrap create-ctl-config <name>`
 
 Creates a clusterioctl config for the given user with url and token set

@@ -48,10 +48,11 @@ export default function SiteLayout(props) {
 				<Menu.Item key="1">Dashboard</Menu.Item>
 			</Menu>
 		</Header>
-		<Layout>
+		<Layout className="site-layout">
 			<Sider
 				collapsible
 				collapsedWidth={0}
+				breakpoint="md"
 				zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
 				width={250}
 				className="site-layout-sider"
@@ -65,7 +66,7 @@ export default function SiteLayout(props) {
 					{sidebar.map(({name, path}) => <Menu.Item key={path}>{name}</Menu.Item>)}
 				</Menu>
 			</Sider>
-			<Layout style={{ padding: "0 24px 24px" }}>
+			<Layout className="site-layout-content-container">
 				<Switch>
 					{sidebar.map(({path, content}) => <Route exact path={path} key={path}>
 						<SetSidebar path={path} />

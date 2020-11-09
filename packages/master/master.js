@@ -49,6 +49,7 @@ const libSchema = require("@clusterio/lib/schema");
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
 const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libConfig = require("@clusterio/lib/config");
 const libUsers = require("@clusterio/lib/users");
@@ -598,7 +599,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async generateSlaveTokenRequestHandler(message) {
-		return { token: generateSlaveToken(message.data.slave_id) };
+		return { token: this.generateSlaveToken(message.data.slave_id) };
 	}
 
 	async createSlaveConfigRequestHandler(message) {
@@ -1429,7 +1430,8 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		return;
 	}
 
-	let sessionId = nextSessionId++;
+	let sessionId = nextSessionId;
+	nextSessionId += 1;
 	let sessionToken = jwt.sign({ aud: masterSession, sid: sessionId }, masterConfig.get("master.auth_secret"));
 	let connector = new WebSocketServerConnector(socket, sessionId);
 	activeConnectors.set(sessionId, connector);
@@ -1572,10 +1574,11 @@ async function startServer() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Master config", libConfig.configCommand)
+		.command("config", "Manage Master config", libSharedCommands.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
+				.command("generate-user-token <name>", "Generate authentication token for the given user")
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {
 						describe: "Path to output config (- for stdout)", type: "string",
@@ -1610,7 +1613,7 @@ async function startServer() {
 	}
 
 	console.log("Loading Plugin info");
-	pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
@@ -1639,7 +1642,7 @@ async function startServer() {
 	}
 
 	if (command === "config") {
-		await libConfig.handleConfigCommand(args, masterConfig, masterConfigPath);
+		await libSharedCommands.handleConfigCommand(args, masterConfig, masterConfigPath);
 		return;
 
 	} else if (command === "bootstrap") {
@@ -1661,6 +1664,15 @@ async function startServer() {
 			admin.roles.add(adminRole);
 			admin.isAdmin = true;
 			await saveUsers(masterConfig.get("master.database_directory"), "users.json");
+
+		} else if (subCommand === "generate-user-token") {
+			let user = db.users.get(args.name);
+			if (!user) {
+				console.error(`No user named '${args.name}'`);
+				process.exitCode = 1;
+				return;
+			}
+			console.log(user.createToken(masterConfig.get("master.auth_secret")));
 
 		} else if (subCommand === "create-ctl-config") {
 			let admin = db.users.get(args.name);

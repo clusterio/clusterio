@@ -17,6 +17,7 @@ const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
 const libConfig = require("@clusterio/lib/config");
 const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libCommand = require("@clusterio/lib/command");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 
@@ -73,7 +74,7 @@ slaveCommands.add(new libCommand.Command({
 		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", demandOption: true });
 	}],
 	handler: async function(args, control) {
-		let response = await link.messages.generateSlaveToken.send(control, { slave_id: args.id });
+		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: args.id });
 		console.log(response.token);
 	},
 }));
@@ -594,7 +595,7 @@ async function startControl() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("control-config", "Manage Control config", libConfig.configCommand)
+		.command("control-config", "Manage Control config", libSharedCommands.configCommand)
 		.wrap(yargs.terminalWidth())
 		.help(false) // Disable help to avoid triggering it on the first parse.
 	;
@@ -628,7 +629,7 @@ async function startControl() {
 	rootCommands.add(debugCommands);
 
 	console.log("Loading Plugin info");
-	let pluginInfos = await libPlugin.loadPluginInfos(pluginList);
+	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
@@ -680,7 +681,7 @@ async function startControl() {
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await libConfig.handleConfigCommand(args, controlConfig, args.config);
+		await libSharedCommands.handleConfigCommand(args, controlConfig, args.config);
 		return;
 	}
 

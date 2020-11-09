@@ -46,7 +46,7 @@ describe("global_chat plugin", function() {
 						instancePlugin.instance.connector.sentMessages = [];
 						await instancePlugin.onOutput(output);
 						assert(instancePlugin.instance.connector.sentMessages.length, "message was not sent");
-						count++;
+						count += 1;
 					}
 				}
 				assert(count > 0, "no lines were tested");
@@ -58,7 +58,7 @@ describe("global_chat plugin", function() {
 						instancePlugin.instance.connector.sentMessages = [];
 						await instancePlugin.onOutput(output);
 						assert(!instancePlugin.instance.connector.sentMessages.length, "message was sent");
-						count++;
+						count += 1;
 					}
 				}
 				assert(count > 0, "no lines were tested");

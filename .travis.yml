@@ -9,7 +9,7 @@ script:
   - npx lerna bootstrap --no-ci
   - node packages/lib/build_mod --source-dir packages/slave/lua/clusterio_lib --bump-patch --factorio-version 0.18 --output-dir temp/test/sharedMods
   - curl -o temp/test/sharedMods/subspace_storage_1.99.1.zip -L https://github.com/clusterio/factorioClusterioMod/releases/download/1.99.1/subspace_storage_1.99.1.zip
+  - npx lerna run build
   - npm run-script ci-cover
-  - cat temp/test/integration/log.txt
   - codecov -f coverage/lcov.info
   - npm run-script lint

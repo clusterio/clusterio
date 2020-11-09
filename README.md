@@ -55,11 +55,11 @@ cloud storage of items via teleporter chests.  But this functionality
 has been pulled out of Clusterio into its own plugin for Clusterio named
 [Subspace Storage](https://github.com/clusterio/factorioClusterioMod).
 
-By itself Clusterio does change the gameplay in any way, you could even
-use Clusterio to manage completely vanilla Factorio servers.  Plugins do
-the work of modding in the visible changes into the game, see the
-[Plugins section](#plugins) for ready made plugins you can install into
-a Clusterio cluster.
+By itself Clusterio doesn't change the gameplay in any way, you could
+even use Clusterio to manage completely vanilla Factorio servers.
+Plugins do the work of modding in the visible changes into the game, see
+the [Plugins section](#plugins) for ready made plugins you can install
+into a Clusterio cluster.
 
 
 ## Features
