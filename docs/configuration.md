@@ -129,7 +129,7 @@ Defaults to "New Slave".
 
 ### slave.id
 
-Imutable numeric id of the slave which uniquely identifies this slave in
+Immutable numeric id of the slave which uniquely identifies this slave in
 the cluster.
 
 Defaults to a random 31 bit number.
