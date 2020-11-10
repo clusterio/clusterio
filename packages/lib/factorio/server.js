@@ -554,7 +554,7 @@ class FactorioServer extends events.EventEmitter {
 			this._stripRegExp = new RegExp(
 				`(${escapeRegExp(this.writePath("temp", "currently-playing", path.sep))})|` +
 				`(${escapeRegExp(this.writePath(path.sep))})|` +
-				`(\\.\\.\\.[${chars}]*?currently-playing\\${path.sep})`,
+				`(\\.\\.\\.[${escapeRegExp(chars)}]*?currently-playing\\${path.sep})`,
 				"g"
 			);
 		}
