@@ -3,6 +3,25 @@
 const libSchema = require("@clusterio/lib/schema");
 const libErrors = require("@clusterio/lib/errors");
 
+class MissingLinkHandlerError extends Error {
+	constructor(type, source, target) {
+		super();
+		this.code = "MISSING_LINK_HANDLER";
+		this.type = type;
+		this.source = source;
+		this.target = target;
+		this.handler = null;
+		this.plugin = null;
+	}
+
+	get message() {
+		let handler = this.handler ? `${this.handler}` : "handler";
+		let plugin = this.plugin ? ` on plugin ${this.plugin}` : "";
+
+		return `Missing ${handler}${plugin} for ${this.type} on ${this.source}-${this.target} link`;
+	}
+}
+
 /**
  * Represents a message that can be sent over the link
  *
@@ -168,7 +187,7 @@ class Request extends Message {
 			}
 
 			if (!handler) {
-				throw new Error(`Missing handler for ${this.requestType} on ${link.source}-${link.target} link`);
+				throw new MissingLinkHandlerError(this.requestType, link.source, link.target);
 			}
 
 			// Check permission if this is a handler for a control connection on the master
@@ -766,7 +785,7 @@ class Event extends Message {
 			}
 
 			if (!handler) {
-				throw new Error(`Missing handler for ${this.eventType} on ${link.source}-${link.target} link`);
+				throw new MissingLinkHandlerError(this.eventType, link.source, link.target);
 			}
 
 			link.setHandler(this.eventType, message => {
@@ -959,7 +978,15 @@ messages.playerEvent = new Event({
  */
 function attachAllMessages(link) {
 	for (let [name, message] of Object.entries(messages)) {
-		message.attach(link, link[name + message.handlerSuffix]);
+		let handler = `${name}${message.handlerSuffix}`;
+		try {
+			message.attach(link, link[handler]);
+		} catch (err) {
+			if (err.code === "MISSING_LINK_HANDLER") {
+				err.handler = handler;
+			}
+			throw err;
+		}
 	}
 }
 
