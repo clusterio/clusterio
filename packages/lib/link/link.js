@@ -39,6 +39,18 @@ class Link {
 					if (err.errors) {
 						console.error(err.errors);
 					}
+
+					// Send back an error response if this was a request.
+					if (
+						typeof payload.type === "string"
+						&& payload.type.endsWith("_request")
+						&& Number.isInteger(payload.seq)
+					) {
+						this.connector.send(
+							`${payload.type.slice(0, -8)}_response`,
+							{ seq: payload.seq, error: err.message }
+						);
+					}
 				} else {
 					this.connector.emit("error", err);
 				}
