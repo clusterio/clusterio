@@ -810,6 +810,22 @@ class InstanceConnection extends libLink.Link {
 		return await request.send(this.slave, message.data);
 	}
 
+	async forwardRequestToInstance(message, request) {
+		let instanceId = message.data.instance_id;
+		let instanceConnection = this.slave.instanceConnections.get(instanceId);
+		if (!instanceConnection) {
+			// Instance is probably on another slave
+			return await request.send(this.slave, message.data);
+		}
+
+		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
+			throw new libErrors.RequestError(`Instance ID ${instanceId} does not have ${request.plugin} plugin loaded`);
+		}
+
+		return await request.send(instanceConnection, message.data);
+	}
+
+
 	async forwardEventToInstance(message, event) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
