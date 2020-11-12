@@ -656,7 +656,7 @@ messages.deleteUser = new Request({
 });
 
 messages.getMetrics = new Request({
-	type: "statistics_exporter:get_metrics",
+	type: "get_metrics",
 	links: ["master-slave", "slave-instance"],
 	responseProperties: {
 		"results": { type: "array" },
