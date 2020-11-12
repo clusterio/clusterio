@@ -172,6 +172,7 @@ describe("lib/factorio/server", function() {
 
 		describe("constructor()", function() {
 			it("should handle dashes in write path with strapPaths enabled", function() {
+				// eslint-disable-next-line no-new
 				new libFactorio.FactorioServer(
 					path.join("test", "file", "factorio"),
 					path.join("temp", "test", "server-1"),

@@ -41,8 +41,8 @@ describe("lib/link/link", function() {
 			assert.deepEqual(testConnector.sentMessages, [{
 				type: "unhandled_response",
 				seq: testConnector._seq - 1,
-				data: { seq: 1, error: "No validator for unhandled_request on source-target" } },
-			])
+				data: { seq: 1, error: "No validator for unhandled_request on source-target" },
+			}]);
 		});
 
 		describe(".setValidator()", function() {
