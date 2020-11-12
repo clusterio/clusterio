@@ -106,11 +106,13 @@ function formatOutputColored(output, key) {
 
 function InstanceConsole(props) {
 	let control = useContext(ControlContext);
-	let [lines, setLines] = useState([{ message: "<previous messages are not shown>" }]);
+	let [lines, setLines] = useState([<span key={0}>{"<previous messages are not shown>"}<br/></span>]);
 
 	useEffect(() => {
 		function outputHandler(output) {
-			setLines(currentLines => currentLines.concat([output]));
+			setLines(currentLines => currentLines.concat(
+				[formatOutputColored(output, currentLines.length)]
+			));
 		}
 
 		control.onInstanceOutput(props.id, outputHandler);
@@ -121,7 +123,7 @@ function InstanceConsole(props) {
 
 	return <>
 		<Paragraph code className="instance-console">
-			{lines.map(formatOutputColored)}
+			{lines}
 			<div className="scroll-anchor" />
 		</Paragraph>
 	</>;
