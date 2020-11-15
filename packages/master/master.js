@@ -54,6 +54,7 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const libConfig = require("@clusterio/lib/config");
 const libUsers = require("@clusterio/lib/users");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
+const libHelpers = require("@clusterio/lib/helpers");
 
 const express = require("express");
 const compression = require("compression");
@@ -147,8 +148,7 @@ async function getMetrics(req, res, next) {
 
 	let requests = [];
 	for (let slaveConnection of slaveConnections.values()) {
-		// XXX this needs a timeout
-		requests.push(libLink.messages.getMetrics.send(slaveConnection));
+		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), 8e3, null));
 	}
 
 	for await (let result of await libPrometheus.defaultRegistry.collect()) {
@@ -157,6 +157,11 @@ async function getMetrics(req, res, next) {
 
 	let resultMap = new Map();
 	for (let response of await Promise.all(requests)) {
+		if (!response) {
+			// TODO: Log timeout occured?
+			continue;
+		}
+
 		for (let result of response.results) {
 			if (!resultMap.has(result.metric.name)) {
 				resultMap.set(result.metric.name, result);
