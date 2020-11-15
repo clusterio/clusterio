@@ -35,6 +35,16 @@ describe("lib/link/link", function() {
 			await assert.rejects(result, new Error("Handler error"));
 		});
 
+		it("should give an error response back on an unhandled request", function() {
+			testConnector.sentMessages = [];
+			testConnector.emit("message", { seq: 1, type: "unhandled_request", data: {}});
+			assert.deepEqual(testConnector.sentMessages, [{
+				type: "unhandled_response",
+				seq: testConnector._seq - 1,
+				data: { seq: 1, error: "No validator for unhandled_request on source-target" },
+			}]);
+		});
+
 		describe(".setValidator()", function() {
 			it("should set the validator", function() {
 				testLink.setValidator("test", () => true);

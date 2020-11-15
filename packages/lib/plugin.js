@@ -402,13 +402,23 @@ function attachPluginMessages(link, pluginInfo, plugin) {
 		}
 
 		let handler = name + messageFormat.handlerSuffix;
-		if (plugin === null || !plugin[handler]) {
-			messageFormat.attach(link);
+		try {
+			if (plugin === null || !plugin[handler]) {
+				messageFormat.attach(link);
 
-		} else {
-			messageFormat.attach(link, async function(message, format) {
-				return await plugin[handler](message, format, this);
-			});
+			} else {
+				messageFormat.attach(link, async function(message, format) {
+					return await plugin[handler](message, format, this);
+				});
+			}
+
+		} catch (err) {
+			if (err.code === "MISSING_LINK_HANDLER") {
+				err.plugin = pluginInfo.name;
+				err.handler = handler;
+			}
+
+			throw err;
 		}
 	}
 }

@@ -170,6 +170,17 @@ describe("lib/factorio/server", function() {
 		let writePath = path.join("temp", "test", "server");
 		let server = new libFactorio.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
 
+		describe("constructor()", function() {
+			it("should handle dashes in write path with strapPaths enabled", function() {
+				// eslint-disable-next-line no-new
+				new libFactorio.FactorioServer(
+					path.join("test", "file", "factorio"),
+					path.join("temp", "test", "server-1"),
+					{ stripPaths: true }
+				);
+			});
+		});
+
 		describe(".init()", function() {
 			it("should not throw on first call", async function() {
 				await server.init();

@@ -55,7 +55,7 @@ describe("lib/plugin", function() {
 		it("should throw if missing handler for the given message", function() {
 			assert.throws(
 				() => libPlugin.attachPluginMessages(mockLink, { name: "test", messages: { mockEvent }}, {}),
-				new Error("Missing handler for test:test_event on source-target link")
+				new Error("Missing mockEventEventHandler on plugin test for test:test_event on source-target link")
 			);
 		});
 		it("should throw if message starts with the wrong prefix", function() {

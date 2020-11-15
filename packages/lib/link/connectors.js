@@ -315,7 +315,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		this._socket.onerror = event => {
 			// It's assumed that close is always called by ws
-			console.error("SOCKET | Error:", event);
+			console.error("SOCKET | Error:", event.message || "unknown error");
 		};
 
 		this._socket.onopen = () => {

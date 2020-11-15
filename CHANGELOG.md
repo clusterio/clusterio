@@ -46,6 +46,7 @@ Version 2.0.0
   player data.
 - Added synchronization of in-game adminlist, banlist and whitelist to
   Clusterio core.  Previously this was handled by the playerManager plugin.
+- Added stripping of long paths in the Factorio server log.
 
 ### Changes
 

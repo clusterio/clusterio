@@ -78,7 +78,7 @@ MasterGroup.define({
 	title: "Heartbeat Interval",
 	description: "Interval heartbeats are sent out on WebSocket connections",
 	type: "number",
-	initial_value: 60,
+	initial_value: 45,
 });
 MasterGroup.define({
 	name: "connector_shutdown_timeout",
@@ -249,6 +249,18 @@ FactorioGroup.define({
 		"tags": ["clusterio"],
 		"auto_pause": false,
 	},
+});
+FactorioGroup.define({
+	name: "verbose_logging",
+	description: "Enable verbose logging on the Factorio server",
+	type: "boolean",
+	initial_value: false,
+});
+FactorioGroup.define({
+	name: "strip_paths",
+	description: "Strip down instance paths in the log",
+	type: "boolean",
+	initial_value: true,
 });
 FactorioGroup.define({
 	name: "sync_adminlist",

@@ -118,6 +118,16 @@ body {
 	color: #808080;
 }
 
+.instance-console .factorio-script {
+	font-weight: bold;
+	color: #49c33c;
+}
+
+.instance-console .factorio-verbose {
+	font-weight: bold;
+	color: #888888;
+}
+
 .instance-console .factorio-info {
 	font-weight: bold;
 	color: #4646ea;

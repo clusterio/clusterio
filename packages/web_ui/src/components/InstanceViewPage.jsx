@@ -83,7 +83,11 @@ function formatOutputColored(output, key) {
 	let info = "";
 	if (output.type === "log") {
 		let level = output.level;
-		if (level === "Info") {
+		if (level === "Script") {
+			level = <span className="factorio-script">{level}</span>;
+		} else if (level === "Verbose") {
+			level = <span className="factorio-verbose">{level}</span>;
+		} else if (level === "Info") {
 			level = <span className="factorio-info">{level}</span>;
 		} else if (output.level === "Warning") {
 			level = <span className="factorio-warning">{level}</span>;
@@ -102,11 +106,13 @@ function formatOutputColored(output, key) {
 
 function InstanceConsole(props) {
 	let control = useContext(ControlContext);
-	let [lines, setLines] = useState([{ message: "<previous messages are not shown>" }]);
+	let [lines, setLines] = useState([<span key={0}>{"<previous messages are not shown>"}<br/></span>]);
 
 	useEffect(() => {
 		function outputHandler(output) {
-			setLines(currentLines => currentLines.concat([output]));
+			setLines(currentLines => currentLines.concat(
+				[formatOutputColored(output, currentLines.length)]
+			));
 		}
 
 		control.onInstanceOutput(props.id, outputHandler);
@@ -117,7 +123,7 @@ function InstanceConsole(props) {
 
 	return <>
 		<Paragraph code className="instance-console">
-			{lines.map(formatOutputColored)}
+			{lines}
 			<div className="scroll-anchor" />
 		</Paragraph>
 	</>;

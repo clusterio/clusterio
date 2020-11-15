@@ -2,7 +2,7 @@ Clusterio Statistics Exporter Plugin
 ====================================
 
 Plugin exporting item production, fluid production, kill count, entity
-build and poluttion statistics to the Prometheus integration to
+build and pollution statistics to the Prometheus integration to
 Clusterio.
 
 

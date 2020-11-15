@@ -185,6 +185,10 @@ describe("Integration of Clusterio", function() {
 					assert.equal(await sendRcon(44, `/config get ${configName}`), `${expectedResult}\n`);
 				}
 			});
+			it("should not change the instance status", async function() {
+				slowTest(this);
+				await checkInstanceStatus(44, "running");
+			});
 		});
 
 		describe("user set-admin/whitelisted/banned", function() {
@@ -312,7 +316,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
-				await execCtl("user set-roles temp Admin");
+				await execCtl('user set-roles temp "Cluster Admin"');
 				let result = await libLink.messages.listUsers.send(getControl());
 				let tempUser = result.list.find(user => user.name === "temp");
 				assert.deepEqual(tempUser.roles, [0]);
