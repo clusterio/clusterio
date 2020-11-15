@@ -1,6 +1,7 @@
 "use strict";
 const libPlugin = require("@clusterio/lib/plugin");
 const { Gauge } = require("@clusterio/lib/prometheus");
+const libHelpers = require("@clusterio/lib/helpers");
 
 
 const instancePlayerCount = new Gauge(
@@ -28,7 +29,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 	}
 
-	async onMetrics() {
+	async gatherMetrics() {
 		let string = await this.instance.server.sendRcon("/sc statistics_exporter.export()");
 		let stats;
 		try {
@@ -60,6 +61,14 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 				).set(value);
 			}
 		}
+	}
+
+	async onMetrics() {
+		// Wait up to 5 seconds for the metrics to be collected.  It may
+		// take a long time for the command to go through if the command
+		// stream is overloaded.  Should this take more than 5 seconds the
+		// previous values for the metrics will end up being sent to master.
+		await libHelpers.timeout(this.gatherMetrics(), 5e3);
 	}
 }
 
