@@ -124,6 +124,9 @@ class Instance extends libLink.Link{
 			} else if (group.name === "factorio" && field === "enable_whitelist") {
 				this.updateFactorioWhitelist(group.get(field)).finally(hook);
 			} else {
+				if (group.name === "factorio" && field === "max_concurrent_commands") {
+					this.server.maxConcurrentCommands = group.get(field);
+				}
 				hook();
 			}
 		};
@@ -137,6 +140,7 @@ class Instance extends libLink.Link{
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
 			verboseLogging: this.config.get("factorio.verbose_logging"),
 			stripPaths: this.config.get("factorio.strip_paths"),
+			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
 		};
 
 		this._status = "stopped";

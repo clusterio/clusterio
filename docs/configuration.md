@@ -342,6 +342,39 @@ banned status while the instance is running.
 Defaults to true
 
 
+### factorio.max_concurrent_commands
+
+Maximum number of commands being transmitted into the game in parallel.
+Since the rate at which long commands are streamed into the game is by
+default limeted to 100 bytes/tick and scales down to 25 bytes/tick when
+there's 20 players connected, long commands can hold up the command
+interface and cause large latencies in getting data pushed into the
+game. (The rates are controlled by the `segment_size` options in the
+server settings.)  To counteract this Clusterio sends up to this
+configured value number of commands in parallel over the RCON interface.
+This causes the game updates sent to clients to have this many command
+streams in parallel contained in them, drastically increasing the
+maxiumum size they can become.  Since commands are only processed so
+ofter the maximum rate of commands that can be sustained is roughly 30
+times this configured value per second, though note that large commands
+will lower this value.
+
+The game updates sent by the server is split into roughly 500 byte
+packets, and if any one of those parts are lost the entire update is
+resent.  This means a high number of concurrent commands can amplify
+resends due to packet loss and degrade the player experience up to the
+point of becomming completely unplayable.
+
+Prior to 0.18.7 the maximum practical size of game update sent where
+arround 8 kB due to the UDP receive buffer on windows defaulting to this
+value, larger updates would not get through the receive buffer and cause
+the connection to drop.  To stay below the 8 kB limit the maximum safe
+value for this option would be around 7000 / (3 * game_speed *
+maximum_segment_size), which is around 20 in normal circumstances.
+
+Defaults to 5
+
+
 ### <plugin_name>.enabled
 
 Whether to enable the given plugin on the instance.  Note that plugins

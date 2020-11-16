@@ -280,6 +280,12 @@ FactorioGroup.define({
 	type: "boolean",
 	initial_value: true,
 });
+FactorioGroup.define({
+	name: "max_concurrent_commands",
+	description: "Maximum number of RCON commands trasmitted in parallel",
+	type: "number",
+	initial_value: 5,
+});
 FactorioGroup.finalize();
 
 /**
