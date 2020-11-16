@@ -819,7 +819,7 @@ class InstanceConnection extends libLink.Link {
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
 			// Instance is probably on another slave
-			return await request.send(this.slave, message.data);
+			return await this.forwardRequestToMaster(message, request);
 		}
 
 		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
@@ -835,7 +835,7 @@ class InstanceConnection extends libLink.Link {
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
 			// Instance is probably on another slave
-			await this.slave.forwardEventToMaster(message, event);
+			await this.forwardEventToMaster(message, event);
 			return;
 		}
 		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
