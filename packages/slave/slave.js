@@ -924,6 +924,7 @@ class Slave extends libLink.Link {
 			this.serverPlugins = new Map(Object.entries(data.plugins));
 		});
 
+		this._startup = true;
 		this._disconnecting = false;
 		this._shuttingDown = false;
 
@@ -1296,6 +1297,26 @@ class Slave extends libLink.Link {
 			});
 		}
 		await libLink.messages.updateInstances.send(this, { instances: list });
+
+		// Handle configured auto startup instances
+		if (this._startup) {
+			this._startup = false;
+
+			for (let [instanceId, instanceInfo] of this.instanceInfos) {
+				if (instanceInfo.config.get("instance.auto_start")) {
+					try {
+						let instanceConnection = await this._connectInstance(instanceId);
+						await libLink.messages.startInstance.send(instanceConnection, {
+							instance_id: instanceId,
+							save: null,
+						});
+					} catch (err) {
+						console.error(`Error during auto startup for ${instanceInfo.config.get("instance.name")}:`);
+						console.error(err);
+					}
+				}
+			}
+		}
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {

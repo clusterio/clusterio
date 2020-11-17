@@ -196,6 +196,12 @@ InstanceGroup.define({
 	type: "number",
 	optional: true,
 });
+InstanceGroup.define({
+	name: "auto_start",
+	description: "Automatically start this instance when the slave hosting it is started up",
+	type: "boolean",
+	initial_value: false,
+});
 InstanceGroup.finalize();
 
 /**
