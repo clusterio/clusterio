@@ -755,15 +755,16 @@ class Instance extends libLink.Link{
  * Searches for instances in the provided directory
  *
  * Looks through all sub-dirs of the provided directory for valid
- * instance definitions and updates the mapping of instance id to
+ * instance definitions and return a mapping of instance id to
  * instanceInfo objects.
  *
- * @param {Map<integer, Object>} instanceInfos -
- *     mapping between instance id and information about this instance.
  * @param {string} instancesDir - Directory containing instances
  * @param {Object} logger - console like logging interface.
+ * @returns {Map<integer, Object>}
+ *     mapping between instance id and information about this instance.
  */
-async function discoverInstances(instanceInfos, instancesDir, logger) {
+async function discoverInstances(instancesDir, logger) {
+	let instanceInfos = new Map();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
 			let instanceConfig = new libConfig.InstanceConfig();
@@ -781,11 +782,6 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 				continue;
 			}
 
-			// Ignore instances we have already discovered before.
-			if (instanceInfos.has(instanceConfig.get("instance.id"))) {
-				continue;
-			}
-
 			let instancePath = path.join(instancesDir, entry.name);
 			logger.log(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
@@ -794,6 +790,7 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 			});
 		}
 	}
+	return instanceInfos;
 }
 
 class InstanceConnection extends libLink.Link {
@@ -915,6 +912,7 @@ class Slave extends libLink.Link {
 		this.config = slaveConfig;
 
 		this.instanceConnections = new Map();
+		this.discoveredInstanceInfos = new Map();
 		this.instanceInfos = new Map();
 
 		this.adminlist = new Set();
@@ -1124,20 +1122,28 @@ class Slave extends libLink.Link {
 			console.log(`Clusterio | Updated config for ${instanceInfo.path}`);
 
 		} else {
-			let instanceConfig = new libConfig.InstanceConfig();
-			await instanceConfig.load(serialized_config);
+			instanceInfo = this.discoveredInstanceInfos.get(instance_id);
+			if (instanceInfo) {
+				instanceInfo.config.update(serialized_config, true);
 
-			// XXX: race condition on multiple simultanious calls
-			let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+			} else {
+				let instanceConfig = new libConfig.InstanceConfig();
+				await instanceConfig.load(serialized_config);
 
-			await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
-			instanceInfo = {
-				path: instanceDir,
-				config: instanceConfig,
-			};
+				// XXX: race condition on multiple simultanious calls
+				let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+
+				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
+				instanceInfo = {
+					path: instanceDir,
+					config: instanceConfig,
+				};
+
+				this.discoveredInstanceInfos.set(instance_id, instanceInfo);
+			}
+
 			this.instanceInfos.set(instance_id, instanceInfo);
-			console.log(`Clusterio | assigned instance ${instanceConfig.get("instance.name")}`);
-
+			console.log(`Clusterio | assigned instance ${instanceInfo.config.get("instance.name")}`);
 		}
 
 		// Somewhat hacky, but in the event of a lost session the status is
@@ -1158,6 +1164,20 @@ class Slave extends libLink.Link {
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
 		);
+	}
+
+	async unassignInstanceRequestHandler(message) {
+		let instanceId = message.data.instance_id;
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (instanceInfo) {
+			let instanceConnection = this.instanceConnections.get(instanceId);
+			if (instanceConnection && ["starting", "running"].includes(instanceConnection.status)) {
+				await libLink.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
+			}
+
+			this.instanceInfos.delete(instanceId);
+			console.log(`Clusterio | unassigned instance ${instanceInfo.config.get("instance.name")}`);
+		}
 	}
 
 	/**
@@ -1249,13 +1269,14 @@ class Slave extends libLink.Link {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
-		let instanceInfo = this.instanceInfos.get(instanceId);
+		let instanceInfo = this.discoveredInstanceInfos.get(instanceId);
 		if (!instanceInfo) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
-		await fs.remove(instanceInfo.path);
+		this.discoveredInstanceInfos.delete(instanceId);
 		this.instanceInfos.delete(instanceId);
+		await fs.remove(instanceInfo.path);
 	}
 
 	/**
@@ -1265,16 +1286,16 @@ class Slave extends libLink.Link {
 	 * the slave and master server with the new list of instances.
 	 */
 	async updateInstances() {
-		await discoverInstances(this.instanceInfos, this.config.get("slave.instances_directory"), console);
+		this.discoveredInstanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
 		let list = [];
-		for (let [instanceId, instanceInfo] of this.instanceInfos) {
+		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push({
 				serialized_config: instanceInfo.config.serialize(),
 				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
-		libLink.messages.updateInstances.send(this, { instances: list });
+		await libLink.messages.updateInstances.send(this, { instances: list });
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {

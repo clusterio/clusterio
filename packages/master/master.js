@@ -717,29 +717,43 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async assignInstanceCommandRequestHandler(message, request) {
-		let instance = db.instances.get(message.data.instance_id);
+		let { slave_id, instance_id } = message.data;
+		let instance = db.instances.get(instance_id);
 		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
 		}
 
-		// XXX: Should the instance be stopped if it's running on another slave?
-
-		let connection = slaveConnections.get(message.data.slave_id);
-		if (!connection) {
-			// The case of the slave not getting the assign instance message
-			// still have to be handled, so it's not a requirement that the
-			// target slave be connected to the master while doing the
-			// assignment, but it is IMHO a better user experience if this
-			// is the case.
-			throw new libErrors.RequestError("Target slave is not connected to the master server");
+		// Check if target slave is connected
+		let newSlaveConnection;
+		if (slave_id !== null) {
+			newSlaveConnection = slaveConnections.get(slave_id);
+			if (!newSlaveConnection) {
+				// The case of the slave not getting the assign instance message
+				// still have to be handled, so it's not a requirement that the
+				// target slave be connected to the master while doing the
+				// assignment, but it is IMHO a better user experience if this
+				// is the case.
+				throw new libErrors.RequestError("Target slave is not connected to the master server");
+			}
 		}
 
-		instance.config.set("instance.assigned_slave", message.data.slave_id);
+		// Unassign from currently assigned slave if it is connected.
+		let currentAssignedSlave = instance.config.get("instance.assigned_slave");
+		if (currentAssignedSlave !== null && slave_id !== currentAssignedSlave) {
+			let oldSlaveConnection = slaveConnections.get(currentAssignedSlave);
+			if (oldSlaveConnection && !oldSlaveConnection.connector.closing) {
+				await libLink.messages.unassignInstance.send(oldSlaveConnection, { instance_id });
+			}
+		}
 
-		return await libLink.messages.assignInstance.send(connection, {
-			instance_id: instance.config.get("instance.id"),
-			serialized_config: instance.config.serialize(),
-		});
+		// Assign to target
+		instance.config.set("instance.assigned_slave", slave_id);
+		if (slave_id !== null) {
+			await libLink.messages.assignInstance.send(newSlaveConnection, {
+				instance_id,
+				serialized_config: instance.config.serialize(),
+			});
+		}
 	}
 
 	async setInstanceOutputSubscriptionsRequestHandler(message) {
@@ -972,13 +986,23 @@ class SlaveConnection extends BaseConnection {
 
 	async instanceStatusChangedEventHandler(message, event) {
 		let instance = db.instances.get(message.data.instance_id);
+
+		// It's possible to get updates from an instance that does not exist
+		// or is not assigned to the slave it originated from if it was
+		// reassigned or deleted while the connection to the slave it was
+		// originally on was down at the time.
+		if (!instance || instance.config.get("instance.assigned_slave") !== this._id) {
+			console.log(`Clusterio | Got bogus update for instance id ${message.data.instance_id}`);
+			return;
+		}
+
 		let prev = instance.status;
 		instance.status = message.data.status;
 		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		await libPlugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
-	async updateInstancesEventHandler(message) {
+	async updateInstancesRequestHandler(message) {
 		// Push updated instance configs
 		for (let instance of db.instances.values()) {
 			if (instance.config.get("instance.assigned_slave") === this._id) {
@@ -996,10 +1020,21 @@ class SlaveConnection extends BaseConnection {
 
 			let masterInstance = db.instances.get(instanceConfig.get("instance.id"));
 			if (masterInstance) {
+				// Check if this instance is assigned somewhere else.
+				if (masterInstance.config.get("instance.assigned_slave") !== this._id) {
+					await libLink.messages.unassignInstance.send(this, {
+						instance_id: masterInstance.config.get("instance.id"),
+					});
+					continue;
+				}
+
 				// Already have this instance, update state instead
 				if (masterInstance.status !== instance.status) {
 					let prev = masterInstance.status;
 					masterInstance.status = instance.status;
+					console.log(
+						`Clusterio | Instance ${instanceConfig.get("instance.name")} State: ${instance.status}`
+					);
 					await libPlugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 				}
 				continue;

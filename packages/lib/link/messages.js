@@ -411,17 +411,8 @@ messages.assignInstanceCommand = new Request({
 	permission: "core.instance.assign",
 	requestProperties: {
 		"instance_id": { type: "integer" },
-		"slave_id": { type: "integer" },
+		"slave_id": { type: ["integer", "null"] },
 	},
-});
-
-messages.assignInstance = new Request({
-	type: "assign_instance",
-	links: ["master-slave"],
-	requestProperties: {
-		"serialized_config": { type: "object" },
-	},
-	forwardTo: "instance",
 });
 
 messages.startInstance = new Request({
@@ -655,6 +646,44 @@ messages.deleteUser = new Request({
 	},
 });
 
+
+// Internal requests
+messages.updateInstances = new Request({
+	type: "update_instances",
+	links: ["slave-master"],
+	requestProperties: {
+		"instances": {
+			type: "array",
+			items: {
+				type: "object",
+				additionalProperties: false,
+				required: ["serialized_config", "status"],
+				properties: {
+					"serialized_config": { type: "object" },
+					"status": { enum: [
+						"stopped", "starting", "running", "creating_save", "exporting_data",
+					]},
+				},
+			},
+		},
+	},
+});
+
+messages.assignInstance = new Request({
+	type: "assign_instance",
+	links: ["master-slave"],
+	requestProperties: {
+		"serialized_config": { type: "object" },
+	},
+	forwardTo: "instance",
+});
+
+messages.unassignInstance = new Request({
+	type: "unassigne_instance",
+	links: ["master-slave"],
+	forwardTo: "instance",
+});
+
 messages.getMetrics = new Request({
 	type: "get_metrics",
 	links: ["master-slave", "slave-instance"],
@@ -843,27 +872,6 @@ messages.instanceStatusChanged = new Event({
 		"status": { enum: [
 			"stopped", "starting", "running", "creating_save", "exporting_data",
 		]},
-	},
-});
-
-messages.updateInstances = new Event({
-	type: "update_instances",
-	links: ["slave-master"],
-	eventProperties: {
-		"instances": {
-			type: "array",
-			items: {
-				type: "object",
-				additionalProperties: false,
-				required: ["serialized_config", "status"],
-				properties: {
-					"serialized_config": { type: "object" },
-					"status": { enum: [
-						"stopped", "starting", "running", "creating_save", "exporting_data",
-					]},
-				},
-			},
-		},
 	},
 });
 
