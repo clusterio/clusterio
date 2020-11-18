@@ -61,9 +61,9 @@ const cookieParser = require("cookie-parser");
 // Required for express post requests
 const bodyParser = require("body-parser");
 const fileUpload = require("express-fileupload");
-var app = express();
-var httpServer;
-var httpsServer;
+const app = express();
+let httpServer;
+let httpsServer;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
@@ -925,7 +925,7 @@ class ControlConnection extends BaseConnection {
 	}
 }
 
-var slaveConnections = new Map();
+let slaveConnections = new Map();
 /**
  * Represents the connection to a slave
  *
