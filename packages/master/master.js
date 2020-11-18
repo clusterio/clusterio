@@ -168,8 +168,17 @@ async function getMetrics(req, res, next) {
 
 			} else {
 				// Merge metrics received by multiple slaves
-				let stored = resultMap.get(result.metric.name);
-				stored.samples.push(...result.samples);
+				let receivedSamples = new Map(result.samples);
+				for (let [suffix, suffixSamples] of resultMap.get(result.metric.name).samples) {
+					if (receivedSamples.has(suffix)) {
+						suffixSamples.push(...receivedSamples.get(suffix));
+						receivedSamples.delete(suffix);
+					}
+				}
+
+				for (let entry of receivedSamples) {
+					result.samples.push(entry);
+				}
 			}
 		}
 	}

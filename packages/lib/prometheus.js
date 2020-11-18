@@ -1,6 +1,6 @@
 "use strict";
 class Metric {
-	constructor(type, name, help, labels = []) {
+	constructor(type, name, help, labels = [], _reserved_labels = []) {
 		if (typeof name !== "string") {
 			throw new Error("Expected name to be a string");
 		}
@@ -16,6 +16,8 @@ class Metric {
 		for (let label of labels) {
 			if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(label)) {
 				throw new Error(`Invalid label '${label}'`);
+			} else if (_reserved_labels.includes(label)) {
+				throw new Error(`Reserved label '${label}'`);
 			}
 		}
 
@@ -120,14 +122,17 @@ function removeMatchingLabels(mapping, labels) {
 	}
 }
 
-class ValueCollector extends Collector {
+class LabeledCollector extends Collector {
 	constructor(type, name, help, options, childClass) {
 		let labels = [];
+		let reservedLabels = [];
 		let register = true;
 		let callback = null;
 		for (let [key, value] of Object.entries(options)) {
 			if (key === "labels") {
 				labels = value;
+			} else if (key === "_reservedLabels") {
+				reservedLabels = value;
 			} else if (key === "register") {
 				register = value;
 			} else if (key === "callback") {
@@ -138,32 +143,21 @@ class ValueCollector extends Collector {
 		}
 
 		// Make sure we don't register to the default registry if metric throws.
-		let metric = new Metric(type, name, help, labels);
+		let metric = new Metric(type, name, help, labels, reservedLabels);
 
 		super(register);
 
 		this.callback = callback;
 		this.metric = metric;
-		this._values = new Map();
 		this._children = new Map();
 		this._childClass = childClass;
-		this._defaultChild = labels.length ? null : this.labels({});
-	}
-
-	async* collect() {
-		if (this.callback) { await this.callback(this); }
-		yield { metric: this.metric, samples: this._values };
-	}
-
-	get() {
-		return this._defaultChild.get();
 	}
 
 	labels(...labels) {
 		let key = labelsToKey(labels, this.metric.labels);
 		let child = this._children.get(key);
 		if (child === undefined) {
-			child = new this._childClass(this._values, key);
+			child = new this._childClass(this, key);
 			this._children.set(key, child);
 		}
 		return child;
@@ -175,7 +169,7 @@ class ValueCollector extends Collector {
 			throw new Error("labels cannot be empty");
 		}
 		this._children.delete(key);
-		this._values.delete(key);
+		return key;
 	}
 
 	removeAll(labels) {
@@ -183,7 +177,6 @@ class ValueCollector extends Collector {
 			throw new Error("labels cannot be empty");
 		}
 
-		removeMatchingLabels(this._values, labels);
 		removeMatchingLabels(this._children, labels);
 	}
 
@@ -192,13 +185,45 @@ class ValueCollector extends Collector {
 			throw new Error("Cannot clear unlabeled metric");
 		}
 		this._children = new Map();
+	}
+}
+
+class ValueCollector extends LabeledCollector {
+	constructor(type, name, help, options, childClass) {
+		super(type, name, help, options, childClass);
+
+		this._values = new Map();
+		this._defaultChild = this.metric.labels.length ? null : this.labels({});
+	}
+
+	async* collect() {
+		if (this.callback) { await this.callback(this); }
+		yield { metric: this.metric, samples: new Map([["", this._values]]) };
+	}
+
+	get() {
+		return this._defaultChild.get();
+	}
+
+	remove(...labels) {
+		let key = super.remove(...labels);
+		this._values.delete(key);
+	}
+
+	removeAll(labels) {
+		super.removeAll(labels);
+		removeMatchingLabels(this._values, labels);
+	}
+
+	clear() {
+		super.clear();
 		this._values = new Map();
 	}
 }
 
 class ValueCollectorChild {
-	constructor(values, key) {
-		this._values = values;
+	constructor(collector, key) {
+		this._values = collector._values;
 		this._key = key;
 
 		this._values.set(key, 0);
@@ -270,6 +295,181 @@ class Gauge extends ValueCollector {
 	}
 }
 
+function formatValue(value) {
+	if (value === Infinity) {
+		return "+Inf";
+	}
+	if (value === -Infinity) {
+		return "-Inf";
+	}
+	return value.toString();
+}
+
+function formatBucketKey(bucket, key) {
+	return `${key === "" ? "" : `${key},`}le="${formatValue(bucket)}"`;
+}
+
+class HistogramChild {
+	constructor(collector, key) {
+		this._bucketValues = collector._bucketValues;
+		this._sumValues = collector._sumValues;
+		this._countValues = collector._countValues;
+		this._key = key;
+
+		this._bucketKeys = new Map();
+		for (let bucket of collector._buckets) {
+			let bucketKey = formatBucketKey(bucket, this._key);
+
+			this._bucketKeys.set(bucket, bucketKey);
+			this._bucketValues.set(bucketKey, 0);
+		}
+
+		this._sumValues.set(key, 0);
+		this._countValues.set(key, 0);
+	}
+
+	get buckets() {
+		return new Map(
+			[...this._bucketKeys].map(
+				([bucket, key]) => [bucket, this._bucketValues.get(key)]
+			)
+		);
+	}
+
+	get sum() {
+		return this._sumValues.get(this._key);
+	}
+
+	get count() {
+		return this._countValues.get(this._key);
+	}
+
+	observe(value) {
+		for (let [bound, key] of this._bucketKeys) {
+			if (value <= bound) {
+				this._bucketValues.set(key, this._bucketValues.get(key) + 1);
+			}
+		}
+
+		this._sumValues.set(this._key, this._sumValues.get(this._key) + value);
+		this._countValues.set(this._key, this._countValues.get(this._key) + 1);
+	}
+
+	startTimer() {
+		let start = process.hrtime.bigint();
+		return () => {
+			let end = process.hrtime.bigint();
+			this.observe(Number(end - start) / 1e9);
+		};
+	}
+}
+
+class Histogram extends LabeledCollector {
+	constructor(name, help, options = {}) {
+		// These defaults are taken from the Python Prometheus client
+		let buckets = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10, Infinity];
+
+		let parentOptions = { _reservedLabels: ["le"] };
+		for (let [key, value] of Object.entries(options)) {
+			if (key === "buckets") {
+				buckets = value;
+			} else {
+				parentOptions[key] = value;
+			}
+		}
+
+		super("histogram", name, help, parentOptions, HistogramChild);
+
+		if (buckets.slice(-1)[0] !== Infinity) {
+			buckets = [...buckets, Infinity];
+		}
+
+		this._buckets = buckets;
+		this._bucketValues = new Map();
+		this._sumValues = new Map();
+		this._countValues = new Map();
+		this._defaultChild = this.metric.labels.length ? null : this.labels({});
+	}
+
+	async* collect() {
+		if (this.callback) { await this.callback(this); }
+		yield {
+			metric: this.metric,
+			samples: new Map([
+				["_bucket", this._bucketValues],
+				["_sum", this._sumValues],
+				["_count", this._countValues],
+			]),
+		};
+	}
+
+	get buckets() {
+		return this._defaultChild.buckets;
+	}
+
+	get sum() {
+		return this._defaultChild.sum;
+	}
+
+	get count() {
+		return this._defaultChild.count;
+	}
+
+	observe(value) {
+		this._defaultChild.observe(value);
+	}
+
+	startTimer() {
+		return this._defaultChild.startTimer();
+	}
+
+	remove(...labels) {
+		let key = super.remove(...labels);
+		for (let bucket of this._buckets) {
+			let bucketKey = formatBucketKey(bucket, key);
+			this._bucketValues.delete(bucketKey);
+		}
+		this._sumValues.delete(key);
+		this._countValues.delete(key);
+	}
+
+	removeAll(labels) {
+		super.removeAll(labels);
+		for (let bucket of this._buckets) {
+			removeMatchingLabels(
+				this._bucketValues, { ...labels, le: formatValue(bucket) }
+			);
+		}
+		removeMatchingLabels(this._sumValues, labels);
+		removeMatchingLabels(this._countValues, labels);
+	}
+
+	clear() {
+		super.clear();
+		this._bucketValues = new Map();
+		this._sumValues = new Map();
+		this._countValues = new Map();
+	}
+}
+
+Histogram.linear = function linear(start, width, count) {
+	let buckets = [];
+	for (let i = 0; i < count; i++) {
+		buckets.push(start);
+		start += width;
+	}
+	return buckets;
+};
+
+Histogram.exponential = function exponential(start, factor, count) {
+	let buckets = [];
+	for (let i = 0; i < count; i++) {
+		buckets.push(start);
+		start *= factor;
+	}
+	return buckets;
+};
+
 class CollectorRegistry {
 	constructor() {
 		this.collectors = [];
@@ -315,16 +515,6 @@ function escapeHelp(help) {
 	;
 }
 
-function formatValue(value) {
-	if (value === Infinity) {
-		return "+Inf";
-	}
-	if (value === -Infinity) {
-		return "-Inf";
-	}
-	return value.toString();
-}
-
 async function* expositionLines(resultsIterator) {
 	let first = true;
 	for await (let result of resultsIterator) {
@@ -337,11 +527,13 @@ async function* expositionLines(resultsIterator) {
 		yield `# HELP ${result.metric.name} ${escapeHelp(result.metric.help)}\n`;
 		yield `# TYPE ${result.metric.name} ${result.metric.type}\n`;
 
-		for (let [key, value] of result.samples) {
-			if (key === "") {
-				yield `${result.metric.name} ${formatValue(value)}\n`;
-			} else {
-				yield `${result.metric.name}{${key}} ${formatValue(value)}\n`;
+		for (let [suffix, samples] of result.samples) {
+			for (let [key, value] of samples) {
+				if (key === "") {
+					yield `${result.metric.name}${suffix} ${formatValue(value)}\n`;
+				} else {
+					yield `${result.metric.name}${suffix}{${key}} ${formatValue(value)}\n`;
+				}
 			}
 		}
 	}
@@ -382,12 +574,16 @@ function serializeResult(result, options = {}) {
 	} else {
 		samples = new Map();
 		let key = labelsToKey([addLabels], [...Object.keys(addLabels)]);
-		for (let [labels, value] of result.samples.entries()) {
-			if (labels === "") {
-				samples.set(key, value);
-			} else {
-				samples.set(`${labels},${key}`, value);
+		for (let [suffix, suffixSamples] of result.samples) {
+			let labeledSamples = new Map();
+			for (let [labels, value] of suffixSamples) {
+				if (labels === "") {
+					labeledSamples.set(key, value);
+				} else {
+					labeledSamples.set(`${labels},${key}`, value);
+				}
 			}
+			samples.set(suffix, labeledSamples);
 		}
 	}
 
@@ -398,7 +594,7 @@ function serializeResult(result, options = {}) {
 			help: metricHelp,
 			labels: [...result.metric.labels, ...Object.keys(addLabels)],
 		},
-		samples: [...samples.entries()],
+		samples: [...samples].map(([name, metricSamples]) => [name, [...metricSamples]]),
 	};
 }
 
@@ -410,7 +606,11 @@ function deserializeResult(serializedResult) {
 			serializedResult.metric.help,
 			serializedResult.metric.labels,
 		),
-		samples: new Map(serializedResult.samples),
+		samples: new Map(
+			serializedResult.samples.map(
+				([suffix, suffixSamples]) => [suffix, new Map(suffixSamples)]
+			)
+		),
 	};
 }
 
@@ -456,6 +656,7 @@ defaultCollectors.processStartTimeSeconds.setToCurrentTime();
 module.exports = {
 	Counter,
 	Gauge,
+	Histogram,
 	CollectorRegistry,
 	Collector,
 	ValueCollector,
