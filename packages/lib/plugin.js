@@ -192,6 +192,10 @@ class BaseInstancePlugin {
 	 * @param {string} event.name - Name of the player that joined/left.
 	 */
 	async onPlayerEvent(event) { }
+
+	async sendRcon(message, expectEmpty) {
+		return await this.instance.sendRcon(message, expectEmpty, this.info.name);
+	}
 }
 
 /**

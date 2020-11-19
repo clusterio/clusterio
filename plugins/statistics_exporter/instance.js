@@ -30,7 +30,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async gatherMetrics() {
-		let string = await this.instance.server.sendRcon("/sc statistics_exporter.export()");
+		let string = await this.sendRcon("/sc statistics_exporter.export()");
 		let stats;
 		try {
 			stats = JSON.parse(string);

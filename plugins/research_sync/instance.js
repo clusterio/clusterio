@@ -29,7 +29,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async progressEventHandler(message) {
 		let techsJson = libLuaTools.escapeString(JSON.stringify(message.data.technologies));
-		await this.instance.server.sendRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
+		await this.sendRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
 	}
 
 	async researchFinished(tech) {
@@ -38,13 +38,13 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async finishedEventHandler(message) {
 		let { name, level, researched } = message.data;
-		await this.instance.server.sendRcon(
+		await this.sendRcon(
 			`/sc research_sync.research_technology("${libLuaTools.escapeString(name)}", ${level})`, true
 		);
 	}
 
 	async onStart() {
-		let dumpJson = await this.instance.server.sendRcon("/sc research_sync.dump_technologies()");
+		let dumpJson = await this.sendRcon("/sc research_sync.dump_technologies()");
 		let techsToSend = [];
 		let instanceTechs = new Map();
 		for (let tech of JSON.parse(dumpJson)) {
@@ -74,7 +74,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 		if (techsToSync.length) {
 			let syncJson = libLuaTools.escapeString(JSON.stringify(techsToSync));
-			await this.instance.server.sendRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
+			await this.sendRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
 		}
 	}
 }

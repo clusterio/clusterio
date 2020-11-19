@@ -36,10 +36,19 @@ const libConfig = require("@clusterio/lib/config");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 
 
-const instanceRconCommandsCounter = new libPrometheus.Counter(
-	"clusterio_instance_rcon_commands_total",
-	"How many commands have been sent to the instance",
+const instanceRconCommandDuration = new libPrometheus.Histogram(
+	"clusterio_instance_rcon_command_duration_seconds",
+	"Histogram of the RCON command duration from request to response.",
 	{ labels: ["instance_id"] }
+);
+
+const instanceRconCommandSize = new libPrometheus.Histogram(
+	"clusterio_instance_rcon_command_size_bytes",
+	"Histogram of the RCON command sizes that are sent.",
+	{
+		labels: ["instance_id", "plugin"],
+		buckets: libPrometheus.Histogram.exponential(16, 2, 12),
+	}
 );
 
 const instanceFactorioCpuTime = new libPrometheus.Gauge(
@@ -61,7 +70,7 @@ const instanceFactorioAutosaveSize = new libPrometheus.Gauge(
 );
 
 function applyAsConfig(name) {
-	return async function action(server, value) {
+	return async function action(instance, value) {
 		if (name === "tags" && value instanceof Array) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
@@ -69,7 +78,7 @@ function applyAsConfig(name) {
 			value = value.map(tag => tag.replace(/ /g, "\u00a0")).join(" ");
 		}
 		try {
-			await server.sendRcon(`/config set ${name} ${value}`);
+			await instance.sendRcon(`/config set ${name} ${value}`);
 		} catch (err) {
 			console.error(`Error applying server setting ${name}`, err);
 		}
@@ -91,11 +100,11 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async (server, value) => {
+	"visibility": async (instance, value) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
 				let enabled = Boolean(value[scope]);
-				await server.sendRcon(`/config set visibility-${scope} ${enabled}`);
+				await instance.sendRcon(`/config set visibility-${scope} ${enabled}`);
 			} catch (err) {
 				console.error(`Error applying visibility ${scope}`, err);
 			}
@@ -149,12 +158,6 @@ class Instance extends libLink.Link{
 			factorioDir, this._dir, serverOptions
 		);
 
-		let originalSendRcon = this.server.sendRcon;
-		this.server.sendRcon = (...args) => {
-			instanceRconCommandsCounter.labels(String(this.config.get("instance.id"))).inc();
-			return originalSendRcon.call(this.server, ...args);
-		};
-
 		this.server.on("output", (output) => {
 			libLink.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
 
@@ -178,6 +181,17 @@ class Instance extends libLink.Link{
 			});
 			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 		});
+	}
+
+	async sendRcon(message, expectEmpty, plugin = "") {
+		let instanceId = String(this.config.get("instance.id"));
+		let observeDuration = instanceRconCommandDuration.labels(instanceId).startTimer();
+		try {
+			return await this.server.sendRcon(message, expectEmpty);
+		} finally {
+			observeDuration();
+			instanceRconCommandSize.labels(instanceId, plugin).observe(Buffer.byteLength(message, "utf8"));
+		}
 	}
 
 	async _autosave(name) {
@@ -519,7 +533,7 @@ class Instance extends libLink.Link{
 	async updateInstanceData() {
 		let name = libLuaTools.escapeString(this.config.get("instance.name"));
 		let id = this.config.get("instance.id");
-		await this.server.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
+		await this.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
 	}
 
 	async updateFactorioSettings(current, previous) {
@@ -528,7 +542,7 @@ class Instance extends libLink.Link{
 
 		for (let [key, action] of Object.entries(serverSettingsActions)) {
 			if (current[key] !== undefined && !util.isDeepStrictEqual(current[key], previous[key])) {
-				await action(this.server, current[key]);
+				await action(this, current[key]);
 			}
 		}
 	}
@@ -541,18 +555,18 @@ class Instance extends libLink.Link{
 	 */
 	async updateFactorioWhitelist(enable) {
 		if (!enable) {
-			await this.server.sendRcon("/whitelist disable");
+			await this.sendRcon("/whitelist disable");
 		}
 
 		if (this.config.get("factorio.sync_whitelist")) {
-			await this.server.sendRcon("/whitelist clear");
+			await this.sendRcon("/whitelist clear");
 			for (let player of this._slave.whitelist) {
-				await this.server.sendRcon(`/whitelist ${player}`);
+				await this.sendRcon(`/whitelist ${player}`);
 			}
 		}
 
 		if (enable) {
-			await this.server.sendRcon("/whitelist enable");
+			await this.sendRcon("/whitelist enable");
 		}
 	}
 
@@ -563,7 +577,7 @@ class Instance extends libLink.Link{
 
 		let { name, admin } = message.data;
 		let command = admin ? `/promote ${name}` : `/demote ${name}`;
-		await this.server.sendRcon(command);
+		await this.sendRcon(command);
 	}
 
 	async banlistUpdateEventHandler(message) {
@@ -573,7 +587,7 @@ class Instance extends libLink.Link{
 
 		let { name, banned, reason } = message.data;
 		let command = banned ? `/ban ${name} ${reason}` : `/unban ${name}`;
-		await this.server.sendRcon(command);
+		await this.sendRcon(command);
 	}
 
 	async whitelistUpdateEventHandler(message) {
@@ -583,7 +597,7 @@ class Instance extends libLink.Link{
 
 		let { name, whitelisted } = message.data;
 		let command = whitelisted ? `/whitelist add ${name}` : `/whiteliste remove ${name}`;
-		await this.server.sendRcon(command);
+		await this.sendRcon(command);
 	}
 
 
@@ -723,7 +737,7 @@ class Instance extends libLink.Link{
 	}
 
 	async sendRconRequestHandler(message) {
-		let result = await this.server.sendRcon(message.data.command);
+		let result = await this.sendRcon(message.data.command);
 		return { result };
 	}
 

@@ -230,11 +230,11 @@ Communicating with Factorio
 
 For pushing data into Factorio there's RCON, which lets you send
 arbitrary Lua commands to invoke whatever code you want in the game.
-This is done by calling the `sendRcon` method on the instance's server object.
+This is done by calling the `sendRcon` method on the plugin object.
 For example:
 
     async onStart() {
-        let response = await this.instance.server.sendRcon(
+        let response = await this.sendRcon(
             "/sc rcon.print('data')"
         );
 

@@ -92,6 +92,10 @@ class MockInstance extends libLink.Link {
 			},
 		};
 	}
+
+	async sendRcon(command, expectEmpty, plugin) {
+		return await this.server.sendRcon(command);
+	}
 }
 
 class MockSlave extends libLink.Link {
