@@ -218,6 +218,15 @@ directory for the instance is created on the slave.
 Defaults to null meaning not assigned.
 
 
+### instance.auto_start
+
+If enabled start this instance when the slave it is assigned to is
+started up.  Does not affect start or stop of the instance while the
+slave is running.
+
+Defaults to false
+
+
 ### factorio.version
 
 Version of Factorio to use for this instance.  Can be a version like
