@@ -275,6 +275,10 @@ function labelsToKey(labels, metricLabels) {
 		}
 	}
 
+	if (items.length === 1) {
+		return items[0];
+	}
+
 	return items.join(",");
 }
 
