@@ -206,6 +206,7 @@ class Collector {
 	async* collect() { }
 }
 
+const labelEscapesChars = /[\\\n\"]/;
 /**
  * Escapes a label value in accordance with the text exposition format
  *
@@ -214,6 +215,9 @@ class Collector {
  * @private
  */
 function escapeLabelValue(value) {
+	if (!labelEscapesChars.test(value)) {
+		return value;
+	}
 	return value
 		.replace(/\\/g, "\\\\")
 		.replace(/\n/g, "\\n")
