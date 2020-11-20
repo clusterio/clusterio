@@ -36,10 +36,19 @@ const libConfig = require("@clusterio/lib/config");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 
 
-const instanceRconCommandsCounter = new libPrometheus.Counter(
-	"clusterio_instance_rcon_commands_total",
-	"How many commands have been sent to the instance",
+const instanceRconCommandDuration = new libPrometheus.Histogram(
+	"clusterio_instance_rcon_command_duration_seconds",
+	"Histogram of the RCON command duration from request to response.",
 	{ labels: ["instance_id"] }
+);
+
+const instanceRconCommandSize = new libPrometheus.Histogram(
+	"clusterio_instance_rcon_command_size_bytes",
+	"Histogram of the RCON command sizes that are sent.",
+	{
+		labels: ["instance_id", "plugin"],
+		buckets: libPrometheus.Histogram.exponential(16, 2, 12),
+	}
 );
 
 const instanceFactorioCpuTime = new libPrometheus.Gauge(
@@ -61,7 +70,7 @@ const instanceFactorioAutosaveSize = new libPrometheus.Gauge(
 );
 
 function applyAsConfig(name) {
-	return async function action(server, value) {
+	return async function action(instance, value) {
 		if (name === "tags" && value instanceof Array) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
@@ -69,7 +78,7 @@ function applyAsConfig(name) {
 			value = value.map(tag => tag.replace(/ /g, "\u00a0")).join(" ");
 		}
 		try {
-			await server.sendRcon(`/config set ${name} ${value}`);
+			await instance.sendRcon(`/config set ${name} ${value}`);
 		} catch (err) {
 			console.error(`Error applying server setting ${name}`, err);
 		}
@@ -91,11 +100,11 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async (server, value) => {
+	"visibility": async (instance, value) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
 				let enabled = Boolean(value[scope]);
-				await server.sendRcon(`/config set visibility-${scope} ${enabled}`);
+				await instance.sendRcon(`/config set visibility-${scope} ${enabled}`);
 			} catch (err) {
 				console.error(`Error applying visibility ${scope}`, err);
 			}
@@ -124,6 +133,9 @@ class Instance extends libLink.Link{
 			} else if (group.name === "factorio" && field === "enable_whitelist") {
 				this.updateFactorioWhitelist(group.get(field)).finally(hook);
 			} else {
+				if (group.name === "factorio" && field === "max_concurrent_commands") {
+					this.server.maxConcurrentCommands = group.get(field);
+				}
 				hook();
 			}
 		};
@@ -137,6 +149,7 @@ class Instance extends libLink.Link{
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
 			verboseLogging: this.config.get("factorio.verbose_logging"),
 			stripPaths: this.config.get("factorio.strip_paths"),
+			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
 		};
 
 		this._status = "stopped";
@@ -144,12 +157,6 @@ class Instance extends libLink.Link{
 		this.server = new libFactorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
-
-		let originalSendRcon = this.server.sendRcon;
-		this.server.sendRcon = (...args) => {
-			instanceRconCommandsCounter.labels(String(this.config.get("instance.id"))).inc();
-			return originalSendRcon.call(this.server, ...args);
-		};
 
 		this.server.on("output", (output) => {
 			libLink.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
@@ -174,6 +181,17 @@ class Instance extends libLink.Link{
 			});
 			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 		});
+	}
+
+	async sendRcon(message, expectEmpty, plugin = "") {
+		let instanceId = String(this.config.get("instance.id"));
+		let observeDuration = instanceRconCommandDuration.labels(instanceId).startTimer();
+		try {
+			return await this.server.sendRcon(message, expectEmpty);
+		} finally {
+			observeDuration();
+			instanceRconCommandSize.labels(instanceId, plugin).observe(Buffer.byteLength(message, "utf8"));
+		}
 	}
 
 	async _autosave(name) {
@@ -515,7 +533,7 @@ class Instance extends libLink.Link{
 	async updateInstanceData() {
 		let name = libLuaTools.escapeString(this.config.get("instance.name"));
 		let id = this.config.get("instance.id");
-		await this.server.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
+		await this.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
 	}
 
 	async updateFactorioSettings(current, previous) {
@@ -524,7 +542,7 @@ class Instance extends libLink.Link{
 
 		for (let [key, action] of Object.entries(serverSettingsActions)) {
 			if (current[key] !== undefined && !util.isDeepStrictEqual(current[key], previous[key])) {
-				await action(this.server, current[key]);
+				await action(this, current[key]);
 			}
 		}
 	}
@@ -537,18 +555,18 @@ class Instance extends libLink.Link{
 	 */
 	async updateFactorioWhitelist(enable) {
 		if (!enable) {
-			await this.server.sendRcon("/whitelist disable");
+			await this.sendRcon("/whitelist disable");
 		}
 
 		if (this.config.get("factorio.sync_whitelist")) {
-			await this.server.sendRcon("/whitelist clear");
+			await this.sendRcon("/whitelist clear");
 			for (let player of this._slave.whitelist) {
-				await this.server.sendRcon(`/whitelist ${player}`);
+				await this.sendRcon(`/whitelist ${player}`);
 			}
 		}
 
 		if (enable) {
-			await this.server.sendRcon("/whitelist enable");
+			await this.sendRcon("/whitelist enable");
 		}
 	}
 
@@ -559,7 +577,7 @@ class Instance extends libLink.Link{
 
 		let { name, admin } = message.data;
 		let command = admin ? `/promote ${name}` : `/demote ${name}`;
-		await this.server.sendRcon(command);
+		await this.sendRcon(command);
 	}
 
 	async banlistUpdateEventHandler(message) {
@@ -569,7 +587,7 @@ class Instance extends libLink.Link{
 
 		let { name, banned, reason } = message.data;
 		let command = banned ? `/ban ${name} ${reason}` : `/unban ${name}`;
-		await this.server.sendRcon(command);
+		await this.sendRcon(command);
 	}
 
 	async whitelistUpdateEventHandler(message) {
@@ -579,7 +597,7 @@ class Instance extends libLink.Link{
 
 		let { name, whitelisted } = message.data;
 		let command = whitelisted ? `/whitelist add ${name}` : `/whiteliste remove ${name}`;
-		await this.server.sendRcon(command);
+		await this.sendRcon(command);
 	}
 
 
@@ -719,7 +737,7 @@ class Instance extends libLink.Link{
 	}
 
 	async sendRconRequestHandler(message) {
-		let result = await this.server.sendRcon(message.data.command);
+		let result = await this.sendRcon(message.data.command);
 		return { result };
 	}
 
@@ -751,15 +769,16 @@ class Instance extends libLink.Link{
  * Searches for instances in the provided directory
  *
  * Looks through all sub-dirs of the provided directory for valid
- * instance definitions and updates the mapping of instance id to
+ * instance definitions and return a mapping of instance id to
  * instanceInfo objects.
  *
- * @param {Map<integer, Object>} instanceInfos -
- *     mapping between instance id and information about this instance.
  * @param {string} instancesDir - Directory containing instances
  * @param {Object} logger - console like logging interface.
+ * @returns {Map<integer, Object>}
+ *     mapping between instance id and information about this instance.
  */
-async function discoverInstances(instanceInfos, instancesDir, logger) {
+async function discoverInstances(instancesDir, logger) {
+	let instanceInfos = new Map();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
 			let instanceConfig = new libConfig.InstanceConfig();
@@ -777,11 +796,6 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 				continue;
 			}
 
-			// Ignore instances we have already discovered before.
-			if (instanceInfos.has(instanceConfig.get("instance.id"))) {
-				continue;
-			}
-
 			let instancePath = path.join(instancesDir, entry.name);
 			logger.log(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
@@ -790,6 +804,7 @@ async function discoverInstances(instanceInfos, instancesDir, logger) {
 			});
 		}
 	}
+	return instanceInfos;
 }
 
 class InstanceConnection extends libLink.Link {
@@ -815,7 +830,7 @@ class InstanceConnection extends libLink.Link {
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
 			// Instance is probably on another slave
-			return await request.send(this.slave, message.data);
+			return await this.forwardRequestToMaster(message, request);
 		}
 
 		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
@@ -831,7 +846,7 @@ class InstanceConnection extends libLink.Link {
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
 			// Instance is probably on another slave
-			await this.slave.forwardEventToMaster(message, event);
+			await this.forwardEventToMaster(message, event);
 			return;
 		}
 		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
@@ -911,6 +926,7 @@ class Slave extends libLink.Link {
 		this.config = slaveConfig;
 
 		this.instanceConnections = new Map();
+		this.discoveredInstanceInfos = new Map();
 		this.instanceInfos = new Map();
 
 		this.adminlist = new Set();
@@ -922,6 +938,7 @@ class Slave extends libLink.Link {
 			this.serverPlugins = new Map(Object.entries(data.plugins));
 		});
 
+		this._startup = true;
 		this._disconnecting = false;
 		this._shuttingDown = false;
 
@@ -1120,20 +1137,28 @@ class Slave extends libLink.Link {
 			console.log(`Clusterio | Updated config for ${instanceInfo.path}`);
 
 		} else {
-			let instanceConfig = new libConfig.InstanceConfig();
-			await instanceConfig.load(serialized_config);
+			instanceInfo = this.discoveredInstanceInfos.get(instance_id);
+			if (instanceInfo) {
+				instanceInfo.config.update(serialized_config, true);
 
-			// XXX: race condition on multiple simultanious calls
-			let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+			} else {
+				let instanceConfig = new libConfig.InstanceConfig();
+				await instanceConfig.load(serialized_config);
 
-			await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
-			instanceInfo = {
-				path: instanceDir,
-				config: instanceConfig,
-			};
+				// XXX: race condition on multiple simultanious calls
+				let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+
+				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
+				instanceInfo = {
+					path: instanceDir,
+					config: instanceConfig,
+				};
+
+				this.discoveredInstanceInfos.set(instance_id, instanceInfo);
+			}
+
 			this.instanceInfos.set(instance_id, instanceInfo);
-			console.log(`Clusterio | assigned instance ${instanceConfig.get("instance.name")}`);
-
+			console.log(`Clusterio | assigned instance ${instanceInfo.config.get("instance.name")}`);
 		}
 
 		// Somewhat hacky, but in the event of a lost session the status is
@@ -1154,6 +1179,20 @@ class Slave extends libLink.Link {
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
 		);
+	}
+
+	async unassignInstanceRequestHandler(message) {
+		let instanceId = message.data.instance_id;
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (instanceInfo) {
+			let instanceConnection = this.instanceConnections.get(instanceId);
+			if (instanceConnection && ["starting", "running"].includes(instanceConnection.status)) {
+				await libLink.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });
+			}
+
+			this.instanceInfos.delete(instanceId);
+			console.log(`Clusterio | unassigned instance ${instanceInfo.config.get("instance.name")}`);
+		}
 	}
 
 	/**
@@ -1245,13 +1284,14 @@ class Slave extends libLink.Link {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
-		let instanceInfo = this.instanceInfos.get(instanceId);
+		let instanceInfo = this.discoveredInstanceInfos.get(instanceId);
 		if (!instanceInfo) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 
-		await fs.remove(instanceInfo.path);
+		this.discoveredInstanceInfos.delete(instanceId);
 		this.instanceInfos.delete(instanceId);
+		await fs.remove(instanceInfo.path);
 	}
 
 	/**
@@ -1261,16 +1301,36 @@ class Slave extends libLink.Link {
 	 * the slave and master server with the new list of instances.
 	 */
 	async updateInstances() {
-		await discoverInstances(this.instanceInfos, this.config.get("slave.instances_directory"), console);
+		this.discoveredInstanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
 		let list = [];
-		for (let [instanceId, instanceInfo] of this.instanceInfos) {
+		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push({
 				serialized_config: instanceInfo.config.serialize(),
 				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
-		libLink.messages.updateInstances.send(this, { instances: list });
+		await libLink.messages.updateInstances.send(this, { instances: list });
+
+		// Handle configured auto startup instances
+		if (this._startup) {
+			this._startup = false;
+
+			for (let [instanceId, instanceInfo] of this.instanceInfos) {
+				if (instanceInfo.config.get("instance.auto_start")) {
+					try {
+						let instanceConnection = await this._connectInstance(instanceId);
+						await libLink.messages.startInstance.send(instanceConnection, {
+							instance_id: instanceId,
+							save: null,
+						});
+					} catch (err) {
+						console.error(`Error during auto startup for ${instanceInfo.config.get("instance.name")}:`);
+						console.error(err);
+					}
+				}
+			}
+		}
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {

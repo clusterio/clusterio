@@ -214,7 +214,7 @@ module.exports = {
 		"no-useless-rename": "error",
 		"no-useless-return": "error",
 		"no-var": "warn",
-		"no-void": "error",
+		"no-void": ["error", { "allowAsStatement": true }],
 		"no-warning-comments": "off",
 		"no-whitespace-before-property": "error",
 		"nonblock-statement-body-position": "error",

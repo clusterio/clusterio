@@ -49,6 +49,10 @@ export class Control extends libLink.Link {
 		}
 
 		this.instanceOutputHandlers = new Map();
+
+		this.connector.on("connect", () => {
+			this.updateInstanceOutputSubscriptions().catch(console.error);
+		});
 	}
 
 	async instanceOutputEventHandler(message) {

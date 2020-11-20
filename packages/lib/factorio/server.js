@@ -518,6 +518,9 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {boolean} options.enableWhitelist - Turn on whitelisting.
 	 * @param {boolean} options.verboseLogging - Enable verbose logging.
 	 * @param {boolean} options.stripPaths - Strip paths in the console.
+	 * @param {number} options.maxConcurrentCommands -
+	 *     Maximum number of RCON commands transmitted in parallel on the
+	 *     RCON connection.
 	 */
 	constructor(factorioDir, writeDir, options) {
 		super();
@@ -540,6 +543,8 @@ class FactorioServer extends events.EventEmitter {
 		this.enableWhitelist = options.enableWhitelist;
 		/** Enable verbose logging */
 		this.verboseLogging = options.verboseLogging;
+		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
+		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
 		this._state = "new";
 		this._server = null;
 		this._rconClient = null;
@@ -689,7 +694,7 @@ class FactorioServer extends events.EventEmitter {
 			port: this.rconPort,
 			password: this.rconPassword,
 			timeout: 200000, // 200s, should allow for commands up to 1250kB in length
-			maxPending: 5,
+			maxPending: this.maxConcurrentCommands,
 		};
 
 		this._rconClient = new rconClient.Rcon(config);
@@ -700,7 +705,29 @@ class FactorioServer extends events.EventEmitter {
 			this._rconReady = false;
 			this._startRcon().catch(() => { /* Ignore */ });
 		});
+		// XXX: Workaround to suppress bogus event listener warning
+		if (this._rconClient.emitter instanceof events.EventEmitter) {
+			this._rconClient.emitter.setMaxListeners(this.maxConcurrentCommands + 5);
+		}
 		await this._rconClient.connect();
+	}
+
+	get maxConcurrentCommands() {
+		return this._maxConcurrentCommands;
+	}
+
+	set maxConcurrentCommands(value) {
+		this._maxConcurrentCommands = value;
+		this.setMaxListeners(value + 5);
+		if (this._rconClient) {
+			if (this._rconClient.sendQueue) {
+				this._rconClient.sendQueue.maxConcurrent = value;
+			}
+			// XXX: Workaround to suppress bogus event listener warning
+			if (this._rconClient.emitter instanceof events.EventEmitter) {
+				this._rconClient.emitter.setMaxListeners(value + 5);
+			}
+		}
 	}
 
 	/**

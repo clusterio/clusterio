@@ -203,13 +203,13 @@ instanceConfigCommands.add(new libCommand.Command({
 instanceCommands.add(instanceConfigCommands);
 
 instanceCommands.add(new libCommand.Command({
-	definition: ["assign <instance> <slave>", "Assign instance to a slave", (yargs) => {
+	definition: ["assign <instance> [slave]", "Assign instance to a slave", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to assign", type: "string" });
-		yargs.positional("slave", { describe: "Slave to assign to", type: "string" });
+		yargs.positional("slave", { describe: "Slave to assign to or unassign if none", type: "string" });
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let slaveId = await libCommand.resolveSlave(control, args.slave);
+		let slaveId = args.slave ? await libCommand.resolveSlave(control, args.slave) : null;
 		await libLink.messages.assignInstanceCommand.send(control, {
 			instance_id: instanceId,
 			slave_id: slaveId,
