@@ -1,4 +1,5 @@
 import { notification } from "antd";
+import { logger } from "@clusterio/lib/logging";
 
 
 export default function notify(message, type = "info", description = undefined) {
@@ -7,7 +8,9 @@ export default function notify(message, type = "info", description = undefined) 
 		description,
 		placement: "bottomRight",
 	});
-	if (typeof message !== "string") console.error(message);
+	if (typeof message !== "string") {
+		logger.error(message.stack);
+	}
 }
 
 /**
@@ -22,7 +25,7 @@ export default function notify(message, type = "info", description = undefined) 
  */
 export function notifyErrorHandler(message) {
 	return function handler(err) {
-		console.error(err);
+		logger.error(err.stack);
 		notification.error({
 			message,
 			description: err.message,

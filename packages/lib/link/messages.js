@@ -2,6 +2,7 @@
 "use strict";
 const libSchema = require("@clusterio/lib/schema");
 const libErrors = require("@clusterio/lib/errors");
+const { logger } = require("@clusterio/lib/logging");
 
 class MissingLinkHandlerError extends Error {
 	constructor(type, source, target) {
@@ -207,7 +208,7 @@ class Request extends Message {
 					}
 
 					if (!this._responseValidator({ seq: 0, type: this.responseType, response })) {
-						console.error(this._responseValidator.errors);
+						logger.error(JSON.stringify(this._responseValidator.errors, null, 4));
 						throw new Error(`Validation failed responding to ${this.requestType}`);
 					}
 
@@ -215,7 +216,7 @@ class Request extends Message {
 
 				}).catch(err => {
 					if (!(err instanceof libErrors.RequestError)) {
-						console.error(`Unexpected error while responding to ${this.requestType}`, err);
+						logger.error(`Unexpected error while responding to ${this.requestType}:\n${err.stack}`);
 					}
 					link.connector.send(this.responseType, { seq: message.seq, error: err.message });
 				});
@@ -236,7 +237,7 @@ class Request extends Message {
 	async send(link, data = {}) {
 		// XXX validate link target/source?
 		if (!this._requestValidator({ seq: 0, type: this.requestType, data })) {
-			console.error(this._requestValidator.errors);
+			logger.error(JSON.stringify(this._requestValidator.errors, null, 4));
 			throw new Error(`Validation failed sending ${this.requestType}`);
 		}
 		let seq = link.connector.send(this.requestType, data);
@@ -346,18 +347,6 @@ messages.createSlaveConfig = new Request({
 	},
 	responseProperties: {
 		"serialized_config": { type: "object" },
-	},
-});
-
-messages.setInstanceOutputSubscriptions = new Request({
-	type: "set_instance_output_subscriptions",
-	links: ["control-master"],
-	permission: "core.instance.follow_log",
-	requestProperties: {
-		"instance_ids": {
-			type: "array",
-			items: { type: "integer" },
-		},
 	},
 });
 
@@ -646,6 +635,19 @@ messages.deleteUser = new Request({
 	},
 });
 
+messages.setLogSubscriptions = new Request({
+	type: "set_log_subscriptions",
+	links: ["control-master"],
+	permission: "core.log.follow",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"instance_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
+	},
+});
+
 
 // Internal requests
 messages.updateInstances = new Request({
@@ -820,7 +822,7 @@ class Event extends Message {
 			link.setHandler(this.eventType, message => {
 				// XXX Should event handlers even be allowed to be async?
 				handler.call(link, message, this).catch(err => {
-					console.error(`Unexpected error while handling ${this.eventType}`, err);
+					logger.error(`Unexpected error while handling ${this.eventType}:\n${err.stack}`);
 				});
 			}, this._eventValidator);
 		}
@@ -836,7 +838,7 @@ class Event extends Message {
 	 */
 	send(link, data = {}) {
 		if (!this._eventValidator({ seq: 0, type: this.eventType, data })) {
-			console.error(this._eventValidator.errors);
+			logger.error(JSON.stringify(this._eventValidator.errors, null, 4));
 			throw new Error(`Validation failed sending ${this.eventType}`);
 		}
 
@@ -850,6 +852,21 @@ messages.debugWsMessage = new Event({
 	eventProperties: {
 		"direction": { type: "string" },
 		"content": { type: "string" },
+	},
+});
+
+messages.logMessage = new Event({
+	type: "log_message",
+	links: ["slave-master", "master-control"],
+	eventProperties: {
+		"info": {
+			type: "object",
+			required: ["level", "message"],
+			properties: {
+				"level": { type: "string" },
+				"message": { type: "string" },
+			},
+		},
 	},
 });
 
@@ -872,31 +889,6 @@ messages.instanceStatusChanged = new Event({
 		"status": { enum: [
 			"stopped", "starting", "running", "creating_save", "exporting_data",
 		]},
-	},
-});
-
-messages.instanceOutput = new Event({
-	type: "instance_output",
-	links: ["instance-slave", "slave-master", "master-control"],
-	forwardTo: "master",
-	eventProperties: {
-		"instance_id": { type: "integer" },
-		"output": {
-			type: "object",
-			additionalProperties: false,
-			required: ["source", "received", "format", "type", "message"],
-			properties: {
-				"source": { type: "string" },
-				"received": { type: "number" },
-				"format": { type: "string" },
-				"time": { type: "string" },
-				"level": { type: "string" },
-				"file": { type: "string" },
-				"type": { type: "string" },
-				"action": { type: "string" },
-				"message": { type: "string" },
-			},
-		},
 	},
 });
 

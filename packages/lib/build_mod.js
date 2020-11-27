@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use strict";
 const events = require("events");
 const fs = require("fs-extra");

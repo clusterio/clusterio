@@ -30,13 +30,11 @@ const masterInventoryGauge = new Gauge(
 class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 
-		this.items = await loadDatabase(this.master.config);
+		this.items = await loadDatabase(this.master.config, this.logger);
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 		this.autosaveId = setInterval(() => {
-			saveDatabase(this.master.config, this.items).catch(err => {
-				console.log("Unexpected error autosaving items in subspace_storage");
-				console.log("-----------------------------------------------------");
-				console.log(err);
+			saveDatabase(this.master.config, this.items, this.logger).catch(err => {
+				this.logger.error(`Unexpected error autosaving items:\n${err.stack}`);
 			});
 		}, this.master.config.get("subspace_storage.autosave_interval") * 1000);
 
@@ -83,8 +81,9 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		this.updateStorage();
 
 		if (this.master.config.get("subspace_storage.log_item_transfers")) {
-			console.log(`Imported the following from ${message.data.instance_id}:`);
-			console.log(message.data.items);
+			this.logger.verbose(
+				`Imported the following from ${message.data.instance_id}:\n${JSON.stringify(message.data.items)}`
+			);
 		}
 	}
 
@@ -125,6 +124,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 						object: { name: item[0], count: item[1], instanceId, instanceName },
 						items: this.items,
 						logItemTransfers: this.master.config.get("subspace_storage.log_item_transfers"),
+						logger: this.logger,
 					});
 					if (count > 0) {
 						itemsRemoved.push([item[0], count]);
@@ -145,8 +145,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			this.updateStorage();
 
 			if (itemsRemoved.length && this.master.config.get("subspace_storage.log_item_transfers")) {
-				console.log(`Exported the following to ${instanceId}`);
-				console.log(itemsRemoved);
+				this.logger.verbose(`Exported the following to ${instanceId}:\n${JSON.stringify(itemsRemoved)}`);
 			}
 		}
 
@@ -166,20 +165,20 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async onShutdown() {
 		clearInterval(this.autosaveId);
 		clearInterval(this.doleMagicId);
-		await saveDatabase(this.master.config, this.items);
+		await saveDatabase(this.master.config, this.items, this.logger);
 	}
 }
 
-async function loadDatabase(config) {
+async function loadDatabase(config, logger) {
 	let itemsPath = path.resolve(config.get("master.database_directory"), "items.json");
-	console.log(`Loading ${itemsPath}`);
+	logger.verbose(`Loading ${itemsPath}`);
 	try {
 		let content = await fs.readFile(itemsPath);
 		return new libDatabase.ItemDatabase(JSON.parse(content));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
-			console.log("Creating new item database");
+			logger.verbose("Creating new item database");
 			return new libDatabase.ItemDatabase();
 
 		} else {
@@ -188,14 +187,14 @@ async function loadDatabase(config) {
 	}
 }
 
-async function saveDatabase(masterConfig, items) {
+async function saveDatabase(masterConfig, items, logger) {
 	if (items && items.size < 50000) {
 		let file = path.resolve(masterConfig.get("master.database_directory"), "items.json");
-		console.log(`writing ${file}`);
+		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(items.serialize());
 		await fs.outputFile(file, content);
 	} else if (items) {
-		console.error(`Item database too large, not saving (${items.size})`);
+		logger.error(`Item database too large, not saving (${items.size})`);
 	}
 }
 

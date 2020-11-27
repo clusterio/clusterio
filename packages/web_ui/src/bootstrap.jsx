@@ -4,6 +4,7 @@ import React from "react";
 import ReactDOM from "react-dom";
 
 import libConfig from "@clusterio/lib/config";
+import { ConsoleTransport, WebConsoleFormat, logger } from "@clusterio/lib/logging";
 
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";
@@ -31,7 +32,7 @@ async function loadPluginInfos() {
 		pluginList = await response.json();
 
 	} else {
-		console.log("Failed to get plugin data, running without plugins");
+		logger.error("Failed to get plugin data, running without plugins");
 		pluginList = [];
 	}
 
@@ -47,14 +48,17 @@ async function loadPluginInfos() {
 			pluginInfos.push(info);
 
 		} catch (err) {
-			console.log(`Failed to load plugin info for ${plugin.name}`);
-			console.log(err);
+			logger.error(`Failed to load plugin info for ${plugin.name}`);
 		}
 	}
 	return pluginInfos;
 }
 
 async function load() {
+	logger.add(new ConsoleTransport({
+		level: "verbose",
+		format: new WebConsoleFormat(),
+	}));
 	let pluginInfos = await loadPluginInfos();
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
@@ -68,4 +72,4 @@ async function load() {
 	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
 }
 
-load().catch(console.log);
+load().catch((err) => logger.fatal(err));

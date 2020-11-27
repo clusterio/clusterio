@@ -160,7 +160,6 @@ describe("lib/factorio/server", function() {
 			for (let [line, reference] of testLines) {
 				reference.source = "test";
 				let output = libFactorio._parseOutput(line, "test");
-				delete output.received;
 				assert.deepEqual(output, reference);
 			}
 		});

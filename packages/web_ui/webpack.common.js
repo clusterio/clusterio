@@ -11,6 +11,13 @@ module.exports = (env = {}) => ({
 	},
 	plugins: [
 		new CleanWebpackPlugin(),
+
+		// required for winston
+		new webpack.ProvidePlugin({
+			process: require.resolve("process/browser.js"),
+			Buffer: [require.resolve("buffer/"), "Buffer"],
+		}),
+
 		new webpack.DefinePlugin({
 			"process.env.APP_ENV": JSON.stringify("browser"),
 		}),
@@ -31,6 +38,15 @@ module.exports = (env = {}) => ({
 			},
 			{
 				test: /node_modules.jsonwebtoken/,
+				use: "null-loader",
+			},
+			{
+				test: /node_modules.winston.dist.winston.transports.(http|file)/,
+				use: "null-loader",
+			},
+			// Colour library used by winston which doesn't work in browser.
+			{
+				test: /node_modules.colors/,
 				use: "null-loader",
 			},
 			{
@@ -72,6 +88,10 @@ module.exports = (env = {}) => ({
 	resolve: {
 		extensions: [".js", ".json", ".jsx"],
 		fallback: {
+			// Required for winston
+			"util": require.resolve("util/"),
+			"os": require.resolve("os-browserify/browser"),
+
 			"events": require.resolve("events/"),
 			"path": require.resolve("path-browserify"),
 		},

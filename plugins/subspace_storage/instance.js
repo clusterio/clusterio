@@ -4,19 +4,17 @@ const fs = require("fs-extra");
 const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 
-function unexpectedError(err) {
-	console.log("Unexpected error in subspace_storage");
-	console.log("------------------------------------");
-	console.log(err);
-}
-
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
+	unexpectedError(err) {
+		this.logger.error(`Unexpected error:\n${err.stack}`);
+	}
+
 	async init() {
 		this.instance.server.on("ipc-subspace_storage:output", (output) => {
-			this.provideItems(output).catch(unexpectedError);
+			this.provideItems(output).catch(err => this.unexpectedError(err));
 		});
 		this.instance.server.on("ipc-subspace_storage:orders", (orders) => {
-			this.requestItems(orders).catch(unexpectedError);
+			this.requestItems(orders).catch(err => this.unexpectedError(err));
 		});
 	}
 
@@ -24,7 +22,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		this.pingId = setInterval(() => {
 			this.sendRcon(
 				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true
-			).catch(unexpectedError);
+			).catch(err => this.unexpectedError(err));
 		}, 5000);
 
 		let response = await this.info.messages.getStorage.send(this.instance);
@@ -45,8 +43,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		});
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
-			console.log("Exported the following to master:");
-			console.log(items);
+			this.logger.verbose("Exported the following to master:");
+			this.logger.verbose(JSON.stringify(items));
 		}
 	}
 
@@ -63,8 +61,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
-			console.log("Imported following from master:");
-			console.log(response.items);
+			this.logger.verbose("Imported following from master:");
+			this.logger.verbose(JSON.stringify(response.items));
 		}
 
 		let itemsJson = libLuaTools.escapeString(JSON.stringify(response.items));

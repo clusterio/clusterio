@@ -3,6 +3,7 @@
 
 const libSchema = require("@clusterio/lib/schema");
 const libErrors = require("@clusterio/lib/errors");
+const { logger } = require("@clusterio/lib/logging");
 const messages = require("./messages");
 
 // Some definitions for the terminology used here:
@@ -35,9 +36,9 @@ class Link {
 				this.processMessage(payload);
 			} catch (err) {
 				if (err instanceof libErrors.InvalidMessage) {
-					console.error(`Invalid message on ${this.source}-${this.target} link: ${err.message}`);
+					logger.error(`Invalid message on ${this.source}-${this.target} link: ${err.message}`);
 					if (err.errors) {
-						console.error(err.errors);
+						logger.error(JSON.stringify(err.errors, null, 4));
 					}
 
 					// Send back an error response if this was a request.

@@ -346,11 +346,6 @@ definePermission({
 	description: "Assign or reassign instances to a slave.",
 });
 definePermission({
-	name: "core.instance.follow_log",
-	title: "Follow instance log",
-	description: "Listen for the stdout log of instances.",
-});
-definePermission({
 	name: "core.instance.create_save",
 	title: "Create new instance save",
 	description: "Create new savegames on instances.",
@@ -449,6 +444,11 @@ definePermission({
 	name: "core.user.delete",
 	title: "Delete user",
 	description: "Delete users and all data stored for them.",
+});
+definePermission({
+	name: "core.log.follow",
+	title: "Follow cluster log",
+	description: "Receive new entries in the cluster log.  Required to see instance console.",
 });
 
 definePermission({

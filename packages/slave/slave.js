@@ -22,6 +22,7 @@ const setBlocking = require("set-blocking");
 const phin = require("phin");
 const util = require("util");
 const version = require("./package").version;
+const winston = require("winston");
 
 // internal libraries
 const libFileOps = require("@clusterio/lib/file_ops");
@@ -34,6 +35,8 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 const libConfig = require("@clusterio/lib/config");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
+const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
+const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -80,7 +83,7 @@ function applyAsConfig(name) {
 		try {
 			await instance.sendRcon(`/config set ${name} ${value}`);
 		} catch (err) {
-			console.error(`Error applying server setting ${name}`, err);
+			logger.error(`Error applying server setting ${name} ${err.message}`);
 		}
 	};
 }
@@ -106,7 +109,7 @@ const serverSettingsActions = {
 				let enabled = Boolean(value[scope]);
 				await instance.sendRcon(`/config set visibility-${scope} ${enabled}`);
 			} catch (err) {
-				console.error(`Error applying visibility ${scope}`, err);
+				logger.error(`Error applying visibility ${scope} ${err}`);
 			}
 		}
 	},
@@ -125,6 +128,11 @@ class Instance extends libLink.Link{
 		this.plugins = new Map();
 		this.config = instanceConfig;
 
+		this.logger = logger.child({
+			instance_id: this.config.get("instance.id"),
+			instance_name: this.config.get("instance.name"),
+		});
+
 		this._configFieldChanged = (group, field, prev) => {
 			let hook = () => libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
 
@@ -142,6 +150,7 @@ class Instance extends libLink.Link{
 		this.config.on("fieldChanged", this._configFieldChanged);
 
 		let serverOptions = {
+			logger: this.logger,
 			version: this.config.get("factorio.version"),
 			gamePort: this.config.get("factorio.game_port"),
 			rconPort: this.config.get("factorio.rcon_port"),
@@ -158,19 +167,19 @@ class Instance extends libLink.Link{
 			factorioDir, this._dir, serverOptions
 		);
 
-		this.server.on("output", (output) => {
-			libLink.messages.instanceOutput.send(this, { instance_id: this.config.get("instance.id"), output });
+		this.server.on("output", (parsed, line) => {
+			this.logger.log("server", { message: line, instance_id: this.config.get("instance.id"), parsed });
 
-			libPlugin.invokeHook(this.plugins, "onOutput", output);
+			libPlugin.invokeHook(this.plugins, "onOutput", parsed, line);
 		});
 
 		this.server.on("error", err => {
-			console.log(`Error in instance ${this.name}:`, err);
+			this.logger.error(`Error in instance ${this.name}:\n${err.stack}`);
 		});
 
 		this.server.on("autosave-finished", name => {
 			this._autosave(name).catch(err => {
-				console.error("Error handling autosave-finished:", err);
+				this.logger.error(`Error handling autosave-finished in instance ${this.name}:\n${err.stack}`);
 			});
 		});
 
@@ -247,7 +256,7 @@ class Instance extends libLink.Link{
 		await instancePlugin.init();
 		libPlugin.attachPluginMessages(this, pluginInfo, instancePlugin);
 
-		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
 
 	async init(pluginInfos) {
@@ -294,7 +303,7 @@ class Instance extends libLink.Link{
 
 		for (let [key, value] of Object.entries(overrides)) {
 			if (!Object.hasOwnProperty.call(serverSettings, key)) {
-				console.log(`Warning: Server settings does not have the property '${key}'`);
+				this.logger.warn(`Server settings does not have the property '${key}'`);
 			}
 			serverSettings[key] = value;
 		}
@@ -328,7 +337,7 @@ class Instance extends libLink.Link{
 	 * @param {String} factorioDir - Path to factorio installation.
 	 */
 	static async create(instanceDir, factorioDir) {
-		console.log(`Clusterio | Creating ${instanceDir}`);
+		logger.info(`Creating ${instanceDir}`);
 		await fs.ensureDir(instanceDir);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
@@ -340,11 +349,11 @@ class Instance extends libLink.Link{
 	 * Writes server settings, admin/ban/white-lists and links mods.
 	 */
 	async prepare() {
-		console.log("Clusterio | Writing server-settings.json");
+		this.logger.verbose("Writing server-settings.json");
 		await this.writeServerSettings();
 
 		if (this.config.get("factorio.sync_adminlist")) {
-			console.log("Clusterio | Writing server-adminlist.json");
+			this.logger.verbose("Writing server-adminlist.json");
 			fs.outputFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._slave.adminlist], null, 4)
@@ -352,7 +361,7 @@ class Instance extends libLink.Link{
 		}
 
 		if (this.config.get("factorio.sync_banlist")) {
-			console.log("Clusterio | Writing server-banlist.json");
+			this.logger.verbose("Writing server-banlist.json");
 			fs.outputFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._slave.banlist].map(
@@ -362,14 +371,14 @@ class Instance extends libLink.Link{
 		}
 
 		if (this.config.get("factorio.sync_whitelist")) {
-			console.log("Clusterio | Writing server-whitelist.json");
+			this.logger.verbose("Writing server-whitelist.json");
 			fs.outputFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._slave.whitelist], null, 4)
 			);
 		}
 
-		console.log("Clusterio | Rotating old logs...");
+		this.logger.verbose("Rotating old logs...");
 		// clean old log file to avoid crash
 		try{
 			let logPath = this.path("factorio-current.log");
@@ -377,11 +386,11 @@ class Instance extends libLink.Link{
 			if(stat.isFile()){
 				let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
 				await fs.rename(logPath, this.path(logFilename));
-				console.log(`Log rotated as ${logFilename}`);
+				this.logger.verbose(`Log rotated as ${logFilename}`);
 			}
 		}catch(e){}
 
-		await symlinkMods(this, "sharedMods", console);
+		await symlinkMods(this, "sharedMods");
 	}
 
 	/**
@@ -404,7 +413,7 @@ class Instance extends libLink.Link{
 
 		// Create save if no save was found.
 		if (saveName === null) {
-			console.log("Clusterio | Creating new save");
+			this.logger.info("Creating new save");
 			await this.server.create("world.zip");
 			saveName = "world.zip";
 		}
@@ -414,7 +423,7 @@ class Instance extends libLink.Link{
 		}
 
 		// Patch save with lua modules from plugins
-		console.log("Clusterio | Patching save");
+		this.logger.verbose("Patching save");
 
 		// Find plugin modules to patch in
 		let modules = new Map();
@@ -488,7 +497,7 @@ class Instance extends libLink.Link{
 	 */
 	async start(saveName) {
 		this.server.on("rcon-ready", () => {
-			console.log("Clusterio | RCON connection established");
+			this.logger.verbose("RCON connection established");
 		});
 
 		this.server.on("exit", () => this.notifyExit());
@@ -515,7 +524,7 @@ class Instance extends libLink.Link{
 	 */
 	async startScenario(scenario) {
 		this.server.on("rcon-ready", () => {
-			console.log("Clusterio | RCON connection established");
+			this.logger.verbose("RCON connection established");
 		});
 
 		this.server.on("exit", () => this.notifyExit());
@@ -685,11 +694,11 @@ class Instance extends libLink.Link{
 	async createSaveRequestHandler() {
 		this.notifyStatus("creating_save");
 		try {
-			console.log("Clusterio | Writing server-settings.json");
+			this.logger.verbose("Writing server-settings.json");
 			await this.writeServerSettings();
 
-			console.log("Creating save .....");
-			await symlinkMods(this, "sharedMods", console);
+			this.logger.verbose("Creating save .....");
+			await symlinkMods(this, "sharedMods");
 
 		} catch (err) {
 			this.notifyExit();
@@ -698,17 +707,17 @@ class Instance extends libLink.Link{
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.create("world");
-		console.log("Clusterio | Successfully created save");
+		this.logger.info("Successfully created save");
 	}
 
 	async exportDataRequestHandler() {
 		this.notifyStatus("exporting_data");
 		try {
-			console.log("Clusterio | Writing server-settings.json");
+			this.logger.verbose("Writing server-settings.json");
 			await this.writeServerSettings();
 
-			console.log("Exporting data .....");
-			await symlinkMods(this, "sharedMods", console);
+			this.logger.info("Exporting data .....");
+			await symlinkMods(this, "sharedMods");
 			let zip = await libFactorio.exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
@@ -773,11 +782,10 @@ class Instance extends libLink.Link{
  * instanceInfo objects.
  *
  * @param {string} instancesDir - Directory containing instances
- * @param {Object} logger - console like logging interface.
  * @returns {Map<integer, Object>}
  *     mapping between instance id and information about this instance.
  */
-async function discoverInstances(instancesDir, logger) {
+async function discoverInstances(instancesDir) {
 	let instanceInfos = new Map();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
@@ -792,12 +800,12 @@ async function discoverInstances(instancesDir, logger) {
 					continue; // Ignore folders without config.json
 				}
 
-				logger.error(`Error occured while parsing ${configPath}: ${err}`);
+				logger.error(`Error occured while parsing ${configPath}: ${err.message}`);
 				continue;
 			}
 
 			let instancePath = path.join(instancesDir, entry.name);
-			logger.log(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
+			logger.verbose(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
 				path: instancePath,
 				config: instanceConfig,
@@ -889,7 +897,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 	}
 
 	register() {
-		console.log("SOCKET | registering slave");
+		logger.info("SOCKET | registering slave");
 		let plugins = {};
 		for (let pluginInfo of this.pluginInfos) {
 			plugins[pluginInfo.name] = pluginInfo.version;
@@ -948,14 +956,12 @@ class Slave extends libLink.Link {
 			}
 
 			this.updateInstances().catch((err) => {
-				console.error("ERROR: Unexpected error updating instances");
-				console.error(err);
+				logger.fatal(`Unexpected error updating instances:\n${err.stack}`);
 				return this.shutdown();
 
 			}).catch((err) => {
 				setBlocking(true);
-				console.error("ERROR: Unexpected error during shutdown");
-				console.error(err);
+				logger.fatal(`Unexpected error during shutdown:\n${err.stack}`);
 				process.exit(1);
 			});
 		});
@@ -968,23 +974,20 @@ class Slave extends libLink.Link {
 			if (this._disconnecting) {
 				this._disconnecting = false;
 				this.connector.connect().catch((err) => {
-					console.error("ERROR: Unexpected error reconnecting to master");
-					console.error(err);
+					logger.fatal(`Unexpected error reconnecting to master:\n${err.stack}`);
 					return this.shutdown();
 
 				}).catch((err) => {
 					setBlocking(true);
-					console.error("ERROR: Unexpected error during shutdown");
-					console.error(err);
+					logger.fatal(`Unexpected error during shutdown:\n${err.stack}`);
 					process.exit(1);
 				});
 
 			} else {
-				console.error("ERROR: Master connection was unexpectedly closed");
+				logger.fatal("Master connection was unexpectedly closed");
 				this.shutdown().catch((err) => {
 					setBlocking(true);
-					console.error("ERROR: Unexpected error during shutdown");
-					console.error(err);
+					logger.fatal(`Unexpected error during shutdown:\n${err.stack}`);
 					process.exit(1);
 				});
 			}
@@ -1134,7 +1137,7 @@ class Slave extends libLink.Link {
 		let instanceInfo = this.instanceInfos.get(instance_id);
 		if (instanceInfo) {
 			instanceInfo.config.update(serialized_config, true);
-			console.log(`Clusterio | Updated config for ${instanceInfo.path}`);
+			logger.verbose(`Updated config for ${instanceInfo.path}`);
 
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instance_id);
@@ -1158,7 +1161,7 @@ class Slave extends libLink.Link {
 			}
 
 			this.instanceInfos.set(instance_id, instanceInfo);
-			console.log(`Clusterio | assigned instance ${instanceInfo.config.get("instance.name")}`);
+			logger.verbose(`assigned instance ${instanceInfo.config.get("instance.name")}`);
 		}
 
 		// Somewhat hacky, but in the event of a lost session the status is
@@ -1191,7 +1194,7 @@ class Slave extends libLink.Link {
 			}
 
 			this.instanceInfos.delete(instanceId);
-			console.log(`Clusterio | unassigned instance ${instanceInfo.config.get("instance.name")}`);
+			logger.verbose(`unassigned instance ${instanceInfo.config.get("instance.name")}`);
 		}
 	}
 
@@ -1301,7 +1304,7 @@ class Slave extends libLink.Link {
 	 * the slave and master server with the new list of instances.
 	 */
 	async updateInstances() {
-		this.discoveredInstanceInfos = await discoverInstances(this.config.get("slave.instances_directory"), console);
+		this.discoveredInstanceInfos = await discoverInstances(this.config.get("slave.instances_directory"));
 		let list = [];
 		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
@@ -1325,8 +1328,9 @@ class Slave extends libLink.Link {
 							save: null,
 						});
 					} catch (err) {
-						console.error(`Error during auto startup for ${instanceInfo.config.get("instance.name")}:`);
-						console.error(err);
+						logger.error(
+							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`
+						);
 					}
 				}
 			}
@@ -1353,8 +1357,7 @@ class Slave extends libLink.Link {
 			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
 			if (!(err instanceof libErrors.SessionLost)) {
-				console.error("Unexpected error preparing disconnect");
-				console.error(err);
+				logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
 			}
 		}
 
@@ -1423,16 +1426,15 @@ function checkFilename(name) {
  *
  * @param {Instance} instance - Instance to link mods for
  * @param {string} sharedMods - Path to folder to link mods from.
- * @param {object} logger - console like logging interface.
  */
-async function symlinkMods(instance, sharedMods, logger) {
+async function symlinkMods(instance, sharedMods) {
 	await fs.ensureDir(instance.path("mods"));
 
 	// Remove broken symlinks in instance mods.
 	for (let entry of await fs.readdir(instance.path("mods"), { withFileTypes: true })) {
 		if (entry.isSymbolicLink()) {
 			if (!await fs.pathExists(instance.path("mods", entry.name))) {
-				logger.log(`Removing broken symlink ${entry.name}`);
+				instance.logger.verbose(`Removing broken symlink ${entry.name}`);
 				await fs.unlink(instance.path("mods", entry.name));
 			}
 		}
@@ -1444,7 +1446,7 @@ async function symlinkMods(instance, sharedMods, logger) {
 		if (entry.isFile()) {
 			if ([".zip", ".dat"].includes(path.extname(entry.name))) {
 				if (!instanceModsEntries.has(entry.name)) {
-					logger.log(`linking ${entry.name} from ${sharedMods}`);
+					instance.logger.verbose(`linking ${entry.name} from ${sharedMods}`);
 					let target = path.join(sharedMods, entry.name);
 					let link = instance.path("mods", entry.name);
 
@@ -1462,23 +1464,27 @@ async function symlinkMods(instance, sharedMods, logger) {
 				}
 
 			} else {
-				logger.warn(`Warning: ignoring file '${entry.name}' in sharedMods`);
+				instance.logger.warn(`Warning: ignoring file '${entry.name}' in sharedMods`);
 			}
 
 		} else {
-			logger.warn(`Warning: ignoring non-file '${entry.name}' in sharedMods`);
+			instance.logger.warn(`Warning: ignoring non-file '${entry.name}' in sharedMods`);
 		}
 	}
 }
 
 async function startSlave() {
-	// add better stack traces on promise rejection
-	process.on("unhandledRejection", r => console.log(r));
-
 	// argument parsing
 	const args = yargs
 		.scriptName("slave")
 		.usage("$0 <command> [options]")
+		.option("log-level", {
+			nargs: 1,
+			describe: "Log level to print to stdout",
+			default: "info",
+			choices: ["none"].concat(Object.keys(levels)),
+			type: "string",
+		})
 		.option("config", {
 			nargs: 1,
 			describe: "slave config file to use",
@@ -1499,7 +1505,23 @@ async function startSlave() {
 		.argv
 	;
 
-	console.log(`Loading available plugins from ${args.pluginList}`);
+	logger.add(new winston.transports.File({
+		format: winston.format.combine(
+			winston.format.json(),
+		),
+		filename: "slave.log",
+	}));
+	if (args.logLevel !== "none") {
+		logger.add(new ConsoleTransport({
+			level: args.logLevel,
+			format: new libLoggingUtils.TerminalFormat(),
+		}));
+	}
+
+	// add better stack traces on promise rejection
+	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
+
+	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
 		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
@@ -1516,19 +1538,19 @@ async function startSlave() {
 		return;
 	}
 
-	console.log("Loading Plugin info");
+	logger.info("Loading Plugin info");
 	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
-	console.log(`Loading config from ${args.config}`);
+	logger.info(`Loading config from ${args.config}`);
 	let slaveConfig = new libConfig.SlaveConfig();
 	try {
 		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
-			console.log("Config not found, initializing new config");
+			logger.info("Config not found, initializing new config");
 			await slaveConfig.init();
 
 		} else {
@@ -1553,8 +1575,8 @@ async function startSlave() {
 
 	// make sure we have the master access token
 	if (slaveConfig.get("slave.master_token") === "enter token here") {
-		console.error("ERROR invalid config!");
-		console.error(
+		logger.fatal("ERROR invalid config!");
+		logger.fatal(
 			"Master server requires an access token for socket operations. As clusterio\n"+
 			"slaves depends upon this, please set your token using the command npx\n"+
 			"clusterioslave config set slave.master_token <token>.  You can generate an\n"+
@@ -1566,8 +1588,8 @@ async function startSlave() {
 
 	// make sure url ends with /
 	if (!slaveConfig.get("slave.master_url").endsWith("/")) {
-		console.error("ERROR invalid config!");
-		console.error("slave.master_url must end with '/'");
+		logger.fatal("ERROR invalid config!");
+		logger.fatal("slave.master_url must end with '/'");
 		process.exitCode = 1;
 		return;
 	}
@@ -1579,22 +1601,26 @@ async function startSlave() {
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
-			console.log("Caught second interrupt, terminating immediately");
+			logger.fatal("Caught second interrupt, terminating immediately");
 			process.exit(1);
 		}
 
 		secondSigint = true;
-		console.log("Caught interrupt signal, shutting down");
+		logger.info("Caught interrupt signal, shutting down");
 		slave.shutdown().catch(err => {
-			console.error(`
+			logger.error(`
 +---------------------------------------------------------------+
 | Unexpected error occured while stopping slave, please report  |
 | it to https://github.com/clusterio/factorioClusterio/issues   |
-+---------------------------------------------------------------+`
++---------------------------------------------------------------+
+${err.stack}`
 			);
-			console.error(err);
 			process.exit(1);
 		});
+	});
+
+	slaveConnector.once("connect", () => {
+		logger.add(new libLoggingUtils.LinkTransport({ link: slave }));
 	});
 
 	await slaveConnector.connect();
@@ -1610,6 +1636,7 @@ module.exports = {
 };
 
 if (module === require.main) {
+	// eslint-disable-next-line no-console
 	console.warn(`
 +==========================================================+
 I WARNING:  This is the development branch for the 2.0     I
@@ -1619,16 +1646,16 @@ I           version of clusterio.  Expect things to break. I
 	);
 	startSlave().catch(err => {
 		if (err instanceof libErrors.AuthenticationFailed) {
-			console.error(err.message);
+			logger.fatal(err.message);
 
 		} else {
-			console.error(`
+			logger.fatal(`
 +--------------------------------------------------------------+
 | Unexpected error occured while starting slave, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues  |
-+--------------------------------------------------------------+`
++--------------------------------------------------------------+
+${err.stack}`
 			);
-			console.error(err);
 		}
 
 		process.exit(1);

@@ -22,6 +22,7 @@
     "as-table": "^1.0.31",
     "chalk": "^3.0.0",
     "fs-extra": "^8.1.0",
+    "winston": "^3.3.3",
     "yargs": "^14.2.0"
   },
   "publishConfig": {

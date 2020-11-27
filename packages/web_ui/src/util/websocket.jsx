@@ -1,7 +1,8 @@
-const libLink = require("@clusterio/lib/link");
-const libPlugin = require("@clusterio/lib/plugin");
-const libErrors = require("@clusterio/lib/errors");
-const version = require("../../package.json").version;
+import libLink from "@clusterio/lib/link";
+import libPlugin from "@clusterio/lib/plugin";
+import libErrors from "@clusterio/lib/errors";
+import { logger } from "@clusterio/lib/logging";
+import packageJson from "../../package.json";
 
 
 /**
@@ -19,11 +20,11 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 			throw new Error("Token not set");
 		}
 
-		console.log("SOCKET | registering control");
+		logger.verbose("SOCKET | registering control");
 		this.sendHandshake("register_control", {
 			token: this.token,
 			agent: "Clusterio Web UI",
-			version,
+			version: packageJson.version,
 		});
 	}
 }
@@ -48,41 +49,46 @@ export class Control extends libLink.Link {
 			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
 		}
 
-		this.instanceOutputHandlers = new Map();
+		this.instanceLogHandlers = new Map();
 
 		this.connector.on("connect", () => {
-			this.updateInstanceOutputSubscriptions().catch(console.error);
+			this.updateLogSubscriptions().catch(err => logger.error(
+				`Unexpected error updating log subscriptions:\n${err.stack}`
+			));
 		});
 	}
 
-	async instanceOutputEventHandler(message) {
-		let { instance_id, output } = message.data;
-		let handlers = this.instanceOutputHandlers.get(instance_id);
-		for (let handler of handlers || []) {
-			handler(output);
+	async logMessageEventHandler(message) {
+		let info = message.data.info;
+
+		if (info.instance_id !== undefined) {
+			let instanceHandlers = this.instanceLogHandlers.get(info.instance_id);
+			for (let handler of instanceHandlers || []) {
+				handler(info);
+			}
 		}
 	}
 
-	async onInstanceOutput(id, handler) {
+	async onInstanceLog(id, handler) {
 		if (!Number.isInteger(id)) {
 			throw new Error("Invalid instance id");
 		}
 
-		let handlers = this.instanceOutputHandlers.get(id);
+		let handlers = this.instanceLogHandlers.get(id);
 		if (!handlers) {
 			handlers = [];
-			this.instanceOutputHandlers.set(id, handlers);
+			this.instanceLogHandlers.set(id, handlers);
 		}
 
 		handlers.push(handler);
 
 		if (handlers.length === 1) {
-			await this.updateInstanceOutputSubscriptions();
+			await this.updateLogSubscriptions();
 		}
 	}
 
-	async offInstanceOutput(id, handler) {
-		let handlers = this.instanceOutputHandlers.get(id);
+	async offInstanceLog(id, handler) {
+		let handlers = this.instanceLogHandlers.get(id);
 		if (!handlers || !handlers.length) {
 			throw new Error(`No handlers for instance ${id} exist`);
 		}
@@ -94,17 +100,19 @@ export class Control extends libLink.Link {
 
 		handlers.splice(index, 1);
 		if (!handlers.length) {
-			await this.updateInstanceOutputSubscriptions();
+			await this.updateLogSubscriptions();
 		}
 	}
 
-	async updateInstanceOutputSubscriptions() {
-		await libLink.messages.setInstanceOutputSubscriptions.send(this, {
-			instance_ids: [...this.instanceOutputHandlers.keys()],
+	async updateLogSubscriptions() {
+		await libLink.messages.setLogSubscriptions.send(this, {
+			all: false,
+			instance_ids: [...this.instanceLogHandlers.keys()],
 		});
 	}
 
 	async debugWsMessageEventHandler(message) {
+		// eslint-disable-next-line no-console
 		console.log("WS", message.data.direction, message.data.content);
 	}
 

@@ -59,7 +59,6 @@ export default function UsersPage() {
 			TableProps={{
 				onRow: (record, rowIndex) => ({
 					onClick: event => {
-						console.log(record, rowIndex);
 						history.push(`/users/${record.key}/view`);
 					},
 				}),

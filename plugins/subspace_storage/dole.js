@@ -103,6 +103,7 @@ function doleDivider({
 	object,
 	items,
 	logItemTransfers,
+	logger,
 }) {
 	let itemCount = items.getItemCount(object.name);
 	// lower rates will equal more dramatic swings
@@ -115,7 +116,7 @@ function doleDivider({
 	object.count /= ((_doleDivisionFactor[object.name] || 0) + doleDivisionRetardation) / doleDivisionRetardation;
 	object.count = Math.round(object.count);
 	if (logItemTransfers) {
-		console.info(
+		logger.verbose(
 			`Serving ${object.count}/${originalCount} ${object.name} from ${itemCount} ${object.name} `+
 			`with dole division factor ${(_doleDivisionFactor[object.name]||0)} `+
 			`(real=${((_doleDivisionFactor[object.name] || 0) + doleDivisionRetardation) / doleDivisionRetardation}), `+

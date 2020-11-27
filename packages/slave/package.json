@@ -23,6 +23,7 @@
     "phin": "^3.4.1",
     "pidusage": "^2.0.18",
     "set-blocking": "^2.0.0",
+    "winston": "^3.3.3",
     "yargs": "^14.2.0"
   },
   "publishConfig": {
