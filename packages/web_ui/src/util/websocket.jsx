@@ -107,7 +107,10 @@ export class Control extends libLink.Link {
 	async updateLogSubscriptions() {
 		await libLink.messages.setLogSubscriptions.send(this, {
 			all: false,
+			master: false,
+			slave_ids: [],
 			instance_ids: [...this.instanceLogHandlers.keys()],
+			max_level: null,
 		});
 	}
 

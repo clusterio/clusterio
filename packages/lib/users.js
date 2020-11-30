@@ -450,6 +450,11 @@ definePermission({
 	title: "Follow cluster log",
 	description: "Receive new entries in the cluster log.  Required to see instance console.",
 });
+definePermission({
+	name: "core.log.query",
+	title: "Query cluster log",
+	description: "Query past entries in the cluster log.  Required to see past entries in instance console.",
+});
 
 definePermission({
 	name: "core.debug.dump_ws",

@@ -641,9 +641,40 @@ messages.setLogSubscriptions = new Request({
 	permission: "core.log.follow",
 	requestProperties: {
 		"all": { type: "boolean" },
+		"master": { type: "boolean" },
+		"slave_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
 		"instance_ids": {
 			type: "array",
 			items: { type: "integer" },
+		},
+		"max_level": { type: ["string", "null"] },
+	},
+});
+
+messages.queryLog = new Request({
+	type: "query_log",
+	links: ["control-master"],
+	permission: "core.log.query",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"master": { type: "boolean" },
+		"slave_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
+		"instance_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
+		"max_level": { type: ["string", "null"] },
+	},
+	responseProperties: {
+		"log": {
+			type: "array",
+			items: { type: "object" },
 		},
 	},
 });

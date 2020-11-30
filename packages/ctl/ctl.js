@@ -188,7 +188,7 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setLogSubscriptions.send(control, { all: false, instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.createSave.send(control, {
 			instance_id: instanceId,
 		});
@@ -201,7 +201,7 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setLogSubscriptions.send(control, { all: false, instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.exportData.send(control, {
 			instance_id: instanceId,
 		});
@@ -218,11 +218,12 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setLogSubscriptions.send(control, { all: false, instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.startInstance.send(control, {
 			instance_id: instanceId,
 			save: args.save || null,
 		});
+		control.keepOpen = args.keepOpen;
 	},
 }));
 
@@ -236,11 +237,12 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setLogSubscriptions.send(control, { all: false, instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.loadScenario.send(control, {
 			instance_id: instanceId,
 			scenario: args.scenario || null,
 		});
+		control.keepOpen = args.keepOpen;
 	},
 }));
 
@@ -250,7 +252,7 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setLogSubscriptions.send(control, { all: false, instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.stopInstance.send(control, {
 			instance_id: instanceId,
 		});
@@ -469,12 +471,75 @@ userCommands.add(new libCommand.Command({
 	},
 }));
 
+const logCommands = new libCommand.CommandTree({ name: "log", description: "Log inspection" });
+logCommands.add(new libCommand.Command({
+	definition: ["follow", "follow cluster log", (yargs) => {
+		yargs.options({
+			"all": { describe: "Follow the whole cluster log", nargs: 0, type: "boolean", default: false },
+			"master": { describe: "Follow log of the master server", nargs: 0, type: "boolean", default: false },
+			"slave": { describe: "Follow log of given slave", nargs: 1, type: "string", default: null },
+			"instance": { describe: "Follow log of given instance", nargs: 1, type: "string", default: null },
+		});
+	}],
+	handler: async function(args, control) {
+		if (!args.all && !args.master && !args.slave && !args.instance) {
+			logger.error("At least one of --all, --master, --slave and --instance must be passed");
+			process.exitCode = 1;
+			return;
+		}
+		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
+		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
+		await control.setLogSubscriptions({ all: args.all, master: args.master, slave_ids, instance_ids });
+		control.keepOpen = true;
+	},
+}));
+
+logCommands.add(new libCommand.Command({
+	definition: ["query", "Query cluster log", (yargs) => {
+		yargs.options({
+			"all": { describe: "Query the whole cluster log", nargs: 0, type: "boolean", default: false },
+			"master": { describe: "Query log of the master server", nargs: 0, type: "boolean", default: false },
+			"slave": { describe: "Query log of given slave", nargs: 1, type: "string", default: null },
+			"instance": { describe: "Query log of given instance", nargs: 1, type: "string", default: null },
+			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: null },
+		});
+	}],
+	handler: async function(args, control) {
+		if (!args.all && !args.master && !args.slave && !args.instance) {
+			logger.error("At least one of --all, --master, --slave and --instance must be passed");
+			process.exitCode = 1;
+			return;
+		}
+		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
+		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
+		let result = await libLink.messages.queryLog.send(control, {
+			all: args.all,
+			master: args.master,
+			slave_ids,
+			instance_ids,
+			max_level: args.maxLevel,
+		});
+
+		let stdoutLogger = winston.createLogger({
+			level: "verbose",
+			levels,
+			format: new libLoggingUtils.TerminalFormat({ showTimestamp: true }),
+			transports: [
+				new ConsoleTransport({ errorLevels: [], warnLevels: [] }),
+			],
+		});
+		for (let info of result.log) {
+			stdoutLogger.log(info);
+		}
+	},
+}));
+
 const debugCommands = new libCommand.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new libCommand.Command({
 	definition: ["dump-ws", "Dump WebSocket messages sent and received by master", (yargs) => { }],
 	handler: async function(args, control) {
 		await libLink.messages.debugDumpWs.send(control);
-		return new Promise(() => {});
+		control.keepOpen = true;
 	},
 }));
 
@@ -519,6 +584,24 @@ class Control extends libLink.Link {
 		for (let controlPlugin of controlPlugins.values()) {
 			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
 		}
+
+		/**
+		 * Keep the control connection alive after the command completes.
+		 * @type {boolean}
+		 */
+		this.keepOpen = false;
+	}
+
+	async setLogSubscriptions({
+		all = false,
+		master = false,
+		slave_ids = [],
+		instance_ids = [],
+		max_level = null,
+	}) {
+		await libLink.messages.setLogSubscriptions.send(this, {
+			all, master, slave_ids, instance_ids, max_level,
+		});
 	}
 
 	async logMessageEventHandler(message) {
@@ -608,6 +691,7 @@ async function startControl() {
 	rootCommands.add(permissionCommands);
 	rootCommands.add(roleCommands);
 	rootCommands.add(userCommands);
+	rootCommands.add(logCommands);
 	rootCommands.add(debugCommands);
 
 	logger.verbose("Loading Plugin info");
@@ -704,12 +788,11 @@ async function startControl() {
 		});
 	});
 
-	let keepOpen = Boolean(args.keepOpen);
 	try {
 		await targetCommand.run(args, control);
 
 	} catch (err) {
-		keepOpen = false;
+		control.keepOpen = false;
 		if (err instanceof libErrors.CommandError) {
 			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
@@ -723,7 +806,7 @@ async function startControl() {
 		}
 
 	} finally {
-		if (!keepOpen) {
+		if (!control.keepOpen) {
 			await control.shutdown();
 		}
 	}

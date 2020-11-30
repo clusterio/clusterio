@@ -64,6 +64,11 @@ class TerminalFormat {
 
 	transform(info, options) {
 		info = this.colorize.transform(info, this.colorize.options);
+		let ts = "";
+		if (options.showTimestamp && info.timestamp) {
+			ts = `${info.timestamp.replace("T", " ")} `;
+		}
+
 		let src = " ";
 		if (info.instance_name) {
 			src += `i:${info.instance_name} `;
@@ -80,9 +85,9 @@ class TerminalFormat {
 		}
 
 		if (info.stack) {
-			info[MESSAGE] = `[${info.level}]${src}${info.stack}`;
+			info[MESSAGE] = `${ts}[${info.level}]${src}${info.stack}`;
 		} else {
-			info[MESSAGE] = `[${info.level}]${src}${info.message}`;
+			info[MESSAGE] = `${ts}[${info.level}]${src}${info.message}`;
 		}
 		return info;
 	}

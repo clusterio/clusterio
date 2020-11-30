@@ -562,6 +562,11 @@ class BaseConnection extends libLink.Link {
 	}
 }
 
+const lastQueryLogTime = new libPrometheus.Gauge(
+	"clusterio_master_last_query_log_duration_seconds",
+	"Time in seconds the last log query took to execute."
+);
+
 let controlConnections = [];
 class ControlConnection extends BaseConnection {
 	constructor(registerData, connector, user) {
@@ -586,6 +591,8 @@ class ControlConnection extends BaseConnection {
 		this.logTransport = null;
 		this.logSubscriptions = {
 			all: false,
+			master: false,
+			slave_ids: [],
 			instance_ids: [],
 		};
 
@@ -780,27 +787,72 @@ class ControlConnection extends BaseConnection {
 		this.updateLogSubscriptions();
 	}
 
+	static logFilter({ all, master, slave_ids, instance_ids, max_level }) {
+		return info => {
+			// Note: reversed to filter out undefined levels
+			if (max_level && !(levels[info.level] <= levels[max_level])) {
+				return false;
+			}
+
+			if (all) {
+				return true;
+			}
+			if (master && info.slave_id === undefined) {
+				return true;
+			}
+			if (info.slave_id && slave_ids.includes(info.slave_id)) {
+				return true;
+			}
+			if (info.instance_id && instance_ids.includes(info.instance_id)) {
+				return true;
+			}
+			return false;
+		};
+	}
+
 	updateLogSubscriptions() {
-		if (this.logSubscriptions.all || this.logSubscriptions.instance_ids.length) {
+		let { all, master, slave_ids, instance_ids } = this.logSubscriptions;
+		if (all || master || slave_ids.length || instance_ids.length) {
 			if (!this.logTransport) {
 				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
 				clusterLogger.add(this.logTransport);
 			}
-			if (this.logSubscriptions.all) {
-				this.logTransport.filter = null;
-			} else {
-				this.logTransport.filter = info => {
-					if (info.instance_id && this.logSubscriptions.instance_ids.includes(info.instance_id)) {
-						return true;
-					}
-					return false;
-				};
-			}
+			this.logTransport.filter = this.constructor.logFilter(this.logSubscriptions);
 
 		} else if (this.logTransport) {
 			clusterLogger.remove(this.logTransport);
 			this.logTransport = null;
 		}
+	}
+
+	async queryLogRequestHandler(message) {
+		let transport = new winston.transports.File({ filename: "cluster.log" });
+		let query = util.promisify((options, callback) => transport.query(options, callback));
+
+		// Available options and defaults inferred from reading the source
+		// rows: number = limit || 10
+		// limit: number // alias of rows.
+		// start: number = 0
+		// until: Date = now
+		// from: Date = until - 24h
+		// order: "asc"|"desc" = "desc"
+		// fields: Array<string>
+		// level: string
+		// This interface is junk:
+		// - The level option filters by exact match
+		// - No way to add your own filter
+		// - No way to stream results
+		// - The log file is read starting from the beginning
+		let setDuration = lastQueryLogTime.startTimer();
+		let log = await query({
+			order: "asc",
+			limit: Infinity,
+			from: new Date(0),
+		});
+
+		log = log.filter(this.constructor.logFilter(message.data));
+		setDuration();
+		return { log };
 	}
 
 	async listPermissionsRequestHandler(message) {
