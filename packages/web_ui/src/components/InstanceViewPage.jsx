@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useState } from "react";
+import React, { useEffect, useContext, useRef, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import {
 	notification, Button, Card, Checkbox, Col, Descriptions, Dropdown, Form, Input, InputNumber, Modal,
@@ -114,9 +114,27 @@ function formatLog(info, key) {
 
 function InstanceConsole(props) {
 	let control = useContext(ControlContext);
-	let [lines, setLines] = useState([<span key={0}>{"<previous messages are not shown>"}<br/></span>]);
+	let anchor = useRef();
+	let [pastLines, setPastLines] = useState([<span key={0}>{"Loading past entries..."}<br/></span>]);
+	let [lines, setLines] = useState([]);
 
 	useEffect(() => {
+		// Scroll view to the anchor so it sticks to the bottom
+		let parent = anchor.current.parentElement;
+		parent.scrollTop = parent.scrollHeight - parent.clientHeight;
+
+		libLink.messages.queryLog.send(control, {
+			all: false,
+			master: false,
+			slave_ids: [],
+			instance_ids: [props.id],
+			max_level: null,
+		}).then(result => {
+			setPastLines(result.log.slice(-400).map((info, index) => formatLog(info, index)));
+		}).catch(err => {
+			setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
+		});
+
 		function logHandler(info) {
 			setLines(currentLines => currentLines.concat(
 				[formatLog(info, currentLines.length)]
@@ -131,8 +149,9 @@ function InstanceConsole(props) {
 
 	return <>
 		<Paragraph code className="instance-console">
+			{pastLines}
 			{lines}
-			<div className="scroll-anchor" />
+			<div className="scroll-anchor" ref={anchor} />
 		</Paragraph>
 	</>;
 }

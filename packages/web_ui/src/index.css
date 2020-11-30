@@ -109,6 +109,10 @@ body {
 	height: 300px;
 	overflow-y: scroll;
 	white-space: pre-wrap;
+
+	/* Make sure there's at least one pixel of scroll space, this */
+	/* is necessary for the view to stick on the scroll anchor. */
+	padding-top: 300px;
 }
 
 .instance-console .factorio-time {
