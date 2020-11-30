@@ -2004,9 +2004,8 @@ ${err.stack}`
 ${err.pluginName} plugin threw an unexpected error
 during startup, please report it to the plugin author.
 ------------------------------------------------------
-${err.stack}`
+${err.original.stack}`
 			);
-			err = err.original;
 		} else {
 			logger.fatal(`
 +---------------------------------------------------------------+
