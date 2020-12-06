@@ -8,6 +8,10 @@
         {
             "version": "0.1.1",
             "factorio_version": "0.18"
+        },
+        {
+            "version": "0.1.2",
+            "factorio_version": "1.1"
         }
     ],
     "title": "Clusterio Library (Alpha)",
