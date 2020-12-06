@@ -5,6 +5,7 @@ const WebSocket = require("isomorphic-ws");
 
 const libSchema = require("@clusterio/lib/schema");
 const libErrors = require("@clusterio/lib/errors");
+const { logger } = require("@clusterio/lib/logging");
 
 
 /**
@@ -45,7 +46,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	_doHeartbeat() {
 		this._check(["connected", "closing"]);
 		if (Date.now() - this._lastHeartbeat > 2000 * this._heartbeatInterval) {
-			console.log("SOCKET | closing after heartbeat timed out");
+			logger.verbose("SOCKET | closing after heartbeat timed out");
 			this._socket.close(1008, "Heartbeat timeout");
 			clearInterval(this._heartbeatId);
 			this._heartbeatId = null;
@@ -61,9 +62,8 @@ class WebSocketBaseConnector extends events.EventEmitter {
 
 	_processHeartbeat(message) {
 		if (!libSchema.heartbeat(message)) {
-			console.log("SOCKET | closing after received invalid heartbeat:", message);
+			logger.warn("SOCKET | closing after received invalid heartbeat");
 			this._socket.close(1002, "Invalid heartbeat");
-			console.log(libSchema.heartbeat.errors);
 			return;
 		}
 
@@ -236,7 +236,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		url.pathname += "api/socket";
 
 		// Open WebSocket to master
-		console.log(`SOCKET | connecting to ${url}`);
+		logger.verbose(`SOCKET | connecting to ${url}`);
 
 		// eslint-disable-next-line no-process-env
 		if (process.env.APP_ENV === "browser") {
@@ -266,7 +266,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		if (this._startedReconnect + this._timeout * 1000 < Date.now()) {
-			console.log("SOCKET | Timed out trying to reconnect");
+			logger.error("SOCKET | Timed out trying to reconnect");
 			this._heartbeatInterval = null;
 			this._lastReceivedSeq = null;
 			this._sessionToken = null;
@@ -277,7 +277,9 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		let delay = Math.random() * this._reconnectDelay;
-		console.log(`SOCKET | waiting ${delay.toLocaleString("en", { maximumFractionDigits: 2 })} seconds for reconnect`);
+		logger.verbose(
+			`SOCKET | waiting ${delay.toLocaleString("en", { maximumFractionDigits: 2 })} seconds for reconnect`
+		);
 		this._reconnectId = setTimeout(() => {
 			this._reconnectId = null;
 			this._doConnect();
@@ -286,7 +288,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 	_attachSocketHandlers() {
 		this._socket.onclose = event => {
-			console.log(`SOCKET | Close (code: ${event.code}, reason: ${event.reason})`);
+			logger.verbose(`SOCKET | Close (code: ${event.code}, reason: ${event.reason})`);
 			// Authentication failed
 			if (event.code === 4003) {
 				this.emit("error", new libErrors.AuthenticationFailed(event.reason));
@@ -315,11 +317,11 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		this._socket.onerror = event => {
 			// It's assumed that close is always called by ws
-			console.error("SOCKET | Error:", event.message || "unknown error");
+			logger.error(`SOCKET | Error: ${event.message || "unknown error"}`);
 		};
 
 		this._socket.onopen = () => {
-			console.log("SOCKET | Open");
+			logger.verbose("SOCKET | Open");
 		};
 
 		// Handle messages
@@ -348,17 +350,17 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 	_processHandshake(message) {
 		if (!libSchema.serverHandshake(message)) {
-			console.log("SOCKET | closing after received invalid handshake:", message);
+			logger.verbose("SOCKET | closing after received invalid handshake");
 			this._socket.close(1002, "Invalid handshake");
 			return;
 		}
 
 		let { seq, type, data } = message;
 		if (type === "hello") {
-			console.log(`SOCKET | received hello from master version ${data.version}`);
+			logger.verbose(`SOCKET | received hello from master version ${data.version}`);
 			this.emit("hello", data);
 			if (this._sessionToken) {
-				console.log("SOCKET | Attempting resume");
+				logger.verbose("SOCKET | Attempting resume");
 				this.sendHandshake("resume", {
 					session_token: this._sessionToken,
 					last_seq: this._lastReceivedSeq,
@@ -368,7 +370,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 
 		} else if (type === "ready") {
-			console.log("SOCKET | received ready from master");
+			logger.verbose("SOCKET | received ready from master");
 			this._state = "connected";
 			this._sessionToken = data.session_token;
 			this._heartbeatInterval = data.heartbeat_interval;
@@ -381,7 +383,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this.emit("connect");
 
 		} else if (type === "continue") {
-			console.log("SOCKET | resuming existing session");
+			logger.verbose("SOCKET | resuming existing session");
 			this._state = "connected";
 			this._heartbeatInterval = data.heartbeat_interval;
 			this.startHeartbeat();

@@ -11,6 +11,7 @@ Contents
 
 - [Plugin Structure](#plugin-structure)
 - [Defining the plugin class](#defining-the-plugin-class)
+- [Logging Messages](#logging-messages)
 - [Plugin Configuration](#plugin-configuration)
 - [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
@@ -170,6 +171,59 @@ result in unpredicatable behaviour.  The async init method is always called
 immediatly after the constructor, so there's little reason to do this.
 
 
+Logging Messages
+----------------
+
+The base plugin classes provide a winston logger for logging messages to
+the shared cluster log.  For instances a copy of the log is also stored
+on the slave the instance is on.  To use it, pass a string to one of the
+log levels functions, for example:
+
+    async init() {
+        this.logger.info("Initializing frobbing");
+    }
+
+Metadata covering which plugin and instance (for instance plugin
+classes) the log event happened on will automatically be attached to the
+log message.
+
+The available levels are fatal, error, warn, audit, info, and verbose.
+These levels have roughly the following meanings:
+
+- fatal: Unrecoverable error that prevents continuing execution of
+  the Node.js process.  Note that Plugins shouldn't have fatal errors.
+- error: An unexpected error condition occured, usually an exception
+  thrown when it wasn't expected.  Should be investigated and fixed.
+- warn: An potential error was detected, but operation continued
+  gracefully.  These may indicate that something is running
+  sub-optimally, or is not working as intedend.
+- audit: Record of actions performed by users of the cluster.  This
+  is usually emitted in response to management requests by a control
+  link.
+- info: A general log message.  May indicae a status or operation
+  completed.  This should not be emitted by periodic tasks that run
+  often.
+- verbose: A verbose log message which might be useful when
+  investigating issues, does not show by default.  Note that logging
+  messages is not a cheap operation even when the messages do not show
+  up and spammy logging should be avoided for the verbose level.
+  If the logs are still valuable in certain cases consider putting them
+  behind a config option.
+
+For guarding unexpected errors the best option is to log a short
+description along with the`stack` property of the Error:
+
+    try {
+        // Operation that should not throw but may end up throwing
+    } catch (err) {
+        this.logger.error(`Operation failed:\n${err.stack}`);
+    )
+
+For plugin hooks expections thrown are automatically catched and logged,
+but for event handlers registered on EventEmitters it's critical that
+exceptions are catched and handled appropriately.
+
+
 Defining Configuration
 ----------------------
 
@@ -203,7 +257,7 @@ for example in the MasterPluginClass:
 
     async init() {
         let level = this.master.config.get("foo_frobber.level");
-        console.log("I got a frobnication level of", level);
+        this.logger.info(`I got a frobnication level of ${level}`);
     }
 
 The same applies for instance configs, replace "master" with "instance"
@@ -258,8 +312,8 @@ data sent by `send_json`.  For example in the plugin code:
 
     async init() {
         this.instance.server.on("ipc-my_plugin_foo", content =>
-            this.handleFoo(content).catch(err => console.log(
-                "Error handling foo:", foo
+            this.handleFoo(content).catch(err => this.logger.error(
+                `Error handling foo:\n${err.stack}`
             ))
         );
     }

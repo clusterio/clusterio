@@ -30,6 +30,7 @@ const WebSocket = require("ws");
 const JSZip = require("jszip");
 const version = require("./package").version;
 const util = require("util");
+const winston = require("winston");
 
 // ugly globals
 let masterConfig;
@@ -40,6 +41,7 @@ let stopAcceptingNewSessions = false;
 let debugEvents = new events.EventEmitter();
 let loadedPlugins = {};
 let devMiddleware;
+let clusterLogger;
 
 // homebrew modules
 const generateSslCert = require("./src/generate_ssl_cert");
@@ -55,6 +57,8 @@ const libConfig = require("@clusterio/lib/config");
 const libUsers = require("@clusterio/lib/users");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 const libHelpers = require("@clusterio/lib/helpers");
+const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
+const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
 const express = require("express");
 const compression = require("compression");
@@ -288,13 +292,13 @@ const db = {};
  */
 async function loadMap(databaseDirectory, file) {
 	let databasePath = path.resolve(databaseDirectory, file);
-	console.log(`Loading ${databasePath}`);
+	logger.info(`Loading ${databasePath}`);
 	return await libDatabase.loadJsonArrayAsMap(databasePath);
 }
 
 async function loadInstances(databaseDirectory, file) {
 	let filePath = path.join(databaseDirectory, file);
-	console.log(`Loading ${filePath}`);
+	logger.info(`Loading ${filePath}`);
 
 	let instances = new Map();
 	try {
@@ -372,7 +376,7 @@ function createUser(name) {
  */
 async function saveMap(databaseDirectory, file, map) {
 	let databasePath = path.resolve(databaseDirectory, file);
-	console.log(`Saving ${databasePath}`);
+	logger.info(`Saving ${databasePath}`);
 	await libDatabase.saveMapAsJsonArray(databasePath, map);
 }
 
@@ -409,10 +413,10 @@ async function saveUsers(databaseDirectory, file) {
  * Innitiate shutdown of master server
  */
 async function shutdown() {
-	console.log("Shutting down");
+	logger.info("Shutting down");
 	let exitStartTime = Date.now();
 	try {
-		console.log("Saving configs");
+		logger.info("Saving configs");
 		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 
 		await saveMap(masterConfig.get("master.database_directory"), "slaves.json", db.slaves);
@@ -438,14 +442,13 @@ async function shutdown() {
 			disconnectTasks.push(slaveConnection.disconnect(1001, "Server Quit"));
 		}
 
-		console.log(`Waiting for ${disconnectTasks.length} connectors to close`);
+		logger.info(`Waiting for ${disconnectTasks.length} connectors to close`);
 		for (let task of disconnectTasks) {
 			try {
 				await task;
 			} catch (err) {
 				if (!(err instanceof libErrors.SessionLost)) {
-					console.log("Unexpected error disconnecting connector");
-					console.log(err);
+					logger.warn(`Unexpected error disconnecting connector:\n${err.stack}`);
 				}
 			}
 		}
@@ -455,22 +458,22 @@ async function shutdown() {
 		}
 
 		let stopTasks = [];
-		console.log("Stopping HTTP(S) server");
+		logger.info("Stopping HTTP(S) server");
 		if (httpServer) { stopTasks.push(new Promise(resolve => httpServer.close(resolve))); }
 		if (httpsServer) { stopTasks.push(new Promise(resolve => httpsServer.close(resolve))); }
 		await Promise.all(stopTasks);
 
-		console.log(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
+		logger.info(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
 
 	} catch(err) {
 		setBlocking(true);
-		console.error(`
+		logger.fatal(`
 +--------------------------------------------------------------------+
 | Unexpected error occured while shutting down master, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues        |
-+--------------------------------------------------------------------+`
++--------------------------------------------------------------------+
+${err.stack}`
 		);
-		console.error(err);
 		process.exit(1);
 	}
 }
@@ -551,14 +554,18 @@ class BaseConnection extends libLink.Link {
 			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
 			if (!(err instanceof libErrors.SessionLost)) {
-				console.error("Unexpected error preparing disconnect");
-				console.error(err);
+				logger.error(`"Unexpected error preparing disconnect:\n${err.stack}`);
 			}
 		}
 
 		await this.connector.close(code, reason);
 	}
 }
+
+const lastQueryLogTime = new libPrometheus.Gauge(
+	"clusterio_master_last_query_log_duration_seconds",
+	"Time in seconds the last log query took to execute."
+);
 
 let controlConnections = [];
 class ControlConnection extends BaseConnection {
@@ -581,13 +588,23 @@ class ControlConnection extends BaseConnection {
 			}
 		});
 
-		this.instanceOutputSubscriptions = new Set();
+		this.logTransport = null;
+		this.logSubscriptions = {
+			all: false,
+			master: false,
+			slave_ids: [],
+			instance_ids: [],
+		};
 
 		this.ws_dumper = null;
 		this.connector.on("connect", () => {
 			this.connector._socket.clusterio_ignore_dump = Boolean(this.ws_dumper);
 		});
 		this.connector.on("close", () => {
+			if (this.logTransport) {
+				this.logTransport = null;
+				logger.remove(this.logTransport);
+			}
 			if (this.ws_dumper) {
 				debugEvents.off("message", this.ws_dumper);
 			}
@@ -765,8 +782,77 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async setInstanceOutputSubscriptionsRequestHandler(message) {
-		this.instanceOutputSubscriptions = new Set(message.data.instance_ids);
+	async setLogSubscriptionsRequestHandler(message) {
+		this.logSubscriptions = message.data;
+		this.updateLogSubscriptions();
+	}
+
+	static logFilter({ all, master, slave_ids, instance_ids, max_level }) {
+		return info => {
+			// Note: reversed to filter out undefined levels
+			if (max_level && !(levels[info.level] <= levels[max_level])) {
+				return false;
+			}
+
+			if (all) {
+				return true;
+			}
+			if (master && info.slave_id === undefined) {
+				return true;
+			}
+			if (info.slave_id && slave_ids.includes(info.slave_id)) {
+				return true;
+			}
+			if (info.instance_id && instance_ids.includes(info.instance_id)) {
+				return true;
+			}
+			return false;
+		};
+	}
+
+	updateLogSubscriptions() {
+		let { all, master, slave_ids, instance_ids } = this.logSubscriptions;
+		if (all || master || slave_ids.length || instance_ids.length) {
+			if (!this.logTransport) {
+				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
+				clusterLogger.add(this.logTransport);
+			}
+			this.logTransport.filter = this.constructor.logFilter(this.logSubscriptions);
+
+		} else if (this.logTransport) {
+			clusterLogger.remove(this.logTransport);
+			this.logTransport = null;
+		}
+	}
+
+	async queryLogRequestHandler(message) {
+		let transport = new winston.transports.File({ filename: "cluster.log" });
+		let query = util.promisify((options, callback) => transport.query(options, callback));
+
+		// Available options and defaults inferred from reading the source
+		// rows: number = limit || 10
+		// limit: number // alias of rows.
+		// start: number = 0
+		// until: Date = now
+		// from: Date = until - 24h
+		// order: "asc"|"desc" = "desc"
+		// fields: Array<string>
+		// level: string
+		// This interface is junk:
+		// - The level option filters by exact match
+		// - No way to add your own filter
+		// - No way to stream results
+		// - The log file is read starting from the beginning
+		let setDuration = lastQueryLogTime.startTimer();
+		let log = await query({
+			order: "asc",
+			limit: Infinity,
+			from: new Date(0),
+		});
+
+		log = log.filter(this.constructor.logFilter(message.data));
+		setDuration();
+		return { log };
 	}
 
 	async listPermissionsRequestHandler(message) {
@@ -1001,13 +1087,13 @@ class SlaveConnection extends BaseConnection {
 		// reassigned or deleted while the connection to the slave it was
 		// originally on was down at the time.
 		if (!instance || instance.config.get("instance.assigned_slave") !== this._id) {
-			console.log(`Clusterio | Got bogus update for instance id ${message.data.instance_id}`);
+			logger.warn(`Got bogus update for instance id ${message.data.instance_id}`);
 			return;
 		}
 
 		let prev = instance.status;
 		instance.status = message.data.status;
-		console.log(`Clusterio | Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
+		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		await libPlugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -1041,9 +1127,7 @@ class SlaveConnection extends BaseConnection {
 				if (masterInstance.status !== instance.status) {
 					let prev = masterInstance.status;
 					masterInstance.status = instance.status;
-					console.log(
-						`Clusterio | Instance ${instanceConfig.get("instance.name")} State: ${instance.status}`
-					);
+					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instance.status}`);
 					await libPlugin.invokeHook(masterPlugins, "onInstanceStatusChanged", instance, prev);
 				}
 				continue;
@@ -1080,13 +1164,12 @@ class SlaveConnection extends BaseConnection {
 		libLink.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
 	}
 
-	async instanceOutputEventHandler(message) {
-		let { instance_id, output } = message.data;
-		for (let controlConnection of controlConnections) {
-			if (controlConnection.instanceOutputSubscriptions.has(instance_id)) {
-				libLink.messages.instanceOutput.send(controlConnection, message.data);
-			}
-		}
+	async logMessageEventHandler(message) {
+		clusterLogger.log({
+			...message.data.info,
+			slave_id: this._id,
+			slave_name: this._name,
+		});
 	}
 
 	async playerEventEventHandler(message) {
@@ -1228,7 +1311,7 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 	}
 
 	_timedOut() {
-		console.log("SOCKET | Connection timed out");
+		logger.verbose("SOCKET | Connection timed out");
 		this._timeoutId = null;
 		this._lastReceivedSeq = null;
 		this._sendBuffer.length = 0;
@@ -1242,7 +1325,7 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 		this.startHeartbeat();
 
 		this._socket.on("close", (code, reason) => {
-			console.log(`SOCKET | Close (code: ${code}, reason: ${reason})`);
+			logger.verbose(`SOCKET | Close (code: ${code}, reason: ${reason})`);
 			if (this._state === "closing") {
 				this._lastReceivedSeq = null;
 				this._sendBuffer.length = 0;
@@ -1270,17 +1353,17 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 
 		this._socket.on("error", err => {
 			// It's assumed that close is always called by ws
-			console.error("SOCKET | Error:", err);
+			logger.verbose("SOCKET | Error:", err);
 		});
 
 		this._socket.on("open", () => {
-			console.log("SOCKET | Open");
+			logger.verbose("SOCKET | Open");
 		});
 		this._socket.on("ping", data => {
-			console.log(`SOCKET | Ping (data: ${data}`);
+			logger.verbose(`SOCKET | Ping (data: ${data}`);
 		});
 		this._socket.on("pong", data => {
-			console.log(`SOCKET | Pong (data: ${data}`);
+			logger.verbose(`SOCKET | Pong (data: ${data}`);
 		});
 
 		// Handle messages
@@ -1328,7 +1411,7 @@ let pendingSockets = new Set();
 let activeConnectors = new Map();
 
 wss.on("connection", function (socket, req) {
-	console.log(`SOCKET | new connection from ${req.socket.remoteAddress}`);
+	logger.verbose(`SOCKET | new connection from ${req.socket.remoteAddress}`);
 
 	// Track statistics
 	wsConnectionsCounter.inc();
@@ -1357,7 +1440,7 @@ wss.on("connection", function (socket, req) {
 		pendingSockets.add(socket);
 
 		let timeoutId = setTimeout(() => {
-			console.log(`SOCKET | closing ${req.socket.remoteAddress} after timing out on handshake`);
+			logger.verbose(`SOCKET | closing ${req.socket.remoteAddress} after timing out on handshake`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(1008, "Handshake timeout");
 			pendingSockets.delete(socket);
@@ -1369,13 +1452,13 @@ wss.on("connection", function (socket, req) {
 			handleHandshake(
 				message, socket, req, attachHandler
 			).catch(err => {
-				console.error(`
+				logger.error(`
 +----------------------------------------------------------------+
 | Unexpected error occured in WebSocket handshake, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues    |
-+----------------------------------------------------------------+`
++----------------------------------------------------------------+
+${err.stack}`
 				);
-				console.error(err);
 				wsRejectedConnectionsCounter.inc();
 				socket.close(1011, "Unexpected error");
 			});
@@ -1395,14 +1478,14 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	try {
 		message = JSON.parse(message);
 	} catch (err) {
-		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid JSON`);
+		logger.verbose(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid JSON`);
 		wsRejectedConnectionsCounter.inc();
 		socket.close(1002, "Invalid JSON");
 		return;
 	}
 
 	if (!libSchema.clientHandshake(message)) {
-		console.log(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake:`, message);
+		logger.verbose(`SOCKET | closing ${req.socket.remoteAddress} after receiving invalid handshake`);
 		wsRejectedConnectionsCounter.inc();
 		socket.close(1002, "Bad handshake");
 		return;
@@ -1435,7 +1518,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	}
 
 	if (stopAcceptingNewSessions) {
-		console.log(`SOCKET | closing ${req.socket.remoteAddress}, server is shutting down`);
+		logger.verbose(`SOCKET | closing ${req.socket.remoteAddress}, server is shutting down`);
 		wsRejectedConnectionsCounter.inc();
 		socket.close(1001, "Shutting down");
 		return;
@@ -1473,7 +1556,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		}
 
 	} catch (err) {
-		console.error(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
+		logger.verbose(`SOCKET | authentication failed for ${req.socket.remoteAddress}`);
 		wsRejectedConnectionsCounter.inc();
 		socket.close(4003, `Authentication failed: ${err.message}`);
 		return;
@@ -1488,16 +1571,16 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	if (type === "register_slave") {
 		let connection = slaveConnections.get(data.id);
 		if (connection) {
-			console.log(`SOCKET | disconnecting existing connection for slave ${data.id}`);
+			logger.verbose(`SOCKET | disconnecting existing connection for slave ${data.id}`);
 			connection.connector.setTimeout(15); // Slave connection is likely stalled
 			await connection.disconnect(1008, "Registered from another connection");
 		}
 
-		console.log(`SOCKET | registered slave ${data.id} version ${data.version}`);
+		logger.verbose(`SOCKET | registered slave ${data.id} version ${data.version}`);
 		slaveConnections.set(data.id, new SlaveConnection(data, connector));
 
 	} else if (type === "register_control") {
-		console.log(`SOCKET | registered control from ${req.socket.remoteAddress}`);
+		logger.verbose(`SOCKET | registered control from ${req.socket.remoteAddress}`);
 		controlConnections.push(new ControlConnection(data, connector, user));
 	}
 
@@ -1508,7 +1591,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 async function pluginManagement() {
 	let startPluginLoad = Date.now();
 	masterPlugins = await loadPlugins();
-	console.log("All plugins loaded in "+(Date.now() - startPluginLoad)+"ms");
+	logger.info(`All plugins loaded in ${Date.now() - startPluginLoad}ms`);
 }
 
 async function loadPlugins() {
@@ -1528,7 +1611,7 @@ async function loadPlugins() {
 			}
 
 			let masterPlugin = new MasterPlugin(
-				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }
+				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }, logger
 			);
 			await masterPlugin.init();
 			plugins.set(pluginInfo.name, masterPlugin);
@@ -1537,7 +1620,7 @@ async function loadPlugins() {
 			throw new libErrors.PluginError(pluginInfo.name, err);
 		}
 
-		console.log(`Clusterio | Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
 	return plugins;
 }
@@ -1554,7 +1637,7 @@ async function loadPlugins() {
 function listen(server, ...args) {
 	return new Promise((resolve, reject) => {
 		server.on("upgrade", (req, socket, head) => {
-			console.log("handling upgrade");
+			logger.verbose("handling WebSocket upgrade");
 
 			// For reasons that defy common sense, the connection event has
 			// to be emitted explictly when using noServer.
@@ -1603,13 +1686,17 @@ async function startServer() {
 	// and as the process name in ps/top on linux.
 	process.title = "clusterioMaster";
 
-	// add better stack traces on promise rejection
-	process.on("unhandledRejection", r => console.log(r));
-
 	// argument parsing
 	let args = yargs
 		.scriptName("master")
 		.usage("$0 <command> [options]")
+		.option("log-level", {
+			nargs: 1,
+			describe: "Log level to print to stdout",
+			default: "info",
+			choices: ["none"].concat(Object.keys(levels)),
+			type: "string",
+		})
 		.option("config", {
 			nargs: 1,
 			describe: "master config file to use",
@@ -1644,7 +1731,35 @@ async function startServer() {
 		.argv
 	;
 
-	console.log(`Loading available plugins from ${args.pluginList}`);
+	// Combined log stream of the whole cluster.
+	clusterLogger = winston.createLogger({
+		format: winston.format.json(),
+		level: "verbose",
+		levels,
+	});
+	clusterLogger.add(new winston.transports.File({
+		filename: "cluster.log",
+	}));
+
+	// Log stream for the master server.
+	logger.add(new winston.transports.File({
+		format: winston.format.json(),
+		filename: "master.log",
+	}));
+	logger.add(new winston.transports.Stream({
+		stream: clusterLogger,
+	}));
+	if (args.logLevel !== "none") {
+		logger.add(new ConsoleTransport({
+			level: args.logLevel,
+			format: new libLoggingUtils.TerminalFormat(),
+		}));
+	}
+
+	// add better stack traces on promise rejection
+	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
+
+	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
 		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
@@ -1661,20 +1776,20 @@ async function startServer() {
 		return;
 	}
 
-	console.log("Loading Plugin info");
+	logger.info("Loading Plugin info");
 	pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
 	masterConfigPath = args.config;
-	console.log(`Loading config from ${masterConfigPath}`);
+	logger.info(`Loading config from ${masterConfigPath}`);
 	masterConfig = new libConfig.MasterConfig();
 	try {
 		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
-			console.log("Config not found, initializing new config");
+			logger.info("Config not found, initializing new config");
 			await masterConfig.init();
 
 		} else {
@@ -1683,7 +1798,7 @@ async function startServer() {
 	}
 
 	if (!masterConfig.get("master.auth_secret")) {
-		console.log("Generating new master authentication secret");
+		logger.info("Generating new master authentication secret");
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
 		masterConfig.set("master.auth_secret", bytes.toString("base64"));
@@ -1699,7 +1814,7 @@ async function startServer() {
 		await loadUsers(masterConfig.get("master.database_directory"), "users.json");
 		if (subCommand === "create-admin") {
 			if (!args.name) {
-				console.error("name cannot be blank");
+				logger.error("name cannot be blank");
 				process.exitCode = 1;
 				return;
 			}
@@ -1717,16 +1832,17 @@ async function startServer() {
 		} else if (subCommand === "generate-user-token") {
 			let user = db.users.get(args.name);
 			if (!user) {
-				console.error(`No user named '${args.name}'`);
+				logger.error(`No user named '${args.name}'`);
 				process.exitCode = 1;
 				return;
 			}
+			// eslint-disable-next-line no-console
 			console.log(user.createToken(masterConfig.get("master.auth_secret")));
 
 		} else if (subCommand === "create-ctl-config") {
 			let admin = db.users.get(args.name);
 			if (!admin) {
-				console.error(`No user named '${args.name}'`);
+				logger.error(`No user named '${args.name}'`);
 				process.exitCode = 1;
 				return;
 			}
@@ -1738,9 +1854,10 @@ async function startServer() {
 
 			let content = JSON.stringify(controlConfig.serialize(), null, 4);
 			if (args.output === "-") {
+				// eslint-disable-next-line no-console
 				console.log(content);
 			} else {
-				console.log(`Writing ${args.output}`);
+				logger.info(`Writing ${args.output}`);
 				await fs.outputFile(args.output, content);
 			}
 		}
@@ -1752,7 +1869,7 @@ async function startServer() {
 
 	// Start webpack development server if enabled
 	if (args.dev) {
-		console.log("Webpack development mode enabled");
+		logger.warn("Webpack development mode enabled");
 		const webpack = require("webpack");
 		const webpackDevMiddleware = require("webpack-dev-middleware");
 		const webpackConfig = require("./webpack.config");
@@ -1765,12 +1882,12 @@ async function startServer() {
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
-			console.log("Caught second interrupt, terminating immediately");
+			logger.fatal("Caught second interrupt, terminating immediately");
 			process.exit(1);
 		}
 
 		secondSigint = true;
-		console.log("Caught interrupt signal, shutting down");
+		logger.info("Caught interrupt signal, shutting down");
 		shutdown();
 	});
 
@@ -1791,7 +1908,7 @@ async function startServer() {
 	let httpPort = masterConfig.get("master.http_port");
 	let httpsPort = masterConfig.get("master.https_port");
 	if (!httpPort && !httpsPort) {
-		console.error("Error: at least one of http_port and https_port must be configured");
+		logger.fatal("Error: at least one of http_port and https_port must be configured");
 		process.exit(1);
 	}
 
@@ -1818,7 +1935,6 @@ async function startServer() {
 
 		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
 		let staticPath = path.join(path.dirname(pluginPackagePath), "static");
-		console.log(`/plugin/${pluginInfo.name}`, staticPath);
 		app.use(`/plugin/${pluginInfo.name}`, express.static(staticPath));
 	}
 
@@ -1829,7 +1945,7 @@ async function startServer() {
 	if (httpPort) {
 		httpServer = new (require("http").Server)(app);
 		await listen(httpServer, httpPort);
-		console.log("Listening for HTTP on port %s...", httpServer.address().port);
+		logger.info(`Listening for HTTP on port ${httpServer.address().port}`);
 	}
 
 	if (httpsPort) {
@@ -1849,7 +1965,7 @@ async function startServer() {
 			cert: certificate,
 		}, app);
 		await listen(httpsServer, httpsPort);
-		console.log("Listening for HTTPS on port %s...", httpsServer.address().port);
+		logger.info(`Listening for HTTPS on port ${httpsServer.address().port}`);
 	}
 }
 
@@ -1867,6 +1983,7 @@ module.exports = {
 };
 
 if (module === require.main) {
+	// eslint-disable-next-line no-console
 	console.warn(`
 +==========================================================+
 I WARNING:  This is the development branch for the 2.0     I
@@ -1876,28 +1993,31 @@ I           version of clusterio.  Expect things to break. I
 	);
 	startServer().catch(err => {
 		if (err instanceof libErrors.StartupError) {
-			console.error(`
+			logger.fatal(`
 +----------------------------------+
 | Unable to to start master server |
-+----------------------------------+`
++----------------------------------+
+${err.stack}`
 			);
 		} else if (err instanceof libErrors.PluginError) {
-			console.error(`
-Error: ${err.pluginName} plugin threw an unexpected error
-       during startup, please report it to the plugin author.
---------------------------------------------------------------`
+			logger.fatal(`
+${err.pluginName} plugin threw an unexpected error
+during startup, please report it to the plugin author.
+------------------------------------------------------
+${err.original.stack}`
 			);
-			err = err.original;
 		} else {
-			console.error(`
+			logger.fatal(`
 +---------------------------------------------------------------+
 | Unexpected error occured while starting master, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues   |
-+---------------------------------------------------------------+`
++---------------------------------------------------------------+
+${err.stack}`
 			);
 		}
 
-		console.error(err);
-		return shutdown();
+		if (masterConfig) {
+			shutdown();
+		}
 	});
 }

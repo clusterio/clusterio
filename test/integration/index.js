@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use strict";
 const path = require("path");
 const fs = require("fs-extra");
@@ -9,6 +10,8 @@ const events = require("events");
 
 const libLink = require("@clusterio/lib/link");
 const server = require("@clusterio/lib/factorio/server");
+const { ConsoleTransport, logger } = require("@clusterio/lib/logging");
+const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
 
 class TestControl extends libLink.Link {
@@ -24,7 +27,7 @@ class TestControl extends libLink.Link {
 
 	async debugWsMessageEventHandler() { }
 
-	async instanceOutputEventHandler() { }
+	async logMessageEventHandler() { }
 }
 
 class TestControlConnector extends libLink.WebSocketClientConnector {
@@ -96,7 +99,7 @@ function spawn(name, cmd, waitFor) {
 		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
 		let stdout = new server._LineSplitter((line) => {
 			line = line.toString("utf8");
-			if (line.startsWith(waitFor)) {
+			if (waitFor.test(line)) {
 				resolve(process);
 			}
 			console.log(name, line);
@@ -111,6 +114,12 @@ function spawn(name, cmd, waitFor) {
 
 before(async function() {
 	this.timeout(20000);
+
+	// Some integration tests may cause log events
+	logger.add(new ConsoleTransport({
+		level: "info",
+		format: new libLoggingUtils.TerminalFormat(),
+	}));
 
 	await fs.remove(databaseDir);
 	await fs.remove(instancesDir);
@@ -137,13 +146,13 @@ before(async function() {
 	await exec("node ../../packages/master bootstrap create-admin test");
 	await exec("node ../../packages/master bootstrap create-ctl-config test");
 
-	masterProcess = await spawn("master:", "node ../../packages/master run", "All plugins loaded");
+	masterProcess = await spawn("master:", "node ../../packages/master run", /All plugins loaded/);
 
 	let createArgs = "--id 4 --name slave --generate-token";
 	await execCtl(`slave create-config ${createArgs}`);
 
 	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
-	slaveProcess = await spawn("slave:", "node ../../packages/slave run", "SOCKET | received ready from master");
+	slaveProcess = await spawn("slave:", "node ../../packages/slave run", /SOCKET \| registering slave/);
 
 	let controlConnector = new TestControlConnector(url, 2);
 	controlConnector.token = controlToken;

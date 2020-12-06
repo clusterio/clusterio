@@ -6,8 +6,14 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const libConfig = require("./config");
+const libConfig = require("@clusterio/lib/config");
+const { logger } = require("@clusterio/lib/logging");
 
+
+function print(...content) {
+	// eslint-disable-next-line no-console
+	console.log(...content);
+}
 
 /**
  * Yargs plugin command
@@ -50,35 +56,34 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 		try {
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
 		} catch (err) {
-			console.error(`Unable to import plugin info from ${args.path}`);
-			console.error(err);
+			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);
 			process.exitCode = 1;
 			return;
 		}
 
 		if (pluginList.has(pluginInfo.name)) {
-			console.error(`Plugin with the same ${pluginInfo.name} already exists`);
+			logger.error(`Plugin with the same ${pluginInfo.name} already exists`);
 			process.exitCode = 1;
 			return;
 		}
 
 		pluginList.set(pluginInfo.name, pluginPath);
 		await fs.outputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
-		console.log(`Added ${pluginInfo.name}`);
+		print(`Added ${pluginInfo.name}`);
 
 	} else if (command === "remove") {
 		if (!pluginList.delete(args.name)) {
-			console.error(`Plugin with name ${args.name} does not exist`);
+			logger.error(`Plugin with name ${args.name} does not exist`);
 			process.exitCode = 1;
 			return;
 		}
 
 		await fs.outputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
-		console.log(`Removed ${args.name}`);
+		print(`Removed ${args.name}`);
 
 	} else if (command === "list") {
 		for (let [pluginName, pluginPath] of pluginList) {
-			console.log(`${pluginName} - ${pluginPath}`);
+			print(`${pluginName} - ${pluginPath}`);
 		}
 	}
 }
@@ -119,16 +124,16 @@ async function handleConfigCommand(args, instance, configPath) {
 		for (let GroupClass of instance.constructor.groups.values()) {
 			for (let def of GroupClass.definitions.values()) {
 				let value = instance.get(def.fullName);
-				console.log(`${def.fullName} ${JSON.stringify(value)}`);
+				print(`${def.fullName} ${JSON.stringify(value)}`);
 			}
 		}
 
 	} else if (command === "show") {
 		try {
-			console.log(instance.get(args.field));
+			print(instance.get(args.field));
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField) {
-				console.error(err.message);
+				logger.error(err.message);
 			} else {
 				throw err;
 			}
@@ -144,7 +149,7 @@ async function handleConfigCommand(args, instance, configPath) {
 			await fs.outputFile(configPath, JSON.stringify(instance.serialize(), null, 4));
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
-				console.error(err.message);
+				logger.error(err.message);
 			} else {
 				throw err;
 			}

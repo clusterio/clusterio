@@ -723,6 +723,21 @@ class GaugeChild extends ValueCollectorChild {
 	setToCurrentTime() {
 		this._values.set(this._key, Date.now() / 1000);
 	}
+
+	/**
+	 * Start a timer for setting a duration for label set
+	 *
+	 * @returns {function()}
+	 *     function that when called will set the guage to the duration in
+	 *     seconds from when the timer was started
+	 */
+	startTimer() {
+		let start = process.hrtime.bigint();
+		return () => {
+			let end = process.hrtime.bigint();
+			this.set(Number(end - start) / 1e9);
+		};
+	}
 }
 
 /**
@@ -885,6 +900,18 @@ class Gauge extends ValueCollector {
 	 */
 	setToCurrentTime() {
 		this._defaultChild.setToCurrentTime();
+	}
+
+	/**
+	 * Start a timer for setting a duration
+	 *
+	 * Note: Only works if this is an unlabeled collector.
+	 * @returns {function()}
+	 *     function that when called will set the guage to the duration in
+	 *     seconds from when the timer was started
+	 */
+	startTimer() {
+		return this._defaultChild.startTimer();
 	}
 }
 

@@ -7,7 +7,7 @@ const libPlugin = require("@clusterio/lib/plugin");
 
 class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
-		this.technologies = await loadTechnologies(this.master.config);
+		this.technologies = await loadTechnologies(this.master.config, this.logger);
 		this.lastProgressBroadcast = Date.now();
 		this.progressBroadcastId = null;
 		this.progressToBroadcast = new Set();
@@ -17,7 +17,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		if (this.progressBroadcastId) {
 			clearTimeout(this.progressBroadcastId);
 		}
-		await saveTechnologies(this.master.config, this.technologies);
+		await saveTechnologies(this.master.config, this.technologies, this.logger);
 	}
 
 	registerProgress() {
@@ -159,15 +159,15 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	}
 }
 
-async function loadTechnologies(masterConfig) {
+async function loadTechnologies(masterConfig, logger) {
 	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
-	console.log(`Loading ${filePath}`);
+	logger.verbose(`Loading ${filePath}`);
 	try {
 		return new Map(JSON.parse(await fs.readFile(filePath)));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
-			console.log("Creating new technologies database");
+			logger.verbose("Creating new technologies database");
 			return new Map();
 
 		} else {
@@ -176,9 +176,9 @@ async function loadTechnologies(masterConfig) {
 	}
 }
 
-async function saveTechnologies(masterConfig, technologies) {
+async function saveTechnologies(masterConfig, technologies, logger) {
 	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
-	console.log(`writing ${filePath}`);
+	logger.verbose(`writing ${filePath}`);
 	await fs.outputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
 }
 

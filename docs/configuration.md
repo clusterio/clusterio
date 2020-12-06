@@ -286,6 +286,14 @@ Factorio server.  The settings in `data/server-settings.example.json` of
 the Factorio installation is used as the base and properties specified
 here overrides the properties there.
 
+Changes to the following properties will be applied live if the instance
+is running while it is changed: `afk_autokick_interval`,
+`allow_commands`, `autosave_interval`, `autosave_only_on_server`,
+`description`, `ignore_player_limit_for_returning_players`,
+`max_players`, `max_upload_slots`, `max_upload_in_kilobytes_per_second`,
+`name`, `only_admins_can_pause_the_game`, `game_password`,
+`require_user_verification`, `tags`, `visibility`.
+
 Defaults to {"tags":["clusterio"],"auto_pause":false}.
 
 

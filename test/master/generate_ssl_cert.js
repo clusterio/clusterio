@@ -25,7 +25,6 @@ describe("generate_ssl_cert", function() {
 			bits: 512, // This is too small for real world usage, but faster to test
 			sslCertPath: certPath,
 			sslPrivKeyPath: privKeyPath,
-			doLogging: false,
 		});
 
 		assert(await fs.exists(certPath), "cert file was not created");

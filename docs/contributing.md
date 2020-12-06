@@ -223,8 +223,8 @@ should be named the same as the class in PascalCase.
 Imported modules from the lib package are prefixed with lib to make them
 easier to distinguish, as the names tend to be very generic.  E.g.:
 
-    const libLink = require("lib/link");
-    const libLuaTools = require("lib/lua_tools");
+    const libLink = require("@clusterio/lib/link");
+    const libLuaTools = require("@clusterio/lib/lua_tools");
 
 
 For lua code lowercase_underscore is used for everything.

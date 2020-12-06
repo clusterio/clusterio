@@ -4,6 +4,24 @@ const events = require("events");
 const libLink = require("@clusterio/lib/link");
 
 
+class MockLogger {
+	child() { return this; }
+
+	fatal() { }
+
+	error() { }
+
+	warn() { }
+
+	audit() { }
+
+	info() { }
+
+	server() { }
+
+	verbose() { }
+}
+
 class MockSocket {
 	constructor() {
 		this.sentMessages = [];
@@ -82,6 +100,7 @@ class MockServer {
 class MockInstance extends libLink.Link {
 	constructor() {
 		super("instance", "slave", new MockConnector());
+		this.logger = new MockLogger();
 		this.server = new MockServer();
 		this.name = "test";
 		this.config = {
@@ -112,6 +131,7 @@ class MockControl extends libLink.Link {
 
 
 module.exports = {
+	MockLogger,
 	MockSocket,
 	MockConnector,
 	MockInstance,

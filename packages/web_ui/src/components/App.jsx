@@ -2,6 +2,8 @@ import events from "events";
 import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
+import { logger } from "@clusterio/lib/logging";
+
 import basename from "../basename";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
@@ -31,7 +33,7 @@ export default function App(props) {
 		}
 
 		function onError(err) {
-			console.error("Unexpected error in connector", err);
+			logger.error(`Unexpected error in connector:\n${err.stack}`);
 			clearToken();
 			setConnected(false);
 		}

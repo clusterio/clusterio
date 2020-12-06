@@ -140,7 +140,7 @@ async function exportItems(server, modVersions, items) {
 				iconCache.set(iconPath, icon);
 			} else {
 				icon = null;
-				console.log(`Warning: ${iconPath} not found`);
+				server._logger.warn(`${iconPath} not found`);
 			}
 			iconCache.set(iconPath, icon);
 		}
@@ -324,9 +324,9 @@ async function exportData(server) {
 
 	server.on("ipc-item_export", data => items.push(data));
 	server.on("ipc-mod_list", data => { modVersions = new Map(Object.entries(data)); });
-	server.on("output", data => {
-		if (data.format === "seconds" && data.type === "generic") {
-			let match = /^Checksum of (.*): \d+$/.exec(data.message);
+	server.on("output", parsed => {
+		if (parsed.format === "seconds" && parsed.type === "generic") {
+			let match = /^Checksum of (.*): \d+$/.exec(parsed.message);
 			if (match) {
 				modOrder.push(match[1]);
 			}

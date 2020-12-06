@@ -9,9 +9,9 @@ const fs = require("fs-extra");
 const yargs = require("yargs");
 const version = require("./package").version;
 const asTable = require("as-table").configure({ delimiter: " | " });
-const chalk = require("chalk");
 const events = require("events");
 const path = require("path");
+const winston = require("winston");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -20,48 +20,13 @@ const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libCommand = require("@clusterio/lib/command");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
+const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
+const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
 
-/**
- * Format a parsed Factorio output message with colors
- *
- * Formats a parsed Factorio output from lib/factorio into a readable
- * colorized output using terminal escape codes that can be printed.
- *
- * @param {Object} output - Factorio server output.
- * @returns {string} terminal colorized message.
- * @private
- */
-function formatOutputColored(output) {
-	let time = "";
-	if (output.format === "seconds") {
-		time = chalk.yellow(output.time.padStart(8)) + " ";
-	} else if (output.format === "date") {
-		time = chalk.yellow(output.time) + " ";
-	}
-
-	let info = "";
-	if (output.type === "log") {
-		let level = output.level;
-		if (level === "Script") {
-			level = chalk.bold.greenBright(level);
-		} else if (level === "Verbose") {
-			level = chalk.bold.gray(level);
-		} else if (level === "Info") {
-			level = chalk.bold.blueBright(level);
-		} else if (output.level === "Warning") {
-			level = chalk.bold.yellowBright(level);
-		} else if (output.level === "Error") {
-			level = chalk.bold.redBright(level);
-		}
-
-		info = level + " " + chalk.gray(output.file) + ": ";
-
-	} else if (output.type === "action") {
-		info = "[" + chalk.yellow(output.action) + "] ";
-	}
-
-	return time + info + output.message;
+function print(...content) {
+	// eslint-disable-next-line no-console
+	console.log(...content);
 }
 
 const slaveCommands = new libCommand.CommandTree({ name: "slave", description: "Slave management" });
@@ -69,7 +34,7 @@ slaveCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List slaves connected to the master"],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listSlaves.send(control);
-		console.log(asTable(response.list));
+		print(asTable(response.list));
 	},
 }));
 
@@ -79,7 +44,7 @@ slaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: args.id });
-		console.log(response.token);
+		print(response.token);
 	},
 }));
 
@@ -101,9 +66,9 @@ slaveCommands.add(new libCommand.Command({
 
 		let content = JSON.stringify(response.serialized_config, null, 4);
 		if (args.output === "-") {
-			console.log(content);
+			print(content);
 		} else {
-			console.log(`Writing ${args.output}`);
+			logger.info(`Writing ${args.output}`);
 			try {
 				await fs.outputFile(args.output, content, { flag: "wx" });
 			} catch (err) {
@@ -124,7 +89,7 @@ instanceCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List instances known to the master"],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listInstances.send(control);
-		console.log(asTable(response.list));
+		print(asTable(response.list));
 	},
 }));
 
@@ -161,7 +126,7 @@ instanceConfigCommands.add(new libCommand.Command({
 
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
-				console.log(`${group.name}.${name} ${JSON.stringify(value)}`);
+				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
 		}
 	},
@@ -223,7 +188,7 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.createSave.send(control, {
 			instance_id: instanceId,
 		});
@@ -236,7 +201,7 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.exportData.send(control, {
 			instance_id: instanceId,
 		});
@@ -253,11 +218,12 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.startInstance.send(control, {
 			instance_id: instanceId,
 			save: args.save || null,
 		});
+		control.keepOpen = args.keepOpen;
 	},
 }));
 
@@ -271,11 +237,12 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.loadScenario.send(control, {
 			instance_id: instanceId,
 			scenario: args.scenario || null,
 		});
+		control.keepOpen = args.keepOpen;
 	},
 }));
 
@@ -285,7 +252,7 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceOutputSubscriptions.send(control, { instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.stopInstance.send(control, {
 			instance_id: instanceId,
 		});
@@ -324,7 +291,7 @@ permissionCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List permissions in the cluster"],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listPermissions.send(control);
-		console.log(asTable(response.list));
+		print(asTable(response.list));
 	},
 }));
 
@@ -334,7 +301,7 @@ roleCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List roles in the cluster"],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listRoles.send(control);
-		console.log(asTable(response.list));
+		print(asTable(response.list));
 	},
 }));
 
@@ -352,7 +319,7 @@ roleCommands.add(new libCommand.Command({
 			description: args.description,
 			permissions: args.permissions,
 		});
-		console.log(`Created role ID ${response.id}`);
+		logger.info(`Created role ID ${response.id}`);
 	},
 }));
 
@@ -402,7 +369,7 @@ userCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List user in the cluster"],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listUsers.send(control);
-		console.log(asTable(response.list));
+		print(asTable(response.list));
 	},
 }));
 
@@ -504,12 +471,75 @@ userCommands.add(new libCommand.Command({
 	},
 }));
 
+const logCommands = new libCommand.CommandTree({ name: "log", description: "Log inspection" });
+logCommands.add(new libCommand.Command({
+	definition: ["follow", "follow cluster log", (yargs) => {
+		yargs.options({
+			"all": { describe: "Follow the whole cluster log", nargs: 0, type: "boolean", default: false },
+			"master": { describe: "Follow log of the master server", nargs: 0, type: "boolean", default: false },
+			"slave": { describe: "Follow log of given slave", nargs: 1, type: "string", default: null },
+			"instance": { describe: "Follow log of given instance", nargs: 1, type: "string", default: null },
+		});
+	}],
+	handler: async function(args, control) {
+		if (!args.all && !args.master && !args.slave && !args.instance) {
+			logger.error("At least one of --all, --master, --slave and --instance must be passed");
+			process.exitCode = 1;
+			return;
+		}
+		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
+		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
+		await control.setLogSubscriptions({ all: args.all, master: args.master, slave_ids, instance_ids });
+		control.keepOpen = true;
+	},
+}));
+
+logCommands.add(new libCommand.Command({
+	definition: ["query", "Query cluster log", (yargs) => {
+		yargs.options({
+			"all": { describe: "Query the whole cluster log", nargs: 0, type: "boolean", default: false },
+			"master": { describe: "Query log of the master server", nargs: 0, type: "boolean", default: false },
+			"slave": { describe: "Query log of given slave", nargs: 1, type: "string", default: null },
+			"instance": { describe: "Query log of given instance", nargs: 1, type: "string", default: null },
+			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: null },
+		});
+	}],
+	handler: async function(args, control) {
+		if (!args.all && !args.master && !args.slave && !args.instance) {
+			logger.error("At least one of --all, --master, --slave and --instance must be passed");
+			process.exitCode = 1;
+			return;
+		}
+		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
+		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
+		let result = await libLink.messages.queryLog.send(control, {
+			all: args.all,
+			master: args.master,
+			slave_ids,
+			instance_ids,
+			max_level: args.maxLevel,
+		});
+
+		let stdoutLogger = winston.createLogger({
+			level: "verbose",
+			levels,
+			format: new libLoggingUtils.TerminalFormat({ showTimestamp: true }),
+			transports: [
+				new ConsoleTransport({ errorLevels: [], warnLevels: [] }),
+			],
+		});
+		for (let info of result.log) {
+			stdoutLogger.log(info);
+		}
+	},
+}));
+
 const debugCommands = new libCommand.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new libCommand.Command({
 	definition: ["dump-ws", "Dump WebSocket messages sent and received by master", (yargs) => { }],
 	handler: async function(args, control) {
 		await libLink.messages.debugDumpWs.send(control);
-		return new Promise(() => {});
+		control.keepOpen = true;
 	},
 }));
 
@@ -525,7 +555,7 @@ class ControlConnector extends libLink.WebSocketClientConnector {
 	}
 
 	register() {
-		console.log("SOCKET | registering control");
+		logger.verbose("SOCKET | registering control");
 		this.sendHandshake("register_control", {
 			token: this._token,
 			agent: "clusterioctl",
@@ -554,15 +584,32 @@ class Control extends libLink.Link {
 		for (let controlPlugin of controlPlugins.values()) {
 			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
 		}
+
+		/**
+		 * Keep the control connection alive after the command completes.
+		 * @type {boolean}
+		 */
+		this.keepOpen = false;
 	}
 
-	async instanceOutputEventHandler(message) {
-		let { instance_id, output } = message.data;
-		console.log(formatOutputColored(output));
+	async setLogSubscriptions({
+		all = false,
+		master = false,
+		slave_ids = [],
+		instance_ids = [],
+		max_level = null,
+	}) {
+		await libLink.messages.setLogSubscriptions.send(this, {
+			all, master, slave_ids, instance_ids, max_level,
+		});
+	}
+
+	async logMessageEventHandler(message) {
+		logger.log(message.data.info);
 	}
 
 	async debugWsMessageEventHandler(message) {
-		console.log("WS", message.data.direction, message.data.content);
+		print("WS", message.data.direction, message.data.content);
 	}
 
 	async shutdown() {
@@ -585,6 +632,13 @@ async function startControl() {
 	yargs
 		.scriptName("clusterioctl")
 		.usage("$0 <command> [options]")
+		.option("log-level", {
+			nargs: 1,
+			describe: "Log level to print to stderr",
+			default: "server",
+			choices: Object.keys(levels),
+			type: "string",
+		})
 		.option("config", {
 			nargs: 1,
 			describe: "config file to get credentails from",
@@ -607,7 +661,14 @@ async function startControl() {
 	// Parse the args first to get the configured plugin list.
 	let args = yargs.argv;
 
-	console.log(`Loading available plugins from ${args.pluginList}`);
+	// Log stream for the ctl session.
+	logger.add(new ConsoleTransport({
+		errorLevels: Object.keys(levels),
+		level: args.logLevel,
+		format: new libLoggingUtils.TerminalFormat(),
+	}));
+
+	logger.verbose(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
 		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
@@ -630,9 +691,10 @@ async function startControl() {
 	rootCommands.add(permissionCommands);
 	rootCommands.add(roleCommands);
 	rootCommands.add(userCommands);
+	rootCommands.add(logCommands);
 	rootCommands.add(debugCommands);
 
-	console.log("Loading Plugin info");
+	logger.verbose("Loading Plugin info");
 	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
@@ -644,7 +706,7 @@ async function startControl() {
 		}
 
 		let { ControlPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.controlEntrypoint));
-		let controlPlugin = new ControlPlugin(pluginInfo);
+		let controlPlugin = new ControlPlugin(pluginInfo, logger);
 		controlPlugins.set(pluginInfo.name, controlPlugin);
 		await controlPlugin.init();
 		await controlPlugin.addCommands(rootCommands);
@@ -663,14 +725,14 @@ async function startControl() {
 		.argv
 	;
 
-	console.log(`Loading config from ${args.config}`);
+	logger.verbose(`Loading config from ${args.config}`);
 	let controlConfig = new libConfig.ControlConfig();
 	try {
 		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
-			console.log("Config not found, initializing new config");
+			logger.verbose("Config not found, initializing new config");
 			await controlConfig.init();
 
 		} else {
@@ -698,7 +760,7 @@ async function startControl() {
 
 	// The remaining commands require connecting to the master server.
 	if (!controlConfig.get("control.master_url") || !controlConfig.get("control.master_token")) {
-		console.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
+		logger.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
 		process.exitCode = 1;
 		return;
 	}
@@ -719,25 +781,24 @@ async function startControl() {
 	}
 
 	process.on("SIGINT", () => {
-		console.log("Caught interrupt signal, closing connection");
+		logger.info("Caught interrupt signal, closing connection");
 		control.shutdown().catch(err => {
-			console.error(err);
+			logger.error(err.stack);
 			process.exit(1);
 		});
 	});
 
-	let keepOpen = Boolean(args.keepOpen);
 	try {
 		await targetCommand.run(args, control);
 
 	} catch (err) {
-		keepOpen = false;
+		control.keepOpen = false;
 		if (err instanceof libErrors.CommandError) {
-			console.error(`Error running command: ${err.message}`);
+			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
 
 		} else if (err instanceof libErrors.RequestError) {
-			console.error(`Error sending request: ${err.message}`);
+			logger.error(`Error sending request: ${err.message}`);
 			process.exitCode = 1;
 
 		} else {
@@ -745,7 +806,7 @@ async function startControl() {
 		}
 
 	} finally {
-		if (!keepOpen) {
+		if (!control.keepOpen) {
 			await control.shutdown();
 		}
 	}
@@ -753,13 +814,11 @@ async function startControl() {
 
 module.exports = {
 	Control,
-
-	// for testing only
-	_formatOutputColored: formatOutputColored,
 };
 
 
 if (module === require.main) {
+	// eslint-disable-next-line no-console
 	console.warn(`
 +==========================================================+
 I WARNING:  This is the development branch for the 2.0     I
@@ -769,21 +828,22 @@ I           version of clusterio.  Expect things to break. I
 	);
 	startControl().catch(err => {
 		if (!(err instanceof libErrors.StartupError)) {
-			console.error(`
+			logger.fatal(`
 +----------------------------------------------------------------+
 | Unexpected error occured while starting control, please report |
 | it to https://github.com/clusterio/factorioClusterio/issues    |
-+----------------------------------------------------------------+`
++----------------------------------------------------------------+
+${err.stack}`
 			);
 		} else {
-			console.error(`
+			logger.error(`
 +---------------------------------+
 | Unable to to start clusterioctl |
-+---------------------------------+`
++---------------------------------+
+${err.stack}`
 			);
 		}
 
-		console.error(err);
 		process.exitCode = 1;
 	});
 }

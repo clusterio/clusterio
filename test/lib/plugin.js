@@ -10,7 +10,7 @@ describe("lib/plugin", function() {
 	describe("class BaseInstancePlugin", function() {
 		let instancePlugin;
 		it("should be constructible", async function() {
-			instancePlugin = new libPlugin.BaseInstancePlugin();
+			instancePlugin = new libPlugin.BaseInstancePlugin({}, { logger: new mock.MockLogger() }, {});
 			await instancePlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
@@ -27,7 +27,7 @@ describe("lib/plugin", function() {
 	describe("class BaseMasterPlugin", function() {
 		let masterPlugin;
 		it("should be constructible", async function() {
-			masterPlugin = new libPlugin.BaseMasterPlugin();
+			masterPlugin = new libPlugin.BaseMasterPlugin({}, {}, {}, new mock.MockLogger());
 			await masterPlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
@@ -73,11 +73,13 @@ describe("lib/plugin", function() {
 				test: async function() { },
 				pass: async function(arg) { return arg; },
 				error: async function() { throw new Error("Test"); },
+				logger: new mock.MockLogger(),
 			}],
 			["beta", {
 				test: async function() { betaTestCalled = true; },
 				pass: async function() { },
 				error: async function() { },
+				logger: new mock.MockLogger(),
 			}],
 		]);
 		it("should invoke the hook on the plugin", async function() {

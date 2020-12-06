@@ -124,7 +124,7 @@ module.exports = {
 		"no-caller": "error",
 		"no-catch-shadow": "error",
 		"no-confusing-arrow": "error",
-		"no-console": "off",
+		"no-console": "error",
 		"no-constant-condition": ["error", { "checkLoops": false }],
 		"no-constructor-return": "error",
 		"no-continue": "off",

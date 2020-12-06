@@ -78,7 +78,6 @@ export default function RoleViewPage() {
 			initialValues={initialValues}
 			onValuesChange={() => { setEdited(true); }}
 			onFinish={values => {
-				console.log(values);
 				let newPermissions = [];
 				for (let [name, value] of Object.entries(values.permissions)) {
 					if (value) { newPermissions.push(name); }

@@ -198,6 +198,16 @@ describe("lib/prometheus", function() {
 				);
 			});
 		});
+		describe(".startTimer()", function() {
+			it("should set the gauge to a short duration", function() {
+				let setDuration = gauge.startTimer();
+				setDuration();
+				assert(
+					gauge._values.get("") > 0 && gauge._values.get("") < 1,
+					"value set is not between 0 and 1"
+				);
+			});
+		});
 	});
 
 	describe("class Histogram", function() {

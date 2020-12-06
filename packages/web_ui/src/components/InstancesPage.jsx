@@ -35,17 +35,14 @@ export default function InstancesPage() {
 				insert: async args => {
 					let instanceConfig = new libConfig.InstanceConfig();
 					await instanceConfig.init();
-					console.log("Base config", instanceConfig);
 					instanceConfig.set("instance.name", args.name);
 					let serialized_config = instanceConfig.serialize();
 					let response = await libLink.messages.createInstance.send(control, { serialized_config });
-					console.log("Created instance", response);
 				},
 			}}
 			TableProps={{
 				onRow: (record, rowIndex) => ({
 					onClick: event => {
-						console.log(record, rowIndex);
 						history.push(`/instances/${record.key}/view`);
 					},
 				}),

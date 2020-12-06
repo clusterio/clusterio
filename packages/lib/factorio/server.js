@@ -10,6 +10,7 @@ const crypto = require("crypto");
 const ini = require("ini");
 const rconClient = require("rcon-client");
 const libErrors = require("@clusterio/lib/errors");
+const { logger } = require("@clusterio/lib/logging");
 
 
 /**
@@ -302,7 +303,6 @@ class LineSplitter {
 function parseOutput(line, source) {
 	let output = {
 		source,
-		received: Date.now(),
 	};
 
 	// There are three broad categories of output from Factorio, the first kind
@@ -383,7 +383,7 @@ const outputHeuristics = [
 	// Message indicating the RCON interface has started
 	{
 		filter: { type: "log", message: /^Starting RCON interface/ },
-		action: function(output) {
+		action: function() {
 			this._startRcon().catch((err) => { this.emit("error", err); });
 		},
 	},
@@ -391,7 +391,7 @@ const outputHeuristics = [
 	// Message indicating the server is done starting up
 	{
 		filter: { type: "log", message: /^updateTick\(\d+\) changing state from\(CreatingGame\) to\(InGame\)$/ },
-		action: function(output) {
+		action: function() {
 			this._notifyGameReady().catch((err) => { this.emit("error", err); });
 		},
 	},
@@ -402,8 +402,8 @@ const outputHeuristics = [
 			type: "log",
 			message: /^Saving to _autosave\d+ \((non-)?blocking\)\.$/,
 		},
-		action: function(output) {
-			let name = /^Saving to (_autosave\d+) /.exec(output.message)[1];
+		action: function(parsed) {
+			let name = /^Saving to (_autosave\d+) /.exec(parsed.message)[1];
 			this.emit("_autosave", name);
 		},
 	},
@@ -414,7 +414,7 @@ const outputHeuristics = [
 			type: "log",
 			message: /^Saving game as /,
 		},
-		action: function(output) {
+		action: function() {
 			this.emit("_saving");
 		},
 	},
@@ -430,7 +430,7 @@ const outputHeuristics = [
 				"Can't save to default location: Default location not known",
 			],
 		},
-		action: function(output) {
+		action: function() {
 			this.emit("_saved");
 		},
 	},
@@ -441,13 +441,13 @@ const outputHeuristics = [
 			type: "generic",
 			message: /^Quitting: /,
 		},
-		action: function(output) {
+		action: function(parsed) {
 			this.emit("_quitting");
 
 			// On windows the Factorio server will wait for input on the console input buffer
 			// when an error occurs.  Since we can't send input there we terminate the server
 			// process when this happens.
-			if (process.platform === "win32" && output.message === "Quitting: multiplayer error.") {
+			if (process.platform === "win32" && parsed.message === "Quitting: multiplayer error.") {
 				this._server.kill();
 			}
 		},
@@ -463,8 +463,8 @@ const outputHeuristics = [
 				"MultiplayerManager failed: Host address is already in use.",
 			],
 		},
-		action: function(output) {
-			this._unexpected.push(`Factorio failed to bind to game port: ${output.message}`);
+		action: function(parsed) {
+			this._unexpected.push(`Factorio failed to bind to game port: ${parsed.message}`);
 		},
 	},
 	{
@@ -476,8 +476,8 @@ const outputHeuristics = [
 				"Can't bind socket: Permission denied",
 			],
 		},
-		action: function(output) {
-			this._unexpected.push(`Factorio failed to bind to RCON port: ${output.message}`);
+		action: function(parsed) {
+			this._unexpected.push(`Factorio failed to bind to RCON port: ${parsed.message}`);
 		},
 	},
 ];
@@ -509,6 +509,7 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {string} factorioDir - Directory of the Factorio install(s).
 	 * @param {string} writeDir - Directory to write runtime data to.
 	 * @param {object} options - Optional parameters.
+	 * @param {Logger} options.logger - Logger to use for reporting errors.
 	 * @param {string} options.version -
 	 *     Version of Factorio to use.  Can also be the string "latest" to
 	 *     use the latest version found in `factorioDir`.
@@ -532,6 +533,7 @@ class FactorioServer extends events.EventEmitter {
 		this._version = null;
 		this._dataDir = null;
 
+		this._logger = options.logger || logger;
 		this._targetVersion = options.version || "latest";
 		/** UDP port used for hosting the Factorio game server on */
 		this.gamePort = options.gamePort || randomDynamicPort();
@@ -635,7 +637,7 @@ class FactorioServer extends events.EventEmitter {
 		}
 
 		if (!this.emit(`ipc-${channel}`, content)) {
-			console.warn(`Warning: Unhandled ipc-${channel}`, content);
+			this.logger.warn(`Warning: Unhandled ipc-${channel}`, { content });
 		}
 	}
 
@@ -653,31 +655,31 @@ class FactorioServer extends events.EventEmitter {
 		}
 
 
-		let output = parseOutput(line, source);
+		let parsed = parseOutput(line, source);
 		heuristicLoop: for (let heuristic of outputHeuristics) {
 			for (let [name, expected] of Object.entries(heuristic.filter)) {
-				if (!Object.hasOwnProperty.call(output, name)) {
+				if (!Object.hasOwnProperty.call(parsed, name)) {
 					continue heuristicLoop;
 				}
 
 				if (expected instanceof RegExp) {
-					if (!expected.test(output[name])) {
+					if (!expected.test(parsed[name])) {
 						continue heuristicLoop;
 					}
 				} else if (expected instanceof Array) {
-					if (!expected.includes(output[name])) {
+					if (!expected.includes(parsed[name])) {
 						continue heuristicLoop;
 					}
-				} else if (expected !== output[name]) {
+				} else if (expected !== parsed[name]) {
 					continue heuristicLoop;
 				}
 			}
 
 			// If we get here the filter matched the output
-			heuristic.action.call(this, output);
+			heuristic.action.call(this, parsed);
 		}
 
-		this.emit("output", output);
+		this.emit("output", parsed, line);
 	}
 
 	async _startRcon() {
@@ -970,11 +972,11 @@ class FactorioServer extends events.EventEmitter {
 		this._check(["running"]);
 
 		let hanged = true;
-		function setAlive(output) { hanged = false; }
+		function setAlive() { hanged = false; }
 
 		let timeoutId = setTimeout(() => {
 			if (hanged) {
-				console.error("Factorio appears to have hanged, sending SIGKILL");
+				logger.error("Factorio appears to have hanged, sending SIGKILL");
 				if (this._rconClient) {
 					this._rconClient.end().catch(() => {});
 				}

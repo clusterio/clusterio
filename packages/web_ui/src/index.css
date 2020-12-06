@@ -108,6 +108,11 @@ body {
 	border-color: #252525;
 	height: 300px;
 	overflow-y: scroll;
+	white-space: pre-wrap;
+
+	/* Make sure there's at least one pixel of scroll space, this */
+	/* is necessary for the view to stick on the scroll anchor. */
+	padding-top: 300px;
 }
 
 .instance-console .factorio-time {
@@ -145,6 +150,37 @@ body {
 
 .instance-console .factorio-action {
 	color: #afaf1f;
+}
+
+.log-verbose {
+	font-weight: bold;
+	color: #888888;
+}
+
+.log-info {
+	font-weight: bold;
+	color: #4646ea;
+}
+
+.log-audit {
+	font-weight: bold;
+	color: #49c33c;
+}
+
+.log-warn {
+	font-weight: bold;
+	color: #afaf1f;
+}
+
+.log-error {
+	font-weight: bold;
+	color: #ad3939;
+}
+
+.log-fatal {
+	font-weight: bold;
+	background-color: #ad3939;
+	color: #000;
 }
 
 .config-container {

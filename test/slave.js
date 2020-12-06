@@ -85,10 +85,6 @@ describe("Slave testing", function() {
 
 	describe("symlinkMods()", function() {
 		let testDir = path.join("temp", "test", "symlink");
-		let discardingLogger = {
-			warn: function() { },
-			log: function() { },
-		};
 
 		let instance;
 		before(async function() {
@@ -110,7 +106,7 @@ describe("Slave testing", function() {
 		});
 
 		it("should link mods and data files", async function() {
-			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"));
 
 			assert.equal(await fs.readFile(instance.path("mods", "mod_a.zip"), "utf-8"), "a");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
@@ -120,14 +116,14 @@ describe("Slave testing", function() {
 
 		it("should ignore directories", async function() {
 			await fs.ensureDir(path.join(testDir, "shared", "dir"));
-			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"));
 
 			assert(!await fs.exists(instance.path("mods", "dir"), "utf-8"), "dir was unxpectedly linked");
 		});
 
 		it("should ignore files", async function() {
 			await fs.outputFile(path.join(testDir, "shared", "file"), "f");
-			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"));
 
 			assert(!await fs.exists(instance.path("mods", "file"), "utf-8"), "dir was unxpectedly linked");
 		});
@@ -139,7 +135,7 @@ describe("Slave testing", function() {
 			}
 
 			await fs.unlink(path.join(testDir, "shared", "mod_a.zip"));
-			await slave._symlinkMods(instance, path.join(testDir, "shared"), discardingLogger);
+			await slave._symlinkMods(instance, path.join(testDir, "shared"));
 
 			await assert.rejects(fs.lstat(instance.path("mods", "mod_a.zip")), { code: "ENOENT" });
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
@@ -150,9 +146,8 @@ describe("Slave testing", function() {
 
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
-			let logger = { log: () => {}, error: () => {} };
 			let instancePath = path.join("test", "file", "instances");
-			let instanceInfos = await slave._discoverInstances(instancePath, logger);
+			let instanceInfos = await slave._discoverInstances(instancePath);
 
 			let referenceConfig = new libConfig.InstanceConfig();
 			await referenceConfig.init();

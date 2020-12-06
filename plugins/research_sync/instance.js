@@ -3,23 +3,21 @@ const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 
 
-function unexpectedError(err) {
-	console.log("Unexpected error in research_sync");
-	console.log("---------------------------------");
-	console.log(err);
-}
-
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
+	unexpectedError(err) {
+		this.logger.error(`Unexpected error:\n${err.stack}`);
+	}
+
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("research_sync plugin requires save patching.");
 		}
 
 		this.instance.server.on("ipc-research_sync:contribution", (tech) => {
-			this.researchContribution(tech).catch(unexpectedError);
+			this.researchContribution(tech).catch(err => this.unexpectedError(err));
 		});
 		this.instance.server.on("ipc-research_sync:finished", (tech) => {
-			this.researchFinished(tech).catch(unexpectedError);
+			this.researchFinished(tech).catch(err => this.unexpectedError(err));
 		});
 	}
 

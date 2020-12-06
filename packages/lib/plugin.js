@@ -51,6 +51,15 @@ class BaseInstancePlugin {
 		 * @type {module:slave/slave~Slave}
 		 */
 		this.slave = slave;
+
+		/**
+		 * Logger for this plugin
+		 *
+		 * Instance of winston Logger for sending log messages from this
+		 * plugin.  Supported methods and their corresponding log levels are
+		 * `error`, `warn`, `audit`, `info` and `verbose`.
+		 */
+		this.logger = instance.logger.child({ plugin: this.info.name });
 	}
 
 	/**
@@ -117,23 +126,24 @@ class BaseInstancePlugin {
 	 * stderr.  The output is a parsed form of the line and contains the
 	 * following properties:
 	 *
-	 * @param {Object} output - parsed server output.
-	 * @param {string} output.source -
+	 * @param {Object} parsed - parsed server output.
+	 * @param {string} parsed.source -
 	 *     Where the message came from, one of "stdout" and "stderr".
-	 * @param {string} output.format -
+	 * @param {string} parsed.format -
 	 *     Timestamp format, one of "date", "seconds" and "none".
-	 * @param {string=} output.time -
+	 * @param {string=} parsed.time -
 	 *     Timestamp of the message.  Not present if format is "none".
-	 * @param {string} output.type -
+	 * @param {string} parsed.type -
 	 *     Type of message, one of "log", "action" and "generic".
-	 * @param {string=} output.level -
+	 * @param {string=} parsed.level -
 	 *     Log level for "log" type.  i.e "Info" normally.
-	 * @param {string=} output.file - File reported for "log" type.
-	 * @param {string=} output.action -
+	 * @param {string=} parsed.file - File reported for "log" type.
+	 * @param {string=} parsed.action -
 	 *     Kind of action for "action" type. i.e "CHAT" for chat.
-	 * @param {string} output.message - Main content of the line.
+	 * @param {string} parsed.message - Main content of the line.
+	 * @param {string} line - raw line of server output.
 	 */
-	async onOutput(output) { }
+	async onOutput(parsed, line) { }
 
 	/**
 	 * Called when an event on the master connection happens
@@ -210,10 +220,19 @@ class BaseInstancePlugin {
  * @static
  */
 class BaseMasterPlugin {
-	constructor(info, master, metrics) {
+	constructor(info, master, metrics, logger) {
 		this.info = info;
 		this.master = master;
 		this.metrics = metrics;
+
+		/**
+		 * Logger for this plugin
+		 *
+		 * Instance of winston Logger for sending log messages from this
+		 * plugin.  Supported methods and their corresponding log levels are
+		 * `error`, `warn`, `audit`, `info` and `verbose`.
+		 */
+		this.logger = logger.child({ plugin: this.info.name });
 	}
 
 	/**
@@ -362,11 +381,20 @@ class BaseMasterPlugin {
  * @static
  */
 class BaseControlPlugin {
-	constructor(info) {
+	constructor(info, logger) {
 		/**
 		 * The plugin's own info module
 		 */
 		this.info = info;
+
+		/**
+		 * Logger for this plugin
+		 *
+		 * Instance of winston Logger for sending log messages from this
+		 * plugin.  Supported methods and their corresponding log levels are
+		 * `error`, `warn`, `audit`, `info` and `verbose`.
+		 */
+		this.logger = logger.child({ plugin: this.info.name });
 	}
 
 	/**
@@ -445,7 +473,7 @@ async function invokeHook(plugins, hook, ...args) {
 				results.push(result);
 			}
 		} catch (err) {
-			console.error(`Ignoring error from plugin ${name} in ${hook}:`, err);
+			plugin.logger.error(`Ignoring error from plugin ${name} in ${hook}:\n${err.stack}`);
 		}
 	}
 	return results;
