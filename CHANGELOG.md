@@ -27,6 +27,8 @@ Version 2.0.0
   configuration remotely.
 - Packaged and uploaded to npm again, greatly simplifying distribution and
   installation of both Clusterio and plugins.
+- Added centralized logging for the cluster.  All logs from both Clusterio
+  and Factorio is stored in a shared log which can be inspected and queried.
 
 ### Features
 
