@@ -73,14 +73,6 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async updateStorageEventHandler(message, event) {
 		let items = message.data.items;
 
-		// XXX this should be done on the lua side
-		// Ensure counts don't overflow
-		for (let item of items) {
-			if (item[1] > 0x7fffffff) {
-				item[1] = 0x7fffffff;
-			}
-		}
-
 		// XXX this should be moved to instance/clusterio api
 		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);
 
