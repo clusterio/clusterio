@@ -337,9 +337,10 @@ class LabeledCollector extends Collector {
 	 * @param {boolean=} options.register -
 	 *     If true registers this collector with the default registry.
 	 *     Defaults to true.
-	 * @param {function()=} options.callaback -
+	 * @param {function()=} options.callback -
 	 *     Possibly async function that is called before the metric is
-	 *     collected.
+	 *     collected.  The collector being collected is passed as the
+	 *     argument.
 	 * @param {
 	 *     function(module:lib/prometheus.LabeledCollector,string)
 	 * } childClass -
@@ -479,9 +480,10 @@ class ValueCollector extends LabeledCollector {
 	 * @param {boolean=} options.register -
 	 *     If true registers this collector with the default registry.
 	 *     Defaults to true.
-	 * @param {function()=} options.callaback -
+	 * @param {function()=} options.callback -
 	 *     Possibly async function that is called before the collector value
-	 *     is collected.
+	 *     is collected.  The collector being collected is passed as the
+	 *     argument.
 	 * @param {
 	 *     function(
 	 *         new:module:lib/prometheus.ValueCollectorChild,
@@ -666,9 +668,10 @@ class Counter extends ValueCollector {
 	 * @param {boolean=} options.register -
 	 *     If true registers this collector with the default registry.
 	 *     Defaults to true.
-	 * @param {function()=} options.callaback -
+	 * @param {function()=} options.callback -
 	 *     Possibly async function that is called when the metric is
-	 *     collected.
+	 *     collected.  The collector being collected is passed as the
+	 *     argument.
 	 */
 	constructor(name, help, options = {}) {
 		super("counter", name, help, options, CounterChild);
@@ -855,9 +858,10 @@ class Gauge extends ValueCollector {
 	 * @param {boolean=} options.register -
 	 *     If true registers this collector with the default registry.
 	 *     Defaults to true.
-	 * @param {function()=} options.callaback -
+	 * @param {function()=} options.callback -
 	 *     Possibly async function that is called when the metric is
-	 *     collected.
+	 *     collected.  The collector being collected is passed as the
+	 *     argument.
 	 */
 	constructor(name, help, options = {}) {
 		super("gauge", name, help, options, GaugeChild);
@@ -1102,9 +1106,10 @@ class Histogram extends LabeledCollector {
 	 * @param {boolean=} options.register -
 	 *     If true registers this collector with the default registry.
 	 *     Defaults to true.
-	 * @param {function()=} options.callaback -
+	 * @param {function()=} options.callback -
 	 *     Possibly async function that is called when the metric is
-	 *     collected.
+	 *     collected.  The collector being collected is passed as the
+	 *     argument.
 	 */
 	constructor(name, help, options = {}) {
 		// These defaults are taken from the Python Prometheus client
@@ -1525,9 +1530,9 @@ defaultCollectors.processCpuSecondsTotal = new Gauge(
 	"process_cpu_seconds_total",
 	"Total user and system CPU time spent in seconds.",
 	{
-		callback: async function() {
+		callback: async function(collector) {
 			let usage = process.cpuUsage();
-			this.set((usage.user + usage.system) / 1e6);
+			collector.set((usage.user + usage.system) / 1e6);
 		},
 	},
 );
@@ -1536,8 +1541,8 @@ defaultCollectors.processResidentMemoryBytes = new Gauge(
 	"process_resident_memory_bytes",
 	"Resident memory size in bytes.",
 	{
-		callback: function() {
-			this.set(process.memoryUsage().rss);
+		callback: function(collector) {
+			collector.set(process.memoryUsage().rss);
 		},
 	},
 );
@@ -1546,8 +1551,8 @@ defaultCollectors.processHeapBytes = new Gauge(
 	"process_heap_bytes",
 	"Process heap size in bytes.",
 	{
-		callback: function() {
-			this.set(process.memoryUsage().heapUsed);
+		callback: function(collector) {
+			collector.set(process.memoryUsage().heapUsed);
 		},
 	},
 );

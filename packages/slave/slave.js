@@ -1059,8 +1059,8 @@ class Slave extends libLink.Link {
 		let updateList = (list, updatedList, prop, event) => {
 			let added = new Set(updatedList);
 			let removed = new Set(list);
-			list.forEach(Set.prototype.delete.bind(added));
-			updatedList.forEach(Set.prototype.delete.bind(removed));
+			list.forEach(el => added.delete(el));
+			updatedList.forEach(el => removed.delete(el));
 
 			for (let name of added) {
 				list.add(name);
@@ -1080,15 +1080,14 @@ class Slave extends libLink.Link {
 		updateList(this.adminlist, message.data.adminlist, "admin", libLink.messages.adminlistUpdate);
 		updateList(this.whitelist, message.data.whitelist, "whitelisted", libLink.messages.whitelistUpdate);
 
-		let updatedBanlist = new Map(message.data.banlist);
-		let addedOrChanged = new Map(updatedBanlist);
+		let addedOrChanged = new Map(message.data.banlist);
 		let removed = new Set(this.banlist.keys());
-		removed.forEach((name, reason) => {
+		addedOrChanged.forEach((_, name) => removed.delete(name));
+		this.banlist.forEach((reason, name) => {
 			if (addedOrChanged.get(name) === reason) {
 				addedOrChanged.delete(name);
 			}
 		});
-		updatedBanlist.forEach(Set.prototype.delete.bind(removed));
 
 		for (let [name, reason] of addedOrChanged) {
 			this.banlist.set(name, reason);

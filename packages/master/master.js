@@ -42,6 +42,10 @@ let debugEvents = new events.EventEmitter();
 let loadedPlugins = {};
 let devMiddleware;
 let clusterLogger;
+let db = {
+	instances: new Map(),
+	slaves: new Map(),
+};
 
 // homebrew modules
 const generateSslCert = require("./src/generate_ssl_cert");
@@ -105,6 +109,41 @@ function serveWeb(route) {
 // Set folder to serve static content from (the website)
 app.use(express.static(path.join(__dirname, "static")));
 app.use(express.static("static")); // Used for data export files
+
+const slaveMappingGauge = new libPrometheus.Gauge(
+	"clusterio_master_slave_mapping",
+	"Mapping of Slave ID to name",
+	{
+		labels: ["slave_id", "slave_name"],
+		callback: function() {
+			slaveMappingGauge.clear();
+			for (let [id, slave] of db.slaves) {
+				slaveMappingGauge.labels({
+					slave_id: String(id),
+					slave_name: slave.name,
+				}).set(1);
+			};
+		},
+	}
+);
+
+const instanceMappingGauge = new libPrometheus.Gauge(
+	"clusterio_master_instance_mapping",
+	"Mapping of Instance ID to name and slave",
+	{
+		labels: ["instance_id", "instance_name", "slave_id"],
+		callback: function() {
+			instanceMappingGauge.clear();
+			for (let [id, instance] of db.instances) {
+				instanceMappingGauge.labels({
+					instance_id: String(id),
+					instance_name: String(instance.config.get("instance.name")),
+					slave_id: String(instance.config.get("instance.assigned_slave")),
+				}).set(1);
+			}
+		},
+	}
+);
 
 const endpointHitCounter = new libPrometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
@@ -279,9 +318,6 @@ const masterConnectedClientsCount = new libPrometheus.Gauge(
 		},
 	},
 );
-
-// set up database
-const db = {};
 
 /**
  * Load Map from JSON file in the database directory.
