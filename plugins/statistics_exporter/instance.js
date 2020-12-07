@@ -21,6 +21,17 @@ const instanceGameFlowStatistics = new Gauge(
 	{ labels: ["instance_id", "statistic", "direction", "name"] },
 );
 
+function setForceFlowStatistic(instanceId, forceName, statisticName, direction, item, value) {
+	instanceForceFlowStatistics.labels(String(instanceId), forceName, statisticName, direction, item).set(value);
+
+	// For item and fluid statistics it's useful to compare the input flow with the
+	// output flow, to simplify the comparison ensure both directions have a value.
+	if (["item_production_statistics", "fluid_production_statistic"].includes(statisticName)) {
+		let reverseDirection = direction === "input" ? "output" : "input";
+		instanceForceFlowStatistics.labels(String(instanceId), forceName, statisticName, reverseDirection, item);
+	}
+}
+
 
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
@@ -46,9 +57,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			for (let [statisticName, statistic] of Object.entries(flowStatistics)) {
 				for (let [direction, counts] of Object.entries(statistic)) {
 					for (let [item, value] of Object.entries(counts)) {
-						instanceForceFlowStatistics.labels(
-							String(instanceId), forceName, statisticName, direction, item
-						).set(value);
+						setForceFlowStatistic(instanceId, forceName, statisticName, direction, item, value);
 					}
 				}
 			}
