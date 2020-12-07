@@ -3,7 +3,7 @@
   "description": "Clusterio command line management tool",
   "author": "Hornwitser",
   "license": "MIT",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "main": "ctl.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -18,7 +18,7 @@
     "node": ">=10.16 <11 || >= 12"
   },
   "dependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.2",
+    "@clusterio/lib": "^2.0.0-alpha.3",
     "as-table": "^1.0.31",
     "chalk": "^3.0.0",
     "fs-extra": "^8.1.0",

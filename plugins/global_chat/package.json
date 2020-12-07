@@ -1,6 +1,6 @@
 {
   "name": "@clusterio/plugin-global_chat",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "Clusterio plugin forwarding between Factorio servers",
   "author": "Hornwitser <github@hornwitser.no>",
   "homepage": "https://github.com/clusterio/factorioClusterio#readme",
@@ -17,7 +17,7 @@
     "@clusterio/lib": "^2.0.0-alpha.0"
   },
   "devDependencies": {
-    "@clusterio/web_ui": "^2.0.0-alpha.2",
+    "@clusterio/web_ui": "^2.0.0-alpha.3",
     "babel-loader": "^8.1.0",
     "file-loader": "^6.2.0",
     "null-loader": "^4.0.0",

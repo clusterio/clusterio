@@ -3,7 +3,7 @@
   "description": "Clusterio web interface implementation",
   "author": "Hornwitser",
   "license": "MIT",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^4.2.2",
-    "@clusterio/lib": "^2.0.0-alpha.2",
+    "@clusterio/lib": "^2.0.0-alpha.3",
     "antd": "^4.6.5",
     "buffer": "^6.0.2",
     "clean-webpack-plugin": "^3.0.0",
