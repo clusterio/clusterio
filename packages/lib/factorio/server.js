@@ -637,7 +637,7 @@ class FactorioServer extends events.EventEmitter {
 		}
 
 		if (!this.emit(`ipc-${channel}`, content)) {
-			this.logger.warn(`Warning: Unhandled ipc-${channel}`, { content });
+			this._logger.warn(`Warning: Unhandled ipc-${channel}`, { content });
 		}
 	}
 
@@ -976,7 +976,7 @@ class FactorioServer extends events.EventEmitter {
 
 		let timeoutId = setTimeout(() => {
 			if (hanged) {
-				logger.error("Factorio appears to have hanged, sending SIGKILL");
+				this._logger.error("Factorio appears to have hanged, sending SIGKILL");
 				if (this._rconClient) {
 					this._rconClient.end().catch(() => {});
 				}
