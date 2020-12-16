@@ -1647,6 +1647,14 @@ I           version of clusterio.  Expect things to break. I
 		if (err instanceof libErrors.AuthenticationFailed) {
 			logger.fatal(err.message);
 
+		} else if (err instanceof libErrors.PluginError) {
+			logger.fatal(`
+${err.pluginName} plugin threw an unexpected error
+during startup, please report it to the plugin author.
+------------------------------------------------------
+${err.original.stack}`
+			);
+
 		} else {
 			logger.fatal(`
 +--------------------------------------------------------------+
