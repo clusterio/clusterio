@@ -73,11 +73,12 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async onMetrics() {
-		// Wait up to 5 seconds for the metrics to be collected.  It may
+		// Wait configured timeout for the metrics to be collected.  It may
 		// take a long time for the command to go through if the command
-		// stream is overloaded.  Should this take more than 5 seconds the
+		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to master.
-		await libHelpers.timeout(this.gatherMetrics(), 5e3);
+		let timeout = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
+		await libHelpers.timeout(this.gatherMetrics(), timeout);
 	}
 }
 

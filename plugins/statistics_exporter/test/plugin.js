@@ -9,8 +9,10 @@ const info = require("../info");
 describe("statistics_exporter plugin", function() {
 	describe("class InstancePlugin", function() {
 		let instancePlugin;
+		let mockInstance = new mock.MockInstance();
+		mockInstance.mockConfigEntries.set("statistics_exporter.command_timeout", 1);
 		before(async function() {
-			instancePlugin = new instance.InstancePlugin(info, new mock.MockInstance());
+			instancePlugin = new instance.InstancePlugin(info, mockInstance);
 			await instancePlugin.init();
 		});
 

@@ -112,6 +112,15 @@ unavoidable.
 Defaults to 30.
 
 
+### master.metrics_timeout
+
+Timeout in seconds before a call to gather metrics from a slave times
+out.  This should be less than both the timeout and collection interval
+configured for the collection job in Prometheus.
+
+Defaults to 8.
+
+
 ### master.default_role_id
 
 Role to automatically grant to new users.  If null no role is granted.

@@ -95,6 +95,13 @@ MasterGroup.define({
 	initial_value: 30,
 });
 MasterGroup.define({
+	name: "metrics_timeout",
+	title: "Metrics Timeout",
+	description: "Timeout in seconds for metrics gathering from slaves",
+	type: "number",
+	initial_value: 8,
+});
+MasterGroup.define({
 	name: "default_role_id",
 	title: "Default role",
 	description: "ID of role assigned by default to new users",

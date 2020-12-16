@@ -190,8 +190,9 @@ async function getMetrics(req, res, next) {
 	}
 
 	let requests = [];
+	let timeout = masterConfig.get("master.metrics_timeout") * 1000;
 	for (let slaveConnection of slaveConnections.values()) {
-		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), 8e3, null));
+		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), timeout, null));
 	}
 
 	for await (let result of await libPrometheus.defaultRegistry.collect()) {

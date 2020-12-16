@@ -53,6 +53,7 @@ Version 2.0.0
 - Added option to auto start instances on slave startup.
 - Added metric mapping of slave and instance ids to their names, allowing
   them to be displayed by name in queries that join with the mapping.
+- Added option to configure timeout for exported Prometheus metrics.
 
 ### Changes
 
