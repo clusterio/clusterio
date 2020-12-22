@@ -80,7 +80,7 @@ into a Clusterio cluster.
 
 ## Plugins
 
-The heart of Clusterio is its plugin syste.  Plugins add functionality
+The heart of Clusterio is its plugin system.  Plugins add functionality
 to Factorio servers, Clusterio itself or both.  These are the plugins
 supported and maintained by the Clusterio developers:
 
