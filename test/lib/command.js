@@ -16,7 +16,7 @@ describe("lib/command", function() {
 				seq: 1, type: "list_slaves_response",
 				data: {
 					seq: message.seq,
-					list: [{ agent: "test", version: "0.1", id: 11, name: "Test Slave", connected: false }],
+					list: [{ agent: "test", version: "0.1", id: 11, name: "Test Slave", connected: false, public_address: "example.com" }],
 				},
 			});
 		} else if (message.type === "list_instances_request") {
