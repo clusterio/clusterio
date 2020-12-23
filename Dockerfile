@@ -1,23 +1,64 @@
-# Warning: This is currently broken as a result of
-# changes done in the 2.0 refactoring.
-FROM node:12
-RUN apt-get update && apt install git curl tar -y
-RUN mkdir factorioClusterio
+FROM node:12 as subspace_storage_builder
+RUN apt update && apt install -y git
+WORKDIR /
+RUN git clone https://github.com/clusterio/factorioClusterioMod.git
+WORKDIR /factorioClusterioMod
+RUN git checkout clusterio-2.0 \
+&& npm install \
+&& node build
 
-RUN git clone -b master https://github.com/clusterio/factorioClusterio.git && cd factorioClusterio && npm install --only=production
-RUN cd factorioClusterio && curl -o factorio.tar.gz -L https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz
+FROM node:12 as clusterio_builder
+RUN apt update \
+&& apt install -y wget \
+&& mkdir /clusterio
+WORKDIR /clusterio
+RUN wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
+# Copy project files into the container
+COPY . .
 
-WORKDIR factorioClusterio
-RUN mkdir instances sharedMods
-RUN cp config.json.dist config.json
+RUN npm install \
+&& npx lerna bootstrap --hoist
 
-RUN node client manage shared mods add clusterio
+# Install plugins. This is intended as a reasonable default, enabling plugins to make for fun gameplay.
+# If you want a different set of plugins, consider using this as the base image for your own.
+#RUN npm install @clusterio/plugin-subspace_storage
+#RUN npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
 
-LABEL maintainer "Sir3lit@gmail.com"
+COPY --from=subspace_storage_builder /factorioClusterioMod/dist/ /clusterio/sharedMods/
 
-EXPOSE 8080 34167
-VOLUME /factorioClusterio/instances
-VOLUME /factorioClusterio/sharedMods
-VOLUME /factorioClusterio/sharedPlugins
+# Build submodules (web UI, libraries, plugins etc)
+RUN npx lerna run build
+# Build Lua library mod
+RUN node packages/lib/build_mod --build --source-dir packages/slave/lua/clusterio_lib \
+&& mv dist/* sharedMods/ \
+&& mkdir temp \
+&& mkdir temp/test \
+&& cp sharedMods/ temp/test/ -r \
+&& ls sharedMods
 
-CMD MODE="$MODE" node $MODE start $INSTANCE
+# Remove node_modules
+RUN find . -name 'node_modules' -type d -prune -print -exec rm -rf '{}' \;
+
+FROM frolvlad/alpine-glibc AS clusterio_final
+
+RUN apk add --update bash nodejs npm
+
+COPY --from=clusterio_builder /clusterio /clusterio
+WORKDIR /clusterio
+
+# Install runtime dependencies
+RUN npm install --production
+RUN npx lerna bootstrap -- --production --no-optional
+LABEL maintainer "danielv@danielv.no"
+
+FROM frolvlad/alpine-glibc AS clusterio_testing
+
+RUN apk add --update bash nodejs npm
+
+COPY --from=clusterio_builder /clusterio /clusterio
+WORKDIR /clusterio
+
+# Install runtime dependencies
+RUN npm install
+RUN npx lerna bootstrap
+RUN npm install chalk semver
