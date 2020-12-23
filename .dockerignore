@@ -1,0 +1,23 @@
+# No need to invalidate cache just because we try speeding up the build
+.dockerignore
+Dockerfile
+docker-compose*
+
+# Install dependencies during the build
+node_modules
+packages/**/node_modules
+plugins/**/node_modules
+
+# Download factorio during the build
+factorio
+factorio.tar.gz
+
+# We build internal mods during build, mods from local test env should not be applied
+sharedMods
+sharedModsDisabled
+
+# These files should never be required during the build
+.git
+.github
+dist
+temp

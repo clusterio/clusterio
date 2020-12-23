@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+  unit_test:
+    image: clusterio
+    build: .
+    command: npm run test

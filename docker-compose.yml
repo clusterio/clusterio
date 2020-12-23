@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  master:
+    build: .
+    command: npx clusteriomaster run
+  slave:
+    build: .
+    command: npx clusterioslave run
