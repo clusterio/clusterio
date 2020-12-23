@@ -288,7 +288,7 @@ messages.listSlaves = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["agent", "version", "name", "id", "connected", "public_address"],
+				required: ["agent", "version", "name", "id", "connected"],
 				properties: {
 					"agent": { type: "string" },
 					"version": { type: "string" },
