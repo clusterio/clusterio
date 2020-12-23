@@ -656,6 +656,7 @@ class ControlConnection extends BaseConnection {
 				id: slave.id,
 				name: slave.name,
 				connected: slaveConnections.has(slave.id),
+				public_address: slave.public_address,
 			});
 		}
 		return { list };

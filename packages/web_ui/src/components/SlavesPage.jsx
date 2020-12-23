@@ -18,6 +18,7 @@ export default function SlavesPage() {
 			"Agent": item["agent"],
 			"Version": item["version"],
 			"Connected": item["connected"] && "Yes",
+			"Address": item["public_address"],
 		}));
 	}
 
