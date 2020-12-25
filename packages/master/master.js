@@ -709,9 +709,9 @@ class ControlConnection extends BaseConnection {
 				game_port: instance.config.get("factorio.game_port"),
 				public_address: null,
 				status: instance.status,
-			}
+			};
 			// get assigned slave info
-			if (instance.config.get("instance.assigned_slave") != null) {
+			if (instance.config.get("instance.assigned_slave") !== null) {
 				let assigned_slave_info = findInstancesAssignedSlave(instance.config.get("instance.assigned_slave"));
 				push_info.assigned_slave_name = assigned_slave_info.name;
 				push_info.public_address = assigned_slave_info.public_address;
