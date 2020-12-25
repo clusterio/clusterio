@@ -689,9 +689,6 @@ class ControlConnection extends BaseConnection {
 		if (message.data.name !== null) {
 			slaveConfig.set("slave.name", message.data.name);
 		}
-		if (message.data.public_address !== null) {
-			slaveConfig.set("slave.public_address", message.data.public_address);
-		}
 		if (message.data.generate_token) {
 			this.user.checkPermission("core.slave.generate_token");
 			slaveConfig.set("slave.master_token", this.generateSlaveToken(slaveConfig.get("slave.id")));
