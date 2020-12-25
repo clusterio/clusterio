@@ -16,7 +16,7 @@ describe("lib/command", function() {
 				seq: 1, type: "list_slaves_response",
 				data: {
 					seq: message.seq,
-					list: [{ agent: "test", version: "0.1", id: 11, name: "Test Slave", connected: false }],
+					list: [{ agent: "test", version: "0.1", id: 11, name: "Test Slave", "public_address":"1.2.3.4", connected: false }],
 				},
 			});
 		} else if (message.type === "list_instances_request") {
@@ -24,7 +24,7 @@ describe("lib/command", function() {
 				seq: 1, type: "list_instances_response",
 				data: {
 					seq: message.seq,
-					list: [{ id: 57, assigned_slave: 4, name: "Test Instance", status: "stopped" }],
+					list: [{ id: 57, assigned_slave: 4, name: "Test Instance", assigned_slave_name: "Test Slave", game_port:34197, public_address: "1.2.3.4",status: "stopped" }],
 				},
 			});
 		} else if (message.type === "list_roles_request") {
