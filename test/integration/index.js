@@ -134,7 +134,7 @@ before(async function() {
 	await exec("node ../../packages/master config set master.auth_secret TestSecretDoNotUse");
 	await exec("node ../../packages/master config set master.http_port 8880");
 	await exec("node ../../packages/master config set master.https_port 4443");
-	await exec("node ../../packages/master config set master.tls_bits 1024");
+	await exec("node ../../packages/master config set master.tls_bits 2048");
 	await exec("node ../../packages/master config set master.heartbeat_interval 0.25");
 	await exec("node ../../packages/master config set master.connector_shutdown_timeout 2");
 

@@ -293,6 +293,7 @@ messages.listSlaves = new Request({
 					"agent": { type: "string" },
 					"version": { type: "string" },
 					"name": { type: "string" },
+					"public_address": { type: "string" },
 					"id": { type: "integer" },
 					"connected": { type: "boolean" },
 				},

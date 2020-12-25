@@ -260,12 +260,15 @@ function validateSlaveToken(req, res, next) {
 	next();
 }
 
-function findInstancesAssignedSlave(assigned_slave_id){
+function findInstancesAssignedSlave(assigned_slave_id) {
+	let ret = null;
 	for (let slave of db.slaves.values()) {
-		if (assigned_slave_id == slave.id) {
-			return slave;
+		if (assigned_slave_id === slave.id) {
+			ret = slave;
+			break;
 		}
 	}
+	return ret;
 }
 
 app.get("/api/plugins", (req, res) => {
@@ -695,6 +698,7 @@ class ControlConnection extends BaseConnection {
 		}
 		return { serialized_config: slaveConfig.serialize() };
 	}
+
 	async listInstancesRequestHandler(message) {
 		let list = [];
 		for (let instance of db.instances.values()) {
