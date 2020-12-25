@@ -18,7 +18,9 @@ export default function InstancesPage() {
 		return result["list"].map(item => ({
 			key: item["id"],
 			"Name": item["name"],
-			"Assigned Slave": item["assigned_slave"],
+			"Public Address": item["public_address"] + ":" + item["game_port"],
+			"Assigned Slave": item["assigned_slave_name"],
+			"Assigned Slave ID": item["assigned_slave"],
 			"Status": item["status"],
 		}));
 	}

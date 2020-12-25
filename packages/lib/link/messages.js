@@ -315,6 +315,9 @@ messages.listInstances = new Request({
 					"name": { type: "string" },
 					"id": { type: "integer" },
 					"assigned_slave": { type: ["null", "integer"] },
+					"assigned_slave_name": { type: ["null", "string"] },
+					"public_address": { type: ["null", "string"] },
+					"game_port": { type: ["null", "integer"] },
 					"status": { enum: [
 						"unknown", "unassigned", "stopped", "starting", "running", "creating_save", "exporting_data",
 					]},

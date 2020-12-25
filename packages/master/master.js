@@ -70,6 +70,7 @@ const cookieParser = require("cookie-parser");
 // Required for express post requests
 const bodyParser = require("body-parser");
 const fileUpload = require("express-fileupload");
+const { push } = require("./src/routes");
 const app = express();
 let httpServer;
 let httpsServer;
@@ -257,6 +258,14 @@ function validateSlaveToken(req, res, next) {
 	}
 
 	next();
+}
+
+function findInstancesAssignedSlave(assigned_slave_id){
+	for (let slave of db.slaves.values()) {
+		if (assigned_slave_id == slave.id) {
+			return slave;
+		}
+	}
 }
 
 app.get("/api/plugins", (req, res) => {
@@ -680,22 +689,34 @@ class ControlConnection extends BaseConnection {
 		if (message.data.name !== null) {
 			slaveConfig.set("slave.name", message.data.name);
 		}
+		if (message.data.public_address !== null) {
+			slaveConfig.set("slave.public_address", message.data.public_address);
+		}
 		if (message.data.generate_token) {
 			this.user.checkPermission("core.slave.generate_token");
 			slaveConfig.set("slave.master_token", this.generateSlaveToken(slaveConfig.get("slave.id")));
 		}
 		return { serialized_config: slaveConfig.serialize() };
 	}
-
 	async listInstancesRequestHandler(message) {
 		let list = [];
 		for (let instance of db.instances.values()) {
-			list.push({
+			let push_info = {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
 				assigned_slave: instance.config.get("instance.assigned_slave"),
+				assigned_slave_name: null,
+				game_port: instance.config.get("factorio.game_port"),
+				public_address: null,
 				status: instance.status,
-			});
+			}
+			// get assigned slave info
+			if (instance.config.get("instance.assigned_slave") != null) {
+				let assigned_slave_info = findInstancesAssignedSlave(instance.config.get("instance.assigned_slave"));
+				push_info.assigned_slave_name = assigned_slave_info.name;
+				push_info.public_address = assigned_slave_info.public_address;
+			}
+			list.push(push_info);
 		}
 		return { list };
 	}
@@ -1089,12 +1110,14 @@ class SlaveConnection extends BaseConnection {
 		this._id = registerData.id;
 		this._name = registerData.name;
 		this._version = registerData.version;
+		this._public_address = registerData.public_address;
 		this.plugins = new Map(Object.entries(registerData.plugins));
 
 		db.slaves.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
+			public_address: this._public_address,
 			version: this._version,
 			plugins: registerData.plugins,
 		});
