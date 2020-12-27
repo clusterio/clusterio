@@ -34,9 +34,9 @@ MasterGroup.define({
 	initial_value: 8443,
 });
 MasterGroup.define({
-	name: "address_bind",
-	title: "Address bind",
-	description: "The address to bind the master https/http server to.",
+	name: "bind_address",
+	title: "Bind Address",
+	description: "IP address to bind the HTTP and HTTPS ports on.",
 	type: "string",
 	optional: true,
 });
