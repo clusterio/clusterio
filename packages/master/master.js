@@ -94,7 +94,7 @@ function serveWeb(route) {
 	// compensate if the request path contains a slash but not the route,
 	// and vice versa.
 	let routeDepth = (route.match(/\//g) || []).length - 1 - (route.slice(-1) === "/");
-	return function (req, res, next) {
+	return function(req, res, next) {
 		let depth = routeDepth + (req.path.slice(-1) === "/");
 		let webRoot = "../".repeat(depth) || "./";
 		fs.readFile(path.join(__dirname, "web", "index.html"), "utf8").then((content) => {
@@ -115,7 +115,7 @@ const slaveMappingGauge = new libPrometheus.Gauge(
 	"Mapping of Slave ID to name",
 	{
 		labels: ["slave_id", "slave_name"],
-		callback: function () {
+		callback: function() {
 			slaveMappingGauge.clear();
 			for (let [id, slave] of db.slaves) {
 				slaveMappingGauge.labels({
@@ -132,7 +132,7 @@ const instanceMappingGauge = new libPrometheus.Gauge(
 	"Mapping of Instance ID to name and slave",
 	{
 		labels: ["instance_id", "instance_name", "slave_id"],
-		callback: function () {
+		callback: function() {
 			instanceMappingGauge.clear();
 			for (let [id, instance] of db.instances) {
 				instanceMappingGauge.labels({
@@ -312,7 +312,7 @@ app.put("/api/upload-export",
 const masterConnectedClientsCount = new libPrometheus.Gauge(
 	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
 	{
-		labels: ["type"], callback: async function (gauge) {
+		labels: ["type"], callback: async function(gauge) {
 			gauge.labels("slave").set(slaveConnections.size);
 			gauge.labels("control").set(controlConnections.length);
 		},
@@ -501,7 +501,7 @@ async function shutdown() {
 
 		logger.info(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
 
-	} catch (err) {
+	} catch(err) {
 		setBlocking(true);
 		logger.fatal(`
 +--------------------------------------------------------------------+
@@ -920,7 +920,7 @@ class ControlConnection extends BaseConnection {
 		let lastId = Math.max.apply(null, [...db.roles.keys()]);
 
 		// Start at 5 to leave space for future default roles
-		let id = Math.max(5, lastId + 1);
+		let id = Math.max(5, lastId+1);
 		db.roles.set(id, new libUsers.Role({ id, ...message.data }));
 		return { id };
 	}
@@ -1010,7 +1010,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.isAdmin = admin;
-		this.broadcastEventToSlaves({ data: { name, admin } }, libLink.messages.adminlistUpdate);
+		this.broadcastEventToSlaves({ data: { name, admin }}, libLink.messages.adminlistUpdate);
 	}
 
 	async setUserBannedRequestHandler(message) {
@@ -1027,7 +1027,7 @@ class ControlConnection extends BaseConnection {
 
 		user.isBanned = banned;
 		user.banReason = reason;
-		this.broadcastEventToSlaves({ data: { name, banned, reason } }, libLink.messages.banlistUpdate);
+		this.broadcastEventToSlaves({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
 	}
 
 	async setUserWhitelistedRequestHandler(message) {
@@ -1043,7 +1043,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.isWhitelisted = whitelisted;
-		this.broadcastEventToSlaves({ data: { name, whitelisted } }, libLink.messages.whitelistUpdate);
+		this.broadcastEventToSlaves({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
 	}
 
 	async deleteUserRequestHandler(message) {
@@ -1053,13 +1053,13 @@ class ControlConnection extends BaseConnection {
 		}
 
 		if (user.is_admin) {
-			this.broadcastEventToSlaves({ data: { name, admin: false } }, libLink.messages.adminlistUpdate);
+			this.broadcastEventToSlaves({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
 		}
 		if (user.is_whitelisted) {
-			this.broadcastEventToSlaves({ data: { name, whitelisted: false } }, libLink.messages.whitelistUpdate);
+			this.broadcastEventToSlaves({ data: { name, whitelisted: false }}, libLink.messages.whitelistUpdate);
 		}
 		if (user.is_banned) {
-			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" } }, libLink.messages.banlistUpdate);
+			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
 		}
 		db.users.delete(message.data.name);
 	}
@@ -1467,12 +1467,10 @@ wss.on("connection", function (socket, req) {
 	};
 
 	// Start connection handshake.
-	socket.send(JSON.stringify({
-		seq: null, type: "hello", data: {
-			version,
-			plugins: loadedPlugins,
-		}
-	}));
+	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
+		version,
+		plugins: loadedPlugins,
+	}}));
 
 	function attachHandler() {
 		pendingSockets.add(socket);
@@ -1482,7 +1480,7 @@ wss.on("connection", function (socket, req) {
 			wsRejectedConnectionsCounter.inc();
 			socket.close(1008, "Handshake timeout");
 			pendingSockets.delete(socket);
-		}, 30 * 1000);
+		}, 30*1000);
 
 		socket.once("message", (message) => {
 			clearTimeout(timeoutId);
@@ -1545,8 +1543,8 @@ async function handleHandshake(message, socket, req, attachHandler) {
 				throw new Error();
 			}
 
-		} catch (err) {
-			socket.send(JSON.stringify({ seq: null, type: "invalidate", data: {} }));
+		} catch(err) {
+			socket.send(JSON.stringify({ seq: null, type: "invalidate", data: {}}));
 			attachHandler();
 			return;
 		}
@@ -1767,7 +1765,7 @@ async function startServer() {
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
-		;
+	;
 
 	// Combined log stream of the whole cluster.
 	clusterLogger = winston.createLogger({
@@ -1954,7 +1952,7 @@ async function startServer() {
 	let tls_cert = masterConfig.get("master.tls_certificate");
 	let tls_key = masterConfig.get("master.tls_private_key");
 	// Create a self signed certificate if the certificate files doesn't exist
-	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
+	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
 		await generateSslCert({
 			bits: masterConfig.get("master.tls_bits"),
 			sslCertPath: tls_cert,
