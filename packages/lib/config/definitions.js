@@ -37,8 +37,8 @@ MasterGroup.define({
 	name: "address_bind",
 	title: "Address bind",
 	description: "The address to bind the master https/http server to.",
-    type: "string",
-    optional: true,
+	type: "string",
+	optional: true,
 });
 MasterGroup.define({
 	name: "external_address",
