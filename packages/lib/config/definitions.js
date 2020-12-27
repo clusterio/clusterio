@@ -34,6 +34,13 @@ MasterGroup.define({
 	initial_value: 8443,
 });
 MasterGroup.define({
+	name: "address_bind",
+	title: "Address bind",
+	description: "The address to bind the master https/http server to.",
+    type: "string",
+    optional: true,
+});
+MasterGroup.define({
 	name: "external_address",
 	title: "External Address",
 	description: "Public facing address the master server is hosted on.",

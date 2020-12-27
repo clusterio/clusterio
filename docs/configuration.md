@@ -31,6 +31,11 @@ of this and master.http_port needs to be set to a port.
 
 Defaults to 8443.
 
+### master.address_bind
+Address to bind the master server on. If set to null the master server will be bound to 
+all interfaces. Has to be set to a valid interface. 
+
+Defaults to null.
 
 ### master.external_address
 
