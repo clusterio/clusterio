@@ -38,6 +38,9 @@ IPv6 address will be used, which on most systems means it will also
 listen on the unspecified IPv4 address and accept connections from all
 interfaces.
 
+Defaults to null.
+
+
 ### master.external_address
 
 External address the master server is accessible on.  Currently only
