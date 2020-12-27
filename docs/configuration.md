@@ -32,6 +32,7 @@ of this and master.http_port needs to be set to a port.
 Defaults to 8443.
 
 ### master.bind_address
+
 IP address to bind the HTTP and HTTPS ports on.  Useful to limit which
 interface to accept connections from.  If set to null the unspecified
 IPv6 address will be used, which on most systems means it will also
