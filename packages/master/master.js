@@ -260,17 +260,6 @@ function validateSlaveToken(req, res, next) {
 	next();
 }
 
-function findInstancesAssignedSlave(assigned_slave_id) {
-	let ret = null;
-	for (let slave of db.slaves.values()) {
-		if (assigned_slave_id === slave.id) {
-			ret = slave;
-			break;
-		}
-	}
-	return ret;
-}
-
 app.get("/api/plugins", (req, res) => {
 	let plugins = [];
 	for (let pluginInfo of pluginInfos) {
@@ -713,7 +702,7 @@ class ControlConnection extends BaseConnection {
 			};
 			// get assigned slave info
 			if (instance.config.get("instance.assigned_slave") !== null) {
-				let assigned_slave_info = findInstancesAssignedSlave(instance.config.get("instance.assigned_slave"));
+				let assigned_slave_info = db.slaves.get(instance.config.get("instance.assigned_slave"));
 				push_info.assigned_slave_name = assigned_slave_info.name;
 				push_info.public_address = assigned_slave_info.public_address;
 			}
