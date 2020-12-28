@@ -1943,6 +1943,7 @@ async function startServer() {
 	// Make sure we're actually going to listen on a port
 	let httpPort = masterConfig.get("master.http_port");
 	let httpsPort = masterConfig.get("master.https_port");
+	let bindAddress = masterConfig.get("master.bind_address") || "";
 	if (!httpPort && !httpsPort) {
 		logger.fatal("Error: at least one of http_port and https_port must be configured");
 		process.exit(1);
@@ -1980,7 +1981,7 @@ async function startServer() {
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
 		httpServer = new (require("http").Server)(app);
-		await listen(httpServer, httpPort);
+		await listen(httpServer, httpPort, bindAddress);
 		logger.info(`Listening for HTTP on port ${httpServer.address().port}`);
 	}
 
@@ -2000,7 +2001,7 @@ async function startServer() {
 			key: privateKey,
 			cert: certificate,
 		}, app);
-		await listen(httpsServer, httpsPort);
+		await listen(httpsServer, httpsPort, bindAddress);
 		logger.info(`Listening for HTTPS on port ${httpsServer.address().port}`);
 	}
 }
