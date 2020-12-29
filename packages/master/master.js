@@ -49,6 +49,7 @@ let db = {
 
 // homebrew modules
 const generateSslCert = require("./src/generate_ssl_cert");
+const HttpCloser = require("./src/HttpCloser");
 const routes = require("./src/routes");
 const libDatabase = require("@clusterio/lib/database");
 const libSchema = require("@clusterio/lib/schema");
@@ -72,7 +73,9 @@ const bodyParser = require("body-parser");
 const fileUpload = require("express-fileupload");
 const app = express();
 let httpServer;
+let httpServerCloser;
 let httpsServer;
+let httpsServerCloser;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
@@ -190,8 +193,9 @@ async function getMetrics(req, res, next) {
 	}
 
 	let requests = [];
+	let timeout = masterConfig.get("master.metrics_timeout") * 1000;
 	for (let slaveConnection of slaveConnections.values()) {
-		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), 8e3, null));
+		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), timeout, null));
 	}
 
 	for await (let result of await libPrometheus.defaultRegistry.collect()) {
@@ -495,8 +499,8 @@ async function shutdown() {
 
 		let stopTasks = [];
 		logger.info("Stopping HTTP(S) server");
-		if (httpServer) { stopTasks.push(new Promise(resolve => httpServer.close(resolve))); }
-		if (httpsServer) { stopTasks.push(new Promise(resolve => httpsServer.close(resolve))); }
+		if (httpServer) { stopTasks.push(httpServerCloser.close()); }
+		if (httpsServer) { stopTasks.push(httpsServerCloser.close()); }
 		await Promise.all(stopTasks);
 
 		logger.info(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
@@ -1981,6 +1985,7 @@ async function startServer() {
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
 		httpServer = new (require("http").Server)(app);
+		httpServerCloser = new HttpCloser(httpServer);
 		await listen(httpServer, httpPort, bindAddress);
 		logger.info(`Listening for HTTP on port ${httpServer.address().port}`);
 	}
@@ -2001,6 +2006,7 @@ async function startServer() {
 			key: privateKey,
 			cert: certificate,
 		}, app);
+		httpsServerCloser = new HttpCloser(httpsServer);
 		await listen(httpsServer, httpsPort, bindAddress);
 		logger.info(`Listening for HTTPS on port ${httpsServer.address().port}`);
 	}

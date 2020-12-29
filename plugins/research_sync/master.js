@@ -3,39 +3,25 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libPlugin = require("@clusterio/lib/plugin");
+const RateLimiter = require("@clusterio/lib/RateLimiter");
 
 
 class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 		this.technologies = await loadTechnologies(this.master.config, this.logger);
+		this.progressRateLimiter = new RateLimiter({
+			maxRate: 1,
+			action: () => this.broadcastProgress(),
+		});
+
 		this.lastProgressBroadcast = Date.now();
 		this.progressBroadcastId = null;
 		this.progressToBroadcast = new Set();
 	}
 
 	async onShutdown() {
-		if (this.progressBroadcastId) {
-			clearTimeout(this.progressBroadcastId);
-		}
+		this.progressRateLimiter.cancel();
 		await saveTechnologies(this.master.config, this.technologies, this.logger);
-	}
-
-	registerProgress() {
-		// Rate limit progress broadcasts to one per second
-		if (Date.now() < this.lastProgressBroadcast + 1000) {
-			if (!this.progressBroadcastId) {
-				this.progressBroadcastId = setTimeout(() => {
-					this.broadcastProgress();
-					this.progressBroadcastId = null;
-				}, 2000);
-			}
-
-		} else {
-			if (this.progressBroadcastId) {
-				clearTimeout(this.progressBroadcastId);
-			}
-			this.broadcastProgress();
-		}
 	}
 
 	broadcastProgress() {
@@ -81,7 +67,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		if (newProgress < 1) {
 			tech.progress = newProgress;
 			this.progressToBroadcast.add(name);
-			this.registerProgress();
+			this.progressRateLimiter.activate();
 
 		} else {
 			tech.researched = true;
@@ -148,7 +134,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 				}
 			}
 		}
-		this.registerProgress();
+		this.progressRateLimiter.activate();
 
 		let technologies = [];
 		for (let [name, tech] of this.technologies) {

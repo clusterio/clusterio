@@ -207,12 +207,13 @@ class Request extends Message {
 						response = {};
 					}
 
-					if (!this._responseValidator({ seq: 0, type: this.responseType, response })) {
+					let data = { ...response, seq: message.seq };
+					if (!this._responseValidator({ seq: 0, type: this.responseType, data })) {
 						logger.error(JSON.stringify(this._responseValidator.errors, null, 4));
 						throw new Error(`Validation failed responding to ${this.requestType}`);
 					}
 
-					link.connector.send(this.responseType, { ...response, seq: message.seq });
+					link.connector.send(this.responseType, data);
 
 				}).catch(err => {
 					if (!(err instanceof libErrors.RequestError)) {
