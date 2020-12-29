@@ -5,6 +5,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libFactorio = require("@clusterio/lib/factorio");
+const { wait } = require("@clusterio/lib/helpers");
 const { testLines } = require("./lines");
 
 
@@ -241,6 +242,32 @@ describe("lib/factorio/server", function() {
 				let result = await waiter;
 				assert.deepEqual(result[0], { "data": "spam" });
 				assert(!await fs.pathExists(filePath), "File was not deleted");
+			});
+		});
+
+		describe(".stop()", function() {
+			it("should handle server quitting on its own during stop", async function() {
+				if (process.platform === "win32") {
+					this.skip();
+				}
+				server.hangTimeout = 20;
+				server._server = new events.EventEmitter();
+				server._server.kill = () => true;
+				server._state = "running";
+				server._rconReady = true;
+				server._rconClient = {
+					async end() {
+						server._rconClient = null;
+						process.nextTick(() => {
+							server.emit("_quitting");
+							server._server.emit("exit");
+						});
+					},
+				};
+				server._watchExit();
+
+				await server.stop();
+				await wait(21); // Wait until after hang timeout
 			});
 		});
 	});
