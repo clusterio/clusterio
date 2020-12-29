@@ -20,7 +20,6 @@ export default function InstancesPage() {
 			"Name": item["name"],
 			"Public Address": item["public_address"] + ":" + item["game_port"],
 			"Assigned Slave": item["assigned_slave_name"],
-			"Assigned Slave ID": item["assigned_slave"],
 			"Status": item["status"],
 		}));
 	}

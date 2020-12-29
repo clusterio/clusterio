@@ -311,11 +311,10 @@ messages.listInstances = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["name", "id", "assigned_slave", "status"],
+				required: ["name", "id", "assigned_slave_name", "public_address", "game_port", "status"],
 				properties: {
 					"name": { type: "string" },
 					"id": { type: "integer" },
-					"assigned_slave": { type: ["null", "integer"] },
 					"assigned_slave_name": { type: ["null", "string"] },
 					"public_address": { type: ["null", "string"] },
 					"game_port": { type: ["null", "integer"] },
