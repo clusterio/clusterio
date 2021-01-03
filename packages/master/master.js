@@ -48,7 +48,6 @@ let db = {
 };
 
 // homebrew modules
-const generateSslCert = require("./src/generate_ssl_cert");
 const HttpCloser = require("./src/HttpCloser");
 const routes = require("./src/routes");
 const libDatabase = require("@clusterio/lib/database");
@@ -1955,14 +1954,11 @@ async function startServer() {
 
 	let tls_cert = masterConfig.get("master.tls_certificate");
 	let tls_key = masterConfig.get("master.tls_private_key");
-	// Create a self signed certificate if the certificate files doesn't exist
-	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
-		await generateSslCert({
-			bits: masterConfig.get("master.tls_bits"),
-			sslCertPath: tls_cert,
-			sslPrivKeyPath: tls_key,
-			doLogging: true,
-		});
+
+	if (httpsPort && (!tls_cert || !tls_key)) {
+		throw new libErrors.StartupError(
+			"tls_certificate and tls_private_key must be configure in order to use https_port"
+		);
 	}
 
 	// Add routes for the web interface

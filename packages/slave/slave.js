@@ -890,8 +890,12 @@ class InstanceConnection extends libLink.Link {
 }
 
 class SlaveConnector extends libLink.WebSocketClientConnector {
-	constructor(slaveConfig, pluginInfos) {
-		super(slaveConfig.get("slave.master_url"), slaveConfig.get("slave.reconnect_delay"));
+	constructor(slaveConfig, tlsCa, pluginInfos) {
+		super(
+			slaveConfig.get("slave.master_url"),
+			slaveConfig.get("slave.reconnect_delay"),
+			tlsCa
+		);
 		this.slaveConfig = slaveConfig;
 		this.pluginInfos = pluginInfos;
 	}
@@ -1593,7 +1597,13 @@ async function startSlave() {
 		return;
 	}
 
-	let slaveConnector = new SlaveConnector(slaveConfig, pluginInfos);
+	let tlsCa = null;
+	let tlsCaPath = slaveConfig.get("slave.tls_ca");
+	if (tlsCaPath) {
+		tlsCa = await fs.readFile(tlsCaPath);
+	}
+
+	let slaveConnector = new SlaveConnector(slaveConfig, tlsCa, pluginInfos);
 	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
 
 	// Handle interrupts

@@ -134,9 +134,10 @@ before(async function() {
 	await exec("node ../../packages/master config set master.auth_secret TestSecretDoNotUse");
 	await exec("node ../../packages/master config set master.http_port 8880");
 	await exec("node ../../packages/master config set master.https_port 4443");
-	await exec("node ../../packages/master config set master.tls_bits 1024");
 	await exec("node ../../packages/master config set master.heartbeat_interval 0.25");
 	await exec("node ../../packages/master config set master.connector_shutdown_timeout 2");
+	await exec("node ../../packages/master config set master.tls_certificate ../../test/file/tls/cert.pem");
+	await exec("node ../../packages/master config set master.tls_private_key ../../test/file/tls/key.pem");
 
 	await exec("node ../../packages/ctl plugin add ../../plugins/global_chat");
 	await exec("node ../../packages/ctl plugin add ../../plugins/research_sync");
@@ -145,16 +146,18 @@ before(async function() {
 
 	await exec("node ../../packages/master bootstrap create-admin test");
 	await exec("node ../../packages/master bootstrap create-ctl-config test");
+	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
 	masterProcess = await spawn("master:", "node ../../packages/master run", /All plugins loaded/);
 
-	let createArgs = "--id 4 --name slave --generate-token";
-	await execCtl(`slave create-config ${createArgs}`);
-
+	await execCtl("slave create-config --id 4 --name slave --generate-token");
 	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
+	await exec("node ../../packages/slave config set slave.tls_ca ../../test/file/tls/cert.pem");
+
 	slaveProcess = await spawn("slave:", "node ../../packages/slave run", /SOCKET \| registering slave/);
 
-	let controlConnector = new TestControlConnector(url, 2);
+	let tlsCa = await fs.readFile("test/file/tls/cert.pem");
+	let controlConnector = new TestControlConnector(url, 2, tlsCa);
 	controlConnector.token = controlToken;
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
