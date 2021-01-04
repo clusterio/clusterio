@@ -659,7 +659,7 @@ async function startControl() {
 	;
 
 	// Parse the args first to get the configured plugin list.
-	let args = yargs.argv;
+	let args = yargs.parse();
 
 	// Log stream for the ctl session.
 	logger.add(new ConsoleTransport({
@@ -722,7 +722,7 @@ async function startControl() {
 	args = yargs
 		.help()
 		.strict()
-		.argv
+		.parse()
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
