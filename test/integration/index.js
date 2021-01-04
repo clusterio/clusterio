@@ -113,7 +113,7 @@ function spawn(name, cmd, waitFor) {
 }
 
 before(async function() {
-	this.timeout(20000);
+	this.timeout(40000);
 
 	// Some integration tests may cause log events
 	logger.add(new ConsoleTransport({
