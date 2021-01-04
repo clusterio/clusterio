@@ -549,8 +549,8 @@ debugCommands.add(new libCommand.Command({
  * @private
  */
 class ControlConnector extends libLink.WebSocketClientConnector {
-	constructor(url, reconnectDelay, token) {
-		super(url, reconnectDelay);
+	constructor(url, reconnectDelay, tlsCa, token) {
+		super(url, reconnectDelay, tlsCa);
 		this._token = token;
 	}
 
@@ -659,7 +659,7 @@ async function startControl() {
 	;
 
 	// Parse the args first to get the configured plugin list.
-	let args = yargs.argv;
+	let args = yargs.parse();
 
 	// Log stream for the ctl session.
 	logger.add(new ConsoleTransport({
@@ -722,7 +722,7 @@ async function startControl() {
 	args = yargs
 		.help()
 		.strict()
-		.argv
+		.parse()
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
@@ -765,9 +765,16 @@ async function startControl() {
 		return;
 	}
 
+	let tlsCa = null;
+	let tlsCaPath = controlConfig.get("control.tls_ca");
+	if (tlsCaPath) {
+		tlsCa = await fs.readFile(tlsCaPath);
+	}
+
 	let controlConnector = new ControlConnector(
 		controlConfig.get("control.master_url"),
 		controlConfig.get("control.reconnect_delay"),
+		tlsCa,
 		controlConfig.get("control.master_token")
 	);
 	let control = new Control(controlConnector, controlPlugins);

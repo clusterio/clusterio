@@ -144,10 +144,11 @@ class WebSocketBaseConnector extends events.EventEmitter {
  * @memberof module:lib/link
  */
 class WebSocketClientConnector extends WebSocketBaseConnector {
-	constructor(url, reconnectDelay) {
+	constructor(url, reconnectDelay, tlsCa = null) {
 		super();
 
 		this._url = url;
+		this._tlsCa = tlsCa;
 
 		// The following states are used in the client connector
 		// new: Not connected
@@ -243,11 +244,9 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._socket = new WebSocket(url);
 
 		} else {
-			this._socket = new WebSocket(url, {
-				// For now we do not verify TLS certificates since the default setup is
-				// to create a self-signed certificate.
-				rejectUnauthorized: false,
-			});
+			let options = {};
+			if (this._tlsCa) { options.ca = this._tlsCa; }
+			this._socket = new WebSocket(url, options);
 		}
 
 		this._attachSocketHandlers();
@@ -317,7 +316,19 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		this._socket.onerror = event => {
 			// It's assumed that close is always called by ws
-			logger.error(`SOCKET | Error: ${event.message || "unknown error"}`);
+			let code = !event.error ? "" : `, code: ${event.error.code}`;
+			logger.error(`SOCKET | Error: ${event.message || "unknown error"}${code}`);
+			if (event.error) {
+				// Abort connection if certificate validation failed
+				if ([
+					"CERT_HAS_EXPIRED",
+					"DEPTH_ZERO_SELF_SIGNED_CERT",
+					"ERR_TLS_CERT_ALTNAME_INVALID",
+				].includes(event.error.code)) {
+					this.emit("error", new libErrors.AuthenticationFailed(event.error.message));
+					this._state = "closing";
+				}
+			}
 		};
 
 		this._socket.onopen = () => {

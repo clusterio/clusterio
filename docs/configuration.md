@@ -19,7 +19,7 @@ Port to host HTTP server on.  If set to null no HTTP server will be
 exposed.  At least one of this and master.https_port needs to be set to
 a port.
 
-Defaults to null.
+Defaults to 8080.
 
 
 ### master.https_port
@@ -29,7 +29,10 @@ master.tls_private_key as the certificate and private key for the HTTPS
 server.  If set to null no HTTPS server will be exposed.  At least one
 of this and master.http_port needs to be set to a port.
 
-Defaults to 8443.
+See the [Setting up TLS](/docs/setting-up-tls.md) document for a guide
+to setting up HTTPS with Clusterio.
+
+Defaults to null.
 
 
 ### master.bind_address
@@ -54,27 +57,18 @@ Defaults to null meaning assume localhost.
 
 ### master.tls_certificate
 
-TLS certificate to use for the HTTPS server when master.https_port is
-configured.  If neither this nor the configured master.tls_private_key
-exists a self signed certificate is automatically created.
+Path to TLS certificate to use for the HTTPS server when
+master.https_port is configured.
 
 Defaults to "database/certificates/cert.crt".
 
 
 ### master.tls_private_key
 
-TLS private key to use for the HTTPS server when master.https_port is
-configured.  If neither this nor the configured master.tls_certificate
-exists a self signed certificate is automatically created.
+Path to TLS private key to use for the HTTPS server when
+master.https_port is configured.
 
 Defaults to "database/certificates/cert.key".
-
-
-### master.tls_bits
-
-Number of bits to use when creating a self signed certificate.
-
-Defaults to 2048.
 
 
 ### master.auth_secret
@@ -178,7 +172,7 @@ Defaults to "instances".
 
 URL to connect to the master server to.
 
-Defaults to "https://localhost:8443/".
+Defaults to "http://localhost:8080/".
 
 
 ### slave.master_token
@@ -189,6 +183,17 @@ generate an access token with `clusterioctl slave generate-token
 create a new slave config with the correct url and token in it.
 
 Defaults to "enter token here".
+
+
+### slave.tls_ca
+
+Path to certificate in PEM format to use for validating a TLS connection
+to the master server.  If you have a self signed certificate on the
+master server you will need to copy the certificate to your slaves and
+set it as the certificate authority with this option.
+
+Defaults to null meaning use Node.js's default set of trusted
+certificate authorities.
 
 
 ### slave.public_address
@@ -211,7 +216,7 @@ Defaults to 5.
 
 
 Instance Configuration
-======================
+----------------------
 
 ### instance.name
 
@@ -419,3 +424,44 @@ need to be enabled on the master server in order for them to be loaded
 on instances.
 
 Defaults to true
+
+
+Control Configuration
+---------------------
+
+### control.master_url
+
+URL to connect to the master server to.
+
+Defaults to null meaning complain about it not being set and exit.
+
+
+### control.master_token
+
+Access token used for authenticating with the master server.  You can
+generate an access token with `clusteriomaster bootstrap
+generate-user-token <username>`, or use the `clusteriomaster bootstrap
+create-ctl-config <username>` to create a new ctl config with the
+correct url and token in it.
+
+Defaults to null meaning complain about it not being set and exit.
+
+
+### control.tls_ca
+
+Path to certificate in PEM format to use for validating a TLS connection
+to the master server.  If you have a self signed certificate on the
+master server you will need to copy the certificate to the computer you
+run clusterctl from and set it as the certificate authority with this
+option.
+
+Defaults to null meaning use Node.js's default set of trusted
+certificate authorities.
+
+
+### control.reconnect_delay
+
+Duration in seconds to wait before attempting to reconnect with the
+master server after the connection is dropped.
+
+Defaults to 2.
