@@ -88,8 +88,8 @@ class Request extends Message {
 		this.forwardTo = forwardTo;
 		this.handlerSuffix = "RequestHandler";
 
-		this.requestType = type + "_request";
-		this.responseType = type + "_response";
+		this.requestType = `${type}_request`;
+		this.responseType = `${type}_response`;
 
 		if (permission === undefined && links.includes("control-master")) {
 			throw new Error(`permission is required for ${this.type} request over control-master links`);
@@ -195,8 +195,11 @@ class Request extends Message {
 			if (this.permission !== null && `${link.source}-${link.target}` === "master-control") {
 				let origHandler = handler;
 				handler = async function(message, request) {
-					this.user.checkPermission(request.permission);
-					return await origHandler.call(this, message, request);
+					// Abuse this binding to get a hold of the ControlConnection instance
+					// eslint-disable-next-line no-invalid-this, consistent-this
+					let controlConnection = this;
+					controlConnection.user.checkPermission(request.permission);
+					return await origHandler.call(controlConnection, message, request);
 				};
 			}
 
@@ -783,7 +786,7 @@ class Event extends Message {
 			throw new Error(`Invalid broadcastTo value ${broadcastTo}`);
 		}
 
-		this.eventType = type + "_event";
+		this.eventType = `${type}_event`;
 		this._eventValidator = libSchema.compile({
 			$schema: "http://json-schema.org/draft-07/schema#",
 			properties: {

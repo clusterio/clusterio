@@ -3,7 +3,8 @@
  * @module lib/schema
  */
 "use strict";
-const ajv = new (require("ajv"))({
+const Ajv = require("ajv");
+const ajv = new Ajv({
 	verbose: true,
 	format: "full",
 	extendRefs: "fail",

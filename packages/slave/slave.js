@@ -118,7 +118,7 @@ const serverSettingsActions = {
 /**
  * Keeps track of the runtime parameters of an instance
  */
-class Instance extends libLink.Link{
+class Instance extends libLink.Link {
 	constructor(slave, connector, dir, factorioDir, instanceConfig) {
 		super("instance", "slave", connector);
 		libLink.attachAllMessages(this);
@@ -250,8 +250,8 @@ class Instance extends libLink.Link{
 
 	async _loadPlugin(pluginInfo, slave) {
 		let pluginLoadStarted = Date.now();
-		let { InstancePlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint));
-		let instancePlugin = new InstancePlugin(pluginInfo, this, slave);
+		let InstancePluginClass = await libPluginLoader.loadInstancePluginClass(pluginInfo);
+		let instancePlugin = new InstancePluginClass(pluginInfo, this, slave);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
 		libPlugin.attachPluginMessages(this, pluginInfo, instancePlugin);
@@ -380,16 +380,19 @@ class Instance extends libLink.Link{
 
 		this.logger.verbose("Rotating old logs...");
 		// clean old log file to avoid crash
-		try{
+		try {
 			let logPath = this.path("factorio-current.log");
 			let stat = await fs.stat(logPath);
-			if(stat.isFile()){
+			if (stat.isFile()) {
 				let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
 				await fs.rename(logPath, this.path(logFilename));
 				this.logger.verbose(`Log rotated as ${logFilename}`);
 			}
-		}catch(e){}
+		} catch (err) {
+			this.logger.error(`Error rotating logs:\n${err.stack}`);
+		}
 
+		// eslint-disable-next-line no-use-before-define
 		await symlinkMods(this, "sharedMods");
 	}
 
@@ -698,6 +701,7 @@ class Instance extends libLink.Link{
 			await this.writeServerSettings();
 
 			this.logger.verbose("Creating save .....");
+			// eslint-disable-next-line no-use-before-define
 			await symlinkMods(this, "sharedMods");
 
 		} catch (err) {
@@ -717,6 +721,7 @@ class Instance extends libLink.Link{
 			await this.writeServerSettings();
 
 			this.logger.info("Exporting data .....");
+			// eslint-disable-next-line no-use-before-define
 			await symlinkMods(this, "sharedMods");
 			let zip = await libFactorio.exportData(this.server);
 
@@ -918,6 +923,46 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 	}
 }
 
+function checkFilename(name) {
+	// All of these are bad in Windows only, except for /, . and ..
+	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
+	const badEnd = /[. ]$/;
+
+	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+	const badNames = [
+		// Relative path components
+		".", "..",
+
+		// Reserved filenames in Windows
+		"CON", "PRN", "AUX", "NUL",
+		...oneToNine.map(n => `COM${n}`),
+		...oneToNine.map(n => `LPT${n}`),
+	];
+
+	if (typeof name !== "string") {
+		throw new Error("must be a string");
+	}
+
+	if (name === "") {
+		throw new Error("cannot be empty");
+	}
+
+	if (badChars.test(name)) {
+		throw new Error('cannot contain <>:"\\/|=* or control characters');
+	}
+
+	if (badNames.includes(name.toUpperCase())) {
+		throw new Error(
+			"cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9"
+		);
+	}
+
+	if (badEnd.test(name)) {
+		throw new Error("cannot end with . or space");
+	}
+}
+
 /**
  * Handles running the slave
  *
@@ -962,11 +1007,6 @@ class Slave extends libLink.Link {
 			this.updateInstances().catch((err) => {
 				logger.fatal(`Unexpected error updating instances:\n${err.stack}`);
 				return this.shutdown();
-
-			}).catch((err) => {
-				setBlocking(true);
-				logger.fatal(`Unexpected error during shutdown:\n${err.stack}`);
-				process.exit(1);
 			});
 		});
 
@@ -980,20 +1020,11 @@ class Slave extends libLink.Link {
 				this.connector.connect().catch((err) => {
 					logger.fatal(`Unexpected error reconnecting to master:\n${err.stack}`);
 					return this.shutdown();
-
-				}).catch((err) => {
-					setBlocking(true);
-					logger.fatal(`Unexpected error during shutdown:\n${err.stack}`);
-					process.exit(1);
 				});
 
 			} else {
 				logger.fatal("Master connection was unexpectedly closed");
-				this.shutdown().catch((err) => {
-					setBlocking(true);
-					logger.fatal(`Unexpected error during shutdown:\n${err.stack}`);
-					process.exit(1);
-				});
+				this.shutdown();
 			}
 		});
 
@@ -1364,53 +1395,25 @@ class Slave extends libLink.Link {
 			}
 		}
 
-		for (let instanceId of this.instanceConnections.keys()) {
-			await this.stopInstance(instanceId);
+		try {
+			for (let instanceId of this.instanceConnections.keys()) {
+				await this.stopInstance(instanceId);
+			}
+			await this.connector.close(1001, "Slave Shutdown");
+
+			// Clear silly interval in pidfile library.
+			pidusage.clear();
+		} catch (err) {
+			logger.error(`
++--------------------------------------------------------------------+
+| Unexpected error occured while shutting down slave, please report  |
+| it to https://github.com/clusterio/factorioClusterio/issues        |
++--------------------------------------------------------------------+
+${err.stack}`
+			);
+			// eslint-disable-next-line no-process-exit
+			process.exit(1);
 		}
-		await this.connector.close(1001, "Slave Shutdown");
-
-		// Clear silly interval in pidfile library.
-		pidusage.clear();
-	}
-}
-
-function checkFilename(name) {
-	// All of these are bad in Windows only, except for /, . and ..
-	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
-	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
-	const badEnd = /[. ]$/;
-
-	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-	const badNames = [
-		// Relative path components
-		".", "..",
-
-		// Reserved filenames in Windows
-		"CON", "PRN", "AUX", "NUL",
-		...oneToNine.map(n => `COM${n}`),
-		...oneToNine.map(n => `LPT${n}`),
-	];
-
-	if (typeof name !== "string") {
-		throw new Error("must be a string");
-	}
-
-	if (name === "") {
-		throw new Error("cannot be empty");
-	}
-
-	if (badChars.test(name)) {
-		throw new Error('cannot contain <>:"\\/|=* or control characters');
-	}
-
-	if (badNames.includes(name.toUpperCase())) {
-		throw new Error(
-			"cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9"
-		);
-	}
-
-	if (badEnd.test(name)) {
-		throw new Error("cannot end with . or space");
 	}
 }
 
@@ -1453,6 +1456,7 @@ async function symlinkMods(instance, sharedMods) {
 					let target = path.join(sharedMods, entry.name);
 					let link = instance.path("mods", entry.name);
 
+					/* eslint-disable max-depth */
 					if (process.platform !== "win32") {
 						await fs.symlink(path.relative(path.dirname(link), target), link);
 
@@ -1464,6 +1468,7 @@ async function symlinkMods(instance, sharedMods) {
 					} else {
 						await fs.link(target, link);
 					}
+					/* eslint-enable max-depth */
 				}
 
 			} else {
@@ -1610,22 +1615,15 @@ async function startSlave() {
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
+			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
+			// eslint-disable-next-line no-process-exit
 			process.exit(1);
 		}
 
 		secondSigint = true;
 		logger.info("Caught interrupt signal, shutting down");
-		slave.shutdown().catch(err => {
-			logger.error(`
-+---------------------------------------------------------------+
-| Unexpected error occured while stopping slave, please report  |
-| it to https://github.com/clusterio/factorioClusterio/issues   |
-+---------------------------------------------------------------+
-${err.stack}`
-			);
-			process.exit(1);
-		});
+		slave.shutdown();
 	});
 
 	slaveConnector.once("connect", () => {
@@ -1675,6 +1673,6 @@ ${err.stack}`
 			);
 		}
 
-		process.exit(1);
+		process.exitCode = 1;
 	});
 }

@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 /**
  * Library for interfacing with Factorio Servers and saves.
  * @module lib/factorio

@@ -59,9 +59,8 @@ async function loadJsonAsMap(filePath) {
 			// File does not exist, return empty map
 			return new Map();
 
-		} else {
-			throw err;
 		}
+		throw err;
 	}
 }
 
@@ -121,9 +120,8 @@ async function loadJsonArrayAsMap(filePath) {
 			// File does not exist, return empty map
 			return new Map();
 
-		} else {
-			throw err;
 		}
+		throw err;
 	}
 }
 

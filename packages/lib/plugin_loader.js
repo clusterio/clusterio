@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 /**
  * Helpers for loading plugins in Node.js
  * @module lib/plugin_loader
@@ -47,6 +48,51 @@ async function loadPluginInfos(pluginList) {
 	return plugins;
 }
 
+/**
+ * Load master plugin class of a plugin
+ *
+ * @param {Object} pluginInfo -
+ *     Plugin info object returned from {@link
+ *     module:lib/plugin_loader.loadPluginInfos} to load class from.
+ * @returns {function} plugin class
+ * @static
+ */
+async function loadMasterPluginClass(pluginInfo) {
+	let entrypoint = require(path.posix.join(pluginInfo.requirePath, pluginInfo.masterEntrypoint));
+	return entrypoint.MasterPlugin;
+}
+
+/**
+ * Load instance plugin class of a plugin
+ *
+ * @param {Object} pluginInfo -
+ *     Plugin info object returned from {@link
+ *     module:lib/plugin_loader.loadPluginInfos} to load class from.
+ * @returns {function} plugin class
+ * @static
+ */
+async function loadInstancePluginClass(pluginInfo) {
+	let entrypoint = require(path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint));
+	return entrypoint.InstancePlugin;
+}
+
+/**
+ * Load control plugin class of a plugin
+ *
+ * @param {Object} pluginInfo -
+ *     Plugin info object returned from {@link
+ *     module:lib/plugin_loader.loadPluginInfos} to load class from.
+ * @returns {function} plugin class
+ * @static
+ */
+async function loadControlPluginClass(pluginInfo) {
+	let entrypoint = require(path.posix.join(pluginInfo.requirePath, pluginInfo.controlEntrypoint));
+	return entrypoint.ControlPlugin;
+}
+
 module.exports = {
 	loadPluginInfos,
+	loadMasterPluginClass,
+	loadInstancePluginClass,
+	loadControlPluginClass,
 };

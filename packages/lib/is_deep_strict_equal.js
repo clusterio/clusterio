@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 "use strict";
 // eslint-disable-next-line no-process-env
 if (process.env.APP_ENV === "browser") {

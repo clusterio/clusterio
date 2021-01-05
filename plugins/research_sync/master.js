@@ -6,6 +6,28 @@ const libPlugin = require("@clusterio/lib/plugin");
 const RateLimiter = require("@clusterio/lib/RateLimiter");
 
 
+async function loadTechnologies(masterConfig, logger) {
+	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
+	logger.verbose(`Loading ${filePath}`);
+	try {
+		return new Map(JSON.parse(await fs.readFile(filePath)));
+
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			logger.verbose("Creating new technologies database");
+			return new Map();
+
+		}
+		throw err;
+	}
+}
+
+async function saveTechnologies(masterConfig, technologies, logger) {
+	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
+	logger.verbose(`writing ${filePath}`);
+	await fs.outputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
+}
+
 class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 		this.technologies = await loadTechnologies(this.master.config, this.logger);
@@ -92,9 +114,8 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			let match = /-(\d+)$/.exec(name);
 			if (!match) {
 				return 1;
-			} else {
-				return Number.parseInt(match[1], 10);
 			}
+			return Number.parseInt(match[1], 10);
 		}
 
 		for (let instanceTech of message.data.technologies) {
@@ -143,29 +164,6 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 		return { technologies };
 	}
-}
-
-async function loadTechnologies(masterConfig, logger) {
-	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
-	logger.verbose(`Loading ${filePath}`);
-	try {
-		return new Map(JSON.parse(await fs.readFile(filePath)));
-
-	} catch (err) {
-		if (err.code === "ENOENT") {
-			logger.verbose("Creating new technologies database");
-			return new Map();
-
-		} else {
-			throw err;
-		}
-	}
-}
-
-async function saveTechnologies(masterConfig, technologies, logger) {
-	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
-	logger.verbose(`writing ${filePath}`);
-	await fs.outputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
 }
 
 

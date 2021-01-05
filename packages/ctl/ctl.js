@@ -12,6 +12,7 @@ const asTable = require("as-table").configure({ delimiter: " | " });
 const events = require("events");
 const path = require("path");
 const winston = require("winston");
+const setBlocking = require("set-blocking");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -627,6 +628,47 @@ class Control extends libLink.Link {
 	}
 }
 
+async function loadPlugins(pluginList) {
+	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
+	libConfig.registerPluginConfigGroups(pluginInfos);
+	libConfig.finalizeConfigs();
+
+	let controlPlugins = new Map();
+	for (let pluginInfo of pluginInfos) {
+		if (!pluginInfo.controlEntrypoint) {
+			continue;
+		}
+
+		let ControlPluginClass = await libPluginLoader.loadControlPluginClass(pluginInfo);
+		let controlPlugin = new ControlPluginClass(pluginInfo, logger);
+		controlPlugins.set(pluginInfo.name, controlPlugin);
+		await controlPlugin.init();
+	}
+	return controlPlugins;
+}
+
+async function registerCommands(controlPlugins, yargs) {
+	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
+	rootCommands.add(slaveCommands);
+	rootCommands.add(instanceCommands);
+	rootCommands.add(permissionCommands);
+	rootCommands.add(roleCommands);
+	rootCommands.add(userCommands);
+	rootCommands.add(logCommands);
+	rootCommands.add(debugCommands);
+
+	for (let controlPlugin of controlPlugins.values()) {
+		await controlPlugin.addCommands(rootCommands);
+	}
+
+	for (let [name, command] of rootCommands.subCommands) {
+		if (name === command.name) {
+			command.register(yargs);
+		}
+	}
+
+	return rootCommands;
+}
 
 async function startControl() {
 	yargs
@@ -684,39 +726,11 @@ async function startControl() {
 		return;
 	}
 
+	logger.verbose("Loading Plugins");
+	let controlPlugins = await loadPlugins(pluginList);
+
 	// Add all cluster management commands including ones from plugins
-	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
-	rootCommands.add(slaveCommands);
-	rootCommands.add(instanceCommands);
-	rootCommands.add(permissionCommands);
-	rootCommands.add(roleCommands);
-	rootCommands.add(userCommands);
-	rootCommands.add(logCommands);
-	rootCommands.add(debugCommands);
-
-	logger.verbose("Loading Plugin info");
-	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
-	libConfig.registerPluginConfigGroups(pluginInfos);
-	libConfig.finalizeConfigs();
-
-	let controlPlugins = new Map();
-	for (let pluginInfo of pluginInfos) {
-		if (!pluginInfo.controlEntrypoint) {
-			continue;
-		}
-
-		let { ControlPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.controlEntrypoint));
-		let controlPlugin = new ControlPlugin(pluginInfo, logger);
-		controlPlugins.set(pluginInfo.name, controlPlugin);
-		await controlPlugin.init();
-		await controlPlugin.addCommands(rootCommands);
-	}
-
-	for (let [name, command] of rootCommands.subCommands) {
-		if (name === command.name) {
-			command.register(yargs);
-		}
-	}
+	let rootCommands = await registerCommands(controlPlugins, yargs);
 
 	// Reparse after commands have been added with help and strict checking.
 	args = yargs
@@ -780,7 +794,7 @@ async function startControl() {
 	let control = new Control(controlConnector, controlPlugins);
 	try {
 		await controlConnector.connect();
-	} catch(err) {
+	} catch (err) {
 		if (err instanceof libErrors.AuthenticationFailed) {
 			throw new libErrors.StartupError(err.message);
 		}
@@ -790,7 +804,9 @@ async function startControl() {
 	process.on("SIGINT", () => {
 		logger.info("Caught interrupt signal, closing connection");
 		control.shutdown().catch(err => {
+			setBlocking(true);
 			logger.error(err.stack);
+			// eslint-disable-next-line no-process-exit
 			process.exit(1);
 		});
 	});

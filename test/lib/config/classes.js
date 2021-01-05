@@ -351,8 +351,11 @@ describe("lib/config/classes", function() {
 				assert.deepEqual(testInstance.get("json"), { json: true });
 
 				let errMsg;
-				try { JSON.parse("blah"); }
-				catch (err) { errMsg = err.message; }
+				try {
+					JSON.parse("blah");
+				} catch (err) {
+					errMsg = err.message;
+				}
 				assert.throws(
 					() => testInstance.set("json", "blah"),
 					new classes.InvalidValue(`Error parsing value for json: ${errMsg}`)

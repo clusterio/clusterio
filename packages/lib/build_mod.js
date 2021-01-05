@@ -8,64 +8,6 @@ const path = require("path");
 const yargs = require("yargs");
 
 
-async function main() {
-	const args = yargs
-		.scriptName("build")
-		.options({
-			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
-			"build": { describe: "Build mod(s)", type: "boolean", default: true },
-			"pack": { describe: "Pack into zip file", type: "boolean", default: true },
-			"source-dir": { describe: "Path to mod source files", nargs: 1, type: "string", demandOption: true },
-			"output-dir": { describe: "Path to output built mod(s)", nargs: 1, type: "string", default: "dist" },
-			"factorio-version": { describe: "Override factorio_version", type: "string" },
-		})
-		.strict()
-		.argv
-	;
-
-	await build(args);
-}
-
-async function build(args) {
-	let info = JSON.parse(await fs.readFile(path.join(args.sourceDir, "info.json")));
-
-	if (args.factorioVersion) {
-		info.factorio_version = args.factorioVersion;
-	}
-
-	if (args.dependencies) {
-		info.dependencies = args.dependencies;
-	}
-
-	if (args.clean) {
-		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/;
-		for (let entry of await fs.readdir(args.outputDir)) {
-			let match = splitter.exec(entry);
-			if (match) {
-				let [, name, version] = match;
-				if (name === info.name) {
-					let modPath = path.join(args.outputDir, entry);
-					console.log(`Removing ${modPath}`);
-					await fs.remove(modPath);
-				}
-			}
-		}
-	}
-
-	if (info.variants) {
-		for (let [variant, variantOverrides] of Object.entries(info.variants)) {
-			let variantInfo = {
-				...info,
-				...variantOverrides,
-			};
-			delete variantInfo.variants;
-			await buildMod(args, variantInfo);
-		}
-	} else {
-		await buildMod(args, info);
-	}
-}
-
 async function buildMod(args, info) {
 	if (args.build) {
 		await fs.ensureDir(args.outputDir);
@@ -119,6 +61,65 @@ async function buildMod(args, info) {
 			await fs.writeFile(path.join(modDir, "info.json"), JSON.stringify(info, null, 4));
 		}
 	}
+}
+
+async function build(args) {
+	let info = JSON.parse(await fs.readFile(path.join(args.sourceDir, "info.json")));
+
+	if (args.factorioVersion) {
+		info.factorio_version = args.factorioVersion;
+	}
+
+	if (args.dependencies) {
+		info.dependencies = args.dependencies;
+	}
+
+	if (args.clean) {
+		let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/;
+		for (let entry of await fs.readdir(args.outputDir)) {
+			let match = splitter.exec(entry);
+			if (match) {
+				let [, name, version] = match;
+				if (name === info.name) {
+					let modPath = path.join(args.outputDir, entry);
+					console.log(`Removing ${modPath}`);
+					await fs.remove(modPath);
+				}
+			}
+		}
+	}
+
+	if (info.variants) {
+		for (let [variant, variantOverrides] of Object.entries(info.variants)) {
+			let variantInfo = {
+				...info,
+				...variantOverrides,
+			};
+			delete variantInfo.variants;
+			await buildMod(args, variantInfo);
+		}
+	} else {
+		await buildMod(args, info);
+	}
+}
+
+
+async function main() {
+	const args = yargs
+		.scriptName("build")
+		.options({
+			"clean": { describe: "Remove previous builds", type: "boolean", default: false },
+			"build": { describe: "Build mod(s)", type: "boolean", default: true },
+			"pack": { describe: "Pack into zip file", type: "boolean", default: true },
+			"source-dir": { describe: "Path to mod source files", nargs: 1, type: "string", demandOption: true },
+			"output-dir": { describe: "Path to output built mod(s)", nargs: 1, type: "string", default: "dist" },
+			"factorio-version": { describe: "Override factorio_version", type: "string" },
+		})
+		.strict()
+		.argv
+	;
+
+	await build(args);
 }
 
 if (module === require.main) {
