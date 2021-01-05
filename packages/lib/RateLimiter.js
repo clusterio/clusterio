@@ -34,7 +34,7 @@ class RateLimiter {
 	 *     Callback invoked at maste `maxRate` per second on activation.
 	 */
 	constructor(options = {}) {
-		/*
+		/**
 		 * Maximum rate of activations per second.
 		 * @type {number}
 		 */

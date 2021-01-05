@@ -14,14 +14,14 @@ const fs = require("fs");
  * @returns {Promise<string>} hash of the stream.
  */
 function hashStream(stream) {
-	return new Promise(function(resolve, reject) {
+	return new Promise((resolve, reject) => {
 		let hasher = crypto.createHash("sha1");
 		hasher.setEncoding("hex");
-		hasher.on("finish", function() {
+		hasher.on("finish", () => {
 			resolve(hasher.read());
 		});
 
-		stream.on("error", function(error) {
+		stream.on("error", (error) => {
 			// the docs doesn't say anything about what's passed on error
 			reject(error);
 		});

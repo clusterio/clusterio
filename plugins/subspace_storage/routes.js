@@ -12,12 +12,12 @@ function addApiRoutes(app, items, endpointHitCounter) {
 	 * @alias api/inventory
 	 * @returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
 	 */
-	app.get("/api/inventory", function(req, res) {
+	app.get("/api/inventory", (req, res) => {
 		endpointHitCounter.labels(req.route.path).inc();
 		res.header("Access-Control-Allow-Origin", "*");
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 		// Check it and send it
-		var inventory = [];
+		let inventory = [];
 		for (let [name, count] of items._items) {
 			inventory.push({ name, count });
 		}
@@ -33,7 +33,7 @@ function addApiRoutes(app, items, endpointHitCounter) {
 	 * @alias api/inventoryAsObject
 	 * @returns {object} JSON {"iron-plate":100, "copper-plate":5}
 	 */
-	app.get("/api/inventoryAsObject", function(req, res) {
+	app.get("/api/inventoryAsObject", (req, res) => {
 		endpointHitCounter.labels(req.route.path).inc();
 		res.header("Access-Control-Allow-Origin", "*");
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");

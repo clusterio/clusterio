@@ -124,9 +124,8 @@ class Link {
 		if (handler) {
 			handler(message);
 			return true;
-		} else {
-			return false;
 		}
+		return false;
 	}
 
 	/**

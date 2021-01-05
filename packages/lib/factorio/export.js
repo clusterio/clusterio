@@ -99,6 +99,105 @@ async function loadFile(server, modVersions, modPath) {
 	return await file.async("nodebuffer");
 }
 
+async function loadIcon(server, modVersions, iconPath, iconSize, iconMipmaps, iconCache) {
+	let icon = iconCache.get(iconPath);
+	if (icon === undefined) {
+		let fileContent = await loadFile(server, modVersions, iconPath);
+		if (fileContent) {
+			icon = await Jimp.read(fileContent);
+			icon.crop(0, 0, iconSize, iconSize);
+			iconCache.set(iconPath, icon);
+		} else {
+			icon = null;
+			server._logger.warn(`${iconPath} not found`);
+		}
+		iconCache.set(iconPath, icon);
+	}
+	return icon;
+}
+
+async function loadSimpleIcon(server, modVersions, item, size, iconCache) {
+	let icon = await loadIcon(server, modVersions, item.icon, item.icon_size, 0, iconCache);
+	if (icon) {
+		let iconScale = size / item.icon_size;
+		if (iconScale !== 1) {
+			icon = icon.clone();
+			icon.scale(iconScale);
+		}
+	}
+	return icon;
+}
+
+async function loadLayeredIcon(server, modVersions, item, size, iconCache) {
+	let baseLayerSize = item.icons[0].icon_size || item.icon_size;
+	let icon = await Jimp.create(size, size);
+
+	// The scaling factor of the base layer
+	let baseLayerScale = item.icons[0].scale || 32 / baseLayerSize;
+
+	// The size in pixels of one unit
+	let baseUnit = size / (baseLayerSize * baseLayerScale);
+
+	for (let layer of item.icons) {
+		let layerSize = layer.icon_size || item.icon_size;
+		let iconLayer = await loadIcon(server, modVersions, layer.icon, layerSize, layer.icon_mipmaps || 0, iconCache);
+
+		if (!iconLayer) {
+			continue;
+		}
+
+		iconLayer = iconLayer.clone();
+
+		let tint;
+		if (layer.tint) {
+			let divisor = (layer.tint.r > 1 || layer.tint.g > 1 || layer.tint.b > 1) ? 255 : 1;
+			tint = {
+				r: (layer.tint.r || 0) / divisor,
+				g: (layer.tint.g || 0) / divisor,
+				b: (layer.tint.b || 0) / divisor,
+				a: layer.tint.a || 1,
+			};
+		} else {
+			tint = { r: 1, b: 1, g: 1, a: 1 };
+		}
+
+		let layerScale = layer.scale || 32 / layerSize;
+		let [xs, ys] = layer.shift || [0, 0];
+		let realScale = layerScale * baseUnit;
+		let sizeShift = (size - layerSize * realScale) / 2;
+
+		xs = xs * baseUnit + sizeShift;
+		ys = ys * baseUnit + sizeShift;
+
+		if (realScale !== 1) {
+			iconLayer.scale(realScale);
+		}
+
+		// eslint-disable-next-line no-loop-func
+		iconLayer.scan(0, 0, iconLayer.bitmap.width, iconLayer.bitmap.height, (x, y, sidx) => {
+			x += xs;
+			y += ys;
+			if (x < 0 || x >= size || y < 0 || y >= size) {
+				return;
+			}
+			let sdata = iconLayer.bitmap.data;
+			let ddata = icon.bitmap.data;
+			let didx = icon.getPixelIndex(x, y);
+
+			let sa = sdata[sidx + 3] / 255;
+			let da = ddata[didx + 3] / 255;
+			let db = da * (1 - sa * tint.a);
+			let cb = sa + da * (1 - sa);
+			ddata[didx + 0] = Math.min(255, (sdata[sidx + 0] * sa * tint.r + ddata[didx + 0] * db) / cb);
+			ddata[didx + 1] = Math.min(255, (sdata[sidx + 1] * sa * tint.g + ddata[didx + 1] * db) / cb);
+			ddata[didx + 2] = Math.min(255, (sdata[sidx + 2] * sa * tint.b + ddata[didx + 2] * db) / cb);
+			ddata[didx + 3] = Math.min(255, sdata[sidx + 3] + ddata[didx + 3] * (1 - sa));
+		});
+	}
+
+	return icon;
+}
+
 /**
  * Export item icons and data
  *
@@ -130,107 +229,21 @@ async function exportItems(server, modVersions, items) {
 	let pos = 0;
 
 	let iconCache = new Map();
-	async function loadIcon(iconPath, iconSize, iconMipmaps) {
-		let icon = iconCache.get(iconPath);
-		if (icon === undefined) {
-			let fileContent = await loadFile(server, modVersions, iconPath);
-			if (fileContent) {
-				icon = await Jimp.read(fileContent);
-				icon.crop(0, 0, iconSize, iconSize);
-				iconCache.set(iconPath, icon);
-			} else {
-				icon = null;
-				server._logger.warn(`${iconPath} not found`);
-			}
-			iconCache.set(iconPath, icon);
-		}
-		return icon;
-	}
-
 	let simpleIcons = new Map();
 	for (let item of items) {
 		let icon;
 		let iconPos;
 		if (item.icons) {
-			let baseLayerSize = item.icons[0].icon_size || item.icon_size;
-			icon = await Jimp.create(size, size);
+			icon = await loadLayeredIcon(server, modVersions, item, size, iconCache);
 			iconPos = pos;
-
-			// The scaling factor of the base layer
-			let baseLayerScale = item.icons[0].scale || 32 / baseLayerSize;
-
-			// The size in pixels of one unit
-			let baseUnit = size / (baseLayerSize * baseLayerScale);
-
-			for (let layer of item.icons) {
-				let layerSize = layer.icon_size || item.icon_size;
-				let iconLayer = await loadIcon(layer.icon, layerSize, layer.icon_mipmaps || 0);
-
-				if (!iconLayer) {
-					continue;
-				}
-
-				iconLayer = iconLayer.clone();
-
-				let tint;
-				if (layer.tint) {
-					let divisor = (layer.tint.r > 1 || layer.tint.g > 1 || layer.tint.b > 1) ? 255 : 1;
-					tint = {
-						r: (layer.tint.r || 0) / divisor,
-						g: (layer.tint.g || 0) / divisor,
-						b: (layer.tint.b || 0) / divisor,
-						a: layer.tint.a || 1,
-					};
-				} else {
-					tint = { r: 1, b: 1, g: 1, a: 1 };
-				}
-
-				let layerScale = layer.scale || 32 / layerSize;
-				let [xs, ys] = layer.shift || [0, 0];
-				let realScale = layerScale * baseUnit;
-				let sizeShift = (size - layerSize * realScale) / 2;
-
-				xs = xs * baseUnit + sizeShift;
-				ys = ys * baseUnit + sizeShift;
-
-				if (realScale !== 1) {
-					iconLayer.scale(realScale);
-				}
-
-				// eslint-disable-next-line no-loop-func
-				iconLayer.scan(0, 0, iconLayer.bitmap.width, iconLayer.bitmap.height, function(x, y, sidx) {
-					x += xs;
-					y += ys;
-					if (x < 0 || x >= size || y < 0 || y >= size) {
-						return;
-					}
-					let sdata = this.bitmap.data;
-					let ddata = icon.bitmap.data;
-					let didx = icon.getPixelIndex(x, y);
-
-					let sa = sdata[sidx + 3] / 255;
-					let da = ddata[didx + 3] / 255;
-					let db = da * (1 - sa * tint.a);
-					let cb = sa + da * (1 - sa);
-					ddata[didx + 0] = Math.min(255, (sdata[sidx + 0] * sa * tint.r + ddata[didx + 0] * db) / cb);
-					ddata[didx + 1] = Math.min(255, (sdata[sidx + 1] * sa * tint.g + ddata[didx + 1] * db) / cb);
-					ddata[didx + 2] = Math.min(255, (sdata[sidx + 2] * sa * tint.b + ddata[didx + 2] * db) / cb);
-					ddata[didx + 3] = Math.min(255, sdata[sidx + 3] + ddata[didx + 3] * (1 - sa));
-				});
-			}
 
 		} else {
 			iconPos = simpleIcons.get(item.icon);
 			if (iconPos === undefined) {
-				icon = await loadIcon(item.icon, item.icon_size, 0);
+				icon = await loadSimpleIcon(server, modVersions, item, size, iconCache);
 				if (icon) {
 					iconPos = pos;
 					simpleIcons.set(item.icon, pos);
-					let iconScale = size / item.icon_size;
-					if (iconScale !== 1) {
-						icon = icon.clone();
-						icon.scale(iconScale);
-					}
 				}
 			}
 		}

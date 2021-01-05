@@ -386,8 +386,11 @@ class ConfigGroup {
 
 		if (basicType(value) === "string") {
 			if (def.type === "boolean") {
-				if (value === "true") { value = true; }
-				else if (value === "false") { value = false; }
+				if (value === "true") {
+					value = true;
+				} else if (value === "false") {
+					value = false;
+				}
 
 			} else if (def.type === "number") {
 				let numberRegExp = /^[+-]?(Infinity|\d+\.(\d+)?([eE][+-]?\d+)?|\.?\d+([eE][+-]?\d+)?)$/;

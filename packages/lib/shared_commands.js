@@ -54,6 +54,7 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 
 		let pluginInfo;
 		try {
+			// eslint-disable-next-line global-require
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
 		} catch (err) {
 			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);

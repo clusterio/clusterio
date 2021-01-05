@@ -439,9 +439,7 @@ function attachPluginMessages(link, pluginInfo, plugin) {
 				messageFormat.attach(link);
 
 			} else {
-				messageFormat.attach(link, async function(message, format) {
-					return await plugin[handler](message, format, this);
-				});
+				messageFormat.attach(link, async (message, format) => await plugin[handler](message, format));
 			}
 
 		} catch (err) {

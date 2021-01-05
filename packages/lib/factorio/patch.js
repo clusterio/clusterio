@@ -78,7 +78,7 @@ function generateLoader(patchInfo) {
 	];
 
 	for (let moduleName of patchInfo["scenario"]["modules"]) {
-		lines.push('event_handler.add_lib(require("'+moduleName+'"))');
+		lines.push(`event_handler.add_lib(require("${moduleName}"))`);
 	}
 
 	lines.push(...[
@@ -90,10 +90,10 @@ function generateLoader(patchInfo) {
 		for (let file of module["files"]) {
 			let requirePath = `modules/${module.name}/${file["path"].slice(0, -4)}`;
 			if (file["load"]) {
-				lines.push('event_handler.add_lib(require("'+requirePath+'"))');
+				lines.push(`event_handler.add_lib(require("${requirePath}"))`);
 			}
 			if (file["require"]) {
-				lines.push('require("'+requirePath+'")');
+				lines.push(`require("${requirePath}")`);
 			}
 		}
 	}

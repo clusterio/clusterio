@@ -578,12 +578,12 @@ class FactorioServer extends events.EventEmitter {
 
 		// Track autosaving
 		this._runningAutosave = null;
-		this.on("_autosave", function(name) {
+		this.on("_autosave", name => {
 			this.emit("autosave-start", name);
 			this._runningAutosave = name;
 		});
 
-		this.on("_saved", function() {
+		this.on("_saved", () => {
 			if (this._runningAutosave) {
 				this.emit("autosave-finished", this._runningAutosave);
 				this._runningAutosave = null;
@@ -798,8 +798,8 @@ class FactorioServer extends events.EventEmitter {
 
 				} else {
 					this.emit("error", new Error(
-						"Factorio server unexpectedly shut down. Possible causes:\n- "+
-						this._unexpected.join("\n- ")
+						"Factorio server unexpectedly shut down. Possible causes:"+
+						`\n- ${this._unexpected.join("\n- ")}`
 					));
 				}
 			}
