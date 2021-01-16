@@ -158,11 +158,32 @@ instanceConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let value = args.value;
+		try {
+			value = JSON.parse(value);
+		} catch (err) {
+			// If this is looks like an array, object or string literal
+			// throw the parse error, otherwise assume this is a string.
+			// The resoning behind this is that correctly quoting the string
+			// with the all the layers of quote removal at play is difficult.
+			// See the following table for how to pass "That's a \" quote" in
+			// different environments:
+			// cmd              : """""That's a \\"" quote"""""
+			// cmd + npx        : """""""""""That's a \\\\"""" quote"""""""""""
+			// PowerShell       : '"""""That''s a \\"" quote"""""'
+			// PowerShell + npx : '"""""""""""That''s a \\\\"""" quote"""""""""""'
+			// bash             : '""That'\''s a \" quote""'
+			// bash + npx       : '""That'\''s a \" quote""'
+			// bash + npx -s sh : "'\"\"That'\\''s a \\\" quote\"\"'"
+			if (/^(\[.*]|{.*}|".*")$/.test(value)) {
+				throw new libErrors.CommandError(`In parsing value '${value}': ${err.message}`);
+			}
+		}
 		await libLink.messages.setInstanceConfigProp.send(control, {
 			instance_id: instanceId,
 			field: args.field,
 			prop: args.prop,
-			value: JSON.parse(args.value),
+			value,
 		});
 	},
 }));
