@@ -741,6 +741,33 @@ class ControlConnection extends BaseConnection {
 		if (db.instances.has(instanceId)) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
+
+		// Add common settings for the Factorio server
+		let settings = {
+			"name": `${masterConfig.get("master.name")} - ${instanceConfig.get("instance.name")}`,
+			"description": `Clusterio instance for ${masterConfig.get("master.name")}`,
+			"tags": ["clusterio"],
+			"max_players": 0,
+			"visibility": { "public": true, "lan": true },
+			"username": "",
+			"token": "",
+			"game_password": "",
+			"require_user_verification": true,
+			"max_upload_in_kilobytes_per_second": 0,
+			"max_upload_slots": 5,
+			"ignore_player_limit_for_returning_players": false,
+			"allow_commands": "admins-only",
+			"autosave_interval": 10,
+			"autosave_slots": 5,
+			"afk_autokick_interval": 0,
+			"auto_pause": false,
+			"only_admins_can_pause_the_game": true,
+			"autosave_only_on_server": true,
+
+			...instanceConfig.get("factorio.settings"),
+		};
+		instanceConfig.set("factorio.settings", settings);
+
 		db.instances.set(instanceId, { config: instanceConfig, status: "unassigned" });
 	}
 
