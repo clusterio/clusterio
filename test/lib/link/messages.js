@@ -17,11 +17,15 @@ describe("lib/link/messages", function() {
 		let testRequest = new libLink.Request({
 			type: "test",
 			links: ["source-target"],
+			requestRequired: ["test"],
 			requestProperties: {
 				"test": { type: "string" },
+				"optional": { type: "number" },
 			},
+			responseRequired: ["test"],
 			responseProperties: {
 				"test": { type: "string" },
+				"optional": { type: "number" },
 			},
 		});
 
@@ -127,8 +131,10 @@ describe("lib/link/messages", function() {
 		let testEvent = new libLink.Event({
 			type: "test",
 			links: ["source-target"],
+			eventRequired: ["test"],
 			eventProperties: {
 				"test": { type: "string" },
+				"optional": { type: "number" },
 			},
 		});
 
