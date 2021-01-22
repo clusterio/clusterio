@@ -448,7 +448,11 @@ class ConfigGroup {
 		let prev = this._fields.get(name);
 		let updated = {...prev || {}};
 
-		updated[prop] = value;
+		if (value !== undefined) {
+			updated[prop] = value;
+		} else {
+			delete updated[prop];
+		}
 		this._fields.set(name, updated);
 		if (this._config && !isDeepStrictEqual(updated, prev)) {
 			this._config.emit("fieldChanged", this, name, prev);

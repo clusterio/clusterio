@@ -407,6 +407,7 @@ messages.setInstanceConfigProp = new Request({
 	type: "set_instance_config_prop",
 	links: ["control-master"],
 	permission: "core.instance.update_config",
+	requestRequired: ["instance_id", "field", "prop"],
 	requestProperties: {
 		"instance_id": { type: "integer" },
 		"field": { type: "string" },

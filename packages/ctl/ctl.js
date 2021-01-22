@@ -150,7 +150,7 @@ instanceConfigCommands.add(new libCommand.Command({
 }));
 
 instanceConfigCommands.add(new libCommand.Command({
-	definition: ["set-prop <instance> <field> <prop> <value>", "Set property of field in instance config", (yargs) => {
+	definition: ["set-prop <instance> <field> <prop> [value]", "Set property of field in instance config", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("prop", { describe: "Property to set", type: "string" });
@@ -158,9 +158,15 @@ instanceConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let value = args.value;
+		let request = {
+			instance_id: instanceId,
+			field: args.field,
+			prop: args.prop,
+		};
 		try {
-			value = JSON.parse(value);
+			if (args.value !== undefined) {
+				request.value = JSON.parse(args.value);
+			}
 		} catch (err) {
 			// If this is looks like an array, object or string literal
 			// throw the parse error, otherwise assume this is a string.
@@ -176,15 +182,11 @@ instanceConfigCommands.add(new libCommand.Command({
 			// bash + npx       : '""That'\''s a \" quote""'
 			// bash + npx -s sh : "'\"\"That'\\''s a \\\" quote\"\"'"
 			if (/^(\[.*]|{.*}|".*")$/.test(value)) {
-				throw new libErrors.CommandError(`In parsing value '${value}': ${err.message}`);
+				throw new libErrors.CommandError(`In parsing value '${args.value}': ${err.message}`);
 			}
+			request.value = args.value;
 		}
-		await libLink.messages.setInstanceConfigProp.send(control, {
-			instance_id: instanceId,
-			field: args.field,
-			prop: args.prop,
-			value,
-		});
+		await libLink.messages.setInstanceConfigProp.send(control, request);
 	},
 }));
 instanceCommands.add(instanceConfigCommands);
