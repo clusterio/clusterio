@@ -8,6 +8,7 @@ const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
 const { logger } = require("@clusterio/lib/logging");
+const libHelpers = require("@clusterio/lib/helpers");
 
 
 function print(...content) {
@@ -100,7 +101,11 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
  */
 function configCommand(yargs) {
 	yargs
-		.command("set <field> [value]", "Set config field")
+		.command("set <field> [value]", "Set config field", yargs => {
+			yargs.options({
+				"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+			});
+		})
 		.command("show <field>", "Show value of the given config field")
 		.command("list", "List all configuration fields and their values")
 		.demandCommand(1, "You need to specify a command to run")
@@ -141,7 +146,10 @@ async function handleConfigCommand(args, instance, configPath) {
 		}
 
 	} else if (command === "set") {
-		if (args.value === undefined) {
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+
+		} else if (args.value === undefined) {
 			args.value = null;
 		}
 
