@@ -359,6 +359,23 @@ function InstanceConfigTree(props) {
 	}
 
 	let initialValues = {};
+	function onValuesChange(changedValues) {
+		let newChangedFields = new Set(changedFields);
+		let changed = false;
+		for (let [key, value] of Object.entries(changedValues)) {
+			if (initialValues[key] === value) {
+				changed = newChangedFields.delete(key) || changed;
+			} else {
+				changed = !newChangedFields.has(key) || changed;
+				newChangedFields.add(key);
+			}
+		}
+
+		if (changed) {
+			setChangedFields(newChangedFields);
+		}
+	}
+
 	let treeData = [];
 	let propsMap = new Map();
 	for (let [name, GroupClass] of libConfig.InstanceConfig.groups) {
@@ -387,6 +404,9 @@ function InstanceConfigTree(props) {
 							name={propPath}
 							label={`"${prop}"`}
 							rules={[{ validator: (_, fieldValue) => {
+								if (!fieldValue.length) {
+									return Promise.reject(new Error("Will be removed"));
+								}
 								try {
 									JSON.parse(fieldValue);
 								} catch (err) {
@@ -402,6 +422,49 @@ function InstanceConfigTree(props) {
 					initialValues[propPath] = JSON.stringify(value[prop]);
 					propsMap.set(propPath, [fieldName, prop]);
 				}
+
+				let newPropPath = `${group.name}.${def.name}:add`;
+				childNode.children.push({
+					key: newPropPath,
+					title: <Space>
+						<Form.Item
+							name={`${newPropPath}.name`}
+							noStyle={true}
+						>
+							<Input />
+						</Form.Item>:
+						<Form.Item
+							name={`${newPropPath}.value`}
+							noStyle={true}
+						>
+							<Input className="json-input" />
+						</Form.Item>
+						<Button
+							size="small"
+							onClick={async () => {
+								let propName = form.getFieldValue(`${newPropPath}.name`);
+								let propValue = form.getFieldValue(`${newPropPath}.value`);
+								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
+									let newConfig = new libConfig.InstanceConfig();
+									await newConfig.load(config.serialize());
+									newConfig.setProp(fieldName, propName, null);
+									setConfig(newConfig);
+								}
+
+								let propPath = `${group.name}.${def.name}.${propName}`;
+								form.setFieldsValue({
+									[`${newPropPath}.name`]: "",
+									[`${newPropPath}.value`]: "",
+									[propPath]: propValue,
+								});
+								form.validateFields([propPath]);
+								onValuesChange({ [propPath]: propValue });
+							}}
+						>
+							Add
+						</Button>
+					</Space>,
+				});
 
 			} else {
 				childNode.title = <Form.Item
@@ -423,23 +486,6 @@ function InstanceConfigTree(props) {
 		treeData.push(treeNode);
 	}
 
-	function onValuesChange(changedValues) {
-		let newChangedFields = new Set(changedFields);
-		let changed = false;
-		for (let [key, value] of Object.entries(changedValues)) {
-			if (initialValues[key] === value) {
-				changed = newChangedFields.delete(key) || changed;
-			} else {
-				changed = !newChangedFields.has(key) || changed;
-				newChangedFields.add(key);
-			}
-		}
-
-		if (changed) {
-			setChangedFields(newChangedFields);
-		}
-	}
-
 	return <>
 		<Title level={5} style={{ marginTop: 16 }}>
 			Config
@@ -455,18 +501,20 @@ function InstanceConfigTree(props) {
 							let request;
 							if (propsMap.has(field)) {
 								let [fieldName, prop] = propsMap.get(field);
-								try {
-									value = JSON.parse(value);
-								} catch (err) {
-									continue;
-								}
-
-								request = libLink.messages.setInstanceConfigProp.send(control, {
+								let data = {
 									instance_id: props.id,
 									field: fieldName,
 									prop,
-									value,
-								});
+								};
+								if (value) {
+									try {
+										data.value = JSON.parse(value);
+									} catch (err) {
+										continue;
+									}
+								}
+
+								request = libLink.messages.setInstanceConfigProp.send(control, data);
 
 							} else {
 								request = libLink.messages.setInstanceConfigField.send(control, {
