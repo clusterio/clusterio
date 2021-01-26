@@ -115,7 +115,7 @@ function serveWeb(route) {
 }
 
 // Set folder to serve static content from (the website)
-app.use(express.static(path.join(__dirname, "static")));
+app.use(express.static(path.join(__dirname, "dist", "web")));
 app.use(express.static("static")); // Used for data export files
 
 const slaveMappingGauge = new libPrometheus.Gauge(
@@ -2025,8 +2025,8 @@ async function startServer(args) {
 		}
 
 		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-		let staticPath = path.join(path.dirname(pluginPackagePath), "static");
-		app.use(`/plugin/${pluginInfo.name}`, express.static(staticPath));
+		let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
+		app.use(`/plugin/${pluginInfo.name}`, express.static(webPath));
 	}
 
 	// Load plugins
