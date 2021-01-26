@@ -397,6 +397,12 @@ describe("lib/config/classes", function() {
 				testInstance.setProp("json", "test", true);
 				assert.deepEqual(testInstance.get("json"), { test: true });
 			});
+
+			it("should unset field if passed undefined", function() {
+				testInstance.set("json", { test: true, extra: "yes" });
+				testInstance.setProp("json", "extra", undefined);
+				assert.deepEqual(testInstance.get("json"), { test: true });
+			});
 		});
 	});
 

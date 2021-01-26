@@ -70,16 +70,24 @@ class Request extends Message {
 	 *     Optional target to forward this request to.  'instance' add
 	 *     instance_id into the requestProperties and forward to the given
 	 *     instance.  'master' forwards it to the master server.
+	 * @param {?Array<string>} requestRequired -
+	 *     List of properties that are required to be present in the data
+	 *     payload of this request.  Defaults to all.
 	 * @param {Object<string, Object>} requestProperties -
 	 *     Mapping of property values to JSON schema specifications for the
 	 *     properties that are valid in the data payload of this requst.
+	 * @param {?Array<string>} responseRequired -
+	 *     List of properties that are required to be present in the data
+	 *     payload of the repsonse to this request.  Defaults to all.
 	 * @param {Object<string, Object>} responseProperties -
 	 *     Mapping of property values to JSON schema specifications for the
 	 *     properties that are valid in the data payload of the response to
 	 *     this requst.
 	 */
 	constructor({
-		type, permission, links, forwardTo = null, requestProperties = {}, responseProperties = {},
+		type, permission, links, forwardTo = null,
+		requestRequired = null, requestProperties = {},
+		responseRequired = null, responseProperties = {},
 	}) {
 		super();
 		this.type = type;
@@ -98,7 +106,12 @@ class Request extends Message {
 			throw new Error(`permission is not allowed on ${this.type} request as it is not over control-master link`);
 		}
 
+		if (!requestRequired) {
+			requestRequired = Object.keys(requestProperties);
+		}
+
 		if (forwardTo === "instance") {
+			requestRequired = ["instance_id", ...requestRequired];
 			requestProperties = {
 				"instance_id": { type: "integer" },
 				...requestProperties,
@@ -114,11 +127,15 @@ class Request extends Message {
 				"type": { const: this.requestType },
 				"data": {
 					additionalProperties: false,
-					required: Object.keys(requestProperties),
+					required: requestRequired,
 					properties: requestProperties,
 				},
 			},
 		});
+
+		if (!responseRequired) {
+			responseRequired = Object.keys(responseProperties);
+		}
 
 		this._responseValidator = libSchema.compile({
 			$schema: "http://json-schema.org/draft-07/schema#",
@@ -128,7 +145,7 @@ class Request extends Message {
 					anyOf: [
 						{
 							additionalProperties: false,
-							required: ["seq", ...Object.keys(responseProperties)],
+							required: ["seq", ...responseRequired],
 							properties: {
 								"seq": { type: "integer" },
 								...responseProperties,
@@ -390,6 +407,7 @@ messages.setInstanceConfigProp = new Request({
 	type: "set_instance_config_prop",
 	links: ["control-master"],
 	permission: "core.instance.update_config",
+	requestRequired: ["instance_id", "field", "prop"],
 	requestProperties: {
 		"instance_id": { type: "integer" },
 		"field": { type: "string" },
@@ -760,11 +778,14 @@ class Event extends Message {
 	 *     links that are downstream, so sending an event set to instance
 	 *     broadcast that's sent to a slave will only be broadcast to that
 	 *     slave's instances.
+	 * @param {?Array<string>} eventRequired -
+	 *     List of properties required to be present in the event payload.
+	 *     Defaults to all.
 	 * @param {Object<string, Object>} eventProperties -
 	 *     Mapping of property values to JSON schema specifications for the
 	 *     properties that are valid in the data payload of this event.
 	 */
-	constructor({ type, links, forwardTo = null, broadcastTo = null, eventProperties = {} }) {
+	constructor({ type, links, forwardTo = null, broadcastTo = null, eventRequired = null, eventProperties = {} }) {
 		super();
 		this.type = type;
 		this.links = links;
@@ -772,7 +793,12 @@ class Event extends Message {
 		this.broadcastTo = broadcastTo;
 		this.handlerSuffix = "EventHandler";
 
+		if (!eventRequired) {
+			eventRequired = Object.keys(eventProperties);
+		}
+
 		if (forwardTo === "instance") {
+			eventRequired = ["instance_id", ...eventRequired];
 			eventProperties = {
 				"instance_id": { type: "integer" },
 				...eventProperties,
@@ -793,7 +819,7 @@ class Event extends Message {
 				"type": { const: this.eventType },
 				"data": {
 					additionalProperties: false,
-					required: Object.keys(eventProperties),
+					required: eventRequired,
 					properties: eventProperties,
 				},
 			},

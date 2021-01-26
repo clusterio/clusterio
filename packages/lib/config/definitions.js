@@ -12,6 +12,13 @@ const classes = require("./classes");
 class MasterGroup extends classes.ConfigGroup { }
 MasterGroup.groupName = "master";
 MasterGroup.define({
+	name: "name",
+	title: "Name",
+	description: "Name of the cluster",
+	type: "string",
+	initial_value: "Your Cluster",
+});
+MasterGroup.define({
 	name: "database_directory",
 	title: "Database directory",
 	description: "Directory where item and configuration data is stored.",
@@ -262,10 +269,7 @@ FactorioGroup.define({
 	name: "settings",
 	description: "Settings overridden in server-settings.json",
 	type: "object",
-	initial_value: {
-		"tags": ["clusterio"],
-		"auto_pause": false,
-	},
+	initial_value: {}, // See create instance handler in master.
 });
 FactorioGroup.define({
 	name: "verbose_logging",

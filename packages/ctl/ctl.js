@@ -23,6 +23,7 @@ const libCommand = require("@clusterio/lib/command");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const libHelpers = require("@clusterio/lib/helpers");
 
 
 function print(...content) {
@@ -134,13 +135,21 @@ instanceConfigCommands.add(new libCommand.Command({
 }));
 
 instanceConfigCommands.add(new libCommand.Command({
-	definition: ["set <instance> <field> <value>", "Set field in instance config", (yargs) => {
+	definition: ["set <instance> <field> [value]", "Set field in instance config", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("value", { describe: "Value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		} else if (args.value === undefined) {
+			args.value = "";
+		}
 		await libLink.messages.setInstanceConfigField.send(control, {
 			instance_id: instanceId,
 			field: args.field,
@@ -150,20 +159,49 @@ instanceConfigCommands.add(new libCommand.Command({
 }));
 
 instanceConfigCommands.add(new libCommand.Command({
-	definition: ["set-prop <instance> <field> <prop> <value>", "Set property of field in instance config", (yargs) => {
+	definition: ["set-prop <instance> <field> <prop> [value]", "Set property of field in instance config", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("prop", { describe: "Property to set", type: "string" });
 		yargs.positional("value", { describe: "JSON parsed value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceConfigProp.send(control, {
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		}
+		let request = {
 			instance_id: instanceId,
 			field: args.field,
 			prop: args.prop,
-			value: JSON.parse(args.value),
-		});
+		};
+		try {
+			if (args.value !== undefined) {
+				request.value = JSON.parse(args.value);
+			}
+		} catch (err) {
+			// If this is from stdin or looks like an array, object or string
+			// literal throw the parse error, otherwise assume this is a string.
+			// The resoning behind this is that correctly quoting the string
+			// with the all the layers of quote removal at play is difficult.
+			// See the following table for how to pass "That's a \" quote" in
+			// different environments:
+			// cmd              : """""That's a \\"" quote"""""
+			// cmd + npx        : """""""""""That's a \\\\"""" quote"""""""""""
+			// PowerShell       : '"""""That''s a \\"" quote"""""'
+			// PowerShell + npx : '"""""""""""That''s a \\\\"""" quote"""""""""""'
+			// bash             : '""That'\''s a \" quote""'
+			// bash + npx       : '""That'\''s a \" quote""'
+			// bash + npx -s sh : "'\"\"That'\\''s a \\\" quote\"\"'"
+			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
+				throw new libErrors.CommandError(`In parsing value '${args.value}': ${err.message}`);
+			}
+			request.value = args.value;
+		}
+		await libLink.messages.setInstanceConfigProp.send(control, request);
 	},
 }));
 instanceCommands.add(instanceConfigCommands);

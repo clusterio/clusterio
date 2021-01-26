@@ -5,6 +5,14 @@ Configuration
 Master Configuration
 --------------------
 
+### master.name
+
+Name of the cluster.  Used to distinguish it from other clusters and is
+prepended to the name of servers in the server list.
+
+Defaluts to "Your Cluster".
+
+
 ### master.database_directory
 
 Directory used to store cluster data to.  Needs to be writeable by the
