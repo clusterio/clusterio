@@ -254,7 +254,7 @@ class Instance extends libLink.Link {
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, slave);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
-		libPlugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+		libPlugin.attachPluginMessages(this, instancePlugin);
 
 		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
@@ -830,7 +830,7 @@ class InstanceConnection extends libLink.Link {
 		libLink.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
-			libPlugin.attachPluginMessages(this, pluginInfo, null);
+			libPlugin.attachPluginMessages(this, { info: pluginInfo });
 		}
 	}
 
@@ -977,7 +977,7 @@ class Slave extends libLink.Link {
 
 		this.pluginInfos = pluginInfos;
 		for (let pluginInfo of pluginInfos) {
-			libPlugin.attachPluginMessages(this, pluginInfo, null);
+			libPlugin.attachPluginMessages(this, { info: pluginInfo });
 		}
 
 		this.config = slaveConfig;

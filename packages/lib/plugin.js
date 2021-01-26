@@ -418,19 +418,18 @@ class BaseControlPlugin {
 /**
  * Attach plugin messages
  *
- * Attaches all messages defined in the `.message` property of the
- * `pluginInfo` passed with handlers taken from `pluin`.
+ * Attaches all messages defined in the `.info.message` property of the
+ * `plugin` passed with handlers taken from the `pluin`.
  *
  * @param {module:lib/link.Link} link - Link to attach handlers to.
- * @param {object} pluginInfo - Plugin info object.
  * @param {module:lib/plugin.BasePlugin} plugin -
- *     The instance of the plugin to use handlers from.
+ *     The instance of the plugin attach messages and handlers from.
  */
-function attachPluginMessages(link, pluginInfo, plugin) {
-	let messageDefinitions = pluginInfo.messages || [];
+function attachPluginMessages(link, plugin) {
+	let messageDefinitions = plugin.info.messages || [];
 	for (let [name, messageFormat] of Object.entries(messageDefinitions)) {
-		if (messageFormat.plugin !== pluginInfo.name) {
-			throw new Error(`Type of ${name} message must start with "${pluginInfo.name}:"`);
+		if (messageFormat.plugin !== plugin.info.name) {
+			throw new Error(`Type of ${name} message must start with "${plugin.info.name}:"`);
 		}
 
 		let handler = name + messageFormat.handlerSuffix;
@@ -444,7 +443,7 @@ function attachPluginMessages(link, pluginInfo, plugin) {
 
 		} catch (err) {
 			if (err.code === "MISSING_LINK_HANDLER") {
-				err.plugin = pluginInfo.name;
+				err.plugin = plugin.info.name;
 				err.handler = handler;
 			}
 

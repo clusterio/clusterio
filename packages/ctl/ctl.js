@@ -621,7 +621,7 @@ class Control extends libLink.Link {
 		 */
 		this.plugins = controlPlugins;
 		for (let controlPlugin of controlPlugins.values()) {
-			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
+			libPlugin.attachPluginMessages(this, controlPlugin);
 		}
 
 		/**

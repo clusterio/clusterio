@@ -562,7 +562,7 @@ class BaseConnection extends libLink.Link {
 		super("master", target, connector);
 		libLink.attachAllMessages(this);
 		for (let masterPlugin of masterPlugins.values()) {
-			libPlugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
+			libPlugin.attachPluginMessages(this, masterPlugin);
 		}
 	}
 
