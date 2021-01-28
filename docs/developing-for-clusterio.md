@@ -177,7 +177,9 @@ modules that are loaded into the game if you don't need the capabilites
 of the plugin system.  The save patcher puts modules into the `modules`
 folder of the Factorio save and adds code to `control.lua` to load the
 module according to the `load` and `require` options to the module.json
-file.
+file.  Like with scenarios for Clusterio the [event_handler
+interface](#event_handler-interface) has to be used for any event
+subscriptions in modules.
 
 Stand alone modules are placed into the modules folder of Clusterio,
 plugin modules are located in the module folder of the plugin.  In
