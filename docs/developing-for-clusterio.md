@@ -161,11 +161,13 @@ which accepts a table and calls `add_lib` for each value in the table.
 Communicating with Clusterio
 ----------------------------
 
-There's a poorly to virtuarly undocumented HTTP interface that can be
-used to communicate with Clusterio to do things like get the status of
-instances, grab items from the store, run commands on instances, etc,
-etc.  For now you can read the source code, and maybe ask on the Discord
-for some pointers if you get stuck.
+Clusterio uses a homebrew protocol based on sending JSON payloads over
+a WebSocket connection.  See [socket.md](socket.md) for the
+implementation details of it.
+
+It's also possible to write a plugin for Clusterio that exposes a custom
+interface over HTTP, WebSocket or any other technology supported by
+Node.js.
 
 
 Clusterio Modules
