@@ -119,6 +119,13 @@ export class Control extends libLink.Link {
 		console.log("WS", message.data.direction, message.data.content);
 	}
 
+	async liveUpdateSlavesEventHandler(message) {
+		// eslint-disable-next-line no-console
+		if(this.live_update_caller){
+			this.live_update_caller(message);
+		}
+	}
+
 	async shutdown() {
 		this.connector.setTimeout(30);
 
