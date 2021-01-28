@@ -916,6 +916,22 @@ messages.debugWsMessage = new Event({
 	},
 });
 
+messages.liveUpdateSlaves = new Event({
+	type: "live_update_slaves",
+	links: ["master-control"],
+	eventProperties: {
+		item: {
+			required: ["agent", "version", "name", "id", "connected"],
+			properties: {
+				"agent": { type: "string" },
+				"version": { type: "string" },
+				"name": { type: "string" },
+				"id": { type: "integer" },
+				"connected": { type: "boolean" },
+			},
+		},
+	},
+});
 messages.logMessage = new Event({
 	type: "log_message",
 	links: ["slave-master", "master-control"],

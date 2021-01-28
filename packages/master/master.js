@@ -44,6 +44,8 @@ let debugEvents = new events.EventEmitter();
 let loadedPlugins = {};
 let devMiddleware;
 let clusterLogger;
+let controlConnections = [];
+let slaveConnections = new Map();
 let db = {
 	instances: new Map(),
 	slaves: new Map(),
@@ -679,6 +681,19 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
+	async update_slaves(id){
+		let slave = db.slaves.get(id);
+		if(!slave) return;
+		let item = {
+			agent: slave.agent,
+			version: slave.version,
+			id: slave.id,
+			name: slave.name,
+			connected: slaveConnections.has(slave.id),
+		};
+		libLink.messages.liveUpdateSlaves.send(this, {item});
+	}
+
 	async listSlavesRequestHandler(message) {
 		let list = [];
 		for (let slave of db.slaves.values()) {
@@ -1160,6 +1175,7 @@ class SlaveConnection extends BaseConnection {
 		this.connector.on("close", () => {
 			if (slaveConnections.get(this._id) === this) {
 				slaveConnections.delete(this._id);
+				db.slaves.updateGui(this._id);
 			}
 		});
 
@@ -1610,7 +1626,9 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		}
 
 		logger.verbose(`SOCKET | registered slave ${data.id} version ${data.version}`);
-		slaveConnections.set(data.id, new SlaveConnection(data, connector));
+		let slave = new SlaveConnection(data, connector);
+		slaveConnections.set(data.id, slave);
+		db.slaves.updateGui(data.id);
 
 	} else if (type === "register_control") {
 		logger.verbose(`SOCKET | registered control from ${req.socket.remoteAddress}`);
@@ -1978,6 +1996,13 @@ async function startServer(args) {
 	await fs.ensureDir(masterConfig.get("master.database_directory"));
 
 	db.slaves = await loadMap(masterConfig.get("master.database_directory"), "slaves.json");
+	//live updating
+	db.slaves.updateGui = function(key) {
+		for(let control of controlConnections){
+			control.update_slaves(key);
+		}
+	};
+
 	db.instances = await loadInstances(masterConfig.get("master.database_directory"), "instances.json");
 	await loadUsers(masterConfig.get("master.database_directory"), "users.json");
 
