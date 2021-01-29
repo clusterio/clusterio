@@ -27,6 +27,8 @@ class TestControl extends libLink.Link {
 
 	async debugWsMessageEventHandler() { }
 
+	async liveUpdateSlavesEventHandler() { }
+
 	async logMessageEventHandler() { }
 }
 

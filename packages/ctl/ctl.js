@@ -650,6 +650,10 @@ class Control extends libLink.Link {
 	async debugWsMessageEventHandler(message) {
 		print("WS", message.data.direction, message.data.content);
 	}
+	
+	async liveUpdateSlavesEventHandler(message){
+		// this event is only for the web gui
+	}
 
 	async shutdown() {
 		this.connector.setTimeout(30);
