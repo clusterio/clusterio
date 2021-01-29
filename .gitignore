@@ -40,6 +40,7 @@ factorio*
 /config-master.json
 /config-control.json
 /config-slave.json
+
 package-lock.json
 mod_cache.json
 static/export
@@ -53,3 +54,4 @@ saves
 # IDE
 .idea/
 .vs/
+.vscode/
