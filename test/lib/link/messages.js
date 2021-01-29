@@ -17,8 +17,15 @@ describe("lib/link/messages", function() {
 		let testRequest = new libLink.Request({
 			type: "test",
 			links: ["source-target"],
+			requestRequired: ["test"],
 			requestProperties: {
 				"test": { type: "string" },
+				"optional": { type: "number" },
+			},
+			responseRequired: ["test"],
+			responseProperties: {
+				"test": { type: "string" },
+				"optional": { type: "number" },
 			},
 		});
 
@@ -63,7 +70,24 @@ describe("lib/link/messages", function() {
 				});
 			});
 			it("should implicitly send an empty object on empty return", async function() {
-				handlerResult = undefined;
+				let emptyRequest = new libLink.Request({
+					type: "empty",
+					links: ["source-target"],
+				});
+				emptyRequest.attach(testTargetLink, async(message) => {});
+				testTargetLink._handlers.get("empty_request")({ seq: 2 });
+				let result = await new Promise(resolve => {
+					testTargetLink.connector.send = (type, data) => resolve({ type, data });
+				});
+				assert.deepEqual(result, {
+					type: "empty_response",
+					data: {
+						seq: 2,
+					},
+				});
+			});
+			it("should validate response from handler", async function() {
+				handlerResult = { test: 12 };
 				testTargetLink._handlers.get("test_request")({ seq: 2 });
 				let result = await new Promise(resolve => {
 					testTargetLink.connector.send = (type, data) => resolve({ type, data });
@@ -71,6 +95,7 @@ describe("lib/link/messages", function() {
 				assert.deepEqual(result, {
 					type: "test_response",
 					data: {
+						error: "Validation failed responding to test_request",
 						seq: 2,
 					},
 				});
@@ -106,8 +131,10 @@ describe("lib/link/messages", function() {
 		let testEvent = new libLink.Event({
 			type: "test",
 			links: ["source-target"],
+			eventRequired: ["test"],
 			eventProperties: {
 				"test": { type: "string" },
+				"optional": { type: "number" },
 			},
 		});
 

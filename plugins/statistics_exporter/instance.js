@@ -5,19 +5,23 @@ const libHelpers = require("@clusterio/lib/helpers");
 
 
 const instancePlayerCount = new Gauge(
-	"clusterio_statistics_exporter_instance_player_count", "Amount of players connected to this cluster",
+	"clusterio_statistics_exporter_instance_player_count",
+	"Amount of players connected to this cluster",
 	{ labels: ["instance_id"] }
 );
 const instanceGameTicksTotal = new Gauge(
-	"clusterio_statistics_exporter_instance_game_ticks_total", "Game tick an instance has progressed to",
+	"clusterio_statistics_exporter_instance_game_ticks_total",
+	"Game tick an instance has progressed to",
 	{ labels: ["instance_id"] }
 );
 const instanceForceFlowStatistics = new Gauge(
-	"clusterio_statistics_exporter_instance_force_flow_statistics", "Items/fluids/enemies/buildings produced/built/killed by a force",
+	"clusterio_statistics_exporter_instance_force_flow_statistics",
+	"Items/fluids/enemies/buildings produced/built/killed by a force",
 	{ labels: ["instance_id", "force", "statistic", "direction", "name"] },
 );
 const instanceGameFlowStatistics = new Gauge(
-	"clusterio_statistics_exporter_instance_game_flow_statistics", "Pollution produced/consumed in the game",
+	"clusterio_statistics_exporter_instance_game_flow_statistics",
+	"Pollution produced/consumed in the game",
 	{ labels: ["instance_id", "statistic", "direction", "name"] },
 );
 
@@ -73,11 +77,12 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async onMetrics() {
-		// Wait up to 5 seconds for the metrics to be collected.  It may
+		// Wait configured timeout for the metrics to be collected.  It may
 		// take a long time for the command to go through if the command
-		// stream is overloaded.  Should this take more than 5 seconds the
+		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to master.
-		await libHelpers.timeout(this.gatherMetrics(), 5e3);
+		let timeout = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
+		await libHelpers.timeout(this.gatherMetrics(), timeout);
 	}
 }
 

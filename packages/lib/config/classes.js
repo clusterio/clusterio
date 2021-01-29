@@ -386,8 +386,11 @@ class ConfigGroup {
 
 		if (basicType(value) === "string") {
 			if (def.type === "boolean") {
-				if (value === "true") { value = true; }
-				else if (value === "false") { value = false; }
+				if (value === "true") {
+					value = true;
+				} else if (value === "false") {
+					value = false;
+				}
 
 			} else if (def.type === "number") {
 				let numberRegExp = /^[+-]?(Infinity|\d+\.(\d+)?([eE][+-]?\d+)?|\.?\d+([eE][+-]?\d+)?)$/;
@@ -445,7 +448,11 @@ class ConfigGroup {
 		let prev = this._fields.get(name);
 		let updated = {...prev || {}};
 
-		updated[prop] = value;
+		if (value !== undefined) {
+			updated[prop] = value;
+		} else {
+			delete updated[prop];
+		}
 		this._fields.set(name, updated);
 		if (this._config && !isDeepStrictEqual(updated, prev)) {
 			this._config.emit("fieldChanged", this, name, prev);

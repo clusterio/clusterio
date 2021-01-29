@@ -351,8 +351,11 @@ describe("lib/config/classes", function() {
 				assert.deepEqual(testInstance.get("json"), { json: true });
 
 				let errMsg;
-				try { JSON.parse("blah"); }
-				catch (err) { errMsg = err.message; }
+				try {
+					JSON.parse("blah");
+				} catch (err) {
+					errMsg = err.message;
+				}
 				assert.throws(
 					() => testInstance.set("json", "blah"),
 					new classes.InvalidValue(`Error parsing value for json: ${errMsg}`)
@@ -392,6 +395,12 @@ describe("lib/config/classes", function() {
 			it("should handle field being null", function() {
 				testInstance.set("json", null);
 				testInstance.setProp("json", "test", true);
+				assert.deepEqual(testInstance.get("json"), { test: true });
+			});
+
+			it("should unset field if passed undefined", function() {
+				testInstance.set("json", { test: true, extra: "yes" });
+				testInstance.setProp("json", "extra", undefined);
 				assert.deepEqual(testInstance.get("json"), { test: true });
 			});
 		});

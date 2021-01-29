@@ -52,8 +52,32 @@ async function timeout(promise, time, timeoutResult) {
 	}
 }
 
+
+/**
+ * Read stream to the end and return its content
+ *
+ * Reads the stream given asynchronously until the end is reached and
+ * returns all the data which was read from the stream.
+ *
+ * @param {Readable} stream - byte stream to read to the end.
+ * @returns {Buffer} content of the stream.
+ */
+async function readStream(stream) {
+	let chunks = [];
+	for await (let chunk of stream) {
+		// Support using ^Z to end input on Windows
+		if (process.platform === "win32" && stream.isTTY && chunk.toString() === "\x1a\r\n") {
+			break;
+		}
+		chunks.push(chunk);
+	}
+	return Buffer.concat(chunks);
+}
+
+
 module.exports = {
 	basicType,
 	wait,
 	timeout,
+	readStream,
 };

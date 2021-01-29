@@ -1,3 +1,4 @@
+/* eslint-disable global-require */
 /**
  * Library for message based communication between nodes
  * @module lib/link

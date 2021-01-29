@@ -12,6 +12,7 @@ const asTable = require("as-table").configure({ delimiter: " | " });
 const events = require("events");
 const path = require("path");
 const winston = require("winston");
+const setBlocking = require("set-blocking");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -22,6 +23,7 @@ const libCommand = require("@clusterio/lib/command");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const libHelpers = require("@clusterio/lib/helpers");
 
 
 function print(...content) {
@@ -133,13 +135,21 @@ instanceConfigCommands.add(new libCommand.Command({
 }));
 
 instanceConfigCommands.add(new libCommand.Command({
-	definition: ["set <instance> <field> <value>", "Set field in instance config", (yargs) => {
+	definition: ["set <instance> <field> [value]", "Set field in instance config", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("value", { describe: "Value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		} else if (args.value === undefined) {
+			args.value = "";
+		}
 		await libLink.messages.setInstanceConfigField.send(control, {
 			instance_id: instanceId,
 			field: args.field,
@@ -149,20 +159,49 @@ instanceConfigCommands.add(new libCommand.Command({
 }));
 
 instanceConfigCommands.add(new libCommand.Command({
-	definition: ["set-prop <instance> <field> <prop> <value>", "Set property of field in instance config", (yargs) => {
+	definition: ["set-prop <instance> <field> <prop> [value]", "Set property of field in instance config", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("prop", { describe: "Property to set", type: "string" });
 		yargs.positional("value", { describe: "JSON parsed value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.setInstanceConfigProp.send(control, {
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		}
+		let request = {
 			instance_id: instanceId,
 			field: args.field,
 			prop: args.prop,
-			value: JSON.parse(args.value),
-		});
+		};
+		try {
+			if (args.value !== undefined) {
+				request.value = JSON.parse(args.value);
+			}
+		} catch (err) {
+			// If this is from stdin or looks like an array, object or string
+			// literal throw the parse error, otherwise assume this is a string.
+			// The resoning behind this is that correctly quoting the string
+			// with the all the layers of quote removal at play is difficult.
+			// See the following table for how to pass "That's a \" quote" in
+			// different environments:
+			// cmd              : """""That's a \\"" quote"""""
+			// cmd + npx        : """""""""""That's a \\\\"""" quote"""""""""""
+			// PowerShell       : '"""""That''s a \\"" quote"""""'
+			// PowerShell + npx : '"""""""""""That''s a \\\\"""" quote"""""""""""'
+			// bash             : '""That'\''s a \" quote""'
+			// bash + npx       : '""That'\''s a \" quote""'
+			// bash + npx -s sh : "'\"\"That'\\''s a \\\" quote\"\"'"
+			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
+				throw new libErrors.CommandError(`In parsing value '${args.value}': ${err.message}`);
+			}
+			request.value = args.value;
+		}
+		await libLink.messages.setInstanceConfigProp.send(control, request);
 	},
 }));
 instanceCommands.add(instanceConfigCommands);
@@ -549,8 +588,8 @@ debugCommands.add(new libCommand.Command({
  * @private
  */
 class ControlConnector extends libLink.WebSocketClientConnector {
-	constructor(url, reconnectDelay, token) {
-		super(url, reconnectDelay);
+	constructor(url, reconnectDelay, tlsCa, token) {
+		super(url, reconnectDelay, tlsCa);
 		this._token = token;
 	}
 
@@ -631,6 +670,47 @@ class Control extends libLink.Link {
 	}
 }
 
+async function loadPlugins(pluginList) {
+	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
+	libConfig.registerPluginConfigGroups(pluginInfos);
+	libConfig.finalizeConfigs();
+
+	let controlPlugins = new Map();
+	for (let pluginInfo of pluginInfos) {
+		if (!pluginInfo.controlEntrypoint) {
+			continue;
+		}
+
+		let ControlPluginClass = await libPluginLoader.loadControlPluginClass(pluginInfo);
+		let controlPlugin = new ControlPluginClass(pluginInfo, logger);
+		controlPlugins.set(pluginInfo.name, controlPlugin);
+		await controlPlugin.init();
+	}
+	return controlPlugins;
+}
+
+async function registerCommands(controlPlugins, yargs) {
+	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
+	rootCommands.add(slaveCommands);
+	rootCommands.add(instanceCommands);
+	rootCommands.add(permissionCommands);
+	rootCommands.add(roleCommands);
+	rootCommands.add(userCommands);
+	rootCommands.add(logCommands);
+	rootCommands.add(debugCommands);
+
+	for (let controlPlugin of controlPlugins.values()) {
+		await controlPlugin.addCommands(rootCommands);
+	}
+
+	for (let [name, command] of rootCommands.subCommands) {
+		if (name === command.name) {
+			command.register(yargs);
+		}
+	}
+
+	return rootCommands;
+}
 
 async function startControl() {
 	yargs
@@ -663,7 +743,7 @@ async function startControl() {
 	;
 
 	// Parse the args first to get the configured plugin list.
-	let args = yargs.argv;
+	let args = yargs.parse();
 
 	// Log stream for the ctl session.
 	logger.add(new ConsoleTransport({
@@ -688,45 +768,17 @@ async function startControl() {
 		return;
 	}
 
+	logger.verbose("Loading Plugins");
+	let controlPlugins = await loadPlugins(pluginList);
+
 	// Add all cluster management commands including ones from plugins
-	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
-	rootCommands.add(slaveCommands);
-	rootCommands.add(instanceCommands);
-	rootCommands.add(permissionCommands);
-	rootCommands.add(roleCommands);
-	rootCommands.add(userCommands);
-	rootCommands.add(logCommands);
-	rootCommands.add(debugCommands);
-
-	logger.verbose("Loading Plugin info");
-	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
-	libConfig.registerPluginConfigGroups(pluginInfos);
-	libConfig.finalizeConfigs();
-
-	let controlPlugins = new Map();
-	for (let pluginInfo of pluginInfos) {
-		if (!pluginInfo.controlEntrypoint) {
-			continue;
-		}
-
-		let { ControlPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.controlEntrypoint));
-		let controlPlugin = new ControlPlugin(pluginInfo, logger);
-		controlPlugins.set(pluginInfo.name, controlPlugin);
-		await controlPlugin.init();
-		await controlPlugin.addCommands(rootCommands);
-	}
-
-	for (let [name, command] of rootCommands.subCommands) {
-		if (name === command.name) {
-			command.register(yargs);
-		}
-	}
+	let rootCommands = await registerCommands(controlPlugins, yargs);
 
 	// Reparse after commands have been added with help and strict checking.
 	args = yargs
 		.help()
 		.strict()
-		.argv
+		.parse()
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
@@ -769,15 +821,22 @@ async function startControl() {
 		return;
 	}
 
+	let tlsCa = null;
+	let tlsCaPath = controlConfig.get("control.tls_ca");
+	if (tlsCaPath) {
+		tlsCa = await fs.readFile(tlsCaPath);
+	}
+
 	let controlConnector = new ControlConnector(
 		controlConfig.get("control.master_url"),
 		controlConfig.get("control.reconnect_delay"),
+		tlsCa,
 		controlConfig.get("control.master_token")
 	);
 	let control = new Control(controlConnector, controlPlugins);
 	try {
 		await controlConnector.connect();
-	} catch(err) {
+	} catch (err) {
 		if (err instanceof libErrors.AuthenticationFailed) {
 			throw new libErrors.StartupError(err.message);
 		}
@@ -787,7 +846,9 @@ async function startControl() {
 	process.on("SIGINT", () => {
 		logger.info("Caught interrupt signal, closing connection");
 		control.shutdown().catch(err => {
+			setBlocking(true);
 			logger.error(err.stack);
+			// eslint-disable-next-line no-process-exit
 			process.exit(1);
 		});
 	});

@@ -103,11 +103,16 @@ class MockInstance extends libLink.Link {
 		this.logger = new MockLogger();
 		this.server = new MockServer();
 		this.name = "test";
+		this.mockConfigEntries = new Map([
+			["instance.id", 7357],
+			["factorio.enable_save_patching", true],
+		]);
 		this.config = {
 			get: (name) => {
-				if (name === "instance.id") { return 7357; }
-				if (name === "factorio.enable_save_patching") { return true; }
-				throw Error("Not implemented");
+				if (this.mockConfigEntries.has(name)) {
+					return this.mockConfigEntries.get(name);
+				}
+				throw Error(`mock for field ${name} is not implemented`);
 			},
 		};
 	}

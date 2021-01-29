@@ -31,6 +31,8 @@ const JSZip = require("jszip");
 const version = require("./package").version;
 const util = require("util");
 const winston = require("winston");
+const http = require("http");
+const https = require("https");
 
 // ugly globals
 let masterConfig;
@@ -48,9 +50,13 @@ let db = {
 	instances: new Map(),
 	slaves: new Map(),
 };
+let slaveConnections = new Map();
+let controlConnections = [];
+let activeConnectors = new Map();
+let pendingSockets = new Set();
 
 // homebrew modules
-const generateSslCert = require("./src/generate_ssl_cert");
+const HttpCloser = require("./src/HttpCloser");
 const routes = require("./src/routes");
 const libDatabase = require("@clusterio/lib/database");
 const libSchema = require("@clusterio/lib/schema");
@@ -74,7 +80,9 @@ const bodyParser = require("body-parser");
 const fileUpload = require("express-fileupload");
 const app = express();
 let httpServer;
+let httpServerCloser;
 let httpsServer;
+let httpsServerCloser;
 
 app.use(cookieParser());
 app.use(bodyParser.json({
@@ -179,6 +187,22 @@ const wsActiveSlavesGauge = new libPrometheus.Gauge(
 	"How many slaves are currently connected to the master"
 );
 
+// Merges samples from sourceResult to destinationResult
+function mergeSamples(destinationResult, sourceResult) {
+	// Merge metrics received by multiple slaves
+	let receivedSamples = new Map(sourceResult.samples);
+	for (let [suffix, suffixSamples] of destinationResult.samples) {
+		if (receivedSamples.has(suffix)) {
+			suffixSamples.push(...receivedSamples.get(suffix));
+			receivedSamples.delete(suffix);
+		}
+	}
+
+	for (let entry of receivedSamples) {
+		sourceResult.samples.push(entry);
+	}
+}
+
 // Prometheus polling endpoint
 async function getMetrics(req, res, next) {
 	endpointHitCounter.labels(req.route.path).inc();
@@ -192,8 +216,9 @@ async function getMetrics(req, res, next) {
 	}
 
 	let requests = [];
+	let timeout = masterConfig.get("master.metrics_timeout") * 1000;
 	for (let slaveConnection of slaveConnections.values()) {
-		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), 8e3, null));
+		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), timeout, null));
 	}
 
 	for await (let result of await libPrometheus.defaultRegistry.collect()) {
@@ -213,17 +238,7 @@ async function getMetrics(req, res, next) {
 
 			} else {
 				// Merge metrics received by multiple slaves
-				let receivedSamples = new Map(result.samples);
-				for (let [suffix, suffixSamples] of resultMap.get(result.metric.name).samples) {
-					if (receivedSamples.has(suffix)) {
-						suffixSamples.push(...receivedSamples.get(suffix));
-						receivedSamples.delete(suffix);
-					}
-				}
-
-				for (let entry of receivedSamples) {
-					result.samples.push(entry);
-				}
+				mergeSamples(resultMap.get(result.metric.name), result);
 			}
 		}
 	}
@@ -320,6 +335,23 @@ const masterConnectedClientsCount = new libPrometheus.Gauge(
 		},
 	},
 );
+
+/**
+ * Returns the URL needed to connect to the master server.
+ *
+ * @returns {string} master URL.
+ */
+function getMasterUrl() {
+	let url = masterConfig.get("master.external_address");
+	if (!url) {
+		if (masterConfig.get("master.https_port")) {
+			url = `https://localhost:${masterConfig.get("master.https_port")}/`;
+		} else {
+			url = `http://localhost:${masterConfig.get("master.http_port")}/`;
+		}
+	}
+	return url;
+}
 
 /**
  * Load Map from JSON file in the database directory.
@@ -497,13 +529,13 @@ async function shutdown() {
 
 		let stopTasks = [];
 		logger.info("Stopping HTTP(S) server");
-		if (httpServer) { stopTasks.push(new Promise(resolve => httpServer.close(resolve))); }
-		if (httpsServer) { stopTasks.push(new Promise(resolve => httpsServer.close(resolve))); }
+		if (httpServer) { stopTasks.push(httpServerCloser.close()); }
+		if (httpsServer) { stopTasks.push(httpsServerCloser.close()); }
 		await Promise.all(stopTasks);
 
 		logger.info(`Clusterio cleanly exited in ${Date.now() - exitStartTime}ms`);
 
-	} catch(err) {
+	} catch (err) {
 		setBlocking(true);
 		logger.fatal(`
 +--------------------------------------------------------------------+
@@ -512,6 +544,7 @@ async function shutdown() {
 +--------------------------------------------------------------------+
 ${err.stack}`
 		);
+		// eslint-disable-next-line no-process-exit
 		process.exit(1);
 	}
 }
@@ -724,6 +757,33 @@ class ControlConnection extends BaseConnection {
 		if (db.instances.has(instanceId)) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
+
+		// Add common settings for the Factorio server
+		let settings = {
+			"name": `${masterConfig.get("master.name")} - ${instanceConfig.get("instance.name")}`,
+			"description": `Clusterio instance for ${masterConfig.get("master.name")}`,
+			"tags": ["clusterio"],
+			"max_players": 0,
+			"visibility": { "public": true, "lan": true },
+			"username": "",
+			"token": "",
+			"game_password": "",
+			"require_user_verification": true,
+			"max_upload_in_kilobytes_per_second": 0,
+			"max_upload_slots": 5,
+			"ignore_player_limit_for_returning_players": false,
+			"allow_commands": "admins-only",
+			"autosave_interval": 10,
+			"autosave_slots": 5,
+			"afk_autokick_interval": 0,
+			"auto_pause": false,
+			"only_admins_can_pause_the_game": true,
+			"autosave_only_on_server": true,
+
+			...instanceConfig.get("factorio.settings"),
+		};
+		instanceConfig.set("factorio.settings", settings);
+
 		db.instances.set(instanceId, { config: instanceConfig, status: "unassigned" });
 	}
 
@@ -1458,67 +1518,6 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 	}
 }
 
-let pendingSockets = new Set();
-let activeConnectors = new Map();
-
-wss.on("connection", function (socket, req) {
-	logger.verbose(`SOCKET | new connection from ${req.socket.remoteAddress}`);
-
-	// Track statistics
-	wsConnectionsCounter.inc();
-	socket.on("message", (message) => {
-		wsMessageCounter.labels("in").inc();
-		if (!socket.clusterio_ignore_dump) {
-			debugEvents.emit("message", { direction: "in", content: message });
-		}
-	});
-	let originalSend = socket.send;
-	socket.send = (...args) => {
-		wsMessageCounter.labels("out").inc();
-		if (typeof args[0] === "string" && !socket.clusterio_ignore_dump) {
-			debugEvents.emit("message", { direction: "out", content: args[0] });
-		}
-		return originalSend.call(socket, ...args);
-	};
-
-	// Start connection handshake.
-	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
-		version,
-		plugins: loadedPlugins,
-	}}));
-
-	function attachHandler() {
-		pendingSockets.add(socket);
-
-		let timeoutId = setTimeout(() => {
-			logger.verbose(`SOCKET | closing ${req.socket.remoteAddress} after timing out on handshake`);
-			wsRejectedConnectionsCounter.inc();
-			socket.close(1008, "Handshake timeout");
-			pendingSockets.delete(socket);
-		}, 30*1000);
-
-		socket.once("message", (message) => {
-			clearTimeout(timeoutId);
-			pendingSockets.delete(socket);
-			handleHandshake(
-				message, socket, req, attachHandler
-			).catch(err => {
-				logger.error(`
-+----------------------------------------------------------------+
-| Unexpected error occured in WebSocket handshake, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues    |
-+----------------------------------------------------------------+
-${err.stack}`
-				);
-				wsRejectedConnectionsCounter.inc();
-				socket.close(1011, "Unexpected error");
-			});
-		});
-	}
-
-	attachHandler();
-});
-
 let nextSessionId = 1;
 
 // Unique string for the session token audience
@@ -1558,7 +1557,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 				throw new Error();
 			}
 
-		} catch(err) {
+		} catch (err) {
 			socket.send(JSON.stringify({ seq: null, type: "invalidate", data: {}}));
 			attachHandler();
 			return;
@@ -1640,12 +1639,63 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	connector.ready(sessionToken);
 }
 
-// handle plugins on the master
-async function pluginManagement() {
-	let startPluginLoad = Date.now();
-	masterPlugins = await loadPlugins();
-	logger.info(`All plugins loaded in ${Date.now() - startPluginLoad}ms`);
-}
+wss.on("connection", (socket, req) => {
+	logger.verbose(`SOCKET | new connection from ${req.socket.remoteAddress}`);
+
+	// Track statistics
+	wsConnectionsCounter.inc();
+	socket.on("message", (message) => {
+		wsMessageCounter.labels("in").inc();
+		if (!socket.clusterio_ignore_dump) {
+			debugEvents.emit("message", { direction: "in", content: message });
+		}
+	});
+	let originalSend = socket.send;
+	socket.send = (...args) => {
+		wsMessageCounter.labels("out").inc();
+		if (typeof args[0] === "string" && !socket.clusterio_ignore_dump) {
+			debugEvents.emit("message", { direction: "out", content: args[0] });
+		}
+		return originalSend.call(socket, ...args);
+	};
+
+	// Start connection handshake.
+	socket.send(JSON.stringify({ seq: null, type: "hello", data: {
+		version,
+		plugins: loadedPlugins,
+	}}));
+
+	function attachHandler() {
+		pendingSockets.add(socket);
+
+		let timeoutId = setTimeout(() => {
+			logger.verbose(`SOCKET | closing ${req.socket.remoteAddress} after timing out on handshake`);
+			wsRejectedConnectionsCounter.inc();
+			socket.close(1008, "Handshake timeout");
+			pendingSockets.delete(socket);
+		}, 30*1000);
+
+		socket.once("message", (message) => {
+			clearTimeout(timeoutId);
+			pendingSockets.delete(socket);
+			handleHandshake(
+				message, socket, req, attachHandler
+			).catch(err => {
+				logger.error(`
++----------------------------------------------------------------+
+| Unexpected error occured in WebSocket handshake, please report |
+| it to https://github.com/clusterio/factorioClusterio/issues    |
++----------------------------------------------------------------+
+${err.stack}`
+				);
+				wsRejectedConnectionsCounter.inc();
+				socket.close(1011, "Unexpected error");
+			});
+		});
+	}
+
+	attachHandler();
+});
 
 async function loadPlugins() {
 	let plugins = new Map();
@@ -1657,13 +1707,13 @@ async function loadPlugins() {
 		loadedPlugins[pluginInfo.name] = pluginInfo.version;
 
 		let pluginLoadStarted = Date.now();
-		let MasterPlugin = libPlugin.BaseMasterPlugin;
+		let MasterPluginClass = libPlugin.BaseMasterPlugin;
 		try {
 			if (pluginInfo.masterEntrypoint) {
-				({ MasterPlugin } = require(path.posix.join(pluginInfo.requirePath, pluginInfo.masterEntrypoint)));
+				MasterPluginClass = await libPluginLoader.loadMasterPluginClass(pluginInfo);
 			}
 
-			let masterPlugin = new MasterPlugin(
+			let masterPlugin = new MasterPluginClass(
 				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }, logger
 			);
 			await masterPlugin.init();
@@ -1676,6 +1726,13 @@ async function loadPlugins() {
 		logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
 	return plugins;
+}
+
+// handle plugins on the master
+async function pluginManagement() {
+	let startPluginLoad = Date.now();
+	masterPlugins = await loadPlugins();
+	logger.info(`All plugins loaded in ${Date.now() - startPluginLoad}ms`);
 }
 
 /**
@@ -1717,28 +1774,61 @@ function _setConfig(config) {
 	masterConfig = config;
 }
 
-/**
- * Returns the URL needed to connect to the master server.
- *
- * @returns {string} master URL.
- */
-function getMasterUrl() {
-	let url = masterConfig.get("master.external_address");
-	if (!url) {
-		if (masterConfig.get("master.https_port")) {
-			url = `https://localhost:${masterConfig.get("master.https_port")}/`;
+async function handleBootstrapCommand(args) {
+	let subCommand = args._[1];
+	await loadUsers(masterConfig.get("master.database_directory"), "users.json");
+	if (subCommand === "create-admin") {
+		if (!args.name) {
+			logger.error("name cannot be blank");
+			process.exitCode = 1;
+			return;
+		}
+
+		let admin = db.users.get(args.name);
+		if (!admin) {
+			admin = createUser(args.name);
+		}
+
+		let adminRole = libUsers.ensureDefaultAdminRole(db.roles);
+		admin.roles.add(adminRole);
+		admin.isAdmin = true;
+		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
+
+	} else if (subCommand === "generate-user-token") {
+		let user = db.users.get(args.name);
+		if (!user) {
+			logger.error(`No user named '${args.name}'`);
+			process.exitCode = 1;
+			return;
+		}
+		// eslint-disable-next-line no-console
+		console.log(user.createToken(masterConfig.get("master.auth_secret")));
+
+	} else if (subCommand === "create-ctl-config") {
+		let admin = db.users.get(args.name);
+		if (!admin) {
+			logger.error(`No user named '${args.name}'`);
+			process.exitCode = 1;
+			return;
+		}
+		let controlConfig = new libConfig.ControlConfig();
+		await controlConfig.init();
+
+		controlConfig.set("control.master_url", getMasterUrl());
+		controlConfig.set("control.master_token", admin.createToken(masterConfig.get("master.auth_secret")));
+
+		let content = JSON.stringify(controlConfig.serialize(), null, 4);
+		if (args.output === "-") {
+			// eslint-disable-next-line no-console
+			console.log(content);
 		} else {
-			url = `http://localhost:${masterConfig.get("master.http_port")}/`;
+			logger.info(`Writing ${args.output}`);
+			await fs.outputFile(args.output, content);
 		}
 	}
-	return url;
 }
 
-async function startServer() {
-	// Set the process title, shows up as the title of the CMD window on windows
-	// and as the process name in ps/top on linux.
-	process.title = "clusterioMaster";
-
+async function initialize() {
 	// argument parsing
 	let args = yargs
 		.scriptName("master")
@@ -1809,9 +1899,6 @@ async function startServer() {
 		}));
 	}
 
-	// add better stack traces on promise rejection
-	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
-
 	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
@@ -1826,7 +1913,7 @@ async function startServer() {
 	let command = args._[0];
 	if (command === "plugin") {
 		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
-		return;
+		return [false, args];
 	}
 
 	logger.info("Loading Plugin info");
@@ -1860,72 +1947,26 @@ async function startServer() {
 
 	if (command === "config") {
 		await libSharedCommands.handleConfigCommand(args, masterConfig, masterConfigPath);
-		return;
+		return [false, args];
 
 	} else if (command === "bootstrap") {
-		let subCommand = args._[1];
-		await loadUsers(masterConfig.get("master.database_directory"), "users.json");
-		if (subCommand === "create-admin") {
-			if (!args.name) {
-				logger.error("name cannot be blank");
-				process.exitCode = 1;
-				return;
-			}
-
-			let admin = db.users.get(args.name);
-			if (!admin) {
-				admin = createUser(args.name);
-			}
-
-			let adminRole = libUsers.ensureDefaultAdminRole(db.roles);
-			admin.roles.add(adminRole);
-			admin.isAdmin = true;
-			await saveUsers(masterConfig.get("master.database_directory"), "users.json");
-
-		} else if (subCommand === "generate-user-token") {
-			let user = db.users.get(args.name);
-			if (!user) {
-				logger.error(`No user named '${args.name}'`);
-				process.exitCode = 1;
-				return;
-			}
-			// eslint-disable-next-line no-console
-			console.log(user.createToken(masterConfig.get("master.auth_secret")));
-
-		} else if (subCommand === "create-ctl-config") {
-			let admin = db.users.get(args.name);
-			if (!admin) {
-				logger.error(`No user named '${args.name}'`);
-				process.exitCode = 1;
-				return;
-			}
-			let controlConfig = new libConfig.ControlConfig();
-			await controlConfig.init();
-
-			controlConfig.set("control.master_url", getMasterUrl());
-			controlConfig.set("control.master_token", admin.createToken(masterConfig.get("master.auth_secret")));
-
-			let content = JSON.stringify(controlConfig.serialize(), null, 4);
-			if (args.output === "-") {
-				// eslint-disable-next-line no-console
-				console.log(content);
-			} else {
-				logger.info(`Writing ${args.output}`);
-				await fs.outputFile(args.output, content);
-			}
-		}
-
-		return;
+		await handleBootstrapCommand(args);
+		return [false, args];
 	}
 
 	// If we get here the command was run
+	return [true, args];
+}
 
+async function startServer(args) {
 	// Start webpack development server if enabled
 	if (args.dev) {
 		logger.warn("Webpack development mode enabled");
+		/* eslint-disable global-require */
 		const webpack = require("webpack");
 		const webpackDevMiddleware = require("webpack-dev-middleware");
 		const webpackConfig = require("./webpack.config");
+		/* eslint-enable global-require */
 
 		const compiler = webpack(webpackConfig({}));
 		devMiddleware = webpackDevMiddleware(compiler, {});
@@ -1936,6 +1977,7 @@ async function startServer() {
 	process.on("SIGINT", () => {
 		if (secondSigint) {
 			logger.fatal("Caught second interrupt, terminating immediately");
+			// eslint-disable-next-line no-process-exit
 			process.exit(1);
 		}
 
@@ -1948,6 +1990,7 @@ async function startServer() {
 	process.on("SIGHUP", () => {
 		// No graceful cleanup, no warning out (stdout is likely closed.)
 		// Don't close the terminal with the clusterio master in it.
+		// eslint-disable-next-line no-process-exit
 		process.exit(1);
 	});
 
@@ -1970,19 +2013,17 @@ async function startServer() {
 	let bindAddress = masterConfig.get("master.bind_address") || "";
 	if (!httpPort && !httpsPort) {
 		logger.fatal("Error: at least one of http_port and https_port must be configured");
-		process.exit(1);
+		process.exitCode = 1;
+		return;
 	}
 
 	let tls_cert = masterConfig.get("master.tls_certificate");
 	let tls_key = masterConfig.get("master.tls_private_key");
-	// Create a self signed certificate if the certificate files doesn't exist
-	if (httpsPort && !await fs.exists(tls_cert) && !await fs.exists(tls_key)) {
-		await generateSslCert({
-			bits: masterConfig.get("master.tls_bits"),
-			sslCertPath: tls_cert,
-			sslPrivKeyPath: tls_key,
-			doLogging: true,
-		});
+
+	if (httpsPort && (!tls_cert || !tls_key)) {
+		throw new libErrors.StartupError(
+			"tls_certificate and tls_private_key must be configure in order to use https_port"
+		);
 	}
 
 	// Add routes for the web interface
@@ -2004,7 +2045,8 @@ async function startServer() {
 
 	// Only start listening for connections after all plugins have loaded
 	if (httpPort) {
-		httpServer = new (require("http").Server)(app);
+		httpServer = http.createServer(app);
+		httpServerCloser = new HttpCloser(httpServer);
 		await listen(httpServer, httpPort, bindAddress);
 		logger.info(`Listening for HTTP on port ${httpServer.address().port}`);
 	}
@@ -2021,12 +2063,27 @@ async function startServer() {
 			);
 		}
 
-		httpsServer = require("https").createServer({
+		httpsServer = https.createServer({
 			key: privateKey,
 			cert: certificate,
 		}, app);
+		httpsServerCloser = new HttpCloser(httpsServer);
 		await listen(httpsServer, httpsPort, bindAddress);
 		logger.info(`Listening for HTTPS on port ${httpsServer.address().port}`);
+	}
+}
+
+async function startup() {
+	// Set the process title, shows up as the title of the CMD window on windows
+	// and as the process name in ps/top on linux.
+	process.title = "clusterioMaster";
+
+	// add better stack traces on promise rejection
+	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
+
+	let [shouldRun, args] = await initialize();
+	if (shouldRun) {
+		await startServer(args);
 	}
 }
 
@@ -2052,7 +2109,7 @@ I           version of clusterio.  Expect things to break. I
 +==========================================================+
 `
 	);
-	startServer().catch(err => {
+	startup().catch(err => {
 		if (err instanceof libErrors.StartupError) {
 			logger.fatal(`
 +----------------------------------+

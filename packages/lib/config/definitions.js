@@ -12,6 +12,13 @@ const classes = require("./classes");
 class MasterGroup extends classes.ConfigGroup { }
 MasterGroup.groupName = "master";
 MasterGroup.define({
+	name: "name",
+	title: "Name",
+	description: "Name of the cluster",
+	type: "string",
+	initial_value: "Your Cluster",
+});
+MasterGroup.define({
 	name: "database_directory",
 	title: "Database directory",
 	description: "Directory where item and configuration data is stored.",
@@ -24,6 +31,7 @@ MasterGroup.define({
 	description: "Port to listen for HTTP connections on, set to null to not listen for HTTP connections.",
 	type: "number",
 	optional: true,
+	initial_value: 8080,
 });
 MasterGroup.define({
 	name: "https_port",
@@ -31,7 +39,6 @@ MasterGroup.define({
 	description: "Port to listen for HTTPS connection on, set to null to not listen for HTTPS connections.",
 	type: "number",
 	optional: true,
-	initial_value: 8443,
 });
 MasterGroup.define({
 	name: "bind_address",
@@ -53,7 +60,6 @@ MasterGroup.define({
 	description: "Path to the certificate to use for HTTPS.",
 	type: "string",
 	optional: true,
-	initial_value: "database/certificates/cert.crt",
 });
 MasterGroup.define({
 	name: "tls_private_key",
@@ -61,14 +67,6 @@ MasterGroup.define({
 	description: "Path to the private key to use for HTTPS.",
 	type: "string",
 	optional: true,
-	initial_value: "database/certificates/cert.key",
-});
-MasterGroup.define({
-	name: "tls_bits",
-	title: "TLS Bits",
-	description: "Number of bits to use for auto generated TLS certificate.",
-	type: "number",
-	initial_value: 2048,
 });
 MasterGroup.define({
 	name: "auth_secret",
@@ -93,6 +91,13 @@ MasterGroup.define({
 	description: "Timeout in seconds for connectors to properly disconnect on shutdown",
 	type: "number",
 	initial_value: 30,
+});
+MasterGroup.define({
+	name: "metrics_timeout",
+	title: "Metrics Timeout",
+	description: "Timeout in seconds for metrics gathering from slaves",
+	type: "number",
+	initial_value: 8,
 });
 MasterGroup.define({
 	name: "default_role_id",
@@ -148,13 +153,19 @@ SlaveGroup.define({
 	name: "master_url",
 	description: "URL to connect to the master server at",
 	type: "string",
-	initial_value: "https://localhost:8443/",
+	initial_value: "http://localhost:8080/",
 });
 SlaveGroup.define({
 	name: "master_token",
 	description: "Token to authenticate to master server with.",
 	type: "string",
 	initial_value: "enter token here",
+});
+SlaveGroup.define({
+	name: "tls_ca",
+	description: "Path to Certificate Authority to validate TLS connection to master against.",
+	type: "string",
+	optional: true,
 });
 SlaveGroup.define({
 	name: "public_address",
@@ -258,10 +269,7 @@ FactorioGroup.define({
 	name: "settings",
 	description: "Settings overridden in server-settings.json",
 	type: "object",
-	initial_value: {
-		"tags": ["clusterio"],
-		"auto_pause": false,
-	},
+	initial_value: {}, // See create instance handler in master.
 });
 FactorioGroup.define({
 	name: "verbose_logging",
@@ -327,6 +335,12 @@ ControlGroup.define({
 ControlGroup.define({
 	name: "master_token",
 	description: "Token to authenticate to master server with.",
+	type: "string",
+	optional: true,
+});
+ControlGroup.define({
+	name: "tls_ca",
+	description: "Path to Certificate Authority to validate TLS connection to master against.",
 	type: "string",
 	optional: true,
 });

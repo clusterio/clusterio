@@ -25,7 +25,7 @@ module.exports = (env = {}) => ({
 		// Make sure ant-design icons use the ES variant
 		new webpack.NormalModuleReplacementPlugin(
 			/@ant-design\/icons\/[A-Z]/,
-			function(resource) {
+			resource => {
 				resource.request = resource.request.replace(/@ant-design\/icons/, "$&/es/icons");
 			}
 		),

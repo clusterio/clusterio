@@ -21,9 +21,9 @@ const libErrors = require("@clusterio/lib/errors");
 function formatServerOutput(parsed) {
 	let time = "";
 	if (parsed.format === "seconds") {
-		time = chalk.yellow(parsed.time.padStart(8)) + " ";
+		time = `${chalk.yellow(parsed.time.padStart(8))} `;
 	} else if (parsed.format === "date") {
-		time = chalk.yellow(parsed.time) + " ";
+		time = `${chalk.yellow(parsed.time)} `;
 	}
 
 	let info = "";
@@ -41,10 +41,10 @@ function formatServerOutput(parsed) {
 			level = chalk.bold.redBright(level);
 		}
 
-		info = level + " " + chalk.gray(parsed.file) + ": ";
+		info = `${level} ${chalk.gray(parsed.file)}: `;
 
 	} else if (parsed.type === "action") {
-		info = "[" + chalk.yellow(parsed.action) + "] ";
+		info = `[${chalk.yellow(parsed.action)}] `;
 	}
 
 	return time + info + parsed.message;

@@ -53,11 +53,11 @@ Version 2.0.0
 - Added option to auto start instances on slave startup.
 - Added metric mapping of slave and instance ids to their names, allowing
   them to be displayed by name in queries that join with the mapping.
+- Added option to configure timeout for exported Prometheus metrics.
+- Added option to set address to bind HTTP(S) port to.
 
 ### Changes
 
-- Fixed sslCert and sslPrivKey entries being ignored in the config.
-- Changed ssl key creation to be done at startup instead of on npm install.
 - Added error handling during master startup.
 - Factorio game and rcon port now defaults to a random port above 49151.
 - Removed unimplemented mods update command.
@@ -179,6 +179,7 @@ Version 2.0.0
 - Removed usage of socket.io entirely in favor of a plain WebSocket connection.
 - Renamed clusterioMod plugin to subspace_storage.
 - Master no longer creates secret-api-token.txt.
+- Removed automatic creation of self-signed TLS certificate.
 
 
 Version 1.2.4

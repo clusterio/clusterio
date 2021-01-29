@@ -34,7 +34,7 @@ describe("Integration of lib/factorio/server", function() {
 			await fs.ensureDir(writePath);
 			logFile = fs.createWriteStream(path.join(writePath, "log.txt"), "utf8");
 			server.on("output", function(output) {
-				logFile.write(JSON.stringify(output) + "\n");
+				logFile.write(`${JSON.stringify(output)}\n`);
 			});
 
 			// Initialize sever.
@@ -71,7 +71,7 @@ describe("Integration of lib/factorio/server", function() {
 		});
 
 		function log(message) {
-			logFile.write("=================== " + message + "\n");
+			logFile.write(`=================== ${message}\n`);
 		}
 
 		describe(".create()", function() {

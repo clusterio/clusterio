@@ -27,6 +27,33 @@ const masterInventoryGauge = new Gauge(
 );
 
 
+async function loadDatabase(config, logger) {
+	let itemsPath = path.resolve(config.get("master.database_directory"), "items.json");
+	logger.verbose(`Loading ${itemsPath}`);
+	try {
+		let content = await fs.readFile(itemsPath);
+		return new libDatabase.ItemDatabase(JSON.parse(content));
+
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			logger.verbose("Creating new item database");
+			return new libDatabase.ItemDatabase();
+		}
+		throw err;
+	}
+}
+
+async function saveDatabase(masterConfig, items, logger) {
+	if (items && items.size < 50000) {
+		let file = path.resolve(masterConfig.get("master.database_directory"), "items.json");
+		logger.verbose(`writing ${file}`);
+		let content = JSON.stringify(items.serialize());
+		await fs.outputFile(file, content);
+	} else if (items) {
+		logger.error(`Item database too large, not saving (${items.size})`);
+	}
+}
+
 class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 
@@ -166,35 +193,6 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		clearInterval(this.autosaveId);
 		clearInterval(this.doleMagicId);
 		await saveDatabase(this.master.config, this.items, this.logger);
-	}
-}
-
-async function loadDatabase(config, logger) {
-	let itemsPath = path.resolve(config.get("master.database_directory"), "items.json");
-	logger.verbose(`Loading ${itemsPath}`);
-	try {
-		let content = await fs.readFile(itemsPath);
-		return new libDatabase.ItemDatabase(JSON.parse(content));
-
-	} catch (err) {
-		if (err.code === "ENOENT") {
-			logger.verbose("Creating new item database");
-			return new libDatabase.ItemDatabase();
-
-		} else {
-			throw err;
-		}
-	}
-}
-
-async function saveDatabase(masterConfig, items, logger) {
-	if (items && items.size < 50000) {
-		let file = path.resolve(masterConfig.get("master.database_directory"), "items.json");
-		logger.verbose(`writing ${file}`);
-		let content = JSON.stringify(items.serialize());
-		await fs.outputFile(file, content);
-	} else if (items) {
-		logger.error(`Item database too large, not saving (${items.size})`);
 	}
 }
 

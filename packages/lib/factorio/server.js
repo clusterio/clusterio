@@ -522,6 +522,8 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {number} options.maxConcurrentCommands -
 	 *     Maximum number of RCON commands transmitted in parallel on the
 	 *     RCON connection.
+	 * @param {number} options.hangTimeout -
+	 *     Timeout in ms to wait for a response to a shutdown command.
 	 */
 	constructor(factorioDir, writeDir, options) {
 		super();
@@ -547,6 +549,8 @@ class FactorioServer extends events.EventEmitter {
 		this.verboseLogging = options.verboseLogging;
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
+		/** Timeout in ms to wait for a response to a shutdown command */
+		this.hangTimeout = options.hangTimeout || 5000;
 		this._state = "new";
 		this._server = null;
 		this._rconClient = null;
@@ -574,12 +578,12 @@ class FactorioServer extends events.EventEmitter {
 
 		// Track autosaving
 		this._runningAutosave = null;
-		this.on("_autosave", function(name) {
+		this.on("_autosave", name => {
 			this.emit("autosave-start", name);
 			this._runningAutosave = name;
 		});
 
-		this.on("_saved", function() {
+		this.on("_saved", () => {
 			if (this._runningAutosave) {
 				this.emit("autosave-finished", this._runningAutosave);
 				this._runningAutosave = null;
@@ -637,7 +641,7 @@ class FactorioServer extends events.EventEmitter {
 		}
 
 		if (!this.emit(`ipc-${channel}`, content)) {
-			this.logger.warn(`Warning: Unhandled ipc-${channel}`, { content });
+			this._logger.warn(`Warning: Unhandled ipc-${channel}`, { content });
 		}
 	}
 
@@ -704,8 +708,6 @@ class FactorioServer extends events.EventEmitter {
 		this._rconClient.on("authenticated", () => { this._rconReady = true; this.emit("rcon-ready"); });
 		this._rconClient.on("end", () => {
 			this._rconClient = null;
-			this._rconReady = false;
-			this._startRcon().catch(() => { /* Ignore */ });
 		});
 		// XXX: Workaround to suppress bogus event listener warning
 		if (this._rconClient.emitter instanceof events.EventEmitter) {
@@ -796,10 +798,14 @@ class FactorioServer extends events.EventEmitter {
 
 				} else {
 					this.emit("error", new Error(
-						"Factorio server unexpectedly shut down. Possible causes:\n- "+
-						this._unexpected.join("\n- ")
+						"Factorio server unexpectedly shut down. Possible causes:"+
+						`\n- ${this._unexpected.join("\n- ")}`
 					));
 				}
+			}
+
+			if (this._rconClient) {
+				this._rconClient.end().catch(() => {});
 			}
 
 			// Reset server state
@@ -954,6 +960,9 @@ class FactorioServer extends events.EventEmitter {
 		if (!this._rconReady) {
 			await events.once(this, "rcon-ready");
 		}
+		if (!this._rconClient) {
+			throw new Error("RCON connection lost");
+		}
 
 		let response = await this._rconClient.send(message);
 		if (expectEmpty && response !== "") {
@@ -972,17 +981,25 @@ class FactorioServer extends events.EventEmitter {
 		this._check(["running"]);
 
 		let hanged = true;
+		let stopped = false;
 		function setAlive() { hanged = false; }
 
 		let timeoutId = setTimeout(() => {
 			if (hanged) {
-				logger.error("Factorio appears to have hanged, sending SIGKILL");
+				this._logger.error("Factorio appears to have hanged, sending SIGKILL");
 				if (this._rconClient) {
 					this._rconClient.end().catch(() => {});
 				}
 				this._server.kill("SIGKILL");
 			}
-		}, 5000);
+		}, this.hangTimeout);
+
+		// It's possible the server decides to exit on its own, in which
+		// case the stop operation has to be cancelled.
+		this._server.once("exit", () => {
+			stopped = true;
+			clearTimeout(timeoutId);
+		});
 
 		this._state = "stopping";
 		// On Windows we need to save the map as there's no graceful shutdown.
@@ -1012,6 +1029,12 @@ class FactorioServer extends events.EventEmitter {
 			}
 
 			await this._rconClient.end();
+		}
+
+		// The Factorio server may have decided to get ahead of us and
+		// stop by itself before we had the chance to signal it.
+		if (stopped) {
+			return;
 		}
 
 		// On linux this sends SIGTERM to the process.  On windows this

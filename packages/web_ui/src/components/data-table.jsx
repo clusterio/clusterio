@@ -16,12 +16,16 @@ const { Panel } = Collapse;
  * Editable - Boolean - Allow editing
  * AddRecord - Boolean - Allow adding new records
  * CustomDataFilterFunction - function(tableData) - Filter tabledata and return results
- * RecordIdField - String - By default we assume the column "Id" is a unique identifier for a record. If that isn't the case, supply the column name here
+ * RecordIdField - String -
+ *     By default we assume the column "Id" is a unique identifier for a record. If
+ *     that isn't the case, supply the column name here
  */
 class DataTable extends Component {
 	constructor(props) {
 		super(props);
-		if (!this.props.DataFunction) throw new Error("DataFunction not defined");
+		if (!this.props.DataFunction) {
+			throw new Error("DataFunction not defined");
+		}
 		this.state = {
 			pagination: {
 				pageSize: 100,
@@ -40,32 +44,21 @@ class DataTable extends Component {
 	}
 
 	async getData(pagination, filters, sorter) {
-		/*
-			pagination = {
-				pageSize: 10, // items per page
-				current: 1, // page number
-				total: 123, // Total amount of items
-			}
-			filters = {
-				ReportId: 123
-			}
-			sorter = {}
-		*/
+		// pagination = {
+		//     pageSize: 10, // items per page
+		//     current: 1, // page number
+		//     total: 123, // Total amount of items
+		// }
+		// filters = {
+		//     ReportId: 123
+		// }
+		// sorter = {}
 		pagination = pagination || this.state.pagination;
 		filters = filters || this.state.filters;
 		sorter = sorter || this.state.sorter;
 
 		// eslint-disable-next-line new-cap
 		let data = await this.props.DataFunction();
-		// await fetchApi(this.state.dataUrl, "post", {
-		//     database: this.props.Database,
-		//     table: this.props.Table,
-		//     dataSource: this.props.DataSource,
-		//     pagination: this.props.RecordCount? {...pagination, pageSize: this.props.RecordCount, current: 1}:pagination,
-		//     filters,
-		//     sorter,
-		//     recordIdField: this.props.RecordIdField || "Id", // Sort by this
-		// })
 		data = data || {};
 		this.setState({
 			// eslint-disable-next-line new-cap
@@ -123,20 +116,16 @@ class DataTable extends Component {
 
 	async deleteRecord(record) {
 		delete record.key;
-		// Delete "null" values as they seem to cause deletes to fail silently when the value is null and field type is float
+		// Delete "null" values as they seem to cause deletes to fail silently when
+		// the value is null and field type is float
 		for (let key in record) {
-			if (record[key] === null) delete record[key];
+			if (record[key] === null) { delete record[key]; }
 		}
-		var status = {};
-		//  await fetchApi(`/api/${this.props.Server}/tableData/record`, "delete", {
-		//     database: this.props.Database,
-		//     table: this.props.Table,
-		//     dataSource: this.props.DataSource,
-		//     record,
-		// }, undefined, true)
+		let status = {};
+		// TODO: Delete data here
 
-		if (status.ok) notify("success", status.msg, "success");
-		if (!status.ok) notify("error", status.msg, "error");
+		if (status.ok) { notify("success", status.msg, "success"); }
+		if (!status.ok) { notify("error", status.msg, "error"); }
 
 		// Force refresh of data
 		this.getData();
@@ -146,60 +135,66 @@ class DataTable extends Component {
 		let tableProps = {
 			...this.props.TableProps || {},
 			onRow: (record, rowIndex) => {
-				/*
-					To allow for extending functionality, we take a TableProps argument from props and pass it through to the Table component.
-					Since we are also using onRow internaly here, we handle the externally provided events ourselves by passing along the event
-					object. This way the end user isn't affected by our event handlers.
-				*/
+				// To allow for extending functionality, we take a TableProps argument
+				// from props and pass it through to the Table component.  Since we
+				// are also using onRow internaly here, we handle the externally
+				// provided events ourselves by passing along the event object. This
+				// way the end user isn't affected by our event handlers.
 				let externalOnRow = {
-					...(this.props.TableProps && this.props.TableProps.onRow && this.props.TableProps.onRow(record, rowIndex)),
+					...(
+						this.props.TableProps
+						&& this.props.TableProps.onRow
+						&& this.props.TableProps.onRow(record, rowIndex)
+					),
 				};
 				return {
 					onClick: event => {
 						if (event.target.type !== "button") {
-							if (this.props.Editable) this.showEditModal(record, rowIndex);
-							if (externalOnRow.onClick) externalOnRow.onClick(event);
+							if (this.props.Editable) { this.showEditModal(record, rowIndex); }
+							if (externalOnRow.onClick) { externalOnRow.onClick(event); }
 						}
 					},
 					onDoubleClick: event => {
-						if (externalOnRow.onDoubleClick) externalOnRow.onDoubleClick(event);
+						if (externalOnRow.onDoubleClick) { externalOnRow.onDoubleClick(event); }
 					},
 					onContextMenu: event => {
-						if (externalOnRow.onContextMenu) externalOnRow.onContextMenu(event);
+						if (externalOnRow.onContextMenu) { externalOnRow.onContextMenu(event); }
 					},
 					onMouseEnter: event => {
-						if (externalOnRow.onMouseEnter) externalOnRow.onMouseEnter(event);
+						if (externalOnRow.onMouseEnter) { externalOnRow.onMouseEnter(event); }
 					},
 					onMouseLeave: event => {
-						if (externalOnRow.onMouseLeave) externalOnRow.onMouseLeave(event);
+						if (externalOnRow.onMouseLeave) { externalOnRow.onMouseLeave(event); }
 					},
 				};
 			},
 		};
 		let columns = this.props.columns || this.inferColumns(this.state.tableData);
-		if (this.props.DeleteRecord && !columns.find(x => x.dataIndex === "notInUse")) columns.push({
-			// Add delete button on the right
-			dataIndex: "notInUse",
-			title: "",
-			render: (text, record) => <Popover
-				content={
-					<Button
-						type="primary"
-						danger
-						onClick={() => {
-							this.deleteRecord(record);
-						}}
-					>
-						Slett permanent
+		if (this.props.DeleteRecord && !columns.find(x => x.dataIndex === "notInUse")) {
+			columns.push({
+				// Add delete button on the right
+				dataIndex: "notInUse",
+				title: "",
+				render: (text, record) => <Popover
+					content={
+						<Button
+							type="primary"
+							danger
+							onClick={() => {
+								this.deleteRecord(record);
+							}}
+						>
+							Slett permanent
+						</Button>
+					}
+					trigger="click"
+				>
+					<Button danger style={{ float: "right", fontSize: "16px" }}>
+						<DeleteOutlined />
 					</Button>
-				}
-				trigger="click"
-			>
-				<Button danger style={{ float: "right", fontSize: "16px" }}>
-					<DeleteOutlined />
-				</Button>
-			</Popover>,
-		});
+				</Popover>,
+			});
+		}
 
 		return <>
 			<Row>
@@ -216,7 +211,9 @@ class DataTable extends Component {
 						{...tableProps}
 						columns={columns.map(x => ({
 							...x, // Add a 4th parameter to the stock render function with all of our table data
-							render: x.render ? (...originalParams) => x.render(...originalParams, this.state.tableData) : undefined,
+							render: x.render
+								? (...originalParams) => x.render(...originalParams, this.state.tableData)
+								: undefined,
 						}))}
 						dataSource={this.state.tableData}
 						pagination={this.state.pagination.total > 10 ? this.state.pagination : false}
@@ -275,7 +272,8 @@ class DataTable extends Component {
 	}
 
 	inferColumns(data) {
-		// Look at the data and find columns and how to display them. Can be overridden by props.Columns if more customization is needed
+		// Look at the data and find columns and how to display them. Can be
+		// overridden by props.Columns if more customization is needed
 		let columns = [];
 		data.forEach(row => {
 			Object.keys(row).filter(x => x !== "key").forEach(key => {

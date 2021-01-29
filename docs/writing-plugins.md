@@ -381,8 +381,10 @@ the event, for example the following could be defined in `info.js`:
             type: "foo_frobber:start_frobnication",
             links: ["master-slave", "slave-instance"],
             forwardTo: "instance",
+            eventRequired: ["frobnication_type"],
             eventProperties: {
                 "frobnication_type": { type: "string" },
+                "urgent": { type: "boolean" },
             },
         }),
     },
@@ -390,8 +392,8 @@ the event, for example the following could be defined in `info.js`:
 This specifies an event that can be sent from the master to a slave,
 and from a slave to an instance.  It also specifies that the event must
 contain the property `frobnication_type`, with a string value in the
-data payload.  It will also be forwarded by slaves to a specific
-instance.
+data payload and that it may optionally contain a boolean `urgent`
+property.  It will also be forwarded by slaves to a specific instance.
 
 The following properties are recognized by the Event constructor:
 
@@ -434,12 +436,19 @@ it's sent to, but not back from where it came from. Currently, only
 that slave except for the instance it came from.  from an instance will
 cause it to be broadcast to all instances of
 
+#### eventRequired
+
+By default all properties defined in `eventProperties` are required to
+be present in the payload for the event.  This can be overriden by
+specifying an array of properties which are required here.  This is
+equivalent to using the `required` keyword in JSON schema.
+
 #### eventProperties
 
 Object with properties mapping to a JSON schema of that property that
 specifies what's valid to send in the event.  This is equivalent to
 using the `properties` keyword in JSON schema, except that the
-properties specified are implicitly required and additional properties
+properties specified are by default required and additional properties
 are not allowed.  See [this guide][guide] for an introduction to writing
 JSON schemas.
 
@@ -466,8 +475,10 @@ the event. For example, the following could be defined in `info.js`:
             type: "foo_frobber:report_frobnication",
             links: ["master-slave", "slave-instance"],
             forwardTo: "instance",
+            requestRequired: ["verbosity"],
             requestProperties: {
                 "verbosity": { type: "integer" },
+                "special": { type: "boolean" },
             },
             responseProperties: {
                 "report": {
@@ -481,7 +492,8 @@ the event. For example, the following could be defined in `info.js`:
 This specifies a request that can be sent from the master to a slave,
 and from a slave to an instance.  The request data must contain the
 property `verbosity` with an integer number as the value, as well as the
-`instance_id` property (implied by `forwardTo: "instance"`), and the
+`instance_id` property (implied by `forwardTo: "instance"`) and it may
+also contain a boolean `special` property.  It also defines that the
 response sent must contain a `report` property mapping to an array of
 strings.  When received by a slave, it will also be forwarded to the
 instance specified by `instance_id`.
@@ -520,14 +532,26 @@ instance, or `"instance"` to indicate it should be forwarded to the
 instances specified by the `instance_id` request property.  This works
 by using a default handler for the request by the links that forward it.
 
+#### requestRequired
+
+By default all properties defined in `requestProperties` are required to
+be present in the payload for the request.  This can be overriden by
+specifying an array of properties which are required here.  This is
+equivalent to using the `required` keyword in JSON schema.
+
 #### requestProperties
 
 Object with properties mapping to a JSON schema of that property that
 specifies what's valid to send in the request.  This is equivalent to
 using the `properties` keyword in JSON schema, except that the
-properties specified are implicitly required and additional properties
+properties specified are by default required and additional properties
 are not allowed.  See [this guide][guide] for an introduction to writing
 JSON schemas
+
+#### responseRequired
+
+Same as the requestRequired only for the response sent back by the
+target.
 
 #### responseProperties
 

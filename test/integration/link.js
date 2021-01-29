@@ -1,6 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const events = require("events");
+const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 
 const { TestControlConnector, TestControl, get, exec, url } = require("./index");
@@ -8,10 +9,14 @@ const { TestControlConnector, TestControl, get, exec, url } = require("./index")
 let token = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
 
 describe("Integration of lib/link", function() {
+	let tlsCa;
 	let control;
 	let controlConnector;
+	before(async function() {
+		tlsCa = await fs.readFile("test/file/tls/cert.pem");
+	});
 	it("should emitt an error if authentication failed", async function() {
-		controlConnector = new TestControlConnector(url, 0.2);
+		controlConnector = new TestControlConnector(url, 0.2, tlsCa);
 		controlConnector.token = "gibberish";
 		control = new TestControl(controlConnector);
 		await assert.rejects(
@@ -21,7 +26,7 @@ describe("Integration of lib/link", function() {
 	});
 
 	it("should connect with proper credentials", async function() {
-		controlConnector = new TestControlConnector(url, 0.2);
+		controlConnector = new TestControlConnector(url, 0.2, tlsCa);
 		controlConnector.token = token;
 		control = new TestControl(controlConnector);
 		await controlConnector.connect();
