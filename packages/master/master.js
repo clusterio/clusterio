@@ -44,8 +44,6 @@ let debugEvents = new events.EventEmitter();
 let loadedPlugins = {};
 let devMiddleware;
 let clusterLogger;
-let controlConnections = [];
-let slaveConnections = new Map();
 let db = {
 	instances: new Map(),
 	slaves: new Map(),
