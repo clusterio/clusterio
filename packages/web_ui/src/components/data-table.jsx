@@ -5,8 +5,6 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import notify from "../util/notify";
 
-const { Panel } = Collapse;
-
 /**
  * Display data in table. Allows for editing data by clicking rows in the table.
  * Basic usage: <DataTable Server="SQL08" DataSource="sql" Database="HDG1" Table="[dbo].[ReportInfo]" />
@@ -78,12 +76,12 @@ class DataTable extends Component {
 		}
 	}
 
-	add_row(new_row){
+	add_row(new_row) {
 		let new_table = [...this.state.tableData];
 		let item = new_table.findIndex(element => element.key === new_row.key);
-		if(item !== -1){
+		if (item !== -1) {
 			new_table[item] = new_row;
-		}else{
+		} else {
 			new_table.push(new_row);
 		}
 		this.setState({

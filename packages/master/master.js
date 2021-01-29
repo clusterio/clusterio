@@ -680,9 +680,9 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
-	async update_slaves(id){
+	async update_slaves(id) {
 		let slave = db.slaves.get(id);
-		if(!slave) return;
+		if (!slave) { return; };
 		let item = {
 			agent: slave.agent,
 			version: slave.version,
@@ -1995,9 +1995,9 @@ async function startServer(args) {
 	await fs.ensureDir(masterConfig.get("master.database_directory"));
 
 	db.slaves = await loadMap(masterConfig.get("master.database_directory"), "slaves.json");
-	//live updating
+	// live updating
 	db.slaves.updateGui = function(key) {
-		for(let control of controlConnections){
+		for (let control of controlConnections) {
 			control.update_slaves(key);
 		}
 	};

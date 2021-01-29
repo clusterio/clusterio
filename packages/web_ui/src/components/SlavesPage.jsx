@@ -10,7 +10,7 @@ import { copySync } from "fs-extra";
 export default function SlavesPage() {
 	let control = useContext(ControlContext);
 	let table;
-	control.live_update_caller = async function(message){
+	control.live_update_caller = async function(message) {
 		let item = message.data.item;
 		let row = {
 			key: item["id"],
@@ -19,7 +19,7 @@ export default function SlavesPage() {
 			"Version": item["version"],
 			"Connected": item["connected"] && "Yes",
 		};
-		if(table){
+		if (table) {
 			table.add_row(row);
 		}
 	};
@@ -35,7 +35,7 @@ export default function SlavesPage() {
 		return result;
 	}
 
-	async function save_table_ref(tbl){
+	async function save_table_ref(tbl) {
 		table = tbl;
 	}
 
