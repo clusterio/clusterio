@@ -44,6 +44,8 @@ let debugEvents = new events.EventEmitter();
 let loadedPlugins = {};
 let devMiddleware;
 let clusterLogger;
+let controlConnections = [];
+let slaveConnections = new Map();
 let db = {
 	instances: new Map(),
 	slaves: new Map(),
@@ -635,6 +637,7 @@ const lastQueryLogTime = new libPrometheus.Gauge(
 	"clusterio_master_last_query_log_duration_seconds",
 	"Time in seconds the last log query took to execute."
 );
+
 
 class ControlConnection extends BaseConnection {
 	constructor(registerData, connector, user) {
