@@ -13,6 +13,8 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 	constructor(url, reconnectDelay) {
 		super(url, reconnectDelay);
 		this.token = null;
+
+		this.liveUpdateSlaveHandles = [];
 	}
 
 	register() {
@@ -56,6 +58,8 @@ export class Control extends libLink.Link {
 				`Unexpected error updating log subscriptions:\n${err.stack}`
 			));
 		});
+
+		this.liveUpdateSlaveHandlers = [];
 	}
 
 	async logMessageEventHandler(message) {
@@ -119,10 +123,16 @@ export class Control extends libLink.Link {
 		console.log("WS", message.data.direction, message.data.content);
 	}
 
+	async onLiveSlaveAdded(handler) {
+		if (this.liveUpdateSlaveHandlers.length === 0) {
+			libLink.messages.setLiveSlaveSubscription.send(this, {});
+		}
+		this.liveUpdateSlaveHandlers.push(handler);
+	}
+
 	async liveUpdateSlavesEventHandler(message) {
-		// eslint-disable-next-line no-console
-		if (this.live_update_caller) {
-			this.live_update_caller(message);
+		for (let handler of this.liveUpdateSlaveHandlers) {
+			handler(message);
 		}
 	}
 

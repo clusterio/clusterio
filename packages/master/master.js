@@ -665,6 +665,8 @@ class ControlConnection extends BaseConnection {
 			instance_ids: [],
 		};
 
+		this.doLiveUpdateSlaves = false;
+
 		this.ws_dumper = null;
 		this.connector.on("connect", () => {
 			this.connector._socket.clusterio_ignore_dump = Boolean(this.ws_dumper);
@@ -680,7 +682,7 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
-	async update_slaves(id) {
+	async updateSlaves(id) {
 		let slave = db.slaves.get(id);
 		if (!slave) { return; };
 		let item = {
@@ -691,6 +693,10 @@ class ControlConnection extends BaseConnection {
 			connected: slaveConnections.has(slave.id),
 		};
 		libLink.messages.liveUpdateSlaves.send(this, {item});
+	}
+
+	async setLiveSlaveSubscriptionRequestHandler() {
+		this.doLiveUpdateSlaves = true;
 	}
 
 	async listSlavesRequestHandler(message) {
@@ -1625,8 +1631,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 		}
 
 		logger.verbose(`SOCKET | registered slave ${data.id} version ${data.version}`);
-		let slave = new SlaveConnection(data, connector);
-		slaveConnections.set(data.id, slave);
+		slaveConnections.set(data.id, new SlaveConnection(data, connector));
 		db.slaves.updateGui(data.id);
 
 	} else if (type === "register_control") {
@@ -1998,7 +2003,9 @@ async function startServer(args) {
 	// live updating
 	db.slaves.updateGui = function(key) {
 		for (let control of controlConnections) {
-			control.update_slaves(key);
+			if (control.doLiveUpdateSlaves) {
+				control.updateSlaves(key);
+			}
 		}
 	};
 

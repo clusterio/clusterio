@@ -676,6 +676,12 @@ messages.setLogSubscriptions = new Request({
 	},
 });
 
+messages.setLiveSlaveSubscription = new Request({
+	type: "set_live_slave_subscription",
+	links: ["control-master"],
+	permission: "core.slave.list",
+});
+
 messages.queryLog = new Request({
 	type: "query_log",
 	links: ["control-master"],
@@ -920,7 +926,7 @@ messages.liveUpdateSlaves = new Event({
 	type: "live_update_slaves",
 	links: ["master-control"],
 	eventProperties: {
-		item: {
+		"item": {
 			required: ["agent", "version", "name", "id", "connected"],
 			properties: {
 				"agent": { type: "string" },
@@ -932,6 +938,7 @@ messages.liveUpdateSlaves = new Event({
 		},
 	},
 });
+
 messages.logMessage = new Event({
 	type: "log_message",
 	links: ["slave-master", "master-control"],

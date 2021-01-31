@@ -76,16 +76,16 @@ class DataTable extends Component {
 		}
 	}
 
-	add_row(new_row) {
-		let new_table = [...this.state.tableData];
-		let item = new_table.findIndex(element => element.key === new_row.key);
+	addRow(new_row) {
+		let newTable = [...this.state.tableData];
+		let item = newTable.findIndex(element => element.key === new_row.key);
 		if (item !== -1) {
-			new_table[item] = new_row;
+			newTable[item] = new_row;
 		} else {
-			new_table.push(new_row);
+			newTable.push(new_row);
 		}
 		this.setState({
-			tableData: new_table,
+			tableData: newTable,
 		});
 	}
 
