@@ -1625,6 +1625,19 @@ async function startSlave() {
 		logger.info("Caught interrupt signal, shutting down");
 		slave.shutdown();
 	});
+	let secondSigterm = false;
+	process.on("SIGTERM", () => {
+		if (secondSigterm) {
+			setBlocking(true);
+			logger.fatal("Caught second termination signal, terminating immediately");
+			// eslint-disable-next-line no-process-exit
+			process.exit(1);
+		}
+
+		secondSigterm = true;
+		logger.info("Caught termination signal, shutting down");
+		slave.shutdown();
+	});
 
 	slaveConnector.once("connect", () => {
 		logger.add(new libLoggingUtils.LinkTransport({ link: slave }));
