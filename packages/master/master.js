@@ -1966,6 +1966,18 @@ async function startServer(args) {
 		logger.info("Caught interrupt signal, shutting down");
 		shutdown();
 	});
+	let secondSigterm = false;
+	process.on("SIGTERM", () => {
+		if (secondSigterm) {
+			logger.fatal("Caught second termination, terminating immediately");
+			// eslint-disable-next-line no-process-exit
+			process.exit(1);
+		}
+
+		secondSigterm = true;
+		logger.info("Caught termination signal, shutting down");
+		shutdown();
+	});
 
 	// terminal closed
 	process.on("SIGHUP", () => {
