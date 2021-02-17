@@ -1404,6 +1404,7 @@ class Slave extends libLink.Link {
 			// Clear silly interval in pidfile library.
 			pidusage.clear();
 		} catch (err) {
+			setBlocking(true);
 			logger.error(`
 +--------------------------------------------------------------------+
 | Unexpected error occured while shutting down slave, please report  |

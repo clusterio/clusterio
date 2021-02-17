@@ -1957,6 +1957,7 @@ async function startServer(args) {
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
+			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
@@ -1969,6 +1970,7 @@ async function startServer(args) {
 	let secondSigterm = false;
 	process.on("SIGTERM", () => {
 		if (secondSigterm) {
+			setBlocking(true);
 			logger.fatal("Caught second termination, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
