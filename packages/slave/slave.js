@@ -1384,6 +1384,9 @@ class Slave extends libLink.Link {
 	 * Stops all instances and closes the connection
 	 */
 	async shutdown() {
+		if (this._shuttingDown) {
+			return;
+		}
 		this._shuttingDown = true;
 		this.connector.setTimeout(30);
 

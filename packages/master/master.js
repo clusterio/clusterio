@@ -477,11 +477,16 @@ async function saveUsers(databaseDirectory, file) {
 	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
 }
 
+let shuttingDown = false;
 /**
  * Innitiate shutdown of master server
  */
 async function shutdown() {
-	logger.info("Shutting down");
+	if (shuttingDown) {
+		return;
+	}
+	shuttingDown = true;
+
 	let exitStartTime = Date.now();
 	try {
 		logger.info("Saving configs");
