@@ -23,7 +23,8 @@ describe("lib/helpers", function() {
 			await libHelpers.wait(100);
 			let duration = Number(hrtime() - startNs) / 1e6;
 
-			assert(duration > 90 && duration < 110, `duration waited (${duration}ms) 10% of expected (100ms)`);
+			// On windows the time waited is normally up to 15 ms late with outliers in the 20ms range.
+			assert(duration > 90 && duration < 130, `duration (${duration}ms) not within (90-130)`);
 		});
 	});
 
