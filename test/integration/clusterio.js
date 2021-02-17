@@ -115,7 +115,7 @@ describe("Integration of Clusterio", function() {
 					],
 					[
 						"allow_commands", true,
-						"allow-commands", "Yes",
+						"allow-commands", "Allow Lua commands: Yes.",
 					],
 					[
 						"autosave_interval", 17,
