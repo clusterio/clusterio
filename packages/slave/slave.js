@@ -1384,6 +1384,9 @@ class Slave extends libLink.Link {
 	 * Stops all instances and closes the connection
 	 */
 	async shutdown() {
+		if (this._shuttingDown) {
+			return;
+		}
 		this._shuttingDown = true;
 		this.connector.setTimeout(30);
 
@@ -1404,6 +1407,7 @@ class Slave extends libLink.Link {
 			// Clear silly interval in pidfile library.
 			pidusage.clear();
 		} catch (err) {
+			setBlocking(true);
 			logger.error(`
 +--------------------------------------------------------------------+
 | Unexpected error occured while shutting down slave, please report  |
@@ -1629,13 +1633,17 @@ async function startSlave() {
 	process.on("SIGTERM", () => {
 		if (secondSigterm) {
 			setBlocking(true);
-			logger.fatal("Caught second termination signal, terminating immediately");
+			logger.fatal("Caught second termination, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
 		}
 
 		secondSigterm = true;
 		logger.info("Caught termination signal, shutting down");
+		slave.shutdown();
+	});
+	process.on("SIGHUP", () => {
+		logger.info("Terminal closed, shutting down");
 		slave.shutdown();
 	});
 

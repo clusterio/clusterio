@@ -477,11 +477,16 @@ async function saveUsers(databaseDirectory, file) {
 	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
 }
 
+let shuttingDown = false;
 /**
  * Innitiate shutdown of master server
  */
 async function shutdown() {
-	logger.info("Shutting down");
+	if (shuttingDown) {
+		return;
+	}
+	shuttingDown = true;
+
 	let exitStartTime = Date.now();
 	try {
 		logger.info("Saving configs");
@@ -1957,6 +1962,7 @@ async function startServer(args) {
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
+			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
@@ -1969,6 +1975,7 @@ async function startServer(args) {
 	let secondSigterm = false;
 	process.on("SIGTERM", () => {
 		if (secondSigterm) {
+			setBlocking(true);
 			logger.fatal("Caught second termination, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
@@ -1978,13 +1985,9 @@ async function startServer(args) {
 		logger.info("Caught termination signal, shutting down");
 		shutdown();
 	});
-
-	// terminal closed
 	process.on("SIGHUP", () => {
-		// No graceful cleanup, no warning out (stdout is likely closed.)
-		// Don't close the terminal with the clusterio master in it.
-		// eslint-disable-next-line no-process-exit
-		process.exit(1);
+		logger.info("Terminal closed, shutting down");
+		shutdown();
 	});
 
 	await fs.ensureDir(masterConfig.get("master.database_directory"));
