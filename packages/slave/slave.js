@@ -1633,13 +1633,17 @@ async function startSlave() {
 	process.on("SIGTERM", () => {
 		if (secondSigterm) {
 			setBlocking(true);
-			logger.fatal("Caught second termination signal, terminating immediately");
+			logger.fatal("Caught second termination, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
 		}
 
 		secondSigterm = true;
 		logger.info("Caught termination signal, shutting down");
+		slave.shutdown();
+	});
+	process.on("SIGHUP", () => {
+		logger.info("Terminal closed, shutting down");
 		slave.shutdown();
 	});
 

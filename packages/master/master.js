@@ -1985,13 +1985,9 @@ async function startServer(args) {
 		logger.info("Caught termination signal, shutting down");
 		shutdown();
 	});
-
-	// terminal closed
 	process.on("SIGHUP", () => {
-		// No graceful cleanup, no warning out (stdout is likely closed.)
-		// Don't close the terminal with the clusterio master in it.
-		// eslint-disable-next-line no-process-exit
-		process.exit(1);
+		logger.info("Terminal closed, shutting down");
+		shutdown();
 	});
 
 	await fs.ensureDir(masterConfig.get("master.database_directory"));
