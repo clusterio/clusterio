@@ -1168,7 +1168,7 @@ class SlaveConnection extends BaseConnection {
 			}
 		});
 
-		for (let event of ["connect", "drop", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"]) {
 			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let masterPlugin of masterPlugins.values()) {
@@ -1397,7 +1397,7 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
-		this.emit("connect");
+		this.emit("resume");
 	}
 
 	setTimeout(timeout) {

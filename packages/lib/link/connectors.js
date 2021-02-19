@@ -404,7 +404,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 			this._startedReconnect = null;
 			this._connected = true;
-			this.emit("connect");
+			this.emit("resume");
 
 		} else if (type === "invalidate") {
 			this._heartbeatInterval = null;

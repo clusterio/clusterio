@@ -1028,7 +1028,7 @@ class Slave extends libLink.Link {
 			}
 		});
 
-		for (let event of ["connect", "drop", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
 				for (let instanceConnection of this.instanceConnections.values()) {
 					libLink.messages.masterConnectionEvent.send(instanceConnection, { event });

@@ -621,7 +621,7 @@ until the connection is re-established.  This means that if your plugin
 sends a lot of events or requests, they can end up being queued up in a
 buffer for a long time and sent out all at once.  To avoid this you
 should be throtteling and/or stopping your requests/events after `drop`
-has been raised, and continue back as normal when `connect` is raised.
+has been raised, and continue back as normal when `resume` is raised.
 
 
 Collecting Statistics
