@@ -660,7 +660,7 @@ set it accordingly, for example:
     );
 
     // Somewhere in the instance plugin code
-    barMetric.labels(String(this.instance.config.get("instance.id"))).set(someValue);
+    barMetric.labels(String(this.instance.id)).set(someValue);
 
 Metrics are automatically registered to the default registry, and this
 default registry is automatically polled by the master server on slaves.
