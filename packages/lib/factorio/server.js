@@ -11,23 +11,8 @@ const ini = require("ini");
 const rconClient = require("rcon-client");
 const libErrors = require("@clusterio/lib/errors");
 const { logger } = require("@clusterio/lib/logging");
+const { escapeRegExp } = require("@clusterio/lib/helpers");
 
-
-/**
- * Escapes text for inclusion in a RegExp
- *
- * Adds \ character in front of special meta characters in the passsed in
- * text so that it can be embedded into a RegExp and only match the text.
- *
- * See https://stackoverflow.com/a/9310752
- *
- * @param {string} text - Text to escape RegExp meta chars in.
- * @returns {string} escaped text.
- * @inner
- */
-function escapeRegExp(text) {
-	return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-}
 
 /**
  * Determines the version of Factorio the datadir is pointing to by

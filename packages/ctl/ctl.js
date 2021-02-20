@@ -368,7 +368,11 @@ roleCommands.add(new libCommand.Command({
 		yargs.options({
 			"name": { describe: "New name for role", nargs: 1, type: "string" },
 			"description": { describe: "New description for role", nargs: 1, type: "string" },
-			"permissions": { describe: "New permissions for role", array: true, type: "string" },
+			"set-perms": { describe: "Set permissions for role", array: true, type: "string" },
+			"add-perms": { describe: "Add permissions to role", array: true, type: "string", conflicts: "set-perms" },
+			"remove-perms": {
+				describe: "Remove permissions from role", array: true, type: "string", conflicts: "set-perms",
+			},
 			"grant-default": { describe: "Add default permissions to role", nargs: 0, type: "boolean" },
 		});
 	}],
@@ -381,8 +385,18 @@ roleCommands.add(new libCommand.Command({
 		if (args.description !== undefined) {
 			role.description = args.description;
 		}
-		if (args.permissions !== undefined) {
-			role.permissions = args.permissions;
+		if (args.addPerms) {
+			role.permissions = role.permissions.concat(args.addPerms);
+		}
+		if (args.removePerms) {
+			let perms = new Set(role.permissions);
+			for (let perm of args.removePerms) {
+				perms.delete(perm);
+			}
+			role.permissions = [...perms];
+		}
+		if (args.setPerms !== undefined) {
+			role.permissions = args.setPerms;
 		}
 		await libLink.messages.updateRole.send(control, role);
 
@@ -621,7 +635,7 @@ class Control extends libLink.Link {
 		 */
 		this.plugins = controlPlugins;
 		for (let controlPlugin of controlPlugins.values()) {
-			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
+			libPlugin.attachPluginMessages(this, controlPlugin);
 		}
 
 		/**

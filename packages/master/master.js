@@ -115,7 +115,7 @@ function serveWeb(route) {
 }
 
 // Set folder to serve static content from (the website)
-app.use(express.static(path.join(__dirname, "static")));
+app.use(express.static(path.join(__dirname, "dist", "web")));
 app.use(express.static("static")); // Used for data export files
 
 const slaveMappingGauge = new libPrometheus.Gauge(
@@ -562,7 +562,7 @@ class BaseConnection extends libLink.Link {
 		super("master", target, connector);
 		libLink.attachAllMessages(this);
 		for (let masterPlugin of masterPlugins.values()) {
-			libPlugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
+			libPlugin.attachPluginMessages(this, masterPlugin);
 		}
 	}
 
@@ -1168,7 +1168,7 @@ class SlaveConnection extends BaseConnection {
 			}
 		});
 
-		for (let event of ["connect", "drop", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"]) {
 			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let masterPlugin of masterPlugins.values()) {
@@ -1397,7 +1397,7 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
-		this.emit("connect");
+		this.emit("resume");
 	}
 
 	setTimeout(timeout) {
@@ -2025,8 +2025,8 @@ async function startServer(args) {
 		}
 
 		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-		let staticPath = path.join(path.dirname(pluginPackagePath), "static");
-		app.use(`/plugin/${pluginInfo.name}`, express.static(staticPath));
+		let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
+		app.use(`/plugin/${pluginInfo.name}`, express.static(webPath));
 	}
 
 	// Load plugins

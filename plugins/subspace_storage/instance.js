@@ -39,7 +39,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async provideItems(items) {
 		this.info.messages.place.send(this.instance, {
 			items,
-			instance_id: this.instance.config.get("instance.id"),
+			instance_id: this.instance.id,
 		});
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
@@ -52,7 +52,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async requestItems(items) {
 		// Request the items all at once
 		let response = await this.info.messages.remove.send(this.instance, {
-			instance_id: this.instance.config.get("instance.id"),
+			instance_id: this.instance.id,
 			items,
 		});
 

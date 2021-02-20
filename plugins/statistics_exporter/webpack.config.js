@@ -10,7 +10,7 @@ module.exports = (env = {}) => merge(common(env), {
 	entry: "./web/index.jsx",
 	output: {
 		filename: "bundle.js",
-		path: path.resolve(__dirname, "static"),
+		path: path.resolve(__dirname, "dist", "web"),
 	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({

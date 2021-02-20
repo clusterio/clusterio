@@ -9,11 +9,11 @@ module.exports = (env = {}) => merge(common(env), {
 	context: __dirname,
 	entry: "./web/index.jsx",
 	devServer: {
-		contentBase: "./static",
+		contentBase: "./dist/web",
 	},
 	output: {
 		filename: "bundle.js",
-		path: path.resolve(__dirname, "static"),
+		path: path.resolve(__dirname, "dist", "web"),
 	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({

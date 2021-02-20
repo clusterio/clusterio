@@ -4,6 +4,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libLink = require("@clusterio/lib/link");
+const libUsers = require("@clusterio/lib/users");
 
 const { slowTest, get, exec, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
@@ -282,16 +283,40 @@ describe("Integration of Clusterio", function() {
 
 		describe("role edit", function() {
 			it("should modify the given role", async function() {
-				let args = "--name new --description \"A new role\" --permissions";
+				let args = "--name new --description \"A new role\" --set-perms";
 				await execCtl(`role edit temp ${args}`);
 				let result = await libLink.messages.listRoles.send(getControl());
 				let newRole = result.list.find(role => role.name === "new");
 				assert.deepEqual(newRole, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
+			it("should add permissions with --add-perms", async function() {
+				let args = "--name new --add-perms core.slave.list core.instance.list";
+				await execCtl(`role edit new ${args}`);
+				let result = await libLink.messages.listRoles.send(getControl());
+				let newRole = result.list.find(role => role.name === "new");
+				assert.deepEqual(newRole.permissions, ["core.slave.list", "core.instance.list"]);
+			});
+			it("should remove permissions with --remove-perms", async function() {
+				let args = "--name new --remove-perms core.slave.list";
+				await execCtl(`role edit new ${args}`);
+				let result = await libLink.messages.listRoles.send(getControl());
+				let newRole = result.list.find(role => role.name === "new");
+				assert.deepEqual(newRole.permissions, ["core.instance.list"]);
+			});
+			it("should grant default permissions with --grant-default", async function() {
+				await execCtl("role edit new --grant-default");
+				let result = await libLink.messages.listRoles.send(getControl());
+				let newRole = result.list.find(role => role.name === "new");
+				let defaultPermissions = [...libUsers.permissions.values()]
+					.filter(p => p.grantByDefault)
+					.map(p => p.name)
+				;
+				assert.deepEqual(new Set(newRole.permissions), new Set(defaultPermissions));
+			});
 		});
 
 		describe("role delete", function() {
-			it("should modify the given role", async function() {
+			it("should delete the given role", async function() {
 				await execCtl("role delete new");
 				let result = await libLink.messages.listRoles.send(getControl());
 				let newRole = result.list.find(role => role.name === "new");

@@ -128,9 +128,15 @@ class Instance extends libLink.Link {
 		this.plugins = new Map();
 		this.config = instanceConfig;
 
+		/**
+		 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
+		 * @constant {number}
+		 */
+		this.id = this.config.get("instance.id");
+
 		this.logger = logger.child({
-			instance_id: this.config.get("instance.id"),
-			instance_name: this.config.get("instance.name"),
+			instance_id: this.id,
+			instance_name: this.name,
 		});
 
 		this._configFieldChanged = (group, field, prev) => {
@@ -168,7 +174,7 @@ class Instance extends libLink.Link {
 		);
 
 		this.server.on("output", (parsed, line) => {
-			this.logger.log("server", { message: line, instance_id: this.config.get("instance.id"), parsed });
+			this.logger.log("server", { message: line, instance_id: this.id, parsed });
 
 			libPlugin.invokeHook(this.plugins, "onOutput", parsed, line);
 		});
@@ -185,7 +191,7 @@ class Instance extends libLink.Link {
 
 		this.server.on("ipc-player_event", event => {
 			libLink.messages.playerEvent.send(this, {
-				instance_id: this.config.get("instance.id"),
+				instance_id: this.id,
 				...event,
 			});
 			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
@@ -193,7 +199,7 @@ class Instance extends libLink.Link {
 	}
 
 	async sendRcon(message, expectEmpty, plugin = "") {
-		let instanceId = String(this.config.get("instance.id"));
+		let instanceId = String(this.id);
 		let observeDuration = instanceRconCommandDuration.labels(instanceId).startTimer();
 		try {
 			return await this.server.sendRcon(message, expectEmpty);
@@ -205,13 +211,13 @@ class Instance extends libLink.Link {
 
 	async _autosave(name) {
 		let stat = await fs.stat(this.path("saves", `${name}.zip`));
-		instanceFactorioAutosaveSize.labels(String(this.config.get("instance.id"))).set(stat.size);
+		instanceFactorioAutosaveSize.labels(String(this.id)).set(stat.size);
 	}
 
 	notifyStatus(status) {
 		this._status = status;
 		libLink.messages.instanceStatusChanged.send(this, {
-			instance_id: this.config.get("instance.id"), status,
+			instance_id: this.id, status,
 		});
 	}
 
@@ -238,7 +244,7 @@ class Instance extends libLink.Link {
 				collector instanceof libPrometheus.ValueCollector
 				&& collector.metric.labels.includes("instance_id")
 			) {
-				collector.removeAll({ instance_id: String(this.config.get("instance.id")) });
+				collector.removeAll({ instance_id: String(this.id) });
 			}
 		}
 
@@ -254,7 +260,7 @@ class Instance extends libLink.Link {
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, slave);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
-		libPlugin.attachPluginMessages(this, pluginInfo, instancePlugin);
+		libPlugin.attachPluginMessages(this, instancePlugin);
 
 		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
@@ -285,7 +291,7 @@ class Instance extends libLink.Link {
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
-		libLink.messages.instanceInitialized.send(this, { instance_id: this.config.get("instance.id"), plugins });
+		libLink.messages.instanceInitialized.send(this, { instance_id: this.id, plugins });
 	}
 
 	/**
@@ -543,9 +549,8 @@ class Instance extends libLink.Link {
 	 * Update instance information on the Factorio side
 	 */
 	async updateInstanceData() {
-		let name = libLuaTools.escapeString(this.config.get("instance.name"));
-		let id = this.config.get("instance.id");
-		await this.sendRcon(`/sc clusterio_private.update_instance(${id}, "${name}")`, true);
+		let name = libLuaTools.escapeString(this.name);
+		await this.sendRcon(`/sc clusterio_private.update_instance(${this.id}, "${name}")`, true);
 	}
 
 	async updateFactorioSettings(current, previous) {
@@ -648,8 +653,8 @@ class Instance extends libLink.Link {
 		let pid = this.server.pid;
 		if (pid) {
 			let stats = await pidusage(pid);
-			instanceFactorioCpuTime.labels(String(this.config.get("instance.id"))).set(stats.ctime / 1000);
-			instanceFactorioMemoryUsage.labels(String(this.config.get("instance.id"))).set(stats.memory);
+			instanceFactorioCpuTime.labels(String(this.id)).set(stats.ctime / 1000);
+			instanceFactorioMemoryUsage.labels(String(this.id)).set(stats.memory);
 		}
 
 		return { results };
@@ -830,7 +835,7 @@ class InstanceConnection extends libLink.Link {
 		libLink.attachAllMessages(this);
 
 		for (let pluginInfo of slave.pluginInfos) {
-			libPlugin.attachPluginMessages(this, pluginInfo, null);
+			libPlugin.attachPluginMessages(this, { info: pluginInfo });
 		}
 	}
 
@@ -977,7 +982,7 @@ class Slave extends libLink.Link {
 
 		this.pluginInfos = pluginInfos;
 		for (let pluginInfo of pluginInfos) {
-			libPlugin.attachPluginMessages(this, pluginInfo, null);
+			libPlugin.attachPluginMessages(this, { info: pluginInfo });
 		}
 
 		this.config = slaveConfig;
@@ -1028,7 +1033,7 @@ class Slave extends libLink.Link {
 			}
 		});
 
-		for (let event of ["connect", "drop", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
 				for (let instanceConnection of this.instanceConnections.values()) {
 					libLink.messages.masterConnectionEvent.send(instanceConnection, { event });

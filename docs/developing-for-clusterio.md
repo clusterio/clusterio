@@ -161,11 +161,13 @@ which accepts a table and calls `add_lib` for each value in the table.
 Communicating with Clusterio
 ----------------------------
 
-There's a poorly to virtuarly undocumented HTTP interface that can be
-used to communicate with Clusterio to do things like get the status of
-instances, grab items from the store, run commands on instances, etc,
-etc.  For now you can read the source code, and maybe ask on the Discord
-for some pointers if you get stuck.
+Clusterio uses a homebrew protocol based on sending JSON payloads over
+a WebSocket connection.  See [socket.md](socket.md) for the
+implementation details of it.
+
+It's also possible to write a plugin for Clusterio that exposes a custom
+interface over HTTP, WebSocket or any other technology supported by
+Node.js.
 
 
 Clusterio Modules
@@ -177,7 +179,9 @@ modules that are loaded into the game if you don't need the capabilites
 of the plugin system.  The save patcher puts modules into the `modules`
 folder of the Factorio save and adds code to `control.lua` to load the
 module according to the `load` and `require` options to the module.json
-file.
+file.  Like with scenarios for Clusterio the [event_handler
+interface](#event_handler-interface) has to be used for any event
+subscriptions in modules.
 
 Stand alone modules are placed into the modules folder of Clusterio,
 plugin modules are located in the module folder of the plugin.  In
