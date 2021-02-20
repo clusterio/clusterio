@@ -177,7 +177,7 @@ class BaseInstancePlugin {
 	 * send any messages that goes to or via the master server after the
 	 * connection has been closed and before a new one is established.
 	 *
-	 * @param {string} event - one of connect, drop, resumeand close
+	 * @param {string} event - one of connect, drop, resume and close
 	 */
 	onMasterConnectionEvent(event) { }
 
