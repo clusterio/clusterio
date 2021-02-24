@@ -9,6 +9,7 @@ import ErrorPage from "./ErrorPage";
 const { Header, Sider } = Layout;
 
 
+import MasterPage from "./MasterPage";
 import SlavesPage from "./SlavesPage";
 import InstancesPage from "./InstancesPage";
 import InstanceViewPage from "./InstanceViewPage";
@@ -24,6 +25,7 @@ const pages = [
 ];
 
 const sidebar = [
+	{ name: "Master", path: "/master", content: <MasterPage /> },
 	{ name: "Slaves", path: "/slaves", content: <SlavesPage /> },
 	{ name: "Instances", path: "/instances", content: <InstancesPage />},
 	{ name: "Users", path: "/users", content: <UsersPage /> },

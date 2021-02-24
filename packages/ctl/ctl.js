@@ -31,6 +31,79 @@ function print(...content) {
 	console.log(...content);
 }
 
+
+const masterCommands = new libCommand.CommandTree({ name: "master", description: "Master management" });
+const masterConfigCommands = new libCommand.CommandTree({
+	name: "config", alias: ["c"], description: "master config management",
+});
+masterConfigCommands.add(new libCommand.Command({
+	definition: ["list", "List master configuration"],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getMasterConfig.send(control);
+
+		for (let group of response.serialized_config.groups) {
+			for (let [name, value] of Object.entries(group.fields)) {
+				print(`${group.name}.${name} ${JSON.stringify(value)}`);
+			}
+		}
+	},
+}));
+
+masterConfigCommands.add(new libCommand.Command({
+	definition: ["set <field> [value]", "Set field in master config", (yargs) => {
+		yargs.positional("field", { describe: "Field to set", type: "string" });
+		yargs.positional("value", { describe: "Value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
+	}],
+	handler: async function(args, control) {
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		} else if (args.value === undefined) {
+			args.value = "";
+		}
+		await libLink.messages.setMasterConfigField.send(control, {
+			field: args.field,
+			value: args.value,
+		});
+	},
+}));
+
+masterConfigCommands.add(new libCommand.Command({
+	definition: ["set-prop <field> <prop> [value]", "Set property of field in master config", (yargs) => {
+		yargs.positional("field", { describe: "Field to set", type: "string" });
+		yargs.positional("prop", { describe: "Property to set", type: "string" });
+		yargs.positional("value", { describe: "JSON parsed value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
+	}],
+	handler: async function(args, control) {
+		if (args.stdin) {
+			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		}
+		let request = {
+			field: args.field,
+			prop: args.prop,
+		};
+		try {
+			if (args.value !== undefined) {
+				request.value = JSON.parse(args.value);
+			}
+		} catch (err) {
+			// See note for the instance version of set-prop
+			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
+				throw new libErrors.CommandError(`In parsing value '${args.value}': ${err.message}`);
+			}
+			request.value = args.value;
+		}
+		await libLink.messages.setMasterConfigProp.send(control, request);
+	},
+}));
+masterCommands.add(masterConfigCommands);
+
+
 const slaveCommands = new libCommand.CommandTree({ name: "slave", description: "Slave management" });
 slaveCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List slaves connected to the master"],
@@ -701,6 +774,7 @@ async function loadPlugins(pluginList) {
 
 async function registerCommands(controlPlugins, yargs) {
 	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
+	rootCommands.add(masterCommands);
 	rootCommands.add(slaveCommands);
 	rootCommands.add(instanceCommands);
 	rootCommands.add(permissionCommands);

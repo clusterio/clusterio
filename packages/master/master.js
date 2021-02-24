@@ -684,6 +684,19 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
+	async getMasterConfigRequestHandler() {
+		return { serialized_config: masterConfig.serialize("control") };
+	}
+
+	async setMasterConfigFieldRequestHandler(message) {
+		masterConfig.set(message.data.field, message.data.value, "control");
+	}
+
+	async setMasterConfigPropRequestHandler(message) {
+		let { field, prop, value } = message.data;
+		masterConfig.setProp(field, prop, value, "control");
+	}
+
 	async listSlavesRequestHandler(message) {
 		let list = [];
 		for (let slave of db.slaves.values()) {
