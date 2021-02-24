@@ -3,6 +3,9 @@ import { Switch, Route, useHistory } from "react-router-dom";
 import { Layout, Menu } from "antd";
 import webUiPackage from "../../package.json";
 
+import ErrorBoundary from "./ErrorBoundary";
+import ErrorPage from "./ErrorPage";
+
 const { Header, Sider } = Layout;
 
 
@@ -74,7 +77,9 @@ export default function SiteLayout(props) {
 					</Route>)}
 					{pages.map(page => <Route exact path={page.path} key={page.path}>
 						<SetSidebar path={page.sidebarPath} />
-						{page.content}
+						<ErrorBoundary Component={ErrorPage}>
+							{page.content}
+						</ErrorBoundary>
 					</Route>)}
 					<Route>
 						<SetSidebar path={null} />

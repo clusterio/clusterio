@@ -82,6 +82,14 @@ body {
 	background-size: 64px;
 }
 
+.error-traceback code {
+	display: block;
+	margin: 0;
+	background: #000;
+	border-color: #252525;
+	white-space: pre-wrap;
+}
+
 .rcon-result code {
 	display: block;
 	background: #000;
