@@ -3,6 +3,7 @@ const libLink = require("@clusterio/lib/link");
 const libConfig = require("@clusterio/lib/config");
 
 class MasterConfigGroup extends libConfig.PluginConfigGroup {}
+MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
 MasterConfigGroup.groupName = "subspace_storage";
 MasterConfigGroup.define({
 	name: "autosave_interval",
@@ -29,6 +30,7 @@ MasterConfigGroup.define({
 MasterConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
+InstanceConfigGroup.defaultAccess = ["master", "slave", "control"];
 InstanceConfigGroup.groupName = "subspace_storage";
 InstanceConfigGroup.define({
 	name: "log_item_transfers",

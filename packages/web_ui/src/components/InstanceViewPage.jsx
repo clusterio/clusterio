@@ -333,14 +333,14 @@ function InstanceConfigTree(props) {
 			instance_id: props.id,
 		});
 
-		let newConfig = new libConfig.InstanceConfig();
+		let newConfig = new libConfig.InstanceConfig("control");
 		await newConfig.load(result.serialized_config);
 		setConfig(newConfig);
 	}
 
 	useEffect(() => { updateConfig(); }, [props.id]);
 
-	function renderInput(group, def) {
+	function renderInput(def) {
 		if (def.type === "boolean") {
 			return <Checkbox/>;
 		}
@@ -387,6 +387,10 @@ function InstanceConfigTree(props) {
 		};
 
 		for (let def of GroupClass.definitions.values()) {
+			if (!group.canAccess(def.name)) {
+				continue;
+			}
+
 			let value = group.get(def.name);
 			let fieldName = `${group.name}.${def.name}`;
 			let childNode = {
@@ -445,7 +449,7 @@ function InstanceConfigTree(props) {
 								let propName = form.getFieldValue(`${newPropPath}.name`);
 								let propValue = form.getFieldValue(`${newPropPath}.value`);
 								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
-									let newConfig = new libConfig.InstanceConfig();
+									let newConfig = new libConfig.InstanceConfig("control");
 									await newConfig.load(config.serialize());
 									newConfig.setProp(fieldName, propName, null);
 									setConfig(newConfig);
@@ -475,7 +479,7 @@ function InstanceConfigTree(props) {
 					tooltip={def.description}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
 				>
-					{renderInput(group, def)}
+					{renderInput(def)}
 				</Form.Item>;
 				initialValues[fieldName] = value;
 			}

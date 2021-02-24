@@ -104,13 +104,13 @@ instanceCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let instanceConfig = new libConfig.InstanceConfig();
+		let instanceConfig = new libConfig.InstanceConfig("control");
 		await instanceConfig.init();
 		if (args.id) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		let serialized_config = instanceConfig.serialize();
+		let serialized_config = instanceConfig.serialize("master");
 		let response = await libLink.messages.createInstance.send(control, { serialized_config });
 	},
 }));
@@ -792,7 +792,7 @@ async function startControl() {
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
-	let controlConfig = new libConfig.ControlConfig();
+	let controlConfig = new libConfig.ControlConfig("control");
 	try {
 		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
 
