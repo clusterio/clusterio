@@ -42,6 +42,9 @@ export default function BaseConfigTree(props) {
 		let newChangedFields = new Set(changedFields);
 		let changed = false;
 		for (let [key, value] of Object.entries(changedValues)) {
+			if (key.endsWith(":add.name") || key.endsWith(":add.value")) {
+				continue;
+			}
 			if (initialValues[key] === value) {
 				changed = newChangedFields.delete(key) || changed;
 			} else {
