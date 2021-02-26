@@ -3,9 +3,13 @@ import { Switch, Route, useHistory } from "react-router-dom";
 import { Layout, Menu } from "antd";
 import webUiPackage from "../../package.json";
 
+import ErrorBoundary from "./ErrorBoundary";
+import ErrorPage from "./ErrorPage";
+
 const { Header, Sider } = Layout;
 
 
+import MasterPage from "./MasterPage";
 import SlavesPage from "./SlavesPage";
 import InstancesPage from "./InstancesPage";
 import InstanceViewPage from "./InstanceViewPage";
@@ -21,6 +25,7 @@ const pages = [
 ];
 
 const sidebar = [
+	{ name: "Master", path: "/master", content: <MasterPage /> },
 	{ name: "Slaves", path: "/slaves", content: <SlavesPage /> },
 	{ name: "Instances", path: "/instances", content: <InstancesPage />},
 	{ name: "Users", path: "/users", content: <UsersPage /> },
@@ -74,7 +79,9 @@ export default function SiteLayout(props) {
 					</Route>)}
 					{pages.map(page => <Route exact path={page.path} key={page.path}>
 						<SetSidebar path={page.sidebarPath} />
-						{page.content}
+						<ErrorBoundary Component={ErrorPage}>
+							{page.content}
+						</ErrorBoundary>
 					</Route>)}
 					<Route>
 						<SetSidebar path={null} />

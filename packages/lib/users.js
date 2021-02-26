@@ -303,6 +303,16 @@ definePermission({
 });
 
 definePermission({
+	name: "core.master.get_config",
+	title: "Get master config",
+	description: "Get the config of master.",
+});
+definePermission({
+	name: "core.master.update_config",
+	title: "Modify master config",
+	description: "Modify the master config or entries of the master config.",
+});
+definePermission({
 	name: "core.slave.list",
 	title: "List slaves",
 	description: "Get the full list of slaves in the cluster.",

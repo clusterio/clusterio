@@ -224,12 +224,13 @@ but for event handlers registered on EventEmitters it's critical that
 exceptions are catched and handled appropriately.
 
 
-Defining Configuration
-----------------------
+Plugin Configuration
+--------------------
 
 Clusterio provides a configuration system that handles storing,
 distributing, editing and validating config fields for you.  You can
-take advantage of it by subclassing `PluginConfigGroup`, setting the
+take advantage of it by subclassing `PluginConfigGroup`, setting
+`defaultAccess` to where config entries can be accessed from, setting the
 `groupName` to your plugin name, defining fields on it, finalizing it,
 and passing it as either `MasterConfigGroup` or `InstanceConfigGroup` in
 the `info.js` export.  For example in info.js:
@@ -237,6 +238,7 @@ the `info.js` export.  For example in info.js:
     const libConfig = require("@clusterio/lib/config");
 
     class MasterConfigGroup extends libConfig.PluginConfigGroup { }
+    MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
     MasterConfigGroup.groupName = "foo_frobber";
     MasterConfigGroup.define({
         name: "level",
@@ -261,7 +263,7 @@ for example in the MasterPluginClass:
     }
 
 The same applies for instance configs, replace "master" with "instance"
-where appropriate.  See [Configuration System](configuration-system.md)
+where appropriate.  See [Configuration System](config-system.md)
 for more details on how this system works.
 
 

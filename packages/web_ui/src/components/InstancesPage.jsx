@@ -33,10 +33,10 @@ export default function InstancesPage() {
 					title: "Name",
 				}],
 				insert: async args => {
-					let instanceConfig = new libConfig.InstanceConfig();
+					let instanceConfig = new libConfig.InstanceConfig("control");
 					await instanceConfig.init();
 					instanceConfig.set("instance.name", args.name);
-					let serialized_config = instanceConfig.serialize();
+					let serialized_config = instanceConfig.serialize("master");
 					let response = await libLink.messages.createInstance.send(control, { serialized_config });
 				},
 			}}

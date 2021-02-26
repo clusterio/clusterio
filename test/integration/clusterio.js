@@ -35,6 +35,42 @@ describe("Integration of Clusterio", function() {
 	});
 
 	describe("clusterioctl", function() {
+		describe("master config list", function() {
+			it("runs", async function() {
+				await execCtl("master config list");
+			});
+			it("should not leak auth_secret", async function() {
+				let result = await libLink.messages.getMasterConfig.send(getControl());
+				let done = false;
+				for (let group of result.serialized_config.groups) {
+					if (group.name === "master") {
+						assert.equal(Object.prototype.hasOwnProperty.call(group.fields, "auth_secret"), false);
+						done = true;
+						break;
+					}
+				}
+				assert(done, "master group not found");
+			});
+		});
+		describe("master config set", function() {
+			it("sets given config option", async function() {
+				await execCtl('master config set master.name "Test Cluster"');
+				let result = await libLink.messages.getMasterConfig.send(getControl());
+				let done = false;
+				for (let group of result.serialized_config.groups) {
+					if (group.name === "master") {
+						assert.equal(group.fields.name, "Test Cluster");
+						done = true;
+						break;
+					}
+				}
+				assert(done, "master group not found");
+			});
+			it("should not allow setting auth_secret", async function() {
+				await assert.rejects(execCtl("master config set master.auth_secret root"));
+			});
+		});
+
 		describe("slave list", function() {
 			it("runs", async function() {
 				await execCtl("slave list");

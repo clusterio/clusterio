@@ -799,7 +799,7 @@ async function discoverInstances(instancesDir) {
 	let instanceInfos = new Map();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			let instanceConfig = new libConfig.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig("slave");
 			let configPath = path.join(instancesDir, entry.name, "instance.json");
 
 			try {
@@ -1175,17 +1175,17 @@ class Slave extends libLink.Link {
 		let { instance_id, serialized_config } = message.data;
 		let instanceInfo = this.instanceInfos.get(instance_id);
 		if (instanceInfo) {
-			instanceInfo.config.update(serialized_config, true);
+			instanceInfo.config.update(serialized_config, true, "master");
 			logger.verbose(`Updated config for ${instanceInfo.path}`);
 
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instance_id);
 			if (instanceInfo) {
-				instanceInfo.config.update(serialized_config, true);
+				instanceInfo.config.update(serialized_config, true, "master");
 
 			} else {
-				let instanceConfig = new libConfig.InstanceConfig();
-				await instanceConfig.load(serialized_config);
+				let instanceConfig = new libConfig.InstanceConfig("slave");
+				await instanceConfig.load(serialized_config, "master");
 
 				// XXX: race condition on multiple simultanious calls
 				let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
@@ -1348,7 +1348,7 @@ class Slave extends libLink.Link {
 		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push({
-				serialized_config: instanceInfo.config.serialize(),
+				serialized_config: instanceInfo.config.serialize("master"),
 				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
@@ -1561,7 +1561,7 @@ async function startSlave() {
 	libConfig.finalizeConfigs();
 
 	logger.info(`Loading config from ${args.config}`);
-	let slaveConfig = new libConfig.SlaveConfig();
+	let slaveConfig = new libConfig.SlaveConfig("slave");
 	try {
 		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
 

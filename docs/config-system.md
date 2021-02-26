@@ -28,6 +28,16 @@ after the groupName have been set and before the class has been
 finalized.  The `define` method takes an object as argument with the
 following properties:
 
+**access**:
+    The locations this config field can be read and modified from.  This
+    is an array of strings which can contain the values `"master"`,
+    `"slave"` and `"control"`.  If a party is missing in this array then
+    that party will not receive the value of this field when the config
+    is shared, and will be unable to modify the field.  Takes the value
+    of `defaultAccess` set on the config group class if not passed.
+    Note that instance config groups should have both `"master"` and
+    `"slave"` for all of its fields or unexpected behaviour may occur.
+
 **type**:
     The type of config value this field will support.  The supported
     values are boolean, string, number, and object, and if an attept is

@@ -372,7 +372,7 @@ async function loadInstances(databaseDirectory, file) {
 	try {
 		let serialized = JSON.parse(await fs.readFile(filePath));
 		for (let serializedConfig of serialized) {
-			let instanceConfig = new libConfig.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig("master");
 			await instanceConfig.load(serializedConfig);
 			let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
 			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig, status });
@@ -684,6 +684,19 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
+	async getMasterConfigRequestHandler() {
+		return { serialized_config: masterConfig.serialize("control") };
+	}
+
+	async setMasterConfigFieldRequestHandler(message) {
+		masterConfig.set(message.data.field, message.data.value, "control");
+	}
+
+	async setMasterConfigPropRequestHandler(message) {
+		let { field, prop, value } = message.data;
+		masterConfig.setProp(field, prop, value, "control");
+	}
+
 	async listSlavesRequestHandler(message) {
 		let list = [];
 		for (let slave of db.slaves.values()) {
@@ -707,7 +720,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async createSlaveConfigRequestHandler(message) {
-		let slaveConfig = new libConfig.SlaveConfig();
+		let slaveConfig = new libConfig.SlaveConfig("control");
 		await slaveConfig.init();
 
 		slaveConfig.set("slave.master_url", getMasterUrl());
@@ -739,7 +752,7 @@ class ControlConnection extends BaseConnection {
 
 	// XXX should probably add a hook for slave reuqests?
 	async createInstanceRequestHandler(message) {
-		let instanceConfig = new libConfig.InstanceConfig();
+		let instanceConfig = new libConfig.InstanceConfig("master");
 		await instanceConfig.load(message.data.serialized_config);
 
 		let instanceId = instanceConfig.get("instance.id");
@@ -795,7 +808,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		return {
-			serialized_config: instance.config.serialize(),
+			serialized_config: instance.config.serialize("control"),
 		};
 	}
 
@@ -806,7 +819,7 @@ class ControlConnection extends BaseConnection {
 			if (connection) {
 				await libLink.messages.assignInstance.send(connection, {
 					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize(),
+					serialized_config: instance.config.serialize("slave"),
 				});
 			}
 		}
@@ -827,7 +840,7 @@ class ControlConnection extends BaseConnection {
 			throw new libErrors.RequestError("Setting instance.id is not supported");
 		}
 
-		instance.config.set(message.data.field, message.data.value);
+		instance.config.set(message.data.field, message.data.value, "control");
 		await this.updateInstanceConfig(instance);
 	}
 
@@ -838,7 +851,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		let { field, prop, value } = message.data;
-		instance.config.setProp(field, prop, value);
+		instance.config.setProp(field, prop, value, "control");
 		await this.updateInstanceConfig(instance);
 	}
 
@@ -877,7 +890,7 @@ class ControlConnection extends BaseConnection {
 		if (slave_id !== null) {
 			await libLink.messages.assignInstance.send(newSlaveConnection, {
 				instance_id,
-				serialized_config: instance.config.serialize(),
+				serialized_config: instance.config.serialize("slave"),
 			});
 		}
 	}
@@ -1202,15 +1215,15 @@ class SlaveConnection extends BaseConnection {
 			if (instance.config.get("instance.assigned_slave") === this._id) {
 				await libLink.messages.assignInstance.send(this, {
 					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize(),
+					serialized_config: instance.config.serialize("slave"),
 				});
 			}
 		}
 
 		// Assign instances the slave has but master does not
 		for (let instance of message.data.instances) {
-			let instanceConfig = new libConfig.InstanceConfig();
-			await instanceConfig.load(instance.serialized_config);
+			let instanceConfig = new libConfig.InstanceConfig("master");
+			await instanceConfig.load(instance.serialized_config, "slave");
 
 			let masterInstance = db.instances.get(instanceConfig.get("instance.id"));
 			if (masterInstance) {
@@ -1239,7 +1252,7 @@ class SlaveConnection extends BaseConnection {
 			});
 			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
-				serialized_config: instanceConfig.serialize(),
+				serialized_config: instanceConfig.serialize("slave"),
 			});
 		}
 
@@ -1797,7 +1810,7 @@ async function handleBootstrapCommand(args) {
 			process.exitCode = 1;
 			return;
 		}
-		let controlConfig = new libConfig.ControlConfig();
+		let controlConfig = new libConfig.ControlConfig("control");
 		await controlConfig.init();
 
 		controlConfig.set("control.master_url", getMasterUrl());
@@ -1909,7 +1922,7 @@ async function initialize() {
 
 	masterConfigPath = args.config;
 	logger.info(`Loading config from ${masterConfigPath}`);
-	masterConfig = new libConfig.MasterConfig();
+	masterConfig = new libConfig.MasterConfig("master");
 	try {
 		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
 

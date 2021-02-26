@@ -2,15 +2,14 @@
 // Routes used in the web interface and served by the master server
 module.exports = [
 	"/",
-	"/instances",
-	"/instances/:id/view",
+	"/master",
 	"/slaves",
 	"/slaves/:id/view",
+	"/instances",
+	"/instances/:id/view",
 	"/users",
 	"/users/:id/view",
 	"/roles",
 	"/roles/:id/view",
-	"/permissions",
-	"/permissions/:id/view",
 	"/settings",
 ];

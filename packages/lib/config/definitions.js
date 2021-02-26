@@ -10,6 +10,7 @@ const classes = require("./classes");
  * @memberof module:lib/config
  */
 class MasterGroup extends classes.ConfigGroup { }
+MasterGroup.defaultAccess = ["master", "slave", "control"];
 MasterGroup.groupName = "master";
 MasterGroup.define({
 	name: "name",
@@ -69,6 +70,7 @@ MasterGroup.define({
 	optional: true,
 });
 MasterGroup.define({
+	access: ["master"],
 	name: "auth_secret",
 	title: "Master Authentication Secret",
 	description:
@@ -124,6 +126,7 @@ MasterConfig.registerGroup(MasterGroup);
  * @memberof module:lib/config
  */
 class SlaveGroup extends classes.ConfigGroup {}
+SlaveGroup.defaultAccess = ["master", "slave", "control"];
 SlaveGroup.groupName = "slave";
 SlaveGroup.define({
 	name: "name",
@@ -197,6 +200,7 @@ SlaveConfig.registerGroup(SlaveGroup);
  * @memberof module:lib/config
  */
 class InstanceGroup extends classes.ConfigGroup { }
+InstanceGroup.defaultAccess = ["master", "slave", "control"];
 InstanceGroup.groupName = "instance";
 InstanceGroup.define({
 	name: "name",
@@ -228,6 +232,7 @@ InstanceGroup.finalize();
  * @memberof module:lib/config
  */
 class FactorioGroup extends classes.ConfigGroup { }
+FactorioGroup.defaultAccess = ["master", "slave", "control"];
 FactorioGroup.groupName = "factorio";
 FactorioGroup.define({
 	name: "version",
@@ -325,6 +330,7 @@ InstanceConfig.registerGroup(FactorioGroup);
  * @memberof module:lib/config
  */
 class ControlGroup extends classes.ConfigGroup {}
+ControlGroup.defaultAccess = ["control"];
 ControlGroup.groupName = "control";
 ControlGroup.define({
 	name: "master_url",
@@ -390,6 +396,7 @@ function registerPluginConfigGroups(pluginInfos) {
 
 		} else {
 			class MasterConfigGroup extends classes.PluginConfigGroup { }
+			MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
 			MasterConfigGroup.groupName = pluginInfo.name;
 			MasterConfigGroup.finalize();
 			MasterConfig.registerGroup(MasterConfigGroup);
@@ -402,6 +409,7 @@ function registerPluginConfigGroups(pluginInfos) {
 
 			} else {
 				class InstanceConfigGroup extends classes.PluginConfigGroup { }
+				InstanceConfigGroup.defaultAccess = ["master", "slave", "control"];
 				InstanceConfigGroup.groupName = pluginInfo.name;
 				InstanceConfigGroup.finalize();
 				InstanceConfig.registerGroup(InstanceConfigGroup);

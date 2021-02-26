@@ -1,11 +1,15 @@
 "use strict";
 const classes = require("@clusterio/lib/config/classes");
 const assert = require("assert").strict;
+const events = require("events");
 
 
 describe("lib/config/classes", function() {
 	describe("ConfigGroup", function() {
+		let mockConfig = new events.EventEmitter();
+		mockConfig.location = "local";
 		class TestGroup extends classes.ConfigGroup { }
+		TestGroup.defaultAccess = ["local", "remote"];
 		TestGroup.groupName = "test_group";
 		describe(".define()", function() {
 			it("should throw if groupName is not set", function() {
@@ -23,6 +27,10 @@ describe("lib/config/classes", function() {
 			});
 			it("should throw on invalid properties", function() {
 				for (let [def, error] of [
+					[
+						{ access: "local", name: "a", type: "string", optional: true },
+						"access must be an array",
+					],
 					[
 						{ name: "a", type: "invalid", optional: true },
 						"invalid is not a valid type",
@@ -59,6 +67,14 @@ describe("lib/config/classes", function() {
 					assert.throws(() => TestGroup.define(def), new Error(error));
 				}
 			});
+			it("should throw on defaultAccess not set", function() {
+				class NoAccessGroup extends classes.ConfigGroup { }
+				NoAccessGroup.groupName = "no_access";
+				assert.throws(
+					() => NoAccessGroup.define({ name: "a", type: "string", optional: true }),
+					new Error("access not set and no defaultAccess defined for NoAccessGroup")
+				);
+			});
 			it("should throw on missing properties", function() {
 				assert.throws(
 					() => TestGroup.define({ type: "string", optional: true }),
@@ -74,11 +90,13 @@ describe("lib/config/classes", function() {
 				TestGroup.define({ name: "func", type: "number", initial_value: () => 42 });
 				TestGroup.define({ name: "bool", type: "boolean", initial_value: false, optional: true });
 				TestGroup.define({ name: "json", type: "object", initial_value: {}, optional: true });
+				TestGroup.define({ name: "priv", access: ["local"], type: "string", optional: true });
 
 				assert(TestGroup._definitions.has("test"), "field test was not defined");
 				assert(TestGroup._definitions.has("func"), "field func was not defined");
 				assert(TestGroup._definitions.has("bool"), "field bool was not defined");
 				assert(TestGroup._definitions.has("json"), "field json was not defined");
+				assert(TestGroup._definitions.has("priv"), "field priv was not defined");
 			});
 
 			it("should throw on already defined entries", function() {
@@ -90,6 +108,7 @@ describe("lib/config/classes", function() {
 
 			it("should set the entries on the class", function() {
 				let field = {
+					access: ["local", "remote"],
 					type: "string",
 					name: "enum",
 					title: "Enum",
@@ -122,7 +141,7 @@ describe("lib/config/classes", function() {
 			});
 			it("should throw when creating an instance before finalize", function() {
 				assert.throws(
-					() => new TestGroup(),
+					() => new TestGroup(mockConfig),
 					new Error("Cannot instantiate incomplete ConfigGroup class TestGroup")
 				);
 			});
@@ -141,24 +160,31 @@ describe("lib/config/classes", function() {
 
 		describe("constructor", function() {
 			it("should create an instance", function() {
-				let testInstance = new TestGroup();
+				let testInstance = new TestGroup(mockConfig);
 			});
 		});
 
 		describe(".init()", function() {
 			it("should initialize all fields with defaults", async function() {
-				let testInstance = new TestGroup();
+				let testInstance = new TestGroup(mockConfig);
 				await testInstance.init();
 
 				assert.equal(testInstance.get("enum"), "b");
 				assert.equal(testInstance.get("test"), null);
 				assert.equal(testInstance.get("func"), 42);
+				assert.equal(testInstance.get("priv"), null);
+			});
+			it("should not initalize inaccessible fields", async function() {
+				let testInstance = new TestGroup({ location: "remote" });
+				await testInstance.init();
+				assert.equal(testInstance._fields.get("enum"), "b");
+				assert.equal(testInstance._fields.get("priv"), undefined);
 			});
 		});
 
 		describe("get name", function() {
 			it("should give the name of the group", async function() {
-				let testInstance = new TestGroup();
+				let testInstance = new TestGroup(mockConfig);
 				await testInstance.init();
 				assert.equal(testInstance.name, "test_group");
 			});
@@ -166,10 +192,26 @@ describe("lib/config/classes", function() {
 
 		describe(".serialize()", function() {
 			it("should serialize a basic group", async function() {
-				let testInstance = new TestGroup();
+				let testInstance = new TestGroup(mockConfig);
 				await testInstance.init();
 
 				assert.deepEqual(testInstance.serialize(), {
+					name: "test_group",
+					fields: {
+						enum: "b",
+						test: null,
+						func: 42,
+						bool: false,
+						json: {},
+						priv: null,
+					},
+				});
+			});
+			it("should leave out inaccessible fields", async function() {
+				let testInstance = new TestGroup(mockConfig);
+				await testInstance.init();
+
+				assert.deepEqual(testInstance.serialize("remote"), {
 					name: "test_group",
 					fields: {
 						enum: "b",
@@ -184,28 +226,35 @@ describe("lib/config/classes", function() {
 
 		describe(".load()", function() {
 			it("should load a basic group", async function() {
-				let testInstance = new TestGroup();
-				await testInstance.load(null, { name: "test_group", fields: {
+				let testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: {
 					enum: "c",
 					test: "blah",
 					func: 22,
 					bool: null,
 					json: { valid: true },
+					priv: "bar",
 				}});
 
 				assert.equal(testInstance.get("enum"), "c");
 				assert.equal(testInstance.get("test"), "blah");
 				assert.equal(testInstance.get("func"), 22);
 				assert.equal(testInstance.get("bool"), null);
+				assert.equal(testInstance.get("priv"), "bar");
 				assert.deepEqual(testInstance.get("json"), { valid: true });
 			});
 			it("should load defaults for missing serialized fields", async function() {
-				let testInstance = new TestGroup();
-				await testInstance.load(null, { name: "test_group", fields: { enum: "a" } });
+				let testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: { enum: "a" } });
 
 				assert.equal(testInstance.get("enum"), "a");
 				assert.equal(testInstance.get("test"), null);
 				assert.equal(testInstance.get("func"), 42);
+			});
+			it("should ignore inaccessible fields", async function() {
+				let testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: { priv: "bad" } }, "remote");
+				assert.equal(testInstance.get("priv"), null);
 			});
 
 			it("should preserve unknown fields when serialized back", async function() {
@@ -215,13 +264,14 @@ describe("lib/config/classes", function() {
 					func: 50,
 					bool: false,
 					json: {},
+					priv: null,
 					alpha: null,
 					beta: "decay",
 					gamma: 99,
 				};
 
-				let testInstance = new TestGroup();
-				await testInstance.load(null, { name: "test_group", fields: testFields });
+				let testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: testFields });
 
 				assert.deepEqual(testInstance.serialize().fields, testFields);
 			});
@@ -229,7 +279,7 @@ describe("lib/config/classes", function() {
 
 		describe(".update()", function() {
 			it("should skip updating invalid values", async function() {
-				let testInstance = new TestGroup();
+				let testInstance = new TestGroup(mockConfig);
 				await testInstance.init();
 				testInstance.update({ name: "test_group", fields: { enum: "wrong", test: 3, func: null }}, false);
 
@@ -237,9 +287,19 @@ describe("lib/config/classes", function() {
 				assert.equal(testInstance.get("test"), null);
 				assert.equal(testInstance.get("func"), 42);
 			});
+			it("should skip updating inaccessible fields", async function() {
+				let testInstance = new TestGroup(mockConfig);
+				await testInstance.init();
+				testInstance.update(
+					{ name: "test_group", fields: { test: "a", priv: "bad" }}, false, "remote"
+				);
+
+				assert.equal(testInstance.get("test"), "a");
+				assert.equal(testInstance.get("priv"), null);
+			});
 
 			it("should throw on invalid input", function() {
-				let testInstance = new TestGroup();
+				let testInstance = new TestGroup(mockConfig);
 				assert.throws(
 					() => testInstance.update(),
 					new Error("Expected object, not undefined for ConfigGroup")
@@ -263,19 +323,65 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		describe(".canAccess()", function() {
+			let testInstance;
+			before(async function() {
+				testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: {
+					enum: "a", priv: "blah", func: 27,
+				}});
+			});
+			it("should return true for fields that are accessible", function() {
+				for (let field of ["enum", "test", "func", "bool", "json"]) {
+					assert.equal(testInstance.canAccess(field), true);
+					assert.equal(testInstance.canAccess(field, "local"), true);
+					assert.equal(testInstance.canAccess(field, "remote"), true);
+				}
+				assert.equal(testInstance.canAccess("priv"), true);
+				assert.equal(testInstance.canAccess("priv", "local"), true);
+				assert.equal(testInstance.canAccess("priv", "remote"), false);
+			});
+		});
+
+		describe(".get()", function() {
+			let testInstance;
+			before(async function() {
+				testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: {
+					enum: "a", priv: "blah", func: 27,
+				}});
+			});
+			it("should retreive value of field", function() {
+				assert.equal(testInstance.get("enum"), "a");
+				assert.equal(testInstance.get("priv"), "blah");
+				assert.equal(testInstance.get("func"), 27);
+			});
+			it("should throw if field is inaccessible", function() {
+				assert.throws(
+					() => testInstance.get("priv", "remote"),
+					new classes.InvalidAccess("Field 'priv' is not accessible from remote")
+				);
+			});
+		});
+
 		describe(".set()", function() {
 			let testInstance;
 			before(async function() {
-				testInstance = new TestGroup();
-				await testInstance.load(null, { name: "test_group", fields: {
-					enum: "a", test: "blah", func: 27,
-				}});
+				testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: { enum: "a", test: "blah", func: 27 }});
 			});
 
 			it("should throw if field does not exist", function() {
 				assert.throws(
 					() => testInstance.set("bar", 1),
 					new classes.InvalidField("No field named 'bar'")
+				);
+			});
+
+			it("should throw if field is inaccesible", function() {
+				assert.throws(
+					() => testInstance.set("priv", "bad", "remote"),
+					new classes.InvalidAccess("Field 'priv' is not accessible from remote")
 				);
 			});
 
@@ -366,8 +472,8 @@ describe("lib/config/classes", function() {
 		describe(".setProp()", function() {
 			let testInstance;
 			before(async function() {
-				testInstance = new TestGroup();
-				await testInstance.load(null, { name: "test_group", fields: {
+				testInstance = new TestGroup(mockConfig);
+				await testInstance.load({ name: "test_group", fields: {
 					enum: "a", test: "blah", func: 27,
 				}});
 			});
@@ -379,9 +485,16 @@ describe("lib/config/classes", function() {
 				);
 			});
 
+			it("should throw if field is inaccesible", function() {
+				assert.throws(
+					() => testInstance.setProp("priv", "prop", "bad", "remote"),
+					new classes.InvalidAccess("Field 'priv' is not accessible from remote")
+				);
+			});
+
 			it("should throw if field is not an object", function() {
 				assert.throws(
-					() => testInstance.setProp("enum", "a"),
+					() => testInstance.setProp("enum", "prop", "a"),
 					new classes.InvalidField("Cannot set property on non-object field 'enum'")
 				);
 			});
@@ -408,8 +521,10 @@ describe("lib/config/classes", function() {
 
 	describe("Config", function() {
 		class AlphaGroup extends classes.ConfigGroup { }
+		AlphaGroup.defaultAccess = ["local", "remote"];
 		AlphaGroup.groupName = "alpha";
 		class BetaGroup extends classes.ConfigGroup { }
+		BetaGroup.defaultAccess = ["local", "remote"];
 		BetaGroup.groupName = "beta";
 		class TestConfig extends classes.Config { }
 
@@ -454,20 +569,26 @@ describe("lib/config/classes", function() {
 		describe("constructor", function() {
 			it("should throw if config is not finalized", function() {
 				assert.throws(
-					() => new TestConfig(),
+					() => new TestConfig("local"),
 					new Error("Cannot instantiate incomplete Config class TestConfig")
 				);
 			});
 			it("should construct a finalized class", function() {
 				TestConfig.finalize();
-				let config = new TestConfig();
+				let config = new TestConfig("local");
 				assert(config);
+			});
+			it("should throw if location is not passed", function() {
+				assert.throws(
+					() => new TestConfig(),
+					new Error("location must be a string")
+				);
 			});
 		});
 
 		describe(".init()", function() {
 			it("should initialize all fields", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.init();
 				assert.equal(testInstance.get("alpha.foo"), null);
 				assert.deepEqual(testInstance.get("beta.bar"), {});
@@ -476,7 +597,7 @@ describe("lib/config/classes", function() {
 
 		describe(".serialize()", function() {
 			it("should serialize a basic config", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.init();
 				assert.deepEqual(testInstance.serialize(), {
 					groups: [
@@ -495,7 +616,7 @@ describe("lib/config/classes", function() {
 
 		describe(".load()", function() {
 			it("should reject on incorrect input passed", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await assert.rejects(
 					testInstance.load(null),
 					new Error("Expected object, not null for config")
@@ -511,7 +632,7 @@ describe("lib/config/classes", function() {
 			});
 
 			it("should load defaults for missing serialized groups", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.load({ groups: [{ name: "alpha", fields: { foo: "a" }}] });
 
 				assert.equal(testInstance.get("alpha.foo"), "a");
@@ -534,7 +655,7 @@ describe("lib/config/classes", function() {
 					},
 				];
 
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.load({ groups: testGroups });
 
 				assert.deepEqual(testInstance.serialize().groups, testGroups);
@@ -543,7 +664,7 @@ describe("lib/config/classes", function() {
 
 		describe(".update()", function() {
 			it("should update a basic config", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.init();
 				testInstance.update({ groups: [
 					{
@@ -577,7 +698,7 @@ describe("lib/config/classes", function() {
 
 		describe(".group()", function() {
 			it("should throw if instance is not initialized", function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				assert.throws(
 					() => testInstance.group("test"),
 					new Error("TestConfig instance is uninitialized")
@@ -585,16 +706,39 @@ describe("lib/config/classes", function() {
 			});
 		});
 
+		describe(".canAccess()", function() {
+			it("should throw if group does not exist", async function() {
+				let testInstance = new TestConfig("local");
+				await testInstance.init();
+
+				assert.throws(() => testInstance.canAccess("invalid"), new Error("No config group named 'invalid'"));
+			});
+
+			it("should throw if no field is specified", async function() {
+				let testInstance = new TestConfig("local");
+				await testInstance.init();
+
+				assert.throws(() => testInstance.canAccess("alpha"), new Error("No field named ''"));
+			});
+
+			it("should return true for an accessible field", async function() {
+				let testInstance = new TestConfig("local");
+				await testInstance.init();
+
+				assert.equal(testInstance.canAccess("alpha.foo"), true);
+			});
+		});
+
 		describe(".get()", function() {
 			it("should throw if group does not exist", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.init();
 
 				assert.throws(() => testInstance.get("invalid"), new Error("No config group named 'invalid'"));
 			});
 
 			it("should throw if no field is specified", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.init();
 
 				assert.throws(() => testInstance.get("alpha"), new Error("No field named ''"));
@@ -603,7 +747,7 @@ describe("lib/config/classes", function() {
 
 		describe(".set()", function() {
 			it("should set the value", async function() {
-				let testInstance = new TestConfig();
+				let testInstance = new TestConfig("local");
 				await testInstance.init();
 
 				testInstance.set("alpha.foo", "new value");
@@ -621,7 +765,7 @@ describe("lib/config/classes", function() {
 			let testInstance;
 			let called;
 			beforeEach(async function() {
-				testInstance = new TestConfig();
+				testInstance = new TestConfig("local");
 				await testInstance.init();
 
 				called = false;
