@@ -15,7 +15,7 @@ describe("Slave testing", function() {
 	describe("class Instance", function() {
 		let instance;
 		before(async function() {
-			let instanceConfig = new libConfig.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig("slave");
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "foo");
 			instance = new slave._Instance({}, new libLink.VirtualConnector(), "dir", "factorioDir", instanceConfig);
@@ -96,7 +96,7 @@ describe("Slave testing", function() {
 			await fs.outputFile(path.join(testDir, "shared", "mod_b.zip"), "b");
 			await fs.outputFile(path.join(testDir, "shared", "mod.dat"), "c");
 
-			let instanceConfig = new libConfig.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig("slave");
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "test");
 			instance = new slave._Instance(
@@ -149,7 +149,7 @@ describe("Slave testing", function() {
 			let instancePath = path.join("test", "file", "instances");
 			let instanceInfos = await slave._discoverInstances(instancePath);
 
-			let referenceConfig = new libConfig.InstanceConfig();
+			let referenceConfig = new libConfig.InstanceConfig("slave");
 			await referenceConfig.init();
 			referenceConfig.set("instance.id", 1);
 			referenceConfig.set("instance.name", "test");

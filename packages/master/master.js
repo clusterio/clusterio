@@ -115,7 +115,7 @@ function serveWeb(route) {
 }
 
 // Set folder to serve static content from (the website)
-app.use(express.static(path.join(__dirname, "static")));
+app.use(express.static(path.join(__dirname, "dist", "web")));
 app.use(express.static("static")); // Used for data export files
 
 const slaveMappingGauge = new libPrometheus.Gauge(
@@ -372,7 +372,7 @@ async function loadInstances(databaseDirectory, file) {
 	try {
 		let serialized = JSON.parse(await fs.readFile(filePath));
 		for (let serializedConfig of serialized) {
-			let instanceConfig = new libConfig.InstanceConfig();
+			let instanceConfig = new libConfig.InstanceConfig("master");
 			await instanceConfig.load(serializedConfig);
 			let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
 			instances.set(instanceConfig.get("instance.id"), { config: instanceConfig, status });
@@ -477,11 +477,16 @@ async function saveUsers(databaseDirectory, file) {
 	await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
 }
 
+let shuttingDown = false;
 /**
  * Innitiate shutdown of master server
  */
 async function shutdown() {
-	logger.info("Shutting down");
+	if (shuttingDown) {
+		return;
+	}
+	shuttingDown = true;
+
 	let exitStartTime = Date.now();
 	try {
 		logger.info("Saving configs");
@@ -557,7 +562,7 @@ class BaseConnection extends libLink.Link {
 		super("master", target, connector);
 		libLink.attachAllMessages(this);
 		for (let masterPlugin of masterPlugins.values()) {
-			libPlugin.attachPluginMessages(this, masterPlugin.info, masterPlugin);
+			libPlugin.attachPluginMessages(this, masterPlugin);
 		}
 	}
 
@@ -682,7 +687,8 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
-	async updateSlaves(id) {
+
+  async updateSlaves(id) {
 		let slave = db.slaves.get(id);
 		if (!slave) { return; };
 		let item = {
@@ -697,6 +703,19 @@ class ControlConnection extends BaseConnection {
 
 	async setLiveSlaveSubscriptionRequestHandler(message) {
 		this.doLiveUpdateSlaves = message.data.connect;
+
+	async getMasterConfigRequestHandler() {
+		return { serialized_config: masterConfig.serialize("control") };
+	}
+
+	async setMasterConfigFieldRequestHandler(message) {
+		masterConfig.set(message.data.field, message.data.value, "control");
+	}
+
+	async setMasterConfigPropRequestHandler(message) {
+		let { field, prop, value } = message.data;
+		masterConfig.setProp(field, prop, value, "control");
+
 	}
 
 	async listSlavesRequestHandler(message) {
@@ -722,7 +741,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async createSlaveConfigRequestHandler(message) {
-		let slaveConfig = new libConfig.SlaveConfig();
+		let slaveConfig = new libConfig.SlaveConfig("control");
 		await slaveConfig.init();
 
 		slaveConfig.set("slave.master_url", getMasterUrl());
@@ -754,7 +773,7 @@ class ControlConnection extends BaseConnection {
 
 	// XXX should probably add a hook for slave reuqests?
 	async createInstanceRequestHandler(message) {
-		let instanceConfig = new libConfig.InstanceConfig();
+		let instanceConfig = new libConfig.InstanceConfig("master");
 		await instanceConfig.load(message.data.serialized_config);
 
 		let instanceId = instanceConfig.get("instance.id");
@@ -810,7 +829,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		return {
-			serialized_config: instance.config.serialize(),
+			serialized_config: instance.config.serialize("control"),
 		};
 	}
 
@@ -821,7 +840,7 @@ class ControlConnection extends BaseConnection {
 			if (connection) {
 				await libLink.messages.assignInstance.send(connection, {
 					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize(),
+					serialized_config: instance.config.serialize("slave"),
 				});
 			}
 		}
@@ -842,7 +861,7 @@ class ControlConnection extends BaseConnection {
 			throw new libErrors.RequestError("Setting instance.id is not supported");
 		}
 
-		instance.config.set(message.data.field, message.data.value);
+		instance.config.set(message.data.field, message.data.value, "control");
 		await this.updateInstanceConfig(instance);
 	}
 
@@ -853,7 +872,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		let { field, prop, value } = message.data;
-		instance.config.setProp(field, prop, value);
+		instance.config.setProp(field, prop, value, "control");
 		await this.updateInstanceConfig(instance);
 	}
 
@@ -892,7 +911,7 @@ class ControlConnection extends BaseConnection {
 		if (slave_id !== null) {
 			await libLink.messages.assignInstance.send(newSlaveConnection, {
 				instance_id,
-				serialized_config: instance.config.serialize(),
+				serialized_config: instance.config.serialize("slave"),
 			});
 		}
 	}
@@ -1184,7 +1203,7 @@ class SlaveConnection extends BaseConnection {
 			}
 		});
 
-		for (let event of ["connect", "drop", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"]) {
 			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let masterPlugin of masterPlugins.values()) {
@@ -1218,15 +1237,15 @@ class SlaveConnection extends BaseConnection {
 			if (instance.config.get("instance.assigned_slave") === this._id) {
 				await libLink.messages.assignInstance.send(this, {
 					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize(),
+					serialized_config: instance.config.serialize("slave"),
 				});
 			}
 		}
 
 		// Assign instances the slave has but master does not
 		for (let instance of message.data.instances) {
-			let instanceConfig = new libConfig.InstanceConfig();
-			await instanceConfig.load(instance.serialized_config);
+			let instanceConfig = new libConfig.InstanceConfig("master");
+			await instanceConfig.load(instance.serialized_config, "slave");
 
 			let masterInstance = db.instances.get(instanceConfig.get("instance.id"));
 			if (masterInstance) {
@@ -1255,7 +1274,7 @@ class SlaveConnection extends BaseConnection {
 			});
 			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
-				serialized_config: instanceConfig.serialize(),
+				serialized_config: instanceConfig.serialize("slave"),
 			});
 		}
 
@@ -1413,7 +1432,7 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 		for (let message of this._sendBuffer) {
 			this._socket.send(JSON.stringify(message));
 		}
-		this.emit("connect");
+		this.emit("resume");
 	}
 
 	setTimeout(timeout) {
@@ -1814,7 +1833,7 @@ async function handleBootstrapCommand(args) {
 			process.exitCode = 1;
 			return;
 		}
-		let controlConfig = new libConfig.ControlConfig();
+		let controlConfig = new libConfig.ControlConfig("control");
 		await controlConfig.init();
 
 		controlConfig.set("control.master_url", getMasterUrl());
@@ -1926,7 +1945,7 @@ async function initialize() {
 
 	masterConfigPath = args.config;
 	logger.info(`Loading config from ${masterConfigPath}`);
-	masterConfig = new libConfig.MasterConfig();
+	masterConfig = new libConfig.MasterConfig("master");
 	try {
 		await masterConfig.load(JSON.parse(await fs.readFile(masterConfigPath)));
 
@@ -1979,6 +1998,7 @@ async function startServer(args) {
 	let secondSigint = false;
 	process.on("SIGINT", () => {
 		if (secondSigint) {
+			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
 			// eslint-disable-next-line no-process-exit
 			process.exit(1);
@@ -1988,13 +2008,22 @@ async function startServer(args) {
 		logger.info("Caught interrupt signal, shutting down");
 		shutdown();
 	});
+	let secondSigterm = false;
+	process.on("SIGTERM", () => {
+		if (secondSigterm) {
+			setBlocking(true);
+			logger.fatal("Caught second termination, terminating immediately");
+			// eslint-disable-next-line no-process-exit
+			process.exit(1);
+		}
 
-	// terminal closed
+		secondSigterm = true;
+		logger.info("Caught termination signal, shutting down");
+		shutdown();
+	});
 	process.on("SIGHUP", () => {
-		// No graceful cleanup, no warning out (stdout is likely closed.)
-		// Don't close the terminal with the clusterio master in it.
-		// eslint-disable-next-line no-process-exit
-		process.exit(1);
+		logger.info("Terminal closed, shutting down");
+		shutdown();
 	});
 
 	await fs.ensureDir(masterConfig.get("master.database_directory"));
@@ -2041,8 +2070,8 @@ async function startServer(args) {
 		}
 
 		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-		let staticPath = path.join(path.dirname(pluginPackagePath), "static");
-		app.use(`/plugin/${pluginInfo.name}`, express.static(staticPath));
+		let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
+		app.use(`/plugin/${pluginInfo.name}`, express.static(webPath));
 	}
 
 	// Load plugins

@@ -47,10 +47,6 @@ static/export
 saves
 /temp/
 
-# Web build
-/packages/master/static
-/plugins/*/static
-
 # IDE
 .idea/
 .vs/

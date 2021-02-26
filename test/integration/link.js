@@ -34,17 +34,17 @@ describe("Integration of lib/link", function() {
 
 	it("should reconnect on connection lost", async function() {
 		controlConnector._socket.close(1008, "Test");
-		await events.once(controlConnector, "connect");
+		await events.once(controlConnector, "resume");
 	});
 
 	it("should reconnect on connection terminated", async function() {
 		controlConnector._socket.terminate();
-		await events.once(controlConnector, "connect");
+		await events.once(controlConnector, "resume");
 	});
 
 	it("should reconnect on connection heartbeat timeout", async function() {
 		controlConnector.stopHeartbeat();
-		await events.once(controlConnector, "connect");
+		await events.once(controlConnector, "resume");
 	});
 
 	it("should invalidate on reconnection with bad session token", async function() {

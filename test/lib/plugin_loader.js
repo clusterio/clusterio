@@ -4,6 +4,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
+const { escapeRegExp } = require("@clusterio/lib/helpers");
 
 
 describe("lib/plugin_loader", function() {
@@ -34,7 +35,7 @@ describe("lib/plugin_loader", function() {
 		it("should throw on missing plugin", async function() {
 			await assert.rejects(
 				libPluginLoader.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
-				new RegExp(`^Error: PluginError: Cannot find module '${missingPlugin}/info'`)
+				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}/info'`)
 			);
 		});
 		it("should load test plugin", async function() {

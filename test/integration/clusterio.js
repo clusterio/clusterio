@@ -4,6 +4,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libLink = require("@clusterio/lib/link");
+const libUsers = require("@clusterio/lib/users");
 
 const { slowTest, get, exec, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
@@ -34,6 +35,42 @@ describe("Integration of Clusterio", function() {
 	});
 
 	describe("clusterioctl", function() {
+		describe("master config list", function() {
+			it("runs", async function() {
+				await execCtl("master config list");
+			});
+			it("should not leak auth_secret", async function() {
+				let result = await libLink.messages.getMasterConfig.send(getControl());
+				let done = false;
+				for (let group of result.serialized_config.groups) {
+					if (group.name === "master") {
+						assert.equal(Object.prototype.hasOwnProperty.call(group.fields, "auth_secret"), false);
+						done = true;
+						break;
+					}
+				}
+				assert(done, "master group not found");
+			});
+		});
+		describe("master config set", function() {
+			it("sets given config option", async function() {
+				await execCtl('master config set master.name "Test Cluster"');
+				let result = await libLink.messages.getMasterConfig.send(getControl());
+				let done = false;
+				for (let group of result.serialized_config.groups) {
+					if (group.name === "master") {
+						assert.equal(group.fields.name, "Test Cluster");
+						done = true;
+						break;
+					}
+				}
+				assert(done, "master group not found");
+			});
+			it("should not allow setting auth_secret", async function() {
+				await assert.rejects(execCtl("master config set master.auth_secret root"));
+			});
+		});
+
 		describe("slave list", function() {
 			it("runs", async function() {
 				await execCtl("slave list");
@@ -115,7 +152,7 @@ describe("Integration of Clusterio", function() {
 					],
 					[
 						"allow_commands", true,
-						"allow-commands", "Yes",
+						"allow-commands", "Allow Lua commands: Yes.",
 					],
 					[
 						"autosave_interval", 17,
@@ -282,16 +319,40 @@ describe("Integration of Clusterio", function() {
 
 		describe("role edit", function() {
 			it("should modify the given role", async function() {
-				let args = "--name new --description \"A new role\" --permissions";
+				let args = "--name new --description \"A new role\" --set-perms";
 				await execCtl(`role edit temp ${args}`);
 				let result = await libLink.messages.listRoles.send(getControl());
 				let newRole = result.list.find(role => role.name === "new");
 				assert.deepEqual(newRole, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
+			it("should add permissions with --add-perms", async function() {
+				let args = "--name new --add-perms core.slave.list core.instance.list";
+				await execCtl(`role edit new ${args}`);
+				let result = await libLink.messages.listRoles.send(getControl());
+				let newRole = result.list.find(role => role.name === "new");
+				assert.deepEqual(newRole.permissions, ["core.slave.list", "core.instance.list"]);
+			});
+			it("should remove permissions with --remove-perms", async function() {
+				let args = "--name new --remove-perms core.slave.list";
+				await execCtl(`role edit new ${args}`);
+				let result = await libLink.messages.listRoles.send(getControl());
+				let newRole = result.list.find(role => role.name === "new");
+				assert.deepEqual(newRole.permissions, ["core.instance.list"]);
+			});
+			it("should grant default permissions with --grant-default", async function() {
+				await execCtl("role edit new --grant-default");
+				let result = await libLink.messages.listRoles.send(getControl());
+				let newRole = result.list.find(role => role.name === "new");
+				let defaultPermissions = [...libUsers.permissions.values()]
+					.filter(p => p.grantByDefault)
+					.map(p => p.name)
+				;
+				assert.deepEqual(new Set(newRole.permissions), new Set(defaultPermissions));
+			});
 		});
 
 		describe("role delete", function() {
-			it("should modify the given role", async function() {
+			it("should delete the given role", async function() {
 				await execCtl("role delete new");
 				let result = await libLink.messages.listRoles.send(getControl());
 				let newRole = result.list.find(role => role.name === "new");

@@ -148,13 +148,12 @@ class BaseInstancePlugin {
 	/**
 	 * Called when an event on the master connection happens
 	 *
-	 * The event param may be one of connect, drop and close and has the
-	 * following meaning:
+	 * The event param may be one of connect, drop, resume and close and has
+	 * the following meaning:
 	 *
 	 * ##### connect
 	 *
-	 * Invoked when a new connection to the master has been established, or
-	 * the existing one that have previously been dropped is re-established.
+	 * Invoked when a new connection to the master has been established.
 	 *
 	 * ##### drop
 	 *
@@ -166,6 +165,11 @@ class BaseInstancePlugin {
 	 * memory on the slave and sent all in one go when the connection is
 	 * re-established again.
 	 *
+	 * ##### resume
+	 *
+	 * Invoked when the connection that had previously dropped is
+	 * re-established.
+	 *
 	 * ##### close
 	 *
 	 * Invoked when the connection to the master has been closed.  This
@@ -173,7 +177,7 @@ class BaseInstancePlugin {
 	 * send any messages that goes to or via the master server after the
 	 * connection has been closed and before a new one is established.
 	 *
-	 * @param {string} event - one of connect, drop, and close
+	 * @param {string} event - one of connect, drop, resume and close
 	 */
 	onMasterConnectionEvent(event) { }
 
@@ -293,13 +297,12 @@ class BaseMasterPlugin {
 	/**
 	 * Called when an event on a slave connection happens
 	 *
-	 * The event param may be one of connect, drop and close and has the
-	 * following meaning:
+	 * The event param may be one of connect, drop, resume and close and has
+	 * the following meaning:
 	 *
 	 * ##### connect
 	 *
-	 * Invoked when a new connection to the slave has been established, or
-	 * an existing one that had previously been dropped is re-established.
+	 * Invoked when a new connection to the slave has been established.
 	 *
 	 * ##### drop
 	 *
@@ -311,13 +314,18 @@ class BaseMasterPlugin {
 	 * memory on the master and sent all in one go when the connection is
 	 * re-established again.
 	 *
+	 * ##### resume
+	 *
+	 * Invoked when a connection that had previously been dropped is
+	 * re-established
+	 *
 	 * ##### close
 	 *
 	 * Invoked when the connection to the slave has been closed.
 	 *
 	 * @param {module:master/master~SlaveConnection} connection -
 	 *     The connection the event occured on.
-	 * @param {string} event - one of connect, drop, and close
+	 * @param {string} event - one of connect, drop, resume and close
 	 */
 	onSlaveConnectionEvent(connection, event) { }
 
@@ -418,19 +426,18 @@ class BaseControlPlugin {
 /**
  * Attach plugin messages
  *
- * Attaches all messages defined in the `.message` property of the
- * `pluginInfo` passed with handlers taken from `pluin`.
+ * Attaches all messages defined in the `.info.message` property of the
+ * `plugin` passed with handlers taken from the `pluin`.
  *
  * @param {module:lib/link.Link} link - Link to attach handlers to.
- * @param {object} pluginInfo - Plugin info object.
  * @param {module:lib/plugin.BasePlugin} plugin -
- *     The instance of the plugin to use handlers from.
+ *     The instance of the plugin attach messages and handlers from.
  */
-function attachPluginMessages(link, pluginInfo, plugin) {
-	let messageDefinitions = pluginInfo.messages || [];
+function attachPluginMessages(link, plugin) {
+	let messageDefinitions = plugin.info.messages || [];
 	for (let [name, messageFormat] of Object.entries(messageDefinitions)) {
-		if (messageFormat.plugin !== pluginInfo.name) {
-			throw new Error(`Type of ${name} message must start with "${pluginInfo.name}:"`);
+		if (messageFormat.plugin !== plugin.info.name) {
+			throw new Error(`Type of ${name} message must start with "${plugin.info.name}:"`);
 		}
 
 		let handler = name + messageFormat.handlerSuffix;
@@ -444,7 +451,7 @@ function attachPluginMessages(link, pluginInfo, plugin) {
 
 		} catch (err) {
 			if (err.code === "MISSING_LINK_HANDLER") {
-				err.plugin = pluginInfo.name;
+				err.plugin = plugin.info.name;
 				err.handler = handler;
 			}
 

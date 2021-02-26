@@ -300,6 +300,37 @@ messages.debugDumpWs = new Request({
 
 
 // Management requests
+messages.getMasterConfig = new Request({
+	type: "get_master_config",
+	links: ["control-master"],
+	permission: "core.master.get_config",
+	responseProperties: {
+		"serialized_config": { type: "object" },
+	},
+});
+
+messages.setMasterConfigField = new Request({
+	type: "set_master_config_field",
+	links: ["control-master"],
+	permission: "core.master.update_config",
+	requestProperties: {
+		"field": { type: "string" },
+		"value": { type: "string" },
+	},
+});
+
+messages.setMasterConfigProp = new Request({
+	type: "set_master_config_prop",
+	links: ["control-master"],
+	permission: "core.master.update_config",
+	requestRequired: ["field", "prop"],
+	requestProperties: {
+		"field": { type: "string" },
+		"prop": { type: "string" },
+		"value": {},
+	},
+});
+
 messages.listSlaves = new Request({
 	type: "list_slaves",
 	links: ["control-master"],

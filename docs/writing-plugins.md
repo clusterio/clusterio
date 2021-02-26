@@ -224,12 +224,13 @@ but for event handlers registered on EventEmitters it's critical that
 exceptions are catched and handled appropriately.
 
 
-Defining Configuration
-----------------------
+Plugin Configuration
+--------------------
 
 Clusterio provides a configuration system that handles storing,
 distributing, editing and validating config fields for you.  You can
-take advantage of it by subclassing `PluginConfigGroup`, setting the
+take advantage of it by subclassing `PluginConfigGroup`, setting
+`defaultAccess` to where config entries can be accessed from, setting the
 `groupName` to your plugin name, defining fields on it, finalizing it,
 and passing it as either `MasterConfigGroup` or `InstanceConfigGroup` in
 the `info.js` export.  For example in info.js:
@@ -237,6 +238,7 @@ the `info.js` export.  For example in info.js:
     const libConfig = require("@clusterio/lib/config");
 
     class MasterConfigGroup extends libConfig.PluginConfigGroup { }
+    MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
     MasterConfigGroup.groupName = "foo_frobber";
     MasterConfigGroup.define({
         name: "level",
@@ -261,7 +263,7 @@ for example in the MasterPluginClass:
     }
 
 The same applies for instance configs, replace "master" with "instance"
-where appropriate.  See [Configuration System](configuration-system.md)
+where appropriate.  See [Configuration System](config-system.md)
 for more details on how this system works.
 
 
@@ -621,7 +623,7 @@ until the connection is re-established.  This means that if your plugin
 sends a lot of events or requests, they can end up being queued up in a
 buffer for a long time and sent out all at once.  To avoid this you
 should be throtteling and/or stopping your requests/events after `drop`
-has been raised, and continue back as normal when `connect` is raised.
+has been raised, and continue back as normal when `resume` is raised.
 
 
 Collecting Statistics
@@ -660,7 +662,7 @@ set it accordingly, for example:
     );
 
     // Somewhere in the instance plugin code
-    barMetric.labels(String(this.instance.config.get("instance.id"))).set(someValue);
+    barMetric.labels(String(this.instance.id)).set(someValue);
 
 Metrics are automatically registered to the default registry, and this
 default registry is automatically polled by the master server on slaves.

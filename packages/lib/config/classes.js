@@ -8,6 +8,17 @@ const { basicType } = require("@clusterio/lib/helpers");
 
 
 /**
+ * Invalid Access exception
+ *
+ * Exception class for when an access attempt is made to a field that
+ * does not permitt this access is done.
+ *
+ * @extends Error
+ * @memberof module:lib/config
+ */
+class InvalidAccess extends Error { };
+
+/**
  * Invalid Value exception
  *
  * Exception class for when invalid values are attempted to be set on a
@@ -69,13 +80,24 @@ function splitOn(separator, string) {
  * @memberof module:lib/config
  */
 class Config extends events.EventEmitter {
-	constructor() {
+	/**
+	 * Create a new instance of the given config
+	 *
+	 * @param {string} location -
+	 *     Location to evaluate access for this instance from
+	 */
+	constructor(location) {
 		super();
 
 		if (!this.constructor._finalized) {
 			throw new Error(`Cannot instantiate incomplete Config class ${this.constructor.name}`);
 		}
 
+		if (typeof location !== "string") {
+			throw new Error("location must be a string");
+		}
+
+		this.location = location;
 		this._groups = new Map();
 		this._unknownGroups = new Map();
 	}
@@ -83,8 +105,8 @@ class Config extends events.EventEmitter {
 	async init() {
 		for (let [name, GroupClass] of this.constructor._groups) {
 			if (!this._groups.has(name)) {
-				let group = new GroupClass();
-				await group.init(this);
+				let group = new GroupClass(this);
+				await group.init();
 				this._groups.set(name, group);
 			}
 		}
@@ -101,7 +123,13 @@ class Config extends events.EventEmitter {
 		}
 	}
 
-	async load(serializedConfig) {
+	/**
+	 * Load config from a serialized object
+	 *
+	 * @param {object} serializedConfig - Serialized config to load.
+	 * @param {string=} location - Location used for access control.
+	 */
+	async load(serializedConfig, location = this.location) {
 		this._validate(serializedConfig);
 		for (let serializedGroup of serializedConfig.groups) {
 			let GroupClass = this.constructor._groups.get(serializedGroup.name);
@@ -110,8 +138,8 @@ class Config extends events.EventEmitter {
 				continue;
 			}
 
-			let group = new GroupClass();
-			await group.load(this, serializedGroup);
+			let group = new GroupClass(this);
+			await group.load(serializedGroup, location);
 			this._groups.set(group.name, group);
 		}
 
@@ -121,12 +149,13 @@ class Config extends events.EventEmitter {
 	/**
 	 * Serialize the config to a plain JavaScript object
 	 *
+	 * @param {string=} location - Location used for access control.
 	 * @returns {Object} JSON serializable representation of the config.
 	 */
-	serialize() {
+	serialize(location = this.location) {
 		let groups = [...this._unknownGroups.values()];
 		for (let group of this._groups.values()) {
-			groups.push(group.serialize());
+			groups.push(group.serialize(location));
 		}
 
 		return { groups };
@@ -140,13 +169,14 @@ class Config extends events.EventEmitter {
 	 *
 	 * @param {Object} serializedConfig - Output from .serialize().
 	 * @param {boolean} notify - Invoke fieldChanged events if true.
+	 * @param {string=} location - Location used for access control.
 	 */
-	update(serializedConfig, notify) {
+	update(serializedConfig, notify, location = this.location) {
 		this._validate(serializedConfig);
 		for (let serializedGroup of serializedConfig.groups) {
 			let group = this._groups.get(serializedGroup.name);
 			if (group) {
-				group.update(serializedGroup, notify);
+				group.update(serializedGroup, notify, location);
 			} else {
 				this._unknownGroups.set(serializedGroup.name, serializedGroup);
 			}
@@ -154,14 +184,27 @@ class Config extends events.EventEmitter {
 	}
 
 	/**
+	 * Check if field can be accessed from the given location
+	 *
+	 * @param {string} name - Name of the field to check.
+	 * @param {string=} location - Location used for access control.
+	 * @returns {boolean} true if field is accessible
+	 */
+	canAccess(name, location = this.location) {
+		let [group, field] = splitOn(".", name);
+		return this.group(group).canAccess(field, location);
+	}
+
+	/**
 	 * Get the value for a config field
 	 *
 	 * @param {string} name - Name of field to get.
+	 * @param {string=} location - Location used for access control.
 	 * @returns {*} the value for the field.
 	 */
-	get(name) {
+	get(name, location = this.location) {
 		let [group, field] = splitOn(".", name);
-		return this.group(group).get(field);
+		return this.group(group).get(field, location);
 	}
 
 	/**
@@ -169,10 +212,11 @@ class Config extends events.EventEmitter {
 	 *
 	 * @param {string} name - Name of field to set.
 	 * @param {*} value - the value to set on field
+	 * @param {string=} location - Location used for access control.
 	 */
-	set(name, value) {
+	set(name, value, location = this.location) {
 		let [group, field] = splitOn(".", name);
-		this.group(group).set(field, value);
+		this.group(group).set(field, value, location);
 	}
 
 	/**
@@ -181,10 +225,11 @@ class Config extends events.EventEmitter {
 	 * @param {string} name - Name of field to set property on.
 	 * @param {string} prop - Name of property to set on field.
 	 * @param {*} value - the value to set the property to.
+	 * @param {string=} location - Location used for access control.
 	 */
-	setProp(name, prop, value) {
+	setProp(name, prop, value, location = this.location) {
 		let [group, field] = splitOn(".", name);
-		this.group(group).setProp(field, prop, value);
+		this.group(group).setProp(field, prop, value, location);
 	}
 
 	/**
@@ -280,15 +325,42 @@ class ConfigGroup {
 	 *
 	 * After the creation of the new config group you have to call
 	 * either .init() or .load() on it in order to fully initialize it.
+	 *
+	 * @param {module:lib/config.Config} config -
+	 *     Parent config for this group instance.
 	 */
-	constructor() {
+	constructor(config) {
 		if (!this.constructor._finalized) {
 			throw new Error(`Cannot instantiate incomplete ConfigGroup class ${this.constructor.name}`);
 		}
 
 		this._fields = new Map();
 		this._unknownFields = new Map();
-		this._config = null;
+		this.config = config;
+	}
+
+	/**
+	 * Check access for a field
+	 *
+	 * @param {object} def - definition for for the field to check.
+	 * @param {string} remote - location of remote access to check for.
+	 * @param {boolean} error - throw on failure to pass check.
+	 * @throws {module:lib/config.InvalidAccess}
+	 *     if access is not granted and error is true.
+	 * @returns {boolean} true if access is granted
+	 * @private
+	 */
+	_checkAccess(def, remote, error) {
+		for (let loc of [remote, this.config.location]) {
+			if (!def.access.includes(loc)) {
+				if (error) {
+					throw new InvalidAccess(`Field '${def.name}' is not accessible from ${loc}`);
+				} else {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -296,14 +368,13 @@ class ConfigGroup {
 	 *
 	 * Computes and assigns the initial values for all fields of the
 	 * config group.
-	 *
-	 * @param {module:lib/config.Config} config - Config group belongs to.
 	 */
-	async init(config) {
-		this._config = config;
-
+	async init() {
 		for (let [name, def] of this.constructor._definitions) {
 			if (this._fields.has(name)) {
+				continue;
+			}
+			if (!def.access.includes(this.config.location)) {
 				continue;
 			}
 
@@ -326,13 +397,13 @@ class ConfigGroup {
 	 * group and then initializes any possible missing fields from it to
 	 * their default values.
 	 *
-	 * @param {module:lib/config.Config} config - Config group belongs to.
 	 * @param {Object} serializedGroup -
 	 *     Result from a previous call to .serialize().
+	 * @param {string=} location - Location used for access control.
 	 */
-	async load(config, serializedGroup) {
-		this.update(serializedGroup, false);
-		await this.init(config);
+	async load(serializedGroup, location = this.config.location) {
+		this.update(serializedGroup, false, location);
+		await this.init();
 	}
 
 	/**
@@ -345,15 +416,33 @@ class ConfigGroup {
 	}
 
 	/**
+	 * Check if field can be accessed from the given location
+	 *
+	 * @param {string} name - Name of field to check.
+	 * @param {string=} location - Location used for access control.
+	 * @returns {boolean} true if field is accessible
+	 */
+	canAccess(name, location = this.config.location) {
+		let def = this.constructor._definitions.get(name);
+		if (!def) {
+			throw new InvalidField(`No field named '${name}'`);
+		}
+		return this._checkAccess(def, location, false);
+	}
+
+	/**
 	 * Get value for field
 	 *
 	 * @param {string} name - Name of field to get.
+	 * @param {string=} location - Location used for access control.
 	 * @returns {*} Value stored for the field.
 	 */
-	get(name) {
-		if (!this.constructor._definitions.has(name)) {
+	get(name, location = this.config.location) {
+		let def = this.constructor._definitions.get(name);
+		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
+		this._checkAccess(def, location, true);
 
 		return this._fields.get(name);
 	}
@@ -366,14 +455,16 @@ class ConfigGroup {
 	 *
 	 * @param {string} name - Name of field to set.
 	 * @param {*} value - Value to set for field.
+	 * @param {string=} location - Location used for access control.
 	 * @throws {module:lib/config.InvalidField} if field is not defined.
 	 * @throws {module:lib/config.InvalidValue} if value is not allowed for the field.
 	 */
-	set(name, value) {
+	set(name, value, location = this.config.location) {
 		let def = this.constructor._definitions.get(name);
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
+		this._checkAccess(def, location, true);
 
 		// Empty strings are treates as null
 		if (value === "") {
@@ -418,8 +509,8 @@ class ConfigGroup {
 
 		let prev = this._fields.get(name);
 		this._fields.set(name, value);
-		if (this._config && !isDeepStrictEqual(value, prev)) {
-			this._config.emit("fieldChanged", this, name, prev);
+		if (this.config && !isDeepStrictEqual(value, prev)) {
+			this.config.emit("fieldChanged", this, name, prev);
 		}
 	}
 
@@ -432,14 +523,16 @@ class ConfigGroup {
 	 * @param {string} name - Name of field to set property on.
 	 * @param {string} prop - Name of property to set on field.
 	 * @param {*} value - the value to set the property to.
+	 * @param {string=} location - Location used for access control.
 	 * @throws {module:lib/config.InvalidField} if field is not defined.
 	 * @throws {module:lib/config.InvalidValue} if field is not an object.
 	 */
-	setProp(name, prop, value) {
+	setProp(name, prop, value, location = this.config.location) {
 		let def = this.constructor._definitions.get(name);
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
+		this._checkAccess(def, location, true);
 
 		if (def.type !== "object") {
 			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);
@@ -454,8 +547,8 @@ class ConfigGroup {
 			delete updated[prop];
 		}
 		this._fields.set(name, updated);
-		if (this._config && !isDeepStrictEqual(updated, prev)) {
-			this._config.emit("fieldChanged", this, name, prev);
+		if (this.config && !isDeepStrictEqual(updated, prev)) {
+			this.config.emit("fieldChanged", this, name, prev);
 		}
 	}
 
@@ -468,8 +561,9 @@ class ConfigGroup {
 	 * @param {Object} serializedGroup -
 	 *     Result from a previous call to .serialize().
 	 * @param {boolean} notify - Invoke fieldChanged events if true.
+	 * @param {string=} location - Location used for access control.
 	 */
-	update(serializedGroup, notify) {
+	update(serializedGroup, notify, location = this.config.location) {
 		if (basicType(serializedGroup) !== "object") {
 			throw new Error(`Expected object, not ${basicType(serializedGroup)} for ConfigGroup`);
 		}
@@ -489,6 +583,10 @@ class ConfigGroup {
 				continue;
 			}
 
+			if (!this._checkAccess(def, location, false)) {
+				continue;
+			}
+
 			if (def.optional) {
 				if (value !== null && basicType(value) !== def.type) {
 					continue;
@@ -504,8 +602,8 @@ class ConfigGroup {
 
 			let prev = this._fields.get(name);
 			this._fields.set(name, value);
-			if (notify && this._config && !isDeepStrictEqual(value, prev)) {
-				this._config.emit("fieldChanged", this, name, prev);
+			if (notify && this.config && !isDeepStrictEqual(value, prev)) {
+				this.config.emit("fieldChanged", this, name, prev);
 			}
 		}
 	}
@@ -513,11 +611,17 @@ class ConfigGroup {
 	/**
 	 * Serialize the config to a plain JavaScript object
 	 *
+	 * @param {string=} location - Location used for access control.
 	 * @returns {Object} JSON serializable representation of the group.
 	 */
-	serialize() {
+	serialize(location = this.config.location) {
 		let fields = {};
 		for (let [name, value] of this._fields) {
+			let def = this.constructor._definitions.get(name);
+			if (!this._checkAccess(def, location, false)) {
+				continue;
+			}
+
 			fields[name] = value;
 		}
 
@@ -557,6 +661,9 @@ class ConfigGroup {
 	 * Define a new configuration field
 	 *
 	 * @param {Object} item - Field definition.
+	 * @param {Array<string>=} item.access -
+	 *     Array of strings declaring where this config entry can be read
+	 *     and modified from.
 	 * @param {string} item.type -
 	 *     string declaring the type of the config value, supports
 	 *     boolean, string, number and object.
@@ -609,6 +716,12 @@ class ConfigGroup {
 					}
 					break;
 
+				case "access":
+					if (valueType !== "array") {
+						throw new Error("access must be an array");
+					}
+					break;
+
 				case "enum":
 					if (valueType !== "array") {
 						throw new Error("enum must be an array");
@@ -655,10 +768,15 @@ class ConfigGroup {
 		}
 
 		let computed = {
+			access: this.defaultAccess,
 			optional: false,
 			fullName: `${this.groupName}.${item.name}`,
 			...item,
 		};
+
+		if (!computed.access) {
+			throw new Error(`access not set and no defaultAccess defined for ${this.name}`);
+		}
 
 		if (!computed.optional && computed.initial_value === undefined) {
 			throw new Error(`Non-optional field ${item.name} needs an initial_value`);
@@ -706,6 +824,7 @@ class PluginConfigGroup extends ConfigGroup {
 
 
 module.exports = {
+	InvalidAccess,
 	InvalidField,
 	InvalidValue,
 

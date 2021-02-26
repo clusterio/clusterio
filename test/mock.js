@@ -103,6 +103,7 @@ class MockInstance extends libLink.Link {
 		this.logger = new MockLogger();
 		this.server = new MockServer();
 		this.name = "test";
+		this.id = 7357;
 		this.mockConfigEntries = new Map([
 			["instance.id", 7357],
 			["factorio.enable_save_patching", true],
