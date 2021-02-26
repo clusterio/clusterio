@@ -9,7 +9,7 @@ import PageLayout from "./PageLayout";
 export default function SlavesPage() {
 	let control = useContext(ControlContext);
 	let table;
-	control.onLiveSlaveAdded(async (message) => {
+	control.onLiveSlaveAdded("slaves_page", async (message) => {
 		let item = message.data.item;
 		let row = {
 			key: item["id"],

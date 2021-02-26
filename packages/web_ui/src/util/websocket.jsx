@@ -59,7 +59,7 @@ export class Control extends libLink.Link {
 			));
 		});
 
-		this.liveUpdateSlaveHandlers = [];
+		this.liveUpdateSlaveHandlers = new Map();
 	}
 
 	async logMessageEventHandler(message) {
@@ -123,15 +123,22 @@ export class Control extends libLink.Link {
 		console.log("WS", message.data.direction, message.data.content);
 	}
 
-	async onLiveSlaveAdded(handler) {
-		if (this.liveUpdateSlaveHandlers.length === 0) {
-			libLink.messages.setLiveSlaveSubscription.send(this, {});
+	async onLiveSlaveAdded(id, handler) {
+		if (this.liveUpdateSlaveHandlers.size === 0) {
+			libLink.messages.setLiveSlaveSubscription.send(this, {connect:true});
 		}
-		this.liveUpdateSlaveHandlers.push(handler);
+		this.liveUpdateSlaveHandlers.set(id,handler);
+	}
+
+	async offLiveSlaveAdded(id){
+		this.liveUpdateSlaveHandlers.delete(id);
+		if(this.liveUpdateSlaveHandlers.size === 0){
+			libLink.messages.setLiveSlaveSubscription.send(this, {connect:false});
+		}
 	}
 
 	async liveUpdateSlavesEventHandler(message) {
-		for (let handler of this.liveUpdateSlaveHandlers) {
+		for (var [_, handler] of this.liveUpdateSlaveHandlers.entries()) {
 			handler(message);
 		}
 	}

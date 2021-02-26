@@ -680,6 +680,9 @@ messages.setLiveSlaveSubscription = new Request({
 	type: "set_live_slave_subscription",
 	links: ["control-master"],
 	permission: "core.slave.list",
+	requestProperties: {
+		"connect": { type: "boolean" },
+	},
 });
 
 messages.queryLog = new Request({

@@ -695,8 +695,8 @@ class ControlConnection extends BaseConnection {
 		libLink.messages.liveUpdateSlaves.send(this, {item});
 	}
 
-	async setLiveSlaveSubscriptionRequestHandler() {
-		this.doLiveUpdateSlaves = true;
+	async setLiveSlaveSubscriptionRequestHandler(message) {
+		this.doLiveUpdateSlaves = message.data.connect;
 	}
 
 	async listSlavesRequestHandler(message) {
