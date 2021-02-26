@@ -51,3 +51,8 @@ saves
 .idea/
 .vs/
 .vscode/
+
+
+# Web build
+/packages/master/static
+/plugins/*/static

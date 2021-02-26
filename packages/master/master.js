@@ -703,7 +703,7 @@ class ControlConnection extends BaseConnection {
 
 	async setLiveSlaveSubscriptionRequestHandler(message) {
 		this.doLiveUpdateSlaves = message.data.connect;
-
+	}
 	async getMasterConfigRequestHandler() {
 		return { serialized_config: masterConfig.serialize("control") };
 	}
