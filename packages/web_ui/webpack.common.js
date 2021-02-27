@@ -34,27 +34,27 @@ module.exports = (env = {}) => ({
 		rules: [
 			{
 				test: /node_modules.fs-extra/,
-				use: "null-loader",
+				use: require.resolve("null-loader"),
 			},
 			{
 				test: /node_modules.jsonwebtoken/,
-				use: "null-loader",
+				use: require.resolve("null-loader"),
 			},
 			{
 				test: /node_modules.winston.dist.winston.transports.(http|file)/,
-				use: "null-loader",
+				use: require.resolve("null-loader"),
 			},
 			// Colour library used by winston which doesn't work in browser.
 			{
 				test: /node_modules.colors/,
-				use: "null-loader",
+				use: require.resolve("null-loader"),
 			},
 			{
 				test: /\.css$/,
 				use: [
-					"style-loader",
+					require.resolve("style-loader"),
 					{
-						loader: "css-loader",
+						loader: require.resolve("css-loader"),
 						options: {
 							sourceMap: !env.production,
 						},
@@ -73,15 +73,15 @@ module.exports = (env = {}) => ({
 				test: /\.jsx$/,
 				exclude: /node_modules/,
 				use: {
-					loader: "babel-loader",
+					loader: require.resolve("babel-loader"),
 					options: {
-						presets: ["@babel/preset-react"],
+						presets: [require.resolve("@babel/preset-react")],
 					},
 				},
 			},
 			{
 				test: /\.png$/,
-				use: "file-loader",
+				use: require.resolve("file-loader"),
 			},
 		],
 	},

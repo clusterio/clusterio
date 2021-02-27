@@ -22,9 +22,6 @@
   "devDependencies": {
     "@clusterio/web_ui": "^2.0.0-alpha.4",
     "antd": "^4.6.5",
-    "babel-loader": "^8.1.0",
-    "file-loader": "^6.2.0",
-    "null-loader": "^4.0.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "webpack-cli": "^3.3.12",
