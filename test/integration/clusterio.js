@@ -71,6 +71,12 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("master plugin list", function() {
+			it("runs", async function() {
+				await execCtl("master plugin list");
+			});
+		});
+
 		describe("slave list", function() {
 			it("runs", async function() {
 				await execCtl("slave list");
