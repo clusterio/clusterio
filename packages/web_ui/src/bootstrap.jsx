@@ -72,4 +72,4 @@ async function load() {
 	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
 }
 
-load().catch((err) => logger.fatal(err));
+load().catch((err) => logger.fatal(err.stack));
