@@ -736,7 +736,7 @@ class Instance extends libLink.Link {
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
-				core: { rejectUnauthorized: false },
+				core: { ca: this._slave.tlsCa },
 				headers: {
 					"Content-Type": "application/zip",
 					"x-access-token": this._slave.config.get("slave.master_token"),
@@ -976,7 +976,7 @@ function checkFilename(name) {
 class Slave extends libLink.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
-	constructor(connector, slaveConfig, pluginInfos) {
+	constructor(connector, slaveConfig, tlsCa, pluginInfos) {
 		super("slave", "master", connector);
 		libLink.attachAllMessages(this);
 
@@ -986,6 +986,12 @@ class Slave extends libLink.Link {
 		}
 
 		this.config = slaveConfig;
+
+		/**
+		 * Certificate authority used to validate TLS connections to the master.
+		 * @type {?string}
+		 */
+		this.tlsCa = tlsCa;
 
 		this.instanceConnections = new Map();
 		this.discoveredInstanceInfos = new Map();
@@ -1618,7 +1624,7 @@ async function startSlave() {
 	}
 
 	let slaveConnector = new SlaveConnector(slaveConfig, tlsCa, pluginInfos);
-	let slave = new Slave(slaveConnector, slaveConfig, pluginInfos);
+	let slave = new Slave(slaveConnector, slaveConfig, tlsCa, pluginInfos);
 
 	// Handle interrupts
 	let secondSigint = false;

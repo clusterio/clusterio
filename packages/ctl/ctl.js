@@ -698,10 +698,15 @@ class ControlConnector extends libLink.WebSocketClientConnector {
  */
 class Control extends libLink.Link {
 
-	constructor(connector, controlPlugins) {
+	constructor(connector, tlsCa, controlPlugins) {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
 
+		/**
+		 * Certificate authority used to validate TLS connections to the master.
+		 * @type {?string}
+		 */
+		this.tlsCa = tlsCa;
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
 		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
@@ -917,7 +922,7 @@ async function startControl() {
 		tlsCa,
 		controlConfig.get("control.master_token")
 	);
-	let control = new Control(controlConnector, controlPlugins);
+	let control = new Control(controlConnector, tlsCa, controlPlugins);
 	try {
 		await controlConnector.connect();
 	} catch (err) {
