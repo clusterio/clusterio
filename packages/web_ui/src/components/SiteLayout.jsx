@@ -17,11 +17,14 @@ import UsersPage from "./UsersPage";
 import UserViewPage from "./UserViewPage";
 import RolesPage from "./RolesPage";
 import RoleViewPage from "./RoleViewPage";
+import PluginsPage from "./PluginsPage";
+import PluginViewPage from "./PluginViewPage";
 
 const pages = [
 	{ path: "/instances/:id/view", sidebarPath: "/instances", content: <InstanceViewPage /> },
 	{ path: "/users/:name/view", sidebarPath: "/users", content: <UserViewPage /> },
 	{ path: "/roles/:id/view", sidebarPath: "/roles", content: <RoleViewPage /> },
+	{ path: "/plugins/:name/view", sidebarPath: "/plugins", content: <PluginViewPage /> },
 ];
 
 const sidebar = [
@@ -30,6 +33,7 @@ const sidebar = [
 	{ name: "Instances", path: "/instances", content: <InstancesPage />},
 	{ name: "Users", path: "/users", content: <UsersPage /> },
 	{ name: "Roles", path: "/roles", content: <RolesPage /> },
+	{ name: "Plugins", path: "/plugins", content: <PluginsPage /> },
 ];
 
 

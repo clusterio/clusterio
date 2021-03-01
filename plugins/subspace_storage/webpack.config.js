@@ -19,6 +19,7 @@ module.exports = (env = {}) => merge(common(env), {
 			filename: "remoteEntry.js",
 			exposes: {
 				"./info": "./info.js",
+				"./package.json": "./package.json",
 			},
 			shared: {
 				"@clusterio/lib": { import: false },

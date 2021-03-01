@@ -11,5 +11,6 @@ module.exports = [
 	"/users/:id/view",
 	"/roles",
 	"/roles/:id/view",
-	"/settings",
+	"/plugins",
+	"/plugins/:name/view",
 ];

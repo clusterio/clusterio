@@ -44,9 +44,11 @@ async function loadPlugins() {
 			let container = window[`plugin_${meta.name}`];
 			await container.init(__webpack_share_scopes__.default);
 			let pluginInfo = (await container.get("./info"))();
+			let pluginPackage = (await container.get("./package.json"))();
 			plugins.push({
 				meta,
 				info: pluginInfo,
+				package: pluginPackage,
 				container,
 			});
 
