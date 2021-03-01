@@ -25,7 +25,7 @@ async function loadScript(url) {
 	return result;
 }
 
-async function loadPluginInfos() {
+async function loadPlugins() {
 	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList;
 	if (response.ok) {
@@ -36,22 +36,28 @@ async function loadPluginInfos() {
 		pluginList = [];
 	}
 
-	let pluginInfos = [];
+	let plugins = [];
 	await __webpack_init_sharing__("default");
-	for (let plugin of pluginList) {
+	for (let meta of pluginList) {
 		try {
-			await loadScript(`${webRoot}plugin/${plugin.name}/remoteEntry.js`);
-			let container = window[`plugin_${plugin.name}`];
+			await loadScript(`${webRoot}plugin/${meta.name}/remoteEntry.js`);
+			let container = window[`plugin_${meta.name}`];
 			await container.init(__webpack_share_scopes__.default);
-			let info = (await container.get("./info"))();
-			info.container = container;
-			pluginInfos.push(info);
+			let pluginInfo = (await container.get("./info"))();
+			plugins.push({
+				meta,
+				info: pluginInfo,
+				container,
+			});
 
 		} catch (err) {
-			logger.error(`Failed to load plugin info for ${plugin.name}`);
+			logger.error(`Failed to load plugin info for ${meta.name}`);
+			plugins.push({
+				meta,
+			});
 		}
 	}
-	return pluginInfos;
+	return plugins;
 }
 
 async function load() {
@@ -59,8 +65,8 @@ async function load() {
 		level: "verbose",
 		format: new WebConsoleFormat(),
 	}));
-	let pluginInfos = await loadPluginInfos();
-	libConfig.registerPluginConfigGroups(pluginInfos);
+	let plugins = await loadPlugins();
+	libConfig.registerPluginConfigGroups(plugins.filter(p => p.info).map(p => p.info));
 	libConfig.finalizeConfigs();
 
 	let wsUrl = new URL(window.webRoot, document.location);
@@ -69,7 +75,7 @@ async function load() {
 	let controlConnector = new ControlConnector(wsUrl, 10);
 	let control = new Control(controlConnector, []);
 
-	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
+	ReactDOM.render(<App control={control} plugins={plugins}/>, document.getElementById("root"));
 }
 
 load().catch((err) => logger.fatal(err.stack));
