@@ -75,7 +75,9 @@ export default function SiteLayout(props) {
 				<Switch>
 					{sidebar.map(({path, content}) => <Route exact path={path} key={path}>
 						<SetSidebar path={path} />
-						{content}
+						<ErrorBoundary Component={ErrorPage}>
+							{content}
+						</ErrorBoundary>
 					</Route>)}
 					{pages.map(page => <Route exact path={page.path} key={page.path}>
 						<SetSidebar path={page.sidebarPath} />
