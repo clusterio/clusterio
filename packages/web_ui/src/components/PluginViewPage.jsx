@@ -12,7 +12,7 @@ export default function PluginViewPage() {
 	let plugins = useContext(PluginsContext);
 	let pluginName = params.name;
 
-	let plugin = plugins.find(plugin => plugin.meta.name === pluginName);
+	let plugin = plugins.find(p => p.meta.name === pluginName);
 	let pluginTitle = plugin.info ? plugin.info.title : plugin.meta.name;
 	let nav = [{ name: "Plugins", path: "/plugins" }, { name: pluginTitle }];
 	if (!plugin) {

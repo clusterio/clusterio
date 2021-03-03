@@ -17,7 +17,7 @@ export default function PluginsPage() {
 				{
 					title: "Name",
 					key: "name",
-					render: plugin => plugin.info ? plugin.info.title : plugin.meta.name,
+					render: plugin => (plugin.info ? plugin.info.title : plugin.meta.name),
 				},
 				{
 					title: "Version",
@@ -30,12 +30,12 @@ export default function PluginsPage() {
 							return "Version missmatched";
 						}
 						return plugin.package.version;
-					}
+					},
 				},
 				{
 					title: "Enabled",
 					dataIndex: ["meta", "enabled"],
-					render: enabled => enabled ? "Yes" : null,
+					render: enabled => (enabled ? "Yes" : null),
 					responsive: ["sm"],
 				},
 			]}
@@ -45,7 +45,7 @@ export default function PluginsPage() {
 			onRow={plugin => ({
 				onClick: event => {
 					history.push(`/plugins/${plugin.meta.name}/view`);
-				}
+				},
 			})}
 		/>
 	</PageLayout>;
