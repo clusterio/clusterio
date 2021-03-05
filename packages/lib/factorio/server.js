@@ -832,7 +832,7 @@ class FactorioServer extends events.EventEmitter {
 
 		await this._writeConfigIni();
 		this._server = child_process.spawn(
-			this.dataPath("..", "bin", "x64", "factorio"),
+			this.getBinaryPath(),
 			[
 				"--config", this.writePath("config.ini"),
 				"--create", this.writePath("saves", name),
@@ -858,6 +858,20 @@ class FactorioServer extends events.EventEmitter {
 	}
 
 	/**
+	 * Get Factorio binary path
+	 *
+	 * Get the path to the factorio binary depending on the platform (MacOS support)
+	 *
+	 * @return {string} path to factorio binary
+	 */
+	getBinaryPath() {
+		if (process.platform === "darwin") {
+			return this.dataPath("..", "MacOS", "factorio");
+		}
+		return this.dataPath("..", "bin", "x64", "factorio");
+	}
+
+	/**
 	 * Start server
 	 *
 	 * Spawn the Factorio server with the --start-server argument to
@@ -871,7 +885,7 @@ class FactorioServer extends events.EventEmitter {
 
 		await this._writeConfigIni();
 		this._server = child_process.spawn(
-			this.dataPath("..", "bin", "x64", "factorio"),
+			this.getBinaryPath(),
 			[
 				"--config", this.writePath("config.ini"),
 				"--start-server", this.writePath("saves", save),
@@ -906,7 +920,7 @@ class FactorioServer extends events.EventEmitter {
 
 		await this._writeConfigIni();
 		this._server = child_process.spawn(
-			this.dataPath("..", "bin", "x64", "factorio"),
+			this.getBinaryPath(),
 			[
 				"--config", this.writePath("config.ini"),
 				"--start-server-load-scenario", scenario,

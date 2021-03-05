@@ -35,6 +35,7 @@ the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
 * [Plugins](#plugins)
 * [Ubuntu setup](#ubuntu-setup)
 * [Windows setup](#windows-setup)
+* [MacOS setup](#macos-setup)
 * [Installing Plugins](#installing-plugins)
 * [Configure Master Server](#configure-master-server)
   * [Hosting Behind Proxy](#hosting-behind-proxy)
@@ -180,6 +181,29 @@ up, and v10.16.0+.
         3.  Go to the parent folder of the folder that Steam opened and copy
             the Factorio folder into the factorio folder created in step 1.
 
+## MacOS Setup
+
+**Requirements**
+
+download and install nodeJS 12 from http://nodejs.org or brew (`brew install node`).  Clusterio runs on Node.js v12 and
+up, and v10.16.0+.
+
+1. Open Terminal or Command prompt in the directory you want to install to and run the following commands.
+
+```bash
+mkdir clusterio
+cd clusterio
+npm init -y
+npm install @clusterio/master @clusterio/slave @clusterio/ctl
+```
+
+2. Obtain Factorio:
+
+Install Factorio and copy the factorio.app in your clusterio install folder as factorio.
+If you installed factorio on your mac you can run
+```bash
+cp /Applications/factorio.app/ factorio
+```
 
 ## Installing Plugins
 
