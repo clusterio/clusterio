@@ -13,6 +13,7 @@ const events = require("events");
 const path = require("path");
 const winston = require("winston");
 const setBlocking = require("set-blocking");
+const phin = require("phin");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -102,6 +103,25 @@ masterConfigCommands.add(new libCommand.Command({
 	},
 }));
 masterCommands.add(masterConfigCommands);
+
+
+const masterPluginCommands = new libCommand.CommandTree({
+	name: "plugin", alias: ["p"], description: "master plugin inspection",
+});
+masterPluginCommands.add(new libCommand.Command({
+	definition: ["list", "List plugins on master"],
+	handler: async function(args, control) {
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += "api/plugins";
+		let response = await phin({
+			url,
+			parse: "json",
+			core: { ca: control.tlsCa },
+		});
+		print(asTable(response.body));
+	},
+}));
+masterCommands.add(masterPluginCommands);
 
 
 const slaveCommands = new libCommand.CommandTree({ name: "slave", description: "Slave management" });
@@ -698,10 +718,20 @@ class ControlConnector extends libLink.WebSocketClientConnector {
  */
 class Control extends libLink.Link {
 
-	constructor(connector, controlPlugins) {
+	constructor(connector, controlConfig, tlsCa, controlPlugins) {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
 
+		/**
+		 * Control config used for connecting to the master.
+		 * @type {module:lib/config.ControlConfig}
+		 */
+		this.config = controlConfig;
+		/**
+		 * Certificate authority used to validate TLS connections to the master.
+		 * @type {?string}
+		 */
+		this.tlsCa = tlsCa;
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
 		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
@@ -917,7 +947,7 @@ async function startControl() {
 		tlsCa,
 		controlConfig.get("control.master_token")
 	);
-	let control = new Control(controlConnector, controlPlugins);
+	let control = new Control(controlConnector, controlConfig, tlsCa, controlPlugins);
 	try {
 		await controlConnector.connect();
 	} catch (err) {

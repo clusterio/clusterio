@@ -55,6 +55,8 @@ Version 2.0.0
   them to be displayed by name in queries that join with the mapping.
 - Added option to configure timeout for exported Prometheus metrics.
 - Added option to set address to bind HTTP(S) port to.
+- Added an overview of the installed plugins to the web interface.
+- Added clusterioctl command to list plugins on the master server.
 
 ### Changes
 

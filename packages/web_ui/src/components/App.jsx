@@ -7,6 +7,7 @@ import { logger } from "@clusterio/lib/logging";
 import basename from "../basename";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
+import PluginsContext from "./PluginsContext";
 import LoginForm from "./LoginForm";
 
 import { Card, Spin } from "antd";
@@ -77,9 +78,11 @@ export default function App(props) {
 
 	return (
 		<ControlContext.Provider value={props.control}>
-			<BrowserRouter basename={basename}>
-				{page}
-			</BrowserRouter>
+			<PluginsContext.Provider value={props.plugins}>
+				<BrowserRouter basename={basename}>
+					{page}
+				</BrowserRouter>
+			</PluginsContext.Provider>
 		</ControlContext.Provider>
 	);
 }
