@@ -2,12 +2,35 @@
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
+const events = require("events");
 
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
+const server = require("@clusterio/lib/factorio/server");
+const child_process = require("child_process");
 
 const { slowTest, get, exec, execCtl, sendRcon, getControl, instancesDir } = require("./index");
 
+
+function spawn(name, cmd, waitFor) {
+	return new Promise((resolve, reject) => {
+		console.log(cmd);
+		let parts = cmd.split(" ");
+		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
+		let stdout = new server._LineSplitter((line) => {
+			line = line.toString("utf8");
+			if (waitFor.test(line)) {
+				resolve(process);
+			}
+			console.log(name, line);
+		});
+		let stderr = new server._LineSplitter((line) => { console.log(name, line.toString("utf8")); });
+		process.stdout.on("data", chunk => { stdout.data(chunk); });
+		process.stdout.on("close", () => { stdout.end(); });
+		process.stderr.on("data", chunk => { stderr.data(chunk); });
+		process.stderr.on("close", () => { stderr.end(); });
+	});
+}
 
 async function getInstances() {
 	let result = await libLink.messages.listInstances.send(getControl());
@@ -30,6 +53,30 @@ describe("Integration of Clusterio", function() {
 				await assert.rejects(
 					exec("node ../../packages/master bootstrap generate-user-token invalid")
 				);
+			});
+		});
+		describe("Live updating", function(){
+			let slaveProcess;
+			it("Slaves", async function(){
+				slowTest(this);
+				let testPromise = new Promise((resolve, reject)=>{
+					let control = getControl();
+					control.onLiveSlaveAdded("testing", async function(){
+						resolve();
+					});
+				});
+				await execCtl("slave create-config --id 5 --name slave2 --generate-token --output ./liveUpdates/slave-config.json");
+				await exec("node ../../packages/slave config set slave.tls_ca ../../test/file/tls/cert.pem --config ./liveUpdates/slave-config.json");
+				slaveProcess = await spawn("slave2:", "node ../../packages/slave run --config ./liveUpdates/slave-config.json", /SOCKET \| registering slave/);
+				await testPromise;
+			});
+			after(async ()=>{
+				this.timeout(20000);
+				if (slaveProcess) {
+					console.log("Shutting down slave");
+					slaveProcess.kill("SIGINT");
+					await events.once(slaveProcess, "exit");
+				}
 			});
 		});
 	});

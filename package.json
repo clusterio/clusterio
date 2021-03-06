@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "mocha --exit --check-leaks -R spec --recursive test plugins/global_chat/test plugins/research_sync/test plugins/statistics_exporter/test plugins/subspace_storage/test",
+    "stuff": "npx mocha test/integration/clusterio.js",
     "fast-test": "FAST_TEST=y npm test",
     "cover": "nyc npm test",
     "fast-cover": "FAST_TEST=y nyc npm test",

@@ -18,6 +18,7 @@ class TestControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
+		this.liveUpdateSlaveHandlers = new Map();
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
@@ -27,7 +28,17 @@ class TestControl extends libLink.Link {
 
 	async debugWsMessageEventHandler() { }
 
-	async liveUpdateSlavesEventHandler() { }
+	async onLiveSlaveAdded(id, handler) {
+		if (this.liveUpdateSlaveHandlers.size === 0) {
+			libLink.messages.setLiveSlaveSubscription.send(this, {connect:true});
+		}
+		this.liveUpdateSlaveHandlers.set(id,handler);
+	} 
+	async liveUpdateSlavesEventHandler(message) {
+		for (var [_, handler] of this.liveUpdateSlaveHandlers.entries()) {
+			handler(message);
+		}
+	}
 
 	async logMessageEventHandler() { }
 }
