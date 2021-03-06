@@ -19,7 +19,6 @@
     "jsonwebtoken": "^8.2.1",
     "jszip": "^3.2.2",
     "klaw": "^3.0.0",
-    "node-forge": "^0.10.0",
     "rcon-client": "^4.2.0",
     "semver": "^7.1.1",
     "set-blocking": "^2.0.0",
