@@ -53,4 +53,12 @@ describe("Integration of lib/link", function() {
 		await events.once(controlConnector, "invalidate");
 		await events.once(controlConnector, "connect");
 	});
+
+	it("should properly close connector if close is called during reconnect wait", async function() {
+		controlConnector._socket.close(1008, "Test");
+		controlConnector.once("drop", () => {
+			controlConnector.close();
+		});
+		await events.once(controlConnector, "close");
+	});
 });

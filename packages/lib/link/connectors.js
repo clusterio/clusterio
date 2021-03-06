@@ -211,6 +211,13 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		if (this._reconnectId) {
 			clearTimeout(this._reconnectId);
 			this._reconnectId = null;
+			this._lastReceivedSeq = null;
+			this._sessionToken = null;
+			this._sendBuffer.length = 0;
+			this._state = "new";
+			this._connected = false;
+			this.emit("close");
+			return;
 		}
 
 		this.stopHeartbeat();
