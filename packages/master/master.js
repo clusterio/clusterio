@@ -14,10 +14,6 @@
  * npx clusteriomaster run
  */
 
-// Attempt updating
-// const updater = require("./updater");
-// updater.update().then(console.log);
-
 "use strict";
 const path = require("path");
 const fs = require("fs-extra");
