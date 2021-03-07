@@ -54,6 +54,9 @@ async function loadPlugins() {
 
 		} catch (err) {
 			logger.error(`Failed to load plugin info for ${meta.name}`);
+			if (err) {
+				logger.error(err.stack);
+			}
 			plugins.push({
 				meta,
 			});
