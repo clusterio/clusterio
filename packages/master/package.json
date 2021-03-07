@@ -29,7 +29,6 @@
     "jsonwebtoken": "^8.2.1",
     "jszip": "^3.2.2",
     "node-factorio-api": "^0.3.8",
-    "node-forge": "^0.10.0",
     "set-blocking": "^2.0.0",
     "winston": "^3.3.3",
     "ws": "^7.2.3",
