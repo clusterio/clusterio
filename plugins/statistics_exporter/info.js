@@ -15,8 +15,10 @@ InstanceConfigGroup.finalize();
 
 module.exports = {
 	name: "statistics_exporter",
-	title: "Prometheus Statistics Export",
-	description: "Exports statistics to Prometheus",
+	title: "Statistics Exporter",
+	description:
+		"Provides in-game item/fluid production, builds, kills, and pollution "+
+		"statistics to the cluster's Prometheus endpoint.",
 	instanceEntrypoint: "instance",
 	InstanceConfigGroup,
 };
