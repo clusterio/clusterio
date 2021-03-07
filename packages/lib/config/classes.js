@@ -4,7 +4,7 @@
 const events = require("events");
 
 const isDeepStrictEqual = require("../is_deep_strict_equal");
-const { basicType } = require("@clusterio/lib/helpers");
+const { basicType } = require("../helpers");
 
 
 /**

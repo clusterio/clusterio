@@ -6,9 +6,9 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const libConfig = require("@clusterio/lib/config");
-const { logger } = require("@clusterio/lib/logging");
-const libHelpers = require("@clusterio/lib/helpers");
+const libConfig = require("./config");
+const { logger } = require("./logging");
+const libHelpers = require("./helpers");
 
 
 function print(...content) {

@@ -4,8 +4,8 @@ const Transport = require("winston-transport");
 const { LEVEL, MESSAGE } = require("triple-beam");
 const chalk = require("chalk");
 
-const libLink = require("@clusterio/lib/link");
-const libErrors = require("@clusterio/lib/errors");
+const libLink = require("./link");
+const libErrors = require("./errors");
 
 
 /**
