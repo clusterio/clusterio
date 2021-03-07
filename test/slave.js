@@ -95,6 +95,7 @@ describe("Slave testing", function() {
 			await fs.outputFile(path.join(testDir, "shared", "mod_a.zip"), "a");
 			await fs.outputFile(path.join(testDir, "shared", "mod_b.zip"), "b");
 			await fs.outputFile(path.join(testDir, "shared", "mod.dat"), "c");
+			await fs.outputFile(path.join(testDir, "shared", "mod-list.json"), "d");
 
 			let instanceConfig = new libConfig.InstanceConfig("slave");
 			await instanceConfig.init();
@@ -111,6 +112,7 @@ describe("Slave testing", function() {
 			assert.equal(await fs.readFile(instance.path("mods", "mod_a.zip"), "utf-8"), "a");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
 			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
+			assert.equal(await fs.readFile(instance.path("mods", "mod-list.json"), "utf-8"), "d");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
 		});
 
@@ -140,6 +142,7 @@ describe("Slave testing", function() {
 			await assert.rejects(fs.lstat(instance.path("mods", "mod_a.zip")), { code: "ENOENT" });
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
 			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
+			assert.equal(await fs.readFile(instance.path("mods", "mod-list.json"), "utf-8"), "d");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
 		});
 	});
