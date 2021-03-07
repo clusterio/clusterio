@@ -274,7 +274,7 @@ class Instance extends libLink.Link {
 			if (
 				!pluginInfo.instanceEntrypoint
 				|| !this._slave.serverPlugins.has(pluginInfo.name)
-				|| !this.config.group(pluginInfo.name).get("enabled")
+				|| !this.config.group(pluginInfo.name).get("load_plugin")
 			) {
 				continue;
 			}

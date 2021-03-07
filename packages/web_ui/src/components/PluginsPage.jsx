@@ -33,9 +33,9 @@ export default function PluginsPage() {
 					},
 				},
 				{
-					title: "Enabled",
-					dataIndex: ["meta", "enabled"],
-					render: enabled => (enabled ? "Yes" : null),
+					title: "Loaded",
+					dataIndex: ["meta", "loaded"],
+					render: loaded => (loaded ? "Yes" : null),
 					responsive: ["sm"],
 				},
 			]}

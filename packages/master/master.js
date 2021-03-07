@@ -278,8 +278,8 @@ app.get("/api/plugins", (req, res) => {
 	let plugins = [];
 	for (let pluginInfo of pluginInfos) {
 		let name = pluginInfo.name;
-		let enabled = masterPlugins.has(name) && masterConfig.group(name).get("enabled");
-		plugins.push({ name, version: pluginInfo.version, enabled });
+		let loaded = masterPlugins.has(name);
+		plugins.push({ name, version: pluginInfo.version, loaded });
 	}
 	res.send(plugins);
 });
@@ -1699,7 +1699,7 @@ ${err.stack}`
 async function loadPlugins() {
 	let plugins = new Map();
 	for (let pluginInfo of pluginInfos) {
-		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
+		if (!masterConfig.group(pluginInfo.name).get("load_plugin")) {
 			continue;
 		}
 

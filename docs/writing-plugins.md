@@ -115,7 +115,7 @@ The following properties are recognized:
     for [defining link messages](#defining-link-messages) below.
 
 The optional module folder contains a Clusterio module that will be
-patched into the save when the plugin is enabled.  See the section on
+patched into the save when the plugin is loaded.  See the section on
 [Clusterio Modules](developing-for-clusterio.md) in the Developing for
 Clusterio document.  The only restriction imposed on modules embedded
 into plugins is that they must be named the same as the plugin.
