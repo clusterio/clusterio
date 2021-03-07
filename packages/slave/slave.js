@@ -1465,7 +1465,7 @@ async function symlinkMods(instance, sharedMods) {
 	let instanceModsEntries = new Set(await fs.readdir(instance.path("mods")));
 	for (let entry of await fs.readdir(sharedMods, { withFileTypes: true })) {
 		if (entry.isFile()) {
-			if ([".zip", ".dat"].includes(path.extname(entry.name))) {
+			if ([".zip", ".dat", ".json"].includes(path.extname(entry.name))) {
 				if (!instanceModsEntries.has(entry.name)) {
 					instance.logger.verbose(`linking ${entry.name} from ${sharedMods}`);
 					let target = path.join(sharedMods, entry.name);
