@@ -687,8 +687,7 @@ class ControlConnection extends BaseConnection {
 		});
 	}
 
-
-  async updateSlaves(id) {
+	async updateSlaves(id) {
 		let slave = db.slaves.get(id);
 		if (!slave) { return; };
 		let item = {
@@ -704,6 +703,7 @@ class ControlConnection extends BaseConnection {
 	async setLiveSlaveSubscriptionRequestHandler(message) {
 		this.doLiveUpdateSlaves = message.data.connect;
 	}
+
 	async getMasterConfigRequestHandler() {
 		return { serialized_config: masterConfig.serialize("control") };
 	}

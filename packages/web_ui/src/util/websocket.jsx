@@ -125,20 +125,20 @@ export class Control extends libLink.Link {
 
 	async onLiveSlaveAdded(id, handler) {
 		if (this.liveUpdateSlaveHandlers.size === 0) {
-			libLink.messages.setLiveSlaveSubscription.send(this, {connect:true});
+			libLink.messages.setLiveSlaveSubscription.send(this, { connect: true });
 		}
-		this.liveUpdateSlaveHandlers.set(id,handler);
+		this.liveUpdateSlaveHandlers.set(id, handler);
 	}
 
-	async offLiveSlaveAdded(id){
+	async offLiveSlaveAdded(id) {
 		this.liveUpdateSlaveHandlers.delete(id);
-		if(this.liveUpdateSlaveHandlers.size === 0){
-			libLink.messages.setLiveSlaveSubscription.send(this, {connect:false});
+		if (this.liveUpdateSlaveHandlers.size === 0) {
+			libLink.messages.setLiveSlaveSubscription.send(this, { connect: false });
 		}
 	}
 
 	async liveUpdateSlavesEventHandler(message) {
-		for (var [_, handler] of this.liveUpdateSlaveHandlers.entries()) {
+		for (let [_, handler] of this.liveUpdateSlaveHandlers.entries()) {
 			handler(message);
 		}
 	}

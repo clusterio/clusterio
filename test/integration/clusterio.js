@@ -1,8 +1,10 @@
+/* eslint-disable no-console */
 "use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 const events = require("events");
+
 
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
@@ -55,22 +57,27 @@ describe("Integration of Clusterio", function() {
 				);
 			});
 		});
-		describe("Live updating", function(){
+		describe("Live updating", function() {
 			let slaveProcess;
-			it("Slaves", async function(){
+			it("Slaves", async function() {
 				slowTest(this);
-				let testPromise = new Promise((resolve, reject)=>{
+				let testPromise = new Promise((resolve, reject) => {
 					let control = getControl();
-					control.onLiveSlaveAdded("testing", async function(){
+					control.onLiveSlaveAdded("testing", async function() {
 						resolve();
 					});
 				});
+				if (await fs.exists("./temp/test/liveUpdates/slave-config.json")) {
+					await fs.unlink("./temp/test/liveUpdates/slave-config.json");
+				}
+				/* eslint-disable max-len */
 				await execCtl("slave create-config --id 5 --name slave2 --generate-token --output ./liveUpdates/slave-config.json");
 				await exec("node ../../packages/slave config set slave.tls_ca ../../test/file/tls/cert.pem --config ./liveUpdates/slave-config.json");
 				slaveProcess = await spawn("slave2:", "node ../../packages/slave run --config ./liveUpdates/slave-config.json", /SOCKET \| registering slave/);
+				/* eslint-enable max-len */
 				await testPromise;
 			});
-			after(async ()=>{
+			after(async () => {
 				this.timeout(20000);
 				if (slaveProcess) {
 					console.log("Shutting down slave");
