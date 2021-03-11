@@ -42,7 +42,7 @@ async function loadPlugins() {
 	await __webpack_init_sharing__("default");
 	for (let meta of pluginList) {
 		try {
-			await loadScript(`${basename}/plugin/${meta.name}/remoteEntry.js`);
+			await loadScript(`${basename}/plugins/${meta.name}/remoteEntry.js`);
 			let container = window[`plugin_${meta.name}`];
 			if (!container) {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);

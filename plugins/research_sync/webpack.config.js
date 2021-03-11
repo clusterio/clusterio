@@ -9,7 +9,7 @@ module.exports = (env = {}) => merge(common(env), {
 	context: __dirname,
 	entry: "./web/index.jsx",
 	output: {
-		publicPath: "/plugin/research_sync/",
+		publicPath: "/plugins/research_sync/",
 		filename: "bundle.js",
 		path: path.resolve(__dirname, "dist", "web"),
 	},

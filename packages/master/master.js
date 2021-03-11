@@ -2049,7 +2049,7 @@ async function startServer(args) {
 
 		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
 		let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
-		app.use(`/plugin/${pluginInfo.name}`, express.static(webPath));
+		app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
 	}
 
 	// Load plugins
