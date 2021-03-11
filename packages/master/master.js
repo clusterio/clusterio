@@ -275,7 +275,8 @@ app.get("/api/plugins", (req, res) => {
 	for (let pluginInfo of pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = masterPlugins.has(name);
-		plugins.push({ name, version: pluginInfo.version, loaded });
+		let enabled = loaded && masterConfig.group(pluginInfo.name).get("load_plugin");
+		plugins.push({ name, version: pluginInfo.version, enabled, loaded });
 	}
 	res.send(plugins);
 });

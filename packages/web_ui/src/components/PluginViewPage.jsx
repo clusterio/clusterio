@@ -1,7 +1,8 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Alert, Descriptions } from "antd";
+import { Alert, Descriptions, Spin } from "antd";
 
+import basename from "../basename";
 import PluginsContext from "./PluginsContext";
 import PageLayout from "./PageLayout";
 import { notifyErrorHandler } from "../util/notify";
@@ -10,27 +11,43 @@ import { notifyErrorHandler } from "../util/notify";
 export default function PluginViewPage() {
 	let params = useParams();
 	let plugins = useContext(PluginsContext);
+	let [pluginList, setPluginList] = useState(null);
 	let pluginName = params.name;
 
-	let plugin = plugins.find(p => p.meta.name === pluginName);
-	let pluginTitle = plugin.info ? plugin.info.title : plugin.meta.name;
+	useEffect(() => {
+		(async () => {
+			let response = await fetch(`${basename}/api/plugins`);
+			if (response.ok) {
+				setPluginList(await response.json());
+			} else {
+				notify("Failed to load plugin list");
+			}
+		})();
+	}, []);
+
+	let plugin = plugins.get(pluginName);
+	let pluginTitle = plugin ? plugin.info.title : pluginName;
 	let nav = [{ name: "Plugins", path: "/plugins" }, { name: pluginTitle }];
-	if (!plugin) {
+	if (!pluginList) {
+		return <PageLayout nav={nav}>
+			<Descriptions borderd size="small" title={pluginTitle} />
+			<Spin size="large" />
+		</PageLayout>;
+	}
+
+	let pluginMeta = pluginList.find(p => p.name === pluginName);
+	if (!pluginMeta) {
 		return <PageLayout nav={nav}>
 			<h2>Plugin not found</h2>
 			<p>Plugin with name {pluginName} was not found on the master server.</p>
 		</PageLayout>;
 	}
 
-	if (!plugin.info) {
+	if (!plugin) {
 		return <PageLayout nav={nav}>
-			<Descriptions
-				bordered
-				size="small"
-				title={pluginTitle}
-			>
-				<Descriptions.Item label="Version">{plugin.meta.version}</Descriptions.Item>
-				<Descriptions.Item label="Loaded">{plugin.meta.loaded ? "Yes" : "No"}</Descriptions.Item>
+			<Descriptions bordered size="small" title={pluginTitle}>
+				<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
+				<Descriptions.Item label="Loaded">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
 			</Descriptions>
 			<Alert
 				style={{
@@ -50,13 +67,9 @@ export default function PluginViewPage() {
 	}
 
 	return <PageLayout nav={nav}>
-		<Descriptions
-			bordered
-			size="small"
-			title={pluginTitle}
-		>
-			<Descriptions.Item label="Version">{plugin.meta.version}</Descriptions.Item>
-			<Descriptions.Item label="Loaded" span={2}>{plugin.meta.loaded ? "Yes" : "No"}</Descriptions.Item>
+		<Descriptions bordered size="small" title={pluginTitle}>
+			<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
+			<Descriptions.Item label="Loaded" span={2}>{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
 			<Descriptions.Item label="Description" span={3}>{plugin.info.description}</Descriptions.Item>
 			{plugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
 				<a href={plugin.package.homepage}>{plugin.package.homepage}</a>
@@ -66,14 +79,14 @@ export default function PluginViewPage() {
 			</Descriptions.Item> : null}
 			<Descriptions.Item label="License" span={3}>{plugin.package.license}</Descriptions.Item>
 		</Descriptions>
-		{plugin.meta.version !== plugin.package.version ? <Alert
+		{pluginMeta.version !== plugin.package.version ? <Alert
 			style={{
 				marginTop: "1em",
 			}}
 			message="Version missmatch detected"
 			description={
 				`The version of the web interface module for this plugin (${plugin.package.version}) `+
-				`does not match the version running on the master server (${plugin.meta.version}), `+
+				`does not match the version running on the master server (${pluginMeta.version}), `+
 				"spurious errors may occur. This usually happens when the plugin is updated but the "+
 				"master server has not been restarted yet, but may also be due to an outdated build."
 			}

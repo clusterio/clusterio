@@ -4,8 +4,10 @@ import React from "react";
 import ReactDOM from "react-dom";
 
 import libConfig from "@clusterio/lib/config";
+import libPlugin from "@clusterio/lib/plugin";
 import { ConsoleTransport, WebConsoleFormat, logger } from "@clusterio/lib/logging";
 
+import basename from "./basename";
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";
 
@@ -26,7 +28,7 @@ async function loadScript(url) {
 }
 
 async function loadPlugins() {
-	let response = await fetch(`${webRoot}api/plugins`);
+	let response = await fetch(`${basename}/api/plugins`);
 	let pluginList;
 	if (response.ok) {
 		pluginList = await response.json();
@@ -36,30 +38,37 @@ async function loadPlugins() {
 		pluginList = [];
 	}
 
-	let plugins = [];
+	let plugins = new Map();
 	await __webpack_init_sharing__("default");
 	for (let meta of pluginList) {
 		try {
-			await loadScript(`${webRoot}plugin/${meta.name}/remoteEntry.js`);
+			await loadScript(`${basename}/plugin/${meta.name}/remoteEntry.js`);
 			let container = window[`plugin_${meta.name}`];
+			if (!container) {
+				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
+			}
 			await container.init(__webpack_share_scopes__.default);
 			let pluginInfo = (await container.get("./info"))();
 			let pluginPackage = (await container.get("./package.json"))();
-			plugins.push({
-				meta,
-				info: pluginInfo,
-				package: pluginPackage,
-				container,
-			});
+
+			let WebPluginClass = libPlugin.BaseWebPlugin;
+			if (meta.enabled && pluginInfo.webEntrypoint) {
+				let webModule = (await container.get(pluginInfo.webEntrypoint))();
+				if (!webModule.WebPlugin) {
+					throw new Error("Plugin webEntrypoint does not export WebPlugin class");
+				}
+				WebPluginClass = webModule.WebPlugin;
+			}
+
+			let plugin = new WebPluginClass(container, pluginPackage, pluginInfo, logger);
+			await plugin.init();
+			plugins.set(pluginInfo.name, plugin);
 
 		} catch (err) {
-			logger.error(`Failed to load plugin info for ${meta.name}`);
-			if (err) {
+			logger.error(`Failed to load plugin ${meta.name}`);
+			if (err.stack) {
 				logger.error(err.stack);
 			}
-			plugins.push({
-				meta,
-			});
 		}
 	}
 	return plugins;
@@ -71,14 +80,15 @@ async function load() {
 		format: new WebConsoleFormat(),
 	}));
 	let plugins = await loadPlugins();
-	libConfig.registerPluginConfigGroups(plugins.filter(p => p.info).map(p => p.info));
+	let pluginInfos = [...plugins.values()].map(p => p.info);
+	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 
 	let wsUrl = new URL(window.webRoot, document.location);
 	wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
 
 	let controlConnector = new ControlConnector(wsUrl, 10);
-	let control = new Control(controlConnector, []);
+	let control = new Control(controlConnector, plugins);
 
 	ReactDOM.render(<App control={control} plugins={plugins}/>, document.getElementById("root"));
 }

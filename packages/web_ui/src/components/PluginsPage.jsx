@@ -1,7 +1,9 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 import { Table } from "antd";
 
+import notify from "../util/notify";
+import basename from "../basename";
 import PluginsContext from "./PluginsContext";
 import PageLayout from "./PageLayout";
 
@@ -9,6 +11,34 @@ import PageLayout from "./PageLayout";
 export default function PluginsPage() {
 	let plugins = useContext(PluginsContext);
 	let history = useHistory();
+	let [pluginList, setPluginList] = useState([]);
+
+	useEffect(() => {
+		(async () => {
+			let response = await fetch(`${basename}/api/plugins`);
+			if (response.ok) {
+				setPluginList(await response.json());
+			} else {
+				notify("Failed to load plugin list");
+			}
+		})();
+	}, []);
+
+	let tableContents = [];
+	for (let meta of pluginList) {
+		if (plugins.has(meta.name)) {
+			let plugin = plugins.get(meta.name);
+			tableContents.push({
+				meta,
+				info: plugin.info,
+				package: plugin.package,
+			});
+		} else {
+			tableContents.push({
+				meta,
+			});
+		}
+	}
 
 	return <PageLayout nav={[{ name: "Plugins" }]}>
 		<h2>Plugins</h2>
@@ -39,7 +69,7 @@ export default function PluginsPage() {
 					responsive: ["sm"],
 				},
 			]}
-			dataSource={plugins}
+			dataSource={tableContents}
 			rowKey={plugin => plugin.meta.name}
 			pagination={false}
 			onRow={plugin => ({

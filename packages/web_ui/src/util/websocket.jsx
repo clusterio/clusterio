@@ -36,17 +36,17 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
  * @static
  */
 export class Control extends libLink.Link {
-	constructor(connector, controlPlugins) {
+	constructor(connector, plugins) {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
 
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
-		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
+		 * @type {Map<string, module:lib/plugin.BaseWebPlugin>}
 		 */
-		this.plugins = controlPlugins;
-		for (let controlPlugin of controlPlugins.values()) {
-			libPlugin.attachPluginMessages(this, controlPlugin.info, controlPlugin);
+		this.plugins = plugins;
+		for (let plugin of plugins.values()) {
+			libPlugin.attachPluginMessages(this, plugin);
 		}
 
 		this.instanceLogHandlers = new Map();

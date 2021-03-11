@@ -423,6 +423,46 @@ class BaseControlPlugin {
 	async addCommands(rootCommand) { }
 }
 
+
+/**
+ * Base class for web interface plugins
+ *
+ * @static
+ */
+class BaseWebPlugin {
+	constructor(container, packageData, info, logger) {
+		/**
+		 * Webpack container for this plugin
+		 */
+		this.container = container;
+
+		/**
+		 * Contents of the plugin's package.json file
+		 * @type {Object}
+		 */
+		this.package = packageData;
+
+		/**
+		 * The plugin's own info module
+		 */
+		this.info = info;
+
+		/**
+		 * Logger for this plugin
+		 *
+		 * Instance of winston Logger for sending log messages from this
+		 * plugin.  Supported methods and their corresponding log levels are
+		 * `error`, `warn`, `audit`, `info` and `verbose`.
+		 */
+		this.logger = logger.child({ plugin: this.info.name });
+	}
+
+	/**
+	 * Called immediately after the class is instantiated.
+	 */
+	async init() { }
+}
+
 /**
  * Attach plugin messages
  *
@@ -489,6 +529,7 @@ module.exports = {
 	BaseInstancePlugin,
 	BaseMasterPlugin,
 	BaseControlPlugin,
+	BaseWebPlugin,
 
 	attachPluginMessages,
 	invokeHook,
