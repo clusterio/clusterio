@@ -5,13 +5,25 @@ import { BrowserRouter } from "react-router-dom";
 import { logger } from "@clusterio/lib/logging";
 
 import basename from "../basename";
+import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
 import PluginsContext from "./PluginsContext";
 import LoginForm from "./LoginForm";
 
-import { Card, Spin } from "antd";
+import { Card, Spin, Typography } from "antd";
 
+const { Paragraph } = Typography;
+
+
+function ErrorCard(props) {
+	return <div className="login-container">
+		<Card>
+			<h1>An unexpected error occured</h1>
+			<Paragraph code className="error-traceback">{props.error.stack}</Paragraph>
+		</Card>
+	</div>;
+}
 
 export default function App(props) {
 	let [connected, setConnected] = useState(false);
@@ -77,12 +89,14 @@ export default function App(props) {
 	}
 
 	return (
-		<ControlContext.Provider value={props.control}>
-			<PluginsContext.Provider value={props.plugins}>
-				<BrowserRouter basename={basename}>
-					{page}
-				</BrowserRouter>
-			</PluginsContext.Provider>
-		</ControlContext.Provider>
+		<ErrorBoundary Component={ErrorCard}>
+			<ControlContext.Provider value={props.control}>
+				<PluginsContext.Provider value={props.plugins}>
+					<BrowserRouter basename={basename}>
+						{page}
+					</BrowserRouter>
+				</PluginsContext.Provider>
+			</ControlContext.Provider>
+		</ErrorBoundary>
 	);
 }
