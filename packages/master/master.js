@@ -41,8 +41,10 @@ let loadedPlugins = {};
 let devMiddleware;
 let clusterLogger;
 let db = {
-	instances: new Map(),
-	slaves: new Map(),
+	instances: null,
+	slaves: null,
+	roles: null,
+	users: null,
 };
 let slaveConnections = new Map();
 let controlConnections = [];
@@ -489,6 +491,14 @@ async function shutdown() {
 		logger.info("Saving configs");
 		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 
+		if (devMiddleware) {
+			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+		}
+
+		if (!db.slaves) {
+			return;
+		}
+
 		await saveMap(masterConfig.get("master.database_directory"), "slaves.json", db.slaves);
 		await saveInstances(masterConfig.get("master.database_directory"), "instances.json", db.instances);
 		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
@@ -496,10 +506,6 @@ async function shutdown() {
 		await libPlugin.invokeHook(masterPlugins, "onShutdown");
 
 		stopAcceptingNewSessions = true;
-
-		if (devMiddleware) {
-			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
-		}
 
 		let disconnectTasks = [];
 		for (let controlConnection of controlConnections) {
