@@ -1862,6 +1862,7 @@ async function initialize() {
 		})
 		.command("run", "Run master server", yargs => {
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
+			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -1954,15 +1955,29 @@ async function initialize() {
 
 async function startServer(args) {
 	// Start webpack development server if enabled
-	if (args.dev) {
+	if (args.dev || args.devPlugin) {
 		logger.warn("Webpack development mode enabled");
 		/* eslint-disable global-require */
 		const webpack = require("webpack");
 		const webpackDevMiddleware = require("webpack-dev-middleware");
-		const webpackConfig = require("./webpack.config");
+		const webpackConfigs = [];
+		if (args.dev) {
+			webpackConfigs.push(require("./webpack.config"));
+		}
+		if (args.devPlugin) {
+			for (let name of args.devPlugin) {
+				let info = pluginInfos.find(i => i.name === name);
+				if (!info) {
+					throw new libErrors.StartupError(`No plugin named ${name}`);
+				}
+				webpackConfigs.push(
+					require(path.posix.join(info.requirePath, "webpack.config"))
+				);
+			}
+		}
 		/* eslint-enable global-require */
 
-		const compiler = webpack(webpackConfig({}));
+		const compiler = webpack(webpackConfigs.map(config => config({})));
 		devMiddleware = webpackDevMiddleware(compiler, {});
 		app.use(devMiddleware);
 	}

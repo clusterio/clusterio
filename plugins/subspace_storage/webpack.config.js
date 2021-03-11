@@ -9,6 +9,7 @@ module.exports = (env = {}) => merge(common(env), {
 	context: __dirname,
 	entry: "./web/index.jsx",
 	output: {
+		publicPath: "/plugin/subspace_storage/",
 		filename: "bundle.js",
 		path: path.resolve(__dirname, "dist", "web"),
 	},
