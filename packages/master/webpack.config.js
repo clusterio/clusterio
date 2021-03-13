@@ -29,7 +29,6 @@ module.exports = (env = {}) => merge(common(env), {
 				"@clusterio/lib/schema": { singleton: true },
 				"@clusterio/lib/users": { singleton: true },
 				"@clusterio/web_ui": { singleton: true },
-				"ajv": {},
 				"antd": { singleton: true },
 				"react": { singleton: true },
 				"react-dom": { singleton: true },

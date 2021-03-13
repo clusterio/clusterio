@@ -74,7 +74,7 @@ async function loadPlugins() {
 	return plugins;
 }
 
-async function load() {
+export default async function bootstrap() {
 	logger.add(new ConsoleTransport({
 		level: "verbose",
 		format: new WebConsoleFormat(),
@@ -92,5 +92,3 @@ async function load() {
 
 	ReactDOM.render(<App control={control} plugins={plugins}/>, document.getElementById("root"));
 }
-
-load().catch((err) => logger.fatal(err.stack));

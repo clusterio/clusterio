@@ -4,6 +4,7 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.4",
+  "browser": "src/index.jsx",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
