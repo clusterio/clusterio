@@ -81,10 +81,7 @@ export default function App(props) {
 
 	} else {
 		page = <div className="login-container">
-			<Card>
-				<h1>Clusterio</h1>
-				<LoginForm setToken={setToken} />
-			</Card>
+			<LoginForm setToken={setToken} />
 		</div>;
 	}
 

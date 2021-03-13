@@ -425,6 +425,21 @@ class BaseControlPlugin {
 
 
 /**
+ * Plugin supplied login form
+ * @typedef {Object} module:lib/plugin~LoginForm
+ * @property {string} name -
+ *     Internal name of the login form, this should start with the
+ *     plugin name followed by a dot.
+ * @property {string} title -
+ *     Name displayed above this form in the login window.
+ * @property {React.Component} Component -
+ *     React component that's rendered for this login form.  This is
+ *     supplied the setToken function via its props which should be
+ *     called when an authentication token is aquired via this
+ *     form.
+ */
+
+/**
  * Base class for web interface plugins
  *
  * @static
@@ -455,6 +470,13 @@ class BaseWebPlugin {
 		 * `error`, `warn`, `audit`, `info` and `verbose`.
 		 */
 		this.logger = logger.child({ plugin: this.info.name });
+
+		/**
+		 * List of login forms provided by this plugin
+		 *
+		 * @type {Array<module:lib/plugin~LoginForm>}
+		 */
+		this.loginForms = [];
 	}
 
 	/**
