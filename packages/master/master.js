@@ -80,18 +80,6 @@ let httpServerCloser;
 let httpsServer;
 let httpsServerCloser;
 
-app.use(cookieParser());
-app.use(bodyParser.json({
-	limit: "10mb",
-}));
-app.use(bodyParser.urlencoded({
-	parameterLimit: 100000,
-	limit: "10mb",
-	extended: true,
-}));
-app.use(fileUpload());
-app.use(compression());
-
 
 // Servers the web interface with the root path set apropriately.
 function serveWeb(route) {
@@ -111,10 +99,6 @@ function serveWeb(route) {
 		});
 	};
 }
-
-// Set folder to serve static content from (the website)
-app.use(express.static(path.join(__dirname, "dist", "web")));
-app.use(express.static("static")); // Used for data export files
 
 const slaveMappingGauge = new libPrometheus.Gauge(
 	"clusterio_master_slave_mapping",
@@ -151,6 +135,11 @@ const instanceMappingGauge = new libPrometheus.Gauge(
 	}
 );
 
+const hitCounter = new libPrometheus.Counter(
+	"clusterio_master_http_hits_total",
+	"How many HTTP requests in total have been received"
+);
+
 const endpointHitCounter = new libPrometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
 	"How many requests a particular HTTP endpoint has gotten",
@@ -182,6 +171,28 @@ const wsActiveSlavesGauge = new libPrometheus.Gauge(
 	"clusterio_master_active_slaves",
 	"How many slaves are currently connected to the master"
 );
+
+
+app.use((req, res, next) => {
+	hitCounter.inc();
+	next();
+});
+app.use(cookieParser());
+app.use(bodyParser.json({
+	limit: "10mb",
+}));
+app.use(bodyParser.urlencoded({
+	parameterLimit: 100000,
+	limit: "10mb",
+	extended: true,
+}));
+app.use(fileUpload());
+app.use(compression());
+
+// Set folder to serve static content from (the website)
+app.use(express.static(path.join(__dirname, "dist", "web")));
+app.use(express.static("static")); // Used for data export files
+
 
 // Merges samples from sourceResult to destinationResult
 function mergeSamples(destinationResult, sourceResult) {
