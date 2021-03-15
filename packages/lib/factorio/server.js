@@ -9,9 +9,9 @@ const crypto = require("crypto");
 
 const ini = require("ini");
 const rconClient = require("rcon-client");
-const libErrors = require("@clusterio/lib/errors");
-const { logger } = require("@clusterio/lib/logging");
-const { escapeRegExp } = require("@clusterio/lib/helpers");
+const libErrors = require("../errors");
+const { logger } = require("../logging");
+const { escapeRegExp } = require("../helpers");
 
 
 /**

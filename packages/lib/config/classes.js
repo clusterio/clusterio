@@ -4,7 +4,7 @@
 const events = require("events");
 
 const isDeepStrictEqual = require("../is_deep_strict_equal");
-const { basicType } = require("@clusterio/lib/helpers");
+const { basicType } = require("../helpers");
 
 
 /**
@@ -813,8 +813,8 @@ class PluginConfigGroup extends ConfigGroup {
 		if (!this._initialized) {
 			super._initSubclass();
 			this.define({
-				name: "enabled",
-				description: "Enable plugin",
+				name: "load_plugin",
+				title: "Load Plugin",
 				type: "boolean",
 				initial_value: true,
 			});

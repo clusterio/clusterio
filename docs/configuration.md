@@ -130,10 +130,10 @@ Role to automatically grant to new users.  If null no role is granted.
 Defaults to 1 which correspond to the default Player role.
 
 
-### <plugin_name>.enabled
+### <plugin_name>.load_plugin
 
-Whether to enable the given plugin on the master server.  Plugins
-disabled on the master server will not be loaded on instances.
+Whether to load the plugin on the master server.  Plugins not loaded on
+the master server will not be loaded on instances.
 
 Defaults to true.
 
@@ -425,11 +425,11 @@ maximum_segment_size), which is around 20 in normal circumstances.
 Defaults to 5
 
 
-### <plugin_name>.enabled
+### <plugin_name>.load_plugin
 
-Whether to enable the given plugin on the instance.  Note that plugins
-need to be enabled on the master server in order for them to be loaded
-on instances.
+Whether to load the given plugin on the instance.  Note that plugins
+need to be loaded on the master server in order for them to be loaded on
+instances.
 
 Defaults to true
 

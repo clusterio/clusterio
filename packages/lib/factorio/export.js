@@ -6,7 +6,7 @@ const ini = require("ini");
 const Jimp = require("jimp");
 const JSZip = require("jszip");
 
-const libBuildMod = require("@clusterio/lib/build_mod");
+const libBuildMod = require("../build_mod");
 
 /**
  * Generate the export mod needed for exportData

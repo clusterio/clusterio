@@ -5,7 +5,7 @@
  */
 "use strict";
 
-const libErrors = require("@clusterio/lib/errors");
+const libErrors = require("./errors");
 const path = require("path");
 
 

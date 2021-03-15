@@ -3,9 +3,9 @@
 const events = require("events");
 const WebSocket = require("isomorphic-ws");
 
-const libSchema = require("@clusterio/lib/schema");
-const libErrors = require("@clusterio/lib/errors");
-const { logger } = require("@clusterio/lib/logging");
+const libSchema = require("../schema");
+const libErrors = require("../errors");
+const { logger } = require("../logging");
 
 
 /**

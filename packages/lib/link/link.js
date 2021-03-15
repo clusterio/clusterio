@@ -1,9 +1,9 @@
 // Implementation of Link class
 "use strict";
 
-const libSchema = require("@clusterio/lib/schema");
-const libErrors = require("@clusterio/lib/errors");
-const { logger } = require("@clusterio/lib/logging");
+const libSchema = require("../schema");
+const libErrors = require("../errors");
+const { logger } = require("../logging");
 const messages = require("./messages");
 
 // Some definitions for the terminology used here:

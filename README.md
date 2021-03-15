@@ -95,6 +95,14 @@ supported and maintained by the Clusterio developers:
   Provide shared storage that can transport items between servers via
   teleport chests.
 
+There's also plugins developed and maintained by the community:
+
+- [Discord Bridge](https://github.com/Hornwitser/discord_bridge):
+  Bridges chat between instances and Discord.  By Hornwitser.
+- [Server Select](https://github.com/Hornwitser/server_select):
+  In-game GUI for connecting to other server in the cluster.  Originally
+  by Godmave, ported to 2.0 by Hornwitser.
+
 Want to make your own plugin?  Check out the documentation on [Writing
 Plugins](/docs/writing-plugins.md) for where to start.
 

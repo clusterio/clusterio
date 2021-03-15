@@ -14,10 +14,6 @@
  * npx clusteriomaster run
  */
 
-// Attempt updating
-// const updater = require("./updater");
-// updater.update().then(console.log);
-
 "use strict";
 const path = require("path");
 const fs = require("fs-extra");
@@ -278,8 +274,8 @@ app.get("/api/plugins", (req, res) => {
 	let plugins = [];
 	for (let pluginInfo of pluginInfos) {
 		let name = pluginInfo.name;
-		let enabled = masterPlugins.has(name) && masterConfig.group(name).get("enabled");
-		plugins.push({ name, version: pluginInfo.version, enabled });
+		let loaded = masterPlugins.has(name);
+		plugins.push({ name, version: pluginInfo.version, loaded });
 	}
 	res.send(plugins);
 });
@@ -1697,9 +1693,8 @@ ${err.stack}`
 });
 
 async function loadPlugins() {
-	let plugins = new Map();
 	for (let pluginInfo of pluginInfos) {
-		if (!masterConfig.group(pluginInfo.name).get("enabled")) {
+		if (!masterConfig.group(pluginInfo.name).get("load_plugin")) {
 			continue;
 		}
 
@@ -1716,7 +1711,7 @@ async function loadPlugins() {
 				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }, logger
 			);
 			await masterPlugin.init();
-			plugins.set(pluginInfo.name, masterPlugin);
+			masterPlugins.set(pluginInfo.name, masterPlugin);
 
 		} catch (err) {
 			throw new libErrors.PluginError(pluginInfo.name, err);
@@ -1724,13 +1719,12 @@ async function loadPlugins() {
 
 		logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
-	return plugins;
 }
 
 // handle plugins on the master
 async function pluginManagement() {
 	let startPluginLoad = Date.now();
-	masterPlugins = await loadPlugins();
+	await loadPlugins();
 	logger.info(`All plugins loaded in ${Date.now() - startPluginLoad}ms`);
 }
 

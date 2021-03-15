@@ -30,7 +30,7 @@ export default function PluginViewPage() {
 				title={pluginTitle}
 			>
 				<Descriptions.Item label="Version">{plugin.meta.version}</Descriptions.Item>
-				<Descriptions.Item label="Enabled">{plugin.meta.enabled ? "Yes" : "No"}</Descriptions.Item>
+				<Descriptions.Item label="Loaded">{plugin.meta.loaded ? "Yes" : "No"}</Descriptions.Item>
 			</Descriptions>
 			<Alert
 				style={{
@@ -56,7 +56,7 @@ export default function PluginViewPage() {
 			title={pluginTitle}
 		>
 			<Descriptions.Item label="Version">{plugin.meta.version}</Descriptions.Item>
-			<Descriptions.Item label="Enabled" span={2}>{plugin.meta.enabled ? "Yes" : "No"}</Descriptions.Item>
+			<Descriptions.Item label="Loaded" span={2}>{plugin.meta.loaded ? "Yes" : "No"}</Descriptions.Item>
 			<Descriptions.Item label="Description" span={3}>{plugin.info.description}</Descriptions.Item>
 			{plugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
 				<a href={plugin.package.homepage}>{plugin.package.homepage}</a>
