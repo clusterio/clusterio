@@ -143,6 +143,7 @@ before(async function() {
 	await exec("node ../../packages/ctl plugin add ../../plugins/research_sync");
 	await exec("node ../../packages/ctl plugin add ../../plugins/statistics_exporter");
 	await exec("node ../../packages/ctl plugin add ../../plugins/subspace_storage");
+	await exec("node ../../packages/ctl plugin add ../../plugins/player_auth");
 
 	await exec("node ../../packages/master bootstrap create-admin test");
 	await exec("node ../../packages/master bootstrap create-ctl-config test");

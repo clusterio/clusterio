@@ -1,7 +1,13 @@
 "use strict";
 const events = require("events");
+const http = require("http");
+const express = require("express");
+const bodyParser = require("body-parser");
 
 const libLink = require("@clusterio/lib/link");
+const libPlugin = require("@clusterio/lib/plugin");
+const libUsers = require("@clusterio/lib/users");
+const libPrometheus = require("@clusterio/lib/prometheus");
 
 
 class MockLogger {
@@ -85,8 +91,13 @@ class MockConnector extends events.EventEmitter {
 	}
 }
 
-class MockServer {
+class MockServer extends events.EventEmitter {
 	constructor() {
+		super();
+		this.reset();
+	}
+
+	reset() {
 		this.rconCommands = [];
 		this.rconCommandResults = new Map();
 	}
@@ -135,6 +146,82 @@ class MockControl extends libLink.Link {
 	}
 }
 
+class MockMaster {
+	constructor() {
+		this.app = express();
+		this.app.use(bodyParser.json({ limit: "10mb" }));
+		this.mockConfigEntries = new Map([
+			["master.external_address", "test"],
+			["master.auth_secret", "TestSecretDoNotUse"],
+		]);
+		this.config = {
+			get: (name) => {
+				if (this.mockConfigEntries.has(name)) {
+					return this.mockConfigEntries.get(name);
+				}
+				throw Error(`mock for field ${name} is not implemented`);
+			},
+		};
+
+		let roles = new Map([
+			[0, new libUsers.Role({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
+			[1, new libUsers.Role({ id: 1, name: "Player", description: "player", permissions: [] })],
+		]);
+		roles.get(1).grantDefaultPermissions();
+
+		let users = new Map([
+			["test", new libUsers.User({ name: "test", roles: [0, 1] }, roles)],
+			["player", new libUsers.User({ name: "player", roles: [1] }, roles)],
+		]);
+		this.db = {
+			instances: new Map(),
+			slaves: new Map(),
+			roles,
+			users,
+		};
+	}
+
+	getMasterUrl() {
+		return "http://master.example/";
+	}
+
+	async startServer() {
+		this.server = http.createServer(this.app);
+		await new Promise(resolve => {
+			this.server.listen(0, "127.0.0.1", resolve);
+		});
+		let address = this.server.address();
+		return `http://127.0.0.1:${address.port}`;
+	}
+
+	async stopServer() {
+		if (this.server) {
+			this.server.close();
+			this.server.unref();
+		}
+	}
+}
+
+async function createMasterPlugin(MasterPluginClass, info) {
+	let master = new MockMaster();
+	let metrics = {
+		endpointHitCounter: new libPrometheus.Counter("hit_counter", "Hit Counter", { labels: ["route"] }),
+	};
+	let logger = new MockLogger();
+	let plugin = new MasterPluginClass(info, master, metrics, logger);
+	await plugin.init();
+	return plugin;
+}
+
+async function createInstancePlugin(InstancePluginClass, info) {
+	let instance = new MockInstance();
+	let slave = new MockSlave();
+	let plugin = new InstancePluginClass(info, instance, slave);
+	libPlugin.attachPluginMessages(instance, plugin);
+	await plugin.init();
+	return plugin;
+}
+
 
 module.exports = {
 	MockLogger,
@@ -143,4 +230,7 @@ module.exports = {
 	MockInstance,
 	MockSlave,
 	MockControl,
+
+	createMasterPlugin,
+	createInstancePlugin,
 };

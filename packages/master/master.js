@@ -1726,7 +1726,16 @@ async function loadPlugins() {
 			}
 
 			let masterPlugin = new MasterPluginClass(
-				pluginInfo, { app, config: masterConfig, db, slaveConnections }, { endpointHitCounter }, logger
+				pluginInfo,
+				{
+					app,
+					config: masterConfig,
+					db,
+					getMasterUrl,
+					slaveConnections,
+				},
+				{ endpointHitCounter },
+				logger
 			);
 			await masterPlugin.init();
 			masterPlugins.set(pluginInfo.name, masterPlugin);

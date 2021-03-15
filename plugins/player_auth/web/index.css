@@ -1,0 +1,9 @@
+.factorio-login-steps {
+	padding-left: 1em;
+}
+
+.factorio-login-steps ul {
+	padding-left: 1em;
+	margin-bottom: 1em;
+	list-style-type: disc;
+}

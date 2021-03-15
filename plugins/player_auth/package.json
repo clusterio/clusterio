@@ -1,0 +1,34 @@
+{
+  "name": "@clusterio/plugin-player_auth",
+  "version": "2.0.0-alpha.5",
+  "description": "Clusterio plugin authenticating logged in players to the web interface",
+  "author": "Hornwitser <github@hornwitser.no>",
+  "homepage": "https://github.com/clusterio/factorioClusterio#readme",
+  "license": "MIT",
+  "repository": "clusterio/factorioClusterio",
+  "scripts": {
+    "build": "webpack-cli --env.production",
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/clusterio/factorioClusterio/issues"
+  },
+  "peerDependencies": {
+    "@clusterio/lib": "^2.0.0-alpha.0"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^8.2.1"
+  },
+  "devDependencies": {
+    "@clusterio/web_ui": "^2.0.0-alpha.4",
+    "antd": "^4.6.5",
+    "phin": "^3.4.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-merge": "^5.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
