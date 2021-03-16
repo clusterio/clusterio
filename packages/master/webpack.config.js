@@ -12,7 +12,7 @@ module.exports = (env = {}) => merge(common(env), {
 		contentBase: "./dist/web",
 	},
 	output: {
-		publicPath: "/",
+		publicPath: "auto",
 		filename: "bundle.js",
 		path: path.resolve(__dirname, "dist", "web"),
 	},
