@@ -7,7 +7,6 @@ import libConfig from "@clusterio/lib/config";
 import libPlugin from "@clusterio/lib/plugin";
 import { ConsoleTransport, WebConsoleFormat, logger } from "@clusterio/lib/logging";
 
-import basename from "./basename";
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";
 
@@ -28,7 +27,7 @@ async function loadScript(url) {
 }
 
 async function loadPlugins() {
-	let response = await fetch(`${basename}/api/plugins`);
+	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList;
 	if (response.ok) {
 		pluginList = await response.json();
@@ -42,7 +41,7 @@ async function loadPlugins() {
 	await __webpack_init_sharing__("default");
 	for (let meta of pluginList) {
 		try {
-			await loadScript(`${basename}/plugins/${meta.name}/remoteEntry.js`);
+			await loadScript(`${webRoot}plugins/${meta.name}/remoteEntry.js`);
 			let container = window[`plugin_${meta.name}`];
 			if (!container) {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);

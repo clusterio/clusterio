@@ -1,4 +1,3 @@
-export { default as basename } from "./basename.jsx";
 export { default as bootstrap } from "./bootstrap.jsx";
 export { default as notify, notifyErrorHandler } from "./util/notify.jsx";
 

@@ -2,7 +2,6 @@ import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import { Alert, Descriptions, Spin } from "antd";
 
-import basename from "../basename";
 import PluginsContext from "./PluginsContext";
 import PageLayout from "./PageLayout";
 import { notifyErrorHandler } from "../util/notify";
@@ -16,7 +15,7 @@ export default function PluginViewPage() {
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${basename}/api/plugins`);
+			let response = await fetch(`${webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {

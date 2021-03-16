@@ -4,7 +4,6 @@ import { BrowserRouter } from "react-router-dom";
 
 import { logger } from "@clusterio/lib/logging";
 
-import basename from "../basename";
 import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
@@ -89,7 +88,7 @@ export default function App(props) {
 		<ErrorBoundary Component={ErrorCard}>
 			<ControlContext.Provider value={props.control}>
 				<PluginsContext.Provider value={props.plugins}>
-					<BrowserRouter basename={basename}>
+					<BrowserRouter basename={webRoot}>
 						{page}
 					</BrowserRouter>
 				</PluginsContext.Provider>

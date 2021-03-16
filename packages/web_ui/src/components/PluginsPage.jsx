@@ -3,7 +3,6 @@ import { useHistory } from "react-router-dom";
 import { Table } from "antd";
 
 import notify from "../util/notify";
-import basename from "../basename";
 import PluginsContext from "./PluginsContext";
 import PageLayout from "./PageLayout";
 
@@ -15,7 +14,7 @@ export default function PluginsPage() {
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${basename}/api/plugins`);
+			let response = await fetch(`${webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {
