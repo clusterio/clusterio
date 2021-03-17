@@ -197,6 +197,7 @@ module.exports = {
 	getControl,
 
 	url,
+	controlToken,
 	instancesDir,
 	databaseDir,
 	masterConfigPath,
