@@ -94,6 +94,8 @@ supported and maintained by the Clusterio developers:
 - [Subspace Storage](https://github.com/clusterio/factorioClusterioMod):
   Provide shared storage that can transport items between servers via
   teleport chests.
+- [Player Auth](/plugins/player_auth/README.md): Provides authentication
+  to the cluster via logging into a Factorio server.
 
 There's also plugins developed and maintained by the community:
 
