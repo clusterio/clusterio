@@ -75,7 +75,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	 * Start sending heartbeats
 	 */
 	startHeartbeat() {
-		if(this._heartbeatId) {
+		if (this._heartbeatId) {
 			throw new Error("heartbeat is already running");
 		}
 		this._lastHeartbeat = Date.now();
