@@ -2,11 +2,15 @@
 const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
+const events = require("events");
 
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
 
-const { slowTest, get, exec, execCtl, sendRcon, getControl, instancesDir } = require("./index");
+const {
+	TestControl, TestControlConnector, url, controlToken, slowTest,
+	get, exec, execCtl, sendRcon, getControl, instancesDir,
+} = require("./index");
 
 
 async function getInstances() {
@@ -30,6 +34,29 @@ describe("Integration of Clusterio", function() {
 				await assert.rejects(
 					exec("node ../../packages/master bootstrap generate-user-token invalid")
 				);
+			});
+		});
+
+		describe("run", function() {
+			it("should handle resume of an active connection", async function() {
+				slowTest(this);
+				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
+				let connectorA = new TestControlConnector(url, 2, tlsCa);
+				connectorA.token = controlToken;
+				let controlA = new TestControl(connectorA);
+				await connectorA.connect();
+				connectorA._state = "closing";
+				connectorA.stopHeartbeat();
+				connectorA.on("error", () => {});
+
+				let connectorB = new TestControlConnector(url, 2, tlsCa);
+				connectorB.token = controlToken;
+				let controlB = new TestControl(connectorB);
+				connectorB._sessionToken = connectorA._sessionToken;
+				connectorB._state = "handshake";
+				await connectorB._doConnect();
+				await events.once(connectorB, "resume");
+				await connectorB.close();
 			});
 		});
 	});

@@ -1399,7 +1399,24 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 	 * @param {number} lastSeq - The last message the client received.
 	 */
 	continue(socket, lastSeq) {
-		this._socket.terminate();
+
+		// It's possible the previous connection hasn't closed yet due to a
+		// stale connection.  If this is the case the connector will have to
+		// wait for the previous socket to close down before it can continue
+		// from a new socket, or there will be overlapping events from both.
+		if (["connected", "closing"].includes(this._state)) {
+			this._socket.close(4003, "Session Hijacked");
+
+			// Correctly waiting for the connector to close and then
+			// handling all the edge cases like multiple continues happening
+			// in parallel or connections going stale is far too difficult.
+			// Kill the connection here and let the client reconnect later
+			// when the connector is not held up by an active connection.
+			socket.close(1013, "Session Busy");
+			socket.terminate();
+			return;
+		}
+
 		this._socket = socket;
 
 		if (this._timeoutId) {
