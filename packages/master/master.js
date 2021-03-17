@@ -41,8 +41,10 @@ let loadedPlugins = {};
 let devMiddleware;
 let clusterLogger;
 let db = {
-	instances: new Map(),
-	slaves: new Map(),
+	instances: null,
+	slaves: null,
+	roles: null,
+	users: null,
 };
 let slaveConnections = new Map();
 let controlConnections = [];
@@ -78,18 +80,6 @@ let httpServerCloser;
 let httpsServer;
 let httpsServerCloser;
 
-app.use(cookieParser());
-app.use(bodyParser.json({
-	limit: "10mb",
-}));
-app.use(bodyParser.urlencoded({
-	parameterLimit: 100000,
-	limit: "10mb",
-	extended: true,
-}));
-app.use(fileUpload());
-app.use(compression());
-
 
 // Servers the web interface with the root path set apropriately.
 function serveWeb(route) {
@@ -109,10 +99,6 @@ function serveWeb(route) {
 		});
 	};
 }
-
-// Set folder to serve static content from (the website)
-app.use(express.static(path.join(__dirname, "dist", "web")));
-app.use(express.static("static")); // Used for data export files
 
 const slaveMappingGauge = new libPrometheus.Gauge(
 	"clusterio_master_slave_mapping",
@@ -149,6 +135,11 @@ const instanceMappingGauge = new libPrometheus.Gauge(
 	}
 );
 
+const hitCounter = new libPrometheus.Counter(
+	"clusterio_master_http_hits_total",
+	"How many HTTP requests in total have been received"
+);
+
 const endpointHitCounter = new libPrometheus.Counter(
 	"clusterio_master_http_endpoint_hits_total",
 	"How many requests a particular HTTP endpoint has gotten",
@@ -180,6 +171,28 @@ const wsActiveSlavesGauge = new libPrometheus.Gauge(
 	"clusterio_master_active_slaves",
 	"How many slaves are currently connected to the master"
 );
+
+
+app.use((req, res, next) => {
+	hitCounter.inc();
+	next();
+});
+app.use(cookieParser());
+app.use(bodyParser.json({
+	limit: "10mb",
+}));
+app.use(bodyParser.urlencoded({
+	parameterLimit: 100000,
+	limit: "10mb",
+	extended: true,
+}));
+app.use(fileUpload());
+app.use(compression());
+
+// Set folder to serve static content from (the website)
+app.use(express.static(path.join(__dirname, "dist", "web")));
+app.use(express.static("static")); // Used for data export files
+
 
 // Merges samples from sourceResult to destinationResult
 function mergeSamples(destinationResult, sourceResult) {
@@ -275,7 +288,8 @@ app.get("/api/plugins", (req, res) => {
 	for (let pluginInfo of pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = masterPlugins.has(name);
-		plugins.push({ name, version: pluginInfo.version, loaded });
+		let enabled = loaded && masterConfig.group(pluginInfo.name).get("load_plugin");
+		plugins.push({ name, version: pluginInfo.version, enabled, loaded });
 	}
 	res.send(plugins);
 });
@@ -488,6 +502,14 @@ async function shutdown() {
 		logger.info("Saving configs");
 		await fs.outputFile(masterConfigPath, JSON.stringify(masterConfig.serialize(), null, 4));
 
+		if (devMiddleware) {
+			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+		}
+
+		if (!db.slaves) {
+			return;
+		}
+
 		await saveMap(masterConfig.get("master.database_directory"), "slaves.json", db.slaves);
 		await saveInstances(masterConfig.get("master.database_directory"), "instances.json", db.instances);
 		await saveUsers(masterConfig.get("master.database_directory"), "users.json");
@@ -495,10 +517,6 @@ async function shutdown() {
 		await libPlugin.invokeHook(masterPlugins, "onShutdown");
 
 		stopAcceptingNewSessions = true;
-
-		if (devMiddleware) {
-			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
-		}
 
 		let disconnectTasks = [];
 		for (let controlConnection of controlConnections) {
@@ -1861,6 +1879,7 @@ async function initialize() {
 		})
 		.command("run", "Run master server", yargs => {
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
+			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -1953,15 +1972,29 @@ async function initialize() {
 
 async function startServer(args) {
 	// Start webpack development server if enabled
-	if (args.dev) {
+	if (args.dev || args.devPlugin) {
 		logger.warn("Webpack development mode enabled");
 		/* eslint-disable global-require */
 		const webpack = require("webpack");
 		const webpackDevMiddleware = require("webpack-dev-middleware");
-		const webpackConfig = require("./webpack.config");
+		const webpackConfigs = [];
+		if (args.dev) {
+			webpackConfigs.push(require("./webpack.config"));
+		}
+		if (args.devPlugin) {
+			for (let name of args.devPlugin) {
+				let info = pluginInfos.find(i => i.name === name);
+				if (!info) {
+					throw new libErrors.StartupError(`No plugin named ${name}`);
+				}
+				webpackConfigs.push(
+					require(path.posix.join(info.requirePath, "webpack.config"))
+				);
+			}
+		}
 		/* eslint-enable global-require */
 
-		const compiler = webpack(webpackConfig({}));
+		const compiler = webpack(webpackConfigs.map(config => config({})));
 		devMiddleware = webpackDevMiddleware(compiler, {});
 		app.use(devMiddleware);
 	}
@@ -2033,7 +2066,7 @@ async function startServer(args) {
 
 		let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
 		let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
-		app.use(`/plugin/${pluginInfo.name}`, express.static(webPath));
+		app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
 	}
 
 	// Load plugins

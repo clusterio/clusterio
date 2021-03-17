@@ -12,6 +12,7 @@ module.exports = (env = {}) => merge(common(env), {
 		contentBase: "./dist/web",
 	},
 	output: {
+		publicPath: "auto",
 		filename: "bundle.js",
 		path: path.resolve(__dirname, "dist", "web"),
 	},
@@ -28,7 +29,6 @@ module.exports = (env = {}) => merge(common(env), {
 				"@clusterio/lib/schema": { singleton: true },
 				"@clusterio/lib/users": { singleton: true },
 				"@clusterio/web_ui": { singleton: true },
-				"ajv": {},
 				"antd": { singleton: true },
 				"react": { singleton: true },
 				"react-dom": { singleton: true },

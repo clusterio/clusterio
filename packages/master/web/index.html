@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Clusterio</title>
     <script>
-        window.webRoot = "__WEB_ROOT__";
+        window.webRoot = new URL("__WEB_ROOT__", document.location).pathname;
     </script>
   </head>
   <body>
