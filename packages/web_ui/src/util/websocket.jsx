@@ -49,6 +49,12 @@ export class Control extends libLink.Link {
 			libPlugin.attachPluginMessages(this, plugin);
 		}
 
+		/**
+		 * Flag indicating the connection is in the process of logging out.
+		 * @type {boolean}
+		 */
+		this.loggingOut = false;
+
 		this.instanceLogHandlers = new Map();
 
 		this.connector.on("connect", () => {
@@ -120,7 +126,7 @@ export class Control extends libLink.Link {
 	}
 
 	async shutdown() {
-		this.connector.setTimeout(30);
+		this.connector.setTimeout(5);
 
 		try {
 			await libLink.messages.prepareDisconnect.send(this);

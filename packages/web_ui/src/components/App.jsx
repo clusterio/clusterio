@@ -55,8 +55,13 @@ export default function App(props) {
 		connector.on("error", onError);
 
 		if (token && !connected) {
-			connector.token = token;
-			connector.connect();
+			if (props.control.loggingOut) {
+				clearToken();
+				props.control.loggingOut = false;
+			} else {
+				connector.token = token;
+				connector.connect();
+			}
 		}
 
 		return () => {

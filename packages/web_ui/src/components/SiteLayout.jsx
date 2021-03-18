@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Switch, Route, useHistory } from "react-router-dom";
-import { Layout, Menu } from "antd";
+import { Dropdown, Layout, Menu } from "antd";
+import UserOutlined from "@ant-design/icons/UserOutlined";
 import webUiPackage from "../../package.json";
 
+import { useAccount } from "../model/account";
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
 
@@ -40,6 +42,7 @@ const sidebar = [
 export default function SiteLayout(props) {
 	let history = useHistory();
 	let [sidebarPath, setSidebarPath] = useState(null);
+	let account = useAccount();
 
 	function SetSidebar(setSidebarProps) {
 		useEffect(() => {
@@ -48,14 +51,27 @@ export default function SiteLayout(props) {
 		return null;
 	}
 
+	let accountMenu = <Menu>
+		<Menu.Item danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
+	</Menu>;
+
+
 	return <Layout style={{ minHeight: "100vh" }}>
 		<Header className="header">
 			<div className="site-logo" />
-			<span className="site-name" style={{ top: -10 }}>Clusterio</span>
-			<span style={{ position: "absolute", top: 10, left: 120, color: "#f00" }}>{ webUiPackage.version }</span>
+			<span className="site-name">Clusterio</span>
+			<span className="site-version">{ webUiPackage.version }</span>
 			<Menu theme="dark" mode="horizontal" defaultSelectedKeys={["1"]}>
 				<Menu.Item key="1">Dashboard</Menu.Item>
 			</Menu>
+			<Dropdown
+				className="account-dropdown-header"
+				placement="bottomRight"
+				trigger="click"
+				overlay={accountMenu}
+			>
+				<UserOutlined/>
+			</Dropdown>
 		</Header>
 		<Layout className="site-layout">
 			<Sider
