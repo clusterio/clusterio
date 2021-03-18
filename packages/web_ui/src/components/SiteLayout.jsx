@@ -52,6 +52,8 @@ export default function SiteLayout(props) {
 	}
 
 	let accountMenu = <Menu>
+		<Menu.ItemGroup title={account.name}/>
+		<Menu.Divider/>
 		<Menu.Item danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
 	</Menu>;
 

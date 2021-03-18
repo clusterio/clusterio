@@ -401,7 +401,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 			this._startedReconnect = null;
 			this._connected = true;
-			this.emit("connect");
+			this.emit("connect", data);
 
 		} else if (type === "continue") {
 			logger.verbose("SOCKET | resuming existing session");
