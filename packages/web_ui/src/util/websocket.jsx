@@ -122,6 +122,10 @@ export class Control extends libLink.Link {
 	}
 
 	async updateLogSubscriptions() {
+		if (!this.connector.connected) {
+			return;
+		}
+
 		await libLink.messages.setLogSubscriptions.send(this, {
 			all: false,
 			master: false,
@@ -137,8 +141,6 @@ export class Control extends libLink.Link {
 	}
 
 	async shutdown() {
-		this.connector.setTimeout(5);
-
 		try {
 			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
