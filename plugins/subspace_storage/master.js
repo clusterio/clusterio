@@ -72,6 +72,8 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			}
 		}, 1000);
 
+		this.subscribedControlLinks = new Set();
+
 		routes.addApiRoutes(this.master.app, this.items, this.metrics.endpointHitCounter);
 	}
 
@@ -90,6 +92,9 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 		itemsToUpdate = [...itemsToUpdate.entries()];
 		this.broadcastEventToSlaves(this.info.messages.updateStorage, { items: itemsToUpdate });
+		for (let link of this.subscribedControlLinks) {
+			this.info.messages.updateStorage.send(link, { items: itemsToUpdate });
+		}
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 	}
 
@@ -179,6 +184,20 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		return {
 			items: itemsRemoved,
 		};
+	}
+
+	async setStorageSubscriptionRequestHandler(message, request, link) {
+		if (message.data.storage) {
+			this.subscribedControlLinks.add(link);
+		} else {
+			this.subscribedControlLinks.delete(link);
+		}
+	}
+
+	onControlConnectionEvent(connection, event) {
+		if (event === "close") {
+			this.subscribedControlLinks.delete(connection);
+		}
 	}
 
 	onMetrics() {
