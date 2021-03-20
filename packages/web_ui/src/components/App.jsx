@@ -31,6 +31,7 @@ export default function App(props) {
 
 	function clearToken() {
 		setToken(null);
+		connector.token = null;
 		localStorage.removeItem("master_token");
 	}
 
@@ -54,17 +55,24 @@ export default function App(props) {
 		connector.on("close", onClose);
 		connector.on("error", onError);
 
-		if (token && !connected) {
-			connector.token = token;
-			connector.connect();
-		}
-
 		return () => {
 			connector.off("error", onError);
 			connector.off("close", onClose);
 			connector.off("connect", onConnect);
 		};
-	});
+	}, [token, props.control]);
+
+	useEffect(() => {
+		if (token && !connected) {
+			if (props.control.loggingOut) {
+				clearToken();
+				props.control.loggingOut = false;
+			} else {
+				connector.token = token;
+				connector.connect();
+			}
+		}
+	}, [token, connected]);
 
 	let page;
 	if (connected) {

@@ -1371,8 +1371,10 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 	 *
 	 * @param {string} sessionToken -
 	 *     the session token to send to the client.
+	 * @param {Object=} additionalData -
+	 *     extra properties to send along the ready message.
 	 */
-	ready(sessionToken) {
+	ready(sessionToken, additionalData) {
 		this._heartbeatInterval = masterConfig.get("master.heartbeat_interval");
 		this._socket.send(JSON.stringify({
 			seq: null,
@@ -1380,6 +1382,7 @@ class WebSocketServerConnector extends libLink.WebSocketBaseConnector {
 			data: {
 				session_token: sessionToken,
 				heartbeat_interval: this._heartbeatInterval,
+				...additionalData,
 			},
 		}));
 
@@ -1650,6 +1653,7 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	let connector = new WebSocketServerConnector(socket, sessionId);
 	activeConnectors.set(sessionId, connector);
 
+	let additionalReadyData = {};
 	if (type === "register_slave") {
 		let connection = slaveConnections.get(data.id);
 		if (connection) {
@@ -1664,9 +1668,12 @@ async function handleHandshake(message, socket, req, attachHandler) {
 	} else if (type === "register_control") {
 		logger.verbose(`SOCKET | registered control from ${req.socket.remoteAddress}`);
 		controlConnections.push(new ControlConnection(data, connector, user));
+		additionalReadyData["account"] = {
+			name: user.name,
+		};
 	}
 
-	connector.ready(sessionToken);
+	connector.ready(sessionToken, additionalReadyData);
 }
 
 wss.on("connection", (socket, req) => {

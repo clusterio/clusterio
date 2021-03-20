@@ -102,6 +102,13 @@ const serverHandshake = ajv.compile({
 					properties: {
 						"session_token": { type: "string" },
 						"heartbeat_interval": { type: "number" },
+						"account": {
+							additionalProperties: false,
+							required: ["name"],
+							properties: {
+								"name": { type: "string" },
+							},
+						},
 					},
 				},
 			},

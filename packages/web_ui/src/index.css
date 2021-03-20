@@ -64,13 +64,22 @@ body {
 
 .header {
 	padding-left: 250px;
+	padding-right: 64px;
 }
 
 .site-name {
 	position: absolute;
+	top: -10px;
 	left: 112px;
 	font-size: 18pt;
 	font-weight: 400;
+}
+
+.site-version {
+	position: absolute;
+	top: 10px;
+	left: 120px;
+	color: #f00;
 }
 
 .site-logo {
@@ -80,6 +89,50 @@ body {
 	height: 64px;
 	background-image: url("./images/logo.png");
 	background-size: 64px;
+}
+
+@media not all and (min-width: 576px) {
+	.header {
+		padding-left: 88px;
+	}
+
+	.site-logo {
+		left: 12px;
+	}
+
+	.site-name {
+		display: none;
+	}
+
+	.site-version {
+		display: none;
+	}
+}
+
+.account-dropdown-header {
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: 64px;
+	height: 64px;
+	font-size: 18px;
+	line-height: 72px;
+	text-align: center;
+}
+
+.account-dropdown-header::after {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: transparent;
+	transition: all 0.3s;
+	content: "";
+}
+
+.account-dropdown-header:hover::after {
+	background: rgba(255, 255, 255, 0.1);
 }
 
 .error-traceback code {

@@ -178,7 +178,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	setTimeout(timeout) {
 		this._timeout = timeout;
 
-		if (this._reconnectId && this.timeout < this._reconnectDelay / 2) {
+		if (this._reconnectId && this._timeout < this._reconnectDelay / 2) {
 			clearTimeout(this._reconnectId);
 			this.reconnect();
 		}
@@ -280,6 +280,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._lastReceivedSeq = null;
 			this._sessionToken = null;
 			this._sendBuffer.length = 0;
+			this._state = "new";
 			this._connected = false;
 			this.emit("close");
 			return;
@@ -401,7 +402,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 			this._startedReconnect = null;
 			this._connected = true;
-			this.emit("connect");
+			this.emit("connect", data);
 
 		} else if (type === "continue") {
 			logger.verbose("SOCKET | resuming existing session");

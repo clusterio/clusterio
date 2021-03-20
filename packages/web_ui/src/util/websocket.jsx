@@ -49,12 +49,29 @@ export class Control extends libLink.Link {
 			libPlugin.attachPluginMessages(this, plugin);
 		}
 
+		/**
+		 * Flag indicating the connection is in the process of logging out.
+		 * @type {boolean}
+		 */
+		this.loggingOut = false;
+
+		/**
+		 * Name of the account this control link is connected as.
+		 * @type {?string}
+		 */
+		this.accountName = null;
+
 		this.instanceLogHandlers = new Map();
 
-		this.connector.on("connect", () => {
+		this.connector.on("connect", data => {
+			this.accountName = data.account.name;
 			this.updateLogSubscriptions().catch(err => logger.error(
 				`Unexpected error updating log subscriptions:\n${err.stack}`
 			));
+		});
+
+		this.connector.on("close", () => {
+			this.accountName = null;
 		});
 	}
 
@@ -105,6 +122,10 @@ export class Control extends libLink.Link {
 	}
 
 	async updateLogSubscriptions() {
+		if (!this.connector.connected) {
+			return;
+		}
+
 		await libLink.messages.setLogSubscriptions.send(this, {
 			all: false,
 			master: false,
@@ -120,8 +141,6 @@ export class Control extends libLink.Link {
 	}
 
 	async shutdown() {
-		this.connector.setTimeout(30);
-
 		try {
 			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {

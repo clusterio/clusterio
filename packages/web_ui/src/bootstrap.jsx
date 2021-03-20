@@ -87,6 +87,7 @@ export default async function bootstrap() {
 	wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
 
 	let controlConnector = new ControlConnector(wsUrl, 10);
+	controlConnector.setTimeout(15);
 	let control = new Control(controlConnector, plugins);
 
 	ReactDOM.render(<App control={control} plugins={plugins}/>, document.getElementById("root"));
