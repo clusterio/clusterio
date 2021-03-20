@@ -530,7 +530,7 @@ function attachPluginMessages(link, plugin) {
 				messageFormat.attach(link);
 
 			} else {
-				messageFormat.attach(link, async (message, format) => await plugin[handler](message, format));
+				messageFormat.attach(link, async (message, format) => await plugin[handler](message, format, link));
 			}
 
 		} catch (err) {
