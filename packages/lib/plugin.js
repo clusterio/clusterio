@@ -440,6 +440,21 @@ class BaseControlPlugin {
  */
 
 /**
+ * Plugin supplied pages
+ * @typedef {Object} module:Lib/plugin~Page
+ * @property {string} path - URL path to this page.
+ * @property {string=} sidebarPath -
+ *     If present and this path matches one of the pages in the sidebar it
+ *     will cause that sidebar entry to be highlighted as active.
+ * @property {string=} sidebarName -
+ *     If present creates an entry in the sidebar for this page with the
+ *     given text.
+ * @property {ReactNode} content -
+ *     A react node which is rendered when this page is navigated to.
+ *     Should render a PageLayout.
+ */
+
+/**
  * Base class for web interface plugins
  *
  * @static
@@ -477,6 +492,13 @@ class BaseWebPlugin {
 		 * @type {Array<module:lib/plugin~LoginForm>}
 		 */
 		this.loginForms = [];
+
+		/**
+		 * List of pages provided by this plugin
+		 *
+		 * @type {Array<module:lib/plugin~Page>}
+		 */
+		this.pages = [];
 	}
 
 	/**
