@@ -515,6 +515,13 @@ class BaseWebPlugin {
 		this.info = info;
 
 		/**
+		 * Control link to the master server, not available until the
+		 * connect event in onMasterConnectionEvent is signaled.
+		 * @type {?module:lib/link.Link}
+		 */
+		this.control = null;
+
+		/**
 		 * Logger for this plugin
 		 *
 		 * Instance of winston Logger for sending log messages from this

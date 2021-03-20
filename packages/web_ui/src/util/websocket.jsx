@@ -46,6 +46,7 @@ export class Control extends libLink.Link {
 		 */
 		this.plugins = plugins;
 		for (let plugin of plugins.values()) {
+			plugin.control = this;
 			libPlugin.attachPluginMessages(this, plugin);
 		}
 
