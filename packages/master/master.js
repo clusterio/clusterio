@@ -2012,7 +2012,7 @@ async function startServer(args) {
 		const webpackDevMiddleware = require("webpack-dev-middleware");
 		const webpackConfigs = [];
 		if (args.dev) {
-			webpackConfigs.push(require("./webpack.config"));
+			webpackConfigs.push(require("./webpack.config")({}));
 		}
 		if (args.devPlugin) {
 			for (let name of args.devPlugin) {
@@ -2020,14 +2020,14 @@ async function startServer(args) {
 				if (!info) {
 					throw new libErrors.StartupError(`No plugin named ${name}`);
 				}
-				webpackConfigs.push(
-					require(path.posix.join(info.requirePath, "webpack.config"))
-				);
+				let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
+				config.output.publicPath = `/plugins/${name}/`;
+				webpackConfigs.push(config);
 			}
 		}
 		/* eslint-enable global-require */
 
-		const compiler = webpack(webpackConfigs.map(config => config({})));
+		const compiler = webpack(webpackConfigs);
 		devMiddleware = webpackDevMiddleware(compiler, {});
 		app.use(devMiddleware);
 	}
