@@ -60,7 +60,7 @@ export default function App(props) {
 			connector.off("close", onClose);
 			connector.off("connect", onConnect);
 		};
-	}, [props.control]);
+	}, [token, props.control]);
 
 	useEffect(() => {
 		if (token && !connected) {
