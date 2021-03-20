@@ -13,6 +13,13 @@ const server = require("@clusterio/lib/factorio/server");
 const { ConsoleTransport, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
+// Make sure permissions from plugins are loaded
+require("../../plugins/global_chat/info");
+require("../../plugins/player_auth/info");
+require("../../plugins/research_sync/info");
+require("../../plugins/statistics_exporter/info");
+require("../../plugins/subspace_storage/info");
+
 
 class TestControl extends libLink.Link {
 	constructor(connector) {
