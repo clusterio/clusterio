@@ -696,6 +696,14 @@ class ControlConnection extends BaseConnection {
 				debugEvents.off("message", this.ws_dumper);
 			}
 		});
+
+		for (let event of ["connect", "drop", "resume", "close"]) {
+			this.connector.on(event, () => {
+				for (let masterPlugin of masterPlugins.values()) {
+					masterPlugin.onControlConnectionEvent(this, event);
+				}
+			});
+		}
 	}
 
 	async getMasterConfigRequestHandler() {
