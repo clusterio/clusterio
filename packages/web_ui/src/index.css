@@ -259,3 +259,9 @@ body {
 .json-input {
 	font-family: monospace;
 }
+
+.factorio-icon.item-unknown-item {
+	background: url("./images/unknown-item.png");
+	height: 32px;
+	width: 32px;
+}
