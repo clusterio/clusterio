@@ -17,6 +17,16 @@ class CommandError extends Error { }
 class RequestError extends Error { }
 
 /**
+ * Thrown when a permission check fails.
+ *
+ * Is a subclass of RequestError to prevent logging stack traces when
+ * requests fail due to permission denied.
+ *
+ * @static
+ */
+class PermissionError extends RequestError { }
+
+/**
  * Signal for messages that fail validation
  * @static
  */
@@ -66,6 +76,7 @@ class PluginError extends Error {
 module.exports = {
 	CommandError,
 	RequestError,
+	PermissionError,
 	InvalidMessage,
 	SessionLost,
 	AuthenticationFailed,

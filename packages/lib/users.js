@@ -9,6 +9,9 @@
 "use strict";
 const jwt = require("jsonwebtoken");
 
+const libErrors = require("./errors");
+
+
 /**
  * Represents a permission that can be granted
  * @static
@@ -254,7 +257,8 @@ class User {
 	 * "Permission denied" error is thrown.
 	 *
 	 * @param {string} permission - The permission to check for.
-	 * @throws {Error} if the user does noh have the given permission.
+	 * @throws {Error} If the given permission does not exist.
+	 * @throws {module:lib/errors.PermissionError} if the user does noh have the given permission.
 	 */
 	checkPermission(permission) {
 		if (!permissions.has(permission)) {
@@ -267,7 +271,7 @@ class User {
 			}
 		}
 
-		throw new Error("Permission denied");
+		throw new libErrors.PermissionError("Permission denied");
 	}
 
 	notifyJoin(instance_id) {
