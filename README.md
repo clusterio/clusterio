@@ -190,19 +190,19 @@ up, and v10.16.0+.
 
 1. Open Terminal or Command prompt in the directory you want to install to and run the following commands.
 
-```bash
-mkdir clusterio
-cd clusterio
-npm init -y
-npm install @clusterio/master @clusterio/slave @clusterio/ctl
-```
+    ```bash
+    mkdir clusterio
+    cd clusterio
+    npm init -y
+    npm install @clusterio/master @clusterio/slave @clusterio/ctl
+    ```
 
 2. Obtain Factorio:
 
-Install Factorio and copy the factorio.app in your clusterio install folder as factorio.
+Install Factorio and copy the factorio.app/Contents in your clusterio install folder as factorio.
 If you installed factorio on your mac you can run
 ```bash
-cp /Applications/factorio.app/ factorio
+    cp -r /Applications/factorio.app/Contents/ factorio
 ```
 
 ## Installing Plugins
