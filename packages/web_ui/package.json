@@ -3,7 +3,7 @@
   "description": "Clusterio web interface implementation",
   "author": "Hornwitser",
   "license": "MIT",
-  "version": "2.0.0-alpha.4",
+  "version": "2.0.0-alpha.5",
   "browser": "src/index.jsx",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -18,7 +18,7 @@
     "@ant-design/icons": "^4.2.2",
     "@babel/core": "^7.13.8",
     "@babel/preset-react": "^7.12.13",
-    "@clusterio/lib": "^2.0.0-alpha.4",
+    "@clusterio/lib": "^2.0.0-alpha.5",
     "antd": "^4.6.5",
     "babel-loader": "^8.2.2",
     "buffer": "^6.0.2",

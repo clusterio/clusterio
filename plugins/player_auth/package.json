@@ -20,7 +20,7 @@
     "jsonwebtoken": "^8.2.1"
   },
   "devDependencies": {
-    "@clusterio/web_ui": "^2.0.0-alpha.4",
+    "@clusterio/web_ui": "^2.0.0-alpha.5",
     "antd": "^4.6.5",
     "phin": "^3.4.1",
     "react": "^16.13.1",
