@@ -1,6 +1,7 @@
 "use strict";
 const libLink = require("@clusterio/lib/link");
 const libConfig = require("@clusterio/lib/config");
+const libUsers = require("@clusterio/lib/users");
 
 class MasterConfigGroup extends libConfig.PluginConfigGroup {}
 MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
@@ -41,6 +42,13 @@ InstanceConfigGroup.define({
 });
 InstanceConfigGroup.finalize();
 
+libUsers.definePermission({
+	name: "subspace_storage.storage.view",
+	title: "View Subspace Storage",
+	description: "View the items and fluids stored in the shared subspace.",
+	grantByDefault: true,
+});
+
 // JSON schema for subspace storage items
 const items = {
 	type: "array",
@@ -64,6 +72,9 @@ module.exports = {
 
 	masterEntrypoint: "master",
 	MasterConfigGroup,
+
+	webEntrypoint: "./web",
+	routes: ["/storage"],
 
 	messages: {
 		// XXX this should be a request to be reliable
@@ -90,7 +101,8 @@ module.exports = {
 		}),
 		getStorage: new libLink.Request({
 			type: "subspace_storage:get_storage",
-			links: ["instance-slave", "slave-master"],
+			links: ["instance-slave", "slave-master", "control-master"],
+			permission: "subspace_storage.storage.view",
 			forwardTo: "master",
 			responseProperties: {
 				"items": items,
@@ -98,10 +110,19 @@ module.exports = {
 		}),
 		updateStorage: new libLink.Event({
 			type: "subspace_storage:update_storage",
-			links: ["master-slave", "slave-instance"],
+			links: ["master-slave", "slave-instance", "master-control"],
 			broadcastTo: "instance",
 			eventProperties: {
 				"items": items,
+			},
+		}),
+
+		setStorageSubscription: new libLink.Request({
+			type: "subspace_storage:set_storage_subscription",
+			links: ["control-master"],
+			permission: "subspace_storage.storage.view",
+			requestProperties: {
+				"storage": { type: "boolean" },
 			},
 		}),
 	},

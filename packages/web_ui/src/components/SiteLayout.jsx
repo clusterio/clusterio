@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Switch, Route, useHistory } from "react-router-dom";
 import { Dropdown, Layout, Menu } from "antd";
 import UserOutlined from "@ant-design/icons/UserOutlined";
@@ -7,46 +7,21 @@ import webUiPackage from "../../package.json";
 import { useAccount } from "../model/account";
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
+import PluginsContext from "./PluginsContext";
+import { pages } from "../pages";
 
 const { Header, Sider } = Layout;
 
 
-import MasterPage from "./MasterPage";
-import SlavesPage from "./SlavesPage";
-import InstancesPage from "./InstancesPage";
-import InstanceViewPage from "./InstanceViewPage";
-import UsersPage from "./UsersPage";
-import UserViewPage from "./UserViewPage";
-import RolesPage from "./RolesPage";
-import RoleViewPage from "./RoleViewPage";
-import PluginsPage from "./PluginsPage";
-import PluginViewPage from "./PluginViewPage";
-
-const pages = [
-	{ path: "/instances/:id/view", sidebarPath: "/instances", content: <InstanceViewPage /> },
-	{ path: "/users/:name/view", sidebarPath: "/users", content: <UserViewPage /> },
-	{ path: "/roles/:id/view", sidebarPath: "/roles", content: <RoleViewPage /> },
-	{ path: "/plugins/:name/view", sidebarPath: "/plugins", content: <PluginViewPage /> },
-];
-
-const sidebar = [
-	{ name: "Master", path: "/master", content: <MasterPage /> },
-	{ name: "Slaves", path: "/slaves", content: <SlavesPage /> },
-	{ name: "Instances", path: "/instances", content: <InstancesPage />},
-	{ name: "Users", path: "/users", content: <UsersPage /> },
-	{ name: "Roles", path: "/roles", content: <RolesPage /> },
-	{ name: "Plugins", path: "/plugins", content: <PluginsPage /> },
-];
-
-
 export default function SiteLayout(props) {
 	let history = useHistory();
-	let [sidebarPath, setSidebarPath] = useState(null);
+	let [currentSidebarPath, setCurrentSidebarPath] = useState(null);
 	let account = useAccount();
+	let plugins = useContext(PluginsContext);
 
 	function SetSidebar(setSidebarProps) {
 		useEffect(() => {
-			setSidebarPath(setSidebarProps.path);
+			setCurrentSidebarPath(setSidebarProps.path);
 		});
 		return null;
 	}
@@ -57,6 +32,10 @@ export default function SiteLayout(props) {
 		<Menu.Item danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
 	</Menu>;
 
+	let combinedPages = [...pages];
+	for (let plugin of plugins.values()) {
+		combinedPages.push(...plugin.pages);
+	}
 
 	return <Layout style={{ minHeight: "100vh" }}>
 		<Header className="header">
@@ -86,25 +65,21 @@ export default function SiteLayout(props) {
 			>
 				<Menu
 					mode="inline"
-					selectedKeys={[sidebarPath]}
+					selectedKeys={[currentSidebarPath]}
 					style={{ height: "100%", borderRight: 0 }}
 					onClick={({ key }) => history.push(key)}
 				>
-					{sidebar.map(({name, path}) => <Menu.Item key={path}>{name}</Menu.Item>)}
+					{combinedPages.map(({sidebarName, path}) => (
+						sidebarName ? <Menu.Item key={path}>{sidebarName}</Menu.Item> : null)
+					)}
 				</Menu>
 			</Sider>
 			<Layout className="site-layout-content-container">
 				<Switch>
-					{sidebar.map(({path, content}) => <Route exact path={path} key={path}>
-						<SetSidebar path={path} />
+					{combinedPages.map(({path, sidebarPath, content}) => <Route exact path={path} key={path}>
+						<SetSidebar path={sidebarPath ? sidebarPath : path} />
 						<ErrorBoundary Component={ErrorPage}>
 							{content}
-						</ErrorBoundary>
-					</Route>)}
-					{pages.map(page => <Route exact path={page.path} key={page.path}>
-						<SetSidebar path={page.sidebarPath} />
-						<ErrorBoundary Component={ErrorPage}>
-							{page.content}
 						</ErrorBoundary>
 					</Route>)}
 					<Route>

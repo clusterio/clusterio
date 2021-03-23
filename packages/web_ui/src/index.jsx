@@ -3,6 +3,8 @@ export { default as notify, notifyErrorHandler } from "./util/notify.jsx";
 
 export * from "./model/instance.jsx";
 export * from "./model/slave.jsx";
+export * from "./model/locale.jsx";
+export * from "./model/item_metadata.jsx";
 
 
 export { default as ControlContext } from "./components/ControlContext";

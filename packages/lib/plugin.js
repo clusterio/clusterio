@@ -330,6 +330,43 @@ class BaseMasterPlugin {
 	onSlaveConnectionEvent(connection, event) { }
 
 	/**
+	 * Called when an avent on a control connection happens
+	 *
+	 * The event param may be one of connect, drop, resume and close and has
+	 * the following meaning:
+	 *
+	 * ##### connect
+	 *
+	 * Invoked when a new connection to the control has been established.
+	 *
+	 * ##### drop
+	 *
+	 * Invoked when a connection loss is detected between the master and a
+	 * control.  Plugins should respond to this event by throtteling
+	 * messages it is sending to the given control connection to an absolute
+	 * minimum.
+	 *
+	 * Messages sent over a dropped control connection will get queued up in
+	 * memory on the master and sent all in one go when the connection is
+	 * re-established again.
+	 *
+	 * ##### resume
+	 *
+	 * Invoked when a connection that had previously been dropped is
+	 * re-established.
+	 *
+	 * ##### close
+	 *
+	 * Invoked when the connection to the control has been closed.
+	 *
+	 * @param {module:master/master~ControlConnection} connection -
+	 *     The connection the event occured on.
+	 * @param {string} event - one of connect, drop, resume, and close.
+	 */
+	onControlConnectionEvent(connection, event) { }
+
+
+	/**
 	 * Called when a slave is preparing to disconnect from the master
 	 *
 	 * Invoked when a slave has requested the disconnection from the master.
@@ -440,6 +477,21 @@ class BaseControlPlugin {
  */
 
 /**
+ * Plugin supplied pages
+ * @typedef {Object} module:Lib/plugin~Page
+ * @property {string} path - URL path to this page.
+ * @property {string=} sidebarPath -
+ *     If present and this path matches one of the pages in the sidebar it
+ *     will cause that sidebar entry to be highlighted as active.
+ * @property {string=} sidebarName -
+ *     If present creates an entry in the sidebar for this page with the
+ *     given text.
+ * @property {ReactNode} content -
+ *     A react node which is rendered when this page is navigated to.
+ *     Should render a PageLayout.
+ */
+
+/**
  * Base class for web interface plugins
  *
  * @static
@@ -463,6 +515,13 @@ class BaseWebPlugin {
 		this.info = info;
 
 		/**
+		 * Control link to the master server, not available until the
+		 * connect event in onMasterConnectionEvent is signaled.
+		 * @type {?module:lib/link.Link}
+		 */
+		this.control = null;
+
+		/**
 		 * Logger for this plugin
 		 *
 		 * Instance of winston Logger for sending log messages from this
@@ -477,12 +536,55 @@ class BaseWebPlugin {
 		 * @type {Array<module:lib/plugin~LoginForm>}
 		 */
 		this.loginForms = [];
+
+		/**
+		 * List of pages provided by this plugin
+		 *
+		 * @type {Array<module:lib/plugin~Page>}
+		 */
+		this.pages = [];
 	}
 
 	/**
 	 * Called immediately after the class is instantiated.
 	 */
 	async init() { }
+
+	/**
+	 * Called when an event on the master connection happens
+	 *
+	 * The event param may be one of connect, drop, resume and close and has
+	 * the following meaning:
+	 *
+	 * ##### connect
+	 *
+	 * Invoked when a new connection to the master has been established.
+	 *
+	 * ##### drop
+	 *
+	 * Invoked when a connection loss is detected between the control link
+	 * and the master.  Plugins should respond to this event by throtteling
+	 * messages it is sending to the master to an absolute minimum.
+	 *
+	 * Messages sent over a dropped master connection will get queued up in
+	 * memory in the browser and sent all in one go when the connection is
+	 * re-established again.
+	 *
+	 * ##### resume
+	 *
+	 * Invoked when the connection that had previously dropped is
+	 * re-established.
+	 *
+	 * ##### close
+	 *
+	 * Invoked when the connection to the master has been closed.  This
+	 * typically means the master server has shut down.  Plugins should not
+	 * send any messages that goes to or via the master server after the
+	 * connection has been closed and before a new one is established.
+	 *
+	 * @param {string} event - one of connect, drop, resume and close
+	 */
+	onMasterConnectionEvent(event) { }
 }
 
 /**
@@ -508,7 +610,7 @@ function attachPluginMessages(link, plugin) {
 				messageFormat.attach(link);
 
 			} else {
-				messageFormat.attach(link, async (message, format) => await plugin[handler](message, format));
+				messageFormat.attach(link, async (message, format) => await plugin[handler](message, format, link));
 			}
 
 		} catch (err) {

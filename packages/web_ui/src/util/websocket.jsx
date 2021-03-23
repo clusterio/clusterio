@@ -46,6 +46,7 @@ export class Control extends libLink.Link {
 		 */
 		this.plugins = plugins;
 		for (let plugin of plugins.values()) {
+			plugin.control = this;
 			libPlugin.attachPluginMessages(this, plugin);
 		}
 
@@ -73,6 +74,14 @@ export class Control extends libLink.Link {
 		this.connector.on("close", () => {
 			this.accountName = null;
 		});
+
+		for (let event of ["connect", "drop", "resume", "close"]) {
+			this.connector.on(event, () => {
+				for (let plugin of this.plugins.values()) {
+					plugin.onMasterConnectionEvent(event);
+				}
+			});
+		}
 	}
 
 	async logMessageEventHandler(message) {
