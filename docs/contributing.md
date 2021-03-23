@@ -22,6 +22,7 @@ Though we have some conventions and workflows that we kindly ask you to follow.
     - [Indenting](#indenting)
     - [Line Length](#line-length)
     - [Markdown](#markdown)
+- [Pushing releases to npm](#pushing-releases-to-npm)
 
 
 ## Workflow
@@ -235,3 +236,37 @@ And there's two spaces before the next heading.
 
 Headings use the `# heading` format.
 ```
+
+
+## Pushing releases to npm
+
+The releases are done by creating a new release tag with lerna and then uploading that with lerna.
+You will need commit access to the repository as well publish access to the @clusterio org on npm to do this.
+
+1.  To do a release switch to the master branch and make sure it's up to date with the repository before proceeding.
+
+    ```sh
+    git switch master
+    git pull --ff-only upstream master
+    ```
+
+    Check and make sure there are no untracked files with `git status`, otherwise they will be auto commited!
+
+2.  Run a lerna version to create and tag a new version.
+    This will push a commit to the master branch.
+
+    ```sh
+    npx lerna version prerelease --git-remote upstream --no-granular-pathspec
+    ```
+
+3.  Run a full build in every package to update the dist/ files.
+
+    ```sh
+    npx lerna run build
+    ```
+
+4.  Publish the packages with lerna.
+
+    ```sh
+    npx lerna publish from-package
+    ```
