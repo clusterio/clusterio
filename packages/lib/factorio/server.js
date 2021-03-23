@@ -543,14 +543,18 @@ class FactorioServer extends events.EventEmitter {
 		this._gameReady = false;
 
 		if (options.stripPaths) {
-			let chars = new Set(this.writePath("temp"));
+			let chars = new Set(path.resolve(this.writePath("temp")));
 			chars.delete(":"); // Having a colon could lead to matching the line number
 			chars = [...chars].join("");
 
+			let tempPath = `${path.resolve(this.writePath("temp", "currently-playing"))}${path.sep}`;
+			let writePath = `${path.resolve(this.writePath())}${path.sep}`;
 			this._stripRegExp = new RegExp(
-				`(${escapeRegExp(this.writePath("temp", "currently-playing", path.sep))})|` +
-				`(${escapeRegExp(this.writePath(path.sep))})|` +
-				`(\\.\\.\\.[${escapeRegExp(chars)}]*?currently-playing\\${path.sep})`,
+				// The script printer formats paths using / on both windows and linux.
+				// But the save path is printed with \ on windows and / on linux.
+				`(${escapeRegExp(tempPath.replace(/\\/g, "/"))})|` +
+				`(${escapeRegExp(writePath)})|` +
+				`(\\.\\.\\.[${escapeRegExp(chars)}/]*?currently-playing/)`,
 				"g"
 			);
 		}
