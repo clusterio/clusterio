@@ -81,9 +81,9 @@ These are the plugins supported and maintained by the Clusterio developers:
 
 There's also plugins developed and maintained by the community:
 
-- [Discord Bridge](https://github.com/Hornwitser/discord_bridge): Bridges chat between instances and Discord.
+- [Discord Bridge](https://github.com/Hornwitser/discord_bridge) (@hornwitser/discord_bridge): Bridges chat between instances and Discord.
   By Hornwitser.
-- [Server Select](https://github.com/Hornwitser/server_select): In-game GUI for connecting to other server in the cluster.
+- [Server Select](https://github.com/Hornwitser/server_select/tree/clusterio-2.0) (@hornwitser/server_select): In-game GUI for connecting to other server in the cluster.
   Originally by Godmave, ported to 2.0 by Hornwitser.
 
 Want to make your own plugin?
