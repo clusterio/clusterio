@@ -384,20 +384,6 @@ class Instance extends libLink.Link {
 			);
 		}
 
-		this.logger.verbose("Rotating old logs...");
-		// clean old log file to avoid crash
-		try {
-			let logPath = this.path("factorio-current.log");
-			let stat = await fs.stat(logPath);
-			if (stat.isFile()) {
-				let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
-				await fs.rename(logPath, this.path(logFilename));
-				this.logger.verbose(`Log rotated as ${logFilename}`);
-			}
-		} catch (err) {
-			this.logger.error(`Error rotating logs:\n${err.stack}`);
-		}
-
 		// eslint-disable-next-line no-use-before-define
 		await symlinkMods(this, "sharedMods");
 	}
