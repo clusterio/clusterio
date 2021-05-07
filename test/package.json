@@ -1,0 +1,15 @@
+{
+  "name": "test",
+  "private": true,
+  "engines": {
+    "node": ">=10.16 <11 || >= 12"
+  },
+  "dependencies": {
+    "@clusterio/ctl": "2.0.0-alpha.5",
+    "@clusterio/lib": "2.0.0-alpha.5",
+    "@clusterio/master": "2.0.0-alpha.5",
+    "@clusterio/slave": "2.0.0-alpha.5",
+    "node-forge": "^0.10.0",
+    "phin": "^3.5.1"
+  }
+}

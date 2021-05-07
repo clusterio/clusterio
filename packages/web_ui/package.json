@@ -34,7 +34,8 @@
     "react-dom": "^16.13.1",
     "react-router-dom": "^5.2.0",
     "style-loader": "^2.0.0",
-    "util": "^0.12.3"
+    "util": "^0.12.3",
+    "webpack": "^5.36.2"
   },
   "publishConfig": {
     "access": "public"

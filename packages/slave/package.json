@@ -20,7 +20,7 @@
   "dependencies": {
     "@clusterio/lib": "^2.0.0-alpha.5",
     "fs-extra": "^8.1.0",
-    "phin": "^3.4.1",
+    "phin": "^3.5.1",
     "pidusage": "^2.0.18",
     "set-blocking": "^2.0.0",
     "winston": "^3.3.3",
