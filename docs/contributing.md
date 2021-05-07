@@ -53,7 +53,7 @@ The project is organized into several packages that are all managed through Lern
 In order to get the development environment up and running you will need to run the following commands:
 
     npm install
-    npx lerna bootstrap
+    npx lerna bootstrap --hoist
 
 This installs dependencies needed by tests and links the packages up so they work from the git work tree.
 
