@@ -137,8 +137,8 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			}
 
 		} else {
-			let instanceConfig = this.master.db.instances.get(instanceId);
-			let instanceName = instanceConfig ? instanceConfig.get("instance.name") : "unkonwn";
+			let instance = this.master.instances.get(instanceId);
+			let instanceName = instance ? instance.config.get("instance.name") : "unkonwn";
 
 			// use fancy neural net to calculate a "fair" dole division rate.
 			if (method === "neural_dole") {

@@ -191,7 +191,7 @@ class BaseInstancePlugin {
 	 * Plugins must stop sending messages to the master, or are forwarded
 	 * via the master server after the prepare disconnect has been handled.
 	 *
-	 * @param {module:master/master~SlaveConnection} connection -
+	 * @param {module:master/src/SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareMasterDisconnect(connection) { }
@@ -226,6 +226,11 @@ class BaseInstancePlugin {
 class BaseMasterPlugin {
 	constructor(info, master, metrics, logger) {
 		this.info = info;
+
+		/**
+		 * Master server
+		 * @type {module:master/src/Master}
+		 */
 		this.master = master;
 		this.metrics = metrics;
 
@@ -323,7 +328,7 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the slave has been closed.
 	 *
-	 * @param {module:master/master~SlaveConnection} connection -
+	 * @param {module:master/src/SlaveConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume and close
 	 */
@@ -359,7 +364,7 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the control has been closed.
 	 *
-	 * @param {module:master/master~ControlConnection} connection -
+	 * @param {module:master/src/ControlConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume, and close.
 	 */
@@ -375,7 +380,7 @@ class BaseMasterPlugin {
 	 * Plugins must stop sending messages to the slave in question after the
 	 * prepare disconnect has been handled.
 	 *
-	 * @param {module:master/master~SlaveConnection} connection -
+	 * @param {module:master/src/SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareSlaveDisconnect(connection) { }
@@ -404,7 +409,7 @@ class BaseMasterPlugin {
 	 * @param {Object} data - Data ta pass with the event.
 	 */
 	broadcastEventToSlaves(event, data={}) {
-		for (let slaveConnection of this.master.slaveConnections.values()) {
+		for (let slaveConnection of this.master.wsServer.slaveConnections.values()) {
 			if (
 				!slaveConnection.connector.closing
 				&& (!event.plugin || slaveConnection.plugins.has(event.plugin))

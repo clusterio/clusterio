@@ -53,7 +53,7 @@ describe("player_auth", function() {
 			describe("/api/player_auth/servers", function() {
 				it("should return a list of running servers with player_auth loaded", async function() {
 					function addInstance(id, status, load, name) {
-						masterPlugin.master.db.instances.set(id, {
+						masterPlugin.master.instances.set(id, {
 							config: {
 								get(field) {
 									if (field === "player_auth.load_plugin") {
@@ -78,7 +78,7 @@ describe("player_auth", function() {
 					});
 					assert.deepEqual(result.body, ["running loaded", "unnamed server"]);
 					for (let id of [1, 2, 3, 4, 5]) {
-						masterPlugin.master.db.instances.delete(id);
+						masterPlugin.master.instances.delete(id);
 					}
 				});
 			});
