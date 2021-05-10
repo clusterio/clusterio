@@ -8,6 +8,7 @@ const libErrors = require("@clusterio/lib/errors");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const libPlugin = require("@clusterio/lib/plugin");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libUsers = require("@clusterio/lib/users");
 
@@ -170,7 +171,9 @@ class ControlConnection extends BaseConnection {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		this._master.instances.set(instanceId, { config: instanceConfig, status: "unassigned" });
+		let instance = { config: instanceConfig, status: "unassigned" };
+		this._master.instances.set(instanceId, instance);
+		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, null);
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
@@ -183,6 +186,10 @@ class ControlConnection extends BaseConnection {
 			await this.forwardRequestToInstance(message, request);
 		}
 		this._master.instances.delete(message.data.instance_id);
+
+		let prev = instance.status;
+		instance.status = "deleted";
+		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async getInstanceConfigRequestHandler(message) {

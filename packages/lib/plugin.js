@@ -252,15 +252,18 @@ class BaseMasterPlugin {
 	/**
 	 * Called when the status of an instance changes
 	 *
-	 * Invoked when the master server has received notice from a slave that
-	 * the running status of an instance has changed.  The possible statuses
-	 * that can be notified about are:
-	 * - `stopped`: Instance is no longer running.
+	 * Invoked when the master server has changed the status of an instance
+	 * or received notice from a slave that the status of an instance has
+	 * changed.  The possible statuses that can be notified about are:
+	 * - `unassigned:`: Instance is no longer asssigned to a slave.
+	 * - `stopped`: Instance is no longer running or was just assigned to a
+	 *   slave.
 	 * - `starting`: Instance is in the process of starting up.
 	 * - `running`: Instance startup completed and is now running.
 	 * - `creating_save`: Instance is in the process of creating a save.
 	 * - `exporting_data`: Instance is in the process of exporting item
 	 *   icons and locale data.
+	 * - `deleted`: Instance was deleted.
 	 *
 	 * On master startup all known instances gets the status `unknown` if
 	 * they are assigned to a slave, when the slave then connects to the
@@ -268,12 +271,17 @@ class BaseMasterPlugin {
 	 * is invoked for all those instances.  You can detect this situation by
 	 * checking if prev equals `unknown`.
 	 *
+	 * When instances are created on the master they will notify of a status
+	 * change with prev set to null.  While the status of new instances is
+	 * in most cases `unassigned` it's possible for the created instance to
+	 * start with any state in some slave connection corner cases.
+	 *
 	 * Note that it's possible for status change notification to get lost in
 	 * the case of network outages if reconnect fails to re-establish the
 	 * session between the master server and the slave.
 	 *
 	 * @param {Object} instance - the instance that changed.
-	 * @param {string} prev - the previous status of the instance.
+	 * @param {?string} prev - the previous status of the instance.
 	 */
 	async onInstanceStatusChanged(instance, prev) { }
 

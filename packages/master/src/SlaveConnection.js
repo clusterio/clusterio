@@ -71,9 +71,9 @@ class SlaveConnection extends BaseConnection {
 		}
 
 		// Assign instances the slave has but master does not
-		for (let instance of message.data.instances) {
+		for (let instanceData of message.data.instances) {
 			let instanceConfig = new libConfig.InstanceConfig("master");
-			await instanceConfig.load(instance.serialized_config, "slave");
+			await instanceConfig.load(instanceData.serialized_config, "slave");
 
 			let masterInstance = this._master.instances.get(instanceConfig.get("instance.id"));
 			if (masterInstance) {
@@ -86,24 +86,23 @@ class SlaveConnection extends BaseConnection {
 				}
 
 				// Already have this instance, update state instead
-				if (masterInstance.status !== instance.status) {
+				if (masterInstance.status !== instanceData.status) {
 					let prev = masterInstance.status;
-					masterInstance.status = instance.status;
-					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instance.status}`);
-					await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
+					masterInstance.status = instanceData.status;
+					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
+					await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", masterInstance, prev);
 				}
 				continue;
 			}
 
 			instanceConfig.set("instance.assigned_slave", this._id);
-			this._master.instances.set(instanceConfig.get("instance.id"), {
-				config: instanceConfig,
-				status: instance.status,
-			});
+			let newInstance = { config: instanceConfig, status: instanceData.status };
+			this._master.instances.set(instanceConfig.get("instance.id"), newInstance);
 			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize("slave"),
 			});
+			await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", newInstance, null);
 		}
 
 		// Push lists to make sure they are in sync.
