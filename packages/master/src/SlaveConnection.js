@@ -41,6 +41,15 @@ class SlaveConnection extends BaseConnection {
 		}
 	}
 
+	/**
+	 * ID of the slave this connection is connected to
+	 *
+	 * @returns {number} slave ID.
+	 */
+	get id() {
+		return this._id;
+	}
+
 	async instanceStatusChangedEventHandler(message, event) {
 		let instance = this._master.instances.get(message.data.instance_id);
 
