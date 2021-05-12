@@ -170,33 +170,7 @@ class Master {
 			);
 		}
 
-		this.app.use((req, res, next) => {
-			hitCounter.inc();
-			next();
-		});
-		this.app.use(expressFileupload());
-		this.app.use(compression());
-
-		// Set folder to serve static content from (the website)
-		this.app.use(express.static(path.join(__dirname, "..", "dist", "web")));
-		this.app.use(express.static("static")); // Used for data export files
-
-		// Add API routes
-		routes.addRouteHandlers(this.app);
-
-		// Add routes for the web interface
-		for (let route of routes.webRoutes) {
-			this.app.get(route, Master.serveWeb(route));
-		}
-		for (let pluginInfo of this.pluginInfos) {
-			for (let route of pluginInfo.routes || []) {
-				this.app.get(route, Master.serveWeb(route));
-			}
-
-			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
-			this.app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
-		}
+		Master.addAppRoutes(this.app, this.pluginInfos);
 
 		// Load plugins
 		await this.loadPlugins();
@@ -350,6 +324,36 @@ class Master {
 		}
 
 		await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
+	}
+
+	static addAppRoutes(app, pluginInfos) {
+		app.use((req, res, next) => {
+			hitCounter.inc();
+			next();
+		});
+		app.use(expressFileupload());
+		app.use(compression());
+
+		// Set folder to serve static content from (the website)
+		app.use(express.static(path.join(__dirname, "..", "dist", "web")));
+		app.use(express.static("static")); // Used for data export files
+
+		// Add API routes
+		routes.addRouteHandlers(app);
+
+		// Add routes for the web interface
+		for (let route of routes.webRoutes) {
+			app.get(route, Master.serveWeb(route));
+		}
+		for (let pluginInfo of pluginInfos) {
+			for (let route of pluginInfo.routes || []) {
+				app.get(route, Master.serveWeb(route));
+			}
+
+			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
+			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
+			app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
+		}
 	}
 
 	async loadPlugins() {
