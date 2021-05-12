@@ -16,7 +16,7 @@
     "factorio"
   ],
   "engines": {
-    "node": ">=10.16 <11 || >= 12"
+    "node": ">=12"
   },
   "dependencies": {
     "@clusterio/lib": "^2.0.0-alpha.5",
