@@ -6,7 +6,7 @@ before_install:
   - tar -xf factorio.tar.gz
   - npm install -g codecov
 script:
-  - npx lerna bootstrap --no-ci
+  - npx lerna bootstrap --hoist --no-ci
   - node packages/lib/build_mod --source-dir packages/slave/lua/clusterio_lib --output-dir temp/test/sharedMods
   - curl -o temp/test/sharedMods/subspace_storage_1.99.8.zip -L https://github.com/clusterio/factorioClusterioMod/releases/download/1.99.6/subspace_storage_1.99.8.zip
   - npx lerna run build

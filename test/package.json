@@ -1,0 +1,20 @@
+{
+  "name": "test",
+  "private": true,
+  "engines": {
+    "node": ">=10.16 <11 || >= 12"
+  },
+  "dependencies": {
+    "@clusterio/ctl": "2.0.0-alpha.5",
+    "@clusterio/lib": "2.0.0-alpha.5",
+    "@clusterio/master": "2.0.0-alpha.5",
+    "@clusterio/slave": "2.0.0-alpha.5",
+    "body-parser": "^1.18.2",
+    "express": "^4.16.2",
+    "fs-extra": "^8.1.0",
+    "jsonwebtoken": "^8.2.1",
+    "jszip": "^3.2.2",
+    "node-forge": "^0.10.0",
+    "phin": "^3.5.1"
+  }
+}

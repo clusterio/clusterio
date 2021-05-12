@@ -6,7 +6,7 @@
   "version": "2.0.0-alpha.5",
   "main": "master.js",
   "scripts": {
-    "build": "webpack-cli --env.production",
+    "build": "webpack-cli --env production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
@@ -40,7 +40,8 @@
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-router-dom": "^5.2.0",
-    "webpack-cli": "^3.3.12",
+    "webpack": "^5.36.2",
+    "webpack-cli": "^4.7.0",
     "webpack-dev-middleware": "^4.1.0",
     "webpack-merge": "^5.2.0"
   },

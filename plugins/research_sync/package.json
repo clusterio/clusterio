@@ -7,11 +7,14 @@
   "license": "MIT",
   "repository": "clusterio/factorioClusterio",
   "scripts": {
-    "build": "webpack-cli --env.production",
+    "build": "webpack-cli --env production",
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
     "url": "https://github.com/clusterio/factorioClusterio/issues"
+  },
+  "engines": {
+    "node": ">=10.16 <11 || >= 12"
   },
   "peerDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.0"
@@ -20,8 +23,10 @@
     "fs-extra": "^8.1.0"
   },
   "devDependencies": {
+    "@clusterio/lib": "^2.0.0-alpha.5",
     "@clusterio/web_ui": "^2.0.0-alpha.5",
-    "webpack-cli": "^3.3.12",
+    "webpack": "^5.36.2",
+    "webpack-cli": "^4.7.0",
     "webpack-merge": "^5.2.0"
   },
   "publishConfig": {

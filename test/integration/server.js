@@ -6,6 +6,7 @@ const path = require("path");
 
 const libFactorio = require("@clusterio/lib/factorio");
 const libErrors = require("@clusterio/lib/errors");
+const { logger } = require("@clusterio/lib/logging");
 
 const { slowTest } = require("./index");
 
@@ -34,6 +35,15 @@ describe("Integration of lib/factorio/server", function() {
 			await fs.ensureDir(writePath);
 			logFile = fs.createWriteStream(path.join(writePath, "log.txt"), "utf8");
 			server.on("output", function(output) {
+				if (output.source === "stderr") {
+					// Factorio doesn't print on stderr but sometimes on
+					// Travis a BrokenPipeError is printed on stderr after
+					// the server has closed for mysterious reasons.
+					// I have no idea what causes it, but it causes a write
+					// after end error if not handled.
+					logger.error(`Factorio stderr: ${JSON.stringify(output)}`);
+					return;
+				}
 				logFile.write(`${JSON.stringify(output)}\n`);
 			});
 

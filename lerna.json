@@ -1,7 +1,8 @@
 {
   "packages": [
     "packages/*",
-    "plugins/*"
+    "plugins/*",
+    "test"
   ],
   "version": "2.0.0-alpha.5"
 }
