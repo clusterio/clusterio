@@ -368,7 +368,8 @@ messages.listInstances = new Request({
 					"id": { type: "integer" },
 					"assigned_slave": { type: ["null", "integer"] },
 					"status": { enum: [
-						"unknown", "unassigned", "stopped", "starting", "running", "creating_save", "exporting_data",
+						"unknown", "unassigned", "stopped", "starting", "running", "stopping",
+						"creating_save", "exporting_data",
 					]},
 				},
 			},
@@ -747,7 +748,7 @@ messages.updateInstances = new Request({
 				properties: {
 					"serialized_config": { type: "object" },
 					"status": { enum: [
-						"stopped", "starting", "running", "creating_save", "exporting_data",
+						"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 					]},
 				},
 			},
@@ -979,7 +980,7 @@ messages.instanceStatusChanged = new Event({
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"status": { enum: [
-			"stopped", "starting", "running", "creating_save", "exporting_data",
+			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]},
 	},
 });

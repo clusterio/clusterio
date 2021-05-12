@@ -260,6 +260,7 @@ class BaseMasterPlugin {
 	 *   slave.
 	 * - `starting`: Instance is in the process of starting up.
 	 * - `running`: Instance startup completed and is now running.
+	 * - `stopping`: Instance is in the processing stopping.
 	 * - `creating_save`: Instance is in the process of creating a save.
 	 * - `exporting_data`: Instance is in the process of exporting item
 	 *   icons and locale data.
