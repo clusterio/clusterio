@@ -151,6 +151,10 @@ class Master {
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
+		for (let instance of this.instances.values()) {
+			this.addInstancePluginHooks(instance);
+		}
+
 		// Make sure we're actually going to listen on a port
 		let httpPort = this.config.get("master.http_port");
 		let httpsPort = this.config.get("master.https_port");
@@ -305,7 +309,8 @@ class Master {
 				let instanceConfig = new libConfig.InstanceConfig("master");
 				await instanceConfig.load(serializedConfig);
 				let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
-				instances.set(instanceConfig.get("instance.id"), { config: instanceConfig, status });
+				let instance = { config: instanceConfig, status };
+				instances.set(instanceConfig.get("instance.id"), instance);
 			}
 
 		} catch (err) {
@@ -354,6 +359,12 @@ class Master {
 			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
 			app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
 		}
+	}
+
+	addInstancePluginHooks(instance) {
+		instance.config.on("fieldChanged", (group, field, prev) => {
+			libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
+		});
 	}
 
 	async loadPlugins() {

@@ -98,6 +98,7 @@ class SlaveConnection extends BaseConnection {
 			instanceConfig.set("instance.assigned_slave", this._id);
 			let newInstance = { config: instanceConfig, status: instanceData.status };
 			this._master.instances.set(instanceConfig.get("instance.id"), newInstance);
+			this._master.addInstancePluginHooks(newInstance);
 			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize("slave"),

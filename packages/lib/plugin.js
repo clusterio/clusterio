@@ -287,6 +287,20 @@ class BaseMasterPlugin {
 	async onInstanceStatusChanged(instance, prev) { }
 
 	/**
+	 * Called when the value of an instance config field changed.
+	 *
+	 * Invoked after the value of the config field given by `field` has
+	 * changed on an instance.
+	 *
+	 * @param {Object} instance - The instance the config changed on.
+	 * @param {module:lib/config.ConfigGroup} group -
+	 *     The group who's field got changed on.
+	 * @param {string} field - Name of the field that changed.
+	 * @param {*} prev - The previous value of the field.
+	 */
+	async onInstanceConfigFieldChanged(instance, group, field, prev) { }
+
+	/**
 	 * Called before collecting Prometheus metrics
 	 *
 	 * Invoked before the default metrics of prometheus is collected.  Note

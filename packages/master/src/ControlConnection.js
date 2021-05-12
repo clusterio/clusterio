@@ -174,6 +174,7 @@ class ControlConnection extends BaseConnection {
 		let instance = { config: instanceConfig, status: "unassigned" };
 		this._master.instances.set(instanceId, instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, null);
+		this._master.addInstancePluginHooks(instance);
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
