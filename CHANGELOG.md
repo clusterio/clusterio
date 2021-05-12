@@ -140,6 +140,7 @@
 - Renamed clusterioMod plugin to subspace_storage.
 - Master no longer creates secret-api-token.txt.
 - Removed automatic creation of self-signed TLS certificate.
+- Node.js versions below 12 are no longer supported.
 
 
 ## Version 1.2.4
