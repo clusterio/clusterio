@@ -224,7 +224,7 @@ class Instance extends libLink.Link {
 	/**
 	 * Current state of the instance
 	 *
-	 * One of stopped, starting, running, creating_save and exporting_data
+	 * One of stopped, starting, running, stopping, creating_save and exporting_data
 	 *
 	 * @returns {string} instance status.
 	 */
@@ -623,6 +623,7 @@ class Instance extends libLink.Link {
 	 */
 	async stop() {
 		this._running = false;
+		this.notifyStatus("stopping");
 
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {

@@ -20,6 +20,7 @@
     "@clusterio/lib": "^2.0.0-alpha.0"
   },
   "dependencies": {
+    "express": "^4.16.2",
     "jsonwebtoken": "^8.2.1"
   },
   "devDependencies": {

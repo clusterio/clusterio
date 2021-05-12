@@ -1,0 +1,471 @@
+"use strict";
+const compression = require("compression");
+const events = require("events");
+const express = require("express");
+const expressFileupload = require("express-fileupload");
+const fs = require("fs-extra");
+const http = require("http");
+const https = require("https");
+const path = require("path");
+
+
+const libConfig = require("@clusterio/lib/config");
+const libErrors = require("@clusterio/lib/errors");
+const libPlugin = require("@clusterio/lib/plugin");
+const libPluginLoader = require("@clusterio/lib/plugin_loader");
+const libPrometheus = require("@clusterio/lib/prometheus");
+const { logger } = require("@clusterio/lib/logging");
+
+const HttpCloser = require("./HttpCloser");
+const metrics = require("./metrics");
+const routes = require("./routes");
+const UserManager = require("./UserManager");
+const WsServer = require("./WsServer");
+
+
+const hitCounter = new libPrometheus.Counter(
+	"clusterio_master_http_hits_total",
+	"How many HTTP requests in total have been received"
+);
+
+/**
+ * Manages all master related operations
+ * @alias module:master/src/Master
+ */
+class Master {
+	constructor(clusterLogger, pluginInfos, configPath, config) {
+		this.clusterLogger = clusterLogger;
+		/**
+		 * Mapping of plugin name to info objects for known plugins
+		 * @type {Map<string, Object>}
+		 */
+		this.pluginInfos = pluginInfos;
+		this.configPath = configPath;
+		/**
+		 * Master config.
+		 * @type {module:lib/config.MasterConfig}
+		 */
+		this.config = config;
+
+		this.app = express();
+		this.app.locals.master = this;
+
+		/**
+		 * Mapping of slave id to slave info
+		 * @type {Map<number, Object>}
+		 */
+		this.slaves = null;
+
+		/**
+		 * Mapping of instance id to instance info
+		 * @type {Map<number, Object>}
+		 */
+		this.instances = null;
+
+		/**
+		 * User and roles manager for the cluster
+		 * @type {module:master/src/UserManager}
+		 */
+		this.userManager = null;
+		this.httpServer = null;
+		this.httpServerCloser = null;
+		this.httpsServer = null;
+		this.httpsServerCloser = null;
+
+		/**
+		 * Mapping of plugin name to loaded plugin
+		 * @type {Map<string, module:lib/plugin.BaseMasterPlugin>}
+		 */
+		this.plugins = new Map();
+
+		/**
+		 * WebSocket server
+		 * @type {module:master/src/WsServer}
+		 */
+		this.wsServer = new WsServer(this);
+
+		this.debugEvents = new events.EventEmitter();
+		this._events = new events.EventEmitter();
+		// Possible states are new, starting, running, stopping, stopped
+		this._state = "new";
+		this._shouldStop = false;
+
+		this.devMiddleware = null;
+	}
+
+	async start(args) {
+		if (!this._state === "new") {
+			throw new Error(`Cannot start in state ${this._state}`);
+		}
+
+		this._state = "starting";
+		try {
+			await this._startInternal(args);
+
+		} catch (err) {
+			await this._stopInternal();
+			this._state = "stopped";
+			this._events.emit("stop");
+			throw err;
+		}
+
+		if (this._shouldStop) {
+			this.stop();
+		}
+	}
+
+	async _startInternal(args) {
+		// Start webpack development server if enabled
+		if (args.dev || args.devPlugin) {
+			logger.warn("Webpack development mode enabled");
+			/* eslint-disable global-require */
+			const webpack = require("webpack");
+			const webpackDevMiddleware = require("webpack-dev-middleware");
+			const webpackConfigs = [];
+			if (args.dev) {
+				webpackConfigs.push(require("../webpack.config")({}));
+			}
+			if (args.devPlugin) {
+				for (let name of args.devPlugin) {
+					let info = this.pluginInfos.find(i => i.name === name);
+					if (!info) {
+						throw new libErrors.StartupError(`No plugin named ${name}`);
+					}
+					let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
+					config.output.publicPath = `/plugins/${name}/`;
+					webpackConfigs.push(config);
+				}
+			}
+			/* eslint-enable global-require */
+
+			const compiler = webpack(webpackConfigs);
+			this.devMiddleware = webpackDevMiddleware(compiler, {});
+			app.use(this.devMiddleware);
+		}
+
+		let databaseDirectory = this.config.get("master.database_directory");
+		await fs.ensureDir(databaseDirectory);
+
+		this.slaves = await Master.loadSlaves(path.join(databaseDirectory, "slaves.json"));
+		this.instances = await Master.loadInstances(path.join(databaseDirectory, "instances.json"));
+		this.userManager = new UserManager(this.config);
+		await this.userManager.load(path.join(databaseDirectory, "users.json"));
+
+		for (let instance of this.instances.values()) {
+			this.addInstancePluginHooks(instance);
+		}
+
+		// Make sure we're actually going to listen on a port
+		let httpPort = this.config.get("master.http_port");
+		let httpsPort = this.config.get("master.https_port");
+		let bindAddress = this.config.get("master.bind_address") || "";
+		if (!httpPort && !httpsPort) {
+			logger.fatal("Error: at least one of http_port and https_port must be configured");
+			process.exitCode = 1;
+			return;
+		}
+
+		let tls_cert = this.config.get("master.tls_certificate");
+		let tls_key = this.config.get("master.tls_private_key");
+
+		if (httpsPort && (!tls_cert || !tls_key)) {
+			throw new libErrors.StartupError(
+				"tls_certificate and tls_private_key must be configure in order to use https_port"
+			);
+		}
+
+		Master.addAppRoutes(this.app, this.pluginInfos);
+
+		// Load plugins
+		await this.loadPlugins();
+
+		this.wsServer = new WsServer(this);
+
+		// Only start listening for connections after all plugins have loaded
+		if (httpPort) {
+			this.httpServer = http.createServer(this.app);
+			this.httpServerCloser = new HttpCloser(this.httpServer);
+			await this.listen(this.httpServer, httpPort, bindAddress);
+			logger.info(`Listening for HTTP on port ${this.httpServer.address().port}`);
+		}
+
+		if (httpsPort) {
+			let certificate, privateKey;
+			try {
+				certificate = await fs.readFile(tls_cert);
+				privateKey = await fs.readFile(tls_key);
+
+			} catch (err) {
+				throw new libErrors.StartupError(
+					`Error loading ssl certificate: ${err.message}`
+				);
+			}
+
+			this.httpsServer = https.createServer({
+				key: privateKey,
+				cert: certificate,
+			}, this.app);
+			this.httpsServerCloser = new HttpCloser(this.httpsServer);
+			await this.listen(this.httpsServer, httpsPort, bindAddress);
+			logger.info(`Listening for HTTPS on port ${this.httpsServer.address().port}`);
+		}
+
+		logger.info("Started master");
+		this._state = "running";
+	}
+
+	/**
+	 * Stops the master server.
+	 *
+	 * Save data and bring down the active connections.  This is the reverse
+	 * of start and is valid at any point in time.
+	 */
+	async stop() {
+		if (this._state === "starting") {
+			this._shouldStop = true;
+			await events.once(this._events, "stop");
+			return;
+
+		} else if (this._state === "running") {
+			await this._stopInternal();
+		}
+
+		this._state = "stopped";
+		this._events.emit("stop");
+	}
+
+	async _stopInternal() {
+		// This function should never throw.
+		this._state = "stopping";
+		logger.info("Stopping master");
+
+		logger.info("Saving config");
+		await fs.outputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
+
+		if (this.devMiddleware) {
+			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+		}
+
+		let databaseDirectory = this.config.get("master.database_directory");
+		if (this.slaves) {
+			await Master.saveSlaves(path.join(databaseDirectory, "slaves.json"), this.slaves);
+		}
+
+		if (this.instances) {
+			await Master.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
+		}
+
+		if (this.userManager) {
+			await this.userManager.save(path.join(databaseDirectory, "users.json"));
+		}
+
+		await libPlugin.invokeHook(this.plugins, "onShutdown");
+
+		if (this.wsServer) {
+			await this.wsServer.stop();
+		}
+
+		let stopTasks = [];
+		logger.info("Stopping HTTP(S) server");
+		if (this.httpServer && this.httpServer.listening) { stopTasks.push(this.httpServerCloser.close()); }
+		if (this.httpsServer && this.httpsServer.listening) { stopTasks.push(this.httpsServerCloser.close()); }
+		await Promise.all(stopTasks);
+
+		logger.info("Goodbye");
+	}
+
+	static async loadSlaves(filePath) {
+		let serialized;
+		try {
+			serialized = JSON.parse(await fs.readFile(filePath));
+
+		} catch (err) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+
+			return new Map();
+		}
+
+		// TODO: Remove after release.
+		if (serialized.length && !(serialized[0] instanceof Array)) {
+			return new Map(); // Discard old format.
+		}
+
+		return new Map(serialized);
+	}
+
+	static async saveSlaves(filePath, slaves) {
+		await fs.outputFile(filePath, JSON.stringify([...slaves.entries()], null, 4));
+	}
+
+	static async loadInstances(filePath) {
+		logger.info(`Loading ${filePath}`);
+
+		let instances = new Map();
+		try {
+			let serialized = JSON.parse(await fs.readFile(filePath));
+			for (let serializedConfig of serialized) {
+				let instanceConfig = new libConfig.InstanceConfig("master");
+				await instanceConfig.load(serializedConfig);
+				let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
+				let instance = { config: instanceConfig, status };
+				instances.set(instanceConfig.get("instance.id"), instance);
+			}
+
+		} catch (err) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+		}
+
+		return instances;
+	}
+
+	static async saveInstances(filePath, instances) {
+		let serialized = [];
+		for (let instance of instances.values()) {
+			serialized.push(instance.config.serialize());
+		}
+
+		await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
+	}
+
+	static addAppRoutes(app, pluginInfos) {
+		app.use((req, res, next) => {
+			hitCounter.inc();
+			next();
+		});
+		app.use(expressFileupload());
+		app.use(compression());
+
+		// Set folder to serve static content from (the website)
+		app.use(express.static(path.join(__dirname, "..", "dist", "web")));
+		app.use(express.static("static")); // Used for data export files
+
+		// Add API routes
+		routes.addRouteHandlers(app);
+
+		// Add routes for the web interface
+		for (let route of routes.webRoutes) {
+			app.get(route, Master.serveWeb(route));
+		}
+		for (let pluginInfo of pluginInfos) {
+			for (let route of pluginInfo.routes || []) {
+				app.get(route, Master.serveWeb(route));
+			}
+
+			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
+			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
+			app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
+		}
+	}
+
+	addInstancePluginHooks(instance) {
+		instance.config.on("fieldChanged", (group, field, prev) => {
+			libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
+		});
+	}
+
+	async loadPlugins() {
+		for (let pluginInfo of this.pluginInfos) {
+			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
+				continue;
+			}
+
+			let MasterPluginClass = libPlugin.BaseMasterPlugin;
+			try {
+				if (pluginInfo.masterEntrypoint) {
+					MasterPluginClass = await libPluginLoader.loadMasterPluginClass(pluginInfo);
+				}
+
+				let masterPlugin = new MasterPluginClass(pluginInfo, this, metrics, logger);
+				await masterPlugin.init();
+				this.plugins.set(pluginInfo.name, masterPlugin);
+
+			} catch (err) {
+				throw new libErrors.PluginError(pluginInfo.name, err);
+			}
+
+			logger.info(`Loaded plugin ${pluginInfo.name}`);
+		}
+	}
+
+	/**
+	 * Calls listen on server capturing any errors that occurs
+	 * binding to the port.  Also adds handler for WebSocket
+	 * upgrade event.
+	 *
+	 * @param {module:net.Server} server - Server to start the listening on.
+	 * @param {*} args - Arguments to the .listen() call on the server.
+	 * @returns {Promise} promise that resolves the server is listening.
+	 */
+	listen(server, ...args) {
+		return new Promise((resolve, reject) => {
+			server.on("upgrade", (req, socket, head) => {
+				logger.verbose("handling WebSocket upgrade");
+				this.wsServer.handleUpgrade(req, socket, head);
+			});
+
+			function wrapError(err) {
+				reject(new libErrors.StartupError(
+					`Server listening failed: ${err.message}`
+				));
+			}
+
+			server.once("error", wrapError);
+			server.listen(...args, () => {
+				server.off("error", wrapError);
+				resolve();
+			});
+		});
+	}
+
+
+	/**
+	 * Returns the URL needed to connect to the master server.
+	 *
+	 * @returns {string} master URL.
+	 */
+	getMasterUrl() {
+		return Master.calculateMasterUrl(this.config);
+	}
+
+	static calculateMasterUrl(config) {
+		let url = config.get("master.external_address");
+		if (!url) {
+			if (config.get("master.https_port")) {
+				url = `https://localhost:${config.get("master.https_port")}/`;
+			} else {
+				url = `http://localhost:${config.get("master.http_port")}/`;
+			}
+		}
+		return url;
+	}
+
+	/**
+	 * Servers the web interface with the root path set apropriately
+	 *
+	 * @param {string} route - route the interface is served under.
+	 * @returns {function} Experess.js route handler.
+	 */
+	static serveWeb(route) {
+		// The depth is is the number of slashes in the route minus one, but due
+		// to lenient matching on trailing slashes in the route we need to
+		// compensate if the request path contains a slash but not the route,
+		// and vice versa.
+		let routeDepth = (route.match(/\//g) || []).length - 1 - (route.slice(-1) === "/");
+		return function(req, res, next) {
+			let depth = routeDepth + (req.path.slice(-1) === "/");
+			let webRoot = "../".repeat(depth) || "./";
+			fs.readFile(path.join(__dirname, "..", "web", "index.html"), "utf8").then((content) => {
+				res.type("text/html");
+				res.send(content.replace(/__WEB_ROOT__/g, webRoot));
+			}).catch(err => {
+				next(err);
+			});
+		};
+	}
+}
+
+module.exports = Master;

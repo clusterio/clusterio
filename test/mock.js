@@ -2,12 +2,13 @@
 const events = require("events");
 const http = require("http");
 const express = require("express");
-const bodyParser = require("body-parser");
 
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
 const libUsers = require("@clusterio/lib/users");
 const libPrometheus = require("@clusterio/lib/prometheus");
+
+const UserManager = require("@clusterio/master/src/UserManager");
 
 
 class MockLogger {
@@ -149,7 +150,6 @@ class MockControl extends libLink.Link {
 class MockMaster {
 	constructor() {
 		this.app = express();
-		this.app.use(bodyParser.json({ limit: "10mb" }));
 		this.mockConfigEntries = new Map([
 			["master.external_address", "test"],
 			["master.auth_secret", "TestSecretDoNotUse"],
@@ -163,22 +163,19 @@ class MockMaster {
 			},
 		};
 
-		let roles = new Map([
+		this.userManager = new UserManager();
+		this.userManager.roles = new Map([
 			[0, new libUsers.Role({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
 			[1, new libUsers.Role({ id: 1, name: "Player", description: "player", permissions: [] })],
 		]);
-		roles.get(1).grantDefaultPermissions();
+		this.userManager.roles.get(1).grantDefaultPermissions();
 
-		let users = new Map([
-			["test", new libUsers.User({ name: "test", roles: [0, 1] }, roles)],
-			["player", new libUsers.User({ name: "player", roles: [1] }, roles)],
+		this.userManager.users = new Map([
+			["test", new libUsers.User({ name: "test", roles: [0, 1] }, this.userManager.roles)],
+			["player", new libUsers.User({ name: "player", roles: [1] }, this.userManager.roles)],
 		]);
-		this.db = {
-			instances: new Map(),
-			slaves: new Map(),
-			roles,
-			users,
-		};
+		this.instances = new Map();
+		this.slaves = new Map();
 	}
 
 	getMasterUrl() {

@@ -3,6 +3,7 @@
  */
 "use strict";
 const crypto = require("crypto");
+const express = require("express");
 const util = require("util");
 const jwt = require("jsonwebtoken");
 
@@ -46,7 +47,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			this.metrics.endpointHitCounter.labels(req.route.path).inc();
 
 			let servers = [];
-			for (let instance of this.master.db.instances.values()) {
+			for (let instance of this.master.instances.values()) {
 				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
 					servers.push(instance.config.get("factorio.settings")["name"] || "unnamed server");
 				}
@@ -54,12 +55,12 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			res.send(servers);
 		});
 
-		this.master.app.post("/api/player_auth/player_code", (req, res, next) => {
+		this.master.app.post("/api/player_auth/player_code", express.json(), (req, res, next) => {
 			this.metrics.endpointHitCounter.labels(req.route.path).inc();
 			this.handlePlayerCode(req, res).catch(next);
 		});
 
-		this.master.app.post("/api/player_auth/verify", (req, res, next) => {
+		this.master.app.post("/api/player_auth/verify", express.json(), (req, res, next) => {
 			this.metrics.endpointHitCounter.labels(req.route.path).inc();
 			this.handleVerify(req, res).catch(next);
 		});
@@ -142,7 +143,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		for (let [player, entry] of this.players) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
 				if (entry.verifyCode === verifyCode) {
-					let user = this.master.db.users.get(player);
+					let user = this.master.userManager.users.get(player);
 					if (!user) {
 						res.send({ error: true, message: "invalid user" });
 						return;

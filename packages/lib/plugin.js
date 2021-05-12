@@ -191,7 +191,7 @@ class BaseInstancePlugin {
 	 * Plugins must stop sending messages to the master, or are forwarded
 	 * via the master server after the prepare disconnect has been handled.
 	 *
-	 * @param {module:master/master~SlaveConnection} connection -
+	 * @param {module:master/src/SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareMasterDisconnect(connection) { }
@@ -226,6 +226,11 @@ class BaseInstancePlugin {
 class BaseMasterPlugin {
 	constructor(info, master, metrics, logger) {
 		this.info = info;
+
+		/**
+		 * Master server
+		 * @type {module:master/src/Master}
+		 */
 		this.master = master;
 		this.metrics = metrics;
 
@@ -247,15 +252,19 @@ class BaseMasterPlugin {
 	/**
 	 * Called when the status of an instance changes
 	 *
-	 * Invoked when the master server has received notice from a slave that
-	 * the running status of an instance has changed.  The possible statuses
-	 * that can be notified about are:
-	 * - `stopped`: Instance is no longer running.
+	 * Invoked when the master server has changed the status of an instance
+	 * or received notice from a slave that the status of an instance has
+	 * changed.  The possible statuses that can be notified about are:
+	 * - `unassigned:`: Instance is no longer asssigned to a slave.
+	 * - `stopped`: Instance is no longer running or was just assigned to a
+	 *   slave.
 	 * - `starting`: Instance is in the process of starting up.
 	 * - `running`: Instance startup completed and is now running.
+	 * - `stopping`: Instance is in the processing stopping.
 	 * - `creating_save`: Instance is in the process of creating a save.
 	 * - `exporting_data`: Instance is in the process of exporting item
 	 *   icons and locale data.
+	 * - `deleted`: Instance was deleted.
 	 *
 	 * On master startup all known instances gets the status `unknown` if
 	 * they are assigned to a slave, when the slave then connects to the
@@ -263,14 +272,33 @@ class BaseMasterPlugin {
 	 * is invoked for all those instances.  You can detect this situation by
 	 * checking if prev equals `unknown`.
 	 *
+	 * When instances are created on the master they will notify of a status
+	 * change with prev set to null.  While the status of new instances is
+	 * in most cases `unassigned` it's possible for the created instance to
+	 * start with any state in some slave connection corner cases.
+	 *
 	 * Note that it's possible for status change notification to get lost in
 	 * the case of network outages if reconnect fails to re-establish the
 	 * session between the master server and the slave.
 	 *
 	 * @param {Object} instance - the instance that changed.
-	 * @param {string} prev - the previous status of the instance.
+	 * @param {?string} prev - the previous status of the instance.
 	 */
 	async onInstanceStatusChanged(instance, prev) { }
+
+	/**
+	 * Called when the value of an instance config field changed.
+	 *
+	 * Invoked after the value of the config field given by `field` has
+	 * changed on an instance.
+	 *
+	 * @param {Object} instance - The instance the config changed on.
+	 * @param {module:lib/config.ConfigGroup} group -
+	 *     The group who's field got changed on.
+	 * @param {string} field - Name of the field that changed.
+	 * @param {*} prev - The previous value of the field.
+	 */
+	async onInstanceConfigFieldChanged(instance, group, field, prev) { }
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -323,7 +351,7 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the slave has been closed.
 	 *
-	 * @param {module:master/master~SlaveConnection} connection -
+	 * @param {module:master/src/SlaveConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume and close
 	 */
@@ -359,7 +387,7 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the control has been closed.
 	 *
-	 * @param {module:master/master~ControlConnection} connection -
+	 * @param {module:master/src/ControlConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume, and close.
 	 */
@@ -375,7 +403,7 @@ class BaseMasterPlugin {
 	 * Plugins must stop sending messages to the slave in question after the
 	 * prepare disconnect has been handled.
 	 *
-	 * @param {module:master/master~SlaveConnection} connection -
+	 * @param {module:master/src/SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareSlaveDisconnect(connection) { }
@@ -404,7 +432,7 @@ class BaseMasterPlugin {
 	 * @param {Object} data - Data ta pass with the event.
 	 */
 	broadcastEventToSlaves(event, data={}) {
-		for (let slaveConnection of this.master.slaveConnections.values()) {
+		for (let slaveConnection of this.master.wsServer.slaveConnections.values()) {
 			if (
 				!slaveConnection.connector.closing
 				&& (!event.plugin || slaveConnection.plugins.has(event.plugin))

@@ -156,7 +156,7 @@ before(async function() {
 	await exec("node ../../packages/master bootstrap create-ctl-config test");
 	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
-	masterProcess = await spawn("master:", "node ../../packages/master run", /All plugins loaded/);
+	masterProcess = await spawn("master:", "node ../../packages/master run", /Started master/);
 
 	await execCtl("slave create-config --id 4 --name slave --generate-token");
 	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
