@@ -1,6 +1,6 @@
 {
   "name": "@clusterio/plugin-statistics_exporter",
-  "version": "2.0.0-alpha.5",
+  "version": "2.0.0-alpha.6",
   "description": "Clusterio plugin for gathering statistics from Factorio servers",
   "author": "Hornwitser <github@hornwitser.no>",
   "homepage": "https://github.com/clusterio/factorioClusterio#readme",
@@ -20,8 +20,8 @@
     "@clusterio/lib": "^2.0.0-alpha.0"
   },
   "devDependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.5",
-    "@clusterio/web_ui": "^2.0.0-alpha.5",
+    "@clusterio/lib": "^2.0.0-alpha.6",
+    "@clusterio/web_ui": "^2.0.0-alpha.6",
     "webpack": "^5.36.2",
     "webpack-cli": "^4.7.0",
     "webpack-merge": "^5.2.0"
