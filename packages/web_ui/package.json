@@ -12,7 +12,7 @@
     "clusterio"
   ],
   "engines": {
-    "node": ">=10.16 <11 || >= 12"
+    "node": ">=12"
   },
   "dependencies": {
     "@ant-design/icons": "^4.2.2",

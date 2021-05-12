@@ -14,7 +14,7 @@
     "url": "https://github.com/clusterio/factorioClusterio/issues"
   },
   "engines": {
-    "node": ">=10.16 <11 || >= 12"
+    "node": ">=12"
   },
   "peerDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.0"

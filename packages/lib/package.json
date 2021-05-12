@@ -8,7 +8,7 @@
     "factorio"
   ],
   "engines": {
-    "node": ">=10.16 <11 || >= 12"
+    "node": ">=12"
   },
   "dependencies": {
     "ajv": "^6.12.6",
