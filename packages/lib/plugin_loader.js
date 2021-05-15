@@ -1,4 +1,4 @@
-/* eslint-disable global-require */
+/* eslint-disable node/global-require */
 /**
  * Helpers for loading plugins in Node.js
  * @module lib/plugin_loader

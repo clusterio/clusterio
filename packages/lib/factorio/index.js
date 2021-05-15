@@ -1,12 +1,15 @@
-/* eslint-disable global-require */
 /**
  * Library for interfacing with Factorio Servers and saves.
  * @module lib/factorio
  * @author Hornwitser
  */
 "use strict";
+const export_ = require("./export");
+const patch = require("./patch");
+const server = require("./server");
+
 module.exports = {
-	...require("./export"),
-	...require("./patch"),
-	...require("./server"),
+	...export_,
+	...patch,
+	...server,
 };

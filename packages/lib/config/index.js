@@ -1,11 +1,13 @@
-/* eslint-disable global-require */
 /**
  * Configuration System
  * @author Hornwitser
  * @module lib/config
  */
 "use strict";
+const classes = require("./classes");
+const definitions = require("./definitions");
+
 module.exports = {
-	...require("./classes"),
-	...require("./definitions"),
+	...classes,
+	...definitions,
 };

@@ -1413,7 +1413,7 @@ class Slave extends libLink.Link {
 +--------------------------------------------------------------------+
 ${err.stack}`
 			);
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
 	}
@@ -1619,7 +1619,7 @@ async function startSlave() {
 		if (secondSigint) {
 			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
 
@@ -1632,7 +1632,7 @@ async function startSlave() {
 		if (secondSigterm) {
 			setBlocking(true);
 			logger.fatal("Caught second termination, terminating immediately");
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
 

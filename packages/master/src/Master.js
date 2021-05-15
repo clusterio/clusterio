@@ -118,7 +118,7 @@ class Master {
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
 			logger.warn("Webpack development mode enabled");
-			/* eslint-disable global-require */
+			/* eslint-disable node/global-require, node/no-unpublished-require */
 			const webpack = require("webpack");
 			const webpackDevMiddleware = require("webpack-dev-middleware");
 			const webpackConfigs = [];
@@ -136,7 +136,7 @@ class Master {
 					webpackConfigs.push(config);
 				}
 			}
-			/* eslint-enable global-require */
+			/* eslint-enable node/global-require, node/no-unpublished-require */
 
 			const compiler = webpack(webpackConfigs);
 			this.devMiddleware = webpackDevMiddleware(compiler, {});
