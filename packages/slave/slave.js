@@ -453,7 +453,7 @@ class Instance extends libLink.Link {
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
 		for (let entry of await fs.readdir(path.join(__dirname, "modules"), { withFileTypes: true })) {
-			if (entry.isDirectory()) {
+			if (!entry.isFile()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
