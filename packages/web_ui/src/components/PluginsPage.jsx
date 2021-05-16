@@ -3,12 +3,12 @@ import { useHistory } from "react-router-dom";
 import { Table } from "antd";
 
 import notify from "../util/notify";
-import PluginsContext from "./PluginsContext";
+import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 
 
 export default function PluginsPage() {
-	let plugins = useContext(PluginsContext);
+	let plugins = useContext(ControlContext).plugins;
 	let history = useHistory();
 	let [pluginList, setPluginList] = useState([]);
 
