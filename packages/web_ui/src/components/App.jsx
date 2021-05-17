@@ -7,7 +7,6 @@ import { logger } from "@clusterio/lib/logging";
 import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
-import PluginsContext from "./PluginsContext";
 import LoginForm from "./LoginForm";
 
 import { Card, Spin, Typography } from "antd";
@@ -95,11 +94,9 @@ export default function App(props) {
 	return (
 		<ErrorBoundary Component={ErrorCard}>
 			<ControlContext.Provider value={props.control}>
-				<PluginsContext.Provider value={props.plugins}>
-					<BrowserRouter basename={webRoot}>
-						{page}
-					</BrowserRouter>
-				</PluginsContext.Provider>
+				<BrowserRouter basename={webRoot}>
+					{page}
+				</BrowserRouter>
 			</ControlContext.Provider>
 		</ErrorBoundary>
 	);

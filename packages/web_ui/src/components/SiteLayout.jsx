@@ -7,7 +7,7 @@ import webUiPackage from "../../package.json";
 import { useAccount } from "../model/account";
 import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
-import PluginsContext from "./PluginsContext";
+import ControlContext from "./ControlContext";
 import { pages } from "../pages";
 
 const { Header, Sider } = Layout;
@@ -17,7 +17,7 @@ export default function SiteLayout(props) {
 	let history = useHistory();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState(null);
 	let account = useAccount();
-	let plugins = useContext(PluginsContext);
+	let plugins = useContext(ControlContext).plugins;
 
 	function SetSidebar(setSidebarProps) {
 		useEffect(() => {

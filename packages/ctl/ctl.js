@@ -962,7 +962,7 @@ async function startControl() {
 		control.shutdown().catch(err => {
 			setBlocking(true);
 			logger.error(err.stack);
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		});
 	});

@@ -76,6 +76,7 @@
   UPS statistics is exported by the statistics exporter plugin.
 - Master server now defaults to hosting on https on port 8443.
 - Renamed client to slave.
+- Removed rotation of factorio-current.log files.
 
 ### Breaking Changes
 

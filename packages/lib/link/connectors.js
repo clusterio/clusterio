@@ -249,7 +249,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		// Open WebSocket to master
 		logger.verbose(`SOCKET | connecting to ${url}`);
 
-		// eslint-disable-next-line no-process-env
+		// eslint-disable-next-line node/no-process-env
 		if (process.env.APP_ENV === "browser") {
 			this._socket = new WebSocket(url);
 

@@ -8,7 +8,6 @@ export * from "./model/item_metadata.jsx";
 
 
 export { default as ControlContext } from "./components/ControlContext";
-export { default as PluginsContext } from "./components/PluginsContext";
 
 export { default as BaseConfigTree } from "./components/BaseConfigTree";
 export { default as InstanceConfigTree } from "./components/InstanceConfigTree";

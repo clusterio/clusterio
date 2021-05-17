@@ -90,5 +90,5 @@ export default async function bootstrap() {
 	controlConnector.setTimeout(15);
 	let control = new Control(controlConnector, plugins);
 
-	ReactDOM.render(<App control={control} plugins={plugins}/>, document.getElementById("root"));
+	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
 }

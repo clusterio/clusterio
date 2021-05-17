@@ -2,17 +2,43 @@
 -- Based on code from playerManager and trainTeleports
 local serialize = {}
 
+local function version_to_table(version)
+    local t = {}
+    for p in string.gmatch(version, "%d+") do
+        t[#t + 1] = tonumber(p)
+    end
+    return t
+end
+
 -- 0.17 compatibility
-local supports_bar, get_bar, has_bar
+local supports_bar, get_bar, has_bar, version
 if (pcall(function() local mods = script.active_mods end)) then
     supports_bar = "supports_bar"
     get_bar = "get_bar"
     set_bar = "set_bar"
+    version = version_to_table(script.active_mods.base)
 else
     supports_bar = "hasbar"
     get_bar = "getbar"
     set_bar = "setbar"
+    version = version_to_table("0.17.69")
 end
+
+-- returns true if the game version is greater than or equal to the given version
+local function version_ge(comp)
+    comp = version_to_table(comp)
+    for i=1, 3 do
+        if comp[i] > version[i] then
+            return false
+        elseif comp[i] < version[i] then
+            return true
+        end
+    end
+    return true
+end
+
+local has_create_grid = version_ge("1.1.7")
+
 
 -- Equipment Grids are serialized into an array of equipment entries
 -- where ench entry is a table with the following fields:
@@ -173,7 +199,14 @@ function serialize.deserialize_item_stack(slot, entry)
             slot.allow_manual_label_change = label.a
         end
         if entry.g then
-            serialize.deserialize_equipment_grid(slot.grid, entry.g)
+            if slot.grid then
+                serialize.deserialize_equipment_grid(slot.grid, entry.g)
+            elseif slot.type == "item-with-entity-data" and has_create_grid then
+                slot.create_grid()
+                serialize.deserialize_equipment_grid(slot.grid, entry.g)
+            else
+                print("Error: Attempt to deserialize equipment grid on an unsupported entity")
+            end
         end
         if entry.i then
             local sub_inventory = slot.get_inventory(defines.inventory.item_main)

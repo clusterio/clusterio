@@ -384,20 +384,6 @@ class Instance extends libLink.Link {
 			);
 		}
 
-		this.logger.verbose("Rotating old logs...");
-		// clean old log file to avoid crash
-		try {
-			let logPath = this.path("factorio-current.log");
-			let stat = await fs.stat(logPath);
-			if (stat.isFile()) {
-				let logFilename = `factorio-${Math.floor(Date.parse(stat.mtime)/1000)}.log`;
-				await fs.rename(logPath, this.path(logFilename));
-				this.logger.verbose(`Log rotated as ${logFilename}`);
-			}
-		} catch (err) {
-			this.logger.error(`Error rotating logs:\n${err.stack}`);
-		}
-
 		// eslint-disable-next-line no-use-before-define
 		await symlinkMods(this, "sharedMods");
 	}
@@ -467,7 +453,7 @@ class Instance extends libLink.Link {
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
 		for (let entry of await fs.readdir(path.join(__dirname, "modules"), { withFileTypes: true })) {
-			if (entry.isDirectory()) {
+			if (!entry.isFile()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
@@ -1427,7 +1413,7 @@ class Slave extends libLink.Link {
 +--------------------------------------------------------------------+
 ${err.stack}`
 			);
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
 	}
@@ -1633,7 +1619,7 @@ async function startSlave() {
 		if (secondSigint) {
 			setBlocking(true);
 			logger.fatal("Caught second interrupt, terminating immediately");
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
 
@@ -1646,7 +1632,7 @@ async function startSlave() {
 		if (secondSigterm) {
 			setBlocking(true);
 			logger.fatal("Caught second termination, terminating immediately");
-			// eslint-disable-next-line no-process-exit
+			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
 

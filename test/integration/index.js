@@ -46,7 +46,7 @@ class TestControlConnector extends libLink.WebSocketClientConnector {
 // Mark that this test takes a lot of time, or depeneds on a test
 // that takes a lot of time.
 function slowTest(test) {
-	// eslint-disable-next-line no-process-env
+	// eslint-disable-next-line node/no-process-env
 	if (process.env.FAST_TEST) {
 		test.skip();
 	}

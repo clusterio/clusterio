@@ -3,7 +3,7 @@ import { Button, Card, Divider, Form, Image, Input, List, Space, Spin, Typograph
 import LockOutlined from "@ant-design/icons/LockOutlined";
 
 import logo from "../images/logo.png";
-import PluginsContext from "./PluginsContext";
+import ControlContext from "./ControlContext";
 
 const { Paragraph, Text } = Typography;
 
@@ -33,7 +33,7 @@ function TokenAuth(props) {
 }
 
 export default function LoginForm(props) {
-	let plugins = useContext(PluginsContext);
+	let plugins = useContext(ControlContext).plugins;
 
 	let loginForms = [];
 	for (let plugin of plugins.values()) {

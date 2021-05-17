@@ -375,7 +375,7 @@ const outputHeuristics = [
 
 	// Message indicating the server is done starting up
 	{
-		filter: { type: "log", message: /^updateTick\(\d+\) changing state from\(CreatingGame\) to\(InGame\)$/ },
+		filter: { type: "log", message: /^(update|map)Tick\(\d+\) changing state from\(CreatingGame\) to\(InGame\)$/ },
 		action: function() {
 			this._notifyGameReady().catch((err) => { this.emit("error", err); });
 		},
