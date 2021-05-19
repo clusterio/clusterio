@@ -140,7 +140,7 @@ class Master {
 
 			const compiler = webpack(webpackConfigs);
 			this.devMiddleware = webpackDevMiddleware(compiler, {});
-			app.use(this.devMiddleware);
+			this.app.use(this.devMiddleware);
 		}
 
 		let databaseDirectory = this.config.get("master.database_directory");
@@ -243,7 +243,7 @@ class Master {
 		await fs.outputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
 
 		if (this.devMiddleware) {
-			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
 		}
 
 		let databaseDirectory = this.config.get("master.database_directory");
