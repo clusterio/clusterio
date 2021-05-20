@@ -7,6 +7,7 @@ const events = require("events");
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
 
+const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
 	get, exec, execCtl, sendRcon, getControl, instancesDir,
@@ -184,7 +185,7 @@ describe("Integration of Clusterio", function() {
 						"afk-auto-kick", "Kick if AFK for more than 2 minutes.",
 					],
 					[
-						"allow_commands", true,
+						"allow_commands", "true",
 						"allow-commands", "Allow Lua commands: Yes.",
 					],
 					[
@@ -312,6 +313,33 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				await execCtl("instance stop test");
 				await checkInstanceStatus(44, "stopped");
+			});
+		});
+
+		describe("instance load-scenario", function() {
+			it("starts the instance with the given settings", async function() {
+				slowTest(this);
+				await execCtl("instance config set 44 factorio.enable_save_patching false");
+				await execCtl("instance config set 44 player_auth.load_plugin false");
+				await execCtl("instance config set 44 research_sync.load_plugin false");
+				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
+				await execCtl("instance config set 44 subspace_storage.load_plugin false");
+				try {
+					let exchangeString = testStrings.modified.replace(/[\n\r]+/g, "");
+					let args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+					await execCtl(`instance load-scenario test ${args}`);
+					await checkInstanceStatus(44, "running");
+					await sendRcon(44, '/c game.print("disable achievements")');
+					await sendRcon(44, '/c game.print("disable achievements")');
+					assert.equal(await sendRcon(44, "/c rcon.print(game.default_map_gen_settings.seed)"), "1234\n");
+					assert.equal(await sendRcon(44, "/c rcon.print(game.map_settings.pollution.ageing)"), "1.5\n");
+					assert.equal(
+						await sendRcon(44, "/c rcon.print(game.difficulty_settings.research_queue_setting)"), "never\n"
+					);
+
+				} finally {
+					await execCtl("instance stop test");
+				}
 			});
 		});
 

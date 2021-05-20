@@ -516,14 +516,17 @@ class Instance extends libLink.Link {
 	 * scenario.
 	 *
 	 * @param {String} scenario - Name of scenario to load.
+	 * @param {?number} seed - seed to use.
+	 * @param {?object} mapGenSettings - MapGenSettings to use.
+	 * @param {?object} mapSettings - MapSettings to use.
 	 */
-	async startScenario(scenario) {
+	async startScenario(scenario, seed, mapGenSettings, mapSettings) {
 		this.server.on("rcon-ready", () => {
 			this.logger.verbose("RCON connection established");
 		});
 
 		this.server.on("exit", () => this.notifyExit());
-		await this.server.startScenario(scenario);
+		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
 
 		await libPlugin.invokeHook(this.plugins, "onStart");
 
@@ -678,15 +681,16 @@ class Instance extends libLink.Link {
 			throw err;
 		}
 
+		let { scenario, seed, map_gen_settings, map_settings } = message.data;
 		try {
-			await this.startScenario(message.data.scenario);
+			await this.startScenario(scenario, seed, map_gen_settings, map_settings);
 		} catch (err) {
 			await this.stop();
 			throw err;
 		}
 	}
 
-	async createSaveRequestHandler() {
+	async createSaveRequestHandler(message) {
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");
@@ -702,7 +706,8 @@ class Instance extends libLink.Link {
 		}
 
 		this.server.on("exit", () => this.notifyExit());
-		await this.server.create("world");
+		let { name, seed, map_gen_settings, map_settings } = message.data;
+		await this.server.create(name, seed, map_gen_settings, map_settings);
 		this.logger.info("Successfully created save");
 	}
 

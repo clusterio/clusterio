@@ -12,6 +12,8 @@ import InstanceConsole from "./InstanceConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
 import StartStopInstanceButton from "./StartStopInstanceButton";
+import CreateSaveModal from "./CreateSaveModal";
+import LoadScenarioModal from "./LoadScenarioModal";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useSlave } from "../model/slave";
@@ -29,8 +31,6 @@ export default function InstanceViewPage(props) {
 	let [instance] = useInstance(instanceId);
 	let [slave] = useSlave(Number(instance["assigned_slave"]));
 
-	let [creatingSave, setCreatingSave] = useState(false);
-
 	let nav = [{ name: "Instances", path: "/instances" }, { name: instance.name || "Unknown" }];
 	if (instance.loading) {
 		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
@@ -45,19 +45,8 @@ export default function InstanceViewPage(props) {
 
 	let instanceButtons = <Space>
 		<StartStopInstanceButton instance={instance} />
-		{instance.status === "stopped" && <Button
-			loading={creatingSave}
-			onClick={() => {
-				setCreatingSave(true);
-				libLink.messages.createSave.send(
-					control, { instance_id: instanceId }
-				).catch(notifyErrorHandler("Error creating save")).finally(() => {
-					setCreatingSave(false);
-				});
-			}}
-		>
-			Create save
-		</Button>}
+		<CreateSaveModal instance={instance} />
+		<LoadScenarioModal instance={instance} />
 		<Popconfirm
 			title="Permanently delete instance and server saves?"
 			okText="Delete"

@@ -498,6 +498,12 @@ messages.createSave = new Request({
 	links: ["control-master", "master-slave", "slave-instance"],
 	permission: "core.instance.create_save",
 	forwardTo: "instance",
+	requestProperties: {
+		"name": { type: "string" },
+		"seed": { type: ["integer", "null"] },
+		"map_gen_settings": { type: ["object", "null"] },
+		"map_settings": { type: ["object", "null"] },
+	},
 });
 
 messages.loadScenario = new Request({
@@ -507,6 +513,9 @@ messages.loadScenario = new Request({
 	forwardTo: "instance",
 	requestProperties: {
 		"scenario": { type: "string" },
+		"seed": { type: ["integer", "null"] },
+		"map_gen_settings": { type: ["object", "null"] },
+		"map_settings": { type: ["object", "null"] },
 	},
 });
 

@@ -25,6 +25,7 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
+const libFactorio = require("@clusterio/lib/factorio");
 
 
 function print(...content) {
@@ -314,15 +315,50 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
+async function loadMapSettings(args) {
+	let seed = args.seed !== undefined ? args.seed : null;
+	let mapGenSettings = null;
+	let mapSettings = null;
+	if (args.mapExchangeString) {
+		let parsed = libFactorio.readMapExchangeString(args.mapExchangeString);
+		mapGenSettings = parsed.map_gen_settings;
+		mapSettings = parsed.map_settings;
+	}
+	if (args.mapGenSettings) {
+		mapGenSettings = JSON.parse(await fs.readFile(args.mapGenSettings));
+	}
+	if (args.mapSettings) {
+		mapSettings = JSON.parse(await fs.readFile(args.mapSettings));
+	}
+
+	return {
+		seed,
+		mapGenSettings,
+		mapSettings,
+	};
+}
+
 instanceCommands.add(new libCommand.Command({
-	definition: ["create-save <instance>", "Create a new save on an instance", (yargs) => {
+	definition: ["create-save <instance> [name]", "Create a new save on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to create on", type: "string" });
+		yargs.positional("name", { describe: "Name of save to create.", type: "string", default: "world.zip" });
+		yargs.options({
+			"seed": { describe: "Seed to use, takes precedence over map-gen-settings", nargs: 1, type: "number" },
+			"map-exchange-string": { describe: "Map exchange string to use for the save", nargs: 1, type: "string" },
+			"map-gen-settings": { describe: "path to file to use for map-gen-settings", nargs: 1, type: "string" },
+			"map-settings": { describe: "path to file to use for map-settings", nargs: 1, type: "string" },
+		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.createSave.send(control, {
 			instance_id: instanceId,
+			name: args.name,
+			seed,
+			map_gen_settings: mapGenSettings,
+			map_settings: mapSettings,
 		});
 	},
 }));
@@ -364,15 +400,23 @@ instanceCommands.add(new libCommand.Command({
 		yargs.positional("instance", { describe: "Instance to start", type: "string" });
 		yargs.positional("scenario", { describe: "Scenario to load", type: "string" });
 		yargs.options({
+			"seed": { describe: "Seed to use, takes precedence over map-gen-settings", nargs: 1, type: "number" },
+			"map-exchange-string": { describe: "Map exchange string to use for the save", nargs: 1, type: "string" },
+			"map-gen-settings": { describe: "path to file to use for map-gen-settings", nargs: 1, type: "string" },
+			"map-settings": { describe: "path to file to use for map-settings", nargs: 1, type: "string" },
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
+		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		let response = await libLink.messages.loadScenario.send(control, {
 			instance_id: instanceId,
-			scenario: args.scenario || null,
+			scenario: args.scenario,
+			seed,
+			map_gen_settings: mapGenSettings,
+			map_settings: mapSettings,
 		});
 		control.keepOpen = args.keepOpen;
 	},
