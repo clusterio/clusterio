@@ -26,7 +26,7 @@ export default function InstanceViewPage(props) {
 	let history = useHistory();
 
 	let control = useContext(ControlContext);
-	let [instance, updateInstance] = useInstance(instanceId);
+	let [instance] = useInstance(instanceId);
 	let [slave] = useSlave(Number(instance["assigned_slave"]));
 
 	let [creatingSave, setCreatingSave] = useState(false);
@@ -44,10 +44,7 @@ export default function InstanceViewPage(props) {
 	}
 
 	let instanceButtons = <Space>
-		<StartStopInstanceButton
-			instance={instance}
-			onFinish={updateInstance}
-		/>
+		<StartStopInstanceButton instance={instance} />
 		{instance.status === "stopped" && <Button
 			loading={creatingSave}
 			onClick={() => {
@@ -55,7 +52,6 @@ export default function InstanceViewPage(props) {
 				libLink.messages.createSave.send(
 					control, { instance_id: instanceId }
 				).catch(notifyErrorHandler("Error creating save")).finally(() => {
-					updateInstance();
 					setCreatingSave(false);
 				});
 			}}
@@ -107,7 +103,6 @@ export default function InstanceViewPage(props) {
 						disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
 					}}
 					buttonContent={assigned ? "Reassign" : "Assign"}
-					onFinish={updateInstance}
 				/>
 			</Descriptions.Item>
 			<Descriptions.Item label="Status">{instance["status"]}</Descriptions.Item>
@@ -117,6 +112,6 @@ export default function InstanceViewPage(props) {
 		<InstanceConsole id={instanceId} />
 		<InstanceRcon id={instanceId} disabled={instance["status"] !== "running"} />
 
-		<InstanceConfigTree id={instanceId} onApply={updateInstance} />
+		<InstanceConfigTree id={instanceId} />
 	</PageLayout>;
 }

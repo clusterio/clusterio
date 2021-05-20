@@ -334,9 +334,21 @@ definePermission({
 });
 
 definePermission({
+	name: "core.instance.get",
+	title: "Get instance",
+	description: "Get the details of an instance in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
 	name: "core.instance.list",
 	title: "List instances",
 	description: "Get the full list of instances in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.instance.subscribe",
+	title: "Subscribe to instance updates",
+	description: "Subscribe to be notified on updates on the details and status of instances.",
 	grantByDefault: true,
 });
 definePermission({

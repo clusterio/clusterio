@@ -325,6 +325,22 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instanceUpdateEventHandler()", function() {
+			it("should have triggered for the previous instance status updates", function() {
+				let statusesToCheck = new Set(
+					["unassigned", "stopped", "creating_save", "exporting_data", "starting", "running", "stopping"]
+				);
+				let statusesNotSeen = new Set(statusesToCheck);
+
+				for (let update of getControl().instanceUpdates) {
+					assert(statusesToCheck.has(update.status), `Missing check for status ${update.status}`);
+					statusesNotSeen.delete(update.status);
+				}
+
+				assert(statusesNotSeen.size === 0, `Did not see the statuses ${[...statusesNotSeen]}`);
+			});
+		});
+
 		describe("permission list", function() {
 			it("runs", async function() {
 				await execCtl("permission list");

@@ -62,10 +62,14 @@ export class Control extends libLink.Link {
 		 */
 		this.accountName = null;
 
+		this.instanceUpdateHandlers = new Map();
 		this.instanceLogHandlers = new Map();
 
 		this.connector.on("connect", data => {
 			this.accountName = data.account.name;
+			this.updateInstanceSubscriptions().catch(err => logger.error(
+				`Unexpected error updating instance subscriptions:\n${err.stack}`
+			));
 			this.updateLogSubscriptions().catch(err => logger.error(
 				`Unexpected error updating log subscriptions:\n${err.stack}`
 			));
@@ -82,6 +86,60 @@ export class Control extends libLink.Link {
 				}
 			});
 		}
+	}
+
+	async instanceUpdateEventHandler(message) {
+		let handlers = this.instanceUpdateHandlers.get(message.data.id);
+		for (let handler of handlers || []) {
+			handler(message.data);
+		}
+	};
+
+	async onInstanceUpdate(id, handler) {
+		if (!Number.isInteger(id)) {
+			throw new Error("Invalid instance id");
+		}
+
+		let handlers = this.instanceUpdateHandlers.get(id);
+		if (!handlers) {
+			handlers = [];
+			this.instanceUpdateHandlers.set(id, handlers);
+		}
+
+		handlers.push(handler);
+
+		if (handlers.length === 1) {
+			await this.updateInstanceSubscriptions();
+		}
+	}
+
+	async offInstanceUpdate(id, handler) {
+		let handlers = this.instanceUpdateHandlers.get(id);
+		if (!handlers || !handlers.length) {
+			throw new Error(`No handlers for instance ${id} exist`);
+		}
+
+		let index = handlers.lastIndexOf(handler);
+		if (index === -1) {
+			throw new Error(`Given handler is not registered for instance ${id}`);
+		}
+
+		handlers.splice(index, 1);
+		if (!handlers.length) {
+			this.instanceUpdateHandlers.delete(id);
+			await this.updateInstanceSubscriptions();
+		}
+	}
+
+	async updateInstanceSubscriptions() {
+		if (!this.connector.connected) {
+			return;
+		}
+
+		await libLink.messages.setInstanceSubscriptions.send(this, {
+			all: false,
+			instance_ids: [...this.instanceUpdateHandlers.keys()],
+		});
 	}
 
 	async logMessageEventHandler(message) {

@@ -38,6 +38,11 @@ class ControlConnection extends BaseConnection {
 		 */
 		this.user = user;
 
+		this.instanceSubscriptions = {
+			all: false,
+			instance_ids: [],
+		};
+
 		this.logTransport = null;
 		this.logSubscriptions = {
 			all: false,
@@ -122,6 +127,21 @@ class ControlConnection extends BaseConnection {
 		return { serialized_config: slaveConfig.serialize() };
 	}
 
+	async getInstanceRequestHandler(message) {
+		let id = message.data.id;
+		let instance = this._master.instances.get(id);
+		if (!instance) {
+			throw new libErrors.RequestError(`Instance with ID ${id} does not exist`);
+		}
+
+		return {
+			id,
+			name: instance.config.get("instance.name"),
+			assigned_slave: instance.config.get("instance.assigned_slave"),
+			status: instance.status,
+		};
+	}
+
 	async listInstancesRequestHandler(message) {
 		let list = [];
 		for (let instance of this._master.instances.values()) {
@@ -133,6 +153,24 @@ class ControlConnection extends BaseConnection {
 			});
 		}
 		return { list };
+	}
+
+	async setInstanceSubscriptionsRequestHandler(message) {
+		this.instanceSubscriptions = message.data;
+	}
+
+	instanceUpdated(instance) {
+		if (
+			this.instanceSubscriptions.all
+			|| this.instanceSubscriptions.instance_ids.includes(instance.config.get("instance.id"))
+		) {
+			libLink.messages.instanceUpdate.send(this, {
+				id: instance.config.get("instance.id"),
+				name: instance.config.get("instance.name"),
+				assigned_slave: instance.config.get("instance.assigned_slave"),
+				status: instance.status,
+			});
+		}
 	}
 
 	// XXX should probably add a hook for slave reuqests?
@@ -174,7 +212,7 @@ class ControlConnection extends BaseConnection {
 		let instance = { config: instanceConfig, status: "unassigned" };
 		this._master.instances.set(instanceId, instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, null);
-		this._master.addInstancePluginHooks(instance);
+		this._master.addInstanceHooks(instance);
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
@@ -190,6 +228,7 @@ class ControlConnection extends BaseConnection {
 
 		let prev = instance.status;
 		instance.status = "deleted";
+		this.instanceUpdated(instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 

@@ -748,6 +748,8 @@ class Control extends libLink.Link {
 		this.keepOpen = false;
 	}
 
+	async instanceUpdateEventHandler() { }
+
 	async setLogSubscriptions({
 		all = false,
 		master = false,

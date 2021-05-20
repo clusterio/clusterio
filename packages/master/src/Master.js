@@ -152,7 +152,7 @@ class Master {
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
 		for (let instance of this.instances.values()) {
-			this.addInstancePluginHooks(instance);
+			this.addInstanceHooks(instance);
 		}
 
 		// Make sure we're actually going to listen on a port
@@ -361,10 +361,26 @@ class Master {
 		}
 	}
 
-	addInstancePluginHooks(instance) {
+	addInstanceHooks(instance) {
 		instance.config.on("fieldChanged", (group, field, prev) => {
+			if (group.name === "instance" && field === "name") {
+				this.instanceUpdated(instance);
+			}
+
 			libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
 		});
+
+		this.instanceUpdated(instance);
+	}
+
+	instanceUpdated(instance) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.instanceUpdated(instance);
+		}
 	}
 
 	async loadPlugins() {

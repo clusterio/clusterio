@@ -353,6 +353,26 @@ messages.listSlaves = new Request({
 	},
 });
 
+let instanceProperties = {
+	"name": { type: "string" },
+	"id": { type: "integer" },
+	"assigned_slave": { type: ["null", "integer"] },
+	"status": { enum: [
+		"unknown", "unassigned", "stopped", "starting", "running", "stopping",
+		"creating_save", "exporting_data",
+	]},
+};
+
+messages.getInstance = new Request({
+	type: "get_instance",
+	links: ["control-master"],
+	permission: "core.instance.get",
+	requestProperties: {
+		"id": { type: "integer" },
+	},
+	responseProperties: instanceProperties,
+});
+
 messages.listInstances = new Request({
 	type: "list_instances",
 	links: ["control-master"],
@@ -363,16 +383,21 @@ messages.listInstances = new Request({
 			items: {
 				additionalProperties: false,
 				required: ["name", "id", "assigned_slave", "status"],
-				properties: {
-					"name": { type: "string" },
-					"id": { type: "integer" },
-					"assigned_slave": { type: ["null", "integer"] },
-					"status": { enum: [
-						"unknown", "unassigned", "stopped", "starting", "running", "stopping",
-						"creating_save", "exporting_data",
-					]},
-				},
+				properties: instanceProperties,
 			},
+		},
+	},
+});
+
+messages.setInstanceSubscriptions = new Request({
+	type: "set_instance_subscriptions",
+	links: ["control-master"],
+	permission: "core.instance.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"instance_ids": {
+			type: "array",
+			items: { type: "integer" },
 		},
 	},
 });
@@ -983,6 +1008,12 @@ messages.instanceStatusChanged = new Event({
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]},
 	},
+});
+
+messages.instanceUpdate = new Event({
+	type: "instance_update",
+	links: ["master-control"],
+	eventProperties: instanceProperties,
 });
 
 messages.masterConnectionEvent = new Event({
