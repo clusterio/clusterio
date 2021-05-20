@@ -31,6 +31,8 @@ export default function InstanceViewPage(props) {
 	let [instance] = useInstance(instanceId);
 	let [slave] = useSlave(Number(instance["assigned_slave"]));
 
+	let [exportingData, setExportingData] = useState(false);
+
 	let nav = [{ name: "Instances", path: "/instances" }, { name: instance.name || "Unknown" }];
 	if (instance.loading) {
 		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
@@ -47,6 +49,22 @@ export default function InstanceViewPage(props) {
 		<StartStopInstanceButton instance={instance} />
 		<CreateSaveModal instance={instance} />
 		<LoadScenarioModal instance={instance} />
+		<Button
+			loading={exportingData}
+			disabled={instance.status !== "stopped"}
+			onClick={() => {
+				setExportingData(true);
+				libLink.messages.exportData.send(
+					control, { instance_id: instanceId }
+				).catch(
+					notifyErrorHandler("Error exporting data")
+				).finally(() => {
+					setExportingData(false);
+				});
+			}}
+		>
+			Export data
+		</Button>
 		<Popconfirm
 			title="Permanently delete instance and server saves?"
 			okText="Delete"
