@@ -194,7 +194,9 @@ after(async function() {
 		masterProcess.kill("SIGINT");
 		await events.once(masterProcess, "exit");
 	}
-	await control.connector.close();
+	if (control) {
+		await control.connector.close();
+	}
 });
 
 // Ensure the test processes are stopped.
