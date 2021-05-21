@@ -62,6 +62,15 @@ class SlaveConnection extends BaseConnection {
 			return;
 		}
 
+		// We may receive status changed where the status hasn't changed
+		// from our perspective if the connection was down at the time it
+		// changed.  Slaves also send status updates on assignInstance which
+		// for hacky reason is also used to push config changes and
+		// restablish status after a connection loss.
+		if (instance.status === message.data.status) {
+			return;
+		}
+
 		let prev = instance.status;
 		instance.status = message.data.status;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
