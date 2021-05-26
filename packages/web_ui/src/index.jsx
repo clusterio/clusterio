@@ -18,3 +18,5 @@ export { default as InstanceConsole } from "./components/InstanceConsole";
 export { default as InstanceRcon } from "./components/InstanceRcon";
 
 export { default as PageLayout } from "./components/PageLayout";
+export { default as SavesList } from "./components/SavesList";
+export { default as SectionHeader } from "./components/SectionHeader";

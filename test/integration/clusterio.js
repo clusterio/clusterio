@@ -146,6 +146,21 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("saveListUpdateEventHandler()", function() {
+			it("should have triggered for the created save", function() {
+				slowTest(this);
+				assert.equal(getControl().saveListUpdates.slice(-1)[0].list[0].name, "world.zip");
+			});
+		});
+
+		describe("instance list-saves", function() {
+			it("lists the created save", async function() {
+				slowTest(this);
+				let result = await execCtl("instance list-saves test");
+				assert(/world\.zip/.test(result.stdout), "world.zip not present in list save output");
+			});
+		});
+
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);

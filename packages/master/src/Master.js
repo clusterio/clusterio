@@ -383,6 +383,16 @@ class Master {
 		}
 	}
 
+	saveListUpdate(data) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.saveListUpdate(data);
+		}
+	}
+
 	async loadPlugins() {
 		for (let pluginInfo of this.pluginInfos) {
 			if (!this.config.group(pluginInfo.name).get("load_plugin")) {

@@ -26,11 +26,15 @@ class TestControl extends libLink.Link {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
 		this.instanceUpdates = [];
+		this.saveListUpdates = [];
 
 		this.connector.on("connect", () => {
 			libLink.messages.setInstanceSubscriptions.send(
 				this, { all: true, instance_ids: [] }
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
+			libLink.messages.setSaveListSubscriptions.send(
+				this, { all: true, instance_ids: [] }
+			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
 		});
 	}
 
@@ -43,6 +47,10 @@ class TestControl extends libLink.Link {
 
 	async instanceUpdateEventHandler(message) {
 		this.instanceUpdates.push(message.data);
+	}
+
+	async saveListUpdateEventHandler(message) {
+		this.saveListUpdates.push(message.data);
 	}
 
 	async logMessageEventHandler() { }

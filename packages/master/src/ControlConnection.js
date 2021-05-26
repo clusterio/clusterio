@@ -43,6 +43,11 @@ class ControlConnection extends BaseConnection {
 			instance_ids: [],
 		};
 
+		this.saveListSubscriptions = {
+			all: false,
+			instance_ids: [],
+		};
+
 		this.logTransport = null;
 		this.logSubscriptions = {
 			all: false,
@@ -323,6 +328,19 @@ class ControlConnection extends BaseConnection {
 				instance_id,
 				serialized_config: instance.config.serialize("slave"),
 			});
+		}
+	}
+
+	async setSaveListSubscriptionsRequestHandler(message) {
+		this.saveListSubscriptions = message.data;
+	}
+
+	saveListUpdate(data) {
+		if (
+			this.saveListSubscriptions.all
+			|| this.saveListSubscriptions.instance_ids.includes(data.instance_id)
+		) {
+			libLink.messages.saveListUpdate.send(this, data);
 		}
 	}
 

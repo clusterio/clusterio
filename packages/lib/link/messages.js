@@ -493,16 +493,56 @@ messages.startInstance = new Request({
 	forwardTo: "instance",
 });
 
+let saveList = {
+	type: "array",
+	items: {
+		type: "object",
+		additionalProperties: false,
+		required: ["type", "name", "size", "mtime_ms", "loaded"],
+		properties: {
+			"type": { enum: ["file", "directory", "special"] },
+			"name": { type: "string" },
+			"size": { type: "integer" },
+			"mtime_ms": { type: "number" },
+			"loaded": { type: "boolean" },
+			"default": { type: "boolean" },
+		},
+	},
+};
+
+messages.listSaves = new Request({
+	type: "list_saves",
+	links: ["control-master", "master-slave", "slave-instance"],
+	permission: "core.instance.save.list",
+	forwardTo: "instance",
+	responseProperties: {
+		"list": saveList,
+	},
+});
+
 messages.createSave = new Request({
 	type: "create_save",
 	links: ["control-master", "master-slave", "slave-instance"],
-	permission: "core.instance.create_save",
+	permission: "core.instance.save.create",
 	forwardTo: "instance",
 	requestProperties: {
 		"name": { type: "string" },
 		"seed": { type: ["integer", "null"] },
 		"map_gen_settings": { type: ["object", "null"] },
 		"map_settings": { type: ["object", "null"] },
+	},
+});
+
+messages.setSaveListSubscriptions = new Request({
+	type: "set_save_list_subscriptions",
+	links: ["control-master"],
+	permission: "core.instance.save.list_subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"instance_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
 	},
 });
 
@@ -1023,6 +1063,16 @@ messages.instanceUpdate = new Event({
 	type: "instance_update",
 	links: ["master-control"],
 	eventProperties: instanceProperties,
+});
+
+messages.saveListUpdate = new Event({
+	type: "save_list_update",
+	links: ["instance-slave", "slave-master", "master-control"],
+	forwardTo: "master",
+	eventProperties: {
+		"instance_id": { type: "integer" },
+		"list": saveList,
+	},
 });
 
 messages.masterConnectionEvent = new Event({

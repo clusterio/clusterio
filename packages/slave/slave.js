@@ -169,6 +169,7 @@ class Instance extends libLink.Link {
 
 		this._status = "stopped";
 		this._running = false;
+		this._loadedSave = null;
 		this.server = new libFactorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
@@ -209,9 +210,50 @@ class Instance extends libLink.Link {
 		}
 	}
 
+	static async listSaves(savesDir, loadedSave) {
+		let defaultSave = null;
+		if (loadedSave === null) {
+			defaultSave = await libFileOps.getNewestFile(
+				savesDir, (name) => !name.endsWith(".tmp.zip")
+			);
+		}
+
+		let list = [];
+		for (let name of await fs.readdir(savesDir)) {
+			let type;
+			let stat = await fs.stat(path.join(savesDir, name));
+			if (stat.isFile()) {
+				type = "file";
+			} else if (stat.isDirectory()) {
+				type = "directory";
+			} else {
+				type = "special";
+			}
+
+			list.push({
+				name,
+				type,
+				size: stat.size,
+				mtime_ms: stat.mtimeMs,
+				loaded: name === loadedSave,
+				default: name === defaultSave,
+			});
+		}
+
+		return list;
+	}
+
+	async sendSaveListUpdate() {
+		libLink.messages.saveListUpdate.send(this, {
+			instance_id: this.id,
+			list: await Instance.listSaves(this.server.writePath("saves"), this._loadedSave),
+		});
+	}
+
 	async _autosave(name) {
 		let stat = await fs.stat(this.path("saves", `${name}.zip`));
 		instanceFactorioAutosaveSize.labels(String(this.id)).set(stat.size);
+		await this.sendSaveListUpdate();
 	}
 
 	notifyStatus(status) {
@@ -234,6 +276,7 @@ class Instance extends libLink.Link {
 
 	notifyExit() {
 		this._running = false;
+		this._loadedSave = null;
 		this.notifyStatus("stopped");
 
 		this.config.off("fieldChanged", this._configFieldChanged);
@@ -252,6 +295,10 @@ class Instance extends libLink.Link {
 		for (let pluginInstance of this.plugins.values()) {
 			pluginInstance.onExit();
 		}
+
+		this.sendSaveListUpdate().catch(err => {
+			this.logger.error(`Unexpected error updating save list:\n${err.stack}`);
+		});
 	}
 
 	async _loadPlugin(pluginInfo, slave) {
@@ -496,6 +543,7 @@ class Instance extends libLink.Link {
 		});
 
 		this.server.on("exit", () => this.notifyExit());
+		this._loadedSave = saveName;
 		await this.server.start(saveName);
 
 		if (this.config.get("factorio.enable_save_patching")) {
@@ -503,6 +551,7 @@ class Instance extends libLink.Link {
 			await this.updateInstanceData();
 		}
 
+		await this.sendSaveListUpdate();
 		await libPlugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
@@ -688,6 +737,12 @@ class Instance extends libLink.Link {
 			await this.stop();
 			throw err;
 		}
+	}
+
+	async listSavesRequestHandler(message) {
+		return {
+			list: await Instance.listSaves(this.server.writePath("saves"), this._loadedSave),
+		};
 	}
 
 	async createSaveRequestHandler(message) {
@@ -1299,6 +1354,23 @@ class Slave extends libLink.Link {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		return await request.send(instanceConnection, message.data);
+	}
+
+	async listSavesRequestHandler(message, request) {
+		let instanceId = message.data.instance_id;
+		let instanceConnection = this.instanceConnections.get(instanceId);
+		if (instanceConnection) {
+			return await request.send(instanceConnection, message.data);
+		}
+
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
+		}
+
+		return {
+			list: await Instance.listSaves(path.join(instanceInfo.path, "saves"), null),
+		};
 	}
 
 	async createSaveRequestHandler(message, request) {

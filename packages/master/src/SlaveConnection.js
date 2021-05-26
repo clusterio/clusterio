@@ -146,6 +146,10 @@ class SlaveConnection extends BaseConnection {
 		libLink.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
 	}
 
+	async saveListUpdateEventHandler(message) {
+		this._master.saveListUpdate(message.data);
+	}
+
 	async logMessageEventHandler(message) {
 		this._master.clusterLogger.log({
 			...message.data.info,

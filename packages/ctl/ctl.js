@@ -339,6 +339,21 @@ async function loadMapSettings(args) {
 }
 
 instanceCommands.add(new libCommand.Command({
+	definition: ["list-saves <instance>", "list saves on an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to list saves on", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let response = await libLink.messages.listSaves.send(control, { instance_id: instanceId });
+		for (let entry of response.list) {
+			entry.mtime = new Date(entry.mtime_ms).toLocaleString();
+			delete entry.mtime_ms;
+		}
+		print(asTable(response.list));
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
 	definition: ["create-save <instance> [name]", "Create a new save on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to create on", type: "string" });
 		yargs.positional("name", { describe: "Name of save to create.", type: "string", default: "world.zip" });
@@ -793,6 +808,8 @@ class Control extends libLink.Link {
 	}
 
 	async instanceUpdateEventHandler() { }
+
+	async saveListUpdateEventHandler() { }
 
 	async setLogSubscriptions({
 		all = false,
