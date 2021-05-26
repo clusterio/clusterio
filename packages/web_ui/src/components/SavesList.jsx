@@ -1,10 +1,13 @@
 import React, { useContext, useState } from "react";
-import { Table, Tooltip } from "antd";
+import { Button, Space, Table, Tooltip } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
+import libLink from "@clusterio/lib/link";
+
 import ControlContext from "./ControlContext";
 import { useSaves } from "../model/saves";
+import { notifyErrorHandler } from "../util/notify";
 
 
 function formatBytes(bytes) {
@@ -21,6 +24,7 @@ function formatBytes(bytes) {
 export default function SavesList(props) {
 	let control = useContext(ControlContext);
 	let saves = useSaves(props.instance.id);
+	let [starting, setStarting] = useState(false);
 
 	return <Table
 		size="small"
@@ -53,5 +57,25 @@ export default function SavesList(props) {
 		dataSource={saves}
 		rowKey={save => save.name}
 		pagination={false}
+		expandable={{
+			columnWidth: 33,
+			expandRowByClick: true,
+			expandedRowRender: save => <Space wrap style={{marginBottom: 0}}>
+				<Button
+					loading={starting}
+					disabled={props.instance.status !== "stopped"}
+					onClick={() => {
+						setStarting(true);
+						libLink.messages.startInstance.send(
+							control, { instance_id: props.instance.id, save: save.name }
+						).catch(
+							notifyErrorHandler("Error loading save")
+						).finally(
+							() => { setStarting(false); }
+						);
+					}}
+				>Load save</Button>
+			</Space>,
+		}}
 	/>;
 }
