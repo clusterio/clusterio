@@ -1102,13 +1102,8 @@ class Slave extends libLink.Link {
 			throw new Error(`Instance name ${err.message}`);
 		}
 
-		// For now add dashes until an unused directory name is found
-		let dir = path.join(this.config.get("slave.instances_directory"), name);
-		while (await fs.pathExists(dir)) {
-			dir += "-";
-		}
-
-		return dir;
+		let instancesDir = this.config.get("slave.instances_directory");
+		return path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
 	}
 
 	async forwardRequestToInstance(message, request) {
