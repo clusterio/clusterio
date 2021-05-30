@@ -23,25 +23,7 @@ class BaseConnection extends libLink.Link {
 	}
 
 	async forwardRequestToInstance(message, request) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
-		let slaveId = instance.config.get("instance.assigned_slave");
-		if (slaveId === null) {
-			throw new libErrors.RequestError("Instance is not assigned to a slave");
-		}
-
-		let connection = this._master.wsServer.slaveConnections.get(slaveId);
-		if (!connection) {
-			throw new libErrors.RequestError("Slave containing instance is not connected");
-		}
-		if (request.plugin && !connection.plugins.has(request.plugin)) {
-			throw new libErrors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
-		}
-
-		return await request.send(connection, message.data);
+		return await this._master.forwardRequestToInstance(request, message.data);
 	}
 
 	async forwardEventToInstance(message, event) {

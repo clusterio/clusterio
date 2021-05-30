@@ -37,6 +37,7 @@ const libConfig = require("@clusterio/lib/config");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const libHelpers = require("@clusterio/lib/helpers");
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -1372,6 +1373,65 @@ class Slave extends libLink.Link {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		await request.send(instanceConnection, message.data);
+	}
+
+	async pullSaveRequestHandler(message) {
+		let { instance_id, stream_id, filename } = message.data;
+		try {
+			checkFilename(filename);
+		} catch (err) {
+			throw new libErrors.RequestError(`Save name ${err.message}`);
+		}
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
+
+		let url = new URL(this.config.get("slave.master_url"));
+		url.pathname += `api/stream/${stream_id}`;
+		let response = await phin({
+			url, method: "GET",
+			core: { ca: this.tlsCa },
+			stream: true,
+		});
+
+		if (response.statusCode !== 200) {
+			let content = await libHelpers.readStream(response);
+			throw new libErrors.RequestError(`Stream returned ${response.statusCode}: ${content.toString()}`);
+		}
+
+		let savesDir = path.join(instanceInfo.path, "saves");
+		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
+		let stream;
+		while (true) {
+			try {
+				stream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
+				await events.once(stream, "open");
+				break;
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					tempFilename = await libFileOps.findUnusedName(savesDir, tempFilename, ".tmp.zip");
+				} else {
+					throw err;
+				}
+			}
+		}
+		response.pipe(stream);
+		await events.once(stream, "finish");
+
+		filename = await libFileOps.findUnusedName(savesDir, filename, ".zip");
+		await fs.rename(path.join(savesDir, tempFilename), path.join(savesDir, filename));
+
+		let instanceConnection = this.instanceConnections.get(instance_id);
+		let saveList;
+		if (instanceConnection) {
+			saveList = (await libLink.messages.listSaves.send(instanceConnection, { instance_id })).list;
+		} else {
+			saveList = await Instance.listSaves(savesDir, null);
+		}
+
+		libLink.messages.saveListUpdate.send(this, { instance_id, list: saveList });
+		return { save: filename };
 	}
 
 	async exportDataRequestHandler(message, request) {

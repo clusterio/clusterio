@@ -150,9 +150,12 @@ class MockControl extends libLink.Link {
 class MockMaster {
 	constructor() {
 		this.app = express();
+		this.app.locals.master = this;
+		this.app.locals.streams = new Map();
 		this.mockConfigEntries = new Map([
 			["master.external_address", "test"],
 			["master.auth_secret", "TestSecretDoNotUse"],
+			["master.proxy_stream_timeout", 1],
 		]);
 		this.config = {
 			get: (name) => {
@@ -227,6 +230,7 @@ module.exports = {
 	MockInstance,
 	MockSlave,
 	MockControl,
+	MockMaster,
 
 	createMasterPlugin,
 	createInstancePlugin,

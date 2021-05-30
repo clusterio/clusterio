@@ -379,6 +379,57 @@ instanceCommands.add(new libCommand.Command({
 }));
 
 instanceCommands.add(new libCommand.Command({
+	definition: ["upload-save <instance> <filepath>", "Upload a save to an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to upload to", type: "string" });
+		yargs.positional("filepath", { describe: "Path to save to upload", type: "string" });
+		yargs.options({
+			"name": { describe: "Name to give save on server", nargs: 1, type: "string" },
+		});
+	}],
+	handler: async function(args, control) {
+		let filename = args.name || path.basename(args.filepath);
+		if (!filename.endsWith(".zip")) {
+			throw new libErrors.CommandError("Save name must end with .zip");
+		}
+		// phin doesn't support streaming requests :(
+		let content = await fs.readFile(args.filepath);
+
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += "api/upload-save";
+		url.searchParams.append("instance_id", instanceId);
+		url.searchParams.append("filename", filename);
+
+		let result = await phin({
+			url, method: "POST",
+			headers: {
+				"X-Access-Token": control.config.get("control.master_token"),
+				"Content-Type": "application/zip",
+			},
+			core: { ca: control.tlsCa },
+			data: content,
+			parse: "json",
+		});
+
+		for (let error of result.body.errors || []) {
+			logger.error(error);
+		}
+
+		for (let requestError of result.body.request_errors || []) {
+			logger.error(error);
+		}
+
+		if (result.body.saves && result.body.saves.length) {
+			logger.info(`Successfully uploaded as ${result.body.saves[0]}`);
+		}
+
+		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {
+			throw new libErrors.CommandError("Uploading save failed");
+		}
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
 	definition: ["export-data <instance>", "Export item icons and locale from instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to export from", type: "string" });
 	}],

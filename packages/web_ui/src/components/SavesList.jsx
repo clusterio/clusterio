@@ -1,11 +1,13 @@
 import React, { useContext, useState } from "react";
-import { Button, Space, Table, Tooltip } from "antd";
+import { Button, Space, Table, Tooltip, Upload } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
 import libLink from "@clusterio/lib/link";
 
 import ControlContext from "./ControlContext";
+import CreateSaveModal from "./CreateSaveModal";
+import SectionHeader from "./SectionHeader";
 import { useSaves } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
 
@@ -26,7 +28,7 @@ export default function SavesList(props) {
 	let saves = useSaves(props.instance.id);
 	let [starting, setStarting] = useState(false);
 
-	return <Table
+	const saveTable = <Table
 		size="small"
 		columns={[
 			{
@@ -78,4 +80,30 @@ export default function SavesList(props) {
 			</Space>,
 		}}
 	/>;
+
+	let uploadProps = {
+		name: "file",
+		accept: ".zip",
+		headers: {
+			"X-Access-Token": control.connector.token,
+		},
+		data: {
+			instance_id: props.instance.id,
+		},
+		showUploadList: false,
+		action: `${webRoot}api/upload-save`,
+		// TODO: show progress to user.
+	};
+
+	return <div>
+		<SectionHeader title="Saves" extra=<Space>
+			<Upload {...uploadProps} >
+				<Button>Upload save</Button>
+			</Upload>
+			<CreateSaveModal instance={props.instance} />
+		</Space> />
+		<Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
+			{saveTable}
+		</Upload.Dragger>
+	</div>;
 }

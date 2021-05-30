@@ -102,6 +102,13 @@ MasterGroup.define({
 	initial_value: 8,
 });
 MasterGroup.define({
+	name: "proxy_stream_timeout",
+	title: "Proxy Stream Timeout",
+	description: "Timeout in seconds for proxy streams to start flowing",
+	type: "number",
+	initial_value: 15,
+});
+MasterGroup.define({
 	name: "default_role_id",
 	title: "Default role",
 	description: "ID of role assigned by default to new users",

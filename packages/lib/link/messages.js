@@ -533,6 +533,19 @@ messages.createSave = new Request({
 	},
 });
 
+messages.pullSave = new Request({
+	type: "pull_save",
+	links: ["master-slave"],
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"stream_id": { type: "string" },
+		"filename": { type: "string" },
+	},
+	responseProperties: {
+		"save": { type: "string" },
+	},
+});
+
 messages.setSaveListSubscriptions = new Request({
 	type: "set_save_list_subscriptions",
 	links: ["control-master"],

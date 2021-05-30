@@ -164,6 +164,10 @@ body {
 	white-space: pre-wrap;
 }
 
+.save-list-dragger .ant-upload.ant-upload-btn {
+	padding: 0;
+}
+
 .rcon-result code {
 	display: block;
 	background: #000;

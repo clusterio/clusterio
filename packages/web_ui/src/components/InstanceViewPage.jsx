@@ -12,10 +12,8 @@ import InstanceConsole from "./InstanceConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
 import StartStopInstanceButton from "./StartStopInstanceButton";
-import CreateSaveModal from "./CreateSaveModal";
 import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
-import SectionHeader from "./SectionHeader";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useSlave } from "../model/slave";
@@ -116,7 +114,6 @@ export default function InstanceViewPage(props) {
 			<Descriptions.Item label="Status">{instance["status"]}</Descriptions.Item>
 		</Descriptions>
 
-		<SectionHeader title="Saves" extra=<CreateSaveModal instance={instance} /> />
 		<SavesList instance={instance} />
 		<Title level={5} style={{ marginTop: 16 }}>Console</Title>
 		<InstanceConsole id={instanceId} />

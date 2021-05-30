@@ -109,6 +109,14 @@ This should be less than both the timeout and collection interval configured for
 Defaults to 8.
 
 
+### master.stream_timeout
+
+Timeout in seconds for proxy streams through the master that has been created but is not yet sending data to be automatically closed.
+Streams that have started sending data before this timeout is not affected.
+
+Defaults to 15.
+
+
 ### master.default_role_id
 
 Role to automatically grant to new users.

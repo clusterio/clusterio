@@ -358,6 +358,25 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance upload-save", function() {
+			it("should upload a zip file", async function() {
+				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await execCtl("instance upload-save 44 upload.zip");
+				assert(
+					await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
+					"file not uploaded to saves directory"
+				);
+			});
+			it("should reject non-zip files", async function() {
+				await fs.outputFile(path.join("temp", "test", "invalid"), "a test");
+				await assert.rejects(execCtl("instance upload-save 44 invalid"));
+			});
+			it("should reject path traversal attacks", async function() {
+				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await assert.rejects(execCtl("instance upload-save 44 upload.zip --name ../traversal.zip"));
+			});
+		});
+
 		describe("instance delete", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);
