@@ -543,6 +543,19 @@ messages.deleteSave = new Request({
 	},
 });
 
+messages.downloadSave = new Request({
+	type: "download_save",
+	links: ["control-master"],
+	permission: "core.instance.save.download",
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"save": { type: "string" },
+	},
+	responseProperties: {
+		"stream_id": { type: "string" },
+	},
+});
+
 messages.pullSave = new Request({
 	type: "pull_save",
 	links: ["master-slave"],
@@ -552,6 +565,16 @@ messages.pullSave = new Request({
 		"filename": { type: "string" },
 	},
 	responseProperties: {
+		"save": { type: "string" },
+	},
+});
+
+messages.pushSave = new Request({
+	type: "push_save",
+	links: ["master-slave"],
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"stream_id": { type: "string" },
 		"save": { type: "string" },
 	},
 });

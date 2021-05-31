@@ -392,6 +392,11 @@ definePermission({
 	description: "Upload savegames to instances.",
 });
 definePermission({
+	name: "core.instance.save.download",
+	title: "Download save from instance",
+	description: "Download savegames from instances.",
+});
+definePermission({
 	name: "core.instance.save.list_subscribe",
 	title: "Subscribe to save list updatess",
 	description: "Subscribe to be notifed on updates to the list of saves of instances.",

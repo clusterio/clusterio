@@ -1461,6 +1461,38 @@ class Slave extends libLink.Link {
 		return { save: filename };
 	}
 
+	async pushSaveRequestHandler(message) {
+		let { instance_id, stream_id, save } = message.data;
+		try {
+			checkFilename(save);
+		} catch (err) {
+			throw new libErrors.RequestError(`Save name ${err.message}`);
+		}
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
+
+		let content;
+		try {
+			// phin doesn't support streaming requests :(
+			content = await fs.readFile(path.join(instanceInfo.path, "saves", save));
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${save} does not exist`);
+			}
+			throw err;
+		}
+
+		let url = new URL(this.config.get("slave.master_url"));
+		url.pathname += `api/stream/${stream_id}`;
+		phin({
+			url, method: "PUT",
+			core: { ca: this.tlsCa },
+			data: content,
+		}).catch(err => logger.error(`Error pushing save to master:\n${err.stack}`));
+	}
+
 	async exportDataRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);

@@ -77,6 +77,19 @@ export default function SavesList(props) {
 						);
 					}}
 				>Load save</Button>
+				<Button
+					onClick={() => {
+						libLink.messages.downloadSave.send(
+							control, { instance_id: props.instance.id, save: save.name }
+						).then(response => {
+							let url = new URL(webRoot, document.location);
+							url.pathname += `api/stream/${response.stream_id}`;
+							document.location = url;
+						}).catch(
+							notifyErrorHandler("Error downloading save")
+						);
+					}}
+				>Download</Button>
 				<Popconfirm
 					title="Permanently delete save?"
 					okText="Delete"

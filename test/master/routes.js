@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const http = require("http");
 const phin = require("phin");
 
+const { wait } = require("@clusterio/lib/helpers");
 const routes = require("@clusterio/master/src/routes");
 const mock = require("../mock");
 
@@ -27,13 +28,51 @@ describe("master/src/routes", function() {
 	});
 	describe("/api/stream/:id", function() {
 		it("should respond with 404 if stream doesn't exist", async function() {
-			let response = await phin(`http://localhost:${port}/api/stream/01020304`);
+			let response;
+			response = await phin(`http://localhost:${port}/api/stream/01020304`);
+			assert.equal(response.statusCode, 404);
+			response = await phin({
+				url: `http://localhost:${port}/api/stream/01020304`, method: "PUT",
+				data: "test stream",
+			});
 			assert.equal(response.statusCode, 404);
 		});
 		it("should respond with 500 if stream times out", async function() {
 			let stream = await routes.createProxyStream(master.app);
 			let response = await phin(`http://localhost:${port}/api/stream/${stream.id}`);
 			assert.equal(response.statusCode, 500);
+		});
+		it("should passthrough a stream", async function() {
+			let stream;
+			let responses;
+			stream = await routes.createProxyStream(master.app);
+			responses = await Promise.all([
+				(async function() {
+					await wait(100);
+					return await phin({
+						url: `http://localhost:${port}/api/stream/${stream.id}`, method: "PUT",
+						data: "test content",
+					});
+				}()),
+				phin(`http://localhost:${port}/api/stream/${stream.id}`),
+			]);
+			assert.equal(responses[0].statusCode, 200);
+			assert.equal(responses[1].statusCode, 200);
+			assert.equal(responses[1].body.toString(), "test content");
+			stream = await routes.createProxyStream(master.app);
+			responses = await Promise.all([
+				phin({
+					url: `http://localhost:${port}/api/stream/${stream.id}`, method: "PUT",
+					data: "test content",
+				}),
+				(async function() {
+					await wait(100);
+					return await phin(`http://localhost:${port}/api/stream/${stream.id}`);
+				}()),
+			]);
+			assert.equal(responses[0].statusCode, 200);
+			assert.equal(responses[1].statusCode, 200);
+			assert.equal(responses[1].body.toString(), "test content");
 		});
 	});
 	describe("/api/upload-save", function() {

@@ -26,6 +26,7 @@ const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
 const libFactorio = require("@clusterio/lib/factorio");
+const libFileOps = require("@clusterio/lib/file_ops");
 
 
 function print(...content) {
@@ -426,6 +427,51 @@ instanceCommands.add(new libCommand.Command({
 		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {
 			throw new libErrors.CommandError("Uploading save failed");
 		}
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
+	definition: ["download-save <instance> <save>", "Download a save from an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to download save from", type: "string" });
+		yargs.positional("save", { describe: "Save to download", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let result = await libLink.messages.downloadSave.send(control, {
+			instance_id: instanceId,
+			save: args.save,
+		});
+
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += `api/stream/${result.stream_id}`;
+		let response = await phin({
+			url, method: "GET",
+			core: { ca: control.tlsCa },
+			stream: true,
+		});
+
+		let stream;
+		let tempFilename = args.save.replace(/(\.zip)?$/, ".tmp.zip");
+		while (true) {
+			try {
+				stream = fs.createWriteStream(tempFilename, { flags: "wx" });
+				await events.once(stream, "open");
+				break;
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					tempFilename = await libFileOps.findUnusedName(".", tempFilename, ".tmp.zip");
+				} else {
+					throw err;
+				}
+			}
+		}
+		response.pipe(stream);
+		await events.once(stream, "finish");
+
+		let filename = await libFileOps.findUnusedName(".", args.save, ".zip");
+		await fs.rename(tempFilename, filename);
+
+		logger.info(`Downloaded ${args.save}${args.save === filename ? "" : ` as ${filename}`}`);
 	},
 }));
 

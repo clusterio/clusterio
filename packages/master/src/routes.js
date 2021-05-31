@@ -185,6 +185,7 @@ async function createProxyStream(app) {
 		flowing: false,
 		size: null,
 		mime: null,
+		filename: null,
 		events: new events.EventEmitter(),
 		timeout: setTimeout(() => {
 			stream.events.emit("timeout");
@@ -201,6 +202,27 @@ async function createProxyStream(app) {
 	return stream;
 }
 
+async function putStream(req, res) {
+	let stream = req.app.locals.streams.get(req.params.id);
+	if (!stream || stream.source) {
+		res.sendStatus(404);
+		return;
+	}
+	stream.source = req;
+	stream.mime = req.get("Content-Type");
+	stream.size = req.get("Content-Length");
+
+	stream.events.emit("source");
+	stream.events.on("close", () => {
+		if (!stream.flowing) {
+			req.resume();
+			res.sendStatus(500);
+		} else {
+			res.sendStatus(200);
+		}
+	});
+}
+
 async function getStream(req, res) {
 	let stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.flowing) {
@@ -212,6 +234,11 @@ async function getStream(req, res) {
 		res.append("Content-Type", stream.mime);
 		if (stream.size) {
 			res.append("Content-Length", stream.size);
+		}
+		if (stream.filename) {
+			res.append("Content-Disposition", `attachment; filename="${stream.filename}"`);
+		} else {
+			res.append("Content-Disposition", "attachment");
 		}
 		stream.source.pipe(res);
 		stream.flowing = true;
@@ -369,6 +396,7 @@ function addRouteHandlers(app) {
 		validateSlaveToken,
 		(req, res, next) => uploadExport(req, res).catch(next)
 	);
+	app.put("/api/stream/:id", (req, res, next) => putStream(req, res).catch(next));
 	app.get("/api/stream/:id", (req, res, next) => getStream(req, res).catch(next));
 	app.post("/api/upload-save",
 		validateUserToken,

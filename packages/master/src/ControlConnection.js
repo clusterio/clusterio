@@ -13,6 +13,7 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const libUsers = require("@clusterio/lib/users");
 
 const BaseConnection = require("./BaseConnection");
+const routes = require("./routes");
 
 const lastQueryLogTime = new libPrometheus.Gauge(
 	"clusterio_master_last_query_log_duration_seconds",
@@ -342,6 +343,29 @@ class ControlConnection extends BaseConnection {
 		) {
 			libLink.messages.saveListUpdate.send(this, data);
 		}
+	}
+
+	async downloadSaveRequestHandler(message) {
+		let { instance_id, save } = message.data;
+		let stream = await routes.createProxyStream(this._master.app);
+		stream.filename = save;
+
+		let ready = new Promise((resolve, reject) => {
+			stream.events.on("source", resolve);
+			stream.events.on("timeout", () => reject(
+				new libErrors.RequestError("Timed out establishing stream from slave")
+			));
+		});
+		ready.catch(() => {});
+
+		let result = await this._master.forwardRequestToInstance(libLink.messages.pushSave, {
+			instance_id,
+			stream_id: stream.id,
+			save,
+		});
+
+		await ready;
+		return { stream_id: stream.id };
 	}
 
 	async setLogSubscriptionsRequestHandler(message) {
