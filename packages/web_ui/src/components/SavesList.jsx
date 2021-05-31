@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Button, Space, Table, Tooltip, Upload } from "antd";
+import { Button, Popconfirm, Space, Table, Tooltip, Upload } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
@@ -77,6 +77,19 @@ export default function SavesList(props) {
 						);
 					}}
 				>Load save</Button>
+				<Popconfirm
+					title="Permanently delete save?"
+					okText="Delete"
+					placement="top"
+					okButtonProps={{ danger: true }}
+					onConfirm={() => {
+						libLink.messages.deleteSave.send(
+							control, { instance_id: props.instance.id, save: save.name }
+						).catch(notifyErrorHandler("Error deleting save"));
+					}}
+				>
+					<Button danger>Delete</Button>
+				</Popconfirm>
 			</Space>,
 		}}
 	/>;

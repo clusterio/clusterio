@@ -377,6 +377,23 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance delete-save", function() {
+			it("should delete a save", async function() {
+				await execCtl("instance delete-save 44 upload.zip");
+				assert(
+					!await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
+					"file not deleted"
+				);
+			});
+			it("should error if save does not exist", async function() {
+				await assert.rejects(execCtl("instance delete-save 44 upload.zip"));
+			});
+			it("should error on path traversal attacks", async function() {
+				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await assert.rejects(execCtl("instance delete-save 44 ../../upload.zip"));
+			});
+		});
+
 		describe("instance delete", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);

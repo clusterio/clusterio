@@ -430,6 +430,20 @@ instanceCommands.add(new libCommand.Command({
 }));
 
 instanceCommands.add(new libCommand.Command({
+	definition: ["delete-save <instance> <save>", "Delete a save from an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to delete save from", type: "string" });
+		yargs.positional("save", { describe: "Save to delete", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await libLink.messages.deleteSave.send(control, {
+			instance_id: instanceId,
+			save: args.save,
+		});
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
 	definition: ["export-data <instance>", "Export item icons and locale from instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to export from", type: "string" });
 	}],

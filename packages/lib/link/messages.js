@@ -533,6 +533,16 @@ messages.createSave = new Request({
 	},
 });
 
+messages.deleteSave = new Request({
+	type: "delete_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.delete",
+	forwardTo: "instance",
+	requestProperties: {
+		"save": { type: "string" },
+	},
+});
+
 messages.pullSave = new Request({
 	type: "pull_save",
 	links: ["master-slave"],

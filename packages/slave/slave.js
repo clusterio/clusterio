@@ -1375,6 +1375,41 @@ class Slave extends libLink.Link {
 		await request.send(instanceConnection, message.data);
 	}
 
+	async sendSaveListUpdate(instance_id, savesDir) {
+		let instanceConnection = this.instanceConnections.get(instance_id);
+		let saveList;
+		if (instanceConnection) {
+			saveList = (await libLink.messages.listSaves.send(instanceConnection, { instance_id })).list;
+		} else {
+			saveList = await Instance.listSaves(savesDir, null);
+		}
+
+		libLink.messages.saveListUpdate.send(this, { instance_id, list: saveList });
+	}
+
+	async deleteSaveRequestHandler(message) {
+		let { instance_id, save } = message.data;
+		try {
+			checkFilename(save);
+		} catch (err) {
+			throw new libErrors.RequestError(`Save name ${err.message}`);
+		}
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
+
+		try {
+			await fs.unlink(path.join(instanceInfo.path, "saves", save));
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${save} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
+	}
+
 	async pullSaveRequestHandler(message) {
 		let { instance_id, stream_id, filename } = message.data;
 		try {
@@ -1422,15 +1457,7 @@ class Slave extends libLink.Link {
 		filename = await libFileOps.findUnusedName(savesDir, filename, ".zip");
 		await fs.rename(path.join(savesDir, tempFilename), path.join(savesDir, filename));
 
-		let instanceConnection = this.instanceConnections.get(instance_id);
-		let saveList;
-		if (instanceConnection) {
-			saveList = (await libLink.messages.listSaves.send(instanceConnection, { instance_id })).list;
-		} else {
-			saveList = await Instance.listSaves(savesDir, null);
-		}
-
-		libLink.messages.saveListUpdate.send(this, { instance_id, list: saveList });
+		await this.sendSaveListUpdate(instance_id, savesDir);
 		return { save: filename };
 	}
 
