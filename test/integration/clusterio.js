@@ -173,10 +173,20 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance start", function() {
-			it("starts the instance", async function() {
+			it("starts the given save", async function() {
 				slowTest(this);
-				await execCtl("instance start test");
+				await execCtl("instance start test --save world.zip");
 				await checkInstanceStatus(44, "running");
+			});
+			it("copies the save if an autosave is the target", async function() {
+				slowTest(this);
+				await execCtl("instance stop 44");
+				let savesDir = path.join("temp", "test", "instances", "test", "saves");
+				await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
+				await execCtl("instance start test");
+				let result = await libLink.messages.listSaves.send(getControl(), { instance_id: 44 });
+				let running = result.list.find(s => s.loaded);
+				assert(running.name !== "_autosave1.zip");
 			});
 		});
 

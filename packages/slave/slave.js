@@ -461,6 +461,23 @@ class Instance extends libLink.Link {
 			saveName = "world.zip";
 		}
 
+		// Load a copy if it's autosave to prevent overwriting the autosave
+		if (saveName.startsWith("_autosave")) {
+			this.logger.info("Copying autosave");
+			let now = new Date();
+			let newName = util.format(
+				"%s-%s-%s %s%s %s",
+				now.getUTCFullYear(),
+				(now.getUTCMonth() + 1).toLocaleString("en", { minimumIntegerDigits: 2 }),
+				now.getUTCDate().toLocaleString("en", { minimumIntegerDigits: 2 }),
+				now.getUTCHours().toLocaleString("en", { minimumIntegerDigits: 2 }),
+				now.getUTCMinutes().toLocaleString("en", { minimumIntegerDigits: 2 }),
+				saveName,
+			);
+			await fs.copy(this.path("saves", saveName), this.path("saves", newName));
+			saveName = newName;
+		}
+
 		if (!this.config.get("factorio.enable_save_patching")) {
 			return saveName;
 		}
