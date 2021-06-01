@@ -173,6 +173,16 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance start", function() {
+			it("should not hang if factorio version does not exist", async function() {
+				slowTest(this);
+				try {
+					await execCtl("instance config set 44 factorio.version 0.1.2");
+					await assert.rejects(execCtl("instance start test"));
+
+				} finally {
+					await execCtl("instance config set 44 factorio.version latest");
+				}
+			});
 			it("starts the given save", async function() {
 				slowTest(this);
 				await execCtl("instance start test --save world.zip");

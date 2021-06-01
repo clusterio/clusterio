@@ -315,7 +315,12 @@ class Instance extends libLink.Link {
 
 	async init(pluginInfos) {
 		this.notifyStatus("starting");
-		await this.server.init();
+		try {
+			await this.server.init();
+		} catch (err) {
+			this.notifyExit();
+			throw err;
+		}
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
