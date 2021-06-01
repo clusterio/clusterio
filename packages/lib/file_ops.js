@@ -32,6 +32,44 @@ async function getNewestFile(directory, filter = (name) => true) {
 	return newestFile;
 }
 
+/**
+ * Modifies name in case it already exisist at the given directory
+ *
+ * Checks the directory passed if it already contains a file or folder with
+ * the given name, if it does not returns name unmodified, otherwise it
+ * returns a modified name that does not exist in the directory.
+ *
+ * Warning: this function should not be relied upon to be accurate for
+ * security sensitive applications.  The selection process is inherently
+ * racy and a file or folder may have been created in the folder by the time
+ * this function returns.
+ *
+ * @param {string} directory - directory to check in.
+ * @param {string} name - file name to check for, may have extension.
+ * @param {string} extension - dot extension used for the file name.
+ * @returns {string} modified name with extension that likely does not exist
+ *     in the folder
+ */
+async function findUnusedName(directory, name, extension = "") {
+	if (extension && name.endsWith(extension)) {
+		name = name.slice(0, -extension.length);
+	}
+
+	while (true) {
+		if (!await fs.pathExists(path.join(directory, `${name}${extension}`))) {
+			return `${name}${extension}`;
+		}
+
+		let match = /^(.*?)(-(\d+))?$/.exec(name);
+		if (!match[2]) {
+			name = `${match[1]}-2`;
+		} else {
+			name = `${match[1]}-${Number.parseInt(match[3], 10) + 1}`;
+		}
+	}
+}
+
 module.exports = {
 	getNewestFile,
+	findUnusedName,
 };

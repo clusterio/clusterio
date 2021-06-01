@@ -37,6 +37,7 @@ const libConfig = require("@clusterio/lib/config");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const libHelpers = require("@clusterio/lib/helpers");
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -169,6 +170,7 @@ class Instance extends libLink.Link {
 
 		this._status = "stopped";
 		this._running = false;
+		this._loadedSave = null;
 		this.server = new libFactorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
@@ -209,9 +211,50 @@ class Instance extends libLink.Link {
 		}
 	}
 
+	static async listSaves(savesDir, loadedSave) {
+		let defaultSave = null;
+		if (loadedSave === null) {
+			defaultSave = await libFileOps.getNewestFile(
+				savesDir, (name) => !name.endsWith(".tmp.zip")
+			);
+		}
+
+		let list = [];
+		for (let name of await fs.readdir(savesDir)) {
+			let type;
+			let stat = await fs.stat(path.join(savesDir, name));
+			if (stat.isFile()) {
+				type = "file";
+			} else if (stat.isDirectory()) {
+				type = "directory";
+			} else {
+				type = "special";
+			}
+
+			list.push({
+				name,
+				type,
+				size: stat.size,
+				mtime_ms: stat.mtimeMs,
+				loaded: name === loadedSave,
+				default: name === defaultSave,
+			});
+		}
+
+		return list;
+	}
+
+	async sendSaveListUpdate() {
+		libLink.messages.saveListUpdate.send(this, {
+			instance_id: this.id,
+			list: await Instance.listSaves(this.server.writePath("saves"), this._loadedSave),
+		});
+	}
+
 	async _autosave(name) {
 		let stat = await fs.stat(this.path("saves", `${name}.zip`));
 		instanceFactorioAutosaveSize.labels(String(this.id)).set(stat.size);
+		await this.sendSaveListUpdate();
 	}
 
 	notifyStatus(status) {
@@ -234,6 +277,7 @@ class Instance extends libLink.Link {
 
 	notifyExit() {
 		this._running = false;
+		this._loadedSave = null;
 		this.notifyStatus("stopped");
 
 		this.config.off("fieldChanged", this._configFieldChanged);
@@ -252,6 +296,10 @@ class Instance extends libLink.Link {
 		for (let pluginInstance of this.plugins.values()) {
 			pluginInstance.onExit();
 		}
+
+		this.sendSaveListUpdate().catch(err => {
+			this.logger.error(`Unexpected error updating save list:\n${err.stack}`);
+		});
 	}
 
 	async _loadPlugin(pluginInfo, slave) {
@@ -267,7 +315,12 @@ class Instance extends libLink.Link {
 
 	async init(pluginInfos) {
 		this.notifyStatus("starting");
-		await this.server.init();
+		try {
+			await this.server.init();
+		} catch (err) {
+			this.notifyExit();
+			throw err;
+		}
 
 		// load plugins
 		for (let pluginInfo of pluginInfos) {
@@ -413,6 +466,23 @@ class Instance extends libLink.Link {
 			saveName = "world.zip";
 		}
 
+		// Load a copy if it's autosave to prevent overwriting the autosave
+		if (saveName.startsWith("_autosave")) {
+			this.logger.info("Copying autosave");
+			let now = new Date();
+			let newName = util.format(
+				"%s-%s-%s %s%s %s",
+				now.getUTCFullYear(),
+				(now.getUTCMonth() + 1).toLocaleString("en", { minimumIntegerDigits: 2 }),
+				now.getUTCDate().toLocaleString("en", { minimumIntegerDigits: 2 }),
+				now.getUTCHours().toLocaleString("en", { minimumIntegerDigits: 2 }),
+				now.getUTCMinutes().toLocaleString("en", { minimumIntegerDigits: 2 }),
+				saveName,
+			);
+			await fs.copy(this.path("saves", saveName), this.path("saves", newName));
+			saveName = newName;
+		}
+
 		if (!this.config.get("factorio.enable_save_patching")) {
 			return saveName;
 		}
@@ -496,6 +566,7 @@ class Instance extends libLink.Link {
 		});
 
 		this.server.on("exit", () => this.notifyExit());
+		this._loadedSave = saveName;
 		await this.server.start(saveName);
 
 		if (this.config.get("factorio.enable_save_patching")) {
@@ -503,6 +574,7 @@ class Instance extends libLink.Link {
 			await this.updateInstanceData();
 		}
 
+		await this.sendSaveListUpdate();
 		await libPlugin.invokeHook(this.plugins, "onStart");
 
 		this._running = true;
@@ -516,14 +588,17 @@ class Instance extends libLink.Link {
 	 * scenario.
 	 *
 	 * @param {String} scenario - Name of scenario to load.
+	 * @param {?number} seed - seed to use.
+	 * @param {?object} mapGenSettings - MapGenSettings to use.
+	 * @param {?object} mapSettings - MapSettings to use.
 	 */
-	async startScenario(scenario) {
+	async startScenario(scenario, seed, mapGenSettings, mapSettings) {
 		this.server.on("rcon-ready", () => {
 			this.logger.verbose("RCON connection established");
 		});
 
 		this.server.on("exit", () => this.notifyExit());
-		await this.server.startScenario(scenario);
+		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
 
 		await libPlugin.invokeHook(this.plugins, "onStart");
 
@@ -678,15 +753,22 @@ class Instance extends libLink.Link {
 			throw err;
 		}
 
+		let { scenario, seed, map_gen_settings, map_settings } = message.data;
 		try {
-			await this.startScenario(message.data.scenario);
+			await this.startScenario(scenario, seed, map_gen_settings, map_settings);
 		} catch (err) {
 			await this.stop();
 			throw err;
 		}
 	}
 
-	async createSaveRequestHandler() {
+	async listSavesRequestHandler(message) {
+		return {
+			list: await Instance.listSaves(this.server.writePath("saves"), this._loadedSave),
+		};
+	}
+
+	async createSaveRequestHandler(message) {
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");
@@ -702,7 +784,8 @@ class Instance extends libLink.Link {
 		}
 
 		this.server.on("exit", () => this.notifyExit());
-		await this.server.create("world");
+		let { name, seed, map_gen_settings, map_settings } = message.data;
+		await this.server.create(name, seed, map_gen_settings, map_settings);
 		this.logger.info("Successfully created save");
 	}
 
@@ -1042,13 +1125,8 @@ class Slave extends libLink.Link {
 			throw new Error(`Instance name ${err.message}`);
 		}
 
-		// For now add dashes until an unused directory name is found
-		let dir = path.join(this.config.get("slave.instances_directory"), name);
-		while (await fs.pathExists(dir)) {
-			dir += "-";
-		}
-
-		return dir;
+		let instancesDir = this.config.get("slave.instances_directory");
+		return path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
 	}
 
 	async forwardRequestToInstance(message, request) {
@@ -1296,10 +1374,145 @@ class Slave extends libLink.Link {
 		return await request.send(instanceConnection, message.data);
 	}
 
+	async listSavesRequestHandler(message, request) {
+		let instanceId = message.data.instance_id;
+		let instanceConnection = this.instanceConnections.get(instanceId);
+		if (instanceConnection) {
+			return await request.send(instanceConnection, message.data);
+		}
+
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
+		}
+
+		return {
+			list: await Instance.listSaves(path.join(instanceInfo.path, "saves"), null),
+		};
+	}
+
 	async createSaveRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		await request.send(instanceConnection, message.data);
+	}
+
+	async sendSaveListUpdate(instance_id, savesDir) {
+		let instanceConnection = this.instanceConnections.get(instance_id);
+		let saveList;
+		if (instanceConnection) {
+			saveList = (await libLink.messages.listSaves.send(instanceConnection, { instance_id })).list;
+		} else {
+			saveList = await Instance.listSaves(savesDir, null);
+		}
+
+		libLink.messages.saveListUpdate.send(this, { instance_id, list: saveList });
+	}
+
+	async deleteSaveRequestHandler(message) {
+		let { instance_id, save } = message.data;
+		try {
+			checkFilename(save);
+		} catch (err) {
+			throw new libErrors.RequestError(`Save name ${err.message}`);
+		}
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
+
+		try {
+			await fs.unlink(path.join(instanceInfo.path, "saves", save));
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${save} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
+	}
+
+	async pullSaveRequestHandler(message) {
+		let { instance_id, stream_id, filename } = message.data;
+		try {
+			checkFilename(filename);
+		} catch (err) {
+			throw new libErrors.RequestError(`Save name ${err.message}`);
+		}
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
+
+		let url = new URL(this.config.get("slave.master_url"));
+		url.pathname += `api/stream/${stream_id}`;
+		let response = await phin({
+			url, method: "GET",
+			core: { ca: this.tlsCa },
+			stream: true,
+		});
+
+		if (response.statusCode !== 200) {
+			let content = await libHelpers.readStream(response);
+			throw new libErrors.RequestError(`Stream returned ${response.statusCode}: ${content.toString()}`);
+		}
+
+		let savesDir = path.join(instanceInfo.path, "saves");
+		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
+		let stream;
+		while (true) {
+			try {
+				stream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
+				await events.once(stream, "open");
+				break;
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					tempFilename = await libFileOps.findUnusedName(savesDir, tempFilename, ".tmp.zip");
+				} else {
+					throw err;
+				}
+			}
+		}
+		response.pipe(stream);
+		await events.once(stream, "finish");
+
+		filename = await libFileOps.findUnusedName(savesDir, filename, ".zip");
+		await fs.rename(path.join(savesDir, tempFilename), path.join(savesDir, filename));
+
+		await this.sendSaveListUpdate(instance_id, savesDir);
+		return { save: filename };
+	}
+
+	async pushSaveRequestHandler(message) {
+		let { instance_id, stream_id, save } = message.data;
+		try {
+			checkFilename(save);
+		} catch (err) {
+			throw new libErrors.RequestError(`Save name ${err.message}`);
+		}
+		let instanceInfo = this.instanceInfos.get(instance_id);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
+		}
+
+		let content;
+		try {
+			// phin doesn't support streaming requests :(
+			content = await fs.readFile(path.join(instanceInfo.path, "saves", save));
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${save} does not exist`);
+			}
+			throw err;
+		}
+
+		let url = new URL(this.config.get("slave.master_url"));
+		url.pathname += `api/stream/${stream_id}`;
+		phin({
+			url, method: "PUT",
+			core: { ca: this.tlsCa },
+			data: content,
+		}).catch(err => logger.error(`Error pushing save to master:\n${err.stack}`));
 	}
 
 	async exportDataRequestHandler(message, request) {

@@ -334,9 +334,21 @@ definePermission({
 });
 
 definePermission({
+	name: "core.instance.get",
+	title: "Get instance",
+	description: "Get the details of an instance in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
 	name: "core.instance.list",
 	title: "List instances",
 	description: "Get the full list of instances in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.instance.subscribe",
+	title: "Subscribe to instance updates",
+	description: "Subscribe to be notified on updates on the details and status of instances.",
 	grantByDefault: true,
 });
 definePermission({
@@ -360,9 +372,34 @@ definePermission({
 	description: "Assign or reassign instances to a slave.",
 });
 definePermission({
-	name: "core.instance.create_save",
+	name: "core.instance.save.list",
+	title: "List saves on instance",
+	description: "List the saves currently on the instance.",
+});
+definePermission({
+	name: "core.instance.save.create",
 	title: "Create new instance save",
 	description: "Create new savegames on instances.",
+});
+definePermission({
+	name: "core.instance.save.delete",
+	title: "Delete instance save",
+	description: "Delete savegames on instances.",
+});
+definePermission({
+	name: "core.instance.save.upload",
+	title: "Upload save to instance",
+	description: "Upload savegames to instances.",
+});
+definePermission({
+	name: "core.instance.save.download",
+	title: "Download save from instance",
+	description: "Download savegames from instances.",
+});
+definePermission({
+	name: "core.instance.save.list_subscribe",
+	title: "Subscribe to save list updatess",
+	description: "Subscribe to be notifed on updates to the list of saves of instances.",
 });
 definePermission({
 	name: "core.instance.export_data",

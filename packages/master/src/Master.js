@@ -2,7 +2,6 @@
 const compression = require("compression");
 const events = require("events");
 const express = require("express");
-const expressFileupload = require("express-fileupload");
 const fs = require("fs-extra");
 const http = require("http");
 const https = require("https");
@@ -49,6 +48,7 @@ class Master {
 
 		this.app = express();
 		this.app.locals.master = this;
+		this.app.locals.streams = new Map();
 
 		/**
 		 * Mapping of slave id to slave info
@@ -140,7 +140,7 @@ class Master {
 
 			const compiler = webpack(webpackConfigs);
 			this.devMiddleware = webpackDevMiddleware(compiler, {});
-			app.use(this.devMiddleware);
+			this.app.use(this.devMiddleware);
 		}
 
 		let databaseDirectory = this.config.get("master.database_directory");
@@ -152,7 +152,7 @@ class Master {
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
 		for (let instance of this.instances.values()) {
-			this.addInstancePluginHooks(instance);
+			this.addInstanceHooks(instance);
 		}
 
 		// Make sure we're actually going to listen on a port
@@ -243,7 +243,7 @@ class Master {
 		await fs.outputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
 
 		if (this.devMiddleware) {
-			await new Promise((resolve, reject) => { devMiddleware.close(resolve); });
+			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
 		}
 
 		let databaseDirectory = this.config.get("master.database_directory");
@@ -336,7 +336,6 @@ class Master {
 			hitCounter.inc();
 			next();
 		});
-		app.use(expressFileupload());
 		app.use(compression());
 
 		// Set folder to serve static content from (the website)
@@ -361,10 +360,36 @@ class Master {
 		}
 	}
 
-	addInstancePluginHooks(instance) {
+	addInstanceHooks(instance) {
 		instance.config.on("fieldChanged", (group, field, prev) => {
+			if (group.name === "instance" && field === "name") {
+				this.instanceUpdated(instance);
+			}
+
 			libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
 		});
+
+		this.instanceUpdated(instance);
+	}
+
+	instanceUpdated(instance) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.instanceUpdated(instance);
+		}
+	}
+
+	saveListUpdate(data) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.saveListUpdate(data);
+		}
 	}
 
 	async loadPlugins() {
@@ -465,6 +490,41 @@ class Master {
 				next(err);
 			});
 		};
+	}
+
+	/**
+	 * Forward the given request to the slave contaning the instance
+	 *
+	 * Finds the slave which the instance with the given instance ID is
+	 * currently assigned to and forwards the request to that instance.
+	 * The request data must have an instance_id parameter.
+	 *
+	 * @param {module:lib/link.Request} request - The request to send.
+	 * @param {object} data - Data to pass with the request.
+	 * @param {number} data.instance_id -
+	 *     ID of instance to send this request towards
+	 * @returns {object} data returned from the request.
+	 */
+	async forwardRequestToInstance(request, data) {
+		let instance = this.instances.get(data.instance_id);
+		if (!instance) {
+			throw new libErrors.RequestError(`Instance with ID ${data.instance_id} does not exist`);
+		}
+
+		let slaveId = instance.config.get("instance.assigned_slave");
+		if (slaveId === null) {
+			throw new libErrors.RequestError("Instance is not assigned to a slave");
+		}
+
+		let connection = this.wsServer.slaveConnections.get(slaveId);
+		if (!connection) {
+			throw new libErrors.RequestError("Slave containing instance is not connected");
+		}
+		if (request.plugin && !connection.plugins.has(request.plugin)) {
+			throw new libErrors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
+		}
+
+		return await request.send(connection, data);
 	}
 }
 

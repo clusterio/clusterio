@@ -12,6 +12,8 @@ import InstanceConsole from "./InstanceConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
 import StartStopInstanceButton from "./StartStopInstanceButton";
+import LoadScenarioModal from "./LoadScenarioModal";
+import SavesList from "./SavesList";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useSlave } from "../model/slave";
@@ -26,10 +28,10 @@ export default function InstanceViewPage(props) {
 	let history = useHistory();
 
 	let control = useContext(ControlContext);
-	let [instance, updateInstance] = useInstance(instanceId);
+	let [instance] = useInstance(instanceId);
 	let [slave] = useSlave(Number(instance["assigned_slave"]));
 
-	let [creatingSave, setCreatingSave] = useState(false);
+	let [exportingData, setExportingData] = useState(false);
 
 	let nav = [{ name: "Instances", path: "/instances" }, { name: instance.name || "Unknown" }];
 	if (instance.loading) {
@@ -44,24 +46,24 @@ export default function InstanceViewPage(props) {
 	}
 
 	let instanceButtons = <Space>
-		<StartStopInstanceButton
-			instance={instance}
-			onFinish={updateInstance}
-		/>
-		{instance.status === "stopped" && <Button
-			loading={creatingSave}
+		<StartStopInstanceButton instance={instance} />
+		<LoadScenarioModal instance={instance} />
+		<Button
+			loading={exportingData}
+			disabled={instance.status !== "stopped"}
 			onClick={() => {
-				setCreatingSave(true);
-				libLink.messages.createSave.send(
+				setExportingData(true);
+				libLink.messages.exportData.send(
 					control, { instance_id: instanceId }
-				).catch(notifyErrorHandler("Error creating save")).finally(() => {
-					updateInstance();
-					setCreatingSave(false);
+				).catch(
+					notifyErrorHandler("Error exporting data")
+				).finally(() => {
+					setExportingData(false);
 				});
 			}}
 		>
-			Create save
-		</Button>}
+			Export data
+		</Button>
 		<Popconfirm
 			title="Permanently delete instance and server saves?"
 			okText="Delete"
@@ -107,16 +109,16 @@ export default function InstanceViewPage(props) {
 						disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
 					}}
 					buttonContent={assigned ? "Reassign" : "Assign"}
-					onFinish={updateInstance}
 				/>
 			</Descriptions.Item>
 			<Descriptions.Item label="Status">{instance["status"]}</Descriptions.Item>
 		</Descriptions>
 
+		<SavesList instance={instance} />
 		<Title level={5} style={{ marginTop: 16 }}>Console</Title>
 		<InstanceConsole id={instanceId} />
 		<InstanceRcon id={instanceId} disabled={instance["status"] !== "running"} />
 
-		<InstanceConfigTree id={instanceId} onApply={updateInstance} />
+		<InstanceConfigTree id={instanceId} />
 	</PageLayout>;
 }

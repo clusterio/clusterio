@@ -7,6 +7,7 @@ const events = require("events");
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
 
+const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
 	get, exec, execCtl, sendRcon, getControl, instancesDir,
@@ -145,6 +146,21 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("saveListUpdateEventHandler()", function() {
+			it("should have triggered for the created save", function() {
+				slowTest(this);
+				assert.equal(getControl().saveListUpdates.slice(-1)[0].list[0].name, "world.zip");
+			});
+		});
+
+		describe("instance list-saves", function() {
+			it("lists the created save", async function() {
+				slowTest(this);
+				let result = await execCtl("instance list-saves test");
+				assert(/world\.zip/.test(result.stdout), "world.zip not present in list save output");
+			});
+		});
+
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
@@ -157,10 +173,30 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("instance start", function() {
-			it("starts the instance", async function() {
+			it("should not hang if factorio version does not exist", async function() {
 				slowTest(this);
-				await execCtl("instance start test");
+				try {
+					await execCtl("instance config set 44 factorio.version 0.1.2");
+					await assert.rejects(execCtl("instance start test"));
+
+				} finally {
+					await execCtl("instance config set 44 factorio.version latest");
+				}
+			});
+			it("starts the given save", async function() {
+				slowTest(this);
+				await execCtl("instance start test --save world.zip");
 				await checkInstanceStatus(44, "running");
+			});
+			it("copies the save if an autosave is the target", async function() {
+				slowTest(this);
+				await execCtl("instance stop 44");
+				let savesDir = path.join("temp", "test", "instances", "test", "saves");
+				await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
+				await execCtl("instance start test");
+				let result = await libLink.messages.listSaves.send(getControl(), { instance_id: 44 });
+				let running = result.list.find(s => s.loaded);
+				assert(running.name !== "_autosave1.zip");
 			});
 		});
 
@@ -184,7 +220,7 @@ describe("Integration of Clusterio", function() {
 						"afk-auto-kick", "Kick if AFK for more than 2 minutes.",
 					],
 					[
-						"allow_commands", true,
+						"allow_commands", "true",
 						"allow-commands", "Allow Lua commands: Yes.",
 					],
 					[
@@ -315,6 +351,83 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance load-scenario", function() {
+			it("starts the instance with the given settings", async function() {
+				slowTest(this);
+				await execCtl("instance config set 44 factorio.enable_save_patching false");
+				await execCtl("instance config set 44 player_auth.load_plugin false");
+				await execCtl("instance config set 44 research_sync.load_plugin false");
+				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
+				await execCtl("instance config set 44 subspace_storage.load_plugin false");
+				try {
+					let exchangeString = testStrings.modified.replace(/[\n\r]+/g, "");
+					let args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+					await execCtl(`instance load-scenario test ${args}`);
+					await checkInstanceStatus(44, "running");
+					await sendRcon(44, '/c game.print("disable achievements")');
+					await sendRcon(44, '/c game.print("disable achievements")');
+					assert.equal(await sendRcon(44, "/c rcon.print(game.default_map_gen_settings.seed)"), "1234\n");
+					assert.equal(await sendRcon(44, "/c rcon.print(game.map_settings.pollution.ageing)"), "1.5\n");
+					assert.equal(
+						await sendRcon(44, "/c rcon.print(game.difficulty_settings.research_queue_setting)"), "never\n"
+					);
+
+				} finally {
+					await execCtl("instance stop test");
+				}
+			});
+		});
+
+		describe("instance upload-save", function() {
+			it("should upload a zip file", async function() {
+				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await execCtl("instance upload-save 44 upload.zip");
+				assert(
+					await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
+					"file not uploaded to saves directory"
+				);
+			});
+			it("should reject non-zip files", async function() {
+				await fs.outputFile(path.join("temp", "test", "invalid"), "a test");
+				await assert.rejects(execCtl("instance upload-save 44 invalid"));
+			});
+			it("should reject path traversal attacks", async function() {
+				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await assert.rejects(execCtl("instance upload-save 44 upload.zip --name ../traversal.zip"));
+			});
+		});
+
+		describe("instance download-save", function() {
+			it("should download a save", async function() {
+				await fs.remove(path.join("temp", "test", "upload.zip"));
+				await execCtl("instance download-save 44 upload.zip");
+				assert(await fs.pathExists(path.join("temp", "test", "upload.zip")));
+			});
+			it("should error if save does not exist", async function() {
+				await assert.rejects(execCtl("instance download-save 44 invalid"));
+			});
+			it("should error on path traversal attacks", async function() {
+				await assert.rejects(execCtl("instance download-save 44 ../factorio-current.log"));
+			});
+		});
+
+		describe("instance delete-save", function() {
+			it("should delete a save", async function() {
+				await execCtl("instance delete-save 44 upload.zip");
+				assert(
+					!await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
+					"file not deleted"
+				);
+			});
+			it("should error if save does not exist", async function() {
+				await assert.rejects(execCtl("instance delete-save 44 upload.zip"));
+			});
+			it("should error on path traversal attacks", async function() {
+				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
+				await assert.rejects(execCtl("instance delete-save 44 ../../upload.zip"));
+			});
+		});
+
 		describe("instance delete", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);
@@ -322,6 +435,22 @@ describe("Integration of Clusterio", function() {
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance files was not deleted");
 				let instances = await getInstances();
 				assert(!instances.has(44), "instance was not deleted from master");
+			});
+		});
+
+		describe("instanceUpdateEventHandler()", function() {
+			it("should have triggered for the previous instance status updates", function() {
+				let statusesToCheck = new Set(
+					["unassigned", "stopped", "creating_save", "exporting_data", "starting", "running", "stopping"]
+				);
+				let statusesNotSeen = new Set(statusesToCheck);
+
+				for (let update of getControl().instanceUpdates) {
+					assert(statusesToCheck.has(update.status), `Missing check for status ${update.status}`);
+					statusesNotSeen.delete(update.status);
+				}
+
+				assert(statusesNotSeen.size === 0, `Did not see the statuses ${[...statusesNotSeen]}`);
 			});
 		});
 

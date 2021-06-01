@@ -25,6 +25,8 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
+const libFactorio = require("@clusterio/lib/factorio");
+const libFileOps = require("@clusterio/lib/file_ops");
 
 
 function print(...content) {
@@ -314,15 +316,175 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
+async function loadMapSettings(args) {
+	let seed = args.seed !== undefined ? args.seed : null;
+	let mapGenSettings = null;
+	let mapSettings = null;
+	if (args.mapExchangeString) {
+		let parsed = libFactorio.readMapExchangeString(args.mapExchangeString);
+		mapGenSettings = parsed.map_gen_settings;
+		mapSettings = parsed.map_settings;
+	}
+	if (args.mapGenSettings) {
+		mapGenSettings = JSON.parse(await fs.readFile(args.mapGenSettings));
+	}
+	if (args.mapSettings) {
+		mapSettings = JSON.parse(await fs.readFile(args.mapSettings));
+	}
+
+	return {
+		seed,
+		mapGenSettings,
+		mapSettings,
+	};
+}
+
 instanceCommands.add(new libCommand.Command({
-	definition: ["create-save <instance>", "Create a new save on an instance", (yargs) => {
-		yargs.positional("instance", { describe: "Instance to create on", type: "string" });
+	definition: ["list-saves <instance>", "list saves on an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to list saves on", type: "string" });
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let response = await libLink.messages.listSaves.send(control, { instance_id: instanceId });
+		for (let entry of response.list) {
+			entry.mtime = new Date(entry.mtime_ms).toLocaleString();
+			delete entry.mtime_ms;
+		}
+		print(asTable(response.list));
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
+	definition: ["create-save <instance> [name]", "Create a new save on an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to create on", type: "string" });
+		yargs.positional("name", { describe: "Name of save to create.", type: "string", default: "world.zip" });
+		yargs.options({
+			"seed": { describe: "Seed to use, takes precedence over map-gen-settings", nargs: 1, type: "number" },
+			"map-exchange-string": { describe: "Map exchange string to use for the save", nargs: 1, type: "string" },
+			"map-gen-settings": { describe: "path to file to use for map-gen-settings", nargs: 1, type: "string" },
+			"map-settings": { describe: "path to file to use for map-settings", nargs: 1, type: "string" },
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let response = await libLink.messages.createSave.send(control, {
 			instance_id: instanceId,
+			name: args.name,
+			seed,
+			map_gen_settings: mapGenSettings,
+			map_settings: mapSettings,
+		});
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
+	definition: ["upload-save <instance> <filepath>", "Upload a save to an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to upload to", type: "string" });
+		yargs.positional("filepath", { describe: "Path to save to upload", type: "string" });
+		yargs.options({
+			"name": { describe: "Name to give save on server", nargs: 1, type: "string" },
+		});
+	}],
+	handler: async function(args, control) {
+		let filename = args.name || path.basename(args.filepath);
+		if (!filename.endsWith(".zip")) {
+			throw new libErrors.CommandError("Save name must end with .zip");
+		}
+		// phin doesn't support streaming requests :(
+		let content = await fs.readFile(args.filepath);
+
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += "api/upload-save";
+		url.searchParams.append("instance_id", instanceId);
+		url.searchParams.append("filename", filename);
+
+		let result = await phin({
+			url, method: "POST",
+			headers: {
+				"X-Access-Token": control.config.get("control.master_token"),
+				"Content-Type": "application/zip",
+			},
+			core: { ca: control.tlsCa },
+			data: content,
+			parse: "json",
+		});
+
+		for (let error of result.body.errors || []) {
+			logger.error(error);
+		}
+
+		for (let requestError of result.body.request_errors || []) {
+			logger.error(error);
+		}
+
+		if (result.body.saves && result.body.saves.length) {
+			logger.info(`Successfully uploaded as ${result.body.saves[0]}`);
+		}
+
+		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {
+			throw new libErrors.CommandError("Uploading save failed");
+		}
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
+	definition: ["download-save <instance> <save>", "Download a save from an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to download save from", type: "string" });
+		yargs.positional("save", { describe: "Save to download", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let result = await libLink.messages.downloadSave.send(control, {
+			instance_id: instanceId,
+			save: args.save,
+		});
+
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += `api/stream/${result.stream_id}`;
+		let response = await phin({
+			url, method: "GET",
+			core: { ca: control.tlsCa },
+			stream: true,
+		});
+
+		let stream;
+		let tempFilename = args.save.replace(/(\.zip)?$/, ".tmp.zip");
+		while (true) {
+			try {
+				stream = fs.createWriteStream(tempFilename, { flags: "wx" });
+				await events.once(stream, "open");
+				break;
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					tempFilename = await libFileOps.findUnusedName(".", tempFilename, ".tmp.zip");
+				} else {
+					throw err;
+				}
+			}
+		}
+		response.pipe(stream);
+		await events.once(stream, "finish");
+
+		let filename = await libFileOps.findUnusedName(".", args.save, ".zip");
+		await fs.rename(tempFilename, filename);
+
+		logger.info(`Downloaded ${args.save}${args.save === filename ? "" : ` as ${filename}`}`);
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
+	definition: ["delete-save <instance> <save>", "Delete a save from an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to delete save from", type: "string" });
+		yargs.positional("save", { describe: "Save to delete", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await libLink.messages.deleteSave.send(control, {
+			instance_id: instanceId,
+			save: args.save,
 		});
 	},
 }));
@@ -364,15 +526,23 @@ instanceCommands.add(new libCommand.Command({
 		yargs.positional("instance", { describe: "Instance to start", type: "string" });
 		yargs.positional("scenario", { describe: "Scenario to load", type: "string" });
 		yargs.options({
+			"seed": { describe: "Seed to use, takes precedence over map-gen-settings", nargs: 1, type: "number" },
+			"map-exchange-string": { describe: "Map exchange string to use for the save", nargs: 1, type: "string" },
+			"map-gen-settings": { describe: "path to file to use for map-gen-settings", nargs: 1, type: "string" },
+			"map-settings": { describe: "path to file to use for map-settings", nargs: 1, type: "string" },
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
+		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		let response = await libLink.messages.loadScenario.send(control, {
 			instance_id: instanceId,
-			scenario: args.scenario || null,
+			scenario: args.scenario,
+			seed,
+			map_gen_settings: mapGenSettings,
+			map_settings: mapSettings,
 		});
 		control.keepOpen = args.keepOpen;
 	},
@@ -747,6 +917,10 @@ class Control extends libLink.Link {
 		 */
 		this.keepOpen = false;
 	}
+
+	async instanceUpdateEventHandler() { }
+
+	async saveListUpdateEventHandler() { }
 
 	async setLogSubscriptions({
 		all = false,

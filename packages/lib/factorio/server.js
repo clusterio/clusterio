@@ -829,17 +829,26 @@ class FactorioServer extends events.EventEmitter {
 	 *
 	 * @param {string} name -
 	 *     Name of the save to create.  Should end with ".zip".
+	 * @param {?number=} seed - Seed to pass via --map-gen-seed
+	 * @param {?object=} mapGenSettings -
+	 *     Map get settings to pass via --map-gen-settings.
+	 * @param {?object=} mapSettings -
+	 *     Map setting to pass via --map-settings.
 	 */
-	async create(name) {
+	async create(name, seed = null, mapGenSettings = null, mapSettings = null) {
 		this._check(["init"]);
 		this._state = "create";
 
 		await this._writeConfigIni();
+		await this._writeMapSettings(mapGenSettings, mapSettings);
 		this._server = child_process.spawn(
 			this.binaryPath(),
 			[
 				"--config", this.writePath("config.ini"),
 				"--create", this.writePath("saves", name),
+				...(seed !== null ? ["--map-gen-seed", seed] : []),
+				...(mapGenSettings !== null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
+				...(mapSettings !== null ? ["--map-settings", this.writePath("map-settings.json")] : []),
 				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
@@ -903,17 +912,26 @@ class FactorioServer extends events.EventEmitter {
 	 * argument to start the given scenario.
 	 *
 	 * @param {string} scenario - Name of the scenario to run.
+	 * @param {?number=} seed - Seed to pass via --map-gen-seed
+	 * @param {?object=} mapGenSettings -
+	 *     Map get settings to pass via --map-gen-settings.
+	 * @param {?object=} mapSettings -
+	 *     Map setting to pass via --map-settings.
 	 */
-	async startScenario(scenario) {
+	async startScenario(scenario, seed = null, mapGenSettings = null, mapSettings = null) {
 		this._check(["init"]);
 		this._state = "running";
 
 		await this._writeConfigIni();
+		await this._writeMapSettings(mapGenSettings, mapSettings);
 		this._server = child_process.spawn(
 			this.binaryPath(),
 			[
 				"--config", this.writePath("config.ini"),
 				"--start-server-load-scenario", scenario,
+				...(seed !== null ? ["--map-gen-seed", seed] : []),
+				...(mapGenSettings !== null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
+				...(mapSettings !== null ? ["--map-settings", this.writePath("map-settings.json")] : []),
 				"--port", this.gamePort,
 				"--rcon-port", this.rconPort,
 				"--rcon-password", this.rconPassword,
@@ -1152,6 +1170,19 @@ class FactorioServer extends events.EventEmitter {
 			},
 		});
 		await fs.outputFile(this.writePath("config.ini"), content);
+	}
+
+	async _writeMapSettings(mapGenSettings, mapSettings) {
+		if (mapGenSettings) {
+			await fs.outputFile(
+				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, 4)
+			);
+		}
+		if (mapSettings) {
+			await fs.outputFile(
+				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, 4)
+			);
+		}
 	}
 }
 

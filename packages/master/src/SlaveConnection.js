@@ -62,9 +62,19 @@ class SlaveConnection extends BaseConnection {
 			return;
 		}
 
+		// We may receive status changed where the status hasn't changed
+		// from our perspective if the connection was down at the time it
+		// changed.  Slaves also send status updates on assignInstance which
+		// for hacky reason is also used to push config changes and
+		// restablish status after a connection loss.
+		if (instance.status === message.data.status) {
+			return;
+		}
+
 		let prev = instance.status;
 		instance.status = message.data.status;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
+		this._master.instanceUpdated(instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -99,6 +109,7 @@ class SlaveConnection extends BaseConnection {
 					let prev = masterInstance.status;
 					masterInstance.status = instanceData.status;
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
+					this._master.instanceUpdated(instance);
 					await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", masterInstance, prev);
 				}
 				continue;
@@ -107,7 +118,7 @@ class SlaveConnection extends BaseConnection {
 			instanceConfig.set("instance.assigned_slave", this._id);
 			let newInstance = { config: instanceConfig, status: instanceData.status };
 			this._master.instances.set(instanceConfig.get("instance.id"), newInstance);
-			this._master.addInstancePluginHooks(newInstance);
+			this._master.addInstanceHooks(newInstance);
 			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
 				serialized_config: instanceConfig.serialize("slave"),
@@ -133,6 +144,10 @@ class SlaveConnection extends BaseConnection {
 		}
 
 		libLink.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
+	}
+
+	async saveListUpdateEventHandler(message) {
+		this._master.saveListUpdate(message.data);
 	}
 
 	async logMessageEventHandler(message) {

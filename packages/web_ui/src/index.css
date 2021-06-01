@@ -67,6 +67,27 @@ body {
 	padding-right: 64px;
 }
 
+.section-header {
+	display: flex;
+	align-items: center;
+	margin-top: 16px;
+	margin-bottom: 8px;
+}
+
+.section-header-title {
+	flex: auto;
+	overflow: hidden;
+	font-weight: bold;
+	font-size: 16px;
+	line-height: 1.5715;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.section-header-extra {
+	margin-left: auto;
+}
+
 .site-name {
 	position: absolute;
 	top: -10px;
@@ -141,6 +162,10 @@ body {
 	background: #000;
 	border-color: #252525;
 	white-space: pre-wrap;
+}
+
+.save-list-dragger .ant-upload.ant-upload-btn {
+	padding: 0;
 }
 
 .rcon-result code {

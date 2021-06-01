@@ -13,6 +13,7 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const libUsers = require("@clusterio/lib/users");
 
 const BaseConnection = require("./BaseConnection");
+const routes = require("./routes");
 
 const lastQueryLogTime = new libPrometheus.Gauge(
 	"clusterio_master_last_query_log_duration_seconds",
@@ -37,6 +38,16 @@ class ControlConnection extends BaseConnection {
 		 * @type {module:lib/users.User}
 		 */
 		this.user = user;
+
+		this.instanceSubscriptions = {
+			all: false,
+			instance_ids: [],
+		};
+
+		this.saveListSubscriptions = {
+			all: false,
+			instance_ids: [],
+		};
 
 		this.logTransport = null;
 		this.logSubscriptions = {
@@ -122,6 +133,21 @@ class ControlConnection extends BaseConnection {
 		return { serialized_config: slaveConfig.serialize() };
 	}
 
+	async getInstanceRequestHandler(message) {
+		let id = message.data.id;
+		let instance = this._master.instances.get(id);
+		if (!instance) {
+			throw new libErrors.RequestError(`Instance with ID ${id} does not exist`);
+		}
+
+		return {
+			id,
+			name: instance.config.get("instance.name"),
+			assigned_slave: instance.config.get("instance.assigned_slave"),
+			status: instance.status,
+		};
+	}
+
 	async listInstancesRequestHandler(message) {
 		let list = [];
 		for (let instance of this._master.instances.values()) {
@@ -133,6 +159,24 @@ class ControlConnection extends BaseConnection {
 			});
 		}
 		return { list };
+	}
+
+	async setInstanceSubscriptionsRequestHandler(message) {
+		this.instanceSubscriptions = message.data;
+	}
+
+	instanceUpdated(instance) {
+		if (
+			this.instanceSubscriptions.all
+			|| this.instanceSubscriptions.instance_ids.includes(instance.config.get("instance.id"))
+		) {
+			libLink.messages.instanceUpdate.send(this, {
+				id: instance.config.get("instance.id"),
+				name: instance.config.get("instance.name"),
+				assigned_slave: instance.config.get("instance.assigned_slave"),
+				status: instance.status,
+			});
+		}
 	}
 
 	// XXX should probably add a hook for slave reuqests?
@@ -174,7 +218,7 @@ class ControlConnection extends BaseConnection {
 		let instance = { config: instanceConfig, status: "unassigned" };
 		this._master.instances.set(instanceId, instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, null);
-		this._master.addInstancePluginHooks(instance);
+		this._master.addInstanceHooks(instance);
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
@@ -190,6 +234,7 @@ class ControlConnection extends BaseConnection {
 
 		let prev = instance.status;
 		instance.status = "deleted";
+		this.instanceUpdated(instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -285,6 +330,42 @@ class ControlConnection extends BaseConnection {
 				serialized_config: instance.config.serialize("slave"),
 			});
 		}
+	}
+
+	async setSaveListSubscriptionsRequestHandler(message) {
+		this.saveListSubscriptions = message.data;
+	}
+
+	saveListUpdate(data) {
+		if (
+			this.saveListSubscriptions.all
+			|| this.saveListSubscriptions.instance_ids.includes(data.instance_id)
+		) {
+			libLink.messages.saveListUpdate.send(this, data);
+		}
+	}
+
+	async downloadSaveRequestHandler(message) {
+		let { instance_id, save } = message.data;
+		let stream = await routes.createProxyStream(this._master.app);
+		stream.filename = save;
+
+		let ready = new Promise((resolve, reject) => {
+			stream.events.on("source", resolve);
+			stream.events.on("timeout", () => reject(
+				new libErrors.RequestError("Timed out establishing stream from slave")
+			));
+		});
+		ready.catch(() => {});
+
+		let result = await this._master.forwardRequestToInstance(libLink.messages.pushSave, {
+			instance_id,
+			stream_id: stream.id,
+			save,
+		});
+
+		await ready;
+		return { stream_id: stream.id };
 	}
 
 	async setLogSubscriptionsRequestHandler(message) {

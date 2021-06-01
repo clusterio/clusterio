@@ -2,6 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
 import libLink from "@clusterio/lib/link";
+import { logger } from "@clusterio/lib/logging";
 
 
 export function useInstance(id) {
@@ -14,19 +15,26 @@ export function useInstance(id) {
 			return;
 		}
 
-		// XXX optimize by requesting only the instance in question
-		libLink.messages.listInstances.send(control).then(result => {
-			let match = result.list.find(i => i.id === id);
-			if (!match) {
-				setInstance({ missing: true });
-			} else {
-				setInstance({ ...match, present: true });
-			}
+		libLink.messages.getInstance.send(control, { id }).then(result => {
+			setInstance({ ...result, present: true });
+		}).catch(err => {
+			logger.log(`Failed to get instance: ${err}`);
+			setInstance({ missing: true });
 		});
+
 	}
 
 	useEffect(() => {
 		updateInstance();
+
+		function updateHandler(newInstance) {
+			setInstance({ ...newInstance, present: true });
+		}
+
+		control.onInstanceUpdate(id, updateHandler);
+		return () => {
+			control.offInstanceUpdate(id, updateHandler);
+		};
 	}, [id]);
 
 	return [instance, updateInstance];

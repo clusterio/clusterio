@@ -92,8 +92,13 @@ module.exports = (env = {}) => ({
 			"util": require.resolve("util/"),
 			"os": require.resolve("os-browserify/browser"),
 
+			// Required for zlib
+			"assert": require.resolve("assert"),
+			"stream": require.resolve("stream-browserify"),
+
 			"events": require.resolve("events/"),
 			"path": require.resolve("path-browserify"),
+			"zlib": require.resolve("browserify-zlib"),
 		},
 	},
 });

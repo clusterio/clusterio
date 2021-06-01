@@ -353,6 +353,26 @@ messages.listSlaves = new Request({
 	},
 });
 
+let instanceProperties = {
+	"name": { type: "string" },
+	"id": { type: "integer" },
+	"assigned_slave": { type: ["null", "integer"] },
+	"status": { enum: [
+		"unknown", "unassigned", "stopped", "starting", "running", "stopping",
+		"creating_save", "exporting_data",
+	]},
+};
+
+messages.getInstance = new Request({
+	type: "get_instance",
+	links: ["control-master"],
+	permission: "core.instance.get",
+	requestProperties: {
+		"id": { type: "integer" },
+	},
+	responseProperties: instanceProperties,
+});
+
 messages.listInstances = new Request({
 	type: "list_instances",
 	links: ["control-master"],
@@ -363,16 +383,21 @@ messages.listInstances = new Request({
 			items: {
 				additionalProperties: false,
 				required: ["name", "id", "assigned_slave", "status"],
-				properties: {
-					"name": { type: "string" },
-					"id": { type: "integer" },
-					"assigned_slave": { type: ["null", "integer"] },
-					"status": { enum: [
-						"unknown", "unassigned", "stopped", "starting", "running", "stopping",
-						"creating_save", "exporting_data",
-					]},
-				},
+				properties: instanceProperties,
 			},
+		},
+	},
+});
+
+messages.setInstanceSubscriptions = new Request({
+	type: "set_instance_subscriptions",
+	links: ["control-master"],
+	permission: "core.instance.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"instance_ids": {
+			type: "array",
+			items: { type: "integer" },
 		},
 	},
 });
@@ -468,11 +493,103 @@ messages.startInstance = new Request({
 	forwardTo: "instance",
 });
 
+let saveList = {
+	type: "array",
+	items: {
+		type: "object",
+		additionalProperties: false,
+		required: ["type", "name", "size", "mtime_ms", "loaded"],
+		properties: {
+			"type": { enum: ["file", "directory", "special"] },
+			"name": { type: "string" },
+			"size": { type: "integer" },
+			"mtime_ms": { type: "number" },
+			"loaded": { type: "boolean" },
+			"default": { type: "boolean" },
+		},
+	},
+};
+
+messages.listSaves = new Request({
+	type: "list_saves",
+	links: ["control-master", "master-slave", "slave-instance"],
+	permission: "core.instance.save.list",
+	forwardTo: "instance",
+	responseProperties: {
+		"list": saveList,
+	},
+});
+
 messages.createSave = new Request({
 	type: "create_save",
 	links: ["control-master", "master-slave", "slave-instance"],
-	permission: "core.instance.create_save",
+	permission: "core.instance.save.create",
 	forwardTo: "instance",
+	requestProperties: {
+		"name": { type: "string" },
+		"seed": { type: ["integer", "null"] },
+		"map_gen_settings": { type: ["object", "null"] },
+		"map_settings": { type: ["object", "null"] },
+	},
+});
+
+messages.deleteSave = new Request({
+	type: "delete_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.delete",
+	forwardTo: "instance",
+	requestProperties: {
+		"save": { type: "string" },
+	},
+});
+
+messages.downloadSave = new Request({
+	type: "download_save",
+	links: ["control-master"],
+	permission: "core.instance.save.download",
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"save": { type: "string" },
+	},
+	responseProperties: {
+		"stream_id": { type: "string" },
+	},
+});
+
+messages.pullSave = new Request({
+	type: "pull_save",
+	links: ["master-slave"],
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"stream_id": { type: "string" },
+		"filename": { type: "string" },
+	},
+	responseProperties: {
+		"save": { type: "string" },
+	},
+});
+
+messages.pushSave = new Request({
+	type: "push_save",
+	links: ["master-slave"],
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"stream_id": { type: "string" },
+		"save": { type: "string" },
+	},
+});
+
+messages.setSaveListSubscriptions = new Request({
+	type: "set_save_list_subscriptions",
+	links: ["control-master"],
+	permission: "core.instance.save.list_subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"instance_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
+	},
 });
 
 messages.loadScenario = new Request({
@@ -482,6 +599,9 @@ messages.loadScenario = new Request({
 	forwardTo: "instance",
 	requestProperties: {
 		"scenario": { type: "string" },
+		"seed": { type: ["integer", "null"] },
+		"map_gen_settings": { type: ["object", "null"] },
+		"map_settings": { type: ["object", "null"] },
 	},
 });
 
@@ -982,6 +1102,22 @@ messages.instanceStatusChanged = new Event({
 		"status": { enum: [
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]},
+	},
+});
+
+messages.instanceUpdate = new Event({
+	type: "instance_update",
+	links: ["master-control"],
+	eventProperties: instanceProperties,
+});
+
+messages.saveListUpdate = new Event({
+	type: "save_list_update",
+	links: ["instance-slave", "slave-master", "master-control"],
+	forwardTo: "master",
+	eventProperties: {
+		"instance_id": { type: "integer" },
+		"list": saveList,
 	},
 });
 

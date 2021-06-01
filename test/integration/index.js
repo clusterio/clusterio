@@ -25,6 +25,17 @@ class TestControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
+		this.instanceUpdates = [];
+		this.saveListUpdates = [];
+
+		this.connector.on("connect", () => {
+			libLink.messages.setInstanceSubscriptions.send(
+				this, { all: true, instance_ids: [] }
+			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
+			libLink.messages.setSaveListSubscriptions.send(
+				this, { all: true, instance_ids: [] }
+			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
+		});
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
@@ -33,6 +44,14 @@ class TestControl extends libLink.Link {
 	}
 
 	async debugWsMessageEventHandler() { }
+
+	async instanceUpdateEventHandler(message) {
+		this.instanceUpdates.push(message.data);
+	}
+
+	async saveListUpdateEventHandler(message) {
+		this.saveListUpdates.push(message.data);
+	}
 
 	async logMessageEventHandler() { }
 }
@@ -183,7 +202,9 @@ after(async function() {
 		masterProcess.kill("SIGINT");
 		await events.once(masterProcess, "exit");
 	}
-	await control.connector.close();
+	if (control) {
+		await control.connector.close();
+	}
 });
 
 // Ensure the test processes are stopped.
