@@ -39,6 +39,11 @@ class ControlConnection extends BaseConnection {
 		 */
 		this.user = user;
 
+		this.slaveSubscriptions = {
+			all: false,
+			slave_ids: [],
+		};
+
 		this.instanceSubscriptions = {
 			all: false,
 			instance_ids: [],
@@ -105,6 +110,19 @@ class ControlConnection extends BaseConnection {
 			});
 		}
 		return { list };
+	}
+
+	async setSlaveSubscriptionsRequestHandler(message) {
+		this.slaveSubscriptions = message.data;
+	}
+
+	slaveUpdated(slave, update) {
+		if (
+			this.slaveSubscriptions.all
+			|| this.slaveSubscriptions.slave_ids.includes(slave.id)
+		) {
+			libLink.messages.slaveUpdate.send(this, update);
+		}
 	}
 
 	generateSlaveToken(slaveId) {

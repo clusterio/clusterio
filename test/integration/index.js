@@ -25,10 +25,14 @@ class TestControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "master", connector);
 		libLink.attachAllMessages(this);
+		this.slaveUpdates = [];
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
 
 		this.connector.on("connect", () => {
+			libLink.messages.setSlaveSubscriptions.send(
+				this, { all: true, slave_ids: [] }
+			).catch(err => logger.error(`Error setting slave subscriptions:\n${err.stack}`));
 			libLink.messages.setInstanceSubscriptions.send(
 				this, { all: true, instance_ids: [] }
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
@@ -44,6 +48,10 @@ class TestControl extends libLink.Link {
 	}
 
 	async debugWsMessageEventHandler() { }
+
+	async slaveUpdateEventHandler(message) {
+		this.slaveUpdates.push(message.data);
+	}
 
 	async instanceUpdateEventHandler(message) {
 		this.instanceUpdates.push(message.data);
@@ -223,6 +231,7 @@ module.exports = {
 	execCtl,
 	sendRcon,
 	getControl,
+	spawn,
 
 	url,
 	controlToken,

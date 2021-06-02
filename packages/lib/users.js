@@ -323,6 +323,12 @@ definePermission({
 	grantByDefault: true,
 });
 definePermission({
+	name: "core.slave.subscribe",
+	title: "Subscribe to slave updates",
+	description: "Subscribe to be notified on updates on the details of slaves.",
+	grantByDefault: true,
+});
+definePermission({
 	name: "core.slave.generate_token",
 	title: "Generate slave token",
 	description: "Generate tokens for slaves to connect to the cluster with.",

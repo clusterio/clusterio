@@ -10,7 +10,7 @@ const libUsers = require("@clusterio/lib/users");
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	get, exec, execCtl, sendRcon, getControl, instancesDir,
+	get, exec, execCtl, sendRcon, getControl, spawn, instancesDir,
 } = require("./index");
 
 
@@ -58,6 +58,59 @@ describe("Integration of Clusterio", function() {
 				await connectorB._doConnect();
 				await events.once(connectorB, "resume");
 				await connectorB.close();
+			});
+		});
+	});
+
+	describe("clusterioslave", function() {
+		describe("slaveUpdateEventHandler()", function() {
+			it("should trigger when a new slave is added", async function() {
+				slowTest(this);
+				getControl().slaveUpdates = [];
+				let config = "alt-slave-config.json";
+				let configPath = path.join("temp", "test", config);
+				await fs.remove(configPath);
+				await execCtl(`slave create-config --id 5 --name alt-slave --generate-token --output ${config}`);
+				await exec(
+					`node ../../packages/slave --config ${config} config set slave.tls_ca ../../test/file/tls/cert.pem`
+				);
+
+				let slaveProcess;
+				try {
+					slaveProcess = await spawn(
+						"alt-slave:", `node ../../packages/slave run --config ${config}`, /SOCKET \| registering slave/
+					);
+				} finally {
+					if (slaveProcess) {
+						slaveProcess.kill("SIGINT");
+						await events.once(slaveProcess, "exit");
+					}
+				}
+
+				let sawUpdate = false;
+				let sawConnected = false;
+				let sawDisconnected = false;
+
+				for (let update of getControl().slaveUpdates) {
+					if (update.name !== "alt-slave") {
+						continue;
+					}
+
+					sawUpdate = true;
+					if (update.connected) {
+						sawConnected = true;
+					} else {
+						sawDisconnected = true;
+					}
+				}
+
+				assert(sawUpdate, "No slave update was sent");
+				assert(sawConnected, "No slave update with status connected was sent");
+				assert(sawDisconnected, "No slave update with status disconnected was sent");
+
+				let result = await libLink.messages.listSlaves.send(getControl());
+				let slaves = new Map(result.list.map(instance => [instance.id, instance]));
+				assert(slaves.has(5), "Slave list was not updated");
 			});
 		});
 	});

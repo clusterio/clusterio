@@ -360,6 +360,24 @@ class Master {
 		}
 	}
 
+	slaveUpdated(slave) {
+		let update = {
+			agent: slave.agent,
+			version: slave.version,
+			id: slave.id,
+			name: slave.name,
+			connected: this.wsServer.slaveConnections.has(slave.id),
+		};
+
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.slaveUpdated(slave, update);
+		}
+	}
+
 	addInstanceHooks(instance) {
 		instance.config.on("fieldChanged", (group, field, prev) => {
 			if (group.name === "instance" && field === "name") {

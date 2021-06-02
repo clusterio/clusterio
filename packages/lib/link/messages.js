@@ -331,6 +331,14 @@ messages.setMasterConfigProp = new Request({
 	},
 });
 
+let slaveProperties = {
+	"agent": { type: "string" },
+	"version": { type: "string" },
+	"name": { type: "string" },
+	"id": { type: "integer" },
+	"connected": { type: "boolean" },
+};
+
 messages.listSlaves = new Request({
 	type: "list_slaves",
 	links: ["control-master"],
@@ -341,14 +349,21 @@ messages.listSlaves = new Request({
 			items: {
 				additionalProperties: false,
 				required: ["agent", "version", "name", "id", "connected"],
-				properties: {
-					"agent": { type: "string" },
-					"version": { type: "string" },
-					"name": { type: "string" },
-					"id": { type: "integer" },
-					"connected": { type: "boolean" },
-				},
+				properties: slaveProperties,
 			},
+		},
+	},
+});
+
+messages.setSlaveSubscriptions = new Request({
+	type: "set_slave_subscriptions",
+	links: ["control-master"],
+	permission: "core.slave.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"slave_ids": {
+			type: "array",
+			items: { type: "integer" },
 		},
 	},
 });
@@ -1082,6 +1097,13 @@ messages.logMessage = new Event({
 		},
 	},
 });
+
+messages.slaveUpdate = new Event({
+	type: "slave_update",
+	links: ["master-control"],
+	eventProperties: slaveProperties,
+});
+
 
 messages.instanceInitialized = new Event({
 	type: "instance_initialized",

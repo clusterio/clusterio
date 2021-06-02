@@ -27,7 +27,52 @@ export function useSlave(id) {
 
 	useEffect(() => {
 		updateSlave();
+
+		function updateHandler(newSlave) {
+			setSlave({ ...newSlave, present: true });
+		}
+
+		control.onSlaveUpdate(id, updateHandler);
+		return () => {
+			control.offSlaveUpdate(id, updateHandler);
+		};
 	}, [id]);
 
 	return [slave, updateSlave];
+}
+
+export function useSlaveList() {
+	let control = useContext(ControlContext);
+	let [slaveList, setSlaveList] = useState([]);
+
+	function updateSlaveList() {
+		libLink.messages.listSlaves.send(control).then(result => {
+			setSlaveList(result.list);
+		});
+	}
+
+	useEffect(() => {
+		updateSlaveList();
+
+		function updateHandler(newSlave) {
+			setSlaveList(oldList => {
+				let newList = oldList.concat();
+				let index = newList.findIndex(s => s.id === newSlave.id);
+				if (index !== -1) {
+					newList[index] = newSlave;
+				} else {
+					newList.push(newSlave);
+				}
+				return newList;
+			});
+		}
+
+		control.onSlaveUpdate(null, updateHandler);
+		return () => {
+			control.offSlaveUpdate(null, updateHandler);
+		};
+	}, []);
+
+
+	return [slaveList];
 }
