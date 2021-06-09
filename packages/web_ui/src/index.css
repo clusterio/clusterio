@@ -67,6 +67,10 @@ body {
 	padding-right: 64px;
 }
 
+.site-page-header {
+	padding: 0 0 16px;
+}
+
 .section-header {
 	display: flex;
 	align-items: center;

@@ -154,14 +154,17 @@ export class Control extends libLink.Link {
 	}
 
 	async instanceUpdateEventHandler(message) {
-		let handlers = this.instanceUpdateHandlers.get(message.data.id);
-		for (let handler of handlers || []) {
+		let handlers = [].concat(
+			this.instanceUpdateHandlers.get(null) || [],
+			this.instanceUpdateHandlers.get(message.data.id) || [],
+		);
+		for (let handler of handlers) {
 			handler(message.data);
 		}
 	};
 
 	async onInstanceUpdate(id, handler) {
-		if (!Number.isInteger(id)) {
+		if (id !== null && !Number.isInteger(id)) {
 			throw new Error("Invalid instance id");
 		}
 
@@ -202,8 +205,8 @@ export class Control extends libLink.Link {
 		}
 
 		await libLink.messages.setInstanceSubscriptions.send(this, {
-			all: false,
-			instance_ids: [...this.instanceUpdateHandlers.keys()],
+			all: this.instanceUpdateHandlers.has(null),
+			instance_ids: [...this.instanceUpdateHandlers.keys()].filter(e => e !== null),
 		});
 	}
 
