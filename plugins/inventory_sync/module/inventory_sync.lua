@@ -34,24 +34,45 @@ end
 function inventory_sync.initiateInventoryDownload(playerIndex)
     game.players[playerIndex].print("Initiating inventory download...")
     global["inv_sync_download_start_tick "..game.players[playerIndex].name] = game.tick
+    if global.download_cache == nil then
+        global.download_cache = {}
+    end
+    global.download_cache[playerIndex] = ""
     clusterio_api.send_json("inventory_sync_download", {
         player_name = game.players[playerIndex].name
     })
 end
 
 -- This function is called by instance.js as /sc inventory_sync.downloadInventory("danielv", Escaped JSON string) with data from the master
-function inventory_sync.downloadInventory(playerName, data)
-    local serialized_player = game.json_to_table(data)
-    local player = game.players[playerName]
-    -- game.print(serpent.block(serialized_player))
-    for _, inv in pairs(inventories) do
-        local inventory = player.get_inventory(inv)
-        if inventory ~= nil and serialized_player.inventories[tostring(inv)] ~= nil then
-            serialize.deserialize_inventory(inventory, serialized_player.inventories[tostring(inv)])
+function inventory_sync.downloadInventory(playerName, data, number, total)
+    if number then
+        if global.download_cache[playerName] == nil then
+            global.download_cache[playerName] = ""
         end
+        -- Append data to download cache
+        global.download_cache[playerName] = global.download_cache[playerName] .. data
     end
-    local startTick = global["inv_sync_download_start_tick "..game.players[playerName].name]
-    game.print("Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks")
+
+    if number ~= total then
+        -- Show progress in GUI
+        game.players[playerName].print("Downloaded "..number.."/"..total.." parts")
+
+        -- Request next segment
+        rcon.print("Segment downloaded")
+    else
+        local serialized_player = game.json_to_table(global.download_cache[playerName])
+        global.download_cache[playerName] = nil -- remove data to lower mapsize
+        local player = game.players[playerName]
+        -- game.print(serpent.block(serialized_player))
+        for _, inv in pairs(inventories) do
+            local inventory = player.get_inventory(inv)
+            if inventory ~= nil and serialized_player.inventories[tostring(inv)] ~= nil then
+                serialize.deserialize_inventory(inventory, serialized_player.inventories[tostring(inv)])
+            end
+        end
+        local startTick = global["inv_sync_download_start_tick "..game.players[playerName].name]
+        game.print("Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks")
+    end
 end
 
 -- Upload inventory when a player leaves the game. Triggers on restart after crash if player was online during crash.

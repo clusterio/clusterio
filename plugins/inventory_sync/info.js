@@ -39,6 +39,13 @@ InstanceConfigGroup.define({
 	type: "boolean",
 	initial_value: true,
 });
+InstanceConfigGroup.define({
+	name: "rcon_chunk_size",
+	title: "Rcon inventory chunk size",
+	description: "Divide inventories into multiple chunks before sending with rcon to prevent blocking the pipe",
+	type: "number",
+	initial_value: 1000,
+});
 InstanceConfigGroup.finalize();
 
 libUsers.definePermission({
