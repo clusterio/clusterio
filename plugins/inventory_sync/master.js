@@ -38,30 +38,34 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			});
 		}, this.master.config.get("inventory_sync.autosave_interval") * 1000);
 	}
-	async uploadRequestHandler(message) {
-		console.log("Saving inventory for", message.data.player_name)
-		this.inventories[message.data.player_name] = message.data.inventory
 
-		return { success: true }
+	async uploadRequestHandler(message) {
+		console.log("Saving inventory for", message.data.player_name);
+		this.inventories[message.data.player_name] = message.data.inventory;
+
+		return { success: true };
 	}
+
 	async downloadRequestHandler(message) {
-		console.log("Downloading inventory for", message.data.player_name)
+		console.log("Downloading inventory for", message.data.player_name);
 		return {
 			player_name: message.data.player_name,
-			inventory: this.inventories[message.data.player_name]
-		}
+			inventory: this.inventories[message.data.player_name],
+		};
 	}
+
 	async onShutdown() {
 		clearInterval(this.autosaveId);
 		await saveDatabase(this.master.config, this.inventories, this.logger);
 	}
+
 	async databaseStatsRequestHandler(message) {
 		let inventories = Object.keys(this.inventories)
 			.map(name => ({
 				name,
-				length: this.inventories[name].length
+				length: this.inventories[name].length,
 			}))
-			.sort((a, b) => a.stringified.length - b.stringified.length)
+			.sort((a, b) => a.stringified.length - b.stringified.length);
 		return {
 			database_size: inventories.map(x => x.length).reduce((a, b) => b - a, 0),
 			database_entries: inventories.length,
@@ -69,7 +73,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 				name: inventories[0].name,
 				size: inventories[0].length,
 			},
-		}
+		};
 	}
 }
 

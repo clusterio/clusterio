@@ -20,41 +20,40 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		// },5000)
 
 
-		this.instance.server.on("ipc-inventory_sync_upload", content =>
-			this.handleUpload(content).catch(err => this.logger.error(
-				`Error handling ipc-inventory_sync_upload:\n${err.stack}`
-			))
-		)
-		this.instance.server.on("ipc-inventory_sync_download", content =>
-			this.handleDownload(content).catch(err => this.logger.error(
-				`Error handling ipc-inventory_sync_download:\n${err.stack}`
-			))
-		)
+		this.instance.server.on("ipc-inventory_sync_upload", content => this.handleUpload(content).catch(err => this.logger.error(
+			`Error handling ipc-inventory_sync_upload:\n${err.stack}`
+		))
+		);
+		this.instance.server.on("ipc-inventory_sync_download", content => this.handleDownload(content).catch(err => this.logger.error(
+			`Error handling ipc-inventory_sync_download:\n${err.stack}`
+		))
+		);
 	}
 
 	onMasterConnectionEvent(event) {
-		console.log("Connectionevent", event)
+		console.log("Connectionevent", event);
 		if (event === "connect") {
 		}
 	}
 
 	async handleUpload(player) {
-		console.log("Uploading", player)
+		console.log("Uploading", player);
 		this.info.messages.upload.send(this.instance, {
 			instance_id: this.instance.id,
 			instance_name: this.instance.name,
 			player_name: player.name,
 			inventory: JSON.stringify(player),
-		})
+		});
 	}
+
 	async handleDownload(player) {
-		console.log("Downloading", player.player_name)
+		console.log("Downloading", player.player_name);
 		let response = await this.info.messages.download.send(this.instance, {
-			player_name: player.player_name
-		})
+			player_name: player.player_name,
+		});
 		if (response.inventory) {
-			console.log("Sending command")
-			await this.sendRcon(`/sc inventory_sync.downloadInventory('${response.player_name}', '${libLuaTools.escapeString(response.inventory)}')`)
+			console.log("Sending command");
+			await this.sendRcon(`/sc inventory_sync.downloadInventory('${response.player_name}', '${libLuaTools.escapeString(response.inventory)}')`);
 		}
 	}
 
