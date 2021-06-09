@@ -103,6 +103,12 @@ describe("Integration of lib/factorio/server", function() {
 				slowTest(this);
 				log(".start()");
 
+				// Make sure the test does not fail due to not having internet
+				let settings = await server.exampleSettings();
+				settings.visibility = { public: false, lan: true };
+				settings.require_user_verification = false;
+				await fs.outputFile(server.writePath("server-settings.json"), JSON.stringify(settings, null, 4));
+
 				// Make sure the test does not fail due to create() failing.
 				let mapPath = server.writePath("saves", "test.zip");
 				assert(await fs.exists(mapPath), "save is missing");

@@ -123,10 +123,18 @@ describe("Integration of Clusterio", function() {
 
 		describe("instance create", function() {
 			it("creates the instance", async function() {
+				this.timeout(6000);
 				await execCtl("instance create test --id 44");
 				let instances = await getInstances();
 				assert(instances.has(44), "instance was not created");
 				assert.equal(instances.get(44).status, "unassigned", "incorrect instance status");
+
+				// Make sure the following tests does not fail due to not having internet
+				let value = JSON.stringify({ lan: true, public: false }).replace(
+					/"/g, process.platform === "win32" ? '""' : '\\"'
+				);
+				await execCtl(`instance config set-prop test factorio.settings visibility "'${value}'"`);
+				await execCtl("instance config set-prop test factorio.settings require_user_verification false");
 			});
 		});
 
