@@ -10,21 +10,20 @@ export function useInstance(id) {
 	let [instance, setInstance] = useState({ loading: true });
 
 	function updateInstance() {
-		if (!Number.isInteger(id)) {
-			setInstance({ missing: true });
-			return;
-		}
-
 		libLink.messages.getInstance.send(control, { id }).then(result => {
 			setInstance({ ...result, present: true });
 		}).catch(err => {
-			logger.log(`Failed to get instance: ${err}`);
+			logger.error(`Failed to get instance: ${err}`);
 			setInstance({ missing: true });
 		});
 
 	}
 
 	useEffect(() => {
+		if (!Number.isInteger(id)) {
+			setInstance({ missing: true });
+			return undefined;
+		}
 		updateInstance();
 
 		function updateHandler(newInstance) {
