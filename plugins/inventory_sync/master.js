@@ -63,7 +63,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			}))
 			.sort((a, b) => a.stringified.length - b.stringified.length)
 		return {
-			database_size: inventories.reduce((a, b) => b - a, 0),
+			database_size: inventories.map(x => x.length).reduce((a, b) => b - a, 0),
 			database_entries: inventories.length,
 			largest_entry: {
 				name: inventories[0].name,
