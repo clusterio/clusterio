@@ -144,6 +144,7 @@ function serverSuite(proto) {
 	});
 
 	it("should refuse connection if request sent after starting closure", async function() {
+		this.timeout(4000); // On Windows this test takes 2 seconds for some reason.
 		server.on("request", (request, response) => {
 			setTimeout(() => { response.end("ok-4"); }, 3*tick);
 		});
