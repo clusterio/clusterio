@@ -1,0 +1,4 @@
+{
+    "name": "inventory_sync",
+    "load": ["inventory_sync.lua"]
+}
