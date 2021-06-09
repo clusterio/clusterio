@@ -374,7 +374,7 @@ let instanceProperties = {
 	"assigned_slave": { type: ["null", "integer"] },
 	"status": { enum: [
 		"unknown", "unassigned", "stopped", "starting", "running", "stopping",
-		"creating_save", "exporting_data",
+		"creating_save", "exporting_data", "deleted",
 	]},
 };
 
