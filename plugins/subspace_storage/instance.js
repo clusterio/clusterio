@@ -10,11 +10,19 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async init() {
+		this.stopping = false;
+		this.pendingTasks = new Set();
 		this.instance.server.on("ipc-subspace_storage:output", (output) => {
 			this.provideItems(output).catch(err => this.unexpectedError(err));
 		});
 		this.instance.server.on("ipc-subspace_storage:orders", (orders) => {
-			this.requestItems(orders).catch(err => this.unexpectedError(err));
+			if (this.stopping) {
+				return;
+			}
+
+			let task = this.requestItems(orders).catch(err => this.unexpectedError(err));
+			this.pendingTasks.add(task);
+			task.finally(() => { this.pendingTasks.delete(task); });
 		});
 	}
 
@@ -29,6 +37,12 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		// TODO Diff with dump of invdata produce minimal command to sync
 		let itemsJson = libLuaTools.escapeString(JSON.stringify(response.items));
 		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
+	}
+
+	async onStop() {
+		clearInterval(this.pingId);
+		this.stopping = true;
+		await Promise.all(this.pendingTasks);
 	}
 
 	onExit() {
@@ -71,13 +85,19 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	// combinator signals ---------------------------------------------------------
 	async updateStorageEventHandler(message, event) {
+		if (this.stopping) {
+			return;
+		}
 		let items = message.data.items;
 
 		// XXX this should be moved to instance/clusterio api
 		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);
 
 		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
-		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
+		let task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
+		this.pendingTasks.add(task);
+		task.finally(() => { this.pendingTasks.delete(task); });
+		await task;
 	}
 }
 
