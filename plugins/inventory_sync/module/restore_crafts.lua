@@ -1,0 +1,19 @@
+local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
+
+function restore_crafts(event)
+    if event.player_index then
+        local player = game.players[event.player_index]
+        local crafting_queue = global["saved_crafting_queue_"..player.name]
+
+        if crafting_queue == nil then
+            player.print("No saved crafting queue")
+            return
+        end
+
+        load_crafting_queue(crafting_queue, player)
+
+        global["saved_crafting_queue_"..player.name] = nil
+    end
+end
+
+return restore_crafts
