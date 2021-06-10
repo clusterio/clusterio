@@ -34,7 +34,7 @@ inventory_sync.events[defines.events.on_player_joined_game] = function(event)
 end
 
 -- Upload inventory when a player leaves the game. Triggers on restart after crash if player was online during crash.
-inventory_sync.events[defines.events.on_player_left_game] = function(event)
+inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
     local playerIndex = event.player_index
     inventory_sync.uploadInventory(playerIndex)
     global.download_cache[playerIndex] = "" -- Clear cache to avoid leaking memory to people quitting during download

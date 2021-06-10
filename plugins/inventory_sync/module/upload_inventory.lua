@@ -1,6 +1,7 @@
 local clusterio_api = require("modules/clusterio/api")
 local serialize = require("modules/clusterio/serialize")
 local inventories = require("modules/inventory_sync/define_player_inventories")
+local save_crafts = require("modules/inventory_sync/save_crafts")
 
 function upload_inventory(playerIndex)
     local player = game.players[playerIndex]
@@ -68,7 +69,8 @@ function upload_inventory(playerIndex)
         end
     end
 
-    -- Serialize crafting queue saved by /csc or /save-crafts
+    -- Serialize crafting queue saved by /csc or /save-crafts OR automatically
+    save_crafts({player_index = player.name})
     serialized_player.crafting_queue = global["saved_crafting_queue_"..player.name]
     if serialized_player.crafting_queue == nil then
         serialized_player.crafting_queue = {}

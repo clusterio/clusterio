@@ -72,6 +72,7 @@ These are the plugins supported and maintained by the Clusterio developers:
 - [Statistics Exporter](/plugins/statistics_exporter/README.md): collect in-game statistics from all the servers and makes it available to the Prometheus endpoint on the master server.
 - [Subspace Storage](https://github.com/clusterio/subspace_storage): Provide shared storage that can transport items between servers via teleport chests.
 - [Player Auth](/plugins/player_auth/README.md): Provides authentication to the cluster via logging into a Factorio server.
+- [Inventory Sync](/plugins/inventory_sync/README.md): Synchronizes your inventory between servers.
 
 There's also plugins developed and maintained by the community:
 

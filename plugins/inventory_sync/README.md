@@ -2,6 +2,12 @@
 
 Carry over player inventory between servers
 
+As a player, it mostly just works. Most important to know is that factorio data transfer is slow, which means if you have "big" items (blueprints mostly) in your inventory it will take a long time to transfer when joining servers. For this reason it is recommended to keep blueprints in the blueprint library.
+
+A note on crashing servers:
+
+When a server crashes while you are online there won't be time to immediately upload the inventory. Instead, the inventory is uploaded as soon as the server restarts. This means if you have been playing on a different server from the one that crashed and gathered/consumed items but are offline at the time of the first server coming online again your inventory will reset to the autosave.
+
 ## Installation
 
 Run the following commands in the folder Clusterio is installed to:
@@ -9,11 +15,11 @@ Run the following commands in the folder Clusterio is installed to:
     npm install @clusterio/plugin-inventory_sync
     npx clusteriomaster plugin add @clusterio/plugin-inventory_sync
 
-Substitute clusteriomaster with clusterioslave or clusterioctl if this a dedicate slave or ctl installation respectively.
+Substitute clusteriomaster with clusterioslave or clusterioctl if this a dedicated slave or ctl installation respectively.
 
 ## Method of operation
 
-This plugin does even based synchronization of inventories. The data flow is as follows:
+This plugin does event based synchronization of inventories. The data flow is as follows:
 
 1. Player joins server, gets put in spectator mode
 
