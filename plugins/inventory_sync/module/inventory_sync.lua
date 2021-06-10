@@ -103,11 +103,43 @@ function inventory_sync.downloadInventory(playerName, data, number, total)
             -- end
         end
 
+        -- Load crafting queue
+        for _, queueItem in pairs(serialized_player.crafting_queue) do
+            player.begin_crafting {
+                count = queueItem.count,
+                recipe = queueItem.recipe,
+                silent = true, -- Fail silently if items are missing
+            }
+        end
+
         -- Misc
+        player.cheat_mode = serialized_player.cheat_mode
         player.force = serialized_player.force -- Force by name as string
         player.tag = serialized_player.tag
         player.color = serialized_player.color
         player.chat_color = serialized_player.chat_color
+
+        player.character_crafting_speed_modifier = serialized_player.character_crafting_speed_modifier
+        player.character_mining_speed_modifier = serialized_player.character_mining_speed_modifier
+        player.character_additional_mining_categories = serialized_player.character_additional_mining_categories
+        player.character_running_speed_modifier = serialized_player.character_running_speed_modifier
+        player.character_build_distance_bonus = serialized_player.character_build_distance_bonus
+        player.character_item_drop_distance_bonus = serialized_player.character_item_drop_distance_bonus
+        player.character_reach_distance_bonus = serialized_player.character_reach_distance_bonus
+        player.character_resource_reach_distance_bonus = serialized_player.character_resource_reach_distance_bonus
+        player.character_item_pickup_distance_bonus = serialized_player.character_item_pickup_distance_bonus
+        player.character_loot_pickup_distance_bonus = serialized_player.character_loot_pickup_distance_bonus
+        player.character_inventory_slots_bonus = serialized_player.character_inventory_slots_bonus
+        player.character_trash_slot_count_bonus = serialized_player.character_trash_slot_count_bonus
+        player.character_maximum_following_robot_count_bonus = serialized_player.character_maximum_following_robot_count_bonus
+        player.character_health_bonus = serialized_player.character_health_bonus
+        player.character_personal_logistic_requests_enabled = serialized_player.character_personal_logistic_requests_enabled
+
+        if serialized_player.flashlight then
+            player.enable_flashlight()
+        else
+            player.disable_flashlight()
+        end
 
         local startTick = global["inv_sync_download_start_tick "..game.players[playerName].name]
         game.print("Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks")
@@ -134,6 +166,25 @@ function inventory_sync.uploadInventory(playerIndex)
         -- admin = player.admin, -- This is handled by other parts of clusterio
         personal_logistic_slots = {},
         force = player.force.name,
+        cheat_mode = player.cheat_mode,
+        crafting_queue = {},
+        character_crafting_speed_modifier = player.character_crafting_speed_modifier,
+        character_mining_speed_modifier = player.character_mining_speed_modifier,
+        character_additional_mining_categories = player.character_additional_mining_categories,
+        character_running_speed_modifier = player.character_running_speed_modifier,
+        character_build_distance_bonus = player.character_build_distance_bonus,
+        character_item_drop_distance_bonus = player.character_item_drop_distance_bonus,
+        character_reach_distance_bonus = player.character_reach_distance_bonus,
+        character_resource_reach_distance_bonus = player.character_resource_reach_distance_bonus,
+        character_item_pickup_distance_bonus = player.character_item_pickup_distance_bonus,
+        character_loot_pickup_distance_bonus = player.character_loot_pickup_distance_bonus,
+        character_inventory_slots_bonus = player.character_inventory_slots_bonus,
+        character_trash_slot_count_bonus = player.character_trash_slot_count_bonus,
+        character_maximum_following_robot_count_bonus = player.character_maximum_following_robot_count_bonus,
+        character_health_bonus = player.character_health_bonus,
+        character_personal_logistic_requests_enabled = player.character_personal_logistic_requests_enabled,
+
+        flashlight = player.is_flashlight_enabled(),
     }
 
     -- Serialize hotbar
@@ -148,7 +199,6 @@ function inventory_sync.uploadInventory(playerIndex)
     -- Serialize personal logistics slots
     for i = 1, 200 do -- Nobody will have more than 200 logistics slots, right?
         local slot = player.get_personal_logistic_slot(i)
-        game.print(serpent.block(slot))
         if slot.name ~= nil then
             -- We leave [1] empty to force the JSON function to parse it as an object.
             -- When its parsed as an array we get inconsistent key datatypes depending
