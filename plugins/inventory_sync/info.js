@@ -11,34 +11,13 @@ MasterConfigGroup.define({
 	title: "Autosave Interval",
 	description: "Interval the player data is autosaved at in seconds.",
 	type: "number",
-	initial_value: 60,
-});
-MasterConfigGroup.define({
-	name: "spectator_until_ready",
-	title: "Spectator mode until ready",
-	description: "Set the player into spectator mode until the inventory is fully synchronized.",
-	type: "boolean",
-	initial_value: true,
-});
-MasterConfigGroup.define({
-	name: "clear_old_inventory",
-	title: "Clear old inventory on join",
-	description: "Clear old inventory on join to prevent duplication of items. Can cause greater disruption on failed or slow sync.",
-	type: "boolean",
-	initial_value: true,
+	initial_value: 600, // 10 minutes
 });
 MasterConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup { }
 InstanceConfigGroup.defaultAccess = ["master", "slave", "control"];
 InstanceConfigGroup.groupName = "inventory_sync";
-InstanceConfigGroup.define({
-	name: "enable_inventory_sync",
-	title: "Syncronize inventories",
-	description: "Syncronize inventories. Disable if this instance is running incompatible mods or otherwise shouldn't sync.",
-	type: "boolean",
-	initial_value: true,
-});
 InstanceConfigGroup.define({
 	name: "rcon_chunk_size",
 	title: "Rcon inventory chunk size",
