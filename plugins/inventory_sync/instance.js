@@ -31,7 +31,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		});
 		if (response.inventory) {
 			const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
-			const chunks = chunkify(chunkSize, response.inventory)
+			const chunks = chunkify(chunkSize, response.inventory);
 			this.logger.verbose(`Sending inventory for ${player.player_name} in ${chunks.length} chunks`);
 			for (let i = 0; i < chunks.length; i++) {
 				// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
@@ -42,11 +42,11 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 }
 function chunkify(chunkSize, string) {
 	if (string.length <= chunkSize) {
-		return [string]
-	} else {
-		let chunk = string.substr(0, chunkSize)
-		return [chunk, ...chunkify(chunkSize, string.replace(chunk, ""))]
+		return [string];
 	}
+	let chunk = string.substr(0, chunkSize);
+	return [chunk, ...chunkify(chunkSize, string.replace(chunk, ""))];
+
 }
 
 module.exports = {

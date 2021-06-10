@@ -70,16 +70,6 @@ module.exports = {
 	routes: ["/inventory"],
 
 	messages: {
-		chat: new libLink.Event({
-			type: "inventory_sync:chat",
-			links: ["instance-slave", "slave-master", "master-slave", "slave-instance"],
-			forwardTo: "master",
-			broadcastTo: "instance",
-			eventProperties: {
-				"instance_name": { type: "string" },
-				"content": { type: "string" },
-			},
-		}),
 		upload: new libLink.Request({
 			type: "inventory_sync:upload",
 			links: ["instance-slave", "slave-master"],
