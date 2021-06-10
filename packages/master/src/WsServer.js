@@ -274,9 +274,11 @@ ${err.stack}`
 			connector.on("close", () => {
 				if (this.slaveConnections.get(data.id) === connection) {
 					this.slaveConnections.delete(data.id);
+					this.master.slaveUpdated(this.master.slaves.get(data.id));
 				}
 			});
 			this.slaveConnections.set(data.id, connection);
+			this.master.slaveUpdated(this.master.slaves.get(data.id));
 
 
 		} else if (type === "register_control") {

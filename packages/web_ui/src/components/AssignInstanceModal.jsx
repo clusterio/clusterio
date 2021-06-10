@@ -5,24 +5,20 @@ import libLink from "@clusterio/lib/link";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
+import { useSlaveList } from "../model/slave";
 
 const { Paragraph } = Typography;
 
 
 export default function AssignInstanceModal(props) {
 	let [visible, setVisible] = useState(false);
-	let [slaves, setSlaves] = useState([]);
-	let [loading, setLoading] = useState(true);
+	let [slaveList] = useSlaveList();
 	let [applying, setApplying] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
 
 	function open() {
 		setVisible(true);
-		libLink.messages.listSlaves.send(control).then((result) => {
-			setSlaves(result.list);
-			setLoading(false);
-		});
 	}
 
 	function handleAssign() {
@@ -73,8 +69,8 @@ export default function AssignInstanceModal(props) {
 			</Paragraph>
 			<Form form={form} initialValues={{ slave: props.slaveId }}>
 				<Form.Item name="slave" label="Slave">
-					<Select loading={loading}>
-						{slaves.map((slave) => <Select.Option
+					<Select>
+						{slaveList.map((slave) => <Select.Option
 							key={slave["id"]}
 							value={slave["id"]}
 							disabled={!slave["connected"]}

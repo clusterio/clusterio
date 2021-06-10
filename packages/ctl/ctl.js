@@ -918,6 +918,8 @@ class Control extends libLink.Link {
 		this.keepOpen = false;
 	}
 
+	async slaveUpdateEventHandler() { }
+
 	async instanceUpdateEventHandler() { }
 
 	async saveListUpdateEventHandler() { }
