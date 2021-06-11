@@ -42,7 +42,7 @@ function download_inventory(playerName, data, number, total)
 
         -- Load personal logistics slots
         for i = 1, 200 do
-            local slot = serialized_player.personal_logistic_slots[tostring(i)]
+            local slot = serialized_player.personal_logistic_slots[tostring(i+1)] -- 1 is empty to force array to be spare
             if slot ~= nil then
                 player.set_personal_logistic_slot(i, slot)
             end
@@ -88,7 +88,9 @@ function download_inventory(playerName, data, number, total)
         end
 
         local startTick = global["inv_sync_download_start_tick "..game.players[playerName].name]
-        game.print("Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks")
+        local log_line = "Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks"
+        player.print(log_line)
+        log("[inventory_sync] "..log_line)
     end
 end
 
