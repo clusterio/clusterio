@@ -1082,7 +1082,7 @@ async function startControl() {
 			await controlConfig.init();
 
 		} else {
-			throw err;
+			throw new libErrors.StartupError(`Failed to load ${args.config}: ${err.message}`);
 		}
 	}
 

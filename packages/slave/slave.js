@@ -1777,7 +1777,7 @@ async function startSlave() {
 			await slaveConfig.init();
 
 		} else {
-			throw err;
+			throw new libErrors.StartupError(`Failed to load ${args.config}: ${err.message}`);
 		}
 	}
 
@@ -1886,6 +1886,14 @@ I           version of clusterio.  Expect things to break. I
 	startSlave().catch(err => {
 		if (err instanceof libErrors.AuthenticationFailed) {
 			logger.fatal(err.message);
+
+		} else if (err instanceof libErrors.StartupError) {
+			logger.fatal(`
++-----------------------------------+
+| Unable to to start clusterioslave |
++-----------------------------------+
+${err.stack}`
+			);
 
 		} else if (err instanceof libErrors.PluginError) {
 			logger.fatal(`

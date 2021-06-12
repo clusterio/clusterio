@@ -274,7 +274,7 @@ async function initialize() {
 			await parameters.masterConfig.init();
 
 		} else {
-			throw err;
+			throw new libErrors.StartupError(`Failed to load ${parameters.masterConfigPath}: ${err.message}`);
 		}
 	}
 
