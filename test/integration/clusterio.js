@@ -501,9 +501,10 @@ describe("Integration of Clusterio", function() {
 
 		describe("instanceUpdateEventHandler()", function() {
 			it("should have triggered for the previous instance status updates", function() {
-				let statusesToCheck = new Set(
-					["unassigned", "stopped", "creating_save", "exporting_data", "starting", "running", "stopping"]
-				);
+				let statusesToCheck = new Set([
+					"unassigned", "stopped", "creating_save", "exporting_data",
+					"starting", "running", "stopping", "deleted",
+				]);
 				let statusesNotSeen = new Set(statusesToCheck);
 
 				for (let update of getControl().instanceUpdates) {

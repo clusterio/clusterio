@@ -43,7 +43,7 @@ export default function CreateSaveModal(props) {
 		}
 		if (values.mapSettings && values.mapSettings.trim()) {
 			try {
-				mapSettings = JSON.parse(values.mapGenSettings);
+				mapSettings = JSON.parse(values.mapSettings);
 			} catch (err) {
 				form.setFields([{ name: "mapSettings", errors: [err.message] }]);
 				return;
@@ -59,6 +59,7 @@ export default function CreateSaveModal(props) {
 			map_gen_settings: mapGenSettings,
 			map_settings: mapSettings,
 		}).then(() => {
+			form.resetFields();
 			setVisible(false);
 		}).catch(
 			notifyErrorHandler("Error creating save")

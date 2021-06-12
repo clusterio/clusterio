@@ -252,7 +252,7 @@ class ControlConnection extends BaseConnection {
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		this.instanceUpdated(instance);
+		this._master.instanceUpdated(instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 

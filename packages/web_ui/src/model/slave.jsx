@@ -9,11 +9,6 @@ export function useSlave(id) {
 	let [slave, setSlave] = useState({ loading: true });
 
 	function updateSlave() {
-		if (!Number.isInteger(id)) {
-			setSlave({ missing: true });
-			return;
-		}
-
 		// XXX optimize by requesting only the slave in question
 		libLink.messages.listSlaves.send(control).then(result => {
 			let match = result.list.find(i => i.id === id);
@@ -26,6 +21,10 @@ export function useSlave(id) {
 	}
 
 	useEffect(() => {
+		if (!Number.isInteger(id)) {
+			setSlave({ missing: true });
+			return undefined;
+		}
 		updateSlave();
 
 		function updateHandler(newSlave) {
