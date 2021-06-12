@@ -48,18 +48,20 @@ For a plugin the most important file is the `info.js` file.
 Without it the plugin will not recognized by Clusterio.
 Here's an example of it:
 
-    const libLink = require("@clusterio/lib/link"); // For messages
+```js
+const libLink = require("@clusterio/lib/link"); // For messages
 
-    module.exports = {
-        name: "foo_frobber",
-        title: "Foo Frobber",
-        description: "Does advanced frobnication",
-        instanceEntrypoint: "instance",
-        masterEntrypoint: "master",
-        messages: {
-            /* See below */
-        },
-    };
+module.exports = {
+    name: "foo_frobber",
+    title: "Foo Frobber",
+    description: "Does advanced frobnication",
+    instanceEntrypoint: "instance",
+    masterEntrypoint: "master",
+    messages: {
+        /* See below */
+    },
+};
+```
 
 The following properties are recognized:
 
@@ -117,20 +119,22 @@ For both instanceEntrypoint and masterEntrypoint the path should not end with .j
 The plugin class should derive from its respective base class defined in `lib/plugin`.
 For example, to define a MasterPlugin class the following code can be used:
 
-    const libPlugin = require("@clusterio/lib/plugin");
+```js
+const libPlugin = require("@clusterio/lib/plugin");
 
-    class MasterPlugin extends libPlugin.BaseMasterPlugin {
-        async init() {
-            this.foo = 42;
-            await this.startFrobnication();
-        }
-
-        // ...
+class MasterPlugin extends libPlugin.BaseMasterPlugin {
+    async init() {
+        this.foo = 42;
+        await this.startFrobnication();
     }
 
-    module.exports = {
-        MasterPlugin,
-    }
+    // ...
+}
+
+module.exports = {
+    MasterPlugin,
+}
+```
 
 For the instance plugin it's exactly the same except "Master" is replaced with "Instance", and for the clusterioctl plugin "Control" is used.
 The available hooks that you can override are documented in the base class [in lib/plugin.js](/packages/lib/plugin.js).
@@ -138,11 +142,13 @@ The available hooks that you can override are documented in the base class [in l
 It's best to avoid defining a constructor, but if you insist on defining one, forward all arguments to the base class.
 E.g.:
 
-        constructor(...args) {
-            super(...args);
+```js
+constructor(...args) {
+    super(...args);
 
-            // Code here
-        }
+    // Code here
+}
+```
 
 The arguments passed may change, and attempting to modify them will result in unpredicatable behaviour.
 The async init method is always called immediatly after the constructor, so there's little reason to do this.
@@ -154,9 +160,11 @@ The base plugin classes provide a winston logger for logging messages to the sha
 For instances a copy of the log is also stored on the slave the instance is on.
 To use it, pass a string to one of the log levels functions, for example:
 
-    async init() {
-        this.logger.info("Initializing frobbing");
-    }
+```js
+async init() {
+    this.logger.info("Initializing frobbing");
+}
+```
 
 Metadata covering which plugin and instance (for instance plugin classes) the log event happened on will automatically be attached to the log message.
 
@@ -180,11 +188,13 @@ These levels have roughly the following meanings:
 
 For guarding unexpected errors the best option is to log a short description along with the`stack` property of the Error:
 
-    try {
-        // Operation that should not throw but may end up throwing
-    } catch (err) {
-        this.logger.error(`Operation failed:\n${err.stack}`);
-    )
+```js
+try {
+    // Operation that should not throw but may end up throwing
+} catch (err) {
+    this.logger.error(`Operation failed:\n${err.stack}`);
+)
+```
 
 For plugin hooks expections thrown are automatically catched and logged, but for event handlers registered on EventEmitters it's critical that exceptions are catched and handled appropriately.
 
@@ -195,30 +205,34 @@ Clusterio provides a configuration system that handles storing, distributing, ed
 You can take advantage of it by subclassing `PluginConfigGroup`, setting `defaultAccess` to where config entries can be accessed from, setting the `groupName` to your plugin name, defining fields on it, finalizing it, and passing it as either `MasterConfigGroup` or `InstanceConfigGroup` in the `info.js` export.
 For example in info.js:
 
-    const libConfig = require("@clusterio/lib/config");
+```js
+const libConfig = require("@clusterio/lib/config");
 
-    class MasterConfigGroup extends libConfig.PluginConfigGroup { }
-    MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
-    MasterConfigGroup.groupName = "foo_frobber";
-    MasterConfigGroup.define({
-        name: "level",
-        description: "Level of frobnication done",
-        type: "number",
-        initial_value: 2,
-    });
-    MasterConfigGroup.finalize();
+class MasterConfigGroup extends libConfig.PluginConfigGroup { }
+MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
+MasterConfigGroup.groupName = "foo_frobber";
+MasterConfigGroup.define({
+    name: "level",
+    description: "Level of frobnication done",
+    type: "number",
+    initial_value: 2,
+});
+MasterConfigGroup.finalize();
 
-    module.exports = {
-        ...
-        MasterConfigGroup: MasterConfigGroup,
-    };
+module.exports = {
+    ...
+    MasterConfigGroup: MasterConfigGroup,
+};
+```
 
 Code inside the `MasterPlugin` class will then be able to access the level config field through the `Config` object at `this.master.config`, for example in the MasterPluginClass:
 
-    async init() {
-        let level = this.master.config.get("foo_frobber.level");
-        this.logger.info(`I got a frobnication level of ${level}`);
-    }
+```js
+async init() {
+    let level = this.master.config.get("foo_frobber.level");
+    this.logger.info(`I got a frobnication level of ${level}`);
+}
+```
 
 The same applies for instance configs, replace "master" with "instance" where appropriate.
 See [Configuration System](config-system.md) for more details on how this system works.
@@ -230,11 +244,13 @@ If the plugin requires a certain feature to be enabled to function it should thr
 The most common such feature is the save patching, which can be disabled to run vanilla or scenarios not compatible with Clusterio.
 For example:
 
-    async init() {
-        if (!this.instance.config.get("factorio.enable_save_patching")) {
-            throw new Error("foo_frobber plugin requires save patching.");
-        }
+```js
+async init() {
+    if (!this.instance.config.get("factorio.enable_save_patching")) {
+        throw new Error("foo_frobber plugin requires save patching.");
     }
+}
+```
 
 
 ## Communicating with Factorio
@@ -243,14 +259,15 @@ For pushing data into Factorio there's RCON, which lets you send arbitrary Lua c
 This is done by calling the `sendRcon` method on the plugin object.
 For example:
 
-    async onStart() {
-        let response = await this.sendRcon(
-            "/sc rcon.print('data')"
-        );
+```js
+async onStart() {
+    let response = await this.sendRcon(
+        "/sc rcon.print('data')"
+    );
 
-        // Do stuff with response.
-    }
-
+    // Do stuff with response.
+}
+```
 
 Because data into Factorio is streamed at a rate of 3-6 kB/s by default, it is recommended to avoid sending large commands as much as possible, and to strip down the data on the ones you send to only what's strictly necessary.
 You can have lua code injected into the game via the module system and call that from RCON to avoid having to send code through the commands.
@@ -261,24 +278,28 @@ The `send_json` API allows sending JSON payloads on channels that plugins can li
 From a plugin you listen for an event named `ipc-channel_name` in order to get data sent by `send_json`.
 For example in the plugin code:
 
-    async init() {
-        this.instance.server.on("ipc-my_plugin_foo", content =>
-            this.handleFoo(content).catch(err => this.logger.error(
-                `Error handling foo:\n${err.stack}`
-            ))
-        );
-    }
+```js
+async init() {
+    this.instance.server.on("ipc-my_plugin_foo", content =>
+        this.handleFoo(content).catch(err => this.logger.error(
+            `Error handling foo:\n${err.stack}`
+        ))
+    );
+}
 
-    async handleFoo(content) {
-        // Do stuff with content
-    }
+async handleFoo(content) {
+    // Do stuff with content
+}
+```
 
 And then in the module for the plugin:
 
-    local clusterio_api = require("modules/clusterio/api")
+```lua
+local clusterio_api = require("modules/clusterio/api")
 
-    -- inside some event handler
-    clusterio_api.send_json("my_plugin_foo", { data = 123 })
+-- inside some event handler
+clusterio_api.send_json("my_plugin_foo", { data = 123 })
+```
 
 It's recommended to either use the plugin name as the channel name or to prefix the channel name with the name of the plugin if you need multiple channels.
 It's also important to catch any errors that might occur as they will otherwise be propogated to the instance code and kill the server.
@@ -310,18 +331,20 @@ Events are defined as properties of the messages object exported by `info.js` th
 The name of the property correspond to the handler invoked on the plugin class.
 The Event constructor takes an object of properties that define the event, for example the following could be defined in `info.js`:
 
-    messages: {
-        startFrobnication: new libLink.Event({
-            type: "foo_frobber:start_frobnication",
-            links: ["master-slave", "slave-instance"],
-            forwardTo: "instance",
-            eventRequired: ["frobnication_type"],
-            eventProperties: {
-                "frobnication_type": { type: "string" },
-                "urgent": { type: "boolean" },
-            },
-        }),
-    },
+```js
+messages: {
+    startFrobnication: new libLink.Event({
+        type: "foo_frobber:start_frobnication",
+        links: ["master-slave", "slave-instance"],
+        forwardTo: "instance",
+        eventRequired: ["frobnication_type"],
+        eventProperties: {
+            "frobnication_type": { type: "string" },
+            "urgent": { type: "boolean" },
+        },
+    }),
+},
+```
 
 This specifies an event that can be sent from the master to a slave, and from a slave to an instance.
 It also specifies that the event must contain the property `frobnication_type`, with a string value in the data payload and that it may optionally contain a boolean `urgent` property.
@@ -383,24 +406,26 @@ The name of the property corresponds to the handler invoked on the plugin class.
 The Request constructor takes an object of properties that define the event.
 For example, the following could be defined in `info.js`:
 
-    messages: {
-        reportFrobnication: new libLink.Request({
-            type: "foo_frobber:report_frobnication",
-            links: ["master-slave", "slave-instance"],
-            forwardTo: "instance",
-            requestRequired: ["verbosity"],
-            requestProperties: {
-                "verbosity": { type: "integer" },
-                "special": { type: "boolean" },
+```js
+messages: {
+    reportFrobnication: new libLink.Request({
+        type: "foo_frobber:report_frobnication",
+        links: ["master-slave", "slave-instance"],
+        forwardTo: "instance",
+        requestRequired: ["verbosity"],
+        requestProperties: {
+            "verbosity": { type: "integer" },
+            "special": { type: "boolean" },
+        },
+        responseProperties: {
+            "report": {
+                type: "array",
+                items: { type: "string" },
             },
-            responseProperties: {
-                "report": {
-                    type: "array",
-                    items: { type: "string" },
-                },
-            },
-        }),
-    },
+        },
+    }),
+},
+```
 
 This specifies a request that can be sent from the master to a slave, and from a slave to an instance.
 The request data must contain the property `verbosity` with an integer number as the value, as well as the `instance_id` property (implied by `forwardTo: "instance"`) and it may also contain a boolean `special` property.
@@ -459,10 +484,12 @@ For `InstancePlugin` code the link to the slave is the `instance` itself, which 
 The `.info` property of the plugin class exposes the data exported from the plugin's `info.js` module.
 In other words:
 
-    // In an InstancePlugin class
-    async frobnicate() {
-        this.info.messages.exampleEvent.send(this.instance, { foo: "bar" });
-    }
+```js
+// In an InstancePlugin class
+async frobnicate() {
+    this.info.messages.exampleEvent.send(this.instance, { foo: "bar" });
+}
+```
 
 For the Request class the send method is async and returns the response data received from the target it was sent to, or throws an error if the request failed.
 
@@ -478,9 +505,11 @@ Plugins must respond to the prepare disconnect by stopping any processess it doe
 This can be accomplished either through listening for the prepare disconnect hook, or by checking the `connected` or `closing` property of the connector for the master/slave connection.
 For example the sending of an event from an `InstancePlugin` class can be stopped while the connection is closing by using the following code:
 
-    if (!this.slave.connector.closing) {
-        this.info.messages.frobnicate.send(this.instance, { foo: "bar" });
-    }
+```js
+if (!this.slave.connector.closing) {
+    this.info.messages.frobnicate.send(this.instance, { foo: "bar" });
+}
+```
 
 If the event or request needs to be sent to the master it can be put into a queue stored on the plugin instance and sent out when the connection is established again.
 The re-establishement of the connection is  notified to plugins via the `connect` event to the `onMasterConnectionEvent` and `onSlaveConnectionEvent` hooks.
@@ -500,29 +529,33 @@ Clusterio comes with its own Prometheus client implementation, one part due to N
 In its simplest form collecting data from plugins consists of defining the metric and updating it somewhere in the plugin code.
 For example:
 
-    const { Counter } = require("@clusterio/lib/prometheus");
+```js
+const { Counter } = require("@clusterio/lib/prometheus");
 
-    const fooMetric = new Counter(
-        "clusterio_foo_frobber_foo_metric", "Measures the level of foo",
-    );
+const fooMetric = new Counter(
+    "clusterio_foo_frobber_foo_metric", "Measures the level of foo",
+);
 
-    // Somewhere in the master plugin code
-    fooMetric.inc();
+// Somewhere in the master plugin code
+fooMetric.inc();
+```
 
 This works for master plugins, and the metric will be automatically available through the /metric HTTP endpoint.
 It's recommended that plugin metrics follow `clusterio_<plugin_name>_<metric_name>` as the naming scheme.
 
 For metrics that are per-instance, you must define an `instance_id` label and set it accordingly, for example:
 
-    const { Counter } = require("@clusterio/lib/prometheus");
+```js
+const { Counter } = require("@clusterio/lib/prometheus");
 
-    const barMetric = new Gauge(
-        "clusterio_foo_frobber_bar_metric", "Bar instance level",
-        { labels: ["instance_id"] }
-    );
+const barMetric = new Gauge(
+    "clusterio_foo_frobber_bar_metric", "Bar instance level",
+    { labels: ["instance_id"] }
+);
 
-    // Somewhere in the instance plugin code
-    barMetric.labels(String(this.instance.id)).set(someValue);
+// Somewhere in the instance plugin code
+barMetric.labels(String(this.instance.id)).set(someValue);
+```
 
 Metrics are automatically registered to the default registry, and this default registry is automatically polled by the master server on slaves.
 This means that it's important that you place the definition of the metric at module level so that it's not created more than once over the lifetime of a slave.
@@ -536,28 +569,32 @@ For statistics you need to update on collection there's an `onMetrics` hook on b
 The control entrypoint for plugins allows you to extend clustectl with your own commands.
 The creation of custom commands typically starts with defining a command tree for the plugin:
 
-    const { Command, CommandTree } = require("@clusterio/lib/command");
-    const fooFrobberCommands = new CommandTree({
-        name: "foo-frobber", description: "Foo Frobber Plugin commands"
-    });
+```js
+const { Command, CommandTree } = require("@clusterio/lib/command");
+const fooFrobberCommands = new CommandTree({
+    name: "foo-frobber", description: "Foo Frobber Plugin commands"
+});
+```
 
 Then commands are added to the the plugin's command tree:
 
-    const info = require("./info");
+```js
+const info = require("./info");
 
-    fooFrobberCommands.add(new Command({
-        definition: ["frobnicate <type>", "Do frobnications", (yargs) => {
-            yargs.positional("level", {
-                describe: "type of frobnication", type: "string"
-            });
-        }],
-        handler: async function(args, control) {
-            await info.messages.frobnicate.send(control, {
-                instance_name: "Console",
-                content: args.message,
-            });
-        },
-    }));
+fooFrobberCommands.add(new Command({
+    definition: ["frobnicate <type>", "Do frobnications", (yargs) => {
+        yargs.positional("level", {
+            describe: "type of frobnication", type: "string"
+        });
+    }],
+    handler: async function(args, control) {
+        await info.messages.frobnicate.send(control, {
+            instance_name: "Console",
+            content: args.message,
+        });
+    },
+}));
+```
 
 For a command the `definition` is the arguments to pass to [yargs.command](http://yargs.js.org/docs/#api-reference-commandcmd-desc-builder-handler) (see also [yargs.positional](http://yargs.js.org/docs/#api-reference-positionalkey-opt) and [yargs.options](http://yargs.js.org/docs/#api-reference-optionskey-opt) for setting up positional and optional arguments to commands).
 The `handler` is an async function that's invoked when the command is executed and it's passed the parsed command line arguments and a reference to the `Control` class of clusterioctl.
@@ -567,14 +604,16 @@ Note that messages sent from clusterioctl needs to have `"control-master"` as a 
 
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in `addCommands` callback of the Control plugin:
 
-    const libPlugin = require("@clusterio/lib/plugin");
+```js
+const libPlugin = require("@clusterio/lib/plugin");
 
-    class ControlPlugin extends libPlugin.BaseControlPlugin {
-        async addCommands(rootCommand) {
-            rootCommand.add(fooFrobberCommands);
-        }
+class ControlPlugin extends libPlugin.BaseControlPlugin {
+    async addCommands(rootCommand) {
+        rootCommand.add(fooFrobberCommands);
     }
+}
 
-    module.exports = {
-        ControlPlugin,
-    }
+module.exports = {
+    ControlPlugin,
+}
+```

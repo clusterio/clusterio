@@ -56,7 +56,17 @@ In order to get the development environment up and running you will need to run 
     npx lerna bootstrap --hoist
 
 This installs dependencies needed by tests and links the packages up so they work from the git work tree.
+To start a cluster from the repo, substitute the commands in the normal readme as follows:
 
+    npx clusteriomaster -> node packages/master
+    npx clusterioslave -> node packages/slave
+    npx clusterioctl -> node packages/ctl
+
+For web development on the master there are also the following flags:
+
+`--dev` - Start the master with webpack hot reloading of core components
+
+`--dev-plugin [name]` - Start the master with hot reloading of a plugin
 
 ### Starting a Feature Branch
 

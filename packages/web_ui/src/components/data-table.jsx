@@ -218,7 +218,7 @@ class DataTable extends Component {
 					onCancel={this.hideEditModal.bind(this)}
 					footer={null}
 					title={
-						<h2>{this.state.inserting ? "Legg til" : "Rediger"}</h2>
+						<h2>{this.state.inserting ? "Add" : "Edit"}</h2>
 					}
 				>
 					{this.state.showEditModal && <Form
@@ -249,7 +249,7 @@ class DataTable extends Component {
 						</Form.Item>)}
 						<Form.Item>
 							<Button type="primary" htmlType="submit">
-								{this.state.inserting ? "Legg til" : "Lagre"}
+								{this.state.inserting ? "Save" : "Save"}
 							</Button>
 						</Form.Item>
 					</Form>}
