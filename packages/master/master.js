@@ -22,6 +22,7 @@ const setBlocking = require("set-blocking");
 const yargs = require("yargs");
 const util = require("util");
 const winston = require("winston");
+const jwt = require("jsonwebtoken");
 
 // homebrew modules
 const libErrors = require("@clusterio/lib/errors");
@@ -135,6 +136,10 @@ async function handleBootstrapCommand(args, masterConfig) {
 		// eslint-disable-next-line no-console
 		console.log(user.createToken(masterConfig.get("master.auth_secret")));
 
+	} else if (subCommand === "generate-slave-token") {
+		// eslint-disable-next-line no-console
+		console.log(jwt.sign({ aud: "slave", slave: args.id }, masterConfig.get("master.auth_secret")));
+
 	} else if (subCommand === "create-ctl-config") {
 		let admin = userManager.users.get(args.name);
 		if (!admin) {
@@ -198,6 +203,9 @@ async function initialize() {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
 				.command("generate-user-token <name>", "Generate authentication token for the given user")
+				.command("generate-slave-token <id>", "Generate authentication token for the given slave", yargs => {
+					yargs.positional("id", { describe: "ID of the slave", type: "number" });
+				})
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {
 						describe: "Path to output config (- for stdout)", type: "string",
