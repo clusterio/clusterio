@@ -21,7 +21,8 @@ function CreateInstanceButton(props) {
 	async function createInstance() {
 		let values = form.getFieldsValue();
 		if (!values.instanceName) {
-			form.setFields([{ name: "mapGenSettings", errors: ["Name is required"] }]);
+			form.setFields([{ name: "instanceName", errors: ["Name is required"] }]);
+			return;
 		}
 
 		let instanceConfig = new libConfig.InstanceConfig("control");
