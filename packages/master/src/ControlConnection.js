@@ -130,7 +130,11 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async generateSlaveTokenRequestHandler(message) {
-		return { token: this.generateSlaveToken(message.data.slave_id) };
+		let slaveId = message.data.slave_id;
+		if (slaveId === null) {
+			slaveId = Math.random() * 2**31 | 0;
+		}
+		return { token: this.generateSlaveToken(slaveId) };
 	}
 
 	async createSlaveConfigRequestHandler(message) {

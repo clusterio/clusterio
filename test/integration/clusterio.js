@@ -167,6 +167,9 @@ describe("Integration of Clusterio", function() {
 			it("runs", async function() {
 				await execCtl("slave generate-token --id 42");
 			});
+			it("runs without an id", async function() {
+				await execCtl("slave generate-token");
+			});
 		});
 		describe("instance list", function() {
 			it("runs", async function() {
