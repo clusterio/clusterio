@@ -273,12 +273,6 @@ export class Control extends libLink.Link {
 				handler(info);
 			}
 		}
-		if (info.slave_id !== undefined) {
-			let slaveHandlers = this.slaveLogHandlers.get(info.slave_id);
-			for (let handler of slaveHandlers || []) {
-				handler(info);
-			}
-		}
 	}
 
 	async onInstanceLog(id, handler) {

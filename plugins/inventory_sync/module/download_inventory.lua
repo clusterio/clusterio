@@ -4,7 +4,7 @@ local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue"
 local inventories = require("modules/inventory_sync/define_player_inventories")
 
 function download_inventory(playerName, data, number, total)
-    local player = game.players[playerName]
+    local player = game.get_player(playerName)
     if player == nil then return end
     if number then
         if global.download_cache[playerName] == nil then
@@ -16,7 +16,7 @@ function download_inventory(playerName, data, number, total)
 
     if number ~= total then
         -- Show progress in console
-        -- game.players[playerName].print("Downloaded "..(number + 1).."/"..total.." parts")
+        -- player.print("Downloaded "..(number + 1).."/"..total.." parts")
         -- Show progress in GUI
         progress_dialog(player, number+1, total)
 
@@ -31,7 +31,6 @@ function download_inventory(playerName, data, number, total)
         -- Load downloaded inventory
         local serialized_player = game.json_to_table(global.download_cache[playerName])
         global.download_cache[playerName] = nil -- remove data to lower mapsize
-        local player = game.players[playerName]
         -- Load inventories
         for _, inv in pairs(inventories) do
             local inventory = player.get_inventory(inv)
@@ -87,7 +86,7 @@ function download_inventory(playerName, data, number, total)
             player.disable_flashlight()
         end
 
-        local startTick = global["inv_sync_download_start_tick "..game.players[playerName].name]
+        local startTick = global["inv_sync_download_start_tick "..player.name]
         local log_line = "Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks"
         player.print(log_line)
         log("[inventory_sync] "..log_line)

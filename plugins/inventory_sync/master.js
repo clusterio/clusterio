@@ -1,5 +1,5 @@
 "use strict";
-const fs = require("fs-extra");
+const fs = require("fs").promises;
 const path = require("path");
 
 const libPlugin = require("@clusterio/lib/plugin");
@@ -40,14 +40,14 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	}
 
 	async uploadRequestHandler(message) {
-		console.log("Saving inventory for", message.data.player_name);
+		this.logger.verbose(`Saving inventory for ${message.data.player_name}`);
 		this.inventories[message.data.player_name] = message.data.inventory;
 
 		return { success: true };
 	}
 
 	async downloadRequestHandler(message) {
-		console.log("Downloading inventory for", message.data.player_name);
+		this.logger.verbose(`Downloading inventory for ${message.data.player_name}`);
 		return {
 			player_name: message.data.player_name,
 			inventory: this.inventories[message.data.player_name],

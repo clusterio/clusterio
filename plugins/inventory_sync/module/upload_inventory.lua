@@ -4,7 +4,7 @@ local inventories = require("modules/inventory_sync/define_player_inventories")
 local save_crafts = require("modules/inventory_sync/save_crafts")
 
 function upload_inventory(playerIndex)
-    local player = game.players[playerIndex]
+    local player = game.get_player(playerIndex)
 
     local serialized_player = {
         name = player.name,

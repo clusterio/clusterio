@@ -12,9 +12,6 @@ function load_crafting_queue(crafting_queue, player)
 
     -- Load crafting queue
     for _, queueItem in pairs(crafting_queue.crafting_queue) do
-        local recipe = game.recipe_prototypes[queueItem.recipe]
-        -- game.print("Crafting "..queueItem.recipe)
-
         -- Start crafting (consume items)
         player.begin_crafting {
             count = queueItem.count,

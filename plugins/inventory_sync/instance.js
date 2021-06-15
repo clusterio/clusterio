@@ -5,6 +5,20 @@
 const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 
+/**
+ * Splits string into array of strings with max of a certain length
+ * @param {Number} chunkSize - Max length of each chunk
+ * @param {String} string - String to split into chunks
+ * @returns {String[]} Chunks
+ */
+function chunkify(chunkSize, string) {
+	if (string.length <= chunkSize) {
+		return [string];
+	}
+	let chunk = string.substr(0, chunkSize);
+	return [chunk, ...chunkify(chunkSize, string.replace(chunk, ""))];
+}
+
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
 		this.inventoryQueue = [];
@@ -35,18 +49,11 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			this.logger.verbose(`Sending inventory for ${player.player_name} in ${chunks.length} chunks`);
 			for (let i = 0; i < chunks.length; i++) {
 				// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
-				await this.sendRcon(`/sc inventory_sync.downloadInventory('${response.player_name}', '${libLuaTools.escapeString(response.inventory)}', ${i + 1}, ${chunks.length})`);
+				await this.sendRcon(`/sc inventory_sync.downloadInventory('${response.player_name}', '
+				${libLuaTools.escapeString(response.inventory)}', ${i + 1}, ${chunks.length})`);
 			}
 		}
 	}
-}
-function chunkify(chunkSize, string) {
-	if (string.length <= chunkSize) {
-		return [string];
-	}
-	let chunk = string.substr(0, chunkSize);
-	return [chunk, ...chunkify(chunkSize, string.replace(chunk, ""))];
-
 }
 
 module.exports = {

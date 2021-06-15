@@ -19,7 +19,7 @@ inventory_sync.add_commands = add_commands
 inventory_sync.events = {}
 -- Cleanup
 inventory_sync.events[defines.events.on_player_removed] = function(event)
-    local player = game.players[event.player_index]
+    local player = game.get_player(event.player_index)
 
     -- Remove inventory download performance counter
     global["inv_sync_download_start_tick "..player.name] = nil
@@ -41,7 +41,7 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 end
 
 function inventory_sync.initiateInventoryDownload(playerIndex)
-    local player = game.players[playerIndex]
+    local player = game.get_player(playerIndex)
     player.print("Initiating inventory download...")
     global["inv_sync_download_start_tick "..player.name] = game.tick
     if global.download_cache == nil then

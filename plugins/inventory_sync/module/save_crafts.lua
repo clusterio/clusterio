@@ -1,6 +1,6 @@
 function save_crafts(event)
     if event.player_index then
-        local player = game.players[event.player_index]
+        local player = game.get_player(event.player_index)
         local crafting_queue = {}
 
         -- Avoid overwriting old save
