@@ -422,7 +422,7 @@ messages.generateSlaveToken = new Request({
 	links: ["control-master"],
 	permission: "core.slave.generate_token",
 	requestProperties: {
-		"slave_id": { type: "integer" },
+		"slave_id": { type: ["integer", "null"] },
 	},
 	responseProperties: {
 		"token": { type: "string" },

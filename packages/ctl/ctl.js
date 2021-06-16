@@ -137,10 +137,11 @@ slaveCommands.add(new libCommand.Command({
 
 slaveCommands.add(new libCommand.Command({
 	definition: ["generate-token", "Generate token for a slave", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", demandOption: true });
+		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id" });
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: args.id });
+		let slaveId = typeof args.id === "number" ? args.id : null;
+		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: slaveId });
 		print(response.token);
 	},
 }));
