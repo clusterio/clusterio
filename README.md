@@ -44,7 +44,7 @@ If you are starting a new cluster it's highly recommended to use the 2.0 alpha.
 
 Clusterio is a clustered Factorio server manager that provides the tooling for implementing cross server interactions in Factorio.
 It was previously best known for implementing cross server transfer and cloud storage of items via teleporter chests.
-But this functionality has been pulled out of Clusterio into its own plugin for Clusterio named [Subspace Storage](https://github.com/clusterio/factorioClusterioMod).
+But this functionality has been pulled out of Clusterio into its own plugin for Clusterio named [Subspace Storage](https://github.com/clusterio/subspace_storage).
 
 By itself Clusterio doesn't change the gameplay in any way, you could even use Clusterio to manage completely vanilla Factorio servers.
 Plugins do the work of modding in the visible changes into the game, see the [Plugins section](#plugins) for ready made plugins you can install into a Clusterio cluster.
@@ -70,7 +70,7 @@ These are the plugins supported and maintained by the Clusterio developers:
 - [Global Chat](/plugins/global_chat/README.md): share the in-game chat between servers.
 - [Research Sync](/plugins/research_sync/README.md): synchronize research progress and technologies unlocked between servers.
 - [Statistics Exporter](/plugins/statistics_exporter/README.md): collect in-game statistics from all the servers and makes it available to the Prometheus endpoint on the master server.
-- [Subspace Storage](https://github.com/clusterio/factorioClusterioMod): Provide shared storage that can transport items between servers via teleport chests.
+- [Subspace Storage](https://github.com/clusterio/subspace_storage): Provide shared storage that can transport items between servers via teleport chests.
 - [Player Auth](/plugins/player_auth/README.md): Provides authentication to the cluster via logging into a Factorio server.
 
 There's also plugins developed and maintained by the community:
