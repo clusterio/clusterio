@@ -1620,10 +1620,10 @@ class Slave extends libLink.Link {
 		} catch (err) {
 			setBlocking(true);
 			logger.error(`
-+--------------------------------------------------------------------+
-| Unexpected error occured while shutting down slave, please report  |
-| it to https://github.com/clusterio/factorioClusterio/issues        |
-+--------------------------------------------------------------------+
++------------------------------------------------------------+
+| Unexpected error occured while shutting down slave, please |
+| report it to https://github.com/clusterio/clusterio/issues |
++------------------------------------------------------------+
 ${err.stack}`
 			);
 			// eslint-disable-next-line node/no-process-exit
@@ -1905,10 +1905,10 @@ ${err.original.stack}`
 
 		} else {
 			logger.fatal(`
-+--------------------------------------------------------------+
-| Unexpected error occured while starting slave, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues  |
-+--------------------------------------------------------------+
++------------------------------------------------------------+
+| Unexpected error occured while starting slave, please      |
+| report it to https://github.com/clusterio/clusterio/issues |
++------------------------------------------------------------+
 ${err.stack}`
 			);
 		}

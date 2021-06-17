@@ -4,7 +4,7 @@
 <br/>
 <br/>
 
-# factorioClusterio
+# Clusterio
 
 Discord for development/support/play: https://discord.gg/5XuDkje
 
@@ -128,11 +128,11 @@ If you need it open an issue about it.
 <!--
 Clusterio has *very* limited support for using docker.
 
-    sudo docker build -t clusterio --no-cache --force-rm factorioClusterio
+    sudo docker build -t clusterio --no-cache --force-rm clusterio
 
 	sudo docker run --name master -e MODE=master -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
 
-	sudo docker run --name slave -e MODE=slave -e INSTANCE=world1 -v /srv/clusterio/instances:/factorioClusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
+	sudo docker run --name slave -e MODE=slave -e INSTANCE=world1 -v /srv/clusterio/instances:/clusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
 The -v flag is used to specify the instance directory.
 Your instances (save files etc) will be stored there.

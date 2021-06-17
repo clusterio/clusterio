@@ -187,8 +187,8 @@
 - Fixed SIGINT being sent twice to Factorio server when interrupted by CTRL+C on Linux ([#217][#217]).
 - Fixed package.json incorrectly reporting the license as ISC.
 
-[#217]: https://github.com/clusterio/factorioClusterio/issues/217
-[#229]: https://github.com/clusterio/factorioClusterio/issues/229
+[#217]: https://github.com/clusterio/clusterio/issues/217
+[#229]: https://github.com/clusterio/clusterio/issues/229
 
 ### Breaking Changes
 

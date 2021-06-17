@@ -101,7 +101,7 @@ jobs:
           name: clusterio_docker_image_testing
           path: .
       - name: ls
-        run: ls && ls clusterio_docker_image_testing && ls /home/runner/work/factorioClusterio && ls /home/runner/work/factorioClusterio/factorioClusterio
+        run: ls && ls clusterio_docker_image_testing && ls /home/runner/work/clusterio && ls /home/runner/work/clusterio/clusterio
       - name: Load docker image
         run: docker load -i clusterio_docker_image_testing
 

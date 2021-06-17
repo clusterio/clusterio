@@ -1185,10 +1185,10 @@ I           version of clusterio.  Expect things to break. I
 	startControl().catch(err => {
 		if (!(err instanceof libErrors.StartupError)) {
 			logger.fatal(`
-+----------------------------------------------------------------+
-| Unexpected error occured while starting control, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues    |
-+----------------------------------------------------------------+
++------------------------------------------------------------+
+| Unexpected error occured while starting control, please    |
+| report it to https://github.com/clusterio/clusterio/issues |
++------------------------------------------------------------+
 ${err.stack}`
 			);
 		} else {

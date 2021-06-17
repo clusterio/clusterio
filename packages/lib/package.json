@@ -2,7 +2,7 @@
   "name": "@clusterio/lib",
   "description": "Shared library for Clusterio",
   "version": "2.0.0-alpha.7",
-  "repository": "https://github.com/clusterio/factorioClusterio",
+  "repository": "https://github.com/clusterio/clusterio",
   "license": "MIT",
   "keywords": [
     "factorio"

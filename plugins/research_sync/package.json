@@ -3,15 +3,15 @@
   "version": "2.0.0-alpha.7",
   "description": "Clusterio plugin for synchronizing research between Factorio servers",
   "author": "Hornwitser <github@hornwitser.no>",
-  "homepage": "https://github.com/clusterio/factorioClusterio#readme",
+  "homepage": "https://github.com/clusterio/clusterio#readme",
   "license": "MIT",
-  "repository": "clusterio/factorioClusterio",
+  "repository": "clusterio/clusterio",
   "scripts": {
     "build": "webpack-cli --env production",
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
-    "url": "https://github.com/clusterio/factorioClusterio/issues"
+    "url": "https://github.com/clusterio/clusterio/issues"
   },
   "engines": {
     "node": ">=12"
