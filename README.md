@@ -10,14 +10,10 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 ## Important notice
 
-This is the development branch for factorioClusterio 2.0 which is currently undergoing heavy restructuring and refactoring.
-Expect plugins and existing installations to frequently break when using this branch.
-If you don't want to be an alpha tester for 2.0 please use the stable [1.2.x branch][1.2.x] or [latest stable release](https://github.com/clusterio/factorioClusterio/releases/latest).
+Clusterio 2.0 is still in alpha, however the previous stable has been abandoned and is no longer supported.
+Despite being alpha it's reasonably stable now and there's no major breakages expected before a stable release of 2.0.
+If you are starting a new cluster it's highly recommended to use the 2.0 alpha.
 
-Installation instructions below are for the unstable master branch.
-Go to the page for the [1.2.x branch][1.2.x] for instructions on how to install the stable version.
-
-[1.2.x]: https://github.com/clusterio/factorioClusterio/tree/1.2.x
 
 ### Ways to support me/the project:
 
@@ -100,8 +96,6 @@ Otherwise see below for OS specific instructions.
 
 ### Ubuntu setup
 
-**Warning**: These instructions are for the unstable master version and is not recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
-
 1.  Install Node.js v12 or higher.
     For 20.04 LTS or below the version of Node.js provided by the Ubuntu repos are too old and you will have to use the nodesource PPA, otherwise you may skip the first line.
 
@@ -145,8 +139,6 @@ Your instances (save files etc) will be stored there.
 -->
 
 ### Windows setup
-
-**Warning**: These instructions are for the unstable master version and is not recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
 1.  Download and install the latest LTS release from http://nodejs.org.
 
