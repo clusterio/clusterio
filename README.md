@@ -32,17 +32,15 @@ Go to the page for the [1.2.x branch][1.2.x] for instructions on how to install 
 * [Introduction](#introduction)
 * [Features](#features)
 * [Plugins](#plugins)
-* [Ubuntu setup](#ubuntu-setup)
-* [Windows setup](#windows-setup)
-* [MacOS setup](#macos-setup)
-* [Installing Plugins](#installing-plugins)
+* [Installation](#installation)
+  * [Ubuntu setup](#ubuntu-setup)
+  * [Windows setup](#windows-setup)
+  * [MacOS setup](#macos-setup)
+  * [Installing Plugins](#installing-plugins)
 * [Configure Master Server](#configure-master-server)
-  * [Hosting Behind Proxy](#hosting-behind-proxy)
-  * [Setting up an admin account](#setting-up-an-admin-account)
 * [Running Clusterio](#running-clusterio)
-  * [Master Server](#master-server)
-  * [Slaves](#slaves)
-  * [Instances](#instances)
+* [Setting up remote slaves](#setting-up-remote-slaves)
+* [Setting up clusterioctl](#setting-up-clusterioctl)
 * [Common problems](#Common-problems)
 
 
@@ -90,26 +88,43 @@ Want to make your own plugin?
 Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for where to start.
 
 
-## Ubuntu setup
+## Installation
+
+Clusterio runs on Node.js v12 and up, it's distributed via npm and comes with a guided install script.
+If you alread have a recent Node.js installed you can set it up in a new directory with.
+
+    npm init "@clusterio"
+
+Otherwise see below for OS specific instructions.
+
+
+### Ubuntu setup
 
 **Warning**: These instructions are for the unstable master version and is not recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
-Clusterio runs on Node.js v12 and up.
-Node.js itself is not supported on EOL Ubuntu releases so make sure you're on a recent release of Ubuntu.
+1.  Install Node.js v12 or higher.
+    For 20.04 LTS or below the version of Node.js provided by the Ubuntu repos are too old and you will have to use the nodesource PPA, otherwise you may skip the first line.
 
-Master and all slaves:
+        wget -qO - https://deb.nodesource.com/setup_14.x | sudo -E bash -
+        sudo apt install nodejs
 
-    wget -qO - https://deb.nodesource.com/setup_12.x | sudo -E bash -
-    sudo apt install -y nodejs
-    mkdir clusterio
-    cd clusterio
-    npm init -y
-    npm install @clusterio/master @clusterio/slave @clusterio/ctl
-    wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
-    tar -xf factorio.tar.gz
+2.  Create a new directory and run the Clusterio installer:
 
-downloads and installs nodejs, git and clusterio.
-To specify a version, change "latest" in the link to a version number like 0.14.21.
+        mkdir clusterio
+        cd clusterio
+        npm init "@clusterio"
+
+    Make sure to note down the admin authentication token it provides at the end as you will need it later.
+
+3.  If you chose to use local factorio directory for the Factorio installation then download the headless build of Factorio and unpack it:
+
+        wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
+        tar -xf factorio.tar.gz
+
+    To specify a version of Factorio to download replace "latest" in the URL with a version number like "1.0.0".
+
+4.  Optionally copy the generated systemd service files in `systemd` folder to `/etc/systemd/system/`.
+
 
 **Ubuntu with Docker**
 
@@ -129,70 +144,42 @@ The -v flag is used to specify the instance directory.
 Your instances (save files etc) will be stored there.
 -->
 
-## Windows setup
+### Windows setup
 
 **Warning**: These instructions are for the unstable master version and is not recommended for use, see [the 1.2.x branch][1.2.x] for how to install the stable version.
 
-**Requirements**
+1.  Download and install the latest LTS release from http://nodejs.org.
 
-download and install nodeJS 12 from http://nodejs.org.
-Clusterio runs on Node.js v12 and up.
+2.  Create a new empty directory for the installation and navigate into it.
+    Open a PowerShell window in this new directory by Shift+Right clicking inside it and choosing "Open PowerShell window here" and then run the following command.
 
-**Master**
+        npm init "@clusterio"
 
-1. Open PowerShell or Command prompt in the directory you want to install to and run the following commands.
+    Make sure to note down the admin authentication token it provides at the end as you will need it later.
+
+3.  If you chose to use local factorio directory for the Factorio installation then download the Windows 64-bit zip package from https://www.factorio.com/download and extract it to the `factorio` folder in your clusterio installation folder.
+
+
+### MacOS Setup
+
+1.  Install the latest Node.js LTS release from http://nodejs.org or use brew (`brew install node`).
+
+2.  Open Terminal or Command prompt in the directory you want to install to and run the following commands.
 
         mkdir clusterio
         cd clusterio
-        npm init -y
-        npm install @clusterio/master @clusterio/slave @clusterio/ctl
+        npm init "@clusterio"
 
-2. Obtain Factorio by either of these two methods:
+    Make sure to note down the admin authentication token it provides at the end as you will need it later.
 
-    - Via the stand alone version on from their website
+3.  If you chose to use local factorio directory for the Factorio installation you will need to obtain and copy a mac version of Factorio and unpack it to to the `factorio` folder in your clusterio installation folder.
 
-        1.  Create a new folder named "factorio" in the the factorioClusterio folder.
 
-        2.  Download the MS Windows (64-bit zip package) from https://www.factorio.com/download .
+### Installing Plugins
 
-        3.  Open the zip file and drag the folder called "Factorio_x.y.z" into the factorio folder created in step 1.
-
-    - Via steam installation
-
-        1.  Create a new folder named "factorio" in the the factorioClusterio folder.
-
-        2.  Locate the game files by right clicking the game in steam, selecting properties, then Local Files, then Browse local files.
-
-        3.  Go to the parent folder of the folder that Steam opened and copy the Factorio folder into the factorio folder created in step 1.
-
-## MacOS Setup
-
-**Requirements**
-
-Download and install nodeJS 12 from http://nodejs.org or brew (`brew install node`).
-Clusterio runs on Node.js v12 and up.
-
-1. Open Terminal or Command prompt in the directory you want to install to and run the following commands.
-
-    ```bash
-    mkdir clusterio
-    cd clusterio
-    npm init -y
-    npm install @clusterio/master @clusterio/slave @clusterio/ctl
-    ```
-
-2. Obtain Factorio:
-
-Install Factorio and copy the factorio.app/Contents in your clusterio install folder as factorio.
-If you installed factorio on your mac you can run
-```bash
-    cp -r /Applications/factorio.app/Contents/ factorio
-```
-
-## Installing Plugins
-
-Installing plugins to make them work with Clusterio consists of two steps.
-First install the package via npm, for example
+For well known plugins you can select them during installation and no further steps are necessary to make them work.
+Installing plugins that are not offered by the installer consists of two steps.
+First install the package the plugin is provided by via npm, for example
 
     npm install @clusterio/plugin-subspace_storage
 
@@ -202,7 +189,7 @@ Then tell clusterio that this plugin exists by adding it as a plugin.
 
 This adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by master, slave and ctl.
 If you have slaves or ctl installed on separate computers (or directories) then you need to repeat the plugin install process for all of them.
-The clusteriomaster, clusterioslave and clusterioctl commands has the plugin sub-command so you do not need to install clusteriomaster to add plugins.
+The clusteriomaster, clusterioslave and clusterioctl commands has the plugin sub-command so you do not need to install clusteriomaster to add plugins, instead use the clusterio command you have available.
 
 For development purposes the `plugin add` command supports adding plugins by the absolute path to them, or a relative path that must start with either . or .. (which will then be resolved to an absolute path).
 
@@ -213,6 +200,11 @@ By default the master server will listen for HTTP on port 8080.
 You can change the port used with the command
 
     npx clusteriomaster config set master.http_port 1234
+
+When changing the port you will also need to change the address slaves connect with.
+For the standalone installation mode you can use
+
+    npx clusterioslave config set slave.master_url http://localhost:1234/
 
 If you plan to make your cluster available externally set the address
 that it will be accessible under with, for example
@@ -226,67 +218,30 @@ You can list the config of the master server with the `npx clusteriomaster confi
 See the [readme for @clusterio/master](/packages/master/README.md) for more information.
 
 
-### Setting up an admin account
-
-Before you can manage the cluster you need to bootstrap an admin account for it.
-Replace `<username>` with your Factorio username (do not make up a new username here).
-
-    npx clusteriomaster bootstrap create-admin <username>
-    npx clusteriomaster bootstrap create-ctl-config <username>
-
-The first command creates a user account with the given name and promotes it to a cluster admin.
-The second one sets up a `config-control.json` config for clusterioctl to connect to the master server under the given user account.
-
-
 ## Running Clusterio
 
-After following the installation and master configuration instructions you can use the following commands to run Clusterio.
+After completing the installation start up the master server and at least one slave separately.
+The installer provides the `run-master` and `run-slave` scripts to make this simple.
+Once the master process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
+
+The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a slave and then click start.
 
 
-### Master Server
+## Setting up remote slaves
 
-It's necessary to run the master server in order for anything to work.
-Once you've completed the setup run the following command to start it up:
-
-    npx clusteriomaster run
-
-
-### Slaves
-
-Slaves connect to the master server and are managed remotely from the master server.
-In order for slaves to connect to the master server they need a valid authentication token, you can create a slave config with a valid token with the following command.
-
-    npx clusterioctl slave create-config --name Local --generate-token
-
-This will write a new `config-slave.json` file in the current directory (you can change the location with the `--output` option) with the name, token and url to connect to the master server with.
-If you are making the config for a remote slave you will need to have set the `master.external_address` option to the URL the master server can be reached on.
-
-You can list the config of a slave on the slave itself with the `npx clusterioslave config list` command.
-See the [readme for @clusterio/slave](/packages/slave/README.md) for more information.
-
-Once the config is set up run the slave with
-
-    npx clusterioslave run
+Run the installer as described in the installation section and choose "Slave only" as the operating mode to install, it'll ask for a master URL and an authentication token.
+The URL is the same as what is needed to connect to the web interface, and the athentication token can be generated on the Slaves page in the web interface.
+Once you start up the slave it should show up in the Slaves list and be available for assigning and running instances on.
 
 
-### Instances
+## Setting up clusterioctl
 
-Instances are created, managed and started from the master server.
-For now the only interface available is the `clusterioctl` command line tool included in Clusterio.
-You can run this tool from any slave, or the master server without having to set up a config, if you want to manage the cluster from somewhere else you will need to set the `control.master_url` and `control.master_token` options with the  `node clusterioctl control-config set` command:
+There's a command line interface available for Clusterio which is installed separately with the same installer as for the master and slave.
+Run the installer as described in the installation section and choose "Ctl only" as the operating mode to install, you can do this in the same directory as you have installed other clusterio component(s) to.
+The installer will ask for a master URL and an authentication token, these are the same as you would use to connect to the web interface.
+If you want to use a different user for the command line interface you can generate an authentication token for an existing user with
 
-The basic operations to start a new instance is the following
-
-    npx clusterioctl instance create "My instance"
-    npx clusterioctl instance assign "My instance" "Local"
-    npx clusterioctl instance start "My instance"
-
-The first line creates the instance configuration on the master server.
-The second assigns the instance to a slave which creates the instance directory and files needed to run the instance on the given slave.
-The third line starts the instance, which creates a new save if there are no save games present.
-
-There are many more commands available with clusterioctl.
-See the [Managing a Cluster](/docs/managing-a-cluster.md) document or `npx clusterioctl --help` for a full list of them.
+    npx clusteriomaster bootstrap generate-user-token <username>
 
 
 ## Common problems

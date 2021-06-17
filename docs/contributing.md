@@ -54,19 +54,41 @@ In order to get the development environment up and running you will need to run 
 
     npm install
     npx lerna bootstrap --hoist
+    npx lerna run build
 
 This installs dependencies needed by tests and links the packages up so they work from the git work tree.
-To start a cluster from the repo, substitute the commands in the normal readme as follows:
+To start a cluster from the repo you will first need to initialize it, this can be done using the installer:
+
+    node packages/create --dev
+
+To add plugins to use in the development environment use
+
+    node packages/ctl plugin add ./path/to/plugin
+
+It's important that the path starts with `./`.
+The `plugins/` directory contains the core plugins for the project and can be added using the above mentioned command.
+
+The documentation uses the binaries provided by the packages, but for the development environment you will need to call the packages directly:
 
     npx clusteriomaster -> node packages/master
     npx clusterioslave -> node packages/slave
     npx clusterioctl -> node packages/ctl
 
-For web development on the master there are also the following flags:
+Note that to use `clusterioctl` you will have to create a control config first:
 
-`--dev` - Start the master with webpack hot reloading of core components
+    node packages/master bootstrap create-ctl-config [admin-user]
 
-`--dev-plugin [name]` - Start the master with hot reloading of a plugin
+Once you've set up the cluster you can use `node packages/master run` to run the master server and `node packages/slave run` to run the slave which connects to the master server.
+
+For web development on the master there are also the following flags.
+
+`--dev` - Recompile the `web_ui` package on the fly providing live reloading of it.
+
+`--dev-plugin [name]` - Recompile the web module for the given plugin on the fly proving live reloading of it.
+
+These options can be combined and multiple plugins can be actived for dev mode.
+Note that webpack is configured to delete the web interface build when using these options, so you will have to run `npx lerna run build` before you start the master without these flags again.
+
 
 ### Starting a Feature Branch
 

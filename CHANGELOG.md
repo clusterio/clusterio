@@ -44,6 +44,7 @@
 - Added an overview of the installed plugins to the web interface.
 - Added clusterioctl command to list plugins on the master server.
 - Added Player Auth plugin for logging in to the web interface by proving the ability to log in to a server as a given user.
+- Added Node.js based installer to simplify setting up a cluster.
 
 ### Changes
 
