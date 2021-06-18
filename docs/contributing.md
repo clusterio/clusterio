@@ -93,8 +93,8 @@ Note that webpack is configured to delete the web interface build when using the
 ### Starting a Feature Branch
 
 Development is done exclusively in feature branches.
-This means the first thing to do before starting any development at all is to make a new branch starting from the master or 1.2.x branch of the main repository.
-To do this check out that branch from the main repository (substitute master for 1.2.x if you're working on that branch).
+This means the first thing to do before starting any development at all is to make a new branch starting from the master branch of the main repository.
+To do this check out that branch from the main repository.
 
     git fetch upstream
     git checkout upstream/master
@@ -135,7 +135,7 @@ If there are more changes you want to have merged or mistakes you need to fix yo
 
 Until your feature branch is merged you can edit it as you see fit by using the rebase tool.
 If your feature branch has been merged however it's final and you will have to start a new feature branch and submit that in a new pull request.
-The base usage of rebase assuming you are checked out on your feature branch is the following command (substitute master with 1.2.x if your feature branch is based on that)
+The base usage of rebase assuming you are checked out on your feature branch is the following command
 
     git rebase -i upstream/master
 
@@ -154,7 +154,7 @@ If you have a pull request that has not yet been merged submitted for this featu
 ### Resolving Merge Conflicts
 
 The best way to resolve merge conflicts in feature braches is to rebase it on top of the updated upstream.
-Run the following commands (substitute master with 1.2.x if your feature branch is based on that)
+Run the following commands
 
     git fetch upstream
     git rebase upstream/master
