@@ -8,12 +8,11 @@
 
 Discord for development/support/play: https://discord.gg/5XuDkje
 
-## Important notice
+# ABANDONED VERSION
 
-This is the stable branch of the project.  The
-[master branch](http://github.com/clusterio/factorioClusterio/tree/master)
-is undergoing significant changes that breaks compatibility to plugins and
-existing installations and is not recommended for use.
+**The 1.2.x version of Clusterio has been abandonded.
+Please go to the [main branch of the project](https://github.com/clusterio/clusterio) and continue from there.
+The information below is out of date and kept for archival purposes only.**
 
 ### Ways to support me/the project:
 
