@@ -59,9 +59,6 @@ module.exports = {
 				"player_name": { type: "string" },
 				"inventory": { type: "object" },
 			},
-			responseProperties: {
-				"success": { type: "boolean" },
-			},
 		}),
 		download: new libLink.Request({
 			type: "inventory_sync:download",
@@ -80,7 +77,6 @@ module.exports = {
 			type: "inventory_sync:databaseStats",
 			links: ["control-master"],
 			permission: "inventory_sync.inventory.view",
-			requestProperties: {},
 			responseProperties: {
 				"database_size": { type: "integer" },
 				"database_entries": { type: "integer" },
