@@ -1,5 +1,5 @@
 "use strict";
-const fs = require("fs").promises;
+const fs = require("fs-extra");
 const path = require("path");
 
 const libPlugin = require("@clusterio/lib/plugin");
@@ -50,7 +50,8 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		this.logger.verbose(`Downloading inventory for ${message.data.player_name}`);
 		return {
 			player_name: message.data.player_name,
-			inventory: this.inventories[message.data.player_name],
+			inventory: this.inventories[message.data.player_name] || {},
+			new_player: !this.inventories[message.data.player_name],
 		};
 	}
 
@@ -63,7 +64,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		let inventories = Object.keys(this.inventories)
 			.map(name => ({
 				name,
-				length: this.inventories[name].length,
+				length: JSON.stringify(this.inventories[name]).length,
 			}))
 			.sort((a, b) => a.stringified.length - b.stringified.length);
 		return {

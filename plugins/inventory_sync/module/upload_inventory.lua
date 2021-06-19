@@ -2,9 +2,13 @@ local clusterio_api = require("modules/clusterio/api")
 local serialize = require("modules/clusterio/serialize")
 local inventories = require("modules/inventory_sync/define_player_inventories")
 local save_crafts = require("modules/inventory_sync/save_crafts")
+local ensure_character = require("modules/inventory_sync/ensure_character")
 
 function upload_inventory(playerIndex)
     local player = game.get_player(playerIndex)
+
+    -- Force player to have a character to prevent access errors
+    ensure_character(player)
 
     local serialized_player = {
         name = player.name,
@@ -71,7 +75,7 @@ function upload_inventory(playerIndex)
 
     -- Serialize crafting queue saved by /csc or /save-crafts OR automatically
     save_crafts({player_index = player.name})
-    serialized_player.crafting_queue = global["saved_crafting_queue_"..player.name]
+    serialized_player.crafting_queue = global.inventory_sync.saved_crafting_queue[player.name]
     if serialized_player.crafting_queue == nil then
         serialized_player.crafting_queue = {}
     end
@@ -79,7 +83,7 @@ function upload_inventory(playerIndex)
     clusterio_api.send_json("inventory_sync_upload", serialized_player)
     
     -- Clear saved crafting queue
-    global["saved_crafting_queue_"..player.name] = nil
+    global.inventory_sync.saved_crafting_queue[player.name] = nil
 end
 
 return upload_inventory

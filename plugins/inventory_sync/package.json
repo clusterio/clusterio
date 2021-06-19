@@ -19,6 +19,9 @@
   "peerDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.0"
   },
+  "dependencies": {
+    "fs-extra": "^8.1.0"
+  },
   "devDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.6",
     "@clusterio/web_ui": "^2.0.0-alpha.6",

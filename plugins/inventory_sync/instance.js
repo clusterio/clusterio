@@ -34,7 +34,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			instance_id: this.instance.id,
 			instance_name: this.instance.name,
 			player_name: player.name,
-			inventory: JSON.stringify(player),
+			inventory: player,
 		});
 	}
 
@@ -43,14 +43,15 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		let response = await this.info.messages.download.send(this.instance, {
 			player_name: player.player_name,
 		});
-		if (response.inventory) {
+		if (response.new_player) {
+			await this.sendRcon(`/sc inventory_sync.welcome_new_player('${response.player_name}')`)
+		} else if (response.inventory) {
 			const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
-			const chunks = chunkify(chunkSize, response.inventory);
+			const chunks = chunkify(chunkSize, JSON.stringify(response.inventory));
 			this.logger.verbose(`Sending inventory for ${player.player_name} in ${chunks.length} chunks`);
 			for (let i = 0; i < chunks.length; i++) {
 				// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
-				await this.sendRcon(`/sc inventory_sync.downloadInventory('${response.player_name}', '
-				${libLuaTools.escapeString(response.inventory)}', ${i + 1}, ${chunks.length})`);
+				await this.sendRcon(`/sc inventory_sync.download_inventory('${response.player_name}', '${libLuaTools.escapeString(chunks[i])}', ${i + 1}, ${chunks.length})`);
 			}
 		}
 	}

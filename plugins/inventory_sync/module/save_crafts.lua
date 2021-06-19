@@ -4,7 +4,7 @@ function save_crafts(event)
         local crafting_queue = {}
 
         -- Avoid overwriting old save
-        if global["saved_crafting_queue_"..player.name] ~= nil then
+        if global.inventory_sync.saved_crafting_queue[player.name] ~= nil then
             player.print("You already have a saved crafting queue, restore it with /restore-crafts")
             return
         end
@@ -86,7 +86,7 @@ function save_crafts(event)
         -- Remove extra inventory slots
         player.character_inventory_slots_bonus = player.character_inventory_slots_bonus - 1000
 
-        global["saved_crafting_queue_"..player.name] = {
+        global.inventory_sync.saved_crafting_queue[player.name] = {
             crafting_queue = crafting_queue,
             ingredients = difference,
         }

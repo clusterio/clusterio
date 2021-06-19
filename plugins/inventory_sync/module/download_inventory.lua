@@ -2,16 +2,20 @@ local progress_dialog = require("modules/inventory_sync/progress_dialog")
 local serialize = require("modules/clusterio/serialize")
 local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
 local inventories = require("modules/inventory_sync/define_player_inventories")
+local ensure_character = require("modules/inventory_sync/ensure_character")
 
-function download_inventory(playerName, data, number, total)
-    local player = game.get_player(playerName)
-    if player == nil then return end
+function download_inventory(player_name, data, number, total)
+    local player = game.get_player(player_name)
+    if player == nil then
+        log("Player not found! "..player_name)
+        return
+    end
     if number then
-        if global.download_cache[playerName] == nil then
-            global.download_cache[playerName] = ""
+        if global.inventory_sync.download_cache[player_name] == nil then
+            global.inventory_sync.download_cache[player_name] = ""
         end
         -- Append data to download cache
-        global.download_cache[playerName] = global.download_cache[playerName] .. data
+        global.inventory_sync.download_cache[player_name] = global.inventory_sync.download_cache[player_name] .. data
     end
 
     if number ~= total then
@@ -24,13 +28,19 @@ function download_inventory(playerName, data, number, total)
         rcon.print("Segment downloaded")
     else
         -- Recreate player character
-        player.set_controller {
-            type = defines.controllers.god,
-        }
-        player.create_character()
+        ensure_character(player)
+
+        -- Remove freeplay skip cutscene label
+        if player.gui.screen.skip_cutscene_label then
+            player.gui.screen.skip_cutscene_label.destroy()
+        end
+
+        local character = player.character or player.cutscene_character
+
         -- Load downloaded inventory
-        local serialized_player = game.json_to_table(global.download_cache[playerName])
-        global.download_cache[playerName] = nil -- remove data to lower mapsize
+        local serialized_player = game.json_to_table(global.inventory_sync.download_cache[player_name])
+        global.inventory_sync.download_cache[player_name] = nil -- remove data to lower mapsize
+
         -- Load inventories
         for _, inv in pairs(inventories) do
             local inventory = player.get_inventory(inv)
@@ -64,21 +74,21 @@ function download_inventory(playerName, data, number, total)
         player.color = serialized_player.color
         player.chat_color = serialized_player.chat_color
 
-        player.character_crafting_speed_modifier = serialized_player.character_crafting_speed_modifier
-        player.character_mining_speed_modifier = serialized_player.character_mining_speed_modifier
-        player.character_additional_mining_categories = serialized_player.character_additional_mining_categories
-        player.character_running_speed_modifier = serialized_player.character_running_speed_modifier
-        player.character_build_distance_bonus = serialized_player.character_build_distance_bonus
-        player.character_item_drop_distance_bonus = serialized_player.character_item_drop_distance_bonus
-        player.character_reach_distance_bonus = serialized_player.character_reach_distance_bonus
-        player.character_resource_reach_distance_bonus = serialized_player.character_resource_reach_distance_bonus
-        player.character_item_pickup_distance_bonus = serialized_player.character_item_pickup_distance_bonus
-        player.character_loot_pickup_distance_bonus = serialized_player.character_loot_pickup_distance_bonus
-        player.character_inventory_slots_bonus = serialized_player.character_inventory_slots_bonus
-        player.character_trash_slot_count_bonus = serialized_player.character_trash_slot_count_bonus
-        player.character_maximum_following_robot_count_bonus = serialized_player.character_maximum_following_robot_count_bonus
-        player.character_health_bonus = serialized_player.character_health_bonus
-        player.character_personal_logistic_requests_enabled = serialized_player.character_personal_logistic_requests_enabled
+        character.character_crafting_speed_modifier = serialized_player.character_crafting_speed_modifier
+        character.character_mining_speed_modifier = serialized_player.character_mining_speed_modifier
+        character.character_additional_mining_categories = serialized_player.character_additional_mining_categories
+        character.character_running_speed_modifier = serialized_player.character_running_speed_modifier
+        character.character_build_distance_bonus = serialized_player.character_build_distance_bonus
+        character.character_item_drop_distance_bonus = serialized_player.character_item_drop_distance_bonus
+        character.character_reach_distance_bonus = serialized_player.character_reach_distance_bonus
+        character.character_resource_reach_distance_bonus = serialized_player.character_resource_reach_distance_bonus
+        character.character_item_pickup_distance_bonus = serialized_player.character_item_pickup_distance_bonus
+        character.character_loot_pickup_distance_bonus = serialized_player.character_loot_pickup_distance_bonus
+        character.character_inventory_slots_bonus = serialized_player.character_inventory_slots_bonus
+        character.character_trash_slot_count_bonus = serialized_player.character_trash_slot_count_bonus
+        character.character_maximum_following_robot_count_bonus = serialized_player.character_maximum_following_robot_count_bonus
+        character.character_health_bonus = serialized_player.character_health_bonus
+        character.character_personal_logistic_requests_enabled = serialized_player.character_personal_logistic_requests_enabled
 
         if serialized_player.flashlight then
             player.enable_flashlight()
@@ -86,8 +96,8 @@ function download_inventory(playerName, data, number, total)
             player.disable_flashlight()
         end
 
-        local startTick = global["inv_sync_download_start_tick "..player.name]
-        local log_line = "Imported inventory for "..playerName.." in "..game.tick - startTick.." ticks"
+        local startTick = global.inventory_sync.download_start_tick[player.name]
+        local log_line = "Imported inventory for "..player_name.." in "..game.tick - startTick.." ticks"
         player.print(log_line)
         log("[inventory_sync] "..log_line)
     end

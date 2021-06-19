@@ -57,7 +57,7 @@ module.exports = {
 				"instance_id": { type: "integer" },
 				"instance_name": { type: "string" },
 				"player_name": { type: "string" },
-				"inventory": { type: "string" },
+				"inventory": { type: "object" },
 			},
 			responseProperties: {
 				"success": { type: "boolean" },
@@ -72,7 +72,8 @@ module.exports = {
 			},
 			responseProperties: {
 				"player_name": { type: "string" },
-				"inventory": { type: "string" },
+				"inventory": { type: "object" },
+				"new_player": { type: "boolean" },
 			},
 		}),
 		databaseStats: new libLink.Request({
