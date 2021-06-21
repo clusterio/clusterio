@@ -259,6 +259,11 @@ async function getStream(req, res) {
 }
 
 
+const zipMimes = [
+	"application/zip",
+	"application/x-zip-compressed",
+];
+
 async function uploadSave(req, res) {
 	try {
 		res.locals.user.checkPermission("core.instance.save.upload");
@@ -319,7 +324,7 @@ async function uploadSave(req, res) {
 					requestErrors.push("instance_id must come before files uploaded");
 				}
 
-				if (fileMime !== "application/zip") {
+				if (!zipMimes.includes(fileMime)) {
 					requestErrors.push("invalid file Content-Type");
 				}
 
@@ -350,7 +355,7 @@ async function uploadSave(req, res) {
 			req.pipe(busboy);
 		});
 
-	} else if (mimeType === "application/zip") {
+	} else if (zipMimes.includes(mimeType)) {
 		let filename = req.query.filename;
 		if (typeof filename !== "string") {
 			requestErrors.push("Missing or invalid filename parameter");

@@ -65,6 +65,12 @@ describe("Integration of Clusterio", function() {
 	describe("clusterioslave", function() {
 		describe("slaveUpdateEventHandler()", function() {
 			it("should trigger when a new slave is added", async function() {
+				// On windows there's currently no way to automate graceful shutdown of the slave
+				// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
+				if (process.platform === "win32") {
+					this.skip();
+				}
+
 				slowTest(this);
 				getControl().slaveUpdates = [];
 				let config = "alt-slave-config.json";

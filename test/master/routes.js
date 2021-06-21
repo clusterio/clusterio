@@ -325,5 +325,25 @@ describe("master/src/routes", function() {
 			assert.deepEqual(JSON.parse(response.body), { saves: ["test.zip"] });
 			assert.equal(response.statusCode, 200);
 		});
+		it("should complete a valid transfer with non-standerd mime type", async function() {
+			master.forwardRequestToInstance = async (request, data) => {
+				let stream = await phin({
+					url: `http://localhost:${port}/api/stream/${data.stream_id}`,
+				});
+				assert.equal(stream.body.toString(), "totally a zip file");
+				return { save: data.filename };
+			};
+			let response;
+			response = await phin({
+				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=test.zip`, method: "POST",
+				headers: {
+					"X-Access-Token": testToken,
+					"Content-Type": "application/x-zip-compressed",
+				},
+				data: "totally a zip file",
+			});
+			assert.deepEqual(JSON.parse(response.body), { saves: ["test.zip"] });
+			assert.equal(response.statusCode, 200);
+		});
 	});
 });
