@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Button, Popconfirm, Space, Table, Tooltip, Upload } from "antd";
+import { Button, List, Popconfirm, Progress, Space, Table, Tooltip, Upload } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
@@ -27,6 +27,7 @@ export default function SavesList(props) {
 	let control = useContext(ControlContext);
 	let saves = useSaves(props.instance.id);
 	let [starting, setStarting] = useState(false);
+	let [uploadingFiles, setUploadingFiles] = useState([]);
 
 	const saveTable = <Table
 		size="small"
@@ -107,6 +108,38 @@ export default function SavesList(props) {
 		}}
 	/>;
 
+	function onChange(changeEvent) {
+		if (["done", "error"].includes(changeEvent.file.status)) {
+			if (changeEvent.file.status === "error") {
+				notifyErrorHandler("Error uploading file")(changeEvent.file.error);
+			}
+
+			let newUploadingFiles = [...uploadingFiles];
+			let index = newUploadingFiles.findIndex(f => f.uid === changeEvent.file.uid);
+			if (index !== -1) {
+				newUploadingFiles.splice(index, 1);
+				setUploadingFiles(newUploadingFiles);
+			}
+			return;
+		}
+
+		let file = {
+			uid: changeEvent.file.uid,
+			name: changeEvent.file.name,
+			percent: changeEvent.file.percent,
+			status: changeEvent.file.status,
+		};
+
+		let newUploadingFiles = [...uploadingFiles];
+		let index = newUploadingFiles.findIndex(f => f.uid === changeEvent.file.uid);
+		if (index !== -1) {
+			newUploadingFiles[index] = file;
+		} else {
+			newUploadingFiles.push(file);
+		}
+		setUploadingFiles(newUploadingFiles);
+	}
+
 	let uploadProps = {
 		name: "file",
 		accept: ".zip",
@@ -118,7 +151,7 @@ export default function SavesList(props) {
 		},
 		showUploadList: false,
 		action: `${webRoot}api/upload-save`,
-		// TODO: show progress to user.
+		onChange,
 	};
 
 	return <div>
@@ -131,5 +164,15 @@ export default function SavesList(props) {
 		<Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
 			{saveTable}
 		</Upload.Dragger>
+		{uploadingFiles.length ? <List>
+			{uploadingFiles.map(file => <List.Item key={file.uid}>
+				{file.name}
+				<Progress
+					percent={file.percent}
+					format={percent => `${Math.floor(percent)}%`}
+					status={file.status === "error" ? "exception" : "normal"}
+				/>
+			</List.Item>)}
+		</List> : null}
 	</div>;
 }
