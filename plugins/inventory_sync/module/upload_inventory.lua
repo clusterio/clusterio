@@ -3,6 +3,7 @@ local serialize = require("modules/clusterio/serialize")
 local inventories = require("modules/inventory_sync/define_player_inventories")
 local save_crafts = require("modules/inventory_sync/save_crafts")
 local ensure_character = require("modules/inventory_sync/ensure_character")
+local player_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
 
 function upload_inventory(playerIndex)
     local player = game.get_player(playerIndex)
@@ -21,24 +22,13 @@ function upload_inventory(playerIndex)
         personal_logistic_slots = {},
         force = player.force.name,
         cheat_mode = player.cheat_mode,
-        character_crafting_speed_modifier = player.character_crafting_speed_modifier,
-        character_mining_speed_modifier = player.character_mining_speed_modifier,
-        character_additional_mining_categories = player.character_additional_mining_categories,
-        character_running_speed_modifier = player.character_running_speed_modifier,
-        character_build_distance_bonus = player.character_build_distance_bonus,
-        character_item_drop_distance_bonus = player.character_item_drop_distance_bonus,
-        character_reach_distance_bonus = player.character_reach_distance_bonus,
-        character_resource_reach_distance_bonus = player.character_resource_reach_distance_bonus,
-        character_item_pickup_distance_bonus = player.character_item_pickup_distance_bonus,
-        character_loot_pickup_distance_bonus = player.character_loot_pickup_distance_bonus,
-        character_inventory_slots_bonus = player.character_inventory_slots_bonus,
-        character_trash_slot_count_bonus = player.character_trash_slot_count_bonus,
-        character_maximum_following_robot_count_bonus = player.character_maximum_following_robot_count_bonus,
-        character_health_bonus = player.character_health_bonus,
-        character_personal_logistic_requests_enabled = player.character_personal_logistic_requests_enabled,
-
         flashlight = player.is_flashlight_enabled(),
     }
+
+    -- Transfer player stats
+    for _,v in pairs(player_stat_keys) do
+        serialized_player[v] = player[v]
+    end
 
     -- Serialize hotbar
     for i = 1, 100 do

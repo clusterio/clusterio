@@ -3,6 +3,7 @@ local serialize = require("modules/clusterio/serialize")
 local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
 local inventories = require("modules/inventory_sync/define_player_inventories")
 local ensure_character = require("modules/inventory_sync/ensure_character")
+local player_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
 
 function download_inventory(player_name, data, number, total)
     local player = game.get_player(player_name)
@@ -74,21 +75,10 @@ function download_inventory(player_name, data, number, total)
         player.color = serialized_player.color
         player.chat_color = serialized_player.chat_color
 
-        character.character_crafting_speed_modifier = serialized_player.character_crafting_speed_modifier
-        character.character_mining_speed_modifier = serialized_player.character_mining_speed_modifier
-        character.character_additional_mining_categories = serialized_player.character_additional_mining_categories
-        character.character_running_speed_modifier = serialized_player.character_running_speed_modifier
-        character.character_build_distance_bonus = serialized_player.character_build_distance_bonus
-        character.character_item_drop_distance_bonus = serialized_player.character_item_drop_distance_bonus
-        character.character_reach_distance_bonus = serialized_player.character_reach_distance_bonus
-        character.character_resource_reach_distance_bonus = serialized_player.character_resource_reach_distance_bonus
-        character.character_item_pickup_distance_bonus = serialized_player.character_item_pickup_distance_bonus
-        character.character_loot_pickup_distance_bonus = serialized_player.character_loot_pickup_distance_bonus
-        character.character_inventory_slots_bonus = serialized_player.character_inventory_slots_bonus
-        character.character_trash_slot_count_bonus = serialized_player.character_trash_slot_count_bonus
-        character.character_maximum_following_robot_count_bonus = serialized_player.character_maximum_following_robot_count_bonus
-        character.character_health_bonus = serialized_player.character_health_bonus
-        character.character_personal_logistic_requests_enabled = serialized_player.character_personal_logistic_requests_enabled
+        -- Player stats
+        for _,v in pairs(player_stat_keys) do
+            character[v] = serialized_player[v]
+        end
 
         if serialized_player.flashlight then
             player.enable_flashlight()

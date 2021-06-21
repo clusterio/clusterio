@@ -47,7 +47,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			for (let i = 0; i < chunks.length; i++) {
 				// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
 				await this.sendRcon(`/sc inventory_sync.download_inventory('${response.player_name}',` +
-					`'${libLuaTools.escapeString(chunks[i])}', ${i + 1}, ${chunks.length})`, true);
+					`'${libLuaTools.escapeString(chunks[i])}', ${i + 1}, ${chunks.length})`);
 			}
 		}
 	}
