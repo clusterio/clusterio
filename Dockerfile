@@ -1,8 +1,8 @@
 FROM node:12 as subspace_storage_builder
 RUN apt update && apt install -y git
 WORKDIR /
-RUN git clone https://github.com/clusterio/factorioClusterioMod.git
-WORKDIR /factorioClusterioMod
+RUN git clone https://github.com/clusterio/subspace_storage.git
+WORKDIR /subspace_storage
 RUN git checkout clusterio-2.0 \
 && npm install \
 && node build
@@ -24,7 +24,7 @@ RUN npm install \
 #RUN npm install @clusterio/plugin-subspace_storage
 #RUN npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
 
-COPY --from=subspace_storage_builder /factorioClusterioMod/dist/ /clusterio/sharedMods/
+COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/sharedMods/
 
 # Build submodules (web UI, libraries, plugins etc)
 RUN npx lerna run build

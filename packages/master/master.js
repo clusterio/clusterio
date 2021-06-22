@@ -389,10 +389,10 @@ ${err.original.stack}`
 			);
 		} else {
 			logger.fatal(`
-+---------------------------------------------------------------+
-| Unexpected error occured while starting master, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues   |
-+---------------------------------------------------------------+
++------------------------------------------------------------+
+| Unexpected error occured while starting master, please     |
+| report it to https://github.com/clusterio/clusterio/issues |
++------------------------------------------------------------+
 ${err.stack}`
 			);
 		}

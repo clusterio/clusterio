@@ -148,10 +148,10 @@ class WsServer {
 				message, socket, req
 			).catch(err => {
 				logger.error(`
-+----------------------------------------------------------------+
-| Unexpected error occured in WebSocket handshake, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues    |
-+----------------------------------------------------------------+
++------------------------------------------------------------+
+| Unexpected error occured in WebSocket handshake, please    |
+| report it to https://github.com/clusterio/clusterio/issues |
++------------------------------------------------------------+
 ${err.stack}`
 				);
 				wsRejectedConnectionsCounter.inc();

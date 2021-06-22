@@ -88,4 +88,4 @@ Lists up all configuration entries with their currently configured values.
 
 [Managing a cluster](/docs/managing-a-cluster.md) for the available commands used for managing a cluster.
 
-[The Clusterio repository](https://github.com/clusterio/factorioClusterio) for instructions on how to set up a cluster.
+[The Clusterio repository](https://github.com/clusterio/clusterio) for instructions on how to set up a cluster.

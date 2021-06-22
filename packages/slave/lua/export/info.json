@@ -3,6 +3,6 @@
     "version": "0.0.0",
     "title": "Icon exporter",
     "author": "Clusterio Team",
-    "homepage": "https://github.com/clusterio/factorioClusterio",
+    "homepage": "https://github.com/clusterio/clusterio",
     "description": "Exports item prototypes on stdout during the data stage."
 }

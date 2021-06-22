@@ -16,7 +16,7 @@
     ],
     "title": "Clusterio Library (Alpha)",
     "author": "Clusterio Team",
-    "homepage": "https://github.com/clusterio/factorioClusterio",
+    "homepage": "https://github.com/clusterio/clusterio",
     "description": "Library for interfacing with Clusterio.  Warning: work in progress alpha.",
     "additional_files": {
         "serialize.lua": ["..", "..", "modules", "clusterio", "serialize.lua"]

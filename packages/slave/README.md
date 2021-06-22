@@ -90,4 +90,4 @@ Runs the slave.
 
 ## See Also
 
-[The Clusterio repository](https://github.com/clusterio/factorioClusterio) for instructions on how to set up a cluster.
+[The Clusterio repository](https://github.com/clusterio/clusterio) for instructions on how to set up a cluster.

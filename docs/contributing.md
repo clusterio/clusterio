@@ -41,7 +41,7 @@ If you already cloned the main GitHub repository you can change your clone to po
 
 To keep your local repository up to to date with the main repository add the main repository as a remote.
 
-    git remote add upstream https://github.com/clusterio/factorioClusterio
+    git remote add upstream https://github.com/clusterio/clusterio
 
 After this running `git fetch upstream` will get the updated branches from the main repository.
 Do not run `git pull upstream` it will mess thing up!

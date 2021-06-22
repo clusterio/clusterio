@@ -518,10 +518,10 @@ if (module === require.main) {
 			logger.error(err.message);
 		} else {
 			logger.fatal(`
-+--------------------------------------------------------------+
-| Unexpected error occured installing clusterio, please report |
-| it to https://github.com/clusterio/factorioClusterio/issues  |
-+--------------------------------------------------------------+
++------------------------------------------------------------+
+| Unexpected error occured installing clusterio, please      |
+| report it to https://github.com/clusterio/clusterio/issues |
++------------------------------------------------------------+
 ${err.stack}`
 			);
 		}
