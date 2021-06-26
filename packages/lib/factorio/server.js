@@ -605,7 +605,11 @@ class FactorioServer extends events.EventEmitter {
 		let type = line.slice(channelEnd + 1, channelEnd + 2).toString("utf-8");
 		let content;
 		if (type === "j") {
-			content = JSON.parse(line.slice(channelEnd + 2).toString("utf-8"));
+			try {
+				content = JSON.parse(line.slice(channelEnd + 2).toString("utf-8"));
+			} catch (err) {
+				throw new Error(`Malformed JSON to ${channel}: ${line.slice(channelEnd + 2).toString("utf-8")}`);
+			}
 
 		} else if (type === "f") {
 			let fileName = line.slice(channelEnd + 2).toString("utf-8");
