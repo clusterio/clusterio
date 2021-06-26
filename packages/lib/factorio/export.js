@@ -90,7 +90,16 @@ async function loadFile(server, modVersions, modPath) {
 		}
 	}
 
-	let zip = await loadZip(server, modVersions, mod);
+	let zip;
+	try {
+		zip = await loadZip(server, modVersions, mod);
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			return null;
+		}
+		throw err;
+	}
+
 	let file = zip.file(filePath);
 	if (!file) {
 		return null;
@@ -310,7 +319,15 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 			continue;
 		}
 
-		let zip = await loadZip(server, modVersions, mod);
+		let zip;
+		try {
+			zip = await loadZip(server, modVersions, mod);
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				continue;
+			}
+			throw err;
+		}
 		for (let file of zip.file(new RegExp(`locale\\/${languageCode}\\/.*\\.cfg`))) {
 			let content = await file.async("nodebuffer");
 			mergeLocale(ini.parse(content.toString("utf8")));
