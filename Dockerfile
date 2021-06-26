@@ -3,8 +3,7 @@ RUN apt update && apt install -y git
 WORKDIR /
 RUN git clone https://github.com/clusterio/subspace_storage.git
 WORKDIR /subspace_storage
-RUN git checkout clusterio-2.0 \
-&& npm install \
+RUN npm install \
 && node build
 
 FROM node:12 as clusterio_builder
