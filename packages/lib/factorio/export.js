@@ -357,6 +357,28 @@ async function exportData(server) {
 		throw new Error("No items got exported");
 	}
 
+	// Some mod authors put leading zeros into the versions of their zip files.
+	let splitter = /^(.*)_(\d+)\.(\d+)\.(\d+)\.zip?$/;
+	for (let entry of await fs.readdir(server.writePath("mods"))) {
+		let match = splitter.exec(entry);
+		if (!match) {
+			continue;
+		}
+
+		let modVersion = `${match[2]}.${match[3]}.${match[4]}`;
+		let normalizedVersion =
+			`${Number.parseInt(match[2], 10)}.${Number.parseInt(match[3], 10)}.${Number.parseInt(match[4], 10)}`
+		;
+
+		if (modVersion === normalizedVersion) {
+			continue;
+		}
+
+		if (modVersions.get(match[1]) === normalizedVersion) {
+			modVersions.set(match[1], modVersion);
+		}
+	}
+
 	let { iconSheet, itemData } = await exportItems(server, modVersions, items);
 	let locale = await exportLocale(server, modVersions, modOrder, "en");
 
