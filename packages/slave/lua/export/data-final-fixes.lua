@@ -46,11 +46,14 @@ end
 -- no game.table_to_json here :(
 local function table_to_json(data)
     if type(data) == "number" then
+		if data == math.huge then return "1e500" end -- Inf is not representable in JSON, but 1e500 will overflow to it.
+		if data == -math.huge then return "-1e500" end
+		if data ~= data then return "0" end -- NaN is not representable in JSON, treat as 0 instead.
         return string.format("%.17g", data)
 
     elseif type(data) == "string" then
         data = data:gsub('([\x00-\x1f\\"])', function(match)
-            return "\\x" .. string.format("%02x", match:byte())
+            return "\\u00" .. string.format("%02x", match:byte())
         end)
         return '"' .. data .. '"'
 
