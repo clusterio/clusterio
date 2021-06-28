@@ -3,13 +3,14 @@
   "description": "Installer for clusterio",
   "author": "Hornwitser",
   "license": "MIT",
-  "version": "2.0.0-alpha.0",
+  "version": "2.0.0-alpha.8",
   "main": "create.js",
   "bin": {
     "clusteriocreate": "./create.js"
   },
   "keywords": [
-    "factorio", "clusterio"
+    "factorio",
+    "clusterio"
   ],
   "engines": {
     "node": ">=12"
