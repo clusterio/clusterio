@@ -90,7 +90,16 @@ async function loadFile(server, modVersions, modPath) {
 		}
 	}
 
-	let zip = await loadZip(server, modVersions, mod);
+	let zip;
+	try {
+		zip = await loadZip(server, modVersions, mod);
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			return null;
+		}
+		throw err;
+	}
+
 	let file = zip.file(filePath);
 	if (!file) {
 		return null;
@@ -310,7 +319,15 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 			continue;
 		}
 
-		let zip = await loadZip(server, modVersions, mod);
+		let zip;
+		try {
+			zip = await loadZip(server, modVersions, mod);
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				continue;
+			}
+			throw err;
+		}
 		for (let file of zip.file(new RegExp(`locale\\/${languageCode}\\/.*\\.cfg`))) {
 			let content = await file.async("nodebuffer");
 			mergeLocale(ini.parse(content.toString("utf8")));
@@ -355,6 +372,28 @@ async function exportData(server) {
 
 	if (!items.length) {
 		throw new Error("No items got exported");
+	}
+
+	// Some mod authors put leading zeros into the versions of their zip files.
+	let splitter = /^(.*)_(\d+)\.(\d+)\.(\d+)\.zip?$/;
+	for (let entry of await fs.readdir(server.writePath("mods"))) {
+		let match = splitter.exec(entry);
+		if (!match) {
+			continue;
+		}
+
+		let modVersion = `${match[2]}.${match[3]}.${match[4]}`;
+		let normalizedVersion =
+			`${Number.parseInt(match[2], 10)}.${Number.parseInt(match[3], 10)}.${Number.parseInt(match[4], 10)}`
+		;
+
+		if (modVersion === normalizedVersion) {
+			continue;
+		}
+
+		if (modVersions.get(match[1]) === normalizedVersion) {
+			modVersions.set(match[1], modVersion);
+		}
 	}
 
 	let { iconSheet, itemData } = await exportItems(server, modVersions, items);
