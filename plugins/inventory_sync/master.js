@@ -70,8 +70,8 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			database_size: inventories.map(x => x.length).reduce((a, b) => b - a, 0),
 			database_entries: inventories.length,
 			largest_entry: {
-				name: inventories[0]?.name || "-",
-				size: inventories[0]?.length || 0,
+				name: inventories[0] && inventories[0].name || "-",
+				size: inventories[0] && inventories[0].length || 0,
 			},
 		};
 	}
