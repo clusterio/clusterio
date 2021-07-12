@@ -224,9 +224,9 @@ JavaScript template literals may also be used where appropriate.
 
 ### Indenting
 
-JavaScript code should be indented with tabs.
+JavaScript and Lua code should be indented with tabs.
 
-Lua code should be indented with 4 spaces.
+Other files types should prefer tabs for indents where reasonable with the exception of Markdown.
 
 
 ### Line Length

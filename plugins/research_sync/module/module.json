@@ -1,4 +1,4 @@
 {
-    "name": "research_sync",
-    "load": ["sync.lua"]
+	"name": "research_sync",
+	"load": ["sync.lua"]
 }
