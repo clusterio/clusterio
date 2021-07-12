@@ -2,14 +2,16 @@ local clusterio_api = require("modules/clusterio/api")
 local serialize = require("modules/clusterio/serialize")
 local inventories = require("modules/inventory_sync/define_player_inventories")
 local save_crafts = require("modules/inventory_sync/save_crafts")
-local ensure_character = require("modules/inventory_sync/ensure_character")
 local player_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
 
 function upload_inventory(playerIndex)
     local player = game.get_player(playerIndex)
 
-    -- Force player to have a character to prevent access errors
-    ensure_character(player)
+    if player.character == nil then
+        -- Panic!
+        log("ERROR: Player "..player.name.." quit without a character. Inventory not uploaded")
+        return false
+    end
 
     local serialized_player = {
         name = player.name,

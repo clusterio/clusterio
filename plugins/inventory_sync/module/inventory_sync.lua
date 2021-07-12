@@ -2,7 +2,8 @@
 
 When a player leaves the game, serialize their inventory and upload it to the master.
 
-When a player joins the game, send a request to the master server for the players inventory.
+When a player joins the game, wait until they have a character, then send a request to 
+the master server for the players inventory.
 
 When the master sends an inventory, parse it and give it to the player.
 If the master responds that its a new player, show a welcome message.
@@ -31,6 +32,7 @@ inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
             download_start_tick = {},
             saved_crafting_queue = {},
             download_cache = {},
+            players_waiting_for_download = {},
         }
     end
 end
@@ -47,8 +49,15 @@ end
 
 -- Download inventory from master
 inventory_sync.events[defines.events.on_player_joined_game] = function(event)
-	local playerIndex = event.player_index
-    inventory_sync.initiate_inventory_download(playerIndex)
+    -- Add player to download queue. Inventory won't be downloaded before the player has a character
+    global.inventory_sync.players_waiting_for_download[game.get_player(event.player_index).name] = true
+    -- Don't wait for on_nth_tick if not required
+    inventory_sync.check_player_character_before_download()
+end
+
+inventory_sync.on_nth_tick = {}
+inventory_sync.on_nth_tick[33] = function(event)
+    inventory_sync.check_player_character_before_download()
 end
 
 -- Upload inventory when a player leaves the game. Triggers on restart after crash if player was online during crash.
@@ -60,15 +69,30 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
     end
 
     local player_index = event.player_index
-    inventory_sync.upload_inventory(player_index)
-    global.inventory_sync.download_cache[player_index] = "" -- Clear cache to avoid leaking memory to people quitting during download
+    local player = game.get_player(player_index)
+    -- Avoid uploading for unsynced players (due to not having a character, ex during freeplay cutscene)
+    if global.inventory_sync.players_waiting_for_download[player.name] == nil then
+        inventory_sync.upload_inventory(player_index)
+        global.inventory_sync.download_cache[player_index] = "" -- Clear cache to avoid leaking memory to people quitting during download
+    end
+    global.inventory_sync.players_waiting_for_download[player.name] = nil
 end
 
-function inventory_sync.initiate_inventory_download(playerIndex)
-    local player = game.get_player(playerIndex)
+function inventory_sync.check_player_character_before_download()
+    -- Check if players waiting for download have a valid character
+	for name in pairs(global.inventory_sync.players_waiting_for_download) do
+        local player = game.get_player(name)
+        if player.character ~= nil then
+            global.inventory_sync.players_waiting_for_download[name] = nil
+            inventory_sync.initiate_inventory_download(player)
+        end
+    end
+end
+
+function inventory_sync.initiate_inventory_download(player)
     player.print("Initiating inventory download...")
     global.inventory_sync.download_start_tick[player.name] = game.tick
-    global.inventory_sync.download_cache[playerIndex] = ""
+    global.inventory_sync.download_cache[player.name] = ""
     clusterio_api.send_json("inventory_sync_download", {
         player_name = player.name
     })
