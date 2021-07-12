@@ -138,7 +138,10 @@ async function handleBootstrapCommand(args, masterConfig) {
 
 	} else if (subCommand === "generate-slave-token") {
 		// eslint-disable-next-line no-console
-		console.log(jwt.sign({ aud: "slave", slave: args.id }, masterConfig.get("master.auth_secret")));
+		console.log(jwt.sign(
+			{ aud: "slave", slave: args.id },
+			Buffer.from(masterConfig.get("master.auth_secret"), "base64")
+		));
 
 	} else if (subCommand === "create-ctl-config") {
 		let admin = userManager.users.get(args.name);

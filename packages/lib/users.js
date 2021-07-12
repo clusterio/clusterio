@@ -236,7 +236,7 @@ class User {
 	 * @returns {string} JWT access token for the user.
 	 */
 	createToken(secret) {
-		return jwt.sign({ aud: "user", user: this.name }, secret);
+		return jwt.sign({ aud: "user", user: this.name }, Buffer.from(secret, "base64"));
 	}
 
 	/**

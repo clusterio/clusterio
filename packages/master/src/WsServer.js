@@ -184,7 +184,7 @@ ${err.stack}`
 			try {
 				let payload = jwt.verify(
 					data.session_token,
-					this.master.config.get("master.auth_secret"),
+					Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
 					{ audience: this.sessionAud }
 				);
 
@@ -216,7 +216,7 @@ ${err.stack}`
 			if (type === "register_slave") {
 				let tokenPayload = jwt.verify(
 					data.token,
-					this.master.config.get("master.auth_secret"),
+					Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
 					{ audience: "slave" }
 				);
 
@@ -227,7 +227,7 @@ ${err.stack}`
 			} else if (type === "register_control") {
 				let tokenPayload = jwt.verify(
 					data.token,
-					this.master.config.get("master.auth_secret"),
+					Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
 					{ audience: "user" }
 				);
 
@@ -251,7 +251,8 @@ ${err.stack}`
 		let sessionId = this.nextSessionId;
 		this.nextSessionId += 1;
 		let sessionToken = jwt.sign(
-			{ aud: this.sessionAud, sid: sessionId }, this.master.config.get("master.auth_secret")
+			{ aud: this.sessionAud, sid: sessionId },
+			Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
 		);
 		let heartbeatInterval = this.master.config.get("master.heartbeat_interval");
 		let connector = new WsServerConnector(socket, sessionId, heartbeatInterval);

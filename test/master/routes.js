@@ -97,7 +97,9 @@ describe("master/src/routes", function() {
 				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
-					"X-Access-Token": jwt.sign({ aud: "user", user: "invalid" }, "TestSecretDoNotUse"),
+					"X-Access-Token": jwt.sign(
+						{ aud: "user", user: "invalid" }, Buffer.from("TestSecretDoNotUse", "base64")
+					),
 				},
 				data: "totally a zip file",
 			});
@@ -107,7 +109,9 @@ describe("master/src/routes", function() {
 				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
-					"X-Access-Token": jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse"),
+					"X-Access-Token": jwt.sign(
+						{ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64")
+					),
 				},
 				data: "totally a zip file",
 			});
@@ -119,14 +123,16 @@ describe("master/src/routes", function() {
 				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
 				headers: {
 					"Content-Type": "application/zip",
-					"X-Access-Token": jwt.sign({ aud: "user", user: "player" }, "TestSecretDoNotUse"),
+					"X-Access-Token": jwt.sign(
+						{ aud: "user", user: "player" }, Buffer.from("TestSecretDoNotUse", "base64")
+					),
 				},
 				data: "totally a zip file",
 			});
 			assert.equal(response.statusCode, 403);
 		});
 
-		let testToken = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
+		let testToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 		it("should respond with 415 if content type is missing or invalid", async function() {
 			let response;
 			response = await phin({

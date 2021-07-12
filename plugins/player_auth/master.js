@@ -81,7 +81,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		for (let [player, entry] of this.players) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
 				let verifyCode = await generateCode(this.master.config.get("player_auth.code_length"));
-				let secret = this.master.config.get("master.auth_secret");
+				let secret = Buffer.from(this.master.config.get("master.auth_secret"), "base64");
 				let verifyToken = jwt.sign(
 					{
 						aud: "player_auth.verify_code",
@@ -124,7 +124,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			return;
 		}
 
-		let secret = this.master.config.get("master.auth_secret");
+		let secret = Buffer.from(this.master.config.get("master.auth_secret"), "base64");
 		try {
 			let payload = jwt.verify(verifyToken, secret, { audience: "player_auth.verify_code" });
 			if (payload.verify_code !== verifyCode) {

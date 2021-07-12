@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 
 const { TestControlConnector, TestControl, get, exec, url } = require("./index");
 
-let token = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
+let token = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 
 describe("Integration of lib/link", function() {
 	let tlsCa;
