@@ -201,7 +201,7 @@ describe("player_auth", function() {
 									player_code: "player",
 									verify_code: "verify",
 									...tokenParams,
-								}, tokenParams.secret || "TestSecretDoNotUse"),
+								}, Buffer.from(tokenParams.secret || "TestSecretDoNotUse", "base64")),
 							},
 							parse: "json",
 						});
@@ -225,7 +225,7 @@ describe("player_auth", function() {
 								aud: "player_auth.verify_code",
 								player_code: "expired",
 								verify_code: "verify",
-							}, "TestSecretDoNotUse"),
+							}, Buffer.from("TestSecretDoNotUse", "base64")),
 						},
 						parse: "json",
 					});
@@ -244,7 +244,7 @@ describe("player_auth", function() {
 								aud: "player_auth.verify_code",
 								player_code: "unverified",
 								verify_code: "verify",
-							}, "TestSecretDoNotUse"),
+							}, Buffer.from("TestSecretDoNotUse", "base64")),
 						},
 						parse: "json",
 					});
@@ -263,7 +263,7 @@ describe("player_auth", function() {
 								aud: "player_auth.verify_code",
 								player_code: "missing",
 								verify_code: "verify",
-							}, "TestSecretDoNotUse"),
+							}, Buffer.from("TestSecretDoNotUse", "base64")),
 						},
 						parse: "json",
 					});
@@ -282,7 +282,7 @@ describe("player_auth", function() {
 								aud: "player_auth.verify_code",
 								player_code: "player",
 								verify_code: "verify",
-							}, "TestSecretDoNotUse"),
+							}, Buffer.from("TestSecretDoNotUse", "base64")),
 						},
 						parse: "json",
 					});

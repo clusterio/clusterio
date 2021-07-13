@@ -101,7 +101,11 @@ function validateSlaveToken(req, res, next) {
 	}
 
 	try {
-		jwt.verify(token, req.app.locals.master.config.get("master.auth_secret"), { audience: "slave" });
+		jwt.verify(
+			token,
+			Buffer.from(req.app.locals.master.config.get("master.auth_secret"), "base64"),
+			{ audience: "slave" }
+		);
 
 	} catch (err) {
 		res.sendStatus(401);
@@ -121,7 +125,7 @@ function validateUserToken(req, res, next) {
 	try {
 		let tokenPayload = jwt.verify(
 			token,
-			req.app.locals.master.config.get("master.auth_secret"),
+			Buffer.from(req.app.locals.master.config.get("master.auth_secret"), "base64"),
 			{ audience: "user" }
 		);
 		let user = req.app.locals.master.userManager.users.get(tokenPayload.user);

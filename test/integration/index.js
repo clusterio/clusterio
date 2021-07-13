@@ -98,7 +98,7 @@ let slaveProcess;
 let control;
 
 let url = "https://localhost:4443/";
-let controlToken = jwt.sign({ aud: "user", user: "test" }, "TestSecretDoNotUse");
+let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 let instancesDir = path.join("temp", "test", "instances");
 let databaseDir = path.join("temp", "test", "database");
 let pluginListPath = path.join("temp", "test", "plugin-list.json");

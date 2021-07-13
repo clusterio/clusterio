@@ -126,7 +126,10 @@ class ControlConnection extends BaseConnection {
 	}
 
 	generateSlaveToken(slaveId) {
-		return jwt.sign({ aud: "slave", slave: slaveId }, this._master.config.get("master.auth_secret"));
+		return jwt.sign(
+			{ aud: "slave", slave: slaveId },
+			Buffer.from(this._master.config.get("master.auth_secret"), "base64")
+		);
 	}
 
 	async generateSlaveTokenRequestHandler(message) {
