@@ -1,4 +1,4 @@
 {
-    "name": "player_auth",
-    "load": ["auth.lua"]
+	"name": "player_auth",
+	"load": ["auth.lua"]
 }
