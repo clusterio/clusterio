@@ -17,6 +17,7 @@ function chunkify(chunkSize, string) {
 
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
+		// Handle IPC from scenario script
 		this.instance.server.on("ipc-inventory_sync_upload", content => this.handleUpload(content)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_upload:\n${err.stack}`)));
 		this.instance.server.on("ipc-inventory_sync_download", content => this.handleDownload(content)
@@ -35,6 +36,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async handleDownload(player) {
 		this.logger.verbose(`Downloading ${player.player_name}`);
+
+		// Retrieves inventory data. If the master is offline it waits until it comes back online.
 		let response = await this.info.messages.download.send(this.instance, {
 			player_name: player.player_name,
 		});

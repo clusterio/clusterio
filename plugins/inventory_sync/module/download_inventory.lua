@@ -1,4 +1,4 @@
-local progress_dialog = require("modules/inventory_sync/progress_dialog")
+local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local serialize = require("modules/clusterio/serialize")
 local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
 local inventories = require("modules/inventory_sync/define_player_inventories")
@@ -27,7 +27,18 @@ function download_inventory(player_name, data, number, total)
 
         -- Request next segment
         rcon.print("Segment downloaded")
+
+        -- Reset sync_start_tick to indicate master connection
+        global.inventory_sync.players[player_name].sync_start_tick = game.tick
     else
+        -- Stop tracking master connection status, sync is complete
+        global.inventory_sync.players[player_name].sync_start_tick = 0
+
+        -- Handle dirty inventory
+        if global.inventory_sync.players[player_name].dirty_inventory then
+            clean_dirty_inventory(player)
+        end
+
         -- Recreate player character
         ensure_character(player)
 
