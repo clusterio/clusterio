@@ -22,7 +22,7 @@ export default function InstanceConfigTree(props) {
 		await libLink.messages.setInstanceConfigField.send(control, {
 			instance_id: props.id,
 			field,
-			value: String(value),
+			value,
 		});
 	}
 
