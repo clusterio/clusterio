@@ -168,8 +168,8 @@ class Instance extends libLink.Link {
 			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
 		};
 
+		// Valid statuses are stopped, starting, running, stopping, creating_save and exporting_data.
 		this._status = "stopped";
-		this._running = false;
 		this._loadedSave = null;
 		this.server = new libFactorio.FactorioServer(
 			factorioDir, this._dir, serverOptions
@@ -276,7 +276,6 @@ class Instance extends libLink.Link {
 	}
 
 	notifyExit() {
-		this._running = false;
 		this._loadedSave = null;
 		this.notifyStatus("stopped");
 
@@ -577,7 +576,6 @@ class Instance extends libLink.Link {
 		await this.sendSaveListUpdate();
 		await libPlugin.invokeHook(this.plugins, "onStart");
 
-		this._running = true;
 		this.notifyStatus("running");
 	}
 
@@ -602,7 +600,6 @@ class Instance extends libLink.Link {
 
 		await libPlugin.invokeHook(this.plugins, "onStart");
 
-		this._running = true;
 		this.notifyStatus("running");
 	}
 
@@ -683,7 +680,9 @@ class Instance extends libLink.Link {
 	 * Stop the instance
 	 */
 	async stop() {
-		this._running = false;
+		if (this._status === "stopped") {
+			return;
+		}
 		this.notifyStatus("stopping");
 
 		// XXX this needs more thought to it
@@ -703,7 +702,7 @@ class Instance extends libLink.Link {
 
 	async getMetricsRequestHandler() {
 		let results = [];
-		if (this._running) {
+		if (!["stopped", "stopping"].includes(this._status)) {
 			let pluginResults = await libPlugin.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
