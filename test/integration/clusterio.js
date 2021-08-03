@@ -253,6 +253,17 @@ describe("Integration of Clusterio", function() {
 					await execCtl("instance config set 44 factorio.version latest");
 				}
 			});
+			it("should not leave the instance in the stopping state if it fails", async function() {
+				slowTest(this);
+				try {
+					await execCtl("instance config set 44 factorio.game_port 100000");
+					await assert.rejects(execCtl("instance start test"));
+					await checkInstanceStatus(44, "stopped");
+
+				} finally {
+					await execCtl("instance config set 44 factorio.game_port");
+				}
+			});
 			it("starts the given save", async function() {
 				slowTest(this);
 				await execCtl("instance start test --save world.zip");
