@@ -190,7 +190,7 @@ export default function BaseConfigTree(props) {
 								request = props.setProp(fieldName, prop, value);
 
 							} else {
-								request = props.setField(field, value);
+								request = props.setField(field, value === null ? "" : String(value));
 							}
 
 							try {
