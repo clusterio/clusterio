@@ -2,9 +2,11 @@ local ensure_character = require("modules/inventory_sync/ensure_character")
 
 -- on_gui_click
 local handle_gui_events = function(event)
+	if not event.element.valid then
+		return
+	end
 	local player = game.get_player(event.player_index)
-	local element = event.element
-	if element.name == "inventory_sync_failed_download_abort" then
+	if event.element.name == "inventory_sync_failed_download_abort" then
 		-- Give the player a new inventory and mark it as dirty
 		-- Show dirty status and an explanation in a GUI
 
