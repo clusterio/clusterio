@@ -29,15 +29,24 @@ inventory_sync.upload_inventory = upload_inventory
 inventory_sync.add_commands = add_commands
 inventory_sync.events = {}
 inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
-	-- set up global table
+	-- Set up global table
 	if not global.inventory_sync then
-		global.inventory_sync = {
-			download_start_tick = {},
-			saved_crafting_queue = {},
-			download_cache = {},
-			players_waiting_for_download = {},
-			players = {},
-		}
+		global.inventory_sync = {}
+	end
+	if not global.inventory_sync.download_start_tick then
+		global.inventory_sync.download_start_tick = {}
+	end
+	if not global.inventory_sync.saved_crafting_queue then
+		global.inventory_sync.saved_crafting_queue = {}
+	end
+	if not global.inventory_sync.download_cache then
+		global.inventory_sync.download_cache = {}
+	end
+	if not global.inventory_sync.players_waiting_for_download then
+		global.inventory_sync.players_waiting_for_download = {}
+	end
+	if not global.inventory_sync.players then
+		global.inventory_sync.players = {}
 	end
 end
 
