@@ -65,7 +65,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 				name,
 				length: JSON.stringify(this.inventories.get(name)).length,
 			}))
-			.sort((a, b) => a.stringified.length - b.stringified.length);
+			.sort((a, b) => a.length - b.length);
 		return {
 			database_size: inventories.map(x => x.length).reduce((a, b) => b - a, 0),
 			database_entries: inventories.length,
