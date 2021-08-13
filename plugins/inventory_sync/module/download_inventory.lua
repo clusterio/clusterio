@@ -77,7 +77,7 @@ function download_inventory(player_name, data, number, total)
 		end
 
 		-- Load crafting queue
-		load_crafting_queue(serialized_player.crafting_queue, player)		
+		load_crafting_queue(serialized_player.crafting_queue, player)
 
 		-- Misc
 		player.cheat_mode = serialized_player.cheat_mode

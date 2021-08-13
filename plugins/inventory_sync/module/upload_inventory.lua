@@ -73,7 +73,7 @@ function upload_inventory(playerIndex)
 	end
 
 	clusterio_api.send_json("inventory_sync_upload", serialized_player)
-	
+
 	-- Clear saved crafting queue
 	global.inventory_sync.saved_crafting_queue[player.name] = nil
 end

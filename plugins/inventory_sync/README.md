@@ -45,6 +45,6 @@ This plugin does event based synchronization of inventories. The data flow is as
 
 12. Once the entire command is transfered, the scenario script clears the old inventory, applies the new inventory from the scenario script and sets the player to survival mode.
 
-Communication between the server and instance goes over stdout or rcon, depending on the size of the data. 
+Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the master server goes over websockets.
 Overall, we are able to achieve a latency between 3 and infinite ticks from server join, depending on the size of the inventory. The major limiter is rcon transfer speeds with larger inventories, especially if they contain blueprints.

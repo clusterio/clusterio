@@ -2,7 +2,7 @@
 
 When a player leaves the game, serialize their inventory and upload it to the master.
 
-When a player joins the game, wait until they have a character, then send a request to 
+When a player joins the game, wait until they have a character, then send a request to
 the master server for the players inventory.
 
 When the master sends an inventory, parse it and give it to the player.
@@ -105,7 +105,7 @@ end
 -- Upload inventory when a player leaves the game. Triggers on restart after crash if player was online during crash.
 inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	-- for some reason, on_pre_player_left_game gets called before on_server_startup so global isn't ready yet
-	if not global.inventory_sync then 
+	if not global.inventory_sync then
 		log("ERROR: Global inventory sync not defined")
 		return
 	end
@@ -156,7 +156,7 @@ function inventory_sync.initiate_inventory_download(player)
 	global.inventory_sync.players[player.name].sync_start_tick = game.tick
 end
 function inventory_sync.check_inventory_download_failed()
-	-- Used for letting the master report the inventory download failing, like when the master is offline or an 
+	-- Used for letting the master report the inventory download failing, like when the master is offline or an
 	-- error occurs somewhere in the server code. The player will be returned to a playable state.
 	for name, data in pairs(global.inventory_sync.players) do
 		if data.sync_start_tick ~= 0 and data.sync_start_tick <= game.tick - 600 then

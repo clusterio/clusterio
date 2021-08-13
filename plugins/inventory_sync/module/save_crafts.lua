@@ -20,7 +20,7 @@ function save_crafts(event)
 		while player.crafting_queue_size > 0 do
 			local old_queue = player.crafting_queue
 			local queueItem = player.crafting_queue[1]
-			
+
 			-- Cancel craft
 			player.cancel_crafting {
 				index = 1,
@@ -29,10 +29,10 @@ function save_crafts(event)
 
 			local rightmost_right_index = 0 -- 0 indexed since it is subtractive in a 1 indexed language
 			local new_queue = player.crafting_queue
-			while 
+			while
 				new_queue ~= nil and
 				new_queue[#new_queue - rightmost_right_index] ~= nil and
-				new_queue[#new_queue - rightmost_right_index].count >= old_queue[#old_queue - rightmost_right_index].count 
+				new_queue[#new_queue - rightmost_right_index].count >= old_queue[#old_queue - rightmost_right_index].count
 			do
 				rightmost_right_index = rightmost_right_index + 1
 			end
@@ -48,7 +48,7 @@ function save_crafts(event)
 				added = oldItem.count - newItem.count
 				if oldItem.recipe ~= newItem.recipe then
 					log("ERROR: Old item "..oldItem.recipe.." is not equal "..newItem.recipe)
-				end	
+				end
 			end
 
 			-- If the last item we added was of the same type, merge them in the queue
@@ -63,7 +63,7 @@ function save_crafts(event)
 			end
 			-- game.print("Saved craft "..oldItem.recipe)
 		end
-		
+
 		-- Find amount of items added and remove from inventory
 		local new_items = inventory.get_contents()
 		local difference = {}

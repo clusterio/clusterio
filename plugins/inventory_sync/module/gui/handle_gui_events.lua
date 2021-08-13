@@ -15,7 +15,7 @@ local handle_gui_events = function(event)
 		-- Handle inventory dirtying
 		if not global.inventory_sync.players[player.name].dirty_inventory then
 			global.inventory_sync.players[player.name].dirty_inventory = true
-		   
+
 			-- Restore player character
 			ensure_character(player)
 		end
