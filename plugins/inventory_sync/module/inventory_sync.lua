@@ -19,6 +19,24 @@ local handle_gui_events = require("modules/inventory_sync/gui/handle_gui_events"
 local dialog_failed_download = require("modules/inventory_sync/gui/dialog_failed_download")
 local clean_dirty_inventory = require("modules/inventory_sync/script/clean_dirty_inventory")
 
+
+local function create_player(player, dirty)
+	global.inventory_sync.players[player.name] = {
+		dirty_inventory = dirty, -- Player has a temporary non-synced inventory that should be persisted
+		sync_start_tick = 0, -- To track download failure timeout
+	}
+end
+
+local function remove_player(player)
+	-- Remove inventory download performance counter
+	global.inventory_sync.download_start_tick[player.name] = nil
+	-- Remove stored crafting queue
+	global.inventory_sync.saved_crafting_queue[player.name] = nil
+	-- Remove other player data
+	global.inventory_sync.players[player.name] = nil
+end
+
+
 inventory_sync = {}
 inventory_sync.welcome_new_player = welcome_new_player
 -- This function is called by instance.js as /sc inventory_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the master
@@ -48,26 +66,21 @@ inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
 	if not global.inventory_sync.players then
 		global.inventory_sync.players = {}
 	end
+
+	for _, player in pairs(game.players) do
+		if not global.inventory_sync.players[player.name] then
+			create_player(player, true)
+		end
+	end
 end
 
 -- Cleanup
-inventory_sync.events[defines.events.on_player_removed] = function(event)
-	local player = game.get_player(event.player_index)
-
-	-- Remove inventory download performance counter
-	global.inventory_sync.download_start_tick[player.name] = nil
-	-- Remove stored crafting queue
-	global.inventory_sync.saved_crafting_queue[player.name] = nil
-	-- Remove other player data
-	global.inventory_sync.players[player.name] = nil
+inventory_sync.events[defines.events.on_pre_player_removed] = function(event)
+	remove_player(game.get_player(event.player_index))
 end
 
 inventory_sync.events[defines.events.on_player_created] = function(event)
-	local player = game.get_player(event.player_index)
-	global.inventory_sync.players[player.name] = {
-		dirty_inventory = false, -- Player has a temporary non-synced inventory that should be persisted
-		sync_start_tick = 0, -- To track download failure timeout
-	}
+	create_player(game.get_player(event.player_index), false)
 end
 
 inventory_sync.events[defines.events.on_gui_click] = handle_gui_events
