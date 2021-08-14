@@ -1,0 +1,38 @@
+{
+  "name": "@clusterio/plugin-inventory_sync",
+  "version": "2.0.0-alpha.6",
+  "description": "Clusterio plugin forwarding between Factorio servers",
+  "author": "Danielv <danielv@danielv.no>",
+  "homepage": "https://github.com/clusterio/factorioClusterio#readme",
+  "license": "MIT",
+  "repository": "clusterio/factorioClusterio",
+  "scripts": {
+    "build": "webpack-cli --env production",
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "bugs": {
+    "url": "https://github.com/clusterio/factorioClusterio/issues"
+  },
+  "engines": {
+    "node": ">=12"
+  },
+  "peerDependencies": {
+    "@clusterio/lib": "^2.0.0-alpha.0"
+  },
+  "dependencies": {
+    "fs-extra": "^8.1.0"
+  },
+  "devDependencies": {
+    "@clusterio/lib": "^2.0.0-alpha.6",
+    "@clusterio/web_ui": "^2.0.0-alpha.6",
+    "antd": "^4.16.0",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "webpack": "^5.36.2",
+    "webpack-cli": "^4.7.0",
+    "webpack-merge": "^5.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
