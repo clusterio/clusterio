@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Input, Table, Typography } from "antd";
 
-import libPlugin from "@clusterio/lib/plugin";
+import { libPlugin } from "@clusterio/lib";
 import { notifyErrorHandler, useItemMetadata, useLocale, PageLayout, ControlContext } from "@clusterio/web_ui";
 import info from "../info";
 

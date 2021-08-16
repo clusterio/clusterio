@@ -26,7 +26,7 @@ module.exports = {
 			},
 		},
 		{
-			"files": ["packages/web_ui/src/**/*.jsx", "plugins/*/web/**/*.jsx"],
+			"files": ["packages/web_ui/src/**/*.jsx", "packages/lib/browser.js", "plugins/*/web/**/*.jsx"],
 			"env": {
 				"browser": true,
 			},

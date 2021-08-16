@@ -1,5 +1,5 @@
 "use strict";
-const libLink = require("@clusterio/lib/link");
+const { libLink } = require("@clusterio/lib");
 
 
 // schema used for syncing technologies to and from the master

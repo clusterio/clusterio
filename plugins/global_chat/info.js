@@ -1,5 +1,5 @@
 "use strict";
-let libLink = require("@clusterio/lib/link");
+let { libLink } = require("@clusterio/lib");
 
 module.exports = {
 	name: "global_chat",

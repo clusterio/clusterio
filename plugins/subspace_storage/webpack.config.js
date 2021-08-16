@@ -24,10 +24,7 @@ module.exports = (env = {}) => merge(common(env), {
 				"./web": "./web/index.jsx",
 			},
 			shared: {
-				"@clusterio/lib/config": { import: false },
-				"@clusterio/lib/link": { import: false },
-				"@clusterio/lib/plugin": { import: false },
-				"@clusterio/lib/users": { import: false },
+				"@clusterio/lib": { import: false },
 				"@clusterio/web_ui": { import: false },
 				"antd": { import: false },
 				"react": { import: false },

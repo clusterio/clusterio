@@ -1,7 +1,5 @@
-import libLink from "@clusterio/lib/link";
-import libPlugin from "@clusterio/lib/plugin";
-import libErrors from "@clusterio/lib/errors";
-import { logger } from "@clusterio/lib/logging";
+import { libErrors, libLink, libLogging, libPlugin } from "@clusterio/lib";
+const { logger } = libLogging;
 import packageJson from "../../package.json";
 
 

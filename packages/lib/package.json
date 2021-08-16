@@ -4,6 +4,7 @@
   "version": "2.0.0-alpha.8",
   "repository": "https://github.com/clusterio/clusterio",
   "license": "MIT",
+  "browser": "browser.js",
   "keywords": [
     "factorio"
   ],

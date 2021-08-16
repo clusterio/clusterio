@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useRef, useState } from "react";
 import { Typography } from "antd";
 
-import libLink from "@clusterio/lib/link";
+import { libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 

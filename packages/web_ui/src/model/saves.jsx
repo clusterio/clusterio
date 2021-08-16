@@ -1,8 +1,8 @@
 import React, { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
-import libLink from "@clusterio/lib/link";
-import { logger } from "@clusterio/lib/logging";
+import { libLink, libLogging } from "@clusterio/lib";
+const { logger } = libLogging;
 
 
 export function useSaves(instanceId) {

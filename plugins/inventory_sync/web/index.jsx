@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 
-import libPlugin from "@clusterio/lib/plugin";
+import { libPlugin } from "@clusterio/lib";
 import { PageLayout, ControlContext } from "@clusterio/web_ui";
 import info from "../info";
 

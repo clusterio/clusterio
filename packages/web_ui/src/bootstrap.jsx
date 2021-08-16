@@ -3,9 +3,8 @@ import "./index.css";
 import React from "react";
 import ReactDOM from "react-dom";
 
-import libConfig from "@clusterio/lib/config";
-import libPlugin from "@clusterio/lib/plugin";
-import { ConsoleTransport, WebConsoleFormat, logger } from "@clusterio/lib/logging";
+import { libConfig, libLogging, libPlugin } from "@clusterio/lib";
+const { ConsoleTransport, WebConsoleFormat, logger } = libLogging;
 
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";

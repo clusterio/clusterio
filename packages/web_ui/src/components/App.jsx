@@ -2,7 +2,7 @@ import events from "events";
 import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
-import { logger } from "@clusterio/lib/logging";
+import { libLogging } from "@clusterio/lib";
 
 import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
@@ -12,6 +12,7 @@ import LoginForm from "./LoginForm";
 import { Card, Spin, Typography } from "antd";
 
 const { Paragraph } = Typography;
+const { logger } = libLogging;
 
 
 function ErrorCard(props) {

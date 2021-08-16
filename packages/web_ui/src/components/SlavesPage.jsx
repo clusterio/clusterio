@@ -1,7 +1,7 @@
 import React, { useContext, useRef, useState } from "react";
 import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
-import libLink from "@clusterio/lib/link";
+import { libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
