@@ -8,4 +8,5 @@ export { default as libPlugin } from "./plugin";
 export { default as libSchema } from "./schema";
 export { default as libUsers } from "./users";
 
+export { default as ExponentialBackoff } from "./ExponentialBackoff";
 export { default as RateLimiter } from "./RateLimiter";
