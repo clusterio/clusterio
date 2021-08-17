@@ -20,14 +20,7 @@ module.exports = (env = {}) => merge(common(env), {
 		new webpack.container.ModuleFederationPlugin({
 			name: "master",
 			shared: {
-				"@clusterio/lib/config": { singleton: true },
-				"@clusterio/lib/errors": { singleton: true },
-				"@clusterio/lib/helpers": { singleton: true },
-				"@clusterio/lib/link": { singleton: true },
-				"@clusterio/lib/logging": { singleton: true },
-				"@clusterio/lib/plugin": { singleton: true },
-				"@clusterio/lib/schema": { singleton: true },
-				"@clusterio/lib/users": { singleton: true },
+				"@clusterio/lib": { singleton: true },
 				"@clusterio/web_ui": { singleton: true },
 				"antd": { singleton: true },
 				"react": { singleton: true },

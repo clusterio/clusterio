@@ -2,7 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
 import { Spin, Tag } from "antd";
 
-import libLink from "@clusterio/lib/link";
+import { libLink } from "@clusterio/lib";
 
 import DataTable from "./data-table";
 import ControlContext from "./ControlContext";

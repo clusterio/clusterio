@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import libPlugin from "@clusterio/lib/plugin";
+import { libPlugin } from "@clusterio/lib";
 import { notify, notifyErrorHandler } from "@clusterio/web_ui";
 import { Button, Form, Input, Spin, Typography } from "antd";
 

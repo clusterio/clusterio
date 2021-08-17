@@ -49,7 +49,7 @@ Without it the plugin will not recognized by Clusterio.
 Here's an example of it:
 
 ```js
-const libLink = require("@clusterio/lib/link"); // For messages
+const { libLink } = require("@clusterio/lib"); // For messages
 
 module.exports = {
     name: "foo_frobber",

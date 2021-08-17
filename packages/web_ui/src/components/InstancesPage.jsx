@@ -2,8 +2,7 @@ import React, { useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
 import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
-import libLink from "@clusterio/lib/link";
-import libConfig from "@clusterio/lib/config";
+import { libConfig, libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";

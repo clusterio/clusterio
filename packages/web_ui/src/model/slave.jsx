@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
-import libLink from "@clusterio/lib/link";
+import { libLink } from "@clusterio/lib";
 
 
 export function useSlave(id) {

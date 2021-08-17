@@ -3,8 +3,7 @@ import { useHistory, useParams } from "react-router-dom";
 import { Button, Checkbox, Col, Form, Input, Popconfirm, Row, Space, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
-import libLink from "@clusterio/lib/link";
-import libUsers from "@clusterio/lib/users";
+import { libLink, libUsers } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";

@@ -3,7 +3,7 @@ import { Button, List, Popconfirm, Progress, Space, Table, Tooltip, Upload } fro
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
-import libLink from "@clusterio/lib/link";
+import { libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";

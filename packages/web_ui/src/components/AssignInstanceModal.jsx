@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Form, Modal, Select, Typography } from "antd";
 
-import libLink from "@clusterio/lib/link";
+import { libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";

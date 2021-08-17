@@ -1,8 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Col, Form, Input, Modal, Row, Typography } from "antd";
 
-import libLink from "@clusterio/lib/link";
-import { readMapExchangeString } from "@clusterio/lib/factorio/exchange_string";
+import { libFactorio, libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -23,7 +22,7 @@ export default function LoadScenarioModal(props) {
 		if (values.exchangeString && values.exchangeString.trim()) {
 			let result;
 			try {
-				result = readMapExchangeString(values.exchangeString);
+				result = libFactorio.readMapExchangeString(values.exchangeString);
 			} catch (err) {
 				form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 				return;
@@ -71,7 +70,7 @@ export default function LoadScenarioModal(props) {
 		let exchangeString = form.getFieldValue("exchangeString");
 		let result;
 		try {
-			result = readMapExchangeString(exchangeString);
+			result = libFactorio.readMapExchangeString(exchangeString);
 		} catch (err) {
 			form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 			return;

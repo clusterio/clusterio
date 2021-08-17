@@ -1,6 +1,5 @@
 "use strict";
-let libLink = require("@clusterio/lib/link");
-let libConfig = require("@clusterio/lib/config");
+let { libConfig, libLink } = require("@clusterio/lib");
 
 
 class MasterConfigGroup extends libConfig.PluginConfigGroup {}

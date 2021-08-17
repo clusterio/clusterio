@@ -1,7 +1,5 @@
 "use strict";
-const libLink = require("@clusterio/lib/link");
-const libConfig = require("@clusterio/lib/config");
-const libUsers = require("@clusterio/lib/users");
+const { libConfig, libLink, libUsers } = require("@clusterio/lib");
 
 class MasterConfigGroup extends libConfig.PluginConfigGroup {}
 MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
