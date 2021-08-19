@@ -34,6 +34,8 @@ If you are starting a new cluster it's highly recommended to use the 2.0 alpha.
   * [MacOS setup](#macos-setup)
   * [Installing Plugins](#installing-plugins)
 * [Configure Master Server](#configure-master-server)
+* [Managing Factorio mods](#managing-factorio-mods)
+* [Setting up shared storage](#setting-up-shared-storage)
 * [Running Clusterio](#running-clusterio)
 * [Setting up remote slaves](#setting-up-remote-slaves)
 * [Setting up clusterioctl](#setting-up-clusterioctl)
@@ -209,6 +211,24 @@ If you're planning on making the master server accessible on the internet it's r
 
 You can list the config of the master server with the `npx clusteriomaster config list` command.
 See the [readme for @clusterio/master](/packages/master/README.md) for more information.
+
+
+## Managing Factorio mods
+
+Clusterio currently only provides a manual method for running mods on servers by copying them either to each instance's individual `mods` folder, or by copying them into a slave installation's `sharedMods` folder which will link/copy them to the `mods` folder of each instance on that slave if the file doesn't already exist in the `mods` folder for that instance.
+Mods are copied from `sharedMods` on Windows and symlinked on Linux, this means that when mods are removed from `sharedMods` the mods will also be removed from the instance's `mods` folder on Linux if it got there by being linked by Clusterio, but not on Windows.
+
+For managing the mod settings the `mod-settings.dat` and `mod-list.json` files will also be linked/copied over if present in `sharedMods`, but since Factorio creates these files automatically it might be necessary to delete them from each instance's `mods` folder for changes to them in `sharedMods` to take effect.
+
+Better remote management of mods is a planned feature.
+
+
+## Setting up shared storage
+
+The chests teleporting items to and from the shared storage on the master server has been moved into the Subspace Storage mod and plugin.
+To get this to work you will need to install the Subspace Storage plugin and copy the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) and the [Clusterio Lib mod](https://mods.factorio.com/mod/clusterio_lib) into the `sharedMods` folder on each slave installation.
+
+Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), this was for the old 1.2.x version of Clusterio and is not compatible with Clusterio 2.0.
 
 
 ## Running Clusterio
