@@ -972,7 +972,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 	constructor(slaveConfig, tlsCa, pluginInfos) {
 		super(
 			slaveConfig.get("slave.master_url"),
-			slaveConfig.get("slave.reconnect_delay"),
+			slaveConfig.get("slave.max_reconnect_delay"),
 			tlsCa
 		);
 		this.slaveConfig = slaveConfig;
@@ -980,7 +980,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 	}
 
 	register() {
-		logger.info("SOCKET | registering slave");
+		logger.info("Connector | registering slave");
 		let plugins = {};
 		for (let pluginInfo of this.pluginInfos) {
 			plugins[pluginInfo.name] = pluginInfo.version;
@@ -1598,7 +1598,6 @@ class Slave extends libLink.Link {
 			return;
 		}
 		this._shuttingDown = true;
-		this.connector.setTimeout(30);
 
 		try {
 			await libLink.messages.prepareDisconnect.send(this);
@@ -1612,7 +1611,7 @@ class Slave extends libLink.Link {
 			for (let instanceId of this.instanceConnections.keys()) {
 				await this.stopInstance(instanceId);
 			}
-			await this.connector.close(1001, "Slave Shutdown");
+			await this.connector.close(1000, "Slave Shutdown");
 
 			// Clear silly interval in pidfile library.
 			pidusage.clear();
@@ -1862,6 +1861,7 @@ async function startSlave() {
 	});
 
 	await slaveConnector.connect();
+	logger.info("Started slave");
 }
 
 module.exports = {

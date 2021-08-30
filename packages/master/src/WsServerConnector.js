@@ -12,28 +12,24 @@ const { logger } = require("@clusterio/lib/logging");
  * @alias module:master/src/WsServerConnector
  */
 class WsServerConnector extends libLink.WebSocketBaseConnector {
-	constructor(socket, sessionId, heartbeatInterval) {
-		super();
+	constructor(sessionId, sessionTimeout, heartbeatInterval) {
+		super(sessionTimeout);
 
-		this._socket = socket;
+		this._socket = null;
 		this._sessionId = sessionId;
 		this._heartbeatInterval = heartbeatInterval;
+		this._timeoutId = null;
 
 		// The following states are used in the server connector
-		// handshake: Waiting for client to (re)connect.
+		// closed: Connection is closed
 		// connected: Connection is online
-		// closing: Connection is in the process of being closed.
-		// closed: Connection has been closed
-		this._state = "handshake";
-		this._timeout = 15 * 60;
+		// resuming: Waiting for client to resume.
 	}
 
-	_check(expectedStates) {
-		if (!expectedStates.includes(this._state)) {
-			throw new Error(
-				`Expected state ${expectedStates} but state is ${this._state}`
-			);
-		}
+	_reset() {
+		clearTimeout(this._timeoutId);
+		this._timeoutId = null;
+		super._reset();
 	}
 
 	/**
@@ -41,17 +37,20 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 	 *
 	 * Sends the ready message over the socket to initiate the session.
 	 *
+	 * @param {Object} socket - WebSocket connection to client.
 	 * @param {string} sessionToken -
 	 *     the session token to send to the client.
 	 * @param {Object=} additionalData -
 	 *     extra properties to send along the ready message.
 	 */
-	ready(sessionToken, additionalData) {
+	ready(socket, sessionToken, additionalData) {
+		this._socket = socket;
 		this._socket.send(JSON.stringify({
 			seq: null,
 			type: "ready",
 			data: {
 				session_token: sessionToken,
+				session_timeout: this._sessionTimeout,
 				heartbeat_interval: this._heartbeatInterval,
 				...additionalData,
 			},
@@ -77,7 +76,7 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 		// stale connection.  If this is the case the connector will have to
 		// wait for the previous socket to close down before it can continue
 		// from a new socket, or there will be overlapping events from both.
-		if (["connected", "closing"].includes(this._state)) {
+		if (this._state === "connected") {
 			this._socket.close(4003, "Session Hijacked");
 
 			// Correctly waiting for the connector to close and then
@@ -102,6 +101,7 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 			type: "continue",
 			data: {
 				last_seq: this._lastReceivedSeq,
+				session_timeout: this._sessionTimeout,
 				heartbeat_interval: this._heartbeatInterval,
 			},
 		}));
@@ -115,63 +115,44 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 		this.emit("resume");
 	}
 
-	setTimeout(timeout) {
-		if (this._timeoutId) {
-			clearTimeout(this._timeoutId);
-		}
-
-		this._timeoutId = setTimeout(() => { this._timedOut(); }, timeout * 1000);
-		this._timeout = timeout;
-	}
-
 	_timedOut() {
-		logger.verbose("SOCKET | Connection timed out");
-		this._timeoutId = null;
-		this._lastReceivedSeq = null;
-		this._sendBuffer.length = 0;
-		this._state = "closed";
+		logger.verbose("Connector | Connection timed out");
+		this._reset();
 		this.emit("close");
-		this.emit("invalidate");
 	}
 
 	_attachSocketHandlers() {
 		this.startHeartbeat();
 
 		this._socket.on("close", (code, reason) => {
-			logger.verbose(`SOCKET | Close (code: ${code}, reason: ${reason})`);
-			if (this._state === "closing") {
-				this._lastReceivedSeq = null;
-				this._sendBuffer.length = 0;
-				this._state = "closed";
+			logger.verbose(`Connector | Close (code: ${code}, reason: ${reason})`);
+			this.stopHeartbeat();
+
+			if (this._closing) {
+				this._reset();
 				this.emit("close");
 
-				if (this._timeoutId) {
-					clearTimeout(this._timeoutId);
-					this._timeoutId = null;
-				}
-
 			} else {
-				this._state = "handshake";
+				this._state = "resuming";
 				this.emit("drop");
-				this._timeoutId = setTimeout(() => { this._timedOut(); }, this._timeout * 1000);
+				this._timeoutId = setTimeout(() => { this._timedOut(); }, this._sessionTimeout * 1000);
 			}
 
-			this.stopHeartbeat();
 		});
 
 		this._socket.on("error", err => {
 			// It's assumed that close is always called by ws
-			logger.verbose("SOCKET | Error:", err);
+			logger.verbose("Connector | Error:", err);
 		});
 
 		this._socket.on("open", () => {
-			logger.verbose("SOCKET | Open");
+			logger.verbose("Connector | Open");
 		});
 		this._socket.on("ping", data => {
-			logger.verbose(`SOCKET | Ping (data: ${data}`);
+			logger.verbose(`Connector | Ping (data: ${data}`);
 		});
 		this._socket.on("pong", data => {
-			logger.verbose(`SOCKET | Pong (data: ${data}`);
+			logger.verbose(`Connector | Pong (data: ${data}`);
 		});
 
 		// Handle messages
@@ -208,10 +189,33 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 			return;
 		}
 
-		this.stopHeartbeat();
-		this._state = "closing";
+		if (this._state === "resuming") {
+			this._reset();
+			this.emit("close");
+			return;
+		}
+
+		this._closing = true;
 		this._socket.close(code, reason);
 		await events.once(this, "close");
+	}
+
+	/**
+	 * Notify the connection is expected to close
+	 *
+	 * Sets the internal flag to signal not to wait for the client to
+	 * reconnect and resume the connection if the client closes it.  This
+	 * will close the connection if it's currently waiting for the client to
+	 * resume it.
+	 */
+	setClosing() {
+		if (this._state === "resuming") {
+			this._reset();
+			this.emit("close");
+			return;
+		}
+
+		this._closing = true;
 	}
 }
 

@@ -866,13 +866,13 @@ debugCommands.add(new libCommand.Command({
  * @private
  */
 class ControlConnector extends libLink.WebSocketClientConnector {
-	constructor(url, reconnectDelay, tlsCa, token) {
-		super(url, reconnectDelay, tlsCa);
+	constructor(url, maxReconnectDelay, tlsCa, token) {
+		super(url, maxReconnectDelay, tlsCa);
 		this._token = token;
 	}
 
 	register() {
-		logger.verbose("SOCKET | registering control");
+		logger.verbose("Connector | registering control");
 		this.sendHandshake("register_control", {
 			token: this._token,
 			agent: "clusterioctl",
@@ -946,8 +946,6 @@ class Control extends libLink.Link {
 	}
 
 	async shutdown() {
-		this.connector.setTimeout(30);
-
 		try {
 			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
@@ -956,7 +954,7 @@ class Control extends libLink.Link {
 			}
 		}
 
-		await this.connector.close(1001, "Control Quit");
+		await this.connector.close(1000, "Control Quit");
 	}
 }
 
@@ -1120,7 +1118,7 @@ async function startControl() {
 
 	let controlConnector = new ControlConnector(
 		controlConfig.get("control.master_url"),
-		controlConfig.get("control.reconnect_delay"),
+		controlConfig.get("control.max_reconnect_delay"),
 		tlsCa,
 		controlConfig.get("control.master_token")
 	);

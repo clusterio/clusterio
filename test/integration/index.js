@@ -169,7 +169,7 @@ before(async function() {
 	await exec("node ../../packages/master config set master.http_port 8880");
 	await exec("node ../../packages/master config set master.https_port 4443");
 	await exec("node ../../packages/master config set master.heartbeat_interval 0.25");
-	await exec("node ../../packages/master config set master.connector_shutdown_timeout 2");
+	await exec("node ../../packages/master config set master.session_timeout 2");
 	await exec("node ../../packages/master config set master.tls_certificate ../../test/file/tls/cert.pem");
 	await exec("node ../../packages/master config set master.tls_private_key ../../test/file/tls/key.pem");
 
@@ -189,7 +189,7 @@ before(async function() {
 	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
 	await exec("node ../../packages/slave config set slave.tls_ca ../../test/file/tls/cert.pem");
 
-	slaveProcess = await spawn("slave:", "node ../../packages/slave run", /SOCKET \| registering slave/);
+	slaveProcess = await spawn("slave:", "node ../../packages/slave run", /Started slave/);
 
 	let tlsCa = await fs.readFile("test/file/tls/cert.pem");
 	let controlConnector = new TestControlConnector(url, 2, tlsCa);
