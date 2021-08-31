@@ -98,9 +98,10 @@ const serverHandshake = ajv.compile({
 				"type": { const: "ready" },
 				"data": {
 					additionalProperties: false,
-					required: ["session_token", "heartbeat_interval"],
+					required: ["session_token", "session_timeout", "heartbeat_interval"],
 					properties: {
 						"session_token": { type: "string" },
+						"session_timeout": { type: "number" },
 						"heartbeat_interval": { type: "number" },
 						"account": {
 							additionalProperties: false,
@@ -118,9 +119,10 @@ const serverHandshake = ajv.compile({
 				"type": { const: "continue" },
 				"data": {
 					additionalProperties: false,
-					required: ["last_seq", "heartbeat_interval"],
+					required: ["last_seq", "session_timeout", "heartbeat_interval"],
 					properties: {
 						"last_seq": { type: ["integer", "null"] },
+						"session_timeout": { type: "number" },
 						"heartbeat_interval": { type: "number" },
 					},
 				},

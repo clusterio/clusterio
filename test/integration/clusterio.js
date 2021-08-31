@@ -46,7 +46,7 @@ describe("Integration of Clusterio", function() {
 				connectorA.token = controlToken;
 				let controlA = new TestControl(connectorA);
 				await connectorA.connect();
-				connectorA._state = "closing";
+				connectorA._closing = true;
 				connectorA.stopHeartbeat();
 				connectorA.on("error", () => {});
 
@@ -54,10 +54,12 @@ describe("Integration of Clusterio", function() {
 				connectorB.token = controlToken;
 				let controlB = new TestControl(connectorB);
 				connectorB._sessionToken = connectorA._sessionToken;
-				connectorB._state = "handshake";
-				await connectorB._doConnect();
+				connectorB._sessionTimeout = connectorA._sessionTimeout;
+				connectorB._startedResuming = Date.now();
+				connectorB._state = "resuming";
+				connectorB._doConnect();
 				await events.once(connectorB, "resume");
-				await connectorB.close();
+				await connectorB.close(1000, "");
 			});
 		});
 	});
@@ -84,7 +86,7 @@ describe("Integration of Clusterio", function() {
 				let slaveProcess;
 				try {
 					slaveProcess = await spawn(
-						"alt-slave:", `node ../../packages/slave run --config ${config}`, /SOCKET \| registering slave/
+						"alt-slave:", `node ../../packages/slave run --config ${config}`, /Started slave/
 					);
 				} finally {
 					if (slaveProcess) {

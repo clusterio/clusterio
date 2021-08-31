@@ -19,6 +19,7 @@ const libSchema = require("./schema");
 const libSharedCommands = require("./shared_commands");
 const libUsers = require("./users");
 
+const ExponentialBackoff = require("./ExponentialBackoff");
 const RateLimiter = require("./RateLimiter");
 
 
@@ -43,5 +44,6 @@ module.exports = {
 	libSharedCommands,
 	libUsers,
 
+	ExponentialBackoff,
 	RateLimiter,
 };

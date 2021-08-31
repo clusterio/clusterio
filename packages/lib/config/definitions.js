@@ -85,14 +85,14 @@ MasterGroup.define({
 	title: "Heartbeat Interval",
 	description: "Interval heartbeats are sent out on WebSocket connections",
 	type: "number",
-	initial_value: 45,
+	initial_value: 15,
 });
 MasterGroup.define({
-	name: "connector_shutdown_timeout",
-	title: "Connector Shutdown Timeout",
-	description: "Timeout in seconds for connectors to properly disconnect on shutdown",
+	name: "session_timeout",
+	title: "Session Timeout",
+	description: "Time in seconds before giving up resuming a dropped WebSocket session.",
 	type: "number",
-	initial_value: 30,
+	initial_value: 60,
 });
 MasterGroup.define({
 	name: "metrics_timeout",
@@ -184,11 +184,11 @@ SlaveGroup.define({
 	initial_value: "localhost",
 });
 SlaveGroup.define({
-	name: "reconnect_delay",
-	title: "Reconnect Delay",
+	name: "max_reconnect_delay",
+	title: "Max Reconnect Delay",
 	description: "Maximum delay to wait before attempting to reconnect WebSocket",
 	type: "number",
-	initial_value: 5,
+	initial_value: 60,
 });
 SlaveGroup.finalize();
 
@@ -358,11 +358,11 @@ ControlGroup.define({
 	optional: true,
 });
 ControlGroup.define({
-	name: "reconnect_delay",
-	title: "Reconnect Delay",
+	name: "max_reconnect_delay",
+	title: "Max Reconnect Delay",
 	description: "Maximum delay to wait before attempting to reconnect WebSocket",
 	type: "number",
-	initial_value: 2,
+	initial_value: 60,
 });
 ControlGroup.finalize();
 

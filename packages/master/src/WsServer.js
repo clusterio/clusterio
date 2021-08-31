@@ -2,6 +2,7 @@
 const jwt = require("jsonwebtoken");
 const WebSocket = require("ws");
 
+const libErrors = require("@clusterio/lib/errors");
 const { logger } = require("@clusterio/lib/logging");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libSchema = require("@clusterio/lib/schema");
@@ -64,12 +65,10 @@ class WsServer {
 
 		let disconnectTasks = [];
 		for (let controlConnection of this.controlConnections) {
-			controlConnection.connector.setTimeout(this.master.config.get("master.connector_shutdown_timeout"));
 			disconnectTasks.push(controlConnection.disconnect(1001, "Server Quit"));
 		}
 
 		for (let slaveConnection of this.slaveConnections.values()) {
-			slaveConnection.connector.setTimeout(this.master.config.get("master.connector_shutdown_timeout"));
 			disconnectTasks.push(slaveConnection.disconnect(1001, "Server Quit"));
 		}
 
@@ -254,8 +253,9 @@ ${err.stack}`
 			{ aud: this.sessionAud, sid: sessionId },
 			Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
 		);
+		let sessionTimeout = this.master.config.get("master.session_timeout");
 		let heartbeatInterval = this.master.config.get("master.heartbeat_interval");
-		let connector = new WsServerConnector(socket, sessionId, heartbeatInterval);
+		let connector = new WsServerConnector(sessionId, sessionTimeout, heartbeatInterval);
 		this.activeConnectors.set(sessionId, connector);
 		connector.on("close", () => {
 			this.activeConnectors.delete(connector);
@@ -276,6 +276,8 @@ ${err.stack}`
 				if (this.slaveConnections.get(data.id) === connection) {
 					this.slaveConnections.delete(data.id);
 					this.master.slaveUpdated(this.master.slaves.get(data.id));
+				} else {
+					logger.warn("Unlisted SlaveConnection closed");
 				}
 			});
 			this.slaveConnections.set(data.id, connection);
@@ -286,9 +288,11 @@ ${err.stack}`
 			logger.verbose(`WsServer | registered control from ${req.socket.remoteAddress}`);
 			let connection = new ControlConnection(data, connector, this.master, user);
 			connector.on("close", () => {
-				let index = this.controlConnections.indexOf(this);
+				let index = this.controlConnections.indexOf(connection);
 				if (index !== -1) {
 					this.controlConnections.splice(index, 1);
+				} else {
+					logger.warn("Unlisted ControlConnection closed");
 				}
 			});
 			this.controlConnections.push(connection);
@@ -297,7 +301,7 @@ ${err.stack}`
 			};
 		}
 
-		connector.ready(sessionToken, additionalReadyData);
+		connector.ready(socket, sessionToken, additionalReadyData);
 	}
 
 }

@@ -8,8 +8,8 @@ import packageJson from "../../package.json";
  * @private
  */
 export class ControlConnector extends libLink.WebSocketClientConnector {
-	constructor(url, reconnectDelay) {
-		super(url, reconnectDelay);
+	constructor(url, maxReconnectDelay) {
+		super(url, maxReconnectDelay);
 		this.token = null;
 	}
 
@@ -18,7 +18,7 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 			throw new Error("Token not set");
 		}
 
-		logger.verbose("SOCKET | registering control");
+		logger.verbose("Connector | registering control");
 		this.sendHandshake("register_control", {
 			token: this.token,
 			agent: "Clusterio Web UI",

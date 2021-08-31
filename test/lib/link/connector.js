@@ -48,7 +48,7 @@ describe("lib/link/connectors", function() {
 
 		describe(".sendHandshake()", function() {
 			it("calls send on the socket", function() {
-				testConnector._state = "handshake";
+				testConnector._state = "connecting";
 				testConnector._socket.sentMessages = [];
 				testConnector.sendHandshake("test", { test: true });
 				assert.deepEqual(
@@ -93,7 +93,11 @@ describe("lib/link/connectors", function() {
 			it("should emit connect on ready", async function() {
 				let result = events.once(testConnector, "connect");
 				testConnector._processHandshake(
-					{ seq: 1, type: "ready", data: { session_token: "x", heartbeat_interval: 10 }}
+					{ seq: 1, type: "ready", data: {
+						session_token: "x",
+						session_timeout: 20,
+						heartbeat_interval: 10,
+					}}
 				);
 				await result;
 				clearInterval(testConnector._heartbeatId);
@@ -106,14 +110,14 @@ describe("lib/link/connectors", function() {
 				assert(testConnector._socket.events.size > 0, "No handlers were attached");
 			});
 			it("should throw on message received in invalid state", function() {
-				testConnector._state = "new";
+				testConnector._state = "closed";
 				assert.throws(
 					() => testConnector._socket.events.get("message")("{}"),
-					new Error("Received message in unexpected state new")
+					new Error("Received message in unexpected state closed")
 				);
 			});
 			it("should call _processHandshake on message in handshake state", function() {
-				testConnector._state = "handshake";
+				testConnector._state = "connecting";
 				let called = false;
 				testConnector._processHandshake = () => { called = true; };
 				testConnector._socket.events.get("message")("{}");
