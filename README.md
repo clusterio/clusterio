@@ -120,8 +120,7 @@ Otherwise see below for OS specific instructions.
 
     To specify a version of Factorio to download replace "latest" in the URL with a version number like "1.0.0".
 
-4.  Optionally copy the generated systemd service files in `systemd` folder to `/etc/systemd/system/`.
-
+4.  Optionally copy the generated systemd service files in `systemd` folder to `/etc/systemd/system/`.   
 
 **Ubuntu with Docker**
 
@@ -238,6 +237,18 @@ The installer provides the `run-master` and `run-slave` scripts to make this sim
 Once the master process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
 
 The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a slave and then click start.
+
+To Run the Master or Slave Via Systemd:
+    
+To start as a service run:
+ 
+    sudo systemctl start clusterio****.service 
+                                   ^(replacing **** with either master or slave)
+
+To automatically get it to start on boot:
+
+    sudo systemctl enable clusterio****.service 
+                                     ^(replacing **** with either master or slave)
 
 
 ## Setting up remote slaves
