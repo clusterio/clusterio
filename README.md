@@ -239,6 +239,21 @@ Once the master process is running you can log into the web interface which is h
 
 The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a slave and then click start.
 
+### Running via Systemd
+
+The install script creates systemd service scripts for clusteriomaster and clusterioslave (if applicable) to start up as the user than ran the installer.
+If you have copied these files over to `/etc/systemd/system/` then you can startup clusterio as a background service using:
+    
+#### To start as a service run:
+ 
+    sudo systemctl start clusteriomaster # for the master server
+    sudo systemctl start clusterioslave # for each server hosting a slave
+
+#### To automatically get it to start on boot:
+ 
+    sudo systemctl enable clusteriomaster # for the master server
+    sudo systemctl enable clusterioslave # for each server hosting a slave
+
 
 ## Setting up remote slaves
 
