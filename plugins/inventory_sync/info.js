@@ -11,6 +11,14 @@ MasterConfigGroup.define({
 	type: "number",
 	initial_value: 600, // 10 minutes
 });
+MasterConfigGroup.define({
+	name: "player_lock_timeout",
+	title: "Player Lock Timeout",
+	description:
+		"Time in seconds before the lock on a player inventory expires after an instance stops or is disconnected",
+	type: "number",
+	initial_value: 60,
+});
 MasterConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup { }
@@ -47,15 +55,39 @@ module.exports = {
 	routes: ["/inventory"],
 
 	messages: {
+		acquire: new libLink.Request({
+			type: "inventory_sync:acquire",
+			links: ["instance-slave", "slave-master"],
+			forwardTo: "master",
+			requestProperties: {
+				"instance_id": { type: "integer" },
+				"player_name": { type: "string" },
+			},
+			responseRequired: ["status"],
+			responseProperties: {
+				"status": { enum: ["acquired", "error", "busy"] },
+				"generation": { type: "integer" },
+				"has_data": { type: "boolean" },
+				"message": { type: "string" },
+			},
+		}),
+		release: new libLink.Request({
+			type: "inventory_sync:release",
+			links: ["instance-slave", "slave-master"],
+			forwardTo: "master",
+			requestProperties: {
+				"instance_id": { type: "integer" },
+				"player_name": { type: "string" },
+			},
+		}),
 		upload: new libLink.Request({
 			type: "inventory_sync:upload",
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",
 			requestProperties: {
 				"instance_id": { type: "integer" },
-				"instance_name": { type: "string" },
 				"player_name": { type: "string" },
-				"inventory": { type: "object" },
+				"player_data": { type: "object" },
 			},
 		}),
 		download: new libLink.Request({
@@ -63,12 +95,11 @@ module.exports = {
 			links: ["instance-slave", "slave-master"],
 			forwardTo: "master",
 			requestProperties: {
+				"instance_id": { type: "integer" },
 				"player_name": { type: "string" },
 			},
 			responseProperties: {
-				"player_name": { type: "string" },
-				"inventory": { type: "object" },
-				"new_player": { type: "boolean" },
+				"player_data": { type: ["object", "null"] },
 			},
 		}),
 		databaseStats: new libLink.Request({

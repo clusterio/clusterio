@@ -1,4 +1,6 @@
-function save_crafts(event)
+local save_crafts = {}
+
+function save_crafts.command(event)
 	if event.player_index then
 		local player = game.get_player(event.player_index)
 		local crafting_queue = {}
@@ -91,6 +93,11 @@ function save_crafts(event)
 			ingredients = difference,
 		}
 	end
+end
+
+function save_crafts.add_commands()
+	commands.add_command("save-crafts", "Save crafting queue for transport to a different server", save_crafts.command)
+	commands.add_command("csc", "Shorthand for /save-crafts", save_crafts.command)
 end
 
 return save_crafts

@@ -1,5 +1,5 @@
 -- Load crafting queue from a table
-function load_crafting_queue(crafting_queue, player)
+local function load_crafting_queue(crafting_queue, player)
 	local inventory = player.get_main_inventory()
 
 	-- Give player some more inventory space to avoid duplicating items
