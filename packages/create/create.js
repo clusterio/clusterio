@@ -2,6 +2,7 @@
 
 "use strict";
 const child_process = require("child_process");
+const events = require("events");
 const fs = require("fs-extra");
 const inquirer = require("inquirer");
 const os = require("os");
@@ -275,6 +276,7 @@ WantedBy=multi-user.target
 	}
 }
 
+// eslint-disable-next-line complexity
 async function inquirerMissingArgs(args) {
 	let answers = {};
 	if (args.mode) { answers.mode = args.mode; }
@@ -373,6 +375,22 @@ async function inquirerMissingArgs(args) {
 				foundLocations.push(location);
 			}
 		}
+		if (process.platform === "linux") {
+			if (args.hasOwnProperty("downloadHeadless")) { answers.downloadHeadless = args.downloadHeadless; }
+
+			answers = await inquirer.prompt([
+				{
+					type: "confirm",
+					name: "downloadHeadless",
+					message: "(Linux only) Automatically download latest factorio release?",
+					default: true,
+				},
+			], answers);
+
+			if (answers.downloadHeadless) {
+				answers.factorioDir = "factorio";
+			}
+		}
 
 		answers = await inquirer.prompt([
 			{
@@ -415,9 +433,55 @@ async function inquirerMissingArgs(args) {
 	return answers;
 }
 
+async function downloadLinuxServer() {
+	let res = await phin("https://factorio.com/get-download/stable/headless/linux64");
+
+	const url = new URL(res.headers.location);
+	// get the filename of the latest factorio archive from redirected url
+	const filename = path.posix.basename(url.pathname);
+	const version = filename.match(/(?<=factorio_headless_x64_).*(?=\.tar\.xz)/)[0];
+
+	const tmpDir = "temp/create-temp/";
+	const archivePath = tmpDir + filename;
+	const tmpArchivePath = `${archivePath}.tmp`;
+	const factorioDir = `factorio/${version}/`;
+	const tmpFactorioDir = tmpDir + version;
+
+	if (await fs.pathExists(factorioDir)) {
+		logger.warn(`setting downloadDir to ${factorioDir}, but not downloading because already existing`);
+	} else {
+		await fs.ensureDir(tmpDir);
+
+		// follow the redirect
+		res = await phin({
+			url: url.href,
+			stream: true,
+		});
+
+		logger.info("Downloading latest Factorio server release. This may take a while.");
+		const writeStream = fs.createWriteStream(tmpArchivePath);
+		res.pipe(writeStream);
+
+		await events.once(res, "end");
+
+		await fs.rename(tmpArchivePath, archivePath);
+		try {
+			await fs.ensureDir(tmpFactorioDir);
+			await execFile("tar", [
+				"xf", archivePath, "-C", tmpFactorioDir, "--strip-components", "1",
+			]);
+		} catch (e) {
+			logger.error("error executing command- do you have 'xz-utils' installed?");
+			throw e;
+		}
+
+		await fs.unlink(archivePath);
+		await fs.rename(tmpFactorioDir, factorioDir);
+	}
+}
 
 async function main() {
-	const args = yargs
+	let args = yargs
 		.option("log-level", {
 			nargs: 1, describe: "Log level to print to stdout", default: "info",
 			choices: ["none"].concat(Object.keys(levels)), type: "string",
@@ -449,9 +513,20 @@ async function main() {
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
-		})
-		.argv
-	;
+		});
+
+	if (process.platform === "linux") {
+		args = args
+			.option("download-headless", {
+				nargs: 0,
+				describe: "(Linux only) Automatically download and unpack the latest factorio release. " +
+					"Can be set to false using --no-download-headless.",
+				type: "boolean",
+			})
+			.conflicts("factorio-dir", "download-headless");
+	}
+
+	args = args.argv;
 
 	setLogLevel(args.logLevel === "none" ? -1 : levels[args.logLevel]);
 	dev = args.dev;
@@ -461,6 +536,10 @@ async function main() {
 	}
 
 	let answers = await inquirerMissingArgs(args);
+	if (answers.downloadHeadless) {
+		await downloadLinuxServer();
+	}
+
 	logger.verbose(JSON.stringify(answers));
 
 	if (!dev) {
