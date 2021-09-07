@@ -1,7 +1,7 @@
 local clusterio_api = require("modules/clusterio/api")
 local auth = {}
 
-function open_dialog(player, url, code)
+local function open_dialog(player, url, code)
 	if player.gui.screen.player_auth_dialog then
 		player.gui.screen.player_auth_dialog.destroy()
 	end
