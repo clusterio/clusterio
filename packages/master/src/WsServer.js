@@ -258,7 +258,7 @@ ${err.stack}`
 		let connector = new WsServerConnector(sessionId, sessionTimeout, heartbeatInterval);
 		this.activeConnectors.set(sessionId, connector);
 		connector.on("close", () => {
-			this.activeConnectors.delete(connector);
+			this.activeConnectors.delete(sessionId);
 		});
 
 		let additionalReadyData = {};
