@@ -19,31 +19,26 @@ Substitute clusteriomaster with clusterioslave or clusterioctl if this a dedicat
 
 ## Method of operation
 
-This plugin does event based synchronization of inventories. The data flow is as follows:
+This plugin does event based synchronization of inventories.
+The greatly simplified data flow is as follows:
 
-1. Player joins server, gets put in spectator mode
+1. Player joins server.
+2. Scenario script asks master for exclusive access to the player.
+3. Master grants exclusive access for the player to the instance.
+4. Scenario script checks the access response and then acts according to the situation:
 
-2. Lua script asks instance for inventory
+    1. If the player has no inventory on the master then the current inventory becomes the synced inventory and the process is done.
+    2. If the player inventory was previously uploaded and is the same as the one stored on the master then the current inventory becomes the synced inventory and the process is done.
+    3. If the player inventory was previously uploaded but is not the same then the player inventory is deleted and the player is turned into a spectator.
+    4. Otherwise the player inventory is kept.
 
-3. Instance asks master for inventory
+5. Scenario script asks for the player inventory from the master.
+6. Master sends it to the scenario in a stream of chunks.
+7. Scenario displays and updates a progress bar as each chunk is received.
+8. Once all chunks have loaded the player's synced inventory is recreated from the data and the player can start playing.
 
-4. Master does not find inventory, and responds to instance with undefined
-
-5. Instance sets player to survival
-
-6. Player keeps playing, and eventually leaves. Inventory is serialized and sent to instance through stdout/file
-
-7. Instance sends inventory to master
-
-8. Player joins a different server. Lua sends a request to instance, puts player into spectator mode
-
-9. Instance sends request to master
-
-10. Master responds with json data
-
-11. Instance calls command in scenario script using rcon
-
-12. Once the entire command is transfered, the scenario script clears the old inventory, applies the new inventory from the scenario script and sets the player to survival mode.
+When the player leaves the inventory is uploaded if it's a synced inventory and the exclusive access the scenario script holds is released.
+Should an error occur during this process the player is given the option to use a temporary inventory instead, which will be merged back into the synced inventory the next time the sync succeeds on that instance.
 
 Communication between the server and instance goes over stdout or rcon, depending on the size of the data.
 Communication between the instance and the master server goes over websockets.

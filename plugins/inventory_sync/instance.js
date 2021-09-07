@@ -2,6 +2,7 @@
  * @module
  */
 "use strict";
+const libErrors = require("@clusterio/lib/errors");
 const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 
@@ -17,41 +18,140 @@ function chunkify(chunkSize, string) {
 
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
+		this.playersToRelease = new Set();
+		this.disconnecting = false;
+
 		// Handle IPC from scenario script
+		this.instance.server.on("ipc-inventory_sync_acquire", content => this.handleAcquire(content)
+			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_acquire:\n${err.stack}`)));
+		this.instance.server.on("ipc-inventory_sync_release", content => this.handleRelease(content)
+			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_release:\n${err.stack}`)));
 		this.instance.server.on("ipc-inventory_sync_upload", content => this.handleUpload(content)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_upload:\n${err.stack}`)));
 		this.instance.server.on("ipc-inventory_sync_download", content => this.handleDownload(content)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)));
 	}
 
-	async handleUpload(player) {
-		this.logger.verbose(`Uploading ${player.name} (${JSON.stringify(player).length / 1000}kB)`);
-		this.info.messages.upload.send(this.instance, {
-			instance_id: this.instance.id,
-			instance_name: this.instance.name,
-			player_name: player.name,
-			inventory: player,
-		});
+	onPrepareMasterDisconnect() {
+		this.disconnecting = true;
 	}
 
-	async handleDownload(player) {
-		this.logger.verbose(`Downloading ${player.player_name}`);
+	onMasterConnectionEvent(event) {
+		if (event === "connect") {
+			this.disconnecting = false;
+			(async () => {
+				for (let player_name of this.playersToRelease) {
+					if (!this.slave.connector.connected || this.disconnecting) {
+						return;
+					}
+					this.playersToRelease.delete(player);
+					await this.info.messages.release.send(this.instance, {
+						instance_id: this.instance.id,
+						player_name,
+					});
+				}
+			})().catch(
+				err => this.logger.error(`Unpexpected error releasing queued up players:\n${err.stack}`)
+			);
+		}
+	}
 
-		// Retrieves inventory data. If the master is offline it waits until it comes back online.
-		let response = await this.info.messages.download.send(this.instance, {
-			player_name: player.player_name,
-		});
-		if (response.new_player) {
-			await this.sendRcon(`/sc inventory_sync.welcome_new_player('${response.player_name}')`);
-		} else if (response.inventory) {
-			const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
-			const chunks = chunkify(chunkSize, JSON.stringify(response.inventory));
-			this.logger.verbose(`Sending inventory for ${player.player_name} in ${chunks.length} chunks`);
-			for (let i = 0; i < chunks.length; i++) {
-				// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
-				await this.sendRcon(`/sc inventory_sync.download_inventory('${response.player_name}',` +
-					`'${libLuaTools.escapeString(chunks[i])}', ${i + 1}, ${chunks.length})`);
+	async handleAcquire(request) {
+		let response = {
+			player_name: request.player_name,
+			status: "error",
+			message: "Master is temporarily unavailable",
+		};
+
+		if (this.slave.connector.connected && !this.disconnecting) {
+			try {
+				response = {
+					player_name: request.player_name,
+					...await this.info.messages.acquire.send(this.instance, {
+						instance_id: this.instance.id,
+						player_name: request.player_name,
+					}),
+				};
+			} catch (err) {
+				if (!(err instanceof libErrors.SessionLost)) {
+					this.logger.error(`Unexpected error sending aquire request:\n${err.stack}`);
+					response.message = err.message;
+				}
 			}
+		}
+
+		let json = libLuaTools.escapeString(JSON.stringify(response));
+		await this.sendRcon(`/sc inventory_sync.acquire_response("${json}")`, true);
+	}
+
+	async handleRelease(request) {
+		if (!this.slave.connector.connected) {
+			this.playersToRelease.set(request.player_name);
+		}
+
+		try {
+			await this.info.messages.release.send(this.instance, {
+				instance_id: this.instance.id,
+				player_name: request.player_name,
+			});
+		} catch (err) {
+			if (err instanceof libErrors.SessionLost) {
+				this.playersToRelease.set(request.player_name);
+			} else {
+				this.logger.error(`Unexpected error releasing player ${request.player_name}:\n${err.stack}`);
+			}
+		}
+	}
+
+	async handleUpload(player_data) {
+		if (!this.slave.connector.connected || this.disconnecting) {
+			return;
+		}
+
+		this.logger.verbose(`Uploading ${player_data.name} (${JSON.stringify(player_data).length / 1000}kB)`);
+		try {
+			await this.info.messages.upload.send(this.instance, {
+				instance_id: this.instance.id,
+				player_name: player_data.name,
+				player_data: player_data,
+			});
+
+		} catch (err) {
+			if (!(err instanceof libErrors.SessionLost)) {
+				this.logger.error(`Unexpected error uploading inventory for ${player_data.name}:\n${err.stack}`);
+			}
+			return;
+		}
+
+		await this.sendRcon(
+			`/sc inventory_sync.confirm_upload("${player_data.name}", ${player_data.generation})`, true
+		);
+	}
+
+	async handleDownload(request) {
+		const player_name = request.player_name;
+		this.logger.verbose(`Downloading ${player_name}`);
+
+		let response = await this.info.messages.download.send(this.instance, {
+			instance_id: this.instance.id,
+			player_name,
+		});
+
+		if (!response.player_data) {
+			await this.sendRcon(`/sc inventory_sync.download_inventory('${player_name}',nil,0,0)`, true);
+			return;
+		}
+
+		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
+		const chunks = chunkify(chunkSize, JSON.stringify(response.player_data));
+		this.logger.verbose(`Sending inventory for ${player_name} in ${chunks.length} chunks`);
+		for (let i = 0; i < chunks.length; i++) {
+			// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
+			const chunk = libLuaTools.escapeString(chunks[i]);
+			await this.sendRcon(
+				`/sc inventory_sync.download_inventory('${player_name}','${chunk}',${i + 1},${chunks.length})`,
+				true
+			);
 		}
 	}
 }

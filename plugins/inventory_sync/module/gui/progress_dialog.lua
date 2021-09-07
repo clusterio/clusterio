@@ -1,12 +1,7 @@
 -- Show inventory download progressbar
-function open_dialog(player, progress, total)
-	if player.gui.screen.inventory_sync_progress then
-		player.gui.screen.inventory_sync_progress.destroy()
-	end
-	if progress == total then
-		return -- Hide dialog on completed download
-	end
+local progress_dialog = {}
 
+function progress_dialog.create(player, progress, total)
 	local frame = player.gui.screen.add {
 		name = "inventory_sync_progress",
 		type = "frame",
@@ -34,15 +29,6 @@ function open_dialog(player, progress, total)
 	filler.style.height = 24
 	filler.drag_target = frame
 
-	titlebar.add {
-		name = "inventory_sync_progress_close_button",
-		type = "sprite-button",
-		sprite = "utility/close_white",
-		hovered_sprite = "utility/close_black",
-		clicked_sprite = "utility/close_black",
-		style = "frame_action_button",
-	}
-
 	local content = frame.add {
 		name = "inventory_sync_progress_dialog_content",
 		type = "frame",
@@ -53,7 +39,7 @@ function open_dialog(player, progress, total)
 
 	local p1 = content.add {
 		type = "label",
-		caption = "Downloading inventory chunk"..progress.."/"..total,
+		caption = "Downloading inventory chunk " .. progress .. " / " .. total,
 	}
 	p1.style.single_line = false
 	p1.style.bottom_margin = 8
@@ -68,4 +54,45 @@ function open_dialog(player, progress, total)
 	player.opened = frame
 end
 
-return open_dialog
+function progress_dialog.remove(player)
+	if player.gui.screen.inventory_sync_progress then
+		player.gui.screen.inventory_sync_progress.destroy()
+	end
+end
+
+function progress_dialog.update(player, progress, total)
+	-- Be defensive here in case an old GUI is present
+	local frame = player.gui.screen.inventory_sync_progress
+	if not frame then
+		return false
+	end
+
+	local content = frame.inventory_sync_progress_dialog_content
+	if not content then
+		return false
+	end
+
+	local p1 = content.children[1]
+	if not p1 or p1.type ~= "label" then
+		return false
+	end
+
+	local progressbar = content.children[2]
+	if not progressbar or progressbar.type ~= "progressbar" then
+		return false
+	end
+
+	p1.caption = "Downloading inventory chunk " .. progress .. " / " .. total
+	progressbar.value = progress / total
+
+	return true
+end
+
+function progress_dialog.display(player, progress, total)
+	if not progress_dialog.update(player, progress, total) then
+		progress_dialog.remove(player)
+		progress_dialog.create(player, progress, total)
+	end
+end
+
+return progress_dialog

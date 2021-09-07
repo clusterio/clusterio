@@ -1,107 +1,139 @@
 local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
-local serialize = require("modules/clusterio/serialize")
-local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
-local inventories = require("modules/inventory_sync/define_player_inventories")
 local ensure_character = require("modules/inventory_sync/ensure_character")
-local player_stat_keys = require("modules/inventory_sync/define_player_stat_keys")
+local serialize = require("modules/inventory_sync/serialize")
+local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
 
-function download_inventory(player_name, data, number, total)
+local function download_inventory(player_name, data, number, total)
 	local player = game.get_player(player_name)
 	if player == nil then
-		log("Player not found! "..player_name)
+		rcon.print("Player " .. player_name .. " does not exist")
 		return
 	end
-	if number then
-		if global.inventory_sync.download_cache[player_name] == nil then
-			global.inventory_sync.download_cache[player_name] = ""
-		end
-		-- Append data to download cache
-		global.inventory_sync.download_cache[player_name] = global.inventory_sync.download_cache[player_name] .. data
+
+	local record = global.inventory_sync.active_downloads[player_name]
+	if record == nil then
+		rcon.print("No active download is in progress for " .. player_name)
+		return
 	end
 
-	if number ~= total then
-		-- Show progress in console
-		-- player.print("Downloaded "..(number + 1).."/"..total.." parts")
-		-- Show progress in GUI
-		progress_dialog(player, number+1, total)
+	local player_record = global.inventory_sync.players[player_name]
+	if record.restart then
+		rcon.print("Restarting outdated download")
+		inventory_sync.initiate_inventory_download(player, player_record, record.generation)
+		return
+	end
 
-		-- Request next segment
-		rcon.print("Segment downloaded")
+	if total == 0 then
+		-- Download was requested but the player had no data stored.
+		log("ERROR: Inventory sync failed, got empty player data for " .. player.name .. " from the master")
+		player.print("ERROR: Inventory sync failed, got empty player data from the master")
 
-		-- Reset sync_start_tick to indicate master connection
-		global.inventory_sync.players[player_name].sync_start_tick = game.tick
-	else
-		-- Stop tracking master connection status, sync is complete
-		global.inventory_sync.players[player_name].sync_start_tick = 0
-
-		-- Handle dirty inventory
-		if global.inventory_sync.players[player_name].dirty_inventory then
-			clean_dirty_inventory(player)
-		end
-
-		-- Recreate player character
+		-- Give the player a character and pretend that's the synced player data
 		ensure_character(player)
 
-		-- Remove freeplay skip cutscene label
-		if player.gui.screen.skip_cutscene_label then
-			player.gui.screen.skip_cutscene_label.destroy()
+		-- Restore player position in case they moved while being spectator
+		if record.surface and record.position then
+			player.teleport(record.position, record.surface)
 		end
 
-		local character = player.character or player.cutscene_character
-
-		-- Load downloaded inventory
-		local serialized_player = game.json_to_table(global.inventory_sync.download_cache[player_name])
-		global.inventory_sync.download_cache[player_name] = nil -- remove data to lower mapsize
-
-		-- Load inventories
-		for _, inv in pairs(inventories) do
-			local inventory = player.get_inventory(inv)
-			if inventory ~= nil and serialized_player.inventories[tostring(inv)] ~= nil then
-				serialize.deserialize_inventory(inventory, serialized_player.inventories[tostring(inv)])
-			end
-		end
-
-		-- Load personal logistics slots
-		for i = 1, 200 do
-			local slot = serialized_player.personal_logistic_slots[tostring(i+1)] -- 1 is empty to force array to be spare
-			if slot ~= nil then
-				player.set_personal_logistic_slot(i, slot)
-			end
-		end
-
-		-- Load hotbar, don't overwrite empty slots
-		for i = 1, 100 do
-			-- if serialized_player.hotbar[i] ~= nil then
-			player.set_quick_bar_slot(i, game.item_prototypes[serialized_player.hotbar[i]])
-			-- end
-		end
-
-		-- Load crafting queue
-		load_crafting_queue(serialized_player.crafting_queue, player)
-
-		-- Misc
-		player.cheat_mode = serialized_player.cheat_mode
-		player.force = serialized_player.force -- Force by name as string
-		player.tag = serialized_player.tag
-		player.color = serialized_player.color
-		player.chat_color = serialized_player.chat_color
-
-		-- Player stats
-		for _,v in pairs(player_stat_keys) do
-			character[v] = serialized_player[v]
-		end
-
-		if serialized_player.flashlight then
-			player.enable_flashlight()
-		else
-			player.disable_flashlight()
-		end
-
-		local startTick = global.inventory_sync.download_start_tick[player.name]
-		local log_line = "Imported inventory for "..player_name.." in "..game.tick - startTick.." ticks"
-		player.print(log_line)
-		log("[inventory_sync] "..log_line)
+		global.inventory_sync.active_downloads[player_name] = nil
+		player_record.dirty = player.connected
+		player_record.sync = true
+		player_record.generation = record.generation
+		return
 	end
+
+	record.data = record.data .. data
+
+	-- Show progress in console
+	-- player.print("Downloaded "..(number + 1).."/"..total.." parts")
+	if number ~= total then
+		-- Show progress in GUI
+		progress_dialog.display(player, number, total)
+
+		-- Update activity to indicate this session is still going
+		record.last_active = game.ticks_played
+		return
+	end
+
+	progress_dialog.remove(player)
+
+	-- Editor mode is not supported.
+	if player.controller_type == defines.controllers.editor then
+		player.toggle_map_editor()
+	end
+
+	if player.controller_type == defines.controllers.editor then
+		log("ERROR: Inventory sync failed, unable to switch " .. player.name .. " out of editor mode")
+		player.print("ERROR: Inventory sync failed, unable to switch out of editor mode")
+		return
+	end
+
+	-- Stash temporary inventory if it exists
+	local stashed_corpse
+	if player_record.dirty and player.character then
+		local character = player.character
+		local surface = character.surface
+		local position = character.position
+		local corpse_name = character.prototype.character_corpse.name
+		player.character = nil
+		character.die()
+		stashed_corpse = surface.find_entity(corpse_name, position)
+	end
+
+	-- Deserialize downloaded player data
+	local serialized_player = game.json_to_table(record.data)
+	serialize.deserialize_player(player, serialized_player)
+
+	-- Restore player position in case they moved while being spectator
+	if record.surface and record.position then
+		player.teleport(record.position, record.surface)
+	end
+
+	-- Load crafting queue
+	if player.character then
+		load_crafting_queue(serialized_player.crafting_queue, player)
+	end
+
+	-- Transfer items from stashed inventory
+	if stashed_corpse then
+		local main = player.get_main_inventory()
+		local stash = stashed_corpse.get_inventory(defines.inventory.character_corpse)
+		if main then
+			for i = 1, #stash do
+				-- Try transfering a stack
+				local source = stash[i]
+				if source and source.valid_for_read then
+					local target = main.find_empty_stack()
+					if not target then
+						break
+					end
+					target.transfer_stack(source)
+				end
+			end
+		end
+
+		if stash.is_empty() then
+			stashed_corpse.destroy()
+		else
+			player.print(
+				"Your temprorary inventory did not fit into your synced one and the remaining items have " ..
+				"been placed in a corpse below you."
+			)
+		end
+	end
+
+	-- Player may have left before the download completed
+	player_record.dirty = player.connected
+	player_record.sync = true
+	player_record.generation = serialized_player.generation
+
+	-- Remove download session and data
+	global.inventory_sync.active_downloads[player_name] = nil
+
+	local ticks = game.ticks_played - record.started
+	player.print("Imported player data in " .. ticks .. " ticks")
+	log("Imported player data for " .. player_name .. " in " .. ticks .. " ticks")
 end
 
 return download_inventory
