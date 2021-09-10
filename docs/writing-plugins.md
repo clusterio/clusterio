@@ -502,11 +502,11 @@ This is signaled to `MasterPlugin` classes via the `onPrepareSlaveDisconnect` ho
 
 After the prepare disconnect the connection will be closed, which will result in pending requests and events being dropped.
 Plugins must respond to the prepare disconnect by stopping any processess it does that send events or requests over the link in question.
-This can be accomplished either through listening for the prepare disconnect hook, or by checking the `connected` or `closing` property of the connector for the master/slave connection.
-For example the sending of an event from an `InstancePlugin` class can be stopped while the connection is closing by using the following code:
+This can be accomplished either through listening for the prepare disconnect hook, or by checking the `connected` property of the `SlaveConnection` class and `Slave` class on the master and slave respectively.
+For example the sending of an event from an `InstancePlugin` class can be stopped while the connection is not connected, not in the dropped state, and not in the process of discunnecting by using the following code:
 
 ```js
-if (!this.slave.connector.closing) {
+if (this.slave.connected) {
     this.info.messages.frobnicate.send(this.instance, { foo: "bar" });
 }
 ```
@@ -517,8 +517,8 @@ The re-establishement of the connection is  notified to plugins via the `connect
 The second connection event which is of lesser importance to respond to is the `drop` connection event served through `onMasterConnectionEvent` for `InstancePlugin` classes and through `onSlaveConnectionEvent` for `MasterPlugin` classes.
 This is raised when the connection between the master and slave in question is lost, most likely due to networking issues.
 When in the dropped state the slave will keep trying to reconnect to the master server in order to re-establish it, and if successful no events or requests will be lost.
-However while in the dropped state any requests and events sent gets queued up in memory until the connection is re-established.
-This means that if your plugin sends a lot of events or requests, they can end up being queued up in a buffer for a long time and sent out all at once.
+However while in the dropped state any requests and events sent gets queued up in memory until the connection is either re-established or the session times out.
+This means that if your plugin sends a lot of events or requests, they can end up being queued up in a buffer and sent out all at once the connection is re-estabished.
 To avoid this you should be throtteling and/or stopping your requests/events after `drop` has been raised, and continue back as normal when `resume` is raised.
 
 

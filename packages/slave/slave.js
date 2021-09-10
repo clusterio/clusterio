@@ -1582,10 +1582,10 @@ class Slave extends libLink.Link {
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
-		this._disconnecting = true;
 		for (let instanceConnection of this.instanceConnections.values()) {
 			await libLink.messages.prepareMasterDisconnect.send(instanceConnection);
 		}
+		this._disconnecting = true;
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
 	}
@@ -1627,6 +1627,15 @@ ${err.stack}`
 			// eslint-disable-next-line node/no-process-exit
 			process.exit(1);
 		}
+	}
+
+	/**
+	 * True if the connection to the master is connected, not in the dropped
+	 * state,and not in the process of disconnecting.
+	 * @type {boolean}
+	 */
+	get connected() {
+		return !this._disconnecting && this.connector.connected;
 	}
 }
 
