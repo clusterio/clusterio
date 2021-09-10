@@ -295,10 +295,6 @@ class Instance extends libLink.Link {
 		for (let pluginInstance of this.plugins.values()) {
 			pluginInstance.onExit();
 		}
-
-		this.sendSaveListUpdate().catch(err => {
-			this.logger.error(`Unexpected error updating save list:\n${err.stack}`);
-		});
 	}
 
 	async _loadPlugin(pluginInfo, slave) {
@@ -318,6 +314,7 @@ class Instance extends libLink.Link {
 			await this.server.init();
 		} catch (err) {
 			this.notifyExit();
+			await this.sendSaveListUpdate();
 			throw err;
 		}
 
@@ -335,6 +332,7 @@ class Instance extends libLink.Link {
 				await this._loadPlugin(pluginInfo, this._slave);
 			} catch (err) {
 				this.notifyExit();
+				await this.sendSaveListUpdate();
 				throw err;
 			}
 		}
@@ -689,6 +687,7 @@ class Instance extends libLink.Link {
 		if (this.server._state === "running") {
 			await libPlugin.invokeHook(this.plugins, "onStop");
 			await this.server.stop();
+			await this.sendSaveListUpdate();
 		}
 	}
 
@@ -728,6 +727,7 @@ class Instance extends libLink.Link {
 			saveName = await this.prepareSave(saveName);
 		} catch (err) {
 			this.notifyExit();
+			await this.sendSaveListUpdate();
 			throw err;
 		}
 
@@ -749,6 +749,7 @@ class Instance extends libLink.Link {
 			await this.prepare();
 		} catch (err) {
 			this.notifyExit();
+			await this.sendSaveListUpdate();
 			throw err;
 		}
 
@@ -779,12 +780,14 @@ class Instance extends libLink.Link {
 
 		} catch (err) {
 			this.notifyExit();
+			await this.sendSaveListUpdate();
 			throw err;
 		}
 
 		this.server.on("exit", () => this.notifyExit());
 		let { name, seed, map_gen_settings, map_settings } = message.data;
 		await this.server.create(name, seed, map_gen_settings, map_settings);
+		await this.sendSaveListUpdate();
 		this.logger.info("Successfully created save");
 	}
 
