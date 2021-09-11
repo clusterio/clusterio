@@ -27,6 +27,9 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async onStart() {
 		this.pingId = setInterval(() => {
+			if (!this.slave.connected) {
+				return; // Only ping if we are actually connected to the master.
+			}
 			this.sendRcon(
 				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true
 			).catch(err => this.unexpectedError(err));
