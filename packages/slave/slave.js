@@ -945,6 +945,10 @@ class InstanceConnection extends libLink.Link {
 	}
 
 	async forwardEventToMaster(message, event) {
+		if (!this.slave.connector.hasSession) {
+			return;
+		}
+
 		event.send(this.slave, message.data);
 	}
 
