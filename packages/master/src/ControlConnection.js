@@ -456,12 +456,15 @@ class ControlConnection extends BaseConnection {
 		// - The log file is read starting from the beginning
 		let setDuration = lastQueryLogTime.startTimer();
 		let log = await query({
-			order: "asc",
+			order: message.data.order,
 			limit: Infinity,
 			from: new Date(0),
 		});
 
 		log = log.filter(this.constructor.logFilter(message.data));
+		if (message.data.limit) {
+			log = log.slice(0, message.data.limit);
+		}
 		setDuration();
 		return { log };
 	}

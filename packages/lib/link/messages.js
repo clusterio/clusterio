@@ -859,6 +859,8 @@ messages.queryLog = new Request({
 			items: { type: "integer" },
 		},
 		"max_level": { type: ["string", "null"] },
+		"limit": { type: "integer" },
+		"order": { enum: ["asc", "desc"] },
 	},
 	responseProperties: {
 		"log": {
