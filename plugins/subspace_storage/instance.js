@@ -10,13 +10,12 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async init() {
-		this.stopping = false;
 		this.pendingTasks = new Set();
 		this.instance.server.on("ipc-subspace_storage:output", (output) => {
 			this.provideItems(output).catch(err => this.unexpectedError(err));
 		});
 		this.instance.server.on("ipc-subspace_storage:orders", (orders) => {
-			if (this.stopping) {
+			if (this.instance.status !== "running" || !this.slave.connected) {
 				return;
 			}
 
@@ -28,6 +27,9 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async onStart() {
 		this.pingId = setInterval(() => {
+			if (!this.slave.connected) {
+				return; // Only ping if we are actually connected to the master.
+			}
 			this.sendRcon(
 				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true
 			).catch(err => this.unexpectedError(err));
@@ -41,7 +43,6 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async onStop() {
 		clearInterval(this.pingId);
-		this.stopping = true;
 		await Promise.all(this.pendingTasks);
 	}
 
@@ -51,6 +52,16 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	// provide items --------------------------------------------------------------
 	async provideItems(items) {
+		if (!this.slave.connector.hasSession) {
+			// For now the items are voided if the master connection is
+			// down, which is no different from the previous behaviour.
+			if (this.instance.config.get("subspace_storage.log_item_transfers")) {
+				this.logger.verbose("Voided the following items:");
+				this.logger.verbose(JSON.stringify(items));
+			}
+			return;
+		}
+
 		this.info.messages.place.send(this.instance, {
 			items,
 			instance_id: this.instance.id,
@@ -84,8 +95,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	// combinator signals ---------------------------------------------------------
-	async updateStorageEventHandler(message, event) {
-		if (this.stopping) {
+	async updateStorageEventHandler(message) {
+		if (this.instance.status !== "running") {
 			return;
 		}
 		let items = message.data.items;

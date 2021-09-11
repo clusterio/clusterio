@@ -29,6 +29,7 @@ export default function SavesList(props) {
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState([]);
 
+	let slaveOffline = ["unassigned", "unknown"].includes(props.instance.status);
 	const saveTable = <Table
 		size="small"
 		columns={[
@@ -79,6 +80,7 @@ export default function SavesList(props) {
 					}}
 				>Load save</Button>
 				<Button
+					disabled={slaveOffline}
 					onClick={() => {
 						libLink.messages.downloadSave.send(
 							control, { instance_id: props.instance.id, save: save.name }
@@ -102,7 +104,7 @@ export default function SavesList(props) {
 						).catch(notifyErrorHandler("Error deleting save"));
 					}}
 				>
-					<Button danger>Delete</Button>
+					<Button danger disabled={slaveOffline}>Delete</Button>
 				</Popconfirm>
 			</Space>,
 		}}
@@ -141,6 +143,7 @@ export default function SavesList(props) {
 	}
 
 	let uploadProps = {
+		disabled: slaveOffline,
 		name: "file",
 		accept: ".zip",
 		headers: {
@@ -157,7 +160,7 @@ export default function SavesList(props) {
 	return <div>
 		<SectionHeader title="Saves" extra=<Space>
 			<Upload {...uploadProps} >
-				<Button>Upload save</Button>
+				<Button disabled={slaveOffline}>Upload save</Button>
 			</Upload>
 			<CreateSaveModal instance={props.instance} />
 		</Space> />

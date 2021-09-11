@@ -62,6 +62,42 @@ describe("Integration of Clusterio", function() {
 				await connectorB.close(1000, "");
 			});
 		});
+
+		describe("queryLogRequestHandler", function() {
+			it("should honnor the limit", async function() {
+				let result = await libLink.messages.queryLog.send(getControl(), {
+					all: true,
+					master: false,
+					slave_ids: [],
+					instance_ids: [],
+					max_level: null,
+					limit: 10,
+					order: "asc",
+				});
+				assert.equal(result.log.length, 10);
+			});
+			it("should return entries by order", async function() {
+				let first = await libLink.messages.queryLog.send(getControl(), {
+					all: true,
+					master: false,
+					slave_ids: [],
+					instance_ids: [],
+					max_level: null,
+					limit: 1,
+					order: "asc",
+				});
+				let last = await libLink.messages.queryLog.send(getControl(), {
+					all: true,
+					master: false,
+					slave_ids: [],
+					instance_ids: [],
+					max_level: null,
+					limit: 1,
+					order: "desc",
+				});
+				assert(first.log[0].timestamp < last.log[0].timestamp, "first log entry happened after last");
+			});
+		});
 	});
 
 	describe("clusterioslave", function() {
@@ -88,6 +124,9 @@ describe("Integration of Clusterio", function() {
 					slaveProcess = await spawn(
 						"alt-slave:", `node ../../packages/slave run --config ${config}`, /Started slave/
 					);
+					// Add instance to test the unknown status afterwards
+					await execCtl("instance create alt-test --id 99");
+					await execCtl("instance assign alt-test 5");
 				} finally {
 					if (slaveProcess) {
 						slaveProcess.kill("SIGINT");
@@ -524,7 +563,7 @@ describe("Integration of Clusterio", function() {
 		describe("instanceUpdateEventHandler()", function() {
 			it("should have triggered for the previous instance status updates", function() {
 				let statusesToCheck = new Set([
-					"unassigned", "stopped", "creating_save", "exporting_data",
+					"unassigned", "unknown", "stopped", "creating_save", "exporting_data",
 					"starting", "running", "stopping", "deleted",
 				]);
 				let statusesNotSeen = new Set(statusesToCheck);

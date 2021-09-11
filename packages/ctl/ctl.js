@@ -819,6 +819,8 @@ logCommands.add(new libCommand.Command({
 			"slave": { describe: "Query log of given slave", nargs: 1, type: "string", default: null },
 			"instance": { describe: "Query log of given instance", nargs: 1, type: "string", default: null },
 			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: null },
+			"limit": { describe: "Max number of entries to return", nargs: 1, type: "number", default: 1000 },
+			"start": { describe: "Limit from the start instead of the end", nargs: 0, type: "boolean", default: false },
 		});
 	}],
 	handler: async function(args, control) {
@@ -835,7 +837,13 @@ logCommands.add(new libCommand.Command({
 			slave_ids,
 			instance_ids,
 			max_level: args.maxLevel,
+			limit: args.limit,
+			order: args.start ? "asc" : "desc",
 		});
+
+		if (!args.start) {
+			result.log.reverse();
+		}
 
 		let stdoutLogger = winston.createLogger({
 			level: "verbose",

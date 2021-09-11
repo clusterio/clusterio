@@ -133,7 +133,7 @@ export class Control extends libLink.Link {
 			throw new Error(`Given handler is not registered for slave ${id}`);
 		}
 
-		handlers.slice(index, 1);
+		handlers.splice(index, 1);
 		if (!handlers.length) {
 			this.slaveUpdateHandlers.delete(id);
 			await this.updateSlaveSubscriptions();
@@ -242,12 +242,12 @@ export class Control extends libLink.Link {
 		let index = handlers.lastIndexOf(handler);
 		if (index === -1) {
 			throw new Error(`Given handler is not registered for instance ${id}`);
+		}
 
-			handlers.splice(index, 1);
-			if (!handlers.length) {
-				this.saveListUpdateHandlers.delete(id);
-				await this.updateSaveListSubscriptions();
-			}
+		handlers.splice(index, 1);
+		if (!handlers.length) {
+			this.saveListUpdateHandlers.delete(id);
+			await this.updateSaveListSubscriptions();
 		}
 	}
 

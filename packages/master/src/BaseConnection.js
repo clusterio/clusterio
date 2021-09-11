@@ -16,6 +16,7 @@ class BaseConnection extends libLink.Link {
 		/** @member {module:master/src/WsServerConnector} module:master/src/BaseConnection#connector */
 		super("master", target, connector);
 		this._master = master;
+		this._disconnecting = false;
 		libLink.attachAllMessages(this);
 		for (let masterPlugin of this._master.plugins.values()) {
 			libPlugin.attachPluginMessages(this, masterPlugin);
@@ -57,6 +58,7 @@ class BaseConnection extends libLink.Link {
 
 	async prepareDisconnectRequestHandler(message, request) {
 		await libPlugin.invokeHook(this._master.plugins, "onPrepareSlaveDisconnect", this);
+		this._disconnecting = true;
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
 	}
@@ -71,6 +73,15 @@ class BaseConnection extends libLink.Link {
 		}
 
 		await this.connector.close(code, reason);
+	}
+
+	/**
+	 * True if the link is connected, not in the dropped state and not in
+	 * the process of disconnecting.
+	 * @type {boolean}
+	 */
+	get connected() {
+		return !this._disconnecting && this.connector.connected;
 	}
 }
 

@@ -4,7 +4,7 @@ const assert = require("assert").strict;
 const ExponentialBackoff = require("@clusterio/lib/ExponentialBackoff");
 
 describe("lib/ExponentialBackoff", function() {
-	describe("class RateLimiter", function() {
+	describe("class ExponentialBackoff", function() {
 		it("should give a delay", function() {
 			let backoff = new ExponentialBackoff();
 			assert.equal(typeof backoff.delay(), "number");

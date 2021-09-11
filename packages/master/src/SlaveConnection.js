@@ -39,6 +39,20 @@ class SlaveConnection extends BaseConnection {
 				}
 			});
 		}
+
+		this.connector.on("close", () => {
+			// Update status to unknown for instances on this slave.
+			for (let instance of this._master.instances.values()) {
+				if (instance.config.get("instance.assigned_slave") !== this._id) {
+					continue;
+				}
+
+				let prev = instance.status;
+				instance.status = "unknown";
+				this._master.instanceUpdated(instance);
+				libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
+			}
+		});
 	}
 
 	/**

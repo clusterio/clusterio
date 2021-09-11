@@ -11,7 +11,7 @@ local function version_to_table(version)
 end
 
 -- 0.17 compatibility
-local supports_bar, get_bar, has_bar, version
+local supports_bar, get_bar, set_bar, version
 if (pcall(function() local mods = script.active_mods end)) then
 	supports_bar = "supports_bar"
 	get_bar = "get_bar"

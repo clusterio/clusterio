@@ -163,6 +163,14 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	get closing() {
 		return this._closing || this._state === "closed";
 	}
+
+	/**
+	 * True if the connector currently has a valid session that is either
+	 * connected or in the process of resuming.
+	 */
+	get hasSession() {
+		return ["connected", "resuming"].includes(this._state);
+	}
 }
 
 /**

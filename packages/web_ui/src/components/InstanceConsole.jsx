@@ -65,8 +65,10 @@ export default function InstanceConsole(props) {
 			slave_ids: [],
 			instance_ids: [props.id],
 			max_level: null,
+			limit: 400,
+			order: "desc",
 		}).then(result => {
-			setPastLines(result.log.slice(-400).map((info, index) => formatLog(info, index)));
+			setPastLines(result.log.map((info, index) => formatLog(info, index)).reverse());
 		}).catch(err => {
 			setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
 		});
