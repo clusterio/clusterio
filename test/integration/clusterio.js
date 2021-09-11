@@ -88,6 +88,9 @@ describe("Integration of Clusterio", function() {
 					slaveProcess = await spawn(
 						"alt-slave:", `node ../../packages/slave run --config ${config}`, /Started slave/
 					);
+					// Add instance to test the unknown status afterwards
+					await execCtl("instance create alt-test --id 99");
+					await execCtl("instance assign alt-test 5");
 				} finally {
 					if (slaveProcess) {
 						slaveProcess.kill("SIGINT");
@@ -524,7 +527,7 @@ describe("Integration of Clusterio", function() {
 		describe("instanceUpdateEventHandler()", function() {
 			it("should have triggered for the previous instance status updates", function() {
 				let statusesToCheck = new Set([
-					"unassigned", "stopped", "creating_save", "exporting_data",
+					"unassigned", "unknown", "stopped", "creating_save", "exporting_data",
 					"starting", "running", "stopping", "deleted",
 				]);
 				let statusesNotSeen = new Set(statusesToCheck);

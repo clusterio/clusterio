@@ -256,6 +256,7 @@ class BaseMasterPlugin {
 	 * or received notice from a slave that the status of an instance has
 	 * changed.  The possible statuses that can be notified about are:
 	 * - `unassigned:`: Instance is no longer asssigned to a slave.
+	 * - `unknown`: Slave assigned to instance is offline.
 	 * - `stopped`: Instance is no longer running or was just assigned to a
 	 *   slave.
 	 * - `starting`: Instance is in the process of starting up.
@@ -270,7 +271,8 @@ class BaseMasterPlugin {
 	 * they are assigned to a slave, when the slave then connects to the
 	 * master and informs of the current status of its instances this hook
 	 * is invoked for all those instances.  You can detect this situation by
-	 * checking if prev equals `unknown`.
+	 * checking if prev equals `unknown`.  If the slave disconnects the
+	 * instances will again get the `unknown` status.
 	 *
 	 * When instances are created on the master they will notify of a status
 	 * change with prev set to null.  While the status of new instances is
