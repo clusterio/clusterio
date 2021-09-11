@@ -5,6 +5,7 @@ const path = require("path");
 const libDatabase = require("@clusterio/lib/database");
 const libPlugin = require("@clusterio/lib/plugin");
 const { Counter, Gauge } = require("@clusterio/lib/prometheus");
+const RateLimiter = require("@clusterio/lib/RateLimiter");
 
 const routes = require("./routes");
 const dole = require("./dole");
@@ -58,6 +59,16 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	async init() {
 
 		this.items = await loadDatabase(this.master.config, this.logger);
+		this.itemUpdateRateLimiter = new RateLimiter({
+			maxRate: 1,
+			action: () => {
+				try {
+					this.broadcastStorage();
+				} catch (err) {
+					this.logger.error(`Unexpected error sending storage update:\n${err.stack}`);
+				}
+			},
+		});
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 		this.autosaveId = setInterval(() => {
 			saveDatabase(this.master.config, this.items, this.logger).catch(err => {
@@ -78,6 +89,10 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	}
 
 	updateStorage() {
+		this.itemUpdateRateLimiter.activate();
+	}
+
+	broadcastStorage() {
 		let itemsToUpdate = new Map();
 		for (let [name, count] of this.items._items) {
 			if (this.itemsLastUpdate.get(name) === count) {
@@ -209,6 +224,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	}
 
 	async onShutdown() {
+		this.itemUpdateRateLimiter.cancel();
 		clearInterval(this.autosaveId);
 		clearInterval(this.doleMagicId);
 		await saveDatabase(this.master.config, this.items, this.logger);
