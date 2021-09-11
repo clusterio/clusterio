@@ -3,7 +3,7 @@
   "description": "Implementation of Clusterio master server",
   "author": "Hornwitser",
   "license": "MIT",
-  "version": "2.0.0-alpha.8",
+  "version": "2.0.0-alpha.9",
   "main": "master.js",
   "scripts": {
     "build": "webpack-cli --env production",
@@ -19,7 +19,7 @@
     "node": ">=12"
   },
   "dependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.8",
+    "@clusterio/lib": "^2.0.0-alpha.9",
     "busboy": "^0.3.1",
     "compression": "^1.7.2",
     "express": "^4.16.2",
@@ -33,7 +33,7 @@
     "yargs": "^14.2.0"
   },
   "devDependencies": {
-    "@clusterio/web_ui": "^2.0.0-alpha.8",
+    "@clusterio/web_ui": "^2.0.0-alpha.9",
     "fast-deep-equal": "^3.1.3",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
