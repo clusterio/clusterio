@@ -160,14 +160,9 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			this.logger.warn(`${instanceName} downloaded ${player_name} while another instance has acquired it`);
 		}
 
-		let playerData = this.playerDatastore.get(player_name);
-		if (!playerData) {
-			throw new libErrors.RequestError(`No player data exists for ${player_name}`);
-		}
-
 		this.logger.verbose(`Sending player data for ${player_name} to ${instanceName}`);
 		return {
-			player_data: playerData || null,
+			player_data: this.playerDatastore.get(player_name) || null,
 		};
 	}
 

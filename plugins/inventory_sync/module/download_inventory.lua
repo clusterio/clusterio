@@ -28,6 +28,8 @@ local function download_inventory(player_name, data, number, total)
 		log("ERROR: Inventory sync failed, got empty player data for " .. player.name .. " from the master")
 		player.print("ERROR: Inventory sync failed, got empty player data from the master")
 
+		progress_dialog.remove(player)
+
 		-- Give the player a character and pretend that's the synced player data
 		ensure_character(player)
 

@@ -194,7 +194,10 @@ function inventory_sync.sync_player(acquire_response)
 		return
 	end
 
-	if not player_record.sync or acquire_response.generation > player_record.generation then
+	if
+		acquire_response.has_data
+		and (not player_record.sync or acquire_response.generation > player_record.generation)
+	then
 		inventory_sync.initiate_inventory_download(player, player_record, acquire_response.generation)
 
 	else
