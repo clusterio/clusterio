@@ -115,8 +115,8 @@ Otherwise see below for OS specific instructions.
 
 3.  If you chose to use local factorio directory for the Factorio installation then download the headless build of Factorio and unpack it:
 
-        wget -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64
-        tar -xf factorio.tar.gz
+        wget -O factorio.tar.xz https://www.factorio.com/get-download/latest/headless/linux64
+        tar -xf factorio.tar.xz
 
     To specify a version of Factorio to download replace "latest" in the URL with a version number like "1.0.0".
 
