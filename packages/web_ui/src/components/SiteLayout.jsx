@@ -27,9 +27,9 @@ export default function SiteLayout(props) {
 	}
 
 	let accountMenu = <Menu>
-		<Menu.ItemGroup title={account.name}/>
+		<Menu.Item key="1" onClick={() => { history.push(`/users/${account.name}/view`); }}>{account.name}</Menu.Item>
 		<Menu.Divider/>
-		<Menu.Item danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
+		<Menu.Item key="2" danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
 	</Menu>;
 
 	let combinedPages = [...pages];
