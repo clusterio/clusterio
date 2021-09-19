@@ -1085,6 +1085,30 @@ messages.debugWsMessage = new Event({
 	},
 });
 
+messages.accountUpdate = new Event({
+	type: "account_update",
+	links: ["master-control"],
+	eventRequired: [],
+	eventProperties: {
+		"roles": {
+			type: "array",
+			items: {
+				additionalProperties: false,
+				type: "object",
+				required: ["name", "id", "permissions"],
+				properties: {
+					"name": { type: "string" },
+					"id": { type: "integer" },
+					"permissions": {
+						type: "array",
+						items: { type: "string" },
+					},
+				},
+			},
+		},
+	},
+});
+
 messages.logMessage = new Event({
 	type: "log_message",
 	links: ["slave-master", "master-control"],

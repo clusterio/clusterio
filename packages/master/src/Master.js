@@ -10,6 +10,7 @@ const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
 const libErrors = require("@clusterio/lib/errors");
+const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libPrometheus = require("@clusterio/lib/prometheus");
@@ -407,6 +408,44 @@ class Master {
 			}
 
 			controlConnection.saveListUpdate(data);
+		}
+	}
+
+	/**
+	 * Notify connected control clients under the given user that the
+	 * permissions for this user may have changed.
+	 * @param {module:lib/users.User} user - User permisions updated for.
+	 */
+	userPermissionsUpdated(user) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.user === user) {
+				libLink.messages.accountUpdate.send(controlConnection, {
+					"roles": [...user.roles].map(r => ({
+						name: r.name,
+						id: r.id,
+						permissions: [...r.permissions],
+					})),
+				});
+			}
+		}
+	}
+
+	/**
+	 * Notify connected control clients with the given role that the
+	 * permissions may have changed.
+	 * @param {module:lib/users.Role} role - Role permisions updated for.
+	 */
+	rolePermissionsUpdated(role) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.user.roles.has(role)) {
+				libLink.messages.accountUpdate.send(controlConnection, {
+					"roles": [...controlConnection.user.roles].map(r => ({
+						name: r.name,
+						id: r.id,
+						permissions: [...r.permissions],
+					})),
+				});
+			}
 		}
 	}
 
