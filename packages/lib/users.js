@@ -383,6 +383,11 @@ definePermission({
 	description: "List the saves currently on the instance.",
 });
 definePermission({
+	name: "core.instance.save.list_subscribe",
+	title: "Subscribe to save list updatess",
+	description: "Subscribe to be notifed on updates to the list of saves of instances.",
+});
+definePermission({
 	name: "core.instance.save.create",
 	title: "Create new instance save",
 	description: "Create new savegames on instances.",
@@ -401,11 +406,6 @@ definePermission({
 	name: "core.instance.save.download",
 	title: "Download save from instance",
 	description: "Download savegames from instances.",
-});
-definePermission({
-	name: "core.instance.save.list_subscribe",
-	title: "Subscribe to save list updatess",
-	description: "Subscribe to be notifed on updates to the list of saves of instances.",
 });
 definePermission({
 	name: "core.instance.export_data",
