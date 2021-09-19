@@ -3,6 +3,7 @@ import { Typography } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 
 const { Paragraph } = Typography;
@@ -49,6 +50,7 @@ function formatLog(info, key) {
 }
 
 export default function InstanceConsole(props) {
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let anchor = useRef();
 	let [pastLines, setPastLines] = useState([<span key={0}>{"Loading past entries..."}<br/></span>]);
@@ -59,19 +61,23 @@ export default function InstanceConsole(props) {
 		let parent = anchor.current.parentElement;
 		parent.scrollTop = parent.scrollHeight - parent.clientHeight;
 
-		libLink.messages.queryLog.send(control, {
-			all: false,
-			master: false,
-			slave_ids: [],
-			instance_ids: [props.id],
-			max_level: null,
-			limit: 400,
-			order: "desc",
-		}).then(result => {
-			setPastLines(result.log.map((info, index) => formatLog(info, index)).reverse());
-		}).catch(err => {
-			setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
-		});
+		if (account.hasPermission("core.log.query")) {
+			libLink.messages.queryLog.send(control, {
+				all: false,
+				master: false,
+				slave_ids: [],
+				instance_ids: [props.id],
+				max_level: null,
+				limit: 400,
+				order: "desc",
+			}).then(result => {
+				setPastLines(result.log.map((info, index) => formatLog(info, index)).reverse());
+			}).catch(err => {
+				setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
+			});
+		} else {
+			setPastLines([]);
+		}
 
 		function logHandler(info) {
 			setLines(currentLines => currentLines.concat(

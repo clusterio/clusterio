@@ -5,6 +5,7 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import { libLink } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import InstanceConfigTree from "./InstanceConfigTree";
@@ -27,6 +28,7 @@ export default function InstanceViewPage(props) {
 
 	let history = useHistory();
 
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [instance] = useInstance(instanceId);
 	let [slave] = useSlave(Number(instance["assigned_slave"]));
@@ -46,9 +48,12 @@ export default function InstanceViewPage(props) {
 	}
 
 	let instanceButtons = <Space>
-		<StartStopInstanceButton instance={instance} />
-		<LoadScenarioModal instance={instance} />
-		<Button
+		{
+			account.hasAnyPermission("core.instance.start", "core.instance.stop")
+			&& <StartStopInstanceButton instance={instance} />
+		}
+		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
+		{account.hasPermission("core.instance.export_data") && <Button
 			loading={exportingData}
 			disabled={instance.status !== "stopped"}
 			onClick={() => {
@@ -63,8 +68,8 @@ export default function InstanceViewPage(props) {
 			}}
 		>
 			Export data
-		</Button>
-		<Popconfirm
+		</Button>}
+		{account.hasPermission("core.instance.delete") && <Popconfirm
 			title="Permanently delete instance and server saves?"
 			okText="Delete"
 			placement="bottomRight"
@@ -83,7 +88,7 @@ export default function InstanceViewPage(props) {
 			>
 				<DeleteOutlined />
 			</Button>
-		</Popconfirm>
+		</Popconfirm>}
 	</Space>;
 
 	let assigned = instance["assigned_slave"] !== null;
@@ -99,7 +104,7 @@ export default function InstanceViewPage(props) {
 					? <em>Unassigned</em>
 					: slave["name"] || instance["assigned_slave"]
 				}
-				<AssignInstanceModal
+				{account.hasPermission("core.instance.assign") && <AssignInstanceModal
 					id={instanceId}
 					slaveId={instance["assigned_slave"]}
 					buttonProps={{
@@ -109,16 +114,25 @@ export default function InstanceViewPage(props) {
 						disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
 					}}
 					buttonContent={assigned ? "Reassign" : "Assign"}
-				/>
+				/>}
 			</Descriptions.Item>
 			<Descriptions.Item label="Status">{instance["status"]}</Descriptions.Item>
 		</Descriptions>
 
-		<SavesList instance={instance} />
-		<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-		<InstanceConsole id={instanceId} />
-		<InstanceRcon id={instanceId} disabled={instance["status"] !== "running"} />
+		{
+			account.hasAllPermission("core.instance.save.list", "core.instance.save.list_subscribe")
+			&& <SavesList instance={instance} />
+		}
+		{
+			account.hasAnyPermission("core.log.follow", "core.instance.send_rcon")
+			&& <Title level={5} style={{ marginTop: 16 }}>Console</Title>
+		}
+		{account.hasPermission("core.log.follow") && <InstanceConsole id={instanceId} />}
+		{
+			account.hasPermission("core.instance.send_rcon")
+			&& <InstanceRcon id={instanceId} disabled={instance["status"] !== "running"} />
+		}
 
-		<InstanceConfigTree id={instanceId} />
+		{account.hasPermission("core.instance.get_config") && <InstanceConfigTree id={instanceId} />}
 	</PageLayout>;
 }

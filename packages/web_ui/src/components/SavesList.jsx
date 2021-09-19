@@ -5,6 +5,7 @@ import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
 import { libLink } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
@@ -24,6 +25,7 @@ function formatBytes(bytes) {
 }
 
 export default function SavesList(props) {
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let saves = useSaves(props.instance.id);
 	let [starting, setStarting] = useState(false);
@@ -65,7 +67,7 @@ export default function SavesList(props) {
 			columnWidth: 33,
 			expandRowByClick: true,
 			expandedRowRender: save => <Space wrap style={{marginBottom: 0}}>
-				<Button
+				{account.hasPermission("core.instance.start") && <Button
 					loading={starting}
 					disabled={props.instance.status !== "stopped"}
 					onClick={() => {
@@ -78,8 +80,8 @@ export default function SavesList(props) {
 							() => { setStarting(false); }
 						);
 					}}
-				>Load save</Button>
-				<Button
+				>Load save</Button>}
+				{account.hasPermission("core.instance.save.download") && <Button
 					disabled={slaveOffline}
 					onClick={() => {
 						libLink.messages.downloadSave.send(
@@ -92,8 +94,8 @@ export default function SavesList(props) {
 							notifyErrorHandler("Error downloading save")
 						);
 					}}
-				>Download</Button>
-				<Popconfirm
+				>Download</Button>}
+				{account.hasPermission("core.instance.save.delete") && <Popconfirm
 					title="Permanently delete save?"
 					okText="Delete"
 					placement="top"
@@ -105,7 +107,7 @@ export default function SavesList(props) {
 					}}
 				>
 					<Button danger disabled={slaveOffline}>Delete</Button>
-				</Popconfirm>
+				</Popconfirm>}
 			</Space>,
 		}}
 	/>;
@@ -158,15 +160,19 @@ export default function SavesList(props) {
 	};
 
 	return <div>
-		<SectionHeader title="Saves" extra=<Space>
-			<Upload {...uploadProps} >
+		<SectionHeader title="Saves" extra={<Space>
+			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
 				<Button disabled={slaveOffline}>Upload save</Button>
-			</Upload>
-			<CreateSaveModal instance={props.instance} />
-		</Space> />
-		<Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
-			{saveTable}
-		</Upload.Dragger>
+			</Upload>}
+			{account.hasPermission("core.instance.save.create") && <CreateSaveModal instance={props.instance} />}
+		</Space>} />
+		{
+			account.hasPermission("core.instance.save.upload")
+				? <Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
+					{saveTable}
+				</Upload.Dragger>
+				: saveTable
+		}
 		{uploadingFiles.length ? <List>
 			{uploadingFiles.map(file => <List.Item key={file.uid}>
 				{file.name}

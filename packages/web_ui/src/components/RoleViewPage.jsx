@@ -1,10 +1,11 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Button, Checkbox, Col, Form, Input, Popconfirm, Row, Space, Spin } from "antd";
+import { Button, Checkbox, Form, Input, PageHeader, Popconfirm, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import { libLink, libUsers } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import { notifyErrorHandler } from "../util/notify";
@@ -42,6 +43,7 @@ export default function RoleViewPage() {
 
 	let history = useHistory();
 
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [role, updateRole] = useRole(roleId);
 	let [edited, setEdited] = useState(false);
@@ -50,14 +52,20 @@ export default function RoleViewPage() {
 	let nav = [{ name: "Roles", path: "/roles" }, { name: role["name"] || roleId }];
 	if (role.loading) {
 		return <PageLayout nav={nav}>
-			<h2>{roleId}</h2>
+			<PageHeader
+				className="site-page-header"
+				title={roleId}
+			/>
 			<Spin size="large" />
 		</PageLayout>;
 	}
 
 	if (role.missing) {
 		return <PageLayout nav={nav}>
-			<h2>Role not found</h2>
+			<PageHeader
+				className="site-page-header"
+				title="Role not found"
+			/>
 			<p>Role with id {roleId} was not found on the master server.</p>
 		</PageLayout>;
 	}
@@ -72,6 +80,7 @@ export default function RoleViewPage() {
 		},
 	};
 
+	let canUpdate = account.hasPermission("core.role.update");
 	return <PageLayout nav={nav}>
 		<Form
 			initialValues={initialValues}
@@ -93,40 +102,35 @@ export default function RoleViewPage() {
 				}).catch(notifyErrorHandler("Error applying changes"));
 			}}
 		>
-			<Row>
-				<Col flex="auto">
-					<h2>{role["name"]}</h2>
-				</Col>
-				<Col flex="0 0 auto">
-					<Space>
-						<Button type={edited ? "primary" : "default"} htmlType="submit">
-							Apply
+			<PageHeader
+				className="site-page-header"
+				title={role["name"]}
+				extra={<>
+					{canUpdate && <Button type={edited ? "primary" : "default"} htmlType="submit">Apply</Button>}
+					{account.hasPermission("core.role.delete") && <Popconfirm
+						title="Delete role?"
+						placement="bottomRight"
+						okText="Delete"
+						okButtonProps={{ danger: true }}
+						onConfirm={() => {
+							libLink.messages.deleteRole.send(
+								control, { id: roleId }
+							).then(() => {
+								history.push("/roles");
+							}).catch(notifyErrorHandler("Error deleting role"));
+						}}
+					>
+						<Button danger >
+							<DeleteOutlined />
 						</Button>
-						<Popconfirm
-							title="Delete role?"
-							placement="bottomRight"
-							okText="Delete"
-							okButtonProps={{ danger: true }}
-							onConfirm={() => {
-								libLink.messages.deleteRole.send(
-									control, { id: roleId }
-								).then(() => {
-									history.push("/roles");
-								}).catch(notifyErrorHandler("Error deleting role"));
-							}}
-						>
-							<Button danger >
-								<DeleteOutlined />
-							</Button>
-						</Popconfirm>
-					</Space>
-				</Col>
-			</Row>
+					</Popconfirm>}
+				</>}
+			/>
 			<Form.Item name="name" label="Name">
-				<Input/>
+				<Input disabled={!canUpdate}/>
 			</Form.Item>
 			<Form.Item name="description" label="Description">
-				<Input/>
+				<Input disabled={!canUpdate}/>
 			</Form.Item>
 			<h3>Permissions</h3>
 			{[...libUsers.permissions.values()].map(({name, title, description}) => (
@@ -141,7 +145,7 @@ export default function RoleViewPage() {
 					labelAlign="left"
 					colon={false}
 				>
-					<Checkbox/>
+					<Checkbox disabled={!canUpdate} />
 				</Form.Item>
 			))}
 		</Form>

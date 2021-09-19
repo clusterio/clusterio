@@ -69,9 +69,12 @@ export default function SiteLayout(props) {
 					style={{ height: "100%", borderRight: 0 }}
 					onClick={({ key }) => history.push(key)}
 				>
-					{combinedPages.map(({sidebarName, path}) => (
-						sidebarName ? <Menu.Item key={path}>{sidebarName}</Menu.Item> : null)
-					)}
+					{combinedPages.map(({sidebarName, permission, path}) => {
+						if (!sidebarName || permission && !account.hasPermission(permission)) {
+							return null;
+						}
+						return <Menu.Item key={path}>{sidebarName}</Menu.Item>;
+					})}
 				</Menu>
 			</Sider>
 			<Layout className="site-layout-content-container">

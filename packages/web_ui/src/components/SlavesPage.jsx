@@ -3,6 +3,7 @@ import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import { useSlaveList } from "../model/slave";
@@ -71,14 +72,14 @@ function GenerateSlaveTokenButton(props) {
 
 
 export default function SlavesPage() {
-	let control = useContext(ControlContext);
+	let account = useAccount();
 	let [slaveList] = useSlaveList();
 
 	return <PageLayout nav={[{ name: "Slaves" }]}>
 		<PageHeader
 			className="site-page-header"
 			title="Slaves"
-			extra=<GenerateSlaveTokenButton />
+			extra={account.hasPermission("core.slave.generate_token") && <GenerateSlaveTokenButton />}
 		/>
 		<Table
 			columns={[

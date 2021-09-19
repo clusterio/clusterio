@@ -117,7 +117,12 @@ function StoragePage() {
 export class WebPlugin extends libPlugin.BaseWebPlugin {
 	async init() {
 		this.pages = [
-			{ path: "/storage", sidebarName: "Storage", content: <StoragePage/> },
+			{
+				path: "/storage",
+				sidebarName: "Storage",
+				permission: "subspace_storage.storage.view",
+				content: <StoragePage/>,
+			},
 		];
 
 		this.storage = new Map();
