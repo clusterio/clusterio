@@ -4,6 +4,7 @@ import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
 import { libConfig, libLink } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import { useInstanceList } from "../model/instance";
@@ -59,6 +60,7 @@ function CreateInstanceButton(props) {
 
 export default function InstancesPage() {
 	let history = useHistory();
+	let account = useAccount();
 	let [slaveList] = useSlaveList();
 	let [instanceList] = useInstanceList();
 
@@ -66,7 +68,7 @@ export default function InstancesPage() {
 		<PageHeader
 			className="site-page-header"
 			title="Instances"
-			extra=<CreateInstanceButton />
+			extra={account.hasPermission("core.instance.create") && <CreateInstanceButton />}
 		/>
 
 		<Table

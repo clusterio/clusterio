@@ -27,9 +27,9 @@ export default function SiteLayout(props) {
 	}
 
 	let accountMenu = <Menu>
-		<Menu.ItemGroup title={account.name}/>
+		<Menu.Item key="1" onClick={() => { history.push(`/users/${account.name}/view`); }}>{account.name}</Menu.Item>
 		<Menu.Divider/>
-		<Menu.Item danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
+		<Menu.Item key="2" danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
 	</Menu>;
 
 	let combinedPages = [...pages];
@@ -69,9 +69,12 @@ export default function SiteLayout(props) {
 					style={{ height: "100%", borderRight: 0 }}
 					onClick={({ key }) => history.push(key)}
 				>
-					{combinedPages.map(({sidebarName, path}) => (
-						sidebarName ? <Menu.Item key={path}>{sidebarName}</Menu.Item> : null)
-					)}
+					{combinedPages.map(({sidebarName, permission, path}) => {
+						if (!sidebarName || permission && !account.hasPermission(permission)) {
+							return null;
+						}
+						return <Menu.Item key={path}>{sidebarName}</Menu.Item>;
+					})}
 				</Menu>
 			</Sider>
 			<Layout className="site-layout-content-container">

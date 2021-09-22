@@ -1,10 +1,11 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Button, Checkbox, Col, Form, Input, Popconfirm, Popover, Row, Select, Space, Spin, Switch } from "antd";
+import { Button, Col, Form, Input, PageHeader, Popconfirm, Popover, Row, Tag, Select, Space, Spin, Switch } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import { libLink } from "@clusterio/lib";
 
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import { notifyErrorHandler } from "../util/notify";
@@ -39,6 +40,7 @@ export default function UserViewPage() {
 
 	let history = useHistory();
 
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [user, updateUser] = useUser(userName);
 	let [roles, setRoles] = useState(null);
@@ -59,25 +61,55 @@ export default function UserViewPage() {
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
 	if (user.loading) {
 		return <PageLayout nav={nav}>
-			<h2>{userName}</h2>
+			<PageHeader
+				className="site-page-header"
+				title={userName}
+			/>
 			<Spin size="large" />
 		</PageLayout>;
 	}
 
 	if (user.missing) {
 		return <PageLayout nav={nav}>
-			<h2>User not found</h2>
+			<PageHeader
+				className="site-page-header"
+				title="User not found"
+			/>
 			<p>User with name {userName} was not found on the master server.</p>
 		</PageLayout>;
 	}
 
+	let roleSelector = <Form.Item
+		noStyle
+		name="roles"
+		initialValue={user["roles"]}
+		rules={[
+			{ validator: () => (rolesError ? Promise.reject(rolesError) : Promise.resolve()) },
+		]}
+	>
+		<Select
+			onChange={() => setRolesDirty(true)}
+			loading={!roles}
+			mode="multiple"
+			showArrow={true}
+			filterOption={(inputValue, option) => {
+				let role = roles.get(option.value);
+				return role && role["name"].toLowerCase().includes(inputValue.toLowerCase());
+			}}
+		>
+			{roles && [...roles.values()].map(r => <Select.Option
+				key={r["id"]}
+				value={r["id"]}
+			>{r["name"]}</Select.Option>)}
+		</Select>
+	</Form.Item>;
+
 	return <PageLayout nav={nav}>
-		<Row>
-			<Col flex="auto">
-				<h2>{userName}</h2>
-			</Col>
-			<Col flex="0 0 auto">
-				<Popconfirm
+		<PageHeader
+			className="site-page-header"
+			title={userName}
+			extra={
+				account.hasPermission("core.user.delete") && <Popconfirm
 					title={<>
 						Delete user account and all data associated with it?
 						{(user["is_banned"] && <><br/>This will remove the user ban!</>)}
@@ -97,40 +129,22 @@ export default function UserViewPage() {
 						<DeleteOutlined />
 					</Button>
 				</Popconfirm>
-			</Col>
-		</Row>
+			}
+		/>
 		<Form form={form}>
 			<Form.Item
 				label="Roles"
 			>
 				<Row gutter={8}>
 					<Col flex="auto">
-						<Form.Item
-							noStyle
-							name="roles"
-							initialValue={user["roles"]}
-							rules={[
-								{ validator: () => (rolesError ? Promise.reject(rolesError) : Promise.resolve()) },
-							]}
-						>
-							<Select
-								onChange={() => setRolesDirty(true)}
-								loading={!roles}
-								mode="multiple"
-								showArrow={true}
-								filterOption={(inputValue, option) => {
-									let role = roles.get(option.value);
-									return role && role["name"].toLowerCase().includes(inputValue.toLowerCase());
-								}}
-							>
-								{roles && [...roles.values()].map(r => <Select.Option
-									key={r["id"]}
-									value={r["id"]}
-								>{r["name"]}</Select.Option>)}
-							</Select>
-						</Form.Item>
+						{account.hasPermission("core.user.update_roles")
+							? roleSelector
+							: [...user["roles"]].map(id => <Tag key={id}>{
+								roles ? (roles.get(id) || { name: id })["name"] : id
+							}</Tag>)
+						}
 					</Col>
-					<Col flex="0 0 auto">
+					{account.hasPermission("core.user.update_roles") && <Col flex="0 0 auto">
 						<Button
 							type={"primary"}
 							disabled={!rolesDirty}
@@ -152,12 +166,13 @@ export default function UserViewPage() {
 								});
 							}}
 						>Apply</Button>
-					</Col>
+					</Col>}
 				</Row>
 			</Form.Item>
 			<Form.Item label="In-game Admin">
 				<Switch
 					checked={user["is_admin"]}
+					disabled={!account.hasPermission("core.user.set_admin")}
 					onClick={() => {
 						libLink.messages.setUserAdmin.send(control, {
 							name: userName,
@@ -172,6 +187,7 @@ export default function UserViewPage() {
 			<Form.Item label="Whitelisted">
 				<Switch
 					checked={user["is_whitelisted"]}
+					disabled={!account.hasPermission("core.user.set_whitelisted")}
 					onClick={() => {
 						libLink.messages.setUserWhitelisted.send(control, {
 							name: userName,
@@ -186,7 +202,7 @@ export default function UserViewPage() {
 			<Form.Item label="Banned">
 				<Space>
 					{user["is_banned"] ? "Yes" : "No"}
-					<Popover
+					{account.hasPermission("core.user.set_banned") && <Popover
 						title="Ban user"
 						visible={banUserPopover}
 						trigger="click"
@@ -195,7 +211,7 @@ export default function UserViewPage() {
 								setBanUserPopover(!banUserPopover);
 							}
 						}}
-						content=<Form.Item label="Reason">
+						content={<Form.Item label="Reason">
 							<Row gutter={8}>
 								<Col flex="auto">
 									<Form.Item noStyle name="reason">
@@ -220,7 +236,7 @@ export default function UserViewPage() {
 									>Ban</Button>
 								</Col>
 							</Row>
-						</Form.Item>
+						</Form.Item>}
 					>
 						<Button
 							type="primary"
@@ -238,7 +254,7 @@ export default function UserViewPage() {
 								}
 							}}
 						>{user["is_banned"] ? "Pardon User" : "Ban User"}</Button>
-					</Popover>
+					</Popover>}
 				</Space>
 			</Form.Item>
 		</Form>

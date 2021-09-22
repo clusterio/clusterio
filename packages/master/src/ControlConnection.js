@@ -513,6 +513,7 @@ class ControlConnection extends BaseConnection {
 		role.name = name;
 		role.description = description;
 		role.permissions = new Set(permissions);
+		this._master.rolePermissionsUpdated(role);
 	}
 
 	async grantDefaultRolePermissionsRequestHandler(message) {
@@ -522,6 +523,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		role.grantDefaultPermissions();
+		this._master.rolePermissionsUpdated(role);
 	}
 
 	async deleteRoleRequestHandler(message) {
@@ -534,6 +536,7 @@ class ControlConnection extends BaseConnection {
 		this._master.userManager.roles.delete(id);
 		for (let user of this._master.userManager.users.values()) {
 			user.roles.delete(role);
+			this._master.userPermissionsUpdated(user);
 		}
 	}
 
@@ -573,6 +576,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.roles = resolvedRoles;
+		this._master.userPermissionsUpdated(user);
 	}
 
 	async setUserAdminRequestHandler(message) {

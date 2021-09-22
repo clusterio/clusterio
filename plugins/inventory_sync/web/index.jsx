@@ -31,7 +31,12 @@ function InventoryPage() {
 export class WebPlugin extends libPlugin.BaseWebPlugin {
 	async init() {
 		this.pages = [
-			{ path: "/inventory", sidebarName: "Inventory sync", content: <InventoryPage /> },
+			{
+				path: "/inventory",
+				sidebarName: "Inventory sync",
+				permission: "inventory_sync.inventory.view",
+				content: <InventoryPage />,
+			},
 		];
 	}
 

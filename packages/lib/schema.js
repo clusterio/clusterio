@@ -104,10 +104,27 @@ const serverHandshake = ajv.compile({
 						"session_timeout": { type: "number" },
 						"heartbeat_interval": { type: "number" },
 						"account": {
+							type: "object",
 							additionalProperties: false,
-							required: ["name"],
+							required: ["name", "roles"],
 							properties: {
 								"name": { type: "string" },
+								"roles": {
+									type: "array",
+									items: {
+										additionalProperties: false,
+										type: "object",
+										required: ["name", "id", "permissions"],
+										properties: {
+											"name": { type: "string" },
+											"id": { type: "integer" },
+											"permissions": {
+												type: "array",
+												items: { type: "string" },
+											},
+										},
+									},
+								},
 							},
 						},
 					},

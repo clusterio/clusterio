@@ -298,6 +298,11 @@ ${err.stack}`
 			this.controlConnections.push(connection);
 			additionalReadyData["account"] = {
 				name: user.name,
+				roles: [...user.roles].map(r => ({
+					name: r.name,
+					id: r.id,
+					permissions: [...r.permissions],
+				})),
 			};
 		}
 

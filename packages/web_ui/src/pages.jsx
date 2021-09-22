@@ -13,16 +13,60 @@ import PluginViewPage from "./components/PluginViewPage";
 
 
 export const pages = [
-	{ path: "/master", sidebarName: "Master", content: <MasterPage /> },
-	{ path: "/slaves", sidebarName: "Slaves", content: <SlavesPage /> },
-	{ path: "/instances", sidebarName: "Instances", content: <InstancesPage />},
-	{ path: "/instances/:id/view", sidebarPath: "/instances", content: <InstanceViewPage /> },
-	{ path: "/users", sidebarName: "Users", content: <UsersPage /> },
-	{ path: "/users/:name/view", sidebarPath: "/users", content: <UserViewPage /> },
-	{ path: "/roles", sidebarName: "Roles", content: <RolesPage /> },
-	{ path: "/roles/:id/view", sidebarPath: "/roles", content: <RoleViewPage /> },
-	{ path: "/plugins", sidebarName: "Plugins", content: <PluginsPage /> },
-	{ path: "/plugins/:name/view", sidebarPath: "/plugins", content: <PluginViewPage /> },
+	{
+		path: "/master",
+		sidebarName: "Master",
+		content: <MasterPage />,
+	},
+	{
+		path: "/slaves",
+		sidebarName: "Slaves",
+		permission: "core.slave.list",
+		content: <SlavesPage />,
+	},
+	{
+		path: "/instances",
+		sidebarName: "Instances",
+		permission: "core.instance.list",
+		content: <InstancesPage />,
+	},
+	{
+		path: "/instances/:id/view",
+		sidebarPath: "/instances",
+		content: <InstanceViewPage />,
+	},
+	{
+		path: "/users",
+		sidebarName: "Users",
+		permission: "core.user.list",
+		content: <UsersPage />,
+	},
+	{
+		path: "/users/:name/view",
+		sidebarPath: "/users",
+		content: <UserViewPage />,
+	},
+	{
+		path: "/roles",
+		sidebarName: "Roles",
+		permission: "core.user.list",
+		content: <RolesPage />,
+	},
+	{
+		path: "/roles/:id/view",
+		sidebarPath: "/roles",
+		content: <RoleViewPage />,
+	},
+	{
+		path: "/plugins",
+		sidebarName: "Plugins",
+		content: <PluginsPage />,
+	},
+	{
+		path: "/plugins/:name/view",
+		sidebarPath: "/plugins",
+		content: <PluginViewPage />,
+	},
 ];
 
 export const sidebarPages = [

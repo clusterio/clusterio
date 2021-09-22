@@ -60,6 +60,13 @@ export class Control extends libLink.Link {
 		 */
 		this.accountName = null;
 
+		/**
+		 * Roles of the account this control link is connected as.
+		 * @type {?Array<object>}
+		 */
+		this.accountRoles = null;
+
+		this.accountUpdateHandlers = [];
 		this.slaveUpdateHandlers = new Map();
 		this.instanceUpdateHandlers = new Map();
 		this.saveListUpdateHandlers = new Map();
@@ -67,6 +74,8 @@ export class Control extends libLink.Link {
 
 		this.connector.on("connect", data => {
 			this.accountName = data.account.name;
+			this.accountRoles = data.account.roles;
+			this.emitAccountUpdate();
 			this.updateSlaveSubscriptions().catch(err => logger.error(
 				`Unexpected error updating slave subscriptions:\n${err.stack}`
 			));
@@ -83,6 +92,8 @@ export class Control extends libLink.Link {
 
 		this.connector.on("close", () => {
 			this.accountName = null;
+			this.accountRoles = null;
+			this.emitAccountUpdate();
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"]) {
@@ -92,6 +103,32 @@ export class Control extends libLink.Link {
 				}
 			});
 		}
+	}
+
+	async accountUpdateEventHandler(message) {
+		this.accountRoles = message.data.roles;
+		this.emitAccountUpdate();
+	}
+
+	emitAccountUpdate() {
+		for (let handler of this.accountUpdateHandlers) {
+			handler({
+				name: this.accountName,
+				roles: this.accountRoles,
+			});
+		}
+	}
+
+	onAccountUpdate(handler) {
+		this.accountUpdateHandlers.push(handler);
+	}
+
+	offAccountUpdate(handler) {
+		let index = this.accountUpdateHandlers.lastIndexOf(handler);
+		if (index === -1) {
+			throw new Error("Given handler is not registered for account update");
+		}
+		this.accountUpdateHandlers.splice(index, 1);
 	}
 
 	async slaveUpdateEventHandler(message) {

@@ -1,68 +1,118 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Spin, Tag } from "antd";
+import { Button, Form, Input, Modal, PageHeader, Table, Tag } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
-import DataTable from "./data-table";
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import { notifyErrorHandler } from "../util/notify";
 import PageLayout from "./PageLayout";
 
 
+function CreateUserButton() {
+	let control = useContext(ControlContext);
+	let history = useHistory();
+	let [visible, setVisible] = useState(false);
+	let [form] = Form.useForm();
+
+	async function createUser() {
+		let values = form.getFieldsValue();
+		if (!values.userName) {
+			form.setFields([{ name: "userName", errors: ["Name is required"] }]);
+			return;
+		}
+
+		await libLink.messages.createUser.send(control, { name: values.userName });
+		setVisible(false);
+		history.push(`/users/${values.userName}/view`);
+	}
+
+	return <>
+		<Button
+			type="primary"
+			onClick={() => { setVisible(true); }}
+		>Create</Button>
+		<Modal
+			title="Create User"
+			okText="Create"
+			visible={visible}
+			onOk={() => { createUser().catch(notifyErrorHandler("Error creating user")); }}
+			onCancel={() => { setVisible(false); }}
+			destroyOnClose
+		>
+			<Form form={form}>
+				<Form.Item name="userName" label="Name">
+					<Input/>
+				</Form.Item>
+			</Form>
+		</Modal>
+	</>;
+}
+
 export default function UsersPage() {
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let history = useHistory();
 
-	let [roles, setRoles] = useState(null);
+	let [users, setUsers] = useState([]);
+	let [roles, setRoles] = useState(new Map());
 
 	useEffect(() => {
+		libLink.messages.listUsers.send(control).then(result => {
+			setUsers(result["list"]);
+		}).catch(notifyErrorHandler("Error fetching user list"));
 		libLink.messages.listRoles.send(control).then(result => {
 			setRoles(new Map(result["list"].map(role => [role["id"], role])));
 		}).catch(() => {
-			setRoles(new Map());
+			// ignore
 		});
 	}, []);
 
-	async function listUsers() {
-		let result = await libLink.messages.listUsers.send(control);
-		return result["list"].map(item => ({
-			key: item["name"],
-			"Name": item["name"],
-			"Roles": item["roles"].map(id => <Tag key={id}>{(roles.get(id) || { name: id })["name"]}</Tag>),
-			"Admin": item["is_admin"] && "Yes",
-			"Whitelisted": item["is_whitelisted"] && "Yes",
-			"Banned": item["is_banned"] && "Yes",
-		}));
-	}
-
-	// DataTable does not make it possible to update the rendering function
-	if (roles === null) {
-		return <PageLayout nav={[{ name: "Users" }]}>
-			<h2>Users</h2>
-			<Spin/>
-		</PageLayout>;
-	}
-
 	return <PageLayout nav={[{ name: "Users" }]}>
-		<h2>Users</h2>
-		<DataTable
-			DataFunction={listUsers}
-			AddRecord={{
-				fields: [{
-					dataIndex: "name",
+		<PageHeader
+			className="site-page-header"
+			title="Users"
+			extra={account.hasPermission("core.user.create") && <CreateUserButton />}
+		/>
+		<Table
+			columns={[
+				{
 					title: "Name",
-				}],
-				insert: async args => {
-					await libLink.messages.createUser.send(control, { name: args.name });
+					dataIndex: "name",
 				},
-			}}
-			TableProps={{
-				onRow: (record, rowIndex) => ({
-					onClick: event => {
-						history.push(`/users/${record.key}/view`);
-					},
-				}),
-			}}
+				{
+					title: "Roles",
+					key: "roles",
+					render: user => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id })["name"]}</Tag>),
+				},
+				{
+					title: "Admin",
+					key: "admin",
+					render: user => user["is_admin"] && "yes",
+					responsive: ["lg"],
+				},
+				{
+					title: "Whitelisted",
+					key: "whitelisted",
+					render: user => user["is_whitelisted"] && "yes",
+					responsive: ["lg"],
+				},
+				{
+					title: "Banned",
+					key: "banned",
+					render: user => user["is_banned"] && "yes",
+					responsive: ["lg"],
+				},
+			]}
+			dataSource={users}
+			pagination={false}
+			rowKey={user => user["name"]}
+			onRow={(user, rowIndex) => ({
+				onClick: event => {
+					history.push(`/users/${user["name"]}/view`);
+				},
+			})}
 		/>
 	</PageLayout>;
 }

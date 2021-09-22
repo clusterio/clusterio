@@ -1,50 +1,100 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
+import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
-import DataTable from "./data-table";
+import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import { notifyErrorHandler } from "../util/notify";
 import PageLayout from "./PageLayout";
 
 
-export default function UsersPage() {
+function CreateRoleButton() {
+	let control = useContext(ControlContext);
+	let history = useHistory();
+	let [visible, setVisible] = useState(false);
+	let [form] = Form.useForm();
+
+	async function createRole() {
+		let values = form.getFieldsValue();
+		if (!values.roleName) {
+			form.setFields([{ name: "roleName", errors: ["Name is required"] }]);
+			return;
+		}
+
+		let result = await libLink.messages.createRole.send(control, {
+			name: values.roleName,
+			description: values.description || "",
+			permissions: [],
+		});
+		setVisible(false);
+		history.push(`/roles/${result.id}/view`);
+	}
+
+	return <>
+		<Button
+			type="primary"
+			onClick={() => { setVisible(true); }}
+		>Create</Button>
+		<Modal
+			title="Create Role"
+			okText="Create"
+			visible={visible}
+			onOk={() => { createRole().catch(notifyErrorHandler("Error creating role")); }}
+			onCancel={() => { setVisible(false); }}
+			destroyOnClose
+		>
+			<Form form={form}>
+				<Form.Item name="roleName" label="Name">
+					<Input/>
+				</Form.Item>
+				<Form.Item name="description" label="Description">
+					<Input/>
+				</Form.Item>
+			</Form>
+		</Modal>
+	</>;
+}
+
+export default function RolesPage() {
+	let account = useAccount();
 	let control = useContext(ControlContext);
 	let history = useHistory();
 
-	async function listRoles() {
-		let result = await libLink.messages.listRoles.send(control);
-		return result["list"].map(item => ({
-			key: item["id"],
-			"Name": item["name"],
-			"Description": item["description"],
-		}));
-	}
+	let [roles, setRoles] = useState([]);
+
+	useEffect(() => {
+		libLink.messages.listRoles.send(control).then(result => {
+			setRoles(result["list"]);
+		}).catch(notifyErrorHandler("Error fetching role list"));
+	}, []);
 
 	return <PageLayout nav={[{ name: "Roles" }]}>
-		<h2>Roles</h2>
-		<DataTable
-			DataFunction={listRoles}
-			AddRecord={{
-				fields: [
-					{ dataIndex: "name", title: "Name" },
-					{ dataIndex: "description", title: "Description" },
-				],
-				insert: async args => {
-					await libLink.messages.createRole.send(control, {
-						name: args.name,
-						description: args.description || "",
-						permissions: [],
-					});
+		<PageHeader
+			className="site-page-header"
+			title="Roles"
+			extra={account.hasPermission("core.role.create") && <CreateRoleButton />}
+		/>
+		<Table
+			columns={[
+				{
+					title: "Name",
+					dataIndex: "name",
 				},
-			}}
-			TableProps={{
-				onRow: (record, rowIndex) => ({
-					onClick: event => {
-						history.push(`/roles/${record.key}/view`);
-					},
-				}),
-			}}
+				{
+					title: "Description",
+					dataIndex: "description",
+				},
+			]}
+			dataSource={roles}
+			pagination={false}
+			rowKey={role => role["id"]}
+			onRow={(role, rowIndex) => ({
+				onClick: event => {
+					history.push(`/roles/${role["id"]}/view`);
+				},
+			})}
 		/>
 	</PageLayout>;
 }

@@ -927,6 +927,8 @@ class Control extends libLink.Link {
 		this.keepOpen = false;
 	}
 
+	async accountUpdateEventHandler() { }
+
 	async slaveUpdateEventHandler() { }
 
 	async instanceUpdateEventHandler() { }

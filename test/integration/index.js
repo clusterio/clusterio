@@ -49,6 +49,8 @@ class TestControl extends libLink.Link {
 
 	async debugWsMessageEventHandler() { }
 
+	async accountUpdateEventHandler() { }
+
 	async slaveUpdateEventHandler(message) {
 		this.slaveUpdates.push(message.data);
 	}
