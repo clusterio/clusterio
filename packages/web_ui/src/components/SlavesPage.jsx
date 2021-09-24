@@ -9,6 +9,8 @@ import PageLayout from "./PageLayout";
 import { useSlaveList } from "../model/slave";
 import { notifyErrorHandler } from "../util/notify";
 
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+
 
 function GenerateSlaveTokenButton(props) {
 	let control = useContext(ControlContext);
@@ -86,19 +88,25 @@ export default function SlavesPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
+					defaultSortOrder: "ascend",
+					sorter: (a, b) => strcmp(a["name"], b["name"]),
 				},
 				{
 					title: "Agent",
 					dataIndex: "agent",
+					sorter: (a, b) => strcmp(a["agent"], b["agent"]),
+					responsive: ["lg"],
 				},
 				{
 					title: "Version",
 					dataIndex: "version",
+					sorter: (a, b) => strcmp(a["version"], b["version"]),
 				},
 				{
 					title: "Connected",
 					key: "connected",
 					render: slave => slave["connected"] && "Yes",
+					sorter: (a, b) => a["connected"] - b["connected"],
 				},
 			]}
 			dataSource={slaveList}

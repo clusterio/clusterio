@@ -9,6 +9,8 @@ import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import PageLayout from "./PageLayout";
 
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+
 
 function CreateRoleButton() {
 	let control = useContext(ControlContext);
@@ -81,6 +83,7 @@ export default function RolesPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
+					sorter: (a, b) => strcmp(a["name"], b["name"]),
 				},
 				{
 					title: "Description",
