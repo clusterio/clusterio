@@ -266,7 +266,6 @@ ${err.stack}`
 			let connection = this.slaveConnections.get(data.id);
 			if (connection) {
 				logger.verbose(`WsServer | disconnecting existing connection for slave ${data.id}`);
-				connection.connector.setTimeout(15); // Slave connection is likely stalled
 				await connection.disconnect(1008, "Registered from another connection");
 			}
 
