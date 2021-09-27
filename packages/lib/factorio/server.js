@@ -7,7 +7,7 @@ const events = require("events");
 const util = require("util");
 const crypto = require("crypto");
 
-const ini = require("ini");
+const libIni = require("../ini");
 const rconClient = require("rcon-client");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
@@ -1167,7 +1167,7 @@ class FactorioServer extends events.EventEmitter {
 	}
 
 	async _writeConfigIni() {
-		let content = ini.encode({
+		let content = libIni.stringify({
 			path: {
 				"read-data": this.dataPath(),
 				"write-data": this.writePath(),

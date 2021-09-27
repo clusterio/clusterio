@@ -2,10 +2,10 @@
 "use strict";
 const fs = require("fs-extra");
 const path = require("path");
-const ini = require("ini");
 const Jimp = require("jimp");
 const JSZip = require("jszip");
 
+const libIni = require("../ini");
 const libBuildMod = require("../build_mod");
 
 /**
@@ -312,7 +312,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 	}
 
 	let baseLocaleFilePath = server.dataPath("base", "locale", languageCode, "base.cfg");
-	mergeLocale(ini.parse(await fs.readFile(baseLocaleFilePath, "utf8")));
+	mergeLocale(libIni.parse(await fs.readFile(baseLocaleFilePath, "utf8")));
 
 	for (let mod of modOrder) {
 		if (["core", "base", "export"].includes(mod)) {
@@ -330,7 +330,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 		}
 		for (let file of zip.file(new RegExp(`locale\\/${languageCode}\\/.*\\.cfg`))) {
 			let content = await file.async("nodebuffer");
-			mergeLocale(ini.parse(content.toString("utf8")));
+			mergeLocale(libIni.parse(content.toString("utf8")));
 		}
 	}
 
