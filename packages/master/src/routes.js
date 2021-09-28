@@ -48,6 +48,9 @@ async function getMetrics(req, res, next) {
 	let requests = [];
 	let timeout = req.app.locals.master.config.get("master.metrics_timeout") * 1000;
 	for (let slaveConnection of req.app.locals.master.wsServer.slaveConnections.values()) {
+		if (!slaveConnection.connected) {
+			continue;
+		}
 		requests.push(libHelpers.timeout(
 			libLink.messages.getMetrics.send(slaveConnection).catch(err => {
 				if (!(err instanceof libErrors.SessionLost)) {
