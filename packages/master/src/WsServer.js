@@ -136,7 +136,7 @@ class WsServer {
 		let timeoutId = setTimeout(() => {
 			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after timing out on handshake`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(1008, "Handshake timeout");
+			socket.terminate();
 			this.pendingSockets.delete(socket);
 		}, 30*1000);
 
