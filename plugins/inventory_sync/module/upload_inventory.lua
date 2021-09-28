@@ -3,6 +3,18 @@ local serialize = require("modules/inventory_sync/serialize")
 local save_crafts = require("modules/inventory_sync/save_crafts")
 
 local function upload_inventory(player, player_record)
+	-- Editor mode is not supported.
+	if player.controller_type == defines.controllers.editor then
+		player.toggle_map_editor()
+	end
+
+	if player.controller_type == defines.controllers.editor then
+		log("ERROR: Inventory sync failed to upload, unable to switch " .. player.name .. " out of editor mode")
+		player.print("ERROR: Inventory sync failed to upload, unable to switch out of editor mode")
+		global.inventory_sync.active_uploads[player.name] = nil
+		return
+	end
+
 	local serialized_player = serialize.serialize_player(player)
 	serialized_player.generation = player_record.generation
 
