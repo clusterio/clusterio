@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const util = require("util");
 
+const libErrors = require("@clusterio/lib/errors");
 const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
@@ -47,7 +48,15 @@ async function getMetrics(req, res, next) {
 	let requests = [];
 	let timeout = req.app.locals.master.config.get("master.metrics_timeout") * 1000;
 	for (let slaveConnection of req.app.locals.master.wsServer.slaveConnections.values()) {
-		requests.push(libHelpers.timeout(libLink.messages.getMetrics.send(slaveConnection), timeout, null));
+		requests.push(libHelpers.timeout(
+			libLink.messages.getMetrics.send(slaveConnection).catch(err => {
+				if (!(err instanceof libErrors.SessionLost)) {
+					logger.error(`Unexpected error gathering metrics from slave:\n${err.stack}`);
+				}
+				return null;
+			}),
+			timeout, null
+		));
 	}
 
 	for await (let result of await libPrometheus.defaultRegistry.collect()) {
