@@ -64,6 +64,7 @@ class BaseConnection extends libLink.Link {
 	}
 
 	async disconnect(code, reason) {
+		this.connector.setClosing();
 		try {
 			await libLink.messages.prepareDisconnect.send(this);
 		} catch (err) {
