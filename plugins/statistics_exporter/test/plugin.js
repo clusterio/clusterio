@@ -17,7 +17,14 @@ describe("statistics_exporter plugin", function() {
 		});
 
 		describe(".onMetrics()", function() {
+			it("should not send commands before running", async function() {
+				instancePlugin.instance.server.rconCommands.length = 0;
+				instancePlugin.instance.status = "starting";
+				await instancePlugin.onMetrics();
+				assert(instancePlugin.instance.server.rconCommands.length === 0, "commands were run");
+			});
 			it("should record statistics", async function() {
+				instancePlugin.instance.status = "running";
 				instancePlugin.instance.server.rconCommandResults.set(
 					"/sc statistics_exporter.export()",
 					JSON.stringify({
