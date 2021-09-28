@@ -60,6 +60,9 @@ class BaseInstancePlugin {
 		 * `error`, `warn`, `audit`, `info` and `verbose`.
 		 */
 		this.logger = instance.logger.child({ plugin: this.info.name });
+
+		this._pendingRconMessages = [];
+		this._sendingRconMessages = false;
 	}
 
 	/**
@@ -207,8 +210,71 @@ class BaseInstancePlugin {
 	 */
 	async onPlayerEvent(event) { }
 
-	async sendRcon(message, expectEmpty) {
+	/**
+	 * Send RCON message to instance
+	 *
+	 * Send a message or command to the server which can potentially be
+	 * executed out of order in relation to other RCON commands.
+	 *
+	 * This should not be called before onStart or after onStop.  A simple
+	 * way to achieve this is to check that the instance status is running
+	 * before sending commands. Note that the instance status is set to
+	 * running some time after `onStart` and some time before `onStop` is
+	 * invoked.
+	 *
+	 * @param {string} message - message to send to server over RCON.
+	 * @param {boolean=} [expectEmpty=false] -
+	 *     if true throw if the response is not empty.  Useful for detecting
+	 *     errors that might have been sent in response.
+	 * @returns {Promise<string>} response from server.
+	 */
+	async sendRcon(message, expectEmpty=false) {
 		return await this.instance.sendRcon(message, expectEmpty, this.info.name);
+	}
+
+	/**
+	 * Send serially ordered RCON message to instance
+	 *
+	 * Send a message or command to the server which will not be executed
+	 * out of order in relation to other RCON commands sent with this
+	 * method. The ordering applies per plugin, and two plugins sending
+	 * commands with this method may execute out of order in relation to
+	 * each other.
+	 *
+	 * This should not be called before onStart or after onStop.  A simple
+	 * way to achieve this is to check that the instance status is running
+	 * before sending commands. Note that the instance status is set to
+	 * running some time after `onStart` and some time before `onStop` is
+	 * invoked.
+	 *
+	 * @param {string} message - message to send to server over RCON.
+	 * @param {boolean=} [expectEmpty=false] -
+	 *     if true throw if the response is not empty.  Useful for detecting
+	 *     errors that might have been sent in response.
+	 * @returns {Promise<string>} response from server.
+	 */
+	async sendOrderedRcon(message, expectEmpty=false) {
+		let promise = new Promise((resolve, reject) => {
+			this._pendingRconMessages.push({resolve, reject, message, expectEmpty});
+		});
+		if (!this._sendingRconMessages) {
+			this._sendPendingRconMessages();
+		}
+		return await promise;
+	}
+
+	async _sendPendingRconMessages() {
+		this._sendingRconMessages = true;
+		while (this._pendingRconMessages.length) {
+			let task = this._pendingRconMessages.shift();
+			try {
+				let result = await this.sendRcon(task.message, task.expectEmpty);
+				task.resolve(result);
+			} catch (err) {
+				task.reject(err);
+			}
+		}
+		this._sendingRconMessages = false;
 	}
 }
 
