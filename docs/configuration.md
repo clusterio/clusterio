@@ -86,19 +86,20 @@ Defaults to null which means generate a secure secret on startup.
 ### master.heartbeat_interval
 
 Interval in seconds heartbeats are sent out at for WebSocket connections.
-If a connection hasn't received a heartbeat in 2 times the heartbeat interval it will be considered stale and closed.
+If a WebSocket connection hasn't received a heartbeat in 2 times the heartbeat interval it will be considered stale and closed.
 A lower value means less time between connections going stale and them being closed.
 
-Defaults to 45.
+Defaults to 15.
 
 
-### master.connector_shutdown_timeout
+### master.session_timeout
 
-Timeout in seconds to use while shutting down the master server for link sessions that currently don't have an active connection and haven't been closed down properly.
-This happens when the network between a slave and the master server goes down unexpectedly, or the slave goes down without closing the connection properly either do to crashing or the machine it's hosted on going down.
-If the timeout expires the session is terminated and data loss may occur, if the slave went down this is unavoidable.
+Time in seconds from the connection is closed following a heartbeat timeout until the session is invalidated and data loss occurs.
+A higher timeout gives more time for a client to recconect and resume an active session over a connection that was dropped, but also leads to stale connections taking longer to clear out.
+In the case of the master or client crashing the data loss is unavoidable.
 
-Defaults to 30.
+Value should not be less than the configured `max_reconnect_delay` of the clients and it should be greater than 2 times `master.heartbeat_interval`.
+Defaults to 60.
 
 
 ### master.metrics_timeout
@@ -197,12 +198,12 @@ This is used by plugins like Server Select to give the correct address to switch
 Defaults to "localhost".
 
 
-### slave.reconnect_delay
+### slave.max_reconnect_delay
 
-Delay in seconds to wait after connection to the master server is dropped before attempting to reconnect to it.
-The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all slaves trying to reconnect at the same time.
+Maximum delay in seconds to wait after connection to the master server is dropped before attempting to reconnect to it.
+The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all clients trying to reconnect at the same time.
 
-Defaults to 5.
+Defaults to 60.
 
 
 ## Instance Configuration
@@ -399,8 +400,9 @@ If you have a self signed certificate on the master server you will need to copy
 Defaults to null meaning use Node.js's default set of trusted certificate authorities.
 
 
-### control.reconnect_delay
+### control.max_reconnect_delay
 
-Duration in seconds to wait before attempting to reconnect with the master server after the connection is dropped.
+Max duration in seconds to wait before attempting to reconnect with the master server after the connection is dropped.
+The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all clients trying to reconnect at the same time.
 
-Defaults to 2.
+Defaults to 60.

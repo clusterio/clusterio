@@ -19,6 +19,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		this.instance.server.on("ipc-research_sync:finished", (tech) => {
 			this.researchFinished(tech).catch(err => this.unexpectedError(err));
 		});
+
+		this.syncStarted = false;
 	}
 
 	async researchContribution(tech) {
@@ -26,8 +28,11 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async progressEventHandler(message) {
+		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
+			return;
+		}
 		let techsJson = libLuaTools.escapeString(JSON.stringify(message.data.technologies));
-		await this.sendRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
+		await this.sendOrderedRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
 	}
 
 	async researchFinished(tech) {
@@ -35,14 +40,17 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async finishedEventHandler(message) {
+		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
+			return;
+		}
 		let { name, level, researched } = message.data;
-		await this.sendRcon(
+		await this.sendOrderedRcon(
 			`/sc research_sync.research_technology("${libLuaTools.escapeString(name)}", ${level})`, true
 		);
 	}
 
 	async onStart() {
-		let dumpJson = await this.sendRcon("/sc research_sync.dump_technologies()");
+		let dumpJson = await this.sendOrderedRcon("/sc research_sync.dump_technologies()");
 		let techsToSend = [];
 		let instanceTechs = new Map();
 		for (let tech of JSON.parse(dumpJson)) {
@@ -56,6 +64,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 
 		let response = await this.info.messages.syncTechnologies.send(this.instance, { technologies: techsToSend });
+		this.syncStarted = true;
 		let techsToSync = [];
 		for (let masterTech of response.technologies) {
 			let [name, level, progress, researched] = masterTech;
@@ -72,7 +81,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 		if (techsToSync.length) {
 			let syncJson = libLuaTools.escapeString(JSON.stringify(techsToSync));
-			await this.sendRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
+			await this.sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
 		}
 	}
 }

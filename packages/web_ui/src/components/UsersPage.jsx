@@ -9,6 +9,8 @@ import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import PageLayout from "./PageLayout";
 
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+
 
 function CreateUserButton() {
 	let control = useContext(ControlContext);
@@ -80,6 +82,8 @@ export default function UsersPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
+					defaultSortOrder: "ascend",
+					sorter: (a, b) => strcmp(a["name"], b["name"]),
 				},
 				{
 					title: "Roles",
@@ -90,18 +94,21 @@ export default function UsersPage() {
 					title: "Admin",
 					key: "admin",
 					render: user => user["is_admin"] && "yes",
+					sorter: (a, b) => a["is_admin"] - b["is_admin"],
 					responsive: ["lg"],
 				},
 				{
 					title: "Whitelisted",
 					key: "whitelisted",
 					render: user => user["is_whitelisted"] && "yes",
+					sorter: (a, b) => a["is_whitelisted"] - b["is_whitelisted"],
 					responsive: ["lg"],
 				},
 				{
 					title: "Banned",
 					key: "banned",
 					render: user => user["is_banned"] && "yes",
+					sorter: (a, b) => a["is_banned"] - b["is_banned"],
 					responsive: ["lg"],
 				},
 			]}

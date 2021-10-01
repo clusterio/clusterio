@@ -26,7 +26,6 @@
     "fs-extra": "^8.1.0",
     "jsonwebtoken": "^8.2.1",
     "jszip": "^3.2.2",
-    "node-factorio-api": "^0.3.8",
     "set-blocking": "^2.0.0",
     "winston": "^3.3.3",
     "ws": "^7.2.3",

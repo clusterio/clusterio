@@ -3,6 +3,7 @@ const events = require("events");
 const http = require("http");
 const express = require("express");
 
+const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
 const libUsers = require("@clusterio/lib/users");
@@ -105,7 +106,20 @@ class MockServer extends events.EventEmitter {
 
 	async sendRcon(command) {
 		this.rconCommands.push(command);
-		return this.rconCommandResults.get(command) || "";
+		let result = this.rconCommandResults.get(command);
+		if (!result) {
+			result = { response: "" };
+		}
+		if (result instanceof Error || typeof result === "string") {
+			result = { response: result };
+		}
+		if (result.time) {
+			await libHelpers.wait(result.time);
+		}
+		if (result.response instanceof Error) {
+			throw result.response;
+		}
+		return result.response || "";
 	}
 }
 
@@ -116,6 +130,7 @@ class MockInstance extends libLink.Link {
 		this.server = new MockServer();
 		this.name = "test";
 		this.id = 7357;
+		this.status = "running";
 		this.mockConfigEntries = new Map([
 			["instance.id", 7357],
 			["factorio.enable_save_patching", true],

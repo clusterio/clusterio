@@ -73,7 +73,12 @@ class WebSocketBaseConnector extends events.EventEmitter {
 		this._check("connected");
 		if (Date.now() - this._lastHeartbeat > 2000 * this._heartbeatInterval) {
 			logger.verbose("Connector | closing after heartbeat timed out");
-			this._socket.close(1008, "Heartbeat timeout");
+			// eslint-disable-next-line node/no-process-env
+			if (process.env.APP_ENV === "browser") {
+				this._socket.close(4008, "Heartbeat timeout");
+			} else {
+				this._socket.terminate();
+			}
 
 		} else {
 			this._socket.send(JSON.stringify({

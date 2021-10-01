@@ -11,6 +11,8 @@ import { useInstanceList } from "../model/instance";
 import { notifyErrorHandler } from "../util/notify";
 import { useSlaveList } from "../model/slave";
 
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+
 
 function CreateInstanceButton(props) {
 	let control = useContext(ControlContext);
@@ -64,6 +66,14 @@ export default function InstancesPage() {
 	let [slaveList] = useSlaveList();
 	let [instanceList] = useInstanceList();
 
+	function slaveName(slaveId) {
+		let slave = slaveList.find(s => s.id === slaveId);
+		if (slave) {
+			return slave.name;
+		}
+		return String(slaveId);
+	}
+
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
 			className="site-page-header"
@@ -76,21 +86,19 @@ export default function InstancesPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
+					defaultSortOrder: "ascend",
+					sorter: (a, b) => strcmp(a["name"], b["name"]),
 				},
 				{
 					title: "Assigned Slave",
 					key: "assigned_slave",
-					render: instance => {
-						let slave = slaveList.find(s => s.id === instance.assigned_slave);
-						if (slave) {
-							return slave.name;
-						}
-						return instance.assigned_slave;
-					},
+					render: instance => slaveName(instance["assigned_slave"]),
+					sorter: (a, b) => strcmp(slaveName(a["assigned_slave"]), slaveName(b["assigned_slave"])),
 				},
 				{
 					title: "Status",
 					dataIndex: "status",
+					sorter: (a, b) => strcmp(a["status"], b["status"]),
 				},
 			]}
 			dataSource={instanceList}

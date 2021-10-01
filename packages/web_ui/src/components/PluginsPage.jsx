@@ -6,6 +6,8 @@ import notify from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+
 
 export default function PluginsPage() {
 	let plugins = useContext(ControlContext).plugins;
@@ -47,6 +49,8 @@ export default function PluginsPage() {
 					title: "Name",
 					key: "name",
 					render: plugin => (plugin.info ? plugin.info.title : plugin.meta.name),
+					defaultSortOrder: "ascend",
+					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
 				},
 				{
 					title: "Version",
@@ -60,11 +64,13 @@ export default function PluginsPage() {
 						}
 						return plugin.package.version;
 					},
+					sorter: (a, b) => strcmp(a.meta.version, b.meta.version),
 				},
 				{
 					title: "Loaded",
 					dataIndex: ["meta", "loaded"],
 					render: loaded => (loaded ? "Yes" : null),
+					sorter: (a, b) => a.loaded - b.loaded,
 					responsive: ["sm"],
 				},
 			]}

@@ -73,19 +73,10 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 	continue(socket, lastSeq) {
 
 		// It's possible the previous connection hasn't closed yet due to a
-		// stale connection.  If this is the case the connector will have to
-		// wait for the previous socket to close down before it can continue
-		// from a new socket, or there will be overlapping events from both.
+		// stale connection.  Terminate it if so.
 		if (this._state === "connected") {
-			this._socket.close(4003, "Session Hijacked");
-
-			// Correctly waiting for the connector to close and then
-			// handling all the edge cases like multiple continues happening
-			// in parallel or connections going stale is far too difficult.
-			// Kill the connection here and let the client reconnect later
-			// when the connector is not held up by an active connection.
-			socket.close(1013, "Session Busy");
-			socket.terminate();
+			this._socket.terminate();
+			this._socket.once("close", () => this.continue(socket, lastSeq));
 			return;
 		}
 

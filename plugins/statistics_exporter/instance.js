@@ -77,6 +77,10 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async onMetrics() {
+		if (this.instance.status !== "running") {
+			return;
+		}
+
 		// Wait configured timeout for the metrics to be collected.  It may
 		// take a long time for the command to go through if the command
 		// stream is overloaded.  Should the timeout be exceeded the
