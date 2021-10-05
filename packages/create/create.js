@@ -119,6 +119,13 @@ async function execSlave(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusterioslave${scriptExt}`), args);
 }
 
+async function execCtl(args) {
+	if (dev) {
+		return await execFile("node", [path.join("packages", "ctl"), ...args]);
+	}
+	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
+}
+
 function validateSlaveToken(token) {
 	let parts = token.split(".");
 	if (parts.length !== 3) {
@@ -350,7 +357,7 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (["standalone", "slave"].includes(answers.mode)) {
-		let myIp;
+		let myIp = "localhost";
 		if (args.publicAddress) {
 			answers.publicAddress = args.publicAddress;
 		} else {
@@ -566,6 +573,7 @@ async function main() {
 		let slaveToken = result.stdout.split("\n").slice(-2)[0];
 
 		await execSlave(["config", "set", "slave.master_token", slaveToken]);
+		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
 		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
 	}
 
@@ -576,12 +584,18 @@ async function main() {
 		await execSlave(["config", "set", "slave.name", answers.slaveName]);
 		await execSlave(["config", "set", "slave.master_url", answers.masterUrl]);
 		await execSlave(["config", "set", "slave.master_token", answers.masterToken]);
+		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
 		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
 	}
 
 	if (!dev && ["standalone", "master", "slave"].includes(answers.mode)) {
 		logger.info("Writing run scripts");
 		await writeScripts(answers.mode);
+	}
+
+	if (answers.mode === "ctl") {
+		await execCtl(["control-config", "set", "control.master_url", answers.masterUrl]);
+		await execCtl(["control-config", "set", "control.master_token", answers.masterToken]);
 	}
 
 	/* eslint-disable no-console */
