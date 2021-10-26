@@ -73,14 +73,13 @@ async function getTempFile(prefix, suffix, tmpdir) {
 	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
 	suffix = (typeof suffix !== "undefined") ? suffix : "";
 	tmpdir = tmpdir ? tmpdir : os.tmpdir();
-	let fullname = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
-	let fullpath = path.join(tmpdir, findUnusedName(tmpdir, fullname));
-	// If the path is not still zero, return the path, but otherwise return -1 to indicate failure
+	let fileName = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
+	let fullPath = path.join(tmpdir, findUnusedName(tmpdir, fullname));
+	return fullpath;
 }
 
 module.exports = {
 	getNewestFile,
 	findUnusedName,
 	getTempFile,
-	checkIfFileExists,
 };
