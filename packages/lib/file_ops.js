@@ -72,10 +72,11 @@ async function findUnusedName(directory, name, extension = "") {
 async function getTempFile(prefix, suffix, tmpdir) {
 	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
 	suffix = (typeof suffix !== "undefined") ? suffix : "";
-	tmpdir = tmpdir ? tmpdir : os.tmpdir();
+	tmpdir = (typeof tmpdir !== "undefined") ? tmpdir : "./";
 	let fileName = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
-	let fullPath = path.join(tmpdir, findUnusedName(tmpdir, fullname));
-	return fullpath;
+	let freeFile = await findUnusedName(tmpdir, fileName);
+	let fullPath = path.join(tmpdir, freeFile);
+	return fullPath;
 }
 
 module.exports = {
