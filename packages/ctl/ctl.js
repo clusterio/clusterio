@@ -115,10 +115,27 @@ masterConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
-		let jsonConfig = await JSON.stringify(response);
+		let usefulData = response.serialized_config.groups[0]["fields"];
+		let configJson = JSON.stringify(usefulData, null, "\t");
+		/**
+		 * Indent JSON with a tab for readability; these temp vars are simply
+		 * for readability, they can be removed if wanted
+		*/
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
-		print(jsonConfig);
-		print(tmpFile);
+		let done = 0;
+		let editorSpawn = child_process.spawn("nvim", [tmpFile], {
+  			stdio: "inherit",
+  			detached: true,
+		});
+		editorSpawn.on("data", (data) => {
+  			process.stdout.pipe(data);
+		});
+		editorSpawn.on("err", (err) => {
+			print(err);
+		});
+		editorSpawn.on("exit", (exit) => {
+			print("veryline");
+		});
 	},
 }));
 
