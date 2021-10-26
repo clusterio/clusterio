@@ -68,29 +68,19 @@ async function findUnusedName(directory, name, extension = "") {
 		}
 	}
 }
-/**
- * Returns a path to a temporary file.
- *
- * Warning: this function should not be relied upon to be accurate for
- * security sensitive applications.  The selection process is inherently
- * racy and a file or folder may have been created in the folder by the time
- * this function returns.
- *
- * @param {string} prefix - prefix for file
- * @param {string} suffix - suffix for file
- * @param {string} tmpdir - directory for file
- */
+
 async function getTempFile(prefix, suffix, tmpdir) {
 	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
 	suffix = (typeof suffix !== "undefined") ? suffix : "";
 	tmpdir = tmpdir ? tmpdir : os.tmpdir();
-	return path.join(tmpdir, prefix + crypto.randomBytes(16).toString("hex") + suffix);
-	// IMO, 16 bytes of random hex should be fine, and hex is allowable in any filesystem, but if
-	// some other system is better, please inform
+	let fullname = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
+	let fullpath = path.join(tmpdir, findUnusedName(tmpdir, fullname));
+	// If the path is not still zero, return the path, but otherwise return -1 to indicate failure
 }
 
 module.exports = {
 	getNewestFile,
 	findUnusedName,
 	getTempFile,
+	checkIfFileExists,
 };
