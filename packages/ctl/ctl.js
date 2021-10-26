@@ -14,6 +14,8 @@ const path = require("path");
 const winston = require("winston");
 const setBlocking = require("set-blocking");
 const phin = require("phin");
+const os = require("os");
+const child_process = require("child_process");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -104,6 +106,22 @@ masterConfigCommands.add(new libCommand.Command({
 		await libLink.messages.setMasterConfigProp.send(control, request);
 	},
 }));
+
+masterConfigCommands.add(new libCommand.Command({
+	definition: ["edit [editor]", "Edit master configuration", (yargs) => {
+		yargs.positional("editor", { describe: "Editor to use",
+			type: "string",
+			default: "" });
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getMasterConfig.send(control);
+		let jsonConfig = await JSON.stringify(response);
+		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
+		print(jsonConfig);
+		print(tmpFile);
+	},
+}));
+
 masterCommands.add(masterConfigCommands);
 
 
