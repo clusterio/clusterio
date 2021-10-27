@@ -116,25 +116,41 @@ masterConfigCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
 		let usefulData = response.serialized_config.groups[0]["fields"];
-		let configJson = JSON.stringify(usefulData, null, "\t");
-		/**
-		 * Indent JSON with a tab for readability; these temp vars are simply
-		 * for readability, they can be removed if wanted
-		*/
+		// We don't need a significant amount of the response
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
-		let done = 0;
-		let editorSpawn = child_process.spawn("nvim", [tmpFile], {
+		let editor = 0;
+		if (args.editor) {
+			editor = args.editor;
+			// eslint-disable-next-line
+		} else if (process.env.EDITOR) {
+			// eslint-disable-next-line
+			editor = process.env.EDITOR;
+			// eslint-disable-next-line
+		} else if (process.env.VISUAL) {
+			// eslint-disable-next-line
+			editor = process.env.VISUAL
+			// TODO: Don't have eslint-disable comments every line
+		} else {
+			print("No editor avalible to use. Checked CLI input, EDITOR env var and VISUAL env var");
+			exit(1); // TODO: exit gracefully apon no editor
+		}
+		// <-- start process of running editor -->
+		let editorSpawn = child_process.spawn(editor, [tmpFile], {
   			stdio: "inherit",
   			detached: true,
-		});
+		}); // TODO: Exit gracefully if editor not found
 		editorSpawn.on("data", (data) => {
   			process.stdout.pipe(data);
 		});
 		editorSpawn.on("err", (err) => {
 			print(err);
+			exit(1); // TODO: exit gracefully apon error from editor
 		});
+		// <-- end process of starting editor -->
 		editorSpawn.on("exit", (exit) => {
-			print("veryline");
+			// from here is when the edit exits, i.e. the user has quit
+			let mg = libConfig.MasterGroup;
+			let config_definitions = mg._definitions;
 		});
 	},
 }));
