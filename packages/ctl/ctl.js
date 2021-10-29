@@ -115,9 +115,7 @@ masterConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
-		let usefulData = response.serialized_config.groups[0]["fields"];
-		print(response);
-		// We don't need a significant amount of the response
+		let usefulData = response.serialized_config;
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = 0;
 		if (args.editor) {
@@ -133,6 +131,8 @@ masterConfigCommands.add(new libCommand.Command({
 			print("No editor avalible to use. Checked CLI input, EDITOR env var and VISUAL env var");
 			exit(1); // TODO: exit gracefully apon no editor
 		}
+
+
 		// <-- start process of running editor -->
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
   			stdio: "inherit",
@@ -146,20 +146,13 @@ masterConfigCommands.add(new libCommand.Command({
 			exit(1); // TODO: exit gracefully apon error from editor
 		});
 		// <-- end process of starting editor -->
+
+
 		editorSpawn.on("exit", (exit) => {
+			let masterConfig = new libConfig.MasterConfig("control");
+			// eslint-disable-next-line
+			masterConfig.load(response);
 			// from here is when the edit exits, i.e. the user has quit
-			let mg = libConfig.MasterGroup;
-			let config_definitions = mg._definitions;
-			let configElement = null;
-			let test_str = "";
-			for (configElement in usefulData) {
-				if (usefulData.hasOwnProperty(configElement)) {
-					let description = config_definitions.get(configElement).description;
-					let configElementValue = JSON.stringify(usefulData[configElement]);
-					test_str += `# ${description}\n${configElement} = ${configElementValue} \n\n`;
-				}
-			}
-			print(test_str);
 		});
 	},
 }));
