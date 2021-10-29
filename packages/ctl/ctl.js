@@ -132,6 +132,9 @@ masterConfigCommands.add(new libCommand.Command({
 			exit(1); // TODO: exit gracefully apon no editor
 		}
 
+		async function afterEditorDone() {
+			print("editordone");
+		}
 
 		// <-- start process of running editor -->
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
@@ -149,9 +152,7 @@ masterConfigCommands.add(new libCommand.Command({
 
 
 		editorSpawn.on("exit", (exit) => {
-			let masterConfig = new libConfig.MasterConfig("control");
-			// eslint-disable-next-line
-			masterConfig.load(response);
+			afterEditorDone();
 			// from here is when the edit exits, i.e. the user has quit
 		});
 	},
