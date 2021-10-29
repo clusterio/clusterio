@@ -116,20 +116,19 @@ masterConfigCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
 		let usefulData = response.serialized_config.groups[0]["fields"];
+		print(response);
 		// We don't need a significant amount of the response
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = 0;
 		if (args.editor) {
 			editor = args.editor;
-			// eslint-disable-next-line
+			/* eslint-disable */
 		} else if (process.env.EDITOR) {
-			// eslint-disable-next-line
 			editor = process.env.EDITOR;
-			// eslint-disable-next-line
 		} else if (process.env.VISUAL) {
-			// eslint-disable-next-line
 			editor = process.env.VISUAL
-			// TODO: Don't have eslint-disable comments every line
+			/* eslint-enable */
+			// needed for the process.env statements to not be flagged by eslint
 		} else {
 			print("No editor avalible to use. Checked CLI input, EDITOR env var and VISUAL env var");
 			exit(1); // TODO: exit gracefully apon no editor
@@ -151,6 +150,16 @@ masterConfigCommands.add(new libCommand.Command({
 			// from here is when the edit exits, i.e. the user has quit
 			let mg = libConfig.MasterGroup;
 			let config_definitions = mg._definitions;
+			let configElement = null;
+			let test_str = "";
+			for (configElement in usefulData) {
+				if (usefulData.hasOwnProperty(configElement)) {
+					let description = config_definitions.get(configElement).description;
+					let configElementValue = JSON.stringify(usefulData[configElement]);
+					test_str += `# ${description}\n${configElement} = ${configElementValue} \n\n`;
+				}
+			}
+			print(test_str);
 		});
 	},
 }));
