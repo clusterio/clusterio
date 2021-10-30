@@ -115,7 +115,6 @@ masterConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
-		let usefulData = response.serialized_config;
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = 0;
 		if (args.editor) {
@@ -133,7 +132,11 @@ masterConfigCommands.add(new libCommand.Command({
 		}
 
 		async function afterEditorDone() {
-			print("editordone");
+			print(JSON.stringify(response.serialized_config));
+			let masterConfig = new libConfig.MasterConfig("control");
+			await masterConfig.load(response.serialized_config);
+			await masterConfig.init();
+			print(JSON.stringify(libConfig.MasterConfig.groups));
 		}
 
 		// <-- start process of running editor -->
@@ -148,13 +151,10 @@ masterConfigCommands.add(new libCommand.Command({
 			print(err);
 			exit(1); // TODO: exit gracefully apon error from editor
 		});
-		// <-- end process of starting editor -->
-
-
 		editorSpawn.on("exit", (exit) => {
 			afterEditorDone();
-			// from here is when the edit exits, i.e. the user has quit
 		});
+		// <-- end process of starting editor -->
 	},
 }));
 
