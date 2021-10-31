@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
+import { Button, Form, Input, Modal, PageHeader } from "antd";
 
 import { libConfig, libLink } from "@clusterio/lib";
 
@@ -8,10 +8,8 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import { useInstanceList } from "../model/instance";
+import InstanceList from "./InstanceList";
 import { notifyErrorHandler } from "../util/notify";
-import { useSlaveList } from "../model/slave";
-
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 
 function CreateInstanceButton(props) {
@@ -61,18 +59,8 @@ function CreateInstanceButton(props) {
 }
 
 export default function InstancesPage() {
-	let history = useHistory();
 	let account = useAccount();
-	let [slaveList] = useSlaveList();
 	let [instanceList] = useInstanceList();
-
-	function slaveName(slaveId) {
-		let slave = slaveList.find(s => s.id === slaveId);
-		if (slave) {
-			return slave.name;
-		}
-		return String(slaveId);
-	}
 
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
@@ -81,34 +69,6 @@ export default function InstancesPage() {
 			extra={account.hasPermission("core.instance.create") && <CreateInstanceButton />}
 		/>
 
-		<Table
-			columns={[
-				{
-					title: "Name",
-					dataIndex: "name",
-					defaultSortOrder: "ascend",
-					sorter: (a, b) => strcmp(a["name"], b["name"]),
-				},
-				{
-					title: "Assigned Slave",
-					key: "assigned_slave",
-					render: instance => slaveName(instance["assigned_slave"]),
-					sorter: (a, b) => strcmp(slaveName(a["assigned_slave"]), slaveName(b["assigned_slave"])),
-				},
-				{
-					title: "Status",
-					dataIndex: "status",
-					sorter: (a, b) => strcmp(a["status"], b["status"]),
-				},
-			]}
-			dataSource={instanceList}
-			rowKey={instance => instance["id"]}
-			pagination={false}
-			onRow={(record, rowIndex) => ({
-				onClick: event => {
-					history.push(`/instances/${record.id}/view`);
-				},
-			})}
-		/>
+		<InstanceList instances={instanceList} />
 	</PageLayout>;
 }

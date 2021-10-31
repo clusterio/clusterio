@@ -1,4 +1,5 @@
 import React, { useContext, useRef, useState } from "react";
+import { useHistory } from "react-router-dom";
 import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
 import { libLink } from "@clusterio/lib";
@@ -75,6 +76,7 @@ function GenerateSlaveTokenButton(props) {
 
 export default function SlavesPage() {
 	let account = useAccount();
+	let history = useHistory();
 	let [slaveList] = useSlaveList();
 
 	return <PageLayout nav={[{ name: "Slaves" }]}>
@@ -112,6 +114,11 @@ export default function SlavesPage() {
 			dataSource={slaveList}
 			rowKey={slave => slave["id"]}
 			pagination={false}
+			onRow={(record, rowIndex) => ({
+				onClick: event => {
+					history.push(`/slaves/${record.id}/view`);
+				},
+			})}
 		/>
 	</PageLayout>;
 };
