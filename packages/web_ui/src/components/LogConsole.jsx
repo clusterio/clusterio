@@ -49,7 +49,7 @@ function formatLog(info, key) {
 	return <span key={key}>[{level}] {info.message}<br/></span>;
 }
 
-export default function InstanceConsole(props) {
+export default function LogConsole(props) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let anchor = useRef();
@@ -57,16 +57,20 @@ export default function InstanceConsole(props) {
 	let [lines, setLines] = useState([]);
 
 	useEffect(() => {
+		let logFilter = {
+			all: props.all || false,
+			master: props.master || false,
+			slave_ids: props.slaves || [],
+			instance_ids: props.instances || [],
+		};
+
 		// Scroll view to the anchor so it sticks to the bottom
 		let parent = anchor.current.parentElement;
 		parent.scrollTop = parent.scrollHeight - parent.clientHeight;
 
 		if (account.hasPermission("core.log.query")) {
 			libLink.messages.queryLog.send(control, {
-				all: false,
-				master: false,
-				slave_ids: [],
-				instance_ids: [props.id],
+				...logFilter,
 				max_level: null,
 				limit: 400,
 				order: "desc",
@@ -85,11 +89,11 @@ export default function InstanceConsole(props) {
 			));
 		}
 
-		control.onInstanceLog(props.id, logHandler);
+		control.onLog(logFilter, logHandler);
 		return () => {
-			control.offInstanceLog(props.id, logHandler);
+			control.offLog(logFilter, logHandler);
 		};
-	}, [props.id]);
+	}, [props.all, props.master, props.slaves, props.instances]);
 
 	return <>
 		<Paragraph code className="instance-console">

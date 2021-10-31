@@ -3,6 +3,7 @@ import { Descriptions, PageHeader, Spin, Typography } from "antd";
 import { useParams } from "react-router-dom";
 
 import InstanceList from "./InstanceList";
+import LogConsole from "./LogConsole";
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
 import { useSlave } from "../model/slave";
@@ -47,10 +48,13 @@ export default function SlaveViewPage(props) {
 			<Descriptions.Item label="Agent">{slave["agent"]}</Descriptions.Item>
 			<Descriptions.Item label="Version">{slave["version"]}</Descriptions.Item>
 		</Descriptions>
-
 		{account.hasPermission("core.instance.list") && <>
 			<Title level={5} style={{ marginTop: 16 }}>Instances</Title>
 			<InstanceList instances={instanceList} size="small" hideAssignedSlave />
+		</>}
+		{account.hasPermission("core.log.follow") && <>
+			<Title level={5} style={{ marginTop: 16 }}>Console</Title>
+			<LogConsole slaves={[slaveId]} />
 		</>}
 	</PageLayout>;
 }

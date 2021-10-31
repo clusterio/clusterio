@@ -9,7 +9,7 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import InstanceConfigTree from "./InstanceConfigTree";
-import InstanceConsole from "./InstanceConsole";
+import LogConsole from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
 import StartStopInstanceButton from "./StartStopInstanceButton";
@@ -127,7 +127,7 @@ export default function InstanceViewPage(props) {
 			account.hasAnyPermission("core.log.follow", "core.instance.send_rcon")
 			&& <Title level={5} style={{ marginTop: 16 }}>Console</Title>
 		}
-		{account.hasPermission("core.log.follow") && <InstanceConsole id={instanceId} />}
+		{account.hasPermission("core.log.follow") && <LogConsole instances={[instanceId]} />}
 		{
 			account.hasPermission("core.instance.send_rcon")
 			&& <InstanceRcon id={instanceId} disabled={instance["status"] !== "running"} />
