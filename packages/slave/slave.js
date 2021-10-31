@@ -886,6 +886,11 @@ async function discoverInstances(instancesDir) {
 				continue;
 			}
 
+			if (instanceInfos.has(instanceConfig.get("instance.id"))) {
+				logger.warn(`Ignoring instance with duplicate id in folder ${entry.name}`);
+				continue;
+			}
+
 			let instancePath = path.join(instancesDir, entry.name);
 			logger.verbose(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
