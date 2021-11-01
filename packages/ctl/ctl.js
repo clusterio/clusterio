@@ -106,7 +106,6 @@ masterConfigCommands.add(new libCommand.Command({
 		await libLink.messages.setMasterConfigProp.send(control, request);
 	},
 }));
-
 masterConfigCommands.add(new libCommand.Command({
 	definition: ["edit [editor]", "Edit master configuration", (yargs) => {
 		yargs.positional("editor", { describe: "Editor to use",
@@ -127,33 +126,37 @@ masterConfigCommands.add(new libCommand.Command({
 			/* eslint-enable */
 			// needed for the process.env statements to not be flagged by eslint
 		} else {
-			print("No editor avalible to use. Checked CLI input, EDITOR env var and VISUAL env var");
-			exit(1); // TODO: exit gracefully apon no editor
+			print();
+			throw new libErrors.CommandError("No editor avalible. Checked CLI input, EDITOR and VISUAL env vars");
 		}
 
 		async function afterEditorDone() {
-			print(JSON.stringify(response.serialized_config));
-			let masterConfig = new libConfig.MasterConfig("control");
-			await masterConfig.load(response.serialized_config);
-			await masterConfig.init();
-			print(JSON.stringify(libConfig.MasterConfig.groups));
+			let MainConfig = new libConfig.MasterConfig("exampleonetwothree123");
+			await MainConfig.load(response.serialized_config, "exampleonetwothree123");
+			let groups = Array.from(libConfig.MasterConfig.groups.keys());
+			// convert from MapIterator to array
+			let mainConfigGroups = [];
+			for (let i = 0; i < groups.length; i++) {
+				mainConfigGroups[i] = MainConfig.group(groups[i]);
+			}
 		}
 
 		// <-- start process of running editor -->
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
   			stdio: "inherit",
   			detached: true,
-		}); // TODO: Exit gracefully if editor not found
+		});
 		editorSpawn.on("data", (data) => {
   			process.stdout.pipe(data);
 		});
 		editorSpawn.on("err", (err) => {
 			print(err);
-			exit(1); // TODO: exit gracefully apon error from editor
+			throw new libErrors.CommandError("Editor throwed error.");
 		});
 		editorSpawn.on("exit", (exit) => {
 			afterEditorDone();
 		});
+		// this is more verbose then it probably needs to be, but IMO this is more readable
 		// <-- end process of starting editor -->
 	},
 }));
