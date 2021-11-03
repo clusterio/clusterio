@@ -8,6 +8,7 @@
 "use strict";
 const fs = require("fs-extra");
 
+const libFileOps = require("./file_ops");
 const { basicType } = require("./helpers");
 
 
@@ -78,7 +79,7 @@ async function loadJsonAsMap(filePath) {
  */
 async function saveMapAsJson(filePath, map) {
 	let obj = mapToObject(map);
-	await fs.outputFile(filePath, JSON.stringify(obj, null, 4));
+	await libFileOps.safeOutputFile(filePath, JSON.stringify(obj, null, 4));
 }
 
 /**
@@ -138,7 +139,7 @@ async function loadJsonArrayAsMap(filePath) {
  * @throws {Error} if an error occured writing to the file.
  */
 async function saveMapAsJsonArray(filePath, map) {
-	await fs.outputFile(filePath, JSON.stringify([...map.values()], null, 4));
+	await libFileOps.safeOutputFile(filePath, JSON.stringify([...map.values()], null, 4));
 }
 
 

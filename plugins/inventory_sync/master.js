@@ -2,6 +2,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
+const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
 const libErrors = require("@clusterio/lib/errors");
 
@@ -26,7 +27,7 @@ async function saveDatabase(masterConfig, playerDatastore, logger) {
 		let file = path.resolve(masterConfig.get("master.database_directory"), "inventories.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(Array.from(playerDatastore));
-		await fs.outputFile(file, content);
+		await libFileOps.safeOutputFile(file, content);
 	}
 }
 

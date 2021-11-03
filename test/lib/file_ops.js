@@ -10,6 +10,8 @@ describe("lib/file_ops", function() {
 	async function setupTestingEnv() {
 		await fs.ensureDir(path.join(baseDir, "test", "folder"));
 		await fs.ensureDir(path.join(baseDir, "test", "another folder"));
+		await fs.remove(path.join(baseDir, "safe"));
+		await fs.ensureDir(path.join(baseDir, "safe"));
 
 		await fs.outputFile(path.join(baseDir, "test", "file.txt"), "contents");
 		await fs.outputFile(path.join(baseDir, "test", "another file.txt"), "more contents");
@@ -64,6 +66,22 @@ describe("lib/file_ops", function() {
 				let actual = await libFileOps.findUnusedName(path.join(baseDir, "find"), ...args);
 				assert.equal(actual, expected);
 			}
+		});
+	});
+
+	describe("safeOutputFile()", function() {
+		it("should write new target file", async function() {
+			let target = path.join(baseDir, "safe", "simple.txt");
+			await libFileOps.safeOutputFile(target, "a text file", "utf8");
+			assert(!await fs.pathExists(`${target}.tmp`), "temporary was left behind");
+			assert.equal(await fs.readFile(target, "utf8"), "a text file");
+		});
+		it("should overwrite existing target file", async function() {
+			let target = path.join(baseDir, "safe", "exists.txt");
+			await fs.outputFile(target, "previous", "utf8");
+			await libFileOps.safeOutputFile(target, "current", "utf8");
+			assert(!await fs.pathExists(`${target}.tmp`), "temporary was left behind");
+			assert.equal(await fs.readFile(target, "utf8"), "current");
 		});
 	});
 });
