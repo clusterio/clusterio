@@ -376,7 +376,7 @@ class Instance extends libLink.Link {
 	 */
 	async writeServerSettings() {
 		let serverSettings = await this.resolveServerSettings(this.config.get("factorio.settings"));
-		await fs.writeFile(
+		await libFileOps.safeOutputFile(
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, 4)
 		);
@@ -410,7 +410,7 @@ class Instance extends libLink.Link {
 
 		if (this.config.get("factorio.sync_adminlist")) {
 			this.logger.verbose("Writing server-adminlist.json");
-			fs.outputFile(
+			libFileOps.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._slave.adminlist], null, 4)
 			);
@@ -418,7 +418,7 @@ class Instance extends libLink.Link {
 
 		if (this.config.get("factorio.sync_banlist")) {
 			this.logger.verbose("Writing server-banlist.json");
-			fs.outputFile(
+			libFileOps.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._slave.banlist].map(
 					([username, reason]) => ({ username, reason })
@@ -428,7 +428,7 @@ class Instance extends libLink.Link {
 
 		if (this.config.get("factorio.sync_whitelist")) {
 			this.logger.verbose("Writing server-whitelist.json");
-			fs.outputFile(
+			libFileOps.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._slave.whitelist], null, 4)
 			);
@@ -1299,7 +1299,7 @@ class Slave extends libLink.Link {
 			_warning: "Changes to this file will be overwritten by the master server's copy.",
 			...instanceInfo.config.serialize(),
 		};
-		await fs.outputFile(
+		await libFileOps.safeOutputFile(
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
 		);

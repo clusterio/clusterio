@@ -3,6 +3,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libDatabase = require("@clusterio/lib/database");
+const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
 const { Counter, Gauge } = require("@clusterio/lib/prometheus");
 const RateLimiter = require("@clusterio/lib/RateLimiter");
@@ -49,7 +50,7 @@ async function saveDatabase(masterConfig, items, logger) {
 		let file = path.resolve(masterConfig.get("master.database_directory"), "items.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(items.serialize());
-		await fs.outputFile(file, content);
+		await libFileOps.safeOutputFile(file, content);
 	} else if (items) {
 		logger.error(`Item database too large, not saving (${items.size})`);
 	}

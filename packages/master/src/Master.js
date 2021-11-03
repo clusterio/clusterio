@@ -10,6 +10,7 @@ const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
 const libErrors = require("@clusterio/lib/errors");
+const libFileOps = require("@clusterio/lib/file_ops");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
@@ -241,7 +242,7 @@ class Master {
 		logger.info("Stopping master");
 
 		logger.info("Saving config");
-		await fs.outputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
+		await libFileOps.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
 
 		if (this.devMiddleware) {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
@@ -297,7 +298,7 @@ class Master {
 	}
 
 	static async saveSlaves(filePath, slaves) {
-		await fs.outputFile(filePath, JSON.stringify([...slaves.entries()], null, 4));
+		await libFileOps.safeOutputFile(filePath, JSON.stringify([...slaves.entries()], null, 4));
 	}
 
 	static async loadInstances(filePath) {
@@ -329,7 +330,7 @@ class Master {
 			serialized.push(instance.config.serialize());
 		}
 
-		await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
+		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
 	static addAppRoutes(app, pluginInfos) {

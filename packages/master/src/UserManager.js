@@ -1,6 +1,7 @@
 "use strict";
 const fs = require("fs-extra");
 
+const libFileOps = require("@clusterio/lib/file_ops");
 const libUsers = require("@clusterio/lib/users");
 
 /**
@@ -62,7 +63,7 @@ class UserManager {
 			users: serializedUsers,
 			roles: serializedRoles,
 		};
-		await fs.outputFile(filePath, JSON.stringify(serialized, null, 4));
+		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
 	/**
