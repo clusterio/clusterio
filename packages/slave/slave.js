@@ -1097,6 +1097,10 @@ class Slave extends libLink.Link {
 			}
 
 			this.updateInstances().catch((err) => {
+				if (err instanceof libErrors.SessionLost) {
+					return undefined;
+				}
+
 				logger.fatal(`Unexpected error updating instances:\n${err.stack}`);
 				return this.shutdown();
 			});
