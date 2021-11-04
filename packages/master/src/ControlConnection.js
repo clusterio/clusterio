@@ -170,7 +170,7 @@ class ControlConnection extends BaseConnection {
 			id,
 			name: instance.config.get("instance.name"),
 			assigned_slave: instance.config.get("instance.assigned_slave"),
-			game_port: instance.game_port,
+			game_port: instance.game_port || null,
 			status: instance.status,
 		};
 	}
@@ -182,7 +182,7 @@ class ControlConnection extends BaseConnection {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
 				assigned_slave: instance.config.get("instance.assigned_slave"),
-				game_port: instance.game_port,
+				game_port: instance.game_port || null,
 				status: instance.status,
 			});
 		}
@@ -202,7 +202,7 @@ class ControlConnection extends BaseConnection {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
 				assigned_slave: instance.config.get("instance.assigned_slave"),
-				game_port: instance.game_port,
+				game_port: instance.game_port || null,
 				status: instance.status,
 			});
 		}

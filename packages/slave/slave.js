@@ -694,6 +694,8 @@ class Instance extends libLink.Link {
 	}
 
 	async masterConnectionEventEventHandler(message) {
+		this.notifyStatus(this._status);
+
 		await libPlugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
 	}
 
