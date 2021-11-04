@@ -1,12 +1,12 @@
 import React from "react";
 import { useHistory } from "react-router-dom";
-import { Table } from "antd";
+import { notification, Button, Table } from "antd";
+import { CopyOutlined } from "@ant-design/icons";
 
 import { useSlaveList } from "../model/slave";
 import InstanceStatusTag from "./InstanceStatusTag";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
-
 
 export default function InstanceList(props) {
 	let history = useHistory();
@@ -44,7 +44,22 @@ export default function InstanceList(props) {
 			key: "public_address",
 			render: instance => {
 				let address = slavePublicAddress(instance["assigned_slave"]);
-				return address ? `${address}:${instance["game_port"] || "unknown"}` : "";
+				let full_address = address + (instance["game_port"] !== null ? `:${instance["game_port"]}` : "");
+				return <>
+					{full_address}
+					<Button
+						type="text"
+						icon={<CopyOutlined/>}
+						onClick={(e) => {
+							e.stopPropagation();
+							navigator.clipboard.writeText(full_address);
+							notification.success({
+								message: "Copied public address!",
+								duration: 1.5,
+							});
+						}}
+					/>
+				</>;
 			},
 			sorter: (a, b) => strcmp(slavePublicAddress(a["assigned_slave"]), slavePublicAddress(b["assigned_slave"])),
 		},
