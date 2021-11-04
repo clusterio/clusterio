@@ -18,6 +18,7 @@ import SavesList from "./SavesList";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useSlave } from "../model/slave";
+import InstanceStatusTag from "./InstanceStatusTag";
 
 const { Title, Paragraph } = Typography;
 
@@ -116,7 +117,7 @@ export default function InstanceViewPage(props) {
 					buttonContent={assigned ? "Reassign" : "Assign"}
 				/>}
 			</Descriptions.Item>
-			<Descriptions.Item label="Status">{instance["status"]}</Descriptions.Item>
+			<Descriptions.Item label="Status"><InstanceStatusTag status={instance["status"]} /></Descriptions.Item>
 		</Descriptions>
 
 		{

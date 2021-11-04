@@ -3,6 +3,7 @@ import { useHistory } from "react-router-dom";
 import { Table } from "antd";
 
 import { useSlaveList } from "../model/slave";
+import InstanceStatusTag from "./InstanceStatusTag";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
@@ -35,6 +36,7 @@ export default function InstanceList(props) {
 		{
 			title: "Status",
 			dataIndex: "status",
+			render: status => <InstanceStatusTag status={status} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
 		},
 	];
