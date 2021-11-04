@@ -1152,6 +1152,7 @@ messages.instanceStatusChanged = new Event({
 		"status": { enum: [
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]},
+		"game_port": { type: ["null", "integer"] },
 	},
 });
 

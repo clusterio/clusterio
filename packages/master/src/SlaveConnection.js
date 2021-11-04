@@ -88,6 +88,7 @@ class SlaveConnection extends BaseConnection {
 
 		let prev = instance.status;
 		instance.status = message.data.status;
+		instance.game_port = message.data.game_port;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		this._master.instanceUpdated(instance);
 		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
