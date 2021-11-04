@@ -28,6 +28,7 @@ class SlaveConnection extends BaseConnection {
 			id: this._id,
 			name: this._name,
 			version: this._version,
+			public_address: registerData.public_address,
 			plugins: registerData.plugins,
 		});
 

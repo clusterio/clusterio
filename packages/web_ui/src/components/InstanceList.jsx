@@ -19,7 +19,13 @@ export default function InstanceList(props) {
 		}
 		return String(slaveId);
 	}
-
+	function slavePublicAddress(slaveId) {
+		let slave = slaveList.find(s => s.id === slaveId);
+		if (slave) {
+			return slave.public_address;
+		}
+		return null;
+	}
 	let columns = [
 		{
 			title: "Name",
@@ -32,6 +38,15 @@ export default function InstanceList(props) {
 			key: "assigned_slave",
 			render: instance => slaveName(instance["assigned_slave"]),
 			sorter: (a, b) => strcmp(slaveName(a["assigned_slave"]), slaveName(b["assigned_slave"])),
+		},
+		{
+			title: "Public address",
+			key: "public_address",
+			render: instance => {
+				let address = slavePublicAddress(instance["assigned_slave"]);
+				return address ? `${address}:${instance["game_port"] || "unknown"}` : "";
+			},
+			sorter: (a, b) => strcmp(slavePublicAddress(a["assigned_slave"]), slavePublicAddress(b["assigned_slave"])),
 		},
 		{
 			title: "Status",

@@ -1004,6 +1004,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 			version,
 			id: this.slaveConfig.get("slave.id"),
 			name: this.slaveConfig.get("slave.name"),
+			public_address: this.slaveConfig.get("slave.public_address"),
 			plugins,
 		});
 	}

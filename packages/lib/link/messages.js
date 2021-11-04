@@ -337,6 +337,7 @@ let slaveProperties = {
 	"name": { type: "string" },
 	"id": { type: "integer" },
 	"connected": { type: "boolean" },
+	"public_address": { type: ["null", "string"] },
 };
 
 messages.listSlaves = new Request({
@@ -372,6 +373,7 @@ let instanceProperties = {
 	"name": { type: "string" },
 	"id": { type: "integer" },
 	"assigned_slave": { type: ["null", "integer"] },
+	"game_port": { type: ["null", "integer"] },
 	"status": { enum: [
 		"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 		"creating_save", "exporting_data", "deleted",

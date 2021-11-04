@@ -178,6 +178,7 @@ const clientHandshake = ajv.compile({
 						"version": { type: "string" },
 						"name": { type: "string" },
 						"id": { type: "integer" },
+						"public_address": { type: "string" },
 						"plugins": {
 							type: "object",
 							additionalProperties: { type: "string" },

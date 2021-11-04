@@ -106,6 +106,7 @@ class ControlConnection extends BaseConnection {
 				version: slave.version,
 				id: slave.id,
 				name: slave.name,
+				public_address: slave.public_address,
 				connected: this._master.wsServer.slaveConnections.has(slave.id),
 			});
 		}
@@ -169,6 +170,7 @@ class ControlConnection extends BaseConnection {
 			id,
 			name: instance.config.get("instance.name"),
 			assigned_slave: instance.config.get("instance.assigned_slave"),
+			game_port: instance.config.get("factorio.game_port"),
 			status: instance.status,
 		};
 	}
@@ -180,6 +182,7 @@ class ControlConnection extends BaseConnection {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
 				assigned_slave: instance.config.get("instance.assigned_slave"),
+				game_port: instance.config.get("factorio.game_port"),
 				status: instance.status,
 			});
 		}
@@ -199,6 +202,7 @@ class ControlConnection extends BaseConnection {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
 				assigned_slave: instance.config.get("instance.assigned_slave"),
+				game_port: instance.config.get("factorio.game_port"),
 				status: instance.status,
 			});
 		}
