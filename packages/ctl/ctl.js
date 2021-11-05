@@ -126,19 +126,25 @@ masterConfigCommands.add(new libCommand.Command({
 			/* eslint-enable */
 			// needed for the process.env statements to not be flagged by eslint
 		} else {
-			print();
 			throw new libErrors.CommandError("No editor avalible. Checked CLI input, EDITOR and VISUAL env vars");
 		}
-
-		async function afterEditorDone() {
-			let MainConfig = new libConfig.MasterConfig("exampleonetwothree123");
-			await MainConfig.load(response.serialized_config, "exampleonetwothree123");
-			let groups = Array.from(libConfig.MasterConfig.groups.keys());
-			// convert from MapIterator to array
-			let mainConfigGroups = [];
-			for (let i = 0; i < groups.length; i++) {
-				mainConfigGroups[i] = MainConfig.group(groups[i]);
+		let allConfigElements = "";
+		for (let group of response.serialized_config.groups) {
+			for (let [name, value] of Object.entries(group.fields)) {
+				// needed for line lenght; IMO this is more readable then using a temp var
+				// eslint-disable-next-line
+				allConfigElements += `# ${libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description}\n`;
+				allConfigElements += `${group.name}.${name} ${JSON.stringify(value)}\n\n`;
 			}
+		}
+		print(allConfigElements);
+		fs.writeFile(tmpFile, allConfigElements, (err) => {
+			if (err) {
+				throw err;
+			}
+		});
+		print(allConfigElements);
+		async function afterEditorDone() {
 		}
 
 		// <-- start process of running editor -->
