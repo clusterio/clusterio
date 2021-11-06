@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Descriptions, PageHeader, Spin, Typography } from "antd";
+import { Descriptions, PageHeader, Spin, Typography, Tag } from "antd";
 import { useParams } from "react-router-dom";
 
 import InstanceList from "./InstanceList";
@@ -44,7 +44,13 @@ export default function SlaveViewPage(props) {
 
 		<Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 4 }}>
 			<Descriptions.Item label="Name">{slave["name"]}</Descriptions.Item>
-			<Descriptions.Item label="Connected">{slave["connected"] ? "yes" : "no"}</Descriptions.Item>
+			<Descriptions.Item label="Connected">
+				<Tag
+					color={slave["connected"] ? "#389e0d" : "#cf1322"}
+				>
+					{slave["connected"] ? "Connected" : "Disconnected"}
+				</Tag>
+			</Descriptions.Item>
 			<Descriptions.Item label="Agent">{slave["agent"]}</Descriptions.Item>
 			<Descriptions.Item label="Version">{slave["version"]}</Descriptions.Item>
 		</Descriptions>
