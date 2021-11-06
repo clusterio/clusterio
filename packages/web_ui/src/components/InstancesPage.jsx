@@ -11,7 +11,6 @@ import { useInstanceList } from "../model/instance";
 import InstanceList from "./InstanceList";
 import { notifyErrorHandler } from "../util/notify";
 
-
 function CreateInstanceButton(props) {
 	let control = useContext(ControlContext);
 	let history = useHistory();
@@ -51,7 +50,7 @@ function CreateInstanceButton(props) {
 		>
 			<Form form={form}>
 				<Form.Item name="instanceName" label="Name">
-					<Input/>
+					<Input />
 				</Form.Item>
 			</Form>
 		</Modal>
@@ -59,6 +58,7 @@ function CreateInstanceButton(props) {
 }
 
 export default function InstancesPage() {
+	let control = useContext(ControlContext);
 	let account = useAccount();
 	let [instanceList] = useInstanceList();
 
@@ -66,7 +66,31 @@ export default function InstancesPage() {
 		<PageHeader
 			className="site-page-header"
 			title="Instances"
-			extra={account.hasPermission("core.instance.create") && <CreateInstanceButton />}
+			extra={<>
+				{account.hasPermission("core.instance.create") && <CreateInstanceButton />}
+				{account.hasPermission("core.instance.start")
+					&& <Button onClick={e => instanceList.forEach(instance => {
+						if (instance.status === "stopped") {
+							libLink.messages.startInstance.send(
+								control, { instance_id: instance.id, save: null }
+							).catch(notifyErrorHandler("Error starting instance"));
+						}
+					})
+					}>
+						Start all
+					</Button>}
+				{account.hasPermission("core.instance.stop")
+					&& <Button onClick={e => instanceList.forEach(instance => {
+						if (["starting", "running"].includes(instance.status)) {
+							libLink.messages.stopInstance.send(
+								control, { instance_id: instance.id }
+							).catch(notifyErrorHandler("Error stopping instance"));
+						}
+					})
+					}>
+						Stop all
+					</Button>}
+			</>}
 		/>
 
 		<InstanceList instances={instanceList} />
