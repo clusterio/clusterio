@@ -151,26 +151,6 @@ masterConfigCommands.add(new libCommand.Command({
 				throw err;
 			}
 		});
-
-		async function afterEditorDone() {
-		}
-
-		// <-- start process of running editor -->
-		let editorSpawn = child_process.spawn(editor, [tmpFile], {
-  			stdio: "inherit",
-  			detached: true,
-		});
-		editorSpawn.on("data", (data) => {
-  			process.stdout.pipe(data);
-		});
-		editorSpawn.on("err", (err) => {
-			throw new libErrors.CommandError(err);
-		});
-		editorSpawn.on("exit", (exit) => {
-			afterEditorDone();
-		});
-		// this is more verbose then it probably needs to be, but IMO this is more readable
-		// <-- end process of starting editor -->
 	},
 }));
 
