@@ -125,25 +125,33 @@ masterConfigCommands.add(new libCommand.Command({
 			editor = process.env.VISUAL
 			/* eslint-enable */
 			// needed for the process.env statements to not be flagged by eslint
+			// prio for editors is CLI arg > env.EDITOR > env.VISUAL
 		} else {
 			throw new libErrors.CommandError("No editor avalible. Checked CLI input, EDITOR and VISUAL env vars");
 		}
+
 		let allConfigElements = "";
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
-				// needed for line lenght; IMO this is more readable then using a temp var
-				// eslint-disable-next-line
-				allConfigElements += `# ${libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description}\n`;
-				allConfigElements += `${group.name}.${name} ${JSON.stringify(value)}\n\n`;
+				if (typeof value === "string") {
+					value = `\"${value}\"`;
+				}
+				// put quotes around value if it's a string
+
+				let desc = libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
+				allConfigElements += `# ${desc}\n`;
+				// split onto two lines for readability and es-lint
+
+				allConfigElements += `${group.name}.${name} ${value}\n\n`;
 			}
 		}
-		print(allConfigElements);
+		// use same method as master config list to grab values, with a small modification to add quotes around strings
 		fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
 				throw err;
 			}
 		});
-		print(allConfigElements);
+
 		async function afterEditorDone() {
 		}
 
@@ -156,8 +164,7 @@ masterConfigCommands.add(new libCommand.Command({
   			process.stdout.pipe(data);
 		});
 		editorSpawn.on("err", (err) => {
-			print(err);
-			throw new libErrors.CommandError("Editor throwed error.");
+			throw new libErrors.CommandError(err);
 		});
 		editorSpawn.on("exit", (exit) => {
 			afterEditorDone();
