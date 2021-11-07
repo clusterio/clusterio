@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Descriptions, PageHeader, Spin, Typography } from "antd";
+import { Descriptions, PageHeader, Spin, Tag, Typography } from "antd";
 import { useParams } from "react-router-dom";
 
 import InstanceList from "./InstanceList";
