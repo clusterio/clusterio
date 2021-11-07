@@ -1,7 +1,7 @@
 import React from "react";
 import { useHistory } from "react-router-dom";
-import { notification, Button, Table } from "antd";
-import { CopyOutlined } from "@ant-design/icons";
+import { message, Button, Table } from "antd";
+import CopyOutlined from "@ant-design/icons/CopyOutlined";
 
 import { useSlaveList } from "../model/slave";
 import InstanceStatusTag from "./InstanceStatusTag";
@@ -19,13 +19,18 @@ export default function InstanceList(props) {
 		}
 		return String(slaveId);
 	}
-	function slavePublicAddress(slaveId) {
-		let slave = slaveList.find(s => s.id === slaveId);
-		if (slave) {
+
+	function instancePublicAddress(instance) {
+		let slave = slaveList.find(s => s.id === instance.assigned_slave);
+		if (slave && slave.public_address) {
+			if (instance.game_port) {
+				return `${slave.public_address}:${instance.game_port}`;
+			}
 			return slave.public_address;
 		}
 		return null;
 	}
+
 	let columns = [
 		{
 			title: "Name",
@@ -43,23 +48,19 @@ export default function InstanceList(props) {
 			title: "Public address",
 			key: "public_address",
 			render: instance => {
-				let address = slavePublicAddress(instance["assigned_slave"]);
-				let full_address = address + (instance["game_port"] !== null ? `:${instance["game_port"]}` : "");
-				return <>
-					{full_address}
+				let public_address = instancePublicAddress(instance);
+				return public_address ? <>
+					{public_address}
 					<Button
 						type="text"
 						icon={<CopyOutlined/>}
 						onClick={(e) => {
 							e.stopPropagation();
-							navigator.clipboard.writeText(full_address);
-							notification.success({
-								message: "Copied public address!",
-								duration: 1.5,
-							});
+							navigator.clipboard.writeText(public_address);
+							message.success("Copied public address!");
 						}}
 					/>
-				</>;
+				</> : "";
 			},
 			sorter: (a, b) => strcmp(slavePublicAddress(a["assigned_slave"]), slavePublicAddress(b["assigned_slave"])),
 		},
