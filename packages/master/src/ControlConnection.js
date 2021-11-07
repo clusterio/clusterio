@@ -106,7 +106,7 @@ class ControlConnection extends BaseConnection {
 				version: slave.version,
 				id: slave.id,
 				name: slave.name,
-				public_address: slave.public_address,
+				public_address: slave.public_address || null,
 				connected: this._master.wsServer.slaveConnections.has(slave.id),
 			});
 		}

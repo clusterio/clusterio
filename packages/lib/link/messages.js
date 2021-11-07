@@ -1147,6 +1147,7 @@ messages.instanceInitialized = new Event({
 messages.instanceStatusChanged = new Event({
 	type: "instance_status_changed",
 	links: ["instance-slave", "slave-master"],
+	eventRequired: ["instance_id", "status"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"status": { enum: [

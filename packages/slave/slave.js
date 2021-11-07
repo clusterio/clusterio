@@ -262,7 +262,7 @@ class Instance extends libLink.Link {
 		libLink.messages.instanceStatusChanged.send(this, {
 			instance_id: this.id,
 			status,
-			game_port: this.server ? this.server.gamePort : this.config.get("factorio.game_port") || null,
+			game_port: this.server?.gamePort || this.config.get("factorio.game_port") || null,
 		});
 	}
 
@@ -694,8 +694,6 @@ class Instance extends libLink.Link {
 	}
 
 	async masterConnectionEventEventHandler(message) {
-		this.notifyStatus(this._status);
-
 		await libPlugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
 	}
 
@@ -1301,7 +1299,6 @@ class Slave extends libLink.Link {
 		libLink.messages.instanceStatusChanged.send(this, {
 			instance_id,
 			status: instanceConnection ? instanceConnection.status : "stopped",
-			game_port: null,
 		});
 
 		// save a copy of the instance config
