@@ -142,14 +142,54 @@ masterConfigCommands.add(new libCommand.Command({
 				allConfigElements += `# ${desc}\n`;
 				// split onto two lines for readability and es-lint
 
-				allConfigElements += `${group.name}.${name} ${value}\n\n`;
+				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
 			}
 		}
 		// use same method as master config list to grab values, with a small modification to add quotes around strings
+		// this could be shorter but the lines would have to be very long, so imo this is better for readability
 		fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
 				throw err;
 			}
+		});
+		let editorSpawn = child_process.spawn(editor, [tmpFile], {
+			stdio: "inherit",
+  			detached: false,
+		});
+		editorSpawn.on("data", (data) => {
+  			process.stdout.pipe(data);
+		});
+		function readTmpFile(c2) {
+			fs.readFile(tmpFile, "utf8", (err, data) => {
+				if (err) { throw err; }
+				let splitData = data.split(/\r?\n/);
+				// split on newlines
+				let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
+				// the last filter removes empty elements left by the first. Not done on one line due to readability.
+				let final = [];
+				for (let index in filtered) {
+					if (index in filtered) {
+						filtered[index] = filtered[index].split("=");
+						// split on the = we added eariler
+						filtered[index][1] = filtered[index][1].replace(/['"]+/g, "");
+						// remove quotes we added eariler
+						final[filtered[index][0].trim()] = filtered[index][1].trim();
+						// trim whitespace and put in final array for processing
+					}
+				}
+				for (let element in final) {
+					if (element in final) {
+						libLink.messages.setMasterConfigField.send(control, {
+							field: element,
+							value: final[element],
+						});
+					}
+				}
+			});
+		}
+		editorSpawn.once("exit", (exit) => {
+			print("once");
+			readTmpFile(control);
 		});
 	},
 }));
