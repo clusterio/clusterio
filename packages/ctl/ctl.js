@@ -147,7 +147,7 @@ masterConfigCommands.add(new libCommand.Command({
 		}
 		// use same method as master config list to grab values, with a small modification to add quotes around strings
 		// this could be shorter but the lines would have to be very long, so imo this is better for readability
-		fs.writeFile(tmpFile, allConfigElements, (err) => {
+		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
 				throw err;
 			}
@@ -159,38 +159,46 @@ masterConfigCommands.add(new libCommand.Command({
 		editorSpawn.on("data", (data) => {
   			process.stdout.pipe(data);
 		});
-		function readTmpFile(c2) {
-			fs.readFile(tmpFile, "utf8", (err, data) => {
-				if (err) { throw err; }
-				let splitData = data.split(/\r?\n/);
-				// split on newlines
-				let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
-				// the last filter removes empty elements left by the first. Not done on one line due to readability.
-				let final = [];
-				for (let index in filtered) {
-					if (index in filtered) {
-						filtered[index] = filtered[index].split("=");
-						// split on the = we added eariler
-						filtered[index][1] = filtered[index][1].replace(/['"]+/g, "");
-						// remove quotes we added eariler
-						final[filtered[index][0].trim()] = filtered[index][1].trim();
-						// trim whitespace and put in final array for processing
+		let emmiter = new events.EventEmitter();
+		editorSpawn.on("exit", async (exit) => {
+			const data = await fs.readFile(tmpFile, "utf8");
+			let final = [];
+			let splitData = data.split(/\r?\n/);
+			// split on newlines
+			let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
+			// the last filter removes empty elements left by the first. Not done on one line due to readability.
+			for (let index in filtered) {
+				if (index in filtered) {
+					filtered[index] = filtered[index].split("=");
+					// split on the = we added eariler
+					filtered[index][1] = filtered[index][1].replace(/['"]+/g, "");
+					// remove quotes we added eariler
+					let part = filtered[index][1].trim();
+					let finalIndex = filtered[index][0].trim();
+					if (part === "undefined") {
+					} else if (part === "null") {
+						print("null", part);
+						final[finalIndex] = "";
+					} else {
+						print("string", part);
+						final[finalIndex] = part;
 					}
+					// trim whitespace and put in final array for processing
 				}
-				for (let element in final) {
-					if (element in final) {
-						libLink.messages.setMasterConfigField.send(control, {
-							field: element,
-							value: final[element],
-						});
-					}
+			}
+			print("final", final);
+			for (let element in final) {
+				if (element in final) {
+					print("parsing", element, final[element], ":", typeof final[element]);
+					await libLink.messages.setMasterConfigField.send(control, {
+						field: element,
+						value: final[element],
+					});
 				}
-			});
-		}
-		editorSpawn.once("exit", (exit) => {
-			print("once");
-			readTmpFile(control);
+			}
+			emmiter.emit("dot_on_done");
 		});
+		await events.once(emmiter, "dot_on_done");
 	},
 }));
 
