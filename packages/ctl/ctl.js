@@ -186,10 +186,8 @@ masterConfigCommands.add(new libCommand.Command({
 					// trim whitespace and put in final array for processing
 				}
 			}
-			print("final", final);
 			for (let element in final) {
 				if (element in final) {
-					print("parsing", element, final[element], ":", typeof final[element]);
 					await libLink.messages.setMasterConfigField.send(control, {
 						field: element,
 						value: final[element],
@@ -199,6 +197,7 @@ masterConfigCommands.add(new libCommand.Command({
 			emmiter.emit("dot_on_done");
 		});
 		await events.once(emmiter, "dot_on_done");
+		await fs.unlink(tmpFile);
 	},
 }));
 
