@@ -177,10 +177,8 @@ masterConfigCommands.add(new libCommand.Command({
 					let finalIndex = filtered[index][0].trim();
 					if (part === "undefined") {
 					} else if (part === "null") {
-						print("null", part);
 						final[finalIndex] = "";
 					} else {
-						print("string", part);
 						final[finalIndex] = part;
 					}
 					// trim whitespace and put in final array for processing
