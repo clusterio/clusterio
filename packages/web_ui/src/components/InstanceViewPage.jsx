@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Button, Descriptions, Popconfirm, Space, Spin, Typography } from "antd";
+import { Alert, Button, Descriptions, Popconfirm, Space, Spin, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import { libLink } from "@clusterio/lib";
@@ -41,10 +41,22 @@ export default function InstanceViewPage(props) {
 		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
 	}
 
-	if (instance.missing) {
+	if (instance.missing || instance["status"] === "deleted") {
 		return <PageLayout nav={nav}>
-			<h2>Instance not found</h2>
-			<p>Instance with id {instanceId} was not found on the master server.</p>
+			<Alert
+				message={instance["status"] === "deleted" ? "Instance has been deleted" : "Instance not found" }
+				showIcon
+				description={<>Instance with id {instanceId} was not found on the master server.</>}
+				type="warning"
+				action={
+					<Button
+						type="text"
+						onClick={() => { history.push("/instances"); }}
+					>
+						Go back to instances list
+					</Button>
+				}
+			/>
 		</PageLayout>;
 	}
 
