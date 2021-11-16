@@ -170,9 +170,9 @@ masterConfigCommands.add(new libCommand.Command({
 			for (let index in filtered) {
 				if (index in filtered) {
 					filtered[index] = filtered[index].split("=");
-					// split on the = we added eariler
+					// split on the = we added earlier
 					filtered[index][1] = filtered[index][1].replace(/['"]+/g, "");
-					// remove quotes we added eariler
+					// remove quotes we added earlier
 					let part = filtered[index][1].trim();
 					let finalIndex = filtered[index][0].trim();
 					if (part === "undefined") {
