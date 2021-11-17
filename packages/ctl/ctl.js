@@ -168,27 +168,33 @@ masterConfigCommands.add(new libCommand.Command({
 			for (let index in filtered) {
 				if (index in filtered) {
 					filtered[index] = filtered[index].split("=");
+					let finalIndex = filtered[index][0].trim();
 					// split on the = we added earlier
 					let part = "";
 					try {
 						part = filtered[index][1].trim();
 					} catch (err) {
-						part = null;
+						part = "";
 					}
 					if (part === "null") {
-						part = null;
+						print(`Warning: ${finalIndex} has been set to the value null, not the string "null".`);
+						part = "";
 					}
-					let finalIndex = filtered[index][0].trim();
 					final[finalIndex] = part;
 					// trim whitespace and put in final array for processing
 				}
 			}
 			for (let element in final) {
 				if (element in final) {
-					await libLink.messages.setMasterConfigField.send(control, {
-						field: element,
-						value: final[element],
-					});
+					try {
+						await libLink.messages.setMasterConfigField.send(control, {
+							field: element,
+							value: final[element],
+						});
+					} catch (err) {
+						// eslint-disable-next-line
+						print(`Attempt to set ${element} to ${final[element] || String(null)} failed; set back to previous value.`);
+					}
 				}
 			}
 			emmiter.emit("dot_on_done");
