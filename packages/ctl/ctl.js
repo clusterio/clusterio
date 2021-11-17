@@ -133,15 +133,13 @@ masterConfigCommands.add(new libCommand.Command({
 		let allConfigElements = "";
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
-				if (typeof value === "string") {
-					value = `\"${value}\"`;
-				}
 				// put quotes around value if it's a string
-
 				let desc = libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
 				allConfigElements += `# ${desc}\n`;
 				// split onto two lines for readability and es-lint
-
+				if (String(value) === "null") {
+					value = "";
+				}
 				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
 			}
 		}
@@ -171,21 +169,21 @@ masterConfigCommands.add(new libCommand.Command({
 				if (index in filtered) {
 					filtered[index] = filtered[index].split("=");
 					// split on the = we added earlier
-					filtered[index][1] = filtered[index][1].replace(/['"]+/g, "");
-					// remove quotes we added earlier
-					let part = filtered[index][1].trim();
-					let finalIndex = filtered[index][0].trim();
-					if (part === "undefined") {
-					} else if (part === "null") {
-						final[finalIndex] = "";
-					} else {
-						final[finalIndex] = part;
+					let part = "";
+					try {
+						part = filtered[index][1].trim();
+					} catch (err) {
+						part = null;
 					}
+					print(part, typeof part);
+					let finalIndex = filtered[index][0].trim();
+					final[finalIndex] = part;
 					// trim whitespace and put in final array for processing
 				}
 			}
 			for (let element in final) {
 				if (element in final) {
+					print(element, final[element], typeof final[element]);
 					await libLink.messages.setMasterConfigField.send(control, {
 						field: element,
 						value: final[element],
