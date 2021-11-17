@@ -160,7 +160,6 @@ masterConfigCommands.add(new libCommand.Command({
 		let emmiter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
 			const data = await fs.readFile(tmpFile, "utf8");
-			let final = [];
 			let splitData = data.split(/\r?\n/);
 			// split on newlines
 			let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
@@ -173,23 +172,15 @@ masterConfigCommands.add(new libCommand.Command({
 					let part = "";
 					try {
 						part = filtered[index][1].trim();
+						// it's a string if we can read it
 					} catch (err) {
+						// if we can't read it, it's a empty field and therefor null
 						part = "";
 					}
-					if (part === "null") {
-						print(`Warning: ${finalIndex} has been set to the value null, not the string "null".`);
-						part = "";
-					}
-					final[finalIndex] = part;
-					// trim whitespace and put in final array for processing
-				}
-			}
-			for (let element in final) {
-				if (element in final) {
 					try {
 						await libLink.messages.setMasterConfigField.send(control, {
-							field: element,
-							value: final[element],
+							field: finalIndex,
+							value: part,
 						});
 					} catch (err) {
 						// eslint-disable-next-line
@@ -200,7 +191,14 @@ masterConfigCommands.add(new libCommand.Command({
 			emmiter.emit("dot_on_done");
 		});
 		await events.once(emmiter, "dot_on_done");
-		await fs.unlink(tmpFile);
+		await fs.unlink(tmpFile, (err) => {
+			if (err) {
+				print("err: temporary file", tmpFile, "could not be deleted.");
+				print("This is not fatal, but they may build up over time if the issue persists.");
+				print("Trace:");
+				print(err);
+			}
+		});
 	},
 }));
 
