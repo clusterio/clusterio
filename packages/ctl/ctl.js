@@ -175,7 +175,9 @@ masterConfigCommands.add(new libCommand.Command({
 					} catch (err) {
 						part = null;
 					}
-					print(part, typeof part);
+					if (part === "null") {
+						part = null;
+					}
 					let finalIndex = filtered[index][0].trim();
 					final[finalIndex] = part;
 					// trim whitespace and put in final array for processing
@@ -183,7 +185,6 @@ masterConfigCommands.add(new libCommand.Command({
 			}
 			for (let element in final) {
 				if (element in final) {
-					print(element, final[element], typeof final[element]);
 					await libLink.messages.setMasterConfigField.send(control, {
 						field: element,
 						value: final[element],
