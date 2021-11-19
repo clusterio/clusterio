@@ -968,7 +968,7 @@ class FactorioServer extends events.EventEmitter {
 	 * @returns {string} response from server.
 	 */
 	async sendRcon(message, expectEmpty) {
-		this._check(["running", "stopping"]);
+		this._check(["running", "stopping", "init"]);
 		if (!this._rconReady) {
 			await events.once(this, "rcon-ready");
 		}
