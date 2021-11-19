@@ -8,10 +8,8 @@ on:
   pull_request:
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         node-version: [12.x, 14.x, 16.x]
@@ -28,3 +26,14 @@ jobs:
     - run: npx lerna bootstrap --hoist
     - run: npx lerna run build
     - run: npm test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-node@v2
+      with:
+        node-version: 16.x
+    - run: npm i --no-optional
+    - run: npx lerna bootstrap --hoist
+    - run: npm run lint
