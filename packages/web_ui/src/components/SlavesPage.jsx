@@ -1,6 +1,6 @@
 import React, { useContext, useRef, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
+import { Button, Form, Input, Modal, PageHeader, Table, Tag } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
@@ -105,9 +105,18 @@ export default function SlavesPage() {
 					sorter: (a, b) => strcmp(a["version"], b["version"]),
 				},
 				{
+					title: "Public address",
+					dataIndex: "public_address",
+					sorter: (a, b) => strcmp(a["public_address"], b["public_address"]),
+				},
+				{
 					title: "Connected",
 					key: "connected",
-					render: slave => slave["connected"] && "Yes",
+					render: slave => <Tag
+						color={slave["connected"] ? "#389e0d" : "#cf1322"}
+					>
+						{slave["connected"] ? "Connected" : "Disconnected"}
+					</Tag>,
 					sorter: (a, b) => a["connected"] - b["connected"],
 				},
 			]}

@@ -368,6 +368,7 @@ class Master {
 			version: slave.version,
 			id: slave.id,
 			name: slave.name,
+			public_address: slave.public_address || null,
 			connected: this.wsServer.slaveConnections.has(slave.id),
 		};
 

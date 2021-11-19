@@ -260,7 +260,9 @@ class Instance extends libLink.Link {
 	notifyStatus(status) {
 		this._status = status;
 		libLink.messages.instanceStatusChanged.send(this, {
-			instance_id: this.id, status,
+			instance_id: this.id,
+			status,
+			game_port: this.server?.gamePort || this.config.get("factorio.game_port") || null,
 		});
 	}
 
@@ -1004,6 +1006,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 			version,
 			id: this.slaveConfig.get("slave.id"),
 			name: this.slaveConfig.get("slave.name"),
+			public_address: this.slaveConfig.get("slave.public_address"),
 			plugins,
 		});
 	}
