@@ -184,7 +184,10 @@ masterConfigCommands.add(new libCommand.Command({
 						});
 					} catch (err) {
 						// eslint-disable-next-line
-						print(`Attempt to set ${element} to ${final[element] || String(null)} failed; set back to previous value.`);
+						print(`Attempt to set ${finalIndex} to ${part || String(null)} failed; set back to previous value.`);
+						print(err);
+						// 1. If the string is empty, it's better to just print "" instead of nothing
+						// 2. In my opinion this line is perfectly readable, and no need to rewright it
 					}
 				}
 			}
@@ -195,8 +198,6 @@ masterConfigCommands.add(new libCommand.Command({
 			if (err) {
 				print("err: temporary file", tmpFile, "could not be deleted.");
 				print("This is not fatal, but they may build up over time if the issue persists.");
-				print("Trace:");
-				print(err);
 			}
 		});
 	},
@@ -396,6 +397,120 @@ instanceConfigCommands.add(new libCommand.Command({
 			request.value = args.value;
 		}
 		await libLink.messages.setInstanceConfigProp.send(control, request);
+	},
+}));
+
+instanceConfigCommands.add(new libCommand.Command({
+	definition: ["edit <instance> [editor]", "Edit instance configuration", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
+		yargs.positional("editor", { describe: "Editor to use",
+			type: "string",
+			default: "" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let response = await libLink.messages.getInstanceConfig.send(control, { instance_id: instanceId });
+		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
+		let editor = 0;
+		if (args.editor) {
+			editor = args.editor;
+			/* eslint-disable */
+		} else if (process.env.EDITOR) {
+			editor = process.env.EDITOR;
+		} else if (process.env.VISUAL) {
+			editor = process.env.VISUAL
+			/* eslint-enable */
+			// needed for the process.env statements to not be flagged by eslint
+			// prio for editors is CLI arg > env.EDITOR > env.VISUAL
+		} else {
+			throw new libErrors.CommandError("No editor avalible. Checked CLI input, EDITOR and VISUAL env vars");
+		}
+
+		let allConfigElements = "";
+		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
+		for (let group of response.serialized_config.groups) {
+			for (let [name, value] of Object.entries(group.fields)) {
+				// put quotes around value if it's a string
+				if (`${group.name}.${name}` in disallowedList) {
+					continue;
+				}
+				let desc = "";
+				try {
+					desc += libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
+				} catch (err) {
+					desc += "No description found";
+				}
+				allConfigElements += `# ${desc}\n`;
+				// split onto two lines for readability and es-lint
+				if (String(value) === "null") {
+					value = "";
+				}
+				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
+			}
+		}
+		// use same method as master config list to grab values, with a small modification to add quotes around strings
+		// this could be shorter but the lines would have to be very long, so imo this is better for readability
+		await fs.writeFile(tmpFile, allConfigElements, (err) => {
+			if (err) {
+				throw err;
+			}
+		});
+		let editorSpawn = child_process.spawn(editor, [tmpFile], {
+			stdio: "inherit",
+  			detached: false,
+		});
+		editorSpawn.on("data", (data) => {
+  			process.stdout.pipe(data);
+		});
+		let emmiter = new events.EventEmitter();
+		editorSpawn.on("exit", async (exit) => {
+			const data = await fs.readFile(tmpFile, "utf8");
+			let splitData = data.split(/\r?\n/);
+			// split on newlines
+			let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
+			// the last filter removes empty elements left by the first. Not done on one line due to readability.
+			for (let index in filtered) {
+				if (index in filtered) {
+					filtered[index] = filtered[index].split("=");
+					let finalIndex = filtered[index][0].trim();
+					// split on the = we added earlier
+					let part = "";
+					try {
+						part = filtered[index][1].trim();
+						// it's a string if we can read it
+					} catch (err) {
+						// if we can't read it, it's a empty field and therefor null
+						part = "";
+					}
+					try {
+						await libLink.messages.setInstanceConfigField.send(control, {
+							instance_id: instanceId,
+							field: finalIndex,
+							value: part,
+						});
+					} catch (err) {
+						// eslint-disable-next-line
+						print(`\n\n\nAttempt to set ${finalIndex} to ${JSON.stringify(part) || String(null)} failed; set back to previous value.`);
+						// 1. If the string is empty, it's better to just print "" instead of nothing
+						// 2. In my opinion this line is perfectly readable, and no need to rewright it
+						print("This message shouldn't normally appear; if the below message does not indicate it");
+						print("was a user mistake, please report it to the clustorio devs.");
+						// added this because it could be a missed entry in disallowedList
+						// i've added all the vanilla clustorio configs, but there may be
+						// some modded ones that need to be added.
+						print(err);
+					}
+				}
+			}
+			emmiter.emit("dot_on_done");
+		});
+		await events.once(emmiter, "dot_on_done");
+		await fs.unlink(tmpFile, (err) => {
+			if (err) {
+				print("err: temporary file", tmpFile, "could not be deleted.");
+				print("This is not fatal, but they may build up over time if the issue persists.");
+			}
+		});
 	},
 }));
 instanceCommands.add(instanceConfigCommands);
