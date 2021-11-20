@@ -262,7 +262,7 @@ class Instance extends libLink.Link {
 		libLink.messages.instanceStatusChanged.send(this, {
 			instance_id: this.id,
 			status,
-			game_port: this.server?.gamePort || this.config.get("factorio.game_port") || null,
+			game_port: this.server && this.server.gamePort || this.config.get("factorio.game_port") || null,
 		});
 	}
 
