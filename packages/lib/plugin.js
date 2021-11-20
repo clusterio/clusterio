@@ -732,17 +732,17 @@ function attachPluginMessages(link, plugin) {
  */
 async function invokeHook(plugins, hook, ...args) {
 	let results = [];
+	// Use an object to detect if the hook failed on timeout or tried to return a value looking like an error
+	const timedOut = {};
 	for (let [name, plugin] of plugins) {
 		try {
-			// Use an object to detect if the hook failed on timeout or tried to return a value looking like an error
-			const timeout_message = new String(`Invoking hook ${hook} timed out for plugin ${name}`)
 			let result = await helpers.timeout(
 				plugin[hook](...args),
 				15000,
-				timeout_message
+				timedOut
 			);
-			if (result === timeout_message) {
-				throw new Error(`Invoking hook ${hook} timed out for plugin ${name}`)
+			if (result === timedOut) {
+				throw new Error(`Invoking hook ${hook} timed out for plugin ${name}`);
 			} else if (result !== undefined) {
 				results.push(result);
 			}
