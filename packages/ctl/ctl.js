@@ -142,7 +142,6 @@ masterConfigCommands.add(new libCommand.Command({
 				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
 			}
 		}
-		// use same method as master config list to grab values, with a small modification to add quotes around strings
 		// this could be shorter but the lines would have to be very long, so imo this is better for readability
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
@@ -444,7 +443,6 @@ instanceConfigCommands.add(new libCommand.Command({
 				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
 			}
 		}
-		// use same method as master config list to grab values, with a small modification to add quotes around strings
 		// this could be shorter but the lines would have to be very long, so imo this is better for readability
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
