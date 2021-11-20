@@ -27,6 +27,22 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 	}
 }
 
+function logFilter({ all, master, slave_ids, instance_ids }, info) {
+	if (all) {
+		return true;
+	}
+	if (master && info.slave_id === undefined) {
+		return true;
+	}
+	if (info.slave_id && slave_ids.includes(info.slave_id)) {
+		return true;
+	}
+	if (info.instance_id && instance_ids.includes(info.instance_id)) {
+		return true;
+	}
+	return false;
+}
+
 /**
  * Handles running the control
  *
@@ -70,7 +86,7 @@ export class Control extends libLink.Link {
 		this.slaveUpdateHandlers = new Map();
 		this.instanceUpdateHandlers = new Map();
 		this.saveListUpdateHandlers = new Map();
-		this.instanceLogHandlers = new Map();
+		this.logHandlers = new Map();
 
 		this.connector.on("connect", data => {
 			this.accountName = data.account.name;
@@ -302,23 +318,20 @@ export class Control extends libLink.Link {
 	async logMessageEventHandler(message) {
 		let info = message.data.info;
 
-		if (info.instance_id !== undefined) {
-			let instanceHandlers = this.instanceLogHandlers.get(info.instance_id);
-			for (let handler of instanceHandlers || []) {
-				handler(info);
+		for (let [filter, handlers] of this.logHandlers) {
+			if (logFilter(filter, info)) {
+				for (let handler of handlers) {
+					handler(info);
+				}
 			}
 		}
 	}
 
-	async onInstanceLog(id, handler) {
-		if (!Number.isInteger(id)) {
-			throw new Error("Invalid instance id");
-		}
-
-		let handlers = this.instanceLogHandlers.get(id);
+	async onLog(filter, handler) {
+		let handlers = this.logHandlers.get(filter);
 		if (!handlers) {
 			handlers = [];
-			this.instanceLogHandlers.set(id, handlers);
+			this.logHandlers.set(filter, handlers);
 		}
 
 		handlers.push(handler);
@@ -328,15 +341,15 @@ export class Control extends libLink.Link {
 		}
 	}
 
-	async offInstanceLog(id, handler) {
-		let handlers = this.instanceLogHandlers.get(id);
+	async offLog(filter, handler) {
+		let handlers = this.logHandlers.get(filter);
 		if (!handlers || !handlers.length) {
-			throw new Error(`No handlers for instance ${id} exist`);
+			throw new Error("No handlers for the given filter exists");
 		}
 
 		let index = handlers.lastIndexOf(handler);
 		if (index === -1) {
-			throw new Error(`Given handler is not registered for instance ${id}`);
+			throw new Error("Given handler is not registered for the filter");
 		}
 
 		handlers.splice(index, 1);
@@ -350,13 +363,29 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setLogSubscriptions.send(this, {
+		let combinedFilter = {
 			all: false,
 			master: false,
 			slave_ids: [],
-			instance_ids: [...this.instanceLogHandlers.keys()],
-			max_level: null,
-		});
+			instance_ids: [],
+		};
+
+		for (let filter of this.logHandlers.keys()) {
+			if (filter.all) { combinedFilter.all = true; }
+			if (filter.master) { combinedFilter.master = true; }
+			for (let slaveId of filter.slave_ids || []) {
+				if (!combinedFilter.slave_ids.includes(slaveId)) {
+					combinedFilter.slave_ids.push(slaveId);
+				}
+			}
+			for (let instanceId of filter.instance_ids || []) {
+				if (!combinedFilter.instance_ids.includes(instanceId)) {
+					combinedFilter.instance_ids.push(instanceId);
+				}
+			}
+		}
+
+		await libLink.messages.setLogSubscriptions.send(this, { ...combinedFilter, max_level: null });
 	}
 
 	async debugWsMessageEventHandler(message) {

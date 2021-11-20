@@ -2,6 +2,7 @@ import React from "react";
 
 import MasterPage from "./components/MasterPage";
 import SlavesPage from "./components/SlavesPage";
+import SlaveViewPage from "./components/SlaveViewPage";
 import InstancesPage from "./components/InstancesPage";
 import InstanceViewPage from "./components/InstanceViewPage";
 import UsersPage from "./components/UsersPage";
@@ -23,6 +24,11 @@ export const pages = [
 		sidebarName: "Slaves",
 		permission: "core.slave.list",
 		content: <SlavesPage />,
+	},
+	{
+		path: "/slaves/:id/view",
+		sidebarPath: "/slaves",
+		content: <SlaveViewPage />,
 	},
 	{
 		path: "/instances",

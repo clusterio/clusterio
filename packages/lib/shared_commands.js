@@ -7,6 +7,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const libConfig = require("./config");
+const libFileOps = require("./file_ops");
 const { logger } = require("./logging");
 const libHelpers = require("./helpers");
 
@@ -70,7 +71,7 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 		}
 
 		pluginList.set(pluginInfo.name, pluginPath);
-		await fs.outputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
+		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
 		print(`Added ${pluginInfo.name}`);
 
 	} else if (command === "remove") {
@@ -80,7 +81,7 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 			return;
 		}
 
-		await fs.outputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
+		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
 		print(`Removed ${args.name}`);
 
 	} else if (command === "list") {
@@ -155,7 +156,7 @@ async function handleConfigCommand(args, instance, configPath) {
 
 		try {
 			instance.set(args.field, args.value);
-			await fs.outputFile(configPath, JSON.stringify(instance.serialize(), null, 4));
+			await libFileOps.safeOutputFile(configPath, JSON.stringify(instance.serialize(), null, 4));
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
 				logger.error(err.message);

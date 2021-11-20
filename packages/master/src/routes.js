@@ -2,13 +2,13 @@
 const Busboy = require("busboy");
 const crypto = require("crypto");
 const events = require("events");
-const fs = require("fs-extra");
 const JSZip = require("jszip");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const util = require("util");
 
 const libErrors = require("@clusterio/lib/errors");
+const libFileOps = require("@clusterio/lib/file_ops");
 const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
@@ -187,7 +187,7 @@ async function uploadExport(req, res) {
 		}
 
 		let name = path.posix.basename(filePath);
-		await fs.outputFile(path.join("static", "export", name), await file.async("nodebuffer"));
+		await libFileOps.safeOutputFile(path.join("static", "export", name), await file.async("nodebuffer"));
 	}
 
 	res.sendStatus(200);

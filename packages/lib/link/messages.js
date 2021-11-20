@@ -337,6 +337,7 @@ let slaveProperties = {
 	"name": { type: "string" },
 	"id": { type: "integer" },
 	"connected": { type: "boolean" },
+	"public_address": { type: ["null", "string"] },
 };
 
 messages.listSlaves = new Request({
@@ -372,6 +373,7 @@ let instanceProperties = {
 	"name": { type: "string" },
 	"id": { type: "integer" },
 	"assigned_slave": { type: ["null", "integer"] },
+	"game_port": { type: ["null", "integer"] },
 	"status": { enum: [
 		"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 		"creating_save", "exporting_data", "deleted",
@@ -1145,11 +1147,13 @@ messages.instanceInitialized = new Event({
 messages.instanceStatusChanged = new Event({
 	type: "instance_status_changed",
 	links: ["instance-slave", "slave-master"],
+	eventRequired: ["instance_id", "status"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"status": { enum: [
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]},
+		"game_port": { type: ["null", "integer"] },
 	},
 });
 

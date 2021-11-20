@@ -6,10 +6,11 @@ const path = require("path");
 const events = require("events");
 const util = require("util");
 const crypto = require("crypto");
-
-const libIni = require("../ini");
 const rconClient = require("rcon-client");
+
 const libErrors = require("../errors");
+const libFileOps = require("../file_ops");
+const libIni = require("../ini");
 const { logger } = require("../logging");
 const { escapeRegExp } = require("../helpers");
 
@@ -1173,17 +1174,17 @@ class FactorioServer extends events.EventEmitter {
 				"write-data": this.writePath(),
 			},
 		});
-		await fs.outputFile(this.writePath("config.ini"), content);
+		await libFileOps.safeOutputFile(this.writePath("config.ini"), content);
 	}
 
 	async _writeMapSettings(mapGenSettings, mapSettings) {
 		if (mapGenSettings) {
-			await fs.outputFile(
+			await libFileOps.safeOutputFile(
 				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, 4)
 			);
 		}
 		if (mapSettings) {
-			await fs.outputFile(
+			await libFileOps.safeOutputFile(
 				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, 4)
 			);
 		}

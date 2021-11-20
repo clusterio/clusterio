@@ -26,6 +26,7 @@ const jwt = require("jsonwebtoken");
 
 // homebrew modules
 const libErrors = require("@clusterio/lib/errors");
+const libFileOps = require("@clusterio/lib/file_ops");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libConfig = require("@clusterio/lib/config");
@@ -162,7 +163,7 @@ async function handleBootstrapCommand(args, masterConfig) {
 			console.log(content);
 		} else {
 			logger.info(`Writing ${args.output}`);
-			await fs.outputFile(args.output, content);
+			await libFileOps.safeOutputFile(args.output, content);
 		}
 	}
 }
@@ -294,7 +295,9 @@ async function initialize() {
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
 		parameters.masterConfig.set("master.auth_secret", bytes.toString("base64"));
-		await fs.outputFile(parameters.masterConfigPath, JSON.stringify(parameters.masterConfig.serialize(), null, 4));
+		await libFileOps.safeOutputFile(
+			parameters.masterConfigPath, JSON.stringify(parameters.masterConfig.serialize(), null, 4)
+		);
 	}
 
 	if (command === "config") {

@@ -68,7 +68,16 @@ async function findUnusedName(directory, name, extension = "") {
 		}
 	}
 }
-
+/*
+ * Warning: this function should not be relied upon to be accurate for
+ * security sensitive applications.  The selection process is inherently
+ * racy and a file or folder may have been created in the folder by the time
+ * this function returns.
+ *
+ * @param {string} prefix - Prefix for file
+ * @param {string} suffix - Suffix for file
+ * @param {string} tmpdir - Directory for temp file
+*/
 async function getTempFile(prefix, suffix, tmpdir) {
 	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
 	suffix = (typeof suffix !== "undefined") ? suffix : "";
@@ -77,10 +86,31 @@ async function getTempFile(prefix, suffix, tmpdir) {
 	let freeFile = await findUnusedName(tmpdir, fileName);
 	let fullPath = path.join(tmpdir, freeFile);
 	return fullPath;
+
+/**
+ * Safely write data to a file
+ *
+ * Same as fs-extra.outputFile except the data is written to a temporary
+ * file that's renamed over the target file.  The name of the temporary file
+ * is the same as the target file with the suffix `.tmp` added.
+ *
+ * If the operation fails it may leave behind the temporary file.  This
+ * should not be too much of an issue as the next time the same file is
+ * written the temporary will be overwritten and renamed to the target file.
+ *
+ * @param {string} file - Path to file to write.
+ * @param {string|Buffer} data - Content to write.
+ * @param {object|string} options - see fs.writeFile, `flag` must not be set.
+ */
+async function safeOutputFile(file, data, options={}) {
+	let temporary = `${file}.tmp`;
+	await fs.outputFile(temporary, data, options);
+	await fs.rename(temporary, file);
 }
 
 module.exports = {
 	getNewestFile,
 	findUnusedName,
 	getTempFile,
+	safeOutputFile,
 };

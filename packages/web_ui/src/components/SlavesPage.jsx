@@ -1,5 +1,6 @@
 import React, { useContext, useRef, useState } from "react";
-import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
+import { useHistory } from "react-router-dom";
+import { Button, Form, Input, Modal, PageHeader, Table, Tag } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
@@ -75,6 +76,7 @@ function GenerateSlaveTokenButton(props) {
 
 export default function SlavesPage() {
 	let account = useAccount();
+	let history = useHistory();
 	let [slaveList] = useSlaveList();
 
 	return <PageLayout nav={[{ name: "Slaves" }]}>
@@ -103,15 +105,29 @@ export default function SlavesPage() {
 					sorter: (a, b) => strcmp(a["version"], b["version"]),
 				},
 				{
+					title: "Public address",
+					dataIndex: "public_address",
+					sorter: (a, b) => strcmp(a["public_address"], b["public_address"]),
+				},
+				{
 					title: "Connected",
 					key: "connected",
-					render: slave => slave["connected"] && "Yes",
+					render: slave => <Tag
+						color={slave["connected"] ? "#389e0d" : "#cf1322"}
+					>
+						{slave["connected"] ? "Connected" : "Disconnected"}
+					</Tag>,
 					sorter: (a, b) => a["connected"] - b["connected"],
 				},
 			]}
 			dataSource={slaveList}
 			rowKey={slave => slave["id"]}
 			pagination={false}
+			onRow={(record, rowIndex) => ({
+				onClick: event => {
+					history.push(`/slaves/${record.id}/view`);
+				},
+			})}
 		/>
 	</PageLayout>;
 };

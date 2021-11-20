@@ -85,6 +85,12 @@ class LineSplitter extends stream.Transform {
 class InstallError extends Error { }
 
 
+async function safeOutputFile(file, data, options={}) {
+	let temporary = `${file}.tmp`;
+	await fs.outputFile(temporary, data, options);
+	await fs.rename(temporary, file);
+}
+
 async function execFile(cmd, args) {
 	logger.verbose(`executing ${cmd} ${args.join(" ")}`);
 	const asyncExec = util.promisify(child_process.execFile);
@@ -165,7 +171,7 @@ async function validateInstallDir() {
 
 async function installClusterio(mode, plugins) {
 	try {
-		await fs.writeFile("package.json", JSON.stringify({
+		await safeOutputFile("package.json", JSON.stringify({
 			name: "clusterio-install",
 			private: true,
 		}, null, 2), { flag: "wx" });
@@ -213,7 +219,7 @@ async function installClusterio(mode, plugins) {
 			}
 		}
 		try {
-			await fs.writeFile("plugin-list.json", JSON.stringify([...pluginList], null, 4));
+			await safeOutputFile("plugin-list.json", JSON.stringify([...pluginList], null, 4));
 		} catch (err) {
 			throw new InstallError(`Error writing plugin-list.json: ${err.message}`);
 		}
@@ -223,17 +229,17 @@ async function installClusterio(mode, plugins) {
 async function writeScripts(mode) {
 	if (["standalone", "master"].includes(mode)) {
 		if (process.platform === "win32") {
-			await fs.writeFile(
+			await safeOutputFile(
 				"run-master.cmd",
 				"@echo off\n.\\node_modules\\.bin\\clusteriomaster.cmd run\n"
 			);
 		} else {
-			await fs.writeFile(
+			await safeOutputFile(
 				"run-master.sh",
 				"#!/bin/sh\nexec ./node_modules/.bin/clusteriomaster run\n",
 				{ mode: 0o755 },
 			);
-			await fs.outputFile(
+			await safeOutputFile(
 				"systemd/clusteriomaster.service",
 				`[Unit]
 Description=Clusterio Master
@@ -254,17 +260,17 @@ WantedBy=multi-user.target
 
 	if (["standalone", "slave"].includes(mode)) {
 		if (process.platform === "win32") {
-			await fs.writeFile(
+			await safeOutputFile(
 				"run-slave.cmd",
 				"@echo off\n.\\node_modules\\.bin\\clusterioslave.cmd run\n"
 			);
 		} else {
-			await fs.writeFile(
+			await safeOutputFile(
 				"run-slave.sh",
 				"#!/bin/sh\nexec ./node_modules/.bin/clusterioslave run\n",
 				{ mode: 0o755 },
 			);
-			await fs.outputFile(
+			await safeOutputFile(
 				"systemd/clusterioslave.service",
 				`[Unit]
 Description=Clusterio Slave

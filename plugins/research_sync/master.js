@@ -2,6 +2,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
+const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
 const RateLimiter = require("@clusterio/lib/RateLimiter");
 
@@ -25,7 +26,7 @@ async function loadTechnologies(masterConfig, logger) {
 async function saveTechnologies(masterConfig, technologies, logger) {
 	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
-	await fs.outputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
+	await libFileOps.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
 }
 
 class MasterPlugin extends libPlugin.BaseMasterPlugin {

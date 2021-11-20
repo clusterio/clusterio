@@ -260,7 +260,9 @@ class Instance extends libLink.Link {
 	notifyStatus(status) {
 		this._status = status;
 		libLink.messages.instanceStatusChanged.send(this, {
-			instance_id: this.id, status,
+			instance_id: this.id,
+			status,
+			game_port: this.server?.gamePort || this.config.get("factorio.game_port") || null,
 		});
 	}
 
@@ -376,7 +378,7 @@ class Instance extends libLink.Link {
 	 */
 	async writeServerSettings() {
 		let serverSettings = await this.resolveServerSettings(this.config.get("factorio.settings"));
-		await fs.writeFile(
+		await libFileOps.safeOutputFile(
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, 4)
 		);
@@ -410,7 +412,7 @@ class Instance extends libLink.Link {
 
 		if (this.config.get("factorio.sync_adminlist")) {
 			this.logger.verbose("Writing server-adminlist.json");
-			fs.outputFile(
+			libFileOps.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._slave.adminlist], null, 4)
 			);
@@ -418,7 +420,7 @@ class Instance extends libLink.Link {
 
 		if (this.config.get("factorio.sync_banlist")) {
 			this.logger.verbose("Writing server-banlist.json");
-			fs.outputFile(
+			libFileOps.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._slave.banlist].map(
 					([username, reason]) => ({ username, reason })
@@ -428,7 +430,7 @@ class Instance extends libLink.Link {
 
 		if (this.config.get("factorio.sync_whitelist")) {
 			this.logger.verbose("Writing server-whitelist.json");
-			fs.outputFile(
+			libFileOps.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._slave.whitelist], null, 4)
 			);
@@ -886,6 +888,11 @@ async function discoverInstances(instancesDir) {
 				continue;
 			}
 
+			if (instanceInfos.has(instanceConfig.get("instance.id"))) {
+				logger.warn(`Ignoring instance with duplicate id in folder ${entry.name}`);
+				continue;
+			}
+
 			let instancePath = path.join(instancesDir, entry.name);
 			logger.verbose(`found instance ${instanceConfig.get("instance.name")} in ${instancePath}`);
 			instanceInfos.set(instanceConfig.get("instance.id"), {
@@ -999,6 +1006,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 			version,
 			id: this.slaveConfig.get("slave.id"),
 			name: this.slaveConfig.get("slave.name"),
+			public_address: this.slaveConfig.get("slave.public_address"),
 			plugins,
 		});
 	}
@@ -1092,6 +1100,10 @@ class Slave extends libLink.Link {
 			}
 
 			this.updateInstances().catch((err) => {
+				if (err instanceof libErrors.SessionLost) {
+					return undefined;
+				}
+
 				logger.fatal(`Unexpected error updating instances:\n${err.stack}`);
 				return this.shutdown();
 			});
@@ -1294,7 +1306,7 @@ class Slave extends libLink.Link {
 			_warning: "Changes to this file will be overwritten by the master server's copy.",
 			...instanceInfo.config.serialize(),
 		};
-		await fs.outputFile(
+		await libFileOps.safeOutputFile(
 			path.join(instanceInfo.path, "instance.json"),
 			JSON.stringify(warnedOutput, null, 4)
 		);
