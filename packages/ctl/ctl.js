@@ -133,7 +133,6 @@ masterConfigCommands.add(new libCommand.Command({
 		let allConfigElements = "";
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
-				// put quotes around value if it's a string
 				let desc = libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
 				allConfigElements += `# ${desc}\n`;
 				// split onto two lines for readability and es-lint
@@ -186,9 +185,7 @@ masterConfigCommands.add(new libCommand.Command({
 						// eslint-disable-next-line
 						print(`Attempt to set ${finalIndex} to ${part || String(null)} failed; set back to previous value.`);
 						print(err);
-						// 1. If the string is empty, it's better to just print "" instead of nothing
-						// 2. In my opinion this line is perfectly readable, and no need to rewright it
-					}
+						// If the string is empty, it's better to just print "" instead of nothing					}
 				}
 			}
 			emmiter.emit("dot_on_done");
@@ -430,7 +427,6 @@ instanceConfigCommands.add(new libCommand.Command({
 		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
-				// put quotes around value if it's a string
 				if (`${group.name}.${name}` in disallowedList) {
 					continue;
 				}
@@ -491,8 +487,7 @@ instanceConfigCommands.add(new libCommand.Command({
 					} catch (err) {
 						// eslint-disable-next-line
 						print(`\n\n\nAttempt to set ${finalIndex} to ${JSON.stringify(part) || String(null)} failed; set back to previous value.`);
-						// 1. If the string is empty, it's better to just print "" instead of nothing
-						// 2. In my opinion this line is perfectly readable, and no need to rewright it
+						// If the string is empty, it's better to just print "" instead of nothing
 						print("This message shouldn't normally appear; if the below message does not indicate it");
 						print("was a user mistake, please report it to the clustorio devs.");
 						// added this because it could be a missed entry in disallowedList
