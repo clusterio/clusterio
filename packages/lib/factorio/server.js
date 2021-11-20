@@ -690,7 +690,7 @@ class FactorioServer extends events.EventEmitter {
 		}
 
 		let config = {
-			host: "localhost",
+			host: "127.0.0.1", // localhost may resolve to ::1 while Factorio listen to only IPv4 by default.
 			port: this.rconPort,
 			password: this.rconPassword,
 			timeout: 200000, // 200s, should allow for commands up to 1250kB in length
