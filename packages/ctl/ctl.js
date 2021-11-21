@@ -36,6 +36,30 @@ function print(...content) {
 	console.log(...content);
 }
 
+async function configToKeyVal(data) {
+	let final = {};
+	let splitData = data.split(/\r?\n/);
+	// split on newlines
+	let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
+	// the last filter removes empty elements left by the first. Not done on one line due to readability.
+	for (let index in filtered) {
+		if (index in filtered) {
+			filtered[index] = filtered[index].split("=");
+			let finalIndex = filtered[index][0].trim();
+			// split on the = we added earlier
+			let part = "";
+			try {
+				part = filtered[index][1].trim();
+				// it's a string if we can read it
+			} catch (err) {
+				// if we can't read it, it's a empty field and therefor null
+				part = "";
+			}
+			final[finalIndex] = part;
+		}
+	}
+	return final;
+}
 
 const masterCommands = new libCommand.CommandTree({ name: "master", description: "Master management" });
 const masterConfigCommands = new libCommand.CommandTree({
@@ -161,31 +185,17 @@ masterConfigCommands.add(new libCommand.Command({
 		let doneEmitter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
 			const data = await fs.readFile(tmpFile, "utf8");
-			let splitData = data.split(/\r?\n/);
-			// split on newlines
-			let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
-			// the last filter removes empty elements left by the first. Not done on one line due to readability.
-			for (let index in filtered) {
-				if (index in filtered) {
-					filtered[index] = filtered[index].split("=");
-					let finalIndex = filtered[index][0].trim();
-					// split on the = we added earlier
-					let part = "";
-					try {
-						part = filtered[index][1].trim();
-						// it's a string if we can read it
-					} catch (err) {
-						// if we can't read it, it's a empty field and therefor null
-						part = "";
-					}
+			const final = await configToKeyVal(data);
+			for (let index in final) {
+				if (index in final) {
 					try {
 						await libLink.messages.setMasterConfigField.send(control, {
-							field: finalIndex,
-							value: part,
+							field: index,
+							value: final[index],
 						});
 					} catch (err) {
 						// eslint-disable-next-line
-						print(`Attempt to set ${finalIndex} to ${part || String(null)} failed; set back to previous value.`);
+						print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
 						print(err);
 						// If the string is empty, it's better to just print "" instead of nothing
 					}
@@ -466,32 +476,18 @@ instanceConfigCommands.add(new libCommand.Command({
 		let doneEmitter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
 			const data = await fs.readFile(tmpFile, "utf8");
-			let splitData = data.split(/\r?\n/);
-			// split on newlines
-			let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
-			// the last filter removes empty elements left by the first. Not done on one line due to readability.
-			for (let index in filtered) {
-				if (index in filtered) {
-					filtered[index] = filtered[index].split("=");
-					let finalIndex = filtered[index][0].trim();
-					// split on the = we added earlier
-					let part = "";
-					try {
-						part = filtered[index][1].trim();
-						// it's a string if we can read it
-					} catch (err) {
-						// if we can't read it, it's a empty field and therefor null
-						part = "";
-					}
+			const final = await configToKeyVal(data);
+			for (let index in final) {
+				if (index in final) {
 					try {
 						await libLink.messages.setInstanceConfigField.send(control, {
 							instance_id: instanceId,
-							field: finalIndex,
-							value: part,
+							field: index,
+							value: final[index],
 						});
 					} catch (err) {
 						// eslint-disable-next-line
-						print(`\n\n\nAttempt to set ${finalIndex} to ${JSON.stringify(part) || String(null)} failed; set back to previous value.`);
+						print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
 						// If the string is empty, it's better to just print "" instead of nothing
 						print("This message shouldn't normally appear; if the below message does not indicate it");
 						print("was a user mistake, please report it to the clustorio devs.");
