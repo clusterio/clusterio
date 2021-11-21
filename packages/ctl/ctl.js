@@ -108,9 +108,11 @@ masterConfigCommands.add(new libCommand.Command({
 }));
 masterConfigCommands.add(new libCommand.Command({
 	definition: ["edit [editor]", "Edit master configuration", (yargs) => {
-		yargs.positional("editor", { describe: "Editor to use",
+		yargs.positional("editor", { 
+			describe: "Editor to use",
 			type: "string",
-			default: "" });
+			default: "" 
+		});
 	}],
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
@@ -399,9 +401,11 @@ instanceConfigCommands.add(new libCommand.Command({
 instanceConfigCommands.add(new libCommand.Command({
 	definition: ["edit <instance> [editor]", "Edit instance configuration", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
-		yargs.positional("editor", { describe: "Editor to use",
+		yargs.positional("editor", { 
+			describe: "Editor to use",
 			type: "string",
-			default: "" });
+			default: "" 
+		});
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
