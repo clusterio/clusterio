@@ -36,6 +36,24 @@ function print(...content) {
 	console.log(...content);
 }
 
+async function getEditor(argsEditor) {
+	let editor = "";
+	if (argsEditor) {
+		editor = argsEditor;
+		/* eslint-disable */
+	} else if (process.env.EDITOR) {
+		editor = process.env.EDITOR;
+	} else if (process.env.VISUAL) {
+		editor = process.env.VISUAL
+		/* eslint-enable */
+		// needed for the process.env statements to not be flagged by eslint
+		// prio for editors is CLI arg > env.EDITOR > env.VISUAL
+	} else {
+		editor = -1;
+	}
+	return editor;
+}
+
 async function configToKeyVal(data) {
 	let final = {};
 	let splitData = data.split(/\r?\n/);
@@ -141,22 +159,11 @@ masterConfigCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let response = await libLink.messages.getMasterConfig.send(control);
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
-		let editor = 0;
-		if (args.editor) {
-			editor = args.editor;
-			/* eslint-disable */
-		} else if (process.env.EDITOR) {
-			editor = process.env.EDITOR;
-		} else if (process.env.VISUAL) {
-			editor = process.env.VISUAL
-			/* eslint-enable */
-			// needed for the process.env statements to not be flagged by eslint
-			// prio for editors is CLI arg > env.EDITOR > env.VISUAL
-		} else {
+		let editor = await getEditor(args.editor);
+		if (editor === -1) {
 			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl master config edit <editor of choice>"`);
 		}
-
 		let allConfigElements = "";
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
@@ -423,22 +430,11 @@ instanceConfigCommands.add(new libCommand.Command({
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		let response = await libLink.messages.getInstanceConfig.send(control, { instance_id: instanceId });
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
-		let editor = 0;
-		if (args.editor) {
-			editor = args.editor;
-			/* eslint-disable */
-		} else if (process.env.EDITOR) {
-			editor = process.env.EDITOR;
-		} else if (process.env.VISUAL) {
-			editor = process.env.VISUAL
-			/* eslint-enable */
-			// needed for the process.env statements to not be flagged by eslint
-			// prio for editors is CLI arg > env.EDITOR > env.VISUAL
-		} else {
+		let editor = await getEditor(args.editor);
+		if (editor === -1) {
 			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
-							  Try "ctl instance config edit <instance> <editor of choice>"`);
+							  Try "ctl master config edit <editor of choice>"`);
 		}
-
 		let allConfigElements = "";
 		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
 		for (let group of response.serialized_config.groups) {
