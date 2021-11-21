@@ -108,10 +108,10 @@ masterConfigCommands.add(new libCommand.Command({
 }));
 masterConfigCommands.add(new libCommand.Command({
 	definition: ["edit [editor]", "Edit master configuration", (yargs) => {
-		yargs.positional("editor", { 
+		yargs.positional("editor", {
 			describe: "Editor to use",
 			type: "string",
-			default: "" 
+			default: "",
 		});
 	}],
 	handler: async function(args, control) {
@@ -187,7 +187,7 @@ masterConfigCommands.add(new libCommand.Command({
 						// eslint-disable-next-line
 						print(`Attempt to set ${finalIndex} to ${part || String(null)} failed; set back to previous value.`);
 						print(err);
-						// If the string is empty, it's better to just print "" instead of nothing					
+						// If the string is empty, it's better to just print "" instead of nothing
 					}
 				}
 			}
@@ -403,10 +403,10 @@ instanceConfigCommands.add(new libCommand.Command({
 instanceConfigCommands.add(new libCommand.Command({
 	definition: ["edit <instance> [editor]", "Edit instance configuration", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
-		yargs.positional("editor", { 
+		yargs.positional("editor", {
 			describe: "Editor to use",
 			type: "string",
-			default: "" 
+			default: "",
 		});
 	}],
 	handler: async function(args, control) {
