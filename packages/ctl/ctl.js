@@ -157,8 +157,12 @@ masterConfigCommands.add(new libCommand.Command({
 		let allConfigElements = "";
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
-				let desc = libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
-				allConfigElements += `# ${desc}\n`;
+				let desc = "";
+				try {
+					desc += libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
+				} catch (err) {
+					desc += "No description found";
+				}
 				// split onto two lines for readability and es-lint
 				if (String(value) === "null") {
 					value = "";
@@ -434,7 +438,7 @@ instanceConfigCommands.add(new libCommand.Command({
 				}
 				let desc = "";
 				try {
-					desc += libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
+					desc += libConfig.InstanceConfig.groups.get(group.name)._definitions.get(name).description;
 				} catch (err) {
 					desc += "No description found";
 				}
