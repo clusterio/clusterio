@@ -86,7 +86,7 @@ async function getTempFile(prefix, suffix, tmpdir) {
 	let freeFile = await findUnusedName(tmpdir, fileName);
 	let fullPath = path.join(tmpdir, freeFile);
 	return fullPath;
-
+}
 /**
  * Safely write data to a file
  *
