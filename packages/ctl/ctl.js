@@ -129,7 +129,8 @@ masterConfigCommands.add(new libCommand.Command({
 			// needed for the process.env statements to not be flagged by eslint
 			// prio for editors is CLI arg > env.EDITOR > env.VISUAL
 		} else {
-			throw new libErrors.CommandError("No editor avalible. Checked CLI input, EDITOR and VISUAL env vars");
+			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars\
+							  Try "ctl master config edit <editor of choice>"`);
 		}
 
 		let allConfigElements = "";
@@ -423,7 +424,8 @@ instanceConfigCommands.add(new libCommand.Command({
 			// needed for the process.env statements to not be flagged by eslint
 			// prio for editors is CLI arg > env.EDITOR > env.VISUAL
 		} else {
-			throw new libErrors.CommandError("No editor avalible. Checked CLI input, EDITOR and VISUAL env vars");
+			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars\
+							  Try "ctl instance config edit <instance> <editor of choice>"`);
 		}
 
 		let allConfigElements = "";
