@@ -158,7 +158,7 @@ masterConfigCommands.add(new libCommand.Command({
 		editorSpawn.on("data", (data) => {
   			process.stdout.pipe(data);
 		});
-		let emmiter = new events.EventEmitter();
+		let doneEmitter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
 			const data = await fs.readFile(tmpFile, "utf8");
 			let splitData = data.split(/\r?\n/);
@@ -190,9 +190,9 @@ masterConfigCommands.add(new libCommand.Command({
 						// If the string is empty, it's better to just print "" instead of nothing					}
 				}
 			}
-			emmiter.emit("dot_on_done");
+			doneEmitter.emit("dot_on_done");
 		});
-		await events.once(emmiter, "dot_on_done");
+		await events.once(doneEmitter, "dot_on_done");
 		await fs.unlink(tmpFile, (err) => {
 			if (err) {
 				print("err: temporary file", tmpFile, "could not be deleted.");
@@ -462,7 +462,7 @@ instanceConfigCommands.add(new libCommand.Command({
 		editorSpawn.on("data", (data) => {
   			process.stdout.pipe(data);
 		});
-		let emmiter = new events.EventEmitter();
+		let doneEmitter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
 			const data = await fs.readFile(tmpFile, "utf8");
 			let splitData = data.split(/\r?\n/);
@@ -501,9 +501,9 @@ instanceConfigCommands.add(new libCommand.Command({
 					}
 				}
 			}
-			emmiter.emit("dot_on_done");
+			doneEmitter.emit("dot_on_done");
 		});
-		await events.once(emmiter, "dot_on_done");
+		await events.once(doneEmitter, "dot_on_done");
 		await fs.unlink(tmpFile, (err) => {
 			if (err) {
 				print("err: temporary file", tmpFile, "could not be deleted.");
