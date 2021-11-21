@@ -68,7 +68,7 @@ async function findUnusedName(directory, name, extension = "") {
 		}
 	}
 }
-/*
+/**
  * Warning: this function should not be relied upon to be accurate for
  * security sensitive applications.  The selection process is inherently
  * racy and a file or folder may have been created in the folder by the time
@@ -77,7 +77,7 @@ async function findUnusedName(directory, name, extension = "") {
  * @param {string} prefix - Prefix for file
  * @param {string} suffix - Suffix for file
  * @param {string} tmpdir - Directory for temp file
-*/
+ */
 async function getTempFile(prefix, suffix, tmpdir) {
 	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
 	suffix = (typeof suffix !== "undefined") ? suffix : "";
