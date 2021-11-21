@@ -37,21 +37,11 @@ function print(...content) {
 }
 
 async function getEditor(argsEditor) {
-	let editor = "";
-	if (argsEditor) {
-		editor = argsEditor;
-		/* eslint-disable */
-	} else if (process.env.EDITOR) {
-		editor = process.env.EDITOR;
-	} else if (process.env.VISUAL) {
-		editor = process.env.VISUAL
-		/* eslint-enable */
-		// needed for the process.env statements to not be flagged by eslint
-		// prio for editors is CLI arg > env.EDITOR > env.VISUAL
-	} else {
-		editor = -1;
-	}
-	return editor;
+	/* eslint-disable */
+	return argsEditor || process.ENV.EDITOR || process.env.VISUAL || -1
+	/* eslint-enable */
+	// needed for the process.env statements to not be flagged by eslint
+	// prio for editors is CLI arg > env.EDITOR > env.VISUAL
 }
 
 async function configToKeyVal(data) {
