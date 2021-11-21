@@ -187,7 +187,8 @@ masterConfigCommands.add(new libCommand.Command({
 						// eslint-disable-next-line
 						print(`Attempt to set ${finalIndex} to ${part || String(null)} failed; set back to previous value.`);
 						print(err);
-						// If the string is empty, it's better to just print "" instead of nothing					}
+						// If the string is empty, it's better to just print "" instead of nothing					
+					}
 				}
 			}
 			doneEmitter.emit("dot_on_done");
