@@ -25,6 +25,8 @@ module.exports = (env = {}) => merge(common(env), {
 				"antd": { singleton: true },
 				"react": { singleton: true },
 				"react-dom": { singleton: true },
+				"react-router": { singleton: true },
+				"react-router-dom": { singleton: true },
 			},
 		}),
 	],
