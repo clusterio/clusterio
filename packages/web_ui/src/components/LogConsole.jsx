@@ -69,6 +69,7 @@ export default function LogConsole(props) {
 		parent.scrollTop = parent.scrollHeight - parent.clientHeight;
 
 		if (account.hasPermission("core.log.query")) {
+			setPastLines([<span key={0}>{"Loading past entries..."}<br/></span>]);
 			libLink.messages.queryLog.send(control, {
 				...logFilter,
 				max_level: null,
