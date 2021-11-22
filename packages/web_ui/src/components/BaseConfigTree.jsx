@@ -3,6 +3,30 @@ import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tree, Ty
 
 const { Title } = Typography;
 
+function getInitialValues(config, props) {
+	let initialValues = {};
+	for (let [name, GroupClass] of props.ConfigClass.groups) {
+		let group = config.group(name);
+		for (let def of GroupClass.definitions.values()) {
+			if (!group.canAccess(def.name)) {
+				continue;
+			}
+
+			let value = group.get(def.name);
+			let fieldName = `${group.name}.${def.name}`;
+
+			if (def.type === "object") {
+				for (let prop of Object.keys(value)) {
+					let propPath = `${group.name}.${def.name}.${prop}`;
+					initialValues[propPath] = JSON.stringify(value[prop]);
+				}
+			} else {
+				initialValues[fieldName] = value;
+			}
+		}
+	}
+	return initialValues;
+}
 
 export default function BaseConfigTree(props) {
 	let [config, setConfig] = useState(null);
@@ -19,8 +43,8 @@ export default function BaseConfigTree(props) {
 		return newConfig;
 	}
 	useEffect(() => {
-		updateConfig().then(config => {
-			form.setFieldsValue(getInitialValues(config, props));
+		updateConfig().then(updatedConfig => {
+			form.setFieldsValue(getInitialValues(updatedConfig, props));
 		});
 	}, [props.id]);
 
@@ -254,29 +278,4 @@ export default function BaseConfigTree(props) {
 			</Form>
 		</Card>
 	</>;
-}
-
-function getInitialValues(config, props) {
-	let initialValues = {};
-	for (let [name, GroupClass] of props.ConfigClass.groups) {
-		let group = config.group(name);
-		for (let def of GroupClass.definitions.values()) {
-			if (!group.canAccess(def.name)) {
-				continue;
-			}
-
-			let value = group.get(def.name);
-			let fieldName = `${group.name}.${def.name}`;
-
-			if (def.type === "object") {
-				for (let prop of Object.keys(value)) {
-					let propPath = `${group.name}.${def.name}.${prop}`;
-					initialValues[propPath] = JSON.stringify(value[prop]);
-				}
-			} else {
-				initialValues[fieldName] = value;
-			}
-		}
-	}
-	return initialValues;
 }
