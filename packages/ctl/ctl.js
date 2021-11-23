@@ -37,11 +37,10 @@ function print(...content) {
 }
 
 async function getEditor(argsEditor) {
-	/* eslint-disable */
+	// eslint-disable-next-line
 	return argsEditor || process.ENV.EDITOR || process.env.VISUAL || -1
-	/* eslint-enable */
 	// needed for the process.env statements to not be flagged by eslint
-	// prio for editors is CLI arg > env.EDITOR > env.VISUAL
+	// priority for editors is CLI argument > env.EDITOR > env.VISUAL
 }
 
 async function configToKeyVal(data) {
@@ -67,6 +66,29 @@ async function configToKeyVal(data) {
 		}
 	}
 	return final;
+}
+
+async function serializedConfigToString(serlializedConfig, configGroup, disallowedList) {
+	let allConfigElements = "";
+	for (let group of serializedConfig.groups) {
+		for (let [name, value] of Object.entries(group.fields)) {
+			if (`${group.name}.${name}` in disallowedList) {
+				continue;
+			}
+			let desc = "";
+			try {
+				desc += configGroup.groups.get(group.name)._definitions.get(name).description;
+			} catch (err) {
+				desc += "No description found";
+			}
+			// split onto two lines for readability and es-lint
+			if (String(value) === "null") {
+				value = "";
+			}
+			allConfigElements += `${group.name}.${name} = ${value}\n\n`;
+		}
+	}
+	return allConfigElements;
 }
 
 const masterCommands = new libCommand.CommandTree({ name: "master", description: "Master management" });
@@ -154,23 +176,7 @@ masterConfigCommands.add(new libCommand.Command({
 			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl master config edit <editor of choice>"`);
 		}
-		let allConfigElements = "";
-		for (let group of response.serialized_config.groups) {
-			for (let [name, value] of Object.entries(group.fields)) {
-				let desc = "";
-				try {
-					desc += libConfig.MasterConfig.groups.get(group.name)._definitions.get(name).description;
-				} catch (err) {
-					desc += "No description found";
-				}
-				// split onto two lines for readability and es-lint
-				if (String(value) === "null") {
-					value = "";
-				}
-				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
-			}
-		}
-		// this could be shorter but the lines would have to be very long, so imo this is better for readability
+		let allConfigElements = await serializedConfigToString(respose.serialized_config, libConfig.MasterConfig, {});
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
 				throw err;
@@ -431,26 +437,7 @@ instanceConfigCommands.add(new libCommand.Command({
 		}
 		let allConfigElements = "";
 		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
-		for (let group of response.serialized_config.groups) {
-			for (let [name, value] of Object.entries(group.fields)) {
-				if (`${group.name}.${name}` in disallowedList) {
-					continue;
-				}
-				let desc = "";
-				try {
-					desc += libConfig.InstanceConfig.groups.get(group.name)._definitions.get(name).description;
-				} catch (err) {
-					desc += "No description found";
-				}
-				allConfigElements += `# ${desc}\n`;
-				// split onto two lines for readability and es-lint
-				if (String(value) === "null") {
-					value = "";
-				}
-				allConfigElements += `${group.name}.${name} = ${value}\n\n`;
-			}
-		}
-		// this could be shorter but the lines would have to be very long, so imo this is better for readability
+		let allConfigElements = await serializedConfigToString(respose.serialized_config, libConfig.InstanceConfig, disallowedList);
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
 				throw err;
