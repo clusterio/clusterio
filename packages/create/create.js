@@ -24,10 +24,12 @@ const availablePlugins = [
 	{ name: "Research Sync", value: "@clusterio/plugin-research_sync" },
 	{ name: "Statistics Exporter", value: "@clusterio/plugin-statistics_exporter" },
 	{ name: "Subspace Storage", value: "@clusterio/plugin-subspace_storage" },
+	{ name: "Edge Transports", value: "@clusterio/plugin-edge_transports" },
 
 	// Comunity plugins
 	{ name: "Discord Bridge", value: "@hornwitser/discord_bridge" },
 	{ name: "Server Select", value: "@hornwitser/server_select" },
+	{ name: "Gridworld", value: "@danielv123/gridworld"},
 ];
 
 const factorioLocations = {
