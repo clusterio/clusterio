@@ -1,7 +1,7 @@
 import { Tag } from "antd";
 import React from "react";
 
-const statusColors = {
+export const statusColors = {
 	unknown: "#8c8c8c",
 	unassigned: "#eb2f96",
 	stopped: "#cf1322",

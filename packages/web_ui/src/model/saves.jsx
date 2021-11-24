@@ -14,10 +14,15 @@ export function useSaves(instanceId) {
 			setSaves(result.list);
 		}).catch(err => {
 			logger.error(`Failed to list instance saves: ${err}`);
+			setSaves([]);
 		});
 	}
 
 	useEffect(() => {
+		if (!Number.isInteger(instanceId)) {
+			setSaves([]);
+			return undefined;
+		}
 		updateSaves();
 
 		function updateHandler(data) {
