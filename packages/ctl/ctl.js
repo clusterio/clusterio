@@ -14,6 +14,8 @@ const path = require("path");
 const winston = require("winston");
 const setBlocking = require("set-blocking");
 const phin = require("phin");
+const os = require("os");
+const child_process = require("child_process");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -34,6 +36,60 @@ function print(...content) {
 	console.log(...content);
 }
 
+async function getEditor(argsEditor) {
+	// eslint-disable-next-line
+	return argsEditor || process.ENV.EDITOR || process.env.VISUAL || -1
+	// needed for the process.env statements to not be flagged by eslint
+	// priority for editors is CLI argument > env.EDITOR > env.VISUAL
+}
+
+async function configToKeyVal(data) {
+	let final = {};
+	let splitData = data.split(/\r?\n/);
+	// split on newlines
+	let filtered = splitData.filter((value) => value[0] !== "#").filter((a) => a);
+	// the last filter removes empty elements left by the first. Not done on one line due to readability.
+	for (let index in filtered) {
+		if (index in filtered) {
+			filtered[index] = filtered[index].split("=");
+			let finalIndex = filtered[index][0].trim();
+			// split on the = we added earlier, giving us both value and key
+			let part = "";
+			try {
+				part = filtered[index][1].trim();
+				// it's a string if we can read it
+			} catch (err) {
+				// if we can't read it, it's a empty field and therefor null
+				part = "";
+			}
+			final[finalIndex] = part;
+		}
+	}
+	return final;
+}
+
+async function serializedConfigToString(serlializedConfig, configGroup, disallowedList) {
+	let allConfigElements = "";
+	for (let group of serializedConfig.groups) {
+		for (let [name, value] of Object.entries(group.fields)) {
+			if (`${group.name}.${name}` in disallowedList) {
+				continue;
+			}
+			let desc = "";
+			try {
+				desc += configGroup.groups.get(group.name)._definitions.get(name).description;
+			} catch (err) {
+				desc += "No description found";
+			}
+			// split onto two lines for readability and es-lint
+			if (String(value) === "null") {
+				value = "";
+			}
+			allConfigElements += `${group.name}.${name} = ${value}\n\n`;
+		}
+	}
+	return allConfigElements;
+}
 
 const masterCommands = new libCommand.CommandTree({ name: "master", description: "Master management" });
 const masterConfigCommands = new libCommand.CommandTree({
@@ -104,6 +160,66 @@ masterConfigCommands.add(new libCommand.Command({
 		await libLink.messages.setMasterConfigProp.send(control, request);
 	},
 }));
+masterConfigCommands.add(new libCommand.Command({
+	definition: ["edit [editor]", "Edit master configuration", (yargs) => {
+		yargs.positional("editor", {
+			describe: "Editor to use",
+			type: "string",
+			default: "",
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getMasterConfig.send(control);
+		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
+		let editor = await getEditor(args.editor);
+		if (editor === -1) {
+			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
+							  Try "ctl master config edit <editor of choice>"`);
+		}
+		let allConfigElements = await serializedConfigToString(respose.serialized_config, libConfig.MasterConfig, {});
+		await fs.writeFile(tmpFile, allConfigElements, (err) => {
+			if (err) {
+				throw err;
+			}
+		});
+		let editorSpawn = child_process.spawn(editor, [tmpFile], {
+			stdio: "inherit",
+  			detached: false,
+		});
+		editorSpawn.on("data", (data) => {
+  			process.stdout.pipe(data);
+		});
+		let doneEmitter = new events.EventEmitter();
+		editorSpawn.on("exit", async (exit) => {
+			const data = await fs.readFile(tmpFile, "utf8");
+			const final = await configToKeyVal(data);
+			for (let index in final) {
+				if (index in final) {
+					try {
+						await libLink.messages.setMasterConfigField.send(control, {
+							field: index,
+							value: final[index],
+						});
+					} catch (err) {
+						// eslint-disable-next-line
+						print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+						print(err);
+						// If the string is empty, it's better to just print "" instead of nothing
+					}
+				}
+			}
+			doneEmitter.emit("dot_on_done");
+		});
+		await events.once(doneEmitter, "dot_on_done");
+		await fs.unlink(tmpFile, (err) => {
+			if (err) {
+				print("err: temporary file", tmpFile, "could not be deleted.");
+				print("This is not fatal, but they may build up over time if the issue persists.");
+			}
+		});
+	},
+}));
+
 masterCommands.add(masterConfigCommands);
 
 
@@ -298,6 +414,79 @@ instanceConfigCommands.add(new libCommand.Command({
 			request.value = args.value;
 		}
 		await libLink.messages.setInstanceConfigProp.send(control, request);
+	},
+}));
+
+instanceConfigCommands.add(new libCommand.Command({
+	definition: ["edit <instance> [editor]", "Edit instance configuration", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to set config on", type: "string" });
+		yargs.positional("editor", {
+			describe: "Editor to use",
+			type: "string",
+			default: "",
+		});
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		let response = await libLink.messages.getInstanceConfig.send(control, { instance_id: instanceId });
+		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
+		let editor = await getEditor(args.editor);
+		if (editor === -1) {
+			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
+							  Try "ctl master config edit <editor of choice>"`);
+		}
+		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
+		let allConfigElements = await serializedConfigToString(
+			respose.serialized_config,
+			libConfig.InstanceConfig,
+			disallowedList
+		);
+		await fs.writeFile(tmpFile, allConfigElements, (err) => {
+			if (err) {
+				throw err;
+			}
+		});
+		let editorSpawn = child_process.spawn(editor, [tmpFile], {
+			stdio: "inherit",
+  			detached: false,
+		});
+		editorSpawn.on("data", (data) => {
+  			process.stdout.pipe(data);
+		});
+		let doneEmitter = new events.EventEmitter();
+		editorSpawn.on("exit", async (exit) => {
+			const data = await fs.readFile(tmpFile, "utf8");
+			const final = await configToKeyVal(data);
+			for (let index in final) {
+				if (index in final) {
+					try {
+						await libLink.messages.setInstanceConfigField.send(control, {
+							instance_id: instanceId,
+							field: index,
+							value: final[index],
+						});
+					} catch (err) {
+						// eslint-disable-next-line
+						print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+						// If the string is empty, it's better to just print "" instead of nothing
+						print("This message shouldn't normally appear; if the below message does not indicate it");
+						print("was a user mistake, please report it to the clustorio devs.");
+						// added this because it could be a missed entry in disallowedList
+						// i've added all the vanilla clustorio configs, but there may be
+						// some modded ones that need to be added.
+						print(err);
+					}
+				}
+			}
+			doneEmitter.emit("dot_on_done");
+		});
+		await events.once(doneEmitter, "dot_on_done");
+		await fs.unlink(tmpFile, (err) => {
+			if (err) {
+				print("err: temporary file", tmpFile, "could not be deleted.");
+				print("This is not fatal, but they may build up over time if the issue persists.");
+			}
+		});
 	},
 }));
 instanceCommands.add(instanceConfigCommands);

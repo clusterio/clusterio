@@ -4,7 +4,7 @@
 "use strict";
 const fs = require("fs-extra");
 const path = require("path");
-
+const crypto = require("crypto"); // needed for getTempFile
 /**
  * Returns the newest file in a directory
  *
@@ -68,7 +68,25 @@ async function findUnusedName(directory, name, extension = "") {
 		}
 	}
 }
-
+/**
+ * Warning: this function should not be relied upon to be accurate for
+ * security sensitive applications.  The selection process is inherently
+ * racy and a file or folder may have been created in the folder by the time
+ * this function returns.
+ *
+ * @param {string} prefix - Prefix for file
+ * @param {string} suffix - Suffix for file
+ * @param {string} tmpdir - Directory for temp file
+ */
+async function getTempFile(prefix, suffix, tmpdir) {
+	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
+	suffix = (typeof suffix !== "undefined") ? suffix : "";
+	tmpdir = (typeof tmpdir !== "undefined") ? tmpdir : "./";
+	let fileName = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
+	let freeFile = await findUnusedName(tmpdir, fileName);
+	let fullPath = path.join(tmpdir, freeFile);
+	return fullPath;
+}
 /**
  * Safely write data to a file
  *
@@ -93,5 +111,6 @@ async function safeOutputFile(file, data, options={}) {
 module.exports = {
 	getNewestFile,
 	findUnusedName,
+	getTempFile,
 	safeOutputFile,
 };

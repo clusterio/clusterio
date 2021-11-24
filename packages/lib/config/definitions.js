@@ -15,7 +15,7 @@ MasterGroup.groupName = "master";
 MasterGroup.define({
 	name: "name",
 	title: "Name",
-	description: "Name of the cluster",
+	description: "Name of the cluster.",
 	type: "string",
 	initial_value: "Your Cluster",
 });
@@ -83,7 +83,7 @@ MasterGroup.define({
 MasterGroup.define({
 	name: "heartbeat_interval",
 	title: "Heartbeat Interval",
-	description: "Interval heartbeats are sent out on WebSocket connections",
+	description: "Interval heartbeats are sent out on WebSocket connections.",
 	type: "number",
 	initial_value: 15,
 });
@@ -97,21 +97,21 @@ MasterGroup.define({
 MasterGroup.define({
 	name: "metrics_timeout",
 	title: "Metrics Timeout",
-	description: "Timeout in seconds for metrics gathering from slaves",
+	description: "Timeout in seconds for metrics gathering from slaves.",
 	type: "number",
 	initial_value: 8,
 });
 MasterGroup.define({
 	name: "proxy_stream_timeout",
 	title: "Proxy Stream Timeout",
-	description: "Timeout in seconds for proxy streams to start flowing",
+	description: "Timeout in seconds for proxy streams to start flowing.",
 	type: "number",
 	initial_value: 15,
 });
 MasterGroup.define({
 	name: "default_role_id",
 	title: "Default role",
-	description: "ID of role assigned by default to new users",
+	description: "ID of role assigned by default to new users.",
 	type: "number",
 	optional: true,
 	initial_value: 1,
