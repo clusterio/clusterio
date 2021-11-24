@@ -47,13 +47,13 @@ async function configToKeyVal(data) {
 	let final = {};
 	let splitData = data.split(/\r?\n/);
 	// split on newlines
-	let filtered = splitData.filter((value) => !(value[0] === "#")).filter((a) => a);
+	let filtered = splitData.filter((value) => value[0] !== "#").filter((a) => a);
 	// the last filter removes empty elements left by the first. Not done on one line due to readability.
 	for (let index in filtered) {
 		if (index in filtered) {
 			filtered[index] = filtered[index].split("=");
 			let finalIndex = filtered[index][0].trim();
-			// split on the = we added earlier
+			// split on the = we added earlier, giving us both value and key
 			let part = "";
 			try {
 				part = filtered[index][1].trim();
