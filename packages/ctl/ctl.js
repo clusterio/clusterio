@@ -437,8 +437,8 @@ instanceConfigCommands.add(new libCommand.Command({
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
 		let allConfigElements = await serializedConfigToString(
-			respose.serialized_config, 
-			libConfig.InstanceConfig, 
+			respose.serialized_config,
+			libConfig.InstanceConfig,
 			disallowedList
 		);
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
