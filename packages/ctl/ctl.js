@@ -38,7 +38,7 @@ function print(...content) {
 
 async function getEditor(argsEditor) {
 	// eslint-disable-next-line
-	return argsEditor || process.ENV.EDITOR || process.env.VISUAL || -1
+	return argsEditor || process.env.EDITOR || process.env.VISUAL || -1
 	// needed for the process.env statements to not be flagged by eslint
 	// priority for editors is CLI argument > env.EDITOR > env.VISUAL
 }
