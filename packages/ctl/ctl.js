@@ -68,9 +68,9 @@ async function configToKeyVal(data) {
 	return final;
 }
 
-async function serializedConfigToString(serlializedConfig, configGroup, disallowedList) {
+async function serializedConfigToString(serializedConfig, configGroup, disallowedList) {
 	let allConfigElements = "";
-	for (let group of serlializedConfig.groups) {
+	for (let group of serializedConfig.groups) {
 		for (let [name, value] of Object.entries(group.fields)) {
 			if (`${group.name}.${name}` in disallowedList) {
 				continue;
