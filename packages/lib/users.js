@@ -340,6 +340,17 @@ definePermission({
 });
 
 definePermission({
+	name: "core.factorio.list",
+	title: "List factorio versions",
+	description: "List factorio versions installed on a slave or available for download.",
+});
+definePermission({
+	name: "core.factorio.download",
+	title: "Download factorio to a slave",
+	description: "Download new versions of factorio to a slave.",
+});
+
+definePermission({
 	name: "core.instance.get",
 	title: "Get instance",
 	description: "Get the details of an instance in the cluster.",

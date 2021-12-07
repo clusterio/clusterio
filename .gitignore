@@ -31,6 +31,7 @@ dist/
 node_modules
 
 Factorio*
+!*.jsx
 /factorio
 /instances
 /sharedMods

@@ -67,9 +67,10 @@ class Request extends Message {
 	 *     Permission required to send this request.  Only applies to
 	 *     requests sent from control to master.
 	 * @param {?string} forwardTo -
-	 *     Optional target to forward this request to.  'instance' add
-	 *     instance_id into the requestProperties and forward to the given
-	 *     instance.  'master' forwards it to the master server.
+	 *     Optional target to forward this request to.  Supported values are
+	 *     'master', 'slave' and 'instance'.  If set to 'instance' an instance_id
+	 *     property is implicity added to eventProperties. If set to 'slave' a
+	 *     slave_id property is implicity added to eventProperties.
 	 * @param {?Array<string>} requestRequired -
 	 *     List of properties that are required to be present in the data
 	 *     payload of this request.  Defaults to all.
@@ -116,7 +117,12 @@ class Request extends Message {
 				"instance_id": { type: "integer" },
 				...requestProperties,
 			};
-
+		} else if (forwardTo === "slave") {
+			requestRequired = ["slave_id", ...requestRequired];
+			requestProperties = {
+				"slave_id": { type: "integer" },
+				...requestProperties,
+			};
 		} else if (forwardTo !== "master" && forwardTo !== null) {
 			throw new Error(`Invalid forwardTo value ${forwardTo}`);
 		}
@@ -199,6 +205,8 @@ class Request extends Message {
 			if (!handler) {
 				if (this.forwardTo === "instance") {
 					handler = link.forwardRequestToInstance;
+				} else if (this.forwardTo === "slave") {
+					handler = link.forwardRequestToSlave;
 				} else if (this.forwardTo === "master") {
 					handler = link.forwardRequestToMaster;
 				}
@@ -367,6 +375,36 @@ messages.setSlaveSubscriptions = new Request({
 			items: { type: "integer" },
 		},
 	},
+});
+
+messages.listFactorioVersions = new Request({
+	type: "list_factorio_versions",
+	links: ["control-master"],
+	permission: "core.factorio.list",
+	responseProperties: {
+		"versions": {
+			type: "array",
+			items: {
+				additionalProperties: false,
+				required: ["version", "download_url", "type", "platform"],
+				properties: {
+					"version": { type: "string" },
+					"download_url": { type: "string" },
+					"type": { type: "string" },
+					"platform": { type: "string" },
+				},
+			},
+		},
+	},
+});
+messages.downloadFactorio = new Request({
+	type: "download_factorio",
+	links: ["control-master", "master-slave"],
+	permission: "core.factorio.download",
+	requestProperties: {
+		"version": { type: "string" },
+	},
+	forwardTo: "slave",
 });
 
 let instanceProperties = {
@@ -974,7 +1012,6 @@ class Event extends Message {
 				"instance_id": { type: "integer" },
 				...eventProperties,
 			};
-
 		} else if (forwardTo !== "master" && forwardTo !== null) {
 			throw new Error(`Invalid forwardTo value ${forwardTo}`);
 		}

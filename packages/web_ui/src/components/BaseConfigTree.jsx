@@ -1,5 +1,6 @@
 import React, { useEffect, useContext, useState } from "react";
 import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tree, Typography } from "antd";
+import FactorioVersionSelector from "./FactorioVersionSelector";
 
 const { Title } = Typography;
 
@@ -53,7 +54,9 @@ export default function BaseConfigTree(props) {
 			return <Checkbox/>;
 		}
 		if (def.type === "string") {
-			return <Input/>;
+			if (def.name === "version") {
+				return <FactorioVersionSelector />;
+			} return <Input/>;
 		}
 		if (def.type === "number") {
 			return <InputNumber/>;

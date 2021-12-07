@@ -14,6 +14,7 @@ const libUsers = require("@clusterio/lib/users");
 
 const BaseConnection = require("./BaseConnection");
 const routes = require("./routes");
+const { getAvailableVersions } = require("@clusterio/lib/factorio/wube_tools");
 
 const lastQueryLogTime = new libPrometheus.Gauge(
 	"clusterio_master_last_query_log_duration_seconds",
@@ -648,6 +649,12 @@ class ControlConnection extends BaseConnection {
 			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
 		}
 		this._master.userManager.users.delete(message.data.name);
+	}
+
+	async listFactorioVersionsRequestHandler(message) {
+		return {
+			versions: await getAvailableVersions(),
+		};
 	}
 
 	async debugDumpWsRequestHandler(message) {

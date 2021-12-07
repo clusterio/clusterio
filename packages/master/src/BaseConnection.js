@@ -27,6 +27,10 @@ class BaseConnection extends libLink.Link {
 		return await this._master.forwardRequestToInstance(request, message.data);
 	}
 
+	async forwardRequestToSlave(message, request) {
+		return await this._master.forwardRequestToSlave(request, message.data);
+	}
+
 	async forwardEventToInstance(message, event) {
 		let instance = this._master.instances.get(message.data.instance_id);
 		if (!instance) { return; }

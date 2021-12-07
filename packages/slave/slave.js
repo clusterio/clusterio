@@ -38,6 +38,7 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
+const { downloadLinuxServer } = require("@clusterio/lib/factorio/wube_tools");
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -1537,6 +1538,14 @@ class Slave extends libLink.Link {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		await request.send(instanceConnection, message.data);
+	}
+
+	async downloadFactorioRequestHandler(message) {
+		if (process.platform === "linux") {
+			await downloadLinuxServer({ url: message.data.download_url });
+		} else {
+			throw new libErrors.RequestError("Downloading Factorio on this platform is not supported");
+		}
 	}
 
 	async stopInstance(instanceId) {

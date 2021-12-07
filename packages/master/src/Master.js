@@ -552,6 +552,23 @@ class Master {
 	}
 
 	/**
+	 * Forward the given request to the specified slave
+	 *
+	 * @param {module:lib/Link.Request} request - The request to send.
+	 * @param {object} data - Data to pass with the request
+	 * @param {number} data.slave_id - The id of the slave to forward to.
+	 * @returns {object} data returned from the request
+	 */
+	async forwardRequestToSlave(request, data) {
+		let connection = this.wsServer.slaveConnections.get(data.slave_id);
+		if (!connection) {
+			throw new libErrors.RequestError(`Slave not found: ${data.slave_id}`);
+		}
+
+		return await request.send(connection, data);
+	}
+
+	/**
 	 * Forward the given request to the slave contaning the instance
 	 *
 	 * Finds the slave which the instance with the given instance ID is

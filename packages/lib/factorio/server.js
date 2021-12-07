@@ -13,6 +13,7 @@ const libFileOps = require("../file_ops");
 const libIni = require("../ini");
 const { logger } = require("../logging");
 const { escapeRegExp } = require("../helpers");
+const { downloadLinuxServer } = require("./wube_tools");
 
 
 /**
@@ -85,12 +86,14 @@ function versionOrder(a, b) {
  * @param {string} targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
+ * @param {boolean} skipDownloading - If true, don't download the specified
+ *     version if it's not found.
  * @returns {Array} Array with path to data dir and version found.
  * @memberof module:lib/factorio
  * @private
  * @inner
  */
-async function findVersion(factorioDir, targetVersion) {
+async function findVersion(factorioDir, targetVersion, skipDownloading) {
 
 	// There are two supported setups: having the factorio dir be the actual
 	// install directory, and having the factorio dir be a folder containing
@@ -107,8 +110,14 @@ async function findVersion(factorioDir, targetVersion) {
 		);
 	}
 
+	if (!await fs.pathExists(factorioDir) && process.platform === "linux") {
+		// Factorio install directory does not exists, create it and download the latest version
+		await downloadLinuxServer();
+	}
+
 	let versions = new Map();
-	for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
+	let factorioFolderContents = await fs.readdir(factorioDir, { withFileTypes: true });
+	for (let entry of factorioFolderContents) {
 		if (!entry.isDirectory()) {
 			continue;
 		}
@@ -132,6 +141,13 @@ async function findVersion(factorioDir, targetVersion) {
 	if (targetVersion === "latest") {
 		let latest = [...versions.keys()].sort(versionOrder)[0];
 		return [path.join(factorioDir, versions.get(latest), "data"), latest];
+	}
+
+	// Version wasn't found, try downloading it
+	if (!skipDownloading) {
+		await downloadLinuxServer({ version: targetVersion });
+		// Try again
+		return await findVersion(factorioDir, targetVersion, true);
 	}
 
 	throw new Error(`Unable to find Factorio version ${targetVersion}`);
