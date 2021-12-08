@@ -527,7 +527,9 @@ async function main() {
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
-		});
+		})
+		.strict()
+	;
 
 	if (process.platform === "linux") {
 		args = args
