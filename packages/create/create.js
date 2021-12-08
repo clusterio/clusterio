@@ -433,7 +433,11 @@ async function inquirerMissingArgs(args) {
 		}
 	}
 
-	if (dev) { answers.plugins = []; }
+	if (dev) {
+		answers.plugins = [];
+	} else if (args.plugins) {
+		answers.plugins = args.plugins;
+	}
 	answers = await inquirer.prompt([
 		{
 			type: "checkbox",
