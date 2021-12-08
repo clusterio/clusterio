@@ -5,6 +5,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const phin = require("phin");
 const stream = require("stream");
+const getAvailableVersions = require("./getAvailableVersions");
 
 const { logger } = require("../../logging");
 
@@ -73,6 +74,12 @@ async function downloadLinuxServer({
 	version,
 } = {}) {
 	if (version) {
+		// Check that version is available for download
+		let versions = await getAvailableVersions();
+		if (!versions.find(v => v.version === version)) {
+			return false;
+		}
+
 		// Version specified instead of URL so we need to construct the URL
 		download_url = `https://factorio.com/get-download/${version}/headless/linux64`;
 	}
@@ -121,6 +128,7 @@ async function downloadLinuxServer({
 		await fs.unlink(archivePath);
 		await fs.rename(tmpFactorioDir, factorioDir);
 	}
+	return true;
 }
 
 module.exports = downloadLinuxServer;
