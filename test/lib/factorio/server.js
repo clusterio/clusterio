@@ -58,9 +58,19 @@ describe("lib/factorio/server", function() {
 		});
 		it("should search given directory for latest Factorio install", async function() {
 			let installDir = path.join("test", "file");
-			let [dir, version] = await libFactorio._findVersion(installDir, "latest");
+			let [dir, version] = await libFactorio._findVersion(installDir, "latest", true);
 			assert.equal(dir, path.join(installDir, "factorio", "data"));
 			assert.equal(version, "0.1.1");
+		});
+		it("should download the latest Factorio version unless otherwise specified", async function () {
+			this.timeout(20000); // Slow because it downloads 60MB
+			let installDir = path.join("test", "file");
+			let [dir, version] = await libFactorio._findVersion(installDir, "latest");
+			assert.equal(dir, path.join(installDir, version, "data"));
+			let latestVersionFromWube = (await libFactorio.getAvailableVersions())[0].version;
+			assert.equal(version, latestVersionFromWube);
+			// Clear test data
+			await fs.remove(path.join(installDir, version));
 		});
 		it("should search given directory for given Factorio install", async function() {
 			let installDir = path.join("test", "file");

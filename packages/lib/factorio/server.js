@@ -13,7 +13,7 @@ const libFileOps = require("../file_ops");
 const libIni = require("../ini");
 const { logger } = require("../logging");
 const { escapeRegExp } = require("../helpers");
-const { downloadLinuxServer } = require("./wube_tools");
+const { downloadLinuxServer, getAvailableVersions } = require("./wube_tools");
 
 
 /**
@@ -112,7 +112,7 @@ async function findVersion(factorioDir, targetVersion, skipDownloading) {
 
 	if (!await fs.pathExists(factorioDir) && process.platform === "linux") {
 		// Factorio install directory does not exists, create it and download the latest version
-		await downloadLinuxServer();
+		await downloadLinuxServer({ factorioDir });
 	}
 
 	let versions = new Map();
@@ -139,13 +139,22 @@ async function findVersion(factorioDir, targetVersion, skipDownloading) {
 	}
 
 	if (targetVersion === "latest") {
-		let latest = [...versions.keys()].sort(versionOrder)[0];
+		let latestLocal = [...versions.keys()].sort(versionOrder)[0];
+		let latestOnline = (await getAvailableVersions()).map(v => v.version);
+		let latest = [latestLocal, ...latestOnline].sort(versionOrder)[0];
+		if (skipDownloading) {
+			latest = latestLocal;
+		}
+		if (latest !== latestLocal) {
+			// Recurse with correct version number
+			return await findVersion(factorioDir, latest);
+		}
 		return [path.join(factorioDir, versions.get(latest), "data"), latest];
 	}
 
 	// Version wasn't found, try downloading it
 	if (!skipDownloading) {
-		await downloadLinuxServer({ version: targetVersion });
+		await downloadLinuxServer({ factorioDir, version: targetVersion });
 		// Try again
 		return await findVersion(factorioDir, targetVersion, true);
 	}
@@ -616,8 +625,7 @@ class FactorioServer extends events.EventEmitter {
 			.toString("utf-8")
 			.replace(/\\x([0-9a-f]{2})/g, (match, p1) => (
 				String.fromCharCode(parseInt(p1, 16))
-			))
-		;
+			));
 
 		let type = line.slice(channelEnd + 1, channelEnd + 2).toString("utf-8");
 		let content;

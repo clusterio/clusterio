@@ -72,6 +72,7 @@ async function execFile(cmd, args) {
 async function downloadLinuxServer({
 	download_url = "https://factorio.com/get-download/stable/headless/linux64",
 	version,
+	factorioDir,
 } = {}) {
 	if (version) {
 		// Check that version is available for download
@@ -93,14 +94,14 @@ async function downloadLinuxServer({
 	const tmpDir = "temp/create-temp/";
 	const archivePath = tmpDir + filename;
 	const tmpArchivePath = `${archivePath}.tmp`;
-	const factorioDir = `factorio/${downloaded_version}/`;
+	const downloadDirectory = `${factorioDir}/${downloaded_version}/`;
 	const tmpFactorioDir = tmpDir + downloaded_version;
 
-	if (await fs.pathExists(factorioDir)) {
-		logger.warn(`setting downloadDir to ${factorioDir}, but not downloading because already existing`);
+	if (await fs.pathExists(downloadDirectory)) {
+		logger.warn(`setting downloadDir to ${downloadDirectory}, but not downloading because already existing`);
 	} else {
 		await fs.ensureDir(tmpDir);
-		await fs.ensureDir(factorioDir);
+		await fs.ensureDir(downloadDirectory);
 
 		// follow the redirect
 		res = await phin({
@@ -126,7 +127,7 @@ async function downloadLinuxServer({
 		}
 
 		await fs.unlink(archivePath);
-		await fs.rename(tmpFactorioDir, factorioDir);
+		await fs.rename(tmpFactorioDir, downloadDirectory);
 	}
 	return true;
 }

@@ -8,10 +8,12 @@ const exchange_string = require("./exchange_string");
 const export_ = require("./export");
 const patch = require("./patch");
 const server = require("./server");
+const wube_tools = require("./wube_tools");
 
 module.exports = {
 	...exchange_string,
 	...export_,
 	...patch,
 	...server,
+	...wube_tools,
 };
