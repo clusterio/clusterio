@@ -1548,6 +1548,32 @@ class Slave extends libLink.Link {
 		}
 	}
 
+	async checkFactorioVersionsOnSlaveRequestHandler(message) {
+		let versions = [];
+		let factorioDir = this.config.get("slave.factorio_directory");
+		let factorioFolderContents = await fs.readdir(factorioDir, { withFileTypes: true });
+		for (let entry of factorioFolderContents) {
+			if (!entry.isDirectory()) {
+				continue;
+			}
+
+			let extractedVersion = await libFactorio._getVersion(path.join(
+				factorioDir,
+				entry.name,
+				"data",
+				"changelog.txt"
+			));
+			if (extractedVersion === null) {
+				continue;
+			}
+
+			versions.push({ extractedVersion, downloaded: true });
+		}
+		return {
+			versions,
+		};
+	}
+
 	async stopInstance(instanceId) {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		await libLink.messages.stopInstance.send(instanceConnection, { instance_id: instanceId });

@@ -1,9 +1,9 @@
 import React from "react";
-import { Select } from "antd";
+import { Select, Tag } from "antd";
 import { useFactorioVersion } from "../model/factorioVersion";
 
 export default function FactorioVersionSelector(props) {
-	let [factorioVersions] = useFactorioVersion();
+	let [factorioVersions] = useFactorioVersion(props.slave_id);
 
 	return <Select
 		showSearch
@@ -14,10 +14,10 @@ export default function FactorioVersionSelector(props) {
 		{...props}
 	>
 		{factorioVersions.versions.map(version => <Select.Option
-			key={version}
-			value={version}
+			key={version.version}
+			value={version.version}
 		>
-			{version}
+			<Tag key="1" color={version.downloaded? "green" : ""}>{version.version}</Tag>
 		</Select.Option>)}
 	</Select>;
 }

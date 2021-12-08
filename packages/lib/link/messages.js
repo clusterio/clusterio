@@ -381,17 +381,41 @@ messages.listFactorioVersions = new Request({
 	type: "list_factorio_versions",
 	links: ["control-master"],
 	permission: "core.factorio.list",
+	requestProperties: {
+		"slave_id": { type: ["null", "integer"] },
+	},
 	responseProperties: {
 		"versions": {
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["version", "download_url", "type", "platform"],
+				required: ["version"],
 				properties: {
 					"version": { type: "string" },
 					"download_url": { type: "string" },
 					"type": { type: "string" },
 					"platform": { type: "string" },
+					"downloaded": { type: "boolean" },
+				},
+			},
+		},
+	},
+});
+messages.checkFactorioVersionsOnSlave = new Request({
+	type: "check_factorio_versions_on_slave",
+	links: ["master-slave"],
+	responseProperties: {
+		"versions": {
+			type: "array",
+			items: {
+				additionalProperties: false,
+				required: ["version"],
+				properties: {
+					"version": { type: "string" },
+					"download_url": { type: "string" },
+					"type": { type: "string" },
+					"platform": { type: "string" },
+					"downloaded": { type: "boolean" },
 				},
 			},
 		},

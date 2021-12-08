@@ -55,7 +55,7 @@ export default function BaseConfigTree(props) {
 		}
 		if (def.type === "string") {
 			if (def.name === "version") {
-				return <FactorioVersionSelector />;
+				return <FactorioVersionSelector slave_id={config.group("instance").get("assigned_slave")} />;
 			} return <Input/>;
 		}
 		if (def.type === "number") {

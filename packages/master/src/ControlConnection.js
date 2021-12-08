@@ -11,6 +11,7 @@ const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libUsers = require("@clusterio/lib/users");
+const libFactorio = require("@clusterio/lib/factorio");
 
 const BaseConnection = require("./BaseConnection");
 const routes = require("./routes");
@@ -652,8 +653,38 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async listFactorioVersionsRequestHandler(message) {
+		let onlineVersions = await getAvailableVersions();
+		let localVersions = [];
+		if (message.data.slave_id) {
+			// Since a slave ID is specified we can check which versions are archived on disk as well
+			let slave = this._master.wsServer.slaveConnections.get(message.data.slave_id);
+			if (slave) {
+				let result = await libLink.messages.checkFactorioVersionsOnSlave.send(slave);
+				localVersions = result.versions;
+			}
+		}
+		// Merge local and remote versions with preference for remote
+		let versions = new Map();
+		for (let version of localVersions) {
+			versions.set(version.version, version);
+		}
+		for (let version of onlineVersions) {
+			if (versions.has(version.version)) {
+				versions.set(version.version, {
+					...versions.get(version.version),
+					...version,
+				});
+			} else {
+				versions.set(version.version, version);
+			}
+		}
+		let mergedVersions = [];
+		for (let version of versions.values()) {
+			mergedVersions.push(version);
+		}
+		// Sort and return
 		return {
-			versions: await getAvailableVersions(),
+			versions: mergedVersions.sort((a, b) => libFactorio._versionOrder(a.version, b.version)),
 		};
 	}
 
