@@ -990,13 +990,17 @@ userCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let data = await fs.readFile(args.file, "utf8");
 		let names = data.split("\n");
-		for (let name in names) {
-			if (name in names) {
-				if (names[name] === "") {
+		for (let part in names) {
+			if (part in names) {
+				if (names[part] === "") {
 					continue;
 				}
+				let namereason = names[part].split(" ");
 				await libLink.messages.setUserBanned.send(control, {
-					name: names[name], create: args.create, banned: true, reason: "bulk-import",
+					name: namereason[0],
+					create: args.create,
+					banned: true,
+					reason: namereason.slice(1, namereason.length).join(" "),
 				});
 			}
 		}
