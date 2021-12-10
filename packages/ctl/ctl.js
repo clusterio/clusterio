@@ -904,6 +904,29 @@ userCommands.add(new libCommand.Command({
 }));
 
 userCommands.add(new libCommand.Command({
+	definition: ["admin-bulk-import <file>", "Bulk input from file users to be admin", (yargs) => {
+		yargs.positional("file", { describe: "File to import from", type: "string" });
+		yargs.options({
+			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		let data = await fs.readFile(args.file, "utf8");
+		let names = data.split("\n");
+		for (let name in names) {
+			if (name in names) {
+				if (names[name] === "") {
+					continue;
+				}
+				await libLink.messages.setUserAdmin.send(control, {
+					name: names[name], create: args.create, admin: true,
+				});
+			}
+		}
+	},
+}));
+
+userCommands.add(new libCommand.Command({
 	definition: ["set-whitelisted <user>", "Add or remove user from the whitelist", (yargs) => {
 		yargs.positional("user", { describe: "Name of user to set whitelist status for", type: "string" });
 		yargs.options({
@@ -915,6 +938,29 @@ userCommands.add(new libCommand.Command({
 		await libLink.messages.setUserWhitelisted.send(control, {
 			name: args.user, create: args.create, whitelisted: !args.remove,
 		});
+	},
+}));
+
+userCommands.add(new libCommand.Command({
+	definition: ["whitelist-bulk-import <file>", "Bulk input from file users to be whitelisted", (yargs) => {
+		yargs.positional("file", { describe: "File to import from", type: "string" });
+		yargs.options({
+			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		let data = await fs.readFile(args.file, "utf8");
+		let names = data.split("\n");
+		for (let name in names) {
+			if (name in names) {
+				if (names[name] === "") {
+					continue;
+				}
+				await libLink.messages.setUserWhitelisted.send(control, {
+					name: names[name], create: args.create, whitelisted: true,
+				});
+			}
+		}
 	},
 }));
 
@@ -931,6 +977,29 @@ userCommands.add(new libCommand.Command({
 		await libLink.messages.setUserBanned.send(control, {
 			name: args.user, create: args.create, banned: !args.pardon, reason: args.reason,
 		});
+	},
+}));
+
+userCommands.add(new libCommand.Command({
+	definition: ["banned-bulk-import <file>", "Bulk input from file users to be banned", (yargs) => {
+		yargs.positional("file", { describe: "File to import from", type: "string" });
+		yargs.options({
+			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		let data = await fs.readFile(args.file, "utf8");
+		let names = data.split("\n");
+		for (let name in names) {
+			if (name in names) {
+				if (names[name] === "") {
+					continue;
+				}
+				await libLink.messages.setUserBanned.send(control, {
+					name: names[name], create: args.create, banned: true, reason: "bulk-import",
+				});
+			}
+		}
 	},
 }));
 
