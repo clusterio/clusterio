@@ -9,7 +9,7 @@ const util = require("util");
 const events = require("events");
 
 const libLink = require("@clusterio/lib/link");
-const server = require("@clusterio/lib/factorio/server");
+const { LineSplitter } = require("@clusterio/lib/stream");
 const { ConsoleTransport, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
@@ -133,18 +133,18 @@ function spawn(name, cmd, waitFor) {
 		console.log(cmd);
 		let parts = cmd.split(" ");
 		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
-		let stdout = new server._LineSplitter((line) => {
+		let stdout = new LineSplitter({ readableObjectMode: true });
+		stdout.on("data", line => {
 			line = line.toString("utf8");
 			if (waitFor.test(line)) {
 				resolve(process);
 			}
 			console.log(name, line);
 		});
-		let stderr = new server._LineSplitter((line) => { console.log(name, line.toString("utf8")); });
-		process.stdout.on("data", chunk => { stdout.data(chunk); });
-		process.stdout.on("close", () => { stdout.end(); });
-		process.stderr.on("data", chunk => { stderr.data(chunk); });
-		process.stderr.on("close", () => { stderr.end(); });
+		let stderr = new LineSplitter({ readableObjectMode: true });
+		stderr.on("data", line => { console.log(name, line.toString("utf8")); });
+		process.stdout.pipe(stdout);
+		process.stderr.pipe(stderr);
 	});
 }
 

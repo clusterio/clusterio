@@ -119,43 +119,6 @@ describe("lib/factorio/server", function() {
 		});
 	});
 
-	describe("class LineSplitter", function() {
-		function createSplitter(lines) {
-			return new libFactorio._LineSplitter(line => lines.push(line.toString("utf-8")));
-		}
-
-		it("should split three lines", function() {
-			let lines = [];
-			let ls = createSplitter(lines);
-			ls.data(Buffer.from("line 1\nline 2\nline 3\n"));
-			ls.end();
-			assert.deepEqual(lines, ["line 1", "line 2", "line 3"]);
-		});
-		it("should split three Windows line endings lines", function() {
-			let lines = [];
-			let ls = createSplitter(lines);
-			ls.data(Buffer.from("line 1\r\nline 2\r\nline 3\r\n"));
-			assert.deepEqual(lines, ["line 1", "line 2", "line 3"]);
-		});
-		it("should give the last non-terminated line on .end()", function() {
-			let lines = [];
-			let ls = createSplitter(lines);
-			ls.data(Buffer.from("line a\nline b"));
-			assert.deepEqual(lines, ["line a"]);
-			ls.end();
-			assert.deepEqual(lines, ["line a", "line b"]);
-		});
-		it("should handled partial lines", function() {
-			let lines = [];
-			let ls = createSplitter(lines);
-			ls.data(Buffer.from("part 1"));
-			ls.data(Buffer.from(" part 2 "));
-			ls.data(Buffer.from("part 3\n"));
-			ls.end();
-			assert.deepEqual(lines, ["part 1 part 2 part 3"]);
-		});
-	});
-
 	describe("parseOutput()", function() {
 		it("should parse the test lines", function() {
 			for (let [line, reference] of testLines) {
