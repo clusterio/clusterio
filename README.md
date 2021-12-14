@@ -125,7 +125,7 @@ Otherwise see below for OS specific instructions.
 
 **Ubuntu with Docker**
 
-The Docker support for Clusterio is curently broken.
+The Docker support for Clusterio is currently broken.
 If you need it open an issue about it.
 
 <!--

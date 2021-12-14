@@ -49,7 +49,7 @@ local has_create_grid = version_ge("1.1.7")
 -- If the equipment is a burner the following is also present:
 --	 i: burner inventory
 --	 r: result inventory
---	 b: curently burning (optional)
+--	 b: currently burning (optional)
 --	 f: remaining_burning_fuel (optional)
 function serialize.serialize_equipment_grid(grid)
 	local serialized = {}
@@ -73,9 +73,9 @@ function serialize.serialize_equipment_grid(grid)
 						local burner = equipment.burner
 						entry.i = serialize.serialize_inventory(burner.inventory)
 						entry.r = serialize.serialize_inventory(burner.burnt_result_inventory)
-						if burner.curently_burning then
+						if burner.currently_burning then
 							entry.b = {}
-							serialize.serialize_item_stack(burner.curently_burning, entry.b)
+							serialize.serialize_item_stack(burner.currently_burning, entry.b)
 							entry.f = burner.remaining_burning_fuel
 						end
 					end
