@@ -68,14 +68,12 @@ function serialize.serialize_equipment_grid(grid)
 					}
 					if equipment.shield > 0 then entry.s = equipment.shield end
 					if equipment.energy > 0 then entry.e = equipment.energy end
-					-- TODO: Test with Industrial Revolution
 					if equipment.burner then
 						local burner = equipment.burner
 						entry.i = serialize.serialize_inventory(burner.inventory)
 						entry.r = serialize.serialize_inventory(burner.burnt_result_inventory)
-						if burner.curently_burning then
-							entry.b = {}
-							serialize.serialize_item_stack(burner.curently_burning, entry.b)
+						if burner.currently_burning then
+							entry.b = burner.currently_burning.name
 							entry.f = burner.remaining_burning_fuel
 						end
 					end
@@ -98,7 +96,8 @@ function serialize.deserialize_equipment_grid(grid, serialized)
 			if entry.s then equipment.shield = entry.s end
 			if entry.e then equipment.energy = entry.e end
 			if entry.i then
-				if entry.b then serialize.deserialize_item_stack(burner.currently_burning, entry.b) end
+				local burner = equipment.burner
+				if entry.b then burner.currently_burning = entry.b end
 				if entry.f then burner.remaining_burning_fuel = entry.f end
 				serialize.deserialize_inventory(burner.burnt_result_inventory, entry.r)
 				serialize.deserialize_inventory(burner.inventory, entry.i)
