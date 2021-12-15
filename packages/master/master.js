@@ -22,6 +22,7 @@ const setBlocking = require("set-blocking");
 const yargs = require("yargs");
 const util = require("util");
 const winston = require("winston");
+require("winston-daily-rotate-file");
 const jwt = require("jsonwebtoken");
 
 // homebrew modules
@@ -189,6 +190,12 @@ async function initialize() {
 			choices: ["none"].concat(Object.keys(levels)),
 			type: "string",
 		})
+		.option("log-directory", {
+			nargs: 1,
+			describe: "Directory to place logs in",
+			default: "logs",
+			type: "string",
+		})
 		.option("config", {
 			nargs: 1,
 			describe: "master config file to use",
@@ -227,20 +234,45 @@ async function initialize() {
 		.argv
 	;
 
+	{
+		// Migration from alpha-10 single file logs, note that we can't use
+		// the logger here as it's not initalized yet.
+		/* eslint-disable no-console */
+		let clusterLogDirectory = path.join(parameters.args.logDirectory, "cluster");
+		if (!await fs.pathExists(clusterLogDirectory) && await fs.pathExists("cluster.log")) {
+			console.log("Migrating cluster log...");
+			await fs.ensureDir(clusterLogDirectory);
+			await libLoggingUtils.migrateLogs("cluster.log", clusterLogDirectory, "cluster-%DATE%.log");
+			console.log("Migration complete, you should delete cluster.log now");
+		}
+
+		let masterLogDirectory = path.join(parameters.args.logDirectory, "master");
+		if (!await fs.pathExists(masterLogDirectory) && await fs.pathExists("master.log")) {
+			console.log("Migrating master log...");
+			await fs.ensureDir(masterLogDirectory);
+			await libLoggingUtils.migrateLogs("master.log", masterLogDirectory, "master-%DATE%.log");
+			console.log("Migration complete, you should delete master.log now");
+		}
+		/* eslint-enable no-console */
+	}
+
 	// Combined log stream of the whole cluster.
 	parameters.clusterLogger = winston.createLogger({
 		format: winston.format.json(),
 		level: "verbose",
 		levels,
 	});
-	parameters.clusterLogger.add(new winston.transports.File({
-		filename: "cluster.log",
+	parameters.clusterLogger.add(new winston.transports.DailyRotateFile({
+		filename: "cluster-%DATE%.log",
+		utc: true,
+		dirname: path.join(parameters.args.logDirectory, "cluster"),
 	}));
 
 	// Log stream for the master server.
-	logger.add(new winston.transports.File({
+	logger.add(new winston.transports.DailyRotateFile({
 		format: winston.format.json(),
-		filename: "master.log",
+		filename: "master-%DATE%.log",
+		dirname: path.join(parameters.args.logDirectory, "master"),
 	}));
 	logger.add(new winston.transports.Stream({
 		stream: parameters.clusterLogger,

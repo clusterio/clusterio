@@ -23,6 +23,7 @@ const phin = require("phin");
 const util = require("util");
 const version = require("./package").version;
 const winston = require("winston");
+require("winston-daily-rotate-file");
 
 // internal libraries
 const libFileOps = require("@clusterio/lib/file_ops");
@@ -1734,6 +1735,12 @@ async function startSlave() {
 			choices: ["none"].concat(Object.keys(levels)),
 			type: "string",
 		})
+		.option("log-directory", {
+			nargs: 1,
+			describe: "Directory to place logs in",
+			default: "logs",
+			type: "string",
+		})
 		.option("config", {
 			nargs: 1,
 			describe: "slave config file to use",
@@ -1754,11 +1761,25 @@ async function startSlave() {
 		.argv
 	;
 
-	logger.add(new winston.transports.File({
-		format: winston.format.combine(
-			winston.format.json(),
-		),
-		filename: "slave.log",
+	{
+		// Migration from alpha-10 single file logs, note that we can't use
+		// the logger here as it's not initalized yet.
+		/* eslint-disable no-console */
+		let slaveLogDirectory = path.join(args.logDirectory, "slave");
+		if (!await fs.pathExists(slaveLogDirectory) && await fs.pathExists("slave.log")) {
+			console.log("Migrating slave log...");
+			await fs.ensureDir(slaveLogDirectory);
+			await libLoggingUtils.migrateLogs("slave.log", slaveLogDirectory, "slave-%DATE%.log");
+			console.log("Migration complete, you should delete slave.log now");
+		}
+		/* eslint-enable no-console */
+	}
+
+	logger.add(new winston.transports.DailyRotateFile({
+		format: winston.format.json(),
+		filename: "slave-%DATE%.log",
+		utc: true,
+		dirname: path.join(args.logDirectory, "slave"),
 	}));
 	if (args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({
