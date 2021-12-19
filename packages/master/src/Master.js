@@ -12,6 +12,7 @@ const libConfig = require("@clusterio/lib/config");
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libLink = require("@clusterio/lib/link");
+const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libPrometheus = require("@clusterio/lib/prometheus");
@@ -117,6 +118,14 @@ class Master {
 	}
 
 	async _startInternal(args) {
+		this.logDirectory = args.logDirectory;
+		this.clusterLogIndex = await libLoggingUtils.LogIndex.load(path.join(this.logDirectory, "cluster"));
+		this.clusterLogBuildInterval = setInterval(() => {
+			this.clusterLogIndex.buildIndex().catch(
+				err => logger.error(`Error building cluster log index:\n${err.stack}`)
+			);
+		}, 600e3);
+
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
 			logger.warn("Webpack development mode enabled");
@@ -240,6 +249,10 @@ class Master {
 		// This function should never throw.
 		this._state = "stopping";
 		logger.info("Stopping master");
+		clearInterval(this.clusterLogBuildInterval);
+		if (this.clusterLogIndex) {
+			await this.clusterLogIndex.save();
+		}
 
 		logger.info("Saving config");
 		await libFileOps.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
@@ -331,6 +344,33 @@ class Master {
 		}
 
 		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
+	}
+
+	/**
+	 * Query master log
+	 *
+	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
+	 *     Filter to limit entries with. Note that only the master log can
+	 *     be queried from this function.
+	 * @returns {Array<Object>} log entries matching the filter
+	 */
+	async queryMasterLog(filter) {
+		return await libLoggingUtils.queryLog(
+			path.join(this.logDirectory, "master"), filter,
+		);
+	}
+
+	/**
+	 * Query cluster log
+	 *
+	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
+	 *     Filter to limit entries with.
+	 * @returns {Array<Object>} log entries matching the filter
+	 */
+	async queryClusterLog(filter) {
+		return await libLoggingUtils.queryLog(
+			path.join(this.logDirectory, "cluster"), filter, this.clusterLogIndex,
+		);
 	}
 
 	static addAppRoutes(app, pluginInfos) {

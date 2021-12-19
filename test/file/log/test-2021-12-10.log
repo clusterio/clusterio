@@ -1,0 +1,9 @@
+{"timestamp":"2021-12-10T10:00:00.000Z","level":"verbose","message":"Master start"}
+{"timestamp":"2021-12-10T10:00:01.000Z","level":"verbose","message":"Loading"}
+{"timestamp":"2021-12-10T10:00:03.000Z","level":"info","message":"Ready"}
+{"timestamp":"2021-12-10T10:00:10.000Z","slave_id":1,"level":"verbose","message":"Slave connected"}
+{"timestamp":"2021-12-10T10:00:11.000Z","slave_id":1,"level":"verbose","message":"Found instance 10"}
+{"timestamp":"2021-12-10T10:00:13.000Z","slave_id":1,"instance_id":10,"level":"server","message":"Starting up"}
+{"timestamp":"2021-12-10T10:00:14.000Z","slave_id":1,"instance_id":10,"level":"server","message":"Loading map"}
+{"timestamp":"2021-12-10T10:00:15.000Z","slave_id":1,"instance_id":10,"level":"server","message":"Game ready"}
+{"timestamp":"2021-12-10T10:01:00.000Z","slave_id":1,"instance_id":10,"level":"error","message":"Unexpected crash"}
