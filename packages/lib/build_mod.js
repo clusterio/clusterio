@@ -5,7 +5,11 @@ const fs = require("fs-extra");
 const JSZip = require("jszip");
 const klaw = require("klaw");
 const path = require("path");
+const stream = require("stream");
+const util = require("util");
 const yargs = require("yargs");
+
+const finished = util.promisify(stream.finished);
 
 
 async function buildMod(args, info) {
@@ -42,7 +46,7 @@ async function buildMod(args, info) {
 			let modPath = path.join(args.outputDir, `${modName}.zip`);
 			console.log(`Writing ${modPath}`);
 			let writeStream = zip.generateNodeStream().pipe(fs.createWriteStream(modPath));
-			await events.once(writeStream, "finish");
+			await finished(writeStream);
 
 		} else {
 			let modDir = path.join(args.outputDir, modName);

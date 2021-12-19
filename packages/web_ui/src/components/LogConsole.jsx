@@ -94,7 +94,7 @@ export default function LogConsole(props) {
 		return () => {
 			control.offLog(logFilter, logHandler);
 		};
-	}, [props.all, props.master, props.slaves, props.instances]);
+	}, [props.all, props.master, (props.slaves || []).join(), (props.instances || []).join()]);
 
 	return <>
 		<Paragraph code className="instance-console">

@@ -1,12 +1,10 @@
 "use strict";
 const jwt = require("jsonwebtoken");
-const util = require("util");
-const winston = require("winston");
 
 const libConfig = require("@clusterio/lib/config");
 const libErrors = require("@clusterio/lib/errors");
 const libLink = require("@clusterio/lib/link");
-const { levels, logger } = require("@clusterio/lib/logging");
+const { logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPrometheus = require("@clusterio/lib/prometheus");
@@ -402,29 +400,6 @@ class ControlConnection extends BaseConnection {
 		this.updateLogSubscriptions();
 	}
 
-	static logFilter({ all, master, slave_ids, instance_ids, max_level }) {
-		return info => {
-			// Note: reversed to filter out undefined levels
-			if (max_level && !(levels[info.level] <= levels[max_level])) {
-				return false;
-			}
-
-			if (all) {
-				return true;
-			}
-			if (master && info.slave_id === undefined) {
-				return true;
-			}
-			if (info.slave_id && slave_ids.includes(info.slave_id)) {
-				return true;
-			}
-			if (info.instance_id && instance_ids.includes(info.instance_id)) {
-				return true;
-			}
-			return false;
-		};
-	}
-
 	updateLogSubscriptions() {
 		let { all, master, slave_ids, instance_ids } = this.logSubscriptions;
 		if (all || master || slave_ids.length || instance_ids.length) {
@@ -432,7 +407,7 @@ class ControlConnection extends BaseConnection {
 				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
 				this._master.clusterLogger.add(this.logTransport);
 			}
-			this.logTransport.filter = this.constructor.logFilter(this.logSubscriptions);
+			this.logTransport.filter = libLoggingUtils.logFilter(this.logSubscriptions);
 
 		} else if (this.logTransport) {
 			this._master.clusterLogger.remove(this.logTransport);
@@ -441,34 +416,16 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async queryLogRequestHandler(message) {
-		let transport = new winston.transports.File({ filename: "cluster.log" });
-		let query = util.promisify((options, callback) => transport.query(options, callback));
-
-		// Available options and defaults inferred from reading the source
-		// rows: number = limit || 10
-		// limit: number // alias of rows.
-		// start: number = 0
-		// until: Date = now
-		// from: Date = until - 24h
-		// order: "asc"|"desc" = "desc"
-		// fields: Array<string>
-		// level: string
-		// This interface is junk:
-		// - The level option filters by exact match
-		// - No way to add your own filter
-		// - No way to stream results
-		// - The log file is read starting from the beginning
 		let setDuration = lastQueryLogTime.startTimer();
-		let log = await query({
-			order: message.data.order,
-			limit: Infinity,
-			from: new Date(0),
-		});
+		let { all, master, slave_ids, instance_ids } = message.data;
 
-		log = log.filter(this.constructor.logFilter(message.data));
-		if (message.data.limit) {
-			log = log.slice(0, message.data.limit);
+		let log;
+		if (!all && master && !slave_ids.length && !instance_ids.length) {
+			log = await this._master.queryMasterLog(message.data);
+		} else {
+			log = await this._master.queryClusterLog(message.data);
 		}
+
 		setDuration();
 		return { log };
 	}

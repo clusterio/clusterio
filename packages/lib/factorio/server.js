@@ -13,6 +13,7 @@ const libFileOps = require("../file_ops");
 const libIni = require("../ini");
 const { logger } = require("../logging");
 const { escapeRegExp } = require("../helpers");
+const { LineSplitter } = require("../stream");
 
 
 /**
@@ -190,82 +191,6 @@ async function generatePassword(length) {
 					return password;
 				}
 			}
-		}
-	}
-}
-
-/**
- * Line splitter for chunked data
- *
- * Splits a stream of bytes into lines terminated by either line feed or
- * carriage return followed by linefeed.  Each line sepparated is passed
- * to the callback one at a time without the line terminator included.
- *
- * Data is streamed via the data method, and once the stream ends the
- * end method should be called.  This ensures an unterminated line at
- * the end of the stream is passed to the callback.
- *
- * @memberof module:lib/factorio
- * @private
- * @inner
- */
-class LineSplitter {
-
-	/**
-	 * Create a line splitter
-	 *
-	 * @param {function(Buffer)} callback - Function called for every line.
-	 */
-	constructor(callback) {
-		this._callback = callback;
-		this._partial = null;
-	}
-
-	/**
-	 * Stream in bytes
-	 *
-	 * Input bytes to split lines over.  Will invoke the callback for every
-	 * line found in buf and keep any potential partial line at the end of
-	 * buf for the next invocation.
-	 *
-	 * @param {Buffer} buf - Data to stream in.
-	 */
-	data(buf) {
-		if (this._partial) {
-			buf = Buffer.concat([this._partial, buf]);
-			this._partial = null;
-		}
-
-		while (buf.length) {
-			let end = buf.indexOf("\n");
-			if (end === -1) {
-				this._partial = buf;
-				break;
-			}
-
-			let next = end + 1;
-			// Eat carriage return as well if present
-			if (end >= 1 && buf[end-1] === "\r".charCodeAt(0)) {
-				end -= 1;
-			}
-
-			let line = buf.slice(0, end);
-			buf = buf.slice(next);
-			this._callback(line);
-		}
-	}
-
-	/**
-	 * Mark end of stream
-	 *
-	 * Signal the end of the bytestream.  If the previous invocation of the
-	 * data method ended with a partial line this will invoke the callback
-	 * with this line.
-	 */
-	end() {
-		if (this._partial) {
-			this._callback(this._partial);
-			this._partial = null;
 		}
 	}
 }
@@ -563,9 +488,6 @@ class FactorioServer extends events.EventEmitter {
 		// Array of possible causes for an unexpected shutdown
 		this._unexpected = [];
 
-		this._stdout = new LineSplitter((line) => { this._handleOutput(line, "stdout"); });
-		this._stderr = new LineSplitter((line) => { this._handleOutput(line, "stderr"); });
-
 		// Track autosaving
 		this._runningAutosave = null;
 		this.on("_autosave", name => {
@@ -761,10 +683,12 @@ class FactorioServer extends events.EventEmitter {
 	}
 
 	_attachStdio() {
-		this._server.stdout.on("data", chunk => { this._stdout.data(chunk); });
-		this._server.stdout.on("close", () => { this._stdout.end(); });
-		this._server.stderr.on("data", chunk => { this._stderr.data(chunk); });
-		this._server.stderr.on("close", () => { this._stderr.end(); });
+		let stdout = new LineSplitter({ readableObjectMode: true });
+		stdout.on("data", line => { this._handleOutput(line, "stdout"); });
+		this._server.stdout.pipe(stdout);
+		let stderr = new LineSplitter({ readableObjectMode: true });
+		stderr.on("data", line => { this._handleOutput(line, "stderr"); });
+		this._server.stderr.pipe(stderr);
 	}
 
 	_watchExit() {
@@ -1201,6 +1125,5 @@ module.exports = {
 	_findVersion: findVersion,
 	_randomDynamicPort: randomDynamicPort,
 	_generatePassword: generatePassword,
-	_LineSplitter: LineSplitter,
 	_parseOutput: parseOutput,
 };

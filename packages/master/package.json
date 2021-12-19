@@ -28,6 +28,7 @@
     "jszip": "^3.2.2",
     "set-blocking": "^2.0.0",
     "winston": "^3.3.3",
+    "winston-daily-rotate-file": "^4.5.5",
     "ws": "^7.2.3",
     "yargs": "^14.2.0"
   },

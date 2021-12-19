@@ -20,9 +20,11 @@ const events = require("events");
 const pidusage = require("pidusage");
 const setBlocking = require("set-blocking");
 const phin = require("phin");
+const stream = require("stream");
 const util = require("util");
 const version = require("./package").version;
 const winston = require("winston");
+require("winston-daily-rotate-file");
 
 // internal libraries
 const libFileOps = require("@clusterio/lib/file_ops");
@@ -38,6 +40,8 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
+
+const finished = util.promisify(stream.finished);
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -1477,11 +1481,11 @@ class Slave extends libLink.Link {
 
 		let savesDir = path.join(instanceInfo.path, "saves");
 		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
-		let stream;
+		let writeStream;
 		while (true) {
 			try {
-				stream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
-				await events.once(stream, "open");
+				writeStream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
+				await events.once(writeStream, "open");
 				break;
 			} catch (err) {
 				if (err.code === "EEXIST") {
@@ -1491,8 +1495,8 @@ class Slave extends libLink.Link {
 				}
 			}
 		}
-		response.pipe(stream);
-		await events.once(stream, "finish");
+		response.pipe(writeStream);
+		await finished(writeStream);
 
 		filename = await libFileOps.findUnusedName(savesDir, filename, ".zip");
 		await fs.rename(path.join(savesDir, tempFilename), path.join(savesDir, filename));
@@ -1734,6 +1738,12 @@ async function startSlave() {
 			choices: ["none"].concat(Object.keys(levels)),
 			type: "string",
 		})
+		.option("log-directory", {
+			nargs: 1,
+			describe: "Directory to place logs in",
+			default: "logs",
+			type: "string",
+		})
 		.option("config", {
 			nargs: 1,
 			describe: "slave config file to use",
@@ -1754,11 +1764,25 @@ async function startSlave() {
 		.argv
 	;
 
-	logger.add(new winston.transports.File({
-		format: winston.format.combine(
-			winston.format.json(),
-		),
-		filename: "slave.log",
+	{
+		// Migration from alpha-10 single file logs, note that we can't use
+		// the logger here as it's not initalized yet.
+		/* eslint-disable no-console */
+		let slaveLogDirectory = path.join(args.logDirectory, "slave");
+		if (!await fs.pathExists(slaveLogDirectory) && await fs.pathExists("slave.log")) {
+			console.log("Migrating slave log...");
+			await fs.ensureDir(slaveLogDirectory);
+			await libLoggingUtils.migrateLogs("slave.log", slaveLogDirectory, "slave-%DATE%.log");
+			console.log("Migration complete, you should delete slave.log now");
+		}
+		/* eslint-enable no-console */
+	}
+
+	logger.add(new winston.transports.DailyRotateFile({
+		format: winston.format.json(),
+		filename: "slave-%DATE%.log",
+		utc: true,
+		dirname: path.join(args.logDirectory, "slave"),
 	}));
 	if (args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({

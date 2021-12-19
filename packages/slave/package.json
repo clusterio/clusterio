@@ -24,6 +24,7 @@
     "pidusage": "^2.0.18",
     "set-blocking": "^2.0.0",
     "winston": "^3.3.3",
+    "winston-daily-rotate-file": "^4.5.5",
     "yargs": "^14.2.0"
   },
   "publishConfig": {
