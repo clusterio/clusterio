@@ -15,6 +15,7 @@ const yargs = require("yargs");
 const { levels, logger, setLogLevel } = require("./logging");
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
+const finished = util.promisify(stream.finished);
 
 
 const availablePlugins = [
@@ -480,7 +481,7 @@ async function downloadLinuxServer() {
 		const writeStream = fs.createWriteStream(tmpArchivePath);
 		res.pipe(writeStream);
 
-		await events.once(res, "end");
+		await finished(writeStream);
 
 		await fs.rename(tmpArchivePath, archivePath);
 		try {

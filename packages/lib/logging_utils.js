@@ -8,6 +8,8 @@
 const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
+const stream = require("stream");
+const util = require("util");
 const winston = require("winston");
 const Transport = require("winston-transport");
 const { LEVEL, MESSAGE } = require("triple-beam");
@@ -18,6 +20,8 @@ const libErrors = require("./errors");
 const libFileOps = require("./file_ops");
 const { levels, logger } = require("./logging");
 const libStream = require("./stream");
+
+const finished = util.promisify(stream.finished);
 
 
 /**
@@ -435,7 +439,13 @@ async function queryLog(logDirectory, filter, index) {
 			}
 		});
 		fileStream.pipe(lineStream);
-		await events.once(lineStream, "close");
+		try {
+			await finished(lineStream);
+		} catch (err) {
+			if (log.length < filter.limit || err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
+				throw err;
+			}
+		}
 
 		if (log.length >= filter.limit) {
 			break;
@@ -456,7 +466,7 @@ async function migrateLogs(log, directory, pattern) {
 	async function switchOutput(newOutputPath) {
 		if (output) {
 			output.end();
-			await events.once(output, "close");
+			await finished(output);
 		}
 
 		output = fs.createWriteStream(newOutputPath, { flags: "ax" });

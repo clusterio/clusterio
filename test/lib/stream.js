@@ -3,16 +3,20 @@ const assert = require("assert").strict;
 const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
+const stream = require("stream");
+const util = require("util");
 
 const libStream = require("@clusterio/lib/stream");
+
+const finished = util.promisify(stream.finished);
 
 
 describe("lib/stream", function() {
 	describe("class LineSplitter", function() {
 		function createSplitter(lines) {
-			let stream = new libStream.LineSplitter({ readableObjectMode: true });
-			stream.on("data", line => lines.push(line.toString("utf-8")));
-			return stream;
+			let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
+			lineStream.on("data", line => lines.push(line.toString("utf-8")));
+			return lineStream;
 		}
 
 		it("should split three lines", function() {
@@ -57,9 +61,9 @@ describe("lib/stream", function() {
 
 	describe("class ReverseLineSplitter", function() {
 		function createReverseSplitter(lines) {
-			let stream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
-			stream.on("data", line => lines.push(line.toString("utf-8")));
-			return stream;
+			let lineStream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
+			lineStream.on("data", line => lines.push(line.toString("utf-8")));
+			return lineStream;
 		}
 
 		it("should split three lines", function() {
@@ -107,16 +111,16 @@ describe("lib/stream", function() {
 			let content = "";
 			for (let i = 0; i < 10; i++) { content += String(i).repeat(10); }
 			await fs.outputFile(path.join("temp", "test", "reverse.txt"), content);
-			let stream = await libStream.createReverseReadStream(
+			let reverseStream = await libStream.createReverseReadStream(
 				path.join("temp", "test", "reverse.txt"),
 				{ encoding: "utf8", highWaterMark: 10 }
 			);
 			let index = 9;
-			stream.on("data", data => {
+			reverseStream.on("data", data => {
 				assert.equal(data, String(index).repeat(10));
 				index -= 1;
 			});
-			await events.once(stream, "end");
+			await finished(reverseStream);
 		});
 
 		it("should reverse the lines of a file", async function() {
@@ -125,7 +129,7 @@ describe("lib/stream", function() {
 				ws.write(Buffer.from(`${i}\n`));
 			}
 			ws.end();
-			await events.once(ws, "finish");
+			await finished(ws);
 
 			let lineStream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
 			let index = 99999;
@@ -139,7 +143,7 @@ describe("lib/stream", function() {
 				index -= 1;
 			});
 			rs.pipe(lineStream);
-			await events.once(lineStream, "end");
+			await finished(lineStream);
 
 			assert.equal(index, 0, "line check did not reach the end");
 		});

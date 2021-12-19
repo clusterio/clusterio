@@ -20,6 +20,7 @@ const events = require("events");
 const pidusage = require("pidusage");
 const setBlocking = require("set-blocking");
 const phin = require("phin");
+const stream = require("stream");
 const util = require("util");
 const version = require("./package").version;
 const winston = require("winston");
@@ -39,6 +40,8 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
+
+const finished = util.promisify(stream.finished);
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -1478,11 +1481,11 @@ class Slave extends libLink.Link {
 
 		let savesDir = path.join(instanceInfo.path, "saves");
 		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
-		let stream;
+		let writeStream;
 		while (true) {
 			try {
-				stream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
-				await events.once(stream, "open");
+				writeStream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
+				await events.once(writeStream, "open");
 				break;
 			} catch (err) {
 				if (err.code === "EEXIST") {
@@ -1492,8 +1495,8 @@ class Slave extends libLink.Link {
 				}
 			}
 		}
-		response.pipe(stream);
-		await events.once(stream, "finish");
+		response.pipe(writeStream);
+		await finished(writeStream);
 
 		filename = await libFileOps.findUnusedName(savesDir, filename, ".zip");
 		await fs.rename(path.join(savesDir, tempFilename), path.join(savesDir, filename));

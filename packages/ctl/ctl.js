@@ -16,6 +16,8 @@ const setBlocking = require("set-blocking");
 const phin = require("phin");
 const os = require("os");
 const child_process = require("child_process");
+const stream = require("stream");
+const util = require("util");
 
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
@@ -29,6 +31,8 @@ const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
 const libFactorio = require("@clusterio/lib/factorio");
 const libFileOps = require("@clusterio/lib/file_ops");
+
+const finished = util.promisify(stream.finished);
 
 
 function print(...content) {
@@ -640,12 +644,12 @@ instanceCommands.add(new libCommand.Command({
 			stream: true,
 		});
 
-		let stream;
+		let writeStream;
 		let tempFilename = args.save.replace(/(\.zip)?$/, ".tmp.zip");
 		while (true) {
 			try {
-				stream = fs.createWriteStream(tempFilename, { flags: "wx" });
-				await events.once(stream, "open");
+				writeStream = fs.createWriteStream(tempFilename, { flags: "wx" });
+				await events.once(writeStream, "open");
 				break;
 			} catch (err) {
 				if (err.code === "EEXIST") {
@@ -655,8 +659,8 @@ instanceCommands.add(new libCommand.Command({
 				}
 			}
 		}
-		response.pipe(stream);
-		await events.once(stream, "finish");
+		response.pipe(writeStream);
+		await finished(writeStream);
 
 		let filename = await libFileOps.findUnusedName(".", args.save, ".zip");
 		await fs.rename(tempFilename, filename);
