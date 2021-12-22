@@ -913,16 +913,13 @@ userCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let data = await fs.readFile(args.file, "utf8");
 		let names = data.split("\n");
-		for (let name in names) {
-			if (name in names) {
-				if (names[name] === "") {
-					continue;
-				}
+		await names.forEach(async (name) => {
+			if (name !== "") {
 				await libLink.messages.setUserAdmin.send(control, {
-					name: names[name], create: args.create, admin: true,
+					name: name, create: args.create, admin: true,
 				});
 			}
-		}
+		});
 	},
 }));
 
@@ -951,16 +948,13 @@ userCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let data = await fs.readFile(args.file, "utf8");
 		let names = data.split("\n");
-		for (let name in names) {
-			if (name in names) {
-				if (names[name] === "") {
-					continue;
-				}
+		await names.forEach(async (name) => {
+			if (name !== "") {
 				await libLink.messages.setUserWhitelisted.send(control, {
-					name: names[name], create: args.create, whitelisted: true,
+					name: name, create: args.create, whitelisted: true,
 				});
 			}
-		}
+		});
 	},
 }));
 
@@ -990,12 +984,9 @@ userCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let data = await fs.readFile(args.file, "utf8");
 		let names = data.split("\n");
-		for (let part in names) {
-			if (part in names) {
-				if (names[part] === "") {
-					continue;
-				}
-				let namereason = names[part].split(" ");
+		await names.forEach(async (part) => {
+			if (part !== "") {
+				let namereason = part.split(" ");
 				await libLink.messages.setUserBanned.send(control, {
 					name: namereason[0],
 					create: args.create,
@@ -1003,7 +994,7 @@ userCommands.add(new libCommand.Command({
 					reason: namereason.slice(1, namereason.length).join(" "),
 				});
 			}
-		}
+		});
 	},
 }));
 
