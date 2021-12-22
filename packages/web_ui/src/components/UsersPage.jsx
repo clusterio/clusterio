@@ -66,7 +66,7 @@ async function bulkAdmin (e, control) {
 			}
 		});
 	};
-    	reader.readAsText(e.target.files[0]);
+    	await reader.readAsText(e.target.files[0]);
 }
 
 async function bulkWhitelist (e, control) {
@@ -83,14 +83,14 @@ async function bulkWhitelist (e, control) {
 			}
 		});
 	};
-    	reader.readAsText(e.target.files[0]);
+    	await reader.readAsText(e.target.files[0]);
 }
 
 async function bulkBanned (e, control) {
 	e.preventDefault();
 	const reader = new FileReader();
 	reader.onload = async (k) => {
-		const text = (k.target.result);
+		const text = k.target.result;
 		let names = text.split("\n");
 		await names.forEach(async (part) => {
 			if (part !== "") {
@@ -103,8 +103,9 @@ async function bulkBanned (e, control) {
 				});
 			}
 		});
+		return 0;
 	};
-    	reader.readAsText(e.target.files[0]);
+    	await reader.readAsText(e.target.files[0]);
 }
 
 export default function UsersPage() {
@@ -155,14 +156,14 @@ export default function UsersPage() {
 				{
 					title: "Whitelisted",
 					key: "whitelisted",
-					render: user => user["is_whitelisted"] && "yes",
+					render: user => user["is_whitelisted"] && "yes" || "no",
 					sorter: (a, b) => a["is_whitelisted"] - b["is_whitelisted"],
 					responsive: ["lg"],
 				},
 				{
 					title: "Banned",
 					key: "banned",
-					render: user => user["is_banned"] && "yes",
+					render: user => user["is_banned"] && "yes" || "no",
 					sorter: (a, b) => a["is_banned"] - b["is_banned"],
 					responsive: ["lg"],
 				},
@@ -176,26 +177,40 @@ export default function UsersPage() {
 				},
 			})}
 		/>
-		<div>
-			<br/>
-			<div>
-				Bulk Import Admin list:
-				<br/>
-				<input type="file" onChange={ (e) => bulkAdmin(e, control)}/>
-			</div>
-			<br/>
-			<div>
-				Bulk Import Whitelist:
-				<br/>
-				<input type="file" onChange={ (e) => bulkWhitelist(e, control)}/>
-			</div>
-			<br/>
-			<div>
-				Bulk Import Banlist:
-				<br/>
-				<input type="file" onChange={ (e) => bulkBanned(e, control)}/>
-			</div>
+		<div style={{padding: "20px"}}>
+			<span style={{padding: "20px"}}>
+				<Button>
+					<label htmlFor="admin-file-select">
+						Bulk Admin Import
+					</label>
+				</Button>
+			</span>
+			<input id="admin-file-select" type="file"
+				style={{display: "none"}}
+				onChange={(e) => bulkAdmin(e, control)}
+			/>
+			<span style={{padding: "20px"}}>
+				<Button>
+					<label htmlFor="whitelist-file-select">
+						Bulk Whitelist Import
+					</label>
+				</Button>
+			</span>
+			<input id="whitelist-file-select" type="file"
+				style={{display: "none"}}
+				onChange={(e) => bulkWhitelist(e, control)}
+			/>
+			<span style={{padding: "20px"}}>
+				<Button>
+					<label htmlFor="banlist-file-select">
+						Bulk Banlist Import
+					</label>
+				</Button>
+			</span>
+			<input id="banlist-file-select"type="file"
+				style={{display: "none"}}
+				onChange={ (e) => bulkBanned(e, control)}
+			/>
 		</div>
 	</PageLayout>;
-	// Temporary solution?
 }
