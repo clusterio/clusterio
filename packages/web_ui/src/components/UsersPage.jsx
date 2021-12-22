@@ -51,6 +51,61 @@ function CreateUserButton() {
 		</Modal>
 	</>;
 }
+// Group of functions to read from a file and run a bulk import using the content from the file
+async function bulkAdmin (e, control) {
+	e.preventDefault();
+	const reader = new FileReader();
+	reader.onload = async (k) => {
+		const text = (k.target.result);
+		let names = text.split("\n");
+		await names.forEach(async (name) => {
+			if (name !== "") {
+				await libLink.messages.setUserAdmin.send(control, {
+					name: name, create: true, admin: true,
+				});
+			}
+		});
+	};
+    	reader.readAsText(e.target.files[0]);
+}
+
+async function bulkWhitelist (e, control) {
+	e.preventDefault();
+	const reader = new FileReader();
+	reader.onload = async (k) => {
+		const text = (k.target.result);
+		let names = text.split("\n");
+		await names.forEach(async (name) => {
+			if (name !== "") {
+				await libLink.messages.setUserWhitelisted.send(control, {
+					name: name, create: true, whitelisted: true,
+				});
+			}
+		});
+	};
+    	reader.readAsText(e.target.files[0]);
+}
+
+async function bulkBanned (e, control) {
+	e.preventDefault();
+	const reader = new FileReader();
+	reader.onload = async (k) => {
+		const text = (k.target.result);
+		let names = text.split("\n");
+		await names.forEach(async (part) => {
+			if (part !== "") {
+				let namereason = part.split(" ");
+				await libLink.messages.setUserBanned.send(control, {
+					name: namereason[0],
+					create: true,
+					banned: true,
+					reason: namereason.slice(1, namereason.length).join(" "),
+				});
+			}
+		});
+	};
+    	reader.readAsText(e.target.files[0]);
+}
 
 export default function UsersPage() {
 	let account = useAccount();
@@ -121,5 +176,26 @@ export default function UsersPage() {
 				},
 			})}
 		/>
+		<div>
+			<br/>
+			<div>
+				Bulk Import Admin list:
+				<br/>
+				<input type="file" onChange={ (e) => bulkAdmin(e, control)}/>
+			</div>
+			<br/>
+			<div>
+				Bulk Import Whitelist:
+				<br/>
+				<input type="file" onChange={ (e) => bulkWhitelist(e, control)}/>
+			</div>
+			<br/>
+			<div>
+				Bulk Import Banlist:
+				<br/>
+				<input type="file" onChange={ (e) => bulkBanned(e, control)}/>
+			</div>
+		</div>
 	</PageLayout>;
+	// Temporary solution?
 }
