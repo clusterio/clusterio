@@ -163,7 +163,7 @@ export default function UsersPage() {
 				{
 					title: "Banned",
 					key: "banned",
-					render: user => user["is_banned"] && "yes" ||,
+					render: user => user["is_banned"] && "yes",
 					sorter: (a, b) => a["is_banned"] - b["is_banned"],
 					responsive: ["lg"],
 				},
