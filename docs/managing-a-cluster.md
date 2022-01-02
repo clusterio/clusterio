@@ -26,7 +26,7 @@ Generate a token for a slave. `--id` is the slave id, a number.
 
     ctl> slave create-config [--id <slave id>] [--name <slave name>] [--generate-token <bool>] [--output <path to output>]
 
-Create a slave config. `--id` id the slave id, a number. `--name` is the slave name, a string. `--generate-token` decides whether to also generate a token, a bool, with a default of 0. `--output` is the filename for the output of the config; Default is "config-slave.json", "-" for stdout.
+Create a slave config. `--id` id the slave id, a number. `--name` is the slave name, a string. `--generate-token` decides whether to also generate a token, a bool, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-slave.json", "-" for stdout.
 
 ## Instances
 
