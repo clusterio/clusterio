@@ -58,13 +58,13 @@ async function bulkAdmin (e, control) {
 	reader.onload = async (k) => {
 		const text = (k.target.result);
 		let names = text.split("\n");
-		await names.forEach(async (name) => {
+		await Promise.all(names.map(async (name) => {
 			if (name !== "") {
 				await libLink.messages.setUserAdmin.send(control, {
 					name: name, create: true, admin: true,
 				});
 			}
-		});
+		}));
 	};
     	await reader.readAsText(e.target.files[0]);
 }
@@ -75,13 +75,13 @@ async function bulkWhitelist (e, control) {
 	reader.onload = async (k) => {
 		const text = (k.target.result);
 		let names = text.split("\n");
-		await names.forEach(async (name) => {
+		await Promise.all(names.map(async (name) => {
 			if (name !== "") {
 				await libLink.messages.setUserWhitelisted.send(control, {
 					name: name, create: true, whitelisted: true,
 				});
 			}
-		});
+		}));
 	};
     	await reader.readAsText(e.target.files[0]);
 }
@@ -92,7 +92,7 @@ async function bulkBanned (e, control) {
 	reader.onload = async (k) => {
 		const text = k.target.result;
 		let names = text.split("\n");
-		await names.forEach(async (part) => {
+		await Promise.all(names.map(async (part) => {
 			if (part !== "") {
 				let namereason = part.split(" ");
 				await libLink.messages.setUserBanned.send(control, {
@@ -102,7 +102,7 @@ async function bulkBanned (e, control) {
 					reason: namereason.slice(1, namereason.length).join(" "),
 				});
 			}
-		});
+		}));
 		return 0;
 	};
     	await reader.readAsText(e.target.files[0]);
