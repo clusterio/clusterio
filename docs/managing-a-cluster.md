@@ -24,9 +24,9 @@ Generate a token for a slave. `--id` is the slave id, a number.
 
 ### Create config
 
-    ctl> slave create-config [--id <slave id>] [--name <slave name>] [--generate-token <bool>] [--output <path to output, - for stdout>]
+    ctl> slave create-config [--id <slave id>] [--name <slave name>] [--generate-token <bool>] [--output <path to output>]
 
-Create a slave config. `--id` id the slave id, a number. `--name` is the slave name, a string. `--generate-token` decides whether to also generate a token, a bool, with a default of 0. `--output` is the filename for the output of the config. Default is "config-slave.json", "-" for stdout.
+Create a slave config. `--id` id the slave id, a number. `--name` is the slave name, a string. `--generate-token` decides whether to also generate a token, a bool, with a default of 0. `--output` is the filename for the output of the config; Default is "config-slave.json", "-" for stdout.
 
 ## Instances
 
@@ -64,7 +64,7 @@ To be written.
 
     ctl> instance config edit <instance> [editor]
 
-Edit instance config in a text editor. Once file is saved and editor has been exited, config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` and `VISUAL` enviroment variables.
+Edit instance config in a text editor. Once file is saved and editor has been exited, config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
 
 ### Assign instance to slave
 
@@ -130,9 +130,8 @@ Note: This bans the user from logging in to Factorio servers in the cluster, it 
 
 ### Bulk importing admin, whitelist and ban lists
 
-Whitelists, banlists and admin lists can be bulk imported with the following commands:
+Whitelists and admin lists can be bulk imported with the following commands:
 
-    ctl> user banned-bulk-import <file> [--create]
     ctl> user whitelist-bulk-import <file> [--create]
     ctl> user admin-bulk-import <file> [--create]
 
@@ -143,6 +142,19 @@ The file should simply be newline seperated names:
     allan
 
 The `--create` option will create the user if they do not exist, and then set the relevent value.
+
+Banlists can be bulk imported with the following command:
+    
+    ctl> user banned-bulk-import <file> [--create]
+
+The file should be names, followed by a ban reason:
+
+    joe greifed copper mines
+    bob stole materials
+    allan rude language
+
+The first string on the line is used as the username, the others are used as the ban reason.
+The `--create` option will create the user if they do not exist, then ban them.
 
 ### Set Cluster Roles
 
