@@ -1132,6 +1132,13 @@ messages.slaveUpdate = new Event({
 	eventProperties: slaveProperties,
 });
 
+messages.userUpdate = new Event({
+	type: "user_update",
+	links: ["master-control"],
+	eventProperties: {
+		"username": { type: "string"},
+	},
+});
 
 messages.instanceInitialized = new Event({
 	type: "instance_initialized",
