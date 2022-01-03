@@ -791,6 +791,7 @@ class FactorioServer extends events.EventEmitter {
 
 		try {
 			let [code, signal] = await events.once(this._server, "exit");
+			void signal;
 			if (code !== 0) {
 				throw new Error(`Factorio exited with status ${code}`);
 			}

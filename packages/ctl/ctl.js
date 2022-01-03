@@ -327,7 +327,7 @@ instanceCommands.add(new libCommand.Command({
 		}
 		instanceConfig.set("instance.name", args.name);
 		let serialized_config = instanceConfig.serialize("master");
-		let response = await libLink.messages.createInstance.send(control, { serialized_config });
+		await libLink.messages.createInstance.send(control, { serialized_config });
 	},
 }));
 
@@ -563,7 +563,7 @@ instanceCommands.add(new libCommand.Command({
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		let response = await libLink.messages.createSave.send(control, {
+		await libLink.messages.createSave.send(control, {
 			instance_id: instanceId,
 			name: args.name,
 			seed,
@@ -611,7 +611,7 @@ instanceCommands.add(new libCommand.Command({
 		}
 
 		for (let requestError of result.body.request_errors || []) {
-			logger.error(error);
+			logger.error(requestError);
 		}
 
 		if (result.body.saves && result.body.saves.length) {
@@ -690,7 +690,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		let response = await libLink.messages.exportData.send(control, {
+		await libLink.messages.exportData.send(control, {
 			instance_id: instanceId,
 		});
 	},
@@ -707,7 +707,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		let response = await libLink.messages.startInstance.send(control, {
+		await libLink.messages.startInstance.send(control, {
 			instance_id: instanceId,
 			save: args.save || null,
 		});
@@ -731,7 +731,7 @@ instanceCommands.add(new libCommand.Command({
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
-		let response = await libLink.messages.loadScenario.send(control, {
+		await libLink.messages.loadScenario.send(control, {
 			instance_id: instanceId,
 			scenario: args.scenario,
 			seed,
@@ -749,7 +749,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		let response = await libLink.messages.stopInstance.send(control, {
+		await libLink.messages.stopInstance.send(control, {
 			instance_id: instanceId,
 		});
 	},
@@ -760,7 +760,7 @@ instanceCommands.add(new libCommand.Command({
 		yargs.positional("instance", { describe: "Instance to delete", type: "string" });
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.deleteInstance.send(control, {
+		await libLink.messages.deleteInstance.send(control, {
 			instance_id: await libCommand.resolveInstance(control, args.instance),
 		});
 	},

@@ -4,7 +4,6 @@ const path = require("path");
 
 const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
-const libErrors = require("@clusterio/lib/errors");
 
 async function loadDatabase(config, logger) {
 	let itemsPath = path.resolve(config.get("master.database_directory"), "inventories.json");

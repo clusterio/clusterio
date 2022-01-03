@@ -1,5 +1,4 @@
 import React, { useContext } from "react";
-import { Typography } from "antd";
 
 import { libConfig, libLink } from "@clusterio/lib";
 

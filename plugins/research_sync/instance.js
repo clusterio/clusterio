@@ -43,7 +43,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
 			return;
 		}
-		let { name, level, researched } = message.data;
+		let { name, level } = message.data;
 		await this.sendOrderedRcon(
 			`/sc research_sync.research_technology("${libLuaTools.escapeString(name)}", ${level})`, true
 		);

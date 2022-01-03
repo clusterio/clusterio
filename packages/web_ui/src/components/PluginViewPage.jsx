@@ -1,10 +1,9 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Alert, Descriptions, Spin } from "antd";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
-import { notifyErrorHandler } from "../util/notify";
 
 
 export default function PluginViewPage() {

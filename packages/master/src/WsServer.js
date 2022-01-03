@@ -176,7 +176,7 @@ ${err.stack}`
 			return;
 		}
 
-		let { seq, type, data } = message;
+		let { type, data } = message;
 
 		if (type === "resume") {
 			let connector;

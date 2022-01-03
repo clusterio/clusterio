@@ -2,7 +2,6 @@
 
 "use strict";
 const child_process = require("child_process");
-const events = require("events");
 const fs = require("fs-extra");
 const inquirer = require("inquirer");
 const os = require("os");
@@ -94,7 +93,6 @@ async function safeOutputFile(file, data, options={}) {
 
 async function execFile(cmd, args) {
 	logger.verbose(`executing ${cmd} ${args.join(" ")}`);
-	const asyncExec = util.promisify(child_process.execFile);
 	return new Promise((resolve, reject) => {
 		let child = child_process.execFile(cmd, args, (err, stdout, stderr) => {
 			if (err) {

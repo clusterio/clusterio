@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useState } from "react";
+import { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
 import { libLink, libLogging } from "@clusterio/lib";

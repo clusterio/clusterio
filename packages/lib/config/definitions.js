@@ -376,9 +376,9 @@ ControlConfig.registerGroup(ControlGroup);
 
 
 function validateGroup(pluginInfo, groupName) {
-	if (!pluginInfo[groupName] instanceof classes.PluginConfigGroup) {
+	if (!(pluginInfo[groupName].prototype instanceof classes.PluginConfigGroup)) {
 		throw new Error(
-			`Expected ${groupName} for ${pluginInfo.name} to be an instance of PluginConfigGroup`
+			`Expected ${groupName} for ${pluginInfo.name} to be a subclass of PluginConfigGroup`
 		);
 	}
 

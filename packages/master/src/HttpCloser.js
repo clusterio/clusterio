@@ -1,7 +1,6 @@
 "use strict";
 const http = require("http");
 const https = require("https");
-const util = require("util");
 
 /**
  * Gracefully close a Node.js HTTP(S) server

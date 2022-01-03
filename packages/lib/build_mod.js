@@ -83,7 +83,7 @@ async function build(args) {
 		for (let entry of await fs.readdir(args.outputDir)) {
 			let match = splitter.exec(entry);
 			if (match) {
-				let [, name, version] = match;
+				let name = match[1];
 				if (name === info.name) {
 					let modPath = path.join(args.outputDir, entry);
 					console.log(`Removing ${modPath}`);
@@ -94,7 +94,7 @@ async function build(args) {
 	}
 
 	if (info.variants) {
-		for (let [variant, variantOverrides] of Object.entries(info.variants)) {
+		for (let variantOverrides of info.variants) {
 			let variantInfo = {
 				...info,
 				...variantOverrides,

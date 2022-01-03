@@ -1,7 +1,4 @@
 "use strict";
-const path = require("path");
-
-
 function addApiRoutes(app, items, endpointHitCounter) {
 
 	/**

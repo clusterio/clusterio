@@ -89,12 +89,14 @@ const wsActiveConnectionsGauge = new libPrometheus.Gauge(
 	"How many WebSocket connections are currently open to the master server",
 	{ callback: function(gauge) { gauge.set(master.wsServer.activeConnectors.size); }}
 );
+void wsActiveConnectionsGauge;
 
 const wsActiveSlavesGauge = new libPrometheus.Gauge(
 	"clusterio_master_active_slaves",
 	"How many slaves are currently connected to the master",
 	{ callback: function(gauge) { gauge.set(master.wsServer.slaveConnections.size); }}
 );
+void wsActiveSlavesGauge;
 
 const masterConnectedClientsCount = new libPrometheus.Gauge(
 	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
@@ -105,6 +107,7 @@ const masterConnectedClientsCount = new libPrometheus.Gauge(
 		},
 	},
 );
+void masterConnectedClientsCount;
 
 
 async function handleBootstrapCommand(args, masterConfig) {
@@ -356,7 +359,7 @@ async function startup() {
 	// add better stack traces on promise rejection
 	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
 
-	let { args, shouldRun, clusterLogger, pluginInfos, masterConfigPath, masterConfig } = await initialize(master);
+	let { args, shouldRun, clusterLogger, pluginInfos, masterConfigPath, masterConfig } = await initialize();
 	if (!shouldRun) {
 		return;
 	}

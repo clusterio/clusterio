@@ -78,7 +78,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			return;
 		}
 
-		for (let [player, entry] of this.players) {
+		for (let entry of this.players.values()) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
 				let verifyCode = await generateCode(this.master.config.get("player_auth.code_length"));
 				let secret = Buffer.from(this.master.config.get("master.auth_secret"), "base64");

@@ -3,7 +3,6 @@
  */
 "use strict";
 const libPlugin = require("@clusterio/lib/plugin");
-const libLuaTools = require("@clusterio/lib/lua_tools");
 
 
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
