@@ -1484,6 +1484,7 @@ class Slave extends libLink.Link {
 		let writeStream;
 		while (true) {
 			try {
+				await fs.ensureDir(savesDir);
 				writeStream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
 				await events.once(writeStream, "open");
 				break;
