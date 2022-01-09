@@ -337,7 +337,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		const originSlaveConnection = this._master.wsServer.slaveConnections.get(originSlaveId);
-		if(!originSlaveConnection) {
+		if (!originSlaveConnection) {
 			throw new libErrors.RequestError(`Origin slave with ID ${originSlaveId} is not online`);
 		}
 
@@ -358,48 +358,29 @@ class ControlConnection extends BaseConnection {
 				instance_id: instance_id,
 			});
 		}
-		
-		// Start transfer of files to slave
+		const restoreStatus = async originalStatus => {
+			if (originalStatus === "running") {
+				await libLink.messages.startInstance.send(originSlaveConnection, {
+					instance_id,
+					save: null,
+				});
+			}
+		}
+
+		// Get savefiles from origin slave
 		const saves = (await libLink.messages.listSaves.send(originSlaveConnection, {
 			instance_id: instance_id,
 		})).list;
-		/*{
-			name: '_autosave1.zip',
-			type: 'file',
-			size: 3311891,
-			mtime_ms: 1641669463635.3691,
-			loaded: false,
-			default: false
-		}*/
 
-		// Creating a new instance on the filesystem takes a bit of time, so we'll
-		// create a new instance on the destination slave and wait a bit before
-		// copying the files over
-		// This is due to an issue with Instance.create() afaik
+		// Delete any remnants of the instance on the destination slave
+		try {
+			await libLink.messages.deleteInstance.send(destinationSlaveConnection, {
+				instance_id: instance_id,
+			});
+		} catch (e) {}
 
-		// Unassign instance from origin slave
-		await libLink.messages.unassignInstance.send(originSlaveConnection, {
-			instance_id,
-		});
-		// Assign instance to destination slave
-		instance.config.set("instance.assigned_slave", slave_id);
-		await libLink.messages.assignInstance.send(destinationSlaveConnection, {
-			instance_id,
-			serialized_config: instance.config.serialize("slave"),
-		});
-
-		/**
-		 * Transfer savefiles over one by one
-		 * 
-		 * To transfer a savefile, we need to:
-		 * - Send a message to the slave to start the upload
-		 * - Unassign the instance from the origin slave
-		 * - Assign the instance to the destination slave
-		 * - Send a message to the slave to start the download
-		 * @param {string} filename of save
-		 * @returns {Promise<void>} 
-		 */
-		async function transferFile(filename) {
+		const preparedUploads = await Promise.all(saves.map(async save => {
+			const filename = save.name;
 			let stream = await routes.createProxyStream(this._master.app);
 			stream.filename = filename;
 
@@ -409,19 +390,7 @@ class ControlConnection extends BaseConnection {
 					new libErrors.RequestError("Timed out establishing stream from slave")
 				));
 			});
-			ready.catch(() => {});
-			
-			// Unassign instance from destination slave
-			await libLink.messages.unassignInstance.send(destinationSlaveConnection, {
-				instance_id,
-			});
-
-			// Reassign instance to origin slave
-			instance.config.set("instance.assigned_slave", originSlaveId);
-			await libLink.messages.assignInstance.send(originSlaveConnection, {
-				instance_id,
-				serialized_config: instance.config.serialize("slave"),
-			});
+			ready.catch(() => { });
 
 			// Send start upload message to slave
 			await this._master.forwardRequestToInstance(libLink.messages.pushSave, {
@@ -431,31 +400,68 @@ class ControlConnection extends BaseConnection {
 			});
 
 			await ready;
-			
-			// Unassign instance from origin slave
-			await libLink.messages.unassignInstance.send(originSlaveConnection, {
-				instance_id,
-			});
 
+			return {
+				stream_id: stream.id,
+				filename
+			};
+		}));
+
+		// Unassign instance from origin slave
+		await libLink.messages.unassignInstance.send(originSlaveConnection, {
+			instance_id,
+		});
+
+		try {
 			// Assign instance to destination slave
 			instance.config.set("instance.assigned_slave", slave_id);
 			await libLink.messages.assignInstance.send(destinationSlaveConnection, {
 				instance_id,
 				serialized_config: instance.config.serialize("slave"),
 			});
-
-			// Make the other slave download the file
-			await libLink.messages.pullSave.send(destinationSlaveConnection, {
+		} catch (e){
+			// Reassign instance to origin slave
+			instance.config.set("instance.assigned_slave", originSlaveId);
+			await libLink.messages.assignInstance.send(originSlaveConnection, {
 				instance_id,
-				stream_id: stream.id,
-				filename,
+				serialized_config: instance.config.serialize("slave"),
 			});
-		}
 
-		// Transfer savefiles
-		for (let save of saves) {
-			console.log(`Transferring ${save.name}`);
-			await transferFile.call(this, save.name);
+			// Restart the instance if we stopped it
+			restoreStatus(originalStatus);
+
+			throw e;
+		}
+		try {
+			// Start transfer of files to slave
+			for (let preparedUpload of preparedUploads) {
+				const { stream_id, filename } = preparedUpload;
+				console.log(`Transferring ${preparedUpload.filename}`);
+
+				// Make the other slave download the file
+				await libLink.messages.pullSave.send(destinationSlaveConnection, {
+					instance_id,
+					stream_id,
+					filename,
+				});
+			}
+		} catch (e) {
+			// Unassign instance from destination slave
+			await libLink.messages.unassignInstance.send(destinationSlaveConnection, {
+				instance_id,
+			});
+
+			// Assign instance to origin slave
+			instance.config.set("instance.assigned_slave", originSlaveId);
+			await libLink.messages.assignInstance.send(originSlaveConnection, {
+				instance_id,
+				serialized_config: instance.config.serialize("slave"),
+			});
+
+			// Restart the instance if we stopped it
+			restoreStatus(originalStatus);
+
+			throw e;
 		}
 
 		// Restart the instance if we stopped it
