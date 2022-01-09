@@ -518,6 +518,9 @@ class ControlConnection extends BaseConnection {
 				serialized_config: instance.config.serialize("slave"),
 			});
 		}
+
+		// Trigger instance update
+		this._master.instanceUpdated(instance);
 	}
 
 	async setSaveListSubscriptionsRequestHandler(message) {
