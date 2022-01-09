@@ -358,14 +358,6 @@ class ControlConnection extends BaseConnection {
 				instance_id: instance_id,
 			});
 		}
-		const restoreStatus = async originalStatus => {
-			if (originalStatus === "running") {
-				await libLink.messages.startInstance.send(originSlaveConnection, {
-					instance_id,
-					save: null,
-				});
-			}
-		}
 
 		// Get savefiles from origin slave
 		const saves = (await libLink.messages.listSaves.send(originSlaveConnection, {
@@ -427,9 +419,6 @@ class ControlConnection extends BaseConnection {
 				serialized_config: instance.config.serialize("slave"),
 			});
 
-			// Restart the instance if we stopped it
-			restoreStatus(originalStatus);
-
 			throw e;
 		}
 		try {
@@ -457,9 +446,6 @@ class ControlConnection extends BaseConnection {
 				instance_id,
 				serialized_config: instance.config.serialize("slave"),
 			});
-
-			// Restart the instance if we stopped it
-			restoreStatus(originalStatus);
 
 			throw e;
 		}
