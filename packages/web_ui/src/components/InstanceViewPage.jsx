@@ -12,6 +12,7 @@ import InstanceConfigTree from "./InstanceConfigTree";
 import LogConsole from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
 import AssignInstanceModal from "./AssignInstanceModal";
+import MigrateInstanceModal from "./MigrateInstanceModal";
 import StartStopInstanceButton from "./StartStopInstanceButton";
 import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
@@ -127,6 +128,17 @@ export default function InstanceViewPage(props) {
 						disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
 					}}
 					buttonContent={assigned ? "Reassign" : "Assign"}
+				/>}
+				{account.hasPermission("core.instance.migrate") && <MigrateInstanceModal
+					id={instanceId}
+					slaveId={instance["assigned_slave"]}
+					buttonProps={{
+						size: "small",
+						style: { float: "Right" },
+						type: assigned ? "default" : "primary",
+						disabled: !["running", "stopped"].includes(instance["status"]) || !assigned,
+					}}
+					buttonContent={"Migrate"}
 				/>}
 			</Descriptions.Item>
 			<Descriptions.Item label="Status"><InstanceStatusTag status={instance["status"]} /></Descriptions.Item>

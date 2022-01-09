@@ -872,6 +872,21 @@ messages.queryLog = new Request({
 	},
 });
 
+messages.migrateInstanceCommand = new Request({
+	type: "migrate_instance",
+	links: ["control-master"],
+	permission: "core.instance.migrate",
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"slave_id": { type: "integer" },
+	},
+	responseProperties: {
+		"status": {
+			type: "string",
+			enum: ["success", "failure"],
+		}
+	},
+});
 
 // Internal requests
 messages.updateInstances = new Request({

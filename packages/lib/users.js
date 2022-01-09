@@ -378,6 +378,11 @@ definePermission({
 	description: "Assign or reassign instances to a slave.",
 });
 definePermission({
+	name: "core.instance.migrate",
+	title: "Migrate instance",
+	description: "Migrate an instance to another slave. Uses stop, start, and assign internally.",
+});
+definePermission({
 	name: "core.instance.save.list",
 	title: "List saves on instance",
 	description: "List the saves currently on the instance.",
