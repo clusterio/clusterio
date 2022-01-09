@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Button, Col, Form, Input, Modal, Row, Typography } from "antd";
+import { Button, Form, Input, Modal } from "antd";
 
 import { libFactorio, libLink } from "@clusterio/lib";
 

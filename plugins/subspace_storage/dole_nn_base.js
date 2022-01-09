@@ -62,7 +62,6 @@ function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_to
 				 debt,
 	]; // 5..12
 	let inputs = inp1.concat(inp2);
-	let internal = new Array(20).fill(0);
 	let outputs = [0, 0, 0, 0];
 	// NN: Please don't touch :), code is generated
 
@@ -78,7 +77,7 @@ function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_to
 		outputs[0]=1.0;
 	}
 
-	let res1 = Number(outputs[0]) * numreq+outputs[3] + debt;
+	let res1 = Number(outputs[0]) * numreq + outputs[3] + debt;
 	let res_capped = Math.round(res1);
 
 	if (res_capped > numreq) { res_capped = numreq; }
@@ -88,7 +87,7 @@ function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_to
 	res1 = res1 || 0;
 	res_capped = res_capped || 0; // Safeguard against wrong values
 	debt = res1 - res_capped;
-	debt_cap = Math.round(numreq * 1.5) + 5;
+	let debt_cap = Math.round(numreq * 1.5) + 5;
 	if (debt > debt_cap) {
 		debt = debt_cap;
 	}
@@ -129,7 +128,6 @@ function tick(instore, dole, store_last_tick, numreq_total_adj) {
 		store_last_tick,
 		numreq_total_adj,
 	];
-	let internal = new Array(10).fill(0);
 	let outputs = [0, 0];
 	// NN: Please don't touch :), code is generated
 
@@ -139,7 +137,7 @@ function tick(instore, dole, store_last_tick, numreq_total_adj) {
 	outputs[1] = outputs[0] * 1.828422785;
 	outputs[1] = sigmoid3(outputs[1]);
 
-	avg = outputs[1];
+	let avg = outputs[1];
 	if (numreq_total_adj < 0.11) {
 		// When no item's are requested, result is 0.1; In that case there is
 		// no deficit, so return 1 = 100% demand fulfilled

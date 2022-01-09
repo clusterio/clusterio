@@ -43,18 +43,18 @@ const UserManager = require("./src/UserManager");
 let master;
 
 
-const slaveMappingGauge = new libPrometheus.Gauge(
+void new libPrometheus.Gauge(
 	"clusterio_master_slave_mapping",
 	"Mapping of Slave ID to name",
 	{
 		labels: ["slave_id", "slave_name"],
-		callback: function() {
-			slaveMappingGauge.clear();
+		callback: function(gauge) {
+			gauge.clear();
 			if (!master || !master.slaves) {
 				return;
 			}
 			for (let [id, slave] of master.slaves) {
-				slaveMappingGauge.labels({
+				gauge.labels({
 					slave_id: String(id),
 					slave_name: slave.name,
 				}).set(1);
@@ -63,18 +63,18 @@ const slaveMappingGauge = new libPrometheus.Gauge(
 	}
 );
 
-const instanceMappingGauge = new libPrometheus.Gauge(
+void new libPrometheus.Gauge(
 	"clusterio_master_instance_mapping",
 	"Mapping of Instance ID to name and slave",
 	{
 		labels: ["instance_id", "instance_name", "slave_id"],
-		callback: function() {
-			instanceMappingGauge.clear();
+		callback: function(gauge) {
+			gauge.clear();
 			if (!master || !master.instances) {
 				return;
 			}
 			for (let [id, instance] of master.instances) {
-				instanceMappingGauge.labels({
+				gauge.labels({
 					instance_id: String(id),
 					instance_name: String(instance.config.get("instance.name")),
 					slave_id: String(instance.config.get("instance.assigned_slave")),
@@ -84,19 +84,19 @@ const instanceMappingGauge = new libPrometheus.Gauge(
 	}
 );
 
-const wsActiveConnectionsGauge = new libPrometheus.Gauge(
+void new libPrometheus.Gauge(
 	"clusterio_master_websocket_active_connections",
 	"How many WebSocket connections are currently open to the master server",
 	{ callback: function(gauge) { gauge.set(master.wsServer.activeConnectors.size); }}
 );
 
-const wsActiveSlavesGauge = new libPrometheus.Gauge(
+void new libPrometheus.Gauge(
 	"clusterio_master_active_slaves",
 	"How many slaves are currently connected to the master",
 	{ callback: function(gauge) { gauge.set(master.wsServer.slaveConnections.size); }}
 );
 
-const masterConnectedClientsCount = new libPrometheus.Gauge(
+void new libPrometheus.Gauge(
 	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
 	{
 		labels: ["type"], callback: async function(gauge) {
@@ -356,7 +356,7 @@ async function startup() {
 	// add better stack traces on promise rejection
 	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
 
-	let { args, shouldRun, clusterLogger, pluginInfos, masterConfigPath, masterConfig } = await initialize(master);
+	let { args, shouldRun, clusterLogger, pluginInfos, masterConfigPath, masterConfig } = await initialize();
 	if (!shouldRun) {
 		return;
 	}

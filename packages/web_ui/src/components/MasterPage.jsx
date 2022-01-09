@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import { Typography } from "antd";
 
 import LogConsole from "./LogConsole";

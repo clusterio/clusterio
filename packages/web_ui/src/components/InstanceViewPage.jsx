@@ -20,7 +20,7 @@ import { useInstance } from "../model/instance";
 import { useSlave } from "../model/slave";
 import InstanceStatusTag from "./InstanceStatusTag";
 
-const { Title, Paragraph } = Typography;
+const { Title } = Typography;
 
 
 export default function InstanceViewPage(props) {

@@ -445,7 +445,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			return;
 		}
 
-		let { seq, type, data } = message;
+		let { type, data } = message;
 		if (type === "hello") {
 			logger.verbose(`Connector | received hello from master version ${data.version}`);
 			this.emit("hello", data);

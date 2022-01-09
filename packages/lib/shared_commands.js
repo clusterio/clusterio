@@ -3,7 +3,6 @@
  * @module lib/shared_commands
  */
 "use strict";
-const fs = require("fs-extra");
 const path = require("path");
 
 const libConfig = require("./config");

@@ -385,7 +385,7 @@ class ControlConnection extends BaseConnection {
 		});
 		ready.catch(() => {});
 
-		let result = await this._master.forwardRequestToInstance(libLink.messages.pushSave, {
+		await this._master.forwardRequestToInstance(libLink.messages.pushSave, {
 			instance_id,
 			stream_id: stream.id,
 			save,

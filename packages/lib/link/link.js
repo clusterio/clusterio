@@ -4,7 +4,6 @@
 const libSchema = require("../schema");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
-const messages = require("./messages");
 
 // Some definitions for the terminology used here:
 // link: Either side of a master - client connection
@@ -135,7 +134,7 @@ class Link {
 	 * @returns {Boolean} true if a waiter was triggered.
 	 */
 	_processWaiters(message) {
-		let { seq, type, data } = message;
+		let { type, data } = message;
 		let waiters = this._waiters.get(type);
 		if (!waiters || !waiters.length) {
 			return false;

@@ -1,11 +1,11 @@
 import React, { Fragment, useContext } from "react";
-import { Button, Card, Divider, Form, Image, Input, List, Space, Spin, Typography } from "antd";
+import { Button, Card, Divider, Form, Image, Input, Space, Typography } from "antd";
 import LockOutlined from "@ant-design/icons/LockOutlined";
 
 import logo from "../images/logo.png";
 import ControlContext from "./ControlContext";
 
-const { Paragraph, Text } = Typography;
+const { Paragraph } = Typography;
 
 
 function TokenAuth(props) {
@@ -22,7 +22,7 @@ function TokenAuth(props) {
 			>
 				<Input
 					style={{ width: "14em" }}
-					prefix=<LockOutlined className="site-form-item-icon" />
+					prefix={<LockOutlined className="site-form-item-icon" />}
 					type="password"
 					placeholder="Authentication Token"
 				/>

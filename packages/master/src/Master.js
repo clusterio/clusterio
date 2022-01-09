@@ -97,7 +97,7 @@ class Master {
 	}
 
 	async start(args) {
-		if (!this._state === "new") {
+		if (this._state !== "new") {
 			throw new Error(`Cannot start in state ${this._state}`);
 		}
 
