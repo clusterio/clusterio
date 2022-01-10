@@ -48,7 +48,7 @@ Create a new instance. `name` is the instance name. `--id` is the optional id.
 
     ctl> instance config list <instance>
 
-List config values for an instance. `instance` is the instance to list config values.
+List config values for an instance. `instance` is the instance whose config values to list.
 
 #### Set config value
 
