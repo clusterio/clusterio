@@ -20,13 +20,13 @@ Lists all slaves.
 
     ctl> slave generate-token [--id <slave id>]
 
-Generate a token for a slave. `--id` is the slave id, a number.
+Generate a token for a slave. `--id` is the slave id.
 
 ### Create config
 
     ctl> slave create-config [--id <slave id>] [--name <slave name>] [--generate-token <bool>] [--output <path to output>]
 
-Create a slave config. `--id` id the slave id, a number. `--name` is the slave name, a string. `--generate-token` decides whether to also generate a token, a bool, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-slave.json", "-" for stdout.
+Create a slave config. `--id` id the slave id. `--name` is the slave name. `--generate-token` decides whether to also generate a token, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-slave.json", "-" for stdout.
 
 ## Instances
 
