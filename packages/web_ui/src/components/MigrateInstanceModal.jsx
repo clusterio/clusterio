@@ -64,21 +64,32 @@ export default function MigrateInstanceModal(props) {
 				Select a Slave to migrate this instance to. Migration
 				moves savefiles from one slave to another then reassigns it.
 				Configuration files are synchronized through the config system.
+				If the instance was running when the migration was initiated,
+				it will be stopped and restarted on the new slave.
+			</Paragraph>
+			<Paragraph style={{ maxWidth: "30em" }}>
 				If the migration fails, the files will remain on the old slave
 				while partial data might be located on the destination slave.
-				You can recover by assigning the instance to the old slave.
+				The automatic recovery process will attempt to recover the
+				instance by assigning it to the same slave it was on before.
+				If the automatic recovery fails, attempt a manual recovery
+				by assigning the instance to the original slave.
 			</Paragraph>
-			<Form form={form} initialValues={{ slave: props.slaveId }}>
+			<Form form={form} initialValues={{
+				slave: slaveList.filter(slave => slave["id"] !== props.slaveId)[0]?.["id"],
+			}}>
 				<Form.Item name="slave" label="Slave">
 					<Select>
-						{slaveList.map((slave) => <Select.Option
-							key={slave["id"]}
-							value={slave["id"]}
-							disabled={!slave["connected"]}
-						>
-							{slave["name"]}
-							{!slave["connected"] && " (offline)"}
-						</Select.Option>)}
+						{slaveList
+							.filter(slave => slave["id"] !== props.slaveId)
+							.map((slave) => <Select.Option
+								key={slave["id"]}
+								value={slave["id"]}
+								disabled={!slave["connected"]}
+							>
+								{slave["name"]}
+								{!slave["connected"] && " (offline)"}
+							</Select.Option>)}
 					</Select>
 				</Form.Item>
 			</Form>
