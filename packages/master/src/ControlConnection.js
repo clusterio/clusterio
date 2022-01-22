@@ -395,7 +395,7 @@ class ControlConnection extends BaseConnection {
 
 			return {
 				stream_id: stream.id,
-				filename
+				filename,
 			};
 		}));
 
@@ -411,7 +411,7 @@ class ControlConnection extends BaseConnection {
 				instance_id,
 				serialized_config: instance.config.serialize("slave"),
 			});
-		} catch (e){
+		} catch (e) {
 			// Reassign instance to origin slave
 			instance.config.set("instance.assigned_slave", originSlaveId);
 			await libLink.messages.assignInstance.send(originSlaveConnection, {
@@ -425,7 +425,7 @@ class ControlConnection extends BaseConnection {
 			// Start transfer of files to slave
 			for (let preparedUpload of preparedUploads) {
 				const { stream_id, filename } = preparedUpload;
-				console.log(`Transferring ${preparedUpload.filename}`);
+				logger.info(`Transferring ${preparedUpload.filename}`);
 
 				// Make the other slave download the file
 				await libLink.messages.pullSave.send(destinationSlaveConnection, {

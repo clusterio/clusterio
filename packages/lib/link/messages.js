@@ -884,7 +884,7 @@ messages.migrateInstanceCommand = new Request({
 		"status": {
 			type: "string",
 			enum: ["success", "failure"],
-		}
+		},
 	},
 });
 

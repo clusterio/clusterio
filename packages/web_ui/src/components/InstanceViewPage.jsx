@@ -23,6 +23,38 @@ import InstanceStatusTag from "./InstanceStatusTag";
 
 const { Title } = Typography;
 
+// Render the slave name and buttons to reassign/migrate the instance to another slave.
+function renderInstanceSlaveDisplay({ instanceId, instance, slave, account }) {
+	let assigned = instance["assigned_slave"] !== null;
+	return <Descriptions.Item label="Slave">
+		{!assigned
+			? <em>Unassigned</em>
+			: slave["name"] || instance["assigned_slave"]
+		}
+		{account.hasPermission("core.instance.assign") && <AssignInstanceModal
+			id={instanceId}
+			slaveId={instance["assigned_slave"]}
+			buttonProps={{
+				size: "small",
+				style: { float: "Right" },
+				type: assigned ? "default" : "primary",
+				disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
+			}}
+			buttonContent={assigned ? "Reassign" : "Assign"}
+		/>}
+		{account.hasPermission("core.instance.migrate") && <MigrateInstanceModal
+			id={instanceId}
+			slaveId={instance["assigned_slave"]}
+			buttonProps={{
+				size: "small",
+				style: { float: "Right" },
+				type: assigned ? "default" : "primary",
+				disabled: !["running", "stopped"].includes(instance["status"]) || !assigned,
+			}}
+			buttonContent={"Migrate"}
+		/>}
+	</Descriptions.Item>;
+}
 
 export default function InstanceViewPage(props) {
 	let params = useParams();
@@ -45,7 +77,7 @@ export default function InstanceViewPage(props) {
 	if (instance.missing || instance["status"] === "deleted") {
 		return <PageLayout nav={nav}>
 			<Alert
-				message={instance["status"] === "deleted" ? "Instance has been deleted" : "Instance not found" }
+				message={instance["status"] === "deleted" ? "Instance has been deleted" : "Instance not found"}
 				showIcon
 				description={<>Instance with id {instanceId} was not found on the master server.</>}
 				type="warning"
@@ -105,7 +137,6 @@ export default function InstanceViewPage(props) {
 		</Popconfirm>}
 	</Space>;
 
-	let assigned = instance["assigned_slave"] !== null;
 	return <PageLayout nav={nav}>
 		<Descriptions
 			bordered
@@ -113,34 +144,7 @@ export default function InstanceViewPage(props) {
 			title={instance["name"]}
 			extra={instanceButtons}
 		>
-			<Descriptions.Item label="Slave">
-				{!assigned
-					? <em>Unassigned</em>
-					: slave["name"] || instance["assigned_slave"]
-				}
-				{account.hasPermission("core.instance.assign") && <AssignInstanceModal
-					id={instanceId}
-					slaveId={instance["assigned_slave"]}
-					buttonProps={{
-						size: "small",
-						style: { float: "Right" },
-						type: assigned ? "default" : "primary",
-						disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
-					}}
-					buttonContent={assigned ? "Reassign" : "Assign"}
-				/>}
-				{account.hasPermission("core.instance.migrate") && <MigrateInstanceModal
-					id={instanceId}
-					slaveId={instance["assigned_slave"]}
-					buttonProps={{
-						size: "small",
-						style: { float: "Right" },
-						type: assigned ? "default" : "primary",
-						disabled: !["running", "stopped"].includes(instance["status"]) || !assigned,
-					}}
-					buttonContent={"Migrate"}
-				/>}
-			</Descriptions.Item>
+			{renderInstanceSlaveDisplay({ instanceId, instance, slave, account })}
 			<Descriptions.Item label="Status"><InstanceStatusTag status={instance["status"]} /></Descriptions.Item>
 		</Descriptions>
 

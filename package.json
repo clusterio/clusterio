@@ -27,5 +27,9 @@
     "lerna": "^4.0.0",
     "mocha": "^8.4.0",
     "nyc": "^15.1.0"
+  },
+  "dependencies": {
+    "@clusterio/plugin-edge_transports": "^0.0.2",
+    "@hornwitser/server_select": "^2.0.0-alpha.3"
   }
 }
