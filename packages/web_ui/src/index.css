@@ -294,3 +294,23 @@ body {
 	height: 32px;
 	width: 32px;
 }
+
+/*
+ * Render codeblock with options for syntax highlighting
+ * https://user-images.githubusercontent.com/6792749/152066701-21420461-710b-4fae-a80a-89ef90a0b18f.png
+*/
+.codeblock {
+	background-color: black;
+	padding: 8px;
+	line-height: 18px;
+	font-family: Courier;
+	position: relative;
+}
+.codeblock .highlight {
+	color: yellow;
+}
+.codeblock .copy-button {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+}
