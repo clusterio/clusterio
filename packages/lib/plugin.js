@@ -653,6 +653,42 @@ class BaseWebPlugin {
 		 * @type {Array<module:lib/plugin~Page>}
 		 */
 		this.pages = [];
+
+		/**
+		 * Extra react component to add to core components
+		 *
+		 * Interface to augment core components of the web UI.  Setting a
+		 * component as one of the supported properties of this object will
+		 * cause the web UI to render it when displaying that component,
+		 * usually at the end.  Each component will receive a `plugin` param
+		 * which is the instance of the web plugin that contained the
+		 * component extra.
+		 *
+		 * @type {object}
+		 * @property {React.ComponentType} MasterPage -
+		 *     Placed at the end of the master page.
+		 * @property {React.ComponentType} SlavesPage -
+		 *     Placed at the end of the slaves list page.
+		 * @property {React.ComponentType} SlaveViewPage -
+		 *     Placed at the end of each slave page.  Takes a `slave` param
+		 *     which is the slave the page is displayed for.
+		 * @property {React.ComponentType} InstancesPage -
+		 *     Placed at the end of the instance list page.
+		 * @property {React.ComponentType} InstanceViewPage -
+		 *     Placed at the end of each instance page.  Takes an `instance`
+		 *     param which is the instance the page is displayed for.
+		 * @property {React.ComponentType} UsersPage -
+		 *     Placed at the end of the users list page.
+		 * @property {React.ComponentType} UserViewPage -
+		 *     Placed at the end of each user page.  Takes a `user` param
+		 *     which is the user object the page is displayed for.
+		 * @property {React.ComponentType} RolesPage -
+		 *     Placed at the end of the roles list page.
+		 * @property {React.ComponentType} RoleViewPage -
+		 *     Placed at the end of each role page.  Takes a `role` param
+		 *     which is the role object the page is displayed for.
+		 */
+		this.componentExtra = {};
 	}
 
 	/**

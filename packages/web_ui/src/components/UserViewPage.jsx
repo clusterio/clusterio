@@ -8,6 +8,7 @@ import { libLink } from "@clusterio/lib";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
+import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
 
 
@@ -258,5 +259,6 @@ export default function UserViewPage() {
 				</Space>
 			</Form.Item>
 		</Form>
+		<PluginExtra component="UserViewPage" user={user} />
 	</PageLayout>;
 }

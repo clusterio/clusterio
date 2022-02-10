@@ -7,6 +7,7 @@ import { libConfig, libLink } from "@clusterio/lib";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
+import PluginExtra from "./PluginExtra";
 import { useInstanceList } from "../model/instance";
 import InstanceList from "./InstanceList";
 import { notifyErrorHandler } from "../util/notify";
@@ -94,5 +95,6 @@ export default function InstancesPage() {
 		/>
 
 		<InstanceList instances={instanceList} />
+		<PluginExtra component="InstancesPage" />
 	</PageLayout>;
 }

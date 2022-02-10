@@ -8,6 +8,7 @@ import { libLink } from "@clusterio/lib";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
+import PluginExtra from "./PluginExtra";
 import InstanceConfigTree from "./InstanceConfigTree";
 import LogConsole from "./LogConsole";
 import InstanceRcon from "./InstanceRcon";
@@ -147,5 +148,7 @@ export default function InstanceViewPage(props) {
 		}
 
 		{account.hasPermission("core.instance.get_config") && <InstanceConfigTree id={instanceId} />}
+
+		<PluginExtra component="InstanceViewPage" instance={instance} />
 	</PageLayout>;
 }
