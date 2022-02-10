@@ -588,11 +588,14 @@ class BaseControlPlugin {
 
 /**
  * Plugin supplied pages
- * @typedef {Object} module:Lib/plugin~Page
+ * @typedef {Object} module:lib/plugin~Page
  * @property {string} path - URL path to this page.
  * @property {string=} sidebarPath -
  *     If present and this path matches one of the pages in the sidebar it
  *     will cause that sidebar entry to be highlighted as active.
+ * @property {string=} sidebarGroup -
+ *     If present group this entry under a group of the given name in the
+ *     sidebar.
  * @property {string=} sidebarName -
  *     If present creates an entry in the sidebar for this page with the
  *     given text.

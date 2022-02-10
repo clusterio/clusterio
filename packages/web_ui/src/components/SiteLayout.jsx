@@ -37,6 +37,27 @@ export default function SiteLayout(props) {
 		combinedPages.push(...plugin.pages);
 	}
 
+	let menuItems = [];
+	let menuGroups = new Map();
+	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
+		if (!sidebarName || permission && !account.hasPermission(permission)) {
+			continue;
+		}
+		if (sidebarGroup) {
+			let group = menuGroups.get(sidebarGroup);
+			if (!group) {
+				group = [];
+				menuGroups.set(sidebarGroup, group);
+			}
+			group.push(<Menu.Item key={path}>{sidebarName}</Menu.Item>);
+		} else {
+			menuItems.push(<Menu.Item key={path}>{sidebarName}</Menu.Item>);
+		}
+	}
+	for (let [name, group] of menuGroups) {
+		menuItems.push(<Menu.ItemGroup key={name} title={name}>{group}</Menu.ItemGroup>);
+	}
+
 	return <Layout style={{ minHeight: "100vh" }}>
 		<Header className="header">
 			<div className="site-logo" />
@@ -65,16 +86,12 @@ export default function SiteLayout(props) {
 			>
 				<Menu
 					mode="inline"
+					defaultOpenKeys={[...menuGroups.keys()]}
 					selectedKeys={[currentSidebarPath]}
 					style={{ height: "100%", borderRight: 0 }}
 					onClick={({ key }) => history.push(key)}
 				>
-					{combinedPages.map(({sidebarName, permission, path}) => {
-						if (!sidebarName || permission && !account.hasPermission(permission)) {
-							return null;
-						}
-						return <Menu.Item key={path}>{sidebarName}</Menu.Item>;
-					})}
+					{menuItems}
 				</Menu>
 			</Sider>
 			<Layout className="site-layout-content-container">
