@@ -356,6 +356,19 @@ class BaseMasterPlugin {
 	async onInstanceStatusChanged(instance, prev) { }
 
 	/**
+	 * Called when the value of a master config field changed.
+	 *
+	 * Invoked after the value of the config field given by `field` has
+	 * changed on the master.
+	 *
+	 * @param {module:lib/config.ConfigGroup} group -
+	 *     The group who's field got changed on.
+	 * @param {string} field - Name of the field that changed.
+	 * @param {*} prev - The previous value of the field.
+	 */
+	async onMasterConfigFieldChanged(group, field, prev) { }
+
+	/**
 	 * Called when the value of an instance config field changed.
 	 *
 	 * Invoked after the value of the config field given by `field` has

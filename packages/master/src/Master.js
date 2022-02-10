@@ -162,6 +162,9 @@ class Master {
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
+		this.config.on("fieldChanged", (group, field, prev) => {
+			libPlugin.invokeHook(this.plugins, "onMasterConfigFieldChanged", group, field, prev);
+		});
 		for (let instance of this.instances.values()) {
 			this.addInstanceHooks(instance);
 		}
