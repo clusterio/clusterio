@@ -1,7 +1,8 @@
 import React, { useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Popconfirm, Space, Spin, Typography } from "antd";
+import { Alert, Button, Descriptions, Dropdown, Menu, Modal, PageHeader, Space, Spin, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
+import DownOutlined from "@ant-design/icons/DownOutlined";
 
 import { libLink } from "@clusterio/lib";
 
@@ -23,6 +24,36 @@ import InstanceStatusTag from "./InstanceStatusTag";
 
 const { Title } = Typography;
 
+
+function InstanceDescription(props) {
+	let account = useAccount();
+
+	const { slave, instance } = props;
+	let assigned = instance["assigned_slave"] !== null;
+	return <Descriptions
+		bordered
+		size="small"
+	>
+		<Descriptions.Item label="Slave">
+			{!assigned
+				? <em>Unassigned</em>
+				: slave["name"] || instance["assigned_slave"]
+			}
+			{account.hasPermission("core.instance.assign") && <AssignInstanceModal
+				id={instance["id"]}
+				slaveId={instance["assigned_slave"]}
+				buttonProps={{
+					size: "small",
+					style: { float: "Right" },
+					type: assigned ? "default" : "primary",
+					disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
+				}}
+				buttonContent={assigned ? "Reassign" : "Assign"}
+			/>}
+		</Descriptions.Item>
+		<Descriptions.Item label="Status"><InstanceStatusTag status={instance["status"]} /></Descriptions.Item>
+	</Descriptions>;
+}
 
 export default function InstanceViewPage(props) {
 	let params = useParams();
@@ -61,16 +92,9 @@ export default function InstanceViewPage(props) {
 		</PageLayout>;
 	}
 
-	let instanceButtons = <Space>
-		{
-			account.hasAnyPermission("core.instance.start", "core.instance.stop")
-			&& <StartStopInstanceButton instance={instance} />
-		}
-		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
-		{account.hasPermission("core.instance.export_data") && <Button
-			loading={exportingData}
-			disabled={instance.status !== "stopped"}
-			onClick={() => {
+	let instanceButtonsMenu = <Menu
+		onClick={({ key }) => {
+			if (key === "export") {
 				setExportingData(true);
 				libLink.messages.exportData.send(
 					control, { instance_id: instanceId }
@@ -79,59 +103,69 @@ export default function InstanceViewPage(props) {
 				).finally(() => {
 					setExportingData(false);
 				});
-			}}
-		>
-			Export data
-		</Button>}
-		{account.hasPermission("core.instance.delete") && <Popconfirm
-			title="Permanently delete instance and server saves?"
-			okText="Delete"
-			placement="bottomRight"
-			okButtonProps={{ danger: true }}
-			onConfirm={() => {
-				libLink.messages.deleteInstance.send(
+
+			} else if (key === "kill") {
+				libLink.messages.killInstance.send(
 					control, { instance_id: instanceId }
-				).then(() => {
-					history.push("/instances");
-				}).catch(notifyErrorHandler("Error deleting instance"));
-			}}
-		>
-			<Button
-				danger
+				).catch(notifyErrorHandler("Error killing instance"));
+
+			} else if (key === "delete") {
+				Modal.confirm({
+					autoFocusButton: "cancel",
+					content: "Permamently delete instance and server saves?",
+					okText: "Delete",
+					okButtonProps: { danger: true },
+					onOk: () => {
+						libLink.messages.deleteInstance.send(
+							control, { instance_id: instanceId }
+						).then(() => {
+							history.push("/instances");
+						}).catch(notifyErrorHandler("Error deleting instance"));
+					},
+				});
+			}
+		}}
+	>
+		{account.hasPermission("core.instance.export_data") && <Menu.Item
+			disabled={exportingData || instance.status !== "stopped"}
+			key="export"
+		>Export data</Menu.Item>}
+		{account.hasPermission("core.instance.kill") && <Menu.Item
+			disabled={["unknown", "unassigned", "stopped"].includes(instance["status"])}
+			key="kill"
+		>Kill process</Menu.Item>}
+		{account.hasPermission("core.instance.delete") && <>
+			<Menu.Divider />
+			<Menu.Item
 				disabled={!["unknown", "unassigned", "stopped"].includes(instance["status"])}
-			>
-				<DeleteOutlined />
-			</Button>
-		</Popconfirm>}
+				danger
+				key="delete"
+				icon={<DeleteOutlined />}
+			>Delete</Menu.Item>
+		</>}
+	</Menu>;
+	let instanceButtons = <Space>
+		{
+			account.hasAnyPermission("core.instance.start", "core.instance.stop")
+			&& <StartStopInstanceButton instance={instance} />
+		}
+		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
+		{account.hasAnyPermission(
+			"core.instance.export_data",
+			"core.instance.kill",
+			"core.instance.delete",
+		) && <Dropdown placement="bottomRight" trigger={["click"]} overlay={instanceButtonsMenu}>
+			<Button>More <DownOutlined /></Button>
+		</Dropdown>}
 	</Space>;
 
-	let assigned = instance["assigned_slave"] !== null;
 	return <PageLayout nav={nav}>
-		<Descriptions
-			bordered
-			size="small"
+		<PageHeader
+			className="site-page-header"
 			title={instance["name"]}
 			extra={instanceButtons}
-		>
-			<Descriptions.Item label="Slave">
-				{!assigned
-					? <em>Unassigned</em>
-					: slave["name"] || instance["assigned_slave"]
-				}
-				{account.hasPermission("core.instance.assign") && <AssignInstanceModal
-					id={instanceId}
-					slaveId={instance["assigned_slave"]}
-					buttonProps={{
-						size: "small",
-						style: { float: "Right" },
-						type: assigned ? "default" : "primary",
-						disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
-					}}
-					buttonContent={assigned ? "Reassign" : "Assign"}
-				/>}
-			</Descriptions.Item>
-			<Descriptions.Item label="Status"><InstanceStatusTag status={instance["status"]} /></Descriptions.Item>
-		</Descriptions>
+		/>
+		<InstanceDescription slave={slave} instance={instance} />
 
 		{
 			account.hasAllPermission("core.instance.save.list", "core.instance.save.list_subscribe")

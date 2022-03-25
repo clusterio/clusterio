@@ -487,6 +487,7 @@ class FactorioServer extends events.EventEmitter {
 
 		// Array of possible causes for an unexpected shutdown
 		this._unexpected = [];
+		this._killed = false;
 
 		// Track autosaving
 		this._runningAutosave = null;
@@ -694,28 +695,30 @@ class FactorioServer extends events.EventEmitter {
 	_watchExit() {
 		this._server.on("exit", (code, signal) => {
 			if (this._state !== "stopping") {
-				if (this._unexpected.length === 0) {
-					if (signal === "SIGKILL") {
+				if (signal === "SIGKILL") {
+					if (this._killed) {
+						this.emit("error", new libErrors.EnvironmentError("Factorio server was killed"));
+					} else {
 						this.emit("error", new libErrors.EnvironmentError(
 							"Factorio server was unexpectedly killed, is the system low on memory?"
 						));
-
-					} else {
-						let msg;
-						if (code !== null) {
-							msg = `Factorio server unexpectedly shut down with code ${code}`;
-						} else {
-							msg = `Factorio server was unexpectedly shut by down by signal ${signal}`;
-						}
-
-						this.emit("error", new Error(msg));
 					}
 
+				} else if (this._unexpected.length === 0) {
+					let msg;
+					if (code !== null) {
+						msg = `Factorio server unexpectedly shut down with code ${code}`;
+					} else {
+						msg = `Factorio server was unexpectedly shut by down by signal ${signal}`;
+					}
+
+					this.emit("error", new libErrors.EnvironmentError(msg));
+
 				} else if (this._unexpected.length === 1) {
-					this.emit("error", new Error(this._unexpected[0]));
+					this.emit("error", new libErrors.EnvironmentError(this._unexpected[0]));
 
 				} else {
-					this.emit("error", new Error(
+					this.emit("error", new libErrors.EnvironmentError(
 						"Factorio server unexpectedly shut down. Possible causes:"+
 						`\n- ${this._unexpected.join("\n- ")}`
 					));
@@ -1004,12 +1007,18 @@ class FactorioServer extends events.EventEmitter {
 	 * Kill the server
 	 *
 	 * Terminates the server without any cleanup or saving.
+	 * @param {boolean} [unexpected=false] -
+	 *     If true raise an error event as a result of killing the Factorio
+	 *     process.
 	 */
-	async kill() {
+	async kill(unexpected = false) {
 		this._check(["running", "stopping"]);
-		this._state = "stopping";
+		this._killed = true;
+		if (!unexpected) {
+			this._state = "stopping";
+		}
 		this._server.kill("SIGKILL");
-		await events.once(this._server, "exit");
+		await new Promise(resolve => this._server.once("exit", resolve));
 	}
 
 	/**

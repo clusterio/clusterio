@@ -636,6 +636,13 @@ messages.stopInstance = new Request({
 	forwardTo: "instance",
 });
 
+messages.killInstance = new Request({
+	type: "kill_instance",
+	links: ["control-master", "master-slave", "slave-instance"],
+	permission: "core.instance.kill",
+	forwardTo: "instance",
+});
+
 messages.deleteInstance = new Request({
 	type: "delete_instance",
 	links: ["control-master", "master-slave"],

@@ -428,6 +428,11 @@ definePermission({
 	description: "Stop instances.",
 });
 definePermission({
+	name: "core.instance.kill",
+	title: "Kill instance",
+	description: "Terminate running instances without saving or cleanup.",
+});
+definePermission({
 	name: "core.instance.delete",
 	title: "Delete instance",
 	description: "Delete instances (includes config and all files stored like saves and logs).",

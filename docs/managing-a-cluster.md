@@ -42,6 +42,15 @@ List instances.
 
 Create a new instance. `name` is the instance name. `--id` is the optional id.
 
+### Kill instance
+
+    ctl> instance kill <name>
+
+Terminates the running Factorio server without giving it a chance to save or cleanup after itself.
+
+Note: This may cause loss of data.
+
+
 ### Config management
 
 #### List Configuration

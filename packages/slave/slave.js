@@ -186,7 +186,11 @@ class Instance extends libLink.Link {
 		});
 
 		this.server.on("error", err => {
-			this.logger.error(`Error in instance ${this.name}:\n${err.stack}`);
+			if (err instanceof libErrors.EnvironmentError) {
+				this.logger.error(err.message);
+			} else {
+				this.logger.error(`${this.name}:\n${err.stack}`);
+			}
 		});
 
 		this.server.on("autosave-finished", name => {
@@ -697,6 +701,13 @@ class Instance extends libLink.Link {
 		}
 	}
 
+	async kill() {
+		if (this._status === "stopped") {
+			return;
+		}
+		await this.server.kill(true);
+	}
+
 	async masterConnectionEventEventHandler(message) {
 		await libPlugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
 	}
@@ -831,6 +842,10 @@ class Instance extends libLink.Link {
 
 	async stopInstanceRequestHandler() {
 		await this.stop();
+	}
+
+	async killInstanceRequestHandler() {
+		await this.kill();
 	}
 
 	async sendRconRequestHandler(message) {

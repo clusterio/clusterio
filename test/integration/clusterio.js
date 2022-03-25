@@ -481,22 +481,26 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance config set 44 research_sync.load_plugin false");
 				await execCtl("instance config set 44 statistics_exporter.load_plugin false");
 				await execCtl("instance config set 44 subspace_storage.load_plugin false");
-				try {
-					let exchangeString = testStrings.modified.replace(/[\n\r]+/g, "");
-					let args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
-					await execCtl(`instance load-scenario test ${args}`);
-					await checkInstanceStatus(44, "running");
-					await sendRcon(44, '/c game.print("disable achievements")');
-					await sendRcon(44, '/c game.print("disable achievements")');
-					assert.equal(await sendRcon(44, "/c rcon.print(game.default_map_gen_settings.seed)"), "1234\n");
-					assert.equal(await sendRcon(44, "/c rcon.print(game.map_settings.pollution.ageing)"), "1.5\n");
-					assert.equal(
-						await sendRcon(44, "/c rcon.print(game.difficulty_settings.research_queue_setting)"), "never\n"
-					);
 
-				} finally {
-					await execCtl("instance stop test");
-				}
+				let exchangeString = testStrings.modified.replace(/[\n\r]+/g, "");
+				let args = `base/freeplay --seed 1234 --map-exchange-string "${exchangeString}"`;
+				await execCtl(`instance load-scenario test ${args}`);
+				await checkInstanceStatus(44, "running");
+				await sendRcon(44, '/c game.print("disable achievements")');
+				await sendRcon(44, '/c game.print("disable achievements")');
+				assert.equal(await sendRcon(44, "/c rcon.print(game.default_map_gen_settings.seed)"), "1234\n");
+				assert.equal(await sendRcon(44, "/c rcon.print(game.map_settings.pollution.ageing)"), "1.5\n");
+				assert.equal(
+					await sendRcon(44, "/c rcon.print(game.difficulty_settings.research_queue_setting)"), "never\n"
+				);
+			});
+		});
+
+		describe("instance kill", function() {
+			it("kills the instance", async function() {
+				slowTest(this);
+				await execCtl("instance kill test");
+				await checkInstanceStatus(44, "stopped");
 			});
 		});
 
