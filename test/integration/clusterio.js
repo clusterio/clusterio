@@ -6,6 +6,7 @@ const events = require("events");
 
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
+const { wait } = require("@clusterio/lib/helpers");
 
 const testStrings = require("../lib/factorio/test_strings");
 const {
@@ -252,6 +253,7 @@ describe("Integration of Clusterio", function() {
 		describe("instance create-save", function() {
 			it("creates a save", async function() {
 				slowTest(this);
+				getControl().saveListUpdates = [];
 				await execCtl("instance create-save test");
 				await checkInstanceStatus(44, "stopped");
 			});
@@ -325,8 +327,32 @@ describe("Integration of Clusterio", function() {
 		describe("instance send-rcon", function() {
 			it("sends the command", async function() {
 				slowTest(this);
-				await execCtl("instance send-rcon test test");
-				// TODO check that the command was received
+				await execCtl("instance send-rcon test technobabble");
+				let { log } = await libLink.messages.queryLog.send(getControl(), {
+					all: false,
+					master: false,
+					slave_ids: [],
+					instance_ids: [44],
+					max_level: null,
+					limit: 10,
+					order: "desc",
+				});
+				assert(log.some(info => /technobabble/.test(info.message)), "Command was not sent");
+			});
+
+			it("should trigger saveListUpdate on save", async function() {
+				slowTest(this);
+				getControl().saveListUpdates = [];
+				await execCtl("instance send-rcon test /server-save");
+				let received = false;
+				for (let x = 0; x < 10; x++) {
+					if (getControl().saveListUpdates.length) {
+						received = true;
+						break;
+					}
+					await wait(100);
+				}
+				assert(received, "saveListUpdate not sent");
 			});
 		});
 

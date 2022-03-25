@@ -409,6 +409,7 @@ const outputHeuristics = [
  * - game-ready - invoked when the server is finished starting up
  * - autosave-start - invoked when the server starts an autosave
  * - autosave-fnished - invoked when the autosave finished
+ * - save-finished - invoked when the server has finished a manual save
  * - exit - invoked when the sterver has exited
  * @extends events.EventEmitter
  * @memberof module:lib/factorio
@@ -500,6 +501,8 @@ class FactorioServer extends events.EventEmitter {
 			if (this._runningAutosave) {
 				this.emit("autosave-finished", this._runningAutosave);
 				this._runningAutosave = null;
+			} else {
+				this.emit("save-finished");
 			}
 		});
 	}

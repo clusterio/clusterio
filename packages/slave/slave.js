@@ -199,6 +199,12 @@ class Instance extends libLink.Link {
 			});
 		});
 
+		this.server.on("save-finished", () => {
+			this.sendSaveListUpdate().catch(err => {
+				this.logger.error(`Error handling save-finished in instance ${this.name}:\n${err.stack}`);
+			});
+		});
+
 		this.server.on("ipc-player_event", event => {
 			libLink.messages.playerEvent.send(this, {
 				instance_id: this.id,
