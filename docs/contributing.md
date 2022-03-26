@@ -183,11 +183,11 @@ The format of this log should be self explanatory, please follow it carefully.
 ## Supported Node.js and Factorio Versions
 
 Clusterio run on Node.js v12 and up, make sure to check that the Node builtin API's and npm packages you use are supported on these versions.
-The Travis CI tests are runned on whatever version of Node.js v12 is the default.
+The GitHub Actions tests are run on whatever version of Node.js v12, v14, and v16 is the default.
 
 For Factorio Clusterio 2.0 aims to support version 0.17.69 and up, including the latest experimental release.
 It's recommended that you use the lua API reference for 0.17.69, as there's no information on what version Factorio API's were introduced in.
-The Travis CI tests are runned against latest experimental release.
+The GitHub Actions tests are run against the latest experimental release.
 
 
 ## Code Style
