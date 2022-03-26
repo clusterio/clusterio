@@ -78,7 +78,7 @@ class BaseInstancePlugin {
 	 * changed.
 	 *
 	 * @param {module:lib/config.ConfigGroup} group -
-	 *     The group who's field got changed on.
+	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
 	 */
@@ -362,7 +362,7 @@ class BaseMasterPlugin {
 	 * changed on the master.
 	 *
 	 * @param {module:lib/config.ConfigGroup} group -
-	 *     The group who's field got changed on.
+	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
 	 */
@@ -376,7 +376,7 @@ class BaseMasterPlugin {
 	 *
 	 * @param {Object} instance - The instance the config changed on.
 	 * @param {module:lib/config.ConfigGroup} group -
-	 *     The group who's field got changed on.
+	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
 	 */
