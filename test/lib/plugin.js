@@ -62,6 +62,8 @@ describe("lib/plugin", function() {
 		});
 		it("should define defaults for hooks", async function() {
 			await masterPlugin.onInstanceStatusChanged({}, "running", "initialized");
+			await masterPlugin.onMasterConfigFieldChanged({}, "foo", null);
+			await masterPlugin.onInstanceConfigFieldChanged({}, {}, "foo", null);
 			await masterPlugin.onMetrics();
 			await masterPlugin.onShutdown();
 			masterPlugin.onSlaveConnectionEvent({}, "connect");

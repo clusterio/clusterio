@@ -8,6 +8,7 @@ import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
 import { useSlave } from "../model/slave";
 import PageLayout from "./PageLayout";
+import PluginExtra from "./PluginExtra";
 
 const { Title } = Typography;
 
@@ -60,5 +61,6 @@ export default function SlaveViewPage(props) {
 			<Title level={5} style={{ marginTop: 16 }}>Console</Title>
 			<LogConsole slaves={[slaveId]} />
 		</>}
+		<PluginExtra component="SlaveViewPage" slave={slave} />
 	</PageLayout>;
 }

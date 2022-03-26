@@ -1,10 +1,11 @@
 import React from "react";
 import { useHistory } from "react-router-dom";
-import { message, Button, Table } from "antd";
+import { message, Button, Space, Table } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 
 import { useSlaveList } from "../model/slave";
 import InstanceStatusTag from "./InstanceStatusTag";
+import StartStopInstanceButton from "./StartStopInstanceButton";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
@@ -43,6 +44,7 @@ export default function InstanceList(props) {
 			key: "assigned_slave",
 			render: instance => slaveName(instance["assigned_slave"]),
 			sorter: (a, b) => strcmp(slaveName(a["assigned_slave"]), slaveName(b["assigned_slave"])),
+			responsive: ["sm"],
 		},
 		{
 			title: "Public address",
@@ -63,12 +65,23 @@ export default function InstanceList(props) {
 				</> : "";
 			},
 			sorter: (a, b) => strcmp(slavePublicAddress(a["assigned_slave"]), slavePublicAddress(b["assigned_slave"])),
+			responsive: ["lg"],
 		},
 		{
 			title: "Status",
-			dataIndex: "status",
-			render: status => <InstanceStatusTag status={status} />,
+			key: "status",
+			render: instance => <InstanceStatusTag status={instance["status"]} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
+		},
+		{
+			key: "action",
+			render: instance => <StartStopInstanceButton
+				buttonProps={{ size: "small" }}
+				instance={instance}
+			/>,
+			responsive: ["sm"],
+			align: "right",
+			width: 100,
 		},
 	];
 

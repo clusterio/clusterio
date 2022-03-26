@@ -7,6 +7,7 @@ import { libLink } from "@clusterio/lib";
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
+import PluginExtra from "./PluginExtra";
 import { useSlaveList } from "../model/slave";
 import { notifyErrorHandler } from "../util/notify";
 
@@ -129,5 +130,6 @@ export default function SlavesPage() {
 				},
 			})}
 		/>
+		<PluginExtra component="SlavesPage" />
 	</PageLayout>;
 };

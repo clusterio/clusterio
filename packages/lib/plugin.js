@@ -78,7 +78,7 @@ class BaseInstancePlugin {
 	 * changed.
 	 *
 	 * @param {module:lib/config.ConfigGroup} group -
-	 *     The group who's field got changed on.
+	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
 	 */
@@ -356,6 +356,19 @@ class BaseMasterPlugin {
 	async onInstanceStatusChanged(instance, prev) { }
 
 	/**
+	 * Called when the value of a master config field changed.
+	 *
+	 * Invoked after the value of the config field given by `field` has
+	 * changed on the master.
+	 *
+	 * @param {module:lib/config.ConfigGroup} group -
+	 *     The group who's field got changed.
+	 * @param {string} field - Name of the field that changed.
+	 * @param {*} prev - The previous value of the field.
+	 */
+	async onMasterConfigFieldChanged(group, field, prev) { }
+
+	/**
 	 * Called when the value of an instance config field changed.
 	 *
 	 * Invoked after the value of the config field given by `field` has
@@ -363,7 +376,7 @@ class BaseMasterPlugin {
 	 *
 	 * @param {Object} instance - The instance the config changed on.
 	 * @param {module:lib/config.ConfigGroup} group -
-	 *     The group who's field got changed on.
+	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
 	 */
@@ -575,11 +588,14 @@ class BaseControlPlugin {
 
 /**
  * Plugin supplied pages
- * @typedef {Object} module:Lib/plugin~Page
+ * @typedef {Object} module:lib/plugin~Page
  * @property {string} path - URL path to this page.
  * @property {string=} sidebarPath -
  *     If present and this path matches one of the pages in the sidebar it
  *     will cause that sidebar entry to be highlighted as active.
+ * @property {string=} sidebarGroup -
+ *     If present group this entry under a group of the given name in the
+ *     sidebar.
  * @property {string=} sidebarName -
  *     If present creates an entry in the sidebar for this page with the
  *     given text.
@@ -640,6 +656,42 @@ class BaseWebPlugin {
 		 * @type {Array<module:lib/plugin~Page>}
 		 */
 		this.pages = [];
+
+		/**
+		 * Extra react component to add to core components
+		 *
+		 * Interface to augment core components of the web UI.  Setting a
+		 * component as one of the supported properties of this object will
+		 * cause the web UI to render it when displaying that component,
+		 * usually at the end.  Each component will receive a `plugin` param
+		 * which is the instance of the web plugin that contained the
+		 * component extra.
+		 *
+		 * @type {object}
+		 * @property {React.ComponentType} MasterPage -
+		 *     Placed at the end of the master page.
+		 * @property {React.ComponentType} SlavesPage -
+		 *     Placed at the end of the slaves list page.
+		 * @property {React.ComponentType} SlaveViewPage -
+		 *     Placed at the end of each slave page.  Takes a `slave` param
+		 *     which is the slave the page is displayed for.
+		 * @property {React.ComponentType} InstancesPage -
+		 *     Placed at the end of the instance list page.
+		 * @property {React.ComponentType} InstanceViewPage -
+		 *     Placed at the end of each instance page.  Takes an `instance`
+		 *     param which is the instance the page is displayed for.
+		 * @property {React.ComponentType} UsersPage -
+		 *     Placed at the end of the users list page.
+		 * @property {React.ComponentType} UserViewPage -
+		 *     Placed at the end of each user page.  Takes a `user` param
+		 *     which is the user object the page is displayed for.
+		 * @property {React.ComponentType} RolesPage -
+		 *     Placed at the end of the roles list page.
+		 * @property {React.ComponentType} RoleViewPage -
+		 *     Placed at the end of each role page.  Takes a `role` param
+		 *     which is the role object the page is displayed for.
+		 */
+		this.componentExtra = {};
 	}
 
 	/**

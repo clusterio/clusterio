@@ -8,6 +8,7 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import PageLayout from "./PageLayout";
+import PluginExtra from "./PluginExtra";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
@@ -99,5 +100,6 @@ export default function RolesPage() {
 				},
 			})}
 		/>
+		<PluginExtra component="RolesPage" />
 	</PageLayout>;
 }

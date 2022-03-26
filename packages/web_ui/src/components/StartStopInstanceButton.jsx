@@ -11,7 +11,8 @@ export default function StartStopInstanceButton(props) {
 	let control = useContext(ControlContext);
 	let [switching, setSwitching] = useState(false);
 
-	function onClick() {
+	function onClick(event) {
+		event.stopPropagation();
 		setSwitching(true);
 		let action;
 		if (props.instance["status"] === "stopped") {

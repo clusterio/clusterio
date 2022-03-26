@@ -756,6 +756,19 @@ instanceCommands.add(new libCommand.Command({
 }));
 
 instanceCommands.add(new libCommand.Command({
+	definition: ["kill <instance>", "Kill instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to kill", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
+		await libLink.messages.killInstance.send(control, {
+			instance_id: instanceId,
+		});
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
 	definition: ["delete <instance>", "Delete instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to delete", type: "string" });
 	}],
