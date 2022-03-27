@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Button, List, Popconfirm, Progress, Space, Table, Tooltip, Upload } from "antd";
+import { Button, Form, Input, List, Modal, Popconfirm, Progress, Space, Table, Tooltip, Upload } from "antd";
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
@@ -12,6 +12,84 @@ import SectionHeader from "./SectionHeader";
 import { useSaves } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
 
+
+function RenameModal(props) {
+	let control = useContext(ControlContext);
+	let [visible, setVisible] = useState(false);
+	let [form] = Form.useForm();
+
+	return <>
+		<Button disabled={props.disabled} onClick={() => setVisible(true)}>Rename</Button>
+		<Modal
+			title="Rename save"
+			okText="Rename"
+			visible={visible}
+			onOk={() => form.submit()}
+			onCancel={() => setVisible(false)}
+		>
+			<Form
+				form={form}
+				layout="vertical"
+				initialValues={{ newName: props.save.name }}
+				onFinish={values => {
+					libLink.messages.renameSave.send(control,
+						{ instance_id: props.instanceId, old_name: props.save.name, new_name: values.newName }
+					).then(() => {
+						setVisible(false);
+						form.resetFields();
+					}).catch(notifyErrorHandler("Error renaming save"));
+				}}
+			>
+				<Form.Item
+					name="newName"
+					label="New name"
+					rules={[{ required: true, message: "New name is required" }]}
+				>
+					<Input autoFocus />
+				</Form.Item>
+			</Form>
+		</Modal>
+	</>;
+}
+
+function CopyModal(props) {
+	let control = useContext(ControlContext);
+	let [visible, setVisible] = useState(false);
+	let [form] = Form.useForm();
+
+	return <>
+		<Button disabled={props.disabled} onClick={() => setVisible(true)}>Copy</Button>
+		<Modal
+			title="Copy save"
+			okText="Copy"
+			visible={visible}
+			onOk={() => form.submit()}
+			onCancel={() => setVisible(false)}
+		>
+			<Form
+				form={form}
+				layout="vertical"
+				initialValues={{ newName: props.save.name }}
+				onFinish={values => {
+					libLink.messages.copySave.send(control,
+						{ instance_id: props.instanceId, source: props.save.name, destination: values.newName }
+					).then(() => {
+						setVisible(false);
+						form.resetFields();
+					}).catch(notifyErrorHandler("Error copying save"));
+				}}
+			>
+				<Form.Item
+					name="newName"
+					label="New name"
+					rules={[{ required: true, message: "New name is required" }]}
+				>
+					<Input autoFocus />
+				</Form.Item>
+			</Form>
+		</Modal>
+	</>;
+}
 
 function formatBytes(bytes) {
 	if (bytes === 0) {
@@ -81,6 +159,12 @@ export default function SavesList(props) {
 						);
 					}}
 				>Load save</Button>}
+				{account.hasPermission("core.instance.save.rename") && <RenameModal
+					disabled={slaveOffline} instanceId={props.instance.id} save={save}
+				/>}
+				{account.hasPermission("core.instance.save.copy") && <CopyModal
+					disabled={slaveOffline} instanceId={props.instance.id} save={save}
+				/>}
 				{account.hasPermission("core.instance.save.download") && <Button
 					disabled={slaveOffline}
 					onClick={() => {

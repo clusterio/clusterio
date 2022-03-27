@@ -563,6 +563,41 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance save copy", function() {
+			it("copy a save file", async function() {
+				await execCtl("instance save copy 44 upload.zip copy.zip");
+				assert(await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "copy.zip")));
+			});
+			it("should error if destination exist", async function() {
+				await assert.rejects(execCtl("instance save copy 44 upload.zip copy.zip"));
+			});
+			it("should error if source does not exist", async function() {
+				await assert.rejects(execCtl("instance save copy 44 not-here.zip invalid.zip"));
+			});
+			it("should reject path traversal attacks", async function() {
+				await assert.rejects(execCtl("instance save copy 44 upload.zip ../traversal.zip"));
+				await assert.rejects(execCtl("instance save copy 44 ../saves/upload.zip traversal.zip "));
+			});
+		});
+
+		describe("instance save rename", function() {
+			it("rename a save file", async function() {
+				await execCtl("instance save rename 44 copy.zip rename.zip");
+				assert(!await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "copy.zip")));
+				assert(await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "rename.zip")));
+			});
+			it("should error if new name exist", async function() {
+				await assert.rejects(execCtl("instance save rename 44 upload.zip rename.zip"));
+			});
+			it("should error if old name does not exist", async function() {
+				await assert.rejects(execCtl("instance save rename 44 not-here.zip invalid.zip"));
+			});
+			it("should reject path traversal attacks", async function() {
+				await assert.rejects(execCtl("instance save rename 44 upload.zip ../traversal.zip"));
+				await assert.rejects(execCtl("instance save rename 44 ../saves/upload.zip traversal.zip "));
+			});
+		});
+
 		describe("instance save delete", function() {
 			it("should delete a save", async function() {
 				await execCtl("instance save delete 44 upload.zip");

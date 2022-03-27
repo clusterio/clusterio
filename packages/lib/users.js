@@ -393,6 +393,16 @@ definePermission({
 	description: "Create new savegames on instances.",
 });
 definePermission({
+	name: "core.instance.save.rename",
+	title: "Rename save",
+	description: "Rename savegames on instances.",
+});
+definePermission({
+	name: "core.instance.save.copy",
+	title: "Copy save",
+	description: "Create copies of savegames on instances.",
+});
+definePermission({
 	name: "core.instance.save.delete",
 	title: "Delete save",
 	description: "Delete savegames on instances.",

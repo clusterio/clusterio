@@ -1449,6 +1449,46 @@ class Slave extends libLink.Link {
 		await request.send(instanceConnection, message.data);
 	}
 
+	async renameSaveRequestHandler(message) {
+		let { instance_id, old_name, new_name } = message.data;
+		checkRequestSaveName(old_name);
+		checkRequestSaveName(new_name);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
+		try {
+			await fs.move(
+				path.join(instanceInfo.path, "saves", old_name),
+				path.join(instanceInfo.path, "saves", new_name),
+				{ overwrite: false },
+			);
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${old_name} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
+	}
+
+	async copySaveRequestHandler(message) {
+		let { instance_id, source, destination } = message.data;
+		checkRequestSaveName(source);
+		checkRequestSaveName(destination);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
+		try {
+			await fs.copy(
+				path.join(instanceInfo.path, "saves", source),
+				path.join(instanceInfo.path, "saves", destination),
+				{ overwrite: false, errorOnExist: true },
+			);
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${old_name} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
+	}
+
 	async sendSaveListUpdate(instance_id, savesDir) {
 		let instanceConnection = this.instanceConnections.get(instance_id);
 		let saveList;

@@ -550,6 +550,28 @@ messages.createSave = new Request({
 	},
 });
 
+messages.renameSave = new Request({
+	type: "rename_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.rename",
+	forwardTo: "instance",
+	requestProperties: {
+		"old_name": { type: "string" },
+		"new_name": { type: "string" },
+	},
+});
+
+messages.copySave = new Request({
+	type: "copy_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.copy",
+	forwardTo: "instance",
+	requestProperties: {
+		"source": { type: "string" },
+		"destination": { type: "string" },
+	},
+});
+
 messages.deleteSave = new Request({
 	type: "delete_save",
 	links: ["control-master", "master-slave"],
