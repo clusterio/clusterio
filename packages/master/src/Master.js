@@ -424,6 +424,21 @@ class Master {
 		}
 	}
 
+	/**
+	 * Get instance by ID for a request
+	 *
+	 * @param {number} instanceId - ID of instance to get.
+	 * @returns {object} instance
+	 * @throws {module:lib/errors.RequestError} if the instance does not exist.
+	 */
+	getRequestInstance(instanceId) {
+		let instance = this.instances.get(instanceId);
+		if (!instance) {
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
+		}
+		return instance;
+	}
+
 	addInstanceHooks(instance) {
 		instance.config.on("fieldChanged", (group, field, prev) => {
 			if (group.name === "instance" && field === "name") {
@@ -608,11 +623,7 @@ class Master {
 	 * @returns {object} data returned from the request.
 	 */
 	async forwardRequestToInstance(request, data) {
-		let instance = this.instances.get(data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${data.instance_id} does not exist`);
-		}
-
+		let instance = this.getRequestInstance(data.instance_id);
 		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) {
 			throw new libErrors.RequestError("Instance is not assigned to a slave");

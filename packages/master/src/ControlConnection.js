@@ -159,10 +159,7 @@ class ControlConnection extends BaseConnection {
 
 	async getInstanceRequestHandler(message) {
 		let id = message.data.id;
-		let instance = this._master.instances.get(id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${id} does not exist`);
-		}
+		let instance = this._master.getRequestInstance(id);
 
 		return {
 			id,
@@ -249,11 +246,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		if (instance.config.get("instance.assigned_slave") !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
@@ -266,11 +259,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async getInstanceConfigRequestHandler(message) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		return {
 			serialized_config: instance.config.serialize("control"),
 		};
@@ -290,11 +279,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async setInstanceConfigFieldRequestHandler(message) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		if (message.data.field === "instance.assigned_slave") {
 			throw new libErrors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
 		}
@@ -309,11 +294,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async setInstanceConfigPropRequestHandler(message) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		let { field, prop, value } = message.data;
 		instance.config.setProp(field, prop, value, "control");
 		await this.updateInstanceConfig(instance);
@@ -321,10 +302,7 @@ class ControlConnection extends BaseConnection {
 
 	async assignInstanceCommandRequestHandler(message, request) {
 		let { slave_id, instance_id } = message.data;
-		let instance = this._master.instances.get(instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		let instance = this._master.getRequestInstance(instance_id);
 
 		// Check if target slave is connected
 		let newSlaveConnection;
