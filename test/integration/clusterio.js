@@ -250,11 +250,11 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("instance create-save", function() {
+		describe("instance save create", function() {
 			it("creates a save", async function() {
 				slowTest(this);
 				getControl().saveListUpdates = [];
-				await execCtl("instance create-save test");
+				await execCtl("instance save create test");
 				await checkInstanceStatus(44, "stopped");
 			});
 		});
@@ -266,10 +266,10 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("instance list-saves", function() {
+		describe("instance save list", function() {
 			it("lists the created save", async function() {
 				slowTest(this);
-				let result = await execCtl("instance list-saves test");
+				let result = await execCtl("instance save list test");
 				assert(/world\.zip/.test(result.stdout), "world.zip not present in list save output");
 			});
 		});
@@ -530,10 +530,10 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
-		describe("instance upload-save", function() {
+		describe("instance save upload", function() {
 			it("should upload a zip file", async function() {
 				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
-				await execCtl("instance upload-save 44 upload.zip");
+				await execCtl("instance save upload 44 upload.zip");
 				assert(
 					await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
 					"file not uploaded to saves directory"
@@ -541,42 +541,42 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should reject non-zip files", async function() {
 				await fs.outputFile(path.join("temp", "test", "invalid"), "a test");
-				await assert.rejects(execCtl("instance upload-save 44 invalid"));
+				await assert.rejects(execCtl("instance save upload 44 invalid"));
 			});
 			it("should reject path traversal attacks", async function() {
 				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
-				await assert.rejects(execCtl("instance upload-save 44 upload.zip --name ../traversal.zip"));
+				await assert.rejects(execCtl("instance save upload 44 upload.zip --name ../traversal.zip"));
 			});
 		});
 
-		describe("instance download-save", function() {
+		describe("instance save download", function() {
 			it("should download a save", async function() {
 				await fs.remove(path.join("temp", "test", "upload.zip"));
-				await execCtl("instance download-save 44 upload.zip");
+				await execCtl("instance save download 44 upload.zip");
 				assert(await fs.pathExists(path.join("temp", "test", "upload.zip")));
 			});
 			it("should error if save does not exist", async function() {
-				await assert.rejects(execCtl("instance download-save 44 invalid"));
+				await assert.rejects(execCtl("instance save download 44 invalid"));
 			});
 			it("should error on path traversal attacks", async function() {
-				await assert.rejects(execCtl("instance download-save 44 ../factorio-current.log"));
+				await assert.rejects(execCtl("instance save download 44 ../factorio-current.log"));
 			});
 		});
 
-		describe("instance delete-save", function() {
+		describe("instance save delete", function() {
 			it("should delete a save", async function() {
-				await execCtl("instance delete-save 44 upload.zip");
+				await execCtl("instance save delete 44 upload.zip");
 				assert(
 					!await fs.pathExists(path.join("temp", "test", "instances", "test", "saves", "upload.zip")),
 					"file not deleted"
 				);
 			});
 			it("should error if save does not exist", async function() {
-				await assert.rejects(execCtl("instance delete-save 44 upload.zip"));
+				await assert.rejects(execCtl("instance save delete 44 upload.zip"));
 			});
 			it("should error on path traversal attacks", async function() {
 				await fs.outputFile(path.join("temp", "test", "upload.zip"), "a test");
-				await assert.rejects(execCtl("instance delete-save 44 ../../upload.zip"));
+				await assert.rejects(execCtl("instance save delete 44 ../../upload.zip"));
 			});
 		});
 

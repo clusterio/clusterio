@@ -533,8 +533,11 @@ async function loadMapSettings(args) {
 	};
 }
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["list-saves <instance>", "list saves on an instance", (yargs) => {
+const instanceSaveCommands = new libCommand.CommandTree({
+	name: "save", alias: ["s"], description: "Instance save management",
+});
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["list <instance>", "list saves on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to list saves on", type: "string" });
 	}],
 	handler: async function(args, control) {
@@ -548,8 +551,8 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["create-save <instance> [name]", "Create a new save on an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["create <instance> [name]", "Create a new save on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to create on", type: "string" });
 		yargs.positional("name", { describe: "Name of save to create.", type: "string", default: "world.zip" });
 		yargs.options({
@@ -573,8 +576,8 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["upload-save <instance> <filepath>", "Upload a save to an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["upload <instance> <filepath>", "Upload a save to an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to upload to", type: "string" });
 		yargs.positional("filepath", { describe: "Path to save to upload", type: "string" });
 		yargs.options({
@@ -624,8 +627,8 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["download-save <instance> <save>", "Download a save from an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["download <instance> <save>", "Download a save from an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to download save from", type: "string" });
 		yargs.positional("save", { describe: "Save to download", type: "string" });
 	}],
@@ -669,8 +672,8 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["delete-save <instance> <save>", "Delete a save from an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["delete <instance> <save>", "Delete a save from an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to delete save from", type: "string" });
 		yargs.positional("save", { describe: "Save to delete", type: "string" });
 	}],
@@ -682,6 +685,7 @@ instanceCommands.add(new libCommand.Command({
 		});
 	},
 }));
+instanceCommands.add(instanceSaveCommands);
 
 instanceCommands.add(new libCommand.Command({
 	definition: ["export-data <instance>", "Export item icons and locale from instance", (yargs) => {
