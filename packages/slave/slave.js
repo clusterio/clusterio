@@ -1077,6 +1077,15 @@ function checkFilename(name) {
 	}
 }
 
+function checkRequestSaveName(name) {
+	try {
+		checkFilename(name);
+	} catch (err) {
+		throw new libErrors.RequestError(`Save name ${err.message}`);
+	}
+}
+
+
 /**
  * Handles running the slave
  *
@@ -1351,6 +1360,14 @@ class Slave extends libLink.Link {
 		}
 	}
 
+	getRequestInstanceInfo(instanceId) {
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
+		}
+		return instanceInfo;
+	}
+
 	/**
 	 * Initialize and connect an unloaded instance
 	 *
@@ -1358,11 +1375,7 @@ class Slave extends libLink.Link {
 	 * @returns {module:slave/slave~InstanceConnection} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
-		}
-
+		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 		if (this.instanceConnections.has(instanceId)) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
@@ -1424,11 +1437,7 @@ class Slave extends libLink.Link {
 			return await request.send(instanceConnection, message.data);
 		}
 
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
-		}
-
+		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 		return {
 			list: await Instance.listSaves(path.join(instanceInfo.path, "saves"), null),
 		};
@@ -1454,15 +1463,8 @@ class Slave extends libLink.Link {
 
 	async deleteSaveRequestHandler(message) {
 		let { instance_id, save } = message.data;
-		try {
-			checkFilename(save);
-		} catch (err) {
-			throw new libErrors.RequestError(`Save name ${err.message}`);
-		}
-		let instanceInfo = this.instanceInfos.get(instance_id);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		checkRequestSaveName(save);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
 		try {
 			await fs.unlink(path.join(instanceInfo.path, "saves", save));
@@ -1477,15 +1479,8 @@ class Slave extends libLink.Link {
 
 	async pullSaveRequestHandler(message) {
 		let { instance_id, stream_id, filename } = message.data;
-		try {
-			checkFilename(filename);
-		} catch (err) {
-			throw new libErrors.RequestError(`Save name ${err.message}`);
-		}
-		let instanceInfo = this.instanceInfos.get(instance_id);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		checkRequestSaveName(filename);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
 		let url = new URL(this.config.get("slave.master_url"));
 		url.pathname += `api/stream/${stream_id}`;
@@ -1528,15 +1523,8 @@ class Slave extends libLink.Link {
 
 	async pushSaveRequestHandler(message) {
 		let { instance_id, stream_id, save } = message.data;
-		try {
-			checkFilename(save);
-		} catch (err) {
-			throw new libErrors.RequestError(`Save name ${err.message}`);
-		}
-		let instanceInfo = this.instanceInfos.get(instance_id);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		checkRequestSaveName(save);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
 		let content;
 		try {
