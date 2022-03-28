@@ -595,6 +595,22 @@ messages.downloadSave = new Request({
 	},
 });
 
+messages.transferSave = new Request({
+	type: "transfer_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.transfer",
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"source_save": { type: "string" },
+		"target_instance_id": { type: "integer" },
+		"target_save": { type: "string" },
+		"copy": { type: "boolean" },
+	},
+	responseProperties: {
+		"save": { type: "string" },
+	},
+});
+
 messages.pullSave = new Request({
 	type: "pull_save",
 	links: ["master-slave"],

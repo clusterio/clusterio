@@ -413,6 +413,11 @@ definePermission({
 	description: "Upload savegames to instances.",
 });
 definePermission({
+	name: "core.instance.save.transfer",
+	title: "Transfer save",
+	description: "Transfer savegames between instances.",
+});
+definePermission({
 	name: "core.instance.save.download",
 	title: "Download save",
 	description: "Download savegames from instances.",

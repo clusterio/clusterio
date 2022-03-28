@@ -3,6 +3,7 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 const events = require("events");
+const phin = require("phin");
 
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
@@ -23,6 +24,24 @@ async function getInstances() {
 async function checkInstanceStatus(id, status) {
 	let instances = await getInstances();
 	assert.equal(instances.get(44).status, status, "incorrect instance status");
+}
+
+async function uploadSave(instanceId, name, content) {
+	return await phin({
+		url: `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`,
+		method: "POST",
+		core: { rejectUnauthorized: false },
+		headers: {
+			"X-Access-Token": controlToken,
+			"Content-Type": "application/zip",
+			"Content-Length": String(content.length),
+		},
+		data: content,
+	});
+}
+
+async function deleteSave(instanceId, save) {
+	await libLink.messages.deleteSave.send(getControl(), { instance_id: instanceId, save });
 }
 
 describe("Integration of Clusterio", function() {
@@ -115,9 +134,13 @@ describe("Integration of Clusterio", function() {
 				let config = "alt-slave-config.json";
 				let configPath = path.join("temp", "test", config);
 				await fs.remove(configPath);
+				await fs.remove(path.join("temp", "test", "alt-instances"));
 				await execCtl(`slave create-config --id 5 --name alt-slave --generate-token --output ${config}`);
 				await exec(
 					`node ../../packages/slave --config ${config} config set slave.tls_ca ../../test/file/tls/cert.pem`
+				);
+				await exec(
+					`node ../../packages/slave --config ${config} config set slave.instances_directory alt-instances`
 				);
 
 				let slaveProcess;
@@ -596,6 +619,127 @@ describe("Integration of Clusterio", function() {
 				await assert.rejects(execCtl("instance save rename 44 upload.zip ../traversal.zip"));
 				await assert.rejects(execCtl("instance save rename 44 ../saves/upload.zip traversal.zip "));
 			});
+		});
+
+		describe("instance save transfer", function() {
+			before(async function() {
+				slowTest(this);
+				await execCtl("instance create spam --id 66");
+				await execCtl("instance assign spam 4");
+				await execCtl("instance create unassign --id 77");
+			});
+			after(async function() {
+				await execCtl("instance delete spam");
+			});
+			for (let remote of [false, true]) {
+				let pri = 44;
+				let sec = remote ? 99 : 66;
+				let priSaves = path.join("temp", "test", "instances", "test", "saves");
+				let secSaves = remote
+					? path.join("temp", "test", "alt-instances", "alt-test", "saves")
+					: path.join("temp", "test", "instances", "spam", "saves")
+				;
+				describe(remote ? "remote" : "local", function() {
+					if (remote) {
+						let slaveProcess;
+						before(async function() {
+							// On windows there's currently no way to automate graceful shutdown of the slave
+							// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
+							if (process.platform === "win32") {
+								this.skip();
+							}
+							slowTest(this);
+							// Reuse from the clusterioslave test
+							let config = "alt-slave-config.json";
+							slaveProcess = await spawn(
+								"alt-slave:", `node ../../packages/slave run --config ${config}`, /Started slave/
+							);
+						});
+						after(async function() {
+							if (slaveProcess) {
+								slaveProcess.kill("SIGINT");
+								await events.once(slaveProcess, "exit");
+							}
+						});
+					}
+					it("should transfers a save", async function() {
+						await uploadSave(pri, "transfer.zip", "transfer.zip");
+						await execCtl(`instance save transfer ${pri} transfer.zip ${sec}`);
+						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
+						assert(await fs.pathExists(path.join(secSaves, "transfer.zip")), "save not at sec");
+						await deleteSave(sec, "transfer.zip");
+					});
+					it("should support rename", async function() {
+						await uploadSave(pri, "transfer.zip", "transfer.zip");
+						await execCtl(`instance save transfer ${pri} transfer.zip ${sec} rename.zip`);
+						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
+						assert(await fs.pathExists(path.join(secSaves, "rename.zip")), "save not at sec");
+						await deleteSave(sec, "rename.zip");
+					});
+					it("should auto-rename if target exists", async function() {
+						await uploadSave(pri, "transfer.zip", "transfer.zip");
+						await uploadSave(sec, "transfer.zip", "transfer.zip");
+						await execCtl(`instance save transfer ${pri} transfer.zip ${sec}`);
+						assert(!await fs.pathExists(path.join(priSaves, "transfer.zip")), "save still at pri");
+						assert(await fs.pathExists(path.join(secSaves, "transfer-2.zip")), "save not at sec");
+						await deleteSave(sec, "transfer.zip");
+						await deleteSave(sec, "transfer-2.zip");
+					});
+					it("should copy when using --copy", async function() {
+						await uploadSave(pri, "transfer.zip", "transfer.zip");
+						await execCtl(`instance save transfer ${pri} transfer.zip ${sec} --copy`);
+						assert(await fs.pathExists(path.join(priSaves, "transfer.zip")), "save not at pri");
+						assert(await fs.pathExists(path.join(secSaves, "transfer.zip")), "save not at sec");
+						await deleteSave(pri, "transfer.zip");
+						await deleteSave(sec, "transfer.zip");
+					});
+					it("should fail if save does not exist", async function() {
+						await assert.rejects(execCtl(`instance save transfer ${pri} not-here.zip ${sec}`));
+					});
+					it("should fail if source save name is invalid", async function() {
+						await assert.rejects(execCtl(`instance save transfer ${pri} nul 111`));
+					});
+					it("should fail if target save name is invalid", async function() {
+						await uploadSave(pri, "transfer.zip", "transfer.zip");
+						await assert.rejects(execCtl(`instance save transfer ${pri} transfer.zip 111 nul`));
+						await deleteSave(pri, "transfer.zip");
+					});
+					it("should reject path traversal of source save", async function() {
+						await assert.rejects(execCtl(`instance save transfer ${pri} ../saves/transfer.zip 111`));
+					});
+					it("should reject path traversal of target save", async function() {
+						await uploadSave(pri, "transfer.zip", "transfer.zip");
+						await assert.rejects(
+							execCtl(`instance save transfer ${pri} transfer.zip 111 ../saves/transfer.zip`)
+						);
+						await deleteSave(pri, "transfer.zip");
+					});
+					if (!remote) {
+						it("should fail if source and target instance is the same instance", async function() {
+							await uploadSave(pri, "transfer.zip", "transfer.zip");
+							await assert.rejects(execCtl(`instance save transfer ${pri} transfer.zip ${pri}`));
+							await deleteSave(pri, "transfer.zip");
+						});
+						it("should fail if source instance does not exist", async function() {
+							await assert.rejects(execCtl(`instance save transfer 111 not-here.zip ${sec}`));
+						});
+						it("should fail if target instance does not exist", async function() {
+							await uploadSave(pri, "transfer.zip", "transfer.zip");
+							await assert.rejects(execCtl(`instance save transfer ${pri} transfer.zip 111`));
+							await deleteSave(pri, "transfer.zip");
+						});
+						it("should fail if source instance is not assigned", async function() {
+							await assert.rejects(execCtl(`instance save transfer 77 transfer.zip ${pri}`));
+						});
+						it("should fail if target instance is not assigned", async function() {
+							await uploadSave(pri, "transfer.zip", "transfer.zip");
+							await assert.rejects(execCtl(`instance save transfer ${pri} transfer.zip 77`));
+							await deleteSave(pri, "transfer.zip");
+						});
+					}
+				});
+			}
+
 		});
 
 		describe("instance save delete", function() {

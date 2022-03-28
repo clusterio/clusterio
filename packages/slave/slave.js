@@ -1489,6 +1489,45 @@ class Slave extends libLink.Link {
 		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
 	}
 
+	async transferSaveRequestHandler(message) {
+		let { source_save, target_save, copy, instance_id, target_instance_id } = message.data;
+		checkRequestSaveName(source_save);
+		checkRequestSaveName(target_save);
+		let sourceInstanceInfo = this.getRequestInstanceInfo(instance_id);
+		let targetInstanceInfo = this.getRequestInstanceInfo(target_instance_id);
+
+		// For consistency with remote transfer initiated through pullSave the
+		// target is renamed if it already exists.
+		target_save = await libFileOps.findUnusedName(
+			path.join(targetInstanceInfo.path, "saves"), target_save, ".zip"
+		);
+
+		try {
+			if (copy) {
+				await fs.copy(
+					path.join(sourceInstanceInfo.path, "saves", source_save),
+					path.join(targetInstanceInfo.path, "saves", target_save),
+					{ overwrite: true },
+				);
+			} else {
+				await fs.move(
+					path.join(sourceInstanceInfo.path, "saves", source_save),
+					path.join(targetInstanceInfo.path, "saves", target_save),
+					{ overwrite: true },
+				);
+			}
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${source_save} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(sourceInstanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(target_instance_id, path.join(targetInstanceInfo.path, "saves"));
+
+		return { save: target_save };
+	}
+
 	async sendSaveListUpdate(instance_id, savesDir) {
 		let instanceConnection = this.instanceConnections.get(instance_id);
 		let saveList;
