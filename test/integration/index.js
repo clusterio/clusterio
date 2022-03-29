@@ -109,7 +109,8 @@ let slaveConfigPath = path.join("temp", "test", "config-slave.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
 async function exec(command, options = {}) {
-	console.log(command);
+	// Uncomment to show commands run in tests
+	// console.log(command);
 	options = { cwd: path.join("temp", "test"), ...options };
 	return await util.promisify(child_process.exec)(command, options);
 }
