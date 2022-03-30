@@ -1,5 +1,6 @@
 "use strict";
 const jwt = require("jsonwebtoken");
+const events = require("events");
 
 const libConfig = require("@clusterio/lib/config");
 const libErrors = require("@clusterio/lib/errors");
@@ -159,10 +160,7 @@ class ControlConnection extends BaseConnection {
 
 	async getInstanceRequestHandler(message) {
 		let id = message.data.id;
-		let instance = this._master.instances.get(id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${id} does not exist`);
-		}
+		let instance = this._master.getRequestInstance(id);
 
 		return {
 			id,
@@ -249,11 +247,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		if (instance.config.get("instance.assigned_slave") !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
@@ -266,11 +260,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async getInstanceConfigRequestHandler(message) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		return {
 			serialized_config: instance.config.serialize("control"),
 		};
@@ -290,11 +280,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async setInstanceConfigFieldRequestHandler(message) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		if (message.data.field === "instance.assigned_slave") {
 			throw new libErrors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
 		}
@@ -309,11 +295,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async setInstanceConfigPropRequestHandler(message) {
-		let instance = this._master.instances.get(message.data.instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${message.data.instance_id} does not exist`);
-		}
-
+		let instance = this._master.getRequestInstance(message.data.instance_id);
 		let { field, prop, value } = message.data;
 		instance.config.setProp(field, prop, value, "control");
 		await this.updateInstanceConfig(instance);
@@ -321,10 +303,7 @@ class ControlConnection extends BaseConnection {
 
 	async assignInstanceCommandRequestHandler(message, request) {
 		let { slave_id, instance_id } = message.data;
-		let instance = this._master.instances.get(instance_id);
-		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		let instance = this._master.getRequestInstance(instance_id);
 
 		// Check if target slave is connected
 		let newSlaveConnection;
@@ -393,6 +372,85 @@ class ControlConnection extends BaseConnection {
 
 		await ready;
 		return { stream_id: stream.id };
+	}
+
+	async transferSaveRequestHandler(message, request) {
+		let { source_save, target_save, copy, instance_id, target_instance_id } = message.data;
+		if (copy) {
+			this.user.checkPermission("core.instance.save.copy");
+		} else if (source_save !== target_save) {
+			this.user.checkPermission("core.instance.save.rename");
+		}
+
+		if (instance_id === target_instance_id) {
+			throw new libErrors.RequestError("Source and target instance may not be the same");
+		}
+		let sourceInstance = this._master.getRequestInstance(instance_id);
+		let targetInstance = this._master.getRequestInstance(target_instance_id);
+		let sourceSlaveId = sourceInstance.config.get("instance.assigned_slave");
+		let targetSlaveId = targetInstance.config.get("instance.assigned_slave");
+		if (sourceSlaveId === null) {
+			throw new libErrors.RequestError("Source instance is not assigned a slave");
+		}
+		if (targetSlaveId === null) {
+			throw new libErrors.RequestError("Target instance is not assigned a slave");
+		}
+
+		// Let slave handle request if source and target is on the same slave.
+		if (sourceSlaveId === targetSlaveId) {
+			return await this.forwardRequestToInstance(message, request);
+		}
+
+		// Check connectivity
+		let sourceSlaveConnection = this._master.wsServer.slaveConnections.get(sourceSlaveId);
+		if (!sourceSlaveConnection || sourceSlaveConnection.closing) {
+			throw new libErrors.RequestError("Source slave is not connected to the master server");
+		}
+
+		let targetSlaveConnection = this._master.wsServer.slaveConnections.get(targetSlaveId);
+		if (!targetSlaveConnection || targetSlaveConnection.closing) {
+			throw new libErrors.RequestError("Target slave is not connected to the master server");
+		}
+
+		// Create stream to proxy from target to source
+		let stream = await routes.createProxyStream(this._master.app);
+		stream.events.on("timeout", () => {
+			if (stream.source) {
+				stream.source.destroy();
+			}
+			stream.events.emit("error", new libErrors.RequestError("Timed out establishing transfer stream"));
+		});
+
+		// Ignore errors if not listening for them to avoid crash.
+		stream.events.on("error", () => { /* ignore */ });
+
+		// Establish push from source slave to stream, this is done first to
+		// ensure the file size is known prior to the target slave pull.
+		await Promise.all([
+			this._master.forwardRequestToInstance(libLink.messages.pushSave, {
+				instance_id,
+				stream_id: stream.id,
+				save: source_save,
+			}),
+			events.once(stream.events, "source"),
+		]);
+
+		// Establish pull from target slave to stream and wait for completion.
+		let result = await this._master.forwardRequestToInstance(libLink.messages.pullSave, {
+			instance_id: target_instance_id,
+			stream_id: stream.id,
+			filename: target_save,
+		});
+
+		// Delete source save if this is not a copy
+		if (!copy) {
+			await this._master.forwardRequestToInstance(libLink.messages.deleteSave, {
+				instance_id,
+				save: source_save,
+			});
+		}
+
+		return { save: result.save };
 	}
 
 	async setLogSubscriptionsRequestHandler(message) {

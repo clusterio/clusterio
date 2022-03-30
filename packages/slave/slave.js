@@ -1077,6 +1077,15 @@ function checkFilename(name) {
 	}
 }
 
+function checkRequestSaveName(name) {
+	try {
+		checkFilename(name);
+	} catch (err) {
+		throw new libErrors.RequestError(`Save name ${err.message}`);
+	}
+}
+
+
 /**
  * Handles running the slave
  *
@@ -1351,6 +1360,14 @@ class Slave extends libLink.Link {
 		}
 	}
 
+	getRequestInstanceInfo(instanceId) {
+		let instanceInfo = this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
+		}
+		return instanceInfo;
+	}
+
 	/**
 	 * Initialize and connect an unloaded instance
 	 *
@@ -1358,11 +1375,7 @@ class Slave extends libLink.Link {
 	 * @returns {module:slave/slave~InstanceConnection} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
-		}
-
+		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 		if (this.instanceConnections.has(instanceId)) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} is running`);
 		}
@@ -1424,11 +1437,7 @@ class Slave extends libLink.Link {
 			return await request.send(instanceConnection, message.data);
 		}
 
-		let instanceInfo = this.instanceInfos.get(instanceId);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
-		}
-
+		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 		return {
 			list: await Instance.listSaves(path.join(instanceInfo.path, "saves"), null),
 		};
@@ -1438,6 +1447,85 @@ class Slave extends libLink.Link {
 		let instanceId = message.data.instance_id;
 		let instanceConnection = await this._connectInstance(instanceId);
 		await request.send(instanceConnection, message.data);
+	}
+
+	async renameSaveRequestHandler(message) {
+		let { instance_id, old_name, new_name } = message.data;
+		checkRequestSaveName(old_name);
+		checkRequestSaveName(new_name);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
+		try {
+			await fs.move(
+				path.join(instanceInfo.path, "saves", old_name),
+				path.join(instanceInfo.path, "saves", new_name),
+				{ overwrite: false },
+			);
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${old_name} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
+	}
+
+	async copySaveRequestHandler(message) {
+		let { instance_id, source, destination } = message.data;
+		checkRequestSaveName(source);
+		checkRequestSaveName(destination);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
+		try {
+			await fs.copy(
+				path.join(instanceInfo.path, "saves", source),
+				path.join(instanceInfo.path, "saves", destination),
+				{ overwrite: false, errorOnExist: true },
+			);
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${old_name} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(instanceInfo.path, "saves"));
+	}
+
+	async transferSaveRequestHandler(message) {
+		let { source_save, target_save, copy, instance_id, target_instance_id } = message.data;
+		checkRequestSaveName(source_save);
+		checkRequestSaveName(target_save);
+		let sourceInstanceInfo = this.getRequestInstanceInfo(instance_id);
+		let targetInstanceInfo = this.getRequestInstanceInfo(target_instance_id);
+
+		// For consistency with remote transfer initiated through pullSave the
+		// target is renamed if it already exists.
+		target_save = await libFileOps.findUnusedName(
+			path.join(targetInstanceInfo.path, "saves"), target_save, ".zip"
+		);
+
+		try {
+			if (copy) {
+				await fs.copy(
+					path.join(sourceInstanceInfo.path, "saves", source_save),
+					path.join(targetInstanceInfo.path, "saves", target_save),
+					{ overwrite: true },
+				);
+			} else {
+				await fs.move(
+					path.join(sourceInstanceInfo.path, "saves", source_save),
+					path.join(targetInstanceInfo.path, "saves", target_save),
+					{ overwrite: true },
+				);
+			}
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				throw new libErrors.RequestError(`${source_save} does not exist`);
+			}
+			throw err;
+		}
+		await this.sendSaveListUpdate(instance_id, path.join(sourceInstanceInfo.path, "saves"));
+		await this.sendSaveListUpdate(target_instance_id, path.join(targetInstanceInfo.path, "saves"));
+
+		return { save: target_save };
 	}
 
 	async sendSaveListUpdate(instance_id, savesDir) {
@@ -1454,15 +1542,8 @@ class Slave extends libLink.Link {
 
 	async deleteSaveRequestHandler(message) {
 		let { instance_id, save } = message.data;
-		try {
-			checkFilename(save);
-		} catch (err) {
-			throw new libErrors.RequestError(`Save name ${err.message}`);
-		}
-		let instanceInfo = this.instanceInfos.get(instance_id);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		checkRequestSaveName(save);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
 		try {
 			await fs.unlink(path.join(instanceInfo.path, "saves", save));
@@ -1477,15 +1558,8 @@ class Slave extends libLink.Link {
 
 	async pullSaveRequestHandler(message) {
 		let { instance_id, stream_id, filename } = message.data;
-		try {
-			checkFilename(filename);
-		} catch (err) {
-			throw new libErrors.RequestError(`Save name ${err.message}`);
-		}
-		let instanceInfo = this.instanceInfos.get(instance_id);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		checkRequestSaveName(filename);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
 		let url = new URL(this.config.get("slave.master_url"));
 		url.pathname += `api/stream/${stream_id}`;
@@ -1528,15 +1602,8 @@ class Slave extends libLink.Link {
 
 	async pushSaveRequestHandler(message) {
 		let { instance_id, stream_id, save } = message.data;
-		try {
-			checkFilename(save);
-		} catch (err) {
-			throw new libErrors.RequestError(`Save name ${err.message}`);
-		}
-		let instanceInfo = this.instanceInfos.get(instance_id);
-		if (!instanceInfo) {
-			throw new libErrors.RequestError(`Instance with ID ${instance_id} does not exist`);
-		}
+		checkRequestSaveName(save);
+		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
 		let content;
 		try {

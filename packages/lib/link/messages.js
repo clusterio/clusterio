@@ -550,6 +550,28 @@ messages.createSave = new Request({
 	},
 });
 
+messages.renameSave = new Request({
+	type: "rename_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.rename",
+	forwardTo: "instance",
+	requestProperties: {
+		"old_name": { type: "string" },
+		"new_name": { type: "string" },
+	},
+});
+
+messages.copySave = new Request({
+	type: "copy_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.copy",
+	forwardTo: "instance",
+	requestProperties: {
+		"source": { type: "string" },
+		"destination": { type: "string" },
+	},
+});
+
 messages.deleteSave = new Request({
 	type: "delete_save",
 	links: ["control-master", "master-slave"],
@@ -570,6 +592,22 @@ messages.downloadSave = new Request({
 	},
 	responseProperties: {
 		"stream_id": { type: "string" },
+	},
+});
+
+messages.transferSave = new Request({
+	type: "transfer_save",
+	links: ["control-master", "master-slave"],
+	permission: "core.instance.save.transfer",
+	requestProperties: {
+		"instance_id": { type: "integer" },
+		"source_save": { type: "string" },
+		"target_instance_id": { type: "integer" },
+		"target_save": { type: "string" },
+		"copy": { type: "boolean" },
+	},
+	responseProperties: {
+		"save": { type: "string" },
 	},
 });
 

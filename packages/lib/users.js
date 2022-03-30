@@ -379,7 +379,7 @@ definePermission({
 });
 definePermission({
 	name: "core.instance.save.list",
-	title: "List saves on instance",
+	title: "List saves",
 	description: "List the saves currently on the instance.",
 });
 definePermission({
@@ -389,22 +389,37 @@ definePermission({
 });
 definePermission({
 	name: "core.instance.save.create",
-	title: "Create new instance save",
+	title: "Create new save",
 	description: "Create new savegames on instances.",
 });
 definePermission({
+	name: "core.instance.save.rename",
+	title: "Rename save",
+	description: "Rename savegames on instances.",
+});
+definePermission({
+	name: "core.instance.save.copy",
+	title: "Copy save",
+	description: "Create copies of savegames on instances.",
+});
+definePermission({
 	name: "core.instance.save.delete",
-	title: "Delete instance save",
+	title: "Delete save",
 	description: "Delete savegames on instances.",
 });
 definePermission({
 	name: "core.instance.save.upload",
-	title: "Upload save to instance",
+	title: "Upload save",
 	description: "Upload savegames to instances.",
 });
 definePermission({
+	name: "core.instance.save.transfer",
+	title: "Transfer save",
+	description: "Transfer savegames between instances.",
+});
+definePermission({
 	name: "core.instance.save.download",
-	title: "Download save from instance",
+	title: "Download save",
 	description: "Download savegames from instances.",
 });
 definePermission({

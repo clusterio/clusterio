@@ -533,8 +533,11 @@ async function loadMapSettings(args) {
 	};
 }
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["list-saves <instance>", "list saves on an instance", (yargs) => {
+const instanceSaveCommands = new libCommand.CommandTree({
+	name: "save", alias: ["s"], description: "Instance save management",
+});
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["list <instance>", "list saves on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to list saves on", type: "string" });
 	}],
 	handler: async function(args, control) {
@@ -548,8 +551,8 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["create-save <instance> [name]", "Create a new save on an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["create <instance> [name]", "Create a new save on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to create on", type: "string" });
 		yargs.positional("name", { describe: "Name of save to create.", type: "string", default: "world.zip" });
 		yargs.options({
@@ -573,8 +576,40 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["upload-save <instance> <filepath>", "Upload a save to an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["rename <instance> <old-name> <new-name>", "Rename a save on an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to rename save on", type: "string" });
+		yargs.positional("old-name", { describe: "Old name of save.", type: "string" });
+		yargs.positional("new-name", { describe: "New name of save.", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await libLink.messages.renameSave.send(control, {
+			instance_id: instanceId,
+			old_name: args.oldName,
+			new_name: args.newName,
+		});
+	},
+}));
+
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["copy <instance> <source> <destination>", "Copy a save on an instance", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to copy save on", type: "string" });
+		yargs.positional("source", { describe: "Save to copy.", type: "string" });
+		yargs.positional("destination", { describe: "Name of copy.", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await libLink.messages.copySave.send(control, {
+			instance_id: instanceId,
+			source: args.source,
+			destination: args.destination,
+		});
+	},
+}));
+
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["upload <instance> <filepath>", "Upload a save to an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to upload to", type: "string" });
 		yargs.positional("filepath", { describe: "Path to save to upload", type: "string" });
 		yargs.options({
@@ -624,8 +659,36 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["download-save <instance> <save>", "Download a save from an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: [
+		"transfer <source-instance> <source-save> <target-instance> [target-save]",
+		"Transfer a save between instances",
+		(yargs) => {
+			yargs.positional("source-instance", { describe: "Instance to transfer save from", type: "string" });
+			yargs.positional("source-save", { describe: "Save to transfer.", type: "string" });
+			yargs.positional("target-instance", { describe: "Instance to transfer to", type: "string" });
+			yargs.positional("target-save", { describe: "Name to give transferred save.", type: "string" });
+			yargs.options({
+				"copy": { describe: "Copy instead of moving the save", type: "boolean", default: false },
+			});
+		},
+	],
+	handler: async function(args, control) {
+		let sourceInstanceId = await libCommand.resolveInstance(control, args.sourceInstance);
+		let targetInstanceId = await libCommand.resolveInstance(control, args.targetInstance);
+		let result = await libLink.messages.transferSave.send(control, {
+			instance_id: sourceInstanceId,
+			source_save: args.sourceSave,
+			target_instance_id: targetInstanceId,
+			target_save: args.targetSave || args.sourceSave,
+			copy: args.copy,
+		});
+		print(`Transferred as ${result.save} to ${args.targetInstance}.`);
+	},
+}));
+
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["download <instance> <save>", "Download a save from an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to download save from", type: "string" });
 		yargs.positional("save", { describe: "Save to download", type: "string" });
 	}],
@@ -669,8 +732,8 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
-instanceCommands.add(new libCommand.Command({
-	definition: ["delete-save <instance> <save>", "Delete a save from an instance", (yargs) => {
+instanceSaveCommands.add(new libCommand.Command({
+	definition: ["delete <instance> <save>", "Delete a save from an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to delete save from", type: "string" });
 		yargs.positional("save", { describe: "Save to delete", type: "string" });
 	}],
@@ -682,6 +745,7 @@ instanceCommands.add(new libCommand.Command({
 		});
 	},
 }));
+instanceCommands.add(instanceSaveCommands);
 
 instanceCommands.add(new libCommand.Command({
 	definition: ["export-data <instance>", "Export item icons and locale from instance", (yargs) => {
