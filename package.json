@@ -3,10 +3,10 @@
   "private": true,
   "scripts": {
     "test": "mocha --check-leaks -R spec --exclude \"**/node_modules/**\" --recursive test plugins/global_chat/test plugins/research_sync/test plugins/statistics_exporter/test plugins/subspace_storage/test plugins/player_auth/test",
-    "fast-test": "FAST_TEST=y npm test",
-    "cover": "nyc npm test",
-    "fast-cover": "FAST_TEST=y nyc npm test",
-    "ci-cover": "nyc --reporter=lcovonly npm run-script test",
+    "fast-test": "FAST_TEST=y pnpm test",
+    "cover": "nyc pnpm test",
+    "fast-cover": "FAST_TEST=y nyc pnpm test",
+    "ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
     "lint": "eslint \"*.js\" packages plugins test",
     "docs": "jsdoc --configure docs/jsdoc.json",
     "bundle-dependencies": "bundle-dependencies"
@@ -24,7 +24,6 @@
     "eslint": "^7.25.0",
     "eslint-plugin-node": "^11.1.0",
     "jsdoc": "^3.6.6",
-    "lerna": "^4.0.0",
     "mocha": "^8.4.0",
     "nyc": "^15.1.0"
   }

@@ -38,7 +38,7 @@ Factorio*
 /config-master.json
 /config-control.json
 /config-slave.json
-package-lock.json
+pnpm-lock.yaml
 mod_cache.json
 static/export
 saves

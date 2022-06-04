@@ -49,12 +49,11 @@ Do not run `git pull upstream` it will mess thing up!
 
 ### Setting up the Development Environment
 
-The project is organized into several packages that are all managed through Lerna.
+The project is organized into several packages that are all tied together using pnpm's workspace feature.
 In order to get the development environment up and running you will need to run the following commands:
 
-    npm install
-    npx lerna bootstrap --hoist
-    npx lerna run build
+    pnpm install
+    pnpm run -r --if-present build
 
 This installs dependencies needed by tests and links the packages up so they work from the git work tree.
 To start a cluster from the repo you will first need to initialize it, this can be done using the installer:
@@ -80,14 +79,15 @@ Note that to use `clusterioctl` you will have to create a control config first:
 
 Once you've set up the cluster you can use `node packages/master run` to run the master server and `node packages/slave run` to run the slave which connects to the master server.
 
-For web development on the master there are also the following flags.
+For web development on the master there are also the following flags:
 
 `--dev` - Recompile the `web_ui` package on the fly providing live reloading of it.
 
 `--dev-plugin [name]` - Recompile the web module for the given plugin on the fly proving live reloading of it.
 
 These options can be combined and multiple plugins can be actived for dev mode.
-Note that webpack is configured to delete the web interface build when using these options, so you will have to run `npx lerna run build` before you start the master without these flags again.
+Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
+Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present build` before you start the master without these flags again.
 
 
 ### Starting a Feature Branch
@@ -113,8 +113,8 @@ But it's nice to have its name be somewhat descriptive of what it implements.
 There's automated tests and linting setup for the project.
 Please do add tests for any code you add and run both:
 
-    npm run test
-    npm run lint
+    pnpm run test
+    pnpm run lint
 
 To check that your changes pass the integration tests as well as the ESLint rules set up for the project.
 
@@ -271,6 +271,8 @@ Headings use the `# heading` format.
 
 
 ## Pushing releases to npm
+
+***Warning: This workflow is outdated due to lerna having been removed from the project.****
 
 The releases are done by creating a new release tag with lerna and then uploading that with lerna.
 You will need commit access to the repository as well publish access to the @clusterio org on npm to do this.

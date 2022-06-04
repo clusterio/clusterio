@@ -15,18 +15,17 @@ RUN wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/head
 # Copy project files into the container
 COPY . .
 
-RUN npm install \
-&& npx lerna bootstrap --hoist
+RUN pnpm install
 
 # Install plugins. This is intended as a reasonable default, enabling plugins to make for fun gameplay.
 # If you want a different set of plugins, consider using this as the base image for your own.
-#RUN npm install @clusterio/plugin-subspace_storage
+#RUN pnpm install @clusterio/plugin-subspace_storage
 #RUN npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
 
 COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/sharedMods/
 
 # Build submodules (web UI, libraries, plugins etc)
-RUN npx lerna run build
+RUN pnpm run -r --if-present build
 # Build Lua library mod
 RUN node packages/lib/build_mod --build --source-dir packages/slave/lua/clusterio_lib \
 && mv dist/* sharedMods/ \
@@ -46,8 +45,7 @@ COPY --from=clusterio_builder /clusterio /clusterio
 WORKDIR /clusterio
 
 # Install runtime dependencies
-RUN npm install --production
-RUN npx lerna bootstrap -- --production --no-optional
+RUN pnpm install --production
 LABEL maintainer "danielv@danielv.no"
 
 FROM frolvlad/alpine-glibc AS clusterio_testing
@@ -58,6 +56,5 @@ COPY --from=clusterio_builder /clusterio /clusterio
 WORKDIR /clusterio
 
 # Install runtime dependencies
-RUN npm install
-RUN npx lerna bootstrap
-RUN npm install chalk semver
+RUN pnpm install
+RUN pnpm install chalk semver
