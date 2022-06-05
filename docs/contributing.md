@@ -50,10 +50,9 @@ Do not run `git pull upstream` it will mess thing up!
 ### Setting up the Development Environment
 
 The project is organized into several packages that are all tied together using pnpm's workspace feature.
-In order to get the development environment up and running you will need to run the following commands:
+In order to get the development environment up and running you will need to run the following command:
 
     pnpm install
-    pnpm run -r --if-present build
 
 This installs dependencies needed by tests and links the packages up so they work from the git work tree.
 To start a cluster from the repo you will first need to initialize it, this can be done using the installer:
@@ -87,7 +86,7 @@ For web development on the master there are also the following flags:
 
 These options can be combined and multiple plugins can be actived for dev mode.
 Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
-Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present build` before you start the master without these flags again.
+Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present prepare` before you start the master without these flags again.
 
 
 ### Starting a Feature Branch

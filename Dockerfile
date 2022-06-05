@@ -24,8 +24,6 @@ RUN pnpm install
 
 COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/sharedMods/
 
-# Build submodules (web UI, libraries, plugins etc)
-RUN pnpm run -r --if-present build
 # Build Lua library mod
 RUN node packages/lib/build_mod --build --source-dir packages/slave/lua/clusterio_lib \
 && mv dist/* sharedMods/ \

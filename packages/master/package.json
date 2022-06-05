@@ -6,7 +6,7 @@
   "version": "2.0.0-alpha.12",
   "main": "master.js",
   "scripts": {
-    "build": "webpack-cli --env production",
+    "prepare": "webpack-cli --env production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {

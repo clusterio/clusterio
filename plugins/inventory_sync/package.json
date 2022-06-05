@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": "clusterio/factorioClusterio",
   "scripts": {
-    "build": "webpack-cli --env production",
+    "prepare": "webpack-cli --env production",
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {

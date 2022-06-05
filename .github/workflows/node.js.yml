@@ -25,7 +25,6 @@ jobs:
     - run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - run: node packages/lib/build_mod --source-dir packages/slave/lua/clusterio_lib --output-dir temp/test/sharedMods
     - run: wget -q -O temp/test/sharedMods/subspace_storage_1.99.8.zip -L https://github.com/clusterio/subspace_storage/releases/download/1.99.6/subspace_storage_1.99.8.zip
-    - run: pnpm run -r --if-present build
     - name: Run tests
       if: ${{ matrix.node-version != '12.x' }}
       run: pnpm test
