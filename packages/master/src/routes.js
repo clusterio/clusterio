@@ -100,7 +100,23 @@ function getPlugins(req, res) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.master.plugins.has(name);
 		let enabled = loaded && req.app.locals.master.config.group(pluginInfo.name).get("load_plugin");
-		plugins.push({ name, version: pluginInfo.version, enabled, loaded });
+		let web = {};
+		let devPlugins = req.app.locals.devPlugins;
+		if (devPlugins && devPlugins.has(name)) {
+			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)];
+			web.main = stats.toJson().assetsByChunkName[name];
+		} else if (pluginInfo.manifest) {
+			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
+			if (!web.main) {
+				web.error = `Missing ${pluginInfo.name}.js entry in manifest.json`;
+			}
+		} else {
+			web.error = "Missing dist/web/manifest.json";
+		}
+		if (web.main === "remoteEntry.js") {
+			web.error = "Incompatible old remoteEntry.js entrypoint.";
+		}
+		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web });
 	}
 	res.send(plugins);
 }

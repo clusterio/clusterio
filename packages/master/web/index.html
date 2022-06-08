@@ -7,11 +7,12 @@
 		<title>Clusterio</title>
 		<script>
 				window.webRoot = new URL("__WEB_ROOT__", document.location).pathname;
+				window.staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
 		</script>
 	</head>
 	<body>
 		<noscript>You need to enable JavaScript to run this app.</noscript>
 		<div id="root"></div>
-		<script src="__WEB_ROOT__bundle.js"></script>
+		<script src="__STATIC_ROOT____MAIN_BUNDLE__"></script>
 	</body>
 </html>

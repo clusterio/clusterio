@@ -137,20 +137,22 @@ class Master {
 				webpackConfigs.push(require("../webpack.config")({}));
 			}
 			if (args.devPlugin) {
+				let devPlugins = new Map();
 				for (let name of args.devPlugin) {
 					let info = this.pluginInfos.find(i => i.name === name);
 					if (!info) {
 						throw new libErrors.StartupError(`No plugin named ${name}`);
 					}
 					let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
-					config.output.publicPath = `/plugins/${name}/`;
+					devPlugins.set(name, webpackConfigs.length);
 					webpackConfigs.push(config);
 				}
+				this.app.locals.devPlugins = devPlugins;
 			}
 			/* eslint-enable node/global-require, node/no-unpublished-require */
 
 			const compiler = webpack(webpackConfigs);
-			this.devMiddleware = webpackDevMiddleware(compiler, {});
+			this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });
 			this.app.use(this.devMiddleware);
 		}
 
@@ -189,6 +191,14 @@ class Master {
 		}
 
 		Master.addAppRoutes(this.app, this.pluginInfos);
+
+		if (!args.dev) {
+			let manifest = await Master.loadJsonObject(path.join(__dirname, "..", "dist", "web", "manifest.json"));
+			if (!manifest["main.js"]) {
+				logger.error("Missing main.js entry in dist/web/manifest.json");
+			}
+			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
+		}
 
 		// Load plugins
 		await this.loadPlugins();
@@ -349,6 +359,18 @@ class Master {
 		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
+	static async loadJsonObject(filePath, throwOnMissing = false) {
+		let manifest = {};
+		try {
+			manifest = JSON.parse(await fs.readFile(filePath));
+		} catch (err) {
+			if (!throwOnMissing && err.code !== "ENOENT") {
+				throw err;
+			}
+		}
+		return manifest;
+	}
+
 	/**
 	 * Query master log
 	 *
@@ -384,8 +406,9 @@ class Master {
 		app.use(compression());
 
 		// Set folder to serve static content from (the website)
-		app.use(express.static(path.join(__dirname, "..", "dist", "web")));
-		app.use(express.static("static")); // Used for data export files
+		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
+		app.use("/static", express.static(path.join(__dirname, "..", "dist", "web", "static"), staticOptions));
+		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
 		// Add API routes
 		routes.addRouteHandlers(app);
@@ -400,8 +423,8 @@ class Master {
 			}
 
 			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
-			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web");
-			app.use(`/plugins/${pluginInfo.name}`, express.static(webPath));
+			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web", "static");
+			app.use("/static", express.static(webPath, staticOptions));
 		}
 	}
 
@@ -511,6 +534,13 @@ class Master {
 
 	async loadPlugins() {
 		for (let pluginInfo of this.pluginInfos) {
+			try {
+				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
+				pluginInfo.manifest = await Master.loadJsonObject(require.resolve(manifestPath), true);
+			} catch (err) {
+				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
+			}
+
 			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
 				continue;
 			}
@@ -600,9 +630,21 @@ class Master {
 		return function(req, res, next) {
 			let depth = routeDepth + (req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
+			let staticRoot = webRoot;
+			let mainBundle;
+			if (res.app.locals.mainBundle) {
+				mainBundle = res.app.locals.mainBundle;
+			} else {
+				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
+				mainBundle = stats.toJson().assetsByChunkName["main"];
+			}
 			fs.readFile(path.join(__dirname, "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
-				res.send(content.replace(/__WEB_ROOT__/g, webRoot));
+				res.send(content
+					.replace(/__WEB_ROOT__/g, webRoot)
+					.replace(/__STATIC_ROOT__/g, staticRoot)
+					.replace(/__MAIN_BUNDLE__/g, mainBundle)
+				);
 			}).catch(err => {
 				next(err);
 			});

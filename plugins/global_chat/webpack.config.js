@@ -9,15 +9,12 @@ module.exports = (env = {}) => merge(common(env), {
 	context: __dirname,
 	entry: "./web/index.jsx",
 	output: {
-		publicPath: "auto",
-		filename: "bundle.js",
 		path: path.resolve(__dirname, "dist", "web"),
 	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
 			name: "global_chat",
 			library: { type: "var", name: "plugin_global_chat" },
-			filename: "remoteEntry.js",
 			exposes: {
 				"./info": "./info.js",
 				"./package.json": "./package.json",

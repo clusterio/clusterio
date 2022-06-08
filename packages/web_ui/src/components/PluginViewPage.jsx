@@ -51,7 +51,7 @@ export default function PluginViewPage() {
 				style={{
 					marginTop: "1em",
 				}}
-				message="Error loading web module"
+				message={pluginMeta.web.error || "Error loading web module"}
 				description={
 					"The web interface was unable to load the webpack module for this plugin. This is "+
 					"usually due to an incorrect or missing webpack build for the plugin. Due to the "+

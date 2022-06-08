@@ -39,8 +39,12 @@ async function loadPlugins() {
 	let plugins = new Map();
 	await __webpack_init_sharing__("default");
 	for (let meta of pluginList) {
+		if (meta.web.error) {
+			logger.error(`Failed to load plugin ${meta.name}: ${meta.web.error}`);
+			continue;
+		}
 		try {
-			await loadScript(`${webRoot}plugins/${meta.name}/remoteEntry.js`);
+			await loadScript(`${webRoot}${meta.web.main}`);
 			let container = window[`plugin_${meta.name}`];
 			if (!container) {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
@@ -63,6 +67,9 @@ async function loadPlugins() {
 			plugins.set(pluginInfo.name, plugin);
 
 		} catch (err) {
+			if (err.message) {
+				meta.web.error = err.message;
+			}
 			logger.error(`Failed to load plugin ${meta.name}`);
 			if (err.stack) {
 				logger.error(err.stack);
