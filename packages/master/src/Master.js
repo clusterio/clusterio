@@ -163,6 +163,7 @@ class Master {
 		this.instances = await Master.loadInstances(path.join(databaseDirectory, "instances.json"));
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
+		this.exportManifest = await Master.loadJsonObject(path.join(databaseDirectory, "export_manifest.json"));
 
 		this.config.on("fieldChanged", (group, field, prev) => {
 			libPlugin.invokeHook(this.plugins, "onMasterConfigFieldChanged", group, field, prev);
@@ -369,6 +370,14 @@ class Master {
 			}
 		}
 		return manifest;
+	}
+
+	async updateExportManifest(newManifest) {
+		let databaseDirectory = this.config.get("master.database_directory");
+		await libFileOps.safeOutputFile(
+			path.join(databaseDirectory, "export_manifest.json"), JSON.stringify(newManifest, null, 4)
+		);
+		this.exportManifest = newManifest;
 	}
 
 	/**

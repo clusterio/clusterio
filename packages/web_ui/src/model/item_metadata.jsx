@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 
+import { useExportManifest } from "./export_manifest";
+
 
 let itemMetadataCache = null;
 export function useItemMetadata() {
+	let exportManifest = useExportManifest();
 	let [itemMetadata, setItemMetadata] = useState(itemMetadataCache || new Map());
 	useEffect(() => {
 		async function load() {
-			let response = await fetch(`${webRoot}export/item-metadata.json`);
+			if (!exportManifest["item-metadata"] || !exportManifest["item-spritesheet"]) {
+				return;
+			}
+			let response = await fetch(`${staticRoot}${exportManifest["item-metadata"]}`);
 			if (response.ok) {
 				let data = await response.json();
 				itemMetadataCache = new Map(data);
@@ -16,7 +22,7 @@ export function useItemMetadata() {
 				for (let [name, meta] of itemMetadataCache) {
 					style.sheet.insertRule(
 						`.item-${CSS.escape(name)} {
-	background-image: url("${webRoot}export/item-spritesheet.png");
+	background-image: url("${staticRoot}${exportManifest["item-spritesheet"]}");
 	background-repeat: no-repeat;
 	background-position: -${meta.x}px -${meta.y}px;
 	height: ${meta.size}px;
@@ -31,7 +37,7 @@ export function useItemMetadata() {
 		if (!itemMetadataCache) {
 			load();
 		}
-	}, []);
+	}, [exportManifest]);
 
 	return itemMetadata;
 }

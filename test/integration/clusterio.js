@@ -300,10 +300,16 @@ describe("Integration of Clusterio", function() {
 		describe("instance export-data", function() {
 			it("exports the data", async function() {
 				slowTest(this);
-				let exportPath = path.join("temp", "test", "static", "export", "locale.json");
+				let exportPath = path.join("temp", "test", "static");
 				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
-				assert(await fs.exists(exportPath), "Export was not created");
+				let response = await get("/api/export-manifest");
+				let manifest = JSON.parse(response.body);
+				assert(Object.keys(manifest).length > 1, "Export manifest is empty");
+				assert(
+					await fs.exists(path.join(exportPath, "..", manifest["item-metadata"])),
+					"Export was not written to filesystem"
+				);
 				await checkInstanceStatus(44, "stopped");
 			});
 		});
