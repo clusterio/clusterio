@@ -92,7 +92,35 @@ export default function InstanceViewPage(props) {
 		</PageLayout>;
 	}
 
+	let instanceButtonMenuItems = [];
+	if (account.hasPermission("core.instance.export_data")) {
+		instanceButtonMenuItems.push({
+			disabled: exportingData || instance.status !== "stopped",
+			key: "export",
+			label: "Export data",
+		});
+	}
+	if (account.hasPermission("core.instance.kill")) {
+		instanceButtonMenuItems.push({
+			disabled: ["unknown", "unassigned", "stopped"].includes(instance["status"]),
+			key: "kill",
+			label: "Kill process",
+		});
+	}
+	if (account.hasPermission("core.instance.delete")) {
+		if (instanceButtonMenuItems.length) {
+			instanceButtonMenuItems.push({ type: "divider" });
+		}
+		instanceButtonMenuItems.push({
+			disabled: !["unknown", "unassigned", "stopped"].includes(instance["status"]),
+			danger: true,
+			key: "delete",
+			icon: <DeleteOutlined />,
+			label: "Delete",
+		});
+	}
 	let instanceButtonsMenu = <Menu
+		items={instanceButtonMenuItems}
 		onClick={({ key }) => {
 			if (key === "export") {
 				setExportingData(true);
@@ -125,25 +153,7 @@ export default function InstanceViewPage(props) {
 				});
 			}
 		}}
-	>
-		{account.hasPermission("core.instance.export_data") && <Menu.Item
-			disabled={exportingData || instance.status !== "stopped"}
-			key="export"
-		>Export data</Menu.Item>}
-		{account.hasPermission("core.instance.kill") && <Menu.Item
-			disabled={["unknown", "unassigned", "stopped"].includes(instance["status"])}
-			key="kill"
-		>Kill process</Menu.Item>}
-		{account.hasPermission("core.instance.delete") && <>
-			<Menu.Divider />
-			<Menu.Item
-				disabled={!["unknown", "unassigned", "stopped"].includes(instance["status"])}
-				danger
-				key="delete"
-				icon={<DeleteOutlined />}
-			>Delete</Menu.Item>
-		</>}
-	</Menu>;
+	/>;
 	let instanceButtons = <Space>
 		{
 			account.hasAnyPermission("core.instance.start", "core.instance.stop")
