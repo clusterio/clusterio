@@ -641,6 +641,7 @@ class Master {
 			fs.readFile(path.join(__dirname, "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
+					.replace(/__CLUSTER_NAME__/g, res.app.locals.master.config.get("master.name"))
 					.replace(/__WEB_ROOT__/g, webRoot)
 					.replace(/__STATIC_ROOT__/g, staticRoot)
 					.replace(/__MAIN_BUNDLE__/g, mainBundle)
