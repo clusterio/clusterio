@@ -278,6 +278,12 @@ FactorioGroup.define({
 	initial_value: false,
 });
 FactorioGroup.define({
+	name: "enable_authserver_bans",
+	description: "Turn on Factorio.com based multiplayer bans.",
+	type: "boolean",
+	initial_value: false,
+});
+FactorioGroup.define({
 	name: "settings",
 	description: "Settings overridden in server-settings.json",
 	type: "object",

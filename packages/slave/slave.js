@@ -167,6 +167,7 @@ class Instance extends libLink.Link {
 			rconPort: this.config.get("factorio.rcon_port"),
 			rconPassword: this.config.get("factorio.rcon_password"),
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
+			enableAuthserverBans: this.config.get("factorio.enable_authserver_bans"),
 			verboseLogging: this.config.get("factorio.verbose_logging"),
 			stripPaths: this.config.get("factorio.strip_paths"),
 			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
