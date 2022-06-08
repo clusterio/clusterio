@@ -17,22 +17,23 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 6
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v2
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm i --no-optional
+    - run: pnpm i --no-optional --no-frozen-lockfile
     - run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
-    - run: npx lerna bootstrap --hoist
     - run: node packages/lib/build_mod --source-dir packages/slave/lua/clusterio_lib --output-dir temp/test/sharedMods
     - run: wget -q -O temp/test/sharedMods/subspace_storage_1.99.8.zip -L https://github.com/clusterio/subspace_storage/releases/download/1.99.6/subspace_storage_1.99.8.zip
-    - run: npx lerna run build
     - name: Run tests
       if: ${{ matrix.node-version != '12.x' }}
-      run: npm test
+      run: pnpm test
     - name: Run coverage
       if: ${{ matrix.node-version == '12.x' }}
-      run: npm run ci-cover
+      run: pnpm run ci-cover
     - name : Upload coverage to Codecov
       if: ${{ matrix.node-version == '12.x' }}
       uses: codecov/codecov-action@v2
@@ -43,9 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: pnpm/action-setup@v2.2.2
+      with:
+        version: 6
     - uses: actions/setup-node@v2
       with:
         node-version: 16.x
-    - run: npm i --no-optional
-    - run: npx lerna bootstrap --hoist
-    - run: npm run lint
+    - run: pnpm i --no-optional --no-frozen-lockfile
+    - run: pnpm run lint
