@@ -310,13 +310,16 @@ function inventory_sync.initiate_inventory_download(player, player_record, gener
 	-- If this is a synced player turn them into a spectator while the
 	-- player data is downloading
 	if player_record.sync then
-		local character = player.character
-		player.set_controller({ type = defines.controllers.spectator })
-		if character ~= nil then character.destroy() end
-
 		-- Store original position to teleport back to
 		record.surface = player.surface
 		record.position = player.position
+		if player.driving then
+			record.vehicle = player.vehicle
+		end
+
+		local character = player.character
+		player.set_controller({ type = defines.controllers.spectator })
+		if character ~= nil then character.destroy() end
 
 		-- Indicate this state shouldn't be persisted
 		player_record.dirty = false

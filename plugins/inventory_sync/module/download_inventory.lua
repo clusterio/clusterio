@@ -3,6 +3,32 @@ local ensure_character = require("modules/inventory_sync/ensure_character")
 local serialize = require("modules/inventory_sync/serialize")
 local load_crafting_queue = require("modules/inventory_sync/load_crafting_queue")
 
+
+local can_enter_vehicle = {
+	[defines.controllers.character] = true,
+	[defines.controllers.god] = true,
+	[defines.controllers.editor] = true,
+}
+
+local function restore_position(record, player)
+	if record.vehicle and record.vehicle.valid and can_enter_vehicle[player.controller_type] then
+		player.teleport(record.vehicle.position, record.vehicle.surface)
+		player.driving = true
+
+		-- Teleport to safe location if unable to enter vehicle
+		if not player.driving and player.controller_type == defines.controllers.character then
+			local safe_position = record.vehicle.surface.find_non_colliding_position(
+				player.character.name, player.position, 32, 1/8
+			)
+			if safe_position then
+				player.teleport(safe_position, player.surface)
+			end
+		end
+	elseif record.surface and record.position then
+		player.teleport(record.position, record.surface)
+	end
+end
+
 local function download_inventory(player_name, data, number, total)
 	local player = game.get_player(player_name)
 	if player == nil then
@@ -33,10 +59,8 @@ local function download_inventory(player_name, data, number, total)
 		-- Give the player a character and pretend that's the synced player data
 		ensure_character(player)
 
-		-- Restore player position in case they moved while being spectator
-		if record.surface and record.position then
-			player.teleport(record.position, record.surface)
-		end
+		-- Restore player position and driving state
+		restore_position(record, player)
 
 		global.inventory_sync.active_downloads[player_name] = nil
 		player_record.dirty = player.connected
@@ -87,10 +111,8 @@ local function download_inventory(player_name, data, number, total)
 	local serialized_player = game.json_to_table(record.data)
 	serialize.deserialize_player(player, serialized_player)
 
-	-- Restore player position in case they moved while being spectator
-	if record.surface and record.position then
-		player.teleport(record.position, record.surface)
-	end
+	-- Restore player position and driving state
+	restore_position(record, player)
 
 	-- Load crafting queue
 	if player.character then
