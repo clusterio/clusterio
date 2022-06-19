@@ -100,7 +100,7 @@ export default function LogConsole(props) {
 		<Paragraph code className="instance-console">
 			{pastLines}
 			{lines}
-			<div className="scroll-anchor" ref={anchor} />
+			<div className="scroll-anchor" key="anchor" ref={anchor} />
 		</Paragraph>
 	</>;
 }
