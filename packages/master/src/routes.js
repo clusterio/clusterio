@@ -9,6 +9,7 @@ const util = require("util");
 
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
+const libHash = require("@clusterio/lib/hash");
 const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
@@ -100,7 +101,23 @@ function getPlugins(req, res) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.master.plugins.has(name);
 		let enabled = loaded && req.app.locals.master.config.group(pluginInfo.name).get("load_plugin");
-		plugins.push({ name, version: pluginInfo.version, enabled, loaded });
+		let web = {};
+		let devPlugins = req.app.locals.devPlugins;
+		if (devPlugins && devPlugins.has(name)) {
+			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)];
+			web.main = stats.toJson().assetsByChunkName[name];
+		} else if (pluginInfo.manifest) {
+			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
+			if (!web.main) {
+				web.error = `Missing ${pluginInfo.name}.js entry in manifest.json`;
+			}
+		} else {
+			web.error = "Missing dist/web/manifest.json";
+		}
+		if (web.main === "remoteEntry.js") {
+			web.error = "Incompatible old remoteEntry.js entrypoint.";
+		}
+		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web });
 	}
 	res.send(plugins);
 }
@@ -180,17 +197,26 @@ async function uploadExport(req, res) {
 		"export/locale.json",
 	];
 
+	let manifest = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
 		if (!file) {
 			continue;
 		}
 
-		let name = path.posix.basename(filePath);
-		await libFileOps.safeOutputFile(path.join("static", "export", name), await file.async("nodebuffer"));
+		let { name, ext } = path.posix.parse(filePath);
+		let hash = await libHash.hashStream(file.nodeStream());
+		manifest[name] = `static/${name}.${hash}${ext}`;
+		await libFileOps.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
+	await res.app.locals.master.updateExportManifest(manifest);
 
 	res.sendStatus(200);
+}
+
+async function getExportManifest(req, res) {
+	endpointHitCounter.labels(req.route.path).inc();
+	res.json(res.app.locals.master.exportManifest);
 }
 
 async function createProxyStream(app) {
@@ -417,6 +443,7 @@ function addRouteHandlers(app) {
 		validateSlaveToken,
 		(req, res, next) => uploadExport(req, res).catch(next)
 	);
+	app.get("/api/export-manifest", (req, res, next) => getExportManifest(req, res, next).catch(next));
 	app.put("/api/stream/:id", (req, res, next) => putStream(req, res).catch(next));
 	app.get("/api/stream/:id", (req, res, next) => getStream(req, res).catch(next));
 	app.post("/api/upload-save",

@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from "react";
 
+import { useExportManifest } from "./export_manifest";
+
 
 let localeCache = null;
 export function useLocale() {
+	let exportManifest = useExportManifest();
 	let [locale, setLocale] = useState(localeCache || new Map());
 	useEffect(() => {
 		async function load() {
-			let response = await fetch(`${webRoot}export/locale.json`);
+			if (!exportManifest["locale"]) {
+				return;
+			}
+			let response = await fetch(`${staticRoot}${exportManifest["locale"]}`);
 			if (response.ok) {
 				let data = await response.json();
 				localeCache = new Map(data);
@@ -17,7 +23,7 @@ export function useLocale() {
 		if (!localeCache) {
 			load();
 		}
-	}, []);
+	}, [exportManifest]);
 
 	return locale;
 }

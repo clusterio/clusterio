@@ -40,7 +40,7 @@ Factorio*
 /config-slave.json
 pnpm-lock.yaml
 mod_cache.json
-static/export
+/static/
 saves
 /temp/
 

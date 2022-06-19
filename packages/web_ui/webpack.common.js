@@ -1,6 +1,7 @@
 "use strict";
 const webpack = require("webpack");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
+const { WebpackManifestPlugin } = require("webpack-manifest-plugin");
 
 module.exports = (env = {}) => ({
 	mode: env.production ? "production" : "development",
@@ -9,8 +10,14 @@ module.exports = (env = {}) => ({
 		maxAssetSize: 2**21,
 		maxEntrypointSize: 2**21,
 	},
+	output: {
+		publicPath: "auto",
+		assetModuleFilename: "static/[hash][ext][query]",
+		filename: "static/[name].[contenthash].js",
+	},
 	plugins: [
 		new CleanWebpackPlugin(),
+		new WebpackManifestPlugin({ publicPath: "" }),
 
 		// required for winston
 		new webpack.ProvidePlugin({
@@ -81,7 +88,7 @@ module.exports = (env = {}) => ({
 			},
 			{
 				test: /\.png$/,
-				use: require.resolve("file-loader"),
+				type: "asset/resource",
 			},
 		],
 	},
@@ -100,5 +107,8 @@ module.exports = (env = {}) => ({
 			"path": require.resolve("path-browserify"),
 			"zlib": require.resolve("browserify-zlib"),
 		},
+	},
+	optimization: {
+		moduleIds: "deterministic",
 	},
 });

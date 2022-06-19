@@ -4,14 +4,35 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="theme-color" content="#2a2a2a" />
-		<title>Clusterio</title>
+		<title>__CLUSTER_NAME__</title>
+		<style>
+			html {
+				color: #fff;
+				background-color: #000;
+			}
+
+			#bootstrap-msg {
+				font: 20px serif;
+				color: #aaa;
+				margin: auto;
+				margin-top: 1em;
+				width: fit-content;
+			}
+		</style>
 		<script>
-				window.webRoot = new URL("__WEB_ROOT__", document.location).pathname;
+			window.webRoot = new URL("__WEB_ROOT__", document.location).pathname;
+			window.staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
+			function scriptError() {
+				let bootstrapMsg = document.getElementById("bootstrap-msg");
+				bootstrapMsg.textContent = "Error loading main bundle, see web console for details.";
+			}
 		</script>
 	</head>
 	<body>
 		<noscript>You need to enable JavaScript to run this app.</noscript>
-		<div id="root"></div>
-		<script src="__WEB_ROOT__bundle.js"></script>
+		<div id="root">
+			<div id="bootstrap-msg">Loading web interface...</div>
+		</div>
+		<script src="__STATIC_ROOT____MAIN_BUNDLE__" defer onerror="scriptError()"></script>
 	</body>
 </html>
