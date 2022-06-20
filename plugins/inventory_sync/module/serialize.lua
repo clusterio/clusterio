@@ -75,9 +75,11 @@ function serialize.serialize_personal_logistic_slots(player)
 	local serialized = nil
 
 	-- Serialize personal logistic slots
-	for i = 1, 200 do -- Nobody will have more than 200 logistic slots, right?
+	local last_valid = 0
+	for i = 1, 65536 do
 		local slot = player.get_personal_logistic_slot(i)
-		if slot.name ~= nil then
+		if slot.name then
+			last_valid = i
 			if not serialized then
 				serialized = {}
 			end
@@ -86,6 +88,10 @@ function serialize.serialize_personal_logistic_slots(player)
 				min = slot.min,
 				max = slot.max,
 			}
+
+		-- Stop after 100 empty slots
+		elseif last_valid + 100 <= i then
+			break
 		end
 	end
 
@@ -98,10 +104,9 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 	end
 
 	-- Load personal logistic slots
-	for i = 1, 200 do
-		local slot = serialized[tostring(i)] -- 1 is empty to force array to be spare
+	for i, slot in pairs(serialized) do
 		if slot ~= nil then
-			player.set_personal_logistic_slot(i, slot)
+			player.set_personal_logistic_slot(tonumber(i), slot)
 		end
 	end
 end

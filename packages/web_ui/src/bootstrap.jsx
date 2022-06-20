@@ -25,7 +25,7 @@ async function loadScript(url) {
 	return result;
 }
 
-async function loadPlugins() {
+async function loadPluginInfos() {
 	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList;
 	if (response.ok) {
@@ -36,7 +36,7 @@ async function loadPlugins() {
 		pluginList = [];
 	}
 
-	let plugins = new Map();
+	let pluginInfos = [];
 	await __webpack_init_sharing__("default");
 	for (let meta of pluginList) {
 		if (meta.web.error) {
@@ -51,26 +51,43 @@ async function loadPlugins() {
 			}
 			await container.init(__webpack_share_scopes__.default);
 			let pluginInfo = (await container.get("./info"))();
-			let pluginPackage = (await container.get("./package.json"))();
+			pluginInfo.container = container;
+			pluginInfo.package = (await container.get("./package.json"))();
+			pluginInfo.enabled = meta.enabled;
+			pluginInfos.push(pluginInfo);
 
+		} catch (err) {
+			logger.error(`Failed to load plugin info for ${meta.name}`);
+			if (err.stack) {
+				logger.error(err.stack);
+			}
+		}
+	}
+	return pluginInfos;
+}
+
+async function loadPlugins(pluginInfos) {
+	let plugins = new Map();
+	for (let pluginInfo of pluginInfos) {
+		if (!pluginInfo.enabled) {
+			continue;
+		}
+		try {
 			let WebPluginClass = libPlugin.BaseWebPlugin;
-			if (meta.enabled && pluginInfo.webEntrypoint) {
-				let webModule = (await container.get(pluginInfo.webEntrypoint))();
+			if (pluginInfo.webEntrypoint) {
+				let webModule = (await pluginInfo.container.get(pluginInfo.webEntrypoint))();
 				if (!webModule.WebPlugin) {
 					throw new Error("Plugin webEntrypoint does not export WebPlugin class");
 				}
 				WebPluginClass = webModule.WebPlugin;
 			}
 
-			let plugin = new WebPluginClass(container, pluginPackage, pluginInfo, logger);
+			let plugin = new WebPluginClass(pluginInfo.container, pluginInfo.package, pluginInfo, logger);
 			await plugin.init();
 			plugins.set(pluginInfo.name, plugin);
 
 		} catch (err) {
-			if (err.message) {
-				meta.web.error = err.message;
-			}
-			logger.error(`Failed to load plugin ${meta.name}`);
+			logger.error(`Failed to load plugin ${pluginInfo.name}`);
 			if (err.stack) {
 				logger.error(err.stack);
 			}
@@ -84,10 +101,10 @@ export default async function bootstrap() {
 		level: "verbose",
 		format: new WebConsoleFormat(),
 	}));
-	let plugins = await loadPlugins();
-	let pluginInfos = [...plugins.values()].map(p => p.info);
+	let pluginInfos = await loadPluginInfos();
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
+	let plugins = await loadPlugins(pluginInfos);
 
 	let wsUrl = new URL(window.webRoot, document.location);
 	wsUrl.protocol = wsUrl.protocol.replace("http", "ws");

@@ -76,7 +76,7 @@ export default function LogConsole(props) {
 				limit: 400,
 				order: "desc",
 			}).then(result => {
-				setPastLines(result.log.map((info, index) => formatLog(info, index)).reverse());
+				setPastLines(result.log.map((info, index) => formatLog(info, -index - 1)).reverse());
 			}).catch(err => {
 				setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
 			});
@@ -100,7 +100,7 @@ export default function LogConsole(props) {
 		<Paragraph code className="instance-console">
 			{pastLines}
 			{lines}
-			<div className="scroll-anchor" ref={anchor} />
+			<div className="scroll-anchor" key="anchor" ref={anchor} />
 		</Paragraph>
 	</>;
 }

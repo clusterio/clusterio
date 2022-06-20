@@ -26,11 +26,20 @@ export default function SiteLayout(props) {
 		return null;
 	}
 
-	let accountMenu = <Menu>
-		<Menu.Item key="1" onClick={() => { history.push(`/users/${account.name}/view`); }}>{account.name}</Menu.Item>
-		<Menu.Divider/>
-		<Menu.Item key="2" danger onClick={() => { account.logOut(); }}>Log out</Menu.Item>
-	</Menu>;
+	let accountMenu = <Menu
+		onClick={({ key }) => {
+			if (key === "user") {
+				history.push(`/users/${account.name}/view`);
+			} else if (key === "logout") {
+				account.logout();
+			}
+		}}
+		items={[
+			{ label: account.name, key: "user" },
+			{ type: "divider" },
+			{ label: "Log out", danger: true, key: "logout" },
+		]}
+	/>;
 
 	let combinedPages = [...pages];
 	for (let plugin of plugins.values()) {
@@ -49,13 +58,13 @@ export default function SiteLayout(props) {
 				group = [];
 				menuGroups.set(sidebarGroup, group);
 			}
-			group.push(<Menu.Item key={path}>{sidebarName}</Menu.Item>);
+			group.push({ label: sidebarName, key: path });
 		} else {
-			menuItems.push(<Menu.Item key={path}>{sidebarName}</Menu.Item>);
+			menuItems.push({ label: sidebarName, key: path });
 		}
 	}
 	for (let [name, group] of menuGroups) {
-		menuItems.push(<Menu.ItemGroup key={name} title={name}>{group}</Menu.ItemGroup>);
+		menuItems.push({ type: "group", label: name, children: group, key: name });
 	}
 
 	return <Layout style={{ minHeight: "100vh" }}>
@@ -63,9 +72,12 @@ export default function SiteLayout(props) {
 			<div className="site-logo" />
 			<span className="site-name">Clusterio</span>
 			<span className="site-version">{ webUiPackage.version }</span>
-			<Menu theme="dark" mode="horizontal" defaultSelectedKeys={["1"]}>
-				<Menu.Item key="1">Dashboard</Menu.Item>
-			</Menu>
+			<Menu
+				theme="dark"
+				mode="horizontal"
+				defaultSelectedKeys={["1"]}
+				items={[{ label: "Dashboard", key: "1" }]}
+			/>
 			<Dropdown
 				className="account-dropdown-header"
 				placement="bottomRight"
@@ -90,9 +102,8 @@ export default function SiteLayout(props) {
 					selectedKeys={[currentSidebarPath]}
 					style={{ height: "100%", borderRight: 0 }}
 					onClick={({ key }) => history.push(key)}
-				>
-					{menuItems}
-				</Menu>
+					items={menuItems}
+				/>
 			</Sider>
 			<Layout className="site-layout-content-container">
 				<Switch>

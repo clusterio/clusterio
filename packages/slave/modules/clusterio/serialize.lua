@@ -281,8 +281,11 @@ function serialize.deserialize_inventory(inventory, serialized)
 
 		local repeat_count = entry.r or 0
 		for offset = 0, repeat_count do
-			-- XXX what if the inventory is smaller on this instance?
 			local index = base_index + offset
+			if index > #inventory then
+				print("Error: Inventory index out of bounds deserializing inventory, voiding excess slots")
+				break
+			end
 			local slot = inventory[index]
 			if entry.f then
 				local call_success, call_return = pcall(inventory.set_filter, index, entry.f)

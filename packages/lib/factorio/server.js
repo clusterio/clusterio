@@ -429,6 +429,8 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {number} options.rconPort - TCP port to use for RCON.
 	 * @param {string} options.rconPassword - Password use for RCON.
 	 * @param {boolean} options.enableWhitelist - Turn on whitelisting.
+	 * @param {boolean} options.enableAuthserverBans -
+	 *     Enable Factorio.com based multiplayer bans.
 	 * @param {boolean} options.verboseLogging - Enable verbose logging.
 	 * @param {boolean} options.stripPaths - Strip paths in the console.
 	 * @param {number} options.maxConcurrentCommands -
@@ -457,6 +459,8 @@ class FactorioServer extends events.EventEmitter {
 		this.rconPassword = options.rconPassword;
 		/** Enable player whitelist */
 		this.enableWhitelist = options.enableWhitelist;
+		/** Enable Factorio.com based multiplayer bans **/
+		this.enableAuthserverBans = options.enableAuthserverBans;
 		/** Enable verbose logging */
 		this.verboseLogging = options.verboseLogging;
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
@@ -828,6 +832,7 @@ class FactorioServer extends events.EventEmitter {
 				"--rcon-port", this.rconPort,
 				"--rcon-password", this.rconPassword,
 				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
+				...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
 				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
@@ -872,6 +877,7 @@ class FactorioServer extends events.EventEmitter {
 				"--rcon-port", this.rconPort,
 				"--rcon-password", this.rconPassword,
 				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
+				...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
 				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
