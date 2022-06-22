@@ -248,7 +248,19 @@ class Slave extends libLink.Link {
 		}
 
 		let instancesDir = this.config.get("slave.instances_directory");
-		return path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
+		for (let i = 0; i < 10; i++) { // Limit attempts in case this is somehow an infinite loop
+			let candidateDir = path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
+			try {
+				await fs.mkdir(candidateDir);
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					continue;
+				}
+				throw err;
+			}
+			return candidateDir;
+		}
+		throw Error("Unable to create instance dir, retry threshold reached");
 	}
 
 	async forwardRequestToInstance(message, request) {
@@ -380,7 +392,6 @@ class Slave extends libLink.Link {
 				let instanceConfig = new libConfig.InstanceConfig("slave");
 				await instanceConfig.load(serialized_config, "master");
 
-				// XXX: race condition on multiple simultanious calls
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
 				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
