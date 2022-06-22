@@ -86,7 +86,6 @@
   Breaks playerManager.
 - The masterIP and masterPort config entries has been merged into masterURL.
   Breaks discordChat, playerManager, serverSelect, trainTeleports and clusterioModel.
-- Instance names can no longer be invalid Windows file names.
 - Removed config management from the command line and the server manager.
 - Moved ejs templates into views folder and changed their extension to .ejs.
   Breaks playerManager.

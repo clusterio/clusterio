@@ -450,7 +450,6 @@ class Instance extends libLink.Link {
 	 */
 	static async create(instanceDir, factorioDir) {
 		logger.info(`Creating ${instanceDir}`);
-		await fs.ensureDir(instanceDir);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}

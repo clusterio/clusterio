@@ -65,6 +65,42 @@ function checkFilename(name) {
 	}
 }
 
+/**
+ * Clean up string to be suitable for use as filename
+ *
+ * @param {string} name - Arbitrary name string
+ * @returns {string} Filename suitable to use in the filesystem
+ */
+function cleanFilename(name) {
+	// copied from checkFilename
+	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
+	const badEnd = /[. ]$/;
+
+	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+	const badNames = [
+		// Relative path components
+		".", "..",
+
+		// Reserved filenames in Windows
+		"CON", "PRN", "AUX", "NUL",
+		...oneToNine.map(n => `COM${n}`),
+		...oneToNine.map(n => `LPT${n}`),
+	];
+
+	if (typeof name !== "string") {
+		throw new Error("name must be a string");
+	}
+
+	if (name === "" || badNames.includes(name.toUpperCase())) {
+		name += "_";
+	}
+
+	name = name.replace(badChars, "_");
+	name = name.replace(badEnd, "_");
+
+	return name;
+}
+
 function checkRequestSaveName(name) {
 	try {
 		checkFilename(name);
@@ -203,11 +239,12 @@ class Slave extends libLink.Link {
 		}
 	}
 
-	async _findNewInstanceDir(name) {
+	async _createNewInstanceDir(name) {
+		name = cleanFilename(name);
 		try {
 			checkFilename(name);
 		} catch (err) {
-			throw new Error(`Instance name ${err.message}`);
+			throw new Error(`Instance folder was unepectedly invalid: name ${err.message}`);
 		}
 
 		let instancesDir = this.config.get("slave.instances_directory");
@@ -344,7 +381,7 @@ class Slave extends libLink.Link {
 				await instanceConfig.load(serialized_config, "master");
 
 				// XXX: race condition on multiple simultanious calls
-				let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
 				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
 				instanceInfo = {
@@ -787,6 +824,7 @@ module.exports = Slave;
 
 // For testing only
 module.exports._checkFilename = checkFilename;
+module.exports._cleanFilename = cleanFilename;
 module.exports._discoverInstances = discoverInstances;
 module.exports._Slave = Slave;
 
