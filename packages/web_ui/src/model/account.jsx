@@ -9,7 +9,7 @@ import ControlContext from "../components/ControlContext";
  * @property {?Array<object>} roles - Roles of the corrently logged in account.
  * @property {function(string)} hasPermission -
  *     Check if the currently logged in account has the given permission.
- * @property {function()} logout - Logs out of the web interface.
+ * @property {function()} logOut - Logs out of the web interface.
  */
 
 export function useAccount() {
