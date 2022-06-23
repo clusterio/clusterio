@@ -5,7 +5,8 @@ const fs = require("fs-extra");
 
 const libLink = require("@clusterio/lib/link");
 const libConfig = require("@clusterio/lib/config");
-const slave = require("@clusterio/slave/slave");
+const Instance = require("@clusterio/slave/src/Instance");
+const Slave = require("@clusterio/slave/src/Slave");
 
 describe("Slave testing", function() {
 	before(function() {
@@ -18,7 +19,7 @@ describe("Slave testing", function() {
 			let instanceConfig = new libConfig.InstanceConfig("slave");
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "foo");
-			instance = new slave._Instance({}, new libLink.VirtualConnector(), "dir", "factorioDir", instanceConfig);
+			instance = new Instance({}, new libLink.VirtualConnector(), "dir", "factorioDir", instanceConfig);
 		});
 
 		describe(".name", function() {
@@ -39,11 +40,11 @@ describe("Slave testing", function() {
 
 	describe("checkFilename()", function() {
 		it("should allow a basic name", function() {
-			slave._checkFilename("file");
+			Slave._checkFilename("file");
 		});
 
 		function check(item, msg) {
-			assert.throws(() => slave._checkFilename(item), new Error(msg));
+			assert.throws(() => Slave._checkFilename(item), new Error(msg));
 		}
 
 		it("should throw on non-string", function() {
@@ -100,14 +101,14 @@ describe("Slave testing", function() {
 			let instanceConfig = new libConfig.InstanceConfig("slave");
 			await instanceConfig.init();
 			instanceConfig.set("instance.name", "test");
-			instance = new slave._Instance(
+			instance = new Instance(
 				{}, new libLink.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
 			);
 			await fs.outputFile(instance.path("mods", "mod_i.zip"), "i");
 		});
 
 		it("should link mods and data files", async function() {
-			await slave._symlinkMods(instance, path.join(testDir, "shared"));
+			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
 
 			assert.equal(await fs.readFile(instance.path("mods", "mod_a.zip"), "utf-8"), "a");
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
@@ -118,14 +119,14 @@ describe("Slave testing", function() {
 
 		it("should ignore directories", async function() {
 			await fs.ensureDir(path.join(testDir, "shared", "dir"));
-			await slave._symlinkMods(instance, path.join(testDir, "shared"));
+			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
 
 			assert(!await fs.exists(instance.path("mods", "dir"), "utf-8"), "dir was unxpectedly linked");
 		});
 
 		it("should ignore files", async function() {
 			await fs.outputFile(path.join(testDir, "shared", "file"), "f");
-			await slave._symlinkMods(instance, path.join(testDir, "shared"));
+			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
 
 			assert(!await fs.exists(instance.path("mods", "file"), "utf-8"), "dir was unxpectedly linked");
 		});
@@ -137,7 +138,7 @@ describe("Slave testing", function() {
 			}
 
 			await fs.unlink(path.join(testDir, "shared", "mod_a.zip"));
-			await slave._symlinkMods(instance, path.join(testDir, "shared"));
+			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
 
 			await assert.rejects(fs.lstat(instance.path("mods", "mod_a.zip")), { code: "ENOENT" });
 			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
@@ -150,7 +151,7 @@ describe("Slave testing", function() {
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
 			let instancePath = path.join("test", "file", "instances");
-			let instanceInfos = await slave._discoverInstances(instancePath);
+			let instanceInfos = await Slave._discoverInstances(instancePath);
 
 			let referenceConfig = new libConfig.InstanceConfig("slave");
 			await referenceConfig.init();
@@ -178,7 +179,7 @@ describe("Slave testing", function() {
 					broadcastEventToInstance(message, event) {
 						this.broadcasts.push(message["data"]);
 					},
-					syncUserListsEventHandler: slave._Slave.prototype.syncUserListsEventHandler,
+					syncUserListsEventHandler: Slave.prototype.syncUserListsEventHandler,
 					syncLists(adminlist, banlist, whitelist) {
 						return this.syncUserListsEventHandler({ "data": {
 							"adminlist": adminlist,

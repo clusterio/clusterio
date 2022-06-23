@@ -3,6 +3,7 @@ import { useHistory } from "react-router-dom";
 import { message, Button, Space, Table } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 
+import { useAccount } from "../model/account";
 import { useSlaveList } from "../model/slave";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
@@ -10,6 +11,7 @@ import StartStopInstanceButton from "./StartStopInstanceButton";
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 export default function InstanceList(props) {
+	let account = useAccount();
 	let history = useHistory();
 	let [slaveList] = useSlaveList();
 
@@ -73,7 +75,7 @@ export default function InstanceList(props) {
 			render: instance => <InstanceStatusTag status={instance["status"]} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
 		},
-		{
+		...(account.hasAnyPermission("core.instance.start", "core.instance.stop") ? [{
 			key: "action",
 			render: instance => <StartStopInstanceButton
 				buttonProps={{ size: "small" }}
@@ -82,7 +84,7 @@ export default function InstanceList(props) {
 			responsive: ["sm"],
 			align: "right",
 			width: 100,
-		},
+		}] : []),
 	];
 
 	if (props.hideAssignedSlave) {
