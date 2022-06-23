@@ -70,6 +70,7 @@ function checkFilename(name) {
  *
  * @param {string} name - Arbitrary name string
  * @returns {string} Filename suitable to use in the filesystem
+ * @private
  */
 function cleanFilename(name) {
 	// copied from checkFilename
@@ -119,6 +120,7 @@ function checkRequestSaveName(name) {
  * @param {string} instancesDir - Directory containing instances
  * @returns {Map<integer, Object>}
  *     mapping between instance id and information about this instance.
+ * @private
  */
 async function discoverInstances(instancesDir) {
 	let instanceInfos = new Map();
@@ -159,6 +161,7 @@ async function discoverInstances(instancesDir) {
  * Handles running the slave
  *
  * Connects to the master server over the WebSocket and manages intsances.
+ * @alias module:slave/src/Slave
  */
 class Slave extends libLink.Link {
 	// I don't like God classes, but the alternative of putting all this state

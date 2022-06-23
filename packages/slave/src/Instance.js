@@ -108,6 +108,7 @@ const serverSettingsActions = {
  *
  * @param {Instance} instance - Instance to link mods for
  * @param {string} sharedMods - Path to folder to link mods from.
+ * @private
  */
 async function symlinkMods(instance, sharedMods) {
 	await fs.ensureDir(instance.path("mods"));
