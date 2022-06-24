@@ -30,14 +30,14 @@ export default function SiteLayout(props) {
 		onClick={({ key }) => {
 			if (key === "user") {
 				history.push(`/users/${account.name}/view`);
-			} else if (key === "logout") {
-				account.logout();
+			} else if (key === "logOut") {
+				account.logOut();
 			}
 		}}
 		items={[
 			{ label: account.name, key: "user" },
 			{ type: "divider" },
-			{ label: "Log out", danger: true, key: "logout" },
+			{ label: "Log out", danger: true, key: "logOut" },
 		]}
 	/>;
 

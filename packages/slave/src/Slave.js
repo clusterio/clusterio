@@ -65,6 +65,43 @@ function checkFilename(name) {
 	}
 }
 
+/**
+ * Clean up string to be suitable for use as filename
+ *
+ * @param {string} name - Arbitrary name string
+ * @returns {string} Filename suitable to use in the filesystem
+ * @private
+ */
+function cleanFilename(name) {
+	// copied from checkFilename
+	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
+	const badEnd = /[. ]$/;
+
+	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+	const badNames = [
+		// Relative path components
+		".", "..",
+
+		// Reserved filenames in Windows
+		"CON", "PRN", "AUX", "NUL",
+		...oneToNine.map(n => `COM${n}`),
+		...oneToNine.map(n => `LPT${n}`),
+	];
+
+	if (typeof name !== "string") {
+		throw new Error("name must be a string");
+	}
+
+	if (name === "" || badNames.includes(name.toUpperCase())) {
+		name += "_";
+	}
+
+	name = name.replace(badChars, "_");
+	name = name.replace(badEnd, "_");
+
+	return name;
+}
+
 function checkRequestSaveName(name) {
 	try {
 		checkFilename(name);
@@ -83,6 +120,7 @@ function checkRequestSaveName(name) {
  * @param {string} instancesDir - Directory containing instances
  * @returns {Map<integer, Object>}
  *     mapping between instance id and information about this instance.
+ * @private
  */
 async function discoverInstances(instancesDir) {
 	let instanceInfos = new Map();
@@ -123,6 +161,7 @@ async function discoverInstances(instancesDir) {
  * Handles running the slave
  *
  * Connects to the master server over the WebSocket and manages intsances.
+ * @alias module:slave/src/Slave
  */
 class Slave extends libLink.Link {
 	// I don't like God classes, but the alternative of putting all this state
@@ -203,15 +242,28 @@ class Slave extends libLink.Link {
 		}
 	}
 
-	async _findNewInstanceDir(name) {
+	async _createNewInstanceDir(name) {
+		name = cleanFilename(name);
 		try {
 			checkFilename(name);
 		} catch (err) {
-			throw new Error(`Instance name ${err.message}`);
+			throw new Error(`Instance folder was unepectedly invalid: name ${err.message}`);
 		}
 
 		let instancesDir = this.config.get("slave.instances_directory");
-		return path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
+		for (let i = 0; i < 10; i++) { // Limit attempts in case this is somehow an infinite loop
+			let candidateDir = path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
+			try {
+				await fs.mkdir(candidateDir);
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					continue;
+				}
+				throw err;
+			}
+			return candidateDir;
+		}
+		throw Error("Unable to create instance dir, retry threshold reached");
 	}
 
 	async forwardRequestToInstance(message, request) {
@@ -343,8 +395,7 @@ class Slave extends libLink.Link {
 				let instanceConfig = new libConfig.InstanceConfig("slave");
 				await instanceConfig.load(serialized_config, "master");
 
-				// XXX: race condition on multiple simultanious calls
-				let instanceDir = await this._findNewInstanceDir(instanceConfig.get("instance.name"));
+				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
 				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
 				instanceInfo = {
@@ -787,6 +838,7 @@ module.exports = Slave;
 
 // For testing only
 module.exports._checkFilename = checkFilename;
+module.exports._cleanFilename = cleanFilename;
 module.exports._discoverInstances = discoverInstances;
 module.exports._Slave = Slave;
 

@@ -39,7 +39,7 @@ class BaseInstancePlugin {
 
 		/**
 		 * Instance the plugin started for
-		 * @type {module:slave/slave~Instance}
+		 * @type {module:slave/src/Instance}
 		 */
 		this.instance = instance;
 
@@ -49,7 +49,7 @@ class BaseInstancePlugin {
 		 * With the exepction of accessing the slave's config you should
 		 * avoid ineracting with the slave object directly.
 		 *
-		 * @type {module:slave/slave~Slave}
+		 * @type {module:slave/src/Slave}
 		 */
 		this.slave = slave;
 

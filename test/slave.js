@@ -84,6 +84,56 @@ describe("Slave testing", function() {
 		});
 	});
 
+	describe("cleanFilename()", function() {
+		function clean(item, expected) {
+			assert.equal(Slave._cleanFilename(item), expected);
+		}
+
+		it("should allow a basic name", function() {
+			clean("file", "file");
+		});
+
+		function check(item, msg) {
+			assert.throws(() => Slave._cleanFilename(item), new Error(msg));
+		}
+
+		it("should throw on non-string", function() {
+			check(undefined, "name must be a string");
+			check(null, "name must be a string");
+			check({}, "name must be a string");
+			check([], "name must be a string");
+			check(0, "name must be a string");
+			check(false, "name must be a string");
+		});
+
+		it("should clean empty name", function() {
+			clean("", "_");
+		});
+
+		it("should clean <>:\"\\/|?* \\x00\\r\\n\\t", function() {
+			for (let char of '<>:"\\/|?*\x00\r\n\t') {
+				clean(char, "_");
+			}
+		});
+
+		it("should clean CON, PRN, AUX, NUL, COM1, LPT1", function() {
+			for (let bad of ["CON", "PRN", "AUX", "NUL", "COM1", "LPT1"]) {
+				clean(bad, `${bad}_`);
+			}
+		});
+
+		it("should clean . and ..", function() {
+			for (let bad of [".", ".."]) {
+				clean(bad, `${bad}_`);
+			}
+		});
+
+		it("should clean names ending with . or space", function() {
+			clean("a ", "a_");
+			clean("a.", "a_");
+		});
+	});
+
 	describe("symlinkMods()", function() {
 		let testDir = path.join("temp", "test", "symlink");
 
