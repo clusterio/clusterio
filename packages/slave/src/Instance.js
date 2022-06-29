@@ -247,12 +247,131 @@ class Instance extends libLink.Link {
 		});
 
 		this.server.on("ipc-player_event", event => {
-			libLink.messages.playerEvent.send(this, {
-				instance_id: this.id,
-				...event,
-			});
-			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+			if (event.type === "join") {
+				this._recordPlayerJoin(event.name);
+			} else if (event.type === "leave") {
+				this._recordPlayerLeave(event.name);
+			}
 		});
+
+		/**
+		 * @typedef module:slave/src/Instance~PlayerStat
+		 * @type {object}
+		 * @property {number} lastJoinAt -
+		 *     Unix timestamp in ms the player was last seen joining this
+		 *     instance.
+		 * @property {number=} lastLeaveAt -
+		 *     Unix timestamp in ms the player was last seen leaving this
+		 *     instance.  Not present if player has yet to leave after first
+		 *     time joining.
+		 * @property {number} joinCount -
+		 *     Count of the number of times this player has been seen
+		 *     joining this server.
+		 * @property {number} onlineTimeMs -
+		 *     Time in ms this player has been seen online on this instance.
+		 */
+
+		/**
+		 * Per player statistics recorded by this instance.
+		 * @type {Map<string, module:slave/src/Instance~PlayerStat>}
+		 */
+		this.playerStats = new Map();
+
+		/**
+		 * Players currently online on the instance.
+		 * @type {Map<string, string>}
+		 */
+		this.playersOnline = new Set();
+		this._playerCheckInterval = null;
+	}
+
+	_watchPlayerJoinsByChat() {
+		this.server.on("output", (parsed, line) => {
+			if (parsed.type !== "action") {
+				return;
+			}
+
+			let name = /^([^ ]+)/.exec(parsed.message)[1];
+			if (parsed.action === "JOIN") {
+				this._recordPlayerJoin(name);
+			} else if (["LEAVE", "KICK", "BAN"].includes(parsed.action)) {
+				this._recordPlayerLeave(name);
+			}
+		});
+
+		// Leave log entries are unreliable and sometimes don't show up.
+		this._playerCheckInterval = setInterval(() => {
+			this._checkOnlinePlayers().catch(err => {
+				this.logger.error(`Error checking online players:\n${err.stack}`);
+			});
+		}, 60e3);
+	}
+
+	async _checkOnlinePlayers() {
+		if (this.playersOnline.size) {
+			let actualPlayers = (await this.sendRcon("/players online"))
+				.split("\n")
+				.slice(1, -1) // Remove header and trailing newline
+				.map(s => s.slice(2, -" (online)".length))
+			;
+			let left = new Set(this.playersOnline);
+			actualPlayers.map(player => left.delete(player));
+			let joined = new Set(actualPlayers);
+			this.playersOnline.forEach(player => joined.delete(player));
+
+			for (let player of left) {
+				this._recordPlayerLeave(player);
+			}
+
+			// Missing join messages is not supposed to happen.
+			if (joined.size) {
+				this.logger.warn(`Missed join message for ${[...joined].join(", ")}`);
+				for (let player of joined) {
+					this._recordPlayerJoin(player);
+				}
+			}
+		}
+	}
+
+	_recordPlayerJoin(name) {
+		if (this.playersOnline.has(name)) {
+			return;
+		}
+		this.playersOnline.add(name);
+
+		let stats = this.playerStats.get(name);
+		if (!stats) {
+			stats = { joinCount: 0, onlineTimeMs: 0 };
+			this.playerStats.set(name, stats);
+		}
+		stats.lastJoinAt = Date.now();
+		stats.joinCount += 1;
+
+		let event = {
+			instance_id: this.id,
+			type: "join",
+			name,
+		};
+		libLink.messages.playerEvent.send(this, event);
+		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+	}
+
+	_recordPlayerLeave(name) {
+		if (!this.playersOnline.delete(name)) {
+			return;
+		}
+
+		let stats = this.playerStats.get(name);
+		stats.lastLeaveAt = Date.now();
+		stats.onlineTimeMs += stats.lastLeaveAt - stats.lastJoinAt;
+
+		let event = {
+			instance_id: this.id,
+			type: "leave",
+			name,
+		};
+		libLink.messages.playerEvent.send(this, event);
+		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
 	async sendRcon(message, expectEmpty, plugin = "") {
@@ -337,6 +456,7 @@ class Instance extends libLink.Link {
 		this.notifyStatus("stopped");
 
 		this.config.off("fieldChanged", this._configFieldChanged);
+		clearTimeout(this._playerCheckInterval);
 
 		// Clear metrics this instance is exporting
 		for (let collector of libPrometheus.defaultRegistry.collectors) {
@@ -352,6 +472,8 @@ class Instance extends libLink.Link {
 		for (let pluginInstance of this.plugins.values()) {
 			pluginInstance.onExit();
 		}
+
+		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
 	async _loadPlugin(pluginInfo, slave) {
@@ -365,9 +487,28 @@ class Instance extends libLink.Link {
 		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
 
+	async _loadStats() {
+		let stats;
+		try {
+			stats = JSON.parse(await fs.readFile(this.path("instance-stats.json")));
+		} catch (err) {
+			if (err.code === "ENOENT") {
+				return;
+			}
+			throw err;
+		}
+		this.playerStats = new Map(stats["players"]);
+	}
+
+	async _saveStats() {
+		let content = JSON.stringify({ players: [...this.playerStats] }, null, 4);
+		await libFileOps.safeOutputFile(this.path("instance-stats.json"), content);
+	}
+
 	async init(pluginInfos) {
 		this.notifyStatus("starting");
 		try {
+			await this._loadStats();
 			await this.server.init();
 		} catch (err) {
 			this.notifyExit();
@@ -626,6 +767,8 @@ class Instance extends libLink.Link {
 		if (this.config.get("factorio.enable_save_patching")) {
 			await this.server.disableAchievements();
 			await this.updateInstanceData();
+		} else {
+			this._watchPlayerJoinsByChat();
 		}
 
 		await this.sendSaveListUpdate();
@@ -652,6 +795,7 @@ class Instance extends libLink.Link {
 
 		this.server.on("exit", () => this.notifyExit());
 		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
+		this._watchPlayerJoinsByChat();
 
 		await libPlugin.invokeHook(this.plugins, "onStart");
 

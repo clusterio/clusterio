@@ -103,6 +103,36 @@ let testLines = new Map([
 		},
 	],
 	[
+		"2019-01-20 15:46:34 [KICK] User was kicked by <server>. Reason: unspecified.",
+		{
+			format: "date",
+			time: "2019-01-20 15:46:34",
+			type: "action",
+			action: "KICK",
+			message: "User was kicked by <server>. Reason: unspecified.",
+		},
+	],
+	[
+		"2019-01-20 15:47:50 [BAN] User was banned by <server>. Reason: unspecified.",
+		{
+			format: "date",
+			time: "2019-01-20 15:47:50",
+			type: "action",
+			action: "BAN",
+			message: "User was banned by <server>. Reason: unspecified.",
+		},
+	],
+	[
+		"2019-01-20 15:48:28 [UNBANNED] User was unbanned by <server>.",
+		{
+			format: "date",
+			time: "2019-01-20 15:48:28",
+			type: "action",
+			action: "UNBANNED",
+			message: "User was unbanned by <server>.",
+		},
+	],
+	[
 		"Error while running event level::on_nth_tick(1)",
 		{
 			format: "none",

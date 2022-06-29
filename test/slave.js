@@ -13,31 +13,6 @@ describe("Slave testing", function() {
 		libConfig.InstanceConfig.finalize();
 	});
 
-	describe("class Instance", function() {
-		let instance;
-		before(async function() {
-			let instanceConfig = new libConfig.InstanceConfig("slave");
-			await instanceConfig.init();
-			instanceConfig.set("instance.name", "foo");
-			instance = new Instance({}, new libLink.VirtualConnector(), "dir", "factorioDir", instanceConfig);
-		});
-
-		describe(".name", function() {
-			it("should give the name of the instance", function() {
-				assert.equal(instance.name, "foo");
-			});
-		});
-
-		describe(".path()", function() {
-			it("should give the path when called without arguments", function() {
-				assert.equal(instance.path(), "dir");
-			});
-			it("should join path with arguments", function() {
-				assert.equal(instance.path("bar"), path.join("dir", "bar"));
-			});
-		});
-	});
-
 	describe("checkFilename()", function() {
 		it("should allow a basic name", function() {
 			Slave._checkFilename("file");
