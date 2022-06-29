@@ -266,6 +266,14 @@ FactorioGroup.define({
 	optional: true,
 });
 FactorioGroup.define({
+	name: "player_online_autosave_slots",
+	description:
+		"Rename autosaves where players have been online since the previous autosave into a separate autosave " +
+		"pool with this many slots. Requires autosaves to be enabled to work. Set to 0 to disable.",
+	type: "number",
+	initial_value: 5,
+});
+FactorioGroup.define({
 	name: "enable_save_patching",
 	description: "Patch saves with Lua code. Required for Clusterio integrations, lua modules, and most plugins.",
 	type: "boolean",

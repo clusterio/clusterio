@@ -283,6 +283,8 @@ class Instance extends libLink.Link {
 		 */
 		this.playersOnline = new Set();
 		this._playerCheckInterval = null;
+		this._hadPlayersOnline = false;
+		this._playerAutosaveSlot = 1;
 	}
 
 	_watchPlayerJoinsByChat() {
@@ -364,6 +366,7 @@ class Instance extends libLink.Link {
 		let stats = this.playerStats.get(name);
 		stats.lastLeaveAt = Date.now();
 		stats.onlineTimeMs += stats.lastLeaveAt - stats.lastJoinAt;
+		this._hadPlayersOnline = true;
 
 		let event = {
 			instance_id: this.id,
@@ -428,6 +431,22 @@ class Instance extends libLink.Link {
 	async _autosave(name) {
 		let stat = await fs.stat(this.path("saves", `${name}.zip`));
 		instanceFactorioAutosaveSize.labels(String(this.id)).set(stat.size);
+
+		if (
+			this.config.get("factorio.player_online_autosave_slots") > 0
+			&& (this._hadPlayersOnline || this.playersOnline.size)
+		) {
+			if (this._playerAutosaveSlot > this.config.get("factorio.player_online_autosave_slots")) {
+				this._playerAutosaveSlot = 1;
+			}
+			await fs.rename(
+				this.path("saves", `${name}.zip`),
+				this.path("saves", `_autosave_po${this._playerAutosaveSlot}.zip`),
+			);
+			this._playerAutosaveSlot += 1;
+			this._hadPlayersOnline = false;
+		}
+
 		await this.sendSaveListUpdate();
 	}
 
@@ -498,10 +517,14 @@ class Instance extends libLink.Link {
 			throw err;
 		}
 		this.playerStats = new Map(stats["players"]);
+		this._playerAutosaveSlot = stats["player_autosave_slot"] || 1;
 	}
 
 	async _saveStats() {
-		let content = JSON.stringify({ players: [...this.playerStats] }, null, 4);
+		let content = JSON.stringify({
+			players: [...this.playerStats],
+			player_autosave_slot: this._playerAutosaveSlot,
+		}, null, 4);
 		await libFileOps.safeOutputFile(this.path("instance-stats.json"), content);
 	}
 
