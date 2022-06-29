@@ -46,7 +46,7 @@ end
 
 
 -- This is not part of the add_remote_interface callback to ensure it is
--- available when the clusterio_lib mod is loaded.	The reason this is
+-- available when the clusterio_lib mod is loaded.  The reason this is
 -- neccessary is that on_init for newly added mods happen before on_load
 -- for existing mods, and the add_remote_interface callback is done in
 -- on_load.  See https://forums.factorio.com/viewtopic.php?f=25&t=81552 for
