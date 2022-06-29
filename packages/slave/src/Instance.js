@@ -302,7 +302,7 @@ class Instance extends libLink.Link {
 	async sendSaveListUpdate() {
 		libLink.messages.saveListUpdate.send(this, {
 			instance_id: this.id,
-			list: await Instance.listSaves(this.server.writePath("saves"), this._loadedSave),
+			list: await Instance.listSaves(this.path("saves"), this._loadedSave),
 		});
 	}
 
@@ -828,7 +828,7 @@ class Instance extends libLink.Link {
 
 	async listSavesRequestHandler(message) {
 		return {
-			list: await Instance.listSaves(this.server.writePath("saves"), this._loadedSave),
+			list: await Instance.listSaves(this.path("saves"), this._loadedSave),
 		};
 	}
 
