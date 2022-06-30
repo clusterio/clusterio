@@ -60,7 +60,7 @@ export default function LoadScenarioModal(props) {
 		}).then(() => {
 			setVisible(false);
 		}).catch(
-			notifyErrorHandler("Error creating save")
+			notifyErrorHandler("Error loading scenario")
 		).finally(() => {
 			setLoadingScenario(false);
 		});

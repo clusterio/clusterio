@@ -271,6 +271,19 @@ If null a random secure password is generated and used each time the instance st
 Defaults to null.
 
 
+### player_online_autosave_slots
+
+Keeps a separate pool for autosaves where at least on player has been online since the previous autosave was done.
+This requires regular autosaving to be enabled and will rename autosaves to `_autosave_poN.zip` (where N is a slot number) whenever a player has been online for that save.
+The slot numbers start at 1, are incremented by 1 after each autosave that is renamed and reset back to 1 whenever this value is exceeded.
+Note that this value should be set to a higher value than the value of `autosave_slots` in `factorio.settings`.
+Useful for preventing the loss of all progress when nobody is around on always online servers with auto pause disabled.
+
+If 0 no autosave renaming takes place.
+
+Defaults to 5.
+
+
 ### factorio.enable_save_patching
 
 Whether to use save patching or not.

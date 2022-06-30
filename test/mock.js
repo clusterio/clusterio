@@ -242,6 +242,7 @@ module.exports = {
 	MockLogger,
 	MockSocket,
 	MockConnector,
+	MockServer,
 	MockInstance,
 	MockSlave,
 	MockControl,
