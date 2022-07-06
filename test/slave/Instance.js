@@ -89,21 +89,21 @@ describe("class Instance", function() {
 
 		it("should send player_event", function() {
 			instance._recordPlayerJoin("player");
-			instance._recordPlayerLeave("player");
+			instance._recordPlayerLeave("player", "quit");
 			assert.deepEqual(
 				connector.sentMessages[1],
 				{
 					seq: 2,
 					type: "player_event_event",
-					data: { type: "leave", instance_id: instance.id, name: "player" },
+					data: { type: "leave", instance_id: instance.id, name: "player", reason: "quit" },
 				},
 			);
 		});
 
 		it("should be idempotent", function() {
 			instance._recordPlayerJoin("player");
-			instance._recordPlayerLeave("player");
-			instance._recordPlayerLeave("player");
+			instance._recordPlayerLeave("player", "quit");
+			instance._recordPlayerLeave("player", "quit");
 			assert(!instance.playersOnline.has("player"), "player was not removed");
 			assert.equal(connector.sentMessages.length, 2);
 		});
@@ -148,7 +148,7 @@ describe("class Instance", function() {
 				{
 					seq: 2,
 					type: "player_event_event",
-					data: { type: "leave", instance_id: instance.id, name: "player" },
+					data: { type: "leave", instance_id: instance.id, name: "player", reason: "quit" },
 				},
 			);
 		});

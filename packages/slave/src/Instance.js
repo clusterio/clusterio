@@ -250,7 +250,7 @@ class Instance extends libLink.Link {
 			if (event.type === "join") {
 				this._recordPlayerJoin(event.name);
 			} else if (event.type === "leave") {
-				this._recordPlayerLeave(event.name);
+				this._recordPlayerLeave(event.name, event.reason);
 			}
 		});
 
@@ -264,6 +264,9 @@ class Instance extends libLink.Link {
 		 *     Unix timestamp in ms the player was last seen leaving this
 		 *     instance.  Not present if player has yet to leave after first
 		 *     time joining.
+		 * @property {string=} lastLeaveReason -
+		 *     Reason the player was last seen leaving with.  Not present if
+		 *     player has yet to leave after first time joining.
 		 * @property {number} joinCount -
 		 *     Count of the number of times this player has been seen
 		 *     joining this server.
@@ -297,7 +300,12 @@ class Instance extends libLink.Link {
 			if (parsed.action === "JOIN") {
 				this._recordPlayerJoin(name);
 			} else if (["LEAVE", "KICK", "BAN"].includes(parsed.action)) {
-				this._recordPlayerLeave(name);
+				let reason = {
+					"LEAVE": "quit",
+					"KICK": "kicked",
+					"BAN": "banned",
+				}[parsed.action];
+				this._recordPlayerLeave(name, reason);
 			}
 		});
 
@@ -322,7 +330,7 @@ class Instance extends libLink.Link {
 			this.playersOnline.forEach(player => joined.delete(player));
 
 			for (let player of left) {
-				this._recordPlayerLeave(player);
+				this._recordPlayerLeave(player, "quit");
 			}
 
 			// Missing join messages is not supposed to happen.
@@ -358,13 +366,14 @@ class Instance extends libLink.Link {
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
-	_recordPlayerLeave(name) {
+	_recordPlayerLeave(name, reason) {
 		if (!this.playersOnline.delete(name)) {
 			return;
 		}
 
 		let stats = this.playerStats.get(name);
 		stats.lastLeaveAt = Date.now();
+		stats.lastLeaveReason = reason;
 		stats.onlineTimeMs += stats.lastLeaveAt - stats.lastJoinAt;
 		this._hadPlayersOnline = true;
 
@@ -372,6 +381,7 @@ class Instance extends libLink.Link {
 			instance_id: this.id,
 			type: "leave",
 			name,
+			reason,
 		};
 		libLink.messages.playerEvent.send(this, event);
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);

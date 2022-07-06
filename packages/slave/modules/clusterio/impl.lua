@@ -28,9 +28,18 @@ impl.events[defines.events.on_player_joined_game] = function(event)
 	api.send_json("player_event", { type = "join", name = player.name })
 end
 
+local disconnect_reason_name = {}
+for name, i in pairs(defines.disconnect_reason) do
+	disconnect_reason_name[i] = name
+end
+
 impl.events[defines.events.on_player_left_game] = function(event)
 	local player = game.players[event.player_index]
-	api.send_json("player_event", { type = "leave", name = player.name })
+	api.send_json("player_event", {
+		type = "leave",
+		name = player.name,
+		reason = disconnect_reason_name[event.reason],
+	})
 end
 
 -- Internal API

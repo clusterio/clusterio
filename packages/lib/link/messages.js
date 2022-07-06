@@ -1284,10 +1284,12 @@ messages.playerEvent = new Event({
 	type: "player_event",
 	links: ["instance-slave", "slave-master"],
 	forwardTo: "master",
+	eventRequired: ["instance_id", "type", "name"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"type": { type: "string", enum: ["join", "leave"] },
 		"name": { type: "string" },
+		"reason": { type: "string" },
 	},
 });
 
