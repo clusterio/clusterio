@@ -98,9 +98,10 @@ module.exports = (env = {}) => ({
 			// Required for winston
 			"util": require.resolve("util/"),
 			"os": require.resolve("os-browserify/browser"),
+			"buffer": require.resolve("buffer/"),
 
 			// Required for zlib
-			"assert": require.resolve("assert"),
+			"assert": require.resolve("assert/"),
 			"stream": require.resolve("stream-browserify"),
 
 			"events": require.resolve("events/"),
