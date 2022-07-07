@@ -483,6 +483,7 @@ describe("Integration of Clusterio", function() {
 			let lists = ["admin", "whitelisted", "banned"];
 			it("should add and remove the given user to the list", async function() {
 				slowTest(this);
+				getControl().userUpdates = [];
 				await libLink.messages.createUser.send(getControl(), { name: "list_test" });
 				let user = (await getUsers()).get("list_test");
 				for (let list of lists) {
@@ -499,6 +500,7 @@ describe("Integration of Clusterio", function() {
 				for (let list of lists) {
 					assert.equal(user[`is_${list}`], false, `unexpected ${list} status`);
 				}
+				assert.equal(getControl().userUpdates.length, 7);
 			});
 			it("should not create the user if not instructed to", async function() {
 				slowTest(this);
@@ -512,11 +514,13 @@ describe("Integration of Clusterio", function() {
 			});
 			it("should create the user if instructed to", async function() {
 				slowTest(this);
+				getControl().userUpdates = [];
 				for (let list of lists) {
 					await execCtl(`user set-${list} --create test_create_${list}`);
 					let user = (await getUsers()).get(`test_create_${list}`);
 					assert.equal(user && user[`is_${list}`], true, `user not created and added to ${list}`);
 				}
+				assert.equal(getControl().userUpdates.length, 3);
 			});
 		});
 
@@ -868,28 +872,36 @@ describe("Integration of Clusterio", function() {
 
 		describe("user create", function() {
 			it("should create the given user", async function() {
+				getControl().userUpdates = [];
 				await execCtl("user create temp");
 				let result = await libLink.messages.listUsers.send(getControl());
 				let tempUser = result.list.find(user => user.name === "temp");
 				assert(tempUser, "user was not created");
+				assert.equal(getControl().userUpdates.length, 1);
+				assert.equal(getControl().userUpdates[0].name, "temp");
 			});
 		});
 
 		describe("user set-roles", function() {
 			it("should set the roles on the user", async function() {
+				getControl().userUpdates = [];
 				await execCtl('user set-roles temp "Cluster Admin"');
 				let result = await libLink.messages.listUsers.send(getControl());
 				let tempUser = result.list.find(user => user.name === "temp");
 				assert.deepEqual(tempUser.roles, [0]);
+				assert.equal(getControl().userUpdates.length, 1);
 			});
 		});
 
 		describe("user delete", function() {
 			it("should delete the user", async function() {
+				getControl().userUpdates = [];
 				await execCtl("user delete temp");
 				let result = await libLink.messages.listUsers.send(getControl());
 				let tempUser = result.list.find(user => user.name === "temp");
 				assert(!tempUser, "user was note deleted");
+				assert.equal(getControl().userUpdates.length, 1);
+				assert.equal(getControl().userUpdates[0].is_deleted, true);
 			});
 		});
 	});

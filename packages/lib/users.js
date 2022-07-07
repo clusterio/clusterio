@@ -195,6 +195,12 @@ class User {
 				}
 			}
 		}
+
+		/**
+		 * True if this user object has been removed from the cluster.
+		 * @type {boolean}
+		 */
+		this.isDeleted = false;
 	}
 
 	serialize() {
@@ -488,9 +494,19 @@ definePermission({
 });
 
 definePermission({
+	name: "core.user.get",
+	title: "Get user",
+	description: "Get the details of a user in the cluster.",
+});
+definePermission({
 	name: "core.user.list",
 	title: "List users",
 	description: "Get the full list of users in the cluster.",
+});
+definePermission({
+	name: "core.user.subscribe",
+	title: "Subscribe to user updates",
+	description: "Subscribe to be notified on updates on the details and status of users.",
 });
 definePermission({
 	name: "core.user.create",

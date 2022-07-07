@@ -10,30 +10,8 @@ import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
+import { useUser } from "../model/user";
 
-
-function useUser(name) {
-	let control = useContext(ControlContext);
-	let [user, setUser] = useState({ loading: true });
-
-	function updateUser() {
-		// XXX optimize by requesting only the user in question
-		libLink.messages.listUsers.send(control).then(result => {
-			let match = result.list.find(u => u.name === name);
-			if (!match) {
-				setUser({ missing: true });
-			} else {
-				setUser({ ...match, present: true });
-			}
-		});
-	}
-
-	useEffect(() => {
-		updateUser();
-	}, [name]);
-
-	return [user, updateUser];
-}
 
 export default function UserViewPage() {
 	let params = useParams();

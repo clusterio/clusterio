@@ -53,6 +53,11 @@ class ControlConnection extends BaseConnection {
 			instance_ids: [],
 		};
 
+		this.userSubscriptions = {
+			all: false,
+			names: [],
+		};
+
 		this.logTransport = null;
 		this.logSubscriptions = {
 			all: false,
@@ -559,6 +564,23 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
+	async getUserRequestHandler(message) {
+		let name = message.data.name;
+		let user = this._master.userManager.users.get(name);
+		if (!user) {
+			throw new libErrors.RequestError(`User ${name} does not exist`);
+		}
+
+		return {
+			name: user.name,
+			roles: [...user.roles].map(role => role.id),
+			is_admin: user.isAdmin,
+			is_banned: user.isBanned,
+			is_whitelisted: user.isWhitelisted,
+			instances: [...user.instances],
+		};
+	}
+
 	async listUsersRequestHandler(message) {
 		let list = [];
 		for (let user of this._master.userManager.users.values()) {
@@ -574,8 +596,30 @@ class ControlConnection extends BaseConnection {
 		return { list };
 	}
 
+	async setUserSubscriptionsRequestHandler(message) {
+		this.userSubscriptions = message.data;
+	}
+
+	userUpdated(user) {
+		if (
+			this.userSubscriptions.all
+			|| this.userSubscriptions.names.includes(user.name)
+		) {
+			libLink.messages.userUpdate.send(this, {
+				name: user.name,
+				roles: [...user.roles].map(role => role.id),
+				is_admin: user.isAdmin,
+				is_banned: user.isBanned,
+				is_whitelisted: user.isWhitelisted,
+				instances: [...user.instances],
+				is_deleted: user.isDeleted,
+			});
+		}
+	}
+
 	async createUserRequestHandler(message) {
-		this._master.userManager.createUser(message.data.name);
+		let user = this._master.userManager.createUser(message.data.name);
+		this._master.userUpdated(user);
 	}
 
 	async updateUserRolesRequestHandler(message) {
@@ -596,6 +640,7 @@ class ControlConnection extends BaseConnection {
 
 		user.roles = resolvedRoles;
 		this._master.userPermissionsUpdated(user);
+		this._master.userUpdated(user);
 	}
 
 	async setUserAdminRequestHandler(message) {
@@ -611,6 +656,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.isAdmin = admin;
+		this._master.userUpdated(user);
 		this.broadcastEventToSlaves({ data: { name, admin }}, libLink.messages.adminlistUpdate);
 	}
 
@@ -628,6 +674,7 @@ class ControlConnection extends BaseConnection {
 
 		user.isBanned = banned;
 		user.banReason = reason;
+		this._master.userUpdated(user);
 		this.broadcastEventToSlaves({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
 	}
 
@@ -644,6 +691,7 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.isWhitelisted = whitelisted;
+		this._master.userUpdated(user);
 		this.broadcastEventToSlaves({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
 	}
 
@@ -652,6 +700,10 @@ class ControlConnection extends BaseConnection {
 		if (!user) {
 			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
 		}
+
+		user.isDeleted = true;
+		this._master.userManager.users.delete(message.data.name);
+		this._master.userUpdated(user);
 
 		if (user.is_admin) {
 			this.broadcastEventToSlaves({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
@@ -662,7 +714,6 @@ class ControlConnection extends BaseConnection {
 		if (user.is_banned) {
 			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
 		}
-		this._master.userManager.users.delete(message.data.name);
 	}
 
 	async debugDumpWsRequestHandler(message) {

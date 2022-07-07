@@ -9,6 +9,7 @@ import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import { useUserList } from "../model/user";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
@@ -57,14 +58,11 @@ export default function UsersPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let history = useHistory();
+	let [userList] = useUserList();
 
-	let [users, setUsers] = useState([]);
 	let [roles, setRoles] = useState(new Map());
 
 	useEffect(() => {
-		libLink.messages.listUsers.send(control).then(result => {
-			setUsers(result["list"]);
-		}).catch(notifyErrorHandler("Error fetching user list"));
 		libLink.messages.listRoles.send(control).then(result => {
 			setRoles(new Map(result["list"].map(role => [role["id"], role])));
 		}).catch(() => {
@@ -113,7 +111,7 @@ export default function UsersPage() {
 					responsive: ["lg"],
 				},
 			]}
-			dataSource={users}
+			dataSource={userList}
 			pagination={false}
 			rowKey={user => user["name"]}
 			onRow={(user, rowIndex) => ({

@@ -503,6 +503,16 @@ class Master {
 		}
 	}
 
+	userUpdated(user) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.userUpdated(user);
+		}
+	}
+
 	/**
 	 * Notify connected control clients under the given user that the
 	 * permissions for this user may have changed.

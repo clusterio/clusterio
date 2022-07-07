@@ -786,6 +786,28 @@ messages.deleteRole = new Request({
 	},
 });
 
+const userRequired = ["name", "roles", "instances"];
+const userProperties = {
+	"name": { type: "string" },
+	"roles": { type: "array", items: { type: "integer" }},
+	"is_admin": { type: "boolean" },
+	"is_banned": { type: "boolean" },
+	"is_whitelisted": { type: "boolean" },
+	"instances": { type: "array", items: { type: "integer" }},
+	"is_deleted": { type: "boolean" },
+};
+
+messages.getUser = new Request({
+	type: "get_user",
+	links: ["control-master"],
+	permission: "core.user.get",
+	requestProperties: {
+		"name": { type: "string" },
+	},
+	responseRequired: userRequired,
+	responseProperties: userProperties,
+});
+
 messages.listUsers = new Request({
 	type: "list_users",
 	links: ["control-master"],
@@ -795,16 +817,22 @@ messages.listUsers = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["name", "roles", "instances"],
-				properties: {
-					"name": { type: "string" },
-					"roles": { type: "array", items: { type: "integer" }},
-					"is_admin": { type: "boolean" },
-					"is_banned": { type: "boolean" },
-					"is_whitelisted": { type: "boolean" },
-					"instances": { type: "array", items: { type: "integer" }},
-				},
+				required: userRequired,
+				properties: userProperties,
 			},
+		},
+	},
+});
+
+messages.setUserSubscriptions = new Request({
+	type: "set_user_subscriptions",
+	links: ["control-master"],
+	permission: "core.user.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"names": {
+			type: "array",
+			items: { type: "string" },
 		},
 	},
 });
@@ -1216,6 +1244,13 @@ messages.saveListUpdate = new Event({
 		"instance_id": { type: "integer" },
 		"list": saveList,
 	},
+});
+
+messages.userUpdate = new Event({
+	type: "user_update",
+	links: ["master-control"],
+	eventRequired: userRequired,
+	eventProperties: userProperties,
 });
 
 messages.masterConnectionEvent = new Event({

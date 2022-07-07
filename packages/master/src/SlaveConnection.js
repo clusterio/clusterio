@@ -186,6 +186,7 @@ class SlaveConnection extends BaseConnection {
 		} else if (type === "leave") {
 			user.notifyLeave(instance_id);
 		}
+		this._master.userUpdated(user);
 
 		let instance = this._master.instances.get(instance_id);
 		await libPlugin.invokeHook(this._master.plugins, "onPlayerEvent", instance, message.data);
