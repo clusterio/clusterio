@@ -9,6 +9,7 @@ const util = require("util");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libFactorio = require("@clusterio/lib/factorio");
 const libLink = require("@clusterio/lib/link");
+const PlayerStats = require("@clusterio/lib/PlayerStats");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
@@ -255,28 +256,8 @@ class Instance extends libLink.Link {
 		});
 
 		/**
-		 * @typedef module:slave/src/Instance~PlayerStat
-		 * @type {object}
-		 * @property {number} lastJoinAt -
-		 *     Unix timestamp in ms the player was last seen joining this
-		 *     instance.
-		 * @property {number=} lastLeaveAt -
-		 *     Unix timestamp in ms the player was last seen leaving this
-		 *     instance.  Not present if player has yet to leave after first
-		 *     time joining.
-		 * @property {string=} lastLeaveReason -
-		 *     Reason the player was last seen leaving with.  Not present if
-		 *     player has yet to leave after first time joining.
-		 * @property {number} joinCount -
-		 *     Count of the number of times this player has been seen
-		 *     joining this server.
-		 * @property {number} onlineTimeMs -
-		 *     Time in ms this player has been seen online on this instance.
-		 */
-
-		/**
 		 * Per player statistics recorded by this instance.
-		 * @type {Map<string, module:slave/src/Instance~PlayerStat>}
+		 * @type {Map<string, module:lib/PlayerStats>}
 		 */
 		this.playerStats = new Map();
 
@@ -351,10 +332,10 @@ class Instance extends libLink.Link {
 
 		let stats = this.playerStats.get(name);
 		if (!stats) {
-			stats = { joinCount: 0, onlineTimeMs: 0 };
+			stats = new PlayerStats();
 			this.playerStats.set(name, stats);
 		}
-		stats.lastJoinAt = Date.now();
+		stats.lastJoinAt = new Date();
 		stats.joinCount += 1;
 
 		let event = {
@@ -372,9 +353,9 @@ class Instance extends libLink.Link {
 		}
 
 		let stats = this.playerStats.get(name);
-		stats.lastLeaveAt = Date.now();
+		stats.lastLeaveAt = new Date();
 		stats.lastLeaveReason = reason;
-		stats.onlineTimeMs += stats.lastLeaveAt - stats.lastJoinAt;
+		stats.onlineTimeMs += stats.lastLeaveAt.getTime() - stats.lastJoinAt.getTime();
 		this._hadPlayersOnline = true;
 
 		let event = {
@@ -517,17 +498,17 @@ class Instance extends libLink.Link {
 	}
 
 	async _loadStats() {
-		let stats;
+		let instanceStats;
 		try {
-			stats = JSON.parse(await fs.readFile(this.path("instance-stats.json")));
+			instanceStats = JSON.parse(await fs.readFile(this.path("instance-stats.json")));
 		} catch (err) {
 			if (err.code === "ENOENT") {
 				return;
 			}
 			throw err;
 		}
-		this.playerStats = new Map(stats["players"]);
-		this._playerAutosaveSlot = stats["player_autosave_slot"] || 1;
+		this.playerStats = new Map(instanceStats["players"].map(([id, stats]) => [id, new PlayerStats(stats)]));
+		this._playerAutosaveSlot = instanceStats["player_autosave_slot"] || 1;
 	}
 
 	async _saveStats() {
