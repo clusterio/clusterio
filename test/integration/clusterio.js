@@ -524,6 +524,13 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("instance extract-players", function() {
+			it("runs", async function() {
+				slowTest(this);
+				await execCtl("instance extract-players test");
+			});
+		});
+
 		describe("instance stop", function() {
 			it("stops the instance", async function() {
 				slowTest(this);

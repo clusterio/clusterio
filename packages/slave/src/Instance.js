@@ -370,6 +370,34 @@ class Instance extends libLink.Link {
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
+	async extractPlayersRequestHandler() {
+		const exportPlayerTimes = `/sc
+local players = {}
+for _, p in pairs(game.players) do
+	players[p.name] = p.online_time
+end
+rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
+		let playerTimes = JSON.parse(await this.sendRcon(exportPlayerTimes));
+
+		for (let [name, onlineTimeTicks] of Object.entries(playerTimes)) {
+			let stats = this.playerStats.get(name);
+			if (!stats) {
+				stats = new PlayerStats();
+				this.playerStats.set(name, stats);
+			}
+			stats.onlineTimeMs = onlineTimeTicks * 1000 / 60;
+
+			let event = {
+				instance_id: this.id,
+				type: "import",
+				name,
+				stats: stats.toJSON(),
+			};
+			libLink.messages.playerEvent.send(this, event);
+			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+		}
+	}
+
 	async sendRcon(message, expectEmpty, plugin = "") {
 		let instanceId = String(this.id);
 		let observeDuration = instanceRconCommandDuration.labels(instanceId).startTimer();

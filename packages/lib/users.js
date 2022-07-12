@@ -476,6 +476,11 @@ definePermission({
 	description: "Export the the locale and icons from an instance and upload it to the master.",
 });
 definePermission({
+	name: "core.instance.extract_players",
+	title: "Extract player stats from running save",
+	description: "Run extraction to create a user for each player in the save and set the play time from the save.",
+});
+definePermission({
 	name: "core.instance.start",
 	title: "Start instance",
 	description: "Start instances.",

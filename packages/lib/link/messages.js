@@ -668,6 +668,13 @@ messages.exportData = new Request({
 	forwardTo: "instance",
 });
 
+messages.extractPlayers = new Request({
+	type: "extract_players",
+	links: ["control-master", "master-slave", "slave-instance"],
+	permission: "core.instance.extract_players",
+	forwardTo: "instance",
+});
+
 messages.stopInstance = new Request({
 	type: "stop_instance",
 	links: ["control-master", "master-slave", "slave-instance"],
@@ -1331,7 +1338,7 @@ messages.playerEvent = new Event({
 	eventRequired: ["instance_id", "type", "name"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
-		"type": { type: "string", enum: ["join", "leave"] },
+		"type": { type: "string", enum: ["join", "leave", "import"] },
 		"name": { type: "string" },
 		"reason": { type: "string" },
 		"stats": PlayerStats.jsonSchema,

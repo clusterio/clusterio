@@ -206,7 +206,7 @@ class BaseInstancePlugin {
 	 * Invoked when a player either joins or leaves the instance.
 	 *
 	 * @param {Object} event - Information about the event.
-	 * @param {string} event.type - Either "join" or "leave".
+	 * @param {string} event.type - Either "join", "leave" or "import".
 	 * @param {string} event.name - Name of the player that joined/left.
 	 * @param {string=} event.reason -
 	 *     Only present for type "leave". Reason for player leaving the
@@ -502,7 +502,7 @@ class BaseMasterPlugin {
 	 *
 	 * @param {Object} instance - the instance it occured on.
 	 * @param {Object} event - Information about the event.
-	 * @param {string} event.type - Either "join" or "leave".
+	 * @param {string} event.type - Either "join", "leave" or "import".
 	 * @param {string} event.name - Name of the player that joined/left.
 	 * @param {string=} event.reason -
 	 *     Only present for type "leave". Reason for player leaving the
