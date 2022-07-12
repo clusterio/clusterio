@@ -210,7 +210,8 @@ class BaseInstancePlugin {
 	 * @param {string} event.name - Name of the player that joined/left.
 	 * @param {string=} event.reason -
 	 *     Only present for type "leave". Reason for player leaving the
-	 *     game, one of the possible reasons in defines.disconnect_reason.
+	 *     game, one of the possible reasons in defines.disconnect_reason
+	 *     or "server_quit" if the server exits while the player is online.
 	 */
 	async onPlayerEvent(event) { }
 
@@ -505,7 +506,8 @@ class BaseMasterPlugin {
 	 * @param {string} event.name - Name of the player that joined/left.
 	 * @param {string=} event.reason -
 	 *     Only present for type "leave". Reason for player leaving the
-	 *     game, one of the possible reasons in defines.disconnect_reason.
+	 *     game, one of the possible reasons in defines.disconnect_reason
+	 *     or "server_quit" if the server exits while the player is online.
 	 */
 	async onPlayerEvent(instance, event) { }
 

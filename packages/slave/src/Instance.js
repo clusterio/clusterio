@@ -483,6 +483,9 @@ class Instance extends libLink.Link {
 			pluginInstance.onExit();
 		}
 
+		for (let player of left) {
+			this._recordPlayerLeave(player, "server_quit");
+		}
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
