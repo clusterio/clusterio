@@ -3,6 +3,7 @@
 const libSchema = require("../schema");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
+const PlayerStats = require("../PlayerStats");
 
 class MissingLinkHandlerError extends Error {
 	constructor(type, source, target) {
@@ -795,6 +796,14 @@ const userProperties = {
 	"is_whitelisted": { type: "boolean" },
 	"instances": { type: "array", items: { type: "integer" }},
 	"is_deleted": { type: "boolean" },
+	"player_stats": PlayerStats.jsonSchema,
+	"instance_stats": {
+		type: "array",
+		items: {
+			type: "array",
+			items: [{ type: "integer" }, PlayerStats.jsonSchema],
+		},
+	},
 };
 
 messages.getUser = new Request({
@@ -1325,6 +1334,7 @@ messages.playerEvent = new Event({
 		"type": { type: "string", enum: ["join", "leave"] },
 		"name": { type: "string" },
 		"reason": { type: "string" },
+		"stats": PlayerStats.jsonSchema,
 	},
 });
 

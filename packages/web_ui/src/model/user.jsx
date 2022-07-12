@@ -1,9 +1,56 @@
-import { useEffect, useContext, useState } from "react";
+import React, { useEffect, useContext, useState } from "react";
+import { Tag } from "antd";
 import ControlContext from "../components/ControlContext";
 
 import { libLink, libLogging } from "@clusterio/lib";
 const { logger } = libLogging;
 
+function calculateLastSeen(user, instanceId) {
+	let stats;
+	if (instanceId === undefined) {
+		stats = user["player_stats"];
+	} else {
+		let entry = (user["instance_stats"] || []).find(([id]) => id === instanceId);
+		if (!entry) {
+			return undefined;
+		}
+		stats = entry[1];
+	}
+	if (stats["last_leave_at"] > stats["last_join_at"]) {
+		return stats["last_leave_at"];
+	}
+	if (stats["last_join_at"]) {
+		return stats["last_leave_at"];
+	}
+	return undefined;
+}
+
+export function formatLastSeen(user, instanceId = undefined) {
+	if (user["instances"].some(id => instanceId === undefined || id === instanceId)) {
+		return <Tag color="green">Online</Tag>;
+	}
+	let lastSeen = calculateLastSeen(user, instanceId);
+	if (lastSeen === undefined) {
+		return undefined;
+	}
+	return new Date(lastSeen).toLocaleTimeString();
+}
+
+export function sortLastSeen(userA, userB, instanceIdA = undefined, instanceIdB = undefined) {
+	function epoch(user, instanceId) {
+		return user["instances"].some(id => instanceId === undefined || id === instanceId);
+	}
+
+	let epochA = epoch(userA, instanceIdA);
+	let epochB = epoch(userB, instanceIdB);
+	if (epochA !== epochB) {
+		return epochA - epochB;
+	}
+
+	let lastSeenA = calculateLastSeen(userA, instanceIdA) || 0;
+	let lastSeenB = calculateLastSeen(userB, instanceIdB) || 0;
+	return lastSeenA - lastSeenB;
+}
 
 export function useUser(name) {
 	let control = useContext(ControlContext);

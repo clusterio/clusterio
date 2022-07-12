@@ -342,6 +342,7 @@ class Instance extends libLink.Link {
 			instance_id: this.id,
 			type: "join",
 			name,
+			stats: stats.toJSON(),
 		};
 		libLink.messages.playerEvent.send(this, event);
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
@@ -363,6 +364,7 @@ class Instance extends libLink.Link {
 			type: "leave",
 			name,
 			reason,
+			stats: stats.toJSON(),
 		};
 		libLink.messages.playerEvent.send(this, event);
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
@@ -483,7 +485,7 @@ class Instance extends libLink.Link {
 			pluginInstance.onExit();
 		}
 
-		for (let player of left) {
+		for (let player of this.playersOnline) {
 			this._recordPlayerLeave(player, "server_quit");
 		}
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));

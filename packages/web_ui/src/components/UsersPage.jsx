@@ -1,15 +1,16 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Table, Tag } from "antd";
+import { Button, Form, Input, Modal, PageHeader, Space, Table, Tag } from "antd";
 
 import { libLink } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
+import { formatDuration } from "../util/time_format";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { useUserList } from "../model/user";
+import { formatLastSeen, sortLastSeen, useUserList } from "../model/user";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
@@ -80,7 +81,15 @@ export default function UsersPage() {
 			columns={[
 				{
 					title: "Name",
-					dataIndex: "name",
+					key: "name",
+					render: user => <Space>
+						{user["name"]}
+						<span>
+							{user["is_admin"] && <Tag color="gold">Admin</Tag>}
+							{user["is_whitelisted"] && <Tag>Whitelisted</Tag>}
+							{user["is_banned"] && <Tag color="red">Banned</Tag>}
+						</span>
+					</Space>,
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a["name"], b["name"]),
 				},
@@ -90,24 +99,19 @@ export default function UsersPage() {
 					render: user => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id })["name"]}</Tag>),
 				},
 				{
-					title: "Admin",
-					key: "admin",
-					render: user => user["is_admin"] && "yes",
-					sorter: (a, b) => a["is_admin"] - b["is_admin"],
+					title: "Play time",
+					key: "playTime",
+					render: user => user["player_stats"]["online_time_ms"]
+						&& formatDuration(user["player_stats"]["online_time_ms"]),
+					sorter: (a, b) => (a["player_stats"]["online_time_ms"] || 0) -
+						(b["player_stats"]["online_time_ms"] || 0),
 					responsive: ["lg"],
 				},
 				{
-					title: "Whitelisted",
-					key: "whitelisted",
-					render: user => user["is_whitelisted"] && "yes",
-					sorter: (a, b) => a["is_whitelisted"] - b["is_whitelisted"],
-					responsive: ["lg"],
-				},
-				{
-					title: "Banned",
-					key: "banned",
-					render: user => user["is_banned"] && "yes",
-					sorter: (a, b) => a["is_banned"] - b["is_banned"],
+					title: "Last seen",
+					key: "lastSeen",
+					render: user => formatLastSeen(user),
+					sorter: sortLastSeen,
 					responsive: ["lg"],
 				},
 			]}

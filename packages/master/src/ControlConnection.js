@@ -578,6 +578,8 @@ class ControlConnection extends BaseConnection {
 			is_banned: user.isBanned,
 			is_whitelisted: user.isWhitelisted,
 			instances: [...user.instances],
+			player_stats: user.playerStats,
+			instance_stats: [...user.instanceStats],
 		};
 	}
 
@@ -591,6 +593,7 @@ class ControlConnection extends BaseConnection {
 				is_banned: user.isBanned,
 				is_whitelisted: user.isWhitelisted,
 				instances: [...user.instances],
+				player_stats: user.playerStats,
 			});
 		}
 		return { list };
@@ -612,6 +615,8 @@ class ControlConnection extends BaseConnection {
 				is_banned: user.isBanned,
 				is_whitelisted: user.isWhitelisted,
 				instances: [...user.instances],
+				player_stats: user.playerStats,
+				instance_stats: [...user.instanceStats],
 				is_deleted: user.isDeleted,
 			});
 		}

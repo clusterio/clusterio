@@ -1,16 +1,24 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Button, Col, Form, Input, PageHeader, Popconfirm, Popover, Row, Tag, Select, Space, Spin, Switch } from "antd";
+import {
+	Button, Col, Descriptions, Form, Input, PageHeader, Popconfirm,
+	Popover, Row, Table, Tag, Select, Space, Spin, Switch,
+} from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import { libLink } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
+import { useInstanceList } from "../model/instance";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import SectionHeader from "./SectionHeader";
 import { notifyErrorHandler } from "../util/notify";
-import { useUser } from "../model/user";
+import { formatDuration } from "../util/time_format";
+import { formatLastSeen, sortLastSeen, useUser } from "../model/user";
+
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 
 export default function UserViewPage() {
@@ -21,6 +29,7 @@ export default function UserViewPage() {
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
+	let [instanceList] = useInstanceList();
 	let [user, updateUser] = useUser(userName);
 	let [roles, setRoles] = useState(null);
 	let [form] = Form.useForm();
@@ -83,10 +92,22 @@ export default function UserViewPage() {
 		</Select>
 	</Form.Item>;
 
+	function instanceName(id) {
+		let instance = instanceList.find(i => i.id === id);
+		return instance ? instance["name"] : id;
+	}
+
 	return <PageLayout nav={nav}>
 		<PageHeader
 			className="site-page-header"
-			title={userName}
+			title={<Space>
+				{userName}
+				<span>
+					{user["is_admin"] && <Tag color="gold">Admin</Tag>}
+					{user["is_whitelisted"] && <Tag>Whitelisted</Tag>}
+					{user["is_banned"] && <Tag color="red">Banned</Tag>}
+				</span>
+			</Space>}
 			extra={
 				account.hasPermission("core.user.delete") && <Popconfirm
 					title={<>
@@ -110,7 +131,23 @@ export default function UserViewPage() {
 				</Popconfirm>
 			}
 		/>
-		<Form form={form}>
+		<Form
+			form={form}
+			labelCol={{
+				sm: { span: 6 },
+				md: { span: 6 },
+				lg: { span: 4 },
+				xl: { span: 3 },
+				xxl: { span: 2 },
+			}}
+			wrapperCol={{
+				sm: { span: 18 },
+				md: { span: 18 },
+				lg: { span: 20 },
+				xl: { span: 21 },
+				xxl: { span: 22 },
+			}}
+		>
 			<Form.Item
 				label="Roles"
 			>
@@ -237,6 +274,58 @@ export default function UserViewPage() {
 				</Space>
 			</Form.Item>
 		</Form>
+		<SectionHeader title="Player stats" />
+		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
+			<Descriptions.Item label="Total play time">
+				{user["player_stats"]["online_time_ms"] && formatDuration(user["player_stats"]["online_time_ms"])}
+			</Descriptions.Item>
+			<Descriptions.Item label="Total join count">
+				{user["player_stats"]["join_count"]}
+			</Descriptions.Item>
+			<Descriptions.Item label="Last seen">
+				{formatLastSeen(user)}
+			</Descriptions.Item>
+		</Descriptions>
+		<SectionHeader title="Instance stats" />
+		<Table
+			size="small"
+			columns={[
+				{
+					title: "Instance",
+					key: "instance",
+					render: ([id]) => instanceName(id),
+					defaultSortOrder: "ascend",
+					sorter: (a, b) => strcmp(a[0], b[0]),
+				},
+				{
+					title: "Play time",
+					key: "playTime",
+					render: ([, stats]) => formatDuration(stats["online_time_ms"] || 0),
+					sorter: (a, b) => (a[1]["online_time_ms"] || 0) - (b[1]["online_time_ms"] || 0),
+				},
+				{
+					title: "Join count",
+					key: "joinCoint",
+					render: ([, stats]) => stats["join_count"] || 0,
+					sorter: (a, b) => (a[1]["join_count"] || 0) - (b[1]["join_count"] || 0),
+					responsive: ["sm"],
+				},
+				{
+					title: "Last seen",
+					key: "lastSeen",
+					render: ([id]) => formatLastSeen(user, id),
+					sorter: (a, b) => sortLastSeen(user, user, a[0], b[0]),
+				},
+			]}
+			dataSource={user["instance_stats"]}
+			pagination={false}
+			rowKey={([id]) => id}
+			onRow={([id], rowIndex) => ({
+				onClick: event => {
+					history.push(`/instances/${id}/view`);
+				},
+			})}
+		/>
 		<PluginExtra component="UserViewPage" user={user} />
 	</PageLayout>;
 }

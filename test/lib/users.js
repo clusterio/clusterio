@@ -85,6 +85,7 @@ describe("lib/users", function() {
 			test_roundtrip({ name: "user", roles: [2], token_valid_after: 12345 });
 			test_roundtrip({ name: "user", is_admin: true, is_whitelisted: true });
 			test_roundtrip({ name: "user", is_banned: true, ban_reason: "Bad user" });
+			test_roundtrip({ name: "user", instance_stats: [[1, { join_count: 1 }]]});
 		});
 		it("should ignore invalid roles", function() {
 			let user = new libUsers.User({ name: "test", roles: [1, 4, 55] }, roles);
@@ -114,6 +115,35 @@ describe("lib/users", function() {
 			user.notifyLeave(8);
 			assert(!libUsers.User.onlineUsers.has(user));
 			assert.deepEqual(user.instances, new Set());
+		});
+		it("should calculate playerStats", function() {
+			let user = new libUsers.User({ name: "test", roles: [1], instance_stats: [
+				[1, {
+					join_count: 1,
+					online_time_ms: 60e3,
+					last_join_at: new Date("2020-05T12:00Z").getTime(),
+					last_leave_at: new Date("2020-05T12:01Z").getTime(),
+					last_leave_reason: "quit",
+				}],
+				[2, {
+					join_count: 1,
+					online_time_ms: 0,
+					last_join_at: new Date("2020-05T12:02Z").getTime(),
+				}],
+				[3, {
+					join_count: 2,
+					online_time_ms: 120e3,
+					last_join_at: new Date("2020-05T11:00Z").getTime(),
+					last_leave_at: new Date("2020-05T11:02Z").getTime(),
+					last_leave_reason: "afk",
+				}],
+			]}, roles);
+
+			assert.equal(user.playerStats.onlineTimeMs, 180e3);
+			assert.equal(user.playerStats.joinCount, 4);
+			assert.deepEqual(user.playerStats.lastJoinAt, new Date("2020-05T12:02Z"));
+			assert.deepEqual(user.playerStats.lastLeaveAt, new Date("2020-05T12:01Z"));
+			assert.equal(user.playerStats.lastLeaveReason, "quit");
 		});
 
 		describe(".checkPermission()", function() {

@@ -11,6 +11,8 @@ const jwt = require("jsonwebtoken");
 
 const libErrors = require("./errors");
 
+const PlayerStats = require("./PlayerStats");
+
 
 /**
  * Represents a permission that can be granted
@@ -197,6 +199,22 @@ class User {
 		}
 
 		/**
+		 * Per instance statistics for the player this user account is tied to.
+		 * @type {Map<number, module:lib/PlayerStats>}
+		 */
+		this.instanceStats = new Map(
+			(serializedUser.instance_stats ? serializedUser.instance_stats : []).map(
+				([id, stats]) => [id, new PlayerStats(stats)]
+			)
+		);
+
+		/**
+		 * Combined statistics for the player this user account is tied to.
+		 * @type {module:lib/PlayerStats}
+		 */
+		this.playerStats = this._calculatePlayerStats();
+
+		/**
 		 * True if this user object has been removed from the cluster.
 		 * @type {boolean}
 		 */
@@ -230,6 +248,10 @@ class User {
 
 		if (this.banReason) {
 			serialized.ban_reason = this.banReason;
+		}
+
+		if (this.instanceStats.size) {
+			serialized.instance_stats = [...this.instanceStats].map(([id, stats]) => [id, stats.toJSON()]);
 		}
 
 		return serialized;
@@ -290,6 +312,26 @@ class User {
 		if (!this.instances.size) {
 			User.onlineUsers.delete(this);
 		}
+	}
+
+	recalculatePlayerStats() {
+		this.playerStats = this._calculatePlayerStats();
+	}
+
+	_calculatePlayerStats() {
+		let playerStats = new PlayerStats();
+		for (let instanceStats of this.instanceStats.values()) {
+			if (!playerStats.lastJoinAt || instanceStats.lastJoinAt > playerStats.lastJoinAt) {
+				playerStats.lastJoinAt = instanceStats.lastJoinAt;
+			}
+			if (!playerStats.lastLeaveAt || instanceStats.lastLeaveAt > playerStats.lastLeaveAt) {
+				playerStats.lastLeaveAt = instanceStats.lastLeaveAt;
+				playerStats.lastLeaveReason = instanceStats.lastLeaveReason;
+			}
+			playerStats.joinCount += instanceStats.joinCount;
+			playerStats.onlineTimeMs += instanceStats.onlineTimeMs;
+		}
+		return playerStats;
 	}
 }
 /**
