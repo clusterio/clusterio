@@ -100,6 +100,13 @@ export default function InstanceViewPage(props) {
 			label: "Export data",
 		});
 	}
+	if (account.hasPermission("core.instance.extract_players")) {
+		instanceButtonMenuItems.push({
+			disabled: instance["status"] !== "running",
+			key: "extract",
+			label: "Extract players from save",
+		});
+	}
 	if (account.hasPermission("core.instance.kill")) {
 		instanceButtonMenuItems.push({
 			disabled: ["unknown", "unassigned", "stopped"].includes(instance["status"]),
@@ -132,6 +139,11 @@ export default function InstanceViewPage(props) {
 					setExportingData(false);
 				});
 
+			} else if (key === "extract") {
+				libLink.messages.extractPlayers.send(
+					control, { instance_id: instanceId }
+				).catch(notifyErrorHandler("Error extracting player data"));
+
 			} else if (key === "kill") {
 				libLink.messages.killInstance.send(
 					control, { instance_id: instanceId }
@@ -162,6 +174,7 @@ export default function InstanceViewPage(props) {
 		{account.hasPermission("core.instance.load_scenario") && <LoadScenarioModal instance={instance} />}
 		{account.hasAnyPermission(
 			"core.instance.export_data",
+			"core.instance.extract_players",
 			"core.instance.kill",
 			"core.instance.delete",
 		) && <Dropdown placement="bottomRight" trigger={["click"]} overlay={instanceButtonsMenu}>

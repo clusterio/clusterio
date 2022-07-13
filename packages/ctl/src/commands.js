@@ -749,6 +749,19 @@ instanceCommands.add(new libCommand.Command({
 }));
 
 instanceCommands.add(new libCommand.Command({
+	definition: ["extract-players <instance>", "Extract players from running save into the cluster.", (yargs) => {
+		yargs.positional("instance", { describe: "Instance to extract players and play time from", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await control.setLogSubscriptions({ instance_ids: [instanceId] });
+		await libLink.messages.extractPlayers.send(control, {
+			instance_id: instanceId,
+		});
+	},
+}));
+
+instanceCommands.add(new libCommand.Command({
 	definition: ["start <instance>", "Start instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to start", type: "string" });
 		yargs.options({
@@ -941,9 +954,59 @@ roleCommands.add(new libCommand.Command({
 
 const userCommands = new libCommand.CommandTree({ name: "user", alias: ["u"], description: "User management" });
 userCommands.add(new libCommand.Command({
-	definition: [["list", "l"], "List user in the cluster"],
+	definition: ["show <name>", "Show details for one user", (yargs) => {
+		yargs.positional("name", { decribe: "Name of user to show", type: "string" });
+		yargs.options({
+			"instance-stats": { describe: "include per-instance stats", nargs: 0, type: "boolean", default: false },
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getUser.send(control, { name: args.name });
+		delete response["seq"];
+		Object.assign(response, response["player_stats"]);
+		delete response["player_stats"];
+		let instanceStats = response["instance_stats"];
+		delete response["instance_stats"];
+		print(asTable(Object.entries(response).map(([property, value]) => ({ property, value }))));
+
+		if (args.instanceStats) {
+			let instances = (await libLink.messages.listInstances.send(control)).list;
+			function instanceName(id) {
+				let instance = instances.find(i => i.id === id);
+				if (instance) {
+					return instance.name;
+				}
+				return "<deleted>";
+			}
+			for (let [id, playerInstanceStats] of instanceStats) {
+				print();
+				print(`Instance ${instanceName(id)} (${id}):`);
+				print(asTable(Object.entries(playerInstanceStats).map(([property, value]) => ({ property, value }))));
+			}
+		}
+	},
+}));
+
+userCommands.add(new libCommand.Command({
+	definition: [["list", "l"], "List user in the cluster", (yargs) => {
+		yargs.options({
+			"stats": { describe: "include user stats", nargs: 0, type: "boolean", default: false },
+			"attributes": { describe: "include admin/whitelisted/banned", nargs: 0, type: "boolean", default: false },
+		});
+	}],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listUsers.send(control);
+		for (let user of response.list) {
+			if (args.stats) {
+				Object.assign(user, user["player_stats"]);
+			}
+			delete user["player_stats"];
+			if (!args.attributes) {
+				delete user["is_admin"];
+				delete user["is_whitelisted"];
+				delete user["is_banned"];
+			}
+		}
 		print(asTable(response.list));
 	},
 }));

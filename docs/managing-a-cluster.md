@@ -50,6 +50,16 @@ Terminates the running Factorio server without giving it a chance to save or cle
 
 Note: This may cause loss of data.
 
+### Extract players from instance
+
+    ctl> instance extract-players <name>
+
+Creates a user account in the cluster for each player that has been online on the currently running save of the instance and sets the play time of that account on this instance to the online time recorded in the save.
+
+Useful when importing a save to a cluster.
+Note that the online time in a save is recorded differntly from how Clusterio records online time.
+Most notably Clusterio records wall clock time while the save time is recorded in ticks and this extraction of player time assumes the game runs at 60 ticks a second.
+
 
 ### Config management
 

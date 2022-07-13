@@ -54,18 +54,28 @@ describe("class Instance", function() {
 
 		it("should send player_event", function() {
 			instance._recordPlayerJoin("player");
+			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[0],
 				{
 					seq: 1,
 					type: "player_event_event",
-					data: { type: "join", instance_id: instance.id, name: "player" },
+					data: {
+						type: "join",
+						instance_id: instance.id,
+						name: "player",
+						stats: {
+							join_count: 1,
+							last_join_at: stats.lastJoinAt.getTime(),
+						},
+					},
 				},
 			);
 		});
 
-		it("should be idempotent", function() {
+		it("should be idempotent", async function() {
 			instance._recordPlayerJoin("player");
+			await wait(10);
 			instance._recordPlayerJoin("player");
 			assert(instance.playersOnline.has("player"), "player was not added");
 			assert.equal(connector.sentMessages.length, 1);
@@ -73,8 +83,9 @@ describe("class Instance", function() {
 	});
 
 	describe("._recordPlayerLeave()", function() {
-		it("should remove player to playersOnline", function() {
+		it("should remove player to playersOnline", async function() {
 			instance._recordPlayerJoin("player");
+			await wait(10);
 			instance._recordPlayerLeave("player");
 			assert(!instance.playersOnline.has("player"), "player was not removed");
 		});
@@ -87,23 +98,39 @@ describe("class Instance", function() {
 			assert(instance.playerStats.get("player").onlineTimeMs > 0, "no onlineTimeMs recorded");
 		});
 
-		it("should send player_event", function() {
+		it("should send player_event", async function() {
 			instance._recordPlayerJoin("player");
-			instance._recordPlayerLeave("player");
+			await wait(10);
+			instance._recordPlayerLeave("player", "quit");
+			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
 				{
 					seq: 2,
 					type: "player_event_event",
-					data: { type: "leave", instance_id: instance.id, name: "player" },
+					data: {
+						type: "leave",
+						instance_id: instance.id,
+						name: "player",
+						reason: "quit",
+						stats: {
+							join_count: 1,
+							online_time_ms: stats.onlineTimeMs,
+							last_join_at: stats.lastJoinAt.getTime(),
+							last_leave_at: stats.lastLeaveAt.getTime(),
+							last_leave_reason: "quit",
+						},
+					},
 				},
 			);
 		});
 
-		it("should be idempotent", function() {
+		it("should be idempotent", async function() {
 			instance._recordPlayerJoin("player");
-			instance._recordPlayerLeave("player");
-			instance._recordPlayerLeave("player");
+			await wait(10);
+			instance._recordPlayerLeave("player", "quit");
+			await wait(10);
+			instance._recordPlayerLeave("player", "quit");
 			assert(!instance.playersOnline.has("player"), "player was not removed");
 			assert.equal(connector.sentMessages.length, 2);
 		});
@@ -129,12 +156,21 @@ describe("class Instance", function() {
 			);
 			instance._recordPlayerJoin("player");
 			await instance._checkOnlinePlayers();
+			let stats = instance.playerStats.get("foo");
 			assert.deepEqual(
 				connector.sentMessages[1],
 				{
 					seq: 2,
 					type: "player_event_event",
-					data: { type: "join", instance_id: instance.id, name: "foo" },
+					data: {
+						type: "join",
+						instance_id: instance.id,
+						name: "foo",
+						stats: {
+							join_count: 1,
+							last_join_at: stats.lastJoinAt.getTime(),
+						},
+					},
 				},
 			);
 		});
@@ -142,13 +178,27 @@ describe("class Instance", function() {
 		it("should remove extra players", async function() {
 			instance.server.rconCommandResults.set("/players online", "Online Players (0):\n");
 			instance._recordPlayerJoin("player");
+			await wait(10);
 			await instance._checkOnlinePlayers();
+			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
 				{
 					seq: 2,
 					type: "player_event_event",
-					data: { type: "leave", instance_id: instance.id, name: "player" },
+					data: {
+						type: "leave",
+						instance_id: instance.id,
+						name: "player",
+						reason: "quit",
+						stats: {
+							join_count: 1,
+							online_time_ms: stats.onlineTimeMs,
+							last_join_at: stats.lastJoinAt.getTime(),
+							last_leave_at: stats.lastLeaveAt.getTime(),
+							last_leave_reason: "quit",
+						},
+					},
 				},
 			);
 		});

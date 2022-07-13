@@ -3,6 +3,7 @@ const libConfig = require("@clusterio/lib/config");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 const libPlugin = require("@clusterio/lib/plugin");
+const PlayerStats = require("@clusterio/lib/PlayerStats");
 
 const BaseConnection = require("./BaseConnection");
 
@@ -175,7 +176,7 @@ class SlaveConnection extends BaseConnection {
 	}
 
 	async playerEventEventHandler(message) {
-		let { instance_id, name, type } = message.data;
+		let { instance_id, name, type, stats } = message.data;
 		let user = this._master.userManager.users.get(name);
 		if (!user) {
 			user = this._master.userManager.createUser(name);
@@ -186,7 +187,11 @@ class SlaveConnection extends BaseConnection {
 		} else if (type === "leave") {
 			user.notifyLeave(instance_id);
 		}
+		user.instanceStats.set(instance_id, new PlayerStats(stats));
+		user.recalculatePlayerStats();
+		this._master.userUpdated(user);
 
+		delete message.data.stats;
 		let instance = this._master.instances.get(instance_id);
 		await libPlugin.invokeHook(this._master.plugins, "onPlayerEvent", instance, message.data);
 	}

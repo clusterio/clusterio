@@ -3,6 +3,7 @@
 const libSchema = require("../schema");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
+const PlayerStats = require("../PlayerStats");
 
 class MissingLinkHandlerError extends Error {
 	constructor(type, source, target) {
@@ -667,6 +668,13 @@ messages.exportData = new Request({
 	forwardTo: "instance",
 });
 
+messages.extractPlayers = new Request({
+	type: "extract_players",
+	links: ["control-master", "master-slave", "slave-instance"],
+	permission: "core.instance.extract_players",
+	forwardTo: "instance",
+});
+
 messages.stopInstance = new Request({
 	type: "stop_instance",
 	links: ["control-master", "master-slave", "slave-instance"],
@@ -786,6 +794,36 @@ messages.deleteRole = new Request({
 	},
 });
 
+const userRequired = ["name", "roles", "instances"];
+const userProperties = {
+	"name": { type: "string" },
+	"roles": { type: "array", items: { type: "integer" }},
+	"is_admin": { type: "boolean" },
+	"is_banned": { type: "boolean" },
+	"is_whitelisted": { type: "boolean" },
+	"instances": { type: "array", items: { type: "integer" }},
+	"is_deleted": { type: "boolean" },
+	"player_stats": PlayerStats.jsonSchema,
+	"instance_stats": {
+		type: "array",
+		items: {
+			type: "array",
+			items: [{ type: "integer" }, PlayerStats.jsonSchema],
+		},
+	},
+};
+
+messages.getUser = new Request({
+	type: "get_user",
+	links: ["control-master"],
+	permission: "core.user.get",
+	requestProperties: {
+		"name": { type: "string" },
+	},
+	responseRequired: userRequired,
+	responseProperties: userProperties,
+});
+
 messages.listUsers = new Request({
 	type: "list_users",
 	links: ["control-master"],
@@ -795,16 +833,22 @@ messages.listUsers = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["name", "roles", "instances"],
-				properties: {
-					"name": { type: "string" },
-					"roles": { type: "array", items: { type: "integer" }},
-					"is_admin": { type: "boolean" },
-					"is_banned": { type: "boolean" },
-					"is_whitelisted": { type: "boolean" },
-					"instances": { type: "array", items: { type: "integer" }},
-				},
+				required: userRequired,
+				properties: userProperties,
 			},
+		},
+	},
+});
+
+messages.setUserSubscriptions = new Request({
+	type: "set_user_subscriptions",
+	links: ["control-master"],
+	permission: "core.user.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"names": {
+			type: "array",
+			items: { type: "string" },
 		},
 	},
 });
@@ -1218,6 +1262,13 @@ messages.saveListUpdate = new Event({
 	},
 });
 
+messages.userUpdate = new Event({
+	type: "user_update",
+	links: ["master-control"],
+	eventRequired: userRequired,
+	eventProperties: userProperties,
+});
+
 messages.masterConnectionEvent = new Event({
 	type: "master_connection_event",
 	links: ["slave-instance"],
@@ -1284,10 +1335,13 @@ messages.playerEvent = new Event({
 	type: "player_event",
 	links: ["instance-slave", "slave-master"],
 	forwardTo: "master",
+	eventRequired: ["instance_id", "type", "name"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
-		"type": { type: "string", enum: ["join", "leave"] },
+		"type": { type: "string", enum: ["join", "leave", "import"] },
 		"name": { type: "string" },
+		"reason": { type: "string" },
+		"stats": PlayerStats.jsonSchema,
 	},
 });
 

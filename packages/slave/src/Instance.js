@@ -9,6 +9,7 @@ const util = require("util");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libFactorio = require("@clusterio/lib/factorio");
 const libLink = require("@clusterio/lib/link");
+const PlayerStats = require("@clusterio/lib/PlayerStats");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
@@ -250,30 +251,13 @@ class Instance extends libLink.Link {
 			if (event.type === "join") {
 				this._recordPlayerJoin(event.name);
 			} else if (event.type === "leave") {
-				this._recordPlayerLeave(event.name);
+				this._recordPlayerLeave(event.name, event.reason);
 			}
 		});
 
 		/**
-		 * @typedef module:slave/src/Instance~PlayerStat
-		 * @type {object}
-		 * @property {number} lastJoinAt -
-		 *     Unix timestamp in ms the player was last seen joining this
-		 *     instance.
-		 * @property {number=} lastLeaveAt -
-		 *     Unix timestamp in ms the player was last seen leaving this
-		 *     instance.  Not present if player has yet to leave after first
-		 *     time joining.
-		 * @property {number} joinCount -
-		 *     Count of the number of times this player has been seen
-		 *     joining this server.
-		 * @property {number} onlineTimeMs -
-		 *     Time in ms this player has been seen online on this instance.
-		 */
-
-		/**
 		 * Per player statistics recorded by this instance.
-		 * @type {Map<string, module:slave/src/Instance~PlayerStat>}
+		 * @type {Map<string, module:lib/PlayerStats>}
 		 */
 		this.playerStats = new Map();
 
@@ -297,7 +281,12 @@ class Instance extends libLink.Link {
 			if (parsed.action === "JOIN") {
 				this._recordPlayerJoin(name);
 			} else if (["LEAVE", "KICK", "BAN"].includes(parsed.action)) {
-				this._recordPlayerLeave(name);
+				let reason = {
+					"LEAVE": "quit",
+					"KICK": "kicked",
+					"BAN": "banned",
+				}[parsed.action];
+				this._recordPlayerLeave(name, reason);
 			}
 		});
 
@@ -322,7 +311,7 @@ class Instance extends libLink.Link {
 			this.playersOnline.forEach(player => joined.delete(player));
 
 			for (let player of left) {
-				this._recordPlayerLeave(player);
+				this._recordPlayerLeave(player, "quit");
 			}
 
 			// Missing join messages is not supposed to happen.
@@ -343,38 +332,70 @@ class Instance extends libLink.Link {
 
 		let stats = this.playerStats.get(name);
 		if (!stats) {
-			stats = { joinCount: 0, onlineTimeMs: 0 };
+			stats = new PlayerStats();
 			this.playerStats.set(name, stats);
 		}
-		stats.lastJoinAt = Date.now();
+		stats.lastJoinAt = new Date();
 		stats.joinCount += 1;
 
 		let event = {
 			instance_id: this.id,
 			type: "join",
 			name,
+			stats: stats.toJSON(),
 		};
 		libLink.messages.playerEvent.send(this, event);
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
-	_recordPlayerLeave(name) {
+	_recordPlayerLeave(name, reason) {
 		if (!this.playersOnline.delete(name)) {
 			return;
 		}
 
 		let stats = this.playerStats.get(name);
-		stats.lastLeaveAt = Date.now();
-		stats.onlineTimeMs += stats.lastLeaveAt - stats.lastJoinAt;
+		stats.lastLeaveAt = new Date();
+		stats.lastLeaveReason = reason;
+		stats.onlineTimeMs += stats.lastLeaveAt.getTime() - stats.lastJoinAt.getTime();
 		this._hadPlayersOnline = true;
 
 		let event = {
 			instance_id: this.id,
 			type: "leave",
 			name,
+			reason,
+			stats: stats.toJSON(),
 		};
 		libLink.messages.playerEvent.send(this, event);
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+	}
+
+	async extractPlayersRequestHandler() {
+		const exportPlayerTimes = `/sc
+local players = {}
+for _, p in pairs(game.players) do
+	players[p.name] = p.online_time
+end
+rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
+		let playerTimes = JSON.parse(await this.sendRcon(exportPlayerTimes));
+
+		for (let [name, onlineTimeTicks] of Object.entries(playerTimes)) {
+			let stats = this.playerStats.get(name);
+			if (!stats) {
+				stats = new PlayerStats();
+				this.playerStats.set(name, stats);
+			}
+			stats.onlineTimeMs = onlineTimeTicks * 1000 / 60;
+
+			let event = {
+				instance_id: this.id,
+				type: "import",
+				name,
+				stats: stats.toJSON(),
+			};
+			libLink.messages.playerEvent.send(this, event);
+			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+		}
 	}
 
 	async sendRcon(message, expectEmpty, plugin = "") {
@@ -492,6 +513,9 @@ class Instance extends libLink.Link {
 			pluginInstance.onExit();
 		}
 
+		for (let player of this.playersOnline) {
+			this._recordPlayerLeave(player, "server_quit");
+		}
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
@@ -507,17 +531,17 @@ class Instance extends libLink.Link {
 	}
 
 	async _loadStats() {
-		let stats;
+		let instanceStats;
 		try {
-			stats = JSON.parse(await fs.readFile(this.path("instance-stats.json")));
+			instanceStats = JSON.parse(await fs.readFile(this.path("instance-stats.json")));
 		} catch (err) {
 			if (err.code === "ENOENT") {
 				return;
 			}
 			throw err;
 		}
-		this.playerStats = new Map(stats["players"]);
-		this._playerAutosaveSlot = stats["player_autosave_slot"] || 1;
+		this.playerStats = new Map(instanceStats["players"].map(([id, stats]) => [id, new PlayerStats(stats)]));
+		this._playerAutosaveSlot = instanceStats["player_autosave_slot"] || 1;
 	}
 
 	async _saveStats() {

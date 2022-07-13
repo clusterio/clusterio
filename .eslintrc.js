@@ -6,10 +6,7 @@ module.exports = {
 	"env": {
 		"node": true,
 		"commonjs": true,
-		"es6": true,
-	},
-	"parserOptions": {
-		"ecmaVersion": 11,
+		"es2022": true,
 	},
 
 	"overrides": [

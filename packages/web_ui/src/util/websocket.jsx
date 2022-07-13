@@ -86,6 +86,7 @@ export class Control extends libLink.Link {
 		this.slaveUpdateHandlers = new Map();
 		this.instanceUpdateHandlers = new Map();
 		this.saveListUpdateHandlers = new Map();
+		this.userUpdateHandlers = new Map();
 		this.logHandlers = new Map();
 
 		this.connector.on("connect", data => {
@@ -100,6 +101,9 @@ export class Control extends libLink.Link {
 			));
 			this.updateSaveListSubscriptions().catch(err => logger.error(
 				`Unexpected error updating save list subscriptions:\n${err.stack}`
+			));
+			this.updateUserSubscriptions().catch(err => logger.error(
+				`Unexpected error updating user subscriptions:\n${err.stack}`
 			));
 			this.updateLogSubscriptions().catch(err => logger.error(
 				`Unexpected error updating log subscriptions:\n${err.stack}`
@@ -312,6 +316,63 @@ export class Control extends libLink.Link {
 		await libLink.messages.setSaveListSubscriptions.send(this, {
 			all: false,
 			instance_ids: [...this.saveListUpdateHandlers.keys()],
+		});
+	}
+
+	async userUpdateEventHandler(message) {
+		let handlers = [].concat(
+			this.userUpdateHandlers.get(null) || [],
+			this.userUpdateHandlers.get(message.data.name) || [],
+		);
+		for (let handler of handlers) {
+			handler(message.data);
+		}
+	};
+
+	async onUserUpdate(name, handler) {
+		if (name !== null && typeof name !== "string") {
+			throw new Error("Invalid user name");
+		}
+
+		let handlers = this.userUpdateHandlers.get(name);
+		if (!handlers) {
+			handlers = [];
+			this.userUpdateHandlers.set(name, handlers);
+		}
+
+		handlers.push(handler);
+
+		if (handlers.length === 1) {
+			await this.updateUserSubscriptions();
+		}
+	}
+
+	async offUserUpdate(name, handler) {
+		let handlers = this.userUpdateHandlers.get(name);
+		if (!handlers || !handlers.length) {
+			throw new Error(`No handlers for user ${name} exist`);
+		}
+
+		let index = handlers.lastIndexOf(handler);
+		if (index === -1) {
+			throw new Error(`Given handler is not registered for user ${name}`);
+		}
+
+		handlers.splice(index, 1);
+		if (!handlers.length) {
+			this.userUpdateHandlers.delete(name);
+			await this.updateUserSubscriptions();
+		}
+	}
+
+	async updateUserSubscriptions() {
+		if (!this.connector.connected) {
+			return;
+		}
+
+		await libLink.messages.setUserSubscriptions.send(this, {
+			all: this.userUpdateHandlers.has(null),
+			names: [...this.userUpdateHandlers.keys()].filter(e => e !== null),
 		});
 	}
 
