@@ -801,6 +801,7 @@ const userProperties = {
 	"is_admin": { type: "boolean" },
 	"is_banned": { type: "boolean" },
 	"is_whitelisted": { type: "boolean" },
+	"ban_reason": { type: "string" },
 	"instances": { type: "array", items: { type: "integer" }},
 	"is_deleted": { type: "boolean" },
 	"player_stats": PlayerStats.jsonSchema,
