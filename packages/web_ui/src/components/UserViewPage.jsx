@@ -21,6 +21,9 @@ import { formatLastSeen, sortLastSeen, useUser } from "../model/user";
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 
+// The user page has a lot of optional elements, that does not make it
+// praticularly complicated.
+// eslint-disable-next-line complexity
 export default function UserViewPage() {
 	let params = useParams();
 	let userName = params.name;
@@ -30,7 +33,7 @@ export default function UserViewPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [instanceList] = useInstanceList();
-	let [user, updateUser] = useUser(userName);
+	let [user] = useUser(userName);
 	let [roles, setRoles] = useState(null);
 	let [form] = Form.useForm();
 	let [rolesDirty, setRolesDirty] = useState(false);
@@ -161,7 +164,7 @@ export default function UserViewPage() {
 			<Form.Item
 				label="Roles"
 			>
-				<Row gutter={8}>
+				<Row gutter={[8, 8]}>
 					<Col flex="auto">
 						{account.hasPermission("core.user.update_roles")
 							? roleSelector
@@ -195,36 +198,30 @@ export default function UserViewPage() {
 					</Col>}
 				</Row>
 			</Form.Item>
-			<Form.Item label="In-game Admin">
+			{account.hasPermission("core.user.set_admin") && <Form.Item label="In-game Admin">
 				<Switch
 					checked={user["is_admin"]}
-					disabled={!account.hasPermission("core.user.set_admin")}
 					onClick={() => {
 						libLink.messages.setUserAdmin.send(control, {
 							name: userName,
 							admin: !user["is_admin"],
 							create: false,
-						}).then(() => {
-							updateUser();
 						}).catch(notifyErrorHandler("Error toggling user admin status"));
 					}}
 				/>
-			</Form.Item>
-			<Form.Item label="Whitelisted">
+			</Form.Item>}
+			{account.hasPermission("core.user.set_whitelisted") && <Form.Item label="Whitelisted">
 				<Switch
 					checked={user["is_whitelisted"]}
-					disabled={!account.hasPermission("core.user.set_whitelisted")}
 					onClick={() => {
 						libLink.messages.setUserWhitelisted.send(control, {
 							name: userName,
 							whitelisted: !user["is_whitelisted"],
 							create: false,
-						}).then(() => {
-							updateUser();
 						}).catch(notifyErrorHandler("Error toggling user whitelisted status"));
 					}}
 				/>
-			</Form.Item>
+			</Form.Item>}
 			{account.hasPermission("core.user.set_banned")
 				? <Form.Item label="Ban reason">
 					<Row gutter={[8, 8]} justify={"end"}>
