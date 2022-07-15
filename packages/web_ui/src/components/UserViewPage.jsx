@@ -285,13 +285,13 @@ export default function UserViewPage() {
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
 			<Descriptions.Item label="Total play time">
-				{user["player_stats"]["online_time_ms"] && formatDuration(user["player_stats"]["online_time_ms"])}
+				{formatDuration(user["player_stats"]["online_time_ms"] || 0)}
 			</Descriptions.Item>
 			<Descriptions.Item label="Total join count">
-				{user["player_stats"]["join_count"]}
+				{user["player_stats"]["join_count"] || 0}
 			</Descriptions.Item>
 			<Descriptions.Item label="Last seen">
-				{formatLastSeen(user)}
+				{formatLastSeen(user) || " "}
 			</Descriptions.Item>
 		</Descriptions>
 		<SectionHeader title="Instance stats" />
