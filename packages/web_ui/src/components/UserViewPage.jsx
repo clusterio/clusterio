@@ -2,7 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import {
 	Button, Col, Descriptions, Form, Input, PageHeader, Popconfirm,
-	Popover, Row, Table, Tag, Select, Space, Spin, Switch,
+	Row, Table, Tag, Select, Space, Spin, Switch,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
@@ -21,6 +21,9 @@ import { formatLastSeen, sortLastSeen, useUser } from "../model/user";
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 
+// The user page has a lot of optional elements, that does not make it
+// praticularly complicated.
+// eslint-disable-next-line complexity
 export default function UserViewPage() {
 	let params = useParams();
 	let userName = params.name;
@@ -30,13 +33,13 @@ export default function UserViewPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [instanceList] = useInstanceList();
-	let [user, updateUser] = useUser(userName);
+	let [user] = useUser(userName);
 	let [roles, setRoles] = useState(null);
 	let [form] = Form.useForm();
 	let [rolesDirty, setRolesDirty] = useState(false);
+	let [banReasonDirty, setBanReasonDirty] = useState(false);
 	let [applyingRoles, setApplyingRoles] = useState(false);
 	let [rolesError, setRolesError] = useState();
-	let [banUserPopover, setBanUserPopover] = useState(false);
 
 	useEffect(() => {
 		libLink.messages.listRoles.send(control).then(result => {
@@ -45,6 +48,16 @@ export default function UserViewPage() {
 			setRoles(new Map());
 		});
 	}, []);
+
+	useEffect(() => {
+		if (
+			account.hasPermission("core.user.set_banned")
+			&& !banReasonDirty
+			&& user["ban_reason"] !== form.getFieldValue("ban_reason")
+		) {
+			form.setFieldsValue({ "ban_reason": user["ban_reason"] });
+		}
+	}, [account, form, user, banReasonDirty]);
 
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
 	if (user.loading) {
@@ -151,7 +164,7 @@ export default function UserViewPage() {
 			<Form.Item
 				label="Roles"
 			>
-				<Row gutter={8}>
+				<Row gutter={[8, 8]}>
 					<Col flex="auto">
 						{account.hasPermission("core.user.update_roles")
 							? roleSelector
@@ -185,105 +198,100 @@ export default function UserViewPage() {
 					</Col>}
 				</Row>
 			</Form.Item>
-			<Form.Item label="In-game Admin">
+			{account.hasPermission("core.user.set_admin") && <Form.Item label="In-game Admin">
 				<Switch
 					checked={user["is_admin"]}
-					disabled={!account.hasPermission("core.user.set_admin")}
 					onClick={() => {
 						libLink.messages.setUserAdmin.send(control, {
 							name: userName,
 							admin: !user["is_admin"],
 							create: false,
-						}).then(() => {
-							updateUser();
 						}).catch(notifyErrorHandler("Error toggling user admin status"));
 					}}
 				/>
-			</Form.Item>
-			<Form.Item label="Whitelisted">
+			</Form.Item>}
+			{account.hasPermission("core.user.set_whitelisted") && <Form.Item label="Whitelisted">
 				<Switch
 					checked={user["is_whitelisted"]}
-					disabled={!account.hasPermission("core.user.set_whitelisted")}
 					onClick={() => {
 						libLink.messages.setUserWhitelisted.send(control, {
 							name: userName,
 							whitelisted: !user["is_whitelisted"],
 							create: false,
-						}).then(() => {
-							updateUser();
 						}).catch(notifyErrorHandler("Error toggling user whitelisted status"));
 					}}
 				/>
-			</Form.Item>
-			<Form.Item label="Banned">
-				<Space>
-					{user["is_banned"] ? "Yes" : "No"}
-					{account.hasPermission("core.user.set_banned") && <Popover
-						title="Ban user"
-						visible={banUserPopover}
-						trigger="click"
-						onVisibleChange={() => {
-							if (!user["is_banned"]) {
-								setBanUserPopover(!banUserPopover);
-							}
-						}}
-						content={<Form.Item label="Reason">
-							<Row gutter={8}>
-								<Col flex="auto">
-									<Form.Item noStyle name="reason">
-										<Input/>
-									</Form.Item>
-								</Col>
-								<Col flex="0 0 auto">
+			</Form.Item>}
+			{account.hasPermission("core.user.set_banned")
+				? <Form.Item label="Ban reason">
+					<Row gutter={[8, 8]} justify={"end"}>
+						<Col flex="auto" style={{ minWidth: "20em" }}>
+							<Form.Item noStyle name="ban_reason" initialValue={user["ban_reason"]}>
+								<Input
+									onChange={e => {
+										setBanReasonDirty(e.target.value !== user["ban_reason"]);
+									}}
+								/>
+							</Form.Item>
+						</Col>
+						<Col flex="0 0 auto">
+							{user["is_banned"]
+								? <Space>
 									<Button
-										type="primary"
+										type={banReasonDirty ? "primary" : "default"}
 										onClick={() => {
-											let reason = form.getFieldValue("reason");
 											libLink.messages.setUserBanned.send(control, {
 												name: userName,
 												create: false,
 												banned: true,
-												reason,
+												reason: form.getFieldValue("ban_reason"),
 											}).then(() => {
-												setBanUserPopover(false);
-												updateUser();
-											}).catch(notifyErrorHandler("Error banning user"));
+												setBanReasonDirty(false);
+											}).catch(notifyErrorHandler("Error updating ban"));
 										}}
-									>Ban</Button>
-								</Col>
-							</Row>
-						</Form.Item>}
-					>
-						<Button
-							type="primary"
-							size="small"
-							onClick={() => {
-								if (user["is_banned"]) {
-									libLink.messages.setUserBanned.send(control, {
-										name: userName,
-										create: false,
-										banned: false,
-										reason: "",
-									}).then(() => {
-										updateUser();
-									}).catch(notifyErrorHandler("Error pardoning user"));
-								}
-							}}
-						>{user["is_banned"] ? "Pardon User" : "Ban User"}</Button>
-					</Popover>}
-				</Space>
-			</Form.Item>
+									>Update</Button>
+									<Button
+										onClick={() => {
+											libLink.messages.setUserBanned.send(control, {
+												name: userName,
+												create: false,
+												banned: false,
+												reason: "",
+											}).catch(notifyErrorHandler("Error unbanning user"));
+										}}
+									>Unban</Button>
+								</Space>
+								: <Button
+									type={banReasonDirty ? "primary" : "default"}
+									onClick={() => {
+										libLink.messages.setUserBanned.send(control, {
+											name: userName,
+											create: false,
+											banned: true,
+											reason: form.getFieldValue("ban_reason"),
+										}).then(() => {
+											setBanReasonDirty(false);
+										}).catch(notifyErrorHandler("Error banning user"));
+									}}
+								>Ban</Button>
+							}
+						</Col>
+					</Row>
+				</Form.Item>
+				: user["is_banned"]
+					&& <Form.Item label="Ban reason">{user["ban_reason"]}</Form.Item>
+			}
 		</Form>
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
 			<Descriptions.Item label="Total play time">
-				{user["player_stats"]["online_time_ms"] && formatDuration(user["player_stats"]["online_time_ms"])}
+				{formatDuration(user["player_stats"]["online_time_ms"] || 0)}
 			</Descriptions.Item>
 			<Descriptions.Item label="Total join count">
-				{user["player_stats"]["join_count"]}
+				{user["player_stats"]["join_count"] || 0}
 			</Descriptions.Item>
 			<Descriptions.Item label="Last seen">
-				{formatLastSeen(user)}
+				{formatLastSeen(user) || " "}
 			</Descriptions.Item>
 		</Descriptions>
 		<SectionHeader title="Instance stats" />

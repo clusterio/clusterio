@@ -480,6 +480,10 @@ describe("Integration of Clusterio", function() {
 				return new Map(result.list.map(user => [user.name, user]));
 			}
 
+			async function getUser(name) {
+				return await libLink.messages.getUser.send(getControl(), { name });
+			}
+
 			let lists = ["admin", "whitelisted", "banned"];
 			it("should add and remove the given user to the list", async function() {
 				slowTest(this);
@@ -521,6 +525,15 @@ describe("Integration of Clusterio", function() {
 					assert.equal(user && user[`is_${list}`], true, `user not created and added to ${list}`);
 				}
 				assert.equal(getControl().userUpdates.length, 3);
+			});
+			it("should send ban reason", async function() {
+				slowTest(this);
+				getControl().userUpdates = [];
+				await execCtl("user set-banned --create test_ban_reason --reason a-reason");
+				assert.equal(getControl().userUpdates.length, 1);
+				assert.equal(getControl().userUpdates[0].ban_reason, "a-reason");
+				let user = await getUser("test_ban_reason");
+				assert.equal(user["ban_reason"], "a-reason");
 			});
 		});
 
