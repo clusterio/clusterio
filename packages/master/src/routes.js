@@ -117,7 +117,7 @@ function getPlugins(req, res) {
 		if (web.main === "remoteEntry.js") {
 			web.error = "Incompatible old remoteEntry.js entrypoint.";
 		}
-		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web });
+		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web, requirePath: pluginInfo.requirePath });
 	}
 	res.send(plugins);
 }
