@@ -105,7 +105,7 @@ Otherwise see below for OS specific instructions.
         wget -qO - https://deb.nodesource.com/setup_14.x | sudo -E bash -
         sudo apt install nodejs
 
-2.  Create a new directory and run the Clusterio installer:
+2.  Log in as the user you wish to install Clusterio as (do not use root), and then create a new directory and run the Clusterio installer:
 
         mkdir clusterio
         cd clusterio
