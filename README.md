@@ -113,14 +113,7 @@ Otherwise see below for OS specific instructions.
 
     Make sure to note down the admin authentication token it provides at the end as you will need it later.
 
-3.  If you chose to use local factorio directory for the Factorio installation then download the headless build of Factorio and unpack it:
-
-        wget -O factorio.tar.xz https://www.factorio.com/get-download/latest/headless/linux64
-        tar -xf factorio.tar.xz
-
-    To specify a version of Factorio to download replace "latest" in the URL with a version number like "1.0.0".
-
-4.  Optionally copy the generated systemd service files in `systemd` folder to `/etc/systemd/system/`.
+3.  Optionally copy the generated systemd service files in `systemd` folder to `/etc/systemd/system/`.
 
 
 **Ubuntu with Docker**
