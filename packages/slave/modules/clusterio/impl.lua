@@ -29,8 +29,10 @@ impl.events[defines.events.on_player_joined_game] = function(event)
 end
 
 local disconnect_reason_name = {}
-for name, i in pairs(defines.disconnect_reason) do
-	disconnect_reason_name[i] = name
+if defines.disconnect_reason then
+	for name, i in pairs(defines.disconnect_reason) do
+		disconnect_reason_name[i] = name
+	end
 end
 
 impl.events[defines.events.on_player_left_game] = function(event)
@@ -38,7 +40,7 @@ impl.events[defines.events.on_player_left_game] = function(event)
 	api.send_json("player_event", {
 		type = "leave",
 		name = player.name,
-		reason = disconnect_reason_name[event.reason],
+		reason = disconnect_reason_name[event.reason] or "quit",
 	})
 end
 
