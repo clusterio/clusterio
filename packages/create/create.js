@@ -225,6 +225,17 @@ async function installClusterio(mode, plugins) {
 	}
 }
 
+async function groupIdToName(gid) {
+	try {
+		let exec = util.promisify(child_process.exec);
+		let { stdout } = await exec(`getent group ${gid}`);
+		return stdout.split(":")[0];
+	} catch (err) {
+		logger.warn(`getent group ${gid} failed: ${err.message}`);
+		return gid;
+	}
+}
+
 async function writeScripts(mode) {
 	if (["standalone", "master"].includes(mode)) {
 		if (process.platform === "win32") {
@@ -245,7 +256,7 @@ Description=Clusterio Master
 
 [Service]
 User=${os.userInfo().username}
-Group=nogroup
+Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
@@ -276,7 +287,7 @@ Description=Clusterio Slave
 
 [Service]
 User=${os.userInfo().username}
-Group=nogroup
+Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
