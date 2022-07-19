@@ -628,6 +628,7 @@ describe("Integration of Clusterio", function() {
 				await assert.rejects(execCtl("instance save copy 44 not-here.zip invalid.zip"));
 			});
 			it("should reject path traversal attacks", async function() {
+				this.timeout(4000);
 				await assert.rejects(execCtl("instance save copy 44 upload.zip ../traversal.zip"));
 				await assert.rejects(execCtl("instance save copy 44 ../saves/upload.zip traversal.zip "));
 			});
@@ -646,6 +647,7 @@ describe("Integration of Clusterio", function() {
 				await assert.rejects(execCtl("instance save rename 44 not-here.zip invalid.zip"));
 			});
 			it("should reject path traversal attacks", async function() {
+				this.timeout(4000);
 				await assert.rejects(execCtl("instance save rename 44 upload.zip ../traversal.zip"));
 				await assert.rejects(execCtl("instance save rename 44 ../saves/upload.zip traversal.zip "));
 			});
