@@ -111,6 +111,125 @@ function serialize.deserialize_personal_logistic_slots(player, serialized)
 	end
 end
 
+-- Crafting queue is a table with the following fields:
+--  crafting_queue
+--  ingredients
+function serialize.serialize_crafting_queue(player)
+	local crafting_queue = {}
+
+	-- Give player some more inventory space to avoid duplicating items
+	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus + 1000
+
+	-- Save current items
+	local inventory = player.get_main_inventory()
+	local old_items = inventory.get_contents()
+
+	-- Cancel old crafts to get the items back
+	while player.crafting_queue_size > 0 do
+		local old_queue = player.crafting_queue
+		local queueItem = player.crafting_queue[1]
+
+		-- Cancel craft
+		player.cancel_crafting {
+			index = 1,
+			count = 1,
+		}
+
+		local rightmost_right_index = 0 -- 0 indexed since it is subtractive in a 1 indexed language
+		local new_queue = player.crafting_queue
+		while
+			new_queue ~= nil and
+			new_queue[#new_queue - rightmost_right_index] ~= nil and
+			new_queue[#new_queue - rightmost_right_index].count >= old_queue[#old_queue - rightmost_right_index].count
+		do
+			rightmost_right_index = rightmost_right_index + 1
+		end
+		local oldItem = old_queue[#old_queue - rightmost_right_index]
+		local newItem = nil
+		if new_queue ~= nil then
+			newItem = new_queue[#new_queue - rightmost_right_index]
+		end
+
+		-- Figure out how many items to add to queue
+		local added = oldItem.count
+		if newItem ~= nil then
+			added = oldItem.count - newItem.count
+			if oldItem.recipe ~= newItem.recipe then
+				log("ERROR: Old item "..oldItem.recipe.." is not equal "..newItem.recipe)
+			end
+		end
+
+		-- If the last item we added was of the same type, merge them in the queue
+		if #crafting_queue > 0 and crafting_queue[#crafting_queue].recipe == oldItem.recipe then
+			crafting_queue[#crafting_queue].count = crafting_queue[#crafting_queue].count + added
+		else
+			-- If the last item was of a different type, add a new item to the queue
+			table.insert(crafting_queue, {
+				recipe = oldItem.recipe,
+				count = added,
+			})
+		end
+		-- game.print("Saved craft "..oldItem.recipe)
+	end
+
+	-- Find amount of items added and remove from inventory
+	local new_items = inventory.get_contents()
+	local difference = {}
+	for k,v in pairs(new_items) do
+		local old_count = old_items[k]
+		local diff = v
+		if old_count ~= nil then
+			diff = diff - old_count
+		end
+		if diff > 0 then
+			local ingredient = {
+				name = k,
+				count = diff,
+			}
+			inventory.remove(ingredient)
+			table.insert(difference, ingredient)
+		end
+	end
+
+	-- Remove extra inventory slots
+	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus - 1000
+
+	local serialized = {
+		crafting_queue = crafting_queue,
+		ingredients = difference,
+	}
+
+	-- Restore the crafting queue that was just destructively serialized
+	serialize.deserialize_crafting_queue(player, serialized)
+
+	return serialized
+end
+
+function serialize.deserialize_crafting_queue(player, serialized)
+	local inventory = player.get_main_inventory()
+
+	-- Give player some more inventory space to avoid duplicating items
+	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus + 1000
+
+	-- Add items to inventory
+	for _, item in pairs(serialized.ingredients) do
+		inventory.insert(item)
+	end
+
+	-- Load crafting queue
+	for _, queueItem in pairs(serialized.crafting_queue) do
+		-- Start crafting (consume items)
+		player.begin_crafting {
+			count = queueItem.count,
+			recipe = queueItem.recipe,
+			-- silent = true, -- Fail silently if items are missing
+		}
+	end
+
+	-- Remove extra inventory slots
+	player.character_inventory_slots_bonus = player.character_inventory_slots_bonus - 1000
+end
+
 local controller_to_name = {}
 for name, value in pairs(defines.controllers) do
 	controller_to_name[value] = name
@@ -130,6 +249,7 @@ end
 --   inventories: non-character inventories
 --   hotbar: table of string indexes to names (optional)
 --   personal_logistic_slots (optional)
+--   crafting_queue (optional)
 function serialize.serialize_player(player)
 	local serialized = {
 		controller = controller_to_name[player.controller_type],
@@ -176,6 +296,11 @@ function serialize.serialize_player(player)
 			end
 			serialized.hotbar[tostring(i)] = slot.name
 		end
+	end
+
+	-- Serialize crafting queue
+	if player.character then
+		serialized.crafting_queue = serialize.serialize_crafting_queue(player)
 	end
 
 	return serialized
@@ -253,6 +378,12 @@ function serialize.deserialize_player(player, serialized)
 			end
 		end
 	end
+
+	-- Deserialize crafting queue
+	if player.character and serialized.crafting_queue then
+		serialize.deserialize_crafting_queue(player, serialized.crafting_queue)
+	end
+
 end
 
 return serialize
