@@ -168,6 +168,19 @@ async function validateInstallDir() {
 	}
 }
 
+async function validateNotRoot(args) {
+	if (args.allowInstallAsRoot) {
+		return;
+	}
+
+	if (os.userInfo().uid === 0) {
+		throw new InstallError(
+			"Refusing to install as root. Create a separate user account for clusterio " +
+			"and then use su/sudo to switch to it before invoking the installer."
+		);
+	}
+}
+
 async function installClusterio(mode, plugins) {
 	try {
 		await safeOutputFile("package.json", JSON.stringify({
@@ -225,6 +238,17 @@ async function installClusterio(mode, plugins) {
 	}
 }
 
+async function groupIdToName(gid) {
+	try {
+		let exec = util.promisify(child_process.exec);
+		let { stdout } = await exec(`getent group ${gid}`);
+		return stdout.split(":")[0];
+	} catch (err) {
+		logger.warn(`getent group ${gid} failed: ${err.message}`);
+		return gid;
+	}
+}
+
 async function writeScripts(mode) {
 	if (["standalone", "master"].includes(mode)) {
 		if (process.platform === "win32") {
@@ -245,7 +269,7 @@ Description=Clusterio Master
 
 [Service]
 User=${os.userInfo().username}
-Group=nogroup
+Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
@@ -276,7 +300,7 @@ Description=Clusterio Slave
 
 [Service]
 User=${os.userInfo().username}
-Group=nogroup
+Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
@@ -536,6 +560,9 @@ async function main() {
 
 	if (process.platform === "linux") {
 		args = args
+			.option("allow-install-as-root", {
+				nargs: 0, describe: "(Linux only) Allow installing as root (not recommended)", type: "boolean",
+			})
 			.option("download-headless", {
 				nargs: 0,
 				describe: "(Linux only) Automatically download and unpack the latest factorio release. " +
@@ -552,6 +579,7 @@ async function main() {
 
 	if (!dev) {
 		await validateInstallDir();
+		await validateNotRoot(args);
 	}
 
 	let answers = await inquirerMissingArgs(args);
