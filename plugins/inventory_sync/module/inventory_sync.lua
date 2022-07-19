@@ -8,8 +8,8 @@ When a player joins the game, request the player data from master and deserializ
 ]]
 
 local clusterio_api = require("modules/clusterio/api")
-local upload_inventory = require("modules/inventory_sync/upload_inventory")
 local download_inventory = require("modules/inventory_sync/download_inventory")
+local serialize = require("modules/inventory_sync/serialize")
 local progress_dialog = require("modules/inventory_sync/gui/progress_dialog")
 local dialog_failed_download = require("modules/inventory_sync/gui/dialog_failed_download")
 
@@ -30,10 +30,10 @@ end
 
 -- Remove all stored player data by this module
 local function remove_player(player)
-	global.inventory_sync.saved_crafting_queue[player.name] = nil
 	global.inventory_sync.players_waiting_for_acquire[player.name] = nil
 	global.inventory_sync.players_in_cutscene_to_sync[player.name] = nil
 	global.inventory_sync.active_downloads[player.name] = nil
+	global.inventory_sync.finished_downloads[player.name] = nil
 	global.inventory_sync.active_uploads[player.name] = nil
 	global.inventory_sync.players[player.name] = nil
 end
@@ -42,17 +42,116 @@ end
 inventory_sync = {}
 -- This function is called by instance.js as /sc inventory_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the master
 inventory_sync.download_inventory = download_inventory
--- This function is called internally when a player leaves the game for their inventory to upload to the master
-inventory_sync.upload_inventory = upload_inventory
+
+-- This function is called internally when a player leaves the game to
+-- serialize the player for upload.
+function inventory_sync.serialize_player(player, player_record)
+	-- Editor mode is not supported.
+	if player.controller_type == defines.controllers.editor then
+		player.toggle_map_editor()
+	end
+
+	if player.controller_type == defines.controllers.editor then
+		error("Unable to switch out of editor mode")
+		return
+	end
+
+	local serialized_player = serialize.serialize_player(player)
+	serialized_player.generation = player_record.generation
+
+	return serialized_player
+end
+
+local can_enter_vehicle = {
+	[defines.controllers.character] = true,
+	[defines.controllers.god] = true,
+	[defines.controllers.editor] = true,
+}
+
+local function restore_position(player, record)
+	if record.vehicle and record.vehicle.valid and can_enter_vehicle[player.controller_type] then
+		player.teleport(record.vehicle.position, record.vehicle.surface)
+		player.driving = true
+
+		-- Teleport to safe location if unable to enter vehicle
+		if not player.driving and player.controller_type == defines.controllers.character then
+			local safe_position = record.vehicle.surface.find_non_colliding_position(
+				player.character.name, player.position, 32, 1/8
+			)
+			if safe_position then
+				player.teleport(safe_position, player.surface)
+			end
+		end
+	elseif record.surface and record.position then
+		player.teleport(record.position, record.surface)
+	end
+end
+
+function inventory_sync.deserialize_player(player, finished_record)
+	-- Editor mode is not supported.
+	if player.controller_type == defines.controllers.editor then
+		player.toggle_map_editor()
+	end
+
+	if player.controller_type == defines.controllers.editor then
+		error("Unable to switch out of editor mode")
+		return
+	end
+
+	-- Stash temporary inventory if it exists
+	local stashed_corpse
+	local player_record = global.inventory_sync.players[player.name]
+	if player_record.dirty and player.character then
+		local character = player.character
+		local surface = character.surface
+		local position = character.position
+		local corpse_name = character.prototype.character_corpse.name
+		player.character = nil
+		character.die()
+		stashed_corpse = surface.find_entity(corpse_name, position)
+	end
+
+	-- Deserialize downloaded player data
+	local serialized_player = game.json_to_table(finished_record.data)
+	serialize.deserialize_player(player, serialized_player)
+
+	-- Restore player position and driving state
+	restore_position(player, finished_record)
+
+	-- Transfer items from stashed inventory
+	if stashed_corpse then
+		local main = player.get_main_inventory()
+		local stash = stashed_corpse.get_inventory(defines.inventory.character_corpse)
+		if main then
+			for i = 1, #stash do
+				-- Try transfering a stack
+				local source = stash[i]
+				if source and source.valid_for_read then
+					local target = main.find_empty_stack()
+					if not target then
+						break
+					end
+					target.transfer_stack(source)
+				end
+			end
+		end
+
+		if stash.is_empty() then
+			stashed_corpse.destroy()
+		else
+			player.print(
+				"Your temprorary inventory did not fit into your synced one and the remaining items have " ..
+				"been placed in a corpse below you."
+			)
+		end
+	end
+end
 
 inventory_sync.events = {}
 inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
 	-- Set up global table
 	if not global.inventory_sync then
 		global.inventory_sync = {}
-	end
-	if not global.inventory_sync.saved_crafting_queue then
-		global.inventory_sync.saved_crafting_queue = {}
 	end
 
 	if not global.inventory_sync.players then
@@ -64,6 +163,9 @@ inventory_sync.events[clusterio_api.events.on_server_startup] = function(event)
 
 	if not global.inventory_sync.active_downloads then
 		global.inventory_sync.active_downloads = {}
+	end
+	if not global.inventory_sync.finished_downloads then
+		global.inventory_sync.finished_downloads = {}
 	end
 	if not global.inventory_sync.active_uploads then
 		global.inventory_sync.active_uploads = {}
@@ -146,6 +248,18 @@ function inventory_sync.sync_player(acquire_response)
 		return
 	end
 
+	local finished_record = global.inventory_sync.finished_downloads[acquire_response.player_name]
+	if finished_record then
+		if acquire_response.status == "acquired" and finished_record.generation == acquire_response.generation then
+			inventory_sync.finish_download(player, finished_record)
+			return
+		end
+
+		-- The acquisition either failed or the current finished download is
+		-- stale, delete it and try downloading it again.
+		global.inventory_sync.finished_downloads[acquire_response.player_name] = nil
+	end
+
 	local download_record = global.inventory_sync.active_downloads[acquire_response.player_name]
 	if download_record then
 		-- Ignore the response if it affirms the current active download
@@ -214,6 +328,20 @@ function inventory_sync.sync_player(acquire_response)
 	end
 end
 
+function inventory_sync.finish_download(player, finished_record)
+	local status, result = pcall(inventory_sync.deserialize_player, player, finished_record)
+	if not status then
+		log("ERROR: Deserializing player " .. player.name .. " failed: " .. result)
+		player.print("ERROR: Deserializing player data failed: " .. result)
+	end
+	global.inventory_sync.finished_downloads[player.name] = nil
+
+	local player_record = global.inventory_sync.players[player.name]
+	player_record.dirty = true
+	player_record.sync = true
+	player_record.generation = finished_record.generation
+end
+
 -- Download inventory from master
 inventory_sync.events[defines.events.on_player_joined_game] = function(event)
 	-- Send acquire request even if an active download is currently in plogress
@@ -263,11 +391,19 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	end
 
 	player_record.generation = player_record.generation + 1
+	local status, result = pcall(inventory_sync.serialize_player, player, player_record)
+	if not status then
+		log("ERROR: Serializing player " .. player.name .. " failed: " .. result)
+		player.print("ERROR: Serializing player data failed: " .. result)
+		return
+	end
 	global.inventory_sync.active_uploads[player.name] = {
+		serialized = result,
 		last_attempt = game.ticks_played,
 		timeout = math.random(600, 1200), -- Start with 10-20 seconds for the timeout
 	}
-	inventory_sync.upload_inventory(player, player_record)
+
+	clusterio_api.send_json("inventory_sync_upload", result)
 end
 
 -- Invoked by the instance code to confirm the master has received the uploaded data
@@ -362,7 +498,7 @@ function inventory_sync.check_active_uploads()
 				log("Retrying upload for " .. player_name)
 				record.last_attempt = game.ticks_played
 				record.timeout = math.random(record.timeout, record.timeout * 2)
-				inventory_sync.upload_inventory(player, player_record)
+				clusterio_api.send_json("inventory_sync_upload", record.serialized)
 			end
 		end
 	end
