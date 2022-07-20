@@ -99,8 +99,8 @@ export default function UsersPage() {
 					render: user => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id })["name"]}</Tag>),
 				},
 				{
-					title: "Play time",
-					key: "playTime",
+					title: "Online time",
+					key: "onlineTime",
 					render: user => user["player_stats"]["online_time_ms"]
 						&& formatDuration(user["player_stats"]["online_time_ms"]),
 					sorter: (a, b) => (a["player_stats"]["online_time_ms"] || 0) -

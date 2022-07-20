@@ -750,7 +750,7 @@ instanceCommands.add(new libCommand.Command({
 
 instanceCommands.add(new libCommand.Command({
 	definition: ["extract-players <instance>", "Extract players from running save into the cluster.", (yargs) => {
-		yargs.positional("instance", { describe: "Instance to extract players and play time from", type: "string" });
+		yargs.positional("instance", { describe: "Instance to extract players and online time from", type: "string" });
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);

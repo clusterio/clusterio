@@ -284,7 +284,7 @@ export default function UserViewPage() {
 		</Form>
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
-			<Descriptions.Item label="Total play time">
+			<Descriptions.Item label="Total online time">
 				{formatDuration(user["player_stats"]["online_time_ms"] || 0)}
 			</Descriptions.Item>
 			<Descriptions.Item label="Total join count">
@@ -306,8 +306,8 @@ export default function UserViewPage() {
 					sorter: (a, b) => strcmp(a[0], b[0]),
 				},
 				{
-					title: "Play time",
-					key: "playTime",
+					title: "Online time",
+					key: "onlineTime",
 					render: ([, stats]) => formatDuration(stats["online_time_ms"] || 0),
 					sorter: (a, b) => (a[1]["online_time_ms"] || 0) - (b[1]["online_time_ms"] || 0),
 				},

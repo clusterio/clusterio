@@ -478,7 +478,7 @@ definePermission({
 definePermission({
 	name: "core.instance.extract_players",
 	title: "Extract player stats from running save",
-	description: "Run extraction to create a user for each player in the save and set the play time from the save.",
+	description: "Run extraction to create a user for each player in the save and set the online time from the save.",
 });
 definePermission({
 	name: "core.instance.start",
