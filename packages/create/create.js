@@ -183,7 +183,7 @@ async function validateNotRoot(args) {
 
 async function installClusterio(mode, plugins) {
 	try {
-		await safeOutputFile("package.json", JSON.stringify({
+		await fs.outputFile("package.json", JSON.stringify({
 			name: "clusterio-install",
 			private: true,
 		}, null, 2), { flag: "wx" });
