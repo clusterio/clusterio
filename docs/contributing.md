@@ -271,9 +271,7 @@ Headings use the `# heading` format.
 
 ## Pushing releases to npm
 
-***Warning: This workflow is outdated due to lerna having been removed from the project.****
-
-The releases are done by creating a new release tag with lerna and then uploading that with lerna.
+The releases are done by updating packages versions and then publishing them with pnpm.
 You will need commit access to the repository as well publish access to the @clusterio org on npm to do this.
 
 1.  To do a release switch to the master branch and make sure it's up to date with the repository before proceeding.
@@ -283,23 +281,27 @@ You will need commit access to the repository as well publish access to the @clu
     git pull --ff-only upstream master
     ```
 
-    Check and make sure there are no untracked files with `git status`, otherwise they will be auto commited!
+    Check and make sure there are no untracked files with `git status`.
 
-2.  Run a lerna version to create and tag a new version.
-    This will push a commit to the master branch.
+2.  Update the version in package files.
+    Make sure to update the command for the right version jump.
 
     ```sh
-    npx lerna version prerelease --git-remote upstream --no-granular-pathspec
+    sed -i 's/2\.0\.0-alpha\.12/2\.0\.0-alpha\.13/' {packages,plugins}/*/package.json
     ```
 
-3.  Run a full build in every package to update the dist/ files.
+3.  Inspect, commit and tag the changes.
+    Again, make sure to be tagging the right version.
 
     ```sh
-    npx lerna run build
+    git add -p
+    git commit -m v2.0.0-alpha.13
+    git tag v2.0.0-alpha.13
     ```
 
-4.  Publish the packages with lerna.
+4.  Publish the packages.
 
     ```sh
-    npx lerna publish from-package
+    # Warning: Double check your current working directory is the repository before running this
+    pnpm -r --filter='!./external_plugins/**' publish
     ```
