@@ -33,7 +33,7 @@ export function formatLastSeen(user, instanceId = undefined) {
 	if (lastSeen === undefined) {
 		return undefined;
 	}
-	return new Date(lastSeen).toLocaleTimeString();
+	return new Date(lastSeen).toLocaleString();
 }
 
 export function sortLastSeen(userA, userB, instanceIdA = undefined, instanceIdB = undefined) {
