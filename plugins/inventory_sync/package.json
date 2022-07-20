@@ -1,6 +1,6 @@
 {
   "name": "@clusterio/plugin-inventory_sync",
-  "version": "2.0.0-alpha.12",
+  "version": "2.0.0-alpha.13",
   "description": "Clusterio plugin forwarding between Factorio servers",
   "author": "Danielv <danielv@danielv.no>",
   "homepage": "https://github.com/clusterio/factorioClusterio#readme",
@@ -23,8 +23,8 @@
     "fs-extra": "^8.1.0"
   },
   "devDependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.12",
-    "@clusterio/web_ui": "^2.0.0-alpha.12",
+    "@clusterio/lib": "^2.0.0-alpha.13",
+    "@clusterio/web_ui": "^2.0.0-alpha.13",
     "antd": "^4.16.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
