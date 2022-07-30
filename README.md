@@ -12,7 +12,7 @@ Discord for development/support/play: https://discord.gg/5XuDkje
 
 Clusterio 2.0 is still in alpha, however the previous stable has been abandoned and is no longer supported.
 Despite being alpha it's reasonably stable now and there's no major breakages expected before a stable release of 2.0.
-If you are starting a new cluster it's highly recommended to use the 2.0 alpha.
+If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
 
 
 ### Ways to support me/the project:
@@ -49,7 +49,7 @@ It was previously best known for implementing cross server transfer and cloud st
 But this functionality has been pulled out of Clusterio into its own plugin for Clusterio named [Subspace Storage](https://github.com/clusterio/subspace_storage).
 
 By itself Clusterio doesn't change the gameplay in any way, you could even use Clusterio to manage completely vanilla Factorio servers.
-Plugins do the work of modding in the visible changes into the game, see the [Plugins section](#plugins) for ready made plugins you can install into a Clusterio cluster.
+Plugins do the work of modding in the visible changes into the game, see the [Plugins section](#plugins) for ready-made plugins you can install into a Clusterio cluster.
 
 
 ## Features
@@ -80,7 +80,7 @@ There's also plugins developed and maintained by the community:
 
 - [Discord Bridge](https://github.com/Hornwitser/discord_bridge) (@hornwitser/discord_bridge): Bridges chat between instances and Discord.
   By Hornwitser.
-- [Server Select](https://github.com/Hornwitser/server_select/tree/clusterio-2.0) (@hornwitser/server_select): In-game GUI for connecting to other server in the cluster.
+- [Server Select](https://github.com/Hornwitser/server_select/tree/clusterio-2.0) (@hornwitser/server_select): In-game GUI for connecting to other servers in the cluster.
   Originally by Godmave, ported to 2.0 by Hornwitser.
 
 Want to make your own plugin?
@@ -90,7 +90,7 @@ Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for w
 ## Installation
 
 Clusterio runs on Node.js v12 and up, it's distributed via npm and comes with a guided install script.
-If you alread have a recent Node.js installed you can set it up in a new directory with.
+If you already have a recent Node.js installed, you can set it up in a new directory with:
 
     npm init "@clusterio"
 
@@ -145,7 +145,7 @@ Your instances (save files etc) will be stored there.
 
     Make sure to note down the admin authentication token it provides at the end as you will need it later.
 
-3.  If you chose to use local factorio directory for the Factorio installation then download the Windows 64-bit zip package from https://www.factorio.com/download and extract it to the `factorio` folder in your clusterio installation folder.
+3.  If you chose to use local factorio directory for the Factorio installation, download the Windows 64-bit zip package from https://www.factorio.com/download and extract it to the `factorio` folder in your clusterio installation folder.
 
 
 ### MacOS Setup
@@ -160,12 +160,12 @@ Your instances (save files etc) will be stored there.
 
     Make sure to note down the admin authentication token it provides at the end as you will need it later.
 
-3.  If you chose to use local factorio directory for the Factorio installation you will need to obtain and copy a mac version of Factorio and unpack it to to the `factorio` folder in your clusterio installation folder.
+3.  If you chose to use local factorio directory for the Factorio installation, you will need to obtain and copy a mac version of Factorio and unpack it to the `factorio` folder in your clusterio installation folder.
 
 
 ### Installing Plugins
 
-For well known plugins you can select them during installation and no further steps are necessary to make them work.
+For well-known plugins you can select them during installation and no further steps are necessary to make them work.
 Installing plugins that are not offered by the installer consists of two steps.
 First install the package the plugin is provided by via npm, for example
 
@@ -211,7 +211,7 @@ See the [readme for @clusterio/master](/packages/master/README.md) for more info
 Clusterio currently only provides a manual method for running mods on servers by copying them either to each instance's individual `mods` folder, or by copying them into a slave installation's `sharedMods` folder which will link/copy them to the `mods` folder of each instance on that slave if the file doesn't already exist in the `mods` folder for that instance.
 Mods are copied from `sharedMods` on Windows and symlinked on Linux, this means that when mods are removed from `sharedMods` the mods will also be removed from the instance's `mods` folder on Linux if it got there by being linked by Clusterio, but not on Windows.
 
-For managing the mod settings the `mod-settings.dat` and `mod-list.json` files will also be linked/copied over if present in `sharedMods`, but since Factorio creates these files automatically it might be necessary to delete them from each instance's `mods` folder for changes to them in `sharedMods` to take effect.
+For managing the mod settings, the `mod-settings.dat` and `mod-list.json` files will also be linked/copied over if present in `sharedMods`, but since Factorio creates these files automatically it might be necessary to delete them from each instance's `mods` folder for changes to them in `sharedMods` to take effect.
 
 Better remote management of mods is a planned feature.
 
@@ -235,7 +235,7 @@ The basics of setting up a Factorio server from the web interface is to create a
 ### Running via Systemd
 
 The install script creates systemd service scripts for clusteriomaster and clusterioslave (if applicable) to start up as the user than ran the installer.
-If you have copied these files over to `/etc/systemd/system/` then you can startup clusterio as a background service using:
+If you have copied these files over to `/etc/systemd/system/` then you can startup Clusterio as a background service using:
     
 #### To start as a service run:
  
@@ -251,16 +251,16 @@ If you have copied these files over to `/etc/systemd/system/` then you can start
 ## Setting up remote slaves
 
 Run the installer as described in the installation section and choose "Slave only" as the operating mode to install, it'll ask for a master URL and an authentication token.
-The URL is the same as what is needed to connect to the web interface, and the athentication token can be generated on the Slaves page in the web interface.
+The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Slaves page in the web interface.
 Once you start up the slave it should show up in the Slaves list and be available for assigning and running instances on.
 
 
 ## Setting up clusterioctl
 
 There's a command line interface available for Clusterio which is installed separately with the same installer as for the master and slave.
-Run the installer as described in the installation section and choose "Ctl only" as the operating mode to install, you can do this in the same directory as you have installed other clusterio component(s) to.
+Run the installer as described in the installation section and choose "Ctl only" as the operating mode to install, you can do this in the same directory as you have installed other Clusterio component(s) to.
 The installer will ask for a master URL and an authentication token, these are the same as you would use to connect to the web interface.
-If you want to use a different user for the command line interface you can generate an authentication token for an existing user with
+If you want to use a different user for the command line interface, you can generate an authentication token for an existing user with
 
     npx clusteriomaster bootstrap generate-user-token <username>
 
@@ -276,7 +276,7 @@ According to [this link](https://askubuntu.com/questions/839520/open-port-443-fo
 
     sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
 
-### Portforwarding doesn't work on the master server when running under WSL
+### Port forwarding doesn't work on the master server when running under WSL
 
 If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip.
 This is also true when you correctly port-forwarded the correct ports.
