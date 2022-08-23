@@ -90,6 +90,24 @@ function escapeRegExp(text) {
 	return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
 
+/**
+ * Format byte count for human readable display
+ *
+ * Shortens a large number of bytes using the kB/MB/GB/TB prefixes.
+ * @param {number} bytes - Count of bytes to format.
+ * @returns {string} formatted text.
+ */
+function formatBytes(bytes) {
+	if (bytes === 0) {
+		return "0 Bytes";
+	}
+
+	let units = [" Bytes", " kB", " MB", " GB", " TB"];
+	let factor = 1000;
+	let power = Math.min(Math.floor(Math.log(bytes) / Math.log(factor)), units.length);
+	return (power > 0 ? (bytes / factor ** power).toFixed(2) : bytes) + units[power];
+}
+
 
 module.exports = {
 	basicType,
@@ -97,4 +115,5 @@ module.exports = {
 	timeout,
 	readStream,
 	escapeRegExp,
+	formatBytes,
 };
