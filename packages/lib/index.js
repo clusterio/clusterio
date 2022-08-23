@@ -18,6 +18,7 @@ const libPrometheus = require("./prometheus");
 const libSchema = require("./schema");
 const libSharedCommands = require("./shared_commands");
 const libUsers = require("./users");
+const libZipOps = require("./zip_ops");
 
 const ExponentialBackoff = require("./ExponentialBackoff");
 const RateLimiter = require("./RateLimiter");
@@ -43,6 +44,7 @@ module.exports = {
 	libSchema,
 	libSharedCommands,
 	libUsers,
+	libZipOps,
 
 	ExponentialBackoff,
 	RateLimiter,
