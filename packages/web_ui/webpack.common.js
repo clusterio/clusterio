@@ -95,6 +95,8 @@ module.exports = (env = {}) => ({
 	resolve: {
 		extensions: [".js", ".json", ".jsx"],
 		fallback: {
+			"crypto": false,
+
 			// Required for winston
 			"util": require.resolve("util/"),
 			"os": require.resolve("os-browserify/browser"),
