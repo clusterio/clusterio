@@ -115,13 +115,17 @@ describe("lib/file_ops", function() {
 
 		it("should throw on CON, PRN, AUX, NUL, COM1, LPT1", function() {
 			for (let bad of ["CON", "PRN", "AUX", "NUL", "COM1", "LPT1"]) {
-				check(bad, "cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9");
+				check(bad, "cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9");
+				check(`${bad}.zip`, "cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9");
+				check(`${bad}.anything.txt`, "cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9");
+				check(`${bad}....a`, "cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9");
+				check(`${bad}.`, "cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9");
 			}
 		});
 
 		it("should throw on . and ..", function() {
 			for (let bad of [".", ".."]) {
-				check(bad, "cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9");
+				check(bad, `cannot be named ${bad}`);
 			}
 		});
 
@@ -166,6 +170,10 @@ describe("lib/file_ops", function() {
 		it("should clean CON, PRN, AUX, NUL, COM1, LPT1", function() {
 			for (let bad of ["CON", "PRN", "AUX", "NUL", "COM1", "LPT1"]) {
 				clean(bad, `${bad}_`);
+				clean(`${bad}.zip`, `${bad}_.zip`);
+				clean(`${bad}.anything.txt`, `${bad}_.anything.txt`);
+				clean(`${bad}....a`, `${bad}_....a`);
+				clean(`${bad}.`, `${bad}__`);
 			}
 		});
 

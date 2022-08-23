@@ -108,6 +108,18 @@ async function safeOutputFile(file, data, options={}) {
 	await fs.rename(temporary, file);
 }
 
+
+// Reserved names by allmost all filesystems
+const badNames = [".", ".."];
+
+// Reserved namespaces in Windows
+const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const badWinNamespaces = [
+	"CON", "PRN", "AUX", "NUL",
+	...oneToNine.map(n => `COM${n}`),
+	...oneToNine.map(n => `LPT${n}`),
+];
+
 /**
  * Check if a string is a valid file name
  *
@@ -119,17 +131,6 @@ function checkFilename(name) {
 	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
 	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
 	const badEnd = /[. ]$/;
-
-	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-	const badNames = [
-		// Relative path components
-		".", "..",
-
-		// Reserved filenames in Windows
-		"CON", "PRN", "AUX", "NUL",
-		...oneToNine.map(n => `COM${n}`),
-		...oneToNine.map(n => `LPT${n}`),
-	];
 
 	if (typeof name !== "string") {
 		throw new Error("must be a string");
@@ -143,9 +144,15 @@ function checkFilename(name) {
 		throw new Error('cannot contain <>:"\\/|=* or control characters');
 	}
 
-	if (badNames.includes(name.toUpperCase())) {
+	if (badNames.includes(name)) {
 		throw new Error(
-			"cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9"
+			`cannot be named ${name}`
+		);
+	}
+
+	if (badWinNamespaces.includes(name.toUpperCase().split(".")[0])) {
+		throw new Error(
+			"cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9"
 		);
 	}
 
@@ -161,20 +168,9 @@ function checkFilename(name) {
  * @returns {string} Filename suitable to use in the filesystem
  */
 function cleanFilename(name) {
-	// copied from checkFilename
+	// copied from checkFilename due to RegExp with global flag containing state.
 	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
 	const badEnd = /[. ]$/;
-
-	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-	const badNames = [
-		// Relative path components
-		".", "..",
-
-		// Reserved filenames in Windows
-		"CON", "PRN", "AUX", "NUL",
-		...oneToNine.map(n => `COM${n}`),
-		...oneToNine.map(n => `LPT${n}`),
-	];
 
 	if (typeof name !== "string") {
 		throw new Error("name must be a string");
@@ -182,6 +178,10 @@ function cleanFilename(name) {
 
 	if (name === "" || badNames.includes(name.toUpperCase())) {
 		name += "_";
+	}
+
+	if (badWinNamespaces.includes(name.toUpperCase().split(".")[0])) {
+		name = [`${name.split(".")[0]}_`, ...name.split(".").slice(1)].join(".");
 	}
 
 	name = name.replace(badChars, "_");
