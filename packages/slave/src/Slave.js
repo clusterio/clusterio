@@ -25,86 +25,9 @@ const InstanceConnection = require("./InstanceConnection");
 const finished = util.promisify(stream.finished);
 
 
-function checkFilename(name) {
-	// All of these are bad in Windows only, except for /, . and ..
-	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
-	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
-	const badEnd = /[. ]$/;
-
-	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-	const badNames = [
-		// Relative path components
-		".", "..",
-
-		// Reserved filenames in Windows
-		"CON", "PRN", "AUX", "NUL",
-		...oneToNine.map(n => `COM${n}`),
-		...oneToNine.map(n => `LPT${n}`),
-	];
-
-	if (typeof name !== "string") {
-		throw new Error("must be a string");
-	}
-
-	if (name === "") {
-		throw new Error("cannot be empty");
-	}
-
-	if (badChars.test(name)) {
-		throw new Error('cannot contain <>:"\\/|=* or control characters');
-	}
-
-	if (badNames.includes(name.toUpperCase())) {
-		throw new Error(
-			"cannot be named any of . .. CON PRN AUX NUL COM1-9 and LPT1-9"
-		);
-	}
-
-	if (badEnd.test(name)) {
-		throw new Error("cannot end with . or space");
-	}
-}
-
-/**
- * Clean up string to be suitable for use as filename
- *
- * @param {string} name - Arbitrary name string
- * @returns {string} Filename suitable to use in the filesystem
- * @private
- */
-function cleanFilename(name) {
-	// copied from checkFilename
-	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
-	const badEnd = /[. ]$/;
-
-	const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-	const badNames = [
-		// Relative path components
-		".", "..",
-
-		// Reserved filenames in Windows
-		"CON", "PRN", "AUX", "NUL",
-		...oneToNine.map(n => `COM${n}`),
-		...oneToNine.map(n => `LPT${n}`),
-	];
-
-	if (typeof name !== "string") {
-		throw new Error("name must be a string");
-	}
-
-	if (name === "" || badNames.includes(name.toUpperCase())) {
-		name += "_";
-	}
-
-	name = name.replace(badChars, "_");
-	name = name.replace(badEnd, "_");
-
-	return name;
-}
-
 function checkRequestSaveName(name) {
 	try {
-		checkFilename(name);
+		libFileOps.checkFilename(name);
 	} catch (err) {
 		throw new libErrors.RequestError(`Save name ${err.message}`);
 	}
@@ -243,9 +166,9 @@ class Slave extends libLink.Link {
 	}
 
 	async _createNewInstanceDir(name) {
-		name = cleanFilename(name);
+		name = libFileOps.cleanFilename(name);
 		try {
-			checkFilename(name);
+			libFileOps.checkFilename(name);
 		} catch (err) {
 			throw new Error(`Instance folder was unepectedly invalid: name ${err.message}`);
 		}
@@ -837,8 +760,5 @@ ${err.stack}`
 module.exports = Slave;
 
 // For testing only
-module.exports._checkFilename = checkFilename;
-module.exports._cleanFilename = cleanFilename;
 module.exports._discoverInstances = discoverInstances;
-module.exports._Slave = Slave;
 
