@@ -1,4 +1,4 @@
-import { libErrors, libLink, libLogging, libPlugin } from "@clusterio/lib";
+import { libData, libErrors, libLink, libLogging, libPlugin } from "@clusterio/lib";
 const { logger } = libLogging;
 import packageJson from "../../package.json";
 
@@ -86,6 +86,7 @@ export class Control extends libLink.Link {
 		this.slaveUpdateHandlers = new Map();
 		this.instanceUpdateHandlers = new Map();
 		this.saveListUpdateHandlers = new Map();
+		this.modUpdateHandlers = new Map();
 		this.userUpdateHandlers = new Map();
 		this.logHandlers = new Map();
 
@@ -101,6 +102,9 @@ export class Control extends libLink.Link {
 			));
 			this.updateSaveListSubscriptions().catch(err => logger.error(
 				`Unexpected error updating save list subscriptions:\n${err.stack}`
+			));
+			this.updateModSubscriptions().catch(err => logger.error(
+				`Unexpected error updating mod subscriptions:\n${err.stack}`
 			));
 			this.updateUserSubscriptions().catch(err => logger.error(
 				`Unexpected error updating user subscriptions:\n${err.stack}`
@@ -316,6 +320,64 @@ export class Control extends libLink.Link {
 		await libLink.messages.setSaveListSubscriptions.send(this, {
 			all: false,
 			instance_ids: [...this.saveListUpdateHandlers.keys()],
+		});
+	}
+
+	async modUpdateEventHandler(message) {
+		let mod = new libData.ModInfo(message.data.mod);
+		let handlers = [].concat(
+			this.modUpdateHandlers.get(null) || [],
+			this.modUpdateHandlers.get(mod.name) || []
+		);
+		for (let handler of handlers) {
+			handler(mod);
+		}
+	}
+
+	async onModUpdate(name, handler) {
+		if (name !== null && typeof name !== "string") {
+			throw new Error("Invalid mod name");
+		}
+
+		let handlers = this.modUpdateHandlers.get(name);
+		if (!handlers) {
+			handlers = [];
+			this.modUpdateHandlers.set(name, handlers);
+		}
+
+		handlers.push(handler);
+
+		if (handlers.length === 1) {
+			await this.updateModSubscriptions();
+		}
+	}
+
+	async offModUpdate(name, handler) {
+		let handlers = this.modUpdateHandlers.get(name);
+		if (!handlers || !handlers.length) {
+			throw new Error(`No handlers for mod pack ${name} exist`);
+		}
+
+		let index = handlers.lastIndexOf(handler);
+		if (index === -1) {
+			throw new Error(`Given handler is not registered for mod pack ${name}`);
+		}
+
+		handlers.splice(index, 1);
+		if (!handlers.length) {
+			this.modUpdateHandlers.delete(name);
+			await this.updateModSubscriptions();
+		}
+	}
+
+	async updateModSubscriptions() {
+		if (!this.connector.connected) {
+			return;
+		}
+
+		await libLink.messages.setModSubscriptions.send(this, {
+			all: this.modUpdateHandlers.has(null),
+			mod_names: [...this.modUpdateHandlers.keys()].filter(k => k !== null),
 		});
 	}
 

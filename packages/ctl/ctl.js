@@ -89,6 +89,8 @@ class Control extends libLink.Link {
 
 	async saveListUpdateEventHandler() { }
 
+	async modUpdateEventHandler() { }
+
 	async userUpdateEventHandler() { }
 
 	async setLogSubscriptions({

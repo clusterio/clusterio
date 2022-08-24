@@ -20,6 +20,13 @@ MasterGroup.define({
 	initial_value: "Your Cluster",
 });
 MasterGroup.define({
+	name: "mods_directory",
+	title: "Mods Directory",
+	description: "Path to directory where mods shared with the cluster are stored.",
+	type: "string",
+	initial_value: "mods",
+});
+MasterGroup.define({
 	name: "database_directory",
 	title: "Database directory",
 	description: "Directory where item and configuration data is stored.",

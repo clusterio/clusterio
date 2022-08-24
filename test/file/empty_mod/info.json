@@ -1,0 +1,9 @@
+{
+    "name": "empty_mod",
+    "version": "1.0.0",
+    "title": "An Empty Mod",
+    "author": "Me",
+    "description": "An empty mod for testing",
+    "factorio_version": "1.1",
+    "dependencies": []
+}

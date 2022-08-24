@@ -2,6 +2,7 @@
 const libBuildMod = require("./build_mod");
 const libCommand = require("./command");
 const libConfig = require("./config");
+const libData = require("./data");
 const libDatabase = require("./database");
 const libErrors = require("./errors");
 const libFactorio = require("./factorio");
@@ -28,6 +29,7 @@ module.exports = {
 	libBuildMod,
 	libCommand,
 	libConfig,
+	libData,
 	libDatabase,
 	libErrors,
 	libFactorio,

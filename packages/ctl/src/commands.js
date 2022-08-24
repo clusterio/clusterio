@@ -860,6 +860,151 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
+const modCommands = new libCommand.CommandTree({ name: "mod", description: "Manage uploaded mods" });
+modCommands.add(new libCommand.Command({
+	definition: ["show <name> <mod-version>", "Show details for a mod stored in the cluster", (yargs) => {
+		yargs.positional("name", { describe: "Mod name to show details for", type: "string" });
+		yargs.positional("mod-version", { describe: "Version of the mod", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getMod.send(control, { name: args.name, version: args.modVersion });
+		for (let [field, value] of Object.entries(response.mod)) {
+			if (value instanceof Array) {
+				print(`${field}:`);
+				for (let entry of value) {
+					print(`  ${entry}`);
+				}
+			} else {
+				print(`${field}: ${value}`);
+			}
+		}
+	},
+}));
+
+modCommands.add(new libCommand.Command({
+	definition: [["list", "l"], "List mods stored in the cluster", (yargs) => {
+		yargs.options({
+			"fields": {
+				describe: "Fields",
+				array: true,
+				type: "string",
+				default: ["name", "version", "title", "factorio_version"],
+			},
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.listMods.send(control);
+		if (!args.fields.includes("all")) {
+			for (let entry of response.list) {
+				for (let field of Object.keys(entry)) {
+					if (!args.fields.includes(field)) {
+						delete entry[field];
+					}
+				}
+			}
+		}
+		print(asTable(response.list));
+	},
+}));
+
+modCommands.add(new libCommand.Command({
+	definition: ["upload <file>", "Upload mod to the cluster", (yargs) => {
+		yargs.positional("file", { describe: "File to upload", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let filename = path.basename(args.file);
+		if (!filename.endsWith(".zip")) {
+			throw new libErrors.CommandError("Mod filename must end with .zip");
+		}
+		// phin doesn't support streaming requests :(
+		let content = await fs.readFile(args.file);
+
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += "api/upload-mod";
+		url.searchParams.append("filename", filename);
+
+		let result = await phin({
+			url, method: "POST",
+			headers: {
+				"X-Access-Token": control.config.get("control.master_token"),
+				"Content-Type": "application/zip",
+			},
+			core: { ca: control.tlsCa },
+			data: content,
+			parse: "json",
+		});
+
+		for (let error of result.body.errors || []) {
+			logger.error(error);
+		}
+
+		for (let requestError of result.body.request_errors || []) {
+			logger.error(requestError);
+		}
+
+		if (result.body.mods && result.body.mods.length) {
+			logger.info(`Successfully uploaded ${result.body.mods[0].filename}`);
+		}
+
+		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {
+			throw new libErrors.CommandError("Uploading mod failed");
+		}
+	},
+}));
+
+modCommands.add(new libCommand.Command({
+	definition: ["download <name> <mod-version>", "Download a mod from the cluster", (yargs) => {
+		yargs.positional("name", { describe: "Internal name of mod to download", type: "string" });
+		yargs.positional("mod-version", { describe: "Version of mod to download", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let result = await libLink.messages.downloadMod.send(control, {
+			name: args.name,
+			version: args.modVersion,
+		});
+
+		let url = new URL(control.config.get("control.master_url"));
+		url.pathname += `api/stream/${result.stream_id}`;
+		let response = await phin({
+			url, method: "GET",
+			core: { ca: control.tlsCa },
+			stream: true,
+		});
+
+		let writeStream;
+		let filename = `${args.name}_${args.modVersion}.zip`;
+		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
+		while (true) {
+			try {
+				writeStream = fs.createWriteStream(tempFilename, { flags: "wx" });
+				await events.once(writeStream, "open");
+				break;
+			} catch (err) {
+				if (err.code === "EEXIST") {
+					tempFilename = await libFileOps.findUnusedName(".", tempFilename, ".tmp.zip");
+				} else {
+					throw err;
+				}
+			}
+		}
+		response.pipe(writeStream);
+		await finished(writeStream);
+		await fs.rename(tempFilename, filename);
+
+		logger.info(`Downloaded ${filename}`);
+	},
+}));
+
+modCommands.add(new libCommand.Command({
+	definition: ["delete <name> <mod-version>", "Delete a mod stored in the cluster", (yargs) => {
+		yargs.positional("name", { describe: "Name of mod to delete", type: "string" });
+		yargs.positional("mod-version", { describe: "Version of mod to delete", type: "string" });
+	}],
+	handler: async function(args, control) {
+		await libLink.messages.deleteMod.send(control, { name: args.name, version: args.modVersion });
+	},
+}));
+
 const permissionCommands = new libCommand.CommandTree({ name: "permission", description: "Permission inspection" });
 permissionCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List permissions in the cluster"],
@@ -1194,6 +1339,7 @@ async function registerCommands(controlPlugins, yargs) {
 	rootCommands.add(masterCommands);
 	rootCommands.add(slaveCommands);
 	rootCommands.add(instanceCommands);
+	rootCommands.add(modCommands);
 	rootCommands.add(permissionCommands);
 	rootCommands.add(roleCommands);
 	rootCommands.add(userCommands);

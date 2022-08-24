@@ -1,8 +1,9 @@
 // Message definitions for links
 "use strict";
-const libSchema = require("../schema");
+const libData = require("../data");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
+const libSchema = require("../schema");
 const PlayerStats = require("../PlayerStats");
 
 class MissingLinkHandlerError extends Error {
@@ -709,6 +710,67 @@ messages.sendRcon = new Request({
 	},
 });
 
+messages.getMod = new Request({
+	type: "get_mod",
+	links: ["control-master"],
+	permission: "core.mod.get",
+	requestProperties: {
+		"name": { type: "string" },
+		"version": { type: "string" },
+	},
+	responseProperties: {
+		"mod": libData.ModInfo.jsonSchema,
+	},
+});
+
+messages.listMods = new Request({
+	type: "list_mods",
+	links: ["control-master"],
+	permission: "core.mod.list",
+	responseProperties: {
+		"list": {
+			type: "array",
+			items: libData.ModInfo.jsonSchema,
+		},
+	},
+});
+
+messages.setModSubscriptions = new Request({
+	type: "set_mod_subscriptions",
+	links: ["control-master"],
+	permission: "core.mod.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"mod_names": {
+			type: "array",
+			items: { type: "string" },
+		},
+	},
+});
+
+messages.downloadMod = new Request({
+	type: "download_mod",
+	links: ["control-master"],
+	permission: "core.mod.download",
+	requestProperties: {
+		"name": { type: "string" },
+		"version": { type: "string" },
+	},
+	responseProperties: {
+		"stream_id": { type: "string" },
+	},
+});
+
+messages.deleteMod = new Request({
+	type: "delete_mod",
+	links: ["control-master"],
+	permission: "core.mod.delete",
+	requestProperties: {
+		"name": { type: "string" },
+		"version": { type: "string" },
+	},
+});
+
 messages.listPermissions = new Request({
 	type: "list_permissions",
 	links: ["control-master"],
@@ -1260,6 +1322,14 @@ messages.saveListUpdate = new Event({
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"list": saveList,
+	},
+});
+
+messages.modUpdate = new Event({
+	type: "mod_update",
+	links: ["master-control"],
+	eventProperties: {
+		"mod": libData.ModInfo.jsonSchema,
 	},
 });
 

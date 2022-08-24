@@ -512,6 +512,41 @@ definePermission({
 });
 
 definePermission({
+	name: "core.mod.get",
+	title: "Get mods",
+	description: "Get the details of a mod stored in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.list",
+	title: "List mods",
+	description: "Get the full list of mods stored on the master",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.subscribe",
+	title: "Subscribe to mod updates",
+	description: "Subscribe to be notified on updates on the details of mods.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.upload",
+	title: "Upload mod",
+	description: "Upload mods to the master.",
+});
+definePermission({
+	name: "core.mod.download",
+	title: "Download mod",
+	description: "Download mods stored on the master.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.delete",
+	title: "Delete mod",
+	description: "Delete mods stored on the master.",
+});
+
+definePermission({
 	name: "core.permission.list",
 	title: "List permissions",
 	description: "Get the full list of permissions in the cluster.",

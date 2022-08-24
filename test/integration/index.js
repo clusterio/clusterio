@@ -28,6 +28,7 @@ class TestControl extends libLink.Link {
 		this.slaveUpdates = [];
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
+		this.modUpdates = [];
 		this.userUpdates = [];
 
 		this.connector.on("connect", () => {
@@ -40,6 +41,9 @@ class TestControl extends libLink.Link {
 			libLink.messages.setSaveListSubscriptions.send(
 				this, { all: true, instance_ids: [] }
 			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
+			libLink.messages.setModSubscriptions.send(
+				this, { all: true, mod_names: [] }
+			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
 			libLink.messages.setUserSubscriptions.send(
 				this, { all: true, names: [] }
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
@@ -65,6 +69,10 @@ class TestControl extends libLink.Link {
 
 	async saveListUpdateEventHandler(message) {
 		this.saveListUpdates.push(message.data);
+	}
+
+	async modUpdateEventHandler(message) {
+		this.modUpdates.push(message.data.mod);
 	}
 
 	async userUpdateEventHandler(message) {

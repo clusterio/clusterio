@@ -314,3 +314,12 @@ body {
 	top: 8px;
 	right: 8px;
 }
+
+
+.ant-descriptions-bordered.borderless > .ant-descriptions-view {
+	border: none;
+}
+
+tr.no-expanded-padding > td {
+	padding: 0;
+}

@@ -1,6 +1,8 @@
 "use strict";
-const jwt = require("jsonwebtoken");
 const events = require("events");
+const fs = require("fs-extra");
+const jwt = require("jsonwebtoken");
+const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
 const libErrors = require("@clusterio/lib/errors");
@@ -51,6 +53,11 @@ class ControlConnection extends BaseConnection {
 		this.saveListSubscriptions = {
 			all: false,
 			instance_ids: [],
+		};
+
+		this.modSubscriptions = {
+			all: false,
+			mod_names: [],
 		};
 
 		this.userSubscriptions = {
@@ -458,9 +465,60 @@ class ControlConnection extends BaseConnection {
 		return { save: result.save };
 	}
 
+	async getModRequestHandler(message) {
+		let { name, version } = message.data;
+		let key = `${name}_${version}`;
+		let mod = this._master.mods.get(key);
+		if (!mod) {
+			throw new libErrors.RequestError(`Mod ${key} does not exist`);
+		}
+		return {
+			mod: mod.toJSON(),
+		};
+	}
+
+	async listModsRequestHandler(message) {
+		return { list: [...this._master.mods.values()].map(mod => mod.toJSON()) };
+	}
+
+	async setModSubscriptionsRequestHandler(message) {
+		this.modSubscriptions = message.data;
+	}
+
+	async downloadModRequestHandler(message) {
+		let { name, version } = message.data;
+		let key = `${name}_${version}`;
+		let mod = this._master.mods.get(key);
+		if (!mod) {
+			throw new libErrors.RequestError(`Mod ${key} does not exist`);
+		}
+		let modPath = path.join(this._master.config.get("master.mods_directory"), mod.filename);
+
+		let stream = await routes.createProxyStream(this._master.app);
+		stream.filename = mod.filename;
+		stream.source = fs.createReadStream(modPath);
+		stream.mime = "application/zip";
+		stream.size = mod.size;
+
+		return { stream_id: stream.id };
+	}
+
+	async deleteModRequestHandler(message) {
+		await this._master.deleteMod(message.data.name, message.data.version);
+	}
+
 	async setLogSubscriptionsRequestHandler(message) {
 		this.logSubscriptions = message.data;
 		this.updateLogSubscriptions();
+	}
+
+	modUpdated(mod) {
+		if (
+			this.modSubscriptions.all
+			|| this.modSubscriptions.mod_names.includes(mod.name)
+		) {
+			libLink.messages.modUpdate.send(this, { mod: mod.toJSON() });
+		}
 	}
 
 	updateLogSubscriptions() {

@@ -9,6 +9,7 @@ const path = require("path");
 
 
 const libConfig = require("@clusterio/lib/config");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libLink = require("@clusterio/lib/link");
@@ -64,6 +65,12 @@ class Master {
 		 * @type {Map<number, Object>}
 		 */
 		this.instances = null;
+
+		/**
+		 * Mapping of mod names to mod infos
+		 * @type {Map<string, module:lib/data/ModInfo>}
+		 */
+		this.mods = null;
 
 		/**
 		 * User and roles manager for the cluster
@@ -164,6 +171,10 @@ class Master {
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 		this.exportManifest = await Master.loadJsonObject(path.join(databaseDirectory, "export_manifest.json"));
+
+		let modsDirectory = this.config.get("master.mods_directory");
+		await fs.ensureDir(modsDirectory);
+		this.mods = await Master.loadModInfos(modsDirectory);
 
 		this.config.on("fieldChanged", (group, field, prev) => {
 			libPlugin.invokeHook(this.plugins, "onMasterConfigFieldChanged", group, field, prev);
@@ -360,6 +371,40 @@ class Master {
 		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
+	static async loadModInfos(modsDirectory) {
+		let mods = new Map();
+		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
+			if (entry.isDirectory()) {
+				logger.warn(`Ignoring ${entry.name}${path.sep} in mods directory.`);
+				continue;
+			}
+
+			if (entry.name.toLowerCase().endsWith("tmp.zip")) {
+				continue;
+			}
+
+			logger.info(`Loading info for Mod ${entry.name}`);
+			let modInfo;
+			try {
+				modInfo = await libData.ModInfo.fromModFile(path.join(modsDirectory, entry.name));
+			} catch (err) {
+				logger.error(`Error loading mod ${entry.name}: ${err.message}`);
+				continue;
+			}
+
+			let key = `${modInfo.name}_${modInfo.version}`;
+			if (mods.has(key)) {
+				logger.error(
+					`Ignoring Mod ${entry.name} as it contains the same name and ` +
+					`version as ${mods.get(key).filename}`
+				);
+				continue;
+			}
+			mods.set(key, modInfo);
+		}
+		return mods;
+	}
+
 	static async loadJsonObject(filePath, throwOnMissing = false) {
 		let manifest = {};
 		try {
@@ -378,6 +423,20 @@ class Master {
 			path.join(databaseDirectory, "export_manifest.json"), JSON.stringify(newManifest, null, 4)
 		);
 		this.exportManifest = newManifest;
+	}
+
+	async deleteMod(name, version) {
+		let key = `${name}_${version}`;
+		let mod = this.mods.get(key);
+		if (!mod) {
+			throw new Error(`Mod ${key} does not exist`);
+		}
+
+		let modsDirectory = this.config.get("master.mods_directory");
+		await fs.unlink(path.join(modsDirectory, mod.filename));
+		this.mods.delete(key);
+		mod.isDeleted = true;
+		this.modUpdated(mod);
 	}
 
 	/**
@@ -501,6 +560,18 @@ class Master {
 
 			controlConnection.saveListUpdate(data);
 		}
+	}
+
+	modUpdated(mod) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.modUpdated(mod);
+		}
+
+		libPlugin.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
 	userUpdated(user) {

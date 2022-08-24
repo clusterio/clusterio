@@ -5,6 +5,8 @@ const path = require("path");
 const events = require("events");
 const phin = require("phin");
 
+const libBuildMod = require("@clusterio/lib/build_mod");
+const libHash = require("@clusterio/lib/hash");
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
 const { wait } = require("@clusterio/lib/helpers");
@@ -815,6 +817,91 @@ describe("Integration of Clusterio", function() {
 				}
 
 				assert(statusesNotSeen.size === 0, `Did not see the statuses ${[...statusesNotSeen]}`);
+			});
+		});
+
+		describe("mod upload", function() {
+			it("uploads a mod", async function() {
+				await libBuildMod.build({
+					build: true,
+					pack: true,
+					sourceDir: path.join("test", "file", "empty_mod"),
+					outputDir: path.join("temp", "test"),
+				});
+				await execCtl("mod upload empty_mod_1.0.0.zip");
+				assert(
+					await fs.pathExists(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
+					"mod not present in mods directory"
+				);
+			});
+		});
+
+		describe("mod show", function() {
+			it("gives details of a mod", async function() {
+				let result = await execCtl("mod show empty_mod 1.0.0");
+				let hash = await libHash.hashFile(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
+				let stat = await fs.stat(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
+				assert.equal(
+					result.stdout,
+					"name: empty_mod\n" +
+					"version: 1.0.0\n" +
+					"title: An Empty Mod\n" +
+					"author: Me\n" +
+					"description: An empty mod for testing\n" +
+					"factorio_version: 1.1\n" +
+					"dependencies:\n" +
+					"filename: empty_mod_1.0.0.zip\n" +
+					`size: ${stat.size}\n` +
+					`hash: sha1:${hash}\n`,
+				);
+			});
+		});
+
+		describe("mod list", function() {
+			it("shows the list of mods", async function() {
+				let result = await execCtl("mod list");
+				assert(result.stdout.indexOf("empty_mod") !== -1, "empty_mod is not in the list");
+			});
+		});
+
+		describe("mod download", function() {
+			it("downloads a mod", async function() {
+				await fs.unlink(path.join("temp", "test", "empty_mod_1.0.0.zip"));
+				await execCtl("mod download empty_mod 1.0.0");
+				assert(
+					await fs.pathExists(path.join("temp", "test", "empty_mod_1.0.0.zip")),
+					"mod not downloaded to cwd"
+				);
+			});
+		});
+
+		describe("mod delete", function() {
+			it("deletes a mod", async function() {
+				await execCtl("mod delete empty_mod 1.0.0");
+				assert(
+					!await fs.pathExists(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
+					"mod still present in mods dir"
+				);
+			});
+		});
+
+		describe("modUpdateEventHandler()", function() {
+			it("should have triggered for the previous mod updates", function() {
+				let eventsToCheck = new Set(["updated", "deleted"]);
+				let eventsNotSeen = new Set(eventsToCheck);
+
+				for (let modUpdate of getControl().modUpdates) {
+					if (modUpdate.name !== "empty_mod" || modUpdate.version !== "1.0.0") {
+						continue;
+					}
+					if (modUpdate.is_deleted) {
+						eventsNotSeen.delete("deleted");
+					} else {
+						eventsNotSeen.delete("updated");
+					}
+				}
+
+				assert(eventsNotSeen.size === 0, `Did not see the events ${[...eventsNotSeen]}`);
 			});
 		});
 
