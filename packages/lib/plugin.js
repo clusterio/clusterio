@@ -494,6 +494,19 @@ class BaseMasterPlugin {
 	async onPrepareSlaveDisconnect(connection) { }
 
 	/**
+	 * Called when a mod pack is updated
+	 *
+	 * Invoked when a mod pack has been added, updated or deleted in the
+	 * cluster.
+	 *
+	 * If the mod pack has been deleted its `.isDeleted` property will be
+	 * true.
+	 *
+	 * @param {module:lib/data/ModPack} modPack - Mod pack that updated.
+	 */
+	async onModPackUpdated(modPack) { }
+
+	/**
 	 * Called when a mod stored on the master server is updated
 	 *
 	 * Invoked when a mod has been added, updated or deleted from the pool

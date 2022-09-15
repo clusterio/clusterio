@@ -5,7 +5,9 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
+const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
@@ -53,6 +55,11 @@ class ControlConnection extends BaseConnection {
 		this.saveListSubscriptions = {
 			all: false,
 			instance_ids: [],
+		};
+
+		this.modPackSubscriptions = {
+			all: false,
+			mod_pack_ids: [],
 		};
 
 		this.modSubscriptions = {
@@ -463,6 +470,61 @@ class ControlConnection extends BaseConnection {
 		}
 
 		return { save: result.save };
+	}
+
+	async getModPackRequestHandler(message) {
+		let { id } = message.data;
+		let modPack = this._master.modPacks.get(id);
+		if (!modPack) {
+			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
+		}
+		return { mod_pack: modPack.toJSON() };
+	}
+
+	async listModPacksRequestHandler(message) {
+		return { list: [...this._master.modPacks.values()].map(pack => pack.toJSON()) };
+	}
+
+	async setModPackSubscriptionsRequestHandler(message) {
+		this.modPackSubscriptions = message.data;
+	}
+
+	async createModPackRequestHandler(message) {
+		let modPack = new libData.ModPack(message.data.mod_pack);
+		if (this._master.modPacks.has(modPack.id)) {
+			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} already exist`);
+		}
+		this._master.modPacks.set(modPack.id, modPack);
+		this._master.modPackUpdated(modPack);
+	}
+
+	async updateModPackRequestHandler(message) {
+		let modPack = new libData.ModPack(message.data.mod_pack);
+		if (!this._master.modPacks.has(modPack.id)) {
+			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
+		}
+		this._master.modPacks.set(modPack.id, modPack);
+		this._master.modPackUpdated(modPack);
+	}
+
+	async deleteModPackRequestHandler(message) {
+		let { id } = message.data;
+		let modPack = this._master.modPacks.get(id);
+		if (!modPack) {
+			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
+		}
+		modPack.isDeleted = true;
+		this._master.modPacks.delete(id);
+		this._master.modPackUpdated(modPack);
+	}
+
+	modPackUpdated(modPack) {
+		if (
+			this.modPackSubscriptions.all
+			|| this.modPackSubscriptions.mod_pack_ids.includes(modPack.id)
+		) {
+			libLink.messages.modPackUpdate.send(this, { mod_pack: modPack.toJSON() });
+		}
 	}
 
 	async getModRequestHandler(message) {

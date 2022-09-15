@@ -512,6 +512,39 @@ definePermission({
 });
 
 definePermission({
+	name: "core.mod_pack.get",
+	title: "Retrieve mod pack",
+	description: "Get the details of a mod pack in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod_pack.list",
+	title: "List mod packs",
+	description: "Get the full list of a mod packs in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod_pack.subscribe",
+	title: "Subscribe to mod pack updates",
+	description: "Subscribe to be notified on updates on the details of mod packs.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod_pack.create",
+	title: "Create mod pack",
+	description: "Create new mod pack in the cluster.",
+});
+definePermission({
+	name: "core.mod_pack.update",
+	title: "Update mod pack",
+	description: "Edit existing mod pack definition in the cluster.",
+});
+definePermission({
+	name: "core.mod_pack.delete",
+	title: "Delete mod pack",
+	description: "Delete mod pack definition in the cluster.",
+});
+definePermission({
 	name: "core.mod.get",
 	title: "Get mods",
 	description: "Get the details of a mod stored in the cluster.",

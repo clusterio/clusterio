@@ -86,6 +86,7 @@ export class Control extends libLink.Link {
 		this.slaveUpdateHandlers = new Map();
 		this.instanceUpdateHandlers = new Map();
 		this.saveListUpdateHandlers = new Map();
+		this.modPackUpdateHandlers = new Map();
 		this.modUpdateHandlers = new Map();
 		this.userUpdateHandlers = new Map();
 		this.logHandlers = new Map();
@@ -102,6 +103,9 @@ export class Control extends libLink.Link {
 			));
 			this.updateSaveListSubscriptions().catch(err => logger.error(
 				`Unexpected error updating save list subscriptions:\n${err.stack}`
+			));
+			this.updateModPackSubscriptions().catch(err => logger.error(
+				`Unexpected error updating mod pack subscriptions:\n${err.stack}`
 			));
 			this.updateModSubscriptions().catch(err => logger.error(
 				`Unexpected error updating mod subscriptions:\n${err.stack}`
@@ -323,6 +327,64 @@ export class Control extends libLink.Link {
 		});
 	}
 
+	async modPackUpdateEventHandler(message) {
+		let modPack = new libData.ModPack(message.data.mod_pack);
+		let handlers = [].concat(
+			this.modPackUpdateHandlers.get(null) || [],
+			this.modPackUpdateHandlers.get(modPack.id) || [],
+		);
+		for (let handler of handlers) {
+			handler(modPack);
+		}
+	}
+
+	async onModPackUpdate(id, handler) {
+		if (id !== null && typeof id !== "number") {
+			throw new Error("Invalid mod pack id");
+		}
+
+		let handlers = this.modPackUpdateHandlers.get(id);
+		if (!handlers) {
+			handlers = [];
+			this.modPackUpdateHandlers.set(id, handlers);
+		}
+
+		handlers.push(handler);
+
+		if (handlers.length === 1) {
+			await this.updateModPackSubscriptions();
+		}
+	}
+
+	async offModPackUpdate(id, handler) {
+		let handlers = this.modPackUpdateHandlers.get(id);
+		if (!handlers || !handlers.length) {
+			throw new Error(`No handlers for mod pack ${id} exist`);
+		}
+
+		let index = handlers.lastIndexOf(handler);
+		if (index === -1) {
+			throw new Error(`Given handler is not registered for mod pack ${id}`);
+		}
+
+		handlers.splice(index, 1);
+		if (!handlers.length) {
+			this.modPackUpdateHandlers.delete(id);
+			await this.updateModPackSubscriptions();
+		}
+	}
+
+	async updateModPackSubscriptions() {
+		if (!this.connector.connected) {
+			return;
+		}
+
+		await libLink.messages.setModPackSubscriptions.send(this, {
+			all: this.modPackUpdateHandlers.has(null),
+			mod_pack_ids: [...this.modPackUpdateHandlers.keys()].filter(k => k !== null),
+		});
+	}
+
 	async modUpdateEventHandler(message) {
 		let mod = new libData.ModInfo(message.data.mod);
 		let handlers = [].concat(
@@ -355,12 +417,12 @@ export class Control extends libLink.Link {
 	async offModUpdate(name, handler) {
 		let handlers = this.modUpdateHandlers.get(name);
 		if (!handlers || !handlers.length) {
-			throw new Error(`No handlers for mod pack ${name} exist`);
+			throw new Error(`No handlers for mod ${name} exist`);
 		}
 
 		let index = handlers.lastIndexOf(handler);
 		if (index === -1) {
-			throw new Error(`Given handler is not registered for mod pack ${name}`);
+			throw new Error(`Given handler is not registered for mod ${name}`);
 		}
 
 		handlers.splice(index, 1);

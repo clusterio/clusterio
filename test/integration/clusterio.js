@@ -6,6 +6,7 @@ const events = require("events");
 const phin = require("phin");
 
 const libBuildMod = require("@clusterio/lib/build_mod");
+const libData = require("@clusterio/lib/data");
 const libHash = require("@clusterio/lib/hash");
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
@@ -817,6 +818,70 @@ describe("Integration of Clusterio", function() {
 				}
 
 				assert(statusesNotSeen.size === 0, `Did not see the statuses ${[...statusesNotSeen]}`);
+			});
+		});
+
+		describe("mod-pack create", function() {
+			it("should create a mod-pack", async function() {
+				await execCtl("mod-pack create empty-pack 1.1");
+				let response = await libLink.messages.listModPacks.send(getControl());
+				assert(response.list.some(modPack => modPack.name === "empty-pack"), "created pack is not in the list");
+			});
+			it("should allow setting all fields", async function() {
+				await execCtl(
+					"mod-pack create full-pack 0.17 " +
+					"--description Description " +
+					"--mods empty_mod:1.0.0 " +
+					"--bool-setting startup MyBool true " +
+					"--int-setting runtime-global MyInt 1235 " +
+					"--double-setting runtime-global MyDouble 12.25 " +
+					"--string-setting runtime-per-user MyString a-string"
+				);
+				let response = await libLink.messages.listModPacks.send(getControl());
+				let modPack = response.list.find(entry => entry.name === "full-pack");
+				assert(modPack, "created mod pack not found");
+				let reference = new libData.ModPack();
+				reference.id = modPack.id;
+				reference.name = "full-pack";
+				reference.description = "Description";
+				reference.factorioVersion = "0.17";
+				reference.mods.set("empty_mod", { name: "empty_mod", version: "1.0.0" });
+				reference.settings["startup"].set("MyBool", { value: true });
+				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
+				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
+				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
+				assert.deepEqual(new libData.ModPack(modPack), reference);
+			});
+		});
+
+		describe("mod-pack list", function() {
+			it("runs", async function() {
+				await execCtl("mod-pack list");
+			});
+		});
+
+		describe("mod-pack show", function() {
+			it("runs", async function() {
+				await execCtl("mod-pack show empty-pack");
+			});
+		});
+
+		describe("mod-pack edit", function() {
+			it("runs", async function() {
+				await execCtl("mod-pack edit full-pack --factorio-version 1.2");
+				let response = await libLink.messages.listModPacks.send(getControl());
+				let modPack = response.list.find(entry => entry.name === "full-pack");
+				assert(modPack, "created mod pack not found");
+				assert.equal(modPack.factorio_version, "1.2");
+			});
+		});
+
+		describe("mod-pack delete", function() {
+			it("deletes the pack", async function() {
+				await execCtl("mod-pack delete full-pack");
+				let response = await libLink.messages.listModPacks.send(getControl());
+				let modPack = response.list.find(entry => entry.name === "full-pack");
+				assert(!modPack, "mod pack not deleted");
 			});
 		});
 

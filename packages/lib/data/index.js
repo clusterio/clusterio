@@ -5,8 +5,9 @@
  */
 "use strict";
 const ModInfo = require("./ModInfo");
+const ModPack = require("./ModPack");
 
 module.exports = {
 	ModInfo,
+	ModPack,
 };
-

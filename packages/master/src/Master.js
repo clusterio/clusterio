@@ -67,6 +67,12 @@ class Master {
 		this.instances = null;
 
 		/**
+		 * Mapping of mod pack id to mod pack
+		 * @type {Map<number, module:lib/data/ModPack>}
+		 */
+		this.modPacks = null;
+
+		/**
 		 * Mapping of mod names to mod infos
 		 * @type {Map<string, module:lib/data/ModInfo>}
 		 */
@@ -168,6 +174,7 @@ class Master {
 
 		this.slaves = await Master.loadSlaves(path.join(databaseDirectory, "slaves.json"));
 		this.instances = await Master.loadInstances(path.join(databaseDirectory, "instances.json"));
+		this.modPacks = await Master.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 		this.exportManifest = await Master.loadJsonObject(path.join(databaseDirectory, "export_manifest.json"));
@@ -295,6 +302,10 @@ class Master {
 			await Master.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
+		if (this.modPacks) {
+			await Master.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
+		}
+
 		if (this.userManager) {
 			await this.userManager.save(path.join(databaseDirectory, "users.json"));
 		}
@@ -369,6 +380,23 @@ class Master {
 		}
 
 		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
+	}
+
+	static async loadModPacks(filePath) {
+		let json;
+		try {
+			json = JSON.parse(await fs.readFile(filePath));
+		} catch (err) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+			return new Map();
+		}
+		return new Map(json.map(e => [e.id, new libData.ModPack(e)]));
+	}
+
+	static async saveModPacks(filePath, modPacks) {
+		await libFileOps.safeOutputFile(filePath, JSON.stringify([...modPacks.values()]));
 	}
 
 	static async loadModInfos(modsDirectory) {
@@ -560,6 +588,17 @@ class Master {
 
 			controlConnection.saveListUpdate(data);
 		}
+	}
+
+	modPackUpdated(modPack) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+			controlConnection.modPackUpdated(modPack);
+		}
+
+		libPlugin.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
 
 	modUpdated(mod) {

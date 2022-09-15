@@ -3,6 +3,7 @@ const libConfig = require("@clusterio/lib/config");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 const libPlugin = require("@clusterio/lib/plugin");
+const libErrors = require("@clusterio/lib/errors");
 const PlayerStats = require("@clusterio/lib/PlayerStats");
 
 const BaseConnection = require("./BaseConnection");
@@ -165,6 +166,10 @@ class SlaveConnection extends BaseConnection {
 
 	async saveListUpdateEventHandler(message) {
 		this._master.saveListUpdate(message.data);
+	}
+
+	async getModPackRequestHandler(message) {
+		throw new libErrors.RequestError("Not implemented");
 	}
 
 	async logMessageEventHandler(message) {

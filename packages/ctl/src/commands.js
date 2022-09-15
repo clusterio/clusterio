@@ -14,6 +14,7 @@ const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
 const libConfig = require("@clusterio/lib/config");
 const libCommand = require("@clusterio/lib/command");
+const libData = require("@clusterio/lib/data");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libHelpers = require("@clusterio/lib/helpers");
@@ -860,6 +861,207 @@ instanceCommands.add(new libCommand.Command({
 	},
 }));
 
+const modPackCommands = new libCommand.CommandTree({ name: "mod-pack", description: "Mod Pack" });
+modPackCommands.add(new libCommand.Command({
+	definition: ["show <mod-pack>", "Show details of mod pack", (yargs) => {
+		yargs.positional("mod-pack", { describe: "Mod pack to show", type: "string" });
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getModPack.send(control, {
+			id: await libCommand.resolveModPack(control, args.modPack),
+		});
+
+		for (let [field, value] of Object.entries(response.mod_pack)) {
+			if (field === "mods") {
+				print(`${field}:`);
+				for (let entry of value) {
+					print(`  ${entry.name} ${entry.version}${entry.hash ? ` (${entry.hash})` : ""}`);
+				}
+			} else if (field === "settings") {
+				print(`${field}:`);
+				for (let [scope, settings] of Object.entries(value)) {
+					print(`  ${scope}:`);
+					for (let [setting, settingValue] of Object.entries(settings)) {
+						print(`    ${setting}: ${JSON.stringify(settingValue.value)}`);
+					}
+				}
+
+			} else {
+				print(`${field}: ${value}`);
+			}
+		}
+	},
+}));
+
+modPackCommands.add(new libCommand.Command({
+	definition: [["list", "l"], "List mod packs in the cluster"],
+	handler: async function(args, control) {
+		let response = await libLink.messages.listModPacks.send(control);
+		let fields = ["id", "name", "factorio_version"];
+		for (let entry of response.list) {
+			for (let field of Object.keys(entry)) {
+				if (!fields.includes(field)) {
+					delete entry[field];
+				}
+			}
+		}
+		print(asTable(response.list));
+	},
+}));
+
+function setModPackSettings(modPack, args) {
+	function doSettings(settings, cast) {
+		for (let i = 0; i + 2 < settings.length; i += 3) {
+			const [scope, name, value] = settings.slice(i, i + 3);
+			if (!["startup", "runtime-global", "runtime-per-user"].includes(scope)) {
+				throw new libErrors.CommandError(
+					`Setting scope must be one of startup, runtime-gloabl, or runtime-per-user, not ${scope}`
+				);
+			}
+			modPack.settings[scope].set(name, { value: cast(value) });
+		}
+	}
+
+	doSettings(args.boolSetting || [], value => {
+		if (!["true", "false"].includes(value)) {
+			throw new libErrors.CommandError(`boolean value must be one of true or false, not ${value}`);
+		}
+		return value === "true";
+	});
+	doSettings(args.intSetting || [], value => {
+		// eslint-disable-next-line radix
+		let number = Number.parseInt(value);
+		if (isNaN(number)) {
+			throw new libErrors.CommandError(`int value must be an integer, not ${value}`);
+		}
+		return number;
+	});
+	doSettings(args.doubleSetting || [], value => {
+		let number = Number.parseFloat(value);
+		if (isNaN(number)) {
+			throw new libErrors.CommandError(`double value must be a number, not ${value}`);
+		}
+		return number;
+	});
+	doSettings(args.stringSetting || [], value => value);
+}
+
+function setModPackMods(modPack, mods) {
+	for (let mod of mods || []) {
+		const [name, version, sha1] = mod.split(":");
+		if (!version) {
+			throw new libErrors.CommandError("Added mod must be formatted as name:version or name:version:sha1");
+		}
+		if (!/^\d+\.\d+\.\d+$/.test(version)) {
+			throw new libErrors.CommandError("version must match the format digit.digit.digit");
+		}
+		if (sha1 && !/^[0-9a-f]{40}$/.test(sha1)) {
+			throw new libErrors.CommandError("sha1 must be a 40 digit lower case hex string");
+		}
+		modPack.mods.set(name, { name, version, hash: sha1 ? `sha1:${sha1}` : undefined });
+	}
+}
+
+modPackCommands.add(new libCommand.Command({
+	definition: ["create <name> <factorio-version>", "Create mod-pack", (yargs) => {
+		yargs.positional("name", { describe: "Name of mod pack to create", type: "string" });
+		yargs.positional("factorio-version", { describe: "Version of factorio the mod pack is for", type: "string" });
+		yargs.options({
+			"description": { describe: "Description for mod pack", type: "string" },
+			"mods": { describe: "Mods in the form of name:version[:sha1]", array: true, type: "string" },
+			"bool-setting": { describe: "Set boolean setting", array: true, nargs: 3, type: "string" },
+			"int-setting": { describe: "Set int setting", array: true, nargs: 3, type: "string" },
+			"double-setting": { describe: "Set double setting", array: true, nargs: 3, type: "string" },
+			"string-setting": { describe: "Set string setting", array: true, nargs: 3, type: "string" },
+		});
+	}],
+	handler: async function(args, control) {
+		const modPack = new libData.ModPack();
+		modPack.name = args.name;
+		if (args.description) { modPack.description = args.description; }
+		if (args.factorioVersion) {
+			if (!/^\d+\.\d+(\.\d+)?$/.test(args.factorioVersion)) {
+				throw new libErrors.CommandError("factorio-version must match the format digit.digit[.digit]");
+			}
+			modPack.factorioVersion = args.factorioVersion;
+		}
+		setModPackMods(modPack, args.mods);
+		setModPackSettings(modPack, args);
+		await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+		print(`Created mod pack ${modPack.name} (${modPack.id})`);
+	},
+}));
+
+modPackCommands.add(new libCommand.Command({
+	definition: ["edit <mod-pack>", "Edit mod-pack", (yargs) => {
+		yargs.positional("mod-pack", { describe: "Mod pack to remove from", type: "string" });
+		yargs.options({
+			"name": { describe: "New name for mod pack", type: "string" },
+			"description": { describe: "New description for mod pack", type: "string" },
+			"factorio-version": { describe: "Set version of factorio the mod pack is for", type: "string" },
+			"add-mods": { describe: "Mods in the form of name:version[:sha1] to add", array: true, type: "string" },
+			"remove-mods": { describe: "Name of mods to remove", array: true, type: "string" },
+			"bool-setting": { describe: "Set boolean setting", array: true, nargs: 3, type: "string" },
+			"int-setting": { describe: "Set int setting", array: true, nargs: 3, type: "string" },
+			"double-setting": { describe: "Set double setting", array: true, nargs: 3, type: "string" },
+			"string-setting": { describe: "Set string setting", array: true, nargs: 3, type: "string" },
+			"remove-setting": { describe: "Remove a setting", array: true, nargs: 2, type: "string" },
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.getModPack.send(control, {
+			id: await libCommand.resolveModPack(control, args.modPack),
+		});
+		let modPack = new libData.ModPack(response.mod_pack);
+
+		if (args.name) { modPack.name = args.name; }
+		if (args.description) { modPack.description = args.description; }
+		if (args.factorioVersion) {
+			if (!/^\d+\.\d+(\.\d+)?$/.test(args.factorioVersion)) {
+				throw new libErrors.CommandError("factorio-version must match the format digit.digit[.digit]");
+			}
+			modPack.factorioVersion = args.factorioVersion;
+		}
+
+		setModPackMods(modPack, args.addMods);
+		for (let name of args.removeMods || []) {
+			if (modPack.mods.has(name)) {
+				modPack.mods.delete(name);
+			} else {
+				logger.warn(`Mod ${name} did not exist on ${modPack.name}`);
+			}
+		}
+
+		setModPackSettings(modPack, args);
+		if (args.removeSetting) {
+			for (let i = 0; i + 1 < args.removeSetting.length; i += 2) {
+				const [scope, name] = settings.slice(i, i + 2);
+				if (!["startup", "runtime-global", "runtime-per-user"].includes(scope)) {
+					throw new libErrors.CommandError(
+						`Setting scope must be one of startup, runtime-gloabl, or runtime-per-user, not ${scope}`
+					);
+				}
+				if (modPack.settings[scope].has(name)) {
+					modPack.settings[scope].delete(name);
+				} else {
+					logger.warn(`Mod setting ${scope} ${name} did not exist on ${modPack.name}`);
+				}
+			}
+		}
+		await libLink.messages.updateModPack.send(control, { mod_pack: modPack.toJSON() });
+	},
+}));
+
+modPackCommands.add(new libCommand.Command({
+	definition: ["delete <mod-pack>", "Delete mod-pack", (yargs) => {
+		yargs.positional("mod-pack", { describe: "Mod pack to delete", type: "string" });
+	}],
+	handler: async function(args, control) {
+		const id = await libCommand.resolveModPack(control, args.modPack);
+		await libLink.messages.deleteModPack.send(control, { id });
+	},
+}));
+
 const modCommands = new libCommand.CommandTree({ name: "mod", description: "Manage uploaded mods" });
 modCommands.add(new libCommand.Command({
 	definition: ["show <name> <mod-version>", "Show details for a mod stored in the cluster", (yargs) => {
@@ -1339,6 +1541,7 @@ async function registerCommands(controlPlugins, yargs) {
 	rootCommands.add(masterCommands);
 	rootCommands.add(slaveCommands);
 	rootCommands.add(instanceCommands);
+	rootCommands.add(modPackCommands);
 	rootCommands.add(modCommands);
 	rootCommands.add(permissionCommands);
 	rootCommands.add(roleCommands);

@@ -29,6 +29,7 @@ class TestControl extends libLink.Link {
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
 		this.modUpdates = [];
+		this.modPackUpdates = [];
 		this.userUpdates = [];
 
 		this.connector.on("connect", () => {
@@ -73,6 +74,10 @@ class TestControl extends libLink.Link {
 
 	async modUpdateEventHandler(message) {
 		this.modUpdates.push(message.data.mod);
+	}
+
+	async modPackUpdateEventHandler(message) {
+		this.modPackUpdates.push(message.data.mod_pack);
 	}
 
 	async userUpdateEventHandler(message) {

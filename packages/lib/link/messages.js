@@ -710,6 +710,71 @@ messages.sendRcon = new Request({
 	},
 });
 
+messages.getModPack = new Request({
+	type: "get_mod_pack",
+	links: ["control-master", "instance-slave", "slave-master"],
+	permission: "core.mod_pack.get",
+	forwardTo: "master",
+	requestProperties: {
+		"id": { type: "integer" },
+	},
+	responseProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.listModPacks = new Request({
+	type: "list_mod_packs",
+	links: ["control-master"],
+	permission: "core.mod_pack.list",
+	responseProperties: {
+		"list": {
+			type: "array",
+			items: libData.ModPack.jsonSchema,
+		},
+	},
+});
+
+messages.createModPack = new Request({
+	type: "create_mod_pack",
+	links: ["control-master"],
+	permission: "core.mod_pack.create",
+	requestProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.updateModPack = new Request({
+	type: "update_mod_pack",
+	links: ["control-master"],
+	permission: "core.mod_pack.update",
+	requestProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.deleteModPack = new Request({
+	type: "delete_mod_pack",
+	links: ["control-master"],
+	permission: "core.mod_pack.delete",
+	requestProperties: {
+		"id": { type: "integer" },
+	},
+});
+
+messages.setModPackSubscriptions = new Request({
+	type: "set_mod_pack_subscriptions",
+	links: ["control-master"],
+	permission: "core.mod_pack.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"mod_pack_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
+	},
+});
+
 messages.getMod = new Request({
 	type: "get_mod",
 	links: ["control-master"],
@@ -1322,6 +1387,14 @@ messages.saveListUpdate = new Event({
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"list": saveList,
+	},
+});
+
+messages.modPackUpdate = new Event({
+	type: "mod_pack_update",
+	links: ["master-control"],
+	eventProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
 	},
 });
 
