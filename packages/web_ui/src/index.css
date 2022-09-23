@@ -73,6 +73,7 @@ body {
 
 .section-header {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	margin-top: 16px;
 	margin-bottom: 8px;
