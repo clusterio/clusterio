@@ -105,10 +105,10 @@ function escapeRegExp(text) {
  */
 function formatBytes(bytes) {
 	if (bytes === 0) {
-		return "0 Bytes";
+		return "0\u{A0}Bytes"; // No-break space
 	}
 
-	let units = [" Bytes", " kB", " MB", " GB", " TB"];
+	let units = ["\u{A0}Bytes", "\u{A0}kB", "\u{A0}MB", "\u{A0}GB", "\u{A0}TB"];
 	let factor = 1000;
 	let power = Math.min(Math.floor(Math.log(bytes) / Math.log(factor)), units.length);
 	return (power > 0 ? (bytes / factor ** power).toFixed(2) : bytes) + units[power];
