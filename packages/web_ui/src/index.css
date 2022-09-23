@@ -27,7 +27,7 @@ body {
 }
 
 .site-layout {
-	overflow-x: hidden;
+	overflow-x: clip;
 }
 
 .site-layout-content-container {
