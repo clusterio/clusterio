@@ -10,8 +10,8 @@ import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import ModDetails from "./ModDetails";
 
-const { useBreakpoint } = Grid;
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 
@@ -19,7 +19,6 @@ export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [modList] = useModList();
-	let screens = useBreakpoint();
 
 	function actions(mod) {
 		return <Space>
@@ -117,43 +116,7 @@ export default function ModsPage() {
 				},
 			]}
 			expandable={{
-				expandedRowRender: mod => <>
-					<Descriptions className="borderless" bordered size="small" column={{ xs: 1, sm: 1, md: 1, lg: 2 }}>
-						{!screens.lg
-							&& <Descriptions.Item label="Action">{actions(mod)}</Descriptions.Item>
-						}
-						<Descriptions.Item label="Title">{mod.title}</Descriptions.Item>
-						<Descriptions.Item label="Version">{mod.version}</Descriptions.Item>
-						{mod.description
-							&& <Descriptions.Item label="Description" span={2}>{mod.description}</Descriptions.Item>
-						}
-						<Descriptions.Item label="Author" span={2}>{mod.author}</Descriptions.Item>
-						<Descriptions.Item label="Mod&nbsp;Portal" span={2}>
-							<Typography.Link href={`https://mods.factorio.com/mod/${mod.name}`}>
-								{`https://mods.factorio.com/mod/${mod.name}`}
-							</Typography.Link>
-						</Descriptions.Item>
-						{mod.contact
-							&& <Descriptions.Item label="Contact" span={2}>{mod.contact}</Descriptions.Item>
-						}
-						{mod.homepage
-							&& <Descriptions.Item label="Homepage" span={2}>{mod.homepage}</Descriptions.Item>
-						}
-						<Descriptions.Item label="Internal&nbsp;Name">{mod.name}</Descriptions.Item>
-						<Descriptions.Item label="Factorio&nbsp;Version">{mod.factorioVersion}</Descriptions.Item>
-						<Descriptions.Item label="Filename">{mod.filename}</Descriptions.Item>
-						<Descriptions.Item label="Size">{libHelpers.formatBytes(mod.size)}</Descriptions.Item>
-						<Descriptions.Item label="Hash" span={2}>{mod.hash}</Descriptions.Item>
-						{mod.dependencies.length
-							&& <Descriptions.Item label="Dependencies" span={2}>
-								{mod.dependencies
-									.filter(e => !e.startsWith("(?)"))
-									.map((e, i) => <Fragment key={i}>{e}<br/></Fragment>)
-								}
-							</Descriptions.Item>
-						}
-					</Descriptions>
-				</>,
+				expandedRowRender: mod => <ModDetails mod={mod} actions={actions} />,
 				expandedRowClassName: () => "no-expanded-padding",
 			}}
 			dataSource={modList}
