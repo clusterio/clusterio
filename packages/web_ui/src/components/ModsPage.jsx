@@ -1,24 +1,138 @@
-import React, { Fragment, useContext } from "react";
-import { Button, Descriptions, Grid, PageHeader, Popconfirm, Space, Table, Typography, Upload } from "antd";
+import React, { Fragment, useState, useContext } from "react";
+import { useHistory } from "react-router-dom";
+import { Button, Form, Input, Modal, PageHeader, Popconfirm, Space, Table, Typography, Upload } from "antd";
+import ImportOutlined from "@ant-design/icons/ImportOutlined";
+import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
-import { libHelpers, libLink } from "@clusterio/lib";
+import { libData, libHelpers, libLink, libLogging } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useModList } from "../model/mods";
+import { useModPackList } from "../model/mod_pack";
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
+const { logger } = libLogging;
+
+
+function ImportModPackButton() {
+	let control = useContext(ControlContext);
+	let history = useHistory();
+	let [visible, setVisible] = useState(false);
+	let [form] = Form.useForm();
+	function close() {
+		setVisible(false);
+	}
+	return <>
+		<Button icon={<ImportOutlined />} onClick={() => { setVisible(true); }}>Import string</Button>
+		<Modal
+			title="Import Mod Pack String"
+			visible={visible}
+			okText="Import"
+			cancelText="Cancel"
+			onCancel={() => { setVisible(false); }}
+			onOk={() => {
+				(async () => {
+					let values;
+					try {
+						values = await form.validateFields();
+					} catch {
+						return; // Validation failed
+					}
+					const modPack = libData.ModPack.fromModPackString(values.string);
+					await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+					history.push(`/mods/mod-packs/${modPack.id}/view`);
+				})().catch(notifyErrorHandler("Error creating mod pack"));
+			}}
+		>
+			<Form form={form} layout="vertical">
+				<Form.Item
+					name="string"
+					rules={[
+						{ required: true },
+						{ async validator(rule, value) {
+							if (value) {
+								libData.ModPack.fromModPackString(value);
+							}
+						}},
+					]}
+				>
+					<Input.TextArea autoSize={{ minRows: 6, maxRows: 6 }} />
+				</Form.Item>
+			</Form>
+		</Modal>
+	</>;
+}
+
+function CreateModPackButton() {
+	let control = useContext(ControlContext);
+	let history = useHistory();
+	let [visible, setVisible] = useState(false);
+	let [form] = Form.useForm();
+	function close() {
+		setVisible(false);
+	}
+	return <>
+		<Button type="primary" icon={<PlusOutlined />} onClick={() => { setVisible(true); }}>Create</Button>
+		<Modal
+			title="Create Mod Pack"
+			visible={visible}
+			okText="Create"
+			cancelText="Cancel"
+			onCancel={() => { setVisible(false); }}
+			onOk={() => {
+				(async () => {
+					let values;
+					try {
+						values = await form.validateFields();
+					} catch {
+						return; // Validation failed
+					}
+					const modPack = new libData.ModPack();
+					modPack.name = values.name;
+					modPack.factorioVersion = values.factorioVersion;
+					if (values.description) { modPack.description = values.description; }
+					await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+					history.push(`/mods/mod-packs/${modPack.id}/view`);
+				})().catch(notifyErrorHandler("Error creating mod pack"));
+			}}
+		>
+			<Form form={form} layout="vertical" requiredMark="optional">
+				<Form.Item name="name" label="Name" rules={[{ required: true }]}>
+					<Input />
+				</Form.Item>
+				<Form.Item name="description" label="Description">
+					<Input.TextArea autoSize={{ minRows: 2, maxRows: 6 }} />
+				</Form.Item>
+				<Form.Item
+					name="factorioVersion"
+					label="Factorio Version"
+					rules={[{
+						required: true,
+						pattern: /^\d+\.\d+(\.\d+)?$/,
+						message: "Must be an a.b or a.b.c version number.",
+					}]}
+				>
+					<Input />
+				</Form.Item>
+			</Form>
+		</Modal>
+	</>;
+}
 
 export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
+	let history = useHistory();
 	let [modList] = useModList();
+	let [modPackList] = useModPackList();
 
 	function actions(mod) {
 		return <Space>
@@ -73,8 +187,43 @@ export default function ModsPage() {
 		<PageHeader
 			className="site-page-header"
 			title="Mods"
-			extra={uploadButton}
 		/>
+		<SectionHeader
+			title="Mod Packs"
+			extra={<Space>
+				{account.hasPermission("core.mod-pack.create") && <ImportModPackButton />}
+				{account.hasPermission("core.mod-pack.create") && <CreateModPackButton />}
+			</Space>}
+		/>
+		<Table
+			columns={[
+				{
+					title: "Name",
+					dataIndex: "name",
+					defaultSortOrder: "ascend",
+					sorter: (a, b) => strcmp(a.name, b.name),
+				},
+				{
+					title: "Factorio Version",
+					dataIndex: "factorioVersion",
+					sorter: (a, b) => a.integerFactorioVersion - b.integerFactorioVersion,
+				},
+				{
+					title: "Mods",
+					key: "roles",
+					render: modPack => modPack.mods.size,
+				},
+			]}
+			dataSource={modPackList}
+			pagination={false}
+			rowKey={modPack => modPack.id}
+			onRow={(modPack, rowIndex) => ({
+				onClick: event => {
+					history.push(`/mods/mod-packs/${modPack.id}/view`);
+				},
+			})}
+		/>
+		<SectionHeader title="Stored Mods" extra={uploadButton} />
 		<Table
 			columns={[
 				{

@@ -49,7 +49,13 @@ export default function SiteLayout(props) {
 	let menuItems = [];
 	let menuGroups = new Map();
 	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
-		if (!sidebarName || permission && !account.hasPermission(permission)) {
+		if (
+			!sidebarName || permission && (
+				typeof permission === "function"
+					? !permission(account)
+					: !account.hasPermission(permission)
+			)
+		) {
 			continue;
 		}
 		if (sidebarGroup) {

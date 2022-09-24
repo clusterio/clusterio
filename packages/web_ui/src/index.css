@@ -296,6 +296,10 @@ body {
 	width: 32px;
 }
 
+.code > code {
+	display: block;
+}
+
 /*
  * Render codeblock with options for syntax highlighting
  * https://user-images.githubusercontent.com/6792749/152066701-21420461-710b-4fae-a80a-89ef90a0b18f.png
@@ -321,6 +325,32 @@ body {
 	border: none;
 }
 
-tr.no-expanded-padding > td {
+tr.no-expanded-padding > td,
+.ant-table.ant-table-small .ant-table-tbody > tr.no-expanded-padding > td {
 	padding: 0;
+}
+
+.ant-form-item.changed,
+input.ant-input.changed,
+textarea.ant-input.changed,
+tr.ant-table-row.changed {
+	background: #2a1912;
+}
+
+.ant-table-tbody > tr.ant-table-row.changed:hover > td,
+.ant-table-tbody > tr.changed > td.ant-table-cell-row-hover
+tr.ant-table-row.deleted {
+	background: #3a2922;
+}
+
+tr.ant-table-row.deleted {
+	color: rgba(255, 255, 255, 0.45);
+	background: #340c08;
+	text-decoration: line-through;
+}
+
+.ant-table-tbody > tr.ant-table-row.deleted:hover > td,
+.ant-table-tbody > tr.deleted > td.ant-table-cell-row-hover
+tr.ant-table-row.deleted {
+	background: #441c18;
 }

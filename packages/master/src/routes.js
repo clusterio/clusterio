@@ -622,6 +622,7 @@ const webRoutes = [
 	"/instances",
 	"/instances/:id/view",
 	"/mods",
+	"/mods/mod-packs/:id/view",
 	"/users",
 	"/users/:id/view",
 	"/roles",
