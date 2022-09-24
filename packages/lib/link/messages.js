@@ -800,6 +800,42 @@ messages.listMods = new Request({
 	},
 });
 
+messages.searchMods = new Request({
+	type: "search_mods",
+	links: ["control-master"],
+	permission: "core.mod.search",
+	requestRequired: ["query", "factorio_version", "page"],
+	requestProperties: {
+		"query": { type: "string" },
+		"factorio_version": { type: "string" },
+		"page_size": { type: "integer" },
+		"page": { type: "integer" },
+		"sort": { type: "string" },
+		"sort_order": { type: "string" },
+	},
+	responseProperties: {
+		"query_issues": {
+			type: "array",
+			items: { type: "string" },
+		},
+		"page_count": { type: "integer" },
+		"result_count": { type: "integer" },
+		"results": {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					"name": { type: "string" },
+					"versions": {
+						type: "array",
+						items: libData.ModInfo.jsonSchema,
+					},
+				},
+			},
+		},
+	},
+});
+
 messages.setModSubscriptions = new Request({
 	type: "set_mod_subscriptions",
 	links: ["control-master"],

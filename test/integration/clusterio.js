@@ -929,6 +929,13 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("mod search", function() {
+			it("searches the list of mods", async function() {
+				let result = await execCtl("mod search 1.1 name:empty_mod");
+				assert(result.stdout.indexOf("empty_mod") !== -1, "empty_mod is not in the result");
+			});
+		});
+
 		describe("mod download", function() {
 			it("downloads a mod", async function() {
 				await fs.unlink(path.join("temp", "test", "empty_mod_1.0.0.zip"));

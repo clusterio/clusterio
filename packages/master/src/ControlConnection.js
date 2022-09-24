@@ -18,6 +18,8 @@ const libUsers = require("@clusterio/lib/users");
 const BaseConnection = require("./BaseConnection");
 const routes = require("./routes");
 
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+
 const lastQueryLogTime = new libPrometheus.Gauge(
 	"clusterio_master_last_query_log_duration_seconds",
 	"Time in seconds the last log query took to execute."
@@ -541,6 +543,94 @@ class ControlConnection extends BaseConnection {
 
 	async listModsRequestHandler(message) {
 		return { list: [...this._master.mods.values()].map(mod => mod.toJSON()) };
+	}
+
+	static termsMatchesMod(terms, mod) {
+		for (let term of terms) {
+			if (term.type === "word") {
+				if (!libHelpers.wordMatches(term,
+					mod.name, mod.version, mod.title, mod.author, mod.contact,
+					mod.homepage, mod.description, mod.filename
+				)) {
+					return false;
+				}
+			} else if (term.type === "attribute") {
+				if (!libHelpers.wordMatches(term.value, mod[term.name])) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	async searchModsRequestHandler(message) {
+		let query = libHelpers.parseSearchString(message.data.query, {
+			name: "word",
+			// version
+			title: "word",
+			author: "word",
+			contact: "word",
+			homepage: "word",
+			description: "word",
+			// factorioVersion
+			// dependencies
+			filename: "word",
+			// size
+			hash: "word",
+		});
+		let factorioVersion = message.data.factorio_version;
+
+		let results = new Map();
+		for (let mod of this._master.mods.values()) {
+			if (
+				mod.factorioVersion !== factorioVersion
+				|| !ControlConnection.termsMatchesMod(query.terms, mod)
+			) {
+				continue;
+			}
+			let result = results.get(mod.name);
+			if (!result) {
+				result = {
+					name: mod.name,
+					versions: [],
+				};
+				results.set(mod.name, result);
+			}
+			result.versions.push(mod);
+		}
+		for (let result of results.values()) {
+			result.versions.sort((a, b) => b.integerVersion - a.integerVersion);
+			result.versions.map(e => e.toJSON());
+		}
+		let resultList = [...results.values()];
+
+		const sort = message.data.sort;
+		if (sort) {
+			const sorters = {
+				name: (a, b) => strcmp(a.versions[0].name, b.versions[0].name),
+				title: (a, b) => strcmp(a.versions[0].title, b.versions[0].title),
+				author: (a, b) => strcmp(a.versions[0].author, b.versions[0].author),
+			};
+			if (!Object.prototype.hasOwnProperty.call(sorters, sort)) {
+				throw new libErrors.RequestError(`Invalid value for sort: ${sort}`);
+			}
+			resultList.sort(sorters[sort]);
+			let order = message.data.sort_order;
+			if (order === "desc") {
+				resultList.reverse();
+			}
+		}
+
+		const page = message.data.page;
+		const pageSize = message.data.page_size || 10;
+		resultList = resultList.slice((page - 1) * pageSize, page * pageSize);
+
+		return {
+			query_issues: query.issues,
+			page_count: Math.ceil(results.size / pageSize),
+			result_count: results.size,
+			results: resultList,
+		};
 	}
 
 	async setModSubscriptionsRequestHandler(message) {

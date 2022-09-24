@@ -1087,7 +1087,7 @@ modCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List mods stored in the cluster", (yargs) => {
 		yargs.options({
 			"fields": {
-				describe: "Fields",
+				describe: "Fields to show, supports 'all'.",
 				array: true,
 				type: "string",
 				default: ["name", "version", "title", "factorio_version"],
@@ -1106,6 +1106,65 @@ modCommands.add(new libCommand.Command({
 			}
 		}
 		print(asTable(response.list));
+	},
+}));
+
+modCommands.add(new libCommand.Command({
+	definition: ["search <factorio-version> [query]", "Search mods stored in the cluster", (yargs) => {
+		yargs.positional("factorio-version", { describe: "Major version of Factorio to search for", type: "string" });
+		yargs.positional("query", { describe: "Search query", type: "string", default: "" });
+		yargs.options({
+			"page": {
+				describe: "Result page to show",
+				type: "number",
+				default: 1,
+			},
+			"page-size": {
+				describe: "Results per page to show",
+				type: "number",
+				default: 10,
+			},
+			"sort": {
+				describe: "sort results by given field",
+				type: "string",
+			},
+			"sort-order": {
+				describe: "order to sort results in (asc/desc)",
+				type: "string",
+				default: "asc",
+			},
+			"fields": {
+				describe: "Fields to show, supports 'all'.",
+				array: true,
+				type: "string",
+				default: ["name", "version", "title", "factorio_version"],
+			},
+		});
+	}],
+	handler: async function(args, control) {
+		let response = await libLink.messages.searchMods.send(control, {
+			"query": args.query,
+			"factorio_version": args.factorioVersion,
+			"page_size": args.pageSize,
+			"page": args.page,
+			"sort": args.sort,
+			"sort_order": args.sortOrder,
+		});
+		let results = response.results.flatMap(result => result.versions);
+		if (!args.fields.includes("all")) {
+			for (let entry of results) {
+				for (let field of Object.keys(entry)) {
+					if (!args.fields.includes(field)) {
+						delete entry[field];
+					}
+				}
+			}
+		}
+		for (let issue of response.query_issues) {
+			print(issue);
+		}
+		print(`page ${args.page} of ${response.page_count} (${response.result_count} results)`);
+		print(asTable(results));
 	},
 }));
 

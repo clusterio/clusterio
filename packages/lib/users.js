@@ -553,7 +553,13 @@ definePermission({
 definePermission({
 	name: "core.mod.list",
 	title: "List mods",
-	description: "Get the full list of mods stored on the master",
+	description: "Get the full list of mods stored on the master.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.search",
+	title: "Search mods",
+	description: "Search through the list of mods stored on the master.",
 	grantByDefault: true,
 });
 definePermission({
