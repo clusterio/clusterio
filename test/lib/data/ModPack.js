@@ -16,7 +16,7 @@ describe("lib/data/ModPack", function() {
 					throw validate.errors;
 				}
 				assert.deepEqual(new ModPack(json), pack);
-				const packStringed = ModPack.fromModPackString(pack.toModPackString(true));
+				const packStringed = ModPack.fromModPackString(pack.toModPackString());
 				packStringed.id = pack.id;
 				assert.deepEqual(packStringed, pack);
 			}

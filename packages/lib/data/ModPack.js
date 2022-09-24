@@ -170,16 +170,9 @@ class ModPack {
 		return json;
 	}
 
-	toModPackString(includeHash = false) {
+	toModPackString() {
 		const json = this.toJSON();
 		delete json.id;
-		if (json.mods && !includeHash) {
-			json.mods = json.mods.map(m => {
-				m = { ...m };
-				delete m.sha1;
-				return m;
-			});
-		}
 
 		// eslint-disable-next-line node/no-sync
 		let buf = zlib.deflateSync(JSON.stringify(json));
