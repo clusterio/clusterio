@@ -34,7 +34,7 @@ describe("lib/data/ModInfo", function() {
 			check(new ModInfo({ dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"] }));
 			check(new ModInfo({ filename: "MyMod_1.0.0.zip" }));
 			check(new ModInfo({ size: 1024 }));
-			check(new ModInfo({ hash: "sha5:verified-as-MyMod" }));
+			check(new ModInfo({ sha1: "verified-as-MyMod" }));
 			check(new ModInfo({ is_deleted: true }));
 
 			// All at once
@@ -50,7 +50,7 @@ describe("lib/data/ModInfo", function() {
 				dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"],
 				filename: "MyMod_1.0.0.zip",
 				size: 1024,
-				hash: "sha5:verified-as-MyMod",
+				sha1: "verified-as-MyMod",
 				is_deleted: true,
 			}));
 		});
@@ -93,7 +93,7 @@ describe("lib/data/ModInfo", function() {
 					dependencies: [],
 					filename: "empty_mod_1.0.0.zip",
 					size: stat.size,
-					hash: `sha1:${hash}`,
+					sha1: hash,
 				})
 			);
 		});

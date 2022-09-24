@@ -917,7 +917,7 @@ describe("Integration of Clusterio", function() {
 					"dependencies:\n" +
 					"filename: empty_mod_1.0.0.zip\n" +
 					`size: ${stat.size}\n` +
-					`hash: sha1:${hash}\n`,
+					`sha1: ${hash}\n`,
 				);
 			});
 		});

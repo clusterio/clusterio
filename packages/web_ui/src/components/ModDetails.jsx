@@ -33,7 +33,7 @@ export default function ModDetails(props) {
 		{mod.size !== undefined
 			&& <Descriptions.Item label="Size">{libHelpers.formatBytes(mod.size)}</Descriptions.Item>
 		}
-		{mod.hash && <Descriptions.Item label="Hash" span={2}>{mod.hash}</Descriptions.Item>}
+		{mod.sha1 && <Descriptions.Item label="SHA1" span={2}>{mod.sha1}</Descriptions.Item>}
 		{mod.dependencies && mod.dependencies.length
 			&& <Descriptions.Item label="Dependencies" span={2}>
 				{mod.dependencies

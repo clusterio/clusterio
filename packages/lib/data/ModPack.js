@@ -28,7 +28,7 @@ const ModSettingsJsonSchema = {
  * @typedef {object} module:lib/data/ModPack~ModRecord
  * @property {string} name - name of the mod.
  * @property {string} version - version of the mod.
- * @property {string} hash - hash of the zip file.
+ * @property {string} sha1 - SHA1 hash of the zip file.
  */
 const ModRecordJsonSchema = {
 	type: "object",
@@ -37,7 +37,7 @@ const ModRecordJsonSchema = {
 	properties: {
 		"name": { type: "string" },
 		"version": { type: "string" },
-		"hash": { type: "string" },
+		"sha1": { type: "string" },
 	},
 };
 
@@ -176,7 +176,7 @@ class ModPack {
 		if (json.mods && !includeHash) {
 			json.mods = json.mods.map(m => {
 				m = { ...m };
-				delete m.hash;
+				delete m.sha1;
 				return m;
 			});
 		}

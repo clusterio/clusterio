@@ -95,7 +95,7 @@ function SearchModsTable(props) {
 						props.onChange({
 							type: "mods.set",
 							name: mod.name,
-							value: { name: mod.name, version: mod.version, hash: mod.hash },
+							value: { name: mod.name, version: mod.version, sha1: mod.sha1 },
 						});
 					}}
 				>{props.modPack.mods.has(mod.name) ? "change" : "add"}</Typography.Link>
@@ -107,7 +107,7 @@ function SearchModsTable(props) {
 						props.onChange({
 							type: "mods.delete",
 							name: mod.name,
-							value: { name: mod.name, version: mod.version, hash: mod.hash },
+							value: { name: mod.name, version: mod.version, sha1: mod.sha1 },
 						});
 					}}
 				>remove</Typography.Link>

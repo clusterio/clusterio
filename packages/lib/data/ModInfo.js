@@ -111,10 +111,10 @@ class ModInfo {
 	size = 0;
 
 	/**
-	 * Hash of this mod
+	 * SHA1 hash of this mod
 	 * @type {string=}
 	 */
-	hash;
+	sha1;
 
 	/**
 	 * True if this mod has been deleted
@@ -147,7 +147,7 @@ class ModInfo {
 			...this.infoJsonSchema.properties,
 			"filename": { type: "string" },
 			"size": { type: "integer" },
-			"hash": { type: "string" },
+			"sha1": { type: "string" },
 			"is_deleted": { type: "boolean" },
 		},
 	};
@@ -169,7 +169,7 @@ class ModInfo {
 		// Additional data
 		if (json.filename) { this.filename = json.filename; }
 		if (json.size) { this.size = json.size; }
-		if (json.hash) { this.hash = json.hash; }
+		if (json.sha1) { this.sha1 = json.sha1; }
 		if (json.is_deleted) { this.isDeleted = json.is_deleted; }
 	}
 
@@ -189,7 +189,7 @@ class ModInfo {
 		}
 		if (this.filename) { json.filename = this.filename; }
 		if (this.size) { json.size = this.size; }
-		if (this.hash) { json.hash = this.hash; }
+		if (this.sha1) { json.sha1 = this.sha1; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
@@ -215,13 +215,12 @@ class ModInfo {
 			throw new Error("Mod's info.json is not valid");
 		}
 
-		let hash = `sha1:${await libHash.hashFile(modPath)}`;
 		return new this({
 			...modInfo,
 
 			filename: path.basename(modPath),
 			size: (await fs.stat(modPath)).size,
-			hash,
+			sha1: await libHash.hashFile(modPath),
 			is_deleted: false,
 		});
 	}

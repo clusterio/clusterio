@@ -576,7 +576,7 @@ class ControlConnection extends BaseConnection {
 			// dependencies
 			filename: "word",
 			// size
-			hash: "word",
+			sha1: "word",
 		});
 		let factorioVersion = message.data.factorio_version;
 

@@ -875,7 +875,7 @@ modPackCommands.add(new libCommand.Command({
 			if (field === "mods") {
 				print(`${field}:`);
 				for (let entry of value) {
-					print(`  ${entry.name} ${entry.version}${entry.hash ? ` (${entry.hash})` : ""}`);
+					print(`  ${entry.name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
 				}
 			} else if (field === "settings") {
 				print(`${field}:`);
@@ -958,7 +958,7 @@ function setModPackMods(modPack, mods) {
 		if (sha1 && !/^[0-9a-f]{40}$/.test(sha1)) {
 			throw new libErrors.CommandError("sha1 must be a 40 digit lower case hex string");
 		}
-		modPack.mods.set(name, { name, version, hash: sha1 ? `sha1:${sha1}` : undefined });
+		modPack.mods.set(name, { name, version, sha1 });
 	}
 }
 
