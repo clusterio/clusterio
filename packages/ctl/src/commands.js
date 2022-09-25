@@ -1204,7 +1204,8 @@ modCommands.add(new libCommand.Command({
 		}
 
 		if (result.body.mods && result.body.mods.length) {
-			logger.info(`Successfully uploaded ${result.body.mods[0].filename}`);
+			const mod = new libData.ModInfo(result.body.mods[0]);
+			logger.info(`Successfully uploaded ${mod.filename}`);
 		}
 
 		if ((result.body.errors || []).length || (result.body.request_errors || []).length) {

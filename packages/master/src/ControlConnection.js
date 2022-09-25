@@ -531,10 +531,10 @@ class ControlConnection extends BaseConnection {
 
 	async getModRequestHandler(message) {
 		let { name, version } = message.data;
-		let key = `${name}_${version}`;
-		let mod = this._master.mods.get(key);
+		let filename = `${name}_${version}.zip`;
+		let mod = this._master.mods.get(filename);
 		if (!mod) {
-			throw new libErrors.RequestError(`Mod ${key} does not exist`);
+			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
 		}
 		return {
 			mod: mod.toJSON(),
@@ -639,10 +639,10 @@ class ControlConnection extends BaseConnection {
 
 	async downloadModRequestHandler(message) {
 		let { name, version } = message.data;
-		let key = `${name}_${version}`;
-		let mod = this._master.mods.get(key);
+		let filename = `${name}_${version}.zip`;
+		let mod = this._master.mods.get(filename);
 		if (!mod) {
-			throw new libErrors.RequestError(`Mod ${key} does not exist`);
+			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
 		}
 		let modPath = path.join(this._master.config.get("master.mods_directory"), mod.filename);
 

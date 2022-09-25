@@ -915,7 +915,6 @@ describe("Integration of Clusterio", function() {
 					"description: An empty mod for testing\n" +
 					"factorio_version: 1.1\n" +
 					"dependencies:\n" +
-					"filename: empty_mod_1.0.0.zip\n" +
 					`size: ${stat.size}\n` +
 					`sha1: ${hash}\n`,
 				);

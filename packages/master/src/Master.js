@@ -420,15 +420,15 @@ class Master {
 				continue;
 			}
 
-			let key = `${modInfo.name}_${modInfo.version}`;
-			if (mods.has(key)) {
+			if (modInfo.filename !== entry.name) {
 				logger.error(
-					`Ignoring Mod ${entry.name} as it contains the same name and ` +
-					`version as ${mods.get(key).filename}`
+					`Mod ${entry.name}'s filename does not match the expected ` +
+					`name ${modInfo.filename}, it will be ignored.`
 				);
 				continue;
 			}
-			mods.set(key, modInfo);
+
+			mods.set(modInfo.filename, modInfo);
 		}
 		return mods;
 	}
@@ -454,15 +454,15 @@ class Master {
 	}
 
 	async deleteMod(name, version) {
-		let key = `${name}_${version}`;
-		let mod = this.mods.get(key);
+		let filename = `${name}_${version}.zip`;
+		let mod = this.mods.get(filename);
 		if (!mod) {
-			throw new Error(`Mod ${key} does not exist`);
+			throw new Error(`Mod ${filename} does not exist`);
 		}
 
 		let modsDirectory = this.config.get("master.mods_directory");
-		await fs.unlink(path.join(modsDirectory, mod.filename));
-		this.mods.delete(key);
+		await fs.unlink(path.join(modsDirectory, filename));
+		this.mods.delete(filename);
 		mod.isDeleted = true;
 		this.modUpdated(mod);
 	}

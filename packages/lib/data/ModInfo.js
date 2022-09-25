@@ -7,7 +7,7 @@ const libHash = require("../hash");
 const libSchema = require("../schema");
 const { findRoot } = require("../zip_ops");
 
-const { integerModVersion, integerFactorioVersion } = require("./version");
+const { integerModVersion, integerFactorioVersion, modVersionRegExp } = require("./version");
 
 
 /**
@@ -99,10 +99,12 @@ class ModInfo {
 	dependencies = ["base"];
 
 	/**
-	 * Name of the file containing this mod.
+	 * Expected name of zip file containing this mod.
 	 * @type {number}
 	 */
-	filename = "";
+	get filename() {
+		return `${this.name}_${this.version}.zip`;
+	}
 
 	/**
 	 * Size of the mod in bytes
@@ -145,7 +147,6 @@ class ModInfo {
 		type: "object",
 		properties: {
 			...this.infoJsonSchema.properties,
-			"filename": { type: "string" },
 			"size": { type: "integer" },
 			"sha1": { type: "string" },
 			"is_deleted": { type: "boolean" },
@@ -167,7 +168,6 @@ class ModInfo {
 		if (json.dependencies) { this.dependencies = json.dependencies; }
 
 		// Additional data
-		if (json.filename) { this.filename = json.filename; }
 		if (json.size) { this.size = json.size; }
 		if (json.sha1) { this.sha1 = json.sha1; }
 		if (json.is_deleted) { this.isDeleted = json.is_deleted; }
@@ -187,7 +187,6 @@ class ModInfo {
 		if (this.dependencies.length !== 1 || this.dependencies[0] !== "base") {
 			json.dependencies = this.dependencies;
 		}
-		if (this.filename) { json.filename = this.filename; }
 		if (this.size) { json.size = this.size; }
 		if (this.sha1) { json.sha1 = this.sha1; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
@@ -215,10 +214,13 @@ class ModInfo {
 			throw new Error("Mod's info.json is not valid");
 		}
 
+		if (!modVersionRegExp.test(modInfo.version)) {
+			throw new Error(`Mod's version (${modInfo.version}) is invalid`);
+		}
+
 		return new this({
 			...modInfo,
 
-			filename: path.basename(modPath),
 			size: (await fs.stat(modPath)).size,
 			sha1: await libHash.hashFile(modPath),
 			is_deleted: false,
