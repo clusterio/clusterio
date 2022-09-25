@@ -7,6 +7,8 @@ const libHash = require("../hash");
 const libSchema = require("../schema");
 const { findRoot } = require("../zip_ops");
 
+const { integerModVersion, integerFactorioVersion } = require("./version");
+
 
 /**
  * Info about a mod available on the master server.
@@ -36,8 +38,7 @@ class ModInfo {
 	 * @type {number}
 	 */
 	get integerVersion() {
-		const [major, minor, sub] = this.version.split(".").map(n => Number.parseInt(n, 10));
-		return major * 0x100000000 + minor * 0x10000 + sub; // Can't use bitwise here because this is 48-bits.
+		return integerModVersion(this.version);
 	}
 
 	/**
@@ -87,8 +88,7 @@ class ModInfo {
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		const [major, minor] = this.factorioVersion.split(".").map(n => Number.parseInt(n, 10));
-		return major * 0x100000000 + minor * 0x10000; // Can't use bitwise here because this is 48-bits.
+		return integerFactorioVersion(this.factorioVersion);
 	}
 
 	/**

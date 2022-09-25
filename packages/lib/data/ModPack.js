@@ -3,6 +3,8 @@ const zlib = require("zlib");
 
 const libSchema = require("../schema");
 
+const { integerFactorioVersion } = require("./version");
+
 
 /**
  * A setting for a mod.
@@ -77,8 +79,7 @@ class ModPack {
 	 * @type {number}
 	 */
 	get integerFactorioVersion() {
-		const [major, minor, sub] = this.factorioVersion.split(".").map(n => Number.parseInt(n, 10));
-		return major * 0x100000000 + minor * 0x10000 + (sub || 0); // Can't use bitwise here because this is 48-bits.
+		return integerFactorioVersion(this.factorioVersion);
 	}
 
 	/**
