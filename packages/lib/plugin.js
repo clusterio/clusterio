@@ -502,7 +502,7 @@ class BaseMasterPlugin {
 	 * If the mod pack has been deleted its `.isDeleted` property will be
 	 * true.
 	 *
-	 * @param {module:lib/data/ModPack} modPack - Mod pack that updated.
+	 * @param {module:lib/data.ModPack} modPack - Mod pack that updated.
 	 */
 	async onModPackUpdated(modPack) { }
 
@@ -514,7 +514,7 @@ class BaseMasterPlugin {
 	 *
 	 * If a mod has been deleted its `.isDeleted` property will be true.
 	 *
-	 * @param {module:lib/data/ModInfo} mod - Mod that updated.
+	 * @param {module:lib/data.ModInfo} mod - Mod that updated.
 	 */
 	async onModUpdated(mod) { }
 

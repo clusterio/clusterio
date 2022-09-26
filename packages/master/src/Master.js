@@ -68,13 +68,13 @@ class Master {
 
 		/**
 		 * Mapping of mod pack id to mod pack
-		 * @type {Map<number, module:lib/data/ModPack>}
+		 * @type {Map<number, module:lib/data.ModPack>}
 		 */
 		this.modPacks = null;
 
 		/**
 		 * Mapping of mod names to mod infos
-		 * @type {Map<string, module:lib/data/ModInfo>}
+		 * @type {Map<string, module:lib/data.ModInfo>}
 		 */
 		this.mods = null;
 

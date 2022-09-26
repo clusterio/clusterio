@@ -8,7 +8,7 @@ const { integerFactorioVersion } = require("./version");
 
 /**
  * A setting for a mod.
- * @typedef {object} module:lib/data/ModPack~ModSetting
+ * @typedef {object} module:lib/data.ModPack~ModSetting
  * @property {boolean|number|string} value - Value of the given mod setting.
  */
 const ModSettingJsonSchema = {
@@ -27,10 +27,10 @@ const ModSettingsJsonSchema = {
 
 /**
  * A mod in a mod pack
- * @typedef {object} module:lib/data/ModPack~ModRecord
+ * @typedef {object} module:lib/data.ModPack~ModRecord
  * @property {string} name - name of the mod.
  * @property {string} version - version of the mod.
- * @property {string} sha1 - SHA1 hash of the zip file.
+ * @property {string=} sha1 - SHA1 hash of the zip file.
  */
 const ModRecordJsonSchema = {
 	type: "object",
@@ -47,7 +47,7 @@ const ModRecordJsonSchema = {
  * Factorio Mod Pack
  *
  * Tracks mods and settings for a collection of Factorio mods.
- * @alias module:lib/data/ModPack
+ * @alias module:lib/data.ModPack
  */
 class ModPack {
 	/**
@@ -84,13 +84,13 @@ class ModPack {
 
 	/**
 	 * Mods included in this mod pack
-	 * @type {Map<string, module:lib/data/ModPack~ModRecord>}
+	 * @type {Map<string, module:lib/data.ModPack~ModRecord>}
 	 */
 	mods = new Map();
 
 	/**
 	 * Mod settings for this mod pack
-	 * @type {Object<string, Map<string, module:lib/data/ModPack~ModSetting>>=}
+	 * @type {Object<string, Map<string, module:lib/data.ModPack~ModSetting>>=}
 	 */
 	settings = {
 		"startup": new Map(),

@@ -9,7 +9,7 @@
  * number of leading zeros in them.
  * @param {string} version - string representation of version.
  * @returns {number} numeric representation.
- * @private
+ * @alias module:lib/data.integerModVersion
  */
 function integerModVersion(version) {
 	const [major, minor, sub] = version.split(".").map(n => Number.parseInt(n, 10));
@@ -23,7 +23,7 @@ function integerModVersion(version) {
  * number of leading zeros in them.
  * @param {string} version - string representation of version.
  * @returns {number} numeric representation.
- * @private
+ * @alias module:lib/data.integerFactorioVersion
  */
 function integerFactorioVersion(version) {
 	const [major, minor, sub] = version.split(".").map(n => Number.parseInt(n, 10));
@@ -33,7 +33,7 @@ function integerFactorioVersion(version) {
 /**
  * Matches valid mod versions.
  * @type {RegExp}
- * @private
+ * @alias module:lib/data.modVersionRegExp
  */
 const modVersionRegExp = /^\d+\.\d+\.\d+$/;
 
