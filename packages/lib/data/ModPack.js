@@ -108,6 +108,7 @@ class ModPack {
 	static jsonSchema = {
 		type: "object",
 		additionalProperties: false,
+		required: ["name", "description", "factorio_version", "mods", "settings"],
 		properties: {
 			"id": { type: "integer" },
 			"name": { type: "string" },
@@ -151,23 +152,25 @@ class ModPack {
 			};
 		}
 		if (json.is_deleted) { this.isDeleted = json.is_deleted; }
+
+		if (!this.mods.has("base")) {
+			this.mods.set("base", { name: "base", enabled: true, version: this.factorioVersion });
+		}
 	}
 
 	toJSON() {
 		let json = {
 			id: this.id,
-		};
-		if (this.name) { json.name = this.name; }
-		if (this.description) { json.description = this.description; }
-		json.factorio_version = this.factorioVersion;
-		if (this.mods.size) { json.mods = [...this.mods.values()]; }
-		if (this.settings) {
-			json.settings = {
+			name: this.name,
+			description: this.description,
+			factorio_version: this.factorioVersion,
+			mods: [...this.mods.values()],
+			settings: {
 				"startup": Object.fromEntries(this.settings["startup"]),
 				"runtime-global": Object.fromEntries(this.settings["runtime-global"]),
 				"runtime-per-user": Object.fromEntries(this.settings["runtime-per-user"]),
-			};
-		}
+			},
+		};
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
