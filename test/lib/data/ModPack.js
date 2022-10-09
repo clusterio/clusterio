@@ -26,8 +26,8 @@ describe("lib/data/ModPack", function() {
 			check(new ModPack({ description: "My Description" }));
 			check(new ModPack({ factorio_version: "2.0" }));
 			check(new ModPack({ mods: [
-				{ name: "subspace_storage", version: "1.99.8" },
-				{ name: "clusterio_lib", version: "0.1.2", sha1: "012345abcd" },
+				{ name: "subspace_storage", enabled: true, version: "1.99.8" },
+				{ name: "clusterio_lib", enabled: true, version: "0.1.2", sha1: "012345abcd" },
 			]}));
 			check(new ModPack({ settings: {
 				"startup": {
@@ -46,8 +46,8 @@ describe("lib/data/ModPack", function() {
 				description: "Every option at once.",
 				factorio_version: "2.0",
 				mods: [
-					{ name: "subspace_storage", version: "1.99.8" },
-					{ name: "clusterio_lib", version: "0.1.2", sha1: "012345abcd" },
+					{ name: "subspace_storage", enabled: true, version: "1.99.8" },
+					{ name: "clusterio_lib", enabled: true, version: "0.1.2", sha1: "012345abcd" },
 				],
 				settings: {
 					"startup": {

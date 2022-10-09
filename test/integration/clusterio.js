@@ -845,7 +845,7 @@ describe("Integration of Clusterio", function() {
 				reference.name = "full-pack";
 				reference.description = "Description";
 				reference.factorioVersion = "0.17";
-				reference.mods.set("empty_mod", { name: "empty_mod", version: "1.0.0" });
+				reference.mods.set("empty_mod", { name: "empty_mod", enabled: true, version: "1.0.0" });
 				reference.settings["startup"].set("MyBool", { value: true });
 				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
 				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });

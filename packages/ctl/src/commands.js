@@ -875,7 +875,8 @@ modPackCommands.add(new libCommand.Command({
 			if (field === "mods") {
 				print(`${field}:`);
 				for (let entry of value) {
-					print(`  ${entry.name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
+					const enabled = entry.enabled ? "" : "(disabled) ";
+					print(`  ${enabled}${entry.name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
 				}
 			} else if (field === "settings") {
 				print(`${field}:`);
@@ -958,7 +959,16 @@ function setModPackMods(modPack, mods) {
 		if (sha1 && !/^[0-9a-f]{40}$/.test(sha1)) {
 			throw new libErrors.CommandError("sha1 must be a 40 digit lower case hex string");
 		}
-		modPack.mods.set(name, { name, version, sha1 });
+		modPack.mods.set(name, { name, enabled: true, version, sha1 });
+	}
+}
+
+function setModPackModsEnabled(modPack, mods, enabled) {
+	for (let mod of mods || []) {
+		if (!modPack.mods.has(mod)) {
+			throw new libErrors.CommandError(`Mod named ${mod} does not exist in the mod pack`);
+		}
+		modPack.mods.get(mod).enabled = enabled;
 	}
 }
 
@@ -969,6 +979,7 @@ modPackCommands.add(new libCommand.Command({
 		yargs.options({
 			"description": { describe: "Description for mod pack", type: "string" },
 			"mods": { describe: "Mods in the form of name:version[:sha1]", array: true, type: "string" },
+			"disabled-mods": { describe: "Mods that are in the pack but not enabled", array: true, type: "string" },
 			"bool-setting": { describe: "Set boolean setting", array: true, nargs: 3, type: "string" },
 			"int-setting": { describe: "Set int setting", array: true, nargs: 3, type: "string" },
 			"double-setting": { describe: "Set double setting", array: true, nargs: 3, type: "string" },
@@ -986,6 +997,7 @@ modPackCommands.add(new libCommand.Command({
 			modPack.factorioVersion = args.factorioVersion;
 		}
 		setModPackMods(modPack, args.mods);
+		setModPackModsEnabled(modPack, args.disabledMods, false);
 		setModPackSettings(modPack, args);
 		await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
 		print(`Created mod pack ${modPack.name} (${modPack.id})`);
@@ -1000,6 +1012,8 @@ modPackCommands.add(new libCommand.Command({
 			"description": { describe: "New description for mod pack", type: "string" },
 			"factorio-version": { describe: "Set version of factorio the mod pack is for", type: "string" },
 			"add-mods": { describe: "Mods in the form of name:version[:sha1] to add", array: true, type: "string" },
+			"enable-mods": { describe: "Mods to set as enabled", array: true, type: "string" },
+			"disable-mods": { describe: "Mods to set as disabled", array: true, type: "string" },
 			"remove-mods": { describe: "Name of mods to remove", array: true, type: "string" },
 			"bool-setting": { describe: "Set boolean setting", array: true, nargs: 3, type: "string" },
 			"int-setting": { describe: "Set int setting", array: true, nargs: 3, type: "string" },
@@ -1031,6 +1045,8 @@ modPackCommands.add(new libCommand.Command({
 				logger.warn(`Mod ${name} did not exist on ${modPack.name}`);
 			}
 		}
+		setModPackModsEnabled(modPack, args.disableMods, false);
+		setModPackModsEnabled(modPack, args.enableMods, true);
 
 		setModPackSettings(modPack, args);
 		if (args.removeSetting) {

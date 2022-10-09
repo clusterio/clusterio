@@ -95,7 +95,7 @@ function SearchModsTable(props) {
 						props.onChange({
 							type: "mods.set",
 							name: mod.name,
-							value: { name: mod.name, version: mod.version, sha1: mod.sha1 },
+							value: { name: mod.name, enabled: true, version: mod.version, sha1: mod.sha1 },
 						});
 					}}
 				>{props.modPack.mods.has(mod.name) ? "change" : "add"}</Typography.Link>
@@ -255,6 +255,30 @@ function ModsTable(props) {
 		</Card>}
 		<Table
 			size="small"
+			rowSelection={{
+				type: "checkbox",
+				selectedRowKeys: [...props.modPack.mods.values()].filter(mod => mod.enabled).map(mod => mod.name),
+				getCheckboxProps(mod) {
+					return { disabled: deletedMods.has(mod.name) };
+				},
+				onChange(selectedRowKeys, selectedRows) {
+					function setEnabled(modNames, enabled) {
+						for (let name of modNames) {
+							props.onChange({
+								type: "mods.set",
+								name,
+								value: { ...props.modPack.mods.get(name), enabled },
+							});
+						}
+					}
+					const added = selectedRowKeys.filter(key => !props.modPack.mods.get(key).enabled);
+					const removed = [...props.modPack.mods.values()].filter(
+						mod => mod.enabled && selectedRowKeys.indexOf(mod.name) === -1
+					).map(mod => mod.name);
+					setEnabled(added, true);
+					setEnabled(removed, false);
+				},
+			}}
 			columns={[
 				{
 					title: "Name",

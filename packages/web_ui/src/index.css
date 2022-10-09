@@ -333,13 +333,13 @@ tr.no-expanded-padding > td,
 .ant-form-item.changed,
 input.ant-input.changed,
 textarea.ant-input.changed,
-tr.ant-table-row.changed {
+tr.ant-table-row.changed > td {
 	background: #2a1912;
 }
 
 .ant-table-tbody > tr.ant-table-row.changed:hover > td,
 .ant-table-tbody > tr.changed > td.ant-table-cell-row-hover
-tr.ant-table-row.deleted {
+tr.ant-table-row.deleted > td {
 	background: #3a2922;
 }
 

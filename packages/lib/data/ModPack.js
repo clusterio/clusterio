@@ -29,15 +29,16 @@ const ModSettingsJsonSchema = {
  * A mod in a mod pack
  * @typedef {object} module:lib/data.ModPack~ModRecord
  * @property {string} name - name of the mod.
+ * @property {boolean} enabled - if mod is to be loaded.
  * @property {string} version - version of the mod.
  * @property {string=} sha1 - SHA1 hash of the zip file.
  */
 const ModRecordJsonSchema = {
 	type: "object",
-	additionalProperties: false,
-	required: ["name", "version"],
+	required: ["name", "enabled", "version"],
 	properties: {
 		"name": { type: "string" },
+		"enabled": { type: "boolean" },
 		"version": { type: "string" },
 		"sha1": { type: "string" },
 	},
