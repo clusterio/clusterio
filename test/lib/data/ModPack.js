@@ -90,5 +90,75 @@ describe("lib/data/ModPack", function() {
 				);
 			});
 		});
+
+		describe("toModSettingsDat()", function() {
+			it("should properly serialise settings", function() {
+				const pack = new ModPack({ settings: {
+					"startup": {
+						"bool-setting": { "value": true },
+					},
+					"runtime-global": {
+						"number-setting": { "value": 123 },
+					},
+					"runtime-per-user": {
+						"string-setting": { "value": "a string" },
+					},
+				}});
+
+				function istr(str) {
+					return [
+						Uint8Array.from([0, str.length]),
+						Buffer.from(str),
+					];
+				}
+				/* eslint-disable indent */
+				assert.deepEqual(
+					pack.toModSettingsDat(),
+					Buffer.concat([
+						new Uint8Array(Uint16Array.from([1, 1, 0, 0]).buffer), // version
+						Uint8Array.from([0]), // reserved
+
+						Uint8Array.from([5, 0]), // dictionary
+						new Uint8Array(Uint32Array.from([3]).buffer), // items
+
+							...istr("startup"), // name
+							Uint8Array.from([5, 0]), // dictionary
+							new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+								...istr("bool-setting"), // name
+								Uint8Array.from([5, 0]), // dictinary
+								new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+									...istr("value"), // name
+									Uint8Array.from([1, 0, 1]), // boolean
+
+							...istr("runtime-global"), // name
+							Uint8Array.from([5, 0]), // dictionary
+							new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+								...istr("number-setting"), // name
+								Uint8Array.from([5, 0]), // dictinary
+								new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+									...istr("value"), // name
+									Uint8Array.from([2, 0]), // number
+									new Uint8Array(Float64Array.from([123]).buffer),
+
+							...istr("runtime-per-user"), // name
+							Uint8Array.from([5, 0]), // dictionary
+							new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+								...istr("string-setting"), // name
+								Uint8Array.from([5, 0]), // dictinary
+								new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+									...istr("value"), // name
+									Uint8Array.from([3, 0, 0, "a string".length]), // string
+									Buffer.from("a string"),
+					])
+				);
+				/* eslint-enable indent */
+			});
+		});
 	});
 });

@@ -208,6 +208,103 @@ class ModPack {
 
 		return new this(json);
 	}
+
+	toModSettingsDat() {
+		function uint8Byte(int) {
+			return Buffer.from(Uint8Array.from([int]).buffer);
+		}
+		function int16Bytes(int) {
+			return Buffer.from(Int16Array.from([int]).buffer);
+		}
+		function uint32Bytes(int) {
+			return Buffer.from(Uint32Array.from([int]).buffer);
+		}
+		function uint32SpaceOptimizedBytes(int) {
+			if (0 <= int && int < 0xff) {
+				return uint8Byte(int);
+			}
+			return Buffer.concat([
+				uint8Byte(0xff),
+				uint32Bytes(int),
+			]);
+		}
+		function doubleBytes(double) {
+			return Buffer.from(Float64Array.from([double]).buffer);
+		}
+		function stringBytes(str) {
+			const buf = Buffer.from(str, "utf8");
+			return Buffer.concat([
+				uint32SpaceOptimizedBytes(buf.length),
+				buf,
+			]);
+		}
+		function immutableStringBytes(str) {
+			if (str === undefined) {
+				return uint8Byte(1); // empty
+			}
+			return Buffer.concat([
+				uint8Byte(0), // empty
+				stringBytes(str),
+			]);
+		}
+		function versionBytes(version) {
+			const [main, major, minor] = version.split(".").map(n => Number.parseInt(n, 10));
+			return Buffer.concat([
+				int16Bytes(main),
+				int16Bytes(major),
+				int16Bytes(minor),
+				Buffer.alloc(2), // developer
+				Buffer.alloc(1), // reserved byte
+			]);
+		}
+		function propertyTreeListBytes(entries) {
+			const sizeBytes = uint32Bytes(entries.length);
+			const itemBytes = entries.flatMap(([key, item]) => [
+				immutableStringBytes(key),
+				// eslint-disable-next-line no-use-before-define
+				propertyTreeBytes(item),
+			]);
+			return Buffer.concat([
+				sizeBytes,
+				...itemBytes,
+			]);
+		}
+		function propertyTreeBytes(element) {
+			let type;
+			let dataBytes;
+			if (typeof element === null) {
+				type = 1;
+				dataBytes = Buffer.alloc(0);
+			} else if (typeof element === "boolean") {
+				type = 1;
+				dataBytes = uint8Byte(element);
+			} else if (typeof element === "number") {
+				type = 2;
+				dataBytes = doubleBytes(element);
+			} else if (typeof element === "string") {
+				type = 3;
+				dataBytes = immutableStringBytes(element);
+			} else if (element instanceof Array) {
+				type = 4;
+				dataBytes = propertyTreeListBytes(element.map(item => [undefined, item]));
+			} else if (typeof element === "object") {
+				type = 5;
+				dataBytes = propertyTreeListBytes(Object.entries(element));
+			} else {
+				throw new Error("Bad element passed to propertyTreeBytes");
+			}
+			return Buffer.concat([
+				uint8Byte(type),
+				Buffer.alloc(1), // anyTypeFlag
+				dataBytes,
+			]);
+		}
+
+		return Buffer.concat([
+			versionBytes(this.factorioVersion),
+			propertyTreeBytes(this.toJSON().settings),
+		]);
+	}
 }
 
 module.exports = ModPack;
