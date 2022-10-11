@@ -823,13 +823,13 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod-pack create", function() {
 			it("should create a mod-pack", async function() {
-				await execCtl("mod-pack create empty-pack 1.1");
+				await execCtl("mod-pack create empty-pack 1.1.0");
 				let response = await libLink.messages.listModPacks.send(getControl());
 				assert(response.list.some(modPack => modPack.name === "empty-pack"), "created pack is not in the list");
 			});
 			it("should allow setting all fields", async function() {
 				await execCtl(
-					"mod-pack create full-pack 0.17 " +
+					"mod-pack create full-pack 0.17.59 " +
 					"--description Description " +
 					"--mods empty_mod:1.0.0 " +
 					"--bool-setting startup MyBool true " +
@@ -844,7 +844,7 @@ describe("Integration of Clusterio", function() {
 				reference.id = modPack.id;
 				reference.name = "full-pack";
 				reference.description = "Description";
-				reference.factorioVersion = "0.17";
+				reference.factorioVersion = "0.17.59";
 				reference.mods.set("empty_mod", { name: "empty_mod", enabled: true, version: "1.0.0" });
 				reference.settings["startup"].set("MyBool", { value: true });
 				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
@@ -868,11 +868,11 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod-pack edit", function() {
 			it("runs", async function() {
-				await execCtl("mod-pack edit full-pack --factorio-version 1.2");
+				await execCtl("mod-pack edit full-pack --factorio-version 1.2.0");
 				let response = await libLink.messages.listModPacks.send(getControl());
 				let modPack = response.list.find(entry => entry.name === "full-pack");
 				assert(modPack, "created mod pack not found");
-				assert.equal(modPack.factorio_version, "1.2");
+				assert.equal(modPack.factorio_version, "1.2.0");
 			});
 		});
 

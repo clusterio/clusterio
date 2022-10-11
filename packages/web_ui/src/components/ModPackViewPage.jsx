@@ -620,8 +620,8 @@ export default function ModPackViewPage() {
 						name="factorioVersion"
 						style={{ marginBottom: 0 }}
 						rules={[{
-							pattern: /^\d+\.\d+(\.\d+)?$/,
-							message: "Must be an a.b or a.b.c version number..",
+							pattern: /^\d+\.\d+\.\d+?$/,
+							message: "Must be an a.b.c version number.",
 						}]}
 					>
 						<Input

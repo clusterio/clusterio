@@ -991,8 +991,8 @@ modPackCommands.add(new libCommand.Command({
 		modPack.name = args.name;
 		if (args.description) { modPack.description = args.description; }
 		if (args.factorioVersion) {
-			if (!/^\d+\.\d+(\.\d+)?$/.test(args.factorioVersion)) {
-				throw new libErrors.CommandError("factorio-version must match the format digit.digit[.digit]");
+			if (!/^\d+\.\d+\.\d+?$/.test(args.factorioVersion)) {
+				throw new libErrors.CommandError("factorio-version must match the format digit.digit.digit");
 			}
 			modPack.factorioVersion = args.factorioVersion;
 		}
@@ -1031,8 +1031,8 @@ modPackCommands.add(new libCommand.Command({
 		if (args.name) { modPack.name = args.name; }
 		if (args.description) { modPack.description = args.description; }
 		if (args.factorioVersion) {
-			if (!/^\d+\.\d+(\.\d+)?$/.test(args.factorioVersion)) {
-				throw new libErrors.CommandError("factorio-version must match the format digit.digit[.digit]");
+			if (!/^\d+\.\d+\.\d+?$/.test(args.factorioVersion)) {
+				throw new libErrors.CommandError("factorio-version must match the format digit.digit.digit");
 			}
 			modPack.factorioVersion = args.factorioVersion;
 		}
