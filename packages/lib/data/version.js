@@ -26,8 +26,8 @@ function integerModVersion(version) {
  * @alias module:lib/data.integerFactorioVersion
  */
 function integerFactorioVersion(version) {
-	const [major, minor, sub] = version.split(".").map(n => Number.parseInt(n, 10));
-	return major * 0x100000000 + minor * 0x10000 + (sub || 0); // Can't use bitwise here because this is 48-bits.
+	const [main, major, minor] = version.split(".").map(n => Number.parseInt(n, 10));
+	return main * 0x100000000 + major * 0x10000 + (minor || 0); // Can't use bitwise here because this is 48-bits.
 }
 
 /**
