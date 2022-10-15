@@ -1005,6 +1005,30 @@ modPackCommands.add(new libCommand.Command({
 }));
 
 modPackCommands.add(new libCommand.Command({
+	definition: ["import <string>", "Import mod pack string", (yargs) => {
+		yargs.positional("string", { describe: "Mod pack string to import", type: "string" });
+	}],
+	handler: async function(args, control) {
+		const modPack = libData.ModPack.fromModPackString(args.string);
+		await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+		print(`Created mod pack ${modPack.name} (${modPack.id})`);
+	},
+}));
+
+modPackCommands.add(new libCommand.Command({
+	definition: ["export <mod-pack>", "Export mod pack string", (yargs) => {
+		yargs.positional("string", { describe: "Mod pack to export", type: "string" });
+	}],
+	handler: async function(args, control) {
+		const response = await libLink.messages.getModPack.send(control, {
+			id: await libCommand.resolveModPack(control, args.modPack),
+		});
+		const modPack = new libData.ModPack(response.mod_pack);
+		print(modPack.toModPackString());
+	},
+}));
+
+modPackCommands.add(new libCommand.Command({
 	definition: ["edit <mod-pack>", "Edit mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to remove from", type: "string" });
 		yargs.options({

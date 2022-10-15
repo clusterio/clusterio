@@ -866,6 +866,25 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 
+		describe("mod-pack import/export", function() {
+			it("should should roundtrip a mod-pack", async function() {
+				let reference = new libData.ModPack();
+				reference.name = "imported-pack";
+				reference.description = "Description";
+				reference.factorioVersion = "0.17.59";
+				reference.mods.set("empty_mod", { name: "empty_mod", enabled: true, version: "1.0.0" });
+				reference.settings["startup"].set("MyBool", { value: true });
+				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
+				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
+				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
+				await execCtl(`mod-pack import ${reference.toModPackString()}`);
+				const result = await execCtl("mod-pack export imported-pack");
+				const roundtrip = libData.ModPack.fromModPackString(result.stdout.trim());
+				roundtrip.id = reference.id;
+				assert.deepEqual(roundtrip, reference);
+			});
+		});
+
 		describe("mod-pack edit", function() {
 			it("runs", async function() {
 				await execCtl("mod-pack edit full-pack --factorio-version 1.2.0");
