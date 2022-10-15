@@ -84,6 +84,15 @@ class BaseConnection extends libLink.Link {
 	get connected() {
 		return !this._disconnecting && this.connector.connected;
 	}
+
+	async getModPackRequestHandler(message) {
+		let { id } = message.data;
+		let modPack = this._master.modPacks.get(id);
+		if (!modPack) {
+			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
+		}
+		return { mod_pack: modPack.toJSON() };
+	}
 }
 
 module.exports = BaseConnection;

@@ -1,80 +1,13 @@
 "use strict";
 const assert = require("assert").strict;
 const path = require("path");
-const fs = require("fs-extra");
 
-const libLink = require("@clusterio/lib/link");
 const libConfig = require("@clusterio/lib/config");
-const Instance = require("@clusterio/slave/src/Instance");
 const Slave = require("@clusterio/slave/src/Slave");
 
 describe("Slave testing", function() {
 	before(function() {
 		libConfig.InstanceConfig.finalize();
-	});
-
-	describe("symlinkMods()", function() {
-		let testDir = path.join("temp", "test", "symlink");
-
-		let instance;
-		before(async function() {
-			// Remove previous test output
-			await fs.remove(testDir);
-
-			// Add some test mods
-			await fs.outputFile(path.join(testDir, "shared", "mod_a.zip"), "a");
-			await fs.outputFile(path.join(testDir, "shared", "mod_b.zip"), "b");
-			await fs.outputFile(path.join(testDir, "shared", "mod.dat"), "c");
-			await fs.outputFile(path.join(testDir, "shared", "mod-list.json"), "d");
-
-			let instanceConfig = new libConfig.InstanceConfig("slave");
-			await instanceConfig.init();
-			instanceConfig.set("instance.name", "test");
-			instance = new Instance(
-				{}, new libLink.VirtualConnector(), path.join(testDir, "instance"), "factorioDir", instanceConfig
-			);
-			await fs.outputFile(instance.path("mods", "mod_i.zip"), "i");
-		});
-
-		it("should link mods and data files", async function() {
-			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
-
-			assert.equal(await fs.readFile(instance.path("mods", "mod_a.zip"), "utf-8"), "a");
-			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
-			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
-			assert.equal(await fs.readFile(instance.path("mods", "mod-list.json"), "utf-8"), "d");
-			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
-		});
-
-		it("should ignore directories", async function() {
-			await fs.ensureDir(path.join(testDir, "shared", "dir"));
-			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
-
-			assert(!await fs.exists(instance.path("mods", "dir"), "utf-8"), "dir was unxpectedly linked");
-		});
-
-		it("should ignore files", async function() {
-			await fs.outputFile(path.join(testDir, "shared", "file"), "f");
-			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
-
-			assert(!await fs.exists(instance.path("mods", "file"), "utf-8"), "dir was unxpectedly linked");
-		});
-
-		it("should unlink removed mods", async function() {
-			// This does not work on Windows
-			if (process.platform === "win32") {
-				this.skip();
-			}
-
-			await fs.unlink(path.join(testDir, "shared", "mod_a.zip"));
-			await Instance._symlinkMods(instance, path.join(testDir, "shared"));
-
-			await assert.rejects(fs.lstat(instance.path("mods", "mod_a.zip")), { code: "ENOENT" });
-			assert.equal(await fs.readFile(instance.path("mods", "mod_b.zip"), "utf-8"), "b");
-			assert.equal(await fs.readFile(instance.path("mods", "mod.dat"), "utf-8"), "c");
-			assert.equal(await fs.readFile(instance.path("mods", "mod-list.json"), "utf-8"), "d");
-			assert.equal(await fs.readFile(instance.path("mods", "mod_i.zip"), "utf-8"), "i");
-		});
 	});
 
 	describe("discoverInstances()", function() {

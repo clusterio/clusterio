@@ -265,6 +265,7 @@ describe("Integration of Clusterio", function() {
 				);
 				await execCtl(`instance config set-prop test factorio.settings visibility "'${value}'"`);
 				await execCtl("instance config set-prop test factorio.settings require_user_verification false");
+				await execCtl("instance config set test factorio.mod_pack 12");
 			});
 		});
 

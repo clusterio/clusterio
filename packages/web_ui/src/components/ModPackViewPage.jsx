@@ -368,9 +368,11 @@ function SettingsTable(props) {
 		{controls("startup", pickValue(props.modPack.settings["startup"]))}
 
 		<Typography.Title level={5}>Map</Typography.Title>
+		<Typography.Paragraph>These only apply for new saves.</Typography.Paragraph>
 		{controls("runtime-global", pickValue(props.modPack.settings["runtime-global"]))}
 
 		<Typography.Title level={5}>Per Player</Typography.Title>
+		<Typography.Paragraph>Default settings for new players, these only apply for new saves.</Typography.Paragraph>
 		{controls("runtime-per-user", pickValue(props.modPack.settings["runtime-per-user"]))}
 	</>;
 }

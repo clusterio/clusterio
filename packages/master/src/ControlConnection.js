@@ -474,15 +474,6 @@ class ControlConnection extends BaseConnection {
 		return { save: result.save };
 	}
 
-	async getModPackRequestHandler(message) {
-		let { id } = message.data;
-		let modPack = this._master.modPacks.get(id);
-		if (!modPack) {
-			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
-		}
-		return { mod_pack: modPack.toJSON() };
-	}
-
 	async listModPacksRequestHandler(message) {
 		return { list: [...this._master.modPacks.values()].map(pack => pack.toJSON()) };
 	}

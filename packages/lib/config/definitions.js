@@ -161,6 +161,20 @@ SlaveGroup.define({
 	initial_value: "factorio",
 });
 SlaveGroup.define({
+	name: "mods_directory",
+	title: "Mods Directory",
+	description: "Path to directory where mods for instances are cached.",
+	type: "string",
+	initial_value: "mods",
+});
+SlaveGroup.define({
+	name: "mods_directory_is_shared",
+	title: "Mods Directory is Shared",
+	description: "True if the mods directory is shared with the master server.",
+	type: "boolean",
+	initial_value: true,
+});
+SlaveGroup.define({
 	name: "instances_directory",
 	description: "Path to directory to store instances in.",
 	type: "string",
@@ -279,6 +293,12 @@ FactorioGroup.define({
 		"pool with this many slots. Requires autosaves to be enabled to work. Set to 0 to disable.",
 	type: "number",
 	initial_value: 5,
+});
+FactorioGroup.define({
+	name: "mod_pack",
+	description: "Mod pack to use on this server",
+	type: "number",
+	optional: true,
 });
 FactorioGroup.define({
 	name: "enable_save_patching",
