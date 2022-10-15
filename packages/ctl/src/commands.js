@@ -973,7 +973,7 @@ function setModPackModsEnabled(modPack, mods, enabled) {
 }
 
 modPackCommands.add(new libCommand.Command({
-	definition: ["create <name> <factorio-version>", "Create mod-pack", (yargs) => {
+	definition: ["create <name> <factorio-version>", "Create mod pack", (yargs) => {
 		yargs.positional("name", { describe: "Name of mod pack to create", type: "string" });
 		yargs.positional("factorio-version", { describe: "Version of factorio the mod pack is for", type: "string" });
 		yargs.options({
@@ -1005,7 +1005,7 @@ modPackCommands.add(new libCommand.Command({
 }));
 
 modPackCommands.add(new libCommand.Command({
-	definition: ["edit <mod-pack>", "Edit mod-pack", (yargs) => {
+	definition: ["edit <mod-pack>", "Edit mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to remove from", type: "string" });
 		yargs.options({
 			"name": { describe: "New name for mod pack", type: "string" },
@@ -1069,7 +1069,7 @@ modPackCommands.add(new libCommand.Command({
 }));
 
 modPackCommands.add(new libCommand.Command({
-	definition: ["delete <mod-pack>", "Delete mod-pack", (yargs) => {
+	definition: ["delete <mod-pack>", "Delete mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to delete", type: "string" });
 	}],
 	handler: async function(args, control) {
