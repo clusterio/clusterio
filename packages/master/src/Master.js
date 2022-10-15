@@ -396,7 +396,7 @@ class Master {
 	}
 
 	static async saveModPacks(filePath, modPacks) {
-		await libFileOps.safeOutputFile(filePath, JSON.stringify([...modPacks.values()]));
+		await libFileOps.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
 	}
 
 	static async loadModInfos(modsDirectory) {
