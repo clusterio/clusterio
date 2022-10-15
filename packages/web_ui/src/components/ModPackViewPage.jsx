@@ -211,7 +211,13 @@ function ModsTable(props) {
 
 	const modListMap = new Map(modList.map(mod => [`${mod.name}_${mod.version}`, mod]));
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
-		mod => modListMap.get(`${mod.name}_${mod.version}`) || mod
+		mod => {
+			const candidate = modListMap.get(`${mod.name}_${mod.version}`);
+			if (!candidate || mod.sha1 && candidate.sha1 !== mod.sha1) {
+				return mod;
+			}
+			return candidate;
+		}
 	);
 
 	function actions(mod) {
