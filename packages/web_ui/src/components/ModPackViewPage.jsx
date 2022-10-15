@@ -497,13 +497,13 @@ export default function ModPackViewPage() {
 			} else if (["startup", "runtime-global", "runtime-per-user"].includes(field.name[0])) {
 				let [scope, settingName] = field.name;
 				let value = field.value;
-				if (typeof modPack.settings[scope].get(settingName) === "number") {
+				if (typeof modPack.settings[scope].get(settingName).value === "number") {
 					value = Number(value);
 					if (Number.isNaN(value)) {
 						continue;
 					}
 				}
-				if (modifiedModPack.settings[scope].get(settingName) !== value) {
+				if (modifiedModPack.settings[scope].get(settingName).value !== value) {
 					pushChange({ type: "settings.set", scope, name: settingName, value: { value }});
 				}
 			}
