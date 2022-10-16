@@ -51,6 +51,13 @@ function GenerateSlaveTokenButton(props) {
 		setSlaveId(slaveId);
 	}
 
+	// Generate a new random
+	useEffect(() => {
+		if (visible) {
+			generateToken().catch(notifyErrorHandler("Error generating token"));
+		}
+	}, [visible]);
+
 	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
 	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/") <= 1).join(" ");
 	return <>
