@@ -1,6 +1,6 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Table, Tag, Typography } from "antd";
+import { Button, Form, InputNumber, Modal, PageHeader, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
 import { libLink } from "@clusterio/lib";
@@ -21,7 +21,6 @@ function GenerateSlaveTokenButton(props) {
 	let [token, setToken] = useState(null);
 	let [slaveId, setSlaveId] = useState(null);
 	let [form] = Form.useForm();
-	let tokenTextAreaRef = useRef(null);
 	let [pluginList, setPluginList] = useState([]);
 	useEffect(() => {
 		(async () => {
@@ -36,20 +35,28 @@ function GenerateSlaveTokenButton(props) {
 	}, []);
 
 	async function generateToken() {
+		let id;
 		let values = form.getFieldsValue();
 		if (values.slaveId) {
-			slaveId = Number.parseInt(values.slaveId, 10);
-			if (Number.isNaN(slaveId)) {
+			id = Number.parseInt(values.slaveId, 10);
+			if (Number.isNaN(id)) {
 				form.setFields([{ name: "slaveId", errors: ["Must be an integer"] }]);
 				return;
 			}
 			form.setFields([{ name: "slaveId", errors: [] }]);
 		}
 
-		let result = await libLink.messages.generateSlaveToken.send(control, { slave_id: slaveId });
+		let result = await libLink.messages.generateSlaveToken.send(control, { slave_id: id || null });
 		setToken(result.token);
-		setSlaveId(slaveId);
+		setSlaveId(id);
 	}
+
+	// Generate a new random
+	useEffect(() => {
+		if (visible) {
+			generateToken().catch(notifyErrorHandler("Error generating token"));
+		}
+	}, [visible]);
 
 	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
 	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/") <= 1).join(" ");
@@ -70,7 +77,9 @@ function GenerateSlaveTokenButton(props) {
 		>
 			<Form form={form} layout="vertical" requiredMark="optional">
 				<Form.Item name="slaveId" label="Slave ID">
-					<Input onChange={() => { generateToken().catch(notifyErrorHandler("Error generating token")); }} />
+					<InputNumber onChange={() => {
+						generateToken().catch(notifyErrorHandler("Error generating token"));
+					}} />
 				</Form.Item>
 			</Form>
 			{token !== null && <>
