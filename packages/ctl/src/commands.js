@@ -867,6 +867,9 @@ modPackCommands.add(new libCommand.Command({
 		yargs.positional("mod-pack", { describe: "Mod pack to show", type: "string" });
 	}],
 	handler: async function(args, control) {
+		let mods = new Map(
+			(await libLink.messages.listMods.send(control)).list.map(m => [`${m.name}_${m.version}`, m])
+		);
 		let response = await libLink.messages.getModPack.send(control, {
 			id: await libCommand.resolveModPack(control, args.modPack),
 		});
@@ -875,8 +878,12 @@ modPackCommands.add(new libCommand.Command({
 			if (field === "mods") {
 				print(`${field}:`);
 				for (let entry of value) {
+					const mod = mods.get(`${entry.name}_${entry.version}`);
+					const missing = !mod && "? ";
+					const badChecksum = mod && entry.sha1 && entry.sha1 !== mod.sha1 && "! ";
+					const warn = missing || badChecksum || "";
 					const enabled = entry.enabled ? "" : "(disabled) ";
-					print(`  ${enabled}${entry.name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
+					print(`  ${warn}${enabled}${entry.name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
 				}
 			} else if (field === "settings") {
 				print(`${field}:`);

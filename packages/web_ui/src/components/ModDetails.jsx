@@ -1,5 +1,6 @@
 import React, { Fragment } from "react";
 import { Descriptions, Grid, Typography } from "antd";
+import ExclamationCircleOutlined from "@ant-design/icons/ExclamationCircleOutlined";
 
 import { libHelpers } from "@clusterio/lib";
 
@@ -11,6 +12,12 @@ export default function ModDetails(props) {
 	const mod = props.mod;
 
 	return <Descriptions className="borderless" bordered size="small" column={{ xs: 1, sm: 1, md: 1, lg: 2 }}>
+		{mod.error && <Descriptions.Item label={<><ExclamationCircleOutlined/> Error</>} span={2}>
+			{mod.error === "missing" && "The given version of this mod is missing from the master storage."}
+			{mod.error === "bad_checksum"
+				&& "Checksum of the mod in the master storage does not match the checksum provided by this mod pack."
+			}
+		</Descriptions.Item>}
 		{props.actions && !screens.lg
 			&& <Descriptions.Item label="Action">{props.actions(mod)}</Descriptions.Item>
 		}

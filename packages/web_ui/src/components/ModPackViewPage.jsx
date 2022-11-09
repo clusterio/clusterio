@@ -6,6 +6,8 @@ import {
 } from "antd";
 import InfoCircleOutlined from "@ant-design/icons/InfoCircleOutlined";
 import ExportOutlined from "@ant-design/icons/ExportOutlined";
+import FileUnknownOutlined from "@ant-design/icons/FileUnknownOutlined";
+import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
 import CloseOutlined from "@ant-design/icons/CloseOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
@@ -213,8 +215,16 @@ function ModsTable(props) {
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
 		mod => {
 			const candidate = modListMap.get(`${mod.name}_${mod.version}`);
-			if (!candidate || mod.sha1 && candidate.sha1 !== mod.sha1) {
-				return mod;
+			if (!candidate) {
+				return {
+					...mod,
+					error: "missing",
+				};
+			} else if (mod.sha1 && candidate.sha1 !== mod.sha1) {
+				return {
+					...mod,
+					error: "bad_checksum",
+				};
 			}
 			return candidate;
 		}
@@ -289,7 +299,15 @@ function ModsTable(props) {
 				{
 					title: "Name",
 					key: "name",
-					render: mod => mod.title || mod.name,
+					render: mod => <>
+						{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
+							<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
+						</Tooltip>}
+						{mod.error === "bad_checksum" && <Tooltip title="Mod checksum missmatch.">
+							<FileExclamationOutlined style={{ color: "#a61d24" }} />{" "}
+						</Tooltip>}
+						{mod.title || mod.name}
+					</>,
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
 				},
