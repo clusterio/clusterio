@@ -1,11 +1,10 @@
 "use strict";
 const assert = require("assert").strict;
+const fs = require("fs-extra");
 const http = require("http");
 const https = require("https");
 const util = require("util");
-const tls = require("tls");
 
-const forge = require("node-forge");
 const phin = require("phin");
 
 const { wait } = require("@clusterio/lib/helpers");
@@ -13,21 +12,6 @@ const HttpCloser = require("@clusterio/master/src/HttpCloser");
 
 // Time to wait during async operations to ensure they happened in order.
 const tick = 20;
-
-const origCreateSecureContext = tls.createSecureContext;
-tls.createSecureContext = function(options) {
-	if (!options.cert || !options.key) {
-		return origCreateSecureContext(options);
-	}
-
-	let lessOptions = { ...options };
-	delete lessOptions.key;
-	delete lessOptions.cert;
-	let ctx = origCreateSecureContext(lessOptions);
-	ctx.context.setCert(options.cert);
-	ctx.context.setKey(options.key, undefined);
-	return ctx;
-};
 
 function serverSuite(proto) {
 	let api = proto === "http" ? http : https;
@@ -49,24 +33,9 @@ function serverSuite(proto) {
 
 	before(async function() {
 		if (proto === "https") {
-			// Generate TLS certificate
-			let keypair = forge.pki.rsa.generateKeyPair(512);
-			let cert = forge.pki.createCertificate();
-			cert.publicKey = keypair.publicKey;
-			cert.serialNumber = "01";
-			cert.validity.notBefore = new Date();
-			cert.validity.notAfter = new Date(cert.validity.notBefore);
-			cert.validity.notAfter.setFullYear(cert.validity.notAfter.getFullYear() + 1);
-			let attrs = [{ name: "commonName", value: "localhost" }];
-			cert.setSubject(attrs);
-			cert.setIssuer(attrs);
-			cert.sign(keypair.privateKey);
-			serverOptions.key = forge.pki.privateKeyToPem(keypair.privateKey);
-			let pem = forge.pki.certificateToPem(cert);
-			serverOptions.cert = pem;
-			serverOptions.ciphers = "DEFAULT@SECLEVEL=0";
-			clientOptions.ca = pem;
-			clientOptions.ciphers = "DEFAULT@SECLEVEL=0";
+			serverOptions.key = await fs.readFile("test/file/tls/key.pem");
+			serverOptions.cert = await fs.readFile("test/file/tls/cert.pem");
+			clientOptions.ca = serverOptions.cert;
 		}
 	});
 	beforeEach(async function() {
