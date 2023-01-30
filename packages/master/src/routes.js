@@ -197,6 +197,8 @@ async function uploadExport(req, res) {
 
 	// This is hardcoded to prevent path expansion attacks
 	let exportFiles = [
+		"export/settings.json",
+		"export/prototypes.json",
 		"export/item-spritesheet.png",
 		"export/item-metadata.json",
 		"export/locale.json",

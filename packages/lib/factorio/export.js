@@ -207,6 +207,42 @@ async function loadLayeredIcon(server, modVersions, item, size, iconCache) {
 	return icon;
 }
 
+const itemTypes = new Set([
+	"item",
+	"ammo",
+	"capsule",
+	"gun",
+	"item-with-entity-data",
+	"item-with-label",
+	"item-with-inventory",
+	"blueprint-book",
+	"item-with-tags",
+	"selection-tool",
+	"blueprint",
+	"copy-paste-tool",
+	"deconstruction-item",
+	"upgrade-item",
+	"module",
+	"rail-planner",
+	"spidertron-remote",
+	"tool",
+	"armor",
+	"mining-tool",
+	"repair-tool",
+
+	// XXX Bad hack to get icons for fluids. These should be treated as a
+	// separate namespace from items as they may be named the same as items.
+	"fluid",
+	// TODO consider adding virtual signals and recipes
+]);
+
+function filterItems(prototypes) {
+	return Object.entries(prototypes)
+		.filter(([type, _]) => itemTypes.has(type))
+		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes))
+	;
+}
+
 /**
  * Export item icons and data
  *
@@ -348,11 +384,29 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 async function exportData(server) {
 	await generateExportMod(server);
 
-	let items = [];
+	let settings = {};
+	let prototypes = {};
 	let modVersions = new Map();
 	let modOrder = [];
 
-	server.on("ipc-item_export", data => items.push(data));
+	function add(obj, prototype) {
+		if (!Object.prototype.hasOwnProperty.call(obj, prototype.type)) {
+			obj[prototype.type] = {};
+		}
+		obj[prototype.type][prototype.name] = prototype;
+	}
+
+	server.on("ipc-prototype_export", data => add(prototypes, data));
+	server.on("ipc-settings_export", data => add(settings, data));
+	server.on("ipc-mod_setting_mod", ({ name, mod }) => {
+		for (let type of Object.values(settings)) {
+			if (Object.prototype.hasOwnProperty.call(type, name)) {
+				type[name].mod = mod;
+				return;
+			}
+		}
+		server._logger.error(`Unable to find ${name} in settings prototypes`);
+	});
 	server.on("ipc-mod_list", data => { modVersions = new Map(Object.entries(data)); });
 	server.on("output", parsed => {
 		if (parsed.format === "seconds" && parsed.type === "generic") {
@@ -370,8 +424,8 @@ async function exportData(server) {
 		await fs.unlink(server.writePath("mods", "export_0.0.0.zip"));
 	}
 
-	if (!items.length) {
-		throw new Error("No items got exported");
+	if (!Object.keys(prototypes).length) {
+		throw new Error("No prototypes got exported");
 	}
 
 	// Some mod authors put leading zeros into the versions of their zip files.
@@ -396,13 +450,15 @@ async function exportData(server) {
 		}
 	}
 
-	let { iconSheet, itemData } = await exportItems(server, modVersions, items);
+	let { iconSheet, itemData } = await exportItems(server, modVersions, filterItems(prototypes));
 	let locale = await exportLocale(server, modVersions, modOrder, "en");
 
 	// Free up the memory used by zip files loaded during the export.
 	zipCache.clear();
 
 	let zip = new JSZip();
+	zip.file("export/settings.json", JSON.stringify(settings));
+	zip.file("export/prototypes.json", JSON.stringify(prototypes));
 	zip.file("export/item-spritesheet.png", await iconSheet.getBufferAsync(Jimp.MIME_PNG));
 	zip.file("export/item-metadata.json", JSON.stringify([...itemData.entries()]));
 	zip.file("export/locale.json", JSON.stringify([...locale.entries()]));

@@ -310,10 +310,15 @@ describe("Integration of Clusterio", function() {
 				let response = await get("/api/export-manifest");
 				let manifest = JSON.parse(response.body);
 				assert(Object.keys(manifest).length > 1, "Export manifest is empty");
-				assert(
-					await fs.exists(path.join(exportPath, "..", manifest["item-metadata"])),
-					"Export was not written to filesystem"
-				);
+				for (let key of ["settings", "prototypes", "item-metadata", "item-spritesheet", "locale"]) {
+					assert(manifest[key], `Missing ${key} from manifest`);
+					assert(
+						await fs.exists(path.join(exportPath, "..", manifest[key])),
+						`Manifest entry for ${key} was not written to filesystem`
+					);
+				}
+				let prototypes = JSON.parse(await fs.readFile(path.join(exportPath, "..", manifest["prototypes"])));
+				assert(Object.keys(prototypes).length > 50, "Expected there to be more than 50 prototype types");
 				await checkInstanceStatus(44, "stopped");
 			});
 		});
