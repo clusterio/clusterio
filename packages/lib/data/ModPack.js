@@ -3,6 +3,7 @@ const zlib = require("zlib");
 
 const libSchema = require("../schema");
 
+const ExportManifest = require("./ExportManifest");
 const { integerFactorioVersion } = require("./version");
 
 
@@ -100,6 +101,12 @@ class ModPack {
 	};
 
 	/**
+	 * Mapping to files containing exported data for this modpack
+	 * @type {module:lib/data.ExportManifest|undefined}
+	 */
+	exportManifest;
+
+	/**
 	 * True if this mod pack has been deleted from the list of mod packs.
 	 * @type {boolean}
 	 */
@@ -128,6 +135,7 @@ class ModPack {
 					"runtime-per-user": ModSettingsJsonSchema,
 				},
 			},
+			"export_manifest": ExportManifest.jsonSchema,
 			"is_deleted": { type: "boolean" },
 		},
 	};
@@ -151,6 +159,7 @@ class ModPack {
 				"runtime-per-user": new Map(Object.entries(json.settings["runtime-per-user"])),
 			};
 		}
+		if (json.export_manifest) { this.exportManifest = new ExportManifest(json.export_manifest); }
 		if (json.is_deleted) { this.isDeleted = json.is_deleted; }
 
 		if (!this.mods.has("base")) {
@@ -171,6 +180,7 @@ class ModPack {
 				"runtime-per-user": Object.fromEntries(this.settings["runtime-per-user"]),
 			},
 		};
+		if (this.exportManifest) { json.export_manifest = this.exportManifest.toJSON(); }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
@@ -178,6 +188,7 @@ class ModPack {
 	toModPackString() {
 		const json = this.toJSON();
 		delete json.id;
+		delete json.export_manifest;
 
 		// eslint-disable-next-line node/no-sync
 		let buf = zlib.deflateSync(JSON.stringify(json));

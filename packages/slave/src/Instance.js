@@ -1064,6 +1064,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._slave.config.get("slave.master_url"));
 			url.pathname += "api/upload-export";
+			url.searchParams.set("mod_pack_id", this.config.get("factorio.mod_pack"));
 			let response = await phin({
 				url, method: "PUT",
 				data: content,

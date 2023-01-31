@@ -893,6 +893,12 @@ modPackCommands.add(new libCommand.Command({
 						print(`    ${setting}: ${JSON.stringify(settingValue.value)}`);
 					}
 				}
+			} else if (field === "export_manifest") {
+				print(`${field}:`);
+				print("  assets:");
+				for (let [name, fileName] of Object.entries(value.assets)) {
+					print(`    ${name}: ${fileName}`);
+				}
 
 			} else {
 				print(`${field}: ${value}`);

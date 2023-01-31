@@ -228,7 +228,8 @@ before(async function() {
 	testPack.factorioVersion = "1.1.0";
 	testPack.mods.set("subspace_storage", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
 	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
-	libLink.messages.createModPack.send(control, { mod_pack: testPack.toJSON() });
+	await libLink.messages.createModPack.send(control, { mod_pack: testPack.toJSON() });
+	await libLink.messages.setMasterConfigField.send(control, { field: "master.default_mod_pack_id", value: "12" });
 });
 
 after(async function() {

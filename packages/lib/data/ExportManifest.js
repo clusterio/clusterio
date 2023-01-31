@@ -1,0 +1,46 @@
+"use strict";
+
+/**
+ * Export manifest for a mod pack
+ *
+ * Tracks files stored on disk for data that extracted from Factorio using a
+ * given mod pack.
+ * @alias module:lib/data.ExportManifest
+ */
+class ExportManifest {
+
+	/**
+	 * Mapping between known assets and their file names.
+	 *
+	 * Currently exported assets are
+	 * - settings: JSON of mod settings prototypes.
+	 * - prototypes: JSON of all game prototypes except settings.
+	 * - item-spritesheet: PNG containing icons from the game.
+	 * - item-metadata: JSON of Map entries describing icons in item-spritesheet
+	 * - locale: JSON of flattened Map entries of en locale strings from the game.
+	 * @type {Object<string, string>}
+	 */
+	assets = {};
+
+	static jsonSchema = {
+		type: "object",
+		additionalProperties: false,
+		required: ["assets"],
+		properties: {
+			"assets": {
+				type: "object",
+				additionalProperties: { type: "string" },
+			},
+		},
+	};
+
+	constructor(json = {}) {
+		if (json.assets) { this.assets = json.assets; }
+	}
+
+	toJSON() {
+		return { assets: this.assets };
+	}
+}
+
+module.exports = ExportManifest;

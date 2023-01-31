@@ -177,7 +177,6 @@ class Master {
 		this.modPacks = await Master.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
-		this.exportManifest = await Master.loadJsonObject(path.join(databaseDirectory, "export_manifest.json"));
 
 		let modsDirectory = this.config.get("master.mods_directory");
 		await fs.ensureDir(modsDirectory);
@@ -443,14 +442,6 @@ class Master {
 			}
 		}
 		return manifest;
-	}
-
-	async updateExportManifest(newManifest) {
-		let databaseDirectory = this.config.get("master.database_directory");
-		await libFileOps.safeOutputFile(
-			path.join(databaseDirectory, "export_manifest.json"), JSON.stringify(newManifest, null, 4)
-		);
-		this.exportManifest = newManifest;
 	}
 
 	async deleteMod(name, version) {

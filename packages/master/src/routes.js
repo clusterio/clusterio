@@ -187,6 +187,21 @@ async function uploadExport(req, res) {
 		return;
 	}
 
+	if (typeof req.query.mod_pack_id !== "string") {
+		res.sendStatus(400);
+		return;
+	}
+	let modPackId = Number.parseInt(req.query.mod_pack_id, 10);
+	if (!Number.isInteger(modPackId)) {
+		res.sendStatus(400);
+		return;
+	}
+	let modPack = res.app.locals.master.modPacks.get(modPackId);
+	if (!modPack) {
+		res.sendStatus(400);
+		return;
+	}
+
 	let data = [];
 	for await (let chunk of req) {
 		data.push(chunk);
@@ -204,7 +219,7 @@ async function uploadExport(req, res) {
 		"export/locale.json",
 	];
 
-	let manifest = {};
+	let assets = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
 		if (!file) {
@@ -213,17 +228,14 @@ async function uploadExport(req, res) {
 
 		let { name, ext } = path.posix.parse(filePath);
 		let hash = await libHash.hashStream(file.nodeStream());
-		manifest[name] = `static/${name}.${hash}${ext}`;
+		assets[name] = `${name}.${hash}${ext}`;
 		await libFileOps.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
-	await res.app.locals.master.updateExportManifest(manifest);
+
+	modPack.exportManifest = new libData.ExportManifest({ assets });
+	res.app.locals.master.modPackUpdated(modPack);
 
 	res.sendStatus(200);
-}
-
-async function getExportManifest(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.json(res.app.locals.master.exportManifest);
 }
 
 async function createProxyStream(app) {
@@ -601,7 +613,6 @@ function addRouteHandlers(app) {
 		validateSlaveToken,
 		(req, res, next) => uploadExport(req, res).catch(next)
 	);
-	app.get("/api/export-manifest", (req, res, next) => getExportManifest(req, res, next).catch(next));
 	app.put("/api/stream/:id", (req, res, next) => putStream(req, res).catch(next));
 	app.get("/api/stream/:id", (req, res, next) => getStream(req, res).catch(next));
 	app.post("/api/upload-save",

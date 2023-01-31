@@ -1,15 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useContext, useState } from "react";
+
+import { libData, libLink } from "@clusterio/lib";
+import ControlContext from "../components/ControlContext";
 
 
 let exportManifestCache = null;
 let emptyCache = {};
 export function useExportManifest() {
+	const control = useContext(ControlContext);
 	let [exportManifest, setExportManifest] = useState(exportManifestCache || emptyCache);
 	useEffect(() => {
 		async function load() {
-			let response = await fetch(`${webRoot}api/export-manifest`);
-			if (response.ok) {
-				exportManifestCache = await response.json();
+			let result = await libLink.messages.getDefaultModPack.send(control);
+			let modPack = new libData.ModPack(result.mod_pack);
+			if (modPack.exportManifest) {
+				exportManifestCache = modPack.exportManifest;
 				setExportManifest(exportManifestCache);
 			}
 		}

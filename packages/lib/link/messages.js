@@ -723,6 +723,16 @@ messages.getModPack = new Request({
 	},
 });
 
+messages.getDefaultModPack = new Request({
+	type: "get_default_mod_pack",
+	links: ["control-master", "instance-slave", "slave-master"],
+	permission: "core.mod_pack.get",
+	forwardTo: "master",
+	responseProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
 messages.listModPacks = new Request({
 	type: "list_mod_packs",
 	links: ["control-master"],

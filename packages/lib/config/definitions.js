@@ -116,6 +116,13 @@ MasterGroup.define({
 	initial_value: 15,
 });
 MasterGroup.define({
+	name: "default_mod_pack_id",
+	title: "Default Mod Pack",
+	description: "Mod pack used by default for instances.",
+	type: "number",
+	optional: true,
+});
+MasterGroup.define({
 	name: "default_role_id",
 	title: "Default role",
 	description: "ID of role assigned by default to new users.",

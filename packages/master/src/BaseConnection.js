@@ -93,6 +93,18 @@ class BaseConnection extends libLink.Link {
 		}
 		return { mod_pack: modPack.toJSON() };
 	}
+
+	async getDefaultModPackRequestHandler(message) {
+		let id = this._master.config.get("master.default_mod_pack_id");
+		if (id === null) {
+			throw new libErrors.RequestError("Default mod pack not set on master");
+		}
+		let modPack = this._master.modPacks.get(id);
+		if (!modPack) {
+			throw new libErrors.RequestError(`Default mod pack configured (${id}) does not exist`);
+		}
+		return { mod_pack: modPack.toJSON() };
+	}
 }
 
 module.exports = BaseConnection;

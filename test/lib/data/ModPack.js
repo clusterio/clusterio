@@ -3,6 +3,7 @@ const assert = require("assert").strict;
 const zlib = require("zlib");
 
 const libSchema = require("@clusterio/lib/schema");
+const ExportManifest = require("@clusterio/lib/data/ExportManifest");
 const ModPack = require("@clusterio/lib/data/ModPack");
 
 
@@ -18,6 +19,7 @@ describe("lib/data/ModPack", function() {
 				assert.deepEqual(new ModPack(json), pack);
 				const packStringed = ModPack.fromModPackString(pack.toModPackString());
 				packStringed.id = pack.id;
+				packStringed.exportManifest = pack.exportManifest;
 				assert.deepEqual(packStringed, pack);
 			}
 
@@ -40,6 +42,7 @@ describe("lib/data/ModPack", function() {
 					"string-setting": { "value": "a string" },
 				},
 			}}));
+			check(new ModPack({ export_manifest: { assets: { setting: "settings.json" }}}));
 			check(new ModPack({ deleted: true }));
 			check(new ModPack({
 				name: "Super pack",
@@ -60,6 +63,7 @@ describe("lib/data/ModPack", function() {
 						"string-setting": { "value": "a string" },
 					},
 				},
+				export_manifest: { assets: { setting: "settings.json" }},
 				deleted: true,
 			}));
 		});
