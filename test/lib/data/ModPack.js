@@ -82,10 +82,16 @@ describe("lib/data/ModPack", function() {
 					() => ModPack.fromModPackString("AMalformedString"),
 					new Error("Malformed mod pack string: zlib inflate failed")
 				);
+				let badJsonMsg;
+				try {
+					JSON.parse("Not Json");
+				} catch (err) {
+					badJsonMsg = err.message;
+				}
 				assert.throws(
 					// eslint-disable-next-line node/no-sync
 					() => ModPack.fromModPackString(Buffer.from(zlib.deflateSync("Not Json")).toString("base64")),
-					new Error("Malformed mod pack string: Unexpected token N in JSON at position 0")
+					new Error(`Malformed mod pack string: ${badJsonMsg}`)
 				);
 				assert.throws(
 					// eslint-disable-next-line node/no-sync
