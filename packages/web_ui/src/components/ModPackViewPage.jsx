@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useRef, useState } from "react";
+import React, { Fragment, useEffect, useContext, useRef, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import {
 	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, PageHeader, Pagination,
@@ -353,49 +353,115 @@ function pickValue(map) {
 	return [...map].map(([name, value]) => [name, value.value]);
 }
 
-function SettingsTable(props) {
-	function controls(scope, fields) {
-		return fields.map(([fieldName, fieldValue]) => {
-			const isBoolean = typeof fieldValue === "boolean";
-			const isNumber = typeof fieldValue === "number";
+function groupToMap(array, fn) {
+	const map = new Map();
+	for (let index = 0; index < array.length; index++) {
+		let key = fn(array[index], index, array);
+		if (!map.has(key)) {
+			map.set(key, []);
+		}
+		map.get(key).push(array[index]);
+	}
+	return map;
+}
 
-			return <Form.Item
-				name={[scope, fieldName]}
-				key={`${scope} ${fieldName}`}
-				label={fieldName}
-				labelCol={{ span: 8 }}
-				wrapperCol={{ span: 16 }}
-				valuePropName={isBoolean ? "checked" : "value"}
-				rules={[...isNumber ? [{
-					validator(rule, value) {
-						if (Number.isNaN(Number(value))) {
-							return Promise.reject(new Error("Must be a number"));
-						}
-						return Promise.resolve();
-					},
-				}] : []]}
-				className={
-					hasChange(props.changes, { type: "settings.set", scope, name: fieldName }) && "changed"
+function SettingsTable(props) {
+	const [modList] = useModList();
+	const modsInPack = new Set([...props.modPack.mods.values()].map(mod => `${mod.name}_${mod.version}`));
+	const modTitles = new Map(modList
+		.filter(mod => modsInPack.has(`${mod.name}_${mod.version}`))
+		.map(mod => [`${mod.name}`, mod.title])
+	);
+
+	const types = ["bool-setting", "int-setting", "double-setting", "string-setting"];
+	let prototypes = Object.entries(props.prototypes)
+		.filter(([type, _]) => types.includes(type))
+		.flatMap(([_, settingPrototypes]) => Object.values(settingPrototypes))
+	;
+
+	function controls(scope, storedFields) {
+		let fields = new Map(prototypes
+			.filter(p => p.setting_type === scope)
+			.sort((a, b) => strcmp(a.mod, b.mod) || strcmp(a.order || "", b.order || "") || strcmp(a.name, b.name))
+			.map(p => [p.name, p])
+		);
+		for (let [name, value] of storedFields) {
+			if (!fields.has(name)) {
+				let type;
+				if (typeof value === "boolean") {
+					type = "bool-setting";
+				} else if (typeof value === "number") {
+					type = "double-setting";
+				} else if (typeof value === "string") {
+					type = "string-setting";
+				} else {
+					throw Error(`Unhandled setting type ${typeof value}`);
 				}
-			>
-				{isBoolean ? <Checkbox /> : <Input />}
-			</Form.Item>;
-		});
+				fields.set(name, { mod: "Unknown Fields", name, setting_type: scope, type });
+			}
+		}
+		let fieldsByMod = groupToMap([...fields.values()], prototype => prototype.mod);
+		return [...fieldsByMod].map(([mod, fieldsForMod]) => <Fragment key={mod}>
+			<Typography.Title level={5}>
+				{props.locale.get(`mod-name.${mod}`) || modTitles.get(mod) || mod}
+			</Typography.Title>
+			{[...fieldsForMod].map(prototype => {
+				const name = prototype.name;
+				const isBoolean = prototype.type === "bool-setting";
+				const isNumber = ["int-setting", "double-setting"].includes(prototype.type);
+				const isSelect = Boolean(prototype.allowed_values);
+				let input;
+				if (isBoolean) {
+					input = <Checkbox />;
+				} else if (isSelect) {
+					const options = Object.values(prototype.allowed_values).map(value => ({
+						value,
+						label: props.locale.get(`string-mod-setting.${name}-${value}`) || value,
+					}));
+					input = <Select options={options} />;
+				} else {
+					input = <Input />;
+				}
+
+				return <Form.Item
+					name={[scope, name]}
+					key={`${scope} ${name}`}
+					label={props.locale.get(`mod-setting-name.${name}`) || name}
+					tooltip={props.locale.get(`mod-setting-description.${name}`)}
+					labelCol={{ span: 8 }}
+					wrapperCol={{ span: 16 }}
+					valuePropName={isBoolean ? "checked" : "value"}
+					rules={[...isNumber ? [{
+						validator(rule, value) {
+							if (Number.isNaN(Number(value))) {
+								return Promise.reject(new Error("Must be a number"));
+							}
+							return Promise.resolve();
+						},
+					}] : []]}
+					className={
+						hasChange(props.changes, { type: "settings.set", scope, name }) && "changed"
+					}
+				>
+					{input}
+				</Form.Item>;
+			})}
+		</Fragment>);
 	}
 
 	return <>
 		<SectionHeader
 			title="Mod Settings"
 		/>
-		<Typography.Paragraph>Use clusterioctl to add and remove fields.</Typography.Paragraph>
-		<Typography.Title level={5}>Startup</Typography.Title>
+		<Typography.Paragraph>Run export data on an instance to update available fields.</Typography.Paragraph>
+		<Typography.Title level={4}>Startup</Typography.Title>
 		{controls("startup", pickValue(props.modPack.settings["startup"]))}
 
-		<Typography.Title level={5}>Map</Typography.Title>
+		<Typography.Title level={4}>Map</Typography.Title>
 		<Typography.Paragraph>These only apply for new saves.</Typography.Paragraph>
 		{controls("runtime-global", pickValue(props.modPack.settings["runtime-global"]))}
 
-		<Typography.Title level={5}>Per Player</Typography.Title>
+		<Typography.Title level={4}>Per Player</Typography.Title>
 		<Typography.Paragraph>Default settings for new players, these only apply for new saves.</Typography.Paragraph>
 		{controls("runtime-per-user", pickValue(props.modPack.settings["runtime-per-user"]))}
 	</>;
@@ -457,6 +523,33 @@ function ExportButton(props) {
 	</>;
 }
 
+function useExportedAsset(modPack, asset) {
+	let [assetData, setAssetData] = useState(asset === "locale" ? new Map() : {});
+	let assetFilename;
+	if (modPack instanceof libData.ModPack && modPack.exportManifest && modPack.exportManifest.assets[asset]) {
+		assetFilename = modPack.exportManifest.assets[asset];
+	}
+	useEffect(() => {
+		async function load() {
+			if (!assetFilename) {
+				return;
+			}
+
+			let response = await fetch(`${staticRoot}static/${assetFilename}`);
+			if (response.ok) {
+				let data = await response.json();
+				setAssetData(asset === "locale" ? new Map(data) : data);
+			} else {
+				logger.error(`Error loading mod pack asset "${asset}" (${response.status}): ${await response.text()}`);
+			}
+		}
+
+		load().catch(notifyErrorHandler(`Loading mod pack asset "${asset}" failed`));
+	}, [assetFilename]);
+
+	return assetData;
+}
+
 export default function ModPackViewPage() {
 	let account = useAccount();
 	let history = useHistory();
@@ -466,6 +559,8 @@ export default function ModPackViewPage() {
 
 	const [form] = Form.useForm();
 	let [modPack] = useModPack(modPackId);
+	let prototypes = useExportedAsset(modPack, "settings");
+	let locale = useExportedAsset(modPack, "locale");
 	let [changes, setChanges] = useState([]);
 	let [modifiedModPack, setModifiedModPack] = useState(modPack);
 	let syncTimeout = useRef();
@@ -657,7 +752,14 @@ export default function ModPackViewPage() {
 				</Descriptions.Item>
 			</Descriptions>
 			<ModsTable modPack={modifiedModPack} changes={changes} onChange={pushChange} onRevert={revertChange} />
-			<SettingsTable modPack={modifiedModPack} changes={changes} onChange={pushChange} onRevert={revertChange} />
+			<SettingsTable
+				modPack={modifiedModPack}
+				changes={changes}
+				onChange={pushChange}
+				onRevert={revertChange}
+				prototypes={prototypes}
+				locale={locale}
+			/>
 		</Form>
 
 		<div
