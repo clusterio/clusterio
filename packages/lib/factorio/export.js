@@ -7,6 +7,7 @@ const JSZip = require("jszip");
 
 const libIni = require("../ini");
 const libBuildMod = require("../build_mod");
+const libZipOps = require("../zip_ops");
 
 /**
  * Generate the export mod needed for exportData
@@ -56,7 +57,7 @@ async function loadZip(server, modVersions, mod) {
 		zipCache.set(zipPath, zip);
 	}
 
-	return zip.folder(`${mod}_${modVersion}`);
+	return zip.folder(libZipOps.findRoot(zip));
 }
 
 /**
