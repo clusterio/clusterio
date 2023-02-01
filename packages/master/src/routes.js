@@ -220,10 +220,15 @@ async function uploadExport(req, res) {
 	];
 
 	let assets = {};
+	let settingPrototypes = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
 		if (!file) {
 			continue;
+		}
+
+		if (filePath === "export/settings.json") {
+			settingPrototypes = JSON.parse(await file.async("text"));
 		}
 
 		let { name, ext } = path.posix.parse(filePath);
@@ -233,6 +238,7 @@ async function uploadExport(req, res) {
 	}
 
 	modPack.exportManifest = new libData.ExportManifest({ assets });
+	modPack.fillDefaultSettings(settingPrototypes, logger);
 	res.app.locals.master.modPackUpdated(modPack);
 
 	res.sendStatus(200);

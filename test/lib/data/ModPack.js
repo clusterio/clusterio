@@ -76,6 +76,99 @@ describe("lib/data/ModPack", function() {
 			assert.deepEqual(factorioMods.map(mod => mod.factorioVersion), sortedVersions);
 		});
 
+		describe(".fillDefaultSettings()", function() {
+			const prototypes = {
+				"bool-setting": {
+					"bool": {
+						name: "bool",
+						type: "bool-setting",
+						setting_type: "startup",
+						default_value: true,
+					},
+				},
+				"double-setting": {
+					"number": {
+						name: "number",
+						type: "double-setting",
+						setting_type: "runtime-global",
+						default_value: 123,
+					},
+				},
+				"string-setting": {
+					"string": {
+						name: "string",
+						type: "string-setting",
+						setting_type: "runtime-per-user",
+						default_value: "a string",
+					},
+				},
+			};
+			const mockLogger = { warn: () => {} };
+			it("should fill in defaults for settings", function() {
+				const pack = new ModPack();
+				pack.fillDefaultSettings(prototypes, mockLogger);
+				assert.deepEqual(pack.toJSON().settings, {
+					"startup": {
+						"bool": { "value": true },
+					},
+					"runtime-global": {
+						"number": { "value": 123 },
+					},
+					"runtime-per-user": {
+						"string": { "value": "a string" },
+					},
+				});
+			});
+			it("should not overwrite existing values", function() {
+				const pack = new ModPack({ settings: {
+					"startup": {
+						"bool": { "value": false },
+					},
+					"runtime-global": {
+						"number": { "value": 2 },
+					},
+					"runtime-per-user": {
+						"string": { "value": "spam" },
+					},
+				}});
+				pack.fillDefaultSettings(prototypes, mockLogger);
+				assert.deepEqual(pack.toJSON().settings, {
+					"startup": {
+						"bool": { "value": false },
+					},
+					"runtime-global": {
+						"number": { "value": 2 },
+					},
+					"runtime-per-user": {
+						"string": { "value": "spam" },
+					},
+				});
+			});
+			it("should ignore unknown setting_type and missing default_value", function() {
+				const pack = new ModPack();
+				pack.fillDefaultSettings({
+					"string-setting": {
+						"foo": {
+							name: "foo",
+							type: "string-setting",
+							setting_type: "magic-that-does-not-exist",
+							default_value: "a string",
+						},
+						"bar": {
+							name: "bar",
+							type: "string-setting",
+							setting_type: "startup",
+						},
+					},
+				}, mockLogger);
+				assert.deepEqual(pack.toJSON().settings, {
+					"startup": {},
+					"runtime-global": {},
+					"runtime-per-user": {},
+				});
+			});
+		});
+
 		describe(".fromModPackString()", function() {
 			it("should handle malformed strings", function() {
 				assert.throws(

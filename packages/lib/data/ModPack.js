@@ -316,6 +316,40 @@ class ModPack {
 			propertyTreeBytes(this.toJSON().settings),
 		]);
 	}
+
+	/**
+	 * Fill in missing settings with their default values
+	 *
+	 * Uses the provided setting prototypes to add any missing mod settings
+	 * in the mod pack with the default value from the prototype.
+	 *
+	 * @param {Object<string, object>} settingPrototypes -
+	 *     Setting prototypes exported from the game.
+	 * @param {Logger} logger - Logger used to report warnings on.
+	 */
+	fillDefaultSettings(settingPrototypes, logger) {
+		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting"];
+		let prototypes = Object.entries(settingPrototypes)
+			.filter(([type, _]) => knownTypes.includes(type))
+			.flatMap(([_, settings]) => Object.values(settings))
+		;
+
+		for (let prototype of prototypes) {
+			if (!["startup", "runtime-global", "runtime-per-user"].includes(prototype.setting_type)) {
+				logger.warn(`Ignoring ${prototype.name} with unknown setting_type ${prototype.setting_type}`);
+				continue;
+			}
+			if (prototype.default_value === undefined) {
+				logger.warn(`Ignoring ${prototype.name} with missing default_value`);
+				continue;
+			}
+			if (this.settings[prototype.setting_type].get(prototype.name)) {
+				continue;
+			}
+
+			this.settings[prototype.setting_type].set(prototype.name, { value: prototype.default_value });
+		}
+	}
 }
 
 module.exports = ModPack;
