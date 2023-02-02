@@ -192,6 +192,12 @@ class Instance extends libLink.Link {
 		});
 
 		/**
+		 * Mod pack currently running on this instance
+		 * @type {module:lib/data.ModPack>}
+		 */
+		this.activeModPack = undefined;
+
+		/**
 		 * Per player statistics recorded by this instance.
 		 * @type {Map<string, module:lib/PlayerStats>}
 		 */
@@ -593,13 +599,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 */
 	async syncMods() {
 		const modPackId = this.config.get("factorio.mod_pack");
-		let modPack;
+		let response;
 		if (modPackId === null) {
-			modPack = new libData.ModPack();
+			response = await libLink.messages.getDefaultModPack.send(this);
 		} else {
-			const response = await libLink.messages.getModPack.send(this, { id: modPackId });
-			modPack = new libData.ModPack(response.mod_pack);
+			response = await libLink.messages.getModPack.send(this, { id: modPackId });
 		}
+		this.activeModPack = new libData.ModPack(response.mod_pack);
 
 		// TODO validate factorioVersion
 
@@ -625,7 +631,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Add mods from mod the pack
 		const modsDir = this._slave.config.get("slave.mods_directory");
-		for (let mod of modPack.mods.values()) {
+		for (let mod of this.activeModPack.mods.values()) {
 			const modFile = `${mod.name}_${mod.version}.zip`;
 			const target = path.join(modsDir, modFile);
 			const link = this.path("mods", modFile);
@@ -643,11 +649,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Write mod-list.json
 		await fs.outputFile(this.path("mods", "mod-list.json"), JSON.stringify({
-			mods: [{ name: "base" }, ...modPack.mods.values()].map(m => ({ name: m.name, enabled: true })),
+			mods: [{ name: "base" }, ...this.activeModPack.mods.values()].map(m => ({ name: m.name, enabled: true })),
 		}, null, 2));
 
 		// Write mod-settings.dat
-		await fs.outputFile(this.path("mods", "mod-settings.dat"), modPack.toModSettingsDat());
+		await fs.outputFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
 	}
 
 	/**
@@ -1064,7 +1070,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._slave.config.get("slave.master_url"));
 			url.pathname += "api/upload-export";
-			url.searchParams.set("mod_pack_id", this.config.get("factorio.mod_pack"));
+			url.searchParams.set("mod_pack_id", this.activeModPack.id);
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
