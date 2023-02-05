@@ -757,7 +757,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
 
-			let module = JSON.parse(await fs.readFile(moduleJsonPath));
+			let module;
+			try {
+				module = JSON.parse(await fs.readFile(moduleJsonPath));
+			} catch (err) {
+				throw new Error(`Loading module/module.json in plugin ${pluginName} failed: ${err.message}`);
+			}
 			if (module.name !== pluginName) {
 				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
