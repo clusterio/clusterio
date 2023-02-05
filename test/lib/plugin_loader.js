@@ -64,4 +64,45 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 	});
+	describe("loadMasterPluginClass()", function() {
+		let baseDir = path.join("temp", "test", "plugin");
+		let missingClass = path.join(baseDir, "missing_class_plugin");
+		let wrongParentClass = path.join(baseDir, "wrong_parent_class_plugin");
+		before(async function() {
+			async function writeEntrypoint(pluginPath, content) {
+				await fs.outputFile(path.join(pluginPath, "master.js"), content);
+			}
+
+			await writeEntrypoint(missingClass, "");
+			await writeEntrypoint(wrongParentClass, "class MasterPlugin {}\n module.exports = { MasterPlugin };\n");
+		});
+		it("should throw if class is missing from entrypoint", async function() {
+			await assert.rejects(
+				libPluginLoader.loadMasterPluginClass({
+					name: "test",
+					masterEntrypoint: "master",
+					requirePath: path.resolve(missingClass),
+				}),
+				{
+					message:
+						`PluginError: Expected ${path.resolve(missingClass, "master")} ` +
+						"to export a class named MasterPlugin",
+				}
+			);
+		});
+		it("should throw if class is not a subclass of BaseMasterPlugin", async function() {
+			await assert.rejects(
+				libPluginLoader.loadMasterPluginClass({
+					name: "test",
+					masterEntrypoint: "master",
+					requirePath: path.resolve(wrongParentClass),
+				}),
+				{
+					message:
+						"PluginError: Expected MasterPlugin exported from " +
+						`${path.resolve(wrongParentClass, "master")} to be a subclass of BaseMasterPlugin`,
+				}
+			);
+		});
+	});
 });

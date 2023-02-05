@@ -6,6 +6,7 @@
 "use strict";
 
 const libErrors = require("./errors");
+const libPlugin = require("./plugin");
 const path = require("path");
 
 
@@ -48,6 +49,22 @@ async function loadPluginInfos(pluginList) {
 	return plugins;
 }
 
+function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
+	let resolvedPath = path.posix.join(pluginInfo.requirePath, pluginInfo[entrypointName]);
+	let entrypoint = require(resolvedPath);
+	if (!entrypoint[className]) {
+		throw new libErrors.PluginError(pluginInfo.name,
+			new Error(`Expected ${resolvedPath} to export a class named ${className}`)
+		);
+	}
+	if (!(entrypoint[className].prototype instanceof pluginClass)) {
+		throw new libErrors.PluginError(pluginInfo.name,
+			new Error(`Expected ${className} exported from ${resolvedPath} to be a subclass of ${pluginClass.name}`)
+		);
+	}
+	return entrypoint[className];
+}
+
 /**
  * Load master plugin class of a plugin
  *
@@ -58,8 +75,7 @@ async function loadPluginInfos(pluginList) {
  * @static
  */
 async function loadMasterPluginClass(pluginInfo) {
-	let entrypoint = require(path.posix.join(pluginInfo.requirePath, pluginInfo.masterEntrypoint));
-	return entrypoint.MasterPlugin;
+	return loadPluginClass("masterEntrypoint", "MasterPlugin", libPlugin.BaseMasterPlugin, pluginInfo);
 }
 
 /**
@@ -72,8 +88,7 @@ async function loadMasterPluginClass(pluginInfo) {
  * @static
  */
 async function loadInstancePluginClass(pluginInfo) {
-	let entrypoint = require(path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint));
-	return entrypoint.InstancePlugin;
+	return loadPluginClass("instanceEntrypoint", "InstancePlugin", libPlugin.BaseInstancePlugin, pluginInfo);
 }
 
 /**
@@ -86,8 +101,7 @@ async function loadInstancePluginClass(pluginInfo) {
  * @static
  */
 async function loadControlPluginClass(pluginInfo) {
-	let entrypoint = require(path.posix.join(pluginInfo.requirePath, pluginInfo.controlEntrypoint));
-	return entrypoint.ControlPlugin;
+	return loadPluginClass("controlEntrypoint", "ControlPlugin", libPlugin.BaseControlPlugin, pluginInfo);
 }
 
 module.exports = {
