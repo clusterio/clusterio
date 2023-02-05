@@ -618,16 +618,19 @@ definePermission({
 	name: "core.user.get",
 	title: "Get user",
 	description: "Get the details of a user in the cluster.",
+	grantByDefault: true,
 });
 definePermission({
 	name: "core.user.list",
 	title: "List users",
 	description: "Get the full list of users in the cluster.",
+	grantByDefault: true,
 });
 definePermission({
 	name: "core.user.subscribe",
 	title: "Subscribe to user updates",
 	description: "Subscribe to be notified on updates on the details and status of users.",
+	grantByDefault: true,
 });
 definePermission({
 	name: "core.user.create",
