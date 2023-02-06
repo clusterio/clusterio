@@ -210,6 +210,114 @@ describe("lib/prometheus", function() {
 		});
 	});
 
+	describe("class Summary", function() {
+		let summary;
+		let labeledSummary;
+		beforeEach(function() {
+			summary = new prometheus.Summary(
+				"test", "Help", { register: false }
+			);
+			labeledSummary = new prometheus.Summary(
+				"test", "Help", { register: false, labels: ["a", "b"] }
+			);
+		});
+
+		describe("constructor", function() {
+			it("should have sum and count initialized to 0", function() {
+				assert.equal(summary.sum, 0);
+				assert.equal(summary.count, 0);
+			});
+			it("should throw on unrecoginzed option", function() {
+				assert.throws(
+					() => new prometheus.Summary("test", "help", { invalid: 1 }),
+					new Error("Unrecognized option 'invalid'")
+				);
+			});
+		});
+
+		describe(".observe()", function() {
+			it("should increment sum and count", function() {
+				summary.observe(2);
+				assert.equal(summary.sum, 2);
+				assert.equal(summary.count, 1);
+
+				summary.observe(4);
+				assert.equal(summary.sum, 6);
+				assert.equal(summary.count, 2);
+			});
+		});
+
+		describe(".startTimer()", function() {
+			it("should add observations when closure is called", function() {
+				let observeDuration = summary.startTimer();
+				assert.equal(summary.count, 0);
+				observeDuration();
+				assert.equal(summary.count, 1);
+				observeDuration();
+				assert.equal(summary.count, 2);
+			});
+		});
+
+		describe(".labels()", function() {
+			it("should initialize a value for the label set", function() {
+				labeledSummary.labels({ a: "1", b: "2" });
+				assert(labeledSummary._sumValues.has('a="1",b="2"'), "sum value not set");
+				assert(labeledSummary._countValues.has('a="1",b="2"'), "count value not set");
+
+				labeledSummary.labels("4", "5");
+				assert(labeledSummary._sumValues.has('a="4",b="5"'), "sum value not set");
+				assert(labeledSummary._countValues.has('a="4",b="5"'), "count value not set");
+			});
+			it("should return a child supporting the summary methods", function() {
+				let child = labeledSummary.labels({ a: "1", b: "2" });
+				void child.sum;
+				void child.count;
+				child.observe(2);
+				let observeDuration = child.startTimer();
+				observeDuration();
+				child = labeledSummary.labels("7", "8");
+				void child.sum;
+				void child.count;
+				child.observe(2);
+				observeDuration = child.startTimer();
+				observeDuration();
+			});
+			it("should return the same child for the same labels", function() {
+				let child = labeledSummary.labels("1", "2");
+				assert.equal(labeledSummary.labels("1", "2"), child);
+				assert.equal(labeledSummary.labels({ a: "1", b: "2" }), child);
+			});
+		});
+		describe(".remove()", function() {
+			it("should remove a label set created with .labels()", function() {
+				labeledSummary.labels("1", "2");
+				labeledSummary.remove("1", "2");
+				assert(!labeledSummary._sumValues.has('a="1",b="2"'), "sum value not removed");
+				assert(!labeledSummary._countValues.has('a="1",b="2"'), "count value not removed");
+			});
+		});
+		describe(".removeAll()", function() {
+			it("should remove a label set created with .labels()", function() {
+				labeledSummary.labels("1", "2");
+				labeledSummary.labels("1", "3");
+				labeledSummary.labels("4", "6");
+				labeledSummary.removeAll({ a: "1" });
+				assert.deepEqual(labeledSummary._sumValues, new Map([['a="4",b="6"', 0]]));
+				assert.deepEqual(labeledSummary._countValues, new Map([['a="4",b="6"', 0]]));
+			});
+		});
+		describe(".clear()", function() {
+			it("should remove all label sets created with .labels()", function() {
+				labeledSummary.labels("1", "2");
+				labeledSummary.labels("1", "3");
+				labeledSummary.labels("4", "6");
+				labeledSummary.clear();
+				assert(labeledSummary._sumValues.size === 0, "sums were not cleared");
+				assert(labeledSummary._countValues.size === 0, "counts were not cleared");
+			});
+		});
+	});
+
 	describe("class Histogram", function() {
 		let histogram;
 		let labeledHistogram;

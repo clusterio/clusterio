@@ -9,9 +9,8 @@
  * The ordinary use case of instrumenting a code base should be covered by
  * {@link module:lib/prometheus.Counter}, {@link
  * module:lib/prometheus.Gauge}, {@link module:lib/prometheus.Histogram} and
- * {@link module:lib/prometheus.exposition}.  Note that the summary
- * collector is not implemented.  See documentation for each of the listed
- * interfaces for more information.
+ * {@link module:lib/prometheus.exposition}.  See documentation for each of
+ * the listed interfaces for more information.
  *
  * @example
  * const { Counter, exposition } = require("@clusterio/lib/prometheus");
@@ -802,7 +801,7 @@ class GaugeChild extends ValueCollectorChild {
  * to avoid having the time of many collectors add up to too much.
  *
  * Like with the Counter the Gauge also supports labels.  When using labels
- * the methods for changing the value of the counter is not longer usable
+ * the methods for changing the value of the counter is no longer usable
  * directly on the counter itself, instead a child counter with label values
  * set has to be retrieved with the `.labels()` method.  For example:
  *
@@ -916,6 +915,232 @@ class Gauge extends ValueCollector {
 	 */
 	startTimer() {
 		return this._defaultChild.startTimer();
+	}
+}
+
+/**
+ * Child Summary holding the sum and count for a single label set.
+ */
+class SummaryChild {
+	constructor(collector, key) {
+		this._sumValues = collector._sumValues;
+		this._countValues = collector._countValues;
+		this._key = key;
+
+		this._sumValues.set(key, 0);
+		this._countValues.set(key, 0);
+	}
+
+	/**
+	 * Sum of all observations for label set
+	 * @type {number}
+	 */
+	get sum() {
+		return this._sumValues.get(this._key);
+	}
+
+	/**
+	 * Count of observations for label set
+	 * @type {number}
+	 */
+	get count() {
+		return this._countValues.get(this._key);
+	}
+
+	/**
+	 * Observe a given value and increment matching buckets for label set
+	 *
+	 * @param {number} value - number to count into summary.
+	 */
+	observe(value) {
+		this._sumValues.set(this._key, this._sumValues.get(this._key) + value);
+		this._countValues.set(this._key, this._countValues.get(this._key) + 1);
+	}
+
+	/**
+	 * Start a timer for observing a duration for label set
+	 *
+	 * @returns {function()}
+	 *     function that when called will store the duration in seconds from
+	 *     when the timer was started into the metric.
+	 */
+	startTimer() {
+		let start = process.hrtime.bigint();
+		return () => {
+			let end = process.hrtime.bigint();
+			this.observe(Number(end - start) / 1e9);
+		};
+	}
+}
+
+/**
+ * Summary metric
+ *
+ * Sample observations into a count and sum.  This is useful when you have
+ * an operation that reports a metric that you want insight into the rate
+ * and average size of values for.  A common case for this is request
+ * duration, for example:
+ *
+ * ```js
+ * const requestDuration = new Summary(
+ *     "app_request_duration_seconds",
+ *     "Time to process app requests",
+ * );
+ *
+ * async function handleRequest(...) {
+ *     const observeDuration = requestDuration.startTimer();
+ *     try {
+ *         // Do async stuff.
+ *     } finally {
+ *         observeDuration();
+ *     }
+ * }
+ * ```
+ *
+ * Note that reporting quantiles is note supported.  This makes the Summary
+ * less insightful than the Histogram while using less resources.
+ *
+ * The `.startTimer()` method provides a convenient interface for adding
+ * observed durations to the summary.  Other types of values can be added to
+ * a summary with the `.observe()` method.
+ *
+ * Like with the Counter and Gauge the Summary collector also supports
+ * labels.  When using labels the methods for observing values into the
+ * summary is no longer usable directly on the counter itself, instead a
+ * child summary with label values set has to be retrieved with the
+ * `.labels()` method.  For example:
+ *
+ * ```js
+ * const requestDuration = new Summary(
+ *     "app_request_duration_seconds",
+ *     "Time to process app requests",
+ *     { labels: ["endpoint"] }
+ * );
+ *
+ * async function handleRequest(endpoint, ...) {
+ *     const observeDuration = requestDuration.labels(endpoint).startTimer();
+ *     try {
+ *         // Do async stuff.
+ *     } finally {
+ *         observeDuration();
+ *     }
+ * }
+ * ```
+ *
+ * When using labels the summary is no longer initalized with a default
+ * value, and this may cause issues with aggregating and querying the
+ * summary in Prometheus.  When dynamically setting labels it is recommended
+ * where possible to initialize all possible combinations of label values
+ * that will be used.  This is done by calling `.labels()` for each
+ * combination, for example:
+ *
+ * ```js
+ * for (let endpoint of ["/status", "/api", ...) {
+ *     requestDuration.labels(endpoint);
+ * }
+ * ```
+ *
+ * Note that every combination of label values used creates two new time
+ * series that need to be stored and processed.  You should carefully
+ * evaluate which labels you actually need as resource usage for a metric
+ * increases exponentially with the number of labels used.
+ *
+ * @static
+ */
+class Summary extends LabeledCollector {
+	/**
+	 * Create optionally labeled summary
+	 *
+	 * @param {string} name - Name of the metric.
+	 * @param {string} help - Help text for metric.
+	 * @param {Object=} options - options for collector.
+	 * @param {Array<string>=} options.labels -
+	 *     Labels for this metric, defaults to no labels.
+	 * @param {boolean=} options.register -
+	 *     If true registers this collector with the default registry.
+	 *     Defaults to true.
+	 * @param {function()=} options.callback -
+	 *     Possibly async function that is called when the metric is
+	 *     collected.  The collector being collected is passed as the
+	 *     argument.
+	 */
+	constructor(name, help, options = {}) {
+		super("summary", name, help, options, SummaryChild);
+
+		this._sumValues = new Map();
+		this._countValues = new Map();
+		this._defaultChild = this.metric.labels.length ? null : this.labels({});
+	}
+
+	async* collect() {
+		if (this.callback) { await this.callback(this); }
+		yield {
+			metric: this.metric,
+			samples: new Map([
+				["_sum", this._sumValues],
+				["_count", this._countValues],
+			]),
+		};
+	}
+
+	/**
+	 * Sum of all observations for label set
+	 *
+	 * Note: Only available if this is an unlabeled collector.
+	 * @type {number}
+	 */
+	get sum() {
+		return this._defaultChild.sum;
+	}
+
+	/**
+	 * Count of observations for label set
+	 *
+	 * Note: Only available if this is an unlabeled collector.
+	 * @type {number}
+	 */
+	get count() {
+		return this._defaultChild.count;
+	}
+
+	/**
+	 * Observe a given value and increment matching buckets
+	 *
+	 * Note: Only works if this is an unlabeled collector.
+	 * @param {number} value - number to count into histogram buckets.
+	 */
+	observe(value) {
+		this._defaultChild.observe(value);
+	}
+
+	/**
+	 * Start a timer for observing a duration
+	 *
+	 * Note: Only works if this is an unlabeled collector.
+	 * @returns {function()}
+	 *     function that when called will store the duration in seconds from
+	 *     when the timer was started into the metric.
+	 */
+	startTimer() {
+		return this._defaultChild.startTimer();
+	}
+
+	remove(...labels) {
+		let key = super.remove(...labels);
+		this._sumValues.delete(key);
+		this._countValues.delete(key);
+	}
+
+	removeAll(labels) {
+		super.removeAll(labels);
+		removeMatchingLabels(this._sumValues, labels);
+		removeMatchingLabels(this._countValues, labels);
+	}
+
+	clear() {
+		super.clear();
+		this._sumValues = new Map();
+		this._countValues = new Map();
 	}
 }
 
@@ -1047,7 +1272,7 @@ class HistogramChild {
  *
  * Like with the Counter and Gauge the Histogram collector also supports
  * labels.  When using labels the methods for observing values into the
- * histogram is not longer usable directly on the counter itself, instead a
+ * histogram is no longer usable directly on the counter itself, instead a
  * child histogram with label values set has to be retrieved with the
  * `.labels()` method.  For example:
  *
@@ -1567,6 +1792,7 @@ defaultCollectors.processStartTimeSeconds.setToCurrentTime();
 module.exports = {
 	Counter,
 	Gauge,
+	Summary,
 	Histogram,
 	CollectorRegistry,
 	Collector,
