@@ -129,6 +129,11 @@ async function startSlave() {
 		}));
 	}
 
+	let command = args._[0];
+	if (command === "run") {
+		logger.info(`Starting Clusterio slave ${version}`);
+	}
+
 	// add better stack traces on promise rejection
 	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
 
@@ -143,7 +148,6 @@ async function startSlave() {
 	}
 
 	// If the command is plugin management we don't try to load plugins
-	let command = args._[0];
 	if (command === "plugin") {
 		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
 		return;

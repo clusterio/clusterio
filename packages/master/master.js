@@ -38,6 +38,7 @@ const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
 const Master = require("./src/Master");
 const UserManager = require("./src/UserManager");
+const version = require("./package").version;
 
 // globals
 let master;
@@ -284,6 +285,12 @@ async function initialize() {
 		}));
 	}
 
+	let command = parameters.args._[0];
+	if (command === "run") {
+		logger.info(`Starting Clusterio master ${version}`);
+		parameters.shouldRun = true;
+	}
+
 	logger.info(`Loading available plugins from ${parameters.args.pluginList}`);
 	let pluginList = new Map();
 	try {
@@ -295,7 +302,6 @@ async function initialize() {
 	}
 
 	// If the command is plugin management we don't try to load plugins
-	let command = parameters.args._[0];
 	if (command === "plugin") {
 		await libSharedCommands.handlePluginCommand(parameters.args, pluginList, parameters.args.pluginList);
 		return parameters;
@@ -336,15 +342,11 @@ async function initialize() {
 		await libSharedCommands.handleConfigCommand(
 			parameters.args, parameters.masterConfig, parameters.masterConfigPath
 		);
-		return parameters;
 
 	} else if (command === "bootstrap") {
 		await handleBootstrapCommand(parameters.args, parameters.masterConfig);
-		return parameters;
 	}
 
-	// If we get here the command was run
-	parameters.shouldRun = true;
 	return parameters;
 }
 
