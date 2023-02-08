@@ -289,7 +289,7 @@ class ControlConnection extends BaseConnection {
 
 	async updateInstanceConfig(instance) {
 		let slaveId = instance.config.get("instance.assigned_slave");
-		if (slaveId) {
+		if (slaveId !== null) {
 			let connection = this._master.wsServer.slaveConnections.get(slaveId);
 			if (connection) {
 				await libLink.messages.assignInstance.send(connection, {

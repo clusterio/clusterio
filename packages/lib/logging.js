@@ -58,11 +58,11 @@ class WebConsoleFormat {
 
 	transform(info, options) {
 		let src = " ";
-		if (info.slave_id) {
+		if (info.slave_id !== undefined) {
 			let slaveName = info.slave_id;
 			src += `s:${slaveName} - `;
 		}
-		if (info.instance_id) {
+		if (info.instance_id !== undefined) {
 			let instanceName = info.instance_id;
 			src += `i:${instanceName}`;
 		}
