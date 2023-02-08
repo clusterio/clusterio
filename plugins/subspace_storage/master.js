@@ -86,7 +86,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 		this.subscribedControlLinks = new Set();
 
-		routes.addApiRoutes(this.master.app, this.items, this.metrics.endpointHitCounter);
+		routes.addApiRoutes(this.master.app, this.items);
 	}
 
 	updateStorage() {

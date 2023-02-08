@@ -19,8 +19,6 @@ const libPlugin = require("@clusterio/lib/plugin");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const { logger } = require("@clusterio/lib/logging");
 
-const { endpointHitCounter } = require("./metrics");
-
 const finished = util.promisify(nodeStream.finished);
 
 
@@ -41,8 +39,6 @@ function mergeSamples(destinationResult, sourceResult) {
 
 // Prometheus polling endpoint
 async function getMetrics(req, res, next) {
-	endpointHitCounter.labels(req.route.path).inc();
-
 	let results = [];
 	let pluginResults = await libPlugin.invokeHook(req.app.locals.master.plugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
@@ -181,7 +177,6 @@ function validateUserToken(req, res, next) {
 
 // Handle an uploaded export package.
 async function uploadExport(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
 	if (req.get("Content-Type") !== "application/zip") {
 		res.sendStatus(415);
 		return;
@@ -340,7 +335,6 @@ async function uploadSave(req, res) {
 		res.status(403).json({ request_errors: [err.message] });
 		return;
 	}
-	endpointHitCounter.labels(req.route.path).inc();
 
 	let contentType = req.get("Content-Type");
 	let match = contentTypeRegExp.exec(contentType);
@@ -479,7 +473,6 @@ async function uploadMod(req, res) {
 		res.status(403).json({ request_errors: [err.message] });
 		return;
 	}
-	endpointHitCounter.labels(req.route.path).inc();
 
 	let contentType = req.get("Content-Type");
 	let match = contentTypeRegExp.exec(contentType);

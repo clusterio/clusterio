@@ -44,8 +44,6 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		}, 60e3).unref();
 
 		this.master.app.get("/api/player_auth/servers", (req, res) => {
-			this.metrics.endpointHitCounter.labels(req.route.path).inc();
-
 			let servers = [];
 			for (let instance of this.master.instances.values()) {
 				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
@@ -56,12 +54,10 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		});
 
 		this.master.app.post("/api/player_auth/player_code", express.json(), (req, res, next) => {
-			this.metrics.endpointHitCounter.labels(req.route.path).inc();
 			this.handlePlayerCode(req, res).catch(next);
 		});
 
 		this.master.app.post("/api/player_auth/verify", express.json(), (req, res, next) => {
-			this.metrics.endpointHitCounter.labels(req.route.path).inc();
 			this.handleVerify(req, res).catch(next);
 		});
 	}

@@ -6,7 +6,7 @@ const fs = require("fs-extra");
 const http = require("http");
 const https = require("https");
 const path = require("path");
-
+const stream = require("stream");
 
 const libConfig = require("@clusterio/lib/config");
 const libData = require("@clusterio/lib/data");
@@ -26,9 +26,10 @@ const UserManager = require("./UserManager");
 const WsServer = require("./WsServer");
 
 
-const hitCounter = new libPrometheus.Counter(
-	"clusterio_master_http_hits_total",
-	"How many HTTP requests in total have been received"
+const endpointDurationSummary = new libPrometheus.Summary(
+	"clusterio_master_http_endpoint_duration_seconds",
+	"Time it took to respond to a an HTTP request",
+	{ labels: ["route"] }
 );
 
 /**
@@ -487,7 +488,15 @@ class Master {
 
 	static addAppRoutes(app, pluginInfos) {
 		app.use((req, res, next) => {
-			hitCounter.inc();
+			let start = process.hrtime.bigint();
+			stream.finished(res, () => {
+				let routePath = "static";
+				if (req.route && req.route.path) {
+					routePath = req.route.path;
+				}
+				let end = process.hrtime.bigint();
+				endpointDurationSummary.labels(routePath).observe(Number(end - start) / 1e9);
+			});
 			next();
 		});
 		app.use(compression());
