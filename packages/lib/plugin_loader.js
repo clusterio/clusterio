@@ -19,7 +19,7 @@ const path = require("path");
  *
  * @param {Map<string, string>} pluginList -
  *     Mapping of plugin name to require path for the plugins to load.
- * @returns {Array<Object>} Array of plugin info modules.
+ * @returns {Promise<Array<Object>>} Array of plugin info modules.
  * @static
  */
 async function loadPluginInfos(pluginList) {
@@ -71,7 +71,7 @@ function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
  *     module:lib/plugin_loader.loadPluginInfos} to load class from.
- * @returns {function} plugin class
+ * @returns {Promise<function>} plugin class
  * @static
  */
 async function loadMasterPluginClass(pluginInfo) {
@@ -84,7 +84,7 @@ async function loadMasterPluginClass(pluginInfo) {
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
  *     module:lib/plugin_loader.loadPluginInfos} to load class from.
- * @returns {function} plugin class
+ * @returns {Promise<function>} plugin class
  * @static
  */
 async function loadInstancePluginClass(pluginInfo) {
@@ -97,7 +97,7 @@ async function loadInstancePluginClass(pluginInfo) {
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
  *     module:lib/plugin_loader.loadPluginInfos} to load class from.
- * @returns {function} plugin class
+ * @returns {Promise<function>} plugin class
  * @static
  */
 async function loadControlPluginClass(pluginInfo) {

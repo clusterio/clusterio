@@ -205,7 +205,7 @@ class LogIndex {
 	 * module:lib/logging_utils.LogIndex#save}.
 	 *
 	 * @param {string} logDirectory - Path to directory to load from.
-	 * @returns {module:lib/logging_utils.LogIndex} loaded or created log index.
+	 * @returns {Promise<module:lib/logging_utils.LogIndex>} loaded or created log index.
 	 */
 	static async load(logDirectory) {
 		try {
@@ -391,7 +391,7 @@ function logFilter({ all, master, slave_ids, instance_ids, max_level }) {
  *     Filter to limit logs by.
  * @param {module:lib/logging_utils.LogIndex=} index -
  *     Index to speed up query with.
- * @returns {Array<Object>} log entries matching the filter
+ * @returns {Promise<Array<Object>>} log entries matching the filter
  */
 async function queryLog(logDirectory, filter, index) {
 	let files = (await fs.readdir(logDirectory)).filter(entry => logFileGlob.test(entry));

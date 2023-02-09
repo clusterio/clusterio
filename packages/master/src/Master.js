@@ -484,7 +484,7 @@ class Master {
 	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
 	 *     Filter to limit entries with. Note that only the master log can
 	 *     be queried from this function.
-	 * @returns {Array<Object>} log entries matching the filter
+	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
 	async queryMasterLog(filter) {
 		return await libLoggingUtils.queryLog(
@@ -497,7 +497,7 @@ class Master {
 	 *
 	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
 	 *     Filter to limit entries with.
-	 * @returns {Array<Object>} log entries matching the filter
+	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
 	async queryClusterLog(filter) {
 		return await libLoggingUtils.queryLog(
@@ -811,7 +811,7 @@ class Master {
 	 * @param {object} data - Data to pass with the request.
 	 * @param {number} data.instance_id -
 	 *     ID of instance to send this request towards
-	 * @returns {object} data returned from the request.
+	 * @returns {Promise<object>} data returned from the request.
 	 */
 	async forwardRequestToInstance(request, data) {
 		let instance = this.getRequestInstance(data.instance_id);

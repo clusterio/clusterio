@@ -13,7 +13,7 @@ const crypto = require("crypto"); // needed for getTempFile
  * @param {function(string): boolean} filter -
  *     Optional function to filter out files to ignore.  Should return true
  *     if the file is to be considered.
- * @returns {?string}
+ * @returns {Promise<?string>}
  *     Name of the file with the newest timestamp or null if the
  *     directory contains no files.
  */
@@ -80,8 +80,8 @@ async function directorySize(directory) {
  * @param {string} directory - directory to check in.
  * @param {string} name - file name to check for, may have extension.
  * @param {string} extension - dot extension used for the file name.
- * @returns {string} modified name with extension that likely does not exist
- *     in the folder
+ * @returns {Promise<string>} modified name with extension that likely does
+ *     not exist in the folder
  */
 async function findUnusedName(directory, name, extension = "") {
 	if (extension && name.endsWith(extension)) {

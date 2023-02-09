@@ -41,7 +41,7 @@ function checkRequestSaveName(name) {
  * instanceInfo objects.
  *
  * @param {string} instancesDir - Directory containing instances
- * @returns {Map<integer, Object>}
+ * @returns {Promise<Map<integer, Object>>}
  *     mapping between instance id and information about this instance.
  * @private
  */
@@ -379,7 +379,7 @@ class Slave extends libLink.Link {
 	 * Initialize and connect an unloaded instance
 	 *
 	 * @param {number} instanceId - ID of instance to initialize.
-	 * @returns {module:slave/slave~InstanceConnection} connection to instance.
+	 * @returns {Promise<module:slave/slave~InstanceConnection>} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
 		let instanceInfo = this.getRequestInstanceInfo(instanceId);

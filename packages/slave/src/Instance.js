@@ -193,7 +193,7 @@ class Instance extends libLink.Link {
 
 		/**
 		 * Mod pack currently running on this instance
-		 * @type {module:lib/data.ModPack>}
+		 * @type {module:lib/data.ModPack}
 		 */
 		this.activeModPack = undefined;
 
@@ -538,7 +538,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * entries from the given settings object.
 	 *
 	 * @param {Object} overrides - Server settings to override.
-	 * @returns {Object}
+	 * @returns {Promise<Object>}
 	 *     server example settings with the given settings applied over it.
 	 */
 	async resolveServerSettings(overrides) {
@@ -699,10 +699,10 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 *
 	 * Creates a new save if no save is passed and patches it with modules.
 	 *
-	 * @param {String|null} saveName -
+	 * @param {string|null} saveName -
 	 *     Save to prepare from the instance saves directory.  Creates a new
 	 *     save if null.
-	 * @returns {String} Name of the save prepared.
+	 * @returns {Promise<string>} Name of the save prepared.
 	 */
 	async prepareSave(saveName) {
 		// Use latest save if no save was specified

@@ -142,7 +142,7 @@ class CommandTree {
  *
  * @param {module:lib/link.Link} client - link to master server to query slave on.
  * @param {string} slaveName - string with name or id of slave.
- * @returns {number} slave ID.
+ * @returns {Promise<number>} slave ID.
  * @static
  */
 async function resolveSlave(client, slaveName) {
@@ -174,7 +174,7 @@ async function resolveSlave(client, slaveName) {
  *
  * @param {module:lib/link.Link} client - link to master server to query instance on.
  * @param {string} instanceName - string with name or id of instance.
- * @returns {number} instance ID.
+ * @returns {Promise<number>} instance ID.
  * @static
  */
 async function resolveInstance(client, instanceName) {
@@ -239,7 +239,7 @@ async function resolveModPack(client, modPackName) {
  *
  * @param {module:lib/link.Link} client - link to master server to query role on.
  * @param {string} roleName - string with name or id of role.
- * @returns {Object} Role info.
+ * @returns {Promise<object>} Role info.
  * @static
  */
 async function retrieveRole(client, roleName) {

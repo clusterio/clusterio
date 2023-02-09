@@ -255,7 +255,7 @@ class Request extends Message {
 	 *
 	 * @param {module:lib/link.Link} link - Link to send request over.
 	 * @param {Object} data - Data to send with the request.
-	 * @returns {object} response data
+	 * @returns {Promise<object>} response data
 	 */
 	async send(link, data = {}) {
 		// XXX validate link target/source?

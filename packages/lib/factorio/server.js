@@ -86,7 +86,7 @@ function versionOrder(a, b) {
  * @param {string} targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
- * @returns {Array} Array with path to data dir and version found.
+ * @returns {Promise<Array>} Array with path to data dir and version found.
  * @memberof module:lib/factorio
  * @private
  * @inner
@@ -163,7 +163,7 @@ function randomDynamicPort() {
  * the given length.
  *
  * @param {number} length - the length of the password to generate.
- * @return {string} password of the given length
+ * @return {Promise<string>} password of the given length
  * @memberof module:lib/factorio
  * @private
  * @inner
@@ -902,7 +902,7 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {boolean} expectEmpty -
 	 *     if true throw if the response is not empty.  Useful for detecting
 	 *     errors that might have been sent in response.
-	 * @returns {string} response from server.
+	 * @returns {Promise<string>} response from server.
 	 */
 	async sendRcon(message, expectEmpty) {
 		this._check(["running", "stopping"]);
@@ -1036,7 +1036,7 @@ class FactorioServer extends events.EventEmitter {
 	 * Ensures achievements are disabled on the save that's running.  This is
 	 * necessary in order to run any commands at all.
 	 *
-	 * @returns {boolean}
+	 * @returns {Promise<boolean>}
 	 *     True if acheivements got disabled and false if they already where
 	 *     disabled.
 	 */
@@ -1104,7 +1104,7 @@ class FactorioServer extends events.EventEmitter {
 	 *
 	 * Loads server-settings.example.json from the data dir.
 	 *
-	 * @returns {object} the parsed server-settings.
+	 * @returns {Promise<object>} the parsed server-settings.
 	 */
 	async exampleSettings() {
 		return JSON.parse(await fs.readFile(this.dataPath("server-settings.example.json"), "utf-8"));
