@@ -13,7 +13,7 @@ function TokenAuth(props) {
 		<Paragraph>If you have generated an authentication token from the master server, use that here.</Paragraph>
 		<Form
 			name="login"
-			onFinish={(values) => { props.setToken(values.token); }}
+			onFinish={(values) => { props.setToken(values.token.trim()); }}
 			layout="inline"
 		>
 			<Form.Item
