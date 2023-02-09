@@ -5,6 +5,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 const crypto = require("crypto"); // needed for getTempFile
+
 /**
  * Returns the newest file in a directory
  *
@@ -30,6 +31,38 @@ async function getNewestFile(directory, filter = (name) => true) {
 	}
 
 	return newestFile;
+}
+
+/**
+ * Returns the total size of all files in a directory
+ *
+ * Sums up the file size of all files in the given directory if it exists.
+ * Error reading the size of files are ignored, and error reading the
+ * directory will result in 0 being returned.
+ *
+ * @param {string} directory - The directory to sum files in.
+ * @returns {Promise<number>} The size in bytes of all files in the directory.
+ */
+async function directorySize(directory) {
+	let dirEntries;
+	try {
+		dirEntries = await fs.readdir(directory, { withFileTypes: true });
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			return 0;
+		}
+		throw err;
+	}
+	let statTasks = [];
+	for (let entry of dirEntries) {
+		if (entry.isFile()) {
+			statTasks.push(fs
+				.stat(path.join(directory, entry.name))
+				.then(stat => stat.size, _ => 0)
+			);
+		}
+	}
+	return (await Promise.all(statTasks)).reduce((a, v) => a + v, 0);
 }
 
 /**
@@ -193,6 +226,7 @@ function cleanFilename(name) {
 
 module.exports = {
 	getNewestFile,
+	directorySize,
 	findUnusedName,
 	getTempFile,
 	safeOutputFile,

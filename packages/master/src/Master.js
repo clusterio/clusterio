@@ -32,6 +32,11 @@ const endpointDurationSummary = new libPrometheus.Summary(
 	{ labels: ["route"] }
 );
 
+const logSizeGauge = new libPrometheus.Gauge(
+	"clusterio_master_log_bytes",
+	"Size of all log files currently stored on the master."
+);
+
 /**
  * Manages all master related operations
  * @alias module:master/src/Master
@@ -131,6 +136,19 @@ class Master {
 		}
 	}
 
+	/**
+	 * Get the total size of the logs stored
+	 *
+	 * @returns {Promise<number>} size in bytes of stored log files.
+	 */
+	async logSize() {
+		return (await Promise.all([
+			libFileOps.directorySize(path.join(this.logDirectory, "cluster")),
+			libFileOps.directorySize(path.join(this.logDirectory, "master")),
+			libFileOps.directorySize(path.join(this.logDirectory, "slave")),
+		])).reduce((a, v) => a + v, 0);
+	}
+
 	async _startInternal(args) {
 		this.logDirectory = args.logDirectory;
 		this.clusterLogIndex = await libLoggingUtils.LogIndex.load(path.join(this.logDirectory, "cluster"));
@@ -139,6 +157,7 @@ class Master {
 				err => logger.error(`Error building cluster log index:\n${err.stack}`)
 			);
 		}, 600e3);
+		logSizeGauge.callback = async () => { logSizeGauge.set(await this.logSize()); };
 
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {

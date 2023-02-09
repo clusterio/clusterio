@@ -41,6 +41,21 @@ describe("lib/file_ops", function() {
 		});
 	});
 
+	describe("getNewestFile()", function() {
+		it("returns 0 if directory does not exist", async function() {
+			let size = await libFileOps.directorySize(path.join(baseDir, "invalid"));
+			assert.equal(size, 0);
+		});
+		it("returns 0 if directory is empty", async function() {
+			let size = await libFileOps.directorySize(path.join(baseDir, "test", "folder"));
+			assert.equal(size, 0);
+		});
+		it("returns size of files in directory", async function() {
+			let size = await libFileOps.directorySize(path.join(baseDir, "test"));
+			assert.equal(size, 21);
+		});
+	});
+
 	describe("findUnusedName()", function() {
 		it("should return named unchanged if it does not exist", async function() {
 			let cases = [
