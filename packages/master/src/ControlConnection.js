@@ -356,6 +356,9 @@ class ControlConnection extends BaseConnection {
 				instance_id,
 				serialized_config: instance.config.serialize("slave"),
 			});
+		} else {
+			instance.status = "unassigned";
+			this._master.instanceUpdated(instance);
 		}
 	}
 

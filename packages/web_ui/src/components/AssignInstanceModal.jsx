@@ -28,6 +28,10 @@ export default function AssignInstanceModal(props) {
 			return;
 		}
 
+		if (slaveId === "null") {
+			slaveId = null;
+		}
+
 		setApplying(true);
 		libLink.messages.assignInstanceCommand.send(control, {
 			instance_id: props.id,
@@ -67,9 +71,12 @@ export default function AssignInstanceModal(props) {
 				the instance.  Note that reassigning an instance from
 				one slave to another will not move the server save over.
 			</Paragraph>
-			<Form form={form} initialValues={{ slave: props.slaveId }}>
+			<Form form={form} initialValues={{ slave: props.slaveId === null ? "null" : props.slaveId }}>
 				<Form.Item name="slave" label="Slave">
 					<Select>
+						<Select.Option value={"null"}>
+							<Typography.Text italic>Unassigned</Typography.Text>
+						</Select.Option>
 						{slaveList.map((slave) => <Select.Option
 							key={slave["id"]}
 							value={slave["id"]}
