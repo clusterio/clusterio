@@ -112,7 +112,8 @@ class Control extends libLink.Link {
 	}
 
 	async debugWsMessageEventHandler(message) {
-		print("WS", message.data.direction, message.data.content);
+		// eslint-disable-next-line no-console
+		console.log("WS", message.data.direction, message.data.content);
 	}
 
 	async shutdown() {
