@@ -699,6 +699,16 @@ class FactorioServer extends events.EventEmitter {
 		this._server.stderr.pipe(stderr);
 	}
 
+	_resetState() {
+		this._state = "init";
+		this._server = null;
+		this._rconClient = null;
+		this._rconReady = false;
+		this._gameReady = false;
+		this._unexpected = [];
+		this._runningAutosave = null;
+	}
+
 	_watchExit() {
 		this._server.on("exit", (code, signal) => {
 			if (this._state !== "stopping") {
@@ -736,15 +746,21 @@ class FactorioServer extends events.EventEmitter {
 				this._rconClient.end().catch(() => {});
 			}
 
-			// Reset server state
-			this._state = "init";
-			this._server = null;
-			this._rconClient = null;
-			this._rconReady = false;
-			this._gameReady = false;
-			this._unexpected = [];
-			this._runningAutosave = null;
+			this._resetState();
+			this.emit("exit");
+		});
+		this._server.on("error", err => {
+			if (err.code === "EACCES") {
+				this.emit("error", new libErrors.EnvironmentError("Unable to run server: Permission denied"));
+			} else {
+				this.emit("error", new libErrors.EnvironmentError(`Unexpected error:\n${err.stack}`));
+			}
 
+			if (this._rconClient) {
+				this._rconClient.end().catch(() => {});
+			}
+
+			this._resetState();
 			this.emit("exit");
 		});
 	}
@@ -805,6 +821,11 @@ class FactorioServer extends events.EventEmitter {
 			if (code !== 0) {
 				throw new Error(`Factorio exited with status ${code}`);
 			}
+		} catch (err) {
+			if (err.code === "EACCES") {
+				throw new libErrors.EnvironmentError("Unable to run server: Permission denied");
+			}
+			throw err;
 		} finally {
 			this._state = "init";
 		}
