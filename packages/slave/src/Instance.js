@@ -649,7 +649,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Write mod-list.json
 		await fs.outputFile(this.path("mods", "mod-list.json"), JSON.stringify({
-			mods: [{ name: "base" }, ...this.activeModPack.mods.values()].map(m => ({ name: m.name, enabled: true })),
+			mods: [...this.activeModPack.mods.values()],
 		}, null, 2));
 
 		// Write mod-settings.dat
