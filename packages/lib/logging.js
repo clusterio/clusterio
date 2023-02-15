@@ -32,9 +32,14 @@ class ConsoleTransport extends Transport {
 		super(options);
 		this.errorLevels = new Set(options.errorLevels || ["fatal", "error"]);
 		this.warnLevels = new Set(options.warnLevels || ["warn"]);
+		this.filter = options.filter || (() => true);
 	}
 
 	log(info, callback) {
+		if (!this.filter(info)) {
+			return callback();
+		}
+
 		/* eslint-disable no-console */
 		if (this.errorLevels.has(info[LEVEL])) {
 			console.error(info[MESSAGE]);
@@ -44,7 +49,7 @@ class ConsoleTransport extends Transport {
 			console.log(info[MESSAGE]);
 		}
 		/* eslint-enable no-console */
-		callback();
+		return callback();
 	}
 }
 
