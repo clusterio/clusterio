@@ -13,8 +13,7 @@ factorio
 factorio.tar.gz
 
 # We build internal mods during build, mods from local test env should not be applied
-sharedMods
-sharedModsDisabled
+mods
 
 # These files should never be required during the build
 .git

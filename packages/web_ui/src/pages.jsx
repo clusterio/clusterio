@@ -5,6 +5,8 @@ import SlavesPage from "./components/SlavesPage";
 import SlaveViewPage from "./components/SlaveViewPage";
 import InstancesPage from "./components/InstancesPage";
 import InstanceViewPage from "./components/InstanceViewPage";
+import ModPackViewPage from "./components/ModPackViewPage";
+import ModsPage from "./components/ModsPage";
 import UsersPage from "./components/UsersPage";
 import UserViewPage from "./components/UserViewPage";
 import RolesPage from "./components/RolesPage";
@@ -40,6 +42,17 @@ export const pages = [
 		path: "/instances/:id/view",
 		sidebarPath: "/instances",
 		content: <InstanceViewPage />,
+	},
+	{
+		path: "/mods",
+		sidebarName: "Mods",
+		permission: account => account.hasAnyPermission("core.mod.list", "core.mod-pack.list"),
+		content: <ModsPage />,
+	},
+	{
+		path: "/mods/mod-packs/:id/view",
+		sidebarPath: "/mods",
+		content: <ModPackViewPage />,
 	},
 	{
 		path: "/users",

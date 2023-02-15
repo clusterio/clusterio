@@ -5,4 +5,7 @@ end
 
 script.on_init(function()
 	send_json("mod_list", game.active_mods)
+	for name, mod_setting in pairs(game.mod_setting_prototypes) do
+		send_json("mod_setting_mod", { name = name, mod = mod_setting.mod })
+	end
 end)

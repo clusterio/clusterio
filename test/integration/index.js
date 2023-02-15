@@ -8,6 +8,7 @@ const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
+const libData = require("@clusterio/lib/data");
 const libLink = require("@clusterio/lib/link");
 const { LineSplitter } = require("@clusterio/lib/stream");
 const { ConsoleTransport, logger } = require("@clusterio/lib/logging");
@@ -28,6 +29,8 @@ class TestControl extends libLink.Link {
 		this.slaveUpdates = [];
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
+		this.modUpdates = [];
+		this.modPackUpdates = [];
 		this.userUpdates = [];
 
 		this.connector.on("connect", () => {
@@ -40,6 +43,9 @@ class TestControl extends libLink.Link {
 			libLink.messages.setSaveListSubscriptions.send(
 				this, { all: true, instance_ids: [] }
 			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
+			libLink.messages.setModSubscriptions.send(
+				this, { all: true, mod_names: [] }
+			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
 			libLink.messages.setUserSubscriptions.send(
 				this, { all: true, names: [] }
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
@@ -65,6 +71,14 @@ class TestControl extends libLink.Link {
 
 	async saveListUpdateEventHandler(message) {
 		this.saveListUpdates.push(message.data);
+	}
+
+	async modUpdateEventHandler(message) {
+		this.modUpdates.push(message.data.mod);
+	}
+
+	async modPackUpdateEventHandler(message) {
+		this.modPackUpdates.push(message.data.mod_pack);
 	}
 
 	async userUpdateEventHandler(message) {
@@ -207,6 +221,15 @@ before(async function() {
 	controlConnector.token = controlToken;
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
+
+	const testPack = new libData.ModPack();
+	testPack.id = 12;
+	testPack.name = "subspace_storage-pack";
+	testPack.factorioVersion = "1.1.0";
+	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
+	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
+	await libLink.messages.createModPack.send(control, { mod_pack: testPack.toJSON() });
+	await libLink.messages.setMasterConfigField.send(control, { field: "master.default_mod_pack_id", value: "12" });
 });
 
 after(async function() {

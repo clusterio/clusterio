@@ -6,7 +6,7 @@ import {
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
-import { libLink } from "@clusterio/lib";
+import { libLink, libHelpers } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -179,17 +179,6 @@ function TransferModal(props) {
 	</>;
 }
 
-function formatBytes(bytes) {
-	if (bytes === 0) {
-		return "0 Bytes";
-	}
-
-	let units = [" Bytes", " kB", " MB", " GB", " TB"];
-	let factor = 1000;
-	let power = Math.min(Math.floor(Math.log(bytes) / Math.log(factor)), units.length);
-	return (power > 0 ? (bytes / factor ** power).toFixed(2) : bytes) + units[power];
-}
-
 export default function SavesList(props) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -214,7 +203,7 @@ export default function SavesList(props) {
 				title: "Size",
 				key: "size",
 				responsive: ["sm"],
-				render: save => formatBytes(save.size),
+				render: save => libHelpers.formatBytes(save.size),
 				align: "right",
 				sorter: (a, b) => a.size - b.size,
 			},

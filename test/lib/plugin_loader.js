@@ -45,9 +45,16 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 		it("should reject on broken plugin", async function() {
+			let brokenMessage;
+			try {
+				// eslint-disable-next-line node/global-require
+				require(path.resolve(brokenPlugin, "info.js"));
+			} catch (err) {
+				brokenMessage = err.message;
+			}
 			await assert.rejects(
 				libPluginLoader.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
-				{ message: "PluginError: Unexpected identifier" }
+				{ message: `PluginError: ${brokenMessage}` }
 			);
 		});
 		it("should reject on invalid plugin", async function() {

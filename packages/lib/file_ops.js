@@ -108,9 +108,94 @@ async function safeOutputFile(file, data, options={}) {
 	await fs.rename(temporary, file);
 }
 
+
+// Reserved names by allmost all filesystems
+const badNames = [".", ".."];
+
+// Reserved namespaces in Windows
+const oneToNine = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const badWinNamespaces = [
+	"CON", "PRN", "AUX", "NUL",
+	...oneToNine.map(n => `COM${n}`),
+	...oneToNine.map(n => `LPT${n}`),
+];
+
+/**
+ * Check if a string is a valid file name
+ *
+ * @param {string} name - Name to check
+ * @throws Error if the name is unsuitable.
+ */
+function checkFilename(name) {
+	// All of these are bad in Windows only, except for /, . and ..
+	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
+	const badEnd = /[. ]$/;
+
+	if (typeof name !== "string") {
+		throw new Error("must be a string");
+	}
+
+	if (name === "") {
+		throw new Error("cannot be empty");
+	}
+
+	if (badChars.test(name)) {
+		throw new Error('cannot contain <>:"\\/|=* or control characters');
+	}
+
+	if (badNames.includes(name)) {
+		throw new Error(
+			`cannot be named ${name}`
+		);
+	}
+
+	if (badWinNamespaces.includes(name.toUpperCase().split(".")[0])) {
+		throw new Error(
+			"cannot be named any of CON PRN AUX NUL COM1-9 and LPT1-9"
+		);
+	}
+
+	if (badEnd.test(name)) {
+		throw new Error("cannot end with . or space");
+	}
+}
+
+/**
+ * Clean up string to be suitable for use as filename
+ *
+ * @param {string} name - Arbitrary name string
+ * @returns {string} Filename suitable to use in the filesystem
+ */
+function cleanFilename(name) {
+	// copied from checkFilename due to RegExp with global flag containing state.
+	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
+	const badEnd = /[. ]$/;
+
+	if (typeof name !== "string") {
+		throw new Error("name must be a string");
+	}
+
+	if (name === "" || badNames.includes(name.toUpperCase())) {
+		name += "_";
+	}
+
+	if (badWinNamespaces.includes(name.toUpperCase().split(".")[0])) {
+		name = [`${name.split(".")[0]}_`, ...name.split(".").slice(1)].join(".");
+	}
+
+	name = name.replace(badChars, "_");
+	name = name.replace(badEnd, "_");
+
+	return name;
+}
+
+
 module.exports = {
 	getNewestFile,
 	findUnusedName,
 	getTempFile,
 	safeOutputFile,
+	checkFilename,
+	cleanFilename,
 };

@@ -6,6 +6,7 @@ const phin = require("phin");
 const util = require("util");
 
 // internal libraries
+const libData = require("@clusterio/lib/data");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libFactorio = require("@clusterio/lib/factorio");
 const libLink = require("@clusterio/lib/link");
@@ -93,71 +94,6 @@ const serverSettingsActions = {
 		}
 	},
 };
-
-/**
- * Create and update symlinks for shared mods in an instance
- *
- * Creates symlinks for .zip and .dat files that are not present in the
- * instance mods directory but is present in the sharedMods directory,
- * and removes any symlinks that don't point to a file in the instance
- * mods directory.  If the instance mods directory doesn't exist it will
- * be created.
- *
- * Note that on Windows this creates hard links instead of symbolic
- * links as the latter requires elevated privileges.  This unfortunately
- * means the removal of mods from the shared mods dir can't be detected.
- *
- * @param {Instance} instance - Instance to link mods for
- * @param {string} sharedMods - Path to folder to link mods from.
- * @private
- */
-async function symlinkMods(instance, sharedMods) {
-	await fs.ensureDir(instance.path("mods"));
-
-	// Remove broken symlinks in instance mods.
-	for (let entry of await fs.readdir(instance.path("mods"), { withFileTypes: true })) {
-		if (entry.isSymbolicLink()) {
-			if (!await fs.pathExists(instance.path("mods", entry.name))) {
-				instance.logger.verbose(`Removing broken symlink ${entry.name}`);
-				await fs.unlink(instance.path("mods", entry.name));
-			}
-		}
-	}
-
-	// Link entries that are in sharedMods but not in instance mods.
-	let instanceModsEntries = new Set(await fs.readdir(instance.path("mods")));
-	for (let entry of await fs.readdir(sharedMods, { withFileTypes: true })) {
-		if (entry.isFile()) {
-			if ([".zip", ".dat", ".json"].includes(path.extname(entry.name))) {
-				if (!instanceModsEntries.has(entry.name)) {
-					instance.logger.verbose(`linking ${entry.name} from ${sharedMods}`);
-					let target = path.join(sharedMods, entry.name);
-					let link = instance.path("mods", entry.name);
-
-					/* eslint-disable max-depth */
-					if (process.platform !== "win32") {
-						await fs.symlink(path.relative(path.dirname(link), target), link);
-
-					// On Windows symlinks require elevated privileges, which is
-					// not something we want to have.  For this reason the mods
-					// are hard linked instead.  This has the drawback of not
-					// being able to identify when mods are removed from the
-					// sharedMods directory, or which mods are linked.
-					} else {
-						await fs.link(target, link);
-					}
-					/* eslint-enable max-depth */
-				}
-
-			} else {
-				instance.logger.warn(`Warning: ignoring file '${entry.name}' in sharedMods`);
-			}
-
-		} else {
-			instance.logger.warn(`Warning: ignoring non-file '${entry.name}' in sharedMods`);
-		}
-	}
-}
 
 
 /**
@@ -254,6 +190,12 @@ class Instance extends libLink.Link {
 				this._recordPlayerLeave(event.name, event.reason);
 			}
 		});
+
+		/**
+		 * Mod pack currently running on this instance
+		 * @type {module:lib/data.ModPack>}
+		 */
+		this.activeModPack = undefined;
 
 		/**
 		 * Per player statistics recorded by this instance.
@@ -644,6 +586,77 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	/**
+	 * Sync instance mods directory with configured mod pack
+	 *
+	 * Adds, deletes, and updates all files in the instance mods folder to
+	 * match up with the mod pack that's configured. If no mod pack is
+	 * configured then an empty mod pack is used, esentially turning it into
+	 * a vanilla mods folder.  If the instance mods directory does't exist
+	 * then it will be created.
+	 *
+	 * On Linux this creates symlinks to mods in the slave's mods folder, on
+	 * Windows hard links are used instead due to symlinks being privileged.
+	 */
+	async syncMods() {
+		const modPackId = this.config.get("factorio.mod_pack");
+		let response;
+		if (modPackId === null) {
+			response = await libLink.messages.getDefaultModPack.send(this);
+		} else {
+			response = await libLink.messages.getModPack.send(this, { id: modPackId });
+		}
+		this.activeModPack = new libData.ModPack(response.mod_pack);
+
+		// TODO validate factorioVersion
+
+		if (!this._slave.config.get("slave.mods_directory_is_shared")) {
+			throw new Error("Fetching mods is not implemented");
+		}
+
+		await fs.ensureDir(this.path("mods"));
+
+		// Remove all files
+		for (let entry of await fs.readdir(this.path("mods"), { withFileTypes: true })) {
+			if (entry.isDirectory()) {
+				this.logger.warn(
+					`Found unexpected directory ${entry.name} in mods folder, it may break Clusterio's mod syncing`
+				);
+				continue;
+			}
+
+			if (entry.isFile() || entry.isSymbolicLink()) {
+				await fs.unlink(this.path("mods", entry.name));
+			}
+		}
+
+		// Add mods from mod the pack
+		const modsDir = this._slave.config.get("slave.mods_directory");
+		for (let mod of this.activeModPack.mods.values()) {
+			const modFile = `${mod.name}_${mod.version}.zip`;
+			const target = path.join(modsDir, modFile);
+			const link = this.path("mods", modFile);
+
+			if (process.platform !== "win32") {
+				await fs.symlink(path.relative(path.dirname(link), target), link);
+
+			// On Windows symlinks require elevated privileges, which is
+			// not something we want to have.  For this reason the mods
+			// are hard linked instead.
+			} else {
+				await fs.link(target, link);
+			}
+		}
+
+		// Write mod-list.json
+		await fs.outputFile(this.path("mods", "mod-list.json"), JSON.stringify({
+			mods: [{ name: "base" }, ...this.activeModPack.mods.values()].map(m => ({ name: m.name, enabled: true })),
+		}, null, 2));
+
+		// Write mod-settings.dat
+		await fs.outputFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
+	}
+
+	/**
 	 * Prepare instance for starting
 	 *
 	 * Writes server settings, admin/ban/white-lists and links mods.
@@ -678,8 +691,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			);
 		}
 
-		// eslint-disable-next-line no-use-before-define
-		await symlinkMods(this, "sharedMods");
+		await this.syncMods();
 	}
 
 	/**
@@ -1030,8 +1042,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			await this.writeServerSettings();
 
 			this.logger.verbose("Creating save .....");
-			// eslint-disable-next-line no-use-before-define
-			await symlinkMods(this, "sharedMods");
+			await this.syncMods();
 
 		} catch (err) {
 			this.notifyExit();
@@ -1053,13 +1064,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			await this.writeServerSettings();
 
 			this.logger.info("Exporting data .....");
-			// eslint-disable-next-line no-use-before-define
-			await symlinkMods(this, "sharedMods");
+			await this.syncMods();
 			let zip = await libFactorio.exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._slave.config.get("slave.master_url"));
 			url.pathname += "api/upload-export";
+			url.searchParams.set("mod_pack_id", this.activeModPack.id);
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
@@ -1116,6 +1127,3 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 }
 
 module.exports = Instance;
-
-// For testing only
-module.exports._symlinkMods = symlinkMods;

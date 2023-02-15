@@ -9,6 +9,7 @@ const path = require("path");
 
 
 const libConfig = require("@clusterio/lib/config");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libLink = require("@clusterio/lib/link");
@@ -64,6 +65,18 @@ class Master {
 		 * @type {Map<number, Object>}
 		 */
 		this.instances = null;
+
+		/**
+		 * Mapping of mod pack id to mod pack
+		 * @type {Map<number, module:lib/data.ModPack>}
+		 */
+		this.modPacks = null;
+
+		/**
+		 * Mapping of mod names to mod infos
+		 * @type {Map<string, module:lib/data.ModInfo>}
+		 */
+		this.mods = null;
 
 		/**
 		 * User and roles manager for the cluster
@@ -161,9 +174,13 @@ class Master {
 
 		this.slaves = await Master.loadSlaves(path.join(databaseDirectory, "slaves.json"));
 		this.instances = await Master.loadInstances(path.join(databaseDirectory, "instances.json"));
+		this.modPacks = await Master.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
-		this.exportManifest = await Master.loadJsonObject(path.join(databaseDirectory, "export_manifest.json"));
+
+		let modsDirectory = this.config.get("master.mods_directory");
+		await fs.ensureDir(modsDirectory);
+		this.mods = await Master.loadModInfos(modsDirectory);
 
 		this.config.on("fieldChanged", (group, field, prev) => {
 			libPlugin.invokeHook(this.plugins, "onMasterConfigFieldChanged", group, field, prev);
@@ -284,6 +301,10 @@ class Master {
 			await Master.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
+		if (this.modPacks) {
+			await Master.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
+		}
+
 		if (this.userManager) {
 			await this.userManager.save(path.join(databaseDirectory, "users.json"));
 		}
@@ -360,6 +381,57 @@ class Master {
 		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
+	static async loadModPacks(filePath) {
+		let json;
+		try {
+			json = JSON.parse(await fs.readFile(filePath));
+		} catch (err) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+			return new Map();
+		}
+		return new Map(json.map(e => [e.id, new libData.ModPack(e)]));
+	}
+
+	static async saveModPacks(filePath, modPacks) {
+		await libFileOps.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
+	}
+
+	static async loadModInfos(modsDirectory) {
+		let mods = new Map();
+		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
+			if (entry.isDirectory()) {
+				logger.warn(`Ignoring ${entry.name}${path.sep} in mods directory.`);
+				continue;
+			}
+
+			if (entry.name.toLowerCase().endsWith("tmp.zip")) {
+				continue;
+			}
+
+			logger.info(`Loading info for Mod ${entry.name}`);
+			let modInfo;
+			try {
+				modInfo = await libData.ModInfo.fromModFile(path.join(modsDirectory, entry.name));
+			} catch (err) {
+				logger.error(`Error loading mod ${entry.name}: ${err.message}`);
+				continue;
+			}
+
+			if (modInfo.filename !== entry.name) {
+				logger.error(
+					`Mod ${entry.name}'s filename does not match the expected ` +
+					`name ${modInfo.filename}, it will be ignored.`
+				);
+				continue;
+			}
+
+			mods.set(modInfo.filename, modInfo);
+		}
+		return mods;
+	}
+
 	static async loadJsonObject(filePath, throwOnMissing = false) {
 		let manifest = {};
 		try {
@@ -372,12 +444,18 @@ class Master {
 		return manifest;
 	}
 
-	async updateExportManifest(newManifest) {
-		let databaseDirectory = this.config.get("master.database_directory");
-		await libFileOps.safeOutputFile(
-			path.join(databaseDirectory, "export_manifest.json"), JSON.stringify(newManifest, null, 4)
-		);
-		this.exportManifest = newManifest;
+	async deleteMod(name, version) {
+		let filename = `${name}_${version}.zip`;
+		let mod = this.mods.get(filename);
+		if (!mod) {
+			throw new Error(`Mod ${filename} does not exist`);
+		}
+
+		let modsDirectory = this.config.get("master.mods_directory");
+		await fs.unlink(path.join(modsDirectory, filename));
+		this.mods.delete(filename);
+		mod.isDeleted = true;
+		this.modUpdated(mod);
 	}
 
 	/**
@@ -501,6 +579,29 @@ class Master {
 
 			controlConnection.saveListUpdate(data);
 		}
+	}
+
+	modPackUpdated(modPack) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+			controlConnection.modPackUpdated(modPack);
+		}
+
+		libPlugin.invokeHook(this.plugins, "onModPackUpdated", modPack);
+	}
+
+	modUpdated(mod) {
+		for (let controlConnection of this.wsServer.controlConnections) {
+			if (controlConnection.connector.closing) {
+				continue;
+			}
+
+			controlConnection.modUpdated(mod);
+		}
+
+		libPlugin.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
 	userUpdated(user) {

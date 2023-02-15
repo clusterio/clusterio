@@ -5,6 +5,9 @@ const path = require("path");
 const events = require("events");
 const phin = require("phin");
 
+const libBuildMod = require("@clusterio/lib/build_mod");
+const libData = require("@clusterio/lib/data");
+const libHash = require("@clusterio/lib/hash");
 const libLink = require("@clusterio/lib/link");
 const libUsers = require("@clusterio/lib/users");
 const { wait } = require("@clusterio/lib/helpers");
@@ -303,13 +306,19 @@ describe("Integration of Clusterio", function() {
 				let exportPath = path.join("temp", "test", "static");
 				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
-				let response = await get("/api/export-manifest");
-				let manifest = JSON.parse(response.body);
-				assert(Object.keys(manifest).length > 1, "Export manifest is empty");
-				assert(
-					await fs.exists(path.join(exportPath, "..", manifest["item-metadata"])),
-					"Export was not written to filesystem"
-				);
+				let result = await libLink.messages.getDefaultModPack.send(getControl());
+				let modPack = new libData.ModPack(result.mod_pack);
+				let assets = modPack.exportManifest.assets;
+				assert(Object.keys(assets).length > 1, "Export assets is empty");
+				for (let key of ["settings", "prototypes", "item-metadata", "item-spritesheet", "locale"]) {
+					assert(assets[key], `Missing ${key} from assets`);
+					assert(
+						await fs.exists(path.join(exportPath, assets[key])),
+						`Manifest entry for ${key} was not written to filesystem`
+					);
+				}
+				let prototypes = JSON.parse(await fs.readFile(path.join(exportPath, assets["prototypes"])));
+				assert(Object.keys(prototypes).length > 50, "Expected there to be more than 50 prototype types");
 				await checkInstanceStatus(44, "stopped");
 			});
 		});
@@ -815,6 +824,180 @@ describe("Integration of Clusterio", function() {
 				}
 
 				assert(statusesNotSeen.size === 0, `Did not see the statuses ${[...statusesNotSeen]}`);
+			});
+		});
+
+		describe("mod-pack create", function() {
+			it("should create a mod-pack", async function() {
+				await execCtl("mod-pack create empty-pack 1.1.0");
+				let response = await libLink.messages.listModPacks.send(getControl());
+				assert(response.list.some(modPack => modPack.name === "empty-pack"), "created pack is not in the list");
+			});
+			it("should allow setting all fields", async function() {
+				await execCtl(
+					"mod-pack create full-pack 0.17.59 " +
+					"--description Description " +
+					"--mods empty_mod:1.0.0 " +
+					"--bool-setting startup MyBool true " +
+					"--int-setting runtime-global MyInt 1235 " +
+					"--double-setting runtime-global MyDouble 12.25 " +
+					"--string-setting runtime-per-user MyString a-string"
+				);
+				let response = await libLink.messages.listModPacks.send(getControl());
+				let modPack = response.list.find(entry => entry.name === "full-pack");
+				assert(modPack, "created mod pack not found");
+				let reference = new libData.ModPack();
+				reference.id = modPack.id;
+				reference.name = "full-pack";
+				reference.description = "Description";
+				reference.factorioVersion = "0.17.59";
+				reference.mods.set("empty_mod", { name: "empty_mod", enabled: true, version: "1.0.0" });
+				reference.settings["startup"].set("MyBool", { value: true });
+				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
+				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
+				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
+				assert.deepEqual(new libData.ModPack(modPack), reference);
+			});
+		});
+
+		describe("mod-pack list", function() {
+			it("runs", async function() {
+				await execCtl("mod-pack list");
+			});
+		});
+
+		describe("mod-pack show", function() {
+			it("runs", async function() {
+				await execCtl("mod-pack show empty-pack");
+			});
+		});
+
+		describe("mod-pack import/export", function() {
+			it("should should roundtrip a mod-pack", async function() {
+				let reference = new libData.ModPack();
+				reference.name = "imported-pack";
+				reference.description = "Description";
+				reference.factorioVersion = "0.17.59";
+				reference.mods.set("empty_mod", { name: "empty_mod", enabled: true, version: "1.0.0" });
+				reference.settings["startup"].set("MyBool", { value: true });
+				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
+				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
+				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
+				await execCtl(`mod-pack import ${reference.toModPackString()}`);
+				const result = await execCtl("mod-pack export imported-pack");
+				const roundtrip = libData.ModPack.fromModPackString(result.stdout.trim());
+				roundtrip.id = reference.id;
+				assert.deepEqual(roundtrip, reference);
+			});
+		});
+
+		describe("mod-pack edit", function() {
+			it("runs", async function() {
+				await execCtl("mod-pack edit full-pack --factorio-version 1.2.0");
+				let response = await libLink.messages.listModPacks.send(getControl());
+				let modPack = response.list.find(entry => entry.name === "full-pack");
+				assert(modPack, "created mod pack not found");
+				assert.equal(modPack.factorio_version, "1.2.0");
+			});
+		});
+
+		describe("mod-pack delete", function() {
+			it("deletes the pack", async function() {
+				await execCtl("mod-pack delete full-pack");
+				let response = await libLink.messages.listModPacks.send(getControl());
+				let modPack = response.list.find(entry => entry.name === "full-pack");
+				assert(!modPack, "mod pack not deleted");
+			});
+		});
+
+		describe("mod upload", function() {
+			it("uploads a mod", async function() {
+				await libBuildMod.build({
+					build: true,
+					pack: true,
+					sourceDir: path.join("test", "file", "empty_mod"),
+					outputDir: path.join("temp", "test"),
+				});
+				await execCtl("mod upload empty_mod_1.0.0.zip");
+				assert(
+					await fs.pathExists(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
+					"mod not present in mods directory"
+				);
+			});
+		});
+
+		describe("mod show", function() {
+			it("gives details of a mod", async function() {
+				let result = await execCtl("mod show empty_mod 1.0.0");
+				let hash = await libHash.hashFile(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
+				let stat = await fs.stat(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip"));
+				assert.equal(
+					result.stdout,
+					"name: empty_mod\n" +
+					"version: 1.0.0\n" +
+					"title: An Empty Mod\n" +
+					"author: Me\n" +
+					"description: An empty mod for testing\n" +
+					"factorio_version: 1.1\n" +
+					"dependencies:\n" +
+					`size: ${stat.size}\n` +
+					`sha1: ${hash}\n`,
+				);
+			});
+		});
+
+		describe("mod list", function() {
+			it("shows the list of mods", async function() {
+				let result = await execCtl("mod list");
+				assert(result.stdout.indexOf("empty_mod") !== -1, "empty_mod is not in the list");
+			});
+		});
+
+		describe("mod search", function() {
+			it("searches the list of mods", async function() {
+				let result = await execCtl("mod search 1.1 name:empty_mod");
+				assert(result.stdout.indexOf("empty_mod") !== -1, "empty_mod is not in the result");
+			});
+		});
+
+		describe("mod download", function() {
+			it("downloads a mod", async function() {
+				await fs.unlink(path.join("temp", "test", "empty_mod_1.0.0.zip"));
+				await execCtl("mod download empty_mod 1.0.0");
+				assert(
+					await fs.pathExists(path.join("temp", "test", "empty_mod_1.0.0.zip")),
+					"mod not downloaded to cwd"
+				);
+			});
+		});
+
+		describe("mod delete", function() {
+			it("deletes a mod", async function() {
+				await execCtl("mod delete empty_mod 1.0.0");
+				assert(
+					!await fs.pathExists(path.join("temp", "test", "mods", "empty_mod_1.0.0.zip")),
+					"mod still present in mods dir"
+				);
+			});
+		});
+
+		describe("modUpdateEventHandler()", function() {
+			it("should have triggered for the previous mod updates", function() {
+				let eventsToCheck = new Set(["updated", "deleted"]);
+				let eventsNotSeen = new Set(eventsToCheck);
+
+				for (let modUpdate of getControl().modUpdates) {
+					if (modUpdate.name !== "empty_mod" || modUpdate.version !== "1.0.0") {
+						continue;
+					}
+					if (modUpdate.is_deleted) {
+						eventsNotSeen.delete("deleted");
+					} else {
+						eventsNotSeen.delete("updated");
+					}
+				}
+
+				assert(eventsNotSeen.size === 0, `Did not see the events ${[...eventsNotSeen]}`);
 			});
 		});
 

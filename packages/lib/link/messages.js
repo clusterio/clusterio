@@ -1,8 +1,9 @@
 // Message definitions for links
 "use strict";
-const libSchema = require("../schema");
+const libData = require("../data");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
+const libSchema = require("../schema");
 const PlayerStats = require("../PlayerStats");
 
 class MissingLinkHandlerError extends Error {
@@ -709,6 +710,178 @@ messages.sendRcon = new Request({
 	},
 });
 
+messages.getModPack = new Request({
+	type: "get_mod_pack",
+	links: ["control-master", "instance-slave", "slave-master"],
+	permission: "core.mod_pack.get",
+	forwardTo: "master",
+	requestProperties: {
+		"id": { type: "integer" },
+	},
+	responseProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.getDefaultModPack = new Request({
+	type: "get_default_mod_pack",
+	links: ["control-master", "instance-slave", "slave-master"],
+	permission: "core.mod_pack.get",
+	forwardTo: "master",
+	responseProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.listModPacks = new Request({
+	type: "list_mod_packs",
+	links: ["control-master"],
+	permission: "core.mod_pack.list",
+	responseProperties: {
+		"list": {
+			type: "array",
+			items: libData.ModPack.jsonSchema,
+		},
+	},
+});
+
+messages.createModPack = new Request({
+	type: "create_mod_pack",
+	links: ["control-master"],
+	permission: "core.mod_pack.create",
+	requestProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.updateModPack = new Request({
+	type: "update_mod_pack",
+	links: ["control-master"],
+	permission: "core.mod_pack.update",
+	requestProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.deleteModPack = new Request({
+	type: "delete_mod_pack",
+	links: ["control-master"],
+	permission: "core.mod_pack.delete",
+	requestProperties: {
+		"id": { type: "integer" },
+	},
+});
+
+messages.setModPackSubscriptions = new Request({
+	type: "set_mod_pack_subscriptions",
+	links: ["control-master"],
+	permission: "core.mod_pack.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"mod_pack_ids": {
+			type: "array",
+			items: { type: "integer" },
+		},
+	},
+});
+
+messages.getMod = new Request({
+	type: "get_mod",
+	links: ["control-master"],
+	permission: "core.mod.get",
+	requestProperties: {
+		"name": { type: "string" },
+		"version": { type: "string" },
+	},
+	responseProperties: {
+		"mod": libData.ModInfo.jsonSchema,
+	},
+});
+
+messages.listMods = new Request({
+	type: "list_mods",
+	links: ["control-master"],
+	permission: "core.mod.list",
+	responseProperties: {
+		"list": {
+			type: "array",
+			items: libData.ModInfo.jsonSchema,
+		},
+	},
+});
+
+messages.searchMods = new Request({
+	type: "search_mods",
+	links: ["control-master"],
+	permission: "core.mod.search",
+	requestRequired: ["query", "factorio_version", "page"],
+	requestProperties: {
+		"query": { type: "string" },
+		"factorio_version": { type: "string" },
+		"page_size": { type: "integer" },
+		"page": { type: "integer" },
+		"sort": { type: "string" },
+		"sort_order": { type: "string" },
+	},
+	responseProperties: {
+		"query_issues": {
+			type: "array",
+			items: { type: "string" },
+		},
+		"page_count": { type: "integer" },
+		"result_count": { type: "integer" },
+		"results": {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					"name": { type: "string" },
+					"versions": {
+						type: "array",
+						items: libData.ModInfo.jsonSchema,
+					},
+				},
+			},
+		},
+	},
+});
+
+messages.setModSubscriptions = new Request({
+	type: "set_mod_subscriptions",
+	links: ["control-master"],
+	permission: "core.mod.subscribe",
+	requestProperties: {
+		"all": { type: "boolean" },
+		"mod_names": {
+			type: "array",
+			items: { type: "string" },
+		},
+	},
+});
+
+messages.downloadMod = new Request({
+	type: "download_mod",
+	links: ["control-master"],
+	permission: "core.mod.download",
+	requestProperties: {
+		"name": { type: "string" },
+		"version": { type: "string" },
+	},
+	responseProperties: {
+		"stream_id": { type: "string" },
+	},
+});
+
+messages.deleteMod = new Request({
+	type: "delete_mod",
+	links: ["control-master"],
+	permission: "core.mod.delete",
+	requestProperties: {
+		"name": { type: "string" },
+		"version": { type: "string" },
+	},
+});
+
 messages.listPermissions = new Request({
 	type: "list_permissions",
 	links: ["control-master"],
@@ -1260,6 +1433,22 @@ messages.saveListUpdate = new Event({
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"list": saveList,
+	},
+});
+
+messages.modPackUpdate = new Event({
+	type: "mod_pack_update",
+	links: ["master-control"],
+	eventProperties: {
+		"mod_pack": libData.ModPack.jsonSchema,
+	},
+});
+
+messages.modUpdate = new Event({
+	type: "mod_update",
+	links: ["master-control"],
+	eventProperties: {
+		"mod": libData.ModInfo.jsonSchema,
 	},
 });
 

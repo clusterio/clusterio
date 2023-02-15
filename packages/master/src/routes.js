@@ -2,11 +2,14 @@
 const Busboy = require("busboy");
 const crypto = require("crypto");
 const events = require("events");
+const fs = require("fs-extra");
 const JSZip = require("jszip");
 const jwt = require("jsonwebtoken");
 const path = require("path");
+const nodeStream = require("stream");
 const util = require("util");
 
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libHash = require("@clusterio/lib/hash");
@@ -17,6 +20,8 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const { logger } = require("@clusterio/lib/logging");
 
 const { endpointHitCounter } = require("./metrics");
+
+const finished = util.promisify(nodeStream.finished);
 
 
 // Merges samples from sourceResult to destinationResult
@@ -182,6 +187,21 @@ async function uploadExport(req, res) {
 		return;
 	}
 
+	if (typeof req.query.mod_pack_id !== "string") {
+		res.sendStatus(400);
+		return;
+	}
+	let modPackId = Number.parseInt(req.query.mod_pack_id, 10);
+	if (!Number.isInteger(modPackId)) {
+		res.sendStatus(400);
+		return;
+	}
+	let modPack = res.app.locals.master.modPacks.get(modPackId);
+	if (!modPack) {
+		res.sendStatus(400);
+		return;
+	}
+
 	let data = [];
 	for await (let chunk of req) {
 		data.push(chunk);
@@ -192,31 +212,36 @@ async function uploadExport(req, res) {
 
 	// This is hardcoded to prevent path expansion attacks
 	let exportFiles = [
+		"export/settings.json",
+		"export/prototypes.json",
 		"export/item-spritesheet.png",
 		"export/item-metadata.json",
 		"export/locale.json",
 	];
 
-	let manifest = {};
+	let assets = {};
+	let settingPrototypes = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
 		if (!file) {
 			continue;
 		}
 
+		if (filePath === "export/settings.json") {
+			settingPrototypes = JSON.parse(await file.async("text"));
+		}
+
 		let { name, ext } = path.posix.parse(filePath);
 		let hash = await libHash.hashStream(file.nodeStream());
-		manifest[name] = `static/${name}.${hash}${ext}`;
+		assets[name] = `${name}.${hash}${ext}`;
 		await libFileOps.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
-	await res.app.locals.master.updateExportManifest(manifest);
+
+	modPack.exportManifest = new libData.ExportManifest({ assets });
+	modPack.fillDefaultSettings(settingPrototypes, logger);
+	res.app.locals.master.modPackUpdated(modPack);
 
 	res.sendStatus(200);
-}
-
-async function getExportManifest(req, res) {
-	endpointHitCounter.labels(req.route.path).inc();
-	res.json(res.app.locals.master.exportManifest);
 }
 
 async function createProxyStream(app) {
@@ -306,6 +331,8 @@ const zipMimes = [
 	"application/x-zip-compressed",
 ];
 
+const contentTypeRegExp = /^([!#$%&'*+\-.^_`|~0-9A-Za-z]+\/[!#$%&'*+\-.^_`|~0-9A-Za-z]+)/;
+
 async function uploadSave(req, res) {
 	try {
 		res.locals.user.checkPermission("core.instance.save.upload");
@@ -313,9 +340,10 @@ async function uploadSave(req, res) {
 		res.status(403).json({ request_errors: [err.message] });
 		return;
 	}
+	endpointHitCounter.labels(req.route.path).inc();
 
 	let contentType = req.get("Content-Type");
-	let match = /^([!#$%&'*+\-.^_`|~0-9A-Za-z]+\/[!#$%&'*+\-.^_`|~0-9A-Za-z]+)/.exec(contentType);
+	let match = contentTypeRegExp.exec(contentType);
 	if (!match) {
 		res.status(415).json({ request_errors: ["invalid Content-Type"] });
 		return;
@@ -436,6 +464,154 @@ async function uploadSave(req, res) {
 	res.json({ saves });
 }
 
+function checkModName(name) {
+	try {
+		libFileOps.checkFilename(name);
+	} catch (err) {
+		throw new libErrors.RequestError(`Mod name ${err.message}`);
+	}
+}
+
+async function uploadMod(req, res) {
+	try {
+		res.locals.user.checkPermission("core.mod.upload");
+	} catch (err) {
+		res.status(403).json({ request_errors: [err.message] });
+		return;
+	}
+	endpointHitCounter.labels(req.route.path).inc();
+
+	let contentType = req.get("Content-Type");
+	let match = contentTypeRegExp.exec(contentType);
+	if (!match) {
+		res.status(415).json({ request_errors: ["invalid Content-Type"] });
+		return;
+	}
+	let mimeType = match[1].toLowerCase();
+
+	let tasks = [];
+	let errors = [];
+	let requestErrors = [];
+	let mods = [];
+
+	async function handleFile(stream, filename) {
+		try {
+			checkModName(filename);
+
+		} catch (err) {
+			logger.error(`Error uploading mod: ${err.message}`);
+			errors.push(err.message);
+			stream.resume();
+			return;
+		}
+
+		const modsDirectory = req.app.locals.master.config.get("master.mods_directory");
+		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
+		try {
+
+			let writeStream;
+			while (true) {
+				try {
+					writeStream = fs.createWriteStream(path.join(modsDirectory, tempFilename), { flags: "wx" });
+					await events.once(writeStream, "open");
+					break;
+				} catch (err) {
+					if (err.code === "EEXIST") {
+						tempFilename = await libFileOps.findUnusedName(modsDirectory, tempFilename, ".tmp.zip");
+					} else {
+						throw err;
+					}
+				}
+			}
+			stream.pipe(writeStream);
+			await finished(writeStream);
+
+			const modInfo = await libData.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
+			await fs.rename(path.join(modsDirectory, tempFilename), path.join(modsDirectory, modInfo.filename));
+			req.app.locals.master.mods.set(modInfo.filename, modInfo);
+			req.app.locals.master.modUpdated(modInfo);
+			mods.push(modInfo.toJSON());
+
+		} catch (err) {
+			logger.error(`Error uploading mod: ${err.message}`);
+			errors.push(err.message);
+			stream.resume();
+
+			// Attempt to clean up.
+			writeStream.destroy();
+			try {
+				await fs.unlink(path.join(modsDirectory, tempFilename));
+			} catch (unlinkErr) {
+				if (unlinkErr.code !== "ENOENT") {
+					logger.error(`Error removing ${tempFilename}: ${err.message}`);
+				}
+			}
+		}
+	}
+
+	if (mimeType === "multipart/form-data") {
+		await new Promise(resolve => {
+			let busboy = new Busboy({ headers: req.headers });
+			busboy.on("file", (fieldname, stream, filename, transferEncoding, fileMime) => {
+				if (!zipMimes.includes(fileMime)) {
+					requestErrors.push("invalid file Content-Type");
+				}
+
+				if (!filename.endsWith(".zip")) {
+					requestErrors.push("filename must end with .zip");
+				}
+
+				if (errors.length || requestErrors.length) {
+					stream.resume();
+					return;
+				}
+
+				tasks.push(handleFile(stream, filename));
+			});
+			busboy.on("finish", resolve);
+			busboy.on("error", (err) => {
+				logger.error(`Error parsing multipart request in upload-mod:\n${err.stack}`);
+				errors.push(err.message);
+			});
+			req.pipe(busboy);
+		});
+
+	} else if (zipMimes.includes(mimeType)) {
+		let filename = req.query.filename;
+		if (typeof filename !== "string") {
+			requestErrors.push("Missing or invalid filename parameter");
+		} else if (!filename.endsWith(".zip")) {
+			requestErrors.push("filename must end with .zip");
+		}
+
+		if (errors.length || requestErrors.length) {
+			req.resume();
+		} else {
+			tasks.push(handleFile(req, filename));
+		}
+
+	} else {
+		res.status(415).json({ request_errors: ["invalid Content-Type"] });
+		return;
+	}
+
+	await Promise.all(tasks);
+
+	if (errors.length) {
+		res.status(500);
+		res.json({ errors, request_errors: requestErrors });
+		return;
+	}
+	if (requestErrors.length) {
+		res.status(400);
+		res.json({ request_errors: requestErrors });
+		return;
+	}
+
+	res.json({ mods });
+}
+
+
 function addRouteHandlers(app) {
 	app.get("/metrics", (req, res, next) => getMetrics(req, res, next).catch(next));
 	app.get("/api/plugins", getPlugins);
@@ -443,12 +619,15 @@ function addRouteHandlers(app) {
 		validateSlaveToken,
 		(req, res, next) => uploadExport(req, res).catch(next)
 	);
-	app.get("/api/export-manifest", (req, res, next) => getExportManifest(req, res, next).catch(next));
 	app.put("/api/stream/:id", (req, res, next) => putStream(req, res).catch(next));
 	app.get("/api/stream/:id", (req, res, next) => getStream(req, res).catch(next));
 	app.post("/api/upload-save",
 		validateUserToken,
 		(req, res, next) => uploadSave(req, res).catch(next)
+	);
+	app.post("/api/upload-mod",
+		validateUserToken,
+		(req, res, next) => uploadMod(req, res).catch(next)
 	);
 }
 
@@ -460,6 +639,8 @@ const webRoutes = [
 	"/slaves/:id/view",
 	"/instances",
 	"/instances/:id/view",
+	"/mods",
+	"/mods/mod-packs/:id/view",
 	"/users",
 	"/users/:id/view",
 	"/roles",

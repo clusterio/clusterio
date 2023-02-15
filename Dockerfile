@@ -22,15 +22,15 @@ RUN pnpm install
 #RUN pnpm install @clusterio/plugin-subspace_storage
 #RUN npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
 
-COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/sharedMods/
+COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/mods/
 
 # Build Lua library mod
 RUN node packages/lib/build_mod --build --source-dir packages/slave/lua/clusterio_lib \
-&& mv dist/* sharedMods/ \
+&& mv dist/* mods/ \
 && mkdir temp \
 && mkdir temp/test \
-&& cp sharedMods/ temp/test/ -r \
-&& ls sharedMods
+&& cp mods/ temp/test/ -r \
+&& ls mods
 
 # Remove node_modules
 RUN find . -name 'node_modules' -type d -prune -print -exec rm -rf '{}' \;

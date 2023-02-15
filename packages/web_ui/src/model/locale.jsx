@@ -9,10 +9,10 @@ export function useLocale() {
 	let [locale, setLocale] = useState(localeCache || new Map());
 	useEffect(() => {
 		async function load() {
-			if (!exportManifest["locale"]) {
+			if (!exportManifest || !exportManifest.assets["locale"]) {
 				return;
 			}
-			let response = await fetch(`${staticRoot}${exportManifest["locale"]}`);
+			let response = await fetch(`${staticRoot}static/${exportManifest.assets["locale"]}`);
 			if (response.ok) {
 				let data = await response.json();
 				localeCache = new Map(data);

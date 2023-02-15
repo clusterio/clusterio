@@ -2,6 +2,7 @@
 const libBuildMod = require("./build_mod");
 const libCommand = require("./command");
 const libConfig = require("./config");
+const libData = require("./data");
 const libDatabase = require("./database");
 const libErrors = require("./errors");
 const libFactorio = require("./factorio");
@@ -18,6 +19,7 @@ const libPrometheus = require("./prometheus");
 const libSchema = require("./schema");
 const libSharedCommands = require("./shared_commands");
 const libUsers = require("./users");
+const libZipOps = require("./zip_ops");
 
 const ExponentialBackoff = require("./ExponentialBackoff");
 const RateLimiter = require("./RateLimiter");
@@ -27,6 +29,7 @@ module.exports = {
 	libBuildMod,
 	libCommand,
 	libConfig,
+	libData,
 	libDatabase,
 	libErrors,
 	libFactorio,
@@ -43,6 +46,7 @@ module.exports = {
 	libSchema,
 	libSharedCommands,
 	libUsers,
+	libZipOps,
 
 	ExponentialBackoff,
 	RateLimiter,

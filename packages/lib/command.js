@@ -199,6 +199,39 @@ async function resolveInstance(client, instanceName) {
 }
 
 /**
+ * Resolve a string to a mod pack ID
+ *
+ * Resolevs a string with either a mod pack name or an id into an integer
+ * with the mod pack ID.
+ *
+ * @param {module:lib/link.Link} client -
+ *     link to master server to query mod pack on.
+ * @param {string} modPackName - string with name or id of mod pack.
+ * @returns {Promise<number>} mod pack ID.
+ * @static
+ */
+async function resolveModPack(client, modPackName) {
+	let modPackId;
+	if (/^-?\d+/.test(modPackName)) {
+		modPackId = parseInt(modPackName, 10);
+	} else {
+		let response = await libLink.messages.listModPacks.send(client);
+		for (let mod_pack of response.list) {
+			if (mod_pack["name"] === modPackName) {
+				modPackId = mod_pack["id"];
+				break;
+			}
+		}
+
+		if (modPackId === undefined) {
+			throw new libErrors.CommandError(`No mod pack named ${modPackName}`);
+		}
+	}
+
+	return modPackId;
+}
+
+/**
  * Retrieve role object from string
  *
  * Resolves a string with either a role name or an id into an object
@@ -244,5 +277,6 @@ module.exports = {
 
 	resolveSlave,
 	resolveInstance,
+	resolveModPack,
 	retrieveRole,
 };

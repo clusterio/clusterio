@@ -512,6 +512,80 @@ definePermission({
 });
 
 definePermission({
+	name: "core.mod_pack.get",
+	title: "Retrieve mod pack",
+	description: "Get the details of a mod pack in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod_pack.list",
+	title: "List mod packs",
+	description: "Get the full list of a mod packs in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod_pack.subscribe",
+	title: "Subscribe to mod pack updates",
+	description: "Subscribe to be notified on updates on the details of mod packs.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod_pack.create",
+	title: "Create mod pack",
+	description: "Create new mod pack in the cluster.",
+});
+definePermission({
+	name: "core.mod_pack.update",
+	title: "Update mod pack",
+	description: "Edit existing mod pack definition in the cluster.",
+});
+definePermission({
+	name: "core.mod_pack.delete",
+	title: "Delete mod pack",
+	description: "Delete mod pack definition in the cluster.",
+});
+definePermission({
+	name: "core.mod.get",
+	title: "Get mods",
+	description: "Get the details of a mod stored in the cluster.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.list",
+	title: "List mods",
+	description: "Get the full list of mods stored on the master.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.search",
+	title: "Search mods",
+	description: "Search through the list of mods stored on the master.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.subscribe",
+	title: "Subscribe to mod updates",
+	description: "Subscribe to be notified on updates on the details of mods.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.upload",
+	title: "Upload mod",
+	description: "Upload mods to the master.",
+});
+definePermission({
+	name: "core.mod.download",
+	title: "Download mod",
+	description: "Download mods stored on the master.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.mod.delete",
+	title: "Delete mod",
+	description: "Delete mods stored on the master.",
+});
+
+definePermission({
 	name: "core.permission.list",
 	title: "List permissions",
 	description: "Get the full list of permissions in the cluster.",

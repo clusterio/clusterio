@@ -177,7 +177,7 @@ async function startSlave() {
 	// If we get here the command was run
 
 	await fs.ensureDir(slaveConfig.get("slave.instances_directory"));
-	await fs.ensureDir("sharedMods");
+	await fs.ensureDir(slaveConfig.get("slave.mods_directory"));
 	await fs.ensureDir("modules");
 
 	// Set the process title, shows up as the title of the CMD window on windows

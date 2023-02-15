@@ -1,9 +1,13 @@
 "use strict";
-const jwt = require("jsonwebtoken");
 const events = require("events");
+const fs = require("fs-extra");
+const jwt = require("jsonwebtoken");
+const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
+const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
@@ -13,6 +17,8 @@ const libUsers = require("@clusterio/lib/users");
 
 const BaseConnection = require("./BaseConnection");
 const routes = require("./routes");
+
+const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 const lastQueryLogTime = new libPrometheus.Gauge(
 	"clusterio_master_last_query_log_duration_seconds",
@@ -51,6 +57,16 @@ class ControlConnection extends BaseConnection {
 		this.saveListSubscriptions = {
 			all: false,
 			instance_ids: [],
+		};
+
+		this.modPackSubscriptions = {
+			all: false,
+			mod_pack_ids: [],
+		};
+
+		this.modSubscriptions = {
+			all: false,
+			mod_names: [],
 		};
 
 		this.userSubscriptions = {
@@ -458,9 +474,194 @@ class ControlConnection extends BaseConnection {
 		return { save: result.save };
 	}
 
+	async listModPacksRequestHandler(message) {
+		return { list: [...this._master.modPacks.values()].map(pack => pack.toJSON()) };
+	}
+
+	async setModPackSubscriptionsRequestHandler(message) {
+		this.modPackSubscriptions = message.data;
+	}
+
+	async createModPackRequestHandler(message) {
+		let modPack = new libData.ModPack(message.data.mod_pack);
+		if (this._master.modPacks.has(modPack.id)) {
+			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} already exist`);
+		}
+		this._master.modPacks.set(modPack.id, modPack);
+		this._master.modPackUpdated(modPack);
+	}
+
+	async updateModPackRequestHandler(message) {
+		let modPack = new libData.ModPack(message.data.mod_pack);
+		if (!this._master.modPacks.has(modPack.id)) {
+			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
+		}
+		this._master.modPacks.set(modPack.id, modPack);
+		this._master.modPackUpdated(modPack);
+	}
+
+	async deleteModPackRequestHandler(message) {
+		let { id } = message.data;
+		let modPack = this._master.modPacks.get(id);
+		if (!modPack) {
+			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
+		}
+		modPack.isDeleted = true;
+		this._master.modPacks.delete(id);
+		this._master.modPackUpdated(modPack);
+	}
+
+	modPackUpdated(modPack) {
+		if (
+			this.modPackSubscriptions.all
+			|| this.modPackSubscriptions.mod_pack_ids.includes(modPack.id)
+		) {
+			libLink.messages.modPackUpdate.send(this, { mod_pack: modPack.toJSON() });
+		}
+	}
+
+	async getModRequestHandler(message) {
+		let { name, version } = message.data;
+		let filename = `${name}_${version}.zip`;
+		let mod = this._master.mods.get(filename);
+		if (!mod) {
+			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
+		}
+		return {
+			mod: mod.toJSON(),
+		};
+	}
+
+	async listModsRequestHandler(message) {
+		return { list: [...this._master.mods.values()].map(mod => mod.toJSON()) };
+	}
+
+	static termsMatchesMod(terms, mod) {
+		for (let term of terms) {
+			if (term.type === "word") {
+				if (!libHelpers.wordMatches(term,
+					mod.name, mod.version, mod.title, mod.author, mod.contact,
+					mod.homepage, mod.description, mod.filename
+				)) {
+					return false;
+				}
+			} else if (term.type === "attribute") {
+				if (!libHelpers.wordMatches(term.value, mod[term.name])) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	async searchModsRequestHandler(message) {
+		let query = libHelpers.parseSearchString(message.data.query, {
+			name: "word",
+			// version
+			title: "word",
+			author: "word",
+			contact: "word",
+			homepage: "word",
+			description: "word",
+			// factorioVersion
+			// dependencies
+			filename: "word",
+			// size
+			sha1: "word",
+		});
+		let factorioVersion = message.data.factorio_version;
+
+		let results = new Map();
+		for (let mod of this._master.mods.values()) {
+			if (
+				mod.factorioVersion !== factorioVersion
+				|| !ControlConnection.termsMatchesMod(query.terms, mod)
+			) {
+				continue;
+			}
+			let result = results.get(mod.name);
+			if (!result) {
+				result = {
+					name: mod.name,
+					versions: [],
+				};
+				results.set(mod.name, result);
+			}
+			result.versions.push(mod);
+		}
+		for (let result of results.values()) {
+			result.versions.sort((a, b) => b.integerVersion - a.integerVersion);
+			result.versions.map(e => e.toJSON());
+		}
+		let resultList = [...results.values()];
+
+		const sort = message.data.sort;
+		if (sort) {
+			const sorters = {
+				name: (a, b) => strcmp(a.versions[0].name, b.versions[0].name),
+				title: (a, b) => strcmp(a.versions[0].title, b.versions[0].title),
+				author: (a, b) => strcmp(a.versions[0].author, b.versions[0].author),
+			};
+			if (!Object.prototype.hasOwnProperty.call(sorters, sort)) {
+				throw new libErrors.RequestError(`Invalid value for sort: ${sort}`);
+			}
+			resultList.sort(sorters[sort]);
+			let order = message.data.sort_order;
+			if (order === "desc") {
+				resultList.reverse();
+			}
+		}
+
+		const page = message.data.page;
+		const pageSize = message.data.page_size || 10;
+		resultList = resultList.slice((page - 1) * pageSize, page * pageSize);
+
+		return {
+			query_issues: query.issues,
+			page_count: Math.ceil(results.size / pageSize),
+			result_count: results.size,
+			results: resultList,
+		};
+	}
+
+	async setModSubscriptionsRequestHandler(message) {
+		this.modSubscriptions = message.data;
+	}
+
+	async downloadModRequestHandler(message) {
+		let { name, version } = message.data;
+		let filename = `${name}_${version}.zip`;
+		let mod = this._master.mods.get(filename);
+		if (!mod) {
+			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
+		}
+		let modPath = path.join(this._master.config.get("master.mods_directory"), mod.filename);
+
+		let stream = await routes.createProxyStream(this._master.app);
+		stream.filename = mod.filename;
+		stream.source = fs.createReadStream(modPath);
+		stream.mime = "application/zip";
+		stream.size = mod.size;
+
+		return { stream_id: stream.id };
+	}
+
+	async deleteModRequestHandler(message) {
+		await this._master.deleteMod(message.data.name, message.data.version);
+	}
+
 	async setLogSubscriptionsRequestHandler(message) {
 		this.logSubscriptions = message.data;
 		this.updateLogSubscriptions();
+	}
+
+	modUpdated(mod) {
+		if (
+			this.modSubscriptions.all
+			|| this.modSubscriptions.mod_names.includes(mod.name)
+		) {
+			libLink.messages.modUpdate.send(this, { mod: mod.toJSON() });
+		}
 	}
 
 	updateLogSubscriptions() {
