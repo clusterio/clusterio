@@ -16,7 +16,7 @@ const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libLuaTools = require("@clusterio/lib/lua_tools");
-const { logger } = require("@clusterio/lib/logging");
+const libLogging = require("@clusterio/lib/logging");
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -53,7 +53,7 @@ const instanceFactorioAutosaveSize = new libPrometheus.Gauge(
 );
 
 function applyAsConfig(name) {
-	return async function action(instance, value) {
+	return async function action(instance, value, logger) {
 		if (name === "tags" && value instanceof Array) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
@@ -83,7 +83,7 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async (instance, value) => {
+	"visibility": async (instance, value, logger) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
 				let enabled = Boolean(value[scope]);
@@ -116,7 +116,7 @@ class Instance extends libLink.Link {
 		 */
 		this.id = this.config.get("instance.id");
 
-		this.logger = logger.child({
+		this.logger = libLogging.logger.child({
 			instance_id: this.id,
 			instance_name: this.name,
 		});
@@ -580,7 +580,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * @param {String} factorioDir - Path to factorio installation.
 	 */
 	static async create(instanceDir, factorioDir) {
-		logger.info(`Creating ${instanceDir}`);
+		libLogging.logger.info(`Creating ${instanceDir}`);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
@@ -880,7 +880,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		for (let [key, action] of Object.entries(serverSettingsActions)) {
 			if (current[key] !== undefined && !util.isDeepStrictEqual(current[key], previous[key])) {
-				await action(this, current[key]);
+				await action(this, current[key], this.logger);
 			}
 		}
 	}
