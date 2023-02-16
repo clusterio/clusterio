@@ -67,7 +67,7 @@ async function loadZip(server, modVersions, mod) {
  *     The server to load the file from.
  * @param {Map<string, string>} modVersions - Mapping of mod to version used.
  * @param {string} modPath - Factorio style path to the file to load.
- * @returns {?Buffer} The content of the file or null if not found.
+ * @returns {Promise<?Buffer>} The content of the file or null if not found.
  * @memberof module:lib/factorio
  * @private
  * @inner
@@ -255,7 +255,7 @@ function filterItems(prototypes) {
  * @param {Map<string, string>} modVersions -
  *     Mapping of mod name to versions to get icons from.
  * @param {Array<Object>} items - Array of item prototypes.
- * @return {{itemSheet: Jimp, itemData: Map<string,Object>}}
+ * @return {Promise<{itemSheet: Jimp, itemData: Map<string,Object>}>}
  *     Item spritesheet and metadata.
  * @memberof module:lib/factorio
  * @private
@@ -327,7 +327,7 @@ async function exportItems(server, modVersions, items) {
  *     Mapping of mod name to version to export locale from.
  * @param {Array<string>} modOrder - Load order of the mods.
  * @param {string} languageCode - Language to export locale for.
- * @returns {Map<string, string>} merged locale information
+ * @returns {Promise<Map<string, string>>} merged locale information
  * @memberof module:lib/factorio
  * @private
  * @inner
@@ -379,7 +379,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
  *
  * @param {module:lib/factorio.FactorioServer} server -
  *     The server to export the data from.
- * @returns {JSZip} zip file with exported data.
+ * @returns {Promise<JSZip>} zip file with exported data.
  * @memberof module:lib/factorio
  */
 async function exportData(server) {

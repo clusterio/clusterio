@@ -111,7 +111,7 @@ export default function UsersPage() {
 					title: "Last seen",
 					key: "lastSeen",
 					render: user => formatLastSeen(user),
-					sorter: sortLastSeen,
+					sorter: (a, b) => sortLastSeen(a, b),
 					responsive: ["lg"],
 				},
 			]}

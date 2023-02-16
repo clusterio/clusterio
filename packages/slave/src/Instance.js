@@ -16,7 +16,7 @@ const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libLuaTools = require("@clusterio/lib/lua_tools");
-const { logger } = require("@clusterio/lib/logging");
+const libLogging = require("@clusterio/lib/logging");
 
 
 const instanceRconCommandDuration = new libPrometheus.Histogram(
@@ -53,7 +53,7 @@ const instanceFactorioAutosaveSize = new libPrometheus.Gauge(
 );
 
 function applyAsConfig(name) {
-	return async function action(instance, value) {
+	return async function action(instance, value, logger) {
 		if (name === "tags" && value instanceof Array) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
@@ -83,7 +83,7 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async (instance, value) => {
+	"visibility": async (instance, value, logger) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
 				let enabled = Boolean(value[scope]);
@@ -116,7 +116,7 @@ class Instance extends libLink.Link {
 		 */
 		this.id = this.config.get("instance.id");
 
-		this.logger = logger.child({
+		this.logger = libLogging.logger.child({
 			instance_id: this.id,
 			instance_name: this.name,
 		});
@@ -193,7 +193,7 @@ class Instance extends libLink.Link {
 
 		/**
 		 * Mod pack currently running on this instance
-		 * @type {module:lib/data.ModPack>}
+		 * @type {module:lib/data.ModPack}
 		 */
 		this.activeModPack = undefined;
 
@@ -538,7 +538,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * entries from the given settings object.
 	 *
 	 * @param {Object} overrides - Server settings to override.
-	 * @returns {Object}
+	 * @returns {Promise<Object>}
 	 *     server example settings with the given settings applied over it.
 	 */
 	async resolveServerSettings(overrides) {
@@ -580,7 +580,6 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * @param {String} factorioDir - Path to factorio installation.
 	 */
 	static async create(instanceDir, factorioDir) {
-		logger.info(`Creating ${instanceDir}`);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
@@ -649,7 +648,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Write mod-list.json
 		await fs.outputFile(this.path("mods", "mod-list.json"), JSON.stringify({
-			mods: [{ name: "base" }, ...this.activeModPack.mods.values()].map(m => ({ name: m.name, enabled: true })),
+			mods: [...this.activeModPack.mods.values()],
 		}, null, 2));
 
 		// Write mod-settings.dat
@@ -699,10 +698,10 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 *
 	 * Creates a new save if no save is passed and patches it with modules.
 	 *
-	 * @param {String|null} saveName -
+	 * @param {string|null} saveName -
 	 *     Save to prepare from the instance saves directory.  Creates a new
 	 *     save if null.
-	 * @returns {String} Name of the save prepared.
+	 * @returns {Promise<string>} Name of the save prepared.
 	 */
 	async prepareSave(saveName) {
 		// Use latest save if no save was specified
@@ -757,7 +756,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
 
-			let module = JSON.parse(await fs.readFile(moduleJsonPath));
+			let module;
+			try {
+				module = JSON.parse(await fs.readFile(moduleJsonPath));
+			} catch (err) {
+				throw new Error(`Loading module/module.json in plugin ${pluginName} failed: ${err.message}`);
+			}
 			if (module.name !== pluginName) {
 				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
@@ -875,7 +879,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		for (let [key, action] of Object.entries(serverSettingsActions)) {
 			if (current[key] !== undefined && !util.isDeepStrictEqual(current[key], previous[key])) {
-				await action(this, current[key]);
+				await action(this, current[key], this.logger);
 			}
 		}
 	}

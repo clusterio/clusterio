@@ -5,6 +5,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 const crypto = require("crypto"); // needed for getTempFile
+
 /**
  * Returns the newest file in a directory
  *
@@ -12,7 +13,7 @@ const crypto = require("crypto"); // needed for getTempFile
  * @param {function(string): boolean} filter -
  *     Optional function to filter out files to ignore.  Should return true
  *     if the file is to be considered.
- * @returns {?string}
+ * @returns {Promise<?string>}
  *     Name of the file with the newest timestamp or null if the
  *     directory contains no files.
  */
@@ -33,6 +34,38 @@ async function getNewestFile(directory, filter = (name) => true) {
 }
 
 /**
+ * Returns the total size of all files in a directory
+ *
+ * Sums up the file size of all files in the given directory if it exists.
+ * Error reading the size of files are ignored, and error reading the
+ * directory will result in 0 being returned.
+ *
+ * @param {string} directory - The directory to sum files in.
+ * @returns {Promise<number>} The size in bytes of all files in the directory.
+ */
+async function directorySize(directory) {
+	let dirEntries;
+	try {
+		dirEntries = await fs.readdir(directory, { withFileTypes: true });
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			return 0;
+		}
+		throw err;
+	}
+	let statTasks = [];
+	for (let entry of dirEntries) {
+		if (entry.isFile()) {
+			statTasks.push(fs
+				.stat(path.join(directory, entry.name))
+				.then(stat => stat.size, _ => 0)
+			);
+		}
+	}
+	return (await Promise.all(statTasks)).reduce((a, v) => a + v, 0);
+}
+
+/**
  * Modifies name in case it already exisist at the given directory
  *
  * Checks the directory passed if it already contains a file or folder with
@@ -47,8 +80,8 @@ async function getNewestFile(directory, filter = (name) => true) {
  * @param {string} directory - directory to check in.
  * @param {string} name - file name to check for, may have extension.
  * @param {string} extension - dot extension used for the file name.
- * @returns {string} modified name with extension that likely does not exist
- *     in the folder
+ * @returns {Promise<string>} modified name with extension that likely does
+ *     not exist in the folder
  */
 async function findUnusedName(directory, name, extension = "") {
 	if (extension && name.endsWith(extension)) {
@@ -103,8 +136,19 @@ async function getTempFile(prefix, suffix, tmpdir) {
  * @param {object|string} options - see fs.writeFile, `flag` must not be set.
  */
 async function safeOutputFile(file, data, options={}) {
+	let directory = path.dirname(file);
+	if (!await fs.pathExists(directory)) {
+		await fs.mkdirs(directory);
+	}
 	let temporary = `${file}.tmp`;
-	await fs.outputFile(temporary, data, options);
+	let fd = await fs.open(temporary, "w");
+	try {
+		await fs.writeFile(fd, data, options);
+		await fs.fsync(fd);
+	} finally {
+		await fs.close(fd);
+	}
+
 	await fs.rename(temporary, file);
 }
 
@@ -193,6 +237,7 @@ function cleanFilename(name) {
 
 module.exports = {
 	getNewestFile,
+	directorySize,
 	findUnusedName,
 	getTempFile,
 	safeOutputFile,

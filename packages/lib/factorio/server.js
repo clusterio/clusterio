@@ -86,7 +86,7 @@ function versionOrder(a, b) {
  * @param {string} targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
- * @returns {Array} Array with path to data dir and version found.
+ * @returns {Promise<Array>} Array with path to data dir and version found.
  * @memberof module:lib/factorio
  * @private
  * @inner
@@ -163,7 +163,7 @@ function randomDynamicPort() {
  * the given length.
  *
  * @param {number} length - the length of the password to generate.
- * @return {string} password of the given length
+ * @return {Promise<string>} password of the given length
  * @memberof module:lib/factorio
  * @private
  * @inner
@@ -699,6 +699,16 @@ class FactorioServer extends events.EventEmitter {
 		this._server.stderr.pipe(stderr);
 	}
 
+	_resetState() {
+		this._state = "init";
+		this._server = null;
+		this._rconClient = null;
+		this._rconReady = false;
+		this._gameReady = false;
+		this._unexpected = [];
+		this._runningAutosave = null;
+	}
+
 	_watchExit() {
 		this._server.on("exit", (code, signal) => {
 			if (this._state !== "stopping") {
@@ -736,15 +746,21 @@ class FactorioServer extends events.EventEmitter {
 				this._rconClient.end().catch(() => {});
 			}
 
-			// Reset server state
-			this._state = "init";
-			this._server = null;
-			this._rconClient = null;
-			this._rconReady = false;
-			this._gameReady = false;
-			this._unexpected = [];
-			this._runningAutosave = null;
+			this._resetState();
+			this.emit("exit");
+		});
+		this._server.on("error", err => {
+			if (err.code === "EACCES") {
+				this.emit("error", new libErrors.EnvironmentError("Unable to run server: Permission denied"));
+			} else {
+				this.emit("error", new libErrors.EnvironmentError(`Unexpected error:\n${err.stack}`));
+			}
 
+			if (this._rconClient) {
+				this._rconClient.end().catch(() => {});
+			}
+
+			this._resetState();
 			this.emit("exit");
 		});
 	}
@@ -805,6 +821,11 @@ class FactorioServer extends events.EventEmitter {
 			if (code !== 0) {
 				throw new Error(`Factorio exited with status ${code}`);
 			}
+		} catch (err) {
+			if (err.code === "EACCES") {
+				throw new libErrors.EnvironmentError("Unable to run server: Permission denied");
+			}
+			throw err;
 		} finally {
 			this._state = "init";
 		}
@@ -902,7 +923,7 @@ class FactorioServer extends events.EventEmitter {
 	 * @param {boolean} expectEmpty -
 	 *     if true throw if the response is not empty.  Useful for detecting
 	 *     errors that might have been sent in response.
-	 * @returns {string} response from server.
+	 * @returns {Promise<string>} response from server.
 	 */
 	async sendRcon(message, expectEmpty) {
 		this._check(["running", "stopping"]);
@@ -1036,7 +1057,7 @@ class FactorioServer extends events.EventEmitter {
 	 * Ensures achievements are disabled on the save that's running.  This is
 	 * necessary in order to run any commands at all.
 	 *
-	 * @returns {boolean}
+	 * @returns {Promise<boolean>}
 	 *     True if acheivements got disabled and false if they already where
 	 *     disabled.
 	 */
@@ -1104,7 +1125,7 @@ class FactorioServer extends events.EventEmitter {
 	 *
 	 * Loads server-settings.example.json from the data dir.
 	 *
-	 * @returns {object} the parsed server-settings.
+	 * @returns {Promise<object>} the parsed server-settings.
 	 */
 	async exampleSettings() {
 		return JSON.parse(await fs.readFile(this.dataPath("server-settings.example.json"), "utf-8"));

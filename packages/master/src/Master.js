@@ -6,7 +6,7 @@ const fs = require("fs-extra");
 const http = require("http");
 const https = require("https");
 const path = require("path");
-
+const stream = require("stream");
 
 const libConfig = require("@clusterio/lib/config");
 const libData = require("@clusterio/lib/data");
@@ -26,9 +26,15 @@ const UserManager = require("./UserManager");
 const WsServer = require("./WsServer");
 
 
-const hitCounter = new libPrometheus.Counter(
-	"clusterio_master_http_hits_total",
-	"How many HTTP requests in total have been received"
+const endpointDurationSummary = new libPrometheus.Summary(
+	"clusterio_master_http_endpoint_duration_seconds",
+	"Time it took to respond to a an HTTP request",
+	{ labels: ["route"] }
+);
+
+const logSizeGauge = new libPrometheus.Gauge(
+	"clusterio_master_log_bytes",
+	"Size of all log files currently stored on the master."
 );
 
 /**
@@ -130,6 +136,19 @@ class Master {
 		}
 	}
 
+	/**
+	 * Get the total size of the logs stored
+	 *
+	 * @returns {Promise<number>} size in bytes of stored log files.
+	 */
+	async logSize() {
+		return (await Promise.all([
+			libFileOps.directorySize(path.join(this.logDirectory, "cluster")),
+			libFileOps.directorySize(path.join(this.logDirectory, "master")),
+			libFileOps.directorySize(path.join(this.logDirectory, "slave")),
+		])).reduce((a, v) => a + v, 0);
+	}
+
 	async _startInternal(args) {
 		this.logDirectory = args.logDirectory;
 		this.clusterLogIndex = await libLoggingUtils.LogIndex.load(path.join(this.logDirectory, "cluster"));
@@ -138,6 +157,7 @@ class Master {
 				err => logger.error(`Error building cluster log index:\n${err.stack}`)
 			);
 		}, 600e3);
+		logSizeGauge.callback = async () => { logSizeGauge.set(await this.logSize()); };
 
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
@@ -464,7 +484,7 @@ class Master {
 	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
 	 *     Filter to limit entries with. Note that only the master log can
 	 *     be queried from this function.
-	 * @returns {Array<Object>} log entries matching the filter
+	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
 	async queryMasterLog(filter) {
 		return await libLoggingUtils.queryLog(
@@ -477,7 +497,7 @@ class Master {
 	 *
 	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
 	 *     Filter to limit entries with.
-	 * @returns {Array<Object>} log entries matching the filter
+	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
 	async queryClusterLog(filter) {
 		return await libLoggingUtils.queryLog(
@@ -487,7 +507,15 @@ class Master {
 
 	static addAppRoutes(app, pluginInfos) {
 		app.use((req, res, next) => {
-			hitCounter.inc();
+			let start = process.hrtime.bigint();
+			stream.finished(res, () => {
+				let routePath = "static";
+				if (req.route && req.route.path) {
+					routePath = req.route.path;
+				}
+				let end = process.hrtime.bigint();
+				endpointDurationSummary.labels(routePath).observe(Number(end - start) / 1e9);
+			});
 			next();
 		});
 		app.use(compression());
@@ -783,7 +811,7 @@ class Master {
 	 * @param {object} data - Data to pass with the request.
 	 * @param {number} data.instance_id -
 	 *     ID of instance to send this request towards
-	 * @returns {object} data returned from the request.
+	 * @returns {Promise<object>} data returned from the request.
 	 */
 	async forwardRequestToInstance(request, data) {
 		let instance = this.getRequestInstance(data.instance_id);

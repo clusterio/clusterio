@@ -63,7 +63,7 @@ async function timeout(promise, time, timeoutResult) {
  * returns all the data which was read from the stream.
  *
  * @param {Readable} stream - byte stream to read to the end.
- * @returns {Buffer} content of the stream.
+ * @returns {Promise<Buffer>} content of the stream.
  * @static
  */
 async function readStream(stream) {

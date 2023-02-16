@@ -1,5 +1,5 @@
 "use strict";
-function addApiRoutes(app, items, endpointHitCounter) {
+function addApiRoutes(app, items) {
 
 	/**
 	 * GET endpoint to read the masters current inventory of items.
@@ -10,7 +10,6 @@ function addApiRoutes(app, items, endpointHitCounter) {
 	 * @returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
 	 */
 	app.get("/api/inventory", (req, res) => {
-		endpointHitCounter.labels(req.route.path).inc();
 		res.header("Access-Control-Allow-Origin", "*");
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 		// Check it and send it
@@ -31,7 +30,6 @@ function addApiRoutes(app, items, endpointHitCounter) {
 	 * @returns {object} JSON {"iron-plate":100, "copper-plate":5}
 	 */
 	app.get("/api/inventoryAsObject", (req, res) => {
-		endpointHitCounter.labels(req.route.path).inc();
 		res.header("Access-Control-Allow-Origin", "*");
 		res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 		// Check it and send it

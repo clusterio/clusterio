@@ -812,7 +812,7 @@ function attachPluginMessages(link, plugin) {
  *     Mapping of plugin names to plugins to invoke the hook on.
  * @param {string} hook - Name of hook to invoke.
  * @param {...*} args - Arguments to pass on to the hook.
- * @returns {Array} Non-empty return values from the hooks.
+ * @returns {Promise<Array>} Non-empty return values from the hooks.
  */
 async function invokeHook(plugins, hook, ...args) {
 	let results = [];

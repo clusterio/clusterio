@@ -219,9 +219,7 @@ class MockMaster {
 
 async function createMasterPlugin(MasterPluginClass, info) {
 	let master = new MockMaster();
-	let metrics = {
-		endpointHitCounter: new libPrometheus.Counter("hit_counter", "Hit Counter", { labels: ["route"] }),
-	};
+	let metrics = {};
 	let logger = new MockLogger();
 	let plugin = new MasterPluginClass(info, master, metrics, logger);
 	await plugin.init();

@@ -16,6 +16,9 @@ export default function InstanceList(props) {
 	let [slaveList] = useSlaveList();
 
 	function slaveName(slaveId) {
+		if (slaveId === null) {
+			return "";
+		}
 		let slave = slaveList.find(s => s.id === slaveId);
 		if (slave) {
 			return slave.name;

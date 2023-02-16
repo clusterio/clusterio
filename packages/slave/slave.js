@@ -27,7 +27,7 @@ const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
 const libConfig = require("@clusterio/lib/config");
 const libSharedCommands = require("@clusterio/lib/shared_commands");
-const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
+const { ConsoleTransport, FilteredTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
 const Slave = require("./src/Slave");
@@ -126,7 +126,14 @@ async function startSlave() {
 		logger.add(new ConsoleTransport({
 			level: args.logLevel,
 			format: new libLoggingUtils.TerminalFormat(),
+			filter: info => info.instance_id === undefined,
 		}));
+	}
+	libLoggingUtils.handleUnhandledErrors(logger);
+
+	let command = args._[0];
+	if (command === "run") {
+		logger.info(`Starting Clusterio slave ${version}`);
 	}
 
 	// add better stack traces on promise rejection
@@ -143,7 +150,6 @@ async function startSlave() {
 	}
 
 	// If the command is plugin management we don't try to load plugins
-	let command = args._[0];
 	if (command === "plugin") {
 		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
 		return;

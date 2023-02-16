@@ -112,7 +112,8 @@ class Control extends libLink.Link {
 	}
 
 	async debugWsMessageEventHandler(message) {
-		print("WS", message.data.direction, message.data.content);
+		// eslint-disable-next-line no-console
+		console.log("WS", message.data.direction, message.data.content);
 	}
 
 	async shutdown() {
@@ -186,6 +187,7 @@ async function startControl() {
 		level: args.logLevel,
 		format: new libLoggingUtils.TerminalFormat(),
 	}));
+	libLoggingUtils.handleUnhandledErrors(logger);
 
 	logger.verbose(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
