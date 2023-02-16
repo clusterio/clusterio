@@ -307,7 +307,7 @@ class Slave extends libLink.Link {
 		let instanceInfo = this.instanceInfos.get(instance_id);
 		if (instanceInfo) {
 			instanceInfo.config.update(serialized_config, true, "master");
-			logger.verbose(`Updated config for ${instanceInfo.path}`);
+			logger.verbose(`Updated config for ${instanceInfo.path}`, this.instanceLogMeta(instance_id, instanceInfo));
 
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instance_id);
@@ -320,6 +320,7 @@ class Slave extends libLink.Link {
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
+				logger.info(`Creating ${instanceDir}`);
 				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
 				instanceInfo = {
 					path: instanceDir,
@@ -365,6 +366,14 @@ class Slave extends libLink.Link {
 			this.instanceInfos.delete(instanceId);
 			logger.verbose(`unassigned instance ${instanceInfo.config.get("instance.name")}`);
 		}
+	}
+
+	instanceLogMeta(instanceId, instanceInfo) {
+		instanceInfo = instanceInfo || this.instanceInfos.get(instanceId);
+		if (!instanceInfo) {
+			return { instance_id: instanceId, instance_name: String(instanceId) };
+		}
+		return { instance_id: instanceId, instance_name: instanceInfo.config.get("instance.name") };
 	}
 
 	getRequestInstanceInfo(instanceId) {
@@ -427,14 +436,30 @@ class Slave extends libLink.Link {
 
 	async startInstanceRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
-		let instanceConnection = await this._connectInstance(instanceId);
-		return await request.send(instanceConnection, message.data);
+		try {
+			let instanceConnection = await this._connectInstance(instanceId);
+			return await request.send(instanceConnection, message.data);
+		} catch (err) {
+			if (!(err instanceof libErrors.RequestError)) {
+				logger.error(`Error starting instance:\n${err.stack}`, this.instanceLogMeta(instanceId));
+				throw new libErrors.RequestError(err.message);
+			}
+			throw err;
+		}
 	}
 
 	async loadScenarioRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
-		let instanceConnection = await this._connectInstance(instanceId);
-		return await request.send(instanceConnection, message.data);
+		try {
+			let instanceConnection = await this._connectInstance(instanceId);
+			return await request.send(instanceConnection, message.data);
+		} catch (err) {
+			if (!(err instanceof libErrors.RequestError)) {
+				logger.error(`Error starting instance:\n${err.stack}`, this.instanceLogMeta(instanceId));
+				throw new libErrors.RequestError(err.message);
+			}
+			throw err;
+		}
 	}
 
 	async listSavesRequestHandler(message, request) {
@@ -452,8 +477,16 @@ class Slave extends libLink.Link {
 
 	async createSaveRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
-		let instanceConnection = await this._connectInstance(instanceId);
-		await request.send(instanceConnection, message.data);
+		try {
+			let instanceConnection = await this._connectInstance(instanceId);
+			await request.send(instanceConnection, message.data);
+		} catch (err) {
+			if (!(err instanceof libErrors.RequestError)) {
+				logger.error(`Error creating save:\n${err.stack}`, this.instanceLogMeta(instanceId));
+				throw new libErrors.RequestError(err.message);
+			}
+			throw err;
+		}
 	}
 
 	async renameSaveRequestHandler(message) {
@@ -629,13 +662,21 @@ class Slave extends libLink.Link {
 			url, method: "PUT",
 			core: { ca: this.tlsCa },
 			data: content,
-		}).catch(err => logger.error(`Error pushing save to master:\n${err.stack}`));
+		}).catch(err => logger.error(`Error pushing save to master:\n${err.stack}`, this.instanceLogMeta(instance_id)));
 	}
 
 	async exportDataRequestHandler(message, request) {
 		let instanceId = message.data.instance_id;
-		let instanceConnection = await this._connectInstance(instanceId);
-		await request.send(instanceConnection, message.data);
+		try {
+			let instanceConnection = await this._connectInstance(instanceId);
+			await request.send(instanceConnection, message.data);
+		} catch (err) {
+			if (!(err instanceof libErrors.RequestError)) {
+				logger.error(`Error exporting data:\n${err.stack}`, this.instanceLogMeta(instanceId));
+				throw new libErrors.RequestError(err.message);
+			}
+			throw err;
+		}
 	}
 
 	async stopInstance(instanceId) {
@@ -691,7 +732,8 @@ class Slave extends libLink.Link {
 						});
 					} catch (err) {
 						logger.error(
-							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`
+							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`,
+							this.instanceLogMeta(instanceId, instanceInfo)
 						);
 					}
 				}

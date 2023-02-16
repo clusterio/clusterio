@@ -580,7 +580,6 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * @param {String} factorioDir - Path to factorio installation.
 	 */
 	static async create(instanceDir, factorioDir) {
-		libLogging.logger.info(`Creating ${instanceDir}`);
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
