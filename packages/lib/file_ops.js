@@ -136,8 +136,19 @@ async function getTempFile(prefix, suffix, tmpdir) {
  * @param {object|string} options - see fs.writeFile, `flag` must not be set.
  */
 async function safeOutputFile(file, data, options={}) {
+	let directory = path.dirname(file);
+	if (!await fs.pathExists(directory)) {
+		await fs.mkdirs(directory);
+	}
 	let temporary = `${file}.tmp`;
-	await fs.outputFile(temporary, data, options);
+	let fd = await fs.open(temporary, "w");
+	try {
+		await fs.writeFile(fd, data, options);
+		await fs.fsync(fd);
+	} finally {
+		await fs.close(fd);
+	}
+
 	await fs.rename(temporary, file);
 }
 
