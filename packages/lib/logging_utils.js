@@ -458,11 +458,25 @@ async function migrateLogs(log, directory, pattern) {
 	}
 }
 
+function handleUnhandledErrors() {
+	/* eslint-disable node/no-process-exit */
+	process.on("uncaughtException", err => {
+		logger.fatal(`Uncaught exception:\n${err.stack}`);
+		process.exit(1);
+	});
+	process.on("unhandledRejection", (reason, promise) => {
+		logger.fatal(`Unhandled rejection:\n${reason.stack ? reason.stack : reason}`);
+		process.exit(1);
+	});
+	/* eslint-enable node/no-process-exit */
+}
+
 
 module.exports = {
 	TerminalFormat,
 	LinkTransport,
 	LogIndex,
+	handleUnhandledErrors,
 	queryLog,
 	migrateLogs,
 

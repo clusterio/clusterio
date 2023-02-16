@@ -284,6 +284,7 @@ async function initialize() {
 			format: new libLoggingUtils.TerminalFormat(),
 		}));
 	}
+	libLoggingUtils.handleUnhandledErrors(logger);
 
 	let command = parameters.args._[0];
 	if (command === "run") {
@@ -354,9 +355,6 @@ async function startup() {
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
 	process.title = "clusterioMaster";
-
-	// add better stack traces on promise rejection
-	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
 
 	let { args, shouldRun, clusterLogger, pluginInfos, masterConfigPath, masterConfig } = await initialize();
 	if (!shouldRun) {

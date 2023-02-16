@@ -129,6 +129,7 @@ async function startSlave() {
 			filter: info => info.instance_id === undefined,
 		}));
 	}
+	libLoggingUtils.handleUnhandledErrors(logger);
 
 	let command = args._[0];
 	if (command === "run") {

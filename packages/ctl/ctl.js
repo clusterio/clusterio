@@ -187,6 +187,7 @@ async function startControl() {
 		level: args.logLevel,
 		format: new libLoggingUtils.TerminalFormat(),
 	}));
+	libLoggingUtils.handleUnhandledErrors(logger);
 
 	logger.verbose(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
