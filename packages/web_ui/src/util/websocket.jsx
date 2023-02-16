@@ -1,5 +1,5 @@
 import { libData, libErrors, libLink, libLogging, libPlugin } from "@clusterio/lib";
-const { logger } = libLogging;
+const { logFilter, logger } = libLogging;
 import packageJson from "../../package.json";
 
 
@@ -25,22 +25,6 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 			version: packageJson.version,
 		});
 	}
-}
-
-function logFilter({ all, master, slave_ids, instance_ids }, info) {
-	if (all) {
-		return true;
-	}
-	if (master && info.slave_id === undefined) {
-		return true;
-	}
-	if (info.slave_id !== undefined && slave_ids.includes(info.slave_id)) {
-		return true;
-	}
-	if (info.instance_id !== undefined && instance_ids.includes(info.instance_id)) {
-		return true;
-	}
-	return false;
 }
 
 /**
@@ -504,7 +488,7 @@ export class Control extends libLink.Link {
 		let info = message.data.info;
 
 		for (let [filter, handlers] of this.logHandlers) {
-			if (logFilter(filter, info)) {
+			if (logFilter(filter)(info)) {
 				for (let handler of handlers) {
 					handler(info);
 				}

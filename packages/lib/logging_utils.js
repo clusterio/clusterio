@@ -18,7 +18,7 @@ const chalk = require("chalk");
 const libLink = require("./link");
 const libErrors = require("./errors");
 const libFileOps = require("./file_ops");
-const { levels, logger } = require("./logging");
+const { levels, logFilter, logger } = require("./logging");
 const libStream = require("./stream");
 
 const finished = util.promisify(stream.finished);
@@ -140,21 +140,6 @@ class LinkTransport extends Transport {
 }
 
 const logFileGlob = /^[a-z]+-(\d{4}-\d{2}-\d{2})\.log$/;
-/**
- * Filter object for logs
- * @typedef {Object} module:lib/logging_utils~LogFilter
- * @property {string} [max_level] -
- *     Maximum log level to include. Higher levels are more verbose.
- * @property {boolean} [all] -
- *     Include log entries from master, all slaves and all instances.
- * @property {boolean} [master] -
- *     Include log entries from the master server.
- * @property {Array<number>} [slave_ids] -
- *     Include log entries for the given slaves and instances of those
- *     slaves by id.
- * @property {Array<number>} [instance_ids] -
- *     Include log entries for the given instances by id.
- */
 
 /**
  * Keeps an index over a log directory to speed up queries to it
@@ -289,7 +274,7 @@ class LogIndex {
 	 *
 	 * @param {string} file -
 	 *     Name of file in the log directory to check for.
-	 * @param {module:lib/logging_utils~LogFilter} filter -
+	 * @param {module:lib/logging~LogFilter} filter -
 	 *     Filter to check index if file contains entries for.
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
@@ -324,43 +309,6 @@ class LogIndex {
 		}
 		return false;
 	}
-}
-
-/**
- * Create log filter by level and source.
- *
- * @param {module:lib/logging_utils~LogFilter} filter -
- *     Filter to filter log entries by.
- * @returns {function(object): boolean}
- *     filter returning true for log entries that match it.
- * @static
- */
-function logFilter({ all, master, slave_ids, instance_ids, max_level }) {
-	return info => {
-		// Note: reversed to filter out undefined levels
-		if (max_level && !(levels[info.level] <= levels[max_level])) {
-			return false;
-		}
-
-		if (all) {
-			return true;
-		}
-		if (master && info.slave_id === undefined) {
-			return true;
-		}
-		if (
-			slave_ids
-			&& info.slave_id !== undefined
-			&& info.instance_id === undefined
-			&& slave_ids.includes(info.slave_id)
-		) {
-			return true;
-		}
-		if (instance_ids && info.instance_id !== undefined && instance_ids.includes(info.instance_id)) {
-			return true;
-		}
-		return false;
-	};
 }
 
 /**
@@ -515,7 +463,6 @@ module.exports = {
 	TerminalFormat,
 	LinkTransport,
 	LogIndex,
-	logFilter,
 	queryLog,
 	migrateLogs,
 

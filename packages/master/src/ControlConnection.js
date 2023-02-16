@@ -9,7 +9,7 @@ const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
-const { logger } = require("@clusterio/lib/logging");
+const { logFilter, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPrometheus = require("@clusterio/lib/prometheus");
@@ -674,7 +674,7 @@ class ControlConnection extends BaseConnection {
 				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
 				this._master.clusterLogger.add(this.logTransport);
 			}
-			this.logTransport.filter = libLoggingUtils.logFilter(this.logSubscriptions);
+			this.logTransport.filter = logFilter(this.logSubscriptions);
 
 		} else if (this.logTransport) {
 			this._master.clusterLogger.remove(this.logTransport);
