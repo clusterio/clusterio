@@ -539,6 +539,7 @@ export class Control extends libLink.Link {
 
 		handlers.splice(index, 1);
 		if (!handlers.length) {
+			this.logHandlers.delete(filter);
 			await this.updateLogSubscriptions();
 		}
 	}
