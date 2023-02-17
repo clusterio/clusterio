@@ -136,9 +136,6 @@ async function startSlave() {
 		logger.info(`Starting Clusterio slave ${version}`);
 	}
 
-	// add better stack traces on promise rejection
-	process.on("unhandledRejection", err => logger.error(`Unhandled rejection:\n${err.stack}`));
-
 	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
