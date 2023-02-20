@@ -23,6 +23,7 @@ class SlaveConnection extends BaseConnection {
 		this._name = registerData.name;
 		this._version = registerData.version;
 		this.plugins = new Map(Object.entries(registerData.plugins));
+		this._checkPluginVersions();
 
 		this._master.slaves.set(this._id, {
 			agent: this._agent,
@@ -55,6 +56,30 @@ class SlaveConnection extends BaseConnection {
 				libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 		});
+	}
+
+	_checkPluginVersions() {
+		let pluginInfos = new Map(this._master.pluginInfos.map(i => [i.name, i]));
+		for (let [name, version] of this.plugins) {
+			let info = pluginInfos.get(name);
+			if (!info) {
+				logger.warn(`Slave ${this._name} has plugin ${name} ${version} which the master does not have`);
+				continue;
+			}
+
+			if (info.version !== version) {
+				logger.warn(
+					`Slave ${this._name} has plugin ${name} ${version} which does not match the version of this ` +
+					`plugin on the master (${info.version})`
+				);
+			}
+		}
+
+		for (let [name, info] of pluginInfos) {
+			if (!this.plugins.has(name)) {
+				logger.warn(`Slave ${this._name} is missing plugin ${name} ${info.version}`);
+			}
+		}
 	}
 
 	/**

@@ -269,7 +269,16 @@ ${err.stack}`
 				await connection.disconnect(1008, "Registered from another connection");
 			}
 
-			logger.verbose(`WsServer | registered slave ${data.id} version ${data.version}`);
+			logger.info(
+				`WsServer | registered slave ${data.name} (${data.id}) using agent ${data.agent} ${data.version}`
+			);
+			if (data.agent === "Clusterio Slave" && data.version !== packageVersion) {
+				logger.warn(
+					`Slave ${data.name} (${data.id}) connected using version ${data.version} which does not match ` +
+					`the version of the master is currently running (${packageVersion}). It may not work as expected.`
+				);
+			}
+
 			connection = new SlaveConnection(data, connector, this.master);
 			connector.on("close", () => {
 				if (this.slaveConnections.get(data.id) === connection) {
