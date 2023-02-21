@@ -66,8 +66,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		let response = await this.info.messages.syncTechnologies.send(this.instance, { technologies: techsToSend });
 		this.syncStarted = true;
 		let techsToSync = [];
-		for (let masterTech of response.technologies) {
-			let [name, level, progress, researched] = masterTech;
+		for (let controllerTech of response.technologies) {
+			let [name, level, progress, researched] = controllerTech;
 			let instanceTech = instanceTechs.get(name);
 			if (
 				!instanceTech
@@ -75,7 +75,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 				|| (instanceTech.progress || null) !== progress
 				|| instanceTech.researched !== researched
 			) {
-				techsToSync.push(masterTech);
+				techsToSync.push(controllerTech);
 			}
 		}
 

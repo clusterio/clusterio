@@ -33,7 +33,7 @@ export default function SlaveViewPage(props) {
 				className="site-page-header"
 				title={slaveId}
 			/>
-			<p>Slave with id {slaveId} was not found on the master server.</p>
+			<p>Slave with id {slaveId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 

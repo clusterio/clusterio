@@ -1,6 +1,6 @@
 import React from "react";
 
-import MasterPage from "./components/MasterPage";
+import ControllerPage from "./components/ControllerPage";
 import SlavesPage from "./components/SlavesPage";
 import SlaveViewPage from "./components/SlaveViewPage";
 import InstancesPage from "./components/InstancesPage";
@@ -17,9 +17,9 @@ import PluginViewPage from "./components/PluginViewPage";
 
 export const pages = [
 	{
-		path: "/master",
-		sidebarName: "Master",
-		content: <MasterPage />,
+		path: "/controller",
+		sidebarName: "Controller",
+		content: <ControllerPage />,
 	},
 	{
 		path: "/slaves",

@@ -99,10 +99,10 @@ function GenerateSlaveTokenButton(props) {
 				<div className="codeblock">
 					<CopyButton
 						message={"Copied configuration commands to clipboard"}
-						text={`npx clusterioslave config set slave.master_token ${token}
+						text={`npx clusterioslave config set slave.controller_token ${token}
 							   npx clusterioslave config set slave.id ${slaveId}`}
 					/>
-					<p>npx clusterioslave config set slave.master_token &lt;token&gt;</p>
+					<p>npx clusterioslave config set slave.controller_token &lt;token&gt;</p>
 					<p>npx clusterioslave config set slave.id &lt;slaveId&gt;</p>
 				</div>
 				<Typography.Paragraph>
@@ -116,16 +116,16 @@ function GenerateSlaveTokenButton(props) {
 							cd clusterio
 							`+
 							// eslint-disable-next-line max-len
-							`npm init "@clusterio" -- --master-token ${token} --mode "slave" --download-headless --master-url ${document.location.origin}/ --slave-name "Slave ${slaveId || "?"}" --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
+							`npm init "@clusterio" -- --controller-token ${token} --mode "slave" --download-headless --controller-url ${document.location.origin}/ --slave-name "Slave ${slaveId || "?"}" --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
 						}/>
 					<p>&gt; mkdir clusterio</p>
 					<p>&gt; cd clusterio</p>
 					<p>
 						&gt; npm init "@clusterio" --
-						--master-token <span className="highlight">{token} </span>
+						--controller-token <span className="highlight">{token} </span>
 						--mode "slave"
 						--download-headless
-						--master-url <span className="highlight">{document.location.origin}/ </span>
+						--controller-url <span className="highlight">{document.location.origin}/ </span>
 						--slave-name <span className="highlight">"Slave {slaveId || "?"}" </span>
 						--public-address <span className="highlight">localhost </span>
 						{pluginString.length ? "--plugins" : ""} <span className="highlight">{pluginString}</span>

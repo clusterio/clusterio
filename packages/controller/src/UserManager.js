@@ -6,7 +6,7 @@ const libUsers = require("@clusterio/lib/users");
 
 /**
  * Manages users and roles
- * @alias module:master/src/UserManager
+ * @alias module:controller/src/UserManager
  */
 class UserManager {
 	constructor(config) {
@@ -79,7 +79,7 @@ class UserManager {
 			throw new Error(`User '${name}' already exists`);
 		}
 
-		let defaultRoleId = this._config.get("master.default_role_id");
+		let defaultRoleId = this._config.get("controller.default_role_id");
 		let user = new libUsers.User({ name, roles: [defaultRoleId] }, this.roles);
 		this.users.set(name, user);
 		return user;

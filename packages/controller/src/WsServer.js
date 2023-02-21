@@ -14,36 +14,36 @@ const WsServerConnector = require("./WsServerConnector");
 
 
 const wsMessageCounter = new libPrometheus.Counter(
-	"clusterio_master_websocket_message_total",
-	"How many messages have been received over WebSocket on the master server",
+	"clusterio_controller_websocket_message_total",
+	"How many messages have been received over WebSocket on the controller",
 	{ labels: ["direction"] }
 );
 
 const wsConnectionsCounter = new libPrometheus.Counter(
-	"clusterio_master_websocket_connections_total",
-	"How many WebSocket connections have been initiated on the master server"
+	"clusterio_controller_websocket_connections_total",
+	"How many WebSocket connections have been initiated on the controller"
 );
 
 const wsRejectedConnectionsCounter = new libPrometheus.Counter(
-	"clusterio_master_websocket_rejected_connections_total",
-	"How many WebSocket connections have been rejected during the handshake on the master server"
+	"clusterio_controller_websocket_rejected_connections_total",
+	"How many WebSocket connections have been rejected during the handshake on the controller"
 );
 
 /**
  * WebSocket server
- * @alias module:master/src/WsServer
+ * @alias module:controller/src/WsServer
  */
 class WsServer {
-	constructor(master) {
-		this.master = master;
+	constructor(controller) {
+		this.controller = controller;
 
 		this.stopAcceptingNewSessions = false;
 
-		/** @type {Array<module:master/src/ControlConnection>} */
+		/** @type {Array<module:controller/src/ControlConnection>} */
 		this.controlConnections = [];
-		/** @type {Map<number, module:master/src/SlaveConnection>} */
+		/** @type {Map<number, module:controller/src/SlaveConnection>} */
 		this.slaveConnections = new Map();
-		/** @type {Map<number, module:master/src/WsServerConnector>} */
+		/** @type {Map<number, module:controller/src/WsServerConnector>} */
 		this.activeConnectors = new Map();
 		/** @type {Set<module:ws>} */
 		this.pendingSockets = new Set();
@@ -104,21 +104,21 @@ class WsServer {
 		socket.on("message", (message) => {
 			wsMessageCounter.labels("in").inc();
 			if (!socket.clusterio_ignore_dump) {
-				this.master.debugEvents.emit("message", { direction: "in", content: message });
+				this.controller.debugEvents.emit("message", { direction: "in", content: message });
 			}
 		});
 		let originalSend = socket.send;
 		socket.send = (...args) => {
 			wsMessageCounter.labels("out").inc();
 			if (typeof args[0] === "string" && !socket.clusterio_ignore_dump) {
-				this.master.debugEvents.emit("message", { direction: "out", content: args[0] });
+				this.controller.debugEvents.emit("message", { direction: "out", content: args[0] });
 			}
 			return originalSend.call(socket, ...args);
 		};
 
 		// Start connection handshake.
 		let loadedPlugins = {};
-		for (let [name, plugin] of this.master.plugins) {
+		for (let [name, plugin] of this.controller.plugins) {
 			loadedPlugins[name] = plugin.info.version;
 		}
 
@@ -183,7 +183,7 @@ ${err.stack}`
 			try {
 				let payload = jwt.verify(
 					data.session_token,
-					Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
+					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
 					{ audience: this.sessionAud }
 				);
 
@@ -215,7 +215,7 @@ ${err.stack}`
 			if (type === "register_slave") {
 				let tokenPayload = jwt.verify(
 					data.token,
-					Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
+					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
 					{ audience: "slave" }
 				);
 
@@ -226,11 +226,11 @@ ${err.stack}`
 			} else if (type === "register_control") {
 				let tokenPayload = jwt.verify(
 					data.token,
-					Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
+					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
 					{ audience: "user" }
 				);
 
-				user = this.master.userManager.users.get(tokenPayload.user);
+				user = this.controller.userManager.users.get(tokenPayload.user);
 				if (!user) {
 					throw new Error("invalid user");
 				}
@@ -251,10 +251,10 @@ ${err.stack}`
 		this.nextSessionId += 1;
 		let sessionToken = jwt.sign(
 			{ aud: this.sessionAud, sid: sessionId },
-			Buffer.from(this.master.config.get("master.auth_secret"), "base64"),
+			Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
 		);
-		let sessionTimeout = this.master.config.get("master.session_timeout");
-		let heartbeatInterval = this.master.config.get("master.heartbeat_interval");
+		let sessionTimeout = this.controller.config.get("controller.session_timeout");
+		let heartbeatInterval = this.controller.config.get("controller.heartbeat_interval");
 		let connector = new WsServerConnector(sessionId, sessionTimeout, heartbeatInterval);
 		this.activeConnectors.set(sessionId, connector);
 		connector.on("close", () => {
@@ -274,27 +274,27 @@ ${err.stack}`
 			);
 			if (data.agent === "Clusterio Slave" && data.version !== packageVersion) {
 				logger.warn(
-					`Slave ${data.name} (${data.id}) connected using version ${data.version} which does not match ` +
-					`the version of the master is currently running (${packageVersion}). It may not work as expected.`
+					`Host ${data.name} (${data.id}) connected using version ${data.version} which does not match the ` +
+					`version of the controller is currently running (${packageVersion}). It may not work as expected.`
 				);
 			}
 
-			connection = new SlaveConnection(data, connector, this.master);
+			connection = new SlaveConnection(data, connector, this.controller);
 			connector.on("close", () => {
 				if (this.slaveConnections.get(data.id) === connection) {
 					this.slaveConnections.delete(data.id);
-					this.master.slaveUpdated(this.master.slaves.get(data.id));
+					this.controller.slaveUpdated(this.controller.slaves.get(data.id));
 				} else {
 					logger.warn("Unlisted SlaveConnection closed");
 				}
 			});
 			this.slaveConnections.set(data.id, connection);
-			this.master.slaveUpdated(this.master.slaves.get(data.id));
+			this.controller.slaveUpdated(this.controller.slaves.get(data.id));
 
 
 		} else if (type === "register_control") {
 			logger.verbose(`WsServer | registered control from ${req.socket.remoteAddress}`);
-			let connection = new ControlConnection(data, connector, this.master, user);
+			let connection = new ControlConnection(data, connector, this.controller, user);
 			connector.on("close", () => {
 				let index = this.controlConnections.indexOf(connection);
 				if (index !== -1) {

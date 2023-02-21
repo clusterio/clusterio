@@ -9,7 +9,7 @@ const libPlugin = require("@clusterio/lib/plugin");
 const libUsers = require("@clusterio/lib/users");
 const libPrometheus = require("@clusterio/lib/prometheus");
 
-const UserManager = require("@clusterio/master/src/UserManager");
+const UserManager = require("@clusterio/controller/src/UserManager");
 
 
 class MockLogger {
@@ -152,25 +152,25 @@ class MockInstance extends libLink.Link {
 
 class MockSlave extends libLink.Link {
 	constructor() {
-		super("slave", "master", new MockConnector());
+		super("slave", "controller", new MockConnector());
 	}
 }
 
 class MockControl extends libLink.Link {
 	constructor(connector) {
-		super("control", "master", connector);
+		super("control", "controller", connector);
 	}
 }
 
-class MockMaster {
+class MockController {
 	constructor() {
 		this.app = express();
-		this.app.locals.master = this;
+		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 		this.mockConfigEntries = new Map([
-			["master.external_address", "test"],
-			["master.auth_secret", "TestSecretDoNotUse"],
-			["master.proxy_stream_timeout", 1],
+			["controller.external_address", "test"],
+			["controller.auth_secret", "TestSecretDoNotUse"],
+			["controller.proxy_stream_timeout", 1],
 		]);
 		this.config = {
 			get: (name) => {
@@ -196,8 +196,8 @@ class MockMaster {
 		this.slaves = new Map();
 	}
 
-	getMasterUrl() {
-		return "http://master.example/";
+	getControllerUrl() {
+		return "http://controller.example/";
 	}
 
 	async startServer() {
@@ -217,11 +217,11 @@ class MockMaster {
 	}
 }
 
-async function createMasterPlugin(MasterPluginClass, info) {
-	let master = new MockMaster();
+async function createControllerPlugin(ControllerPluginClass, info) {
+	let controller = new MockController();
 	let metrics = {};
 	let logger = new MockLogger();
-	let plugin = new MasterPluginClass(info, master, metrics, logger);
+	let plugin = new ControllerPluginClass(info, controller, metrics, logger);
 	await plugin.init();
 	return plugin;
 }
@@ -244,8 +244,8 @@ module.exports = {
 	MockInstance,
 	MockSlave,
 	MockControl,
-	MockMaster,
+	MockController,
 
-	createMasterPlugin,
+	createControllerPlugin,
 	createInstancePlugin,
 };

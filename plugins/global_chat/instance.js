@@ -21,7 +21,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		this.messageQueue = [];
 	}
 
-	onMasterConnectionEvent(event) {
+	onControllerConnectionEvent(event) {
 		if (event === "connect") {
 			for (let message of this.messageQueue) {
 				this.sendChat(message);

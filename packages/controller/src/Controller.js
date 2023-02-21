@@ -27,21 +27,21 @@ const WsServer = require("./WsServer");
 
 
 const endpointDurationSummary = new libPrometheus.Summary(
-	"clusterio_master_http_endpoint_duration_seconds",
+	"clusterio_controller_http_endpoint_duration_seconds",
 	"Time it took to respond to a an HTTP request",
 	{ labels: ["route"] }
 );
 
 const logSizeGauge = new libPrometheus.Gauge(
-	"clusterio_master_log_bytes",
-	"Size of all log files currently stored on the master."
+	"clusterio_controller_log_bytes",
+	"Size of all log files currently stored on the controller."
 );
 
 /**
- * Manages all master related operations
- * @alias module:master/src/Master
+ * Manages all controller related operations
+ * @alias module:controller/src/Controller
  */
-class Master {
+class Controller {
 	constructor(clusterLogger, pluginInfos, configPath, config) {
 		this.clusterLogger = clusterLogger;
 		/**
@@ -51,13 +51,13 @@ class Master {
 		this.pluginInfos = pluginInfos;
 		this.configPath = configPath;
 		/**
-		 * Master config.
-		 * @type {module:lib/config.MasterConfig}
+		 * Controller config.
+		 * @type {module:lib/config.ControllerConfig}
 		 */
 		this.config = config;
 
 		this.app = express();
-		this.app.locals.master = this;
+		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 
 		/**
@@ -86,7 +86,7 @@ class Master {
 
 		/**
 		 * User and roles manager for the cluster
-		 * @type {module:master/src/UserManager}
+		 * @type {module:controller/src/UserManager}
 		 */
 		this.userManager = null;
 		this.httpServer = null;
@@ -96,13 +96,13 @@ class Master {
 
 		/**
 		 * Mapping of plugin name to loaded plugin
-		 * @type {Map<string, module:lib/plugin.BaseMasterPlugin>}
+		 * @type {Map<string, module:lib/plugin.BaseControllerPlugin>}
 		 */
 		this.plugins = new Map();
 
 		/**
 		 * WebSocket server
-		 * @type {module:master/src/WsServer}
+		 * @type {module:controller/src/WsServer}
 		 */
 		this.wsServer = new WsServer(this);
 
@@ -144,7 +144,7 @@ class Master {
 	async logSize() {
 		return (await Promise.all([
 			libFileOps.directorySize(path.join(this.logDirectory, "cluster")),
-			libFileOps.directorySize(path.join(this.logDirectory, "master")),
+			libFileOps.directorySize(path.join(this.logDirectory, "controller")),
 			libFileOps.directorySize(path.join(this.logDirectory, "slave")),
 		])).reduce((a, v) => a + v, 0);
 	}
@@ -189,38 +189,38 @@ class Master {
 			this.app.use(this.devMiddleware);
 		}
 
-		let databaseDirectory = this.config.get("master.database_directory");
+		let databaseDirectory = this.config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
-		this.slaves = await Master.loadSlaves(path.join(databaseDirectory, "slaves.json"));
-		this.instances = await Master.loadInstances(path.join(databaseDirectory, "instances.json"));
-		this.modPacks = await Master.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
+		this.slaves = await Controller.loadSlaves(path.join(databaseDirectory, "slaves.json"));
+		this.instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
+		this.modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		this.userManager = new UserManager(this.config);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
-		let modsDirectory = this.config.get("master.mods_directory");
+		let modsDirectory = this.config.get("controller.mods_directory");
 		await fs.ensureDir(modsDirectory);
-		this.mods = await Master.loadModInfos(modsDirectory);
+		this.mods = await Controller.loadModInfos(modsDirectory);
 
 		this.config.on("fieldChanged", (group, field, prev) => {
-			libPlugin.invokeHook(this.plugins, "onMasterConfigFieldChanged", group, field, prev);
+			libPlugin.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
 		});
 		for (let instance of this.instances.values()) {
 			this.addInstanceHooks(instance);
 		}
 
 		// Make sure we're actually going to listen on a port
-		let httpPort = this.config.get("master.http_port");
-		let httpsPort = this.config.get("master.https_port");
-		let bindAddress = this.config.get("master.bind_address") || "";
+		let httpPort = this.config.get("controller.http_port");
+		let httpsPort = this.config.get("controller.https_port");
+		let bindAddress = this.config.get("controller.bind_address") || "";
 		if (!httpPort && !httpsPort) {
 			logger.fatal("Error: at least one of http_port and https_port must be configured");
 			process.exitCode = 1;
 			return;
 		}
 
-		let tls_cert = this.config.get("master.tls_certificate");
-		let tls_key = this.config.get("master.tls_private_key");
+		let tls_cert = this.config.get("controller.tls_certificate");
+		let tls_key = this.config.get("controller.tls_private_key");
 
 		if (httpsPort && (!tls_cert || !tls_key)) {
 			throw new libErrors.StartupError(
@@ -228,10 +228,10 @@ class Master {
 			);
 		}
 
-		Master.addAppRoutes(this.app, this.pluginInfos);
+		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifest = await Master.loadJsonObject(path.join(__dirname, "..", "dist", "web", "manifest.json"));
+			let manifest = await Controller.loadJsonObject(path.join(__dirname, "..", "dist", "web", "manifest.json"));
 			if (!manifest["main.js"]) {
 				logger.error("Missing main.js entry in dist/web/manifest.json");
 			}
@@ -272,12 +272,12 @@ class Master {
 			logger.info(`Listening for HTTPS on port ${this.httpsServer.address().port}`);
 		}
 
-		logger.info("Started master");
+		logger.info("Started controller");
 		this._state = "running";
 	}
 
 	/**
-	 * Stops the master server.
+	 * Stops the controller.
 	 *
 	 * Save data and bring down the active connections.  This is the reverse
 	 * of start and is valid at any point in time.
@@ -299,7 +299,7 @@ class Master {
 	async _stopInternal() {
 		// This function should never throw.
 		this._state = "stopping";
-		logger.info("Stopping master");
+		logger.info("Stopping controller");
 		clearInterval(this.clusterLogBuildInterval);
 		if (this.clusterLogIndex) {
 			await this.clusterLogIndex.save();
@@ -312,17 +312,17 @@ class Master {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
 		}
 
-		let databaseDirectory = this.config.get("master.database_directory");
+		let databaseDirectory = this.config.get("controller.database_directory");
 		if (this.slaves) {
-			await Master.saveSlaves(path.join(databaseDirectory, "slaves.json"), this.slaves);
+			await Controller.saveSlaves(path.join(databaseDirectory, "slaves.json"), this.slaves);
 		}
 
 		if (this.instances) {
-			await Master.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
+			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
 		if (this.modPacks) {
-			await Master.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
+			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
 		}
 
 		if (this.userManager) {
@@ -376,7 +376,7 @@ class Master {
 		try {
 			let serialized = JSON.parse(await fs.readFile(filePath));
 			for (let serializedConfig of serialized) {
-				let instanceConfig = new libConfig.InstanceConfig("master");
+				let instanceConfig = new libConfig.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
 				let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
 				let instance = { config: instanceConfig, status };
@@ -471,7 +471,7 @@ class Master {
 			throw new Error(`Mod ${filename} does not exist`);
 		}
 
-		let modsDirectory = this.config.get("master.mods_directory");
+		let modsDirectory = this.config.get("controller.mods_directory");
 		await fs.unlink(path.join(modsDirectory, filename));
 		this.mods.delete(filename);
 		mod.isDeleted = true;
@@ -479,16 +479,16 @@ class Master {
 	}
 
 	/**
-	 * Query master log
+	 * Query controller log
 	 *
 	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
-	 *     Filter to limit entries with. Note that only the master log can
+	 *     Filter to limit entries with. Note that only the controller log can
 	 *     be queried from this function.
 	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
-	async queryMasterLog(filter) {
+	async queryControllerLog(filter) {
 		return await libLoggingUtils.queryLog(
-			path.join(this.logDirectory, "master"), filter,
+			path.join(this.logDirectory, "controller"), filter,
 		);
 	}
 
@@ -530,11 +530,11 @@ class Master {
 
 		// Add routes for the web interface
 		for (let route of routes.webRoutes) {
-			app.get(route, Master.serveWeb(route));
+			app.get(route, Controller.serveWeb(route));
 		}
 		for (let pluginInfo of pluginInfos) {
 			for (let route of pluginInfo.routes || []) {
-				app.get(route, Master.serveWeb(route));
+				app.get(route, Controller.serveWeb(route));
 			}
 
 			let pluginPackagePath = require.resolve(path.posix.join(pluginInfo.requirePath, "package.json"));
@@ -684,7 +684,7 @@ class Master {
 		for (let pluginInfo of this.pluginInfos) {
 			try {
 				let manifestPath = path.posix.join(pluginInfo.requirePath, "dist", "web", "manifest.json");
-				pluginInfo.manifest = await Master.loadJsonObject(require.resolve(manifestPath), true);
+				pluginInfo.manifest = await Controller.loadJsonObject(require.resolve(manifestPath), true);
 			} catch (err) {
 				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
 			}
@@ -693,15 +693,15 @@ class Master {
 				continue;
 			}
 
-			let MasterPluginClass = libPlugin.BaseMasterPlugin;
+			let ControllerPluginClass = libPlugin.BaseControllerPlugin;
 			try {
-				if (pluginInfo.masterEntrypoint) {
-					MasterPluginClass = await libPluginLoader.loadMasterPluginClass(pluginInfo);
+				if (pluginInfo.controllerEntrypoint) {
+					ControllerPluginClass = await libPluginLoader.loadControllerPluginClass(pluginInfo);
 				}
 
-				let masterPlugin = new MasterPluginClass(pluginInfo, this, metrics, logger);
-				await masterPlugin.init();
-				this.plugins.set(pluginInfo.name, masterPlugin);
+				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics, logger);
+				await controllerPlugin.init();
+				this.plugins.set(pluginInfo.name, controllerPlugin);
 
 			} catch (err) {
 				throw new libErrors.PluginError(pluginInfo.name, err);
@@ -743,21 +743,21 @@ class Master {
 
 
 	/**
-	 * Returns the URL needed to connect to the master server.
+	 * Returns the URL needed to connect to the controller.
 	 *
-	 * @returns {string} master URL.
+	 * @returns {string} controller URL.
 	 */
-	getMasterUrl() {
-		return Master.calculateMasterUrl(this.config);
+	getControllerUrl() {
+		return Controller.calculateControllerUrl(this.config);
 	}
 
-	static calculateMasterUrl(config) {
-		let url = config.get("master.external_address");
+	static calculateControllerUrl(config) {
+		let url = config.get("controller.external_address");
 		if (!url) {
-			if (config.get("master.https_port")) {
-				url = `https://localhost:${config.get("master.https_port")}/`;
+			if (config.get("controller.https_port")) {
+				url = `https://localhost:${config.get("controller.https_port")}/`;
 			} else {
-				url = `http://localhost:${config.get("master.http_port")}/`;
+				url = `http://localhost:${config.get("controller.http_port")}/`;
 			}
 		}
 		return url;
@@ -789,7 +789,7 @@ class Master {
 			fs.readFile(path.join(__dirname, "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
-					.replace(/__CLUSTER_NAME__/g, res.app.locals.master.config.get("master.name"))
+					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))
 					.replace(/__WEB_ROOT__/g, webRoot)
 					.replace(/__STATIC_ROOT__/g, staticRoot)
 					.replace(/__MAIN_BUNDLE__/g, mainBundle)
@@ -832,4 +832,4 @@ class Master {
 	}
 }
 
-module.exports = Master;
+module.exports = Controller;

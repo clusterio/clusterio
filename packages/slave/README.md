@@ -1,7 +1,7 @@
 # Clusterio Slave
 
 Node hosting Factorio servers in a Clusterio cluster.
-Clusterio slaves connect to the master server and waits for commands from the master server to start up and stop instances.
+Clusterio slaves connect to the controller and waits for commands from the controller to start up and stop instances.
 A cluster can have any number of slaves in it located on different computers, and each slave can host any number of instances each of which is a Factorio server that talks with the rest of the cluster.
 
 
@@ -36,7 +36,7 @@ For example, installing the Subspace Storage plugin:
     npm install @clusterio/plugin-subspace_storage
     npx clusterioslave plugin add @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between master, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
 
 
 #### `plugin remove <name>`
@@ -50,7 +50,7 @@ For example, uninstalling the Subspace Storage plugin:
     npx clusterioslave plugin remove subspace_storage
     npm uninstall @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between master, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
 
 
 #### `plugin list`

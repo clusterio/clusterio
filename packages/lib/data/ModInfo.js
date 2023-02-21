@@ -11,7 +11,7 @@ const { integerModVersion, integerFactorioVersion, modVersionRegExp } = require(
 
 
 /**
- * Info about a mod available on the master server.
+ * Info about a mod available on the controller.
  *
  * See https://wiki.factorio.com/Tutorial:Mod_structure#info.json for
  * details of the invidiual fields sourced from info.json.

@@ -23,7 +23,7 @@
   "devDependencies": {
     "@clusterio/ctl": "workspace:*",
     "@clusterio/lib": "workspace:*",
-    "@clusterio/master": "workspace:*",
+    "@clusterio/controller": "workspace:*",
     "@clusterio/slave": "workspace:*",
     "eslint": "^8.18.0",
     "eslint-plugin-node": "^11.1.0",

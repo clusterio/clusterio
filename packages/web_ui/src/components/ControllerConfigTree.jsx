@@ -6,16 +6,16 @@ import BaseConfigTree from "./BaseConfigTree";
 import ControlContext from "./ControlContext";
 
 
-export default function MasterConfigTree(props) {
+export default function ControllerConfigTree(props) {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
-		let result = await libLink.messages.getMasterConfig.send(control);
+		let result = await libLink.messages.getControllerConfig.send(control);
 		return result.serialized_config;
 	}
 
 	async function setField(field, value) {
-		await libLink.messages.setMasterConfigField.send(control, {
+		await libLink.messages.setControllerConfigField.send(control, {
 			field,
 			value: String(value),
 		});
@@ -30,11 +30,11 @@ export default function MasterConfigTree(props) {
 				return;
 			}
 		}
-		await libLink.messages.setMasterConfigProp.send(control, data);
+		await libLink.messages.setControllerConfigProp.send(control, data);
 	}
 
 	return <BaseConfigTree
-		ConfigClass={libConfig.MasterConfig}
+		ConfigClass={libConfig.ControllerConfig}
 		retrieveConfig={retrieveConfig}
 		setField={setField}
 		setProp={setProp}

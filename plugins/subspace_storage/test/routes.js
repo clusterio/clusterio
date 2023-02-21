@@ -7,7 +7,7 @@ const { get } = require("../../../test/integration");
 
 describe("subspace_storage endpoints", function() {
 	describe("GET /api/inventory", function() {
-		it("should return the masters current inventory", async function() {
+		it("should return the controllers current inventory", async function() {
 			let res = await get("/api/inventory");
 			let inventory = res.body;
 			assert.equal(typeof inventory, "object", "Inventory should be an object");

@@ -32,11 +32,11 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)));
 	}
 
-	onPrepareMasterDisconnect() {
+	onPrepareControllerDisconnect() {
 		this.disconnecting = true;
 	}
 
-	onMasterConnectionEvent(event) {
+	onControllerConnectionEvent(event) {
 		if (event === "connect") {
 			this.disconnecting = false;
 			(async () => {
@@ -60,7 +60,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		let response = {
 			player_name: request.player_name,
 			status: "error",
-			message: "Master is temporarily unavailable",
+			message: "Controller is temporarily unavailable",
 		};
 
 		if (this.slave.connector.connected && !this.disconnecting) {

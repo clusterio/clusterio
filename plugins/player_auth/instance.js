@@ -30,7 +30,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 				await this.sendRcon(`/web-login error ${event.player} ${err.message}`);
 				return;
 			}
-			await this.sendRcon(`/web-login open ${event.player} ${response.master_url} ${response.player_code}`);
+			await this.sendRcon(`/web-login open ${event.player} ${response.controller_url} ${response.player_code}`);
 
 		} else if (event.type === "set_verify_code") {
 			try {

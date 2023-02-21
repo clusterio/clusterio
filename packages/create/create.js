@@ -110,11 +110,11 @@ async function execFile(cmd, args) {
 	});
 }
 
-async function execMaster(args) {
+async function execController(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "master"), ...args]);
+		return await execFile("node", [path.join("packages", "controller"), ...args]);
 	}
-	return await execFile(path.join("node_modules", ".bin", `clusteriomaster${scriptExt}`), args);
+	return await execFile(path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`), args);
 }
 
 async function execSlave(args) {
@@ -194,8 +194,8 @@ async function installClusterio(mode, plugins) {
 	}
 
 	let components = [];
-	if (["standalone", "master"].includes(mode)) {
-		components.push("@clusterio/master");
+	if (["standalone", "controller"].includes(mode)) {
+		components.push("@clusterio/controller");
 	}
 	if (["standalone", "slave"].includes(mode)) {
 		components.push("@clusterio/slave");
@@ -250,22 +250,22 @@ async function groupIdToName(gid) {
 }
 
 async function writeScripts(mode) {
-	if (["standalone", "master"].includes(mode)) {
+	if (["standalone", "controller"].includes(mode)) {
 		if (process.platform === "win32") {
 			await safeOutputFile(
-				"run-master.cmd",
-				"@echo off\n.\\node_modules\\.bin\\clusteriomaster.cmd run\n"
+				"run-controller.cmd",
+				"@echo off\n.\\node_modules\\.bin\\clusteriocontroller.cmd run\n"
 			);
 		} else {
 			await safeOutputFile(
-				"run-master.sh",
-				"#!/bin/sh\nexec ./node_modules/.bin/clusteriomaster run\n",
+				"run-controller.sh",
+				"#!/bin/sh\nexec ./node_modules/.bin/clusteriocontroller run\n",
 				{ mode: 0o755 },
 			);
 			await safeOutputFile(
-				"systemd/clusteriomaster.service",
+				"systemd/clusteriocontroller.service",
 				`[Unit]
-Description=Clusterio Master
+Description=Clusterio Controller
 
 [Service]
 User=${os.userInfo().username}
@@ -273,7 +273,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
-ExecStart=${process.cwd()}/node_modules/.bin/clusteriomaster run --log-level=warn
+ExecStart=${process.cwd()}/node_modules/.bin/clusteriocontroller run --log-level=warn
 
 [Install]
 WantedBy=multi-user.target
@@ -324,8 +324,8 @@ async function inquirerMissingArgs(args) {
 			message: "Operating mode to install",
 			default: "standalone",
 			choices: [
-				{ name: "Standalone (install both master and slave on this computer)", value: "standalone" },
-				{ name: "Master only", value: "master" },
+				{ name: "Standalone (install both controller and slave on this computer)", value: "standalone" },
+				{ name: "Controller only", value: "controller" },
 				{ name: "Slave only", value: "slave" },
 				{ name: "Ctl only", value: "ctl" },
 				{ name: "Plugins only", value: "plugins" },
@@ -333,7 +333,7 @@ async function inquirerMissingArgs(args) {
 		},
 	], answers);
 
-	if (["standalone", "master"].includes(answers.mode)) {
+	if (["standalone", "controller"].includes(answers.mode)) {
 		if (args.admin) { answers.admin = args.admin; }
 		answers = await inquirer.prompt([
 			{
@@ -362,27 +362,27 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (["slave", "ctl"].includes(answers.mode)) {
-		if (args.masterUrl) { answers.masterUrl = args.masterUrl; }
+		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
-				name: "masterUrl",
-				message: "Master server URL",
+				name: "controllerUrl",
+				message: "Controller URL",
 			},
 		], answers);
 
-		if (args.masterToken) { answers.masterToken = args.masterToken; }
+		if (args.controllerToken) { answers.controllerToken = args.controllerToken; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
-				name: "masterToken",
-				message: "Master authentication Token",
+				name: "controllerToken",
+				message: "Controller authentication Token",
 			},
 		], answers);
 	}
 
 	if (answers.mode === "slave") {
-		validateSlaveToken(answers.masterToken);
+		validateSlaveToken(answers.controllerToken);
 	}
 
 	if (["standalone", "slave"].includes(answers.mode)) {
@@ -532,19 +532,19 @@ async function main() {
 		})
 		.option("mode", {
 			nargs: 1, describe: "Operating mode to install",
-			choices: ["standalone", "master", "slave", "ctl", "plugins"],
+			choices: ["standalone", "controller", "slave", "ctl", "plugins"],
 		})
 		.option("admin", {
-			nargs: 1, describe: "Admin account name [standalone/master]", type: "string",
+			nargs: 1, describe: "Admin account name [standalone/controller]", type: "string",
 		})
 		.option("slave-name", {
 			nargs: 1, describe: "Slave name [slave]", type: "string",
 		})
-		.option("master-url", {
-			nargs: 1, describe: "Master URL [slave/ctl]", type: "string",
+		.option("controller-url", {
+			nargs: 1, describe: "Controller URL [slave/ctl]", type: "string",
 		})
-		.option("master-token", {
-			nargs: 1, describe: "Master authentication token [slave/ctl]", type: "string",
+		.option("controller-token", {
+			nargs: 1, describe: "Controller authentication token [slave/ctl]", type: "string",
 		})
 		.option("public-address", {
 			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/slave]", type: "string",
@@ -594,10 +594,10 @@ async function main() {
 	}
 
 	let adminToken = null;
-	if (["standalone", "master"].includes(answers.mode)) {
-		logger.info("Setting up master");
-		await execMaster(["bootstrap", "create-admin", answers.admin]);
-		let result = await execMaster(["bootstrap", "generate-user-token", answers.admin]);
+	if (["standalone", "controller"].includes(answers.mode)) {
+		logger.info("Setting up controller");
+		await execController(["bootstrap", "create-admin", answers.admin]);
+		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
 
@@ -608,33 +608,33 @@ async function main() {
 		let result = await execSlave(["config", "show", "slave.id"]);
 		let slaveId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
 
-		result = await execMaster(["bootstrap", "generate-slave-token", slaveId]);
+		result = await execController(["bootstrap", "generate-slave-token", slaveId]);
 		let slaveToken = result.stdout.split("\n").slice(-2)[0];
 
-		await execSlave(["config", "set", "slave.master_token", slaveToken]);
+		await execSlave(["config", "set", "slave.controller_token", slaveToken]);
 		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
 		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
 	}
 
 	if (answers.mode === "slave") {
 		logger.info("Setting up slave");
-		let slaveId = JSON.parse(Buffer.from(answers.masterToken.split(".")[1], "base64")).slave;
+		let slaveId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).slave;
 		await execSlave(["config", "set", "slave.id", slaveId]);
 		await execSlave(["config", "set", "slave.name", answers.slaveName]);
-		await execSlave(["config", "set", "slave.master_url", answers.masterUrl]);
-		await execSlave(["config", "set", "slave.master_token", answers.masterToken]);
+		await execSlave(["config", "set", "slave.controller_url", answers.controllerUrl]);
+		await execSlave(["config", "set", "slave.controller_token", answers.controllerToken]);
 		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
 		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
 	}
 
-	if (!dev && ["standalone", "master", "slave"].includes(answers.mode)) {
+	if (!dev && ["standalone", "controller", "slave"].includes(answers.mode)) {
 		logger.info("Writing run scripts");
 		await writeScripts(answers.mode);
 	}
 
 	if (answers.mode === "ctl") {
-		await execCtl(["control-config", "set", "control.master_url", answers.masterUrl]);
-		await execCtl(["control-config", "set", "control.master_token", answers.masterToken]);
+		await execCtl(["control-config", "set", "control.controller_url", answers.controllerUrl]);
+		await execCtl(["control-config", "set", "control.controller_token", answers.controllerToken]);
 	}
 
 	/* eslint-disable no-console */

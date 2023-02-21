@@ -3,9 +3,9 @@
 /**
  * Clusterio slave
  *
- * Connects to the master server and hosts Factorio servers that can
+ * Connects to the controller and hosts Factorio servers that can
  * communicate with the cluster.  It is remotely controlled by {@link
- * module:master/master}.
+ * module:controller/controller}.
  *
  * @module slave/slave
  * @author Danielv123, Hornwitser
@@ -36,7 +36,7 @@ const Slave = require("./src/Slave");
 class SlaveConnector extends libLink.WebSocketClientConnector {
 	constructor(slaveConfig, tlsCa, pluginInfos) {
 		super(
-			slaveConfig.get("slave.master_url"),
+			slaveConfig.get("slave.controller_url"),
 			slaveConfig.get("slave.max_reconnect_delay"),
 			tlsCa
 		);
@@ -52,7 +52,7 @@ class SlaveConnector extends libLink.WebSocketClientConnector {
 		}
 
 		this.sendHandshake("register_slave", {
-			token: this.slaveConfig.get("slave.master_token"),
+			token: this.slaveConfig.get("slave.controller_token"),
 			agent: "Clusterio Slave",
 			version,
 			id: this.slaveConfig.get("slave.id"),
@@ -187,13 +187,13 @@ async function startSlave() {
 	// and as the process name in ps/top on linux.
 	process.title = "clusterioSlave";
 
-	// make sure we have the master access token
-	if (slaveConfig.get("slave.master_token") === "enter token here") {
+	// make sure we have the controller access token
+	if (slaveConfig.get("slave.controller_token") === "enter token here") {
 		logger.fatal("ERROR invalid config!");
 		logger.fatal(
-			"Master server requires an access token for socket operations. As clusterio\n"+
+			"Controller requires an access token for socket operations. As clusterio\n"+
 			"slaves depends upon this, please set your token using the command npx\n"+
-			"clusterioslave config set slave.master_token <token>.  You can generate an\n"+
+			"clusterioslave config set slave.controller_token <token>.  You can generate an\n"+
 			"auth token using npx clusterioctl generate-slave-token."
 		);
 		process.exitCode = 1;
@@ -201,9 +201,9 @@ async function startSlave() {
 	}
 
 	// make sure url ends with /
-	if (!slaveConfig.get("slave.master_url").endsWith("/")) {
+	if (!slaveConfig.get("slave.controller_url").endsWith("/")) {
 		logger.fatal("ERROR invalid config!");
-		logger.fatal("slave.master_url must end with '/'");
+		logger.fatal("slave.controller_url must end with '/'");
 		process.exitCode = 1;
 		return;
 	}

@@ -11,6 +11,6 @@ This can be disabled with the `factorio.enable_save_patching` config on a per in
 
 ## User Accounts
 
-The master server creates and stores accounts for all Factorio users that log into instances under its control.
+The controller creates and stores accounts for all Factorio users that log into instances under its control.
 These accounts are used to store per player data and authorize management of the cluster.
 By default users accounts are assigned a Player role that gives a limited read access to the cluster resources, and admins of the cluster can be assigned a Cluster Admin role to get access to manage it.

@@ -7,9 +7,9 @@
 const helpers = require("./helpers");
 
 /**
- * Conceptual base for master and instance plugins.
+ * Conceptual base for controller and instance plugins.
  * @typedef {
- *     module:lib/plugin.BaseMasterPlugin
+ *     module:lib/plugin.BaseControllerPlugin
  *     |module:lib/plugin.BaseInstancePlugin
  *     |module:lib/plugin.BaseControlPlugin
  * } module:lib/plugin.BasePlugin
@@ -150,22 +150,22 @@ class BaseInstancePlugin {
 	async onOutput(parsed, line) { }
 
 	/**
-	 * Called when an event on the master connection happens
+	 * Called when an event on the controller connection happens
 	 *
 	 * The event param may be one of connect, drop, resume and close and has
 	 * the following meaning:
 	 *
 	 * ##### connect
 	 *
-	 * Invoked when a new connection to the master has been established.
+	 * Invoked when a new connection to the controller has been established.
 	 *
 	 * ##### drop
 	 *
 	 * Invoked when a connection loss is detected between the slave and the
-	 * master.  Plugins should respond to this event by throtteling messages
-	 * it is sending to the master to an absolute minimum.
+	 * controller.  Plugins should respond to this event by throtteling messages
+	 * it is sending to the controller to an absolute minimum.
 	 *
-	 * Messages sent over a dropped master connection will get queued up in
+	 * Messages sent over a dropped controller connection will get queued up in
 	 * memory on the slave and sent all in one go when the connection is
 	 * re-established again.
 	 *
@@ -176,29 +176,29 @@ class BaseInstancePlugin {
 	 *
 	 * ##### close
 	 *
-	 * Invoked when the connection to the master has been closed.  This
-	 * typically means the master server has shut down.  Plugins should not
-	 * send any messages that goes to or via the master server after the
+	 * Invoked when the connection to the controller has been closed.  This
+	 * typically means the controller has shut down.  Plugins should not
+	 * send any messages that goes to or via the controller after the
 	 * connection has been closed and before a new one is established.
 	 *
 	 * @param {string} event - one of connect, drop, resume and close
 	 */
-	onMasterConnectionEvent(event) { }
+	onControllerConnectionEvent(event) { }
 
 	/**
-	 * Called when the master is preparing to disconnect from the slave
+	 * Called when the controller is preparing to disconnect from the slave
 	 *
-	 * Invoked when the master server has requested the disconnection from
+	 * Invoked when the controller has requested the disconnection from
 	 * the slave.  This typically happens when it is in the process of
 	 * shutting down.
 	 *
-	 * Plugins must stop sending messages to the master, or are forwarded
-	 * via the master server after the prepare disconnect has been handled.
+	 * Plugins must stop sending messages to the controller, or are forwarded
+	 * via the controller after the prepare disconnect has been handled.
 	 *
-	 * @param {module:master/src/SlaveConnection} connection -
+	 * @param {module:controller/src/SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
-	async onPrepareMasterDisconnect(connection) { }
+	async onPrepareControllerDisconnect(connection) { }
 
 	/**
 	 * Called when a player joins or leaves the game
@@ -284,25 +284,25 @@ class BaseInstancePlugin {
 }
 
 /**
- * Base class for master plugins
+ * Base class for controller plugins
  *
- * Master plugins are subclasses of this class which get instantiated by
- * the master server on startup when the plugin is enabled in the config.
- * To be discovered the class must be exported under the name `MasterPlugin`
- * in the module specified by the `masterEntrypoint` in the plugin's info.js
+ * Controller plugins are subclasses of this class which get instantiated by
+ * the controller on startup when the plugin is enabled in the config.
+ * To be discovered the class must be exported under the name `ControllerPlugin`
+ * in the module specified by the `controllerEntrypoint` in the plugin's info.js
  * file.
  *
  * @static
  */
-class BaseMasterPlugin {
-	constructor(info, master, metrics, logger) {
+class BaseControllerPlugin {
+	constructor(info, controller, metrics, logger) {
 		this.info = info;
 
 		/**
-		 * Master server
-		 * @type {module:master/src/Master}
+		 * Controller
+		 * @type {module:controller/src/Controller}
 		 */
-		this.master = master;
+		this.controller = controller;
 		this.metrics = metrics;
 
 		/**
@@ -323,7 +323,7 @@ class BaseMasterPlugin {
 	/**
 	 * Called when the status of an instance changes
 	 *
-	 * Invoked when the master server has changed the status of an instance
+	 * Invoked when the controller has changed the status of an instance
 	 * or received notice from a slave that the status of an instance has
 	 * changed.  The possible statuses that can be notified about are:
 	 * - `unassigned:`: Instance is no longer asssigned to a slave.
@@ -338,21 +338,21 @@ class BaseMasterPlugin {
 	 *   icons and locale data.
 	 * - `deleted`: Instance was deleted.
 	 *
-	 * On master startup all known instances gets the status `unknown` if
+	 * On controller startup all known instances gets the status `unknown` if
 	 * they are assigned to a slave, when the slave then connects to the
-	 * master and informs of the current status of its instances this hook
+	 * controller and informs of the current status of its instances this hook
 	 * is invoked for all those instances.  You can detect this situation by
 	 * checking if prev equals `unknown`.  If the slave disconnects the
 	 * instances will again get the `unknown` status.
 	 *
-	 * When instances are created on the master they will notify of a status
+	 * When instances are created on the controller they will notify of a status
 	 * change with prev set to null.  While the status of new instances is
 	 * in most cases `unassigned` it's possible for the created instance to
 	 * start with any state in some slave connection corner cases.
 	 *
 	 * Note that it's possible for status change notification to get lost in
 	 * the case of network outages if reconnect fails to re-establish the
-	 * session between the master server and the slave.
+	 * session between the controller and the slave.
 	 *
 	 * @param {Object} instance - the instance that changed.
 	 * @param {?string} prev - the previous status of the instance.
@@ -360,17 +360,17 @@ class BaseMasterPlugin {
 	async onInstanceStatusChanged(instance, prev) { }
 
 	/**
-	 * Called when the value of a master config field changed.
+	 * Called when the value of a controller config field changed.
 	 *
 	 * Invoked after the value of the config field given by `field` has
-	 * changed on the master.
+	 * changed on the controller.
 	 *
 	 * @param {module:lib/config.ConfigGroup} group -
 	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
 	 */
-	async onMasterConfigFieldChanged(group, field, prev) { }
+	async onControllerConfigFieldChanged(group, field, prev) { }
 
 	/**
 	 * Called when the value of an instance config field changed.
@@ -404,7 +404,7 @@ class BaseMasterPlugin {
 	async onMetrics() { }
 
 	/**
-	 * Called when the master server is shutting down
+	 * Called when the controller is shutting down
 	 */
 	async onShutdown() { }
 
@@ -420,12 +420,12 @@ class BaseMasterPlugin {
 	 *
 	 * ##### drop
 	 *
-	 * Invoked when a connection loss is detected between the master and a
+	 * Invoked when a connection loss is detected between the controller and a
 	 * slave.  Plugins should respond to this event by throtteling messages
 	 * it is sending to the given slave connection to an absolute minimum.
 	 *
 	 * Messages sent over a dropped slave connection will get queued up in
-	 * memory on the master and sent all in one go when the connection is
+	 * memory on the controller and sent all in one go when the connection is
 	 * re-established again.
 	 *
 	 * ##### resume
@@ -437,7 +437,7 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the slave has been closed.
 	 *
-	 * @param {module:master/src/SlaveConnection} connection -
+	 * @param {module:controller/src/SlaveConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume and close
 	 */
@@ -455,13 +455,13 @@ class BaseMasterPlugin {
 	 *
 	 * ##### drop
 	 *
-	 * Invoked when a connection loss is detected between the master and a
+	 * Invoked when a connection loss is detected between the controller and a
 	 * control.  Plugins should respond to this event by throtteling
 	 * messages it is sending to the given control connection to an absolute
 	 * minimum.
 	 *
 	 * Messages sent over a dropped control connection will get queued up in
-	 * memory on the master and sent all in one go when the connection is
+	 * memory on the controller and sent all in one go when the connection is
 	 * re-established again.
 	 *
 	 * ##### resume
@@ -473,22 +473,22 @@ class BaseMasterPlugin {
 	 *
 	 * Invoked when the connection to the control has been closed.
 	 *
-	 * @param {module:master/src/ControlConnection} connection -
+	 * @param {module:controller/src/ControlConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume, and close.
 	 */
 	onControlConnectionEvent(connection, event) { }
 
 	/**
-	 * Called when a slave is preparing to disconnect from the master
+	 * Called when a slave is preparing to disconnect from the controller
 	 *
-	 * Invoked when a slave has requested the disconnection from the master.
+	 * Invoked when a slave has requested the disconnection from the controller.
 	 * This typically happens when it is in the process of shutting down.
 	 *
 	 * Plugins must stop sending messages to the slave in question after the
 	 * prepare disconnect has been handled.
 	 *
-	 * @param {module:master/src/SlaveConnection} connection -
+	 * @param {module:controller/src/SlaveConnection} connection -
 	 *     The connection to the slave preparing to disconnect.
 	 */
 	async onPrepareSlaveDisconnect(connection) { }
@@ -507,7 +507,7 @@ class BaseMasterPlugin {
 	async onModPackUpdated(modPack) { }
 
 	/**
-	 * Called when a mod stored on the master server is updated
+	 * Called when a mod stored on the controller is updated
 	 *
 	 * Invoked when a mod has been added, updated or deleted from the pool
 	 * of shared mods stored on the cluster.
@@ -538,7 +538,7 @@ class BaseMasterPlugin {
 	/**
 	 * Broadcast event to all connected slaves
 	 *
-	 * Sends the given event to all slaves connected to the master server.
+	 * Sends the given event to all slaves connected to the controller.
 	 * This does not include slaves that are in the process of closing the
 	 * connection, which typically happens when they are shutting down.
 	 *
@@ -546,7 +546,7 @@ class BaseMasterPlugin {
 	 * @param {Object} data - Data ta pass with the event.
 	 */
 	broadcastEventToSlaves(event, data={}) {
-		for (let slaveConnection of this.master.wsServer.slaveConnections.values()) {
+		for (let slaveConnection of this.controller.wsServer.slaveConnections.values()) {
 			if (
 				!slaveConnection.connector.closing
 				&& (!event.plugin || slaveConnection.plugins.has(event.plugin))
@@ -660,8 +660,8 @@ class BaseWebPlugin {
 		this.info = info;
 
 		/**
-		 * Control link to the master server, not available until the
-		 * connect event in onMasterConnectionEvent is signaled.
+		 * Control link to the controller, not available until the
+		 * connect event in onControllerConnectionEvent is signaled.
 		 * @type {?module:lib/link.Link}
 		 */
 		this.control = null;
@@ -700,8 +700,8 @@ class BaseWebPlugin {
 		 * component extra.
 		 *
 		 * @type {object}
-		 * @property {React.ComponentType} MasterPage -
-		 *     Placed at the end of the master page.
+		 * @property {React.ComponentType} ControllerPage -
+		 *     Placed at the end of the controller page.
 		 * @property {React.ComponentType} SlavesPage -
 		 *     Placed at the end of the slaves list page.
 		 * @property {React.ComponentType} SlaveViewPage -
@@ -732,22 +732,22 @@ class BaseWebPlugin {
 	async init() { }
 
 	/**
-	 * Called when an event on the master connection happens
+	 * Called when an event on the controller connection happens
 	 *
 	 * The event param may be one of connect, drop, resume and close and has
 	 * the following meaning:
 	 *
 	 * ##### connect
 	 *
-	 * Invoked when a new connection to the master has been established.
+	 * Invoked when a new connection to the controller has been established.
 	 *
 	 * ##### drop
 	 *
 	 * Invoked when a connection loss is detected between the control link
-	 * and the master.  Plugins should respond to this event by throtteling
-	 * messages it is sending to the master to an absolute minimum.
+	 * and the controller.  Plugins should respond to this event by throtteling
+	 * messages it is sending to the controller to an absolute minimum.
 	 *
-	 * Messages sent over a dropped master connection will get queued up in
+	 * Messages sent over a dropped controller connection will get queued up in
 	 * memory in the browser and sent all in one go when the connection is
 	 * re-established again.
 	 *
@@ -758,14 +758,14 @@ class BaseWebPlugin {
 	 *
 	 * ##### close
 	 *
-	 * Invoked when the connection to the master has been closed.  This
-	 * typically means the master server has shut down.  Plugins should not
-	 * send any messages that goes to or via the master server after the
+	 * Invoked when the connection to the controller has been closed.  This
+	 * typically means the controller has shut down.  Plugins should not
+	 * send any messages that goes to or via the controller after the
 	 * connection has been closed and before a new one is established.
 	 *
 	 * @param {string} event - one of connect, drop, resume and close
 	 */
-	onMasterConnectionEvent(event) { }
+	onControllerConnectionEvent(event) { }
 }
 
 /**
@@ -840,7 +840,7 @@ async function invokeHook(plugins, hook, ...args) {
 
 module.exports = {
 	BaseInstancePlugin,
-	BaseMasterPlugin,
+	BaseControllerPlugin,
 	BaseControlPlugin,
 	BaseWebPlugin,
 

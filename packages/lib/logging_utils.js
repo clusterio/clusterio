@@ -157,7 +157,7 @@ class LogIndex {
 		for (let [file, serializedEntry] of Object.entries(serialized.files)) {
 			this.index.set(file, {
 				levels: new Set(serializedEntry.levels),
-				master: serializedEntry.master,
+				controller: serializedEntry.controller,
 				slave_ids: new Set(serializedEntry.slave_ids),
 				instance_ids: new Set(serializedEntry.instance_ids),
 			});
@@ -173,7 +173,7 @@ class LogIndex {
 		for (let [file, entry] of this.index) {
 			serialized.files[file] = {
 				levels: [...entry.levels],
-				master: entry.master,
+				controller: entry.controller,
 				slave_ids: [...entry.slave_ids],
 				instance_ids: [...entry.instance_ids],
 			};
@@ -224,7 +224,7 @@ class LogIndex {
 		fileStream.pipe(lineStream);
 		let entry = {
 			levels: new Set(),
-			master: false,
+			controller: false,
 			slave_ids: new Set(),
 			instance_ids: new Set(),
 		};
@@ -234,14 +234,14 @@ class LogIndex {
 				info = JSON.parse(line);
 			} catch (err) {
 				entry.levels.add("info");
-				entry.master = true;
+				entry.controller = true;
 				continue;
 			}
 			if (info.level) {
 				entry.levels.add(info.level);
 			}
 			if (info.slave_id === undefined) {
-				entry.master = true;
+				entry.controller = true;
 			} else if (info.instance_id === undefined) {
 				entry.slave_ids.add(info.slave_id);
 			}
@@ -279,7 +279,7 @@ class LogIndex {
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
 	 */
-	filterIncludesFile(file, { max_level, all, master, instance_ids, slave_ids }) {
+	filterIncludesFile(file, { max_level, all, controller, instance_ids, slave_ids }) {
 		let entry = this.index.get(file);
 		if (!entry) {
 			return true;
@@ -298,7 +298,7 @@ class LogIndex {
 		if (all) {
 			return true;
 		}
-		if (master && entry.master) {
+		if (controller && entry.controller) {
 			return true;
 		}
 		if (slave_ids && slave_ids.some(id => entry.slave_ids.has(id))) {
@@ -321,9 +321,9 @@ class LogIndex {
  * @property {string} [max_level] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
- *     Include log entries from master, all slaves and all instances.
- * @property {boolean} [master] -
- *     Include log entries from the master server.
+ *     Include log entries from controller, all slaves and all instances.
+ * @property {boolean} [controller] -
+ *     Include log entries from the controller.
  * @property {Array<number>} [slave_ids] -
  *     Include log entries for the given slaves and instances of those
  *     slaves by id.

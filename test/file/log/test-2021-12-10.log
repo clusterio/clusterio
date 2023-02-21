@@ -1,4 +1,4 @@
-{"timestamp":"2021-12-10T10:00:00.000Z","level":"verbose","message":"Master start"}
+{"timestamp":"2021-12-10T10:00:00.000Z","level":"verbose","message":"Controller start"}
 {"timestamp":"2021-12-10T10:00:01.000Z","level":"verbose","message":"Loading"}
 {"timestamp":"2021-12-10T10:00:03.000Z","level":"info","message":"Ready"}
 {"timestamp":"2021-12-10T10:00:10.000Z","slave_id":1,"level":"verbose","message":"Slave connected"}

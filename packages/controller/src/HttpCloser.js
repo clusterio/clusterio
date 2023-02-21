@@ -17,7 +17,7 @@ const https = require("https");
  * // in the shutdown logic
  * await serverCloser.close();
  *
- * @alias module:master/src/HttpCloser
+ * @alias module:controller/src/HttpCloser
  */
 class HttpCloser {
 	/**

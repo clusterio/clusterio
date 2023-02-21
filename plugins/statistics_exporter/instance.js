@@ -84,7 +84,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		// Wait configured timeout for the metrics to be collected.  It may
 		// take a long time for the command to go through if the command
 		// stream is overloaded.  Should the timeout be exceeded the
-		// previous values for the metrics will end up being sent to master.
+		// previous values for the metrics will end up being sent to controller.
 		let timeout = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
 		await libHelpers.timeout(this.gatherMetrics(), timeout);
 	}

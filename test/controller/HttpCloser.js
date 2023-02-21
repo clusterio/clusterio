@@ -8,7 +8,7 @@ const util = require("util");
 const phin = require("phin");
 
 const { wait } = require("@clusterio/lib/helpers");
-const HttpCloser = require("@clusterio/master/src/HttpCloser");
+const HttpCloser = require("@clusterio/controller/src/HttpCloser");
 
 // Time to wait during async operations to ensure they happened in order.
 const tick = 20;
@@ -190,7 +190,7 @@ function serverSuite(proto) {
 	});
 }
 
-describe("master/src/HttpCloser.js", function() {
+describe("controller/src/HttpCloser.js", function() {
 	describe("class HttpCloser", function() {
 		describe("constructor()", function() {
 			it("should throw if not passed a Server instance", function() {

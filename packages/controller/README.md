@@ -1,27 +1,27 @@
-# Clusterio Master Server
+# Clusterio Controller
 
 Communication hub for Clusterio clusters.
-The master server forwards data between Clusterio slaves connected to it and allows the cluster to be remotely managed through WebSocket connections to it either by using the included web interface or the Clusterio ctl command line utility.
+The controller forwards data between Clusterio slaves connected to it and allows the cluster to be remotely managed through WebSocket connections to it either by using the included web interface or the Clusterio ctl command line utility.
 
 
 # Usage
 
-    npx clusteriomaster <command>
+    npx clusteriocontroller <command>
 
 Common options:
 
- * `--plugin-list <file>` JSON file to use for storing the list of plugins that are available to the master server.
+ * `--plugin-list <file>` JSON file to use for storing the list of plugins that are available to the controller.
    Defaults to `plugin-list.json` and will be created if it does not exist.
    See the `plugin` command for managing this list.
 
- * `--config <file>` JSON file to use for storing configuration for the master server.
-   Defaults to `config-master.json` and will be created if it does not exist.
+ * `--config <file>` JSON file to use for storing configuration for the controller.
+   Defaults to `config-controller.json` and will be created if it does not exist.
    See the `config` command for inspecting and modifying the configuration.
 
 
 ### `plugin <command>`
 
-Configure plugins available to be loaded by the master server.
+Configure plugins available to be loaded by the controller.
 The available plugins will be loaded unless they have been disabled in the configuration, see the config command for disabling plugins.
 
 
@@ -33,9 +33,9 @@ A relative path must start with ./ or ../ (or .\ and ..\ on Windows) otherwise i
 For example, installing the Subspace Storage plugin:
 
     npm install @clusterio/plugin-subspace_storage
-    npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
+    npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between master, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
 
 
 #### `plugin remove <name>`
@@ -46,10 +46,10 @@ Removing and unistalling a plugin is usually not neccessary as the functions pro
 
 For example, uninstalling the Subspace Storage plugin:
 
-    npx clusteriomaster plugin remove subspace_storage
+    npx clusteriocontroller plugin remove subspace_storage
     npm uninstall @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between master, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
 
 
 #### `plugin list`
@@ -59,8 +59,8 @@ Lists the plugins set up to be available by name followed by path.
 
 ### `config`
 
-Manage the master server configuration offline.
-This should only be used when the master server is stopped, otherwise the config read might be out of date and config changes will be overwritten when the master server shuts down.
+Manage the controller configuration offline.
+This should only be used when the controller is stopped, otherwise the config read might be out of date and config changes will be overwritten when the controller shuts down.
 
 
 #### `config set <config-entry> [value]`
@@ -96,7 +96,7 @@ You should be using your own Factorio multiplayer username here.
 #### `bootstrap generate-user-token <name>`
 
 Generate an access token for logging in and possibly managing the cluster from the given user account.
-This can be used both in the web interface and as the `master_token` to connect with clusterioctl.
+This can be used both in the web interface and as the `controller_token` to connect with clusterioctl.
 
 
 #### `bootstrap create-ctl-config <name>`
@@ -106,7 +106,7 @@ Creates a clusterioctl config for the given user with url and token set up for c
 
 ### `run`
 
-Runs the master server.
+Runs the controller.
 
 
 ## See Also

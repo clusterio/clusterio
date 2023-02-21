@@ -28,7 +28,7 @@ async function generateCode(length) {
 }
 
 
-class MasterPlugin extends libPlugin.BaseMasterPlugin {
+class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 	async init() {
 		// Store of validation attempts by players
 		this.players = new Map();
@@ -43,9 +43,9 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			}
 		}, 60e3).unref();
 
-		this.master.app.get("/api/player_auth/servers", (req, res) => {
+		this.controller.app.get("/api/player_auth/servers", (req, res) => {
 			let servers = [];
-			for (let instance of this.master.instances.values()) {
+			for (let instance of this.controller.instances.values()) {
 				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
 					servers.push(instance.config.get("factorio.settings")["name"] || "unnamed server");
 				}
@@ -53,11 +53,11 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			res.send(servers);
 		});
 
-		this.master.app.post("/api/player_auth/player_code", express.json(), (req, res, next) => {
+		this.controller.app.post("/api/player_auth/player_code", express.json(), (req, res, next) => {
 			this.handlePlayerCode(req, res).catch(next);
 		});
 
-		this.master.app.post("/api/player_auth/verify", express.json(), (req, res, next) => {
+		this.controller.app.post("/api/player_auth/verify", express.json(), (req, res, next) => {
 			this.handleVerify(req, res).catch(next);
 		});
 	}
@@ -76,8 +76,8 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 		for (let entry of this.players.values()) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
-				let verifyCode = await generateCode(this.master.config.get("player_auth.code_length"));
-				let secret = Buffer.from(this.master.config.get("master.auth_secret"), "base64");
+				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length"));
+				let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 				let verifyToken = jwt.sign(
 					{
 						aud: "player_auth.verify_code",
@@ -120,7 +120,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			return;
 		}
 
-		let secret = Buffer.from(this.master.config.get("master.auth_secret"), "base64");
+		let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 		try {
 			let payload = jwt.verify(verifyToken, secret, { audience: "player_auth.verify_code" });
 			if (payload.verify_code !== verifyCode) {
@@ -139,7 +139,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		for (let [player, entry] of this.players) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
 				if (entry.verifyCode === verifyCode) {
-					let user = this.master.userManager.users.get(player);
+					let user = this.controller.userManager.users.get(player);
 					if (!user) {
 						res.send({ error: true, message: "invalid user" });
 						return;
@@ -160,10 +160,10 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	}
 
 	async fetchPlayerCodeRequestHandler(message) {
-		let playerCode = await generateCode(this.master.config.get("player_auth.code_length"));
-		let expires = Date.now() + this.master.config.get("player_auth.code_timeout") * 1000;
+		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
+		let expires = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
 		this.players.set(message.data.player, { playerCode, verifyCode: null, expires });
-		return { player_code: playerCode, master_url: this.master.getMasterUrl() };
+		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
 	}
 
 	async setVerifyCodeRequestHandler(message) {
@@ -182,7 +182,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 }
 
 module.exports = {
-	MasterPlugin,
+	ControllerPlugin,
 
 	// For testing only
 	_generateCode: generateCode,

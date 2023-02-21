@@ -129,7 +129,7 @@ export class WebPlugin extends libPlugin.BaseWebPlugin {
 		this.callbacks = [];
 	}
 
-	onMasterConnectionEvent(event) {
+	onControllerConnectionEvent(event) {
 		if (event === "connect") {
 			this.updateSubscription();
 		}

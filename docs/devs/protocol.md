@@ -12,9 +12,9 @@ Events and requests are defined as instances of the `Request` and `Event` classe
 All messages sent and received are validated with JSON schemas to catch potential errors in sending messages and avoid having to write lots of validation code in message handlers.
 
 Messages are sent by calling the `.send()` method of the message instance and passing a `Link` instance to send it over and the data to send.
-For the master server there's a `Link` instance for each slave and control connection stored in the `WsServer` class.
-For slaves the `Slave` instance is a link to the master server, and each `Instance` instance is an in-memory link to the `Slave` instance and has a corresponding `InstanceConnection` link stored on the `Slave` instance.
-For ctl and web_ui there's a `Control` instance that acts as the link to the master server.
+For the controller there's a `Link` instance for each slave and control connection stored in the `WsServer` class.
+For slaves the `Slave` instance is a link to the controller, and each `Instance` instance is an in-memory link to the `Slave` instance and has a corresponding `InstanceConnection` link stored on the `Slave` instance.
+For ctl and web_ui there's a `Control` instance that acts as the link to the controller.
 
 Messages received invokes message handlers that were registered when the link was brought up.
 These handlers are named after the name of the property the message is stored under with `EventHandler` appended for events and `RequestHandler` appended for requests.
@@ -96,11 +96,11 @@ The following messages are the only valid messages that can be sent during the h
 
 #### `hello`
 
-Sent by the master server when the WebSocket connection has been opened.
+Sent by the controller when the WebSocket connection has been opened.
 
-- `version: string` - The version of the master, e.g. "2.0.0".
+- `version: string` - The version of the controller, e.g. "2.0.0".
 - `plugins: Object<string, string>` -
-    Object mapping plugin names to plugin version for plugins that are loaded on the master server.
+    Object mapping plugin names to plugin version for plugins that are loaded on the controller.
 
 #### `register_slave`
 
@@ -131,12 +131,12 @@ Handshake for resuming an existing connection session where the connection had d
 
 #### `invalidate`
 
-Sent by the master server in reply to a resume for a session that cannot be resumed.
+Sent by the controller in reply to a resume for a session that cannot be resumed.
 The client should start a new session with a register\_\* message in response.
 
 #### `continue`
 
-Sent by the master server to signal resuming the session was successful.
+Sent by the controller to signal resuming the session was successful.
 
 - `last_seq: integer | null` - Last message seq received by the server.
 - `session_timeout: integer` - Session timeout in seconds.
@@ -144,7 +144,7 @@ Sent by the master server to signal resuming the session was successful.
 
 #### `ready`
 
-Sent by the master server to signal the connection has been established with a new session.
+Sent by the controller to signal the connection has been established with a new session.
 
 - `session_token: string` - Token to resume the session with.
 - `session_timeout: integer` - Session timeout in seconds.
@@ -159,7 +159,7 @@ The heartbeat should contain the `seq` of the last received message, and receivi
 
 #### `heartbeat`
 
-Sent by both the master server and clients at the interval given in the continue/ready messages.
+Sent by both the controller and clients at the interval given in the continue/ready messages.
 
 - `last_seq: integer` - Last message seq received over the link.
 
@@ -251,7 +251,7 @@ Slave registering a new connection session.
 }
 ```
 
-Master server reply signaling the session is established and ready.
+Controller reply signaling the session is established and ready.
 
 ```json
 {
@@ -265,4 +265,4 @@ Master server reply signaling the session is established and ready.
 }
 ```
 
-Slave and master can now send events and requests over the connection.
+Slave and controller can now send events and requests over the connection.

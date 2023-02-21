@@ -35,7 +35,7 @@ Factorio*
 /mods
 /database
 /plugin-list.json
-/config-master.json
+/config-controller.json
 /config-control.json
 /config-slave.json
 pnpm-lock.yaml

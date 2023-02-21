@@ -350,19 +350,19 @@ definePermission({
 definePermission({
 	name: "core.control.connect",
 	title: "Connect to WebSocket",
-	description: "Connect to the master's WebSocket control interface.",
+	description: "Connect to the controller's WebSocket control interface.",
 	grantByDefault: true,
 });
 
 definePermission({
-	name: "core.master.get_config",
-	title: "Get master config",
-	description: "Get the config of master.",
+	name: "core.controller.get_config",
+	title: "Get controller config",
+	description: "Get the config of controller.",
 });
 definePermission({
-	name: "core.master.update_config",
-	title: "Modify master config",
-	description: "Modify the master config or entries of the master config.",
+	name: "core.controller.update_config",
+	title: "Modify controller config",
+	description: "Modify the controller config or entries of the controller config.",
 });
 definePermission({
 	name: "core.slave.list",
@@ -384,7 +384,7 @@ definePermission({
 definePermission({
 	name: "core.slave.create_config",
 	title: "Create slave config",
-	description: "Create slave configs via the master server.",
+	description: "Create slave configs via the controller.",
 });
 
 definePermission({
@@ -408,7 +408,7 @@ definePermission({
 definePermission({
 	name: "core.instance.create",
 	title: "Create instance",
-	description: "Create new instances on the master server.",
+	description: "Create new instances on the controller.",
 });
 definePermission({
 	name: "core.instance.get_config",
@@ -473,7 +473,7 @@ definePermission({
 definePermission({
 	name: "core.instance.export_data",
 	title: "Export locale and icons",
-	description: "Export the the locale and icons from an instance and upload it to the master.",
+	description: "Export the the locale and icons from an instance and upload it to the controller.",
 });
 definePermission({
 	name: "core.instance.extract_players",
@@ -553,13 +553,13 @@ definePermission({
 definePermission({
 	name: "core.mod.list",
 	title: "List mods",
-	description: "Get the full list of mods stored on the master.",
+	description: "Get the full list of mods stored on the controller.",
 	grantByDefault: true,
 });
 definePermission({
 	name: "core.mod.search",
 	title: "Search mods",
-	description: "Search through the list of mods stored on the master.",
+	description: "Search through the list of mods stored on the controller.",
 	grantByDefault: true,
 });
 definePermission({
@@ -571,18 +571,18 @@ definePermission({
 definePermission({
 	name: "core.mod.upload",
 	title: "Upload mod",
-	description: "Upload mods to the master.",
+	description: "Upload mods to the controller.",
 });
 definePermission({
 	name: "core.mod.download",
 	title: "Download mod",
-	description: "Download mods stored on the master.",
+	description: "Download mods stored on the controller.",
 	grantByDefault: true,
 });
 definePermission({
 	name: "core.mod.delete",
 	title: "Delete mod",
-	description: "Delete mods stored on the master.",
+	description: "Delete mods stored on the controller.",
 });
 
 definePermission({
@@ -687,7 +687,7 @@ definePermission({
 definePermission({
 	name: "core.debug.dump_ws",
 	title: "Dump WebSocket",
-	description: "Dump all WebSocket communicatation from the master.",
+	description: "Dump all WebSocket communicatation from the controller.",
 });
 
 module.exports = {

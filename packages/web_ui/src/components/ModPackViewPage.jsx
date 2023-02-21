@@ -670,7 +670,7 @@ export default function ModPackViewPage() {
 				className="site-page-header"
 				title="Mod Pack Not Found"
 			/>
-			<p>Mod pack with id {modPackId} was not found on the master server.</p>
+			<p>Mod pack with id {modPackId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 

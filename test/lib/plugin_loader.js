@@ -64,43 +64,45 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 	});
-	describe("loadMasterPluginClass()", function() {
+	describe("loadControllerPluginClass()", function() {
 		let baseDir = path.join("temp", "test", "plugin");
 		let missingClass = path.join(baseDir, "missing_class_plugin");
 		let wrongParentClass = path.join(baseDir, "wrong_parent_class_plugin");
 		before(async function() {
 			async function writeEntrypoint(pluginPath, content) {
-				await fs.outputFile(path.join(pluginPath, "master.js"), content);
+				await fs.outputFile(path.join(pluginPath, "controller.js"), content);
 			}
 
 			await writeEntrypoint(missingClass, "");
-			await writeEntrypoint(wrongParentClass, "class MasterPlugin {}\n module.exports = { MasterPlugin };\n");
+			await writeEntrypoint(
+				wrongParentClass, "class ControllerPlugin {}\n module.exports = { ControllerPlugin };\n"
+			);
 		});
 		it("should throw if class is missing from entrypoint", async function() {
 			await assert.rejects(
-				libPluginLoader.loadMasterPluginClass({
+				libPluginLoader.loadControllerPluginClass({
 					name: "test",
-					masterEntrypoint: "master",
+					controllerEntrypoint: "controller",
 					requirePath: path.resolve(missingClass),
 				}),
 				{
 					message:
-						`PluginError: Expected ${path.resolve(missingClass, "master")} ` +
-						"to export a class named MasterPlugin",
+						`PluginError: Expected ${path.resolve(missingClass, "controller")} ` +
+						"to export a class named ControllerPlugin",
 				}
 			);
 		});
-		it("should throw if class is not a subclass of BaseMasterPlugin", async function() {
+		it("should throw if class is not a subclass of BaseControllerPlugin", async function() {
 			await assert.rejects(
-				libPluginLoader.loadMasterPluginClass({
+				libPluginLoader.loadControllerPluginClass({
 					name: "test",
-					masterEntrypoint: "master",
+					controllerEntrypoint: "controller",
 					requirePath: path.resolve(wrongParentClass),
 				}),
 				{
 					message:
-						"PluginError: Expected MasterPlugin exported from " +
-						`${path.resolve(wrongParentClass, "master")} to be a subclass of BaseMasterPlugin`,
+						"PluginError: Expected ControllerPlugin exported from " +
+						`${path.resolve(wrongParentClass, "controller")} to be a subclass of BaseControllerPlugin`,
 				}
 			);
 		});

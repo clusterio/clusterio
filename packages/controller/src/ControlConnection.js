@@ -21,19 +21,19 @@ const routes = require("./routes");
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 const queryLogTime = new libPrometheus.Summary(
-	"clusterio_master_query_log_duration_seconds",
+	"clusterio_controller_query_log_duration_seconds",
 	"Time in seconds log queries took to execute."
 );
 
 /**
  * Represents the connection to a control link
  *
- * @extends module:master/src/BaseConnection
- * @alias module:master/src/ControlConnection
+ * @extends module:controller/src/BaseConnection
+ * @alias module:controller/src/ControlConnection
  */
 class ControlConnection extends BaseConnection {
-	constructor(registerData, connector, master, user) {
-		super("control", connector, master);
+	constructor(registerData, connector, controller, user) {
+		super("control", connector, controller);
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
@@ -77,7 +77,7 @@ class ControlConnection extends BaseConnection {
 		this.logTransport = null;
 		this.logSubscriptions = {
 			all: false,
-			master: false,
+			controller: false,
 			slave_ids: [],
 			instance_ids: [],
 		};
@@ -92,42 +92,42 @@ class ControlConnection extends BaseConnection {
 				logger.remove(this.logTransport);
 			}
 			if (this.ws_dumper) {
-				this._master.debugEvents.off("message", this.ws_dumper);
+				this._controller.debugEvents.off("message", this.ws_dumper);
 			}
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
-				for (let masterPlugin of this._master.plugins.values()) {
-					masterPlugin.onControlConnectionEvent(this, event);
+				for (let controllerPlugin of this._controller.plugins.values()) {
+					controllerPlugin.onControlConnectionEvent(this, event);
 				}
 			});
 		}
 	}
 
-	async getMasterConfigRequestHandler() {
-		return { serialized_config: this._master.config.serialize("control") };
+	async getControllerConfigRequestHandler() {
+		return { serialized_config: this._controller.config.serialize("control") };
 	}
 
-	async setMasterConfigFieldRequestHandler(message) {
-		this._master.config.set(message.data.field, message.data.value, "control");
+	async setControllerConfigFieldRequestHandler(message) {
+		this._controller.config.set(message.data.field, message.data.value, "control");
 	}
 
-	async setMasterConfigPropRequestHandler(message) {
+	async setControllerConfigPropRequestHandler(message) {
 		let { field, prop, value } = message.data;
-		this._master.config.setProp(field, prop, value, "control");
+		this._controller.config.setProp(field, prop, value, "control");
 	}
 
 	async listSlavesRequestHandler(message) {
 		let list = [];
-		for (let slave of this._master.slaves.values()) {
+		for (let slave of this._controller.slaves.values()) {
 			list.push({
 				agent: slave.agent,
 				version: slave.version,
 				id: slave.id,
 				name: slave.name,
 				public_address: slave.public_address || null,
-				connected: this._master.wsServer.slaveConnections.has(slave.id),
+				connected: this._controller.wsServer.slaveConnections.has(slave.id),
 			});
 		}
 		return { list };
@@ -149,7 +149,7 @@ class ControlConnection extends BaseConnection {
 	generateSlaveToken(slaveId) {
 		return jwt.sign(
 			{ aud: "slave", slave: slaveId },
-			Buffer.from(this._master.config.get("master.auth_secret"), "base64")
+			Buffer.from(this._controller.config.get("controller.auth_secret"), "base64")
 		);
 	}
 
@@ -165,7 +165,7 @@ class ControlConnection extends BaseConnection {
 		let slaveConfig = new libConfig.SlaveConfig("control");
 		await slaveConfig.init();
 
-		slaveConfig.set("slave.master_url", this._master.getMasterUrl());
+		slaveConfig.set("slave.controller_url", this._controller.getControllerUrl());
 		if (message.data.id !== null) {
 			slaveConfig.set("slave.id", message.data.id);
 		}
@@ -174,14 +174,14 @@ class ControlConnection extends BaseConnection {
 		}
 		if (message.data.generate_token) {
 			this.user.checkPermission("core.slave.generate_token");
-			slaveConfig.set("slave.master_token", this.generateSlaveToken(slaveConfig.get("slave.id")));
+			slaveConfig.set("slave.controller_token", this.generateSlaveToken(slaveConfig.get("slave.id")));
 		}
 		return { serialized_config: slaveConfig.serialize() };
 	}
 
 	async getInstanceRequestHandler(message) {
 		let id = message.data.id;
-		let instance = this._master.getRequestInstance(id);
+		let instance = this._controller.getRequestInstance(id);
 
 		return {
 			id,
@@ -194,7 +194,7 @@ class ControlConnection extends BaseConnection {
 
 	async listInstancesRequestHandler(message) {
 		let list = [];
-		for (let instance of this._master.instances.values()) {
+		for (let instance of this._controller.instances.values()) {
 			list.push({
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
@@ -227,18 +227,18 @@ class ControlConnection extends BaseConnection {
 
 	// XXX should probably add a hook for slave reuqests?
 	async createInstanceRequestHandler(message) {
-		let instanceConfig = new libConfig.InstanceConfig("master");
+		let instanceConfig = new libConfig.InstanceConfig("controller");
 		await instanceConfig.load(message.data.serialized_config);
 
 		let instanceId = instanceConfig.get("instance.id");
-		if (this._master.instances.has(instanceId)) {
+		if (this._controller.instances.has(instanceId)) {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
 
 		// Add common settings for the Factorio server
 		let settings = {
-			"name": `${this._master.config.get("master.name")} - ${instanceConfig.get("instance.name")}`,
-			"description": `Clusterio instance for ${this._master.config.get("master.name")}`,
+			"name": `${this._controller.config.get("controller.name")} - ${instanceConfig.get("instance.name")}`,
+			"description": `Clusterio instance for ${this._controller.config.get("controller.name")}`,
 			"tags": ["clusterio"],
 			"max_players": 0,
 			"visibility": { "public": true, "lan": true },
@@ -262,26 +262,26 @@ class ControlConnection extends BaseConnection {
 		instanceConfig.set("factorio.settings", settings);
 
 		let instance = { config: instanceConfig, status: "unassigned" };
-		this._master.instances.set(instanceId, instance);
-		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, null);
-		this._master.addInstanceHooks(instance);
+		this._controller.instances.set(instanceId, instance);
+		await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, null);
+		this._controller.addInstanceHooks(instance);
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
-		let instance = this._master.getRequestInstance(message.data.instance_id);
+		let instance = this._controller.getRequestInstance(message.data.instance_id);
 		if (instance.config.get("instance.assigned_slave") !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
-		this._master.instances.delete(message.data.instance_id);
+		this._controller.instances.delete(message.data.instance_id);
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		this._master.instanceUpdated(instance);
-		await libPlugin.invokeHook(this._master.plugins, "onInstanceStatusChanged", instance, prev);
+		this._controller.instanceUpdated(instance);
+		await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async getInstanceConfigRequestHandler(message) {
-		let instance = this._master.getRequestInstance(message.data.instance_id);
+		let instance = this._controller.getRequestInstance(message.data.instance_id);
 		return {
 			serialized_config: instance.config.serialize("control"),
 		};
@@ -290,7 +290,7 @@ class ControlConnection extends BaseConnection {
 	async updateInstanceConfig(instance) {
 		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId !== null) {
-			let connection = this._master.wsServer.slaveConnections.get(slaveId);
+			let connection = this._controller.wsServer.slaveConnections.get(slaveId);
 			if (connection) {
 				await libLink.messages.assignInstance.send(connection, {
 					instance_id: instance.config.get("instance.id"),
@@ -301,7 +301,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async setInstanceConfigFieldRequestHandler(message) {
-		let instance = this._master.getRequestInstance(message.data.instance_id);
+		let instance = this._controller.getRequestInstance(message.data.instance_id);
 		if (message.data.field === "instance.assigned_slave") {
 			throw new libErrors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
 		}
@@ -316,7 +316,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async setInstanceConfigPropRequestHandler(message) {
-		let instance = this._master.getRequestInstance(message.data.instance_id);
+		let instance = this._controller.getRequestInstance(message.data.instance_id);
 		let { field, prop, value } = message.data;
 		instance.config.setProp(field, prop, value, "control");
 		await this.updateInstanceConfig(instance);
@@ -324,26 +324,26 @@ class ControlConnection extends BaseConnection {
 
 	async assignInstanceCommandRequestHandler(message, request) {
 		let { slave_id, instance_id } = message.data;
-		let instance = this._master.getRequestInstance(instance_id);
+		let instance = this._controller.getRequestInstance(instance_id);
 
 		// Check if target slave is connected
 		let newSlaveConnection;
 		if (slave_id !== null) {
-			newSlaveConnection = this._master.wsServer.slaveConnections.get(slave_id);
+			newSlaveConnection = this._controller.wsServer.slaveConnections.get(slave_id);
 			if (!newSlaveConnection) {
 				// The case of the slave not getting the assign instance message
 				// still have to be handled, so it's not a requirement that the
-				// target slave be connected to the master while doing the
+				// target slave be connected to the controller while doing the
 				// assignment, but it is IMHO a better user experience if this
 				// is the case.
-				throw new libErrors.RequestError("Target slave is not connected to the master server");
+				throw new libErrors.RequestError("Target slave is not connected to the controller");
 			}
 		}
 
 		// Unassign from currently assigned slave if it is connected.
 		let currentAssignedSlave = instance.config.get("instance.assigned_slave");
 		if (currentAssignedSlave !== null && slave_id !== currentAssignedSlave) {
-			let oldSlaveConnection = this._master.wsServer.slaveConnections.get(currentAssignedSlave);
+			let oldSlaveConnection = this._controller.wsServer.slaveConnections.get(currentAssignedSlave);
 			if (oldSlaveConnection && !oldSlaveConnection.connector.closing) {
 				await libLink.messages.unassignInstance.send(oldSlaveConnection, { instance_id });
 			}
@@ -358,7 +358,7 @@ class ControlConnection extends BaseConnection {
 			});
 		} else {
 			instance.status = "unassigned";
-			this._master.instanceUpdated(instance);
+			this._controller.instanceUpdated(instance);
 		}
 	}
 
@@ -377,7 +377,7 @@ class ControlConnection extends BaseConnection {
 
 	async downloadSaveRequestHandler(message) {
 		let { instance_id, save } = message.data;
-		let stream = await routes.createProxyStream(this._master.app);
+		let stream = await routes.createProxyStream(this._controller.app);
 		stream.filename = save;
 
 		let ready = new Promise((resolve, reject) => {
@@ -388,7 +388,7 @@ class ControlConnection extends BaseConnection {
 		});
 		ready.catch(() => {});
 
-		await this._master.forwardRequestToInstance(libLink.messages.pushSave, {
+		await this._controller.forwardRequestToInstance(libLink.messages.pushSave, {
 			instance_id,
 			stream_id: stream.id,
 			save,
@@ -409,8 +409,8 @@ class ControlConnection extends BaseConnection {
 		if (instance_id === target_instance_id) {
 			throw new libErrors.RequestError("Source and target instance may not be the same");
 		}
-		let sourceInstance = this._master.getRequestInstance(instance_id);
-		let targetInstance = this._master.getRequestInstance(target_instance_id);
+		let sourceInstance = this._controller.getRequestInstance(instance_id);
+		let targetInstance = this._controller.getRequestInstance(target_instance_id);
 		let sourceSlaveId = sourceInstance.config.get("instance.assigned_slave");
 		let targetSlaveId = targetInstance.config.get("instance.assigned_slave");
 		if (sourceSlaveId === null) {
@@ -426,18 +426,18 @@ class ControlConnection extends BaseConnection {
 		}
 
 		// Check connectivity
-		let sourceSlaveConnection = this._master.wsServer.slaveConnections.get(sourceSlaveId);
+		let sourceSlaveConnection = this._controller.wsServer.slaveConnections.get(sourceSlaveId);
 		if (!sourceSlaveConnection || sourceSlaveConnection.closing) {
-			throw new libErrors.RequestError("Source slave is not connected to the master server");
+			throw new libErrors.RequestError("Source slave is not connected to the controller");
 		}
 
-		let targetSlaveConnection = this._master.wsServer.slaveConnections.get(targetSlaveId);
+		let targetSlaveConnection = this._controller.wsServer.slaveConnections.get(targetSlaveId);
 		if (!targetSlaveConnection || targetSlaveConnection.closing) {
-			throw new libErrors.RequestError("Target slave is not connected to the master server");
+			throw new libErrors.RequestError("Target slave is not connected to the controller");
 		}
 
 		// Create stream to proxy from target to source
-		let stream = await routes.createProxyStream(this._master.app);
+		let stream = await routes.createProxyStream(this._controller.app);
 		stream.events.on("timeout", () => {
 			if (stream.source) {
 				stream.source.destroy();
@@ -451,7 +451,7 @@ class ControlConnection extends BaseConnection {
 		// Establish push from source slave to stream, this is done first to
 		// ensure the file size is known prior to the target slave pull.
 		await Promise.all([
-			this._master.forwardRequestToInstance(libLink.messages.pushSave, {
+			this._controller.forwardRequestToInstance(libLink.messages.pushSave, {
 				instance_id,
 				stream_id: stream.id,
 				save: source_save,
@@ -460,7 +460,7 @@ class ControlConnection extends BaseConnection {
 		]);
 
 		// Establish pull from target slave to stream and wait for completion.
-		let result = await this._master.forwardRequestToInstance(libLink.messages.pullSave, {
+		let result = await this._controller.forwardRequestToInstance(libLink.messages.pullSave, {
 			instance_id: target_instance_id,
 			stream_id: stream.id,
 			filename: target_save,
@@ -468,7 +468,7 @@ class ControlConnection extends BaseConnection {
 
 		// Delete source save if this is not a copy
 		if (!copy) {
-			await this._master.forwardRequestToInstance(libLink.messages.deleteSave, {
+			await this._controller.forwardRequestToInstance(libLink.messages.deleteSave, {
 				instance_id,
 				save: source_save,
 			});
@@ -478,7 +478,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async listModPacksRequestHandler(message) {
-		return { list: [...this._master.modPacks.values()].map(pack => pack.toJSON()) };
+		return { list: [...this._controller.modPacks.values()].map(pack => pack.toJSON()) };
 	}
 
 	async setModPackSubscriptionsRequestHandler(message) {
@@ -487,31 +487,31 @@ class ControlConnection extends BaseConnection {
 
 	async createModPackRequestHandler(message) {
 		let modPack = new libData.ModPack(message.data.mod_pack);
-		if (this._master.modPacks.has(modPack.id)) {
+		if (this._controller.modPacks.has(modPack.id)) {
 			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
-		this._master.modPacks.set(modPack.id, modPack);
-		this._master.modPackUpdated(modPack);
+		this._controller.modPacks.set(modPack.id, modPack);
+		this._controller.modPackUpdated(modPack);
 	}
 
 	async updateModPackRequestHandler(message) {
 		let modPack = new libData.ModPack(message.data.mod_pack);
-		if (!this._master.modPacks.has(modPack.id)) {
+		if (!this._controller.modPacks.has(modPack.id)) {
 			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
-		this._master.modPacks.set(modPack.id, modPack);
-		this._master.modPackUpdated(modPack);
+		this._controller.modPacks.set(modPack.id, modPack);
+		this._controller.modPackUpdated(modPack);
 	}
 
 	async deleteModPackRequestHandler(message) {
 		let { id } = message.data;
-		let modPack = this._master.modPacks.get(id);
+		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
 		modPack.isDeleted = true;
-		this._master.modPacks.delete(id);
-		this._master.modPackUpdated(modPack);
+		this._controller.modPacks.delete(id);
+		this._controller.modPackUpdated(modPack);
 	}
 
 	modPackUpdated(modPack) {
@@ -526,7 +526,7 @@ class ControlConnection extends BaseConnection {
 	async getModRequestHandler(message) {
 		let { name, version } = message.data;
 		let filename = `${name}_${version}.zip`;
-		let mod = this._master.mods.get(filename);
+		let mod = this._controller.mods.get(filename);
 		if (!mod) {
 			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
 		}
@@ -536,7 +536,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async listModsRequestHandler(message) {
-		return { list: [...this._master.mods.values()].map(mod => mod.toJSON()) };
+		return { list: [...this._controller.mods.values()].map(mod => mod.toJSON()) };
 	}
 
 	static termsMatchesMod(terms, mod) {
@@ -575,7 +575,7 @@ class ControlConnection extends BaseConnection {
 		let factorioVersion = message.data.factorio_version;
 
 		let results = new Map();
-		for (let mod of this._master.mods.values()) {
+		for (let mod of this._controller.mods.values()) {
 			if (
 				mod.factorioVersion !== factorioVersion
 				|| !ControlConnection.termsMatchesMod(query.terms, mod)
@@ -634,13 +634,13 @@ class ControlConnection extends BaseConnection {
 	async downloadModRequestHandler(message) {
 		let { name, version } = message.data;
 		let filename = `${name}_${version}.zip`;
-		let mod = this._master.mods.get(filename);
+		let mod = this._controller.mods.get(filename);
 		if (!mod) {
 			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
 		}
-		let modPath = path.join(this._master.config.get("master.mods_directory"), mod.filename);
+		let modPath = path.join(this._controller.config.get("controller.mods_directory"), mod.filename);
 
-		let stream = await routes.createProxyStream(this._master.app);
+		let stream = await routes.createProxyStream(this._controller.app);
 		stream.filename = mod.filename;
 		stream.source = fs.createReadStream(modPath);
 		stream.mime = "application/zip";
@@ -650,7 +650,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async deleteModRequestHandler(message) {
-		await this._master.deleteMod(message.data.name, message.data.version);
+		await this._controller.deleteMod(message.data.name, message.data.version);
 	}
 
 	async setLogSubscriptionsRequestHandler(message) {
@@ -668,29 +668,29 @@ class ControlConnection extends BaseConnection {
 	}
 
 	updateLogSubscriptions() {
-		let { all, master, slave_ids, instance_ids } = this.logSubscriptions;
-		if (all || master || slave_ids.length || instance_ids.length) {
+		let { all, controller, slave_ids, instance_ids } = this.logSubscriptions;
+		if (all || controller || slave_ids.length || instance_ids.length) {
 			if (!this.logTransport) {
 				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
-				this._master.clusterLogger.add(this.logTransport);
+				this._controller.clusterLogger.add(this.logTransport);
 			}
 			this.logTransport.filter = logFilter(this.logSubscriptions);
 
 		} else if (this.logTransport) {
-			this._master.clusterLogger.remove(this.logTransport);
+			this._controller.clusterLogger.remove(this.logTransport);
 			this.logTransport = null;
 		}
 	}
 
 	async queryLogRequestHandler(message) {
 		let observeDuration = queryLogTime.startTimer();
-		let { all, master, slave_ids, instance_ids } = message.data;
+		let { all, controller, slave_ids, instance_ids } = message.data;
 
 		let log;
-		if (!all && master && !slave_ids.length && !instance_ids.length) {
-			log = await this._master.queryMasterLog(message.data);
+		if (!all && controller && !slave_ids.length && !instance_ids.length) {
+			log = await this._controller.queryControllerLog(message.data);
 		} else {
-			log = await this._master.queryClusterLog(message.data);
+			log = await this._controller.queryClusterLog(message.data);
 		}
 
 		observeDuration();
@@ -711,7 +711,7 @@ class ControlConnection extends BaseConnection {
 
 	async listRolesRequestHandler(message) {
 		let list = [];
-		for (let role of this._master.userManager.roles.values()) {
+		for (let role of this._controller.userManager.roles.values()) {
 			list.push({
 				id: role.id,
 				name: role.name,
@@ -723,17 +723,17 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async createRoleRequestHandler(message) {
-		let lastId = Math.max.apply(null, [...this._master.userManager.roles.keys()]);
+		let lastId = Math.max.apply(null, [...this._controller.userManager.roles.keys()]);
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		this._master.userManager.roles.set(id, new libUsers.Role({ id, ...message.data }));
+		this._controller.userManager.roles.set(id, new libUsers.Role({ id, ...message.data }));
 		return { id };
 	}
 
 	async updateRoleRequestHandler(message) {
 		let { id, name, description, permissions } = message.data;
-		let role = this._master.userManager.roles.get(id);
+		let role = this._controller.userManager.roles.get(id);
 		if (!role) {
 			throw new libErrors.RequestError(`Role with ID ${id} does not exist`);
 		}
@@ -741,36 +741,36 @@ class ControlConnection extends BaseConnection {
 		role.name = name;
 		role.description = description;
 		role.permissions = new Set(permissions);
-		this._master.rolePermissionsUpdated(role);
+		this._controller.rolePermissionsUpdated(role);
 	}
 
 	async grantDefaultRolePermissionsRequestHandler(message) {
-		let role = this._master.userManager.roles.get(message.data.id);
+		let role = this._controller.userManager.roles.get(message.data.id);
 		if (!role) {
 			throw new libErrors.RequestError(`Role with ID ${message.data.id} does not exist`);
 		}
 
 		role.grantDefaultPermissions();
-		this._master.rolePermissionsUpdated(role);
+		this._controller.rolePermissionsUpdated(role);
 	}
 
 	async deleteRoleRequestHandler(message) {
 		let id = message.data.id;
-		let role = this._master.userManager.roles.get(id);
+		let role = this._controller.userManager.roles.get(id);
 		if (!role) {
 			throw new libErrors.RequestError(`Role with ID ${id} does not exist`);
 		}
 
-		this._master.userManager.roles.delete(id);
-		for (let user of this._master.userManager.users.values()) {
+		this._controller.userManager.roles.delete(id);
+		for (let user of this._controller.userManager.users.values()) {
 			user.roles.delete(role);
-			this._master.userPermissionsUpdated(user);
+			this._controller.userPermissionsUpdated(user);
 		}
 	}
 
 	async getUserRequestHandler(message) {
 		let name = message.data.name;
-		let user = this._master.userManager.users.get(name);
+		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			throw new libErrors.RequestError(`User ${name} does not exist`);
 		}
@@ -790,7 +790,7 @@ class ControlConnection extends BaseConnection {
 
 	async listUsersRequestHandler(message) {
 		let list = [];
-		for (let user of this._master.userManager.users.values()) {
+		for (let user of this._controller.userManager.users.values()) {
 			list.push({
 				name: user.name,
 				roles: [...user.roles].map(role => role.id),
@@ -829,12 +829,12 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async createUserRequestHandler(message) {
-		let user = this._master.userManager.createUser(message.data.name);
-		this._master.userUpdated(user);
+		let user = this._controller.userManager.createUser(message.data.name);
+		this._controller.userUpdated(user);
 	}
 
 	async revokeUserTokenRequestHandler(message) {
-		let user = this._master.userManager.users.get(message.data.name);
+		let user = this._controller.userManager.users.get(message.data.name);
 		if (!user) {
 			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
 		}
@@ -843,23 +843,23 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.invalidateToken();
-		for (let controlConnection of this._master.wsServer.controlConnections) {
+		for (let controlConnection of this._controller.wsServer.controlConnections) {
 			if (controlConnection.user.name === user.name) {
 				controlConnection.connector.terminate();
 			}
 		}
-		this._master.userUpdated(user);
+		this._controller.userUpdated(user);
 	}
 
 	async updateUserRolesRequestHandler(message) {
-		let user = this._master.userManager.users.get(message.data.name);
+		let user = this._controller.userManager.users.get(message.data.name);
 		if (!user) {
 			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
 		}
 
 		let resolvedRoles = new Set();
 		for (let roleId of message.data.roles) {
-			let role = this._master.userManager.roles.get(roleId);
+			let role = this._controller.userManager.roles.get(roleId);
 			if (!role) {
 				throw new libErrors.RequestError(`Role with ID ${roleId} does not exist`);
 			}
@@ -868,34 +868,34 @@ class ControlConnection extends BaseConnection {
 		}
 
 		user.roles = resolvedRoles;
-		this._master.userPermissionsUpdated(user);
-		this._master.userUpdated(user);
+		this._controller.userPermissionsUpdated(user);
+		this._controller.userUpdated(user);
 	}
 
 	async setUserAdminRequestHandler(message) {
 		let { name, create, admin } = message.data;
-		let user = this._master.userManager.users.get(name);
+		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
-				user = this._master.userManager.createUser(name);
+				user = this._controller.userManager.createUser(name);
 			} else {
 				throw new libErrors.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
 		user.isAdmin = admin;
-		this._master.userUpdated(user);
+		this._controller.userUpdated(user);
 		this.broadcastEventToSlaves({ data: { name, admin }}, libLink.messages.adminlistUpdate);
 	}
 
 	async setUserBannedRequestHandler(message) {
 		let { name, create, banned, reason } = message.data;
-		let user = this._master.userManager.users.get(name);
+		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
-				user = this._master.userManager.createUser(name);
+				user = this._controller.userManager.createUser(name);
 			} else {
 				throw new libErrors.RequestError(`User '${name}' does not exist`);
 			}
@@ -903,36 +903,36 @@ class ControlConnection extends BaseConnection {
 
 		user.isBanned = banned;
 		user.banReason = reason;
-		this._master.userUpdated(user);
+		this._controller.userUpdated(user);
 		this.broadcastEventToSlaves({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
 	}
 
 	async setUserWhitelistedRequestHandler(message) {
 		let { name, create, whitelisted } = message.data;
-		let user = this._master.userManager.users.get(name);
+		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			if (create) {
 				this.user.checkPermission("core.user.create");
-				user = this._master.userManager.createUser(name);
+				user = this._controller.userManager.createUser(name);
 			} else {
 				throw new libErrors.RequestError(`User '${name}' does not exist`);
 			}
 		}
 
 		user.isWhitelisted = whitelisted;
-		this._master.userUpdated(user);
+		this._controller.userUpdated(user);
 		this.broadcastEventToSlaves({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
 	}
 
 	async deleteUserRequestHandler(message) {
-		let user = this._master.userManager.users.get(message.data.name);
+		let user = this._controller.userManager.users.get(message.data.name);
 		if (!user) {
 			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
 		}
 
 		user.isDeleted = true;
-		this._master.userManager.users.delete(message.data.name);
-		this._master.userUpdated(user);
+		this._controller.userManager.users.delete(message.data.name);
+		this._controller.userUpdated(user);
 
 		if (user.is_admin) {
 			this.broadcastEventToSlaves({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
@@ -952,7 +952,7 @@ class ControlConnection extends BaseConnection {
 			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;
-		this._master.debugEvents.on("message", this.ws_dumper);
+		this._controller.debugEvents.on("message", this.ws_dumper);
 	}
 }
 

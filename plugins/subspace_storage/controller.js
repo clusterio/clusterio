@@ -22,15 +22,15 @@ const importCounter = new Counter(
 	"Resources imported by instance",
 	{ labels: ["instance_id", "resource"] }
 );
-const masterInventoryGauge = new Gauge(
-	"clusterio_subspace_storage_master_inventory",
-	"Amount of resources stored on master",
+const controllerInventoryGauge = new Gauge(
+	"clusterio_subspace_storage_controller_inventory",
+	"Amount of resources stored on controller",
 	{ labels: ["resource"] }
 );
 
 
 async function loadDatabase(config, logger) {
-	let itemsPath = path.resolve(config.get("master.database_directory"), "items.json");
+	let itemsPath = path.resolve(config.get("controller.database_directory"), "items.json");
 	logger.verbose(`Loading ${itemsPath}`);
 	try {
 		let content = await fs.readFile(itemsPath);
@@ -45,9 +45,9 @@ async function loadDatabase(config, logger) {
 	}
 }
 
-async function saveDatabase(masterConfig, items, logger) {
+async function saveDatabase(controllerConfig, items, logger) {
 	if (items && items.size < 50000) {
-		let file = path.resolve(masterConfig.get("master.database_directory"), "items.json");
+		let file = path.resolve(controllerConfig.get("controller.database_directory"), "items.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(items.serialize());
 		await libFileOps.safeOutputFile(file, content);
@@ -56,10 +56,10 @@ async function saveDatabase(masterConfig, items, logger) {
 	}
 }
 
-class MasterPlugin extends libPlugin.BaseMasterPlugin {
+class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 	async init() {
 
-		this.items = await loadDatabase(this.master.config, this.logger);
+		this.items = await loadDatabase(this.controller.config, this.logger);
 		this.itemUpdateRateLimiter = new RateLimiter({
 			maxRate: 1,
 			action: () => {
@@ -72,21 +72,21 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		});
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 		this.autosaveId = setInterval(() => {
-			saveDatabase(this.master.config, this.items, this.logger).catch(err => {
+			saveDatabase(this.controller.config, this.items, this.logger).catch(err => {
 				this.logger.error(`Unexpected error autosaving items:\n${err.stack}`);
 			});
-		}, this.master.config.get("subspace_storage.autosave_interval") * 1000);
+		}, this.controller.config.get("subspace_storage.autosave_interval") * 1000);
 
 		this.neuralDole = new dole.NeuralDole({ items: this.items });
 		this.doleMagicId = setInterval(() => {
-			if (this.master.config.get("subspace_storage.division_method") === "neural_dole") {
+			if (this.controller.config.get("subspace_storage.division_method") === "neural_dole") {
 				this.neuralDole.doMagic();
 			}
 		}, 1000);
 
 		this.subscribedControlLinks = new Set();
 
-		routes.addApiRoutes(this.master.app, this.items);
+		routes.addApiRoutes(this.controller.app, this.items);
 	}
 
 	updateStorage() {
@@ -128,7 +128,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 		this.updateStorage();
 
-		if (this.master.config.get("subspace_storage.log_item_transfers")) {
+		if (this.controller.config.get("subspace_storage.log_item_transfers")) {
 			this.logger.verbose(
 				`Imported the following from ${message.data.instance_id}:\n${JSON.stringify(message.data.items)}`
 			);
@@ -136,7 +136,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	}
 
 	async removeRequestHandler(message) {
-		let method = this.master.config.get("subspace_storage.division_method");
+		let method = this.controller.config.get("subspace_storage.division_method");
 		let instanceId = message.data.instance_id;
 
 		let itemsRemoved = [];
@@ -153,7 +153,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 			}
 
 		} else {
-			let instance = this.master.instances.get(instanceId);
+			let instance = this.controller.instances.get(instanceId);
 			let instanceName = instance ? instance.config.get("instance.name") : "unkonwn";
 
 			// use fancy neural net to calculate a "fair" dole division rate.
@@ -171,7 +171,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 					let count = dole.doleDivider({
 						object: { name: item[0], count: item[1], instanceId, instanceName },
 						items: this.items,
-						logItemTransfers: this.master.config.get("subspace_storage.log_item_transfers"),
+						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers"),
 						logger: this.logger,
 					});
 					if (count > 0) {
@@ -192,7 +192,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 			this.updateStorage();
 
-			if (itemsRemoved.length && this.master.config.get("subspace_storage.log_item_transfers")) {
+			if (itemsRemoved.length && this.controller.config.get("subspace_storage.log_item_transfers")) {
 				this.logger.verbose(`Exported the following to ${instanceId}:\n${JSON.stringify(itemsRemoved)}`);
 			}
 		}
@@ -219,7 +219,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 	onMetrics() {
 		if (this.items) {
 			for (let [key, count] of this.items._items) {
-				masterInventoryGauge.labels(key).set(Number(count) || 0);
+				controllerInventoryGauge.labels(key).set(Number(count) || 0);
 			}
 		}
 	}
@@ -228,10 +228,10 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		this.itemUpdateRateLimiter.cancel();
 		clearInterval(this.autosaveId);
 		clearInterval(this.doleMagicId);
-		await saveDatabase(this.master.config, this.items, this.logger);
+		await saveDatabase(this.controller.config, this.items, this.logger);
 	}
 }
 
 module.exports = {
-	MasterPlugin,
+	ControllerPlugin,
 };

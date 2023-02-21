@@ -25,18 +25,18 @@ function ErrorCard(props) {
 
 export default function App(props) {
 	let [connected, setConnected] = useState(false);
-	let [token, setToken] = useState(localStorage.getItem("master_token") || null);
+	let [token, setToken] = useState(localStorage.getItem("controller_token") || null);
 	let connector = props.control.connector;
 
 	function clearToken() {
 		setToken(null);
 		connector.token = null;
-		localStorage.removeItem("master_token");
+		localStorage.removeItem("controller_token");
 	}
 
 	useEffect(() => {
 		function onConnect() {
-			localStorage.setItem("master_token", token);
+			localStorage.setItem("controller_token", token);
 			setConnected(true);
 		}
 

@@ -66,7 +66,7 @@ function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
 }
 
 /**
- * Load master plugin class of a plugin
+ * Load controller plugin class of a plugin
  *
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
@@ -74,8 +74,8 @@ function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
  * @returns {Promise<function>} plugin class
  * @static
  */
-async function loadMasterPluginClass(pluginInfo) {
-	return loadPluginClass("masterEntrypoint", "MasterPlugin", libPlugin.BaseMasterPlugin, pluginInfo);
+async function loadControllerPluginClass(pluginInfo) {
+	return loadPluginClass("controllerEntrypoint", "ControllerPlugin", libPlugin.BaseControllerPlugin, pluginInfo);
 }
 
 /**
@@ -106,7 +106,7 @@ async function loadControlPluginClass(pluginInfo) {
 
 module.exports = {
 	loadPluginInfos,
-	loadMasterPluginClass,
+	loadControllerPluginClass,
 	loadInstancePluginClass,
 	loadControlPluginClass,
 };

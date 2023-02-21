@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * Clusterio master server
+ * Clusterio controller
  *
  * Facilitates communication between slaves and control of the cluster
  * through WebSocet connections, and hosts a webserver for browser
  * interfaces and Prometheus statistics export.  It is remotely controlled
  * by {@link module:ctl/ctl}.
  *
- * @module master/master
+ * @module controller/controller
  * @author Danielv123, Hornwitser
  * @example
- * npx clusteriomaster run
+ * npx clusteriocontroller run
  */
 
 "use strict";
@@ -36,25 +36,25 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
-const Master = require("./src/Master");
+const Controller = require("./src/Controller");
 const UserManager = require("./src/UserManager");
 const version = require("./package").version;
 
 // globals
-let master;
+let controller;
 
 
 void new libPrometheus.Gauge(
-	"clusterio_master_slave_mapping",
+	"clusterio_controller_slave_mapping",
 	"Mapping of Slave ID to name",
 	{
 		labels: ["slave_id", "slave_name"],
 		callback: function(gauge) {
 			gauge.clear();
-			if (!master || !master.slaves) {
+			if (!controller || !controller.slaves) {
 				return;
 			}
-			for (let [id, slave] of master.slaves) {
+			for (let [id, slave] of controller.slaves) {
 				gauge.labels({
 					slave_id: String(id),
 					slave_name: slave.name,
@@ -65,16 +65,16 @@ void new libPrometheus.Gauge(
 );
 
 void new libPrometheus.Gauge(
-	"clusterio_master_instance_mapping",
+	"clusterio_controller_instance_mapping",
 	"Mapping of Instance ID to name and slave",
 	{
 		labels: ["instance_id", "instance_name", "slave_id"],
 		callback: function(gauge) {
 			gauge.clear();
-			if (!master || !master.instances) {
+			if (!controller || !controller.instances) {
 				return;
 			}
-			for (let [id, instance] of master.instances) {
+			for (let [id, instance] of controller.instances) {
 				gauge.labels({
 					instance_id: String(id),
 					instance_name: String(instance.config.get("instance.name")),
@@ -86,32 +86,32 @@ void new libPrometheus.Gauge(
 );
 
 void new libPrometheus.Gauge(
-	"clusterio_master_websocket_active_connections",
-	"How many WebSocket connections are currently open to the master server",
-	{ callback: function(gauge) { gauge.set(master.wsServer.activeConnectors.size); }}
+	"clusterio_controller_websocket_active_connections",
+	"How many WebSocket connections are currently open to the controller",
+	{ callback: function(gauge) { gauge.set(controller.wsServer.activeConnectors.size); }}
 );
 
 void new libPrometheus.Gauge(
-	"clusterio_master_active_slaves",
-	"How many slaves are currently connected to the master",
-	{ callback: function(gauge) { gauge.set(master.wsServer.slaveConnections.size); }}
+	"clusterio_controller_active_slaves",
+	"How many slaves are currently connected to the controller",
+	{ callback: function(gauge) { gauge.set(controller.wsServer.slaveConnections.size); }}
 );
 
 void new libPrometheus.Gauge(
-	"clusterio_master_connected_clients_count", "How many clients are currently connected to this master server",
+	"clusterio_controller_connected_clients_count", "How many clients are currently connected to this controller",
 	{
 		labels: ["type"], callback: async function(gauge) {
-			gauge.labels("slave").set(master.wsServer.slaveConnections.size);
-			gauge.labels("control").set(master.wsServer.controlConnections.length);
+			gauge.labels("slave").set(controller.wsServer.slaveConnections.size);
+			gauge.labels("control").set(controller.wsServer.controlConnections.length);
 		},
 	},
 );
 
 
-async function handleBootstrapCommand(args, masterConfig) {
+async function handleBootstrapCommand(args, controllerConfig) {
 	let subCommand = args._[1];
-	let userManager = new UserManager(masterConfig);
-	await userManager.load(path.join(masterConfig.get("master.database_directory"), "users.json"));
+	let userManager = new UserManager(controllerConfig);
+	await userManager.load(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
 	if (subCommand === "create-admin") {
 		if (!args.name) {
 			logger.error("name cannot be blank");
@@ -127,7 +127,7 @@ async function handleBootstrapCommand(args, masterConfig) {
 		let adminRole = libUsers.ensureDefaultAdminRole(userManager.roles);
 		admin.roles.add(adminRole);
 		admin.isAdmin = true;
-		await userManager.save(path.join(masterConfig.get("master.database_directory"), "users.json"));
+		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
 
 	} else if (subCommand === "generate-user-token") {
 		let user = userManager.users.get(args.name);
@@ -137,13 +137,13 @@ async function handleBootstrapCommand(args, masterConfig) {
 			return;
 		}
 		// eslint-disable-next-line no-console
-		console.log(user.createToken(masterConfig.get("master.auth_secret")));
+		console.log(user.createToken(controllerConfig.get("controller.auth_secret")));
 
 	} else if (subCommand === "generate-slave-token") {
 		// eslint-disable-next-line no-console
 		console.log(jwt.sign(
 			{ aud: "slave", slave: args.id },
-			Buffer.from(masterConfig.get("master.auth_secret"), "base64")
+			Buffer.from(controllerConfig.get("controller.auth_secret"), "base64")
 		));
 
 	} else if (subCommand === "create-ctl-config") {
@@ -156,8 +156,10 @@ async function handleBootstrapCommand(args, masterConfig) {
 		let controlConfig = new libConfig.ControlConfig("control");
 		await controlConfig.init();
 
-		controlConfig.set("control.master_url", Master.calculateMasterUrl(masterConfig));
-		controlConfig.set("control.master_token", admin.createToken(masterConfig.get("master.auth_secret")));
+		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
+		controlConfig.set(
+			"control.controller_token", admin.createToken(controllerConfig.get("controller.auth_secret"))
+		);
 
 		let content = JSON.stringify(controlConfig.serialize(), null, 4);
 		if (args.output === "-") {
@@ -176,13 +178,13 @@ async function initialize() {
 		shouldRun: false,
 		clusterLogger: null,
 		pluginInfos: null,
-		masterConfigPath: null,
-		masterConfig: null,
+		controllerConfigPath: null,
+		controllerConfig: null,
 	};
 
 	// argument parsing
 	parameters.args = yargs
-		.scriptName("master")
+		.scriptName("controller")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
 			nargs: 1,
@@ -199,8 +201,8 @@ async function initialize() {
 		})
 		.option("config", {
 			nargs: 1,
-			describe: "master config file to use",
-			default: "config-master.json",
+			describe: "controller config file to use",
+			default: "config-controller.json",
 			type: "string",
 		})
 		.option("plugin-list", {
@@ -210,7 +212,7 @@ async function initialize() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Master config", libSharedCommands.configCommand)
+		.command("config", "Manage Controller config", libSharedCommands.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
@@ -226,7 +228,7 @@ async function initialize() {
 				})
 				.demandCommand(1, "You need to specify a command to run");
 		})
-		.command("run", "Run master server", yargs => {
+		.command("run", "Run controller", yargs => {
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
 			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
@@ -247,12 +249,12 @@ async function initialize() {
 			console.log("Migration complete, you should delete cluster.log now");
 		}
 
-		let masterLogDirectory = path.join(parameters.args.logDirectory, "master");
-		if (!await fs.pathExists(masterLogDirectory) && await fs.pathExists("master.log")) {
-			console.log("Migrating master log...");
-			await fs.ensureDir(masterLogDirectory);
-			await libLoggingUtils.migrateLogs("master.log", masterLogDirectory, "master-%DATE%.log");
-			console.log("Migration complete, you should delete master.log now");
+		let controllerLogDirectory = path.join(parameters.args.logDirectory, "controller");
+		if (!await fs.pathExists(controllerLogDirectory) && await fs.pathExists("controller.log")) {
+			console.log("Migrating controller log...");
+			await fs.ensureDir(controllerLogDirectory);
+			await libLoggingUtils.migrateLogs("controller.log", controllerLogDirectory, "controller-%DATE%.log");
+			console.log("Migration complete, you should delete controller.log now");
 		}
 		/* eslint-enable no-console */
 	}
@@ -269,11 +271,11 @@ async function initialize() {
 		dirname: path.join(parameters.args.logDirectory, "cluster"),
 	}));
 
-	// Log stream for the master server.
+	// Log stream for the controller.
 	logger.add(new winston.transports.DailyRotateFile({
 		format: winston.format.json(),
-		filename: "master-%DATE%.log",
-		dirname: path.join(parameters.args.logDirectory, "master"),
+		filename: "controller-%DATE%.log",
+		dirname: path.join(parameters.args.logDirectory, "controller"),
 	}));
 	logger.add(new winston.transports.Stream({
 		stream: parameters.clusterLogger,
@@ -288,7 +290,7 @@ async function initialize() {
 
 	let command = parameters.args._[0];
 	if (command === "run") {
-		logger.info(`Starting Clusterio master ${version}`);
+		logger.info(`Starting Clusterio controller ${version}`);
 		parameters.shouldRun = true;
 	}
 
@@ -313,39 +315,39 @@ async function initialize() {
 	libConfig.registerPluginConfigGroups(parameters.pluginInfos);
 	libConfig.finalizeConfigs();
 
-	parameters.masterConfigPath = parameters.args.config;
-	logger.info(`Loading config from ${parameters.masterConfigPath}`);
-	parameters.masterConfig = new libConfig.MasterConfig("master");
+	parameters.controllerConfigPath = parameters.args.config;
+	logger.info(`Loading config from ${parameters.controllerConfigPath}`);
+	parameters.controllerConfig = new libConfig.ControllerConfig("controller");
 	try {
-		await parameters.masterConfig.load(JSON.parse(await fs.readFile(parameters.masterConfigPath)));
+		await parameters.controllerConfig.load(JSON.parse(await fs.readFile(parameters.controllerConfigPath)));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			await parameters.masterConfig.init();
+			await parameters.controllerConfig.init();
 
 		} else {
-			throw new libErrors.StartupError(`Failed to load ${parameters.masterConfigPath}: ${err.message}`);
+			throw new libErrors.StartupError(`Failed to load ${parameters.controllerConfigPath}: ${err.message}`);
 		}
 	}
 
-	if (!parameters.masterConfig.get("master.auth_secret")) {
-		logger.info("Generating new master authentication secret");
+	if (!parameters.controllerConfig.get("controller.auth_secret")) {
+		logger.info("Generating new controller authentication secret");
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
-		parameters.masterConfig.set("master.auth_secret", bytes.toString("base64"));
+		parameters.controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
 		await libFileOps.safeOutputFile(
-			parameters.masterConfigPath, JSON.stringify(parameters.masterConfig.serialize(), null, 4)
+			parameters.controllerConfigPath, JSON.stringify(parameters.controllerConfig.serialize(), null, 4)
 		);
 	}
 
 	if (command === "config") {
 		await libSharedCommands.handleConfigCommand(
-			parameters.args, parameters.masterConfig, parameters.masterConfigPath
+			parameters.args, parameters.controllerConfig, parameters.controllerConfigPath
 		);
 
 	} else if (command === "bootstrap") {
-		await handleBootstrapCommand(parameters.args, parameters.masterConfig);
+		await handleBootstrapCommand(parameters.args, parameters.controllerConfig);
 	}
 
 	return parameters;
@@ -354,14 +356,14 @@ async function initialize() {
 async function startup() {
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioMaster";
+	process.title = "clusterioController";
 
-	let { args, shouldRun, clusterLogger, pluginInfos, masterConfigPath, masterConfig } = await initialize();
+	let { args, shouldRun, clusterLogger, pluginInfos, controllerConfigPath, controllerConfig } = await initialize();
 	if (!shouldRun) {
 		return;
 	}
 
-	master = new Master(clusterLogger, pluginInfos, masterConfigPath, masterConfig);
+	controller = new Controller(clusterLogger, pluginInfos, controllerConfigPath, controllerConfig);
 
 	let secondSigint = false;
 	process.on("SIGINT", () => {
@@ -374,7 +376,7 @@ async function startup() {
 
 		secondSigint = true;
 		logger.info("Caught interrupt signal, shutting down");
-		master.stop();
+		controller.stop();
 	});
 	let secondSigterm = false;
 	process.on("SIGTERM", () => {
@@ -387,15 +389,15 @@ async function startup() {
 
 		secondSigterm = true;
 		logger.info("Caught termination signal, shutting down");
-		master.stop();
+		controller.stop();
 	});
 
 	process.on("SIGHUP", () => {
 		logger.info("Terminal closed, shutting down");
-		master.stop();
+		controller.stop();
 	});
 
-	await master.start(args);
+	await controller.start(args);
 }
 
 module.exports = {
@@ -413,9 +415,9 @@ I           version of clusterio.  Expect things to break. I
 	startup().catch(err => {
 		if (err instanceof libErrors.StartupError) {
 			logger.fatal(`
-+----------------------------------+
-| Unable to to start master server |
-+----------------------------------+
++-------------------------------+
+| Unable to to start controller |
++-------------------------------+
 ${err.stack}`
 			);
 		} else if (err instanceof libErrors.PluginError) {
@@ -428,7 +430,7 @@ ${err.original.stack}`
 		} else {
 			logger.fatal(`
 +------------------------------------------------------------+
-| Unexpected error occured while starting master, please     |
+| Unexpected error occured while starting controller, please |
 | report it to https://github.com/clusterio/clusterio/issues |
 +------------------------------------------------------------+
 ${err.stack}`

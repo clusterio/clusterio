@@ -40,7 +40,7 @@ function mergeSamples(destinationResult, sourceResult) {
 // Prometheus polling endpoint
 async function getMetrics(req, res, next) {
 	let results = [];
-	let pluginResults = await libPlugin.invokeHook(req.app.locals.master.plugins, "onMetrics");
+	let pluginResults = await libPlugin.invokeHook(req.app.locals.controller.plugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
@@ -48,8 +48,8 @@ async function getMetrics(req, res, next) {
 	}
 
 	let requests = [];
-	let timeout = req.app.locals.master.config.get("master.metrics_timeout") * 1000;
-	for (let slaveConnection of req.app.locals.master.wsServer.slaveConnections.values()) {
+	let timeout = req.app.locals.controller.config.get("controller.metrics_timeout") * 1000;
+	for (let slaveConnection of req.app.locals.controller.wsServer.slaveConnections.values()) {
 		if (!slaveConnection.connected) {
 			continue;
 		}
@@ -98,10 +98,10 @@ async function getMetrics(req, res, next) {
 
 function getPlugins(req, res) {
 	let plugins = [];
-	for (let pluginInfo of req.app.locals.master.pluginInfos) {
+	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
-		let loaded = req.app.locals.master.plugins.has(name);
-		let enabled = loaded && req.app.locals.master.config.group(pluginInfo.name).get("load_plugin");
+		let loaded = req.app.locals.controller.plugins.has(name);
+		let enabled = loaded && req.app.locals.controller.config.group(pluginInfo.name).get("load_plugin");
 		let web = {};
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
@@ -133,7 +133,7 @@ function validateSlaveToken(req, res, next) {
 	try {
 		jwt.verify(
 			token,
-			Buffer.from(req.app.locals.master.config.get("master.auth_secret"), "base64"),
+			Buffer.from(req.app.locals.controller.config.get("controller.auth_secret"), "base64"),
 			{ audience: "slave" }
 		);
 
@@ -155,10 +155,10 @@ function validateUserToken(req, res, next) {
 	try {
 		let tokenPayload = jwt.verify(
 			token,
-			Buffer.from(req.app.locals.master.config.get("master.auth_secret"), "base64"),
+			Buffer.from(req.app.locals.controller.config.get("controller.auth_secret"), "base64"),
 			{ audience: "user" }
 		);
-		let user = req.app.locals.master.userManager.users.get(tokenPayload.user);
+		let user = req.app.locals.controller.userManager.users.get(tokenPayload.user);
 		if (!user) {
 			throw new Error("invalid user");
 		}
@@ -191,7 +191,7 @@ async function uploadExport(req, res) {
 		res.sendStatus(400);
 		return;
 	}
-	let modPack = res.app.locals.master.modPacks.get(modPackId);
+	let modPack = res.app.locals.controller.modPacks.get(modPackId);
 	if (!modPack) {
 		res.sendStatus(400);
 		return;
@@ -234,7 +234,7 @@ async function uploadExport(req, res) {
 
 	modPack.exportManifest = new libData.ExportManifest({ assets });
 	modPack.fillDefaultSettings(settingPrototypes, logger);
-	res.app.locals.master.modPackUpdated(modPack);
+	res.app.locals.controller.modPackUpdated(modPack);
 
 	res.sendStatus(200);
 }
@@ -251,7 +251,7 @@ async function createProxyStream(app) {
 		events: new events.EventEmitter(),
 		timeout: setTimeout(() => {
 			stream.events.emit("timeout");
-		}, app.locals.master.config.get("master.proxy_stream_timeout") * 1000),
+		}, app.locals.controller.config.get("controller.proxy_stream_timeout") * 1000),
 	};
 	stream.events.on("close", () => {
 		clearTimeout(stream.timeout);
@@ -362,7 +362,7 @@ async function uploadSave(req, res) {
 
 		try {
 			let result = await Promise.race([
-				req.app.locals.master.forwardRequestToInstance(libLink.messages.pullSave, {
+				req.app.locals.controller.forwardRequestToInstance(libLink.messages.pullSave, {
 					instance_id: instanceId,
 					stream_id: proxyStream.id,
 					filename,
@@ -498,7 +498,7 @@ async function uploadMod(req, res) {
 			return;
 		}
 
-		const modsDirectory = req.app.locals.master.config.get("master.mods_directory");
+		const modsDirectory = req.app.locals.controller.config.get("controller.mods_directory");
 		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
 		try {
 
@@ -521,8 +521,8 @@ async function uploadMod(req, res) {
 
 			const modInfo = await libData.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
 			await fs.rename(path.join(modsDirectory, tempFilename), path.join(modsDirectory, modInfo.filename));
-			req.app.locals.master.mods.set(modInfo.filename, modInfo);
-			req.app.locals.master.modUpdated(modInfo);
+			req.app.locals.controller.mods.set(modInfo.filename, modInfo);
+			req.app.locals.controller.modUpdated(modInfo);
 			mods.push(modInfo.toJSON());
 
 		} catch (err) {
@@ -624,10 +624,10 @@ function addRouteHandlers(app) {
 	);
 }
 
-// Routes used in the web interface and served by the master server
+// Routes used in the web interface and served by the controller
 const webRoutes = [
 	"/",
-	"/master",
+	"/controller",
 	"/slaves",
 	"/slaves/:id/view",
 	"/instances",

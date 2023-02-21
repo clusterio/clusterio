@@ -962,12 +962,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.server.kill(true);
 	}
 
-	async masterConnectionEventEventHandler(message) {
-		await libPlugin.invokeHook(this.plugins, "onMasterConnectionEvent", message.data.event);
+	async controllerConnectionEventEventHandler(message) {
+		await libPlugin.invokeHook(this.plugins, "onControllerConnectionEvent", message.data.event);
 	}
 
-	async prepareMasterDisconnectRequestHandler() {
-		await libPlugin.invokeHook(this.plugins, "onPrepareMasterDisconnect");
+	async prepareControllerDisconnectRequestHandler() {
+		await libPlugin.invokeHook(this.plugins, "onPrepareControllerDisconnect");
 	}
 
 	async getMetricsRequestHandler() {
@@ -1072,7 +1072,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let zip = await libFactorio.exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
-			let url = new URL(this._slave.config.get("slave.master_url"));
+			let url = new URL(this._slave.config.get("slave.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", this.activeModPack.id);
 			let response = await phin({
@@ -1081,7 +1081,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				core: { ca: this._slave.tlsCa },
 				headers: {
 					"Content-Type": "application/zip",
-					"x-access-token": this._slave.config.get("slave.master_token"),
+					"x-access-token": this._slave.config.get("slave.controller_token"),
 				},
 			});
 			if (response.statusCode !== 200) {

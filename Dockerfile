@@ -20,7 +20,7 @@ RUN pnpm install
 # Install plugins. This is intended as a reasonable default, enabling plugins to make for fun gameplay.
 # If you want a different set of plugins, consider using this as the base image for your own.
 #RUN pnpm install @clusterio/plugin-subspace_storage
-#RUN npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
+#RUN npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
 
 COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/mods/
 

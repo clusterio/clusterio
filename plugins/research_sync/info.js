@@ -2,7 +2,7 @@
 const { libLink } = require("@clusterio/lib");
 
 
-// schema used for syncing technologies to and from the master
+// schema used for syncing technologies to and from the controller
 const technologies = {
 	type: "array",
 	items: {
@@ -23,13 +23,13 @@ module.exports = {
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",
 	instanceEntrypoint: "instance",
-	masterEntrypoint: "master",
+	controllerEntrypoint: "controller",
 
 	messages: {
 		contribution: new libLink.Event({
 			type: "research_sync:contribution",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller"],
+			forwardTo: "controller",
 			eventProperties: {
 				"name": { type: "string" },
 				"level": { type: "integer" },
@@ -38,7 +38,7 @@ module.exports = {
 		}),
 		progress: new libLink.Event({
 			type: "research_sync:progress",
-			links: ["master-slave", "slave-instance"],
+			links: ["controller-slave", "slave-instance"],
 			broadcastTo: "instance",
 			eventProperties: {
 				"technologies": {
@@ -57,8 +57,8 @@ module.exports = {
 		}),
 		finished: new libLink.Event({
 			type: "research_sync:finished",
-			links: ["instance-slave", "slave-master", "master-slave", "slave-instance"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller", "controller-slave", "slave-instance"],
+			forwardTo: "controller",
 			broadcastTo: "instance",
 			eventProperties: {
 				"name": { type: "string" },
@@ -67,8 +67,8 @@ module.exports = {
 		}),
 		syncTechnologies: new libLink.Request({
 			type: "research_sync:sync_technologies",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller"],
+			forwardTo: "controller",
 			requestProperties: {
 				"technologies": technologies,
 			},

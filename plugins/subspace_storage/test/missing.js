@@ -3,6 +3,6 @@
 
 "use strict";
 require("../instance");
-require("../master");
+require("../controller");
 require("../dole");
 require("../dole_nn_base");

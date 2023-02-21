@@ -37,7 +37,7 @@ export default function PluginViewPage() {
 	if (!pluginMeta) {
 		return <PageLayout nav={nav}>
 			<h2>Plugin not found</h2>
-			<p>Plugin with name {pluginName} was not found on the master server.</p>
+			<p>Plugin with name {pluginName} was not found on the controller.</p>
 		</PageLayout>;
 	}
 
@@ -84,9 +84,9 @@ export default function PluginViewPage() {
 			message="Version missmatch detected"
 			description={
 				`The version of the web interface module for this plugin (${plugin.package.version}) `+
-				`does not match the version running on the master server (${pluginMeta.version}), `+
+				`does not match the version running on the controller (${pluginMeta.version}), `+
 				"spurious errors may occur. This usually happens when the plugin is updated but the "+
-				"master server has not been restarted yet, but may also be due to an outdated build."
+				"controller has not been restarted yet, but may also be due to an outdated build."
 			}
 			type="warning"
 			showIcon

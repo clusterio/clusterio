@@ -47,7 +47,7 @@ describe("lib/command", function() {
 		it("should pass an integer like string back", async function() {
 			assert.equal(await libCommand.resolveSlave(null, "123"), 123);
 		});
-		it("should resolve a slave name with the master server", async function() {
+		it("should resolve a slave name with the controller", async function() {
 			assert.equal(await libCommand.resolveSlave(testControl, "Test Slave"), 11);
 		});
 		it("should throw if slave is not found", async function() {
@@ -61,7 +61,7 @@ describe("lib/command", function() {
 		it("should pass an integer like string back", async function() {
 			assert.equal(await libCommand.resolveInstance(null, "123"), 123);
 		});
-		it("should resolve an instance name with the master server", async function() {
+		it("should resolve an instance name with the controller", async function() {
 			assert.equal(await libCommand.resolveInstance(testControl, "Test Instance"), 57);
 		});
 		it("should throw if instance is not found", async function() {

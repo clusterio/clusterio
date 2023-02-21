@@ -6,10 +6,10 @@ const { logger } = require("@clusterio/lib/logging");
 
 
 /**
- * Connector for master server connections
+ * Connector for controller connections
  *
  * @extends module:lib/link.WebSocketBaseConnector
- * @alias module:master/src/WsServerConnector
+ * @alias module:controller/src/WsServerConnector
  */
 class WsServerConnector extends libLink.WebSocketBaseConnector {
 	constructor(sessionId, sessionTimeout, heartbeatInterval) {

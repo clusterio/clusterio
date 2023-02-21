@@ -10,7 +10,7 @@ const { Paragraph } = Typography;
 
 function TokenAuth(props) {
 	return <>
-		<Paragraph>If you have generated an authentication token from the master server, use that here.</Paragraph>
+		<Paragraph>If you have generated an authentication token from the controller, use that here.</Paragraph>
 		<Form
 			name="login"
 			onFinish={(values) => { props.setToken(values.token.trim()); }}

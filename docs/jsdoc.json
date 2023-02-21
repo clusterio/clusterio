@@ -11,8 +11,8 @@
 	},
 	"source": {
 		"include": [
-			"packages/master/src/",
-			"packages/master/master.js",
+			"packages/controller/src/",
+			"packages/controller/controller.js",
 			"packages/slave/src/",
 			"packages/slave/slave.js",
 			"packages/ctl/src/",

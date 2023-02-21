@@ -2,9 +2,9 @@
 function addApiRoutes(app, items) {
 
 	/**
-	 * GET endpoint to read the masters current inventory of items.
+	 * GET endpoint to read the controllers current inventory of items.
 	 *
-	 * @memberof clusterioMaster
+	 * @memberof clusterioController
 	 * @instance
 	 * @alias api/inventory
 	 * @returns {object[]} JSON [{name:"iron-plate", count:100},{name:"copper-plate",count:5}]
@@ -22,9 +22,9 @@ function addApiRoutes(app, items) {
 	});
 
 	/**
-	 * GET endpoint to read the masters inventory as an object with key:value pairs
+	 * GET endpoint to read the controllers inventory as an object with key:value pairs
 	 *
-	 * @memberof clusterioMaster
+	 * @memberof clusterioController
 	 * @instance
 	 * @alias api/inventoryAsObject
 	 * @returns {object} JSON {"iron-plate":100, "copper-plate":5}

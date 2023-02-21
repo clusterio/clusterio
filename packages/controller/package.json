@@ -1,16 +1,16 @@
 {
-  "name": "@clusterio/master",
-  "description": "Implementation of Clusterio master server",
+  "name": "@clusterio/controller",
+  "description": "Implementation of Clusterio controller",
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "main": "master.js",
+  "main": "controller.js",
   "scripts": {
     "prepare": "webpack-cli --env production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusteriomaster": "./master.js"
+    "clusteriocontroller": "./controller.js"
   },
   "keywords": [
     "factorio"

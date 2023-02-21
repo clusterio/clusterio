@@ -1,11 +1,11 @@
 # Managing a Cluster
 
-Clusterio clusters are managed through the master server by using the `clusterioctl` command line interface which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
+Clusterio clusters are managed through the controller by using the `clusterioctl` command line interface which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
 This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` should be executed.
 Mandatory parameters are shown in `<angles bracket>` and optional pameters are in `[square brackets]`.
 
 Before `clusterioctl` can be used it needs to be configured for the cluster it will connect to.
-The easiest way to do this is to run `npx clusteriomaster bootstrap create-ctl-config <username>` on the master server, which creates the necessary `config-control.json` for managing the cluster as the given user.
+The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-control.json` for managing the cluster as the given user.
 
 
 ## Slaves
@@ -189,7 +189,7 @@ By default there's a roled named Cluster Admin which grants access to everything
 
     ctl> user delete <name>
 
-Deletes everything stored on the master server for this user.
+Deletes everything stored on the controller for this user.
 
 Note: If the player is banned from the cluster this will effectively unban them, as the ban status is stored with the user account.
 

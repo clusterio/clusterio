@@ -25,9 +25,9 @@ function sigmoid3(x) {
 
 // DOSE - Doses items for item X slave Y
 // Numreq - number of items that are requested for item X for slave Y
-// Instore - number of items for item X in master gauge (currently)
+// Instore - number of items for item X in controller gauge (currently)
 // store_last_tick -
-//     Number of items for item X in master gauge at time of last tick
+//     Number of items for item X in controller gauge at time of last tick
 // dole - Current dole for item X
 // carry - carry for item X slave Y
 // prev_req - Numreq for previous request for item X slave Y
@@ -99,10 +99,10 @@ function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_to
 // TICK -
 //     Updates values for item X, should be called once for each item for
 //     each round of all slaves requesting that item Instore - number of
-//     items for item X in master gauge (currently)
+//     items for item X in controller gauge (currently)
 // dole - Current dole for item X
 // store_last_tick -
-//     Number of items for item X in master gauge at time of last tick (not this one)
+//     Number of items for item X in controller gauge at time of last tick (not this one)
 // * doleinfo_last -
 //     Object with 2 values for last "tick period": numreq - total number or
 //     requests for item, numslave - number of slaves requesting that item

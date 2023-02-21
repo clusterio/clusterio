@@ -4,7 +4,7 @@ import packageJson from "../../package.json";
 
 
 /**
- * Connector for control connection to master server
+ * Connector for control connection to controller
  * @private
  */
 export class ControlConnector extends libLink.WebSocketClientConnector {
@@ -30,12 +30,12 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 /**
  * Handles running the control
  *
- * Connects to the master server over WebSocket and sends commands to it.
+ * Connects to the controller over WebSocket and sends commands to it.
  * @static
  */
 export class Control extends libLink.Link {
 	constructor(connector, plugins) {
-		super("control", "master", connector);
+		super("control", "controller", connector);
 		libLink.attachAllMessages(this);
 
 		/**
@@ -111,7 +111,7 @@ export class Control extends libLink.Link {
 		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
 				for (let plugin of this.plugins.values()) {
-					plugin.onMasterConnectionEvent(event);
+					plugin.onControllerConnectionEvent(event);
 				}
 			});
 		}
@@ -535,14 +535,14 @@ export class Control extends libLink.Link {
 
 		let combinedFilter = {
 			all: false,
-			master: false,
+			controller: false,
 			slave_ids: [],
 			instance_ids: [],
 		};
 
 		for (let filter of this.logHandlers.keys()) {
 			if (filter.all) { combinedFilter.all = true; }
-			if (filter.master) { combinedFilter.master = true; }
+			if (filter.controller) { combinedFilter.controller = true; }
 			for (let slaveId of filter.slave_ids || []) {
 				if (!combinedFilter.slave_ids.includes(slaveId)) {
 					combinedFilter.slave_ids.push(slaveId);

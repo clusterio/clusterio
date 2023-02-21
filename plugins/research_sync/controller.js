@@ -7,8 +7,8 @@ const libPlugin = require("@clusterio/lib/plugin");
 const RateLimiter = require("@clusterio/lib/RateLimiter");
 
 
-async function loadTechnologies(masterConfig, logger) {
-	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
+async function loadTechnologies(controllerConfig, logger) {
+	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`Loading ${filePath}`);
 	try {
 		return new Map(JSON.parse(await fs.readFile(filePath)));
@@ -23,15 +23,15 @@ async function loadTechnologies(masterConfig, logger) {
 	}
 }
 
-async function saveTechnologies(masterConfig, technologies, logger) {
-	let filePath = path.join(masterConfig.get("master.database_directory"), "technologies.json");
+async function saveTechnologies(controllerConfig, technologies, logger) {
+	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
 	await libFileOps.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
 }
 
-class MasterPlugin extends libPlugin.BaseMasterPlugin {
+class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 	async init() {
-		this.technologies = await loadTechnologies(this.master.config, this.logger);
+		this.technologies = await loadTechnologies(this.controller.config, this.logger);
 		this.progressRateLimiter = new RateLimiter({
 			maxRate: 1,
 			action: () => this.broadcastProgress(),
@@ -44,7 +44,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 	async onShutdown() {
 		this.progressRateLimiter.cancel();
-		await saveTechnologies(this.master.config, this.technologies, this.logger);
+		await saveTechnologies(this.controller.config, this.technologies, this.logger);
 	}
 
 	broadcastProgress() {
@@ -169,5 +169,5 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 
 module.exports = {
-	MasterPlugin,
+	ControllerPlugin,
 };

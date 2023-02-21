@@ -88,9 +88,9 @@ class WebConsoleFormat {
  * @property {string} [max_level] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
- *     Include log entries from master, all slaves and all instances.
- * @property {boolean} [master] -
- *     Include log entries from the master server.
+ *     Include log entries from controller, all slaves and all instances.
+ * @property {boolean} [controller] -
+ *     Include log entries from the controller.
  * @property {Array<number>} [slave_ids] -
  *     Include log entries for the given slaves and instances of those
  *     slaves by id.
@@ -107,7 +107,7 @@ class WebConsoleFormat {
  *     filter returning true for log entries that match it.
  * @static
  */
-function logFilter({ all, master, slave_ids, instance_ids, max_level }) {
+function logFilter({ all, controller, slave_ids, instance_ids, max_level }) {
 	return info => {
 		// Note: reversed to filter out undefined levels
 		if (max_level && !(levels[info.level] <= levels[max_level])) {
@@ -117,7 +117,7 @@ function logFilter({ all, master, slave_ids, instance_ids, max_level }) {
 		if (all) {
 			return true;
 		}
-		if (master && info.slave_id === undefined) {
+		if (controller && info.slave_id === undefined) {
 			return true;
 		}
 		if (

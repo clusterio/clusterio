@@ -1,9 +1,9 @@
 version: '3'
 
 services:
-  master:
+  controller:
     build: .
-    command: npx clusteriomaster run
+    command: npx clusteriocontroller run
   slave:
     build: .
     command: npx clusterioslave run

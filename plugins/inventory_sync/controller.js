@@ -6,7 +6,7 @@ const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
 
 async function loadDatabase(config, logger) {
-	let itemsPath = path.resolve(config.get("master.database_directory"), "inventories.json");
+	let itemsPath = path.resolve(config.get("controller.database_directory"), "inventories.json");
 	logger.verbose(`Loading ${itemsPath}`);
 	try {
 		let content = await fs.readFile(itemsPath);
@@ -21,24 +21,24 @@ async function loadDatabase(config, logger) {
 	}
 }
 
-async function saveDatabase(masterConfig, playerDatastore, logger) {
+async function saveDatabase(controllerConfig, playerDatastore, logger) {
 	if (playerDatastore) {
-		let file = path.resolve(masterConfig.get("master.database_directory"), "inventories.json");
+		let file = path.resolve(controllerConfig.get("controller.database_directory"), "inventories.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(Array.from(playerDatastore));
 		await libFileOps.safeOutputFile(file, content);
 	}
 }
 
-class MasterPlugin extends libPlugin.BaseMasterPlugin {
+class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 	async init() {
 		this.acquiredPlayers = new Map();
-		this.playerDatastore = await loadDatabase(this.master.config, this.logger);
+		this.playerDatastore = await loadDatabase(this.controller.config, this.logger);
 		this.autosaveId = setInterval(() => {
-			saveDatabase(this.master.config, this.playerDatastore, this.logger).catch(err => {
+			saveDatabase(this.controller.config, this.playerDatastore, this.logger).catch(err => {
 				this.logger.error(`Unexpected error autosaving player data:\n${err.stack}`);
 			});
-		}, this.master.config.get("inventory_sync.autosave_interval") * 1000);
+		}, this.controller.config.get("inventory_sync.autosave_interval") * 1000);
 	}
 
 	async onInstanceStatusChanged(instance) {
@@ -52,7 +52,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		}
 
 		if (["unknown", "stopped"].includes(instance.status)) {
-			let timeout = this.master.config.get("inventory_sync.player_lock_timeout") * 1000;
+			let timeout = this.controller.config.get("inventory_sync.player_lock_timeout") * 1000;
 			for (let acquisitonRecord of this.acquiredPlayers.values()) {
 				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expires) {
 					acquisitonRecord.expires = Date.now() + timeout;
@@ -74,7 +74,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		if (
 			!acquisitionRecord
 			|| acquisitionRecord.instanceId === instanceId
-			|| !this.master.instances.has(acquisitionRecord.instanceId)
+			|| !this.controller.instances.has(acquisitionRecord.instanceId)
 			|| acquisitionRecord.expires && acquisitionRecord.expires < Date.now()
 		) {
 			this.acquiredPlayers.set(playerName, { instanceId });
@@ -88,7 +88,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 		let { instance_id, player_name } = message.data;
 		if (!this.acquire(instance_id, player_name)) {
 			let acquisitionRecord = this.acquiredPlayers.get(player_name);
-			let instance = this.master.instances.get(acquisitionRecord.instanceId);
+			let instance = this.controller.instances.get(acquisitionRecord.instanceId);
 			return {
 				status: "busy",
 				message: instance.config.get("instance.name"),
@@ -117,7 +117,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 	async uploadRequestHandler(message) {
 		let { instance_id, player_name, player_data } = message.data;
-		let instanceName = this.master.instances.get(instance_id).config.get("instance.name");
+		let instanceName = this.controller.instances.get(instance_id).config.get("instance.name");
 		let store = true;
 		let acquisitionRecord = this.acquiredPlayers.get(player_name);
 		if (!acquisitionRecord) {
@@ -151,7 +151,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 	async downloadRequestHandler(message) {
 		let { instance_id, player_name } = message.data;
-		let instanceName = this.master.instances.get(instance_id).config.get("instance.name");
+		let instanceName = this.controller.instances.get(instance_id).config.get("instance.name");
 
 		let acquisitionRecord = this.acquiredPlayers.get(player_name);
 		if (!acquisitionRecord) {
@@ -168,7 +168,7 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 
 	async onShutdown() {
 		clearInterval(this.autosaveId);
-		await saveDatabase(this.master.config, this.playerDatastore, this.logger);
+		await saveDatabase(this.controller.config, this.playerDatastore, this.logger);
 	}
 
 	async databaseStatsRequestHandler(message) {
@@ -190,5 +190,5 @@ class MasterPlugin extends libPlugin.BaseMasterPlugin {
 }
 
 module.exports = {
-	MasterPlugin,
+	ControllerPlugin,
 };

@@ -13,9 +13,10 @@ export default function ModDetails(props) {
 
 	return <Descriptions className="borderless" bordered size="small" column={{ xs: 1, sm: 1, md: 1, lg: 2 }}>
 		{mod.error && <Descriptions.Item label={<><ExclamationCircleOutlined/> Error</>} span={2}>
-			{mod.error === "missing" && "The given version of this mod is missing from the master storage."}
+			{mod.error === "missing" && "The given version of this mod is missing from the controller storage."}
 			{mod.error === "bad_checksum"
-				&& "Checksum of the mod in the master storage does not match the checksum provided by this mod pack."
+				&& "Checksum of the mod in the controller storage does not match the checksum provided " +
+				"by this mod pack."
 			}
 		</Descriptions.Item>}
 		{props.actions && !screens.lg

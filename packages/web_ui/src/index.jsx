@@ -12,7 +12,7 @@ export { default as ControlContext } from "./components/ControlContext";
 
 export { default as BaseConfigTree } from "./components/BaseConfigTree";
 export { default as InstanceConfigTree } from "./components/InstanceConfigTree";
-export { default as MasterConfigTree } from "./components/MasterConfigTree";
+export { default as ControllerConfigTree } from "./components/ControllerConfigTree";
 
 export { default as LogConsole } from "./components/LogConsole";
 

@@ -1,9 +1,9 @@
 # Configuration
 
 
-## Master Configuration
+## Controller Configuration
 
-### master.name
+### controller.name
 
 Name of the cluster.
 Used to distinguish it from other clusters and is prepended to the name of servers in the server list.
@@ -11,37 +11,37 @@ Used to distinguish it from other clusters and is prepended to the name of serve
 Defaluts to "Your Cluster".
 
 
-### master.database_directory
+### controller.database_directory
 
 Directory used to store cluster data to.
-Needs to be writeable by the master server.
+Needs to be writeable by the controller.
 This is also used by plugins to store its data.
 
 Defaults to "database".
 
 
-### master.http_port
+### controller.http_port
 
 Port to host HTTP server on.
 If set to null no HTTP server will be exposed.
-At least one of this and master.https_port needs to be set to a port.
+At least one of this and controller.https_port needs to be set to a port.
 
 Defaults to 8080.
 
 
-### master.https_port
+### controller.https_port
 
 Port to host HTTPS server on.
-Uses master.tls_certificate and master.tls_private_key as the certificate and private key for the HTTPS server.
+Uses controller.tls_certificate and controller.tls_private_key as the certificate and private key for the HTTPS server.
 If set to null no HTTPS server will be exposed.
-At least one of this and master.http_port needs to be set to a port.
+At least one of this and controller.http_port needs to be set to a port.
 
 See the [Setting up TLS](/docs/setting-up-tls.md) document for a guide to setting up HTTPS with Clusterio.
 
 Defaults to null.
 
 
-### master.bind_address
+### controller.bind_address
 
 IP address to bind the HTTP and HTTPS ports on.
 Useful to limit which interface to accept connections from.
@@ -51,30 +51,30 @@ interfaces.
 Defaults to null.
 
 
-### master.external_address
+### controller.external_address
 
-External address the master server is accessible on.
-Currently only used for `clusteriomaster bootstrap create-ctl-config` in order to give the right url to connect to.
+External address the controller is accessible on.
+Currently only used for `clusteriocontroller bootstrap create-ctl-config` in order to give the right url to connect to.
 This should be a full URL ending with a /.
 
 Defaults to null meaning assume localhost.
 
 
-### master.tls_certificate
+### controller.tls_certificate
 
-Path to TLS certificate to use for the HTTPS server when master.https_port is configured.
+Path to TLS certificate to use for the HTTPS server when controller.https_port is configured.
 
 Defaults to "database/certificates/cert.crt".
 
 
-### master.tls_private_key
+### controller.tls_private_key
 
-Path to TLS private key to use for the HTTPS server when master.https_port is configured.
+Path to TLS private key to use for the HTTPS server when controller.https_port is configured.
 
 Defaults to "database/certificates/cert.key".
 
 
-### master.auth_secret
+### controller.auth_secret
 
 Base64 encoded authentication secret used to verify tokens issued to slaves, users, and sessions.
 This should contain 256 bytes of random data, and if changed will cause all tokens become invalid.
@@ -83,7 +83,7 @@ Keep this secret if leaked an attacker could easily compromise the cluster.
 Defaults to null which means generate a secure secret on startup.
 
 
-### master.heartbeat_interval
+### controller.heartbeat_interval
 
 Interval in seconds heartbeats are sent out at for WebSocket connections.
 If a WebSocket connection hasn't received a heartbeat in 2 times the heartbeat interval it will be considered stale and closed.
@@ -92,17 +92,17 @@ A lower value means less time between connections going stale and them being clo
 Defaults to 15.
 
 
-### master.session_timeout
+### controller.session_timeout
 
 Time in seconds from the connection is closed following a heartbeat timeout until the session is invalidated and data loss occurs.
 A higher timeout gives more time for a client to recconect and resume an active session over a connection that was dropped, but also leads to stale connections taking longer to clear out.
-In the case of the master or client crashing the data loss is unavoidable.
+In the case of the controller or client crashing the data loss is unavoidable.
 
-Value should not be less than the configured `max_reconnect_delay` of the clients and it should be greater than 2 times `master.heartbeat_interval`.
+Value should not be less than the configured `max_reconnect_delay` of the clients and it should be greater than 2 times `controller.heartbeat_interval`.
 Defaults to 60.
 
 
-### master.metrics_timeout
+### controller.metrics_timeout
 
 Timeout in seconds before a call to gather metrics from a slave times out.
 This should be less than both the timeout and collection interval configured for the collection job in Prometheus.
@@ -110,15 +110,15 @@ This should be less than both the timeout and collection interval configured for
 Defaults to 8.
 
 
-### master.stream_timeout
+### controller.stream_timeout
 
-Timeout in seconds for proxy streams through the master that has been created but is not yet sending data to be automatically closed.
+Timeout in seconds for proxy streams through the controller that has been created but is not yet sending data to be automatically closed.
 Streams that have started sending data before this timeout is not affected.
 
 Defaults to 15.
 
 
-### master.default_role_id
+### controller.default_role_id
 
 Role to automatically grant to new users.
 If null no role is granted.
@@ -128,8 +128,8 @@ Defaults to 1 which correspond to the default Player role.
 
 ### <plugin_name>.load_plugin
 
-Whether to load the plugin on the master server.
-Plugins not loaded on the master server will not be loaded on instances.
+Whether to load the plugin on the controller.
+Plugins not loaded on the controller will not be loaded on instances.
 
 Defaults to true.
 
@@ -167,16 +167,16 @@ One sub-directory will be created in it for each instance assigned to this slave
 Defaults to "instances".
 
 
-### slave.master_url
+### slave.controller_url
 
-URL to connect to the master server to.
+URL to connect to the controller to.
 
 Defaults to "http://localhost:8080/".
 
 
-### slave.master_token
+### slave.controller_token
 
-Access token used for authenticating with the master server.
+Access token used for authenticating with the controller.
 You can generate an access token with `clusterioctl slave generate-token --id <slave-id>`, or use the `clusterioctl slave create-config` to create a new slave config with the correct url and token in it.
 
 Defaults to "enter token here".
@@ -184,8 +184,8 @@ Defaults to "enter token here".
 
 ### slave.tls_ca
 
-Path to certificate in PEM format to use for validating a TLS connection to the master server.
-If you have a self signed certificate on the master server you will need to copy the certificate to your slaves and set it as the certificate authority with this option.
+Path to certificate in PEM format to use for validating a TLS connection to the controller.
+If you have a self signed certificate on the controller you will need to copy the certificate to your slaves and set it as the certificate authority with this option.
 
 Defaults to null meaning use Node.js's default set of trusted certificate authorities.
 
@@ -200,7 +200,7 @@ Defaults to "localhost".
 
 ### slave.max_reconnect_delay
 
-Maximum delay in seconds to wait after connection to the master server is dropped before attempting to reconnect to it.
+Maximum delay in seconds to wait after connection to the controller is dropped before attempting to reconnect to it.
 The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all clients trying to reconnect at the same time.
 
 Defaults to 60.
@@ -383,39 +383,39 @@ Defaults to 5.
 ### <plugin_name>.load_plugin
 
 Whether to load the given plugin on the instance.
-Note that plugins need to be loaded on the master server in order for them to be loaded on instances.
+Note that plugins need to be loaded on the controller in order for them to be loaded on instances.
 
 Defaults to true.
 
 
 ## Control Configuration
 
-### control.master_url
+### control.controller_url
 
-URL to connect to the master server to.
+URL to connect to the controller to.
 
 Defaults to null meaning complain about it not being set and exit.
 
 
-### control.master_token
+### control.controller_token
 
-Access token used for authenticating with the master server.
-You can generate an access token with `clusteriomaster bootstrap generate-user-token <username>`, or use the `clusteriomaster bootstrap create-ctl-config <username>` to create a new ctl config with the correct url and token in it.
+Access token used for authenticating with the controller.
+You can generate an access token with `clusteriocontroller bootstrap generate-user-token <username>`, or use the `clusteriocontroller bootstrap create-ctl-config <username>` to create a new ctl config with the correct url and token in it.
 
 Defaults to null meaning complain about it not being set and exit.
 
 
 ### control.tls_ca
 
-Path to certificate in PEM format to use for validating a TLS connection to the master server.
-If you have a self signed certificate on the master server you will need to copy the certificate to the computer you run clusterctl from and set it as the certificate authority with this option.
+Path to certificate in PEM format to use for validating a TLS connection to the controller.
+If you have a self signed certificate on the controller you will need to copy the certificate to the computer you run clusterctl from and set it as the certificate authority with this option.
 
 Defaults to null meaning use Node.js's default set of trusted certificate authorities.
 
 
 ### control.max_reconnect_delay
 
-Max duration in seconds to wait before attempting to reconnect with the master server after the connection is dropped.
+Max duration in seconds to wait before attempting to reconnect with the controller after the connection is dropped.
 The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all clients trying to reconnect at the same time.
 
 Defaults to 60.

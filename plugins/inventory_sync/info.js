@@ -1,17 +1,17 @@
 "use strict";
 const { libConfig, libLink, libUsers } = require("@clusterio/lib");
 
-class MasterConfigGroup extends libConfig.PluginConfigGroup { }
-MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
-MasterConfigGroup.groupName = "inventory_sync";
-MasterConfigGroup.define({
+class ControllerConfigGroup extends libConfig.PluginConfigGroup { }
+ControllerConfigGroup.defaultAccess = ["controller", "slave", "control"];
+ControllerConfigGroup.groupName = "inventory_sync";
+ControllerConfigGroup.define({
 	name: "autosave_interval",
 	title: "Autosave Interval",
 	description: "Interval the player data is autosaved at in seconds.",
 	type: "number",
 	initial_value: 600, // 10 minutes
 });
-MasterConfigGroup.define({
+ControllerConfigGroup.define({
 	name: "player_lock_timeout",
 	title: "Player Lock Timeout",
 	description:
@@ -19,10 +19,10 @@ MasterConfigGroup.define({
 	type: "number",
 	initial_value: 60,
 });
-MasterConfigGroup.finalize();
+ControllerConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup { }
-InstanceConfigGroup.defaultAccess = ["master", "slave", "control"];
+InstanceConfigGroup.defaultAccess = ["controller", "slave", "control"];
 InstanceConfigGroup.groupName = "inventory_sync";
 InstanceConfigGroup.define({
 	name: "rcon_chunk_size",
@@ -48,8 +48,8 @@ module.exports = {
 	instanceEntrypoint: "instance",
 	InstanceConfigGroup,
 
-	masterEntrypoint: "master",
-	MasterConfigGroup,
+	controllerEntrypoint: "controller",
+	ControllerConfigGroup,
 
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
@@ -57,8 +57,8 @@ module.exports = {
 	messages: {
 		acquire: new libLink.Request({
 			type: "inventory_sync:acquire",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller"],
+			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
 				"player_name": { type: "string" },
@@ -73,8 +73,8 @@ module.exports = {
 		}),
 		release: new libLink.Request({
 			type: "inventory_sync:release",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller"],
+			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
 				"player_name": { type: "string" },
@@ -82,8 +82,8 @@ module.exports = {
 		}),
 		upload: new libLink.Request({
 			type: "inventory_sync:upload",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller"],
+			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
 				"player_name": { type: "string" },
@@ -92,8 +92,8 @@ module.exports = {
 		}),
 		download: new libLink.Request({
 			type: "inventory_sync:download",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-slave", "slave-controller"],
+			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
 				"player_name": { type: "string" },
@@ -104,7 +104,7 @@ module.exports = {
 		}),
 		databaseStats: new libLink.Request({
 			type: "inventory_sync:databaseStats",
-			links: ["control-master"],
+			links: ["control-controller"],
 			permission: "inventory_sync.inventory.view",
 			responseProperties: {
 				"database_size": { type: "integer" },

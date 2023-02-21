@@ -5,35 +5,35 @@ const classes = require("./classes");
 
 
 /**
- * Master config group for {@link module:lib/config.MasterConfig}
+ * Controller config group for {@link module:lib/config.ControllerConfig}
  * @extends module:lib/config.ConfigGroup
  * @memberof module:lib/config
  */
-class MasterGroup extends classes.ConfigGroup { }
-MasterGroup.defaultAccess = ["master", "slave", "control"];
-MasterGroup.groupName = "master";
-MasterGroup.define({
+class ControllerGroup extends classes.ConfigGroup { }
+ControllerGroup.defaultAccess = ["controller", "slave", "control"];
+ControllerGroup.groupName = "controller";
+ControllerGroup.define({
 	name: "name",
 	title: "Name",
 	description: "Name of the cluster.",
 	type: "string",
 	initial_value: "Your Cluster",
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "mods_directory",
 	title: "Mods Directory",
 	description: "Path to directory where mods shared with the cluster are stored.",
 	type: "string",
 	initial_value: "mods",
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "database_directory",
 	title: "Database directory",
 	description: "Directory where item and configuration data is stored.",
 	type: "string",
 	initial_value: "database",
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "http_port",
 	title: "HTTP Port",
 	description: "Port to listen for HTTP connections on, set to null to not listen for HTTP connections.",
@@ -42,7 +42,7 @@ MasterGroup.define({
 	optional: true,
 	initial_value: 8080,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "https_port",
 	title: "HTTPS Port",
 	description: "Port to listen for HTTPS connection on, set to null to not listen for HTTPS connections.",
@@ -50,7 +50,7 @@ MasterGroup.define({
 	type: "number",
 	optional: true,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "bind_address",
 	title: "Bind Address",
 	description: "IP address to bind the HTTP and HTTPS ports on.",
@@ -58,14 +58,14 @@ MasterGroup.define({
 	type: "string",
 	optional: true,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "external_address",
 	title: "External Address",
-	description: "Public facing address the master server is hosted on.",
+	description: "Public facing address the controller is hosted on.",
 	type: "string",
 	optional: true,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "tls_certificate",
 	title: "TLS Certificate",
 	description: "Path to the certificate to use for HTTPS.",
@@ -73,7 +73,7 @@ MasterGroup.define({
 	type: "string",
 	optional: true,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "tls_private_key",
 	title: "TLS Private Key",
 	description: "Path to the private key to use for HTTPS.",
@@ -81,10 +81,10 @@ MasterGroup.define({
 	type: "string",
 	optional: true,
 });
-MasterGroup.define({
-	access: ["master"],
+ControllerGroup.define({
+	access: ["controller"],
 	name: "auth_secret",
-	title: "Master Authentication Secret",
+	title: "Controller Authentication Secret",
 	description:
 		"Secret used to generate and verify authentication tokens.  " +
 		"Should be a long string of random letters and numbers.  " +
@@ -93,42 +93,42 @@ MasterGroup.define({
 	type: "string",
 	optional: true,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "heartbeat_interval",
 	title: "Heartbeat Interval",
 	description: "Interval heartbeats are sent out on WebSocket connections.",
 	type: "number",
 	initial_value: 15,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "session_timeout",
 	title: "Session Timeout",
 	description: "Time in seconds before giving up resuming a dropped WebSocket session.",
 	type: "number",
 	initial_value: 60,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "metrics_timeout",
 	title: "Metrics Timeout",
 	description: "Timeout in seconds for metrics gathering from slaves.",
 	type: "number",
 	initial_value: 8,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "proxy_stream_timeout",
 	title: "Proxy Stream Timeout",
 	description: "Timeout in seconds for proxy streams to start flowing.",
 	type: "number",
 	initial_value: 15,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "default_mod_pack_id",
 	title: "Default Mod Pack",
 	description: "Mod pack used by default for instances.",
 	type: "number",
 	optional: true,
 });
-MasterGroup.define({
+ControllerGroup.define({
 	name: "default_role_id",
 	title: "Default role",
 	description: "ID of role assigned by default to new users.",
@@ -136,15 +136,15 @@ MasterGroup.define({
 	optional: true,
 	initial_value: 1,
 });
-MasterGroup.finalize();
+ControllerGroup.finalize();
 
 /**
- * Master Config class
+ * Controller Config class
  * @extends module:lib/config.Config
  * @memberof module:lib/config
  */
-class MasterConfig extends classes.Config { }
-MasterConfig.registerGroup(MasterGroup);
+class ControllerConfig extends classes.Config { }
+ControllerConfig.registerGroup(ControllerGroup);
 
 
 /**
@@ -153,7 +153,7 @@ MasterConfig.registerGroup(MasterGroup);
  * @memberof module:lib/config
  */
 class SlaveGroup extends classes.ConfigGroup {}
-SlaveGroup.defaultAccess = ["master", "slave", "control"];
+SlaveGroup.defaultAccess = ["controller", "slave", "control"];
 SlaveGroup.groupName = "slave";
 SlaveGroup.define({
 	name: "name",
@@ -183,7 +183,7 @@ SlaveGroup.define({
 SlaveGroup.define({
 	name: "mods_directory_is_shared",
 	title: "Mods Directory is Shared",
-	description: "True if the mods directory is shared with the master server.",
+	description: "True if the mods directory is shared with the controller.",
 	type: "boolean",
 	initial_value: true,
 });
@@ -195,22 +195,22 @@ SlaveGroup.define({
 	initial_value: "instances",
 });
 SlaveGroup.define({
-	name: "master_url",
-	description: "URL to connect to the master server at",
+	name: "controller_url",
+	description: "URL to connect to the controller at",
 	restartRequired: true,
 	type: "string",
 	initial_value: "http://localhost:8080/",
 });
 SlaveGroup.define({
-	name: "master_token",
-	description: "Token to authenticate to master server with.",
+	name: "controller_token",
+	description: "Token to authenticate to controller with.",
 	restartRequired: true,
 	type: "string",
 	initial_value: "enter token here",
 });
 SlaveGroup.define({
 	name: "tls_ca",
-	description: "Path to Certificate Authority to validate TLS connection to master against.",
+	description: "Path to Certificate Authority to validate TLS connection to controller against.",
 	restartRequired: true,
 	type: "string",
 	optional: true,
@@ -245,7 +245,7 @@ SlaveConfig.registerGroup(SlaveGroup);
  * @memberof module:lib/config
  */
 class InstanceGroup extends classes.ConfigGroup { }
-InstanceGroup.defaultAccess = ["master", "slave", "control"];
+InstanceGroup.defaultAccess = ["controller", "slave", "control"];
 InstanceGroup.groupName = "instance";
 InstanceGroup.define({
 	name: "name",
@@ -277,7 +277,7 @@ InstanceGroup.finalize();
  * @memberof module:lib/config
  */
 class FactorioGroup extends classes.ConfigGroup { }
-FactorioGroup.defaultAccess = ["master", "slave", "control"];
+FactorioGroup.defaultAccess = ["controller", "slave", "control"];
 FactorioGroup.groupName = "factorio";
 FactorioGroup.define({
 	name: "version",
@@ -353,7 +353,7 @@ FactorioGroup.define({
 		"require_user_verification", "tags", "visibility",
 	],
 	type: "object",
-	initial_value: {}, // See create instance handler in master.
+	initial_value: {}, // See create instance handler in controller.
 });
 FactorioGroup.define({
 	name: "verbose_logging",
@@ -371,19 +371,19 @@ FactorioGroup.define({
 });
 FactorioGroup.define({
 	name: "sync_adminlist",
-	description: "Synchronize adminlist with master server",
+	description: "Synchronize adminlist with controller",
 	type: "boolean",
 	initial_value: true,
 });
 FactorioGroup.define({
 	name: "sync_whitelist",
-	description: "Synchronize whitelist with master server",
+	description: "Synchronize whitelist with controller",
 	type: "boolean",
 	initial_value: true,
 });
 FactorioGroup.define({
 	name: "sync_banlist",
-	description: "Synchronize banlist with master server",
+	description: "Synchronize banlist with controller",
 	type: "boolean",
 	initial_value: true,
 });
@@ -415,20 +415,20 @@ class ControlGroup extends classes.ConfigGroup {}
 ControlGroup.defaultAccess = ["control"];
 ControlGroup.groupName = "control";
 ControlGroup.define({
-	name: "master_url",
-	description: "URL to connect to the master server at",
+	name: "controller_url",
+	description: "URL to connect to the controller at",
 	type: "string",
 	optional: true,
 });
 ControlGroup.define({
-	name: "master_token",
-	description: "Token to authenticate to master server with.",
+	name: "controller_token",
+	description: "Token to authenticate to controller with.",
 	type: "string",
 	optional: true,
 });
 ControlGroup.define({
 	name: "tls_ca",
-	description: "Path to Certificate Authority to validate TLS connection to master against.",
+	description: "Path to Certificate Authority to validate TLS connection to controller against.",
 	type: "string",
 	optional: true,
 });
@@ -472,16 +472,16 @@ function validateGroup(pluginInfo, groupName) {
  */
 function registerPluginConfigGroups(pluginInfos) {
 	for (let pluginInfo of pluginInfos) {
-		if (pluginInfo.MasterConfigGroup) {
-			validateGroup(pluginInfo, "MasterConfigGroup");
-			MasterConfig.registerGroup(pluginInfo.MasterConfigGroup);
+		if (pluginInfo.ControllerConfigGroup) {
+			validateGroup(pluginInfo, "ControllerConfigGroup");
+			ControllerConfig.registerGroup(pluginInfo.ControllerConfigGroup);
 
 		} else {
-			class MasterConfigGroup extends classes.PluginConfigGroup { }
-			MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
-			MasterConfigGroup.groupName = pluginInfo.name;
-			MasterConfigGroup.finalize();
-			MasterConfig.registerGroup(MasterConfigGroup);
+			class ControllerConfigGroup extends classes.PluginConfigGroup { }
+			ControllerConfigGroup.defaultAccess = ["controller", "slave", "control"];
+			ControllerConfigGroup.groupName = pluginInfo.name;
+			ControllerConfigGroup.finalize();
+			ControllerConfig.registerGroup(ControllerConfigGroup);
 		}
 
 		if (pluginInfo.instanceEntrypoint) {
@@ -491,7 +491,7 @@ function registerPluginConfigGroups(pluginInfos) {
 
 			} else {
 				class InstanceConfigGroup extends classes.PluginConfigGroup { }
-				InstanceConfigGroup.defaultAccess = ["master", "slave", "control"];
+				InstanceConfigGroup.defaultAccess = ["controller", "slave", "control"];
 				InstanceConfigGroup.groupName = pluginInfo.name;
 				InstanceConfigGroup.finalize();
 				InstanceConfig.registerGroup(InstanceConfigGroup);
@@ -506,20 +506,20 @@ function registerPluginConfigGroups(pluginInfos) {
  * @memberof module:lib/config
  */
 function finalizeConfigs() {
-	MasterConfig.finalize();
+	ControllerConfig.finalize();
 	SlaveConfig.finalize();
 	InstanceConfig.finalize();
 	ControlConfig.finalize();
 }
 
 module.exports = {
-	MasterGroup,
+	ControllerGroup,
 	SlaveGroup,
 	InstanceGroup,
 	FactorioGroup,
 	ControlGroup,
 
-	MasterConfig,
+	ControllerConfig,
 	SlaveConfig,
 	InstanceConfig,
 	ControlConfig,

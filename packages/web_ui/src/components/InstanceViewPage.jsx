@@ -78,7 +78,7 @@ export default function InstanceViewPage(props) {
 			<Alert
 				message={instance["status"] === "deleted" ? "Instance has been deleted" : "Instance not found" }
 				showIcon
-				description={<>Instance with id {instanceId} was not found on the master server.</>}
+				description={<>Instance with id {instanceId} was not found on the controller.</>}
 				type="warning"
 				action={
 					<Button

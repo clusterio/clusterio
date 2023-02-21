@@ -49,15 +49,15 @@ async function deleteSave(instanceId, save) {
 }
 
 describe("Integration of Clusterio", function() {
-	describe("clusteriomaster", function() {
+	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
 			it("work for existing user", async function() {
-				await exec("node ../../packages/master bootstrap generate-user-token test");
+				await exec("node ../../packages/controller bootstrap generate-user-token test");
 			});
 
 			it("fails if user does not exist", async function() {
 				await assert.rejects(
-					exec("node ../../packages/master bootstrap generate-user-token invalid")
+					exec("node ../../packages/controller bootstrap generate-user-token invalid")
 				);
 			});
 		});
@@ -91,7 +91,7 @@ describe("Integration of Clusterio", function() {
 			it("should honnor the limit", async function() {
 				let result = await libLink.messages.queryLog.send(getControl(), {
 					all: true,
-					master: false,
+					controller: false,
 					slave_ids: [],
 					instance_ids: [],
 					max_level: null,
@@ -103,7 +103,7 @@ describe("Integration of Clusterio", function() {
 			it("should return entries by order", async function() {
 				let first = await libLink.messages.queryLog.send(getControl(), {
 					all: true,
-					master: false,
+					controller: false,
 					slave_ids: [],
 					instance_ids: [],
 					max_level: null,
@@ -112,7 +112,7 @@ describe("Integration of Clusterio", function() {
 				});
 				let last = await libLink.messages.queryLog.send(getControl(), {
 					all: true,
-					master: false,
+					controller: false,
 					slave_ids: [],
 					instance_ids: [],
 					max_level: null,
@@ -191,45 +191,45 @@ describe("Integration of Clusterio", function() {
 	});
 
 	describe("clusterioctl", function() {
-		describe("master config list", function() {
+		describe("controller config list", function() {
 			it("runs", async function() {
-				await execCtl("master config list");
+				await execCtl("controller config list");
 			});
 			it("should not leak auth_secret", async function() {
-				let result = await libLink.messages.getMasterConfig.send(getControl());
+				let result = await libLink.messages.getControllerConfig.send(getControl());
 				let done = false;
 				for (let group of result.serialized_config.groups) {
-					if (group.name === "master") {
+					if (group.name === "controller") {
 						assert.equal(Object.prototype.hasOwnProperty.call(group.fields, "auth_secret"), false);
 						done = true;
 						break;
 					}
 				}
-				assert(done, "master group not found");
+				assert(done, "controller group not found");
 			});
 		});
-		describe("master config set", function() {
+		describe("controller config set", function() {
 			it("sets given config option", async function() {
-				await execCtl('master config set master.name "Test Cluster"');
-				let result = await libLink.messages.getMasterConfig.send(getControl());
+				await execCtl('controller config set controller.name "Test Cluster"');
+				let result = await libLink.messages.getControllerConfig.send(getControl());
 				let done = false;
 				for (let group of result.serialized_config.groups) {
-					if (group.name === "master") {
+					if (group.name === "controller") {
 						assert.equal(group.fields.name, "Test Cluster");
 						done = true;
 						break;
 					}
 				}
-				assert(done, "master group not found");
+				assert(done, "controller group not found");
 			});
 			it("should not allow setting auth_secret", async function() {
-				await assert.rejects(execCtl("master config set master.auth_secret root"));
+				await assert.rejects(execCtl("controller config set controller.auth_secret root"));
 			});
 		});
 
-		describe("master plugin list", function() {
+		describe("controller plugin list", function() {
 			it("runs", async function() {
-				await execCtl("master plugin list");
+				await execCtl("controller plugin list");
 			});
 		});
 
@@ -369,7 +369,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance send-rcon test technobabble");
 				let { log } = await libLink.messages.queryLog.send(getControl(), {
 					all: false,
-					master: false,
+					controller: false,
 					slave_ids: [],
 					instance_ids: [44],
 					max_level: null,
@@ -807,7 +807,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance delete test");
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance files was not deleted");
 				let instances = await getInstances();
-				assert(!instances.has(44), "instance was not deleted from master");
+				assert(!instances.has(44), "instance was not deleted from controller");
 			});
 		});
 

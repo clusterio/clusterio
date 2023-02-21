@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 	},
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
-			name: "master",
+			name: "controller",
 			shared: {
 				"@clusterio/lib": { singleton: true },
 				"@clusterio/web_ui": { singleton: true },

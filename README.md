@@ -33,7 +33,7 @@ If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
   * [Windows setup](#windows-setup)
   * [MacOS setup](#macos-setup)
   * [Installing Plugins](#installing-plugins)
-* [Configure Master Server](#configure-master-server)
+* [Configure Controller](#configure-controller)
 * [Managing Factorio mods](#managing-factorio-mods)
 * [Setting up shared storage](#setting-up-shared-storage)
 * [Running Clusterio](#running-clusterio)
@@ -71,7 +71,7 @@ These are the plugins supported and maintained by the Clusterio developers:
 
 - [Global Chat](/plugins/global_chat/README.md): share the in-game chat between servers.
 - [Research Sync](/plugins/research_sync/README.md): synchronize research progress and technologies unlocked between servers.
-- [Statistics Exporter](/plugins/statistics_exporter/README.md): collect in-game statistics from all the servers and makes it available to the Prometheus endpoint on the master server.
+- [Statistics Exporter](/plugins/statistics_exporter/README.md): collect in-game statistics from all the servers and makes it available to the Prometheus endpoint on the controller.
 - [Subspace Storage](https://github.com/clusterio/subspace_storage): Provide shared storage that can transport items between servers via teleport chests.
 - [Player Auth](/plugins/player_auth/README.md): Provides authentication to the cluster via logging into a Factorio server.
 - [Inventory Sync](/plugins/inventory_sync/README.md): Synchronizes your inventory between servers.
@@ -126,7 +126,7 @@ Clusterio has *very* limited support for using docker.
 
     sudo docker build -t clusterio --no-cache --force-rm clusterio
 
-	sudo docker run --name master -e MODE=master -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
+	sudo docker run --name controller -e MODE=controller -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
 
 	sudo docker run --name slave -e MODE=slave -e INSTANCE=world1 -v /srv/clusterio/instances:/clusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
@@ -173,37 +173,37 @@ First install the package the plugin is provided by via npm, for example
 
 Then tell clusterio that this plugin exists by adding it as a plugin.
 
-    npx clusteriomaster plugin add @clusterio/plugin-subspace_storage
+    npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
 
-This adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by master, slave and ctl.
+This adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by controller, slave and ctl.
 If you have slaves or ctl installed on separate computers (or directories) then you need to repeat the plugin install process for all of them.
-The clusteriomaster, clusterioslave and clusterioctl commands has the plugin sub-command so you do not need to install clusteriomaster to add plugins, instead use the clusterio command you have available.
+The clusteriocontroller, clusterioslave and clusterioctl commands has the plugin sub-command so you do not need to install clusteriocontroller to add plugins, instead use the clusterio command you have available.
 
 For development purposes the `plugin add` command supports adding plugins by the absolute path to them, or a relative path that must start with either . or .. (which will then be resolved to an absolute path).
 
 
-## Configure Master Server
+## Configure Controller
 
-By default the master server will listen for HTTP on port 8080.
+By default the controller will listen for HTTP on port 8080.
 You can change the port used with the command
 
-    npx clusteriomaster config set master.http_port 1234
+    npx clusteriocontroller config set controller.http_port 1234
 
 When changing the port you will also need to change the address slaves connect with.
 For the standalone installation mode you can use
 
-    npx clusterioslave config set slave.master_url http://localhost:1234/
+    npx clusterioslave config set slave.controller_url http://localhost:1234/
 
 If you plan to make your cluster available externally set the address
 that it will be accessible under with, for example
 
-    npx clusteriomaster config set master.external_address http://203.0.113.4:1234/
+    npx clusteriocontroller config set controller.external_address http://203.0.113.4:1234/
 
-Change the url to reflect the IP, protocol, and port the master server is accessible under, dns names are also supported.
-If you're planning on making the master server accessible on the internet it's recommended to set up TLS, see the [Setting Up TLS](/docs/setting-up-tls.md) document for more details.
+Change the url to reflect the IP, protocol, and port the controller is accessible under, dns names are also supported.
+If you're planning on making the controller accessible on the internet it's recommended to set up TLS, see the [Setting Up TLS](/docs/setting-up-tls.md) document for more details.
 
-You can list the config of the master server with the `npx clusteriomaster config list` command.
-See the [readme for @clusterio/master](/packages/master/README.md) for more information.
+You can list the config of the controller with the `npx clusteriocontroller config list` command.
+See the [readme for @clusterio/controller](/packages/controller/README.md) for more information.
 
 
 ## Managing Factorio mods
@@ -218,7 +218,7 @@ Better remote management of mods is a planned feature.
 
 ## Setting up shared storage
 
-The chests teleporting items to and from the shared storage on the master server has been moved into the Subspace Storage mod and plugin.
+The chests teleporting items to and from the shared storage on the controller has been moved into the Subspace Storage mod and plugin.
 To get this to work you will need to install the Subspace Storage plugin and copy the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) and the [Clusterio Lib mod](https://mods.factorio.com/mod/clusterio_lib) into the `sharedMods` folder on each slave installation.
 
 Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), this was for the old 1.2.x version of Clusterio and is not compatible with Clusterio 2.0.
@@ -226,43 +226,43 @@ Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), thi
 
 ## Running Clusterio
 
-After completing the installation start up the master server and at least one slave separately.
-The installer provides the `run-master` and `run-slave` scripts to make this simple.
-Once the master process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
+After completing the installation start up the controller and at least one slave separately.
+The installer provides the `run-controller` and `run-slave` scripts to make this simple.
+Once the controller process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
 
 The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a slave and then click start.
 
 ### Running via Systemd
 
-The install script creates systemd service scripts for clusteriomaster and clusterioslave (if applicable) to start up as the user than ran the installer.
+The install script creates systemd service scripts for clusteriocontroller and clusterioslave (if applicable) to start up as the user than ran the installer.
 If you have copied these files over to `/etc/systemd/system/` then you can startup Clusterio as a background service using:
     
 #### To start as a service run:
  
-    sudo systemctl start clusteriomaster # for the master server
+    sudo systemctl start clusteriocontroller # for the controller
     sudo systemctl start clusterioslave # for each server hosting a slave
 
 #### To automatically get it to start on boot:
  
-    sudo systemctl enable clusteriomaster # for the master server
+    sudo systemctl enable clusteriocontroller # for the controller
     sudo systemctl enable clusterioslave # for each server hosting a slave
 
 
 ## Setting up remote slaves
 
-Run the installer as described in the installation section and choose "Slave only" as the operating mode to install, it'll ask for a master URL and an authentication token.
+Run the installer as described in the installation section and choose "Slave only" as the operating mode to install, it'll ask for a controller URL and an authentication token.
 The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Slaves page in the web interface.
 Once you start up the slave it should show up in the Slaves list and be available for assigning and running instances on.
 
 
 ## Setting up clusterioctl
 
-There's a command line interface available for Clusterio which is installed separately with the same installer as for the master and slave.
+There's a command line interface available for Clusterio which is installed separately with the same installer as for the controller and slave.
 Run the installer as described in the installation section and choose "Ctl only" as the operating mode to install, you can do this in the same directory as you have installed other Clusterio component(s) to.
-The installer will ask for a master URL and an authentication token, these are the same as you would use to connect to the web interface.
+The installer will ask for a controller URL and an authentication token, these are the same as you would use to connect to the web interface.
 If you want to use a different user for the command line interface, you can generate an authentication token for an existing user with
 
-    npx clusteriomaster bootstrap generate-user-token <username>
+    npx clusteriocontroller bootstrap generate-user-token <username>
 
 
 ## Common problems
@@ -276,7 +276,7 @@ According to [this link](https://askubuntu.com/questions/839520/open-port-443-fo
 
     sudo setcap 'cap_net_bind_service=+ep' $(readlink -f $(which node))
 
-### Port forwarding doesn't work on the master server when running under WSL
+### Port forwarding doesn't work on the controller when running under WSL
 
 If you follow the ubuntu guide on WSL (Windows Subsystem for Linux, Bash on Ubuntu on Windows specifically), you will find that the website works on localhost and on your local ip, but not on the global ip.
 This is also true when you correctly port-forwarded the correct ports.

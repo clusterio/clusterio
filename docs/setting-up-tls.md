@@ -1,7 +1,7 @@
 # Setting up TLS
 
 By default Clusterio will listen for connections over HTTP which is fine for local networks but over the Internet it should idealy be over HTTPS as there are some credentials that could be exposed to eavesdroppers.
-The recommended setup is to have an ordinary HTTPS server software like Apache or Nginx to act as a reverse proxy in front of the Clusterio master server.
+The recommended setup is to have an ordinary HTTPS server software like Apache or Nginx to act as a reverse proxy in front of the Clusterio controller.
 The reverse proxy would then be set up with a TLS certificate from a Certificate Authoritiy like [Let's Encrypt](https://letsencrypt.org).
 Alternatively you can have Clusterio listen for connections over HTTPS directly by providing it with a TLS certificate and private key.
 
@@ -11,17 +11,17 @@ See the last section for how to create and use a self-signed certificate for an 
 
 ## Using a reverse proxy
 
-Configure the proxy to forward requests over HTTP to the port the master server is listening to so that for example a request to `https://example.com/instances/` is forwarded to `http://localhost:8080/instances/`.
-It is possible to host the interface under a sub-path, in that case a request under the sub-path should be mapped to the master server with the sub-path stripped out.
+Configure the proxy to forward requests over HTTP to the port the controller is listening to so that for example a request to `https://example.com/instances/` is forwarded to `http://localhost:8080/instances/`.
+It is possible to host the interface under a sub-path, in that case a request under the sub-path should be mapped to the controller with the sub-path stripped out.
 For example `https://example.com/sub/path/instances/` would be mapped to `http://localhost:8080/instances`.
 
 Additianlly WebSocket connections to `/api/socket` also needs to be forwarded.
 Typically this requires explicit configuration and support for forwarding WebSocket connections.
 If the interface hosted under a sub-path the `/api/socket` address is relative to the sub-path and the sub-path also needs to be stripped out when forwarded.
 
-You can also optionally set the master server to listen only on the loopback interface to prevent it being directly connected to from the outside.
+You can also optionally set the controller to listen only on the loopback interface to prevent it being directly connected to from the outside.
 
-    npx clusteriomaster config set master.bind_address 127.0.0.1
+    npx clusteriocontroller config set controller.bind_address 127.0.0.1
 
 
 ### Apache Config
@@ -44,7 +44,7 @@ Pay attention to the use of trailing slashes, as they are important.
 
 ## Hosting HTTPS directly from Node.js
 
-Listening on HTTPS is supported by the Clusterio master server via the `master.https_port` option provided paths to a certificate file and a private key file is configured for the `master.tls_certificate` and `master.tls_private_key` options.
+Listening on HTTPS is supported by the Clusterio controller via the `controller.https_port` option provided paths to a certificate file and a private key file is configured for the `controller.tls_certificate` and `controller.tls_private_key` options.
 Both of these are expected to be unencrypted PEM files.
 
 
@@ -58,10 +58,10 @@ substituting `<ip>` with the IP address the server will be accessed under, for e
 Multiple addresses can be given by supplying a comma sepparated list of `IP:address` pairs and DNS names can also be specified using the `DNS:example.com` format.
 You need to supply every name you want to connect to the server under the subjectAltName field, for example to connect to the HTTPS port locally via an address like `https://localhost:4443/` you need to add `DNS:localhost`.
 
-This creates a private key file named `key.pem` and a public certificate file named `cert.pem` and these are used for the `master.tls_certificate` and `master.tls_private_key` config options respectively on the master server:
+This creates a private key file named `key.pem` and a public certificate file named `cert.pem` and these are used for the `controller.tls_certificate` and `controller.tls_private_key` config options respectively on the controller:
 
-    npx clusteriomaster config set master.tls_certificate cert.pem
-    npx clusteriomaster config set master.tls_private_key key.pem
+    npx clusteriocontroller config set controller.tls_certificate cert.pem
+    npx clusteriocontroller config set controller.tls_private_key key.pem
 
 Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as slaves and configure it as the `slave.tls_ca` option:
 

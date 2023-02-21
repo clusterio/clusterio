@@ -6,35 +6,35 @@ const libPlugin = require("@clusterio/lib/plugin");
 
 
 /**
- * Base class for master server connections
+ * Base class for controller connections
  *
  * @extends module:lib/link.Link
- * @alias module:master/src/BaseConnection
+ * @alias module:controller/src/BaseConnection
  */
 class BaseConnection extends libLink.Link {
-	constructor(target, connector, master) {
-		/** @member {module:master/src/WsServerConnector} module:master/src/BaseConnection#connector */
-		super("master", target, connector);
-		this._master = master;
+	constructor(target, connector, controller) {
+		/** @member {module:controller/src/WsServerConnector} module:controller/src/BaseConnection#connector */
+		super("controller", target, connector);
+		this._controller = controller;
 		this._disconnecting = false;
 		libLink.attachAllMessages(this);
-		for (let masterPlugin of this._master.plugins.values()) {
-			libPlugin.attachPluginMessages(this, masterPlugin);
+		for (let controllerPlugin of this._controller.plugins.values()) {
+			libPlugin.attachPluginMessages(this, controllerPlugin);
 		}
 	}
 
 	async forwardRequestToInstance(message, request) {
-		return await this._master.forwardRequestToInstance(request, message.data);
+		return await this._controller.forwardRequestToInstance(request, message.data);
 	}
 
 	async forwardEventToInstance(message, event) {
-		let instance = this._master.instances.get(message.data.instance_id);
+		let instance = this._controller.instances.get(message.data.instance_id);
 		if (!instance) { return; }
 
 		let slaveId = instance.config.get("instance.assigned_slave");
 		if (slaveId === null) { return; }
 
-		let connection = this._master.wsServer.slaveConnections.get(slaveId);
+		let connection = this._controller.wsServer.slaveConnections.get(slaveId);
 		if (!connection || connection.closing) { return; }
 		if (event.plugin && !connection.plugins.has(event.plugin)) { return; }
 
@@ -42,7 +42,7 @@ class BaseConnection extends libLink.Link {
 	}
 
 	async broadcastEventToSlaves(message, event) {
-		for (let slaveConnection of this._master.wsServer.slaveConnections.values()) {
+		for (let slaveConnection of this._controller.wsServer.slaveConnections.values()) {
 			// Do not broadcast back to the source
 			if (slaveConnection === this) { continue; }
 			if (slaveConnection.connector.closing) { continue; }
@@ -57,7 +57,7 @@ class BaseConnection extends libLink.Link {
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
-		await libPlugin.invokeHook(this._master.plugins, "onPrepareSlaveDisconnect", this);
+		await libPlugin.invokeHook(this._controller.plugins, "onPrepareSlaveDisconnect", this);
 		this._disconnecting = true;
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);
@@ -87,7 +87,7 @@ class BaseConnection extends libLink.Link {
 
 	async getModPackRequestHandler(message) {
 		let { id } = message.data;
-		let modPack = this._master.modPacks.get(id);
+		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
@@ -95,11 +95,11 @@ class BaseConnection extends libLink.Link {
 	}
 
 	async getDefaultModPackRequestHandler(message) {
-		let id = this._master.config.get("master.default_mod_pack_id");
+		let id = this._controller.config.get("controller.default_mod_pack_id");
 		if (id === null) {
-			throw new libErrors.RequestError("Default mod pack not set on master");
+			throw new libErrors.RequestError("Default mod pack not set on controller");
 		}
-		let modPack = this._master.modPacks.get(id);
+		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new libErrors.RequestError(`Default mod pack configured (${id}) does not exist`);
 		}

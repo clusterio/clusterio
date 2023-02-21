@@ -108,8 +108,8 @@ describe("lib/logging_utils.js", function() {
 						info => ["fatal"].includes(info.level)
 					));
 				});
-				it("should filter by master", async function() {
-					let log = await libLoggingUtils.queryLog(logDir, { master: true }, index());
+				it("should filter by controller", async function() {
+					let log = await libLoggingUtils.queryLog(logDir, { controller: true }, index());
 					assert.deepEqual(log, allLines.filter(
 						info => info.slave_id === undefined && info.instance_id === undefined
 					));

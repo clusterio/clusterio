@@ -18,7 +18,7 @@ class InstanceConnection extends libLink.Link {
 		}
 	}
 
-	async forwardRequestToMaster(message, request) {
+	async forwardRequestToController(message, request) {
 		return await request.send(this.slave, message.data);
 	}
 
@@ -27,7 +27,7 @@ class InstanceConnection extends libLink.Link {
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
 			// Instance is probably on another slave
-			return await this.forwardRequestToMaster(message, request);
+			return await this.forwardRequestToController(message, request);
 		}
 
 		if (request.plugin && !instanceConnection.plugins.has(request.plugin)) {
@@ -43,7 +43,7 @@ class InstanceConnection extends libLink.Link {
 		let instanceConnection = this.slave.instanceConnections.get(instanceId);
 		if (!instanceConnection) {
 			// Instance is probably on another slave
-			await this.forwardEventToMaster(message, event);
+			await this.forwardEventToController(message, event);
 			return;
 		}
 		if (event.plugin && !instanceConnection.plugins.has(event.plugin)) { return; }
@@ -51,7 +51,7 @@ class InstanceConnection extends libLink.Link {
 		event.send(instanceConnection, message.data);
 	}
 
-	async forwardEventToMaster(message, event) {
+	async forwardEventToController(message, event) {
 		if (!this.slave.connector.hasSession) {
 			return;
 		}
@@ -78,7 +78,7 @@ class InstanceConnection extends libLink.Link {
 		if (this.status === "stopped") {
 			this.slave.instanceConnections.delete(this.instanceId);
 		}
-		this.forwardEventToMaster(message, event);
+		this.forwardEventToController(message, event);
 	}
 }
 

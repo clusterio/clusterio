@@ -7,18 +7,18 @@ const http = require("http");
 const phin = require("phin");
 
 const { wait } = require("@clusterio/lib/helpers");
-const routes = require("@clusterio/master/src/routes");
+const routes = require("@clusterio/controller/src/routes");
 const mock = require("../mock");
 
 
-describe("master/src/routes", function() {
-	let master;
+describe("controller/src/routes", function() {
+	let controller;
 	let server;
 	let port;
 	beforeEach(async function() {
-		master = new mock.MockMaster();
-		routes.addRouteHandlers(master.app);
-		server = http.createServer(master.app);
+		controller = new mock.MockController();
+		routes.addRouteHandlers(controller.app);
+		server = http.createServer(controller.app);
 		server.listen(0, "localhost");
 		await events.once(server, "listening");
 		port = server.address().port;
@@ -38,14 +38,14 @@ describe("master/src/routes", function() {
 			assert.equal(response.statusCode, 404);
 		});
 		it("should respond with 500 if stream times out", async function() {
-			let stream = await routes.createProxyStream(master.app);
+			let stream = await routes.createProxyStream(controller.app);
 			let response = await phin(`http://localhost:${port}/api/stream/${stream.id}`);
 			assert.equal(response.statusCode, 500);
 		});
 		it("should passthrough a stream", async function() {
 			let stream;
 			let responses;
-			stream = await routes.createProxyStream(master.app);
+			stream = await routes.createProxyStream(controller.app);
 			responses = await Promise.all([
 				(async function() {
 					await wait(100);
@@ -59,7 +59,7 @@ describe("master/src/routes", function() {
 			assert.equal(responses[0].statusCode, 200);
 			assert.equal(responses[1].statusCode, 200);
 			assert.equal(responses[1].body.toString(), "test content");
-			stream = await routes.createProxyStream(master.app);
+			stream = await routes.createProxyStream(controller.app);
 			responses = await Promise.all([
 				phin({
 					url: `http://localhost:${port}/api/stream/${stream.id}`, method: "PUT",
@@ -104,7 +104,7 @@ describe("master/src/routes", function() {
 				data: "totally a zip file",
 			});
 			assert.equal(response.statusCode, 401);
-			master.userManager.users.get("test").tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
+			controller.userManager.users.get("test").tokenValidAfter = Math.floor((Date.now() + 60e3) / 1000);
 			response = await phin({
 				url: `http://localhost:${port}/api/upload-save?instance_id=123&filename=file.zip`, method: "POST",
 				headers: {
@@ -266,7 +266,7 @@ describe("master/src/routes", function() {
 		});
 
 		it("should respond with 500 if the transfer failed", async function() {
-			master.forwardRequestToInstance = async (data, request) => {
+			controller.forwardRequestToInstance = async (data, request) => {
 				throw new Error("Something went wrong");
 			};
 			let response;
@@ -294,7 +294,7 @@ describe("master/src/routes", function() {
 			});
 			assert.equal(response.statusCode, 500);
 			assert.deepEqual(JSON.parse(response.body), { errors: ["Something went wrong"], request_errors: [] });
-			master.forwardRequestToInstance = async (data, request) => {
+			controller.forwardRequestToInstance = async (data, request) => {
 				await new Promise(() => {});
 			};
 			response = await phin({
@@ -312,7 +312,7 @@ describe("master/src/routes", function() {
 		});
 
 		it("should complete a valid transfer", async function() {
-			master.forwardRequestToInstance = async (request, data) => {
+			controller.forwardRequestToInstance = async (request, data) => {
 				let stream = await phin({
 					url: `http://localhost:${port}/api/stream/${data.stream_id}`,
 				});
@@ -332,7 +332,7 @@ describe("master/src/routes", function() {
 			assert.equal(response.statusCode, 200);
 		});
 		it("should complete a valid transfer with non-standerd mime type", async function() {
-			master.forwardRequestToInstance = async (request, data) => {
+			controller.forwardRequestToInstance = async (request, data) => {
 				let stream = await phin({
 					url: `http://localhost:${port}/api/stream/${data.stream_id}`,
 				});

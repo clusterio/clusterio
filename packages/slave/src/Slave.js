@@ -83,14 +83,14 @@ async function discoverInstances(instancesDir) {
 /**
  * Handles running the slave
  *
- * Connects to the master server over the WebSocket and manages intsances.
+ * Connects to the controller over the WebSocket and manages intsances.
  * @alias module:slave/src/Slave
  */
 class Slave extends libLink.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
 	constructor(connector, slaveConfig, tlsCa, pluginInfos) {
-		super("slave", "master", connector);
+		super("slave", "controller", connector);
 		libLink.attachAllMessages(this);
 
 		this.pluginInfos = pluginInfos;
@@ -101,7 +101,7 @@ class Slave extends libLink.Link {
 		this.config = slaveConfig;
 
 		/**
-		 * Certificate authority used to validate TLS connections to the master.
+		 * Certificate authority used to validate TLS connections to the controller.
 		 * @type {?string}
 		 */
 		this.tlsCa = tlsCa;
@@ -146,12 +146,12 @@ class Slave extends libLink.Link {
 			if (this._disconnecting) {
 				this._disconnecting = false;
 				this.connector.connect().catch((err) => {
-					logger.fatal(`Unexpected error reconnecting to master:\n${err.stack}`);
+					logger.fatal(`Unexpected error reconnecting to controller:\n${err.stack}`);
 					return this.shutdown();
 				});
 
 			} else {
-				logger.fatal("Master connection was unexpectedly closed");
+				logger.fatal("Controller connection was unexpectedly closed");
 				this.shutdown();
 			}
 		});
@@ -159,7 +159,7 @@ class Slave extends libLink.Link {
 		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
 				for (let instanceConnection of this.instanceConnections.values()) {
-					libLink.messages.masterConnectionEvent.send(instanceConnection, { event });
+					libLink.messages.controllerConnectionEvent.send(instanceConnection, { event });
 				}
 			});
 		}
@@ -306,17 +306,17 @@ class Slave extends libLink.Link {
 		let { instance_id, serialized_config } = message.data;
 		let instanceInfo = this.instanceInfos.get(instance_id);
 		if (instanceInfo) {
-			instanceInfo.config.update(serialized_config, true, "master");
+			instanceInfo.config.update(serialized_config, true, "controller");
 			logger.verbose(`Updated config for ${instanceInfo.path}`, this.instanceLogMeta(instance_id, instanceInfo));
 
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instance_id);
 			if (instanceInfo) {
-				instanceInfo.config.update(serialized_config, true, "master");
+				instanceInfo.config.update(serialized_config, true, "controller");
 
 			} else {
 				let instanceConfig = new libConfig.InstanceConfig("slave");
-				await instanceConfig.load(serialized_config, "master");
+				await instanceConfig.load(serialized_config, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
@@ -335,7 +335,7 @@ class Slave extends libLink.Link {
 		}
 
 		// Somewhat hacky, but in the event of a lost session the status is
-		// resent on assigment since the master server sends an assigment
+		// resent on assigment since the controller sends an assigment
 		// request for all the instances it knows should be on this slave.
 		let instanceConnection = this.instanceConnections.get(instance_id);
 		libLink.messages.instanceStatusChanged.send(this, {
@@ -345,7 +345,7 @@ class Slave extends libLink.Link {
 
 		// save a copy of the instance config
 		let warnedOutput = {
-			_warning: "Changes to this file will be overwritten by the master server's copy.",
+			_warning: "Changes to this file will be overwritten by the controller's copy.",
 			...instanceInfo.config.serialize(),
 		};
 		await libFileOps.safeOutputFile(
@@ -601,7 +601,7 @@ class Slave extends libLink.Link {
 		checkRequestSaveName(filename);
 		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
-		let url = new URL(this.config.get("slave.master_url"));
+		let url = new URL(this.config.get("slave.controller_url"));
 		url.pathname += `api/stream/${stream_id}`;
 		let response = await phin({
 			url, method: "GET",
@@ -656,13 +656,15 @@ class Slave extends libLink.Link {
 			throw err;
 		}
 
-		let url = new URL(this.config.get("slave.master_url"));
+		let url = new URL(this.config.get("slave.controller_url"));
 		url.pathname += `api/stream/${stream_id}`;
 		phin({
 			url, method: "PUT",
 			core: { ca: this.tlsCa },
 			data: content,
-		}).catch(err => logger.error(`Error pushing save to master:\n${err.stack}`, this.instanceLogMeta(instance_id)));
+		}).catch(err => {
+			logger.error(`Error pushing save to controller:\n${err.stack}`, this.instanceLogMeta(instance_id));
+		});
 	}
 
 	async exportDataRequestHandler(message, request) {
@@ -704,7 +706,7 @@ class Slave extends libLink.Link {
 	 * Discover available instances
 	 *
 	 * Looks through the instances directory for instances and updates
-	 * the slave and master server with the new list of instances.
+	 * the slave and controller with the new list of instances.
 	 */
 	async updateInstances() {
 		this.discoveredInstanceInfos = await discoverInstances(this.config.get("slave.instances_directory"));
@@ -712,7 +714,7 @@ class Slave extends libLink.Link {
 		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push({
-				serialized_config: instanceInfo.config.serialize("master"),
+				serialized_config: instanceInfo.config.serialize("controller"),
 				status: instanceConnection ? instanceConnection.status : "stopped",
 			});
 		}
@@ -743,7 +745,7 @@ class Slave extends libLink.Link {
 
 	async prepareDisconnectRequestHandler(message, request) {
 		for (let instanceConnection of this.instanceConnections.values()) {
-			await libLink.messages.prepareMasterDisconnect.send(instanceConnection);
+			await libLink.messages.prepareControllerDisconnect.send(instanceConnection);
 		}
 		this._disconnecting = true;
 		this.connector.setClosing();
@@ -790,7 +792,7 @@ ${err.stack}`
 	}
 
 	/**
-	 * True if the connection to the master is connected, not in the dropped
+	 * True if the connection to the controller is connected, not in the dropped
 	 * state,and not in the process of disconnecting.
 	 * @type {boolean}
 	 */

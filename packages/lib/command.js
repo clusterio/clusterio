@@ -140,7 +140,7 @@ class CommandTree {
  * Resolves a string with either an slave name or an id into an integer with
  * the slave ID.
  *
- * @param {module:lib/link.Link} client - link to master server to query slave on.
+ * @param {module:lib/link.Link} client - link to controller to query slave on.
  * @param {string} slaveName - string with name or id of slave.
  * @returns {Promise<number>} slave ID.
  * @static
@@ -172,7 +172,7 @@ async function resolveSlave(client, slaveName) {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param {module:lib/link.Link} client - link to master server to query instance on.
+ * @param {module:lib/link.Link} client - link to controller to query instance on.
  * @param {string} instanceName - string with name or id of instance.
  * @returns {Promise<number>} instance ID.
  * @static
@@ -205,7 +205,7 @@ async function resolveInstance(client, instanceName) {
  * with the mod pack ID.
  *
  * @param {module:lib/link.Link} client -
- *     link to master server to query mod pack on.
+ *     link to controller to query mod pack on.
  * @param {string} modPackName - string with name or id of mod pack.
  * @returns {Promise<number>} mod pack ID.
  * @static
@@ -237,7 +237,7 @@ async function resolveModPack(client, modPackName) {
  * Resolves a string with either a role name or an id into an object
  * representing the role.
  *
- * @param {module:lib/link.Link} client - link to master server to query role on.
+ * @param {module:lib/link.Link} client - link to controller to query role on.
  * @param {string} roleName - string with name or id of role.
  * @returns {Promise<object>} Role info.
  * @static

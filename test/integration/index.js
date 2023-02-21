@@ -24,7 +24,7 @@ require("../../plugins/subspace_storage/info");
 
 class TestControl extends libLink.Link {
 	constructor(connector) {
-		super("control", "master", connector);
+		super("control", "controller", connector);
 		libLink.attachAllMessages(this);
 		this.slaveUpdates = [];
 		this.instanceUpdates = [];
@@ -117,7 +117,7 @@ async function get(urlPath) {
 	return res;
 }
 
-let masterProcess;
+let controllerProcess;
 let slaveProcess;
 let control;
 
@@ -126,7 +126,7 @@ let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecr
 let instancesDir = path.join("temp", "test", "instances");
 let databaseDir = path.join("temp", "test", "database");
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
-let masterConfigPath = path.join("temp", "test", "config-master.json");
+let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 let slaveConfigPath = path.join("temp", "test", "config-slave.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
@@ -184,19 +184,19 @@ before(async function() {
 	await fs.remove(instancesDir);
 
 	await fs.remove(pluginListPath);
-	await fs.remove(masterConfigPath);
+	await fs.remove(controllerConfigPath);
 	await fs.remove(slaveConfigPath);
 	await fs.remove(controlConfigPath);
 
 	await fs.ensureDir(path.join("temp", "test"));
 
-	await exec("node ../../packages/master config set master.auth_secret TestSecretDoNotUse");
-	await exec("node ../../packages/master config set master.http_port 8880");
-	await exec("node ../../packages/master config set master.https_port 4443");
-	await exec("node ../../packages/master config set master.heartbeat_interval 0.25");
-	await exec("node ../../packages/master config set master.session_timeout 2");
-	await exec("node ../../packages/master config set master.tls_certificate ../../test/file/tls/cert.pem");
-	await exec("node ../../packages/master config set master.tls_private_key ../../test/file/tls/key.pem");
+	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
+	await exec("node ../../packages/controller config set controller.http_port 8880");
+	await exec("node ../../packages/controller config set controller.https_port 4443");
+	await exec("node ../../packages/controller config set controller.heartbeat_interval 0.25");
+	await exec("node ../../packages/controller config set controller.session_timeout 2");
+	await exec("node ../../packages/controller config set controller.tls_certificate ../../test/file/tls/cert.pem");
+	await exec("node ../../packages/controller config set controller.tls_private_key ../../test/file/tls/key.pem");
 
 	await exec("node ../../packages/ctl plugin add ../../plugins/global_chat");
 	await exec("node ../../packages/ctl plugin add ../../plugins/research_sync");
@@ -204,11 +204,11 @@ before(async function() {
 	await exec("node ../../packages/ctl plugin add ../../plugins/subspace_storage");
 	await exec("node ../../packages/ctl plugin add ../../plugins/player_auth");
 
-	await exec("node ../../packages/master bootstrap create-admin test");
-	await exec("node ../../packages/master bootstrap create-ctl-config test");
+	await exec("node ../../packages/controller bootstrap create-admin test");
+	await exec("node ../../packages/controller bootstrap create-ctl-config test");
 	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
-	masterProcess = await spawn("master:", "node ../../packages/master run", /Started master/);
+	controllerProcess = await spawn("controller:", "node ../../packages/controller run", /Started controller/);
 
 	await execCtl("slave create-config --id 4 --name slave --generate-token");
 	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
@@ -229,7 +229,9 @@ before(async function() {
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
 	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
 	await libLink.messages.createModPack.send(control, { mod_pack: testPack.toJSON() });
-	await libLink.messages.setMasterConfigField.send(control, { field: "master.default_mod_pack_id", value: "12" });
+	await libLink.messages.setControllerConfigField.send(
+		control, { field: "controller.default_mod_pack_id", value: "12" }
+	);
 });
 
 after(async function() {
@@ -239,10 +241,10 @@ after(async function() {
 		slaveProcess.kill("SIGINT");
 		await events.once(slaveProcess, "exit");
 	}
-	if (masterProcess) {
-		console.log("Shutting down master");
-		masterProcess.kill("SIGINT");
-		await events.once(masterProcess, "exit");
+	if (controllerProcess) {
+		console.log("Shutting down controller");
+		controllerProcess.kill("SIGINT");
+		await events.once(controllerProcess, "exit");
 	}
 	if (control) {
 		await control.connector.close();
@@ -252,7 +254,7 @@ after(async function() {
 // Ensure the test processes are stopped.
 process.on("exit", () => {
 	if (slaveProcess) { slaveProcess.kill(); }
-	if (masterProcess) { masterProcess.kill(); }
+	if (controllerProcess) { controllerProcess.kill(); }
 });
 
 
@@ -271,7 +273,7 @@ module.exports = {
 	controlToken,
 	instancesDir,
 	databaseDir,
-	masterConfigPath,
+	controllerConfigPath,
 	slaveConfigPath,
 	controlConfigPath,
 };
