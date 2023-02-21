@@ -522,7 +522,7 @@ class Slave extends libLink.Link {
 			);
 		} catch (err) {
 			if (err.code === "ENOENT") {
-				throw new libErrors.RequestError(`${old_name} does not exist`);
+				throw new libErrors.RequestError(`${source} does not exist`);
 			}
 			throw err;
 		}
