@@ -20,9 +20,9 @@ const routes = require("./routes");
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
-const lastQueryLogTime = new libPrometheus.Gauge(
-	"clusterio_master_last_query_log_duration_seconds",
-	"Time in seconds the last log query took to execute."
+const queryLogTime = new libPrometheus.Summary(
+	"clusterio_master_query_log_duration_seconds",
+	"Time in seconds log queries took to execute."
 );
 
 /**
@@ -683,7 +683,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async queryLogRequestHandler(message) {
-		let setDuration = lastQueryLogTime.startTimer();
+		let observeDuration = queryLogTime.startTimer();
 		let { all, master, slave_ids, instance_ids } = message.data;
 
 		let log;
@@ -693,7 +693,7 @@ class ControlConnection extends BaseConnection {
 			log = await this._master.queryClusterLog(message.data);
 		}
 
-		setDuration();
+		observeDuration();
 		return { log };
 	}
 
