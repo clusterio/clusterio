@@ -192,6 +192,20 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 	}
 
 	/**
+	 * Forcefully close the connection immediately
+	 *
+	 * This should only be used if there's a security implication from
+	 * letting the connection carry on with a normal close proceedure.
+	 */
+	terminate() {
+		this.setClosing();
+
+		if (this._socket) {
+			this._socket.terminate();
+		}
+	}
+
+	/**
 	 * Notify the connection is expected to close
 	 *
 	 * Sets the internal flag to signal not to wait for the client to

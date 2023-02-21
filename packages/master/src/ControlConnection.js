@@ -833,6 +833,24 @@ class ControlConnection extends BaseConnection {
 		this._master.userUpdated(user);
 	}
 
+	async revokeUserTokenRequestHandler(message) {
+		let user = this._master.userManager.users.get(message.data.name);
+		if (!user) {
+			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
+		}
+		if (user.name !== this.user.name) {
+			this.user.checkPermission("core.user.revoke_other_token");
+		}
+
+		user.invalidateToken();
+		for (let controlConnection of this._master.wsServer.controlConnections) {
+			if (controlConnection.user.name === user.name) {
+				controlConnection.connector.terminate();
+			}
+		}
+		this._master.userUpdated(user);
+	}
+
 	async updateUserRolesRequestHandler(message) {
 		let user = this._master.userManager.users.get(message.data.name);
 		if (!user) {

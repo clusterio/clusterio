@@ -1481,6 +1481,15 @@ userCommands.add(new libCommand.Command({
 }));
 
 userCommands.add(new libCommand.Command({
+	definition: ["revoke-token <name>", "Revoke token for user", (yargs) => {
+		yargs.positional("name", { describe: "Name of user to revoke token for", type: "string" });
+	}],
+	handler: async function(args, control) {
+		await libLink.messages.revokeUserToken.send(control, { name: args.name });
+	},
+}));
+
+userCommands.add(new libCommand.Command({
 	definition: ["set-admin <user>", "Promote or demote a user to admin", (yargs) => {
 		yargs.positional("user", { describe: "Name of user set admin status for", type: "string" });
 		yargs.options({

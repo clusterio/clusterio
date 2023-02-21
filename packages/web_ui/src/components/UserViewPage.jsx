@@ -6,7 +6,7 @@ import {
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
-import { libLink } from "@clusterio/lib";
+import { libErrors, libLink } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
@@ -14,7 +14,7 @@ import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
-import { notifyErrorHandler } from "../util/notify";
+import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
 import { formatLastSeen, sortLastSeen, useUser } from "../model/user";
 
@@ -121,8 +121,27 @@ export default function UserViewPage() {
 					{user["is_banned"] && <Tag color="red">Banned</Tag>}
 				</span>
 			</Space>}
-			extra={
-				account.hasPermission("core.user.delete") && <Popconfirm
+			extra={<>
+				{account.hasPermission("core.user.revoke_token") && (
+					account.name === userName || account.hasPermission("core.user.revoke_other_token")
+				) && <Button
+					danger
+					onClick={() => {
+						libLink.messages.revokeUserToken.send(
+							control, { name: userName }
+						).then(() => {
+							notify("User token revoked");
+						}, err => {
+							if (err instanceof libErrors.SessionLost && userName === account.name) {
+								// Got kicked out after revoking our own token
+								notify("User token revoked");
+								return;
+							}
+							throw err;
+						}).catch(notifyErrorHandler("Error revoking token"));
+					}}
+				>Revoke token</Button>}
+				{account.hasPermission("core.user.delete") && <Popconfirm
 					title={<>
 						Delete user account and all data associated with it?
 						{(user["is_banned"] && <><br/>This will remove the user ban!</>)}
@@ -141,8 +160,8 @@ export default function UserViewPage() {
 					<Button danger >
 						<DeleteOutlined />
 					</Button>
-				</Popconfirm>
-			}
+				</Popconfirm>}
+			</>}
 		/>
 		<Form
 			form={form}

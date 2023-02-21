@@ -1036,6 +1036,15 @@ messages.createUser = new Request({
 	},
 });
 
+messages.revokeUserToken = new Request({
+	type: "revoke_user_token",
+	links: ["control-master"],
+	permission: "core.user.revoke_token",
+	requestProperties: {
+		"name": { type: "string" },
+	},
+});
+
 messages.updateUserRoles = new Request({
 	type: "update_user_roles",
 	links: ["control-master"],
