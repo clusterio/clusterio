@@ -113,6 +113,7 @@ describe("lib/config/classes", function() {
 					name: "enum",
 					title: "Enum",
 					description: "Enum thingy",
+					restartRequired: true,
 					enum: ["a", "b", "c"],
 					optional: true,
 					initial_value: "b",

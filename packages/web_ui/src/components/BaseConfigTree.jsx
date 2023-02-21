@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tree, Typography } from "antd";
+import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography } from "antd";
+import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 
 const { Title } = Typography;
 
@@ -87,6 +88,11 @@ export default function BaseConfigTree(props) {
 		}
 	}
 
+	let restartTip = <Tooltip
+		className="ant-form-item-tooltip"
+		title="A restart is required for this setting to take effect"
+	><ReloadOutlined/></Tooltip>;
+
 	let treeData = [];
 	let propsMap = new Map();
 	for (let [name, GroupClass] of props.ConfigClass.groups) {
@@ -110,14 +116,27 @@ export default function BaseConfigTree(props) {
 			};
 
 			if (def.type === "object") {
-				childNode.title = <Form.Item label={def.title || def.name} tooltip={def.description} />;
+				let restartRequiredProps = new Set(def.restartRequiredProps || []);
+				childNode.title = <Form.Item
+					label={<>
+						{def.title || def.name}
+						{!def.restartRequiredProps && def.restartRequired && restartTip}
+					</>}
+					tooltip={def.description}
+				/>;
 				for (let prop of Object.keys(value)) {
 					let propPath = `${group.name}.${def.name}.${prop}`;
+					let restart = Boolean(
+						def.restartRequiredProps && def.restartRequired ^ restartRequiredProps.has(prop)
+					);
 					childNode.children.push({
 						key: propPath,
 						title: <Form.Item
 							name={propPath}
-							label={`"${prop}"`}
+							label={<>
+								{`"${prop}"`}
+								{restart && restartTip}
+							</>}
 							rules={[{ validator: (_, fieldValue) => {
 								if (!fieldValue.length) {
 									return Promise.reject(new Error("Will be removed"));
@@ -184,7 +203,10 @@ export default function BaseConfigTree(props) {
 			} else {
 				childNode.title = <Form.Item
 					name={fieldName}
-					label={def.title || def.name}
+					label={<>
+						{def.title || def.name}
+						{def.restartRequired && restartTip}
+					</>}
 					validateStatus={errorFields.has(fieldName) ? "error" : undefined}
 					help={errorFields.get(fieldName)}
 					tooltip={def.description}
