@@ -1,6 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 const fs = require("fs-extra");
+const jwt = require("jsonwebtoken");
 const path = require("path");
 const events = require("events");
 const phin = require("phin");
@@ -1084,6 +1085,26 @@ describe("Integration of Clusterio", function() {
 				assert(tempUser, "user was not created");
 				assert.equal(getControl().userUpdates.length, 1);
 				assert.equal(getControl().userUpdates[0].name, "temp");
+			});
+		});
+
+		describe("user revoke-token", function() {
+			it("should kick existing sessions for the user", async function() {
+				slowTest(this);
+				await libLink.messages.createUser.send(getControl(), { name: "revokee" });
+				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
+				let connector = new TestControlConnector(url, 2, tlsCa);
+				connector.token = jwt.sign(
+					{ aud: "user", user: "revokee" }, Buffer.from("TestSecretDoNotUse", "base64")
+				);
+				let revokeeControl = new TestControl(connector);
+				await connector.connect();
+				connector.setClosing();
+				let closed = new Promise(resolve => connector.once("close", resolve));
+
+				await execCtl("user revoke-token revokee");
+
+				await closed;
 			});
 		});
 

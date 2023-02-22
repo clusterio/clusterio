@@ -677,6 +677,12 @@ class ConfigGroup {
 	 * @param {Array=} item.enum -
 	 *     Array of all values that are acceptible.  Useful for making
 	 *     enumerated values.
+	 * @param {boolean=} item.restartRequired -
+	 *     True if a restart of the entity this config is attached to is
+	 *     required for changes to take effect.  Informative only, defaults
+	 *     to false.
+	 * @param {Array=} item.restartRequiredProps -
+	 *     Properties to invert the value of restartRequired for if present.
 	 * @param {boolean=} item.optional -
 	 *     True if this field can be set to null.  Defaults to false.
 	 * @param {*=} item.initial_value -
@@ -706,6 +712,7 @@ class ConfigGroup {
 
 		// Validate properties
 		let validTypes = ["boolean", "string", "number", "object"];
+		// eslint-disable-next-line complexity
 		Object.keys(item).forEach(key => {
 			let value = item[key];
 			let valueType = basicType(value);
@@ -746,6 +753,18 @@ class ConfigGroup {
 					}
 					break;
 
+				case "restartRequired":
+					if (valueType !== "boolean") {
+						throw new Error("restartRequired must be a boolean");
+					}
+					break;
+
+				case "restartRequiredProps":
+					if (valueType !== "array") {
+						throw new Error("restartRequiredProps must be a array");
+					}
+					break;
+
 				case "optional":
 					if (valueType !== "boolean") {
 						throw new Error("optional must be a boolean");
@@ -771,8 +790,13 @@ class ConfigGroup {
 			access: this.defaultAccess,
 			optional: false,
 			fullName: `${this.groupName}.${item.name}`,
+			restartRequired: false,
 			...item,
 		};
+
+		if (item.restartRequiredProps && item.type !== "object") {
+			throw new Error("restartRequiredProps is only allowed if type is object");
+		}
 
 		if (!computed.access) {
 			throw new Error(`access not set and no defaultAccess defined for ${this.name}`);
@@ -815,6 +839,7 @@ class PluginConfigGroup extends ConfigGroup {
 			this.define({
 				name: "load_plugin",
 				title: "Load Plugin",
+				restartRequired: true,
 				type: "boolean",
 				initial_value: true,
 			});

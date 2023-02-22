@@ -638,6 +638,17 @@ definePermission({
 	description: "Create user acounts with a given name.",
 });
 definePermission({
+	name: "core.user.revoke_token",
+	title: "Revoke user token",
+	description: "Revoke access token and terminate all existing control connections for oneself.",
+	grantByDefault: true,
+});
+definePermission({
+	name: "core.user.revoke_other_token",
+	title: "Revoke other user's token",
+	description: "Allow revoking tokens for other users than oneself. Requires Revoke user token.",
+});
+definePermission({
 	name: "core.user.update_roles",
 	title: "Update user roles",
 	description: "Add or remove any role to any user.",

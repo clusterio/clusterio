@@ -20,9 +20,9 @@ const routes = require("./routes");
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
-const lastQueryLogTime = new libPrometheus.Gauge(
-	"clusterio_master_last_query_log_duration_seconds",
-	"Time in seconds the last log query took to execute."
+const queryLogTime = new libPrometheus.Summary(
+	"clusterio_master_query_log_duration_seconds",
+	"Time in seconds log queries took to execute."
 );
 
 /**
@@ -683,7 +683,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async queryLogRequestHandler(message) {
-		let setDuration = lastQueryLogTime.startTimer();
+		let observeDuration = queryLogTime.startTimer();
 		let { all, master, slave_ids, instance_ids } = message.data;
 
 		let log;
@@ -693,7 +693,7 @@ class ControlConnection extends BaseConnection {
 			log = await this._master.queryClusterLog(message.data);
 		}
 
-		setDuration();
+		observeDuration();
 		return { log };
 	}
 
@@ -830,6 +830,24 @@ class ControlConnection extends BaseConnection {
 
 	async createUserRequestHandler(message) {
 		let user = this._master.userManager.createUser(message.data.name);
+		this._master.userUpdated(user);
+	}
+
+	async revokeUserTokenRequestHandler(message) {
+		let user = this._master.userManager.users.get(message.data.name);
+		if (!user) {
+			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
+		}
+		if (user.name !== this.user.name) {
+			this.user.checkPermission("core.user.revoke_other_token");
+		}
+
+		user.invalidateToken();
+		for (let controlConnection of this._master.wsServer.controlConnections) {
+			if (controlConnection.user.name === user.name) {
+				controlConnection.connector.terminate();
+			}
+		}
 		this._master.userUpdated(user);
 	}
 

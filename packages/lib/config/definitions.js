@@ -37,6 +37,7 @@ MasterGroup.define({
 	name: "http_port",
 	title: "HTTP Port",
 	description: "Port to listen for HTTP connections on, set to null to not listen for HTTP connections.",
+	restartRequired: true,
 	type: "number",
 	optional: true,
 	initial_value: 8080,
@@ -45,6 +46,7 @@ MasterGroup.define({
 	name: "https_port",
 	title: "HTTPS Port",
 	description: "Port to listen for HTTPS connection on, set to null to not listen for HTTPS connections.",
+	restartRequired: true,
 	type: "number",
 	optional: true,
 });
@@ -52,6 +54,7 @@ MasterGroup.define({
 	name: "bind_address",
 	title: "Bind Address",
 	description: "IP address to bind the HTTP and HTTPS ports on.",
+	restartRequired: true,
 	type: "string",
 	optional: true,
 });
@@ -66,6 +69,7 @@ MasterGroup.define({
 	name: "tls_certificate",
 	title: "TLS Certificate",
 	description: "Path to the certificate to use for HTTPS.",
+	restartRequired: true,
 	type: "string",
 	optional: true,
 });
@@ -73,6 +77,7 @@ MasterGroup.define({
 	name: "tls_private_key",
 	title: "TLS Private Key",
 	description: "Path to the private key to use for HTTPS.",
+	restartRequired: true,
 	type: "string",
 	optional: true,
 });
@@ -84,6 +89,7 @@ MasterGroup.define({
 		"Secret used to generate and verify authentication tokens.  " +
 		"Should be a long string of random letters and numbers.  " +
 		"Do not share this.",
+	restartRequired: true,
 	type: "string",
 	optional: true,
 });
@@ -184,24 +190,28 @@ SlaveGroup.define({
 SlaveGroup.define({
 	name: "instances_directory",
 	description: "Path to directory to store instances in.",
+	restartRequired: true,
 	type: "string",
 	initial_value: "instances",
 });
 SlaveGroup.define({
 	name: "master_url",
 	description: "URL to connect to the master server at",
+	restartRequired: true,
 	type: "string",
 	initial_value: "http://localhost:8080/",
 });
 SlaveGroup.define({
 	name: "master_token",
 	description: "Token to authenticate to master server with.",
+	restartRequired: true,
 	type: "string",
 	initial_value: "enter token here",
 });
 SlaveGroup.define({
 	name: "tls_ca",
 	description: "Path to Certificate Authority to validate TLS connection to master against.",
+	restartRequired: true,
 	type: "string",
 	optional: true,
 });
@@ -244,7 +254,7 @@ InstanceGroup.define({
 });
 InstanceGroup.define({
 	name: "id",
-	description: "ID of the slave",
+	description: "ID of the instance",
 	type: "number",
 	initial_value: () => Math.random() * 2**31 | 0,
 });
@@ -272,24 +282,28 @@ FactorioGroup.groupName = "factorio";
 FactorioGroup.define({
 	name: "version",
 	description: "Version of the game to run, use latest to run the latest installed version",
+	restartRequired: true,
 	type: "string",
 	initial_value: "latest",
 });
 FactorioGroup.define({
 	name: "game_port",
 	description: "UDP port to run game on, uses a random port if null",
+	restartRequired: true,
 	type: "number",
 	optional: true,
 });
 FactorioGroup.define({
 	name: "rcon_port",
 	description: "TCP port to run RCON on, uses a random port if null",
+	restartRequired: true,
 	type: "number",
 	optional: true,
 });
 FactorioGroup.define({
 	name: "rcon_password",
 	description: "Password for RCON, randomly generated if null",
+	restartRequired: true,
 	type: "string",
 	optional: true,
 });
@@ -304,12 +318,14 @@ FactorioGroup.define({
 FactorioGroup.define({
 	name: "mod_pack",
 	description: "Mod pack to use on this server",
+	restartRequired: true,
 	type: "number",
 	optional: true,
 });
 FactorioGroup.define({
 	name: "enable_save_patching",
 	description: "Patch saves with Lua code. Required for Clusterio integrations, lua modules, and most plugins.",
+	restartRequired: true,
 	type: "boolean",
 	initial_value: true,
 });
@@ -322,24 +338,34 @@ FactorioGroup.define({
 FactorioGroup.define({
 	name: "enable_authserver_bans",
 	description: "Turn on Factorio.com based multiplayer bans.",
+	restartRequired: true,
 	type: "boolean",
 	initial_value: false,
 });
 FactorioGroup.define({
 	name: "settings",
 	description: "Settings overridden in server-settings.json",
+	restartRequired: true,
+	restartRequiredProps: [
+		"afk_autokick_interval", "allow_commands", "autosave_interval", "autosave_only_on_server", "description",
+		"ignore_player_limit_for_returning_players", "max_players", "max_upload_slots",
+		"max_upload_in_kilobytes_per_second", "name", "only_admins_can_pause_the_game", "game_password",
+		"require_user_verification", "tags", "visibility",
+	],
 	type: "object",
 	initial_value: {}, // See create instance handler in master.
 });
 FactorioGroup.define({
 	name: "verbose_logging",
 	description: "Enable verbose logging on the Factorio server",
+	restartRequired: true,
 	type: "boolean",
 	initial_value: false,
 });
 FactorioGroup.define({
 	name: "strip_paths",
 	description: "Strip down instance paths in the log",
+	restartRequired: true,
 	type: "boolean",
 	initial_value: true,
 });
@@ -364,6 +390,7 @@ FactorioGroup.define({
 FactorioGroup.define({
 	name: "max_concurrent_commands",
 	description: "Maximum number of RCON commands trasmitted in parallel",
+	restartRequired: true,
 	type: "number",
 	initial_value: 5,
 });

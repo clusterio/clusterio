@@ -45,8 +45,8 @@ class Master {
 	constructor(clusterLogger, pluginInfos, configPath, config) {
 		this.clusterLogger = clusterLogger;
 		/**
-		 * Mapping of plugin name to info objects for known plugins
-		 * @type {Map<string, Object>}
+		 * Array of plugin info objects for known plugins
+		 * @type {Array<object>}
 		 */
 		this.pluginInfos = pluginInfos;
 		this.configPath = configPath;

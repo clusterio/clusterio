@@ -251,8 +251,14 @@ async function patch(savePath, modules) {
 	// Write back the save
 	let tempSavePath = `${savePath}.tmp`;
 	let stream = zip.generateNodeStream({ compression: "DEFLATE" });
-	let pipe = stream.pipe(fs.createWriteStream(tempSavePath));
-	await events.once(pipe, "finish");
+	let fd = await fs.open(tempSavePath, "w");
+	try {
+		let pipe = stream.pipe(fs.createWriteStream("", { fd, autoClose: false }));
+		await events.once(pipe, "finish");
+		await fs.fsync(fd);
+	} finally {
+		await fs.close(fd);
+	}
 	await fs.rename(tempSavePath, savePath);
 }
 

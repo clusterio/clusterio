@@ -1,15 +1,17 @@
 local api = require('modules/clusterio/api')
 
-local impl = {}
 
-
-impl.events = {}
-impl.events[defines.events.on_tick] = function()
+local function check_patch()
 	if global.clusterio_patch_number ~= clusterio_patch_number then
 		global.clusterio_patch_number = clusterio_patch_number
 		script.raise_event(api.events.on_server_startup, {})
 	end
 end
+
+local impl = {}
+impl.events = {}
+
+impl.events[defines.events.on_tick] = check_patch
 
 impl.events[api.events.on_server_startup] = function()
 	if not global.clusterio then
@@ -47,6 +49,7 @@ end
 -- Internal API
 clusterio_private = {}
 function clusterio_private.update_instance(new_id, new_name)
+	check_patch()
 	global.clusterio.instance_id = new_id
 	global.clusterio.instance_name = new_name
 	script.raise_event(api.events.on_instance_updated, {

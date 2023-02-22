@@ -32,14 +32,12 @@ sync.events[clusterio_api.events.on_server_startup] = function(event)
 
 	local force = game.forces["player"]
 	for _, tech in pairs(force.technologies) do
-		if tech.enabled then
-			local progress = get_technology_progress(tech)
-			global.research_sync.technologies[tech.name] = {
-				level = tech.level,
-				researched = tech.researched,
-				progress = progress,
-			}
-		end
+		local progress = get_technology_progress(tech)
+		global.research_sync.technologies[tech.name] = {
+			level = tech.level,
+			researched = tech.researched,
+			progress = progress,
+		}
 	end
 end
 
@@ -112,14 +110,12 @@ function research_sync.dump_technologies()
 
 	local techs = {}
 	for _, tech in pairs(force.technologies) do
-		if tech.enabled then
-			table.insert(techs, {
-				name = tech.name,
-				level = tech.level,
-				progress = get_technology_progress(tech),
-				researched = tech.researched,
-			})
-		end
+		table.insert(techs, {
+			name = tech.name,
+			level = tech.level,
+			progress = get_technology_progress(tech),
+			researched = tech.researched,
+		})
 	end
 
 	if #techs == 0 then
@@ -140,7 +136,7 @@ function research_sync.sync_technologies(data)
 	global.research_sync.ignore_research_finished = true
 	for _, tech_data in pairs(game.json_to_table(data)) do
 		local tech = force.technologies[tech_data[nameIndex]]
-		if tech and tech.enabled and tech.level <= tech_data[levelIndex] then
+		if tech and tech.level <= tech_data[levelIndex] then
 			tech.level = math.min(tech_data[levelIndex], tech.prototype.max_level)
 
 			local progress
@@ -171,7 +167,7 @@ function research_sync.update_progress(data)
 
 	for _, masterTech in ipairs(techs) do
 		local tech = force.technologies[masterTech.name]
-		if tech and tech.enabled and tech.level == masterTech.level then
+		if tech and tech.level == masterTech.level then
 			send_contribution(tech)
 			set_technology_progress(tech, masterTech.progress)
 			global.research_sync.technologies[tech.name] = {
@@ -185,7 +181,7 @@ end
 function research_sync.research_technology(name, level)
 	local force = game.forces["player"]
 	local tech = force.technologies[name]
-	if not tech or not tech.enabled or tech.level > level then
+	if not tech or tech.level > level then
 		return
 	end
 
