@@ -90,8 +90,8 @@ class TerminalFormat {
 		if (info.instance_name) {
 			src += `i:${info.instance_name} `;
 
-		} else if (info.slave_name) {
-			src += `s:${info.slave_name} `;
+		} else if (info.host_name) {
+			src += `s:${info.host_name} `;
 		}
 		if (info.plugin) {
 			src += `${info.plugin}: `;
@@ -158,7 +158,7 @@ class LogIndex {
 			this.index.set(file, {
 				levels: new Set(serializedEntry.levels),
 				controller: serializedEntry.controller,
-				slave_ids: new Set(serializedEntry.slave_ids),
+				host_ids: new Set(serializedEntry.host_ids),
 				instance_ids: new Set(serializedEntry.instance_ids),
 			});
 		}
@@ -174,7 +174,7 @@ class LogIndex {
 			serialized.files[file] = {
 				levels: [...entry.levels],
 				controller: entry.controller,
-				slave_ids: [...entry.slave_ids],
+				host_ids: [...entry.host_ids],
 				instance_ids: [...entry.instance_ids],
 			};
 		}
@@ -225,7 +225,7 @@ class LogIndex {
 		let entry = {
 			levels: new Set(),
 			controller: false,
-			slave_ids: new Set(),
+			host_ids: new Set(),
 			instance_ids: new Set(),
 		};
 		for await (let line of lineStream) {
@@ -240,10 +240,10 @@ class LogIndex {
 			if (info.level) {
 				entry.levels.add(info.level);
 			}
-			if (info.slave_id === undefined) {
+			if (info.host_id === undefined) {
 				entry.controller = true;
 			} else if (info.instance_id === undefined) {
-				entry.slave_ids.add(info.slave_id);
+				entry.host_ids.add(info.host_id);
 			}
 			if (info.instance_id !== undefined) {
 				entry.instance_ids.add(info.instance_id);
@@ -279,7 +279,7 @@ class LogIndex {
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
 	 */
-	filterIncludesFile(file, { max_level, all, controller, instance_ids, slave_ids }) {
+	filterIncludesFile(file, { max_level, all, controller, instance_ids, host_ids }) {
 		let entry = this.index.get(file);
 		if (!entry) {
 			return true;
@@ -301,7 +301,7 @@ class LogIndex {
 		if (controller && entry.controller) {
 			return true;
 		}
-		if (slave_ids && slave_ids.some(id => entry.slave_ids.has(id))) {
+		if (host_ids && host_ids.some(id => entry.host_ids.has(id))) {
 			return true;
 		}
 		if (instance_ids && instance_ids.some(id => entry.instance_ids.has(id))) {
@@ -321,12 +321,12 @@ class LogIndex {
  * @property {string} [max_level] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
- *     Include log entries from controller, all slaves and all instances.
+ *     Include log entries from controller, all hosts and all instances.
  * @property {boolean} [controller] -
  *     Include log entries from the controller.
- * @property {Array<number>} [slave_ids] -
- *     Include log entries for the given slaves and instances of those
- *     slaves by id.
+ * @property {Array<number>} [host_ids] -
+ *     Include log entries for the given hosts and instances of those
+ *     hosts by id.
  * @property {Array<number>} [instance_ids] -
  *     Include log entries for the given instances by id.
  */

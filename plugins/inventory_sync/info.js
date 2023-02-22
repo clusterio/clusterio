@@ -2,7 +2,7 @@
 const { libConfig, libLink, libUsers } = require("@clusterio/lib");
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup { }
-ControllerConfigGroup.defaultAccess = ["controller", "slave", "control"];
+ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "inventory_sync";
 ControllerConfigGroup.define({
 	name: "autosave_interval",
@@ -22,7 +22,7 @@ ControllerConfigGroup.define({
 ControllerConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup { }
-InstanceConfigGroup.defaultAccess = ["controller", "slave", "control"];
+InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 InstanceConfigGroup.groupName = "inventory_sync";
 InstanceConfigGroup.define({
 	name: "rcon_chunk_size",
@@ -57,7 +57,7 @@ module.exports = {
 	messages: {
 		acquire: new libLink.Request({
 			type: "inventory_sync:acquire",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
@@ -73,7 +73,7 @@ module.exports = {
 		}),
 		release: new libLink.Request({
 			type: "inventory_sync:release",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
@@ -82,7 +82,7 @@ module.exports = {
 		}),
 		upload: new libLink.Request({
 			type: "inventory_sync:upload",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
@@ -92,7 +92,7 @@ module.exports = {
 		}),
 		download: new libLink.Request({
 			type: "inventory_sync:download",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },

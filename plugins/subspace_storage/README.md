@@ -10,4 +10,4 @@ Run the following commands in the folder Clusterio is installed to:
     npm install @clusterio/plugin-subspace_storage
     npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
 
-Substitute clusteriocontroller with clusterioslave or clusterioctl if this a dedicate slave or ctl installation respectively.
+Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicate host or ctl installation respectively.

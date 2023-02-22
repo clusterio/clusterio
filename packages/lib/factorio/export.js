@@ -34,8 +34,8 @@ async function generateExportMod(server) {
 		clean: false,
 		build: true,
 		pack: true,
-		// XXX fix path when moving lib/factorio to slave
-		sourceDir: path.join(__dirname, "..", "..", "slave", "lua", "export"),
+		// XXX fix path when moving lib/factorio to host
+		sourceDir: path.join(__dirname, "..", "..", "host", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version.replace(/\.\d+$/, ""),

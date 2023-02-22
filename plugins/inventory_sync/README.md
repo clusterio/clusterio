@@ -15,7 +15,7 @@ Run the following commands in the folder Clusterio is installed to:
     npm install @clusterio/plugin-inventory_sync
     npx clusteriocontroller plugin add @clusterio/plugin-inventory_sync
 
-Substitute clusteriocontroller with clusterioslave or clusterioctl if this a dedicated slave or ctl installation respectively.
+Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicated host or ctl installation respectively.
 
 ## Method of operation
 

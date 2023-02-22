@@ -66,8 +66,8 @@ describe("lib/plugin", function() {
 			await controllerPlugin.onInstanceConfigFieldChanged({}, {}, "foo", null);
 			await controllerPlugin.onMetrics();
 			await controllerPlugin.onShutdown();
-			controllerPlugin.onSlaveConnectionEvent({}, "connect");
-			await controllerPlugin.onPrepareSlaveDisconnect({});
+			controllerPlugin.onHostConnectionEvent({}, "connect");
+			await controllerPlugin.onPrepareHostDisconnect({});
 		});
 	});
 

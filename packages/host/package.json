@@ -1,15 +1,15 @@
 {
-  "name": "@clusterio/slave",
-  "description": "Implementation of Clusterio slave server",
+  "name": "@clusterio/host",
+  "description": "Implementation of Clusterio host server",
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "main": "slave.js",
+  "main": "host.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusterioslave": "./slave.js"
+    "clusteriohost": "./host.js"
   },
   "keywords": [
     "factorio"

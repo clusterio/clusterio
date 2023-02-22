@@ -37,7 +37,7 @@ If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
 * [Managing Factorio mods](#managing-factorio-mods)
 * [Setting up shared storage](#setting-up-shared-storage)
 * [Running Clusterio](#running-clusterio)
-* [Setting up remote slaves](#setting-up-remote-slaves)
+* [Setting up remote hosts](#setting-up-remote-hosts)
 * [Setting up clusterioctl](#setting-up-clusterioctl)
 * [Common problems](#Common-problems)
 
@@ -128,7 +128,7 @@ Clusterio has *very* limited support for using docker.
 
 	sudo docker run --name controller -e MODE=controller -p 1234:8080 -d -it --restart=unless-stopped danielvestol/clusterio
 
-	sudo docker run --name slave -e MODE=slave -e INSTANCE=world1 -v /srv/clusterio/instances:/clusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
+	sudo docker run --name host -e MODE=host -e INSTANCE=world1 -v /srv/clusterio/instances:/clusterio/instances -p 1235:34167 -it --restart=unless-stopped danielvestol/clusterio
 
 The -v flag is used to specify the instance directory.
 Your instances (save files etc) will be stored there.
@@ -175,9 +175,9 @@ Then tell clusterio that this plugin exists by adding it as a plugin.
 
     npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
 
-This adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by controller, slave and ctl.
-If you have slaves or ctl installed on separate computers (or directories) then you need to repeat the plugin install process for all of them.
-The clusteriocontroller, clusterioslave and clusterioctl commands has the plugin sub-command so you do not need to install clusteriocontroller to add plugins, instead use the clusterio command you have available.
+This adds it to the default `plugin-list.json` file which in the shared folder setup is loaded by controller, host and ctl.
+If you have hosts or ctl installed on separate computers (or directories) then you need to repeat the plugin install process for all of them.
+The clusteriocontroller, clusteriohost and clusterioctl commands has the plugin sub-command so you do not need to install clusteriocontroller to add plugins, instead use the clusterio command you have available.
 
 For development purposes the `plugin add` command supports adding plugins by the absolute path to them, or a relative path that must start with either . or .. (which will then be resolved to an absolute path).
 
@@ -189,10 +189,10 @@ You can change the port used with the command
 
     npx clusteriocontroller config set controller.http_port 1234
 
-When changing the port you will also need to change the address slaves connect with.
+When changing the port you will also need to change the address hosts connect with.
 For the standalone installation mode you can use
 
-    npx clusterioslave config set slave.controller_url http://localhost:1234/
+    npx clusteriohost config set host.controller_url http://localhost:1234/
 
 If you plan to make your cluster available externally set the address
 that it will be accessible under with, for example
@@ -208,7 +208,7 @@ See the [readme for @clusterio/controller](/packages/controller/README.md) for m
 
 ## Managing Factorio mods
 
-Clusterio currently only provides a manual method for running mods on servers by copying them either to each instance's individual `mods` folder, or by copying them into a slave installation's `sharedMods` folder which will link/copy them to the `mods` folder of each instance on that slave if the file doesn't already exist in the `mods` folder for that instance.
+Clusterio currently only provides a manual method for running mods on servers by copying them either to each instance's individual `mods` folder, or by copying them into a host installation's `sharedMods` folder which will link/copy them to the `mods` folder of each instance on that host if the file doesn't already exist in the `mods` folder for that instance.
 Mods are copied from `sharedMods` on Windows and symlinked on Linux, this means that when mods are removed from `sharedMods` the mods will also be removed from the instance's `mods` folder on Linux if it got there by being linked by Clusterio, but not on Windows.
 
 For managing the mod settings, the `mod-settings.dat` and `mod-list.json` files will also be linked/copied over if present in `sharedMods`, but since Factorio creates these files automatically it might be necessary to delete them from each instance's `mods` folder for changes to them in `sharedMods` to take effect.
@@ -219,45 +219,45 @@ Better remote management of mods is a planned feature.
 ## Setting up shared storage
 
 The chests teleporting items to and from the shared storage on the controller has been moved into the Subspace Storage mod and plugin.
-To get this to work you will need to install the Subspace Storage plugin and copy the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) and the [Clusterio Lib mod](https://mods.factorio.com/mod/clusterio_lib) into the `sharedMods` folder on each slave installation.
+To get this to work you will need to install the Subspace Storage plugin and copy the [Subspace Storage mod](https://mods.factorio.com/mod/subspace_storage) and the [Clusterio Lib mod](https://mods.factorio.com/mod/clusterio_lib) into the `sharedMods` folder on each host installation.
 
 Do not install the [Clusterio mod](https://mods.factorio.com/mod/clusterio), this was for the old 1.2.x version of Clusterio and is not compatible with Clusterio 2.0.
 
 
 ## Running Clusterio
 
-After completing the installation start up the controller and at least one slave separately.
-The installer provides the `run-controller` and `run-slave` scripts to make this simple.
+After completing the installation start up the controller and at least one host separately.
+The installer provides the `run-controller` and `run-host` scripts to make this simple.
 Once the controller process is running you can log into the web interface which is hosted by default on http://localhost:8080/ (adjust the port number if you changed it), use the admin authentication token provided from the installation to log in.
 
-The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a slave and then click start.
+The basics of setting up a Factorio server from the web interface is to create an instance, assign it to a host and then click start.
 
 ### Running via Systemd
 
-The install script creates systemd service scripts for clusteriocontroller and clusterioslave (if applicable) to start up as the user than ran the installer.
+The install script creates systemd service scripts for clusteriocontroller and clusteriohost (if applicable) to start up as the user than ran the installer.
 If you have copied these files over to `/etc/systemd/system/` then you can startup Clusterio as a background service using:
     
 #### To start as a service run:
  
     sudo systemctl start clusteriocontroller # for the controller
-    sudo systemctl start clusterioslave # for each server hosting a slave
+    sudo systemctl start clusteriohost # for each physical server intended to host Factorio servers
 
 #### To automatically get it to start on boot:
  
     sudo systemctl enable clusteriocontroller # for the controller
-    sudo systemctl enable clusterioslave # for each server hosting a slave
+    sudo systemctl enable clusteriohost # for each physical server intended to host Factorio servers
 
 
-## Setting up remote slaves
+## Setting up remote hosts
 
-Run the installer as described in the installation section and choose "Slave only" as the operating mode to install, it'll ask for a controller URL and an authentication token.
-The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Slaves page in the web interface.
-Once you start up the slave it should show up in the Slaves list and be available for assigning and running instances on.
+Run the installer as described in the installation section and choose "Host only" as the operating mode to install, it'll ask for a controller URL and an authentication token.
+The URL is the same as what is needed to connect to the web interface, and the authentication token can be generated on the Hosts page in the web interface.
+Once you start up the host it should show up in the Hosts list and be available for assigning and running instances on.
 
 
 ## Setting up clusterioctl
 
-There's a command line interface available for Clusterio which is installed separately with the same installer as for the controller and slave.
+There's a command line interface available for Clusterio which is installed separately with the same installer as for the controller and host.
 Run the installer as described in the installation section and choose "Ctl only" as the operating mode to install, you can do this in the same directory as you have installed other Clusterio component(s) to.
 The installer will ask for a controller URL and an authentication token, these are the same as you would use to connect to the web interface.
 If you want to use a different user for the command line interface, you can generate an authentication token for an existing user with

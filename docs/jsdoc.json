@@ -13,8 +13,8 @@
 		"include": [
 			"packages/controller/src/",
 			"packages/controller/controller.js",
-			"packages/slave/src/",
-			"packages/slave/slave.js",
+			"packages/host/src/",
+			"packages/host/host.js",
 			"packages/ctl/src/",
 			"packages/ctl/ctl.js",
 			"packages/lib/",

@@ -5,14 +5,14 @@ import { libLink } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
-import { useSlaveList } from "../model/slave";
+import { useHostList } from "../model/host";
 
 const { Paragraph } = Typography;
 
 
 export default function AssignInstanceModal(props) {
 	let [visible, setVisible] = useState(false);
-	let [slaveList] = useSlaveList();
+	let [hostList] = useHostList();
 	let [applying, setApplying] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
@@ -22,20 +22,20 @@ export default function AssignInstanceModal(props) {
 	}
 
 	function handleAssign() {
-		let slaveId = form.getFieldValue("slave");
-		if (slaveId === undefined) {
+		let hostId = form.getFieldValue("host");
+		if (hostId === undefined) {
 			setVisible(false);
 			return;
 		}
 
-		if (slaveId === "null") {
-			slaveId = null;
+		if (hostId === "null") {
+			hostId = null;
 		}
 
 		setApplying(true);
 		libLink.messages.assignInstanceCommand.send(control, {
 			instance_id: props.id,
-			slave_id: slaveId,
+			host_id: hostId,
 		}).then(() => {
 			setVisible(false);
 			if (props.onFinish) {
@@ -66,24 +66,24 @@ export default function AssignInstanceModal(props) {
 			destroyOnClose
 		>
 			<Paragraph style={{ maxWidth: "30em" }}>
-				Select a Slave to assign this instance to.  Assignment
-				creates the necessary files on the slave to start up
+				Select a Host to assign this instance to.  Assignment
+				creates the necessary files on the host to start up
 				the instance.  Note that reassigning an instance from
-				one slave to another will not move the server save over.
+				one host to another will not move the server save over.
 			</Paragraph>
-			<Form form={form} initialValues={{ slave: props.slaveId === null ? "null" : props.slaveId }}>
-				<Form.Item name="slave" label="Slave">
+			<Form form={form} initialValues={{ host: props.hostId === null ? "null" : props.hostId }}>
+				<Form.Item name="host" label="Host">
 					<Select>
 						<Select.Option value={"null"}>
 							<Typography.Text italic>Unassigned</Typography.Text>
 						</Select.Option>
-						{slaveList.map((slave) => <Select.Option
-							key={slave["id"]}
-							value={slave["id"]}
-							disabled={!slave["connected"]}
+						{hostList.map((host) => <Select.Option
+							key={host["id"]}
+							value={host["id"]}
+							disabled={!host["connected"]}
 						>
-							{slave["name"]}
-							{!slave["connected"] && " (offline)"}
+							{host["name"]}
+							{!host["connected"] && " (offline)"}
 						</Select.Option>)}
 					</Select>
 				</Form.Item>

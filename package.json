@@ -24,7 +24,7 @@
     "@clusterio/ctl": "workspace:*",
     "@clusterio/lib": "workspace:*",
     "@clusterio/controller": "workspace:*",
-    "@clusterio/slave": "workspace:*",
+    "@clusterio/host": "workspace:*",
     "eslint": "^8.18.0",
     "eslint-plugin-node": "^11.1.0",
     "express": "^4.16.2",

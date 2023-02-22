@@ -125,7 +125,7 @@ class MockServer extends events.EventEmitter {
 
 class MockInstance extends libLink.Link {
 	constructor() {
-		super("instance", "slave", new MockConnector());
+		super("instance", "host", new MockConnector());
 		this.logger = new MockLogger();
 		this.server = new MockServer();
 		this.name = "test";
@@ -150,9 +150,9 @@ class MockInstance extends libLink.Link {
 	}
 }
 
-class MockSlave extends libLink.Link {
+class MockHost extends libLink.Link {
 	constructor() {
-		super("slave", "controller", new MockConnector());
+		super("host", "controller", new MockConnector());
 	}
 }
 
@@ -193,7 +193,7 @@ class MockController {
 			["player", new libUsers.User({ name: "player", roles: [1] }, this.userManager.roles)],
 		]);
 		this.instances = new Map();
-		this.slaves = new Map();
+		this.hosts = new Map();
 	}
 
 	getControllerUrl() {
@@ -228,8 +228,8 @@ async function createControllerPlugin(ControllerPluginClass, info) {
 
 async function createInstancePlugin(InstancePluginClass, info) {
 	let instance = new MockInstance();
-	let slave = new MockSlave();
-	let plugin = new InstancePluginClass(info, instance, slave);
+	let host = new MockHost();
+	let plugin = new InstancePluginClass(info, instance, host);
 	libPlugin.attachPluginMessages(instance, plugin);
 	await plugin.init();
 	return plugin;
@@ -242,7 +242,7 @@ module.exports = {
 	MockConnector,
 	MockServer,
 	MockInstance,
-	MockSlave,
+	MockHost,
 	MockControl,
 	MockController,
 

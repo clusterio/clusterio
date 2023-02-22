@@ -98,13 +98,13 @@ const serverSettingsActions = {
 
 /**
  * Keeps track of the runtime parameters of an instance
- * @alias module:slave/src/Instance
+ * @alias module:host/src/Instance
  */
 class Instance extends libLink.Link {
-	constructor(slave, connector, dir, factorioDir, instanceConfig) {
-		super("instance", "slave", connector);
+	constructor(host, connector, dir, factorioDir, instanceConfig) {
+		super("instance", "host", connector);
 		libLink.attachAllMessages(this);
-		this._slave = slave;
+		this._host = host;
 		this._dir = dir;
 
 		this.plugins = new Map();
@@ -461,10 +461,10 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
-	async _loadPlugin(pluginInfo, slave) {
+	async _loadPlugin(pluginInfo, host) {
 		let pluginLoadStarted = Date.now();
 		let InstancePluginClass = await libPluginLoader.loadInstancePluginClass(pluginInfo);
-		let instancePlugin = new InstancePluginClass(pluginInfo, this, slave);
+		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
 		libPlugin.attachPluginMessages(this, instancePlugin);
@@ -509,14 +509,14 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		for (let pluginInfo of pluginInfos) {
 			if (
 				!pluginInfo.instanceEntrypoint
-				|| !this._slave.serverPlugins.has(pluginInfo.name)
+				|| !this._host.serverPlugins.has(pluginInfo.name)
 				|| !this.config.group(pluginInfo.name).get("load_plugin")
 			) {
 				continue;
 			}
 
 			try {
-				await this._loadPlugin(pluginInfo, this._slave);
+				await this._loadPlugin(pluginInfo, this._host);
 			} catch (err) {
 				this.notifyExit();
 				await this.sendSaveListUpdate();
@@ -593,7 +593,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * a vanilla mods folder.  If the instance mods directory does't exist
 	 * then it will be created.
 	 *
-	 * On Linux this creates symlinks to mods in the slave's mods folder, on
+	 * On Linux this creates symlinks to mods in the host's mods folder, on
 	 * Windows hard links are used instead due to symlinks being privileged.
 	 */
 	async syncMods() {
@@ -608,7 +608,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// TODO validate factorioVersion
 
-		if (!this._slave.config.get("slave.mods_directory_is_shared")) {
+		if (!this._host.config.get("host.mods_directory_is_shared")) {
 			throw new Error("Fetching mods is not implemented");
 		}
 
@@ -629,7 +629,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 
 		// Add mods from mod the pack
-		const modsDir = this._slave.config.get("slave.mods_directory");
+		const modsDir = this._host.config.get("host.mods_directory");
 		for (let mod of this.activeModPack.mods.values()) {
 			const modFile = `${mod.name}_${mod.version}.zip`;
 			const target = path.join(modsDir, modFile);
@@ -668,7 +668,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			this.logger.verbose("Writing server-adminlist.json");
 			libFileOps.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
-				JSON.stringify([...this._slave.adminlist], null, 4)
+				JSON.stringify([...this._host.adminlist], null, 4)
 			);
 		}
 
@@ -676,7 +676,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			this.logger.verbose("Writing server-banlist.json");
 			libFileOps.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
-				JSON.stringify([...this._slave.banlist].map(
+				JSON.stringify([...this._host.banlist].map(
 					([username, reason]) => ({ username, reason })
 				), null, 4),
 			);
@@ -686,7 +686,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			this.logger.verbose("Writing server-whitelist.json");
 			libFileOps.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
-				JSON.stringify([...this._slave.whitelist], null, 4)
+				JSON.stringify([...this._host.whitelist], null, 4)
 			);
 		}
 
@@ -897,7 +897,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_whitelist")) {
 			await this.sendRcon("/whitelist clear");
-			for (let player of this._slave.whitelist) {
+			for (let player of this._host.whitelist) {
 				await this.sendRcon(`/whitelist ${player}`);
 			}
 		}
@@ -1072,16 +1072,16 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let zip = await libFactorio.exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
-			let url = new URL(this._slave.config.get("slave.controller_url"));
+			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
 			url.searchParams.set("mod_pack_id", this.activeModPack.id);
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
-				core: { ca: this._slave.tlsCa },
+				core: { ca: this._host.tlsCa },
 				headers: {
 					"Content-Type": "application/zip",
-					"x-access-token": this._slave.config.get("slave.controller_token"),
+					"x-access-token": this._host.config.get("host.controller_token"),
 				},
 			});
 			if (response.statusCode !== 200) {

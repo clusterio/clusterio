@@ -4,6 +4,6 @@ services:
   controller:
     build: .
     command: npx clusteriocontroller run
-  slave:
+  host:
     build: .
-    command: npx clusterioslave run
+    command: npx clusteriohost run

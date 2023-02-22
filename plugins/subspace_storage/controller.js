@@ -107,7 +107,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		}
 
 		itemsToUpdate = [...itemsToUpdate.entries()];
-		this.broadcastEventToSlaves(this.info.messages.updateStorage, { items: itemsToUpdate });
+		this.broadcastEventToHosts(this.info.messages.updateStorage, { items: itemsToUpdate });
 		for (let link of this.subscribedControlLinks) {
 			this.info.messages.updateStorage.send(link, { items: itemsToUpdate });
 		}
@@ -142,7 +142,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		let itemsRemoved = [];
 		if (method === "simple") {
 			// Give out as much items as possible until there are 0 left.  This
-			// might lead to one slave getting all the items and the rest nothing.
+			// might lead to one host getting all the items and the rest nothing.
 			for (let item of message.data.items) {
 				let count = this.items.getItemCount(item[0]);
 				let toRemove = Math.min(count, item[1]);

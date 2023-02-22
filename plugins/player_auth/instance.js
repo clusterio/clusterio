@@ -18,7 +18,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async handleEvent(event) {
 		if (event.type === "open_dialog") {
-			if (!this.slave.connector.connected) {
+			if (!this.host.connector.connected) {
 				await this.sendRcon(`/web-login error ${event.player} login is temporarily unavailable`);
 				return;
 			}

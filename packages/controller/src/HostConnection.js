@@ -9,14 +9,14 @@ const BaseConnection = require("./BaseConnection");
 
 
 /**
- * Represents the connection to a slave
+ * Represents the connection to a host
  *
  * @extends module:controller/src/BaseConnection
- * @alias module:controller/src/SlaveConnection
+ * @alias module:controller/src/HostConnection
  */
-class SlaveConnection extends BaseConnection {
+class HostConnection extends BaseConnection {
 	constructor(registerData, connector, controller) {
-		super("slave", connector, controller);
+		super("host", connector, controller);
 
 		this._agent = registerData.agent;
 		this._id = registerData.id;
@@ -25,7 +25,7 @@ class SlaveConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
-		this._controller.slaves.set(this._id, {
+		this._controller.hosts.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
@@ -38,15 +38,15 @@ class SlaveConnection extends BaseConnection {
 			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let plugin of this._controller.plugins.values()) {
-					plugin.onSlaveConnectionEvent(this, event);
+					plugin.onHostConnectionEvent(this, event);
 				}
 			});
 		}
 
 		this.connector.on("close", () => {
-			// Update status to unknown for instances on this slave.
+			// Update status to unknown for instances on this host.
 			for (let instance of this._controller.instances.values()) {
-				if (instance.config.get("instance.assigned_slave") !== this._id) {
+				if (instance.config.get("instance.assigned_host") !== this._id) {
 					continue;
 				}
 
@@ -63,13 +63,13 @@ class SlaveConnection extends BaseConnection {
 		for (let [name, version] of this.plugins) {
 			let info = pluginInfos.get(name);
 			if (!info) {
-				logger.warn(`Slave ${this._name} has plugin ${name} ${version} which the controller does not have`);
+				logger.warn(`Host ${this._name} has plugin ${name} ${version} which the controller does not have`);
 				continue;
 			}
 
 			if (info.version !== version) {
 				logger.warn(
-					`Slave ${this._name} has plugin ${name} ${version} which does not match the version of this ` +
+					`Host ${this._name} has plugin ${name} ${version} which does not match the version of this ` +
 					`plugin on the controller (${info.version})`
 				);
 			}
@@ -77,15 +77,15 @@ class SlaveConnection extends BaseConnection {
 
 		for (let [name, info] of pluginInfos) {
 			if (!this.plugins.has(name)) {
-				logger.warn(`Slave ${this._name} is missing plugin ${name} ${info.version}`);
+				logger.warn(`Host ${this._name} is missing plugin ${name} ${info.version}`);
 			}
 		}
 	}
 
 	/**
-	 * ID of the slave this connection is connected to
+	 * ID of the host this connection is connected to
 	 *
-	 * @returns {number} slave ID.
+	 * @returns {number} host ID.
 	 */
 	get id() {
 		return this._id;
@@ -95,17 +95,17 @@ class SlaveConnection extends BaseConnection {
 		let instance = this._controller.instances.get(message.data.instance_id);
 
 		// It's possible to get updates from an instance that does not exist
-		// or is not assigned to the slave it originated from if it was
-		// reassigned or deleted while the connection to the slave it was
+		// or is not assigned to the host it originated from if it was
+		// reassigned or deleted while the connection to the host it was
 		// originally on was down at the time.
-		if (!instance || instance.config.get("instance.assigned_slave") !== this._id) {
+		if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
 			logger.warn(`Got bogus update for instance id ${message.data.instance_id}`);
 			return;
 		}
 
 		// We may receive status changed where the status hasn't changed
 		// from our perspective if the connection was down at the time it
-		// changed.  Slaves also send status updates on assignInstance which
+		// changed.  Hosts also send status updates on assignInstance which
 		// for hacky reason is also used to push config changes and
 		// restablish status after a connection loss.
 		if (instance.status === message.data.status) {
@@ -123,23 +123,23 @@ class SlaveConnection extends BaseConnection {
 	async updateInstancesRequestHandler(message) {
 		// Push updated instance configs
 		for (let instance of this._controller.instances.values()) {
-			if (instance.config.get("instance.assigned_slave") === this._id) {
+			if (instance.config.get("instance.assigned_host") === this._id) {
 				await libLink.messages.assignInstance.send(this, {
 					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize("slave"),
+					serialized_config: instance.config.serialize("host"),
 				});
 			}
 		}
 
-		// Assign instances the slave has but controller does not
+		// Assign instances the host has but controller does not
 		for (let instanceData of message.data.instances) {
 			let instanceConfig = new libConfig.InstanceConfig("controller");
-			await instanceConfig.load(instanceData.serialized_config, "slave");
+			await instanceConfig.load(instanceData.serialized_config, "host");
 
 			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
 				// Check if this instance is assigned somewhere else.
-				if (controllerInstance.config.get("instance.assigned_slave") !== this._id) {
+				if (controllerInstance.config.get("instance.assigned_host") !== this._id) {
 					await libLink.messages.unassignInstance.send(this, {
 						instance_id: controllerInstance.config.get("instance.id"),
 					});
@@ -159,13 +159,13 @@ class SlaveConnection extends BaseConnection {
 				continue;
 			}
 
-			instanceConfig.set("instance.assigned_slave", this._id);
+			instanceConfig.set("instance.assigned_host", this._id);
 			let newInstance = { config: instanceConfig, status: instanceData.status };
 			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.addInstanceHooks(newInstance);
 			await libLink.messages.assignInstance.send(this, {
 				instance_id: instanceConfig.get("instance.id"),
-				serialized_config: instanceConfig.serialize("slave"),
+				serialized_config: instanceConfig.serialize("host"),
 			});
 			await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance, null);
 		}
@@ -197,8 +197,8 @@ class SlaveConnection extends BaseConnection {
 	async logMessageEventHandler(message) {
 		this._controller.clusterLogger.log({
 			...message.data.info,
-			slave_id: this._id,
-			slave_name: this._name,
+			host_id: this._id,
+			host_name: this._name,
 		});
 	}
 
@@ -224,4 +224,4 @@ class SlaveConnection extends BaseConnection {
 	}
 }
 
-module.exports = SlaveConnection;
+module.exports = HostConnection;

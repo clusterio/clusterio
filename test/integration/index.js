@@ -26,7 +26,7 @@ class TestControl extends libLink.Link {
 	constructor(connector) {
 		super("control", "controller", connector);
 		libLink.attachAllMessages(this);
-		this.slaveUpdates = [];
+		this.hostUpdates = [];
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
 		this.modUpdates = [];
@@ -34,9 +34,9 @@ class TestControl extends libLink.Link {
 		this.userUpdates = [];
 
 		this.connector.on("connect", () => {
-			libLink.messages.setSlaveSubscriptions.send(
-				this, { all: true, slave_ids: [] }
-			).catch(err => logger.error(`Error setting slave subscriptions:\n${err.stack}`));
+			libLink.messages.setHostSubscriptions.send(
+				this, { all: true, host_ids: [] }
+			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
 			libLink.messages.setInstanceSubscriptions.send(
 				this, { all: true, instance_ids: [] }
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
@@ -61,8 +61,8 @@ class TestControl extends libLink.Link {
 
 	async accountUpdateEventHandler() { }
 
-	async slaveUpdateEventHandler(message) {
-		this.slaveUpdates.push(message.data);
+	async hostUpdateEventHandler(message) {
+		this.hostUpdates.push(message.data);
 	}
 
 	async instanceUpdateEventHandler(message) {
@@ -118,7 +118,7 @@ async function get(urlPath) {
 }
 
 let controllerProcess;
-let slaveProcess;
+let hostProcess;
 let control;
 
 let url = "https://localhost:4443/";
@@ -127,7 +127,7 @@ let instancesDir = path.join("temp", "test", "instances");
 let databaseDir = path.join("temp", "test", "database");
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
 let controllerConfigPath = path.join("temp", "test", "config-controller.json");
-let slaveConfigPath = path.join("temp", "test", "config-slave.json");
+let hostConfigPath = path.join("temp", "test", "config-host.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
 async function exec(command, options = {}) {
@@ -185,7 +185,7 @@ before(async function() {
 
 	await fs.remove(pluginListPath);
 	await fs.remove(controllerConfigPath);
-	await fs.remove(slaveConfigPath);
+	await fs.remove(hostConfigPath);
 	await fs.remove(controlConfigPath);
 
 	await fs.ensureDir(path.join("temp", "test"));
@@ -210,11 +210,11 @@ before(async function() {
 
 	controllerProcess = await spawn("controller:", "node ../../packages/controller run", /Started controller/);
 
-	await execCtl("slave create-config --id 4 --name slave --generate-token");
-	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
-	await exec("node ../../packages/slave config set slave.tls_ca ../../test/file/tls/cert.pem");
+	await execCtl("host create-config --id 4 --name host --generate-token");
+	await exec(`node ../../packages/host config set host.factorio_directory ${path.join("..", "..", "factorio")}`);
+	await exec("node ../../packages/host config set host.tls_ca ../../test/file/tls/cert.pem");
 
-	slaveProcess = await spawn("slave:", "node ../../packages/slave run", /Started slave/);
+	hostProcess = await spawn("host:", "node ../../packages/host run", /Started host/);
 
 	let tlsCa = await fs.readFile("test/file/tls/cert.pem");
 	let controlConnector = new TestControlConnector(url, 2, tlsCa);
@@ -236,10 +236,10 @@ before(async function() {
 
 after(async function() {
 	this.timeout(20000);
-	if (slaveProcess) {
-		console.log("Shutting down slave");
-		slaveProcess.kill("SIGINT");
-		await events.once(slaveProcess, "exit");
+	if (hostProcess) {
+		console.log("Shutting down host");
+		hostProcess.kill("SIGINT");
+		await events.once(hostProcess, "exit");
 	}
 	if (controllerProcess) {
 		console.log("Shutting down controller");
@@ -253,7 +253,7 @@ after(async function() {
 
 // Ensure the test processes are stopped.
 process.on("exit", () => {
-	if (slaveProcess) { slaveProcess.kill(); }
+	if (hostProcess) { hostProcess.kill(); }
 	if (controllerProcess) { controllerProcess.kill(); }
 });
 
@@ -274,6 +274,6 @@ module.exports = {
 	instancesDir,
 	databaseDir,
 	controllerConfigPath,
-	slaveConfigPath,
+	hostConfigPath,
 	controlConfigPath,
 };

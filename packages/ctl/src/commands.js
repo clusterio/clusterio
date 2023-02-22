@@ -237,39 +237,39 @@ controllerPluginCommands.add(new libCommand.Command({
 controllerCommands.add(controllerPluginCommands);
 
 
-const slaveCommands = new libCommand.CommandTree({ name: "slave", description: "Slave management" });
-slaveCommands.add(new libCommand.Command({
-	definition: [["list", "l"], "List slaves connected to the controller"],
+const hostCommands = new libCommand.CommandTree({ name: "host", description: "Host management" });
+hostCommands.add(new libCommand.Command({
+	definition: [["list", "l"], "List hosts connected to the controller"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listSlaves.send(control);
+		let response = await libLink.messages.listHosts.send(control);
 		print(asTable(response.list));
 	},
 }));
 
-slaveCommands.add(new libCommand.Command({
-	definition: ["generate-token", "Generate token for a slave", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id" });
+hostCommands.add(new libCommand.Command({
+	definition: ["generate-token", "Generate token for a host", (yargs) => {
+		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
 	}],
 	handler: async function(args, control) {
-		let slaveId = typeof args.id === "number" ? args.id : null;
-		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: slaveId });
+		let hostId = typeof args.id === "number" ? args.id : null;
+		let response = await libLink.messages.generateHostToken.send(control, { host_id: hostId });
 		print(response.token);
 	},
 }));
 
-slaveCommands.add(new libCommand.Command({
-	definition: ["create-config", "Create slave config", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", default: null });
-		yargs.option("name", { type: "string", nargs: 1, describe: "Slave name", default: null });
+hostCommands.add(new libCommand.Command({
+	definition: ["create-config", "Create host config", (yargs) => {
+		yargs.option("id", { type: "number", nargs: 1, describe: "Host id", default: null });
+		yargs.option("name", { type: "string", nargs: 1, describe: "Host name", default: null });
 		yargs.option("generate-token", {
 			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false,
 		});
 		yargs.option("output", {
-			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json",
+			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-host.json",
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.createSlaveConfig.send(control, {
+		let response = await libLink.messages.createHostConfig.send(control, {
 			id: args.id, name: args.name, generate_token: args.generateToken,
 		});
 
@@ -430,7 +430,7 @@ instanceConfigCommands.add(new libCommand.Command({
 			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
+		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
 		let allConfigElements = await serializedConfigToString(
 			response.serialized_config,
 			libConfig.InstanceConfig,
@@ -487,16 +487,16 @@ instanceConfigCommands.add(new libCommand.Command({
 instanceCommands.add(instanceConfigCommands);
 
 instanceCommands.add(new libCommand.Command({
-	definition: ["assign <instance> [slave]", "Assign instance to a slave", (yargs) => {
+	definition: ["assign <instance> [host]", "Assign instance to a host", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to assign", type: "string" });
-		yargs.positional("slave", { describe: "Slave to assign to or unassign if none", type: "string" });
+		yargs.positional("host", { describe: "Host to assign to or unassign if none", type: "string" });
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let slaveId = args.slave ? await libCommand.resolveSlave(control, args.slave) : null;
+		let hostId = args.host ? await libCommand.resolveHost(control, args.host) : null;
 		await libLink.messages.assignInstanceCommand.send(control, {
 			instance_id: instanceId,
-			slave_id: slaveId,
+			host_id: hostId,
 		});
 	},
 }));
@@ -1586,19 +1586,19 @@ logCommands.add(new libCommand.Command({
 		yargs.options({
 			"all": { describe: "Follow the whole cluster log", nargs: 0, type: "boolean", default: false },
 			"controller": { describe: "Follow log of the controller", nargs: 0, type: "boolean", default: false },
-			"slave": { describe: "Follow log of given slave", nargs: 1, type: "string", default: null },
+			"host": { describe: "Follow log of given host", nargs: 1, type: "string", default: null },
 			"instance": { describe: "Follow log of given instance", nargs: 1, type: "string", default: null },
 		});
 	}],
 	handler: async function(args, control) {
-		if (!args.all && !args.controller && !args.slave && !args.instance) {
-			logger.error("At least one of --all, --controller, --slave and --instance must be passed");
+		if (!args.all && !args.controller && !args.host && !args.instance) {
+			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
 			return;
 		}
 		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
-		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
-		await control.setLogSubscriptions({ all: args.all, controller: args.controller, slave_ids, instance_ids });
+		let host_ids = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
+		await control.setLogSubscriptions({ all: args.all, controller: args.controller, host_ids, instance_ids });
 		control.keepOpen = true;
 	},
 }));
@@ -1608,7 +1608,7 @@ logCommands.add(new libCommand.Command({
 		yargs.options({
 			"all": { describe: "Query the whole cluster log", nargs: 0, type: "boolean", default: false },
 			"controller": { describe: "Query log of the controller", nargs: 0, type: "boolean", default: false },
-			"slave": { describe: "Query log of given slave", nargs: 1, type: "string", default: null },
+			"host": { describe: "Query log of given host", nargs: 1, type: "string", default: null },
 			"instance": { describe: "Query log of given instance", nargs: 1, type: "string", default: null },
 			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: null },
 			"limit": { describe: "Max number of entries to return", nargs: 1, type: "number", default: 1000 },
@@ -1616,17 +1616,17 @@ logCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		if (!args.all && !args.controller && !args.slave && !args.instance) {
-			logger.error("At least one of --all, --controller, --slave and --instance must be passed");
+		if (!args.all && !args.controller && !args.host && !args.instance) {
+			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
 			return;
 		}
 		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
-		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
+		let host_ids = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
 		let result = await libLink.messages.queryLog.send(control, {
 			all: args.all,
 			controller: args.controller,
-			slave_ids,
+			host_ids,
 			instance_ids,
 			max_level: args.maxLevel,
 			limit: args.limit,
@@ -1663,7 +1663,7 @@ debugCommands.add(new libCommand.Command({
 async function registerCommands(controlPlugins, yargs) {
 	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
 	rootCommands.add(controllerCommands);
-	rootCommands.add(slaveCommands);
+	rootCommands.add(hostCommands);
 	rootCommands.add(instanceCommands);
 	rootCommands.add(modPackCommands);
 	rootCommands.add(modCommands);

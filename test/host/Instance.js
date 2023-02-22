@@ -4,7 +4,7 @@ const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
 const { wait } = require("@clusterio/lib/helpers");
-const Instance = require("@clusterio/slave/src/Instance");
+const Instance = require("@clusterio/host/src/Instance");
 const { MockConnector, MockServer } = require("../mock");
 
 
@@ -16,7 +16,7 @@ describe("class Instance", function() {
 	let instance;
 	let connector;
 	beforeEach(async function() {
-		let instanceConfig = new libConfig.InstanceConfig("slave");
+		let instanceConfig = new libConfig.InstanceConfig("host");
 		await instanceConfig.init();
 		instanceConfig.set("instance.name", "foo");
 		connector = new MockConnector();

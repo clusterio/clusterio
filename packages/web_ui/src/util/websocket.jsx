@@ -67,7 +67,7 @@ export class Control extends libLink.Link {
 		this.accountRoles = null;
 
 		this.accountUpdateHandlers = [];
-		this.slaveUpdateHandlers = new Map();
+		this.hostUpdateHandlers = new Map();
 		this.instanceUpdateHandlers = new Map();
 		this.saveListUpdateHandlers = new Map();
 		this.modPackUpdateHandlers = new Map();
@@ -79,8 +79,8 @@ export class Control extends libLink.Link {
 			this.accountName = data.account.name;
 			this.accountRoles = data.account.roles;
 			this.emitAccountUpdate();
-			this.updateSlaveSubscriptions().catch(err => logger.error(
-				`Unexpected error updating slave subscriptions:\n${err.stack}`
+			this.updateHostSubscriptions().catch(err => logger.error(
+				`Unexpected error updating host subscriptions:\n${err.stack}`
 			));
 			this.updateInstanceSubscriptions().catch(err => logger.error(
 				`Unexpected error updating instance subscriptions:\n${err.stack}`
@@ -143,60 +143,60 @@ export class Control extends libLink.Link {
 		this.accountUpdateHandlers.splice(index, 1);
 	}
 
-	async slaveUpdateEventHandler(message) {
+	async hostUpdateEventHandler(message) {
 		let handlers = [].concat(
-			this.slaveUpdateHandlers.get(null) || [],
-			this.slaveUpdateHandlers.get(message.data.id) || [],
+			this.hostUpdateHandlers.get(null) || [],
+			this.hostUpdateHandlers.get(message.data.id) || [],
 		);
 		for (let handler of handlers) {
 			handler(message.data);
 		}
 	}
 
-	async onSlaveUpdate(id, handler) {
+	async onHostUpdate(id, handler) {
 		if (id !== null && !Number.isInteger(id)) {
-			throw new Error("Invalid slave id");
+			throw new Error("Invalid host id");
 		}
 
-		let handlers = this.slaveUpdateHandlers.get(id);
+		let handlers = this.hostUpdateHandlers.get(id);
 		if (!handlers) {
 			handlers = [];
-			this.slaveUpdateHandlers.set(id, handlers);
+			this.hostUpdateHandlers.set(id, handlers);
 		}
 
 		handlers.push(handler);
 
 		if (handlers.length === 1) {
-			await this.updateSlaveSubscriptions();
+			await this.updateHostSubscriptions();
 		}
 	}
 
-	async offSlaveUpdate(id, handler) {
-		let handlers = this.slaveUpdateHandlers.get(id);
+	async offHostUpdate(id, handler) {
+		let handlers = this.hostUpdateHandlers.get(id);
 		if (!handlers || !handlers.length) {
-			throw new Error(`No handlers for slave ${id} exists`);
+			throw new Error(`No handlers for host ${id} exists`);
 		}
 
 		let index = handlers.lastIndexOf(handler);
 		if (index === -1) {
-			throw new Error(`Given handler is not registered for slave ${id}`);
+			throw new Error(`Given handler is not registered for host ${id}`);
 		}
 
 		handlers.splice(index, 1);
 		if (!handlers.length) {
-			this.slaveUpdateHandlers.delete(id);
-			await this.updateSlaveSubscriptions();
+			this.hostUpdateHandlers.delete(id);
+			await this.updateHostSubscriptions();
 		}
 	}
 
-	async updateSlaveSubscriptions() {
+	async updateHostSubscriptions() {
 		if (!this.connector.connected) {
 			return;
 		}
 
-		await libLink.messages.setSlaveSubscriptions.send(this, {
-			all: this.slaveUpdateHandlers.has(null),
-			slave_ids: [...this.slaveUpdateHandlers.keys()].filter(e => e !== null),
+		await libLink.messages.setHostSubscriptions.send(this, {
+			all: this.hostUpdateHandlers.has(null),
+			host_ids: [...this.hostUpdateHandlers.keys()].filter(e => e !== null),
 		});
 	}
 
@@ -536,16 +536,16 @@ export class Control extends libLink.Link {
 		let combinedFilter = {
 			all: false,
 			controller: false,
-			slave_ids: [],
+			host_ids: [],
 			instance_ids: [],
 		};
 
 		for (let filter of this.logHandlers.keys()) {
 			if (filter.all) { combinedFilter.all = true; }
 			if (filter.controller) { combinedFilter.controller = true; }
-			for (let slaveId of filter.slave_ids || []) {
-				if (!combinedFilter.slave_ids.includes(slaveId)) {
-					combinedFilter.slave_ids.push(slaveId);
+			for (let hostId of filter.host_ids || []) {
+				if (!combinedFilter.host_ids.includes(hostId)) {
+					combinedFilter.host_ids.push(hostId);
 				}
 			}
 			for (let instanceId of filter.instance_ids || []) {

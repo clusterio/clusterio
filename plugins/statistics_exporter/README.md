@@ -10,7 +10,7 @@ Run the following commands in the folder Clusterio is installed to:
     npm install @clusterio/plugin-statistics_exporter
     npx clusteriocontroller plugin add @clusterio/plugin-statistics_exporter
 
-Substitute clusteriocontroller with clusterioslave or clusterioctl if this a dedicate slave or ctl installation respectively.
+Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicate host or ctl installation respectively.
 
 
 ## Instance Configuration

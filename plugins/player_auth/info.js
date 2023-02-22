@@ -3,7 +3,7 @@ let { libConfig, libLink } = require("@clusterio/lib");
 
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
-ControllerConfigGroup.defaultAccess = ["controller", "slave", "control"];
+ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "player_auth";
 ControllerConfigGroup.define({
 	name: "code_length",
@@ -33,7 +33,7 @@ module.exports = {
 	messages: {
 		fetchPlayerCode: new libLink.Request({
 			type: "player_auth:fetch_player_code",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"player": { type: "string" },
@@ -45,7 +45,7 @@ module.exports = {
 		}),
 		setVerifyCode: new libLink.Request({
 			type: "player_auth:set_verify_code",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"player": { type: "string" },

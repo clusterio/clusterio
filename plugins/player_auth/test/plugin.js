@@ -363,10 +363,10 @@ describe("player_auth", function() {
 				describe("open_dialog", async function() {
 					it("should call /web-login error if not connected to controller", async function() {
 						instancePlugin.instance.server.reset();
-						instancePlugin.slave.connector.connected = false;
+						instancePlugin.host.connector.connected = false;
 						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
 						let command = instancePlugin.instance.server.rconCommands[0];
-						instancePlugin.slave.connector.connected = true;
+						instancePlugin.host.connector.connected = true;
 						assert.equal(command, "/web-login error test login is temporarily unavailable");
 					});
 					it("should call /web-login error after error from the controller", async function() {

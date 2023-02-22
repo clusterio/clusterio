@@ -83,7 +83,7 @@ class Control extends libLink.Link {
 
 	async accountUpdateEventHandler() { }
 
-	async slaveUpdateEventHandler() { }
+	async hostUpdateEventHandler() { }
 
 	async instanceUpdateEventHandler() { }
 
@@ -98,12 +98,12 @@ class Control extends libLink.Link {
 	async setLogSubscriptions({
 		all = false,
 		controller = false,
-		slave_ids = [],
+		host_ids = [],
 		instance_ids = [],
 		max_level = null,
 	}) {
 		await libLink.messages.setLogSubscriptions.send(this, {
-			all, controller, slave_ids, instance_ids, max_level,
+			all, controller, host_ids, instance_ids, max_level,
 		});
 	}
 

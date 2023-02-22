@@ -1,28 +1,28 @@
-# Clusterio Slave
+# Clusterio Host
 
 Node hosting Factorio servers in a Clusterio cluster.
-Clusterio slaves connect to the controller and waits for commands from the controller to start up and stop instances.
-A cluster can have any number of slaves in it located on different computers, and each slave can host any number of instances each of which is a Factorio server that talks with the rest of the cluster.
+Clusterio hosts connect to the controller and waits for commands from the controller to start up and stop instances.
+A cluster can have any number of hosts in it located on different computers, and each host can host any number of instances each of which is a Factorio server that talks with the rest of the cluster.
 
 
 ## Usage
 
-    npx clusterioslave <command>
+    npx clusteriohost <command>
 
 Common options:
 
- * `--plugin-list <file>` JSON file to use for storing the list of plugins that are available to the slave.
+ * `--plugin-list <file>` JSON file to use for storing the list of plugins that are available to the host.
    Defaults to `plugin-list.json` and will be created if it does not exist.
    See the `plugin` command for managing this list.
 
- * `--config <file>` JSON file to use for storing configuration for the slave.
-   Defaults to `config-slave.json` and will be created if it does not exist.
+ * `--config <file>` JSON file to use for storing configuration for the host.
+   Defaults to `config-host.json` and will be created if it does not exist.
    See the `config` command for inspecting and modifying the configuration.
 
 
 ### `plugin <command>`
 
-Configure plugins available to be loaded by the slave.
+Configure plugins available to be loaded by the host.
 The available plugins will be loaded unless they have been disabled in the configuration, see the config command for disabling plugins.
 
 
@@ -34,9 +34,9 @@ A relative path must start with ./ or ../ (or .\ and ..\ on Windows) otherwise i
 For example, installing the Subspace Storage plugin:
 
     npm install @clusterio/plugin-subspace_storage
-    npx clusterioslave plugin add @clusterio/plugin-subspace_storage
+    npx clusteriohost plugin add @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
 
 
 #### `plugin remove <name>`
@@ -47,10 +47,10 @@ Removing and unistalling a plugin is usually not neccessary as the functions pro
 
 For example, uninstalling the Subspace Storage plugin:
 
-    npx clusterioslave plugin remove subspace_storage
+    npx clusteriohost plugin remove subspace_storage
     npm uninstall @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
 
 
 #### `plugin list`
@@ -60,8 +60,8 @@ Lists the plugins set up to be available by name followed by path.
 
 ### `config`
 
-Manage the slave configuration offline.
-This should only be used when the slave is stopped, otherwise the config read might be out of date and config changes will be overwritten when the slave shuts down.
+Manage the host configuration offline.
+This should only be used when the host is stopped, otherwise the config read might be out of date and config changes will be overwritten when the host shuts down.
 
 
 #### `config set <config-entry> [value]`
@@ -85,7 +85,7 @@ Lists up all configuration entries with their currently configured values.
 
 ### `run`
 
-Runs the slave.
+Runs the host.
 
 
 ## See Also

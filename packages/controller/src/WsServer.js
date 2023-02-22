@@ -9,7 +9,7 @@ const libSchema = require("@clusterio/lib/schema");
 
 const ControlConnection = require("./ControlConnection");
 const packageVersion = require("../package").version;
-const SlaveConnection = require("./SlaveConnection");
+const HostConnection = require("./HostConnection");
 const WsServerConnector = require("./WsServerConnector");
 
 
@@ -41,8 +41,8 @@ class WsServer {
 
 		/** @type {Array<module:controller/src/ControlConnection>} */
 		this.controlConnections = [];
-		/** @type {Map<number, module:controller/src/SlaveConnection>} */
-		this.slaveConnections = new Map();
+		/** @type {Map<number, module:controller/src/HostConnection>} */
+		this.hostConnections = new Map();
 		/** @type {Map<number, module:controller/src/WsServerConnector>} */
 		this.activeConnectors = new Map();
 		/** @type {Set<module:ws>} */
@@ -68,8 +68,8 @@ class WsServer {
 			disconnectTasks.push(controlConnection.disconnect(1001, "Server Quit"));
 		}
 
-		for (let slaveConnection of this.slaveConnections.values()) {
-			disconnectTasks.push(slaveConnection.disconnect(1001, "Server Quit"));
+		for (let hostConnection of this.hostConnections.values()) {
+			disconnectTasks.push(hostConnection.disconnect(1001, "Server Quit"));
 		}
 
 		logger.info(`WsServer | Waiting for ${disconnectTasks.length} connectors to close`);
@@ -212,15 +212,15 @@ ${err.stack}`
 		// Validate token
 		let user;
 		try {
-			if (type === "register_slave") {
+			if (type === "register_host") {
 				let tokenPayload = jwt.verify(
 					data.token,
 					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-					{ audience: "slave" }
+					{ audience: "host" }
 				);
 
-				if (tokenPayload.slave !== data.id) {
-					throw new Error("missmatched slave id");
+				if (tokenPayload.host !== data.id) {
+					throw new Error("missmatched host id");
 				}
 
 			} else if (type === "register_control") {
@@ -262,34 +262,34 @@ ${err.stack}`
 		});
 
 		let additionalReadyData = {};
-		if (type === "register_slave") {
-			let connection = this.slaveConnections.get(data.id);
+		if (type === "register_host") {
+			let connection = this.hostConnections.get(data.id);
 			if (connection) {
-				logger.verbose(`WsServer | disconnecting existing connection for slave ${data.id}`);
+				logger.verbose(`WsServer | disconnecting existing connection for host ${data.id}`);
 				await connection.disconnect(1008, "Registered from another connection");
 			}
 
 			logger.info(
-				`WsServer | registered slave ${data.name} (${data.id}) using agent ${data.agent} ${data.version}`
+				`WsServer | registered host ${data.name} (${data.id}) using agent ${data.agent} ${data.version}`
 			);
-			if (data.agent === "Clusterio Slave" && data.version !== packageVersion) {
+			if (data.agent === "Clusterio Host" && data.version !== packageVersion) {
 				logger.warn(
 					`Host ${data.name} (${data.id}) connected using version ${data.version} which does not match the ` +
 					`version of the controller is currently running (${packageVersion}). It may not work as expected.`
 				);
 			}
 
-			connection = new SlaveConnection(data, connector, this.controller);
+			connection = new HostConnection(data, connector, this.controller);
 			connector.on("close", () => {
-				if (this.slaveConnections.get(data.id) === connection) {
-					this.slaveConnections.delete(data.id);
-					this.controller.slaveUpdated(this.controller.slaves.get(data.id));
+				if (this.hostConnections.get(data.id) === connection) {
+					this.hostConnections.delete(data.id);
+					this.controller.hostUpdated(this.controller.hosts.get(data.id));
 				} else {
-					logger.warn("Unlisted SlaveConnection closed");
+					logger.warn("Unlisted HostConnection closed");
 				}
 			});
-			this.slaveConnections.set(data.id, connection);
-			this.controller.slaveUpdated(this.controller.slaves.get(data.id));
+			this.hostConnections.set(data.id, connection);
+			this.controller.hostUpdated(this.controller.hosts.get(data.id));
 
 
 		} else if (type === "register_control") {

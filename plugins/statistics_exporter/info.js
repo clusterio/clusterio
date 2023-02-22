@@ -2,7 +2,7 @@
 const { libConfig } = require("@clusterio/lib");
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
-InstanceConfigGroup.defaultAccess = ["controller", "slave", "control"];
+InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 InstanceConfigGroup.groupName = "statistics_exporter";
 InstanceConfigGroup.define({
 	name: "command_timeout",

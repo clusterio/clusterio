@@ -278,7 +278,7 @@ class Request extends Message {
 let messages = {};
 
 // Connection requests
-let wsLinks = ["controller-control", "control-controller", "controller-slave", "slave-controller"];
+let wsLinks = ["controller-control", "control-controller", "controller-host", "host-controller"];
 messages.prepareDisconnect = new Request({
 	type: "prepare_disconnect",
 	links: wsLinks,
@@ -287,7 +287,7 @@ messages.prepareDisconnect = new Request({
 
 messages.prepareControllerDisconnect = new Request({
 	type: "prepare_controller_disconnect",
-	links: ["slave-instance"],
+	links: ["host-instance"],
 });
 
 messages.ping = new Request({
@@ -335,7 +335,7 @@ messages.setControllerConfigProp = new Request({
 	},
 });
 
-let slaveProperties = {
+let hostProperties = {
 	"agent": { type: "string" },
 	"version": { type: "string" },
 	"name": { type: "string" },
@@ -344,29 +344,29 @@ let slaveProperties = {
 	"public_address": { type: ["null", "string"] },
 };
 
-messages.listSlaves = new Request({
-	type: "list_slaves",
+messages.listHosts = new Request({
+	type: "list_hosts",
 	links: ["control-controller"],
-	permission: "core.slave.list",
+	permission: "core.host.list",
 	responseProperties: {
 		"list": {
 			type: "array",
 			items: {
 				additionalProperties: false,
 				required: ["agent", "version", "name", "id", "connected"],
-				properties: slaveProperties,
+				properties: hostProperties,
 			},
 		},
 	},
 });
 
-messages.setSlaveSubscriptions = new Request({
-	type: "set_slave_subscriptions",
+messages.setHostSubscriptions = new Request({
+	type: "set_host_subscriptions",
 	links: ["control-controller"],
-	permission: "core.slave.subscribe",
+	permission: "core.host.subscribe",
 	requestProperties: {
 		"all": { type: "boolean" },
-		"slave_ids": {
+		"host_ids": {
 			type: "array",
 			items: { type: "integer" },
 		},
@@ -376,7 +376,7 @@ messages.setSlaveSubscriptions = new Request({
 let instanceProperties = {
 	"name": { type: "string" },
 	"id": { type: "integer" },
-	"assigned_slave": { type: ["null", "integer"] },
+	"assigned_host": { type: ["null", "integer"] },
 	"game_port": { type: ["null", "integer"] },
 	"status": { enum: [
 		"unknown", "unassigned", "stopped", "starting", "running", "stopping",
@@ -403,7 +403,7 @@ messages.listInstances = new Request({
 			type: "array",
 			items: {
 				additionalProperties: false,
-				required: ["name", "id", "assigned_slave", "status"],
+				required: ["name", "id", "assigned_host", "status"],
 				properties: instanceProperties,
 			},
 		},
@@ -423,22 +423,22 @@ messages.setInstanceSubscriptions = new Request({
 	},
 });
 
-messages.generateSlaveToken = new Request({
-	type: "generate_slave_token",
+messages.generateHostToken = new Request({
+	type: "generate_host_token",
 	links: ["control-controller"],
-	permission: "core.slave.generate_token",
+	permission: "core.host.generate_token",
 	requestProperties: {
-		"slave_id": { type: ["integer", "null"] },
+		"host_id": { type: ["integer", "null"] },
 	},
 	responseProperties: {
 		"token": { type: "string" },
 	},
 });
 
-messages.createSlaveConfig = new Request({
-	type: "create_slave_config",
+messages.createHostConfig = new Request({
+	type: "create_host_config",
 	links: ["control-controller"],
-	permission: "core.slave.create_config",
+	permission: "core.host.create_config",
 	requestProperties: {
 		"id": { type: ["integer", "null"] },
 		"name": { type: ["string", "null"] },
@@ -500,13 +500,13 @@ messages.assignInstanceCommand = new Request({
 	permission: "core.instance.assign",
 	requestProperties: {
 		"instance_id": { type: "integer" },
-		"slave_id": { type: ["integer", "null"] },
+		"host_id": { type: ["integer", "null"] },
 	},
 });
 
 messages.startInstance = new Request({
 	type: "start_instance",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.start",
 	requestProperties: {
 		"save": { type: ["string", "null"] },
@@ -533,7 +533,7 @@ let saveList = {
 
 messages.listSaves = new Request({
 	type: "list_saves",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.save.list",
 	forwardTo: "instance",
 	responseProperties: {
@@ -543,7 +543,7 @@ messages.listSaves = new Request({
 
 messages.createSave = new Request({
 	type: "create_save",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.save.create",
 	forwardTo: "instance",
 	requestProperties: {
@@ -556,7 +556,7 @@ messages.createSave = new Request({
 
 messages.renameSave = new Request({
 	type: "rename_save",
-	links: ["control-controller", "controller-slave"],
+	links: ["control-controller", "controller-host"],
 	permission: "core.instance.save.rename",
 	forwardTo: "instance",
 	requestProperties: {
@@ -567,7 +567,7 @@ messages.renameSave = new Request({
 
 messages.copySave = new Request({
 	type: "copy_save",
-	links: ["control-controller", "controller-slave"],
+	links: ["control-controller", "controller-host"],
 	permission: "core.instance.save.copy",
 	forwardTo: "instance",
 	requestProperties: {
@@ -578,7 +578,7 @@ messages.copySave = new Request({
 
 messages.deleteSave = new Request({
 	type: "delete_save",
-	links: ["control-controller", "controller-slave"],
+	links: ["control-controller", "controller-host"],
 	permission: "core.instance.save.delete",
 	forwardTo: "instance",
 	requestProperties: {
@@ -601,7 +601,7 @@ messages.downloadSave = new Request({
 
 messages.transferSave = new Request({
 	type: "transfer_save",
-	links: ["control-controller", "controller-slave"],
+	links: ["control-controller", "controller-host"],
 	permission: "core.instance.save.transfer",
 	requestProperties: {
 		"instance_id": { type: "integer" },
@@ -617,7 +617,7 @@ messages.transferSave = new Request({
 
 messages.pullSave = new Request({
 	type: "pull_save",
-	links: ["controller-slave"],
+	links: ["controller-host"],
 	requestProperties: {
 		"instance_id": { type: "integer" },
 		"stream_id": { type: "string" },
@@ -630,7 +630,7 @@ messages.pullSave = new Request({
 
 messages.pushSave = new Request({
 	type: "push_save",
-	links: ["controller-slave"],
+	links: ["controller-host"],
 	requestProperties: {
 		"instance_id": { type: "integer" },
 		"stream_id": { type: "string" },
@@ -653,7 +653,7 @@ messages.setSaveListSubscriptions = new Request({
 
 messages.loadScenario = new Request({
 	type: "load_scenario",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.load_scenario",
 	forwardTo: "instance",
 	requestProperties: {
@@ -666,42 +666,42 @@ messages.loadScenario = new Request({
 
 messages.exportData = new Request({
 	type: "export_data",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.export_data",
 	forwardTo: "instance",
 });
 
 messages.extractPlayers = new Request({
 	type: "extract_players",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.extract_players",
 	forwardTo: "instance",
 });
 
 messages.stopInstance = new Request({
 	type: "stop_instance",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.stop",
 	forwardTo: "instance",
 });
 
 messages.killInstance = new Request({
 	type: "kill_instance",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.kill",
 	forwardTo: "instance",
 });
 
 messages.deleteInstance = new Request({
 	type: "delete_instance",
-	links: ["control-controller", "controller-slave"],
+	links: ["control-controller", "controller-host"],
 	permission: "core.instance.delete",
 	forwardTo: "instance",
 });
 
 messages.sendRcon = new Request({
 	type: "send_rcon",
-	links: ["control-controller", "controller-slave", "slave-instance"],
+	links: ["control-controller", "controller-host", "host-instance"],
 	permission: "core.instance.send_rcon",
 	forwardTo: "instance",
 	requestProperties: {
@@ -714,7 +714,7 @@ messages.sendRcon = new Request({
 
 messages.getModPack = new Request({
 	type: "get_mod_pack",
-	links: ["control-controller", "instance-slave", "slave-controller"],
+	links: ["control-controller", "instance-host", "host-controller"],
 	permission: "core.mod_pack.get",
 	forwardTo: "controller",
 	requestProperties: {
@@ -727,7 +727,7 @@ messages.getModPack = new Request({
 
 messages.getDefaultModPack = new Request({
 	type: "get_default_mod_pack",
-	links: ["control-controller", "instance-slave", "slave-controller"],
+	links: ["control-controller", "instance-host", "host-controller"],
 	permission: "core.mod_pack.get",
 	forwardTo: "controller",
 	responseProperties: {
@@ -1107,7 +1107,7 @@ messages.setLogSubscriptions = new Request({
 	requestProperties: {
 		"all": { type: "boolean" },
 		"controller": { type: "boolean" },
-		"slave_ids": {
+		"host_ids": {
 			type: "array",
 			items: { type: "integer" },
 		},
@@ -1126,7 +1126,7 @@ messages.queryLog = new Request({
 	requestProperties: {
 		"all": { type: "boolean" },
 		"controller": { type: "boolean" },
-		"slave_ids": {
+		"host_ids": {
 			type: "array",
 			items: { type: "integer" },
 		},
@@ -1150,7 +1150,7 @@ messages.queryLog = new Request({
 // Internal requests
 messages.updateInstances = new Request({
 	type: "update_instances",
-	links: ["slave-controller"],
+	links: ["host-controller"],
 	requestProperties: {
 		"instances": {
 			type: "array",
@@ -1171,7 +1171,7 @@ messages.updateInstances = new Request({
 
 messages.assignInstance = new Request({
 	type: "assign_instance",
-	links: ["controller-slave"],
+	links: ["controller-host"],
 	requestProperties: {
 		"serialized_config": { type: "object" },
 	},
@@ -1180,13 +1180,13 @@ messages.assignInstance = new Request({
 
 messages.unassignInstance = new Request({
 	type: "unassigne_instance",
-	links: ["controller-slave"],
+	links: ["controller-host"],
 	forwardTo: "instance",
 });
 
 messages.getMetrics = new Request({
 	type: "get_metrics",
-	links: ["controller-slave", "slave-instance"],
+	links: ["controller-host", "host-instance"],
 	responseProperties: {
 		"results": { type: "array" },
 	},
@@ -1221,8 +1221,8 @@ class Event extends Message {
 	 *     Optional target to broadcast this event to.  Only 'instance' is
 	 *     currently supported.  An event will only be broadcast towards
 	 *     links that are downstream, so sending an event set to instance
-	 *     broadcast that's sent to a slave will only be broadcast to that
-	 *     slave's instances.
+	 *     broadcast that's sent to a host will only be broadcast to that
+	 *     host's instances.
 	 * @param {?Array<string>} eventRequired -
 	 *     List of properties required to be present in the event payload.
 	 *     Defaults to all.
@@ -1307,7 +1307,7 @@ class Event extends Message {
 			if (
 				this.broadcastTo === "instance"
 				&& [
-					"instance-slave", "slave-controller", "control-controller", "controller-slave",
+					"instance-host", "host-controller", "control-controller", "controller-host",
 				].includes(`${link.target}-${link.source}`)
 			) {
 				if (!handler) {
@@ -1387,7 +1387,7 @@ messages.accountUpdate = new Event({
 
 messages.logMessage = new Event({
 	type: "log_message",
-	links: ["slave-controller", "controller-control"],
+	links: ["host-controller", "controller-control"],
 	eventProperties: {
 		"info": {
 			type: "object",
@@ -1400,16 +1400,16 @@ messages.logMessage = new Event({
 	},
 });
 
-messages.slaveUpdate = new Event({
-	type: "slave_update",
+messages.hostUpdate = new Event({
+	type: "host_update",
 	links: ["controller-control"],
-	eventProperties: slaveProperties,
+	eventProperties: hostProperties,
 });
 
 
 messages.instanceInitialized = new Event({
 	type: "instance_initialized",
-	links: ["instance-slave"],
+	links: ["instance-host"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
 		"plugins": {
@@ -1420,7 +1420,7 @@ messages.instanceInitialized = new Event({
 });
 messages.instanceStatusChanged = new Event({
 	type: "instance_status_changed",
-	links: ["instance-slave", "slave-controller"],
+	links: ["instance-host", "host-controller"],
 	eventRequired: ["instance_id", "status"],
 	eventProperties: {
 		"instance_id": { type: "integer" },
@@ -1439,7 +1439,7 @@ messages.instanceUpdate = new Event({
 
 messages.saveListUpdate = new Event({
 	type: "save_list_update",
-	links: ["instance-slave", "slave-controller", "controller-control"],
+	links: ["instance-host", "host-controller", "controller-control"],
 	forwardTo: "controller",
 	eventProperties: {
 		"instance_id": { type: "integer" },
@@ -1472,7 +1472,7 @@ messages.userUpdate = new Event({
 
 messages.controllerConnectionEvent = new Event({
 	type: "controller_connection_event",
-	links: ["slave-instance"],
+	links: ["host-instance"],
 	eventProperties: {
 		"event": { type: "string" },
 	},
@@ -1480,7 +1480,7 @@ messages.controllerConnectionEvent = new Event({
 
 messages.syncUserLists = new Event({
 	type: "sync_user_lists",
-	links: ["controller-slave"],
+	links: ["controller-host"],
 	eventProperties: {
 		"adminlist": {
 			type: "array",
@@ -1503,7 +1503,7 @@ messages.syncUserLists = new Event({
 
 messages.banlistUpdate = new Event({
 	type: "banlist_update",
-	links: ["controller-slave", "slave-instance"],
+	links: ["controller-host", "host-instance"],
 	broadcastTo: "instance",
 	eventProperties: {
 		"name": { type: "string" },
@@ -1514,7 +1514,7 @@ messages.banlistUpdate = new Event({
 
 messages.adminlistUpdate = new Event({
 	type: "adminlist_update",
-	links: ["controller-slave", "slave-instance"],
+	links: ["controller-host", "host-instance"],
 	eventProperties: {
 		"name": { type: "string" },
 		"admin": { type: "boolean" },
@@ -1524,7 +1524,7 @@ messages.adminlistUpdate = new Event({
 
 messages.whitelistUpdate = new Event({
 	type: "whitelist_update",
-	links: ["controller-slave", "slave-instance"],
+	links: ["controller-host", "host-instance"],
 	eventProperties: {
 		"name": { type: "string" },
 		"whitelisted": { type: "boolean" },
@@ -1534,7 +1534,7 @@ messages.whitelistUpdate = new Event({
 
 messages.playerEvent = new Event({
 	type: "player_event",
-	links: ["instance-slave", "slave-controller"],
+	links: ["instance-host", "host-controller"],
 	forwardTo: "controller",
 	eventRequired: ["instance_id", "type", "name"],
 	eventProperties: {

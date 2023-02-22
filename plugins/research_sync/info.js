@@ -28,7 +28,7 @@ module.exports = {
 	messages: {
 		contribution: new libLink.Event({
 			type: "research_sync:contribution",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			eventProperties: {
 				"name": { type: "string" },
@@ -38,7 +38,7 @@ module.exports = {
 		}),
 		progress: new libLink.Event({
 			type: "research_sync:progress",
-			links: ["controller-slave", "slave-instance"],
+			links: ["controller-host", "host-instance"],
 			broadcastTo: "instance",
 			eventProperties: {
 				"technologies": {
@@ -57,7 +57,7 @@ module.exports = {
 		}),
 		finished: new libLink.Event({
 			type: "research_sync:finished",
-			links: ["instance-slave", "slave-controller", "controller-slave", "slave-instance"],
+			links: ["instance-host", "host-controller", "controller-host", "host-instance"],
 			forwardTo: "controller",
 			broadcastTo: "instance",
 			eventProperties: {
@@ -67,7 +67,7 @@ module.exports = {
 		}),
 		syncTechnologies: new libLink.Request({
 			type: "research_sync:sync_technologies",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"technologies": technologies,

@@ -37,7 +37,7 @@ Factorio*
 /plugin-list.json
 /config-controller.json
 /config-control.json
-/config-slave.json
+/config-host.json
 pnpm-lock.yaml
 mod_cache.json
 /static/

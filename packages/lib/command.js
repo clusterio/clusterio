@@ -135,35 +135,35 @@ class CommandTree {
 
 
 /**
- * Resolve a string into a slave ID
+ * Resolve a string into a host ID
  *
- * Resolves a string with either an slave name or an id into an integer with
- * the slave ID.
+ * Resolves a string with either an host name or an id into an integer with
+ * the host ID.
  *
- * @param {module:lib/link.Link} client - link to controller to query slave on.
- * @param {string} slaveName - string with name or id of slave.
- * @returns {Promise<number>} slave ID.
+ * @param {module:lib/link.Link} client - link to controller to query host on.
+ * @param {string} hostName - string with name or id of host.
+ * @returns {Promise<number>} host ID.
  * @static
  */
-async function resolveSlave(client, slaveName) {
-	let slaveId;
-	if (/^-?\d+$/.test(slaveName)) {
-		slaveId = parseInt(slaveName, 10);
+async function resolveHost(client, hostName) {
+	let hostId;
+	if (/^-?\d+$/.test(hostName)) {
+		hostId = parseInt(hostName, 10);
 	} else {
-		let response = await libLink.messages.listSlaves.send(client);
-		for (let slave of response.list) {
-			if (slave.name === slaveName) {
-				slaveId = slave.id;
+		let response = await libLink.messages.listHosts.send(client);
+		for (let host of response.list) {
+			if (host.name === hostName) {
+				hostId = host.id;
 				break;
 			}
 		}
 
-		if (slaveId === undefined) {
-			throw new libErrors.CommandError(`No slave named ${slaveName}`);
+		if (hostId === undefined) {
+			throw new libErrors.CommandError(`No host named ${hostName}`);
 		}
 	}
 
-	return slaveId;
+	return hostId;
 }
 
 /**
@@ -275,7 +275,7 @@ module.exports = {
 	Command,
 	CommandTree,
 
-	resolveSlave,
+	resolveHost,
 	resolveInstance,
 	resolveModPack,
 	retrieveRole,

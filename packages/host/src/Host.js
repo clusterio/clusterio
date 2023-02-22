@@ -49,7 +49,7 @@ async function discoverInstances(instancesDir) {
 	let instanceInfos = new Map();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
-			let instanceConfig = new libConfig.InstanceConfig("slave");
+			let instanceConfig = new libConfig.InstanceConfig("host");
 			let configPath = path.join(instancesDir, entry.name, "instance.json");
 
 			try {
@@ -81,16 +81,16 @@ async function discoverInstances(instancesDir) {
 }
 
 /**
- * Handles running the slave
+ * Handles running the host
  *
  * Connects to the controller over the WebSocket and manages intsances.
- * @alias module:slave/src/Slave
+ * @alias module:host/src/Host
  */
-class Slave extends libLink.Link {
+class Host extends libLink.Link {
 	// I don't like God classes, but the alternative of putting all this state
 	// into global variables is not much better.
-	constructor(connector, slaveConfig, tlsCa, pluginInfos) {
-		super("slave", "controller", connector);
+	constructor(connector, hostConfig, tlsCa, pluginInfos) {
+		super("host", "controller", connector);
 		libLink.attachAllMessages(this);
 
 		this.pluginInfos = pluginInfos;
@@ -98,7 +98,7 @@ class Slave extends libLink.Link {
 			libPlugin.attachPluginMessages(this, { info: pluginInfo });
 		}
 
-		this.config = slaveConfig;
+		this.config = hostConfig;
 
 		/**
 		 * Certificate authority used to validate TLS connections to the controller.
@@ -173,7 +173,7 @@ class Slave extends libLink.Link {
 			throw new Error(`Instance folder was unepectedly invalid: name ${err.message}`);
 		}
 
-		let instancesDir = this.config.get("slave.instances_directory");
+		let instancesDir = this.config.get("host.instances_directory");
 		for (let i = 0; i < 10; i++) { // Limit attempts in case this is somehow an infinite loop
 			let candidateDir = path.join(instancesDir, await libFileOps.findUnusedName(instancesDir, name));
 			try {
@@ -315,13 +315,13 @@ class Slave extends libLink.Link {
 				instanceInfo.config.update(serialized_config, true, "controller");
 
 			} else {
-				let instanceConfig = new libConfig.InstanceConfig("slave");
+				let instanceConfig = new libConfig.InstanceConfig("host");
 				await instanceConfig.load(serialized_config, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
 				logger.info(`Creating ${instanceDir}`);
-				await Instance.create(instanceDir, this.config.get("slave.factorio_directory"));
+				await Instance.create(instanceDir, this.config.get("host.factorio_directory"));
 				instanceInfo = {
 					path: instanceDir,
 					config: instanceConfig,
@@ -336,7 +336,7 @@ class Slave extends libLink.Link {
 
 		// Somewhat hacky, but in the event of a lost session the status is
 		// resent on assigment since the controller sends an assigment
-		// request for all the instances it knows should be on this slave.
+		// request for all the instances it knows should be on this host.
 		let instanceConnection = this.instanceConnections.get(instance_id);
 		libLink.messages.instanceStatusChanged.send(this, {
 			instance_id,
@@ -388,7 +388,7 @@ class Slave extends libLink.Link {
 	 * Initialize and connect an unloaded instance
 	 *
 	 * @param {number} instanceId - ID of instance to initialize.
-	 * @returns {Promise<module:slave/slave~InstanceConnection>} connection to instance.
+	 * @returns {Promise<module:host/host~InstanceConnection>} connection to instance.
 	 */
 	async _connectInstance(instanceId) {
 		let instanceInfo = this.getRequestInstanceInfo(instanceId);
@@ -399,7 +399,7 @@ class Slave extends libLink.Link {
 		let [connectionClient, connectionServer] = libLink.VirtualConnector.makePair();
 		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
 		let instance = new Instance(
-			this, connectionClient, instanceInfo.path, this.config.get("slave.factorio_directory"), instanceInfo.config
+			this, connectionClient, instanceInfo.path, this.config.get("host.factorio_directory"), instanceInfo.config
 		);
 
 		this.instanceConnections.set(instanceId, instanceConnection);
@@ -422,8 +422,8 @@ class Slave extends libLink.Link {
 		for await (let result of libPrometheus.defaultRegistry.collect()) {
 			if (result.metric.name.startsWith("process_")) {
 				results.push(libPrometheus.serializeResult(result, {
-					addLabels: { "slave_id": String(this.config.get("slave.id")) },
-					metricName: result.metric.name.replace("process_", "clusterio_slave_"),
+					addLabels: { "host_id": String(this.config.get("host.id")) },
+					metricName: result.metric.name.replace("process_", "clusterio_host_"),
 				}));
 
 			} else {
@@ -601,7 +601,7 @@ class Slave extends libLink.Link {
 		checkRequestSaveName(filename);
 		let instanceInfo = this.getRequestInstanceInfo(instance_id);
 
-		let url = new URL(this.config.get("slave.controller_url"));
+		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${stream_id}`;
 		let response = await phin({
 			url, method: "GET",
@@ -656,7 +656,7 @@ class Slave extends libLink.Link {
 			throw err;
 		}
 
-		let url = new URL(this.config.get("slave.controller_url"));
+		let url = new URL(this.config.get("host.controller_url"));
 		url.pathname += `api/stream/${stream_id}`;
 		phin({
 			url, method: "PUT",
@@ -706,10 +706,10 @@ class Slave extends libLink.Link {
 	 * Discover available instances
 	 *
 	 * Looks through the instances directory for instances and updates
-	 * the slave and controller with the new list of instances.
+	 * the host and controller with the new list of instances.
 	 */
 	async updateInstances() {
-		this.discoveredInstanceInfos = await discoverInstances(this.config.get("slave.instances_directory"));
+		this.discoveredInstanceInfos = await discoverInstances(this.config.get("host.instances_directory"));
 		let list = [];
 		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
@@ -773,7 +773,7 @@ class Slave extends libLink.Link {
 			for (let instanceId of this.instanceConnections.keys()) {
 				await this.stopInstance(instanceId);
 			}
-			await this.connector.close(1000, "Slave Shutdown");
+			await this.connector.close(1000, "Host Shutdown");
 
 			// Clear silly interval in pidfile library.
 			pidusage.clear();
@@ -781,7 +781,7 @@ class Slave extends libLink.Link {
 			setBlocking(true);
 			logger.error(`
 +------------------------------------------------------------+
-| Unexpected error occured while shutting down slave, please |
+| Unexpected error occured while shutting down host, please  |
 | report it to https://github.com/clusterio/clusterio/issues |
 +------------------------------------------------------------+
 ${err.stack}`
@@ -801,7 +801,7 @@ ${err.stack}`
 	}
 }
 
-module.exports = Slave;
+module.exports = Host;
 
 // For testing only
 module.exports._discoverInstances = discoverInstances;

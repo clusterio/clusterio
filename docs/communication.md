@@ -11,8 +11,8 @@ Links represents one side of a two way communication pipe, connectors deal with 
 The Link class represents one side of a two way communication channel where the actual communication is done by a connector associated with the link.
 The link also knows what the endpoint types it's connected to are via the source and target attributes.
 
-The endpoint types currently implemented are controller, slave, instance, and control.
-Although slave and instances run in the same Node.js program they use virtual links to communicate between them in order to simplify the communication architecture.
+The endpoint types currently implemented are controller, host, instance, and control.
+Although host and instances run in the same Node.js program they use virtual links to communicate between them in order to simplify the communication architecture.
 
 Upon creation the link will register with the connector in order to receive and process messages from it.
 The messages received are validated using the validator registered for the type of the message.

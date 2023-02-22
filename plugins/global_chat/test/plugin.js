@@ -24,7 +24,7 @@ describe("global_chat plugin", function() {
 		let instancePlugin;
 
 		before(async function() {
-			instancePlugin = new instance.InstancePlugin(info, new mock.MockInstance(), new mock.MockSlave());
+			instancePlugin = new instance.InstancePlugin(info, new mock.MockInstance(), new mock.MockHost());
 			await instancePlugin.init();
 		});
 

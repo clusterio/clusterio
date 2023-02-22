@@ -2,7 +2,7 @@
 const { libConfig, libLink, libUsers } = require("@clusterio/lib");
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
-ControllerConfigGroup.defaultAccess = ["controller", "slave", "control"];
+ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "subspace_storage";
 ControllerConfigGroup.define({
 	name: "autosave_interval",
@@ -29,12 +29,12 @@ ControllerConfigGroup.define({
 ControllerConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
-InstanceConfigGroup.defaultAccess = ["controller", "slave", "control"];
+InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 InstanceConfigGroup.groupName = "subspace_storage";
 InstanceConfigGroup.define({
 	name: "log_item_transfers",
 	title: "Log Item Transfers",
-	description: "Spam slave console with item transfers done.",
+	description: "Spam host console with item transfers done.",
 	type: "boolean",
 	initial_value: false,
 });
@@ -78,7 +78,7 @@ module.exports = {
 		// XXX this should be a request to be reliable
 		place: new libLink.Event({
 			type: "subspace_storage:place",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			eventProperties: {
 				"instance_id": { type: "integer" },
@@ -87,7 +87,7 @@ module.exports = {
 		}),
 		remove: new libLink.Request({
 			type: "subspace_storage:remove",
-			links: ["instance-slave", "slave-controller"],
+			links: ["instance-host", "host-controller"],
 			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
@@ -99,7 +99,7 @@ module.exports = {
 		}),
 		getStorage: new libLink.Request({
 			type: "subspace_storage:get_storage",
-			links: ["instance-slave", "slave-controller", "control-controller"],
+			links: ["instance-host", "host-controller", "control-controller"],
 			permission: "subspace_storage.storage.view",
 			forwardTo: "controller",
 			responseProperties: {
@@ -108,7 +108,7 @@ module.exports = {
 		}),
 		updateStorage: new libLink.Event({
 			type: "subspace_storage:update_storage",
-			links: ["controller-slave", "slave-instance", "controller-control"],
+			links: ["controller-host", "host-instance", "controller-control"],
 			broadcastTo: "instance",
 			eventProperties: {
 				"items": items,

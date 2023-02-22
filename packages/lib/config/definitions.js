@@ -10,7 +10,7 @@ const classes = require("./classes");
  * @memberof module:lib/config
  */
 class ControllerGroup extends classes.ConfigGroup { }
-ControllerGroup.defaultAccess = ["controller", "slave", "control"];
+ControllerGroup.defaultAccess = ["controller", "host", "control"];
 ControllerGroup.groupName = "controller";
 ControllerGroup.define({
 	name: "name",
@@ -110,7 +110,7 @@ ControllerGroup.define({
 ControllerGroup.define({
 	name: "metrics_timeout",
 	title: "Metrics Timeout",
-	description: "Timeout in seconds for metrics gathering from slaves.",
+	description: "Timeout in seconds for metrics gathering from hosts.",
 	type: "number",
 	initial_value: 8,
 });
@@ -148,95 +148,95 @@ ControllerConfig.registerGroup(ControllerGroup);
 
 
 /**
- * Slave config group for {@link module:lib/config.SlaveConfig}
+ * Host config group for {@link module:lib/config.HostConfig}
  * @extends module:lib/config.ConfigGroup
  * @memberof module:lib/config
  */
-class SlaveGroup extends classes.ConfigGroup {}
-SlaveGroup.defaultAccess = ["controller", "slave", "control"];
-SlaveGroup.groupName = "slave";
-SlaveGroup.define({
+class HostGroup extends classes.ConfigGroup {}
+HostGroup.defaultAccess = ["controller", "host", "control"];
+HostGroup.groupName = "host";
+HostGroup.define({
 	name: "name",
-	description: "Name of the slave",
+	description: "Name of the host",
 	type: "string",
-	initial_value: "New Slave",
+	initial_value: "New Host",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "id",
-	description: "ID of the slave",
+	description: "ID of the host",
 	type: "number",
 	initial_value: () => Math.random() * 2**31 | 0,
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "factorio_directory",
 	description: "Path to directory to look for factorio installs",
 	type: "string",
 	initial_value: "factorio",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "mods_directory",
 	title: "Mods Directory",
 	description: "Path to directory where mods for instances are cached.",
 	type: "string",
 	initial_value: "mods",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "mods_directory_is_shared",
 	title: "Mods Directory is Shared",
 	description: "True if the mods directory is shared with the controller.",
 	type: "boolean",
 	initial_value: true,
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "instances_directory",
 	description: "Path to directory to store instances in.",
 	restartRequired: true,
 	type: "string",
 	initial_value: "instances",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "controller_url",
 	description: "URL to connect to the controller at",
 	restartRequired: true,
 	type: "string",
 	initial_value: "http://localhost:8080/",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "controller_token",
 	description: "Token to authenticate to controller with.",
 	restartRequired: true,
 	type: "string",
 	initial_value: "enter token here",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "tls_ca",
 	description: "Path to Certificate Authority to validate TLS connection to controller against.",
 	restartRequired: true,
 	type: "string",
 	optional: true,
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "public_address",
-	description: "Public facing address players should connect to in order to join instances on this slave",
+	description: "Public facing address players should connect to in order to join instances on this host",
 	type: "string",
 	initial_value: "localhost",
 });
-SlaveGroup.define({
+HostGroup.define({
 	name: "max_reconnect_delay",
 	title: "Max Reconnect Delay",
 	description: "Maximum delay to wait before attempting to reconnect WebSocket",
 	type: "number",
 	initial_value: 60,
 });
-SlaveGroup.finalize();
+HostGroup.finalize();
 
 /**
- * Slave Config class
+ * Host Config class
  * @extends module:lib/config.Config
  * @memberof module:lib/config
  */
-class SlaveConfig extends classes.Config { }
-SlaveConfig.registerGroup(SlaveGroup);
+class HostConfig extends classes.Config { }
+HostConfig.registerGroup(HostGroup);
 
 
 /**
@@ -245,7 +245,7 @@ SlaveConfig.registerGroup(SlaveGroup);
  * @memberof module:lib/config
  */
 class InstanceGroup extends classes.ConfigGroup { }
-InstanceGroup.defaultAccess = ["controller", "slave", "control"];
+InstanceGroup.defaultAccess = ["controller", "host", "control"];
 InstanceGroup.groupName = "instance";
 InstanceGroup.define({
 	name: "name",
@@ -259,13 +259,13 @@ InstanceGroup.define({
 	initial_value: () => Math.random() * 2**31 | 0,
 });
 InstanceGroup.define({
-	name: "assigned_slave",
+	name: "assigned_host",
 	type: "number",
 	optional: true,
 });
 InstanceGroup.define({
 	name: "auto_start",
-	description: "Automatically start this instance when the slave hosting it is started up",
+	description: "Automatically start this instance when the host hosting it is started up",
 	type: "boolean",
 	initial_value: false,
 });
@@ -277,7 +277,7 @@ InstanceGroup.finalize();
  * @memberof module:lib/config
  */
 class FactorioGroup extends classes.ConfigGroup { }
-FactorioGroup.defaultAccess = ["controller", "slave", "control"];
+FactorioGroup.defaultAccess = ["controller", "host", "control"];
 FactorioGroup.groupName = "factorio";
 FactorioGroup.define({
 	name: "version",
@@ -478,7 +478,7 @@ function registerPluginConfigGroups(pluginInfos) {
 
 		} else {
 			class ControllerConfigGroup extends classes.PluginConfigGroup { }
-			ControllerConfigGroup.defaultAccess = ["controller", "slave", "control"];
+			ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 			ControllerConfigGroup.groupName = pluginInfo.name;
 			ControllerConfigGroup.finalize();
 			ControllerConfig.registerGroup(ControllerConfigGroup);
@@ -491,7 +491,7 @@ function registerPluginConfigGroups(pluginInfos) {
 
 			} else {
 				class InstanceConfigGroup extends classes.PluginConfigGroup { }
-				InstanceConfigGroup.defaultAccess = ["controller", "slave", "control"];
+				InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 				InstanceConfigGroup.groupName = pluginInfo.name;
 				InstanceConfigGroup.finalize();
 				InstanceConfig.registerGroup(InstanceConfigGroup);
@@ -507,20 +507,20 @@ function registerPluginConfigGroups(pluginInfos) {
  */
 function finalizeConfigs() {
 	ControllerConfig.finalize();
-	SlaveConfig.finalize();
+	HostConfig.finalize();
 	InstanceConfig.finalize();
 	ControlConfig.finalize();
 }
 
 module.exports = {
 	ControllerGroup,
-	SlaveGroup,
+	HostGroup,
 	InstanceGroup,
 	FactorioGroup,
 	ControlGroup,
 
 	ControllerConfig,
-	SlaveConfig,
+	HostConfig,
 	InstanceConfig,
 	ControlConfig,
 

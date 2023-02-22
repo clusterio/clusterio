@@ -31,33 +31,33 @@ class BaseConnection extends libLink.Link {
 		let instance = this._controller.instances.get(message.data.instance_id);
 		if (!instance) { return; }
 
-		let slaveId = instance.config.get("instance.assigned_slave");
-		if (slaveId === null) { return; }
+		let hostId = instance.config.get("instance.assigned_host");
+		if (hostId === null) { return; }
 
-		let connection = this._controller.wsServer.slaveConnections.get(slaveId);
+		let connection = this._controller.wsServer.hostConnections.get(hostId);
 		if (!connection || connection.closing) { return; }
 		if (event.plugin && !connection.plugins.has(event.plugin)) { return; }
 
 		event.send(connection, message.data);
 	}
 
-	async broadcastEventToSlaves(message, event) {
-		for (let slaveConnection of this._controller.wsServer.slaveConnections.values()) {
+	async broadcastEventToHosts(message, event) {
+		for (let hostConnection of this._controller.wsServer.hostConnections.values()) {
 			// Do not broadcast back to the source
-			if (slaveConnection === this) { continue; }
-			if (slaveConnection.connector.closing) { continue; }
-			if (event.plugin && !slaveConnection.plugins.has(event.plugin)) { continue; }
+			if (hostConnection === this) { continue; }
+			if (hostConnection.connector.closing) { continue; }
+			if (event.plugin && !hostConnection.plugins.has(event.plugin)) { continue; }
 
-			event.send(slaveConnection, message.data);
+			event.send(hostConnection, message.data);
 		}
 	}
 
 	async broadcastEventToInstance(message, event) {
-		await this.broadcastEventToSlaves(message, event);
+		await this.broadcastEventToHosts(message, event);
 	}
 
 	async prepareDisconnectRequestHandler(message, request) {
-		await libPlugin.invokeHook(this._controller.plugins, "onPrepareSlaveDisconnect", this);
+		await libPlugin.invokeHook(this._controller.plugins, "onPrepareHostDisconnect", this);
 		this._disconnecting = true;
 		this.connector.setClosing();
 		return await super.prepareDisconnectRequestHandler(message, request);

@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Clusterio slave
+ * Clusterio host
  *
  * Connects to the controller and hosts Factorio servers that can
  * communicate with the cluster.  It is remotely controlled by {@link
  * module:controller/controller}.
  *
- * @module slave/slave
+ * @module host/host
  * @author Danielv123, Hornwitser
  * @example
- * npx clusterioslave run
+ * npx clusteriohost run
  */
 "use strict";
 const fs = require("fs-extra");
@@ -30,44 +30,44 @@ const libSharedCommands = require("@clusterio/lib/shared_commands");
 const { ConsoleTransport, FilteredTransport, levels, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 
-const Slave = require("./src/Slave");
+const Host = require("./src/Host");
 
 
-class SlaveConnector extends libLink.WebSocketClientConnector {
-	constructor(slaveConfig, tlsCa, pluginInfos) {
+class HostConnector extends libLink.WebSocketClientConnector {
+	constructor(hostConfig, tlsCa, pluginInfos) {
 		super(
-			slaveConfig.get("slave.controller_url"),
-			slaveConfig.get("slave.max_reconnect_delay"),
+			hostConfig.get("host.controller_url"),
+			hostConfig.get("host.max_reconnect_delay"),
 			tlsCa
 		);
-		this.slaveConfig = slaveConfig;
+		this.hostConfig = hostConfig;
 		this.pluginInfos = pluginInfos;
 	}
 
 	register() {
-		logger.info("Connector | registering slave");
+		logger.info("Connector | registering host");
 		let plugins = {};
 		for (let pluginInfo of this.pluginInfos) {
 			plugins[pluginInfo.name] = pluginInfo.version;
 		}
 
-		this.sendHandshake("register_slave", {
-			token: this.slaveConfig.get("slave.controller_token"),
-			agent: "Clusterio Slave",
+		this.sendHandshake("register_host", {
+			token: this.hostConfig.get("host.controller_token"),
+			agent: "Clusterio Host",
 			version,
-			id: this.slaveConfig.get("slave.id"),
-			name: this.slaveConfig.get("slave.name"),
-			public_address: this.slaveConfig.get("slave.public_address"),
+			id: this.hostConfig.get("host.id"),
+			name: this.hostConfig.get("host.name"),
+			public_address: this.hostConfig.get("host.public_address"),
 			plugins,
 		});
 	}
 }
 
 
-async function startSlave() {
+async function startHost() {
 	// argument parsing
 	const args = yargs
-		.scriptName("slave")
+		.scriptName("host")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
 			nargs: 1,
@@ -84,8 +84,8 @@ async function startSlave() {
 		})
 		.option("config", {
 			nargs: 1,
-			describe: "slave config file to use",
-			default: "config-slave.json",
+			describe: "host config file to use",
+			default: "config-host.json",
 			type: "string",
 		})
 		.option("plugin-list", {
@@ -95,8 +95,8 @@ async function startSlave() {
 			type: "string",
 		})
 		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Slave config", libSharedCommands.configCommand)
-		.command("run", "Run slave")
+		.command("config", "Manage Host config", libSharedCommands.configCommand)
+		.command("run", "Run host")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.argv
@@ -106,21 +106,21 @@ async function startSlave() {
 		// Migration from alpha-10 single file logs, note that we can't use
 		// the logger here as it's not initalized yet.
 		/* eslint-disable no-console */
-		let slaveLogDirectory = path.join(args.logDirectory, "slave");
-		if (!await fs.pathExists(slaveLogDirectory) && await fs.pathExists("slave.log")) {
-			console.log("Migrating slave log...");
-			await fs.ensureDir(slaveLogDirectory);
-			await libLoggingUtils.migrateLogs("slave.log", slaveLogDirectory, "slave-%DATE%.log");
-			console.log("Migration complete, you should delete slave.log now");
+		let hostLogDirectory = path.join(args.logDirectory, "host");
+		if (!await fs.pathExists(hostLogDirectory) && await fs.pathExists("host.log")) {
+			console.log("Migrating host log...");
+			await fs.ensureDir(hostLogDirectory);
+			await libLoggingUtils.migrateLogs("host.log", hostLogDirectory, "host-%DATE%.log");
+			console.log("Migration complete, you should delete host.log now");
 		}
 		/* eslint-enable no-console */
 	}
 
 	logger.add(new winston.transports.DailyRotateFile({
 		format: winston.format.json(),
-		filename: "slave-%DATE%.log",
+		filename: "host-%DATE%.log",
 		utc: true,
-		dirname: path.join(args.logDirectory, "slave"),
+		dirname: path.join(args.logDirectory, "host"),
 	}));
 	if (args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({
@@ -133,7 +133,7 @@ async function startSlave() {
 
 	let command = args._[0];
 	if (command === "run") {
-		logger.info(`Starting Clusterio slave ${version}`);
+		logger.info(`Starting Clusterio host ${version}`);
 	}
 
 	logger.info(`Loading available plugins from ${args.pluginList}`);
@@ -158,14 +158,14 @@ async function startSlave() {
 	libConfig.finalizeConfigs();
 
 	logger.info(`Loading config from ${args.config}`);
-	let slaveConfig = new libConfig.SlaveConfig("slave");
+	let hostConfig = new libConfig.HostConfig("host");
 	try {
-		await slaveConfig.load(JSON.parse(await fs.readFile(args.config)));
+		await hostConfig.load(JSON.parse(await fs.readFile(args.config)));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			await slaveConfig.init();
+			await hostConfig.init();
 
 		} else {
 			throw new libErrors.StartupError(`Failed to load ${args.config}: ${err.message}`);
@@ -173,49 +173,49 @@ async function startSlave() {
 	}
 
 	if (command === "config") {
-		await libSharedCommands.handleConfigCommand(args, slaveConfig, args.config);
+		await libSharedCommands.handleConfigCommand(args, hostConfig, args.config);
 		return;
 	}
 
 	// If we get here the command was run
 
-	await fs.ensureDir(slaveConfig.get("slave.instances_directory"));
-	await fs.ensureDir(slaveConfig.get("slave.mods_directory"));
+	await fs.ensureDir(hostConfig.get("host.instances_directory"));
+	await fs.ensureDir(hostConfig.get("host.mods_directory"));
 	await fs.ensureDir("modules");
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioSlave";
+	process.title = "clusterioHost";
 
 	// make sure we have the controller access token
-	if (slaveConfig.get("slave.controller_token") === "enter token here") {
+	if (hostConfig.get("host.controller_token") === "enter token here") {
 		logger.fatal("ERROR invalid config!");
 		logger.fatal(
 			"Controller requires an access token for socket operations. As clusterio\n"+
-			"slaves depends upon this, please set your token using the command npx\n"+
-			"clusterioslave config set slave.controller_token <token>.  You can generate an\n"+
-			"auth token using npx clusterioctl generate-slave-token."
+			"hosts depends upon this, please set your token using the command npx\n"+
+			"clusteriohost config set host.controller_token <token>.  You can generate an\n"+
+			"auth token using npx clusterioctl generate-host-token."
 		);
 		process.exitCode = 1;
 		return;
 	}
 
 	// make sure url ends with /
-	if (!slaveConfig.get("slave.controller_url").endsWith("/")) {
+	if (!hostConfig.get("host.controller_url").endsWith("/")) {
 		logger.fatal("ERROR invalid config!");
-		logger.fatal("slave.controller_url must end with '/'");
+		logger.fatal("host.controller_url must end with '/'");
 		process.exitCode = 1;
 		return;
 	}
 
 	let tlsCa = null;
-	let tlsCaPath = slaveConfig.get("slave.tls_ca");
+	let tlsCaPath = hostConfig.get("host.tls_ca");
 	if (tlsCaPath) {
 		tlsCa = await fs.readFile(tlsCaPath);
 	}
 
-	let slaveConnector = new SlaveConnector(slaveConfig, tlsCa, pluginInfos);
-	let slave = new Slave(slaveConnector, slaveConfig, tlsCa, pluginInfos);
+	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
+	let host = new Host(hostConnector, hostConfig, tlsCa, pluginInfos);
 
 	// Handle interrupts
 	let secondSigint = false;
@@ -229,7 +229,7 @@ async function startSlave() {
 
 		secondSigint = true;
 		logger.info("Caught interrupt signal, shutting down");
-		slave.shutdown();
+		host.shutdown();
 	});
 	let secondSigterm = false;
 	process.on("SIGTERM", () => {
@@ -242,19 +242,19 @@ async function startSlave() {
 
 		secondSigterm = true;
 		logger.info("Caught termination signal, shutting down");
-		slave.shutdown();
+		host.shutdown();
 	});
 	process.on("SIGHUP", () => {
 		logger.info("Terminal closed, shutting down");
-		slave.shutdown();
+		host.shutdown();
 	});
 
-	slaveConnector.once("connect", () => {
-		logger.add(new libLoggingUtils.LinkTransport({ link: slave }));
+	hostConnector.once("connect", () => {
+		logger.add(new libLoggingUtils.LinkTransport({ link: host }));
 	});
 
-	await slaveConnector.connect();
-	logger.info("Started slave");
+	await hostConnector.connect();
+	logger.info("Started host");
 }
 
 if (module === require.main) {
@@ -266,15 +266,15 @@ I           version of clusterio.  Expect things to break. I
 +==========================================================+
 `
 	);
-	startSlave().catch(err => {
+	startHost().catch(err => {
 		if (err instanceof libErrors.AuthenticationFailed) {
 			logger.fatal(err.message);
 
 		} else if (err instanceof libErrors.StartupError) {
 			logger.fatal(`
-+-----------------------------------+
-| Unable to to start clusterioslave |
-+-----------------------------------+
++----------------------------------+
+| Unable to to start clusteriohost |
++----------------------------------+
 ${err.stack}`
 			);
 
@@ -289,7 +289,7 @@ ${err.original.stack}`
 		} else {
 			logger.fatal(`
 +------------------------------------------------------------+
-| Unexpected error occured while starting slave, please      |
+| Unexpected error occured while starting host, please       |
 | report it to https://github.com/clusterio/clusterio/issues |
 +------------------------------------------------------------+
 ${err.stack}`

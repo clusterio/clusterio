@@ -1,8 +1,8 @@
 import React from "react";
 
 import ControllerPage from "./components/ControllerPage";
-import SlavesPage from "./components/SlavesPage";
-import SlaveViewPage from "./components/SlaveViewPage";
+import HostsPage from "./components/HostsPage";
+import HostViewPage from "./components/HostViewPage";
 import InstancesPage from "./components/InstancesPage";
 import InstanceViewPage from "./components/InstanceViewPage";
 import ModPackViewPage from "./components/ModPackViewPage";
@@ -22,15 +22,15 @@ export const pages = [
 		content: <ControllerPage />,
 	},
 	{
-		path: "/slaves",
-		sidebarName: "Slaves",
-		permission: "core.slave.list",
-		content: <SlavesPage />,
+		path: "/hosts",
+		sidebarName: "Hosts",
+		permission: "core.host.list",
+		content: <HostsPage />,
 	},
 	{
-		path: "/slaves/:id/view",
-		sidebarPath: "/slaves",
-		content: <SlaveViewPage />,
+		path: "/hosts/:id/view",
+		sidebarPath: "/hosts",
+		content: <HostViewPage />,
 	},
 	{
 		path: "/instances",

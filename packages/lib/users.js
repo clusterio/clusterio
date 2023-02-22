@@ -365,26 +365,26 @@ definePermission({
 	description: "Modify the controller config or entries of the controller config.",
 });
 definePermission({
-	name: "core.slave.list",
-	title: "List slaves",
-	description: "Get the full list of slaves in the cluster.",
+	name: "core.host.list",
+	title: "List hosts",
+	description: "Get the full list of hosts in the cluster.",
 	grantByDefault: true,
 });
 definePermission({
-	name: "core.slave.subscribe",
-	title: "Subscribe to slave updates",
-	description: "Subscribe to be notified on updates on the details of slaves.",
+	name: "core.host.subscribe",
+	title: "Subscribe to host updates",
+	description: "Subscribe to be notified on updates on the details of hosts.",
 	grantByDefault: true,
 });
 definePermission({
-	name: "core.slave.generate_token",
-	title: "Generate slave token",
-	description: "Generate tokens for slaves to connect to the cluster with.",
+	name: "core.host.generate_token",
+	title: "Generate host token",
+	description: "Generate tokens for hosts to connect to the cluster with.",
 });
 definePermission({
-	name: "core.slave.create_config",
-	title: "Create slave config",
-	description: "Create slave configs via the controller.",
+	name: "core.host.create_config",
+	title: "Create host config",
+	description: "Create host configs via the controller.",
 });
 
 definePermission({
@@ -423,7 +423,7 @@ definePermission({
 definePermission({
 	name: "core.instance.assign",
 	title: "Assign instance",
-	description: "Assign or reassign instances to a slave.",
+	description: "Assign or reassign instances to a host.",
 });
 definePermission({
 	name: "core.instance.save.list",

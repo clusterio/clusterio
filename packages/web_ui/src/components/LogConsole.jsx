@@ -60,7 +60,7 @@ export default function LogConsole(props) {
 		let logFilter = {
 			all: props.all || false,
 			controller: props.controller || false,
-			slave_ids: props.slaves || [],
+			host_ids: props.hosts || [],
 			instance_ids: props.instances || [],
 		};
 
@@ -94,7 +94,7 @@ export default function LogConsole(props) {
 		return () => {
 			control.offLog(logFilter, logHandler);
 		};
-	}, [props.all, props.controller, (props.slaves || []).join(), (props.instances || []).join()]);
+	}, [props.all, props.controller, (props.hosts || []).join(), (props.instances || []).join()]);
 
 	return <>
 		<Paragraph code className="instance-console">

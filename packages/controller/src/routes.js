@@ -49,14 +49,14 @@ async function getMetrics(req, res, next) {
 
 	let requests = [];
 	let timeout = req.app.locals.controller.config.get("controller.metrics_timeout") * 1000;
-	for (let slaveConnection of req.app.locals.controller.wsServer.slaveConnections.values()) {
-		if (!slaveConnection.connected) {
+	for (let hostConnection of req.app.locals.controller.wsServer.hostConnections.values()) {
+		if (!hostConnection.connected) {
 			continue;
 		}
 		requests.push(libHelpers.timeout(
-			libLink.messages.getMetrics.send(slaveConnection).catch(err => {
+			libLink.messages.getMetrics.send(hostConnection).catch(err => {
 				if (!(err instanceof libErrors.SessionLost)) {
-					logger.error(`Unexpected error gathering metrics from slave:\n${err.stack}`);
+					logger.error(`Unexpected error gathering metrics from host:\n${err.stack}`);
 				}
 				return null;
 			}),
@@ -80,7 +80,7 @@ async function getMetrics(req, res, next) {
 				resultMap.set(result.metric.name, result);
 
 			} else {
-				// Merge metrics received by multiple slaves
+				// Merge metrics received by multiple hosts
 				mergeSamples(resultMap.get(result.metric.name), result);
 			}
 		}
@@ -123,7 +123,7 @@ function getPlugins(req, res) {
 	res.send(plugins);
 }
 
-function validateSlaveToken(req, res, next) {
+function validateHostToken(req, res, next) {
 	let token = req.header("x-access-token");
 	if (!token) {
 		res.sendStatus(401);
@@ -134,7 +134,7 @@ function validateSlaveToken(req, res, next) {
 		jwt.verify(
 			token,
 			Buffer.from(req.app.locals.controller.config.get("controller.auth_secret"), "base64"),
-			{ audience: "slave" }
+			{ audience: "host" }
 		);
 
 	} catch (err) {
@@ -356,7 +356,7 @@ async function uploadSave(req, res) {
 		let timeout = new Promise((_, reject) => {
 			proxyStream.events.on("timeout", () => {
 				stream.resume();
-				reject(new Error("Timed out establishing stream to slave"));
+				reject(new Error("Timed out establishing stream to host"));
 			});
 		});
 
@@ -609,7 +609,7 @@ function addRouteHandlers(app) {
 	app.get("/metrics", (req, res, next) => getMetrics(req, res, next).catch(next));
 	app.get("/api/plugins", getPlugins);
 	app.put("/api/upload-export",
-		validateSlaveToken,
+		validateHostToken,
 		(req, res, next) => uploadExport(req, res).catch(next)
 	);
 	app.put("/api/stream/:id", (req, res, next) => putStream(req, res).catch(next));
@@ -628,8 +628,8 @@ function addRouteHandlers(app) {
 const webRoutes = [
 	"/",
 	"/controller",
-	"/slaves",
-	"/slaves/:id/view",
+	"/hosts",
+	"/hosts/:id/view",
 	"/instances",
 	"/instances/:id/view",
 	"/mods",

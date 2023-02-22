@@ -4,7 +4,7 @@ import { message, Button, Space, Table } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 
 import { useAccount } from "../model/account";
-import { useSlaveList } from "../model/slave";
+import { useHostList } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
 
@@ -13,26 +13,26 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 export default function InstanceList(props) {
 	let account = useAccount();
 	let history = useHistory();
-	let [slaveList] = useSlaveList();
+	let [hostList] = useHostList();
 
-	function slaveName(slaveId) {
-		if (slaveId === null) {
+	function hostName(hostId) {
+		if (hostId === null) {
 			return "";
 		}
-		let slave = slaveList.find(s => s.id === slaveId);
-		if (slave) {
-			return slave.name;
+		let host = hostList.find(s => s.id === hostId);
+		if (host) {
+			return host.name;
 		}
-		return String(slaveId);
+		return String(hostId);
 	}
 
 	function instancePublicAddress(instance) {
-		let slave = slaveList.find(s => s.id === instance.assigned_slave);
-		if (slave && slave.public_address) {
+		let host = hostList.find(s => s.id === instance.assigned_host);
+		if (host && host.public_address) {
 			if (instance.game_port) {
-				return `${slave.public_address}:${instance.game_port}`;
+				return `${host.public_address}:${instance.game_port}`;
 			}
-			return slave.public_address;
+			return host.public_address;
 		}
 		return null;
 	}
@@ -45,10 +45,10 @@ export default function InstanceList(props) {
 			sorter: (a, b) => strcmp(a["name"], b["name"]),
 		},
 		{
-			title: "Assigned Slave",
-			key: "assigned_slave",
-			render: instance => slaveName(instance["assigned_slave"]),
-			sorter: (a, b) => strcmp(slaveName(a["assigned_slave"]), slaveName(b["assigned_slave"])),
+			title: "Assigned Host",
+			key: "assigned_host",
+			render: instance => hostName(instance["assigned_host"]),
+			sorter: (a, b) => strcmp(hostName(a["assigned_host"]), hostName(b["assigned_host"])),
 			responsive: ["sm"],
 		},
 		{
@@ -69,7 +69,7 @@ export default function InstanceList(props) {
 					/>
 				</> : "";
 			},
-			sorter: (a, b) => strcmp(slavePublicAddress(a["assigned_slave"]), slavePublicAddress(b["assigned_slave"])),
+			sorter: (a, b) => strcmp(hostPublicAddress(a["assigned_host"]), hostPublicAddress(b["assigned_host"])),
 			responsive: ["lg"],
 		},
 		{
@@ -90,7 +90,7 @@ export default function InstanceList(props) {
 		}] : []),
 	];
 
-	if (props.hideAssignedSlave) {
+	if (props.hideAssignedHost) {
 		columns.splice(1, 1);
 	}
 

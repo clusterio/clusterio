@@ -307,7 +307,7 @@ describe("controller/src/routes", function() {
 			});
 			assert.equal(response.statusCode, 500);
 			assert.deepEqual(
-				JSON.parse(response.body), { errors: ["Timed out establishing stream to slave"], request_errors: [] }
+				JSON.parse(response.body), { errors: ["Timed out establishing stream to host"], request_errors: [] }
 			);
 		});
 

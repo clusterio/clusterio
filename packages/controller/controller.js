@@ -3,7 +3,7 @@
 /**
  * Clusterio controller
  *
- * Facilitates communication between slaves and control of the cluster
+ * Facilitates communication between hosts and control of the cluster
  * through WebSocet connections, and hosts a webserver for browser
  * interfaces and Prometheus statistics export.  It is remotely controlled
  * by {@link module:ctl/ctl}.
@@ -45,19 +45,19 @@ let controller;
 
 
 void new libPrometheus.Gauge(
-	"clusterio_controller_slave_mapping",
-	"Mapping of Slave ID to name",
+	"clusterio_controller_host_mapping",
+	"Mapping of Host ID to name",
 	{
-		labels: ["slave_id", "slave_name"],
+		labels: ["host_id", "host_name"],
 		callback: function(gauge) {
 			gauge.clear();
-			if (!controller || !controller.slaves) {
+			if (!controller || !controller.hosts) {
 				return;
 			}
-			for (let [id, slave] of controller.slaves) {
+			for (let [id, host] of controller.hosts) {
 				gauge.labels({
-					slave_id: String(id),
-					slave_name: slave.name,
+					host_id: String(id),
+					host_name: host.name,
 				}).set(1);
 			};
 		},
@@ -66,9 +66,9 @@ void new libPrometheus.Gauge(
 
 void new libPrometheus.Gauge(
 	"clusterio_controller_instance_mapping",
-	"Mapping of Instance ID to name and slave",
+	"Mapping of Instance ID to name and host",
 	{
-		labels: ["instance_id", "instance_name", "slave_id"],
+		labels: ["instance_id", "instance_name", "host_id"],
 		callback: function(gauge) {
 			gauge.clear();
 			if (!controller || !controller.instances) {
@@ -78,7 +78,7 @@ void new libPrometheus.Gauge(
 				gauge.labels({
 					instance_id: String(id),
 					instance_name: String(instance.config.get("instance.name")),
-					slave_id: String(instance.config.get("instance.assigned_slave")),
+					host_id: String(instance.config.get("instance.assigned_host")),
 				}).set(1);
 			}
 		},
@@ -92,16 +92,16 @@ void new libPrometheus.Gauge(
 );
 
 void new libPrometheus.Gauge(
-	"clusterio_controller_active_slaves",
-	"How many slaves are currently connected to the controller",
-	{ callback: function(gauge) { gauge.set(controller.wsServer.slaveConnections.size); }}
+	"clusterio_controller_active_hosts",
+	"How many hosts are currently connected to the controller",
+	{ callback: function(gauge) { gauge.set(controller.wsServer.hostConnections.size); }}
 );
 
 void new libPrometheus.Gauge(
 	"clusterio_controller_connected_clients_count", "How many clients are currently connected to this controller",
 	{
 		labels: ["type"], callback: async function(gauge) {
-			gauge.labels("slave").set(controller.wsServer.slaveConnections.size);
+			gauge.labels("host").set(controller.wsServer.hostConnections.size);
 			gauge.labels("control").set(controller.wsServer.controlConnections.length);
 		},
 	},
@@ -139,10 +139,10 @@ async function handleBootstrapCommand(args, controllerConfig) {
 		// eslint-disable-next-line no-console
 		console.log(user.createToken(controllerConfig.get("controller.auth_secret")));
 
-	} else if (subCommand === "generate-slave-token") {
+	} else if (subCommand === "generate-host-token") {
 		// eslint-disable-next-line no-console
 		console.log(jwt.sign(
-			{ aud: "slave", slave: args.id },
+			{ aud: "host", host: args.id },
 			Buffer.from(controllerConfig.get("controller.auth_secret"), "base64")
 		));
 
@@ -217,8 +217,8 @@ async function initialize() {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
 				.command("generate-user-token <name>", "Generate authentication token for the given user")
-				.command("generate-slave-token <id>", "Generate authentication token for the given slave", yargs => {
-					yargs.positional("id", { describe: "ID of the slave", type: "number" });
+				.command("generate-host-token <id>", "Generate authentication token for the given host", yargs => {
+					yargs.positional("id", { describe: "ID of the host", type: "number" });
 				})
 				.command("create-ctl-config <name>", "Create clusterioctl config for the given user", yargs => {
 					yargs.option("output", {

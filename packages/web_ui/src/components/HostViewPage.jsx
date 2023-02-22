@@ -6,61 +6,61 @@ import InstanceList from "./InstanceList";
 import LogConsole from "./LogConsole";
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
-import { useSlave } from "../model/slave";
+import { useHost } from "../model/host";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 
 const { Title } = Typography;
 
 
-export default function SlaveViewPage(props) {
+export default function HostViewPage(props) {
 	let params = useParams();
-	let slaveId = Number(params.id);
+	let hostId = Number(params.id);
 	let account = useAccount();
 	let [instanceList] = useInstanceList();
-	let [slave] = useSlave(slaveId);
+	let [host] = useHost(hostId);
 
-	instanceList = instanceList.filter(instance => instance["assigned_slave"] === slaveId);
+	instanceList = instanceList.filter(instance => instance["assigned_host"] === hostId);
 
-	let nav = [{ name: "Slaves", path: "/slaves" }, { name: slave.name || slaveId }];
-	if (slave.loading) {
+	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host.name || hostId }];
+	if (host.loading) {
 		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
 	}
 
-	if (slave.missing) {
+	if (host.missing) {
 		return <PageLayout nav={nav}>
 			<PageHeader
 				className="site-page-header"
-				title={slaveId}
+				title={hostId}
 			/>
-			<p>Slave with id {slaveId} was not found on the controller.</p>
+			<p>Host with id {hostId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 
 	return <PageLayout nav={nav}>
 		<PageHeader
 			className="site-page-header"
-			title={slave.name || slaveId}
+			title={host.name || hostId}
 		/>
 
 		<Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 4 }}>
-			<Descriptions.Item label="Name">{slave["name"]}</Descriptions.Item>
+			<Descriptions.Item label="Name">{host["name"]}</Descriptions.Item>
 			<Descriptions.Item label="Connected">
-				<Tag color={slave["connected"] ? "#389e0d" : "#cf1322"}>
-					{slave["connected"] ? "Connected" : "Disconnected"}
+				<Tag color={host["connected"] ? "#389e0d" : "#cf1322"}>
+					{host["connected"] ? "Connected" : "Disconnected"}
 				</Tag>
 			</Descriptions.Item>
-			<Descriptions.Item label="Agent">{slave["agent"]}</Descriptions.Item>
-			<Descriptions.Item label="Version">{slave["version"]}</Descriptions.Item>
+			<Descriptions.Item label="Agent">{host["agent"]}</Descriptions.Item>
+			<Descriptions.Item label="Version">{host["version"]}</Descriptions.Item>
 		</Descriptions>
 		{account.hasPermission("core.instance.list") && <>
 			<Title level={5} style={{ marginTop: 16 }}>Instances</Title>
-			<InstanceList instances={instanceList} size="small" hideAssignedSlave />
+			<InstanceList instances={instanceList} size="small" hideAssignedHost />
 		</>}
 		{account.hasPermission("core.log.follow") && <>
 			<Title level={5} style={{ marginTop: 16 }}>Console</Title>
-			<LogConsole slaves={[slaveId]} />
+			<LogConsole hosts={[hostId]} />
 		</>}
-		<PluginExtra component="SlaveViewPage" slave={slave} />
+		<PluginExtra component="HostViewPage" host={host} />
 	</PageLayout>;
 }

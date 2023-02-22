@@ -63,8 +63,8 @@ class WebConsoleFormat {
 
 	transform(info, options) {
 		let src = " ";
-		if (info.slave_id !== undefined) {
-			src += `s:${info.slave_name} - `;
+		if (info.host_id !== undefined) {
+			src += `s:${info.host_name} - `;
 		}
 		if (info.instance_id !== undefined) {
 			src += `i:${info.instance_name}`;
@@ -88,12 +88,12 @@ class WebConsoleFormat {
  * @property {string} [max_level] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
- *     Include log entries from controller, all slaves and all instances.
+ *     Include log entries from controller, all hosts and all instances.
  * @property {boolean} [controller] -
  *     Include log entries from the controller.
- * @property {Array<number>} [slave_ids] -
- *     Include log entries for the given slaves and instances of those
- *     slaves by id.
+ * @property {Array<number>} [host_ids] -
+ *     Include log entries for the given hosts and instances of those
+ *     hosts by id.
  * @property {Array<number>} [instance_ids] -
  *     Include log entries for the given instances by id.
  */
@@ -107,7 +107,7 @@ class WebConsoleFormat {
  *     filter returning true for log entries that match it.
  * @static
  */
-function logFilter({ all, controller, slave_ids, instance_ids, max_level }) {
+function logFilter({ all, controller, host_ids, instance_ids, max_level }) {
 	return info => {
 		// Note: reversed to filter out undefined levels
 		if (max_level && !(levels[info.level] <= levels[max_level])) {
@@ -117,14 +117,14 @@ function logFilter({ all, controller, slave_ids, instance_ids, max_level }) {
 		if (all) {
 			return true;
 		}
-		if (controller && info.slave_id === undefined) {
+		if (controller && info.host_id === undefined) {
 			return true;
 		}
 		if (
-			slave_ids
-			&& info.slave_id !== undefined
+			host_ids
+			&& info.host_id !== undefined
 			&& info.instance_id === undefined
-			&& slave_ids.includes(info.slave_id)
+			&& host_ids.includes(info.host_id)
 		) {
 			return true;
 		}

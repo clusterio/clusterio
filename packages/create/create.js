@@ -117,11 +117,11 @@ async function execController(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`), args);
 }
 
-async function execSlave(args) {
+async function execHost(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "slave"), ...args]);
+		return await execFile("node", [path.join("packages", "host"), ...args]);
 	}
-	return await execFile(path.join("node_modules", ".bin", `clusterioslave${scriptExt}`), args);
+	return await execFile(path.join("node_modules", ".bin", `clusteriohost${scriptExt}`), args);
 }
 
 async function execCtl(args) {
@@ -131,7 +131,7 @@ async function execCtl(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
 
-function validateSlaveToken(token) {
+function validateHostToken(token) {
 	let parts = token.split(".");
 	if (parts.length !== 3) {
 		throw new InstallError("Invalid token");
@@ -144,7 +144,7 @@ function validateSlaveToken(token) {
 		throw new InstallError("Invalid token");
 	}
 
-	if (parsed.aud !== "slave" || !Number.isInteger(parsed.slave)) {
+	if (parsed.aud !== "host" || !Number.isInteger(parsed.host)) {
 		throw new InstallError("Invalid token");
 	}
 }
@@ -197,8 +197,8 @@ async function installClusterio(mode, plugins) {
 	if (["standalone", "controller"].includes(mode)) {
 		components.push("@clusterio/controller");
 	}
-	if (["standalone", "slave"].includes(mode)) {
-		components.push("@clusterio/slave");
+	if (["standalone", "host"].includes(mode)) {
+		components.push("@clusterio/host");
 	}
 	if (mode === "ctl") {
 		components.push("@clusterio/ctl");
@@ -281,22 +281,22 @@ WantedBy=multi-user.target
 		}
 	}
 
-	if (["standalone", "slave"].includes(mode)) {
+	if (["standalone", "host"].includes(mode)) {
 		if (process.platform === "win32") {
 			await safeOutputFile(
-				"run-slave.cmd",
-				"@echo off\n.\\node_modules\\.bin\\clusterioslave.cmd run\n"
+				"run-host.cmd",
+				"@echo off\n.\\node_modules\\.bin\\clusteriohost.cmd run\n"
 			);
 		} else {
 			await safeOutputFile(
-				"run-slave.sh",
-				"#!/bin/sh\nexec ./node_modules/.bin/clusterioslave run\n",
+				"run-host.sh",
+				"#!/bin/sh\nexec ./node_modules/.bin/clusteriohost run\n",
 				{ mode: 0o755 },
 			);
 			await safeOutputFile(
-				"systemd/clusterioslave.service",
+				"systemd/clusteriohost.service",
 				`[Unit]
-Description=Clusterio Slave
+Description=Clusterio Host
 
 [Service]
 User=${os.userInfo().username}
@@ -304,7 +304,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
-ExecStart=${process.cwd()}/node_modules/.bin/clusterioslave run --log-level=warn
+ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn
 
 [Install]
 WantedBy=multi-user.target
@@ -324,9 +324,9 @@ async function inquirerMissingArgs(args) {
 			message: "Operating mode to install",
 			default: "standalone",
 			choices: [
-				{ name: "Standalone (install both controller and slave on this computer)", value: "standalone" },
+				{ name: "Standalone (install both controller and host on this computer)", value: "standalone" },
 				{ name: "Controller only", value: "controller" },
-				{ name: "Slave only", value: "slave" },
+				{ name: "Host only", value: "host" },
 				{ name: "Ctl only", value: "ctl" },
 				{ name: "Plugins only", value: "plugins" },
 			],
@@ -350,18 +350,18 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
-	if (answers.mode === "slave") {
-		if (args.slaveName) { answers.slaveName = args.slaveName; }
+	if (answers.mode === "host") {
+		if (args.hostName) { answers.hostName = args.hostName; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
-				name: "slaveName",
-				message: "Name of slave",
+				name: "hostName",
+				message: "Name of host",
 			},
 		], answers);
 	}
 
-	if (["slave", "ctl"].includes(answers.mode)) {
+	if (["host", "ctl"].includes(answers.mode)) {
 		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
 		answers = await inquirer.prompt([
 			{
@@ -381,11 +381,11 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
-	if (answers.mode === "slave") {
-		validateSlaveToken(answers.controllerToken);
+	if (answers.mode === "host") {
+		validateHostToken(answers.controllerToken);
 	}
 
-	if (["standalone", "slave"].includes(answers.mode)) {
+	if (["standalone", "host"].includes(answers.mode)) {
 		let myIp = "localhost";
 		if (args.publicAddress) {
 			answers.publicAddress = args.publicAddress;
@@ -532,25 +532,25 @@ async function main() {
 		})
 		.option("mode", {
 			nargs: 1, describe: "Operating mode to install",
-			choices: ["standalone", "controller", "slave", "ctl", "plugins"],
+			choices: ["standalone", "controller", "host", "ctl", "plugins"],
 		})
 		.option("admin", {
 			nargs: 1, describe: "Admin account name [standalone/controller]", type: "string",
 		})
-		.option("slave-name", {
-			nargs: 1, describe: "Slave name [slave]", type: "string",
+		.option("host-name", {
+			nargs: 1, describe: "Host name [host]", type: "string",
 		})
 		.option("controller-url", {
-			nargs: 1, describe: "Controller URL [slave/ctl]", type: "string",
+			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
 		})
 		.option("controller-token", {
-			nargs: 1, describe: "Controller authentication token [slave/ctl]", type: "string",
+			nargs: 1, describe: "Controller authentication token [host/ctl]", type: "string",
 		})
 		.option("public-address", {
-			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/slave]", type: "string",
+			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/host]", type: "string",
 		})
 		.option("factorio-dir", {
-			nargs: 1, describe: "Path to Factorio installation [standalone/slave]", type: "string",
+			nargs: 1, describe: "Path to Factorio installation [standalone/host]", type: "string",
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
@@ -602,32 +602,32 @@ async function main() {
 	}
 
 	if (answers.mode === "standalone") {
-		logger.info("Setting up slave");
-		await execSlave(["config", "set", "slave.name", "local"]);
+		logger.info("Setting up host");
+		await execHost(["config", "set", "host.name", "local"]);
 
-		let result = await execSlave(["config", "show", "slave.id"]);
-		let slaveId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
+		let result = await execHost(["config", "show", "host.id"]);
+		let hostId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
 
-		result = await execController(["bootstrap", "generate-slave-token", slaveId]);
-		let slaveToken = result.stdout.split("\n").slice(-2)[0];
+		result = await execController(["bootstrap", "generate-host-token", hostId]);
+		let hostToken = result.stdout.split("\n").slice(-2)[0];
 
-		await execSlave(["config", "set", "slave.controller_token", slaveToken]);
-		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
-		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
+		await execHost(["config", "set", "host.controller_token", hostToken]);
+		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
+		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 	}
 
-	if (answers.mode === "slave") {
-		logger.info("Setting up slave");
-		let slaveId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).slave;
-		await execSlave(["config", "set", "slave.id", slaveId]);
-		await execSlave(["config", "set", "slave.name", answers.slaveName]);
-		await execSlave(["config", "set", "slave.controller_url", answers.controllerUrl]);
-		await execSlave(["config", "set", "slave.controller_token", answers.controllerToken]);
-		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
-		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
+	if (answers.mode === "host") {
+		logger.info("Setting up host");
+		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
+		await execHost(["config", "set", "host.id", hostId]);
+		await execHost(["config", "set", "host.name", answers.hostName]);
+		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
+		await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
+		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
+		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 	}
 
-	if (!dev && ["standalone", "controller", "slave"].includes(answers.mode)) {
+	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
 		logger.info("Writing run scripts");
 		await writeScripts(answers.mode);
 	}

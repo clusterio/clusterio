@@ -1,7 +1,7 @@
 # Clusterio Controller
 
 Communication hub for Clusterio clusters.
-The controller forwards data between Clusterio slaves connected to it and allows the cluster to be remotely managed through WebSocket connections to it either by using the included web interface or the Clusterio ctl command line utility.
+The controller forwards data between Clusterio hosts connected to it and allows the cluster to be remotely managed through WebSocket connections to it either by using the included web interface or the Clusterio ctl command line utility.
 
 
 # Usage
@@ -35,7 +35,7 @@ For example, installing the Subspace Storage plugin:
     npm install @clusterio/plugin-subspace_storage
     npx clusteriocontroller plugin add @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
 
 
 #### `plugin remove <name>`
@@ -49,7 +49,7 @@ For example, uninstalling the Subspace Storage plugin:
     npx clusteriocontroller plugin remove subspace_storage
     npm uninstall @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
 
 
 #### `plugin list`

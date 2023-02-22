@@ -9,17 +9,17 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { useSlaveList } from "../model/slave";
+import { useHostList } from "../model/host";
 import notify, { notifyErrorHandler } from "../util/notify";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
 
-function GenerateSlaveTokenButton(props) {
+function GenerateHostTokenButton(props) {
 	let control = useContext(ControlContext);
 	let [visible, setVisible] = useState(false);
 	let [token, setToken] = useState(null);
-	let [slaveId, setSlaveId] = useState(null);
+	let [hostId, setHostId] = useState(null);
 	let [form] = Form.useForm();
 	let [pluginList, setPluginList] = useState([]);
 	useEffect(() => {
@@ -37,18 +37,18 @@ function GenerateSlaveTokenButton(props) {
 	async function generateToken() {
 		let id;
 		let values = form.getFieldsValue();
-		if (values.slaveId) {
-			id = Number.parseInt(values.slaveId, 10);
+		if (values.hostId) {
+			id = Number.parseInt(values.hostId, 10);
 			if (Number.isNaN(id)) {
-				form.setFields([{ name: "slaveId", errors: ["Must be an integer"] }]);
+				form.setFields([{ name: "hostId", errors: ["Must be an integer"] }]);
 				return;
 			}
-			form.setFields([{ name: "slaveId", errors: [] }]);
+			form.setFields([{ name: "hostId", errors: [] }]);
 		}
 
-		let result = await libLink.messages.generateSlaveToken.send(control, { slave_id: id || null });
+		let result = await libLink.messages.generateHostToken.send(control, { host_id: id || null });
 		setToken(result.token);
-		setSlaveId(id);
+		setHostId(id);
 	}
 
 	// Generate a new random
@@ -65,7 +65,7 @@ function GenerateSlaveTokenButton(props) {
 			onClick={() => { setVisible(true); }}
 		>Generate Token</Button>
 		<Modal
-			title="Generate Slave Token"
+			title="Generate Host Token"
 			visible={visible}
 			footer={null}
 			onCancel={() => {
@@ -76,7 +76,7 @@ function GenerateSlaveTokenButton(props) {
 			width="700px"
 		>
 			<Form form={form} layout="vertical" requiredMark="optional">
-				<Form.Item name="slaveId" label="Slave ID">
+				<Form.Item name="hostId" label="Host ID">
 					<InputNumber onChange={() => {
 						generateToken().catch(notifyErrorHandler("Error generating token"));
 					}} />
@@ -84,7 +84,7 @@ function GenerateSlaveTokenButton(props) {
 			</Form>
 			{token !== null && <>
 				<Typography.Paragraph>
-					Slave auth token:
+					Host auth token:
 				</Typography.Paragraph>
 				<div className="codeblock">
 					<CopyButton
@@ -94,43 +94,43 @@ function GenerateSlaveTokenButton(props) {
 					{token}
 				</div>
 				<Typography.Paragraph>
-					You can set the token on an existing slave with the following command:
+					You can set the token on an existing host with the following command:
 				</Typography.Paragraph>
 				<div className="codeblock">
 					<CopyButton
 						message={"Copied configuration commands to clipboard"}
-						text={`npx clusterioslave config set slave.controller_token ${token}
-							   npx clusterioslave config set slave.id ${slaveId}`}
+						text={`npx clusteriohost config set host.controller_token ${token}
+							   npx clusteriohost config set host.id ${hostId}`}
 					/>
-					<p>npx clusterioslave config set slave.controller_token &lt;token&gt;</p>
-					<p>npx clusterioslave config set slave.id &lt;slaveId&gt;</p>
+					<p>npx clusteriohost config set host.controller_token &lt;token&gt;</p>
+					<p>npx clusteriohost config set host.id &lt;hostId&gt;</p>
 				</div>
 				<Typography.Paragraph>
-					Example slave setup commands:
+					Example host setup commands:
 				</Typography.Paragraph>
 				<div className="codeblock">
 					<CopyButton
-						message={"Copied slave setup commands to clipboard"}
+						message={"Copied host setup commands to clipboard"}
 						text={`
 							mkdir clusterio
 							cd clusterio
 							`+
 							// eslint-disable-next-line max-len
-							`npm init "@clusterio" -- --controller-token ${token} --mode "slave" --download-headless --controller-url ${document.location.origin}/ --slave-name "Slave ${slaveId || "?"}" --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
+							`npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless --controller-url ${document.location.origin}/ --host-name "Host ${hostId || "?"}" --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
 						}/>
 					<p>&gt; mkdir clusterio</p>
 					<p>&gt; cd clusterio</p>
 					<p>
 						&gt; npm init "@clusterio" --
 						--controller-token <span className="highlight">{token} </span>
-						--mode "slave"
+						--mode "host"
 						--download-headless
 						--controller-url <span className="highlight">{document.location.origin}/ </span>
-						--slave-name <span className="highlight">"Slave {slaveId || "?"}" </span>
+						--host-name <span className="highlight">"Host {hostId || "?"}" </span>
 						--public-address <span className="highlight">localhost </span>
 						{pluginString.length ? "--plugins" : ""} <span className="highlight">{pluginString}</span>
 					</p>
-					<p>&gt; ./run-slave</p>
+					<p>&gt; ./run-host</p>
 				</div>
 			</>}
 		</Modal>
@@ -175,16 +175,16 @@ function CopyButton({ text, message }) {
 }
 
 
-export default function SlavesPage() {
+export default function HostsPage() {
 	let account = useAccount();
 	let history = useHistory();
-	let [slaveList] = useSlaveList();
+	let [hostList] = useHostList();
 
-	return <PageLayout nav={[{ name: "Slaves" }]}>
+	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
 			className="site-page-header"
-			title="Slaves"
-			extra={account.hasPermission("core.slave.generate_token") && <GenerateSlaveTokenButton />}
+			title="Hosts"
+			extra={account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton />}
 		/>
 		<Table
 			columns={[
@@ -213,23 +213,23 @@ export default function SlavesPage() {
 				{
 					title: "Connected",
 					key: "connected",
-					render: slave => <Tag
-						color={slave["connected"] ? "#389e0d" : "#cf1322"}
+					render: host => <Tag
+						color={host["connected"] ? "#389e0d" : "#cf1322"}
 					>
-						{slave["connected"] ? "Connected" : "Disconnected"}
+						{host["connected"] ? "Connected" : "Disconnected"}
 					</Tag>,
 					sorter: (a, b) => a["connected"] - b["connected"],
 				},
 			]}
-			dataSource={slaveList}
-			rowKey={slave => slave["id"]}
+			dataSource={hostList}
+			rowKey={host => host["id"]}
 			pagination={false}
 			onRow={(record, rowIndex) => ({
 				onClick: event => {
-					history.push(`/slaves/${record.id}/view`);
+					history.push(`/hosts/${record.id}/view`);
 				},
 			})}
 		/>
-		<PluginExtra component="SlavesPage" />
+		<PluginExtra component="HostsPage" />
 	</PageLayout>;
 };

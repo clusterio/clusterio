@@ -37,7 +37,7 @@ For example, installing the Subspace Storage plugin:
     npm install @clusterio/plugin-subspace_storage
     npx clusterioctl plugin add @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
 
 
 #### `plugin remove <name>`
@@ -51,7 +51,7 @@ For example, uninstalling the Subspace Storage plugin:
     npx clusterioctl plugin remove subspace_storage
     npm uninstall @clusterio/plugin-subspace_storage
 
-Since the `plugin-list.json` is shared between controller, slave and ctl you usually only need to do this once per machine.
+Since the `plugin-list.json` is shared between controller, host and ctl you usually only need to do this once per machine.
 
 
 #### `plugin list`

@@ -19,7 +19,7 @@ const helpers = require("./helpers");
  * Base class for instance plugins
  *
  * Instance plugins are subclasses of this class which get instantiated by
- * the slave when it brings up an instance with the plugin enabled in the
+ * the host when it brings up an instance with the plugin enabled in the
  * config.  To be discovered the class must be exported under the name
  * `InstancePlugin` in the module specified by the `instanceEntrypoint` in
  * the plugin's info.js file.
@@ -31,7 +31,7 @@ const helpers = require("./helpers");
  * @static
  */
 class BaseInstancePlugin {
-	constructor(info, instance, slave) {
+	constructor(info, instance, host) {
 		/**
 		 * The plugin's own info module
 		 */
@@ -39,19 +39,19 @@ class BaseInstancePlugin {
 
 		/**
 		 * Instance the plugin started for
-		 * @type {module:slave/src/Instance}
+		 * @type {module:host/src/Instance}
 		 */
 		this.instance = instance;
 
 		/**
-		 * Slave running the instance
+		 * Host running the instance
 		 *
-		 * With the exepction of accessing the slave's config you should
-		 * avoid ineracting with the slave object directly.
+		 * With the exepction of accessing the host's config you should
+		 * avoid ineracting with the host object directly.
 		 *
-		 * @type {module:slave/src/Slave}
+		 * @type {module:host/src/Host}
 		 */
-		this.slave = slave;
+		this.host = host;
 
 		/**
 		 * Logger for this plugin
@@ -161,12 +161,12 @@ class BaseInstancePlugin {
 	 *
 	 * ##### drop
 	 *
-	 * Invoked when a connection loss is detected between the slave and the
+	 * Invoked when a connection loss is detected between the host and the
 	 * controller.  Plugins should respond to this event by throtteling messages
 	 * it is sending to the controller to an absolute minimum.
 	 *
 	 * Messages sent over a dropped controller connection will get queued up in
-	 * memory on the slave and sent all in one go when the connection is
+	 * memory on the host and sent all in one go when the connection is
 	 * re-established again.
 	 *
 	 * ##### resume
@@ -186,17 +186,17 @@ class BaseInstancePlugin {
 	onControllerConnectionEvent(event) { }
 
 	/**
-	 * Called when the controller is preparing to disconnect from the slave
+	 * Called when the controller is preparing to disconnect from the host
 	 *
 	 * Invoked when the controller has requested the disconnection from
-	 * the slave.  This typically happens when it is in the process of
+	 * the host.  This typically happens when it is in the process of
 	 * shutting down.
 	 *
 	 * Plugins must stop sending messages to the controller, or are forwarded
 	 * via the controller after the prepare disconnect has been handled.
 	 *
-	 * @param {module:controller/src/SlaveConnection} connection -
-	 *     The connection to the slave preparing to disconnect.
+	 * @param {module:controller/src/HostConnection} connection -
+	 *     The connection to the host preparing to disconnect.
 	 */
 	async onPrepareControllerDisconnect(connection) { }
 
@@ -324,12 +324,12 @@ class BaseControllerPlugin {
 	 * Called when the status of an instance changes
 	 *
 	 * Invoked when the controller has changed the status of an instance
-	 * or received notice from a slave that the status of an instance has
+	 * or received notice from a host that the status of an instance has
 	 * changed.  The possible statuses that can be notified about are:
-	 * - `unassigned:`: Instance is no longer asssigned to a slave.
-	 * - `unknown`: Slave assigned to instance is offline.
+	 * - `unassigned:`: Instance is no longer asssigned to a host.
+	 * - `unknown`: Host assigned to instance is offline.
 	 * - `stopped`: Instance is no longer running or was just assigned to a
-	 *   slave.
+	 *   host.
 	 * - `starting`: Instance is in the process of starting up.
 	 * - `running`: Instance startup completed and is now running.
 	 * - `stopping`: Instance is in the processing stopping.
@@ -339,20 +339,20 @@ class BaseControllerPlugin {
 	 * - `deleted`: Instance was deleted.
 	 *
 	 * On controller startup all known instances gets the status `unknown` if
-	 * they are assigned to a slave, when the slave then connects to the
+	 * they are assigned to a host, when the host then connects to the
 	 * controller and informs of the current status of its instances this hook
 	 * is invoked for all those instances.  You can detect this situation by
-	 * checking if prev equals `unknown`.  If the slave disconnects the
+	 * checking if prev equals `unknown`.  If the host disconnects the
 	 * instances will again get the `unknown` status.
 	 *
 	 * When instances are created on the controller they will notify of a status
 	 * change with prev set to null.  While the status of new instances is
 	 * in most cases `unassigned` it's possible for the created instance to
-	 * start with any state in some slave connection corner cases.
+	 * start with any state in some host connection corner cases.
 	 *
 	 * Note that it's possible for status change notification to get lost in
 	 * the case of network outages if reconnect fails to re-establish the
-	 * session between the controller and the slave.
+	 * session between the controller and the host.
 	 *
 	 * @param {Object} instance - the instance that changed.
 	 * @param {?string} prev - the previous status of the instance.
@@ -409,22 +409,22 @@ class BaseControllerPlugin {
 	async onShutdown() { }
 
 	/**
-	 * Called when an event on a slave connection happens
+	 * Called when an event on a host connection happens
 	 *
 	 * The event param may be one of connect, drop, resume and close and has
 	 * the following meaning:
 	 *
 	 * ##### connect
 	 *
-	 * Invoked when a new connection to the slave has been established.
+	 * Invoked when a new connection to the host has been established.
 	 *
 	 * ##### drop
 	 *
 	 * Invoked when a connection loss is detected between the controller and a
-	 * slave.  Plugins should respond to this event by throtteling messages
-	 * it is sending to the given slave connection to an absolute minimum.
+	 * host.  Plugins should respond to this event by throtteling messages
+	 * it is sending to the given host connection to an absolute minimum.
 	 *
-	 * Messages sent over a dropped slave connection will get queued up in
+	 * Messages sent over a dropped host connection will get queued up in
 	 * memory on the controller and sent all in one go when the connection is
 	 * re-established again.
 	 *
@@ -435,13 +435,13 @@ class BaseControllerPlugin {
 	 *
 	 * ##### close
 	 *
-	 * Invoked when the connection to the slave has been closed.
+	 * Invoked when the connection to the host has been closed.
 	 *
-	 * @param {module:controller/src/SlaveConnection} connection -
+	 * @param {module:controller/src/HostConnection} connection -
 	 *     The connection the event occured on.
 	 * @param {string} event - one of connect, drop, resume and close
 	 */
-	onSlaveConnectionEvent(connection, event) { }
+	onHostConnectionEvent(connection, event) { }
 
 	/**
 	 * Called when an avent on a control connection happens
@@ -480,18 +480,18 @@ class BaseControllerPlugin {
 	onControlConnectionEvent(connection, event) { }
 
 	/**
-	 * Called when a slave is preparing to disconnect from the controller
+	 * Called when a host is preparing to disconnect from the controller
 	 *
-	 * Invoked when a slave has requested the disconnection from the controller.
+	 * Invoked when a host has requested the disconnection from the controller.
 	 * This typically happens when it is in the process of shutting down.
 	 *
-	 * Plugins must stop sending messages to the slave in question after the
+	 * Plugins must stop sending messages to the host in question after the
 	 * prepare disconnect has been handled.
 	 *
-	 * @param {module:controller/src/SlaveConnection} connection -
-	 *     The connection to the slave preparing to disconnect.
+	 * @param {module:controller/src/HostConnection} connection -
+	 *     The connection to the host preparing to disconnect.
 	 */
-	async onPrepareSlaveDisconnect(connection) { }
+	async onPrepareHostDisconnect(connection) { }
 
 	/**
 	 * Called when a mod pack is updated
@@ -536,22 +536,22 @@ class BaseControllerPlugin {
 	async onPlayerEvent(instance, event) { }
 
 	/**
-	 * Broadcast event to all connected slaves
+	 * Broadcast event to all connected hosts
 	 *
-	 * Sends the given event to all slaves connected to the controller.
-	 * This does not include slaves that are in the process of closing the
+	 * Sends the given event to all hosts connected to the controller.
+	 * This does not include hosts that are in the process of closing the
 	 * connection, which typically happens when they are shutting down.
 	 *
 	 * @param {module:lib/link.Event} event - Event to send
 	 * @param {Object} data - Data ta pass with the event.
 	 */
-	broadcastEventToSlaves(event, data={}) {
-		for (let slaveConnection of this.controller.wsServer.slaveConnections.values()) {
+	broadcastEventToHosts(event, data={}) {
+		for (let hostConnection of this.controller.wsServer.hostConnections.values()) {
 			if (
-				!slaveConnection.connector.closing
-				&& (!event.plugin || slaveConnection.plugins.has(event.plugin))
+				!hostConnection.connector.closing
+				&& (!event.plugin || hostConnection.plugins.has(event.plugin))
 			) {
-				event.send(slaveConnection, data);
+				event.send(hostConnection, data);
 			}
 		}
 	}
@@ -702,11 +702,11 @@ class BaseWebPlugin {
 		 * @type {object}
 		 * @property {React.ComponentType} ControllerPage -
 		 *     Placed at the end of the controller page.
-		 * @property {React.ComponentType} SlavesPage -
-		 *     Placed at the end of the slaves list page.
-		 * @property {React.ComponentType} SlaveViewPage -
-		 *     Placed at the end of each slave page.  Takes a `slave` param
-		 *     which is the slave the page is displayed for.
+		 * @property {React.ComponentType} HostsPage -
+		 *     Placed at the end of the hosts list page.
+		 * @property {React.ComponentType} HostViewPage -
+		 *     Placed at the end of each host page.  Takes a `host` param
+		 *     which is the host the page is displayed for.
 		 * @property {React.ComponentType} InstancesPage -
 		 *     Placed at the end of the instance list page.
 		 * @property {React.ComponentType} InstanceViewPage -

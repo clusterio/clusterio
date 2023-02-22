@@ -59,7 +59,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		this.lastProgressBroadcast = Date.now();
 		if (techs.length) {
-			this.broadcastEventToSlaves(this.info.messages.progress, { technologies: techs });
+			this.broadcastEventToHosts(this.info.messages.progress, { technologies: techs });
 		}
 	}
 
@@ -97,7 +97,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			tech.progress = null;
 			this.progressToBroadcast.delete(name);
 
-			this.broadcastEventToSlaves(this.info.messages.finished, { name, level: tech.level });
+			this.broadcastEventToHosts(this.info.messages.finished, { name, level: tech.level });
 		}
 	}
 
@@ -127,7 +127,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
-					this.broadcastEventToSlaves(this.info.messages.finished, { name, level });
+					this.broadcastEventToHosts(this.info.messages.finished, { name, level });
 				}
 
 			} else {
@@ -138,7 +138,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
 					if (level - !researched > tech.level - !tech.researched) {
-						this.broadcastEventToSlaves(this.info.messages.finished, { name, level: level - !researched });
+						this.broadcastEventToHosts(this.info.messages.finished, { name, level: level - !researched });
 					}
 					tech.level = level;
 					tech.progress = progress;

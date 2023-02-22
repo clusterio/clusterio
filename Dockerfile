@@ -25,7 +25,7 @@ RUN pnpm install
 COPY --from=subspace_storage_builder /subspace_storage/dist/ /clusterio/mods/
 
 # Build Lua library mod
-RUN node packages/lib/build_mod --build --source-dir packages/slave/lua/clusterio_lib \
+RUN node packages/lib/build_mod --build --source-dir packages/host/lua/clusterio_lib \
 && mv dist/* mods/ \
 && mkdir temp \
 && mkdir temp/test \

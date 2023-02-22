@@ -45,7 +45,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async onOutput(output) {
 		if (output.type === "action" && output.action === "CHAT") {
-			if (this.slave.connector.connected) {
+			if (this.host.connector.connected) {
 				this.sendChat(output.message);
 			} else {
 				this.messageQueue.push(output.message);

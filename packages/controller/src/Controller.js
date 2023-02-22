@@ -61,10 +61,10 @@ class Controller {
 		this.app.locals.streams = new Map();
 
 		/**
-		 * Mapping of slave id to slave info
+		 * Mapping of host id to host info
 		 * @type {Map<number, Object>}
 		 */
-		this.slaves = null;
+		this.hosts = null;
 
 		/**
 		 * Mapping of instance id to instance info
@@ -145,7 +145,7 @@ class Controller {
 		return (await Promise.all([
 			libFileOps.directorySize(path.join(this.logDirectory, "cluster")),
 			libFileOps.directorySize(path.join(this.logDirectory, "controller")),
-			libFileOps.directorySize(path.join(this.logDirectory, "slave")),
+			libFileOps.directorySize(path.join(this.logDirectory, "host")),
 		])).reduce((a, v) => a + v, 0);
 	}
 
@@ -192,7 +192,7 @@ class Controller {
 		let databaseDirectory = this.config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
-		this.slaves = await Controller.loadSlaves(path.join(databaseDirectory, "slaves.json"));
+		this.hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		this.instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
 		this.modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		this.userManager = new UserManager(this.config);
@@ -313,8 +313,8 @@ class Controller {
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
-		if (this.slaves) {
-			await Controller.saveSlaves(path.join(databaseDirectory, "slaves.json"), this.slaves);
+		if (this.hosts) {
+			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
 		}
 
 		if (this.instances) {
@@ -344,7 +344,7 @@ class Controller {
 		logger.info("Goodbye");
 	}
 
-	static async loadSlaves(filePath) {
+	static async loadHosts(filePath) {
 		let serialized;
 		try {
 			serialized = JSON.parse(await fs.readFile(filePath));
@@ -365,8 +365,8 @@ class Controller {
 		return new Map(serialized);
 	}
 
-	static async saveSlaves(filePath, slaves) {
-		await libFileOps.safeOutputFile(filePath, JSON.stringify([...slaves.entries()], null, 4));
+	static async saveHosts(filePath, hosts) {
+		await libFileOps.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, 4));
 	}
 
 	static async loadInstances(filePath) {
@@ -378,7 +378,7 @@ class Controller {
 			for (let serializedConfig of serialized) {
 				let instanceConfig = new libConfig.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
-				let status = instanceConfig.get("instance.assigned_slave") === null ? "unassigned" : "unknown";
+				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				let instance = { config: instanceConfig, status };
 				instances.set(instanceConfig.get("instance.id"), instance);
 			}
@@ -543,14 +543,14 @@ class Controller {
 		}
 	}
 
-	slaveUpdated(slave) {
+	hostUpdated(host) {
 		let update = {
-			agent: slave.agent,
-			version: slave.version,
-			id: slave.id,
-			name: slave.name,
-			public_address: slave.public_address || null,
-			connected: this.wsServer.slaveConnections.has(slave.id),
+			agent: host.agent,
+			version: host.version,
+			id: host.id,
+			name: host.name,
+			public_address: host.public_address || null,
+			connected: this.wsServer.hostConnections.has(host.id),
 		};
 
 		for (let controlConnection of this.wsServer.controlConnections) {
@@ -558,7 +558,7 @@ class Controller {
 				continue;
 			}
 
-			controlConnection.slaveUpdated(slave, update);
+			controlConnection.hostUpdated(host, update);
 		}
 	}
 
@@ -801,9 +801,9 @@ class Controller {
 	}
 
 	/**
-	 * Forward the given request to the slave contaning the instance
+	 * Forward the given request to the host contaning the instance
 	 *
-	 * Finds the slave which the instance with the given instance ID is
+	 * Finds the host which the instance with the given instance ID is
 	 * currently assigned to and forwards the request to that instance.
 	 * The request data must have an instance_id parameter.
 	 *
@@ -815,17 +815,17 @@ class Controller {
 	 */
 	async forwardRequestToInstance(request, data) {
 		let instance = this.getRequestInstance(data.instance_id);
-		let slaveId = instance.config.get("instance.assigned_slave");
-		if (slaveId === null) {
-			throw new libErrors.RequestError("Instance is not assigned to a slave");
+		let hostId = instance.config.get("instance.assigned_host");
+		if (hostId === null) {
+			throw new libErrors.RequestError("Instance is not assigned to a host");
 		}
 
-		let connection = this.wsServer.slaveConnections.get(slaveId);
+		let connection = this.wsServer.hostConnections.get(hostId);
 		if (!connection) {
-			throw new libErrors.RequestError("Slave containing instance is not connected");
+			throw new libErrors.RequestError("Host containing instance is not connected");
 		}
 		if (request.plugin && !connection.plugins.has(request.plugin)) {
-			throw new libErrors.RequestError(`Slave containing instance does not have ${request.plugin} plugin`);
+			throw new libErrors.RequestError(`Host containing instance does not have ${request.plugin} plugin`);
 		}
 
 		return await request.send(connection, data);

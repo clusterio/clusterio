@@ -44,9 +44,9 @@ class ControlConnection extends BaseConnection {
 		 */
 		this.user = user;
 
-		this.slaveSubscriptions = {
+		this.hostSubscriptions = {
 			all: false,
-			slave_ids: [],
+			host_ids: [],
 		};
 
 		this.instanceSubscriptions = {
@@ -78,7 +78,7 @@ class ControlConnection extends BaseConnection {
 		this.logSubscriptions = {
 			all: false,
 			controller: false,
-			slave_ids: [],
+			host_ids: [],
 			instance_ids: [],
 		};
 
@@ -118,65 +118,65 @@ class ControlConnection extends BaseConnection {
 		this._controller.config.setProp(field, prop, value, "control");
 	}
 
-	async listSlavesRequestHandler(message) {
+	async listHostsRequestHandler(message) {
 		let list = [];
-		for (let slave of this._controller.slaves.values()) {
+		for (let host of this._controller.hosts.values()) {
 			list.push({
-				agent: slave.agent,
-				version: slave.version,
-				id: slave.id,
-				name: slave.name,
-				public_address: slave.public_address || null,
-				connected: this._controller.wsServer.slaveConnections.has(slave.id),
+				agent: host.agent,
+				version: host.version,
+				id: host.id,
+				name: host.name,
+				public_address: host.public_address || null,
+				connected: this._controller.wsServer.hostConnections.has(host.id),
 			});
 		}
 		return { list };
 	}
 
-	async setSlaveSubscriptionsRequestHandler(message) {
-		this.slaveSubscriptions = message.data;
+	async setHostSubscriptionsRequestHandler(message) {
+		this.hostSubscriptions = message.data;
 	}
 
-	slaveUpdated(slave, update) {
+	hostUpdated(host, update) {
 		if (
-			this.slaveSubscriptions.all
-			|| this.slaveSubscriptions.slave_ids.includes(slave.id)
+			this.hostSubscriptions.all
+			|| this.hostSubscriptions.host_ids.includes(host.id)
 		) {
-			libLink.messages.slaveUpdate.send(this, update);
+			libLink.messages.hostUpdate.send(this, update);
 		}
 	}
 
-	generateSlaveToken(slaveId) {
+	generateHostToken(hostId) {
 		return jwt.sign(
-			{ aud: "slave", slave: slaveId },
+			{ aud: "host", host: hostId },
 			Buffer.from(this._controller.config.get("controller.auth_secret"), "base64")
 		);
 	}
 
-	async generateSlaveTokenRequestHandler(message) {
-		let slaveId = message.data.slave_id;
-		if (slaveId === null) {
-			slaveId = Math.random() * 2**31 | 0;
+	async generateHostTokenRequestHandler(message) {
+		let hostId = message.data.host_id;
+		if (hostId === null) {
+			hostId = Math.random() * 2**31 | 0;
 		}
-		return { token: this.generateSlaveToken(slaveId) };
+		return { token: this.generateHostToken(hostId) };
 	}
 
-	async createSlaveConfigRequestHandler(message) {
-		let slaveConfig = new libConfig.SlaveConfig("control");
-		await slaveConfig.init();
+	async createHostConfigRequestHandler(message) {
+		let hostConfig = new libConfig.HostConfig("control");
+		await hostConfig.init();
 
-		slaveConfig.set("slave.controller_url", this._controller.getControllerUrl());
+		hostConfig.set("host.controller_url", this._controller.getControllerUrl());
 		if (message.data.id !== null) {
-			slaveConfig.set("slave.id", message.data.id);
+			hostConfig.set("host.id", message.data.id);
 		}
 		if (message.data.name !== null) {
-			slaveConfig.set("slave.name", message.data.name);
+			hostConfig.set("host.name", message.data.name);
 		}
 		if (message.data.generate_token) {
-			this.user.checkPermission("core.slave.generate_token");
-			slaveConfig.set("slave.controller_token", this.generateSlaveToken(slaveConfig.get("slave.id")));
+			this.user.checkPermission("core.host.generate_token");
+			hostConfig.set("host.controller_token", this.generateHostToken(hostConfig.get("host.id")));
 		}
-		return { serialized_config: slaveConfig.serialize() };
+		return { serialized_config: hostConfig.serialize() };
 	}
 
 	async getInstanceRequestHandler(message) {
@@ -186,7 +186,7 @@ class ControlConnection extends BaseConnection {
 		return {
 			id,
 			name: instance.config.get("instance.name"),
-			assigned_slave: instance.config.get("instance.assigned_slave"),
+			assigned_host: instance.config.get("instance.assigned_host"),
 			game_port: instance.game_port || null,
 			status: instance.status,
 		};
@@ -198,7 +198,7 @@ class ControlConnection extends BaseConnection {
 			list.push({
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
-				assigned_slave: instance.config.get("instance.assigned_slave"),
+				assigned_host: instance.config.get("instance.assigned_host"),
 				game_port: instance.game_port || null,
 				status: instance.status,
 			});
@@ -218,14 +218,14 @@ class ControlConnection extends BaseConnection {
 			libLink.messages.instanceUpdate.send(this, {
 				id: instance.config.get("instance.id"),
 				name: instance.config.get("instance.name"),
-				assigned_slave: instance.config.get("instance.assigned_slave"),
+				assigned_host: instance.config.get("instance.assigned_host"),
 				game_port: instance.game_port || null,
 				status: instance.status,
 			});
 		}
 	}
 
-	// XXX should probably add a hook for slave reuqests?
+	// XXX should probably add a hook for host reuqests?
 	async createInstanceRequestHandler(message) {
 		let instanceConfig = new libConfig.InstanceConfig("controller");
 		await instanceConfig.load(message.data.serialized_config);
@@ -269,7 +269,7 @@ class ControlConnection extends BaseConnection {
 
 	async deleteInstanceRequestHandler(message, request) {
 		let instance = this._controller.getRequestInstance(message.data.instance_id);
-		if (instance.config.get("instance.assigned_slave") !== null) {
+		if (instance.config.get("instance.assigned_host") !== null) {
 			await this.forwardRequestToInstance(message, request);
 		}
 		this._controller.instances.delete(message.data.instance_id);
@@ -288,13 +288,13 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async updateInstanceConfig(instance) {
-		let slaveId = instance.config.get("instance.assigned_slave");
-		if (slaveId !== null) {
-			let connection = this._controller.wsServer.slaveConnections.get(slaveId);
+		let hostId = instance.config.get("instance.assigned_host");
+		if (hostId !== null) {
+			let connection = this._controller.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await libLink.messages.assignInstance.send(connection, {
 					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize("slave"),
+					serialized_config: instance.config.serialize("host"),
 				});
 			}
 		}
@@ -302,8 +302,8 @@ class ControlConnection extends BaseConnection {
 
 	async setInstanceConfigFieldRequestHandler(message) {
 		let instance = this._controller.getRequestInstance(message.data.instance_id);
-		if (message.data.field === "instance.assigned_slave") {
-			throw new libErrors.RequestError("instance.assigned_slave must be set through the assign-slave interface");
+		if (message.data.field === "instance.assigned_host") {
+			throw new libErrors.RequestError("instance.assigned_host must be set through the assign-host interface");
 		}
 
 		if (message.data.field === "instance.id") {
@@ -323,38 +323,38 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async assignInstanceCommandRequestHandler(message, request) {
-		let { slave_id, instance_id } = message.data;
+		let { host_id, instance_id } = message.data;
 		let instance = this._controller.getRequestInstance(instance_id);
 
-		// Check if target slave is connected
-		let newSlaveConnection;
-		if (slave_id !== null) {
-			newSlaveConnection = this._controller.wsServer.slaveConnections.get(slave_id);
-			if (!newSlaveConnection) {
-				// The case of the slave not getting the assign instance message
+		// Check if target host is connected
+		let newHostConnection;
+		if (host_id !== null) {
+			newHostConnection = this._controller.wsServer.hostConnections.get(host_id);
+			if (!newHostConnection) {
+				// The case of the host not getting the assign instance message
 				// still have to be handled, so it's not a requirement that the
-				// target slave be connected to the controller while doing the
+				// target host be connected to the controller while doing the
 				// assignment, but it is IMHO a better user experience if this
 				// is the case.
-				throw new libErrors.RequestError("Target slave is not connected to the controller");
+				throw new libErrors.RequestError("Target host is not connected to the controller");
 			}
 		}
 
-		// Unassign from currently assigned slave if it is connected.
-		let currentAssignedSlave = instance.config.get("instance.assigned_slave");
-		if (currentAssignedSlave !== null && slave_id !== currentAssignedSlave) {
-			let oldSlaveConnection = this._controller.wsServer.slaveConnections.get(currentAssignedSlave);
-			if (oldSlaveConnection && !oldSlaveConnection.connector.closing) {
-				await libLink.messages.unassignInstance.send(oldSlaveConnection, { instance_id });
+		// Unassign from currently assigned host if it is connected.
+		let currentAssignedHost = instance.config.get("instance.assigned_host");
+		if (currentAssignedHost !== null && host_id !== currentAssignedHost) {
+			let oldHostConnection = this._controller.wsServer.hostConnections.get(currentAssignedHost);
+			if (oldHostConnection && !oldHostConnection.connector.closing) {
+				await libLink.messages.unassignInstance.send(oldHostConnection, { instance_id });
 			}
 		}
 
 		// Assign to target
-		instance.config.set("instance.assigned_slave", slave_id);
-		if (slave_id !== null) {
-			await libLink.messages.assignInstance.send(newSlaveConnection, {
+		instance.config.set("instance.assigned_host", host_id);
+		if (host_id !== null) {
+			await libLink.messages.assignInstance.send(newHostConnection, {
 				instance_id,
-				serialized_config: instance.config.serialize("slave"),
+				serialized_config: instance.config.serialize("host"),
 			});
 		} else {
 			instance.status = "unassigned";
@@ -383,7 +383,7 @@ class ControlConnection extends BaseConnection {
 		let ready = new Promise((resolve, reject) => {
 			stream.events.on("source", resolve);
 			stream.events.on("timeout", () => reject(
-				new libErrors.RequestError("Timed out establishing stream from slave")
+				new libErrors.RequestError("Timed out establishing stream from host")
 			));
 		});
 		ready.catch(() => {});
@@ -411,29 +411,29 @@ class ControlConnection extends BaseConnection {
 		}
 		let sourceInstance = this._controller.getRequestInstance(instance_id);
 		let targetInstance = this._controller.getRequestInstance(target_instance_id);
-		let sourceSlaveId = sourceInstance.config.get("instance.assigned_slave");
-		let targetSlaveId = targetInstance.config.get("instance.assigned_slave");
-		if (sourceSlaveId === null) {
-			throw new libErrors.RequestError("Source instance is not assigned a slave");
+		let sourceHostId = sourceInstance.config.get("instance.assigned_host");
+		let targetHostId = targetInstance.config.get("instance.assigned_host");
+		if (sourceHostId === null) {
+			throw new libErrors.RequestError("Source instance is not assigned a host");
 		}
-		if (targetSlaveId === null) {
-			throw new libErrors.RequestError("Target instance is not assigned a slave");
+		if (targetHostId === null) {
+			throw new libErrors.RequestError("Target instance is not assigned a host");
 		}
 
-		// Let slave handle request if source and target is on the same slave.
-		if (sourceSlaveId === targetSlaveId) {
+		// Let host handle request if source and target is on the same host.
+		if (sourceHostId === targetHostId) {
 			return await this.forwardRequestToInstance(message, request);
 		}
 
 		// Check connectivity
-		let sourceSlaveConnection = this._controller.wsServer.slaveConnections.get(sourceSlaveId);
-		if (!sourceSlaveConnection || sourceSlaveConnection.closing) {
-			throw new libErrors.RequestError("Source slave is not connected to the controller");
+		let sourceHostConnection = this._controller.wsServer.hostConnections.get(sourceHostId);
+		if (!sourceHostConnection || sourceHostConnection.closing) {
+			throw new libErrors.RequestError("Source host is not connected to the controller");
 		}
 
-		let targetSlaveConnection = this._controller.wsServer.slaveConnections.get(targetSlaveId);
-		if (!targetSlaveConnection || targetSlaveConnection.closing) {
-			throw new libErrors.RequestError("Target slave is not connected to the controller");
+		let targetHostConnection = this._controller.wsServer.hostConnections.get(targetHostId);
+		if (!targetHostConnection || targetHostConnection.closing) {
+			throw new libErrors.RequestError("Target host is not connected to the controller");
 		}
 
 		// Create stream to proxy from target to source
@@ -448,8 +448,8 @@ class ControlConnection extends BaseConnection {
 		// Ignore errors if not listening for them to avoid crash.
 		stream.events.on("error", () => { /* ignore */ });
 
-		// Establish push from source slave to stream, this is done first to
-		// ensure the file size is known prior to the target slave pull.
+		// Establish push from source host to stream, this is done first to
+		// ensure the file size is known prior to the target host pull.
 		await Promise.all([
 			this._controller.forwardRequestToInstance(libLink.messages.pushSave, {
 				instance_id,
@@ -459,7 +459,7 @@ class ControlConnection extends BaseConnection {
 			events.once(stream.events, "source"),
 		]);
 
-		// Establish pull from target slave to stream and wait for completion.
+		// Establish pull from target host to stream and wait for completion.
 		let result = await this._controller.forwardRequestToInstance(libLink.messages.pullSave, {
 			instance_id: target_instance_id,
 			stream_id: stream.id,
@@ -668,8 +668,8 @@ class ControlConnection extends BaseConnection {
 	}
 
 	updateLogSubscriptions() {
-		let { all, controller, slave_ids, instance_ids } = this.logSubscriptions;
-		if (all || controller || slave_ids.length || instance_ids.length) {
+		let { all, controller, host_ids, instance_ids } = this.logSubscriptions;
+		if (all || controller || host_ids.length || instance_ids.length) {
 			if (!this.logTransport) {
 				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
 				this._controller.clusterLogger.add(this.logTransport);
@@ -684,10 +684,10 @@ class ControlConnection extends BaseConnection {
 
 	async queryLogRequestHandler(message) {
 		let observeDuration = queryLogTime.startTimer();
-		let { all, controller, slave_ids, instance_ids } = message.data;
+		let { all, controller, host_ids, instance_ids } = message.data;
 
 		let log;
-		if (!all && controller && !slave_ids.length && !instance_ids.length) {
+		if (!all && controller && !host_ids.length && !instance_ids.length) {
 			log = await this._controller.queryControllerLog(message.data);
 		} else {
 			log = await this._controller.queryClusterLog(message.data);
@@ -886,7 +886,7 @@ class ControlConnection extends BaseConnection {
 
 		user.isAdmin = admin;
 		this._controller.userUpdated(user);
-		this.broadcastEventToSlaves({ data: { name, admin }}, libLink.messages.adminlistUpdate);
+		this.broadcastEventToHosts({ data: { name, admin }}, libLink.messages.adminlistUpdate);
 	}
 
 	async setUserBannedRequestHandler(message) {
@@ -904,7 +904,7 @@ class ControlConnection extends BaseConnection {
 		user.isBanned = banned;
 		user.banReason = reason;
 		this._controller.userUpdated(user);
-		this.broadcastEventToSlaves({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
+		this.broadcastEventToHosts({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
 	}
 
 	async setUserWhitelistedRequestHandler(message) {
@@ -921,7 +921,7 @@ class ControlConnection extends BaseConnection {
 
 		user.isWhitelisted = whitelisted;
 		this._controller.userUpdated(user);
-		this.broadcastEventToSlaves({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
+		this.broadcastEventToHosts({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
 	}
 
 	async deleteUserRequestHandler(message) {
@@ -935,13 +935,13 @@ class ControlConnection extends BaseConnection {
 		this._controller.userUpdated(user);
 
 		if (user.is_admin) {
-			this.broadcastEventToSlaves({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
+			this.broadcastEventToHosts({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
 		}
 		if (user.is_whitelisted) {
-			this.broadcastEventToSlaves({ data: { name, whitelisted: false }}, libLink.messages.whitelistUpdate);
+			this.broadcastEventToHosts({ data: { name, whitelisted: false }}, libLink.messages.whitelistUpdate);
 		}
 		if (user.is_banned) {
-			this.broadcastEventToSlaves({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
+			this.broadcastEventToHosts({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
 		}
 	}
 

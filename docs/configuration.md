@@ -76,7 +76,7 @@ Defaults to "database/certificates/cert.key".
 
 ### controller.auth_secret
 
-Base64 encoded authentication secret used to verify tokens issued to slaves, users, and sessions.
+Base64 encoded authentication secret used to verify tokens issued to hosts, users, and sessions.
 This should contain 256 bytes of random data, and if changed will cause all tokens become invalid.
 Keep this secret if leaked an attacker could easily compromise the cluster.
 
@@ -104,7 +104,7 @@ Defaults to 60.
 
 ### controller.metrics_timeout
 
-Timeout in seconds before a call to gather metrics from a slave times out.
+Timeout in seconds before a call to gather metrics from a host times out.
 This should be less than both the timeout and collection interval configured for the collection job in Prometheus.
 
 Defaults to 8.
@@ -134,24 +134,24 @@ Plugins not loaded on the controller will not be loaded on instances.
 Defaults to true.
 
 
-## Slave Configuration
+## Host Configuration
 
-### slave.name
+### host.name
 
-Name of the slave.
-Shows up in slave lists and is used to reference this slave in the clusterioctl command line interface.
+Name of the host.
+Shows up in host lists and is used to reference this host in the clusterioctl command line interface.
 
-Defaults to "New Slave".
+Defaults to "New Host".
 
 
-### slave.id
+### host.id
 
-Immutable numeric id of the slave which uniquely identifies this slave in the cluster.
+Immutable numeric id of the host which uniquely identifies this host in the cluster.
 
 Defaults to a random 31 bit number.
 
 
-### slave.factorio_directory
+### host.factorio_directory
 
 Directory to look for the Factorio server(s) in.
 This can either point to a Factorio server directory, or to a directory containing multiple versions of the Factorio server.
@@ -159,46 +159,46 @@ This can either point to a Factorio server directory, or to a directory containi
 Defaults to "factorio".
 
 
-### slave.instances_directory
+### host.instances_directory
 
 Directory to store instances in.
-One sub-directory will be created in it for each instance assigned to this slave and these sub-directories will contain logs, saves, and various auto generated configuration files for the instances.
+One sub-directory will be created in it for each instance assigned to this host and these sub-directories will contain logs, saves, and various auto generated configuration files for the instances.
 
 Defaults to "instances".
 
 
-### slave.controller_url
+### host.controller_url
 
 URL to connect to the controller to.
 
 Defaults to "http://localhost:8080/".
 
 
-### slave.controller_token
+### host.controller_token
 
 Access token used for authenticating with the controller.
-You can generate an access token with `clusterioctl slave generate-token --id <slave-id>`, or use the `clusterioctl slave create-config` to create a new slave config with the correct url and token in it.
+You can generate an access token with `clusterioctl host generate-token --id <host-id>`, or use the `clusterioctl host create-config` to create a new host config with the correct url and token in it.
 
 Defaults to "enter token here".
 
 
-### slave.tls_ca
+### host.tls_ca
 
 Path to certificate in PEM format to use for validating a TLS connection to the controller.
-If you have a self signed certificate on the controller you will need to copy the certificate to your slaves and set it as the certificate authority with this option.
+If you have a self signed certificate on the controller you will need to copy the certificate to your hosts and set it as the certificate authority with this option.
 
 Defaults to null meaning use Node.js's default set of trusted certificate authorities.
 
 
-### slave.public_address
+### host.public_address
 
-External address instances hosted on this slave can be accessed on.
+External address instances hosted on this host can be accessed on.
 This is used by plugins like Server Select to give the correct address to switch between instances in-game.
 
 Defaults to "localhost".
 
 
-### slave.max_reconnect_delay
+### host.max_reconnect_delay
 
 Maximum delay in seconds to wait after connection to the controller is dropped before attempting to reconnect to it.
 The actual delay on each reconnect will be a random number between 0 and this configured value to avoid all clients trying to reconnect at the same time.
@@ -222,19 +222,19 @@ Imutable numeric id of the instance which uniquely identifies this instance in t
 Defaluts to a random 31 bit integer.
 
 
-### instance.assigned_slave
+### instance.assigned_host
 
-Slave this instance is assigned to.
+Host this instance is assigned to.
 To change this you need to use the separate assign instance interface.
-After being assigned to a slave the directory for the instance is created on the slave.
+After being assigned to a host the directory for the instance is created on the host.
 
 Defaults to null meaning not assigned.
 
 
 ### instance.auto_start
 
-If enabled start this instance when the slave it is assigned to is started up.
-Does not affect start or stop of the instance while the slave is running.
+If enabled start this instance when the host it is assigned to is started up.
+Does not affect start or stop of the instance while the host is running.
 
 Defaults to false.
 
@@ -242,7 +242,7 @@ Defaults to false.
 ### factorio.version
 
 Version of Factorio to use for this instance.
-Can be a version like "1.0.0" or special string "latest" meaning the latest version of Factorio found on the slave.
+Can be a version like "1.0.0" or special string "latest" meaning the latest version of Factorio found on the host.
 
 Defaults to "latest".
 

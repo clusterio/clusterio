@@ -2,7 +2,7 @@ export { default as bootstrap } from "./bootstrap.jsx";
 export { default as notify, notifyErrorHandler } from "./util/notify.jsx";
 
 export * from "./model/instance.jsx";
-export * from "./model/slave.jsx";
+export * from "./model/host.jsx";
 export * from "./model/locale.jsx";
 export * from "./model/item_metadata.jsx";
 export * from "./model/account.jsx";

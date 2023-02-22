@@ -69,14 +69,14 @@ The `plugins/` directory contains the core plugins for the project and can be ad
 The documentation uses the binaries provided by the packages, but for the development environment you will need to call the packages directly:
 
     npx clusteriocontroller -> node packages/controller
-    npx clusterioslave -> node packages/slave
+    npx clusteriohost -> node packages/host
     npx clusterioctl -> node packages/ctl
 
 Note that to use `clusterioctl` you will have to create a control config first:
 
     node packages/controller bootstrap create-ctl-config [admin-user]
 
-Once you've set up the cluster you can use `node packages/controller run` to run the controller and `node packages/slave run` to run the slave which connects to the controller.
+Once you've set up the cluster you can use `node packages/controller run` to run the controller and `node packages/host run` to run the host which connects to the controller.
 
 For web development on the controller there are also the following flags:
 

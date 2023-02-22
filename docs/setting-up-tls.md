@@ -63,9 +63,9 @@ This creates a private key file named `key.pem` and a public certificate file na
     npx clusteriocontroller config set controller.tls_certificate cert.pem
     npx clusteriocontroller config set controller.tls_private_key key.pem
 
-Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as slaves and configure it as the `slave.tls_ca` option:
+Additionally you will need copy the `cert.pem` file to all of the computers you want to set up as hosts and configure it as the `host.tls_ca` option:
 
-    npx clusterioslave config set slave.tls_ca cert.pem
+    npx clusteriohost config set host.tls_ca cert.pem
 
 You will also need to copy the `cert.pem` file to all of the computers you want to remotely manage the cluster via clusterctl and configure it as `control.tls_ca` option:
 
