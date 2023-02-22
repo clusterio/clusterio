@@ -181,6 +181,127 @@ async function validateNotRoot(args) {
 	}
 }
 
+async function migrateRename(args) {
+	function rename(string) {
+		return string.replace(/master/g, "controller").replace(/slave/g, "host");
+	}
+
+	function renameConfig(config) {
+		for (let group of config["groups"]) {
+			group["name"] = rename(group["name"]);
+			group["fields"] = Object.fromEntries(
+				Object.entries(group["fields"]).map(([k, v]) => [rename(k), v])
+			);
+		}
+		return config;
+	}
+
+	async function migrateConfig(source, destination) {
+		if (await fs.pathExists(source) && !await fs.pathExists(destination)) {
+			await safeOutputFile(destination, JSON.stringify(
+				renameConfig(JSON.parse(await fs.readFile(source))), null, 4
+			));
+			logger.info(`Migrated ${source} to ${destination}`);
+		}
+	}
+
+	await migrateConfig("config-master.json", "config-controller.json");
+	await migrateConfig("config-slave.json", "config-host.json");
+
+	let instancesFile = path.join("database", "instances.json");
+	if (await fs.pathExists(instancesFile)) {
+		await safeOutputFile(instancesFile, JSON.stringify(
+			JSON.parse(await fs.readFile(instancesFile)).map(renameConfig), null, 4
+		));
+		logger.info(`Migrated ${instancesFile}`);
+	}
+
+	let usersFile = path.join("database", "users.json");
+	if (await fs.pathExists(usersFile)) {
+		let users = JSON.parse(await fs.readFile(usersFile));
+		for (let role of users["roles"]) {
+			role["permissions"] = role["permissions"].map(rename);
+		}
+		await safeOutputFile(usersFile, JSON.stringify(users, null, 4));
+		logger.info(`Migrated ${usersFile}`);
+	}
+
+	function renameLogLine(info) {
+		return Object.fromEntries(
+			Object.entries(info).map(([k, v]) => [rename(k), v])
+		);
+	}
+
+	async function migrateLog(inputFile, outputFile) {
+		let lineStream = new LineSplitter({ readableObjectMode: true });
+		let fileStream = fs.createReadStream(inputFile);
+		fileStream.pipe(lineStream);
+		let lines = [];
+
+		for await (let inputLine of lineStream) {
+			try {
+				lines.push(Buffer.from(JSON.stringify(renameLogLine(JSON.parse(inputLine)))));
+				lines.push(Buffer.from("\n"));
+			} catch (err) {
+				if (!(err instanceof SyntaxError)) {
+					throw err;
+				}
+				logger.warn(`Invalid log line: ${inputLine.toString()}`);
+				lines.push(inputLine);
+			}
+		}
+		safeOutputFile(outputFile, Buffer.concat(lines));
+	}
+
+	async function migrateLogsDir(inputLogs, outputLogs) {
+		if (await fs.pathExists(inputLogs)) {
+			logger.info(`Migrating ${inputLogs} to ${outputLogs}`);
+			for (let logFile of await fs.readdir(inputLogs)) {
+				if (!logFile.endsWith(".log")) {
+					continue;
+				}
+				let inputFile = path.join(inputLogs, logFile);
+				let outputFile = path.join(outputLogs, rename(logFile));
+				if (!await fs.pathExists(outputFile)) {
+					await migrateLog(inputFile, outputFile);
+					logger.verbose(`Migrated ${inputFile} to ${outputFile}`);
+				}
+			}
+		}
+	}
+
+	await migrateLogsDir(path.join("logs", "master"), path.join("logs", "controller"));
+	await migrateLogsDir(path.join("logs", "slave"), path.join("logs", "host"));
+	if (
+		await fs.pathExists(path.join("logs", "cluster"))
+		&& !await fs.pathExists(path.join("logs", "cluster-prerename"))
+	) {
+		await fs.rename(path.join("logs", "cluster"), path.join("logs", "cluster-prerename"));
+		await migrateLogsDir(path.join("logs", "cluster-prerename"), path.join("logs", "cluster"));
+	}
+
+	if (!args.dev) {
+		let pkg = JSON.parse(await fs.readFile("package.json"));
+		if (pkg.dependencies) {
+			let convert = ["@clusterio/master", "@clusterio/slave"];
+			let uninstall = convert.filter(c => pkg.dependencies[c] !== undefined);
+			let install = uninstall.map(rename);
+			if (uninstall.length) {
+				logger.info(`Replacing ${uninstall.join(" and ")}`);
+				await execFile(`npm${scriptExt}`, ["install", ...install]);
+				await execFile(`npm${scriptExt}`, ["uninstall", ...uninstall]);
+			}
+		}
+		logger.info("Updating packages");
+		await execFile(`npm${scriptExt}`, ["update"]);
+	}
+
+	logger.info(
+		"Migration complete, you may now delete the following left over files and directories (if present):" +
+		"\n- config-master.json\n- config-slave.json\n- logs/master\n- logs/slave\n- logs/cluster-prerename"
+	);
+}
+
 async function installClusterio(mode, plugins) {
 	try {
 		await fs.outputFile("package.json", JSON.stringify({
@@ -534,6 +655,9 @@ async function main() {
 			nargs: 1, describe: "Operating mode to install",
 			choices: ["standalone", "controller", "host", "ctl", "plugins"],
 		})
+		.option("migrate-rename", {
+			nargs: 0, describe: "Migrate from before slave/master rename", default: false, type: "boolean",
+		})
 		.option("admin", {
 			nargs: 1, describe: "Admin account name [standalone/controller]", type: "string",
 		})
@@ -580,6 +704,11 @@ async function main() {
 	if (!dev) {
 		await validateInstallDir();
 		await validateNotRoot(args);
+	}
+
+	if (args.migrateRename) {
+		await migrateRename(args);
+		return;
 	}
 
 	let answers = await inquirerMissingArgs(args);
