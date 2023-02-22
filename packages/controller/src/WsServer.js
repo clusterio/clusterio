@@ -216,10 +216,12 @@ ${err.stack}`
 				let tokenPayload = jwt.verify(
 					data.token,
 					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-					{ audience: "host" }
+					// migrate: allow pre-rename tokens issued to hosts before alpha-14
+					{ audience: ["host", "slave"] }
 				);
 
-				if (tokenPayload.host !== data.id) {
+				// migrate: allow pre-rename tokens issued to hosts before alpha-14
+				if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
 					throw new Error("missmatched host id");
 				}
 
