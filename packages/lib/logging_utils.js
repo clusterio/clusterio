@@ -140,6 +140,7 @@ class LinkTransport extends Transport {
 }
 
 const logFileGlob = /^[a-z]+-(\d{4}-\d{2}-\d{2})\.log$/;
+const logIndexVersion = 1;
 
 /**
  * Keeps an index over a log directory to speed up queries to it
@@ -150,7 +151,7 @@ class LogIndex {
 		this.logDirectory = logDirectory;
 		this.index = new Map();
 
-		if (serialized.version !== 0) {
+		if (serialized.version !== logIndexVersion) {
 			return;
 		}
 
@@ -166,7 +167,7 @@ class LogIndex {
 
 	serialize() {
 		let serialized = {
-			version: 0,
+			version: logIndexVersion,
 			files: {},
 		};
 
