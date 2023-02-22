@@ -237,28 +237,6 @@ async function initialize() {
 		.argv
 	;
 
-	{
-		// Migration from alpha-10 single file logs, note that we can't use
-		// the logger here as it's not initalized yet.
-		/* eslint-disable no-console */
-		let clusterLogDirectory = path.join(parameters.args.logDirectory, "cluster");
-		if (!await fs.pathExists(clusterLogDirectory) && await fs.pathExists("cluster.log")) {
-			console.log("Migrating cluster log...");
-			await fs.ensureDir(clusterLogDirectory);
-			await libLoggingUtils.migrateLogs("cluster.log", clusterLogDirectory, "cluster-%DATE%.log");
-			console.log("Migration complete, you should delete cluster.log now");
-		}
-
-		let controllerLogDirectory = path.join(parameters.args.logDirectory, "controller");
-		if (!await fs.pathExists(controllerLogDirectory) && await fs.pathExists("controller.log")) {
-			console.log("Migrating controller log...");
-			await fs.ensureDir(controllerLogDirectory);
-			await libLoggingUtils.migrateLogs("controller.log", controllerLogDirectory, "controller-%DATE%.log");
-			console.log("Migration complete, you should delete controller.log now");
-		}
-		/* eslint-enable no-console */
-	}
-
 	// Combined log stream of the whole cluster.
 	parameters.clusterLogger = winston.createLogger({
 		format: winston.format.json(),

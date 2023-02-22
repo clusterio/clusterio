@@ -102,20 +102,6 @@ async function startHost() {
 		.argv
 	;
 
-	{
-		// Migration from alpha-10 single file logs, note that we can't use
-		// the logger here as it's not initalized yet.
-		/* eslint-disable no-console */
-		let hostLogDirectory = path.join(args.logDirectory, "host");
-		if (!await fs.pathExists(hostLogDirectory) && await fs.pathExists("host.log")) {
-			console.log("Migrating host log...");
-			await fs.ensureDir(hostLogDirectory);
-			await libLoggingUtils.migrateLogs("host.log", hostLogDirectory, "host-%DATE%.log");
-			console.log("Migration complete, you should delete host.log now");
-		}
-		/* eslint-enable no-console */
-	}
-
 	logger.add(new winston.transports.DailyRotateFile({
 		format: winston.format.json(),
 		filename: "host-%DATE%.log",
