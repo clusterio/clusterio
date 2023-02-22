@@ -334,7 +334,7 @@ async function initialize() {
 async function startup() {
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioController";
+	process.title = "clusteriocontroller";
 
 	let { args, shouldRun, clusterLogger, pluginInfos, controllerConfigPath, controllerConfig } = await initialize();
 	if (!shouldRun) {

@@ -171,7 +171,7 @@ async function startHost() {
 
 	// Set the process title, shows up as the title of the CMD window on windows
 	// and as the process name in ps/top on linux.
-	process.title = "clusterioHost";
+	process.title = "clusteriohost";
 
 	// make sure we have the controller access token
 	if (hostConfig.get("host.controller_token") === "enter token here") {
