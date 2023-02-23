@@ -12,9 +12,9 @@ Events and requests are defined as instances of the `Request` and `Event` classe
 All messages sent and received are validated with JSON schemas to catch potential errors in sending messages and avoid having to write lots of validation code in message handlers.
 
 Messages are sent by calling the `.send()` method of the message instance and passing a `Link` instance to send it over and the data to send.
-For the master server there's a `Link` instance for each slave and control connection stored in the `WsServer` class.
-For slaves the `Slave` instance is a link to the master server, and each `Instance` instance is an in-memory link to the `Slave` instance and has a corresponding `InstanceConnection` link stored on the `Slave` instance.
-For ctl and web_ui there's a `Control` instance that acts as the link to the master server.
+For the controller there's a `Link` instance for each host and control connection stored in the `WsServer` class.
+For hosts the `Host` instance is a link to the controller, and each `Instance` instance is an in-memory link to the `Host` instance and has a corresponding `InstanceConnection` link stored on the `Host` instance.
+For ctl and web_ui there's a `Control` instance that acts as the link to the controller.
 
 Messages received invokes message handlers that were registered when the link was brought up.
 These handlers are named after the name of the property the message is stored under with `EventHandler` appended for events and `RequestHandler` appended for requests.
@@ -24,7 +24,7 @@ The handlers are defined on the link class itself for core messages, and on the 
 ## Connection flow
 
 Clients connect via WebSocket to the `/api/socket` endpoint and upon establishing connection to the server the connection is in the handshake phase and the server will send a `hello` message to the client.
-If the client has no previous session with the server it sends a `register_slave` or `register_control` message depending on what kind of client it is to the server.
+If the client has no previous session with the server it sends a `register_host` or `register_control` message depending on what kind of client it is to the server.
 If the register is valid then the server will respond with a `ready` message with a session token and the connection has left the handshake phase, otherwise the server will close the connection with a WebSocket close code indicating the kind of failure.
 
 Upon leaving the handshake phase both parties should start sending heartbeat messages with the sequence number of the last received message.
@@ -33,7 +33,7 @@ Messages sent over the link should be stored in a send buffer and only cleared f
 If the connection goes stale or is unexpectedly closed the client can reastablish the same session by connecting to the server again and sending a `resume` message after received the `hello` from the server.
 If the session resume is successful then the server will respond with a `continue` message and the connection is active again.
 The client should then re-send all messages it has in its send buffer that is greater than the `last_seq` number in the `continue` message.
-Otherwise the server will respond with `invalidate` and the client is expected to drop its send buffer start a new session with `register_slave` or `register_control`.
+Otherwise the server will respond with `invalidate` and the client is expected to drop its send buffer start a new session with `register_host` or `register_control`.
 
 ![Connection flow](../assets/connection_flow.svg)
 
@@ -96,23 +96,23 @@ The following messages are the only valid messages that can be sent during the h
 
 #### `hello`
 
-Sent by the master server when the WebSocket connection has been opened.
+Sent by the controller when the WebSocket connection has been opened.
 
-- `version: string` - The version of the master, e.g. "2.0.0".
+- `version: string` - The version of the controller, e.g. "2.0.0".
 - `plugins: Object<string, string>` -
-    Object mapping plugin names to plugin version for plugins that are loaded on the master server.
+    Object mapping plugin names to plugin version for plugins that are loaded on the controller.
 
-#### `register_slave`
+#### `register_host`
 
-Slave handshake for establishing a new connection session.
+Host handshake for establishing a new connection session.
 
 - `token: string` - Authentication token.
 - `agent: string` - Human readable string of the software connecting.
-- `version: string` - The protocol version of the slave, e.g. "2.0.0".
-- `name: string` - Name of the slave.
-- `id: integer` - ID of the slave.
+- `version: string` - The protocol version of the host, e.g. "2.0.0".
+- `name: string` - Name of the host.
+- `id: integer` - ID of the host.
 - `plugins: Object<string, string>` -
-    Object mapping plugin names to plugin version for plugins that are available on the slave.
+    Object mapping plugin names to plugin version for plugins that are available on the host.
 
 #### `register_control`
 
@@ -131,12 +131,12 @@ Handshake for resuming an existing connection session where the connection had d
 
 #### `invalidate`
 
-Sent by the master server in reply to a resume for a session that cannot be resumed.
+Sent by the controller in reply to a resume for a session that cannot be resumed.
 The client should start a new session with a register\_\* message in response.
 
 #### `continue`
 
-Sent by the master server to signal resuming the session was successful.
+Sent by the controller to signal resuming the session was successful.
 
 - `last_seq: integer | null` - Last message seq received by the server.
 - `session_timeout: integer` - Session timeout in seconds.
@@ -144,7 +144,7 @@ Sent by the master server to signal resuming the session was successful.
 
 #### `ready`
 
-Sent by the master server to signal the connection has been established with a new session.
+Sent by the controller to signal the connection has been established with a new session.
 
 - `session_token: string` - Token to resume the session with.
 - `session_timeout: integer` - Session timeout in seconds.
@@ -159,7 +159,7 @@ The heartbeat should contain the `seq` of the last received message, and receivi
 
 #### `heartbeat`
 
-Sent by both the master server and clients at the interval given in the continue/ready messages.
+Sent by both the controller and clients at the interval given in the continue/ready messages.
 
 - `last_seq: integer` - Last message seq received over the link.
 
@@ -235,15 +235,15 @@ Server hello after opening the WebSocket.
 }
 ```
 
-Slave registering a new connection session.
+Host registering a new connection session.
 
 ```json
 {
     "seq": null,
-    "type": "register_slave",
+    "type": "register_host",
     "data": {
         "token": "xyzabc123",
-        "agent": "Clusterio Slave",
+        "agent": "Clusterio Host",
         "version": "2.0.0",
         "name": "Foo",
         "id": 123
@@ -251,7 +251,7 @@ Slave registering a new connection session.
 }
 ```
 
-Master server reply signaling the session is established and ready.
+Controller reply signaling the session is established and ready.
 
 ```json
 {
@@ -265,4 +265,4 @@ Master server reply signaling the session is established and ready.
 }
 ```
 
-Slave and master can now send events and requests over the connection.
+Host and controller can now send events and requests over the connection.

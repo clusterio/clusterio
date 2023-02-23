@@ -108,16 +108,16 @@ describe("lib/logging_utils.js", function() {
 						info => ["fatal"].includes(info.level)
 					));
 				});
-				it("should filter by master", async function() {
-					let log = await libLoggingUtils.queryLog(logDir, { master: true }, index());
+				it("should filter by controller", async function() {
+					let log = await libLoggingUtils.queryLog(logDir, { controller: true }, index());
 					assert.deepEqual(log, allLines.filter(
-						info => info.slave_id === undefined && info.instance_id === undefined
+						info => info.host_id === undefined && info.instance_id === undefined
 					));
 				});
-				it("should filter by slave_ids", async function() {
-					let log = await libLoggingUtils.queryLog(logDir, { slave_ids: [1, 2] }, index());
+				it("should filter by host_ids", async function() {
+					let log = await libLoggingUtils.queryLog(logDir, { host_ids: [1, 2] }, index());
 					assert.deepEqual(log, allLines.filter(
-						info => [1, 2].includes(info.slave_id) && info.instance_id === undefined
+						info => [1, 2].includes(info.host_id) && info.instance_id === undefined
 					));
 				});
 				it("should filter by instance_ids", async function() {

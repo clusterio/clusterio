@@ -32,16 +32,16 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)));
 	}
 
-	onPrepareMasterDisconnect() {
+	onPrepareControllerDisconnect() {
 		this.disconnecting = true;
 	}
 
-	onMasterConnectionEvent(event) {
+	onControllerConnectionEvent(event) {
 		if (event === "connect") {
 			this.disconnecting = false;
 			(async () => {
 				for (let player_name of this.playersToRelease) {
-					if (!this.slave.connector.connected || this.disconnecting) {
+					if (!this.host.connector.connected || this.disconnecting) {
 						return;
 					}
 					this.playersToRelease.delete(player);
@@ -60,10 +60,10 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		let response = {
 			player_name: request.player_name,
 			status: "error",
-			message: "Master is temporarily unavailable",
+			message: "Controller is temporarily unavailable",
 		};
 
-		if (this.slave.connector.connected && !this.disconnecting) {
+		if (this.host.connector.connected && !this.disconnecting) {
 			try {
 				response = {
 					player_name: request.player_name,
@@ -85,7 +85,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async handleRelease(request) {
-		if (!this.slave.connector.connected) {
+		if (!this.host.connector.connected) {
 			this.playersToRelease.set(request.player_name);
 		}
 
@@ -104,7 +104,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async handleUpload(player_data) {
-		if (!this.slave.connector.connected || this.disconnecting) {
+		if (!this.host.connector.connected || this.disconnecting) {
 			return;
 		}
 

@@ -40,7 +40,7 @@ export class WebPlugin extends libPlugin.BaseWebPlugin {
 		];
 	}
 
-	onMasterConnectionEvent(event) {
+	onControllerConnectionEvent(event) {
 		if (event === "connect") {
 
 		}

@@ -8,9 +8,9 @@ Plugin exporting item production, fluid production, kill count, entity build and
 Run the following commands in the folder Clusterio is installed to:
 
     npm install @clusterio/plugin-statistics_exporter
-    npx clusteriomaster plugin add @clusterio/plugin-statistics_exporter
+    npx clusteriocontroller plugin add @clusterio/plugin-statistics_exporter
 
-Substitute clusteriomaster with clusterioslave or clusterioctl if this a dedicate slave or ctl installation respectively.
+Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicate host or ctl installation respectively.
 
 
 ## Instance Configuration

@@ -23,23 +23,23 @@ function sigmoid3(x) {
 	return x;
 }
 
-// DOSE - Doses items for item X slave Y
-// Numreq - number of items that are requested for item X for slave Y
-// Instore - number of items for item X in master gauge (currently)
+// DOSE - Doses items for item X instance Y
+// Numreq - number of items that are requested for item X for instance Y
+// Instore - number of items for item X in controller gauge (currently)
 // store_last_tick -
-//     Number of items for item X in master gauge at time of last tick
+//     Number of items for item X in controller gauge at time of last tick
 // dole - Current dole for item X
-// carry - carry for item X slave Y
-// prev_req - Numreq for previous request for item X slave Y
+// carry - carry for item X instance Y
+// prev_req - Numreq for previous request for item X instance Y
 // * doleinfo_last -
 //     Object with 2 values for last "tick period": numreq - total number or
-//     requests for item, numslave - number of slaves requesting that item
-// debt - debt for item X slave Y
+//     requests for item, numinstance - number of instances requesting that item
+// debt - debt for item X instance Y
 
 // Returns: Array of 3 elements
 // 0.Number of items to give in that dose
 // 1.New dole for item X
-// 2.New carry for item X slave Y
+// 2.New carry for item X instance Y
 // 3.New debt
 function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_total_adj, debt) {
 	numreq = Number(numreq);
@@ -98,18 +98,18 @@ function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_to
 
 // TICK -
 //     Updates values for item X, should be called once for each item for
-//     each round of all slaves requesting that item Instore - number of
-//     items for item X in master gauge (currently)
+//     each round of all instances requesting that item Instore - number of
+//     items for item X in controller gauge (currently)
 // dole - Current dole for item X
 // store_last_tick -
-//     Number of items for item X in master gauge at time of last tick (not this one)
+//     Number of items for item X in controller gauge at time of last tick (not this one)
 // * doleinfo_last -
 //     Object with 2 values for last "tick period": numreq - total number or
-//     requests for item, numslave - number of slaves requesting that item
+//     requests for item, numinstance - number of instances requesting that item
 //
 // * doleinfo_new -
 //     Object with 2 values for new "tick period": numreq - total number or
-//     requests for item, numslave - number of slaves requesting that item
+//     requests for item, numinstance - number of instances requesting that item
 
 
 // Returns: Array of 2 elements

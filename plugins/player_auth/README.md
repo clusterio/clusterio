@@ -10,12 +10,12 @@ Once the player enters the second code into the dialog in-game the web interface
 Run the following commands in the folder Clusterio is installed to:
 
     npm install @clusterio/plugin-player_auth
-    npx clusteriomaster plugin add @clusterio/plugin-player_auth
+    npx clusteriocontroller plugin add @clusterio/plugin-player_auth
 
-Substitute clusteriomaster with clusterioslave or clusterioctl if this a dedicate slave or ctl installation respectively.
+Substitute clusteriocontroller with clusteriohost or clusterioctl if this a dedicate host or ctl installation respectively.
 
 
-## Master Configuration
+## Controller Configuration
 
 #### player_auth.code_length
 

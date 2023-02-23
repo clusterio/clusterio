@@ -24,7 +24,7 @@ const commands = require("./src/commands");
 
 
 /**
- * Connector for control connection to master server
+ * Connector for control connection to controller
  * @private
  */
 class ControlConnector extends libLink.WebSocketClientConnector {
@@ -46,22 +46,22 @@ class ControlConnector extends libLink.WebSocketClientConnector {
 /**
  * Handles running the control
  *
- * Connects to the master server over WebSocket and sends commands to it.
+ * Connects to the controller over WebSocket and sends commands to it.
  * @static
  */
 class Control extends libLink.Link {
 
 	constructor(connector, controlConfig, tlsCa, controlPlugins) {
-		super("control", "master", connector);
+		super("control", "controller", connector);
 		libLink.attachAllMessages(this);
 
 		/**
-		 * Control config used for connecting to the master.
+		 * Control config used for connecting to the controller.
 		 * @type {module:lib/config.ControlConfig}
 		 */
 		this.config = controlConfig;
 		/**
-		 * Certificate authority used to validate TLS connections to the master.
+		 * Certificate authority used to validate TLS connections to the controller.
 		 * @type {?string}
 		 */
 		this.tlsCa = tlsCa;
@@ -83,7 +83,7 @@ class Control extends libLink.Link {
 
 	async accountUpdateEventHandler() { }
 
-	async slaveUpdateEventHandler() { }
+	async hostUpdateEventHandler() { }
 
 	async instanceUpdateEventHandler() { }
 
@@ -97,13 +97,13 @@ class Control extends libLink.Link {
 
 	async setLogSubscriptions({
 		all = false,
-		master = false,
-		slave_ids = [],
+		controller = false,
+		host_ids = [],
 		instance_ids = [],
 		max_level = null,
 	}) {
 		await libLink.messages.setLogSubscriptions.send(this, {
-			all, master, slave_ids, instance_ids, max_level,
+			all, controller, host_ids, instance_ids, max_level,
 		});
 	}
 
@@ -251,8 +251,8 @@ async function startControl() {
 		targetCommand = targetCommand.get(commandPath.shift());
 	}
 
-	// The remaining commands require connecting to the master server.
-	if (!controlConfig.get("control.master_url") || !controlConfig.get("control.master_token")) {
+	// The remaining commands require connecting to the controller.
+	if (!controlConfig.get("control.controller_url") || !controlConfig.get("control.controller_token")) {
 		logger.error("Missing URL and/or token to connect with.  See README.md for setting up access.");
 		process.exitCode = 1;
 		return;
@@ -265,10 +265,10 @@ async function startControl() {
 	}
 
 	let controlConnector = new ControlConnector(
-		controlConfig.get("control.master_url"),
+		controlConfig.get("control.controller_url"),
 		controlConfig.get("control.max_reconnect_delay"),
 		tlsCa,
-		controlConfig.get("control.master_token")
+		controlConfig.get("control.controller_token")
 	);
 	let control = new Control(controlConnector, controlConfig, tlsCa, controlPlugins);
 	try {

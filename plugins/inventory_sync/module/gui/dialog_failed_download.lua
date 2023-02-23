@@ -49,7 +49,7 @@ function dialog_failed_download.create(player, acquire_response)
 
 	local reason
 	if acquire_response.status == "timeout" then
-		reason = "Timed out fetching inventory from the master server."
+		reason = "Timed out fetching inventory from the controller."
 
 	elseif acquire_response.status == "busy" then
 		reason =
@@ -58,10 +58,10 @@ function dialog_failed_download.create(player, acquire_response)
 			"If you just logged out from there it might take some time before the inventory is available."
 
 	elseif acquire_response.status == "error" then
-		reason = "Error fetching inventory from the master server: " .. acquire_response.message .. "."
+		reason = "Error fetching inventory from the controller: " .. acquire_response.message .. "."
 
 	else
-		reason = "Unknown status " .. acquire_response.status .. " fetching inventory from the master server."
+		reason = "Unknown status " .. acquire_response.status .. " fetching inventory from the controller."
 	end
 
 	local p1 = content.add {
@@ -129,7 +129,7 @@ dialog_failed_download.events = {
 			global.inventory_sync.players[player.name].sync = false
 
 		elseif event.element.name == "inventory_sync_failed_download_retry" then
-			-- Retry acquiring the player from the master
+			-- Retry acquiring the player from the controller
 			local player = game.get_player(event.player_index)
 			inventory_sync.acquire(player)
 			player.gui.screen.dialog_failed_download.destroy()

@@ -168,7 +168,7 @@ const clientHandshake = ajv.compile({
 	anyOf: [
 		{
 			properties: {
-				"type": { const: "register_slave" },
+				"type": { const: "register_host" },
 				"data": {
 					additionalProperties: false,
 					required: ["token", "agent", "version", "name", "id", "plugins"],

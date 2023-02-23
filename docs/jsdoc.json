@@ -11,10 +11,10 @@
 	},
 	"source": {
 		"include": [
-			"packages/master/src/",
-			"packages/master/master.js",
-			"packages/slave/src/",
-			"packages/slave/slave.js",
+			"packages/controller/src/",
+			"packages/controller/controller.js",
+			"packages/host/src/",
+			"packages/host/host.js",
 			"packages/ctl/src/",
 			"packages/ctl/ctl.js",
 			"packages/lib/",

@@ -59,8 +59,8 @@ export default function LogConsole(props) {
 	useEffect(() => {
 		let logFilter = {
 			all: props.all || false,
-			master: props.master || false,
-			slave_ids: props.slaves || [],
+			controller: props.controller || false,
+			host_ids: props.hosts || [],
 			instance_ids: props.instances || [],
 		};
 
@@ -94,7 +94,7 @@ export default function LogConsole(props) {
 		return () => {
 			control.offLog(logFilter, logHandler);
 		};
-	}, [props.all, props.master, (props.slaves || []).join(), (props.instances || []).join()]);
+	}, [props.all, props.controller, (props.hosts || []).join(), (props.instances || []).join()]);
 
 	return <>
 		<Paragraph code className="instance-console">

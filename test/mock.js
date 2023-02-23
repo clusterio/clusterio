@@ -9,7 +9,7 @@ const libPlugin = require("@clusterio/lib/plugin");
 const libUsers = require("@clusterio/lib/users");
 const libPrometheus = require("@clusterio/lib/prometheus");
 
-const UserManager = require("@clusterio/master/src/UserManager");
+const UserManager = require("@clusterio/controller/src/UserManager");
 
 
 class MockLogger {
@@ -125,7 +125,7 @@ class MockServer extends events.EventEmitter {
 
 class MockInstance extends libLink.Link {
 	constructor() {
-		super("instance", "slave", new MockConnector());
+		super("instance", "host", new MockConnector());
 		this.logger = new MockLogger();
 		this.server = new MockServer();
 		this.name = "test";
@@ -150,27 +150,27 @@ class MockInstance extends libLink.Link {
 	}
 }
 
-class MockSlave extends libLink.Link {
+class MockHost extends libLink.Link {
 	constructor() {
-		super("slave", "master", new MockConnector());
+		super("host", "controller", new MockConnector());
 	}
 }
 
 class MockControl extends libLink.Link {
 	constructor(connector) {
-		super("control", "master", connector);
+		super("control", "controller", connector);
 	}
 }
 
-class MockMaster {
+class MockController {
 	constructor() {
 		this.app = express();
-		this.app.locals.master = this;
+		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 		this.mockConfigEntries = new Map([
-			["master.external_address", "test"],
-			["master.auth_secret", "TestSecretDoNotUse"],
-			["master.proxy_stream_timeout", 1],
+			["controller.external_address", "test"],
+			["controller.auth_secret", "TestSecretDoNotUse"],
+			["controller.proxy_stream_timeout", 1],
 		]);
 		this.config = {
 			get: (name) => {
@@ -193,11 +193,11 @@ class MockMaster {
 			["player", new libUsers.User({ name: "player", roles: [1] }, this.userManager.roles)],
 		]);
 		this.instances = new Map();
-		this.slaves = new Map();
+		this.hosts = new Map();
 	}
 
-	getMasterUrl() {
-		return "http://master.example/";
+	getControllerUrl() {
+		return "http://controller.example/";
 	}
 
 	async startServer() {
@@ -217,19 +217,19 @@ class MockMaster {
 	}
 }
 
-async function createMasterPlugin(MasterPluginClass, info) {
-	let master = new MockMaster();
+async function createControllerPlugin(ControllerPluginClass, info) {
+	let controller = new MockController();
 	let metrics = {};
 	let logger = new MockLogger();
-	let plugin = new MasterPluginClass(info, master, metrics, logger);
+	let plugin = new ControllerPluginClass(info, controller, metrics, logger);
 	await plugin.init();
 	return plugin;
 }
 
 async function createInstancePlugin(InstancePluginClass, info) {
 	let instance = new MockInstance();
-	let slave = new MockSlave();
-	let plugin = new InstancePluginClass(info, instance, slave);
+	let host = new MockHost();
+	let plugin = new InstancePluginClass(info, instance, host);
 	libPlugin.attachPluginMessages(instance, plugin);
 	await plugin.init();
 	return plugin;
@@ -242,10 +242,10 @@ module.exports = {
 	MockConnector,
 	MockServer,
 	MockInstance,
-	MockSlave,
+	MockHost,
 	MockControl,
-	MockMaster,
+	MockController,
 
-	createMasterPlugin,
+	createControllerPlugin,
 	createInstancePlugin,
 };

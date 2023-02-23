@@ -3,4 +3,4 @@
 
 "use strict";
 require("../instance");
-require("../master");
+require("../controller");

@@ -68,17 +68,17 @@ The `plugins/` directory contains the core plugins for the project and can be ad
 
 The documentation uses the binaries provided by the packages, but for the development environment you will need to call the packages directly:
 
-    npx clusteriomaster -> node packages/master
-    npx clusterioslave -> node packages/slave
+    npx clusteriocontroller -> node packages/controller
+    npx clusteriohost -> node packages/host
     npx clusterioctl -> node packages/ctl
 
 Note that to use `clusterioctl` you will have to create a control config first:
 
-    node packages/master bootstrap create-ctl-config [admin-user]
+    node packages/controller bootstrap create-ctl-config [admin-user]
 
-Once you've set up the cluster you can use `node packages/master run` to run the master server and `node packages/slave run` to run the slave which connects to the master server.
+Once you've set up the cluster you can use `node packages/controller run` to run the controller and `node packages/host run` to run the host which connects to the controller.
 
-For web development on the master there are also the following flags:
+For web development on the controller there are also the following flags:
 
 `--dev` - Recompile the `web_ui` package on the fly providing live reloading of it.
 
@@ -86,7 +86,7 @@ For web development on the master there are also the following flags:
 
 These options can be combined and multiple plugins can be actived for dev mode.
 Keep in mind if you're working on external plugins the `--dev-plugin` option is likely to only work if the plugin is placed inside the `external_plugins` directory and its dependencies are installed with pnpm as part of the clusterio repository workspace.
-Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present prepare` before you start the master without these flags again.
+Note that webpack is configured to delete the web interface build when using these options, so you will have to run `pnpm run -r --if-present prepare` before you start the controller without these flags again.
 
 
 ### Starting a Feature Branch

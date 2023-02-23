@@ -13,7 +13,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			this.provideItems(output).catch(err => this.unexpectedError(err));
 		});
 		this.instance.server.on("ipc-subspace_storage:orders", (orders) => {
-			if (this.instance.status !== "running" || !this.slave.connected) {
+			if (this.instance.status !== "running" || !this.host.connected) {
 				return;
 			}
 
@@ -25,8 +25,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	async onStart() {
 		this.pingId = setInterval(() => {
-			if (!this.slave.connected) {
-				return; // Only ping if we are actually connected to the master.
+			if (!this.host.connected) {
+				return; // Only ping if we are actually connected to the controller.
 			}
 			this.sendRcon(
 				"/sc __subspace_storage__ global.ticksSinceMasterPinged = 0", true
@@ -50,8 +50,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 	// provide items --------------------------------------------------------------
 	async provideItems(items) {
-		if (!this.slave.connector.hasSession) {
-			// For now the items are voided if the master connection is
+		if (!this.host.connector.hasSession) {
+			// For now the items are voided if the controller connection is
 			// down, which is no different from the previous behaviour.
 			if (this.instance.config.get("subspace_storage.log_item_transfers")) {
 				this.logger.verbose("Voided the following items:");
@@ -66,7 +66,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		});
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
-			this.logger.verbose("Exported the following to master:");
+			this.logger.verbose("Exported the following to controller:");
 			this.logger.verbose(JSON.stringify(items));
 		}
 	}
@@ -84,7 +84,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
-			this.logger.verbose("Imported following from master:");
+			this.logger.verbose("Imported following from controller:");
 			this.logger.verbose(JSON.stringify(response.items));
 		}
 

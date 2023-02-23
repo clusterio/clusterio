@@ -2,8 +2,8 @@
 
 Inventory Sync
 
-When a player leaves the game, serialize the player state and upload it to the master.
-When a player joins the game, request the player data from master and deserialize the player state from it.
+When a player leaves the game, serialize the player state and upload it to the controller.
+When a player joins the game, request the player data from controller and deserialize the player state from it.
 
 ]]
 
@@ -23,7 +23,7 @@ end
 local function create_player(player, dirty)
 	global.inventory_sync.players[player.name] = {
 		dirty = dirty, -- Player inventory has changes that should be persisted
-		sync = false, -- Player inventory is synced from the master
+		sync = false, -- Player inventory is synced from the controller
 		generation = 0,
 	}
 end
@@ -40,7 +40,7 @@ end
 
 
 inventory_sync = {}
--- This function is called by instance.js as /sc inventory_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the master
+-- This function is called by instance.js as /sc inventory_sync.download_inventory("danielv", Escaped JSON string, package_number, total_packages_count) with data from the controller
 inventory_sync.download_inventory = download_inventory
 
 -- This function is called internally when a player leaves the game to
@@ -280,7 +280,7 @@ function inventory_sync.sync_player(acquire_response)
 		end
 
 		if acquire_response.status == "acquired" then
-			-- The stored data on the master server has changed since the
+			-- The stored data on the controller has changed since the
 			-- download was started. Restart it.
 			game.print("Restarting download")
 			download_record.restart = true
@@ -342,7 +342,7 @@ function inventory_sync.finish_download(player, finished_record)
 	player_record.generation = finished_record.generation
 end
 
--- Download inventory from master
+-- Download inventory from controller
 inventory_sync.events[defines.events.on_player_joined_game] = function(event)
 	-- Send acquire request even if an active download is currently in plogress
 	local player = game.get_player(event.player_index)
@@ -406,7 +406,7 @@ inventory_sync.events[defines.events.on_pre_player_left_game] = function(event)
 	clusterio_api.send_json("inventory_sync_upload", result)
 end
 
--- Invoked by the instance code to confirm the master has received the uploaded data
+-- Invoked by the instance code to confirm the controller has received the uploaded data
 function inventory_sync.confirm_upload(player_name, generation)
 	local player = game.get_player(player_name)
 	if not player or player.connected then

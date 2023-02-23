@@ -1,5 +1,5 @@
 /**
- * Implementation of master databases
+ * Implementation of controller databases
  *
  * @module lib/database
  * @author Hornwitser
@@ -159,7 +159,7 @@ function checkCount(count) {
 /**
  * Item database
  *
- * Stores counts of items for the master server.  Items that have not been
+ * Stores counts of items for the controller.  Items that have not been
  * stored in the database are treated as having a stored count of zero.  When
  * serialized the database discards entries with a zero counts, and when
  * deserialized the content is verified.

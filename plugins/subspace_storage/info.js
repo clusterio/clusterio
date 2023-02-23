@@ -1,17 +1,17 @@
 "use strict";
 const { libConfig, libLink, libUsers } = require("@clusterio/lib");
 
-class MasterConfigGroup extends libConfig.PluginConfigGroup {}
-MasterConfigGroup.defaultAccess = ["master", "slave", "control"];
-MasterConfigGroup.groupName = "subspace_storage";
-MasterConfigGroup.define({
+class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
+ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
+ControllerConfigGroup.groupName = "subspace_storage";
+ControllerConfigGroup.define({
 	name: "autosave_interval",
 	title: "Autosave Interval",
 	description: "Interval the storage is autosaved at in seconds.",
 	type: "number",
 	initial_value: 60,
 });
-MasterConfigGroup.define({
+ControllerConfigGroup.define({
 	name: "division_method",
 	title: "Division Method",
 	description: "Method for dividing resource requests between instances.",
@@ -19,22 +19,22 @@ MasterConfigGroup.define({
 	enum: ["simple", "dole", "neural_dole"],
 	initial_value: "simple",
 });
-MasterConfigGroup.define({
+ControllerConfigGroup.define({
 	name: "log_item_transfers",
 	title: "Log Item Transfers",
-	description: "Spam master console with item transfers done.",
+	description: "Spam controller console with item transfers done.",
 	type: "boolean",
 	initial_value: false,
 });
-MasterConfigGroup.finalize();
+ControllerConfigGroup.finalize();
 
 class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
-InstanceConfigGroup.defaultAccess = ["master", "slave", "control"];
+InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 InstanceConfigGroup.groupName = "subspace_storage";
 InstanceConfigGroup.define({
 	name: "log_item_transfers",
 	title: "Log Item Transfers",
-	description: "Spam slave console with item transfers done.",
+	description: "Spam host console with item transfers done.",
 	type: "boolean",
 	initial_value: false,
 });
@@ -68,8 +68,8 @@ module.exports = {
 	instanceEntrypoint: "instance",
 	InstanceConfigGroup,
 
-	masterEntrypoint: "master",
-	MasterConfigGroup,
+	controllerEntrypoint: "controller",
+	ControllerConfigGroup,
 
 	webEntrypoint: "./web",
 	routes: ["/storage"],
@@ -78,8 +78,8 @@ module.exports = {
 		// XXX this should be a request to be reliable
 		place: new libLink.Event({
 			type: "subspace_storage:place",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-host", "host-controller"],
+			forwardTo: "controller",
 			eventProperties: {
 				"instance_id": { type: "integer" },
 				"items": items,
@@ -87,8 +87,8 @@ module.exports = {
 		}),
 		remove: new libLink.Request({
 			type: "subspace_storage:remove",
-			links: ["instance-slave", "slave-master"],
-			forwardTo: "master",
+			links: ["instance-host", "host-controller"],
+			forwardTo: "controller",
 			requestProperties: {
 				"instance_id": { type: "integer" },
 				"items": items,
@@ -99,16 +99,16 @@ module.exports = {
 		}),
 		getStorage: new libLink.Request({
 			type: "subspace_storage:get_storage",
-			links: ["instance-slave", "slave-master", "control-master"],
+			links: ["instance-host", "host-controller", "control-controller"],
 			permission: "subspace_storage.storage.view",
-			forwardTo: "master",
+			forwardTo: "controller",
 			responseProperties: {
 				"items": items,
 			},
 		}),
 		updateStorage: new libLink.Event({
 			type: "subspace_storage:update_storage",
-			links: ["master-slave", "slave-instance", "master-control"],
+			links: ["controller-host", "host-instance", "controller-control"],
 			broadcastTo: "instance",
 			eventProperties: {
 				"items": items,
@@ -117,7 +117,7 @@ module.exports = {
 
 		setStorageSubscription: new libLink.Request({
 			type: "subspace_storage:set_storage_subscription",
-			links: ["control-master"],
+			links: ["control-controller"],
 			permission: "subspace_storage.storage.view",
 			requestProperties: {
 				"storage": { type: "boolean" },

@@ -5,24 +5,24 @@ const jwt = require("jsonwebtoken");
 
 const mock = require("../../../test/mock");
 
-const master = require("../master");
+const controller = require("../controller");
 const instance = require("../instance");
 const info = require("../info");
 const libErrors = require("@clusterio/lib/errors");
 
 
 describe("player_auth", function() {
-	describe("master.js", function() {
+	describe("controller.js", function() {
 		describe("generateCode()", function() {
 			it("should generate a code of the given length", async function() {
-				let code = await master._generateCode(20);
+				let code = await controller._generateCode(20);
 				assert.equal(typeof code, "string");
 				assert.equal(code.length, 20, "incorrect length");
 			});
 			it("should only use the easy to recognize letters in the alphabet", async function() {
 				let chars = new Set();
 				for (let i = 0; i < 20; i++) {
-					let code = await master._generateCode(15);
+					let code = await controller._generateCode(15);
 					for (let char of code) {
 						chars.add(char);
 					}
@@ -35,25 +35,25 @@ describe("player_auth", function() {
 			});
 		});
 
-		describe("MasterPlugin", function() {
-			let masterPlugin;
-			let masterUrl;
+		describe("ControllerPlugin", function() {
+			let controllerPlugin;
+			let controllerUrl;
 			before(async function() {
-				masterPlugin = await mock.createMasterPlugin(master.MasterPlugin, info);
-				masterPlugin.master.mockConfigEntries.set("player_auth.code_length", 10);
-				masterPlugin.master.mockConfigEntries.set("player_auth.code_timeout", 1);
-				masterUrl = await masterPlugin.master.startServer();
+				controllerPlugin = await mock.createControllerPlugin(controller.ControllerPlugin, info);
+				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_length", 10);
+				controllerPlugin.controller.mockConfigEntries.set("player_auth.code_timeout", 1);
+				controllerUrl = await controllerPlugin.controller.startServer();
 			});
 			after(async function() {
-				if (masterPlugin) {
-					await masterPlugin.master.stopServer();
+				if (controllerPlugin) {
+					await controllerPlugin.controller.stopServer();
 				}
 			});
 
 			describe("/api/player_auth/servers", function() {
 				it("should return a list of running servers with player_auth loaded", async function() {
 					function addInstance(id, status, load, name) {
-						masterPlugin.master.instances.set(id, {
+						controllerPlugin.controller.instances.set(id, {
 							config: {
 								get(field) {
 									if (field === "player_auth.load_plugin") {
@@ -73,12 +73,12 @@ describe("player_auth", function() {
 					addInstance(4, "stopped", false, "stopped unloaded");
 					addInstance(5, "running", true, undefined);
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/servers`,
+						url: `${controllerUrl}/api/player_auth/servers`,
 						parse: "json",
 					});
 					assert.deepEqual(result.body, ["running loaded", "unnamed server"]);
 					for (let id of [1, 2, 3, 4, 5]) {
-						masterPlugin.master.instances.delete(id);
+						controllerPlugin.controller.instances.delete(id);
 					}
 				});
 			});
@@ -86,7 +86,7 @@ describe("player_auth", function() {
 			describe("/api/player_auth/player_code", function() {
 				it("should return 400 on invalid json", async function() {
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/player_code`,
+						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
@@ -98,7 +98,7 @@ describe("player_auth", function() {
 				it("should return 400 on valid json which is not an object", async function() {
 					for (let obj of [true, false, null, "string", 123, ["an", "array"]]) {
 						let result = await phin({
-							url: `${masterUrl}/api/player_auth/player_code`,
+							url: `${controllerUrl}/api/player_auth/player_code`,
 							method: "POST",
 							headers: {
 								"Content-Type": "application/json",
@@ -111,7 +111,7 @@ describe("player_auth", function() {
 				it("should return 400 if player_code is not a string", async function() {
 					for (let obj of [true, false, null, 123, [], {}]) {
 						let result = await phin({
-							url: `${masterUrl}/api/player_auth/player_code`,
+							url: `${controllerUrl}/api/player_auth/player_code`,
 							method: "POST",
 							headers: {
 								"Content-Type": "application/json",
@@ -123,9 +123,9 @@ describe("player_auth", function() {
 				});
 				it("should return invalid player_code if the code is expired", async function() {
 					let expires = Date.now() - 1000;
-					masterPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
+					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/player_code`,
+						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
 						data: { player_code: "expired" },
 						parse: "json",
@@ -134,9 +134,9 @@ describe("player_auth", function() {
 				});
 				it("should return a verify code and token if code is valid", async function() {
 					let expires = Date.now() + 1000;
-					masterPlugin.players.set("valid", { playerCode: "valid", verifyCode: null, expires });
+					controllerPlugin.players.set("valid", { playerCode: "valid", verifyCode: null, expires });
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/player_code`,
+						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
 						data: { player_code: "valid" },
 						parse: "json",
@@ -149,7 +149,7 @@ describe("player_auth", function() {
 			describe("/api/player_auth/verify", function() {
 				it("should return 400 on invalid json", async function() {
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/verify`,
+						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
@@ -161,7 +161,7 @@ describe("player_auth", function() {
 				it("should return 400 on valid json which is not an object", async function() {
 					for (let obj of [true, false, null, "string", 123, ["an", "array"]]) {
 						let result = await phin({
-							url: `${masterUrl}/api/player_auth/verify`,
+							url: `${controllerUrl}/api/player_auth/verify`,
 							method: "POST",
 							headers: {
 								"Content-Type": "application/json",
@@ -175,7 +175,7 @@ describe("player_auth", function() {
 					for (let obj of [true, false, null, 123, [], {}]) {
 						for (let field of ["player_code", "verify_code", "verify_token"]) {
 							let result = await phin({
-								url: `${masterUrl}/api/player_auth/verify`,
+								url: `${controllerUrl}/api/player_auth/verify`,
 								method: "POST",
 								data: {
 									player_code: "str",
@@ -191,7 +191,7 @@ describe("player_auth", function() {
 				it("should return error if verify_token is not valid", async function() {
 					async function verify(tokenParams, error) {
 						let result = await phin({
-							url: `${masterUrl}/api/player_auth/verify`,
+							url: `${controllerUrl}/api/player_auth/verify`,
 							method: "POST",
 							data: {
 								player_code: "player",
@@ -214,9 +214,9 @@ describe("player_auth", function() {
 				});
 				it("should return invalid player_code if the code is expired", async function() {
 					let expires = Date.now() - 1000;
-					masterPlugin.players.set("expired", { playerCode: "expried", verifyCode: "verify", expires });
+					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: "verify", expires });
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/verify`,
+						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
 						data: {
 							player_code: "expired",
@@ -233,9 +233,9 @@ describe("player_auth", function() {
 				});
 				it("should return verified false if verify code has not yet been set", async function() {
 					let expires = Date.now() + 1000;
-					masterPlugin.players.set("unverified", { playerCode: "unverified", verifyCode: null, expires });
+					controllerPlugin.players.set("unverified", { playerCode: "unverified", verifyCode: null, expires });
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/verify`,
+						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
 						data: {
 							player_code: "unverified",
@@ -252,9 +252,9 @@ describe("player_auth", function() {
 				});
 				it("should return error if user is missing", async function() {
 					let expires = Date.now() + 1000;
-					masterPlugin.players.set("missing", { playerCode: "missing", verifyCode: "verify", expires });
+					controllerPlugin.players.set("missing", { playerCode: "missing", verifyCode: "verify", expires });
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/verify`,
+						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
 						data: {
 							player_code: "missing",
@@ -271,9 +271,9 @@ describe("player_auth", function() {
 				});
 				it("should return verified true with token if valid verification", async function() {
 					let expires = Date.now() + 1000;
-					masterPlugin.players.set("player", { playerCode: "player", verifyCode: "verify", expires });
+					controllerPlugin.players.set("player", { playerCode: "player", verifyCode: "verify", expires });
 					let result = await phin({
-						url: `${masterUrl}/api/player_auth/verify`,
+						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
 						data: {
 							player_code: "player",
@@ -293,10 +293,10 @@ describe("player_auth", function() {
 
 			describe(".fetchPlayerCodeRequestHandler()", function() {
 				it("should return a code", async function() {
-					let result = await masterPlugin.fetchPlayerCodeRequestHandler({ data: { player: "test" }});
+					let result = await controllerPlugin.fetchPlayerCodeRequestHandler({ data: { player: "test" }});
 					assert(typeof result.player_code === "string", "no code returned");
 					assert(result.player_code.length === 10, "incorrect code length returned");
-					let expires = masterPlugin.players.get("test").expires;
+					let expires = controllerPlugin.players.get("test").expires;
 					let msFromExpected = Math.abs(expires - Date.now() - 1000);
 					assert(msFromExpected < 100, `expiry time expected outside window (${msFromExpected}ms)`);
 				});
@@ -305,7 +305,7 @@ describe("player_auth", function() {
 			describe(".setVerifyCodeRequestHandler()", function() {
 				it("should throw if player does not exist", async function() {
 					await assert.rejects(
-						masterPlugin.setVerifyCodeRequestHandler(
+						controllerPlugin.setVerifyCodeRequestHandler(
 							{ data: { player: "invalid", verify_code: "invalid" }}
 						),
 						new libErrors.RequestError("invalid player")
@@ -313,9 +313,9 @@ describe("player_auth", function() {
 				});
 				it("should throw if player code has expired", async function() {
 					let expires = Date.now() - 1000;
-					masterPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
+					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
 					await assert.rejects(
-						masterPlugin.setVerifyCodeRequestHandler(
+						controllerPlugin.setVerifyCodeRequestHandler(
 							{ data: { player: "expired", verify_code: "expired" }}
 						),
 						new libErrors.RequestError("invalid player")
@@ -325,21 +325,23 @@ describe("player_auth", function() {
 
 			describe("integration", function() {
 				it("should verify a full login flow", async function() {
-					let app = masterPlugin.master.app;
-					let { player_code } = await masterPlugin.fetchPlayerCodeRequestHandler({ data: { player: "test" }});
+					let app = controllerPlugin.controller.app;
+					let { player_code } = await controllerPlugin.fetchPlayerCodeRequestHandler(
+						{ data: { player: "test" }}
+					);
 
 					let playerCodeResult = await phin({
-						url: `${masterUrl}/api/player_auth/player_code`,
+						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
 						data: { player_code },
 						parse: "json",
 					});
 
 					let { verify_code, verify_token } = playerCodeResult.body;
-					await masterPlugin.setVerifyCodeRequestHandler({ data: { player: "test", verify_code }});
+					await controllerPlugin.setVerifyCodeRequestHandler({ data: { player: "test", verify_code }});
 
 					let verifyResult = await phin({
-						url: `${masterUrl}/api/player_auth/verify`,
+						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
 						data: { player_code, verify_code, verify_token },
 						parse: "json",
@@ -359,15 +361,15 @@ describe("player_auth", function() {
 
 			describe(".handleEvent()", async function() {
 				describe("open_dialog", async function() {
-					it("should call /web-login error if not connected to master", async function() {
+					it("should call /web-login error if not connected to controller", async function() {
 						instancePlugin.instance.server.reset();
-						instancePlugin.slave.connector.connected = false;
+						instancePlugin.host.connector.connected = false;
 						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
 						let command = instancePlugin.instance.server.rconCommands[0];
-						instancePlugin.slave.connector.connected = true;
+						instancePlugin.host.connector.connected = true;
 						assert.equal(command, "/web-login error test login is temporarily unavailable");
 					});
-					it("should call /web-login error after error from the master", async function() {
+					it("should call /web-login error after error from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message", {
@@ -375,15 +377,15 @@ describe("player_auth", function() {
 								type: "player_auth:fetch_player_code_response",
 								data: {
 									seq: message.seq,
-									error: "master error",
+									error: "controller error",
 								},
 							});
 						});
 						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
 						let command = instancePlugin.instance.server.rconCommands[0];
-						assert.equal(command, "/web-login error test master error");
+						assert.equal(command, "/web-login error test controller error");
 					});
-					it("should call /web-login open after a valid response from the master", async function() {
+					it("should call /web-login open after a valid response from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message", {
@@ -392,17 +394,17 @@ describe("player_auth", function() {
 								data: {
 									seq: message.seq,
 									player_code: "code",
-									master_url: "master-url",
+									controller_url: "controller-url",
 								},
 							});
 						});
 						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
 						let command = instancePlugin.instance.server.rconCommands[0];
-						assert.equal(command, "/web-login open test master-url code");
+						assert.equal(command, "/web-login open test controller-url code");
 					});
 				});
 				describe("open_dialog", async function() {
-					it("should call /web-login code_set after a valid response from the master", async function() {
+					it("should call /web-login code_set after a valid response from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message", {
@@ -417,20 +419,20 @@ describe("player_auth", function() {
 						let command = instancePlugin.instance.server.rconCommands[0];
 						assert.equal(command, "/web-login code_set test");
 					});
-					it("should call /web-login error after error from the master", async function() {
+					it("should call /web-login error after error from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message", {
 								seq: 1,
 								type: "player_auth:set_verify_code_response",
-								data: { seq: message.seq, error: "master error" },
+								data: { seq: message.seq, error: "controller error" },
 							});
 						});
 						await instancePlugin.handleEvent(
 							{ type: "set_verify_code", player: "test", verify_code: "verify" }
 						);
 						let command = instancePlugin.instance.server.rconCommands[0];
-						assert.equal(command, "/web-login error test master error");
+						assert.equal(command, "/web-login error test controller error");
 					});
 				});
 			});

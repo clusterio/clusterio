@@ -186,7 +186,7 @@ export default function SavesList(props) {
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState([]);
 
-	let slaveOffline = ["unassigned", "unknown"].includes(props.instance.status);
+	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status);
 	const saveTable = <Table
 		size="small"
 		columns={[
@@ -237,13 +237,13 @@ export default function SavesList(props) {
 					}}
 				>Load save</Button>}
 				{account.hasPermission("core.instance.save.rename") && <RenameModal
-					disabled={slaveOffline} instanceId={props.instance.id} save={save}
+					disabled={hostOffline} instanceId={props.instance.id} save={save}
 				/>}
 				{account.hasPermission("core.instance.save.copy") && <CopyModal
-					disabled={slaveOffline} instanceId={props.instance.id} save={save}
+					disabled={hostOffline} instanceId={props.instance.id} save={save}
 				/>}
 				{account.hasPermission("core.instance.save.download") && <Button
-					disabled={slaveOffline}
+					disabled={hostOffline}
 					onClick={() => {
 						libLink.messages.downloadSave.send(
 							control, { instance_id: props.instance.id, save: save.name }
@@ -257,7 +257,7 @@ export default function SavesList(props) {
 					}}
 				>Download</Button>}
 				{account.hasPermission("core.instance.save.transfer") && <TransferModal
-					disabled={slaveOffline} instanceId={props.instance.id} save={save}
+					disabled={hostOffline} instanceId={props.instance.id} save={save}
 				/>}
 				{account.hasPermission("core.instance.save.delete") && <Popconfirm
 					title="Permanently delete save?"
@@ -270,7 +270,7 @@ export default function SavesList(props) {
 						).catch(notifyErrorHandler("Error deleting save"));
 					}}
 				>
-					<Button danger disabled={slaveOffline}>Delete</Button>
+					<Button danger disabled={hostOffline}>Delete</Button>
 				</Popconfirm>}
 			</Space>,
 		}}
@@ -309,7 +309,7 @@ export default function SavesList(props) {
 	}
 
 	let uploadProps = {
-		disabled: slaveOffline,
+		disabled: hostOffline,
 		name: "file",
 		accept: ".zip",
 		headers: {
@@ -326,7 +326,7 @@ export default function SavesList(props) {
 	return <div>
 		<SectionHeader title="Saves" extra={<Space>
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
-				<Button disabled={slaveOffline}>Upload save</Button>
+				<Button disabled={hostOffline}>Upload save</Button>
 			</Upload>}
 			{account.hasPermission("core.instance.save.create") && <CreateSaveModal instance={props.instance} />}
 		</Space>} />

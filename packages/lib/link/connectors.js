@@ -179,7 +179,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
 }
 
 /**
- * Connector for master server clients
+ * Connector for controller clients
  *
  * @extends module:lib/link.WebSocketBaseConnector
  * @memberof module:lib/link
@@ -278,7 +278,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	}
 
 	/**
-	 * Connect to the master server
+	 * Connect to the controller
 	 */
 	async connect() {
 		this._check("closed");
@@ -294,7 +294,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		let url = new URL(this._url);
 		url.pathname += "api/socket";
 
-		// Open WebSocket to master
+		// Open WebSocket to controller
 		logger.verbose(`Connector | connecting to ${url}`);
 
 		// eslint-disable-next-line node/no-process-env
@@ -447,7 +447,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		let { type, data } = message;
 		if (type === "hello") {
-			logger.verbose(`Connector | received hello from master version ${data.version}`);
+			logger.verbose(`Connector | received hello from controller version ${data.version}`);
 			this.emit("hello", data);
 			if (this._sessionToken) {
 				logger.verbose("Connector | Attempting resume");
@@ -460,7 +460,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 
 		} else if (type === "ready") {
-			logger.verbose("Connector | received ready from master");
+			logger.verbose("Connector | received ready from controller");
 			this._state = "connected";
 			this._sessionToken = data.session_token;
 			this._sessionTimeout = data.session_timeout;
@@ -485,7 +485,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this.emit("resume");
 
 		} else if (type === "invalidate") {
-			logger.warn("Connector | session invalidated by master");
+			logger.warn("Connector | session invalidated by controller");
 			this._state = "connecting";
 			this._seq = 1;
 			this._lastReceivedSeq = null;

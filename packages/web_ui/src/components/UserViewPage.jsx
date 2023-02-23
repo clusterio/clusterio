@@ -76,7 +76,7 @@ export default function UserViewPage() {
 				className="site-page-header"
 				title="User not found"
 			/>
-			<p>User with name {userName} was not found on the master server.</p>
+			<p>User with name {userName} was not found on the controller.</p>
 		</PageLayout>;
 	}
 

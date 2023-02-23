@@ -49,15 +49,15 @@ async function deleteSave(instanceId, save) {
 }
 
 describe("Integration of Clusterio", function() {
-	describe("clusteriomaster", function() {
+	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
 			it("work for existing user", async function() {
-				await exec("node ../../packages/master bootstrap generate-user-token test");
+				await exec("node ../../packages/controller bootstrap generate-user-token test");
 			});
 
 			it("fails if user does not exist", async function() {
 				await assert.rejects(
-					exec("node ../../packages/master bootstrap generate-user-token invalid")
+					exec("node ../../packages/controller bootstrap generate-user-token invalid")
 				);
 			});
 		});
@@ -91,8 +91,8 @@ describe("Integration of Clusterio", function() {
 			it("should honnor the limit", async function() {
 				let result = await libLink.messages.queryLog.send(getControl(), {
 					all: true,
-					master: false,
-					slave_ids: [],
+					controller: false,
+					host_ids: [],
 					instance_ids: [],
 					max_level: null,
 					limit: 10,
@@ -103,8 +103,8 @@ describe("Integration of Clusterio", function() {
 			it("should return entries by order", async function() {
 				let first = await libLink.messages.queryLog.send(getControl(), {
 					all: true,
-					master: false,
-					slave_ids: [],
+					controller: false,
+					host_ids: [],
 					instance_ids: [],
 					max_level: null,
 					limit: 1,
@@ -112,8 +112,8 @@ describe("Integration of Clusterio", function() {
 				});
 				let last = await libLink.messages.queryLog.send(getControl(), {
 					all: true,
-					master: false,
-					slave_ids: [],
+					controller: false,
+					host_ids: [],
 					instance_ids: [],
 					max_level: null,
 					limit: 1,
@@ -124,41 +124,41 @@ describe("Integration of Clusterio", function() {
 		});
 	});
 
-	describe("clusterioslave", function() {
-		describe("slaveUpdateEventHandler()", function() {
-			it("should trigger when a new slave is added", async function() {
-				// On windows there's currently no way to automate graceful shutdown of the slave
+	describe("clusteriohost", function() {
+		describe("hostUpdateEventHandler()", function() {
+			it("should trigger when a new host is added", async function() {
+				// On windows there's currently no way to automate graceful shutdown of the host
 				// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
 				if (process.platform === "win32") {
 					this.skip();
 				}
 
 				slowTest(this);
-				getControl().slaveUpdates = [];
-				let config = "alt-slave-config.json";
+				getControl().hostUpdates = [];
+				let config = "alt-host-config.json";
 				let configPath = path.join("temp", "test", config);
 				await fs.remove(configPath);
 				await fs.remove(path.join("temp", "test", "alt-instances"));
-				await execCtl(`slave create-config --id 5 --name alt-slave --generate-token --output ${config}`);
+				await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
 				await exec(
-					`node ../../packages/slave --config ${config} config set slave.tls_ca ../../test/file/tls/cert.pem`
+					`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`
 				);
 				await exec(
-					`node ../../packages/slave --config ${config} config set slave.instances_directory alt-instances`
+					`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`
 				);
 
-				let slaveProcess;
+				let hostProcess;
 				try {
-					slaveProcess = await spawn(
-						"alt-slave:", `node ../../packages/slave run --config ${config}`, /Started slave/
+					hostProcess = await spawn(
+						"alt-host:", `node ../../packages/host run --config ${config}`, /Started host/
 					);
 					// Add instance to test the unknown status afterwards
 					await execCtl("instance create alt-test --id 99");
 					await execCtl("instance assign alt-test 5");
 				} finally {
-					if (slaveProcess) {
-						slaveProcess.kill("SIGINT");
-						await events.once(slaveProcess, "exit");
+					if (hostProcess) {
+						hostProcess.kill("SIGINT");
+						await events.once(hostProcess, "exit");
 					}
 				}
 
@@ -166,8 +166,8 @@ describe("Integration of Clusterio", function() {
 				let sawConnected = false;
 				let sawDisconnected = false;
 
-				for (let update of getControl().slaveUpdates) {
-					if (update.name !== "alt-slave") {
+				for (let update of getControl().hostUpdates) {
+					if (update.name !== "alt-host") {
 						continue;
 					}
 
@@ -179,71 +179,71 @@ describe("Integration of Clusterio", function() {
 					}
 				}
 
-				assert(sawUpdate, "No slave update was sent");
-				assert(sawConnected, "No slave update with status connected was sent");
-				assert(sawDisconnected, "No slave update with status disconnected was sent");
+				assert(sawUpdate, "No host update was sent");
+				assert(sawConnected, "No host update with status connected was sent");
+				assert(sawDisconnected, "No host update with status disconnected was sent");
 
-				let result = await libLink.messages.listSlaves.send(getControl());
-				let slaves = new Map(result.list.map(instance => [instance.id, instance]));
-				assert(slaves.has(5), "Slave list was not updated");
+				let result = await libLink.messages.listHosts.send(getControl());
+				let hosts = new Map(result.list.map(instance => [instance.id, instance]));
+				assert(hosts.has(5), "Host list was not updated");
 			});
 		});
 	});
 
 	describe("clusterioctl", function() {
-		describe("master config list", function() {
+		describe("controller config list", function() {
 			it("runs", async function() {
-				await execCtl("master config list");
+				await execCtl("controller config list");
 			});
 			it("should not leak auth_secret", async function() {
-				let result = await libLink.messages.getMasterConfig.send(getControl());
+				let result = await libLink.messages.getControllerConfig.send(getControl());
 				let done = false;
 				for (let group of result.serialized_config.groups) {
-					if (group.name === "master") {
+					if (group.name === "controller") {
 						assert.equal(Object.prototype.hasOwnProperty.call(group.fields, "auth_secret"), false);
 						done = true;
 						break;
 					}
 				}
-				assert(done, "master group not found");
+				assert(done, "controller group not found");
 			});
 		});
-		describe("master config set", function() {
+		describe("controller config set", function() {
 			it("sets given config option", async function() {
-				await execCtl('master config set master.name "Test Cluster"');
-				let result = await libLink.messages.getMasterConfig.send(getControl());
+				await execCtl('controller config set controller.name "Test Cluster"');
+				let result = await libLink.messages.getControllerConfig.send(getControl());
 				let done = false;
 				for (let group of result.serialized_config.groups) {
-					if (group.name === "master") {
+					if (group.name === "controller") {
 						assert.equal(group.fields.name, "Test Cluster");
 						done = true;
 						break;
 					}
 				}
-				assert(done, "master group not found");
+				assert(done, "controller group not found");
 			});
 			it("should not allow setting auth_secret", async function() {
-				await assert.rejects(execCtl("master config set master.auth_secret root"));
+				await assert.rejects(execCtl("controller config set controller.auth_secret root"));
 			});
 		});
 
-		describe("master plugin list", function() {
+		describe("controller plugin list", function() {
 			it("runs", async function() {
-				await execCtl("master plugin list");
+				await execCtl("controller plugin list");
 			});
 		});
 
-		describe("slave list", function() {
+		describe("host list", function() {
 			it("runs", async function() {
-				await execCtl("slave list");
+				await execCtl("host list");
 			});
 		});
-		describe("slave generate-token", function() {
+		describe("host generate-token", function() {
 			it("runs", async function() {
-				await execCtl("slave generate-token --id 42");
+				await execCtl("host generate-token --id 42");
 			});
 			it("runs without an id", async function() {
-				await execCtl("slave generate-token");
+				await execCtl("host generate-token");
 			});
 		});
 		describe("instance list", function() {
@@ -369,8 +369,8 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance send-rcon test technobabble");
 				let { log } = await libLink.messages.queryLog.send(getControl(), {
 					all: false,
-					master: false,
-					slave_ids: [],
+					controller: false,
+					host_ids: [],
 					instance_ids: [44],
 					max_level: null,
 					limit: 10,
@@ -683,24 +683,24 @@ describe("Integration of Clusterio", function() {
 				;
 				describe(remote ? "remote" : "local", function() {
 					if (remote) {
-						let slaveProcess;
+						let hostProcess;
 						before(async function() {
-							// On windows there's currently no way to automate graceful shutdown of the slave
+							// On windows there's currently no way to automate graceful shutdown of the host
 							// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
 							if (process.platform === "win32") {
 								this.skip();
 							}
 							slowTest(this);
-							// Reuse from the clusterioslave test
-							let config = "alt-slave-config.json";
-							slaveProcess = await spawn(
-								"alt-slave:", `node ../../packages/slave run --config ${config}`, /Started slave/
+							// Reuse from the clusteriohost test
+							let config = "alt-host-config.json";
+							hostProcess = await spawn(
+								"alt-host:", `node ../../packages/host run --config ${config}`, /Started host/
 							);
 						});
 						after(async function() {
-							if (slaveProcess) {
-								slaveProcess.kill("SIGINT");
-								await events.once(slaveProcess, "exit");
+							if (hostProcess) {
+								hostProcess.kill("SIGINT");
+								await events.once(hostProcess, "exit");
 							}
 						});
 					}
@@ -807,7 +807,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance delete test");
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance files was not deleted");
 				let instances = await getInstances();
-				assert(!instances.has(44), "instance was not deleted from master");
+				assert(!instances.has(44), "instance was not deleted from controller");
 			});
 		});
 
@@ -1036,14 +1036,14 @@ describe("Integration of Clusterio", function() {
 				assert.deepEqual(newRole, { id: 5, name: "new", description: "A new role", permissions: [] });
 			});
 			it("should add permissions with --add-perms", async function() {
-				let args = "--name new --add-perms core.slave.list core.instance.list";
+				let args = "--name new --add-perms core.host.list core.instance.list";
 				await execCtl(`role edit new ${args}`);
 				let result = await libLink.messages.listRoles.send(getControl());
 				let newRole = result.list.find(role => role.name === "new");
-				assert.deepEqual(newRole.permissions, ["core.slave.list", "core.instance.list"]);
+				assert.deepEqual(newRole.permissions, ["core.host.list", "core.instance.list"]);
 			});
 			it("should remove permissions with --remove-perms", async function() {
-				let args = "--name new --remove-perms core.slave.list";
+				let args = "--name new --remove-perms core.host.list";
 				await execCtl(`role edit new ${args}`);
 				let result = await libLink.messages.listRoles.send(getControl());
 				let newRole = result.list.find(role => role.name === "new");

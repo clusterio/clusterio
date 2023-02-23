@@ -1,32 +1,32 @@
 # Managing a Cluster
 
-Clusterio clusters are managed through the master server by using the `clusterioctl` command line interface which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
+Clusterio clusters are managed through the controller by using the `clusterioctl` command line interface which is invoked by running `npx clusterioctl <command>` in the clusterio directory.
 This document uses the shorthand `ctl> foo` to indicate `npx clusterioctl foo` should be executed.
 Mandatory parameters are shown in `<angles bracket>` and optional pameters are in `[square brackets]`.
 
 Before `clusterioctl` can be used it needs to be configured for the cluster it will connect to.
-The easiest way to do this is to run `npx clusteriomaster bootstrap create-ctl-config <username>` on the master server, which creates the necessary `config-control.json` for managing the cluster as the given user.
+The easiest way to do this is to run `npx clusteriocontroller bootstrap create-ctl-config <username>` on the controller, which creates the necessary `config-control.json` for managing the cluster as the given user.
 
 
-## Slaves
+## Hosts
 
-### List slaves
+### List hosts
 
-    ctl> slave list
+    ctl> host list
 
-Lists all slaves.
+Lists all hosts.
 
 ### Generate token
 
-    ctl> slave generate-token [--id <slave id>]
+    ctl> host generate-token [--id <host id>]
 
-Generate a token for a slave. `--id` is the slave id.
+Generate a token for a host. `--id` is the host id.
 
 ### Create config
 
-    ctl> slave create-config [--id <slave id>] [--name <slave name>] [--generate-token <bool>] [--output <path to output>]
+    ctl> host create-config [--id <host id>] [--name <host name>] [--generate-token <bool>] [--output <path to output>]
 
-Create a slave config. `--id` id the slave id. `--name` is the slave name. `--generate-token` decides whether to also generate a token, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-slave.json", "-" for stdout.
+Create a host config. `--id` id the host id. `--name` is the host name. `--generate-token` decides whether to also generate a token, defaulting to `0`. `--output` is the filename for the output of the config; Default is "config-host.json", "-" for stdout.
 
 ## Instances
 
@@ -85,11 +85,11 @@ To be written.
 
 Edit instance config in a text editor. Once file is saved and editor has been exited, config values will be read back in. `instance` is the instance to edit, `editor` is the editor to use. If `editor` is not given, clusterioctl will read from the `EDITOR` or `VISUAL` enviroment variables.
 
-### Assign instance to slave
+### Assign instance to host
 
-    ctl> instace assign <instance> [slave]
+    ctl> instace assign <instance> [host]
 
-Assigns instance to slave. `instance` is instance to assign, `slave` is slave to assign to. If `slave` is not provided, instance will be unassigned.
+Assigns instance to host. `instance` is instance to assign, `host` is host to assign to. If `host` is not provided, instance will be unassigned.
 
 ## Users
 
@@ -189,7 +189,7 @@ By default there's a roled named Cluster Admin which grants access to everything
 
     ctl> user delete <name>
 
-Deletes everything stored on the master server for this user.
+Deletes everything stored on the controller for this user.
 
 Note: If the player is banned from the cluster this will effectively unban them, as the ban status is stored with the user account.
 

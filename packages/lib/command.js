@@ -135,35 +135,35 @@ class CommandTree {
 
 
 /**
- * Resolve a string into a slave ID
+ * Resolve a string into a host ID
  *
- * Resolves a string with either an slave name or an id into an integer with
- * the slave ID.
+ * Resolves a string with either an host name or an id into an integer with
+ * the host ID.
  *
- * @param {module:lib/link.Link} client - link to master server to query slave on.
- * @param {string} slaveName - string with name or id of slave.
- * @returns {Promise<number>} slave ID.
+ * @param {module:lib/link.Link} client - link to controller to query host on.
+ * @param {string} hostName - string with name or id of host.
+ * @returns {Promise<number>} host ID.
  * @static
  */
-async function resolveSlave(client, slaveName) {
-	let slaveId;
-	if (/^-?\d+$/.test(slaveName)) {
-		slaveId = parseInt(slaveName, 10);
+async function resolveHost(client, hostName) {
+	let hostId;
+	if (/^-?\d+$/.test(hostName)) {
+		hostId = parseInt(hostName, 10);
 	} else {
-		let response = await libLink.messages.listSlaves.send(client);
-		for (let slave of response.list) {
-			if (slave.name === slaveName) {
-				slaveId = slave.id;
+		let response = await libLink.messages.listHosts.send(client);
+		for (let host of response.list) {
+			if (host.name === hostName) {
+				hostId = host.id;
 				break;
 			}
 		}
 
-		if (slaveId === undefined) {
-			throw new libErrors.CommandError(`No slave named ${slaveName}`);
+		if (hostId === undefined) {
+			throw new libErrors.CommandError(`No host named ${hostName}`);
 		}
 	}
 
-	return slaveId;
+	return hostId;
 }
 
 /**
@@ -172,7 +172,7 @@ async function resolveSlave(client, slaveName) {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param {module:lib/link.Link} client - link to master server to query instance on.
+ * @param {module:lib/link.Link} client - link to controller to query instance on.
  * @param {string} instanceName - string with name or id of instance.
  * @returns {Promise<number>} instance ID.
  * @static
@@ -205,7 +205,7 @@ async function resolveInstance(client, instanceName) {
  * with the mod pack ID.
  *
  * @param {module:lib/link.Link} client -
- *     link to master server to query mod pack on.
+ *     link to controller to query mod pack on.
  * @param {string} modPackName - string with name or id of mod pack.
  * @returns {Promise<number>} mod pack ID.
  * @static
@@ -237,7 +237,7 @@ async function resolveModPack(client, modPackName) {
  * Resolves a string with either a role name or an id into an object
  * representing the role.
  *
- * @param {module:lib/link.Link} client - link to master server to query role on.
+ * @param {module:lib/link.Link} client - link to controller to query role on.
  * @param {string} roleName - string with name or id of role.
  * @returns {Promise<object>} Role info.
  * @static
@@ -275,7 +275,7 @@ module.exports = {
 	Command,
 	CommandTree,
 
-	resolveSlave,
+	resolveHost,
 	resolveInstance,
 	resolveModPack,
 	retrieveRole,

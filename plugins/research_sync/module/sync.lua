@@ -27,7 +27,7 @@ sync.events[clusterio_api.events.on_server_startup] = function(event)
 		}
 	end
 
-	-- Used when syncing completed technologies from the master
+	-- Used when syncing completed technologies from the controller
 	global.research_sync.ignore_research_finished = false
 
 	local force = game.forces["player"]
@@ -165,14 +165,14 @@ function research_sync.update_progress(data)
 	local techs = game.json_to_table(data)
 	local force = game.forces["player"]
 
-	for _, masterTech in ipairs(techs) do
-		local tech = force.technologies[masterTech.name]
-		if tech and tech.level == masterTech.level then
+	for _, controllerTech in ipairs(techs) do
+		local tech = force.technologies[controllerTech.name]
+		if tech and tech.level == controllerTech.level then
 			send_contribution(tech)
-			set_technology_progress(tech, masterTech.progress)
+			set_technology_progress(tech, controllerTech.progress)
 			global.research_sync.technologies[tech.name] = {
 				level = tech.level,
-				progress = masterTech.progress
+				progress = controllerTech.progress
 			}
 		end
 	end

@@ -84,14 +84,14 @@ async function serializedConfigToString(serializedConfig, configGroup, disallowe
 	return allConfigElements;
 }
 
-const masterCommands = new libCommand.CommandTree({ name: "master", description: "Master management" });
-const masterConfigCommands = new libCommand.CommandTree({
-	name: "config", alias: ["c"], description: "master config management",
+const controllerCommands = new libCommand.CommandTree({ name: "controller", description: "Controller management" });
+const controllerConfigCommands = new libCommand.CommandTree({
+	name: "config", alias: ["c"], description: "controller config management",
 });
-masterConfigCommands.add(new libCommand.Command({
-	definition: ["list", "List master configuration"],
+controllerConfigCommands.add(new libCommand.Command({
+	definition: ["list", "List controller configuration"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getMasterConfig.send(control);
+		let response = await libLink.messages.getControllerConfig.send(control);
 
 		for (let group of response.serialized_config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
@@ -101,8 +101,8 @@ masterConfigCommands.add(new libCommand.Command({
 	},
 }));
 
-masterConfigCommands.add(new libCommand.Command({
-	definition: ["set <field> [value]", "Set field in master config", (yargs) => {
+controllerConfigCommands.add(new libCommand.Command({
+	definition: ["set <field> [value]", "Set field in controller config", (yargs) => {
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("value", { describe: "Value to set", type: "string" });
 		yargs.options({
@@ -115,15 +115,15 @@ masterConfigCommands.add(new libCommand.Command({
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await libLink.messages.setMasterConfigField.send(control, {
+		await libLink.messages.setControllerConfigField.send(control, {
 			field: args.field,
 			value: args.value,
 		});
 	},
 }));
 
-masterConfigCommands.add(new libCommand.Command({
-	definition: ["set-prop <field> <prop> [value]", "Set property of field in master config", (yargs) => {
+controllerConfigCommands.add(new libCommand.Command({
+	definition: ["set-prop <field> <prop> [value]", "Set property of field in controller config", (yargs) => {
 		yargs.positional("field", { describe: "Field to set", type: "string" });
 		yargs.positional("prop", { describe: "Property to set", type: "string" });
 		yargs.positional("value", { describe: "JSON parsed value to set", type: "string" });
@@ -150,11 +150,11 @@ masterConfigCommands.add(new libCommand.Command({
 			}
 			request.value = args.value;
 		}
-		await libLink.messages.setMasterConfigProp.send(control, request);
+		await libLink.messages.setControllerConfigProp.send(control, request);
 	},
 }));
-masterConfigCommands.add(new libCommand.Command({
-	definition: ["edit [editor]", "Edit master configuration", (yargs) => {
+controllerConfigCommands.add(new libCommand.Command({
+	definition: ["edit [editor]", "Edit controller configuration", (yargs) => {
 		yargs.positional("editor", {
 			describe: "Editor to use",
 			type: "string",
@@ -162,14 +162,16 @@ masterConfigCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getMasterConfig.send(control);
+		let response = await libLink.messages.getControllerConfig.send(control);
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === -1) {
 			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
-							  Try "ctl master config edit <editor of choice>"`);
+							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let allConfigElements = await serializedConfigToString(response.serialized_config, libConfig.MasterConfig, {});
+		let allConfigElements = await serializedConfigToString(
+			response.serialized_config, libConfig.ControllerConfig, {}
+		);
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
 				throw err;
@@ -189,7 +191,7 @@ masterConfigCommands.add(new libCommand.Command({
 			for (let index in final) {
 				if (index in final) {
 					try {
-						await libLink.messages.setMasterConfigField.send(control, {
+						await libLink.messages.setControllerConfigField.send(control, {
 							field: index,
 							value: final[index],
 						});
@@ -213,16 +215,16 @@ masterConfigCommands.add(new libCommand.Command({
 	},
 }));
 
-masterCommands.add(masterConfigCommands);
+controllerCommands.add(controllerConfigCommands);
 
 
-const masterPluginCommands = new libCommand.CommandTree({
-	name: "plugin", alias: ["p"], description: "master plugin inspection",
+const controllerPluginCommands = new libCommand.CommandTree({
+	name: "plugin", alias: ["p"], description: "controller plugin inspection",
 });
-masterPluginCommands.add(new libCommand.Command({
-	definition: ["list", "List plugins on master"],
+controllerPluginCommands.add(new libCommand.Command({
+	definition: ["list", "List plugins on controller"],
 	handler: async function(args, control) {
-		let url = new URL(control.config.get("control.master_url"));
+		let url = new URL(control.config.get("control.controller_url"));
 		url.pathname += "api/plugins";
 		let response = await phin({
 			url,
@@ -232,42 +234,42 @@ masterPluginCommands.add(new libCommand.Command({
 		print(asTable(response.body));
 	},
 }));
-masterCommands.add(masterPluginCommands);
+controllerCommands.add(controllerPluginCommands);
 
 
-const slaveCommands = new libCommand.CommandTree({ name: "slave", description: "Slave management" });
-slaveCommands.add(new libCommand.Command({
-	definition: [["list", "l"], "List slaves connected to the master"],
+const hostCommands = new libCommand.CommandTree({ name: "host", description: "Host management" });
+hostCommands.add(new libCommand.Command({
+	definition: [["list", "l"], "List hosts connected to the controller"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listSlaves.send(control);
+		let response = await libLink.messages.listHosts.send(control);
 		print(asTable(response.list));
 	},
 }));
 
-slaveCommands.add(new libCommand.Command({
-	definition: ["generate-token", "Generate token for a slave", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id" });
+hostCommands.add(new libCommand.Command({
+	definition: ["generate-token", "Generate token for a host", (yargs) => {
+		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
 	}],
 	handler: async function(args, control) {
-		let slaveId = typeof args.id === "number" ? args.id : null;
-		let response = await libLink.messages.generateSlaveToken.send(control, { slave_id: slaveId });
+		let hostId = typeof args.id === "number" ? args.id : null;
+		let response = await libLink.messages.generateHostToken.send(control, { host_id: hostId });
 		print(response.token);
 	},
 }));
 
-slaveCommands.add(new libCommand.Command({
-	definition: ["create-config", "Create slave config", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Slave id", default: null });
-		yargs.option("name", { type: "string", nargs: 1, describe: "Slave name", default: null });
+hostCommands.add(new libCommand.Command({
+	definition: ["create-config", "Create host config", (yargs) => {
+		yargs.option("id", { type: "number", nargs: 1, describe: "Host id", default: null });
+		yargs.option("name", { type: "string", nargs: 1, describe: "Host name", default: null });
 		yargs.option("generate-token", {
 			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false,
 		});
 		yargs.option("output", {
-			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-slave.json",
+			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-host.json",
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.createSlaveConfig.send(control, {
+		let response = await libLink.messages.createHostConfig.send(control, {
 			id: args.id, name: args.name, generate_token: args.generateToken,
 		});
 
@@ -293,7 +295,7 @@ const instanceCommands = new libCommand.CommandTree({
 	name: "instance", alias: ["i"], description: "Instance management",
 });
 instanceCommands.add(new libCommand.Command({
-	definition: [["list", "l"], "List instances known to the master"],
+	definition: [["list", "l"], "List instances known to the controller"],
 	handler: async function(args, control) {
 		let response = await libLink.messages.listInstances.send(control);
 		print(asTable(response.list));
@@ -315,7 +317,7 @@ instanceCommands.add(new libCommand.Command({
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		let serialized_config = instanceConfig.serialize("master");
+		let serialized_config = instanceConfig.serialize("controller");
 		await libLink.messages.createInstance.send(control, { serialized_config });
 	},
 }));
@@ -426,9 +428,9 @@ instanceConfigCommands.add(new libCommand.Command({
 		let editor = await getEditor(args.editor);
 		if (editor === -1) {
 			throw new libErrors.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
-							  Try "ctl master config edit <editor of choice>"`);
+							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let disallowedList = {"instance.id": 0, "instance.assigned_slave": 0, "factorio.settings": 0};
+		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
 		let allConfigElements = await serializedConfigToString(
 			response.serialized_config,
 			libConfig.InstanceConfig,
@@ -485,16 +487,16 @@ instanceConfigCommands.add(new libCommand.Command({
 instanceCommands.add(instanceConfigCommands);
 
 instanceCommands.add(new libCommand.Command({
-	definition: ["assign <instance> [slave]", "Assign instance to a slave", (yargs) => {
+	definition: ["assign <instance> [host]", "Assign instance to a host", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to assign", type: "string" });
-		yargs.positional("slave", { describe: "Slave to assign to or unassign if none", type: "string" });
+		yargs.positional("host", { describe: "Host to assign to or unassign if none", type: "string" });
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let slaveId = args.slave ? await libCommand.resolveSlave(control, args.slave) : null;
+		let hostId = args.host ? await libCommand.resolveHost(control, args.host) : null;
 		await libLink.messages.assignInstanceCommand.send(control, {
 			instance_id: instanceId,
-			slave_id: slaveId,
+			host_id: hostId,
 		});
 	},
 }));
@@ -614,7 +616,7 @@ instanceSaveCommands.add(new libCommand.Command({
 		let content = await fs.readFile(args.filepath);
 
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let url = new URL(control.config.get("control.master_url"));
+		let url = new URL(control.config.get("control.controller_url"));
 		url.pathname += "api/upload-save";
 		url.searchParams.append("instance_id", instanceId);
 		url.searchParams.append("filename", filename);
@@ -622,7 +624,7 @@ instanceSaveCommands.add(new libCommand.Command({
 		let result = await phin({
 			url, method: "POST",
 			headers: {
-				"X-Access-Token": control.config.get("control.master_token"),
+				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
 			core: { ca: control.tlsCa },
@@ -688,7 +690,7 @@ instanceSaveCommands.add(new libCommand.Command({
 			save: args.save,
 		});
 
-		let url = new URL(control.config.get("control.master_url"));
+		let url = new URL(control.config.get("control.controller_url"));
 		url.pathname += `api/stream/${result.stream_id}`;
 		let response = await phin({
 			url, method: "GET",
@@ -1233,14 +1235,14 @@ modCommands.add(new libCommand.Command({
 		// phin doesn't support streaming requests :(
 		let content = await fs.readFile(args.file);
 
-		let url = new URL(control.config.get("control.master_url"));
+		let url = new URL(control.config.get("control.controller_url"));
 		url.pathname += "api/upload-mod";
 		url.searchParams.append("filename", filename);
 
 		let result = await phin({
 			url, method: "POST",
 			headers: {
-				"X-Access-Token": control.config.get("control.master_token"),
+				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
 			core: { ca: control.tlsCa },
@@ -1278,7 +1280,7 @@ modCommands.add(new libCommand.Command({
 			version: args.modVersion,
 		});
 
-		let url = new URL(control.config.get("control.master_url"));
+		let url = new URL(control.config.get("control.controller_url"));
 		url.pathname += `api/stream/${result.stream_id}`;
 		let response = await phin({
 			url, method: "GET",
@@ -1583,20 +1585,20 @@ logCommands.add(new libCommand.Command({
 	definition: ["follow", "follow cluster log", (yargs) => {
 		yargs.options({
 			"all": { describe: "Follow the whole cluster log", nargs: 0, type: "boolean", default: false },
-			"master": { describe: "Follow log of the master server", nargs: 0, type: "boolean", default: false },
-			"slave": { describe: "Follow log of given slave", nargs: 1, type: "string", default: null },
+			"controller": { describe: "Follow log of the controller", nargs: 0, type: "boolean", default: false },
+			"host": { describe: "Follow log of given host", nargs: 1, type: "string", default: null },
 			"instance": { describe: "Follow log of given instance", nargs: 1, type: "string", default: null },
 		});
 	}],
 	handler: async function(args, control) {
-		if (!args.all && !args.master && !args.slave && !args.instance) {
-			logger.error("At least one of --all, --master, --slave and --instance must be passed");
+		if (!args.all && !args.controller && !args.host && !args.instance) {
+			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
 			return;
 		}
 		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
-		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
-		await control.setLogSubscriptions({ all: args.all, master: args.master, slave_ids, instance_ids });
+		let host_ids = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
+		await control.setLogSubscriptions({ all: args.all, controller: args.controller, host_ids, instance_ids });
 		control.keepOpen = true;
 	},
 }));
@@ -1605,8 +1607,8 @@ logCommands.add(new libCommand.Command({
 	definition: ["query", "Query cluster log", (yargs) => {
 		yargs.options({
 			"all": { describe: "Query the whole cluster log", nargs: 0, type: "boolean", default: false },
-			"master": { describe: "Query log of the master server", nargs: 0, type: "boolean", default: false },
-			"slave": { describe: "Query log of given slave", nargs: 1, type: "string", default: null },
+			"controller": { describe: "Query log of the controller", nargs: 0, type: "boolean", default: false },
+			"host": { describe: "Query log of given host", nargs: 1, type: "string", default: null },
 			"instance": { describe: "Query log of given instance", nargs: 1, type: "string", default: null },
 			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: null },
 			"limit": { describe: "Max number of entries to return", nargs: 1, type: "number", default: 1000 },
@@ -1614,17 +1616,17 @@ logCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		if (!args.all && !args.master && !args.slave && !args.instance) {
-			logger.error("At least one of --all, --master, --slave and --instance must be passed");
+		if (!args.all && !args.controller && !args.host && !args.instance) {
+			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
 			return;
 		}
 		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
-		let slave_ids = args.slave ? [await libCommand.resolveSlave(control, args.slave)] : [];
+		let host_ids = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
 		let result = await libLink.messages.queryLog.send(control, {
 			all: args.all,
-			master: args.master,
-			slave_ids,
+			controller: args.controller,
+			host_ids,
 			instance_ids,
 			max_level: args.maxLevel,
 			limit: args.limit,
@@ -1651,7 +1653,7 @@ logCommands.add(new libCommand.Command({
 
 const debugCommands = new libCommand.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new libCommand.Command({
-	definition: ["dump-ws", "Dump WebSocket messages sent and received by master", (yargs) => { }],
+	definition: ["dump-ws", "Dump WebSocket messages sent and received by controller", (yargs) => { }],
 	handler: async function(args, control) {
 		await libLink.messages.debugDumpWs.send(control);
 		control.keepOpen = true;
@@ -1660,8 +1662,8 @@ debugCommands.add(new libCommand.Command({
 
 async function registerCommands(controlPlugins, yargs) {
 	const rootCommands = new libCommand.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
-	rootCommands.add(masterCommands);
-	rootCommands.add(slaveCommands);
+	rootCommands.add(controllerCommands);
+	rootCommands.add(hostCommands);
 	rootCommands.add(instanceCommands);
 	rootCommands.add(modPackCommands);
 	rootCommands.add(modCommands);

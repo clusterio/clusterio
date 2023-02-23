@@ -19,7 +19,7 @@ import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
 import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
-import { useSlave } from "../model/slave";
+import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 
 const { Title } = Typography;
@@ -28,20 +28,20 @@ const { Title } = Typography;
 function InstanceDescription(props) {
 	let account = useAccount();
 
-	const { slave, instance } = props;
-	let assigned = instance["assigned_slave"] !== null;
+	const { host, instance } = props;
+	let assigned = instance["assigned_host"] !== null;
 	return <Descriptions
 		bordered
 		size="small"
 	>
-		<Descriptions.Item label="Slave">
+		<Descriptions.Item label="Host">
 			{!assigned
 				? <em>Unassigned</em>
-				: slave["name"] || instance["assigned_slave"]
+				: host["name"] || instance["assigned_host"]
 			}
 			{account.hasPermission("core.instance.assign") && <AssignInstanceModal
 				id={instance["id"]}
-				slaveId={instance["assigned_slave"]}
+				hostId={instance["assigned_host"]}
 				buttonProps={{
 					size: "small",
 					style: { float: "Right" },
@@ -64,7 +64,7 @@ export default function InstanceViewPage(props) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [instance] = useInstance(instanceId);
-	let [slave] = useSlave(Number(instance["assigned_slave"]));
+	let [host] = useHost(Number(instance["assigned_host"]));
 
 	let [exportingData, setExportingData] = useState(false);
 
@@ -78,7 +78,7 @@ export default function InstanceViewPage(props) {
 			<Alert
 				message={instance["status"] === "deleted" ? "Instance has been deleted" : "Instance not found" }
 				showIcon
-				description={<>Instance with id {instanceId} was not found on the master server.</>}
+				description={<>Instance with id {instanceId} was not found on the controller.</>}
 				type="warning"
 				action={
 					<Button
@@ -188,7 +188,7 @@ export default function InstanceViewPage(props) {
 			title={instance["name"]}
 			extra={instanceButtons}
 		/>
-		<InstanceDescription slave={slave} instance={instance} />
+		<InstanceDescription host={host} instance={instance} />
 
 		{
 			account.hasAllPermission("core.instance.save.list", "core.instance.save.list_subscribe")

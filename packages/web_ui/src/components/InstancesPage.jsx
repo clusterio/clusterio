@@ -28,7 +28,7 @@ function CreateInstanceButton(props) {
 		let instanceConfig = new libConfig.InstanceConfig("control");
 		await instanceConfig.init();
 		instanceConfig.set("instance.name", values.instanceName);
-		let serialized_config = instanceConfig.serialize("master");
+		let serialized_config = instanceConfig.serialize("controller");
 		await libLink.messages.createInstance.send(control, { serialized_config });
 		setVisible(false);
 		history.push(`/instances/${instanceConfig.get("instance.id")}/view`);

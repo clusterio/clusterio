@@ -67,7 +67,7 @@ export default function RoleViewPage() {
 				className="site-page-header"
 				title="Role not found"
 			/>
-			<p>Role with id {roleId} was not found on the master server.</p>
+			<p>Role with id {roleId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 

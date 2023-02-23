@@ -19,8 +19,8 @@ describe("lib/plugin", function() {
 			await instancePlugin.onStop();
 			instancePlugin.onExit();
 			await instancePlugin.onOutput({});
-			instancePlugin.onMasterConnectionEvent("connect");
-			await instancePlugin.onPrepareMasterDisconnect();
+			instancePlugin.onControllerConnectionEvent("connect");
+			await instancePlugin.onPrepareControllerDisconnect();
 		});
 		describe("sendRcon", function() {
 			it("should send commands out of order", async function() {
@@ -54,20 +54,20 @@ describe("lib/plugin", function() {
 		});
 	});
 
-	describe("class BaseMasterPlugin", function() {
-		let masterPlugin;
+	describe("class BaseControllerPlugin", function() {
+		let controllerPlugin;
 		it("should be constructible", async function() {
-			masterPlugin = new libPlugin.BaseMasterPlugin({}, {}, {}, new mock.MockLogger());
-			await masterPlugin.init();
+			controllerPlugin = new libPlugin.BaseControllerPlugin({}, {}, {}, new mock.MockLogger());
+			await controllerPlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
-			await masterPlugin.onInstanceStatusChanged({}, "running", "initialized");
-			await masterPlugin.onMasterConfigFieldChanged({}, "foo", null);
-			await masterPlugin.onInstanceConfigFieldChanged({}, {}, "foo", null);
-			await masterPlugin.onMetrics();
-			await masterPlugin.onShutdown();
-			masterPlugin.onSlaveConnectionEvent({}, "connect");
-			await masterPlugin.onPrepareSlaveDisconnect({});
+			await controllerPlugin.onInstanceStatusChanged({}, "running", "initialized");
+			await controllerPlugin.onControllerConfigFieldChanged({}, "foo", null);
+			await controllerPlugin.onInstanceConfigFieldChanged({}, {}, "foo", null);
+			await controllerPlugin.onMetrics();
+			await controllerPlugin.onShutdown();
+			controllerPlugin.onHostConnectionEvent({}, "connect");
+			await controllerPlugin.onPrepareHostDisconnect({});
 		});
 	});
 

@@ -24,9 +24,9 @@ require("../../plugins/subspace_storage/info");
 
 class TestControl extends libLink.Link {
 	constructor(connector) {
-		super("control", "master", connector);
+		super("control", "controller", connector);
 		libLink.attachAllMessages(this);
-		this.slaveUpdates = [];
+		this.hostUpdates = [];
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
 		this.modUpdates = [];
@@ -34,9 +34,9 @@ class TestControl extends libLink.Link {
 		this.userUpdates = [];
 
 		this.connector.on("connect", () => {
-			libLink.messages.setSlaveSubscriptions.send(
-				this, { all: true, slave_ids: [] }
-			).catch(err => logger.error(`Error setting slave subscriptions:\n${err.stack}`));
+			libLink.messages.setHostSubscriptions.send(
+				this, { all: true, host_ids: [] }
+			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
 			libLink.messages.setInstanceSubscriptions.send(
 				this, { all: true, instance_ids: [] }
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
@@ -61,8 +61,8 @@ class TestControl extends libLink.Link {
 
 	async accountUpdateEventHandler() { }
 
-	async slaveUpdateEventHandler(message) {
-		this.slaveUpdates.push(message.data);
+	async hostUpdateEventHandler(message) {
+		this.hostUpdates.push(message.data);
 	}
 
 	async instanceUpdateEventHandler(message) {
@@ -117,8 +117,8 @@ async function get(urlPath) {
 	return res;
 }
 
-let masterProcess;
-let slaveProcess;
+let controllerProcess;
+let hostProcess;
 let control;
 
 let url = "https://localhost:4443/";
@@ -126,8 +126,8 @@ let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecr
 let instancesDir = path.join("temp", "test", "instances");
 let databaseDir = path.join("temp", "test", "database");
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
-let masterConfigPath = path.join("temp", "test", "config-master.json");
-let slaveConfigPath = path.join("temp", "test", "config-slave.json");
+let controllerConfigPath = path.join("temp", "test", "config-controller.json");
+let hostConfigPath = path.join("temp", "test", "config-host.json");
 let controlConfigPath = path.join("temp", "test", "config-control.json");
 
 async function exec(command, options = {}) {
@@ -184,19 +184,19 @@ before(async function() {
 	await fs.remove(instancesDir);
 
 	await fs.remove(pluginListPath);
-	await fs.remove(masterConfigPath);
-	await fs.remove(slaveConfigPath);
+	await fs.remove(controllerConfigPath);
+	await fs.remove(hostConfigPath);
 	await fs.remove(controlConfigPath);
 
 	await fs.ensureDir(path.join("temp", "test"));
 
-	await exec("node ../../packages/master config set master.auth_secret TestSecretDoNotUse");
-	await exec("node ../../packages/master config set master.http_port 8880");
-	await exec("node ../../packages/master config set master.https_port 4443");
-	await exec("node ../../packages/master config set master.heartbeat_interval 0.25");
-	await exec("node ../../packages/master config set master.session_timeout 2");
-	await exec("node ../../packages/master config set master.tls_certificate ../../test/file/tls/cert.pem");
-	await exec("node ../../packages/master config set master.tls_private_key ../../test/file/tls/key.pem");
+	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
+	await exec("node ../../packages/controller config set controller.http_port 8880");
+	await exec("node ../../packages/controller config set controller.https_port 4443");
+	await exec("node ../../packages/controller config set controller.heartbeat_interval 0.25");
+	await exec("node ../../packages/controller config set controller.session_timeout 2");
+	await exec("node ../../packages/controller config set controller.tls_certificate ../../test/file/tls/cert.pem");
+	await exec("node ../../packages/controller config set controller.tls_private_key ../../test/file/tls/key.pem");
 
 	await exec("node ../../packages/ctl plugin add ../../plugins/global_chat");
 	await exec("node ../../packages/ctl plugin add ../../plugins/research_sync");
@@ -204,17 +204,17 @@ before(async function() {
 	await exec("node ../../packages/ctl plugin add ../../plugins/subspace_storage");
 	await exec("node ../../packages/ctl plugin add ../../plugins/player_auth");
 
-	await exec("node ../../packages/master bootstrap create-admin test");
-	await exec("node ../../packages/master bootstrap create-ctl-config test");
+	await exec("node ../../packages/controller bootstrap create-admin test");
+	await exec("node ../../packages/controller bootstrap create-ctl-config test");
 	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");
 
-	masterProcess = await spawn("master:", "node ../../packages/master run", /Started master/);
+	controllerProcess = await spawn("controller:", "node ../../packages/controller run", /Started controller/);
 
-	await execCtl("slave create-config --id 4 --name slave --generate-token");
-	await exec(`node ../../packages/slave config set slave.factorio_directory ${path.join("..", "..", "factorio")}`);
-	await exec("node ../../packages/slave config set slave.tls_ca ../../test/file/tls/cert.pem");
+	await execCtl("host create-config --id 4 --name host --generate-token");
+	await exec(`node ../../packages/host config set host.factorio_directory ${path.join("..", "..", "factorio")}`);
+	await exec("node ../../packages/host config set host.tls_ca ../../test/file/tls/cert.pem");
 
-	slaveProcess = await spawn("slave:", "node ../../packages/slave run", /Started slave/);
+	hostProcess = await spawn("host:", "node ../../packages/host run", /Started host/);
 
 	let tlsCa = await fs.readFile("test/file/tls/cert.pem");
 	let controlConnector = new TestControlConnector(url, 2, tlsCa);
@@ -229,20 +229,22 @@ before(async function() {
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
 	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
 	await libLink.messages.createModPack.send(control, { mod_pack: testPack.toJSON() });
-	await libLink.messages.setMasterConfigField.send(control, { field: "master.default_mod_pack_id", value: "12" });
+	await libLink.messages.setControllerConfigField.send(
+		control, { field: "controller.default_mod_pack_id", value: "12" }
+	);
 });
 
 after(async function() {
 	this.timeout(20000);
-	if (slaveProcess) {
-		console.log("Shutting down slave");
-		slaveProcess.kill("SIGINT");
-		await events.once(slaveProcess, "exit");
+	if (hostProcess) {
+		console.log("Shutting down host");
+		hostProcess.kill("SIGINT");
+		await events.once(hostProcess, "exit");
 	}
-	if (masterProcess) {
-		console.log("Shutting down master");
-		masterProcess.kill("SIGINT");
-		await events.once(masterProcess, "exit");
+	if (controllerProcess) {
+		console.log("Shutting down controller");
+		controllerProcess.kill("SIGINT");
+		await events.once(controllerProcess, "exit");
 	}
 	if (control) {
 		await control.connector.close();
@@ -251,8 +253,8 @@ after(async function() {
 
 // Ensure the test processes are stopped.
 process.on("exit", () => {
-	if (slaveProcess) { slaveProcess.kill(); }
-	if (masterProcess) { masterProcess.kill(); }
+	if (hostProcess) { hostProcess.kill(); }
+	if (controllerProcess) { controllerProcess.kill(); }
 });
 
 
@@ -271,7 +273,7 @@ module.exports = {
 	controlToken,
 	instancesDir,
 	databaseDir,
-	masterConfigPath,
-	slaveConfigPath,
+	controllerConfigPath,
+	hostConfigPath,
 	controlConfigPath,
 };

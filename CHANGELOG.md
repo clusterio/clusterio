@@ -8,11 +8,11 @@
   Removed the Hotpatch scenario and the depency on it for getting code into the game.
   Added a save patcher than runs before starting up Factorio that patches in lua modules based on the event_loader lib into the savegame.
   Regular freeplay games can now be used with Clusterio and will be compatible without having to convert them to Hotpatch.
-- Daemonized slaves.
-  Slaves now have the ability to run multiple Factorio instances, starting and stopping them individually.
-  To manage this the local command line interface has been replaced with a remote interface on the master server that can be accessed through the clusterioctl cli tool.
-- Rewritten the communication between slaves and the master from scratch.
-  The new system is based on a WebSocket connection between the slaves and the master server and provides efficient validated bi-directonal communication.
+- Daemonized hosts.
+  Hosts now have the ability to run multiple Factorio instances, starting and stopping them individually.
+  To manage this the local command line interface has been replaced with a remote interface on the controller that can be accessed through the clusterioctl cli tool.
+- Rewritten the communication between hosts and the controller from scratch.
+  The new system is based on a WebSocket connection between the hosts and the controller and provides efficient validated bi-directonal communication.
 - Rewritten the plugin system from scratch.
   Plugins now inherit from a base class and use the same WebSocket connection Clusterio uses to communicate.
 - New configuration system with support for initializing configs when needed, modifying config entries using built-in commands, and updating instance configuration remotely.
@@ -24,9 +24,9 @@
 ### Features
 
 - Added export of pollution statitics.
-- Reconnection logic that esures no data is dropped talking to the master server provided the session can be resumed.
+- Reconnection logic that esures no data is dropped talking to the controller provided the session can be resumed.
 - Added support for having multiple Factorio installs and selecting which version to use on a per instance basis.
-- Added config to specify which path the master interface is accessed under, allowing it to be proxied behind web-server.
+- Added config to specify which path the controller interface is accessed under, allowing it to be proxied behind web-server.
 - Added WebSocket usage statistics.
 - Added commands sent statistic.
 - Added Factorio server CPU and memory usage statistic.
@@ -37,18 +37,18 @@
   Previously this was handled by the playerManager plugin.
 - Added stripping of long paths in the Factorio server log.
 - Added option to configure maximum number of commands to send in parallel.
-- Added option to auto start instances on slave startup.
-- Added metric mapping of slave and instance ids to their names, allowing them to be displayed by name in queries that join with the mapping.
+- Added option to auto start instances on host startup.
+- Added metric mapping of host and instance ids to their names, allowing them to be displayed by name in queries that join with the mapping.
 - Added option to configure timeout for exported Prometheus metrics.
 - Added option to set address to bind HTTP(S) port to.
 - Added an overview of the installed plugins to the web interface.
-- Added clusterioctl command to list plugins on the master server.
+- Added clusterioctl command to list plugins on the controller.
 - Added Player Auth plugin for logging in to the web interface by proving the ability to log in to a server as a given user.
 - Added Node.js based installer to simplify setting up a cluster.
 
 ### Changes
 
-- Added error handling during master startup.
+- Added error handling during controller startup.
 - Factorio game and rcon port now defaults to a random port above 49151.
 - Removed unimplemented mods update command.
 - Fixed rcon password being generated with Math.random().
@@ -69,15 +69,16 @@
 - Removed factorio_version from config.
   The version installed is auto detected and used instead.
 - Removed the playerManager specific command CLI tools/delete_player.js.
-- Creating an instance, assigning it to a slave, creating a save for an instance and starting an instance is now four separate commands.
-- Removed oddball limits to slaves.json size.
-- Moved slave specific and instance specific configuration into their own configuration files.
+- Creating an instance, assigning it to a host, creating a save for an instance and starting an instance is now four separate commands.
+- Removed oddball limits to hosts.json size.
+- Moved host specific and instance specific configuration into their own configuration files.
 - Removed unused binary option from plugin config.
 - Removed info and shout command from globalChat plugin - Removed mirrorAllChat and enableCrossServerShout configuration options for globalChat plugin.
 - Removed UPSdisplay plugin.
   UPS statistics is exported by the statistics exporter plugin.
-- Master server now defaults to hosting on https on port 8443.
-- Renamed client to slave.
+- Controller now defaults to hosting on https on port 8443.
+- Renamed master to controller.
+- Renamed slave/client to host.
 - Removed rotation of factorio-current.log files.
 
 ### Breaking Changes
@@ -100,7 +101,7 @@
 - Removed the remoteCommands plugin and the old runCommand interface.
   Breaks playerManager and external tools sending commands.
 - Removed broken serverManager plugin.
-- Removed fields info, time, rconPort, rconPassword, serverPort, unique, mods, instanceName, playerCount, mac, and meta from the slaves in the slave database.
+- Removed fields info, time, rconPort, rconPassword, serverPort, unique, mods, instanceName, playerCount, mac, and meta from the hosts in the host database.
 - Removed getInstanceName and lib/clusterTools.
   Breaks playerManager, and discordChat.
 - Removed the /api/rconPasswords, and /api/slaves endpoints.
@@ -109,7 +110,7 @@
   Breaks researchSync, and UPSdisplay.
 - Removed the hello event from the socket connection handshake.
   Breaks playerManager, trainTeleports, serverSelect, and discordChat
-- Changed the format of database/slaves.json.
+- Changed the format of database/hosts.json.
 - Removed the output file subscription system.
   Breaks inventoryImports, playerManager, trainTeleports, serverSelect and researchSync.
 - Removed the factorioOutput hook from instance plugins.
@@ -134,13 +135,13 @@
 - Removed msBetweenCommands config option.
   The RCON is instead limited to 5 concurrent commands.
 - Removed allowRemoteCommandExecution config option.
-  Remote commands are always allowed with the move to master managing slaves/instances.
-- Removed `--databaseDirectory`, `--masterPort`, and `--sslPort` command line arguments from the master server.
+  Remote commands are always allowed with the move to controller managing hosts/instances.
+- Removed `--databaseDirectory`, `--controllerPort`, and `--sslPort` command line arguments from the controller.
 - Implemented a new config system that replaces the old.
   Breaks all plugins.
 - Removed usage of socket.io entirely in favor of a plain WebSocket connection.
 - Renamed clusterioMod plugin to subspace_storage.
-- Master no longer creates secret-api-token.txt.
+- Controller no longer creates secret-api-token.txt.
 - Removed automatic creation of self-signed TLS certificate.
 - Node.js versions below 12 are no longer supported.
 

@@ -2,11 +2,11 @@
 
 <sub>This document describes the implementation and inner working of the configuration system in Clusterio, and unless you're developing Clusterio it's probably not going to be very useful for you.</sub>
 
-Clusterio uses a group based configuration system to manage settings for the master server, instances, slaves, and the clusterioctl utility.
-Plugins get their own config group for the master server and instances which they can add their own fields to.
+Clusterio uses a group based configuration system to manage settings for the controller, instances, hosts, and the clusterioctl utility.
+Plugins get their own config group for the controller and instances which they can add their own fields to.
 The fields are defined early in the startup, and the groups and their fields for disabled plugins will still be created.
 
-The built-in config groups and their fields are defined in [packages/lib/config/definitions.js](/packages/lib/config/definitions.js) while plugins can add their own config groups to the `MasterConfigGroup` and `InstanceConfigGroup` properties of the `info.js` export using subclasses of `PluginConfigGroup`.
+The built-in config groups and their fields are defined in [packages/lib/config/definitions.js](/packages/lib/config/definitions.js) while plugins can add their own config groups to the `ControllerConfigGroup` and `InstanceConfigGroup` properties of the `info.js` export using subclasses of `PluginConfigGroup`.
 The plugin group has the enabled field pre-defined on it, and it's used to enable/disable plugins.
 
 
@@ -17,10 +17,10 @@ The `define` method takes an object as argument with the following properties:
 
 **access**:
     The locations this config field can be read and modified from.
-    This is an array of strings which can contain the values `"master"`, `"slave"` and `"control"`.
+    This is an array of strings which can contain the values `"controller"`, `"host"` and `"control"`.
     If a party is missing in this array then that party will not receive the value of this field when the config is shared, and will be unable to modify the field.
     Takes the value of `defaultAccess` set on the config group class if not passed.
-    Note that instance config groups should have both `"master"` and `"slave"` for all of its fields or unexpected behaviour may occur.
+    Note that instance config groups should have both `"controller"` and `"host"` for all of its fields or unexpected behaviour may occur.
 
 **type**:
     The type of config value this field will support.
@@ -73,6 +73,6 @@ Values for all config fields are created when the config is initialized, as well
 Once a field has a value it is never automatically removed, even if the field or group it was part of no longer exists.
 This ensures that plugin configuration is not lost should the server be started up without the plugins that defined the configuration installed.
 
-For instance configs, they are kept on the master server and serialized and sent over to the relevant slaves on startup.
-This makes it possible to edit instance configs when the slave the instance is on is offline.
-A copy is also stored in the instance directory on the slave, and this config will be deliverd to the master server on slave startup, which enables instances to be copied between clusters as long as their IDs are unique.
+For instance configs, they are kept on the controller and serialized and sent over to the relevant hosts on startup.
+This makes it possible to edit instance configs when the host the instance is on is offline.
+A copy is also stored in the instance directory on the host, and this config will be deliverd to the controller on host startup, which enables instances to be copied between clusters as long as their IDs are unique.

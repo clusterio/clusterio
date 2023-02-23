@@ -90,8 +90,8 @@ class TerminalFormat {
 		if (info.instance_name) {
 			src += `i:${info.instance_name} `;
 
-		} else if (info.slave_name) {
-			src += `s:${info.slave_name} `;
+		} else if (info.host_name) {
+			src += `s:${info.host_name} `;
 		}
 		if (info.plugin) {
 			src += `${info.plugin}: `;
@@ -140,6 +140,7 @@ class LinkTransport extends Transport {
 }
 
 const logFileGlob = /^[a-z]+-(\d{4}-\d{2}-\d{2})\.log$/;
+const logIndexVersion = 1;
 
 /**
  * Keeps an index over a log directory to speed up queries to it
@@ -150,15 +151,15 @@ class LogIndex {
 		this.logDirectory = logDirectory;
 		this.index = new Map();
 
-		if (serialized.version !== 0) {
+		if (serialized.version !== logIndexVersion) {
 			return;
 		}
 
 		for (let [file, serializedEntry] of Object.entries(serialized.files)) {
 			this.index.set(file, {
 				levels: new Set(serializedEntry.levels),
-				master: serializedEntry.master,
-				slave_ids: new Set(serializedEntry.slave_ids),
+				controller: serializedEntry.controller,
+				host_ids: new Set(serializedEntry.host_ids),
 				instance_ids: new Set(serializedEntry.instance_ids),
 			});
 		}
@@ -166,15 +167,15 @@ class LogIndex {
 
 	serialize() {
 		let serialized = {
-			version: 0,
+			version: logIndexVersion,
 			files: {},
 		};
 
 		for (let [file, entry] of this.index) {
 			serialized.files[file] = {
 				levels: [...entry.levels],
-				master: entry.master,
-				slave_ids: [...entry.slave_ids],
+				controller: entry.controller,
+				host_ids: [...entry.host_ids],
 				instance_ids: [...entry.instance_ids],
 			};
 		}
@@ -224,8 +225,8 @@ class LogIndex {
 		fileStream.pipe(lineStream);
 		let entry = {
 			levels: new Set(),
-			master: false,
-			slave_ids: new Set(),
+			controller: false,
+			host_ids: new Set(),
 			instance_ids: new Set(),
 		};
 		for await (let line of lineStream) {
@@ -234,16 +235,16 @@ class LogIndex {
 				info = JSON.parse(line);
 			} catch (err) {
 				entry.levels.add("info");
-				entry.master = true;
+				entry.controller = true;
 				continue;
 			}
 			if (info.level) {
 				entry.levels.add(info.level);
 			}
-			if (info.slave_id === undefined) {
-				entry.master = true;
+			if (info.host_id === undefined) {
+				entry.controller = true;
 			} else if (info.instance_id === undefined) {
-				entry.slave_ids.add(info.slave_id);
+				entry.host_ids.add(info.host_id);
 			}
 			if (info.instance_id !== undefined) {
 				entry.instance_ids.add(info.instance_id);
@@ -279,7 +280,7 @@ class LogIndex {
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
 	 */
-	filterIncludesFile(file, { max_level, all, master, instance_ids, slave_ids }) {
+	filterIncludesFile(file, { max_level, all, controller, instance_ids, host_ids }) {
 		let entry = this.index.get(file);
 		if (!entry) {
 			return true;
@@ -298,10 +299,10 @@ class LogIndex {
 		if (all) {
 			return true;
 		}
-		if (master && entry.master) {
+		if (controller && entry.controller) {
 			return true;
 		}
-		if (slave_ids && slave_ids.some(id => entry.slave_ids.has(id))) {
+		if (host_ids && host_ids.some(id => entry.host_ids.has(id))) {
 			return true;
 		}
 		if (instance_ids && instance_ids.some(id => entry.instance_ids.has(id))) {
@@ -321,12 +322,12 @@ class LogIndex {
  * @property {string} [max_level] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
- *     Include log entries from master, all slaves and all instances.
- * @property {boolean} [master] -
- *     Include log entries from the master server.
- * @property {Array<number>} [slave_ids] -
- *     Include log entries for the given slaves and instances of those
- *     slaves by id.
+ *     Include log entries from controller, all hosts and all instances.
+ * @property {boolean} [controller] -
+ *     Include log entries from the controller.
+ * @property {Array<number>} [host_ids] -
+ *     Include log entries for the given hosts and instances of those
+ *     hosts by id.
  * @property {Array<number>} [instance_ids] -
  *     Include log entries for the given instances by id.
  */
@@ -402,62 +403,6 @@ async function queryLog(logDirectory, filter, index) {
 	return log;
 }
 
-async function migrateLogs(log, directory, pattern) {
-	const dateRegExp = /^\d{4}-\d{2}-\d{2}/;
-	let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
-	let fileStream = fs.createReadStream(log);
-	fileStream.pipe(lineStream);
-
-	let currentDate = null;
-	let output = null;
-
-	async function switchOutput(newOutputPath) {
-		if (output) {
-			output.end();
-			await finished(output);
-		}
-
-		output = fs.createWriteStream(newOutputPath, { flags: "ax" });
-		try {
-			await events.once(output, "open");
-			// eslint-disable-next-line no-console
-			console.log(`writing ${newOutputPath}`);
-		} catch (err) {
-			if (err.code === "EEXIST") {
-				// eslint-disable-next-line no-console
-				console.warn(`Discarding logs for ${newDate} due to target logfile already existing`);
-				output = null;
-			} else {
-				throw err;
-			}
-		}
-	}
-
-	for await (let line of lineStream) {
-		let info = {};
-		try {
-			info = JSON.parse(line);
-		} catch (err) {
-			// Ignore
-		}
-
-		if (typeof info.timestamp === "string" && dateRegExp.test(info.timestamp)) {
-			let newDate = info.timestamp.slice(0, 10);
-			// Only update date forward in time.
-			if (newDate !== currentDate && (!currentDate || newDate > currentDate)) {
-				await switchOutput(path.join(directory, pattern.replace("%DATE%", newDate)));
-				currentDate = newDate;
-			}
-		}
-
-		if (output) {
-			if (!output.write(Buffer.concat([line, Buffer.from("\n")]))) {
-				await events.once(output, "drain");
-			}
-		}
-	}
-}
-
 function handleUnhandledErrors() {
 	/* eslint-disable node/no-process-exit */
 	process.on("uncaughtException", err => {
@@ -478,7 +423,6 @@ module.exports = {
 	LogIndex,
 	handleUnhandledErrors,
 	queryLog,
-	migrateLogs,
 
 	// for testing only
 	_formatServerOutput: formatServerOutput,

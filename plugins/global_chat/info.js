@@ -11,8 +11,8 @@ module.exports = {
 	messages: {
 		chat: new libLink.Event({
 			type: "global_chat:chat",
-			links: ["instance-slave", "slave-master", "master-slave", "slave-instance", "control-master"],
-			forwardTo: "master",
+			links: ["instance-host", "host-controller", "controller-host", "host-instance", "control-controller"],
+			forwardTo: "controller",
 			broadcastTo: "instance",
 			eventProperties: {
 				"instance_name": { type: "string" },

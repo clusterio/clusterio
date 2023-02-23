@@ -25,8 +25,8 @@ local function download_inventory(player_name, data, number, total)
 
 	if total == 0 then
 		-- Download was requested but the player had no data stored.
-		log("ERROR: Inventory sync failed, got empty player data for " .. player.name .. " from the master")
-		player.print("ERROR: Inventory sync failed, got empty player data from the master")
+		log("ERROR: Inventory sync failed, got empty player data for " .. player.name .. " from the controller")
+		player.print("ERROR: Inventory sync failed, got empty player data from the controller")
 
 		progress_dialog.remove(player)
 

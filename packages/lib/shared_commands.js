@@ -1,5 +1,5 @@
 /**
- * Implementation of commands shared between master/slave/ctl.
+ * Implementation of commands shared between controller/host/ctl.
  * @module lib/shared_commands
  */
 "use strict";

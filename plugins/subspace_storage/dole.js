@@ -84,7 +84,7 @@ class NeuralDole {
 		this.lastRequest[`${object.name}_${object.instanceID}_${object.instanceName}`] = object.count;
 		// 0. Number of items to give in that dose
 		// 1. New dole for item X
-		// 2. New carry for item X slave Y
+		// 2. New carry for item X instance Y
 		this.dole[object.name] = magicData[1];
 		this.carry[`${object.name} ${object.instanceID}`] = magicData[2];
 		this.debt[`${object.name} ${object.instanceID}`] = magicData[3];

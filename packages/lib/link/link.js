@@ -6,10 +6,10 @@ const libErrors = require("../errors");
 const { logger } = require("../logging");
 
 // Some definitions for the terminology used here:
-// link: Either side of a master - client connection
+// link: Either side of a controller - client connection
 // connector: Adapter between a link and a socket connection
-// connection: the master server side of a link
-// client: the side that is not the master server of a link
+// connection: the controller side of a link
+// client: the side that is not the controller of a link
 // message: the complete object sent using the 'message' event
 // data: the data property of a message, essentially the payload.
 // type: the type property of a message, identifies what to expect in data.

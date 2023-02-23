@@ -110,18 +110,18 @@ async function execFile(cmd, args) {
 	});
 }
 
-async function execMaster(args) {
+async function execController(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "master"), ...args]);
+		return await execFile("node", [path.join("packages", "controller"), ...args]);
 	}
-	return await execFile(path.join("node_modules", ".bin", `clusteriomaster${scriptExt}`), args);
+	return await execFile(path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`), args);
 }
 
-async function execSlave(args) {
+async function execHost(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "slave"), ...args]);
+		return await execFile("node", [path.join("packages", "host"), ...args]);
 	}
-	return await execFile(path.join("node_modules", ".bin", `clusterioslave${scriptExt}`), args);
+	return await execFile(path.join("node_modules", ".bin", `clusteriohost${scriptExt}`), args);
 }
 
 async function execCtl(args) {
@@ -131,7 +131,7 @@ async function execCtl(args) {
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
 
-function validateSlaveToken(token) {
+function validateHostToken(token) {
 	let parts = token.split(".");
 	if (parts.length !== 3) {
 		throw new InstallError("Invalid token");
@@ -144,7 +144,7 @@ function validateSlaveToken(token) {
 		throw new InstallError("Invalid token");
 	}
 
-	if (parsed.aud !== "slave" || !Number.isInteger(parsed.slave)) {
+	if (parsed.aud !== "host" || !Number.isInteger(parsed.host)) {
 		throw new InstallError("Invalid token");
 	}
 }
@@ -181,6 +181,127 @@ async function validateNotRoot(args) {
 	}
 }
 
+async function migrateRename(args) {
+	function rename(string) {
+		return string.replace(/master/g, "controller").replace(/slave/g, "host");
+	}
+
+	function renameConfig(config) {
+		for (let group of config["groups"]) {
+			group["name"] = rename(group["name"]);
+			group["fields"] = Object.fromEntries(
+				Object.entries(group["fields"]).map(([k, v]) => [rename(k), v])
+			);
+		}
+		return config;
+	}
+
+	async function migrateConfig(source, destination) {
+		if (await fs.pathExists(source) && !await fs.pathExists(destination)) {
+			await safeOutputFile(destination, JSON.stringify(
+				renameConfig(JSON.parse(await fs.readFile(source))), null, 4
+			));
+			logger.info(`Migrated ${source} to ${destination}`);
+		}
+	}
+
+	await migrateConfig("config-master.json", "config-controller.json");
+	await migrateConfig("config-slave.json", "config-host.json");
+
+	let instancesFile = path.join("database", "instances.json");
+	if (await fs.pathExists(instancesFile)) {
+		await safeOutputFile(instancesFile, JSON.stringify(
+			JSON.parse(await fs.readFile(instancesFile)).map(renameConfig), null, 4
+		));
+		logger.info(`Migrated ${instancesFile}`);
+	}
+
+	let usersFile = path.join("database", "users.json");
+	if (await fs.pathExists(usersFile)) {
+		let users = JSON.parse(await fs.readFile(usersFile));
+		for (let role of users["roles"]) {
+			role["permissions"] = role["permissions"].map(rename);
+		}
+		await safeOutputFile(usersFile, JSON.stringify(users, null, 4));
+		logger.info(`Migrated ${usersFile}`);
+	}
+
+	function renameLogLine(info) {
+		return Object.fromEntries(
+			Object.entries(info).map(([k, v]) => [rename(k), v])
+		);
+	}
+
+	async function migrateLog(inputFile, outputFile) {
+		let lineStream = new LineSplitter({ readableObjectMode: true });
+		let fileStream = fs.createReadStream(inputFile);
+		fileStream.pipe(lineStream);
+		let lines = [];
+
+		for await (let inputLine of lineStream) {
+			try {
+				lines.push(Buffer.from(JSON.stringify(renameLogLine(JSON.parse(inputLine)))));
+				lines.push(Buffer.from("\n"));
+			} catch (err) {
+				if (!(err instanceof SyntaxError)) {
+					throw err;
+				}
+				logger.warn(`Invalid log line: ${inputLine.toString()}`);
+				lines.push(inputLine);
+			}
+		}
+		safeOutputFile(outputFile, Buffer.concat(lines));
+	}
+
+	async function migrateLogsDir(inputLogs, outputLogs) {
+		if (await fs.pathExists(inputLogs)) {
+			logger.info(`Migrating ${inputLogs} to ${outputLogs}`);
+			for (let logFile of await fs.readdir(inputLogs)) {
+				if (!logFile.endsWith(".log")) {
+					continue;
+				}
+				let inputFile = path.join(inputLogs, logFile);
+				let outputFile = path.join(outputLogs, rename(logFile));
+				if (!await fs.pathExists(outputFile)) {
+					await migrateLog(inputFile, outputFile);
+					logger.verbose(`Migrated ${inputFile} to ${outputFile}`);
+				}
+			}
+		}
+	}
+
+	await migrateLogsDir(path.join("logs", "master"), path.join("logs", "controller"));
+	await migrateLogsDir(path.join("logs", "slave"), path.join("logs", "host"));
+	if (
+		await fs.pathExists(path.join("logs", "cluster"))
+		&& !await fs.pathExists(path.join("logs", "cluster-prerename"))
+	) {
+		await fs.rename(path.join("logs", "cluster"), path.join("logs", "cluster-prerename"));
+		await migrateLogsDir(path.join("logs", "cluster-prerename"), path.join("logs", "cluster"));
+	}
+
+	if (!args.dev) {
+		let pkg = JSON.parse(await fs.readFile("package.json"));
+		if (pkg.dependencies) {
+			let convert = ["@clusterio/master", "@clusterio/slave"];
+			let uninstall = convert.filter(c => pkg.dependencies[c] !== undefined);
+			let install = uninstall.map(rename);
+			if (uninstall.length) {
+				logger.info(`Replacing ${uninstall.join(" and ")}`);
+				await execFile(`npm${scriptExt}`, ["install", ...install]);
+				await execFile(`npm${scriptExt}`, ["uninstall", ...uninstall]);
+			}
+		}
+		logger.info("Updating packages");
+		await execFile(`npm${scriptExt}`, ["update"]);
+	}
+
+	logger.info(
+		"Migration complete, you may now delete the following left over files and directories (if present):" +
+		"\n- config-master.json\n- config-slave.json\n- logs/master\n- logs/slave\n- logs/cluster-prerename"
+	);
+}
+
 async function installClusterio(mode, plugins) {
 	try {
 		await fs.outputFile("package.json", JSON.stringify({
@@ -194,11 +315,11 @@ async function installClusterio(mode, plugins) {
 	}
 
 	let components = [];
-	if (["standalone", "master"].includes(mode)) {
-		components.push("@clusterio/master");
+	if (["standalone", "controller"].includes(mode)) {
+		components.push("@clusterio/controller");
 	}
-	if (["standalone", "slave"].includes(mode)) {
-		components.push("@clusterio/slave");
+	if (["standalone", "host"].includes(mode)) {
+		components.push("@clusterio/host");
 	}
 	if (mode === "ctl") {
 		components.push("@clusterio/ctl");
@@ -250,22 +371,22 @@ async function groupIdToName(gid) {
 }
 
 async function writeScripts(mode) {
-	if (["standalone", "master"].includes(mode)) {
+	if (["standalone", "controller"].includes(mode)) {
 		if (process.platform === "win32") {
 			await safeOutputFile(
-				"run-master.cmd",
-				"@echo off\n.\\node_modules\\.bin\\clusteriomaster.cmd run\n"
+				"run-controller.cmd",
+				"@echo off\n.\\node_modules\\.bin\\clusteriocontroller.cmd run\n"
 			);
 		} else {
 			await safeOutputFile(
-				"run-master.sh",
-				"#!/bin/sh\nexec ./node_modules/.bin/clusteriomaster run\n",
+				"run-controller.sh",
+				"#!/bin/sh\nexec ./node_modules/.bin/clusteriocontroller run\n",
 				{ mode: 0o755 },
 			);
 			await safeOutputFile(
-				"systemd/clusteriomaster.service",
+				"systemd/clusteriocontroller.service",
 				`[Unit]
-Description=Clusterio Master
+Description=Clusterio Controller
 
 [Service]
 User=${os.userInfo().username}
@@ -273,7 +394,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
-ExecStart=${process.cwd()}/node_modules/.bin/clusteriomaster run --log-level=warn
+ExecStart=${process.cwd()}/node_modules/.bin/clusteriocontroller run --log-level=warn
 
 [Install]
 WantedBy=multi-user.target
@@ -281,22 +402,22 @@ WantedBy=multi-user.target
 		}
 	}
 
-	if (["standalone", "slave"].includes(mode)) {
+	if (["standalone", "host"].includes(mode)) {
 		if (process.platform === "win32") {
 			await safeOutputFile(
-				"run-slave.cmd",
-				"@echo off\n.\\node_modules\\.bin\\clusterioslave.cmd run\n"
+				"run-host.cmd",
+				"@echo off\n.\\node_modules\\.bin\\clusteriohost.cmd run\n"
 			);
 		} else {
 			await safeOutputFile(
-				"run-slave.sh",
-				"#!/bin/sh\nexec ./node_modules/.bin/clusterioslave run\n",
+				"run-host.sh",
+				"#!/bin/sh\nexec ./node_modules/.bin/clusteriohost run\n",
 				{ mode: 0o755 },
 			);
 			await safeOutputFile(
-				"systemd/clusterioslave.service",
+				"systemd/clusteriohost.service",
 				`[Unit]
-Description=Clusterio Slave
+Description=Clusterio Host
 
 [Service]
 User=${os.userInfo().username}
@@ -304,7 +425,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
-ExecStart=${process.cwd()}/node_modules/.bin/clusterioslave run --log-level=warn
+ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn
 
 [Install]
 WantedBy=multi-user.target
@@ -324,16 +445,16 @@ async function inquirerMissingArgs(args) {
 			message: "Operating mode to install",
 			default: "standalone",
 			choices: [
-				{ name: "Standalone (install both master and slave on this computer)", value: "standalone" },
-				{ name: "Master only", value: "master" },
-				{ name: "Slave only", value: "slave" },
+				{ name: "Standalone (install both controller and host on this computer)", value: "standalone" },
+				{ name: "Controller only", value: "controller" },
+				{ name: "Host only", value: "host" },
 				{ name: "Ctl only", value: "ctl" },
 				{ name: "Plugins only", value: "plugins" },
 			],
 		},
 	], answers);
 
-	if (["standalone", "master"].includes(answers.mode)) {
+	if (["standalone", "controller"].includes(answers.mode)) {
 		if (args.admin) { answers.admin = args.admin; }
 		answers = await inquirer.prompt([
 			{
@@ -350,42 +471,42 @@ async function inquirerMissingArgs(args) {
 		], answers);
 	}
 
-	if (answers.mode === "slave") {
-		if (args.slaveName) { answers.slaveName = args.slaveName; }
+	if (answers.mode === "host") {
+		if (args.hostName) { answers.hostName = args.hostName; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
-				name: "slaveName",
-				message: "Name of slave",
+				name: "hostName",
+				message: "Name of host",
 			},
 		], answers);
 	}
 
-	if (["slave", "ctl"].includes(answers.mode)) {
-		if (args.masterUrl) { answers.masterUrl = args.masterUrl; }
+	if (["host", "ctl"].includes(answers.mode)) {
+		if (args.controllerUrl) { answers.controllerUrl = args.controllerUrl; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
-				name: "masterUrl",
-				message: "Master server URL",
+				name: "controllerUrl",
+				message: "Controller URL",
 			},
 		], answers);
 
-		if (args.masterToken) { answers.masterToken = args.masterToken; }
+		if (args.controllerToken) { answers.controllerToken = args.controllerToken; }
 		answers = await inquirer.prompt([
 			{
 				type: "input",
-				name: "masterToken",
-				message: "Master authentication Token",
+				name: "controllerToken",
+				message: "Controller authentication Token",
 			},
 		], answers);
 	}
 
-	if (answers.mode === "slave") {
-		validateSlaveToken(answers.masterToken);
+	if (answers.mode === "host") {
+		validateHostToken(answers.controllerToken);
 	}
 
-	if (["standalone", "slave"].includes(answers.mode)) {
+	if (["standalone", "host"].includes(answers.mode)) {
 		let myIp = "localhost";
 		if (args.publicAddress) {
 			answers.publicAddress = args.publicAddress;
@@ -532,25 +653,28 @@ async function main() {
 		})
 		.option("mode", {
 			nargs: 1, describe: "Operating mode to install",
-			choices: ["standalone", "master", "slave", "ctl", "plugins"],
+			choices: ["standalone", "controller", "host", "ctl", "plugins"],
+		})
+		.option("migrate-rename", {
+			nargs: 0, describe: "Migrate from before slave/master rename", default: false, type: "boolean",
 		})
 		.option("admin", {
-			nargs: 1, describe: "Admin account name [standalone/master]", type: "string",
+			nargs: 1, describe: "Admin account name [standalone/controller]", type: "string",
 		})
-		.option("slave-name", {
-			nargs: 1, describe: "Slave name [slave]", type: "string",
+		.option("host-name", {
+			nargs: 1, describe: "Host name [host]", type: "string",
 		})
-		.option("master-url", {
-			nargs: 1, describe: "Master URL [slave/ctl]", type: "string",
+		.option("controller-url", {
+			nargs: 1, describe: "Controller URL [host/ctl]", type: "string",
 		})
-		.option("master-token", {
-			nargs: 1, describe: "Master authentication token [slave/ctl]", type: "string",
+		.option("controller-token", {
+			nargs: 1, describe: "Controller authentication token [host/ctl]", type: "string",
 		})
 		.option("public-address", {
-			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/slave]", type: "string",
+			nargs: 1, describe: "DNS/IP Address to connect to this server [standalone/host]", type: "string",
 		})
 		.option("factorio-dir", {
-			nargs: 1, describe: "Path to Factorio installation [standalone/slave]", type: "string",
+			nargs: 1, describe: "Path to Factorio installation [standalone/host]", type: "string",
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
@@ -582,6 +706,11 @@ async function main() {
 		await validateNotRoot(args);
 	}
 
+	if (args.migrateRename) {
+		await migrateRename(args);
+		return;
+	}
+
 	let answers = await inquirerMissingArgs(args);
 	if (answers.downloadHeadless) {
 		await downloadLinuxServer();
@@ -594,47 +723,47 @@ async function main() {
 	}
 
 	let adminToken = null;
-	if (["standalone", "master"].includes(answers.mode)) {
-		logger.info("Setting up master");
-		await execMaster(["bootstrap", "create-admin", answers.admin]);
-		let result = await execMaster(["bootstrap", "generate-user-token", answers.admin]);
+	if (["standalone", "controller"].includes(answers.mode)) {
+		logger.info("Setting up controller");
+		await execController(["bootstrap", "create-admin", answers.admin]);
+		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
 
 	if (answers.mode === "standalone") {
-		logger.info("Setting up slave");
-		await execSlave(["config", "set", "slave.name", "local"]);
+		logger.info("Setting up host");
+		await execHost(["config", "set", "host.name", "local"]);
 
-		let result = await execSlave(["config", "show", "slave.id"]);
-		let slaveId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
+		let result = await execHost(["config", "show", "host.id"]);
+		let hostId = Number.parseInt(result.stdout.split("\n").slice(-2)[0], 10);
 
-		result = await execMaster(["bootstrap", "generate-slave-token", slaveId]);
-		let slaveToken = result.stdout.split("\n").slice(-2)[0];
+		result = await execController(["bootstrap", "generate-host-token", hostId]);
+		let hostToken = result.stdout.split("\n").slice(-2)[0];
 
-		await execSlave(["config", "set", "slave.master_token", slaveToken]);
-		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
-		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
+		await execHost(["config", "set", "host.controller_token", hostToken]);
+		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
+		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 	}
 
-	if (answers.mode === "slave") {
-		logger.info("Setting up slave");
-		let slaveId = JSON.parse(Buffer.from(answers.masterToken.split(".")[1], "base64")).slave;
-		await execSlave(["config", "set", "slave.id", slaveId]);
-		await execSlave(["config", "set", "slave.name", answers.slaveName]);
-		await execSlave(["config", "set", "slave.master_url", answers.masterUrl]);
-		await execSlave(["config", "set", "slave.master_token", answers.masterToken]);
-		await execSlave(["config", "set", "slave.public_address", answers.publicAddress]);
-		await execSlave(["config", "set", "slave.factorio_directory", answers.factorioDir]);
+	if (answers.mode === "host") {
+		logger.info("Setting up host");
+		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
+		await execHost(["config", "set", "host.id", hostId]);
+		await execHost(["config", "set", "host.name", answers.hostName]);
+		await execHost(["config", "set", "host.controller_url", answers.controllerUrl]);
+		await execHost(["config", "set", "host.controller_token", answers.controllerToken]);
+		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
+		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
 	}
 
-	if (!dev && ["standalone", "master", "slave"].includes(answers.mode)) {
+	if (!dev && ["standalone", "controller", "host"].includes(answers.mode)) {
 		logger.info("Writing run scripts");
 		await writeScripts(answers.mode);
 	}
 
 	if (answers.mode === "ctl") {
-		await execCtl(["control-config", "set", "control.master_url", answers.masterUrl]);
-		await execCtl(["control-config", "set", "control.master_token", answers.masterToken]);
+		await execCtl(["control-config", "set", "control.controller_url", answers.controllerUrl]);
+		await execCtl(["control-config", "set", "control.controller_token", answers.controllerToken]);
 	}
 
 	/* eslint-disable no-console */
