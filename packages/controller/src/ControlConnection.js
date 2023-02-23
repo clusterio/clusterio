@@ -16,6 +16,7 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const libUsers = require("@clusterio/lib/users");
 
 const BaseConnection = require("./BaseConnection");
+const InstanceInfo = require("./InstanceInfo");
 const routes = require("./routes");
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
@@ -261,7 +262,7 @@ class ControlConnection extends BaseConnection {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		let instance = { config: instanceConfig, status: "unassigned" };
+		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
 		this._controller.instances.set(instanceId, instance);
 		await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, null);
 		this._controller.addInstanceHooks(instance);

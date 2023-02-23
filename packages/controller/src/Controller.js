@@ -20,6 +20,7 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const { logger } = require("@clusterio/lib/logging");
 
 const HttpCloser = require("./HttpCloser");
+const InstanceInfo = require("./InstanceInfo");
 const metrics = require("./metrics");
 const routes = require("./routes");
 const UserManager = require("./UserManager");
@@ -68,7 +69,7 @@ class Controller {
 
 		/**
 		 * Mapping of instance id to instance info
-		 * @type {Map<number, Object>}
+		 * @type {Map<number, module:controller/src/InstanceInfo>}
 		 */
 		this.instances = null;
 
@@ -379,7 +380,7 @@ class Controller {
 				let instanceConfig = new libConfig.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
 				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
-				let instance = { config: instanceConfig, status };
+				let instance = new InstanceInfo({ config: instanceConfig, status });
 				instances.set(instanceConfig.get("instance.id"), instance);
 			}
 

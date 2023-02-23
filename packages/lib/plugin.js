@@ -354,7 +354,8 @@ class BaseControllerPlugin {
 	 * the case of network outages if reconnect fails to re-establish the
 	 * session between the controller and the host.
 	 *
-	 * @param {Object} instance - the instance that changed.
+	 * @param {module:controller/src/InstanceInfo} instance -
+	 *     The instance that changed.
 	 * @param {?string} prev - the previous status of the instance.
 	 */
 	async onInstanceStatusChanged(instance, prev) { }
@@ -378,7 +379,8 @@ class BaseControllerPlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed on an instance.
 	 *
-	 * @param {Object} instance - The instance the config changed on.
+	 * @param {module:controller/src/InstanceInfo} instance -
+	 *     The instance the config changed on.
 	 * @param {module:lib/config.ConfigGroup} group -
 	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
@@ -524,7 +526,8 @@ class BaseControllerPlugin {
 	 * Invoked when a player either joins or leaves an instance in the
 	 * cluster.
 	 *
-	 * @param {Object} instance - the instance it occured on.
+	 * @param {module:controller/src/InstanceInfo} instance -
+	 *     The instance it occured on.
 	 * @param {Object} event - Information about the event.
 	 * @param {string} event.type - Either "join", "leave" or "import".
 	 * @param {string} event.name - Name of the player that joined/left.

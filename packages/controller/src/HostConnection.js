@@ -6,6 +6,7 @@ const libPlugin = require("@clusterio/lib/plugin");
 const PlayerStats = require("@clusterio/lib/PlayerStats");
 
 const BaseConnection = require("./BaseConnection");
+const InstanceInfo = require("./InstanceInfo");
 
 
 /**
@@ -160,7 +161,7 @@ class HostConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_host", this._id);
-			let newInstance = { config: instanceConfig, status: instanceData.status };
+			let newInstance = new InstanceInfo({ config: instanceConfig, status: instanceData.status });
 			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.addInstanceHooks(newInstance);
 			await libLink.messages.assignInstance.send(this, {
