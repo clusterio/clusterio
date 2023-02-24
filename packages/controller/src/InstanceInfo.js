@@ -39,6 +39,11 @@ class InstanceInfo {
 			status: this.status,
 		};
 	}
+
+	/** Shorthand for `instance.config.get("instance.id")` @type {number} */
+	get id() {
+		return this.config.get("instance.id");
+	}
 }
 
 module.exports = InstanceInfo;

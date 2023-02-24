@@ -187,7 +187,7 @@ class ControlConnection extends BaseConnection {
 		let list = [];
 		for (let instance of this._controller.instances.values()) {
 			list.push({
-				id: instance.config.get("instance.id"),
+				id: instance.id,
 				name: instance.config.get("instance.name"),
 				assigned_host: instance.config.get("instance.assigned_host"),
 				game_port: instance.game_port || null,
@@ -204,10 +204,10 @@ class ControlConnection extends BaseConnection {
 	instanceUpdated(instance) {
 		if (
 			this.instanceSubscriptions.all
-			|| this.instanceSubscriptions.instance_ids.includes(instance.config.get("instance.id"))
+			|| this.instanceSubscriptions.instance_ids.includes(instance.id)
 		) {
 			libLink.messages.instanceUpdate.send(this, {
-				id: instance.config.get("instance.id"),
+				id: instance.id,
 				name: instance.config.get("instance.name"),
 				assigned_host: instance.config.get("instance.assigned_host"),
 				game_port: instance.game_port || null,

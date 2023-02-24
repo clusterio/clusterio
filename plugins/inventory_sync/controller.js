@@ -42,7 +42,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 	}
 
 	async onInstanceStatusChanged(instance) {
-		let instanceId = instance.config.get("instance.id");
+		let instanceId = instance.id;
 		if (["unassigned", "deleted"].includes(instance.status)) {
 			for (let [playerName, acquisitionRecord] of this.acquiredPlayers) {
 				if (acquisitionRecord.instanceId === instanceId) {

@@ -734,7 +734,7 @@ class Controller {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await libLink.messages.assignInstance.send(connection, {
-					instance_id: instance.config.get("instance.id"),
+					instance_id: instance.id,
 					serialized_config: instance.config.serialize("host"),
 				});
 			}
