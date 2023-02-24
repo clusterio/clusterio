@@ -602,7 +602,8 @@ class Controller {
 	 * let instanceConfig = new libConfig.InstanceConfig("controller");
 	 * await instanceConfig.init();
 	 * instanceConfig.set("instance.name", "My instance");
-	 * await controller.createInstance(instanceConfig);
+	 * let instance = await controller.instanceAssign(instanceConfig);
+	 * await controller.instanceAssign(instance.id, hostId);
 	 *
 	 * @param {module:lib/config.InstanceConfig} instanceConfig -
 	 *     Config to base newly created instance on.
