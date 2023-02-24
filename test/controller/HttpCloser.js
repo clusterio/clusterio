@@ -13,6 +13,18 @@ const HttpCloser = require("@clusterio/controller/src/HttpCloser");
 // Time to wait during async operations to ensure they happened in order.
 const tick = 20;
 
+// Register a rejection handler to the promise so that Node.js doesn't panic.
+function catched(promise) {
+	promise.catch(() => {});
+	return promise;
+}
+
+function stageWaiter() {
+	let stage;
+	let waitForStage = new Promise(resolve => { stage = resolve; });
+	return [stage, waitForStage];
+}
+
 function serverSuite(proto) {
 	let api = proto === "http" ? http : https;
 	let server;
@@ -63,13 +75,16 @@ function serverSuite(proto) {
 	});
 
 	it("should gracefully let pending requests finish", async function() {
+		let [stage1, waitForStage1] = stageWaiter();
+		let [stage2, waitForStage2] = stageWaiter();
 		server.on("request", (request, response) => {
-			setTimeout(() => { response.end("ok-1"); }, 3*tick);
+			stage1();
+			waitForStage2.then(() => { response.end("ok-1"); });
 		});
 
-		let request = get(addr);
-		request.catch(() => {});
-		await wait(tick);
+		let request = catched(get(addr));
+		await waitForStage1;
+		stage2();
 		await closer.close();
 
 		let response = await request;
@@ -78,15 +93,18 @@ function serverSuite(proto) {
 	});
 
 	it("should set Connection header to close for pending requests", async function() {
+		let [stage1, waitForStage1] = stageWaiter();
+		let [stage2, waitForStage2] = stageWaiter();
 		server.on("request", (request, response) => {
-			setTimeout(() => { response.end("ok-2"); }, 3*tick);
+			stage1();
+			waitForStage2.then(() => { response.end("ok-2"); });
 			assert.equal(request.headers.connection, "keep-alive", "Connection not kept alive");
 		});
 
 		let agent = new api.Agent({ keepAlive: true });
-		let request = get(addr, { core: { agent }});
-		request.catch(() => {});
-		await wait(tick);
+		let request = catched(get(addr, { core: { agent }}));
+		await waitForStage1;
+		stage2();
 		await closer.close();
 
 		let response = await request;
@@ -96,15 +114,16 @@ function serverSuite(proto) {
 	});
 
 	it("should gracefully close open connections", async function() {
+		let [stage1, waitForStage1] = stageWaiter();
 		server.on("request", (request, response) => {
 			response.end("ok-3");
 			assert.equal(request.headers.connection, "keep-alive", "Connection not kept alive");
+			stage1();
 		});
 
 		let agent = new api.Agent({ keepAlive: true });
-		let request = get(addr, { core: { agent }});
-		request.catch(() => {});
-		await wait(tick);
+		let request = catched(get(addr, { core: { agent }}));
+		await waitForStage1;
 		await closer.close();
 
 		let response = await request;
@@ -114,14 +133,17 @@ function serverSuite(proto) {
 
 	it("should refuse connection if request sent after starting closure", async function() {
 		this.timeout(4000); // On Windows this test takes 2 seconds for some reason.
+		let [stage1, waitForStage1] = stageWaiter();
+		let [stage2, waitForStage2] = stageWaiter();
 		server.on("request", (request, response) => {
-			setTimeout(() => { response.end("ok-4"); }, 3*tick);
+			stage1();
+			waitForStage2.then(() => { response.end("ok-4"); });
 		});
 
-		let request = get(addr);
-		request.catch(() => {});
-		await wait(tick);
-		let close = closer.close();
+		let request = catched(get(addr));
+		await waitForStage1;
+		stage2();
+		let close = catched(closer.close());
 
 		let agent = new api.Agent({ keepAlive: true });
 		await assert.rejects(get(addr, { core: { agent }}), { code: "ECONNREFUSED" });
@@ -134,16 +156,19 @@ function serverSuite(proto) {
 	});
 
 	it("should close connection after in-flight request is over", async function() {
+		let [stage1, waitForStage1] = stageWaiter();
+		let [stage2, waitForStage2] = stageWaiter();
 		server.on("request", (request, response) => {
+			stage1();
 			response.write("ok");
-			setTimeout(() => { response.end("-5"); }, 3*tick);
+			waitForStage2.then(() => { response.end("-5"); });
 			assert.equal(request.headers.connection, "keep-alive", "Connection not kept alive");
 		});
 
 		let agent = new api.Agent({ keepAlive: true });
-		let request = get(addr, { core: { agent }});
-		request.catch(() => {});
-		await wait(tick);
+		let request = catched(get(addr, { core: { agent }}));
+		await waitForStage1;
+		stage2();
 		await closer.close();
 
 		let response = await request;
@@ -152,18 +177,20 @@ function serverSuite(proto) {
 	});
 
 	it("should cause connection reset for qeueud request after in-flight request", async function() {
+		let [stage1, waitForStage1] = stageWaiter();
+		let [stage2, waitForStage2] = stageWaiter();
 		server.on("request", (request, response) => {
+			stage1();
 			response.write("ok");
-			setTimeout(() => { response.end("-6"); }, 3*tick);
+			waitForStage2.then(() => { response.end("-6"); });
 			assert.equal(request.headers.connection, "keep-alive", "Connection not kept alive");
 		});
 
 		let agent = new api.Agent({ keepAlive: true, maxSockets: 1 });
-		let request = get(addr, { core: { agent }});
-		request.catch(() => {});
-		let droppedRequest = get(addr, { core: { agent }});
-		droppedRequest.catch(() => {});
-		await wait(tick);
+		let request = catched(get(addr, { core: { agent }}));
+		let droppedRequest = catched(get(addr, { core: { agent }}));
+		await waitForStage1;
+		stage2();
 		await closer.close();
 
 		let response = await request;
@@ -173,15 +200,18 @@ function serverSuite(proto) {
 	});
 
 	it("should abort requests that take too long to respond", async function() {
+		let [stage1, waitForStage1] = stageWaiter();
+		let [stage2, waitForStage2] = stageWaiter();
 		server.on("request", (request, response) => {
+			stage1();
 			response.write("ok");
-			setTimeout(() => { response.end("-7"); }, 5*tick);
+			waitForStage2.then(() => { response.end("-7"); });
 		});
 
-		let request = get(addr);
-		request.catch(() => {});
-		await wait(tick);
+		let request = catched(get(addr));
+		await waitForStage1;
 		await closer.close(tick*2);
+		stage2();
 
 		// Due to a bug in phin [https://github.com/ethanent/phin/issues/59]
 		// the request Promise never settles.
