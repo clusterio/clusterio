@@ -5,6 +5,7 @@ const express = require("express");
 const fs = require("fs-extra");
 const http = require("http");
 const https = require("https");
+const jwt = require("jsonwebtoken");
 const path = require("path");
 const stream = require("stream");
 
@@ -20,6 +21,7 @@ const libPrometheus = require("@clusterio/lib/prometheus");
 const { logger } = require("@clusterio/lib/logging");
 
 const HttpCloser = require("./HttpCloser");
+const InstanceInfo = require("./InstanceInfo");
 const metrics = require("./metrics");
 const routes = require("./routes");
 const UserManager = require("./UserManager");
@@ -68,7 +70,7 @@ class Controller {
 
 		/**
 		 * Mapping of instance id to instance info
-		 * @type {Map<number, Object>}
+		 * @type {Map<number, module:controller/src/InstanceInfo>}
 		 */
 		this.instances = null;
 
@@ -379,7 +381,7 @@ class Controller {
 				let instanceConfig = new libConfig.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
 				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
-				let instance = { config: instanceConfig, status };
+				let instance = new InstanceInfo({ config: instanceConfig, status });
 				instances.set(instanceConfig.get("instance.id"), instance);
 			}
 
@@ -543,6 +545,19 @@ class Controller {
 		}
 	}
 
+	/**
+	 * Generate access token for host
+	 *
+	 * @param {number} hostId - ID of host to generate a token for.
+	 * @returns {string} access token for host
+	 */
+	generateHostToken(hostId) {
+		return jwt.sign(
+			{ aud: "host", host: hostId },
+			Buffer.from(this.config.get("controller.auth_secret"), "base64")
+		);
+	}
+
 	hostUpdated(host) {
 		let update = {
 			agent: host.agent,
@@ -575,6 +590,155 @@ class Controller {
 			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 		return instance;
+	}
+
+	/**
+	 * Create a new instance
+	 *
+	 * Adds common Factorio settings to the provided instance config then
+	 * creates an instance using that config in the cluster.
+	 *
+	 * @example
+	 * let instanceConfig = new libConfig.InstanceConfig("controller");
+	 * await instanceConfig.init();
+	 * instanceConfig.set("instance.name", "My instance");
+	 * await controller.createInstance(instanceConfig);
+	 *
+	 * @param {module:lib/config.InstanceConfig} instanceConfig -
+	 *     Config to base newly created instance on.
+	 * @returns {module:controller/src/InstanceInfo} The created instance
+	 */
+	async instanceCreate(instanceConfig) {
+		let instanceId = instanceConfig.get("instance.id");
+		if (this.instances.has(instanceId)) {
+			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
+		}
+
+		// Add common settings for the Factorio server
+		let settings = {
+			"name": `${this.config.get("controller.name")} - ${instanceConfig.get("instance.name")}`,
+			"description": `Clusterio instance for ${this.config.get("controller.name")}`,
+			"tags": ["clusterio"],
+			"max_players": 0,
+			"visibility": { "public": true, "lan": true },
+			"username": "",
+			"token": "",
+			"game_password": "",
+			"require_user_verification": true,
+			"max_upload_in_kilobytes_per_second": 0,
+			"max_upload_slots": 5,
+			"ignore_player_limit_for_returning_players": false,
+			"allow_commands": "admins-only",
+			"autosave_interval": 10,
+			"autosave_slots": 5,
+			"afk_autokick_interval": 0,
+			"auto_pause": false,
+			"only_admins_can_pause_the_game": true,
+			"autosave_only_on_server": true,
+
+			...instanceConfig.get("factorio.settings"),
+		};
+		instanceConfig.set("factorio.settings", settings);
+
+		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
+		this.instances.set(instanceId, instance);
+		await libPlugin.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
+		this.addInstanceHooks(instance);
+	}
+
+	/**
+	 * Change assigned host of an instance
+	 *
+	 * Unassigns instance from existing host if already assigned to one and
+	 * then assigns it to the given host.  This is the only supported way of
+	 * changing the instance.assigned_host config entry.
+	 *
+	 * Note: this will not transfer any files or saves stored on the host
+	 * the instance was previously assgined to the new one.
+	 *
+	 * @param {number} instanceId - ID of Instance to assign.
+	 * @param {number} hostId - ID of host to assign instance to.
+	 */
+	async instanceAssign(instanceId, hostId) {
+		let instance = this.getRequestInstance(instanceId);
+
+		// Check if target host is connected
+		let newHostConnection;
+		if (hostId !== null) {
+			newHostConnection = this.wsServer.hostConnections.get(hostId);
+			if (!newHostConnection) {
+				// The case of the host not getting the assign instance message
+				// still have to be handled, so it's not a requirement that the
+				// target host be connected to the controller while doing the
+				// assignment, but it is IMHO a better user experience if this
+				// is the case.
+				throw new libErrors.RequestError("Target host is not connected to the controller");
+			}
+		}
+
+		// Unassign from currently assigned host if it is connected.
+		let currentAssignedHost = instance.config.get("instance.assigned_host");
+		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
+			let oldHostConnection = this.wsServer.hostConnections.get(currentAssignedHost);
+			if (oldHostConnection && !oldHostConnection.connector.closing) {
+				await libLink.messages.unassignInstance.send(oldHostConnection, { instance_id: instanceId });
+			}
+		}
+
+		// Assign to target
+		instance.config.set("instance.assigned_host", hostId);
+		if (hostId !== null) {
+			await libLink.messages.assignInstance.send(newHostConnection, {
+				instance_id: instanceId,
+				serialized_config: instance.config.serialize("host"),
+			});
+		} else {
+			instance.status = "unassigned";
+			this.instanceUpdated(instance);
+		}
+	}
+
+	/**
+	 * Delete an instance
+	 *
+	 * Permanently deletes the instance from its assigned host (if assigned)
+	 * and the controller.  This action cannot be undone.
+	 *
+	 * @param {number} instanceId - ID of instance to delete.
+	 */
+	async instanceDelete(instanceId) {
+		let instance = this.getRequestInstance(instanceId);
+		if (instance.config.get("instance.assigned_host") !== null) {
+			await this.forwardRequestToInstance(libLink.messages.deleteInstance, { instance_id: instanceId });
+		}
+		this.instances.delete(instanceId);
+
+		let prev = instance.status;
+		instance.status = "deleted";
+		this.instanceUpdated(instance);
+		await libPlugin.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
+	}
+
+	/**
+	 * Notify the config of an instance updated
+	 *
+	 * Used to push config changes to the assigned host when the config of
+	 * an instance has changed.
+	 *
+	 * @param {module:controller/src/InstanceInfo} instance -
+	 *     Instance to nodify the config updated.
+	 */
+	async instanceConfigUpdated(instance) {
+		let hostId = instance.config.get("instance.assigned_host");
+		if (hostId !== null) {
+			let connection = this.wsServer.hostConnections.get(hostId);
+			if (connection) {
+				await libLink.messages.assignInstance.send(connection, {
+					instance_id: instance.id,
+					serialized_config: instance.config.serialize("host"),
+				});
+			}
+		}
 	}
 
 	addInstanceHooks(instance) {

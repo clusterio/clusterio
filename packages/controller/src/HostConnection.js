@@ -6,6 +6,7 @@ const libPlugin = require("@clusterio/lib/plugin");
 const PlayerStats = require("@clusterio/lib/PlayerStats");
 
 const BaseConnection = require("./BaseConnection");
+const InstanceInfo = require("./InstanceInfo");
 
 
 /**
@@ -125,7 +126,7 @@ class HostConnection extends BaseConnection {
 		for (let instance of this._controller.instances.values()) {
 			if (instance.config.get("instance.assigned_host") === this._id) {
 				await libLink.messages.assignInstance.send(this, {
-					instance_id: instance.config.get("instance.id"),
+					instance_id: instance.id,
 					serialized_config: instance.config.serialize("host"),
 				});
 			}
@@ -141,7 +142,7 @@ class HostConnection extends BaseConnection {
 				// Check if this instance is assigned somewhere else.
 				if (controllerInstance.config.get("instance.assigned_host") !== this._id) {
 					await libLink.messages.unassignInstance.send(this, {
-						instance_id: controllerInstance.config.get("instance.id"),
+						instance_id: controllerInstance.id,
 					});
 					continue;
 				}
@@ -160,7 +161,7 @@ class HostConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_host", this._id);
-			let newInstance = { config: instanceConfig, status: instanceData.status };
+			let newInstance = new InstanceInfo({ config: instanceConfig, status: instanceData.status });
 			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.addInstanceHooks(newInstance);
 			await libLink.messages.assignInstance.send(this, {
