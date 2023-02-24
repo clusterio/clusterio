@@ -1,7 +1,6 @@
 "use strict";
 const events = require("events");
 const fs = require("fs-extra");
-const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
@@ -11,12 +10,10 @@ const libHelpers = require("@clusterio/lib/helpers");
 const libLink = require("@clusterio/lib/link");
 const { logFilter, logger } = require("@clusterio/lib/logging");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
-const libPlugin = require("@clusterio/lib/plugin");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libUsers = require("@clusterio/lib/users");
 
 const BaseConnection = require("./BaseConnection");
-const InstanceInfo = require("./InstanceInfo");
 const routes = require("./routes");
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
@@ -147,19 +144,12 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	generateHostToken(hostId) {
-		return jwt.sign(
-			{ aud: "host", host: hostId },
-			Buffer.from(this._controller.config.get("controller.auth_secret"), "base64")
-		);
-	}
-
 	async generateHostTokenRequestHandler(message) {
 		let hostId = message.data.host_id;
 		if (hostId === null) {
 			hostId = Math.random() * 2**31 | 0;
 		}
-		return { token: this.generateHostToken(hostId) };
+		return { token: this._controller.generateHostToken(hostId) };
 	}
 
 	async createHostConfigRequestHandler(message) {
@@ -175,7 +165,7 @@ class ControlConnection extends BaseConnection {
 		}
 		if (message.data.generate_token) {
 			this.user.checkPermission("core.host.generate_token");
-			hostConfig.set("host.controller_token", this.generateHostToken(hostConfig.get("host.id")));
+			hostConfig.set("host.controller_token", this._controller.generateHostToken(hostConfig.get("host.id")));
 		}
 		return { serialized_config: hostConfig.serialize() };
 	}
@@ -230,55 +220,11 @@ class ControlConnection extends BaseConnection {
 	async createInstanceRequestHandler(message) {
 		let instanceConfig = new libConfig.InstanceConfig("controller");
 		await instanceConfig.load(message.data.serialized_config);
-
-		let instanceId = instanceConfig.get("instance.id");
-		if (this._controller.instances.has(instanceId)) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
-		}
-
-		// Add common settings for the Factorio server
-		let settings = {
-			"name": `${this._controller.config.get("controller.name")} - ${instanceConfig.get("instance.name")}`,
-			"description": `Clusterio instance for ${this._controller.config.get("controller.name")}`,
-			"tags": ["clusterio"],
-			"max_players": 0,
-			"visibility": { "public": true, "lan": true },
-			"username": "",
-			"token": "",
-			"game_password": "",
-			"require_user_verification": true,
-			"max_upload_in_kilobytes_per_second": 0,
-			"max_upload_slots": 5,
-			"ignore_player_limit_for_returning_players": false,
-			"allow_commands": "admins-only",
-			"autosave_interval": 10,
-			"autosave_slots": 5,
-			"afk_autokick_interval": 0,
-			"auto_pause": false,
-			"only_admins_can_pause_the_game": true,
-			"autosave_only_on_server": true,
-
-			...instanceConfig.get("factorio.settings"),
-		};
-		instanceConfig.set("factorio.settings", settings);
-
-		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
-		this._controller.instances.set(instanceId, instance);
-		await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, null);
-		this._controller.addInstanceHooks(instance);
+		await this._controller.instanceCreate(instanceConfig);
 	}
 
 	async deleteInstanceRequestHandler(message, request) {
-		let instance = this._controller.getRequestInstance(message.data.instance_id);
-		if (instance.config.get("instance.assigned_host") !== null) {
-			await this.forwardRequestToInstance(message, request);
-		}
-		this._controller.instances.delete(message.data.instance_id);
-
-		let prev = instance.status;
-		instance.status = "deleted";
-		this._controller.instanceUpdated(instance);
-		await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
+		await this._controller.instanceDelete(message.data.instance_id);
 	}
 
 	async getInstanceConfigRequestHandler(message) {
@@ -286,19 +232,6 @@ class ControlConnection extends BaseConnection {
 		return {
 			serialized_config: instance.config.serialize("control"),
 		};
-	}
-
-	async updateInstanceConfig(instance) {
-		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId !== null) {
-			let connection = this._controller.wsServer.hostConnections.get(hostId);
-			if (connection) {
-				await libLink.messages.assignInstance.send(connection, {
-					instance_id: instance.config.get("instance.id"),
-					serialized_config: instance.config.serialize("host"),
-				});
-			}
-		}
 	}
 
 	async setInstanceConfigFieldRequestHandler(message) {
@@ -313,54 +246,19 @@ class ControlConnection extends BaseConnection {
 		}
 
 		instance.config.set(message.data.field, message.data.value, "control");
-		await this.updateInstanceConfig(instance);
+		await this._controller.instanceConfigUpdated(instance);
 	}
 
 	async setInstanceConfigPropRequestHandler(message) {
 		let instance = this._controller.getRequestInstance(message.data.instance_id);
 		let { field, prop, value } = message.data;
 		instance.config.setProp(field, prop, value, "control");
-		await this.updateInstanceConfig(instance);
+		await this._controller.instanceConfigUpdated(instance);
 	}
 
 	async assignInstanceCommandRequestHandler(message, request) {
 		let { host_id, instance_id } = message.data;
-		let instance = this._controller.getRequestInstance(instance_id);
-
-		// Check if target host is connected
-		let newHostConnection;
-		if (host_id !== null) {
-			newHostConnection = this._controller.wsServer.hostConnections.get(host_id);
-			if (!newHostConnection) {
-				// The case of the host not getting the assign instance message
-				// still have to be handled, so it's not a requirement that the
-				// target host be connected to the controller while doing the
-				// assignment, but it is IMHO a better user experience if this
-				// is the case.
-				throw new libErrors.RequestError("Target host is not connected to the controller");
-			}
-		}
-
-		// Unassign from currently assigned host if it is connected.
-		let currentAssignedHost = instance.config.get("instance.assigned_host");
-		if (currentAssignedHost !== null && host_id !== currentAssignedHost) {
-			let oldHostConnection = this._controller.wsServer.hostConnections.get(currentAssignedHost);
-			if (oldHostConnection && !oldHostConnection.connector.closing) {
-				await libLink.messages.unassignInstance.send(oldHostConnection, { instance_id });
-			}
-		}
-
-		// Assign to target
-		instance.config.set("instance.assigned_host", host_id);
-		if (host_id !== null) {
-			await libLink.messages.assignInstance.send(newHostConnection, {
-				instance_id,
-				serialized_config: instance.config.serialize("host"),
-			});
-		} else {
-			instance.status = "unassigned";
-			this._controller.instanceUpdated(instance);
-		}
+		await this._controller.instanceAssign(instance_id, host_id);
 	}
 
 	async setSaveListSubscriptionsRequestHandler(message) {
