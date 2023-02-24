@@ -13,7 +13,7 @@ export function useModList() {
 
 	function updateModList() {
 		libLink.messages.listMods.send(control).then(result => {
-			setModList(result.list.map(mod => new libData.ModInfo(mod)));
+			setModList(result.list.map(mod => libData.ModInfo.fromJSON(mod)));
 		}).catch(err => {
 			logger.error(`Failed to list mods:\n${err}`);
 		});

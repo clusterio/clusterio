@@ -232,7 +232,7 @@ async function uploadExport(req, res) {
 		await libFileOps.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
 
-	modPack.exportManifest = new libData.ExportManifest({ assets });
+	modPack.exportManifest = new libData.ExportManifest(assets);
 	modPack.fillDefaultSettings(settingPrototypes, logger);
 	res.app.locals.controller.modPackUpdated(modPack);
 

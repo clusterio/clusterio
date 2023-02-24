@@ -12,7 +12,7 @@ export function useExportManifest() {
 	useEffect(() => {
 		async function load() {
 			let result = await libLink.messages.getDefaultModPack.send(control);
-			let modPack = new libData.ModPack(result.mod_pack);
+			let modPack = libData.ModPack.fromJSON(result.mod_pack);
 			if (modPack.exportManifest) {
 				exportManifestCache = modPack.exportManifest;
 				setExportManifest(exportManifestCache);

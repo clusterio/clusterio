@@ -413,7 +413,7 @@ class Controller {
 			}
 			return new Map();
 		}
-		return new Map(json.map(e => [e.id, new libData.ModPack(e)]));
+		return new Map(json.map(e => [e.id, libData.ModPack.fromJSON(e)]));
 	}
 
 	static async saveModPacks(filePath, modPacks) {

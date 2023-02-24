@@ -308,7 +308,7 @@ describe("Integration of Clusterio", function() {
 				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
 				let result = await libLink.messages.getDefaultModPack.send(getControl());
-				let modPack = new libData.ModPack(result.mod_pack);
+				let modPack = libData.ModPack.fromJSON(result.mod_pack);
 				let assets = modPack.exportManifest.assets;
 				assert(Object.keys(assets).length > 1, "Export assets is empty");
 				for (let key of ["settings", "prototypes", "item-metadata", "item-spritesheet", "locale"]) {
@@ -847,7 +847,7 @@ describe("Integration of Clusterio", function() {
 				let response = await libLink.messages.listModPacks.send(getControl());
 				let modPack = response.list.find(entry => entry.name === "full-pack");
 				assert(modPack, "created mod pack not found");
-				let reference = new libData.ModPack();
+				let reference = libData.ModPack.fromJSON({});
 				reference.id = modPack.id;
 				reference.name = "full-pack";
 				reference.description = "Description";
@@ -857,7 +857,7 @@ describe("Integration of Clusterio", function() {
 				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
 				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
 				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
-				assert.deepEqual(new libData.ModPack(modPack), reference);
+				assert.deepEqual(libData.ModPack.fromJSON(modPack), reference);
 			});
 		});
 
@@ -875,7 +875,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod-pack import/export", function() {
 			it("should should roundtrip a mod-pack", async function() {
-				let reference = new libData.ModPack();
+				let reference = libData.ModPack.fromJSON({});
 				reference.name = "imported-pack";
 				reference.description = "Description";
 				reference.factorioVersion = "0.17.59";

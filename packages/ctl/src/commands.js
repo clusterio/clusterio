@@ -1002,7 +1002,7 @@ modPackCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		const modPack = new libData.ModPack();
+		const modPack = libData.ModPack.fromJSON({});
 		modPack.name = args.name;
 		if (args.description) { modPack.description = args.description; }
 		if (args.factorioVersion) {
@@ -1038,7 +1038,7 @@ modPackCommands.add(new libCommand.Command({
 		const response = await libLink.messages.getModPack.send(control, {
 			id: await libCommand.resolveModPack(control, args.modPack),
 		});
-		const modPack = new libData.ModPack(response.mod_pack);
+		const modPack = libData.ModPack.fromJSON(response.mod_pack);
 		print(modPack.toModPackString());
 	},
 }));
@@ -1065,7 +1065,7 @@ modPackCommands.add(new libCommand.Command({
 		let response = await libLink.messages.getModPack.send(control, {
 			id: await libCommand.resolveModPack(control, args.modPack),
 		});
-		let modPack = new libData.ModPack(response.mod_pack);
+		let modPack = libData.ModPack.fromJSON(response.mod_pack);
 
 		if (args.name) { modPack.name = args.name; }
 		if (args.description) { modPack.description = args.description; }
@@ -1259,7 +1259,7 @@ modCommands.add(new libCommand.Command({
 		}
 
 		if (result.body.mods && result.body.mods.length) {
-			const mod = new libData.ModInfo(result.body.mods[0]);
+			const mod = libData.ModInfo.fromJSON(result.body.mods[0]);
 			logger.info(`Successfully uploaded ${mod.filename}`);
 		}
 

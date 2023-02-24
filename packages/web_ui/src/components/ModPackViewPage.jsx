@@ -57,7 +57,7 @@ function SearchModsTable(props) {
 			// In React < v18 this causes 3 renders and a partial state necessitating the use
 			// of || 0 on modResultSelectedVersion.get() calls. Remove when updating React.
 			setModResults(response.results.map(
-				({ name, versions }) => ({ name, versions: versions.map(mod => new libData.ModInfo(mod)) })
+				({ name, versions }) => ({ name, versions: versions.map(mod => libData.ModInfo.fromJSON(mod)) })
 			));
 			setModResultSelectedVersion(new Map(response.results.map(({ name, versions }) => [name, 0])));
 			setModResultCount(response.result_count);
@@ -630,7 +630,7 @@ export default function ModPackViewPage() {
 			return;
 		}
 
-		const modified = new libData.ModPack(modPack.toJSON());
+		const modified = libData.ModPack.fromJSON(JSON.parse(JSON.stringify(modPack)));
 		for (let change of changes) {
 			if (change.type === "name") {
 				modified.name = change.value;

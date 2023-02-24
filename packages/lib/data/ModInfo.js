@@ -155,22 +155,26 @@ class ModInfo {
 
 	static validate = libSchema.compile(this.jsonSchema);
 
-	constructor(json = {}) {
+	static fromJSON(json) {
+		const modInfo = new this();
+
 		// info.json fields
-		if (json.name) { this.name = json.name; }
-		if (json.version) { this.version = json.version; }
-		if (json.title) { this.title = json.title; }
-		if (json.author) { this.author = json.author; }
-		if (json.contact) { this.contact = json.contact; }
-		if (json.homepage) { this.homepage = json.homepage; }
-		if (json.description) { this.description = json.description; }
-		if (json.factorio_version) { this.factorioVersion = json.factorio_version; }
-		if (json.dependencies) { this.dependencies = json.dependencies; }
+		if (json.name) { modInfo.name = json.name; }
+		if (json.version) { modInfo.version = json.version; }
+		if (json.title) { modInfo.title = json.title; }
+		if (json.author) { modInfo.author = json.author; }
+		if (json.contact) { modInfo.contact = json.contact; }
+		if (json.homepage) { modInfo.homepage = json.homepage; }
+		if (json.description) { modInfo.description = json.description; }
+		if (json.factorio_version) { modInfo.factorioVersion = json.factorio_version; }
+		if (json.dependencies) { modInfo.dependencies = json.dependencies; }
 
 		// Additional data
-		if (json.size) { this.size = json.size; }
-		if (json.sha1) { this.sha1 = json.sha1; }
-		if (json.is_deleted) { this.isDeleted = json.is_deleted; }
+		if (json.size) { modInfo.size = json.size; }
+		if (json.sha1) { modInfo.sha1 = json.sha1; }
+		if (json.is_deleted) { modInfo.isDeleted = json.is_deleted; }
+
+		return modInfo;
 	}
 
 	toJSON() {
@@ -218,7 +222,7 @@ class ModInfo {
 			throw new Error(`Mod's version (${modInfo.version}) is invalid`);
 		}
 
-		return new this({
+		return this.fromJSON({
 			...modInfo,
 
 			size: (await fs.stat(modPath)).size,

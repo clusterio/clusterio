@@ -385,7 +385,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async createModPackRequestHandler(message) {
-		let modPack = new libData.ModPack(message.data.mod_pack);
+		let modPack = libData.ModPack.fromJSON(message.data.mod_pack);
 		if (this._controller.modPacks.has(modPack.id)) {
 			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
@@ -394,7 +394,7 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async updateModPackRequestHandler(message) {
-		let modPack = new libData.ModPack(message.data.mod_pack);
+		let modPack = libData.ModPack.fromJSON(message.data.mod_pack);
 		if (!this._controller.modPacks.has(modPack.id)) {
 			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}

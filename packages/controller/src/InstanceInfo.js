@@ -26,11 +26,9 @@ class InstanceInfo {
 	 */
 	status;
 
-	// This is not actually json as a config can't be loaded synchronously but
-	// that is likely to change in the future.
-	constructor(json) {
-		this.config = json["config"];
-		this.status = json["status"];
+	constructor({ config, status }) {
+		this.config = config;
+		this.status = status;
 	}
 
 	toJSON() {

@@ -222,7 +222,7 @@ before(async function() {
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
 
-	const testPack = new libData.ModPack();
+	const testPack = libData.ModPack.fromJSON({});
 	testPack.id = 12;
 	testPack.name = "subspace_storage-pack";
 	testPack.factorioVersion = "1.1.0";

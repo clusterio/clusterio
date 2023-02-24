@@ -18,27 +18,27 @@ describe("lib/data/ModInfo", function() {
 				if (!validate(json)) {
 					throw validate.errors;
 				}
-				assert.deepEqual(new ModInfo(json), pack);
+				assert.deepEqual(ModInfo.fromJSON(json), pack);
 			}
 
-			check(new ModInfo());
-			check(new ModInfo({ name: "MyMod" }));
-			check(new ModInfo({ version: "1.0.0" }));
-			check(new ModInfo({ title: "My Extravagent Mod" }));
-			check(new ModInfo({ author: "Me" }));
-			check(new ModInfo({ contact: "Use my email" }));
-			check(new ModInfo({ homepage: "It's over there" }));
-			check(new ModInfo({ description: "My Description" }));
-			check(new ModInfo({ factorio_version: "2.0" }));
-			check(new ModInfo({ dependencies: [] }));
-			check(new ModInfo({ dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"] }));
-			check(new ModInfo({ filename: "MyMod_1.0.0.zip" }));
-			check(new ModInfo({ size: 1024 }));
-			check(new ModInfo({ sha1: "verified-as-MyMod" }));
-			check(new ModInfo({ is_deleted: true }));
+			check(ModInfo.fromJSON({}));
+			check(ModInfo.fromJSON({ name: "MyMod" }));
+			check(ModInfo.fromJSON({ version: "1.0.0" }));
+			check(ModInfo.fromJSON({ title: "My Extravagent Mod" }));
+			check(ModInfo.fromJSON({ author: "Me" }));
+			check(ModInfo.fromJSON({ contact: "Use my email" }));
+			check(ModInfo.fromJSON({ homepage: "It's over there" }));
+			check(ModInfo.fromJSON({ description: "My Description" }));
+			check(ModInfo.fromJSON({ factorio_version: "2.0" }));
+			check(ModInfo.fromJSON({ dependencies: [] }));
+			check(ModInfo.fromJSON({ dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"] }));
+			check(ModInfo.fromJSON({ filename: "MyMod_1.0.0.zip" }));
+			check(ModInfo.fromJSON({ size: 1024 }));
+			check(ModInfo.fromJSON({ sha1: "verified-as-MyMod" }));
+			check(ModInfo.fromJSON({ is_deleted: true }));
 
 			// All at once
-			check(new ModInfo({
+			check(ModInfo.fromJSON({
 				name: "MyMod",
 				version: "1.0.0",
 				title: "My Extravagent Mod",
@@ -58,14 +58,14 @@ describe("lib/data/ModInfo", function() {
 		it("should sort integer mod versions lexicographically", function() {
 			let unsortedVersions = ["1.0.0", "1.1.0", "0.1.0", "3.0.0", "1.2.0", "0.3.1", "0.3.3", "2.1.1", "0.0.1"];
 			let sortedVersions = ["0.0.1", "0.1.0", "0.3.1", "0.3.3", "1.0.0", "1.1.0", "1.2.0", "2.1.1", "3.0.0"];
-			let mods = unsortedVersions.map(v => new ModInfo({ version: v }));
+			let mods = unsortedVersions.map(v => ModInfo.fromJSON({ version: v }));
 			mods.sort((a, b) => a.integerVersion - b.integerVersion);
 			assert.deepEqual(mods.map(mod => mod.version), sortedVersions);
 		});
 		it("should sort integer factorio versions lexicographically", function() {
 			let unsortedVersions = ["1.0", "1.1", "0.1", "3.0", "1.2", "0.3", "2.1"];
 			let sortedVersions = ["0.1", "0.3", "1.0", "1.1", "1.2", "2.1", "3.0"];
-			let factorioMods = unsortedVersions.map(v => new ModInfo({ factorio_version: v }));
+			let factorioMods = unsortedVersions.map(v => ModInfo.fromJSON({ factorio_version: v }));
 			factorioMods.sort((a, b) => a.integerFactorioVersion - b.integerFactorioVersion);
 			assert.deepEqual(factorioMods.map(mod => mod.factorioVersion), sortedVersions);
 		});
@@ -83,7 +83,7 @@ describe("lib/data/ModInfo", function() {
 			const mod = await ModInfo.fromModFile(filePath);
 			assert.deepEqual(
 				mod,
-				new ModInfo({
+				ModInfo.fromJSON({
 					name: "empty_mod",
 					version: "1.0.0",
 					title: "An Empty Mod",

@@ -312,7 +312,7 @@ export class Control extends libLink.Link {
 	}
 
 	async modPackUpdateEventHandler(message) {
-		let modPack = new libData.ModPack(message.data.mod_pack);
+		let modPack = libData.ModPack.fromJSON(message.data.mod_pack);
 		let handlers = [].concat(
 			this.modPackUpdateHandlers.get(null) || [],
 			this.modPackUpdateHandlers.get(modPack.id) || [],
@@ -370,7 +370,7 @@ export class Control extends libLink.Link {
 	}
 
 	async modUpdateEventHandler(message) {
-		let mod = new libData.ModInfo(message.data.mod);
+		let mod = libData.ModInfo.fromJSON(message.data.mod);
 		let handlers = [].concat(
 			this.modUpdateHandlers.get(null) || [],
 			this.modUpdateHandlers.get(mod.name) || []

@@ -95,7 +95,7 @@ function CreateModPackButton() {
 					} catch {
 						return; // Validation failed
 					}
-					const modPack = new libData.ModPack();
+					const modPack = libData.ModPack.fromJSON({});
 					modPack.name = values.name;
 					modPack.factorioVersion = values.factorioVersion;
 					if (values.description) { modPack.description = values.description; }

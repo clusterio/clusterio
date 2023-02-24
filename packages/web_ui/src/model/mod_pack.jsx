@@ -12,7 +12,7 @@ export function useModPack(id) {
 
 	function updateModPack() {
 		libLink.messages.getModPack.send(control, { id }).then(result => {
-			setModPack(new libData.ModPack(result.mod_pack));
+			setModPack(libData.ModPack.fromJSON(result.mod_pack));
 		}).catch(err => {
 			logger.error(`Failed to get mod pack: ${err}`);
 			setModPack({ missing: true });
@@ -41,7 +41,7 @@ export function useModPackList() {
 
 	function updateModPackList() {
 		libLink.messages.listModPacks.send(control).then(result => {
-			setModPackList(result.list.map(pack => new libData.ModPack(pack)));
+			setModPackList(result.list.map(pack => libData.ModPack.fromJSON(pack)));
 		}).catch(err => {
 			logger.error(`Failed to list mod packs:\n${err}`);
 		});

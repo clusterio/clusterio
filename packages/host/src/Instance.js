@@ -604,7 +604,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		} else {
 			response = await libLink.messages.getModPack.send(this, { id: modPackId });
 		}
-		this.activeModPack = new libData.ModPack(response.mod_pack);
+		this.activeModPack = libData.ModPack.fromJSON(response.mod_pack);
 
 		// TODO validate factorioVersion
 
