@@ -31,13 +31,13 @@ describe("lib/file_ops", function() {
 			let newest = await libFileOps.getNewestFile(path.join(baseDir, "test"));
 			assert.equal(typeof newest, "string");
 		});
-		it("returns null if all entries were filtered out", async function() {
+		it("returns undefined if all entries were filtered out", async function() {
 			let newest = await libFileOps.getNewestFile(path.join(baseDir, "test"), (name) => !name.endsWith(".txt"));
-			assert.equal(newest, null);
+			assert.equal(newest, undefined);
 		});
-		it("returns null if directory is empty", async function() {
+		it("returns undefined if directory is empty", async function() {
 			let newest = await libFileOps.getNewestFile(path.join(baseDir, "test", "folder"));
-			assert.equal(newest, null);
+			assert.equal(newest, undefined);
 		});
 	});
 

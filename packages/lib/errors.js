@@ -14,7 +14,13 @@ class CommandError extends Error { }
  * Thrown from requests sent when an error occured handling it
  * @static
  */
-class RequestError extends Error { }
+class RequestError extends Error {
+	constructor(message, code, stack) {
+		super(message);
+		if (code) { this.code = code; }
+		if (stack) { this.stack = stack; }
+	}
+}
 
 /**
  * Thrown when a permission check fails.

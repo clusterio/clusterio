@@ -7,6 +7,7 @@
  * @module lib/command
  */
 "use strict";
+const libData = require("./data");
 const libLink = require("./link");
 const libErrors = require("./errors");
 
@@ -150,8 +151,8 @@ async function resolveHost(client, hostName) {
 	if (/^-?\d+$/.test(hostName)) {
 		hostId = parseInt(hostName, 10);
 	} else {
-		let response = await libLink.messages.listHosts.send(client);
-		for (let host of response.list) {
+		let hosts = await client.sendTo(new libData.HostListRequest(), "controller");
+		for (let host of hosts) {
 			if (host.name === hostName) {
 				hostId = host.id;
 				break;
@@ -182,8 +183,8 @@ async function resolveInstance(client, instanceName) {
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
-		let response = await libLink.messages.listInstances.send(client);
-		for (let instance of response.list) {
+		let instances = await client.sendTo(new libData.InstanceDetailsListRequest(), "controller");
+		for (let instance of instances) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
 				break;
@@ -215,10 +216,10 @@ async function resolveModPack(client, modPackName) {
 	if (/^-?\d+/.test(modPackName)) {
 		modPackId = parseInt(modPackName, 10);
 	} else {
-		let response = await libLink.messages.listModPacks.send(client);
-		for (let mod_pack of response.list) {
-			if (mod_pack["name"] === modPackName) {
-				modPackId = mod_pack["id"];
+		let modPacks = await client.sendTo(new libData.ModPackListRequest(), "controller");
+		for (let modPack of modPacks) {
+			if (modPack.name === modPackName) {
+				modPackId = modPack.id;
 				break;
 			}
 		}
@@ -243,12 +244,12 @@ async function resolveModPack(client, modPackName) {
  * @static
  */
 async function retrieveRole(client, roleName) {
-	let response = await libLink.messages.listRoles.send(client);
+	let roles = await client.sendTo(new libData.RoleListRequest(), "controller");
 
 	let resolvedRole;
 	if (/^-?\d+$/.test(roleName)) {
 		let roleId = parseInt(roleName, 10);
-		for (let role of response.list) {
+		for (let role of roles) {
 			if (role.id === roleId) {
 				resolvedRole = role;
 				break;
@@ -256,7 +257,7 @@ async function retrieveRole(client, roleName) {
 		}
 
 	} else {
-		for (let role of response.list) {
+		for (let role of roles) {
 			if (role.name === roleName) {
 				resolvedRole = role;
 				break;

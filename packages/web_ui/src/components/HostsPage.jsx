@@ -3,7 +3,7 @@ import { useHistory } from "react-router-dom";
 import { Button, Form, InputNumber, Modal, PageHeader, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -35,7 +35,7 @@ function GenerateHostTokenButton(props) {
 	}, []);
 
 	async function generateToken() {
-		let id;
+		let id = null;
 		let values = form.getFieldsValue();
 		if (values.hostId) {
 			id = Number.parseInt(values.hostId, 10);
@@ -46,8 +46,8 @@ function GenerateHostTokenButton(props) {
 			form.setFields([{ name: "hostId", errors: [] }]);
 		}
 
-		let result = await libLink.messages.generateHostToken.send(control, { host_id: id || null });
-		setToken(result.token);
+		let newToken = await control.send(new libData.HostGenerateTokenRequest(id));
+		setToken(newToken);
 		setHostId(id);
 	}
 
@@ -192,37 +192,37 @@ export default function HostsPage() {
 					title: "Name",
 					dataIndex: "name",
 					defaultSortOrder: "ascend",
-					sorter: (a, b) => strcmp(a["name"], b["name"]),
+					sorter: (a, b) => strcmp(a.name, b.name),
 				},
 				{
 					title: "Agent",
 					dataIndex: "agent",
-					sorter: (a, b) => strcmp(a["agent"], b["agent"]),
+					sorter: (a, b) => strcmp(a.agent, b.agent),
 					responsive: ["lg"],
 				},
 				{
 					title: "Version",
 					dataIndex: "version",
-					sorter: (a, b) => strcmp(a["version"], b["version"]),
+					sorter: (a, b) => strcmp(a.version, b.version),
 				},
 				{
 					title: "Public address",
-					dataIndex: "public_address",
-					sorter: (a, b) => strcmp(a["public_address"], b["public_address"]),
+					dataIndex: "publicAddress",
+					sorter: (a, b) => strcmp(a.publicAddress, b.publicAddress),
 				},
 				{
 					title: "Connected",
 					key: "connected",
 					render: host => <Tag
-						color={host["connected"] ? "#389e0d" : "#cf1322"}
+						color={host.connected ? "#389e0d" : "#cf1322"}
 					>
-						{host["connected"] ? "Connected" : "Disconnected"}
+						{host.connected ? "Connected" : "Disconnected"}
 					</Tag>,
-					sorter: (a, b) => a["connected"] - b["connected"],
+					sorter: (a, b) => a.connected - b.connected,
 				},
 			]}
 			dataSource={hostList}
-			rowKey={host => host["id"]}
+			rowKey={host => host.id}
 			pagination={false}
 			onRow={(record, rowIndex) => ({
 				onClick: event => {

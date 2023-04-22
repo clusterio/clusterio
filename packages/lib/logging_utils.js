@@ -15,7 +15,7 @@ const Transport = require("winston-transport");
 const { LEVEL, MESSAGE } = require("triple-beam");
 const chalk = require("chalk");
 
-const libLink = require("./link");
+const libData = require("./data");
 const libErrors = require("./errors");
 const libFileOps = require("./file_ops");
 const { levels, logFilter, logger } = require("./logging");
@@ -128,7 +128,7 @@ class LinkTransport extends Transport {
 		}
 
 		try {
-			libLink.messages.logMessage.send(this.link, { info });
+			this.link.send(new libData.LogMessageEvent(info));
 		} catch (err) {
 			// Ignore session lost errors.
 			if (!(err instanceof libErrors.SessionLost)) {
@@ -140,7 +140,7 @@ class LinkTransport extends Transport {
 }
 
 const logFileGlob = /^[a-z]+-(\d{4}-\d{2}-\d{2})\.log$/;
-const logIndexVersion = 1;
+const logIndexVersion = 2;
 
 /**
  * Keeps an index over a log directory to speed up queries to it
@@ -159,8 +159,8 @@ class LogIndex {
 			this.index.set(file, {
 				levels: new Set(serializedEntry.levels),
 				controller: serializedEntry.controller,
-				host_ids: new Set(serializedEntry.host_ids),
-				instance_ids: new Set(serializedEntry.instance_ids),
+				hostIds: new Set(serializedEntry.hostIds),
+				instanceIds: new Set(serializedEntry.instanceIds),
 			});
 		}
 	}
@@ -175,8 +175,8 @@ class LogIndex {
 			serialized.files[file] = {
 				levels: [...entry.levels],
 				controller: entry.controller,
-				host_ids: [...entry.host_ids],
-				instance_ids: [...entry.instance_ids],
+				hostIds: [...entry.hostIds],
+				instanceIds: [...entry.instanceIds],
 			};
 		}
 
@@ -226,8 +226,8 @@ class LogIndex {
 		let entry = {
 			levels: new Set(),
 			controller: false,
-			host_ids: new Set(),
-			instance_ids: new Set(),
+			hostIds: new Set(),
+			instanceIds: new Set(),
 		};
 		for await (let line of lineStream) {
 			let info;
@@ -244,10 +244,10 @@ class LogIndex {
 			if (info.host_id === undefined) {
 				entry.controller = true;
 			} else if (info.instance_id === undefined) {
-				entry.host_ids.add(info.host_id);
+				entry.hostIds.add(info.host_id);
 			}
 			if (info.instance_id !== undefined) {
-				entry.instance_ids.add(info.instance_id);
+				entry.instanceIds.add(info.instance_id);
 			}
 		}
 		return entry;
@@ -280,18 +280,18 @@ class LogIndex {
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
 	 */
-	filterIncludesFile(file, { max_level, all, controller, instance_ids, host_ids }) {
+	filterIncludesFile(file, { maxLevel, all, controller, instanceIds, hostIds }) {
 		let entry = this.index.get(file);
 		if (!entry) {
 			return true;
 		}
 
 		const hasOwnProperty = Object.prototype.hasOwnProperty;
-		if (max_level && hasOwnProperty.call(levels, max_level)) {
+		if (maxLevel && hasOwnProperty.call(levels, maxLevel)) {
 			let fileLevels = [...entry.levels].map(
 				fileLevel => (hasOwnProperty.call(levels, fileLevel) ? levels[fileLevel] : levels.verbose)
 			);
-			if (fileLevels.every(level => level > levels[max_level])) {
+			if (fileLevels.every(level => level > levels[maxLevel])) {
 				return false;
 			}
 		}
@@ -302,10 +302,10 @@ class LogIndex {
 		if (controller && entry.controller) {
 			return true;
 		}
-		if (host_ids && host_ids.some(id => entry.host_ids.has(id))) {
+		if (hostIds && hostIds.some(id => entry.hostIds.has(id))) {
 			return true;
 		}
-		if (instance_ids && instance_ids.some(id => entry.instance_ids.has(id))) {
+		if (instanceIds && instanceIds.some(id => entry.instanceIds.has(id))) {
 			return true;
 		}
 		return false;
@@ -319,16 +319,16 @@ class LogIndex {
  * @property {string} [order="asc"] -
  *     Return entries in ascending ("asc") date order or desceding ("desc")
  *     date order.
- * @property {string} [max_level] -
+ * @property {string} [maxLevel] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
  *     Include log entries from controller, all hosts and all instances.
  * @property {boolean} [controller] -
  *     Include log entries from the controller.
- * @property {Array<number>} [host_ids] -
+ * @property {Array<number>} [hostIds] -
  *     Include log entries for the given hosts and instances of those
  *     hosts by id.
- * @property {Array<number>} [instance_ids] -
+ * @property {Array<number>} [instanceIds] -
  *     Include log entries for the given instances by id.
  */
 

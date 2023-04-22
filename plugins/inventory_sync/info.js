@@ -1,5 +1,5 @@
 "use strict";
-const { libConfig, libLink, libUsers } = require("@clusterio/lib");
+const { libConfig, libUsers } = require("@clusterio/lib");
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup { }
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -53,70 +53,4 @@ module.exports = {
 
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
-
-	messages: {
-		acquire: new libLink.Request({
-			type: "inventory_sync:acquire",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"instance_id": { type: "integer" },
-				"player_name": { type: "string" },
-			},
-			responseRequired: ["status"],
-			responseProperties: {
-				"status": { enum: ["acquired", "error", "busy"] },
-				"generation": { type: "integer" },
-				"has_data": { type: "boolean" },
-				"message": { type: "string" },
-			},
-		}),
-		release: new libLink.Request({
-			type: "inventory_sync:release",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"instance_id": { type: "integer" },
-				"player_name": { type: "string" },
-			},
-		}),
-		upload: new libLink.Request({
-			type: "inventory_sync:upload",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"instance_id": { type: "integer" },
-				"player_name": { type: "string" },
-				"player_data": { type: "object" },
-			},
-		}),
-		download: new libLink.Request({
-			type: "inventory_sync:download",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"instance_id": { type: "integer" },
-				"player_name": { type: "string" },
-			},
-			responseProperties: {
-				"player_data": { type: ["object", "null"] },
-			},
-		}),
-		databaseStats: new libLink.Request({
-			type: "inventory_sync:databaseStats",
-			links: ["control-controller"],
-			permission: "inventory_sync.inventory.view",
-			responseProperties: {
-				"database_size": { type: "integer" },
-				"database_entries": { type: "integer" },
-				"largest_entry": {
-					type: "object",
-					properties: {
-						name: { type: "string" },
-						size: { type: "number" },
-					},
-				},
-			},
-		}),
-	},
 };

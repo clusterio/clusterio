@@ -102,7 +102,7 @@ void new libPrometheus.Gauge(
 	{
 		labels: ["type"], callback: async function(gauge) {
 			gauge.labels("host").set(controller.wsServer.hostConnections.size);
-			gauge.labels("control").set(controller.wsServer.controlConnections.length);
+			gauge.labels("control").set(controller.wsServer.controlConnections.size);
 		},
 	},
 );

@@ -545,10 +545,14 @@ class BaseControllerPlugin {
 	 * This does not include hosts that are in the process of closing the
 	 * connection, which typically happens when they are shutting down.
 	 *
-	 * @param {module:lib/link.Event} event - Event to send
+	 * @param {*} event - Event to send
 	 * @param {Object} data - Data ta pass with the event.
 	 */
 	broadcastEventToHosts(event, data={}) {
+		if (event.type !== "event") {
+			this.logger.warn(`Ignoring broadcast of ${event.type}`);
+			return;
+		}
 		for (let hostConnection of this.controller.wsServer.hostConnections.values()) {
 			if (
 				!hostConnection.connector.closing
@@ -772,43 +776,6 @@ class BaseWebPlugin {
 }
 
 /**
- * Attach plugin messages
- *
- * Attaches all messages defined in the `.info.message` property of the
- * `plugin` passed with handlers taken from the `pluin`.
- *
- * @param {module:lib/link.Link} link - Link to attach handlers to.
- * @param {module:lib/plugin.BasePlugin} plugin -
- *     The instance of the plugin attach messages and handlers from.
- */
-function attachPluginMessages(link, plugin) {
-	let messageDefinitions = plugin.info.messages || [];
-	for (let [name, messageFormat] of Object.entries(messageDefinitions)) {
-		if (messageFormat.plugin !== plugin.info.name) {
-			throw new Error(`Type of ${name} message must start with "${plugin.info.name}:"`);
-		}
-
-		let handler = name + messageFormat.handlerSuffix;
-		try {
-			if (plugin === null || !plugin[handler]) {
-				messageFormat.attach(link);
-
-			} else {
-				messageFormat.attach(link, async (message, format) => await plugin[handler](message, format, link));
-			}
-
-		} catch (err) {
-			if (err.code === "MISSING_LINK_HANDLER") {
-				err.plugin = plugin.info.name;
-				err.handler = handler;
-			}
-
-			throw err;
-		}
-	}
-}
-
-/**
  * Invokes the given hook on all plugins
  *
  * @param {Map<string, Object>} plugins -
@@ -847,6 +814,5 @@ module.exports = {
 	BaseControlPlugin,
 	BaseWebPlugin,
 
-	attachPluginMessages,
 	invokeHook,
 };

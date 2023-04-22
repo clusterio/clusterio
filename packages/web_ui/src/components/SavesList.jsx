@@ -6,7 +6,7 @@ import {
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
-import { libLink, libHelpers } from "@clusterio/lib";
+import { libData, libHelpers } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -36,8 +36,8 @@ function RenameModal(props) {
 				layout="vertical"
 				initialValues={{ newName: props.save.name }}
 				onFinish={values => {
-					libLink.messages.renameSave.send(control,
-						{ instance_id: props.instanceId, old_name: props.save.name, new_name: values.newName }
+					control.send(
+						new libData.InstanceRenameSaveRequest(props.instanceId, props.save.name, values.newName)
 					).then(() => {
 						setVisible(false);
 						form.resetFields();
@@ -75,8 +75,8 @@ function CopyModal(props) {
 				layout="vertical"
 				initialValues={{ newName: props.save.name }}
 				onFinish={values => {
-					libLink.messages.copySave.send(control,
-						{ instance_id: props.instanceId, source: props.save.name, destination: values.newName }
+					control.send(
+						new libData.InstanceCopySaveRequest(props.instanceId, props.save.name, values.newName)
 					).then(() => {
 						setVisible(false);
 						form.resetFields();
@@ -120,13 +120,13 @@ function TransferModal(props) {
 				onFinish={values => {
 					setVisible(false);
 					let hide = message.loading("Transferring save...", 0);
-					libLink.messages.transferSave.send(control, {
-						instance_id: props.instanceId,
-						source_save: props.save.name,
-						target_instance_id: values.targetInstanceId,
-						target_save: values.transferredName || props.save.name,
-						copy: values.copy,
-					}).then(() => {
+					control.send(new libData.InstanceTransferSaveRequest(
+						props.instanceId,
+						props.save.name,
+						values.targetInstanceId,
+						values.transferredName || props.save.name,
+						values.copy,
+					)).then(() => {
 						message.success("Transfer complete");
 						form.resetFields();
 					}).catch(
@@ -209,9 +209,9 @@ export default function SavesList(props) {
 			},
 			{
 				title: "Last Modified",
-				key: "mtime_ms",
-				render: save => new Date(save.mtime_ms).toLocaleString(),
-				sorter: (a, b) => a.mtime_ms - b.mtime_ms,
+				key: "mtimeMs",
+				render: save => new Date(save.mtimeMs).toLocaleString(),
+				sorter: (a, b) => a.mtimeMs - b.mtimeMs,
 				defaultSortOrder: "descend",
 			},
 		]}
@@ -227,8 +227,8 @@ export default function SavesList(props) {
 					disabled={props.instance.status !== "stopped"}
 					onClick={() => {
 						setStarting(true);
-						libLink.messages.startInstance.send(
-							control, { instance_id: props.instance.id, save: save.name }
+						control.sendTo(
+							new libData.InstanceStartRequest(save.name), { instanceId: props.instance.id }
 						).catch(
 							notifyErrorHandler("Error loading save")
 						).finally(
@@ -245,11 +245,11 @@ export default function SavesList(props) {
 				{account.hasPermission("core.instance.save.download") && <Button
 					disabled={hostOffline}
 					onClick={() => {
-						libLink.messages.downloadSave.send(
-							control, { instance_id: props.instance.id, save: save.name }
-						).then(response => {
+						control.send(
+							new libData.InstanceDownloadSaveRequest(props.instance.id, save.name)
+						).then(streamId => {
 							let url = new URL(webRoot, document.location);
-							url.pathname += `api/stream/${response.stream_id}`;
+							url.pathname += `api/stream/${streamId}`;
 							document.location = url;
 						}).catch(
 							notifyErrorHandler("Error downloading save")
@@ -265,8 +265,8 @@ export default function SavesList(props) {
 					placement="top"
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
-						libLink.messages.deleteSave.send(
-							control, { instance_id: props.instance.id, save: save.name }
+						control.send(
+							new libData.InstanceDeleteSaveRequest(props.instance.id, save.name)
 						).catch(notifyErrorHandler("Error deleting save"));
 					}}
 				>

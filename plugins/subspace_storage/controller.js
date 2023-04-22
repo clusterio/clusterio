@@ -11,6 +11,15 @@ const RateLimiter = require("@clusterio/lib/RateLimiter");
 const routes = require("./routes");
 const dole = require("./dole");
 
+const {
+	Item,
+	PlaceEvent,
+	RemoveRequest,
+	GetStorageRequest,
+	UpdateStorageEvent,
+	SetStorageSubscriptionRequest,
+} = require("./messages");
+
 
 const exportCounter = new Counter(
 	"clusterio_subspace_storage_export_total",
@@ -87,6 +96,11 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		this.subscribedControlLinks = new Set();
 
 		routes.addApiRoutes(this.controller.app, this.items);
+
+		this.controller.register(GetStorageRequest, this.handleGetStorageRequest.bind(this));
+		this.controller.register(PlaceEvent, this.handlePlaceEvent.bind(this));
+		this.controller.register(RemoveRequest, this.handleRemoveRequest.bind(this));
+		this.controller.register(SetStorageSubscriptionRequest, this.handleSetStorageSubscriptionRequest.bind(this));
 	}
 
 	updateStorage() {
@@ -107,48 +121,49 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		}
 
 		itemsToUpdate = [...itemsToUpdate.entries()];
-		this.broadcastEventToHosts(this.info.messages.updateStorage, { items: itemsToUpdate });
+		let update = new UpdateStorageEvent(itemsToUpdate);
+		this.controller.sendTo(update, "allInstances");
 		for (let link of this.subscribedControlLinks) {
-			this.info.messages.updateStorage.send(link, { items: itemsToUpdate });
+			link.send(update);
 		}
 		this.itemsLastUpdate = new Map(this.items._items.entries());
 	}
 
-	async getStorageRequestHandler(message) {
-		return { items: [...this.items._items.entries()] };
+	async handleGetStorageRequest() {
+		return [...this.items._items.entries()];
 	}
 
-	async placeEventHandler(message) {
-		let instanceId = message.data.instance_id;
+	async handlePlaceEvent(request, src) {
+		let instanceId = src.id;
 
-		for (let item of message.data.items) {
-			this.items.addItem(item[0], item[1]);
-			exportCounter.labels(String(instanceId), item[0]).inc(item[1]);
+		for (let item of request.items) {
+			this.items.addItem(item.name, item.count);
+			exportCounter.labels(String(instanceId), item.name).inc(item.count);
 		}
 
 		this.updateStorage();
 
 		if (this.controller.config.get("subspace_storage.log_item_transfers")) {
 			this.logger.verbose(
-				`Imported the following from ${message.data.instance_id}:\n${JSON.stringify(message.data.items)}`
+				`Imported the following from ${instanceId}:\n${JSON.stringify(request.items)}`
 			);
 		}
 	}
 
-	async removeRequestHandler(message) {
+	async handleRemoveRequest(request, src) {
 		let method = this.controller.config.get("subspace_storage.division_method");
-		let instanceId = message.data.instance_id;
+		let instanceId = src.id;
 
 		let itemsRemoved = [];
 		if (method === "simple") {
 			// Give out as much items as possible until there are 0 left.  This
 			// might lead to one host getting all the items and the rest nothing.
-			for (let item of message.data.items) {
-				let count = this.items.getItemCount(item[0]);
-				let toRemove = Math.min(count, item[1]);
+			for (let item of request.items) {
+				let count = this.items.getItemCount(item.name);
+				let toRemove = Math.min(count, item.count);
 				if (toRemove > 0) {
-					this.items.removeItem(item[0], toRemove);
-					itemsRemoved.push([item[0], toRemove]);
+					this.items.removeItem(item.name, toRemove);
+					itemsRemoved.push(new Item(item.name, toRemove));
 				}
 			}
 
@@ -158,24 +173,24 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 			// use fancy neural net to calculate a "fair" dole division rate.
 			if (method === "neural_dole") {
-				for (let item of message.data.items) {
-					let count = neuralDole.divider({ name: item[0], count: item[1], instanceId, instanceName });
+				for (let item of request.items) {
+					let count = neuralDole.divider({ name: item.name, count: item.count, instanceId, instanceName });
 					if (count > 0) {
-						itemsRemoved.push([item[0], count]);
+						itemsRemoved.push(new Item(item.name, count));
 					}
 				}
 
 			// Use dole division. Makes it really slow to drain out the last little bit.
 			} else if (method === "dole") {
-				for (let item of message.data.items) {
+				for (let item of request.items) {
 					let count = dole.doleDivider({
-						object: { name: item[0], count: item[1], instanceId, instanceName },
+						object: { name: item.name, count: item.count, instanceId, instanceName },
 						items: this.items,
 						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers"),
 						logger: this.logger,
 					});
 					if (count > 0) {
-						itemsRemoved.push([item[0], count]);
+						itemsRemoved.push(new Item(item.name, count));
 					}
 				}
 
@@ -187,7 +202,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		if (itemsRemoved.length) {
 			for (let item of itemsRemoved) {
-				importCounter.labels(String(instanceId), item[0]).inc(item[1]);
+				importCounter.labels(String(instanceId), item.name).inc(item.count);
 			}
 
 			this.updateStorage();
@@ -197,13 +212,12 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			}
 		}
 
-		return {
-			items: itemsRemoved,
-		};
+		return itemsRemoved;
 	}
 
-	async setStorageSubscriptionRequestHandler(message, request, link) {
-		if (message.data.storage) {
+	async handleSetStorageSubscriptionRequest(request, src) {
+		let link = this.controller.wsServer.controlConnections.get(src.id);
+		if (request.storage) {
 			this.subscribedControlLinks.add(link);
 		} else {
 			this.subscribedControlLinks.delete(link);

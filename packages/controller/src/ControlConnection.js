@@ -30,11 +30,13 @@ const queryLogTime = new libPrometheus.Summary(
  * @alias module:controller/src/ControlConnection
  */
 class ControlConnection extends BaseConnection {
-	constructor(registerData, connector, controller, user) {
-		super("control", connector, controller);
+	constructor(registerData, connector, controller, user, id) {
+		super(connector, controller);
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
+		this.id = id;
+		this.dst = new libData.Address(libData.Address.instance, id);
 
 		/**
 		 * The user making this connection.
@@ -44,27 +46,27 @@ class ControlConnection extends BaseConnection {
 
 		this.hostSubscriptions = {
 			all: false,
-			host_ids: [],
+			hostIds: [],
 		};
 
 		this.instanceSubscriptions = {
 			all: false,
-			instance_ids: [],
+			instanceIds: [],
 		};
 
 		this.saveListSubscriptions = {
 			all: false,
-			instance_ids: [],
+			instanceIds: [],
 		};
 
 		this.modPackSubscriptions = {
 			all: false,
-			mod_pack_ids: [],
+			modPackIds: [],
 		};
 
 		this.modSubscriptions = {
 			all: false,
-			mod_names: [],
+			modNames: [],
 		};
 
 		this.userSubscriptions = {
@@ -76,8 +78,8 @@ class ControlConnection extends BaseConnection {
 		this.logSubscriptions = {
 			all: false,
 			controller: false,
-			host_ids: [],
-			instance_ids: [],
+			hostIds: [],
+			instanceIds: [],
 		};
 
 		this.ws_dumper = null;
@@ -101,183 +103,245 @@ class ControlConnection extends BaseConnection {
 				}
 			});
 		}
+
+		this.register(libData.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
+		this.register(libData.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
+		this.register(libData.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
+		this.register(libData.HostListRequest, this.handleHostListRequest.bind(this));
+		this.register(libData.HostSetSubscriptionsRequest, this.handleHostSetSubscriptionsRequest.bind(this));
+		this.register(libData.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
+		this.register(libData.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
+		this.register(libData.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
+		this.register(libData.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
+		this.register(
+			libData.InstanceDetailsSetSubscriptionsRequest, this.handleInstanceDetailsSetSubscriptionsRequest.bind(this)
+		);
+		this.register(libData.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
+		this.register(libData.InstanceDeleteRequest, this.handleInstanceDeleteRequest.bind(this));
+		this.register(libData.InstanceConfigGetRequest, this.handleInstanceConfigGetRequest.bind(this));
+		this.register(libData.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
+		this.register(libData.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
+		this.register(libData.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
+		this.register(
+			libData.InstanceSetSaveListSubscriptionsRequest,
+			this.handleInstanceSetSaveListSubscriptionsRequest.bind(this)
+		);
+		this.register(
+			libData.InstanceRenameSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller)
+		);
+		this.register(libData.InstanceCopySaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
+		this.register(
+			libData.InstanceDeleteSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller)
+		);
+		this.register(libData.InstanceDownloadSaveRequest, this.handleInstanceDownloadSaveRequest.bind(this));
+		this.register(libData.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
+		this.register(libData.ModPackListRequest, this.handleModPackListRequest.bind(this));
+		this.register(libData.ModPackSetSubscriptionsRequest, this.handleModPackSetSubscriptionsRequest.bind(this));
+		this.register(libData.ModPackCreateRequest, this.handleModPackCreateRequest.bind(this));
+		this.register(libData.ModPackUpdateRequest, this.handleModPackUpdateRequest.bind(this));
+		this.register(libData.ModPackDeleteRequest, this.handleModPackDeleteRequest.bind(this));
+		this.register(libData.ModGetRequest, this.handleModGetRequest.bind(this));
+		this.register(libData.ModListRequest, this.handleModListRequest.bind(this));
+		this.register(libData.ModSearchRequest, this.handleModSearchRequest.bind(this));
+		this.register(libData.ModSetSubscriptionsRequest, this.handleModSetSubscriptionsRequest.bind(this));
+		this.register(libData.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
+		this.register(libData.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
+		this.register(libData.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
+		this.register(libData.LogQueryRequest, this.handleLogQueryRequest.bind(this));
+		this.register(libData.PermissionListRequest, this.handlePermissionListRequest.bind(this));
+		this.register(libData.RoleListRequest, this.handleRoleListRequest.bind(this));
+		this.register(libData.RoleCreateRequest, this.handleRoleCreateRequest.bind(this));
+		this.register(libData.RoleUpdateRequest, this.handleRoleUpdateRequest.bind(this));
+		this.register(
+			libData.RoleGrantDefaultPermissionsRequest, this.handleRoleGrantDefaultPermissionsRequest.bind(this)
+		);
+		this.register(libData.RoleDeleteRequest, this.handleRoleDeleteRequest.bind(this));
+		this.register(libData.UserGetRequest, this.handleUserGetRequest.bind(this));
+		this.register(libData.UserListRequest, this.handleUserListRequest.bind(this));
+		this.register(libData.UserSetSubscriptionsRequest, this.handleUserSetSubscriptionsRequest.bind(this));
+		this.register(libData.UserCreateRequest, this.handleUserCreateRequest.bind(this));
+		this.register(libData.UserRevokeTokenRequest, this.handleUserRevokeTokenRequest.bind(this));
+		this.register(libData.UserUpdateRolesRequest, this.handleUserUpdateRolesRequest.bind(this));
+		this.register(libData.UserSetAdminRequest, this.handleUserSetAdminRequest.bind(this));
+		this.register(libData.UserSetBannedRequest, this.handleUserSetBannedRequest.bind(this));
+		this.register(libData.UserSetWhitelistedRequest, this.handleUserSetWhitelistedRequest.bind(this));
+		this.register(libData.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
+		this.register(libData.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
-	async getControllerConfigRequestHandler() {
-		return { serialized_config: this._controller.config.serialize("control") };
+	async handleControllerConfigGetRequest() {
+		return new libData.RawConfig(this._controller.config.serialize("control"));
 	}
 
-	async setControllerConfigFieldRequestHandler(message) {
-		this._controller.config.set(message.data.field, message.data.value, "control");
+	async handleControllerConfigSetFieldRequest(request) {
+		this._controller.config.set(request.field, request.value, "control");
 	}
 
-	async setControllerConfigPropRequestHandler(message) {
-		let { field, prop, value } = message.data;
+	async handleControllerConfigSetPropRequest(request) {
+		let { field, prop, value } = request;
 		this._controller.config.setProp(field, prop, value, "control");
 	}
 
-	async listHostsRequestHandler(message) {
+	async handleHostListRequest() {
 		let list = [];
 		for (let host of this._controller.hosts.values()) {
-			list.push({
-				agent: host.agent,
-				version: host.version,
-				id: host.id,
-				name: host.name,
-				public_address: host.public_address || null,
-				connected: this._controller.wsServer.hostConnections.has(host.id),
-			});
+			list.push(new libData.HostDetails(
+				host.agent,
+				host.version,
+				host.name,
+				host.id,
+				this._controller.wsServer.hostConnections.has(host.id),
+				host.public_address,
+			));
 		}
-		return { list };
+		return list;
 	}
 
-	async setHostSubscriptionsRequestHandler(message) {
-		this.hostSubscriptions = message.data;
+	async handleHostSetSubscriptionsRequest(request) {
+		this.hostSubscriptions = { ...request };
 	}
 
 	hostUpdated(host, update) {
 		if (
 			this.hostSubscriptions.all
-			|| this.hostSubscriptions.host_ids.includes(host.id)
+			|| this.hostSubscriptions.hostIds.includes(host.id)
 		) {
-			libLink.messages.hostUpdate.send(this, update);
+			this.send(new libData.HostUpdateEvent(update));
 		}
 	}
 
-	async generateHostTokenRequestHandler(message) {
-		let hostId = message.data.host_id;
+	async handleHostGenerateTokenRequest(message) {
+		let hostId = message.host_id;
 		if (hostId === null) {
 			hostId = Math.random() * 2**31 | 0;
 		}
-		return { token: this._controller.generateHostToken(hostId) };
+		return this._controller.generateHostToken(hostId);
 	}
 
-	async createHostConfigRequestHandler(message) {
+	async handleHostConfigCreateRequest(request) {
 		let hostConfig = new libConfig.HostConfig("control");
 		await hostConfig.init();
 
 		hostConfig.set("host.controller_url", this._controller.getControllerUrl());
-		if (message.data.id !== null) {
-			hostConfig.set("host.id", message.data.id);
+		if (request.id !== null) {
+			hostConfig.set("host.id", request.id);
 		}
-		if (message.data.name !== null) {
-			hostConfig.set("host.name", message.data.name);
+		if (request.name !== null) {
+			hostConfig.set("host.name", request.name);
 		}
-		if (message.data.generate_token) {
+		if (request.generateToken) {
 			this.user.checkPermission("core.host.generate_token");
 			hostConfig.set("host.controller_token", this._controller.generateHostToken(hostConfig.get("host.id")));
 		}
-		return { serialized_config: hostConfig.serialize() };
+		return new libData.RawConfig(hostConfig.serialize());
 	}
 
-	async getInstanceRequestHandler(message) {
-		let id = message.data.id;
-		let instance = this._controller.getRequestInstance(id);
+	async handleInstanceDetailsGetRequest(request) {
+		let instance = this._controller.getRequestInstance(request.instanceId);
 
-		return {
-			id,
-			name: instance.config.get("instance.name"),
-			assigned_host: instance.config.get("instance.assigned_host"),
-			game_port: instance.game_port || null,
-			status: instance.status,
-		};
+		return new libData.InstanceDetails(
+			instance.config.get("instance.name"),
+			instance.id,
+			instance.config.get("instance.assigned_host"),
+			instance.game_port || null,
+			instance.status,
+		);
 	}
 
-	async listInstancesRequestHandler(message) {
+	async handleInstanceDetailsListRequest() {
 		let list = [];
 		for (let instance of this._controller.instances.values()) {
-			list.push({
-				id: instance.id,
-				name: instance.config.get("instance.name"),
-				assigned_host: instance.config.get("instance.assigned_host"),
-				game_port: instance.game_port || null,
-				status: instance.status,
-			});
+			list.push(new libData.InstanceDetails(
+				instance.config.get("instance.name"),
+				instance.id,
+				instance.config.get("instance.assigned_host"),
+				instance.game_port || null,
+				instance.status,
+			));
 		}
-		return { list };
+		return list;
 	}
 
-	async setInstanceSubscriptionsRequestHandler(message) {
-		this.instanceSubscriptions = message.data;
+	async handleInstanceDetailsSetSubscriptionsRequest(request) {
+		this.instanceSubscriptions = { ...request };
 	}
 
 	instanceUpdated(instance) {
 		if (
 			this.instanceSubscriptions.all
-			|| this.instanceSubscriptions.instance_ids.includes(instance.id)
+			|| this.instanceSubscriptions.instanceIds.includes(instance.id)
 		) {
-			libLink.messages.instanceUpdate.send(this, {
-				id: instance.id,
-				name: instance.config.get("instance.name"),
-				assigned_host: instance.config.get("instance.assigned_host"),
-				game_port: instance.game_port || null,
-				status: instance.status,
-			});
+			this.send(new libData.InstanceDetailsUpdateEvent(
+				new libData.InstanceDetails(
+					instance.config.get("instance.name"),
+					instance.id,
+					instance.config.get("instance.assigned_host"),
+					instance.game_port || null,
+					instance.status,
+				)
+			));
 		}
 	}
 
 	// XXX should probably add a hook for host reuqests?
-	async createInstanceRequestHandler(message) {
+	async handleInstanceCreateRequest(request) {
 		let instanceConfig = new libConfig.InstanceConfig("controller");
-		await instanceConfig.load(message.data.serialized_config);
+		await instanceConfig.load(request.config);
 		await this._controller.instanceCreate(instanceConfig);
 	}
 
-	async deleteInstanceRequestHandler(message, request) {
-		await this._controller.instanceDelete(message.data.instance_id);
+	async handleInstanceDeleteRequest(request) {
+		await this._controller.instanceDelete(request.instanceId);
 	}
 
-	async getInstanceConfigRequestHandler(message) {
-		let instance = this._controller.getRequestInstance(message.data.instance_id);
-		return {
-			serialized_config: instance.config.serialize("control"),
-		};
+	async handleInstanceConfigGetRequest(request) {
+		let instance = this._controller.getRequestInstance(request.instanceId);
+		return new libData.InstanceConfigGetRequest.Response(instance.config.serialize("control"));
 	}
 
-	async setInstanceConfigFieldRequestHandler(message) {
-		let instance = this._controller.getRequestInstance(message.data.instance_id);
-		if (message.data.field === "instance.assigned_host") {
+	async handleInstanceConfigSetFieldRequest(request) {
+		let instance = this._controller.getRequestInstance(request.instanceId);
+		if (request.field === "instance.assigned_host") {
 			throw new libErrors.RequestError("instance.assigned_host must be set through the assign-host interface");
 		}
 
-		if (message.data.field === "instance.id") {
+		if (request.field === "instance.id") {
 			// XXX is this worth implementing?  It's race condition galore.
 			throw new libErrors.RequestError("Setting instance.id is not supported");
 		}
 
-		instance.config.set(message.data.field, message.data.value, "control");
+		instance.config.set(request.field, request.value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
-	async setInstanceConfigPropRequestHandler(message) {
-		let instance = this._controller.getRequestInstance(message.data.instance_id);
-		let { field, prop, value } = message.data;
+	async handleInstanceConfigSetPropRequest(request) {
+		let instance = this._controller.getRequestInstance(request.instanceId);
+		let { field, prop, value } = request;
 		instance.config.setProp(field, prop, value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
-	async assignInstanceCommandRequestHandler(message, request) {
-		let { host_id, instance_id } = message.data;
-		await this._controller.instanceAssign(instance_id, host_id);
+	async handleInstanceAssignRequest(request) {
+		await this._controller.instanceAssign(request.instanceId, request.hostId);
 	}
 
-	async setSaveListSubscriptionsRequestHandler(message) {
-		this.saveListSubscriptions = message.data;
+	async handleInstanceSetSaveListSubscriptionsRequest(request) {
+		this.saveListSubscriptions = { ...request };
 	}
 
-	saveListUpdate(data) {
+	saveListUpdate(instanceId, saves) {
 		if (
 			this.saveListSubscriptions.all
-			|| this.saveListSubscriptions.instance_ids.includes(data.instance_id)
+			|| this.saveListSubscriptions.instanceIds.includes(instanceId)
 		) {
-			libLink.messages.saveListUpdate.send(this, data);
+			this.send(new libData.InstanceSaveListUpdateEvent(instanceId, saves));
 		}
 	}
 
-	async downloadSaveRequestHandler(message) {
-		let { instance_id, save } = message.data;
+	async handleInstanceDownloadSaveRequest(request) {
+		let { instanceId, name } = request;
 		let stream = await routes.createProxyStream(this._controller.app);
-		stream.filename = save;
+		stream.filename = name;
 
 		let ready = new Promise((resolve, reject) => {
 			stream.events.on("source", resolve);
@@ -287,29 +351,29 @@ class ControlConnection extends BaseConnection {
 		});
 		ready.catch(() => {});
 
-		await this._controller.forwardRequestToInstance(libLink.messages.pushSave, {
-			instance_id,
-			stream_id: stream.id,
-			save,
-		});
+		await this._controller.sendToHostByInstanceId(new libData.InstancePushSaveRequest(
+			instanceId,
+			stream.id,
+			name,
+		));
 
 		await ready;
-		return { stream_id: stream.id };
+		return stream.id;
 	}
 
-	async transferSaveRequestHandler(message, request) {
-		let { source_save, target_save, copy, instance_id, target_instance_id } = message.data;
-		if (copy) {
+	async handleInstanceTransferSaveRequest(request) {
+		// XXX if control sends the request directly to a host these checks are bypassed
+		if (request.copy) {
 			this.user.checkPermission("core.instance.save.copy");
-		} else if (source_save !== target_save) {
+		} else if (request.sourceName !== request.targetName) {
 			this.user.checkPermission("core.instance.save.rename");
 		}
 
-		if (instance_id === target_instance_id) {
+		if (request.sourceInstanceId === request.targetInstanceId) {
 			throw new libErrors.RequestError("Source and target instance may not be the same");
 		}
-		let sourceInstance = this._controller.getRequestInstance(instance_id);
-		let targetInstance = this._controller.getRequestInstance(target_instance_id);
+		let sourceInstance = this._controller.getRequestInstance(request.sourceInstanceId);
+		let targetInstance = this._controller.getRequestInstance(request.targetInstanceId);
 		let sourceHostId = sourceInstance.config.get("instance.assigned_host");
 		let targetHostId = targetInstance.config.get("instance.assigned_host");
 		if (sourceHostId === null) {
@@ -321,7 +385,7 @@ class ControlConnection extends BaseConnection {
 
 		// Let host handle request if source and target is on the same host.
 		if (sourceHostId === targetHostId) {
-			return await this.forwardRequestToInstance(message, request);
+			return await this._controller.sendTo(request, { hostId: sourceHostId });
 		}
 
 		// Check connectivity
@@ -350,42 +414,40 @@ class ControlConnection extends BaseConnection {
 		// Establish push from source host to stream, this is done first to
 		// ensure the file size is known prior to the target host pull.
 		await Promise.all([
-			this._controller.forwardRequestToInstance(libLink.messages.pushSave, {
-				instance_id,
-				stream_id: stream.id,
-				save: source_save,
-			}),
+			this._controller.sendTo(
+				new libData.InstancePushSaveRequest(request.sourceInstanceId, stream.id, request.sourceName),
+				{ hostId: sourceHostId }
+			),
 			events.once(stream.events, "source"),
 		]);
 
 		// Establish pull from target host to stream and wait for completion.
-		let result = await this._controller.forwardRequestToInstance(libLink.messages.pullSave, {
-			instance_id: target_instance_id,
-			stream_id: stream.id,
-			filename: target_save,
-		});
+		let storedName = await this._controller.sendTo(
+			new libData.InstancePullSaveRequest(request.targetInstanceId, stream.id, request.targetName),
+			{ hostId: targetHostId },
+		);
 
 		// Delete source save if this is not a copy
-		if (!copy) {
-			await this._controller.forwardRequestToInstance(libLink.messages.deleteSave, {
-				instance_id,
-				save: source_save,
-			});
+		if (!request.copy) {
+			await this._controller.sendTo(
+				new libData.InstanceDeleteSaveRequest(request.sourceInstanceId, request.sourceName),
+				{ hostId: sourceHostId }
+			);
 		}
 
-		return { save: result.save };
+		return storedName;
 	}
 
-	async listModPacksRequestHandler(message) {
-		return { list: [...this._controller.modPacks.values()].map(pack => pack.toJSON()) };
+	async handleModPackListRequest() {
+		return [...this._controller.modPacks.values()];
 	}
 
-	async setModPackSubscriptionsRequestHandler(message) {
-		this.modPackSubscriptions = message.data;
+	async handleModPackSetSubscriptionsRequest(request) {
+		this.modPackSubscriptions = { ...request };
 	}
 
-	async createModPackRequestHandler(message) {
-		let modPack = libData.ModPack.fromJSON(message.data.mod_pack);
+	async handleModPackCreateRequest(request) {
+		let modPack = request.modPack;
 		if (this._controller.modPacks.has(modPack.id)) {
 			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
@@ -393,8 +455,8 @@ class ControlConnection extends BaseConnection {
 		this._controller.modPackUpdated(modPack);
 	}
 
-	async updateModPackRequestHandler(message) {
-		let modPack = libData.ModPack.fromJSON(message.data.mod_pack);
+	async handleModPackUpdateRequest(request) {
+		let modPack = request.modPack;
 		if (!this._controller.modPacks.has(modPack.id)) {
 			throw new libErrors.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
@@ -402,8 +464,8 @@ class ControlConnection extends BaseConnection {
 		this._controller.modPackUpdated(modPack);
 	}
 
-	async deleteModPackRequestHandler(message) {
-		let { id } = message.data;
+	async handleModPackDeleteRequest(request) {
+		let { id } = request;
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
@@ -416,26 +478,24 @@ class ControlConnection extends BaseConnection {
 	modPackUpdated(modPack) {
 		if (
 			this.modPackSubscriptions.all
-			|| this.modPackSubscriptions.mod_pack_ids.includes(modPack.id)
+			|| this.modPackSubscriptions.modPackIds.includes(modPack.id)
 		) {
-			libLink.messages.modPackUpdate.send(this, { mod_pack: modPack.toJSON() });
+			this.send(new libData.ModPackUpdateEvent(modPack));
 		}
 	}
 
-	async getModRequestHandler(message) {
-		let { name, version } = message.data;
+	async handleModGetRequest(request) {
+		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
 		let mod = this._controller.mods.get(filename);
 		if (!mod) {
 			throw new libErrors.RequestError(`Mod ${filename} does not exist`);
 		}
-		return {
-			mod: mod.toJSON(),
-		};
+		return mod;
 	}
 
-	async listModsRequestHandler(message) {
-		return { list: [...this._controller.mods.values()].map(mod => mod.toJSON()) };
+	async handleModListRequest() {
+		return [...this._controller.mods.values()];
 	}
 
 	static termsMatchesMod(terms, mod) {
@@ -456,8 +516,8 @@ class ControlConnection extends BaseConnection {
 		return true;
 	}
 
-	async searchModsRequestHandler(message) {
-		let query = libHelpers.parseSearchString(message.data.query, {
+	async handleModSearchRequest(request) {
+		let query = libHelpers.parseSearchString(request.query, {
 			name: "word",
 			// version
 			title: "word",
@@ -471,7 +531,7 @@ class ControlConnection extends BaseConnection {
 			// size
 			sha1: "word",
 		});
-		let factorioVersion = message.data.factorio_version;
+		let factorioVersion = request.factorioVersion;
 
 		let results = new Map();
 		for (let mod of this._controller.mods.values()) {
@@ -497,7 +557,7 @@ class ControlConnection extends BaseConnection {
 		}
 		let resultList = [...results.values()];
 
-		const sort = message.data.sort;
+		const sort = request.sort;
 		if (sort) {
 			const sorters = {
 				name: (a, b) => strcmp(a.versions[0].name, b.versions[0].name),
@@ -508,30 +568,30 @@ class ControlConnection extends BaseConnection {
 				throw new libErrors.RequestError(`Invalid value for sort: ${sort}`);
 			}
 			resultList.sort(sorters[sort]);
-			let order = message.data.sort_order;
+			let order = request.sortOrder;
 			if (order === "desc") {
 				resultList.reverse();
 			}
 		}
 
-		const page = message.data.page;
-		const pageSize = message.data.page_size || 10;
+		const page = request.page;
+		const pageSize = request.pageSize || 10;
 		resultList = resultList.slice((page - 1) * pageSize, page * pageSize);
 
 		return {
-			query_issues: query.issues,
-			page_count: Math.ceil(results.size / pageSize),
-			result_count: results.size,
+			queryIssues: query.issues,
+			pageCount: Math.ceil(results.size / pageSize),
+			resultCount: results.size,
 			results: resultList,
 		};
 	}
 
-	async setModSubscriptionsRequestHandler(message) {
-		this.modSubscriptions = message.data;
+	async handleModSetSubscriptionsRequest(request) {
+		this.modSubscriptions = { ...request };
 	}
 
-	async downloadModRequestHandler(message) {
-		let { name, version } = message.data;
+	async handleModDownloadRequest(request) {
+		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
 		let mod = this._controller.mods.get(filename);
 		if (!mod) {
@@ -545,30 +605,30 @@ class ControlConnection extends BaseConnection {
 		stream.mime = "application/zip";
 		stream.size = mod.size;
 
-		return { stream_id: stream.id };
+		return stream.id;
 	}
 
-	async deleteModRequestHandler(message) {
-		await this._controller.deleteMod(message.data.name, message.data.version);
+	async handleModDeleteRequest(request) {
+		await this._controller.deleteMod(request.name, request.version);
 	}
 
-	async setLogSubscriptionsRequestHandler(message) {
-		this.logSubscriptions = message.data;
+	async handleLogSetSubscriptionsRequest(request) {
+		this.logSubscriptions = { ...request };
 		this.updateLogSubscriptions();
 	}
 
 	modUpdated(mod) {
 		if (
 			this.modSubscriptions.all
-			|| this.modSubscriptions.mod_names.includes(mod.name)
+			|| this.modSubscriptions.modNames.includes(mod.name)
 		) {
-			libLink.messages.modUpdate.send(this, { mod: mod.toJSON() });
+			this.send(new libData.ModUpdateEvent(mod));
 		}
 	}
 
 	updateLogSubscriptions() {
-		let { all, controller, host_ids, instance_ids } = this.logSubscriptions;
-		if (all || controller || host_ids.length || instance_ids.length) {
+		let { all, controller, hostIds, instanceIds } = this.logSubscriptions;
+		if (all || controller || hostIds.length || instanceIds.length) {
 			if (!this.logTransport) {
 				this.logTransport = new libLoggingUtils.LinkTransport({ link: this });
 				this._controller.clusterLogger.add(this.logTransport);
@@ -581,57 +641,57 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async queryLogRequestHandler(message) {
+	async handleLogQueryRequest(request) {
 		let observeDuration = queryLogTime.startTimer();
-		let { all, controller, host_ids, instance_ids } = message.data;
+		let { all, controller, hostIds, instanceIds } = request;
 
 		let log;
-		if (!all && controller && !host_ids.length && !instance_ids.length) {
-			log = await this._controller.queryControllerLog(message.data);
+		if (!all && controller && !hostIds.length && !instanceIds.length) {
+			log = await this._controller.queryControllerLog(request);
 		} else {
-			log = await this._controller.queryClusterLog(message.data);
+			log = await this._controller.queryClusterLog(request);
 		}
 
 		observeDuration();
 		return { log };
 	}
 
-	async listPermissionsRequestHandler(message) {
+	async handlePermissionListRequest() {
 		let list = [];
 		for (let permission of libUsers.permissions.values()) {
-			list.push({
-				name: permission.name,
-				title: permission.title,
-				description: permission.description,
-			});
+			list.push(new libData.RawPermission(
+				permission.name,
+				permission.title,
+				permission.description,
+			));
 		}
-		return { list };
+		return list;
 	}
 
-	async listRolesRequestHandler(message) {
+	async handleRoleListRequest() {
 		let list = [];
 		for (let role of this._controller.userManager.roles.values()) {
-			list.push({
-				id: role.id,
-				name: role.name,
-				description: role.description,
-				permissions: [...role.permissions],
-			});
+			list.push(new libData.RawRole(
+				role.id,
+				role.name,
+				role.description,
+				[...role.permissions],
+			));
 		}
-		return { list };
+		return list;
 	}
 
-	async createRoleRequestHandler(message) {
+	async handleRoleCreateRequest(request) {
 		let lastId = Math.max.apply(null, [...this._controller.userManager.roles.keys()]);
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		this._controller.userManager.roles.set(id, new libUsers.Role({ id, ...message.data }));
-		return { id };
+		this._controller.userManager.roles.set(id, new libUsers.Role({ id, ...request }));
+		return id;
 	}
 
-	async updateRoleRequestHandler(message) {
-		let { id, name, description, permissions } = message.data;
+	async handleRoleUpdateRequest(request) {
+		let { id, name, description, permissions } = request;
 		let role = this._controller.userManager.roles.get(id);
 		if (!role) {
 			throw new libErrors.RequestError(`Role with ID ${id} does not exist`);
@@ -643,18 +703,18 @@ class ControlConnection extends BaseConnection {
 		this._controller.rolePermissionsUpdated(role);
 	}
 
-	async grantDefaultRolePermissionsRequestHandler(message) {
-		let role = this._controller.userManager.roles.get(message.data.id);
+	async handleRoleGrantDefaultPermissionsRequest(request) {
+		let role = this._controller.userManager.roles.get(request.id);
 		if (!role) {
-			throw new libErrors.RequestError(`Role with ID ${message.data.id} does not exist`);
+			throw new libErrors.RequestError(`Role with ID ${request.id} does not exist`);
 		}
 
 		role.grantDefaultPermissions();
 		this._controller.rolePermissionsUpdated(role);
 	}
 
-	async deleteRoleRequestHandler(message) {
-		let id = message.data.id;
+	async handleRoleDeleteRequest(request) {
+		let id = request.id;
 		let role = this._controller.userManager.roles.get(id);
 		if (!role) {
 			throw new libErrors.RequestError(`Role with ID ${id} does not exist`);
@@ -667,44 +727,48 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async getUserRequestHandler(message) {
-		let name = message.data.name;
+	async handleUserGetRequest(request) {
+		let name = request.name;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			throw new libErrors.RequestError(`User ${name} does not exist`);
 		}
 
-		return {
-			name: user.name,
-			roles: [...user.roles].map(role => role.id),
-			is_admin: user.isAdmin,
-			is_banned: user.isBanned,
-			is_whitelisted: user.isWhitelisted,
-			ban_reason: user.banReason,
-			instances: [...user.instances],
-			player_stats: user.playerStats,
-			instance_stats: [...user.instanceStats],
-		};
+		return new libData.RawUser(
+			user.name,
+			[...user.roles].map(role => role.id),
+			[...user.instances],
+			user.isAdmin,
+			user.isBanned,
+			user.isWhitelisted,
+			user.banReason,
+			undefined,
+			user.playerStats,
+			[...user.instanceStats],
+		);
 	}
 
-	async listUsersRequestHandler(message) {
+	async handleUserListRequest() {
 		let list = [];
 		for (let user of this._controller.userManager.users.values()) {
-			list.push({
-				name: user.name,
-				roles: [...user.roles].map(role => role.id),
-				is_admin: user.isAdmin,
-				is_banned: user.isBanned,
-				is_whitelisted: user.isWhitelisted,
-				instances: [...user.instances],
-				player_stats: user.playerStats,
-			});
+			list.push(new libData.RawUser(
+				user.name,
+				[...user.roles].map(role => role.id),
+				[...user.instances],
+				user.isAdmin,
+				user.isBanned,
+				user.isWhitelisted,
+				undefined,
+				undefined,
+				user.playerStats,
+				undefined,
+			));
 		}
-		return { list };
+		return list;
 	}
 
-	async setUserSubscriptionsRequestHandler(message) {
-		this.userSubscriptions = message.data;
+	async handleUserSetSubscriptionsRequest(request) {
+		this.userSubscriptions = { ...request };
 	}
 
 	userUpdated(user) {
@@ -712,37 +776,39 @@ class ControlConnection extends BaseConnection {
 			this.userSubscriptions.all
 			|| this.userSubscriptions.names.includes(user.name)
 		) {
-			libLink.messages.userUpdate.send(this, {
-				name: user.name,
-				roles: [...user.roles].map(role => role.id),
-				is_admin: user.isAdmin,
-				is_banned: user.isBanned,
-				is_whitelisted: user.isWhitelisted,
-				ban_reason: user.banReason,
-				instances: [...user.instances],
-				player_stats: user.playerStats,
-				instance_stats: [...user.instanceStats],
-				is_deleted: user.isDeleted,
-			});
+			this.send(new libData.UserUpdateEvent(
+				new libData.RawUser(
+					user.name,
+					[...user.roles].map(role => role.id),
+					[...user.instances],
+					user.isAdmin,
+					user.isBanned,
+					user.isWhitelisted,
+					user.banReason,
+					user.isDeleted,
+					user.playerStats,
+					[...user.instanceStats],
+				)
+			));
 		}
 	}
 
-	async createUserRequestHandler(message) {
-		let user = this._controller.userManager.createUser(message.data.name);
+	async handleUserCreateRequest(request) {
+		let user = this._controller.userManager.createUser(request.name);
 		this._controller.userUpdated(user);
 	}
 
-	async revokeUserTokenRequestHandler(message) {
-		let user = this._controller.userManager.users.get(message.data.name);
+	async handleUserRevokeTokenRequest(request) {
+		let user = this._controller.userManager.users.get(request.name);
 		if (!user) {
-			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
+			throw new libErrors.RequestError(`User '${request.name}' does not exist`);
 		}
 		if (user.name !== this.user.name) {
 			this.user.checkPermission("core.user.revoke_other_token");
 		}
 
 		user.invalidateToken();
-		for (let controlConnection of this._controller.wsServer.controlConnections) {
+		for (let controlConnection of this._controller.wsServer.controlConnections.values()) {
 			if (controlConnection.user.name === user.name) {
 				controlConnection.connector.terminate();
 			}
@@ -750,14 +816,14 @@ class ControlConnection extends BaseConnection {
 		this._controller.userUpdated(user);
 	}
 
-	async updateUserRolesRequestHandler(message) {
-		let user = this._controller.userManager.users.get(message.data.name);
+	async handleUserUpdateRolesRequest(request) {
+		let user = this._controller.userManager.users.get(request.name);
 		if (!user) {
-			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
+			throw new libErrors.RequestError(`User '${request.name}' does not exist`);
 		}
 
 		let resolvedRoles = new Set();
-		for (let roleId of message.data.roles) {
+		for (let roleId of request.roles) {
 			let role = this._controller.userManager.roles.get(roleId);
 			if (!role) {
 				throw new libErrors.RequestError(`Role with ID ${roleId} does not exist`);
@@ -771,8 +837,8 @@ class ControlConnection extends BaseConnection {
 		this._controller.userUpdated(user);
 	}
 
-	async setUserAdminRequestHandler(message) {
-		let { name, create, admin } = message.data;
+	async handleUserSetAdminRequest(request) {
+		let { name, create, admin } = request;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			if (create) {
@@ -785,11 +851,11 @@ class ControlConnection extends BaseConnection {
 
 		user.isAdmin = admin;
 		this._controller.userUpdated(user);
-		this.broadcastEventToHosts({ data: { name, admin }}, libLink.messages.adminlistUpdate);
+		this._controller.sendTo(new libData.InstanceAdminlistUpdateEvent(name, admin), "allInstances");
 	}
 
-	async setUserBannedRequestHandler(message) {
-		let { name, create, banned, reason } = message.data;
+	async handleUserSetBannedRequest(request) {
+		let { name, create, banned, reason } = request;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			if (create) {
@@ -803,11 +869,11 @@ class ControlConnection extends BaseConnection {
 		user.isBanned = banned;
 		user.banReason = reason;
 		this._controller.userUpdated(user);
-		this.broadcastEventToHosts({ data: { name, banned, reason }}, libLink.messages.banlistUpdate);
+		this._controller.sendTo(new libData.InstanceBanlistUpdateEvent(name, banned, reason), "allInstances");
 	}
 
-	async setUserWhitelistedRequestHandler(message) {
-		let { name, create, whitelisted } = message.data;
+	async handleUserSetWhitelistedRequest(request) {
+		let { name, create, whitelisted } = request;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
 			if (create) {
@@ -820,34 +886,35 @@ class ControlConnection extends BaseConnection {
 
 		user.isWhitelisted = whitelisted;
 		this._controller.userUpdated(user);
-		this.broadcastEventToHosts({ data: { name, whitelisted }}, libLink.messages.whitelistUpdate);
+		this._controller.sendTo(new libData.InstanceWhitelistUpdateEvent(name, whitelisted), "allInstances");
 	}
 
-	async deleteUserRequestHandler(message) {
-		let user = this._controller.userManager.users.get(message.data.name);
+	async handleUserDeleteRequest(request) {
+		let name = request.name;
+		let user = this._controller.userManager.users.get(name);
 		if (!user) {
-			throw new libErrors.RequestError(`User '${message.data.name}' does not exist`);
+			throw new libErrors.RequestError(`User '${name}' does not exist`);
 		}
 
 		user.isDeleted = true;
-		this._controller.userManager.users.delete(message.data.name);
+		this._controller.userManager.users.delete(name);
 		this._controller.userUpdated(user);
 
 		if (user.is_admin) {
-			this.broadcastEventToHosts({ data: { name, admin: false }}, libLink.messages.adminlistUpdate);
+			this._controller.sendTo(new libData.InstanceAdminlistUpdateEvent(name, false), "allInstances");
 		}
 		if (user.is_whitelisted) {
-			this.broadcastEventToHosts({ data: { name, whitelisted: false }}, libLink.messages.whitelistUpdate);
+			this._controller.sendTo(new libData.InstanceWhitelistUpdateEvent(name, false), "allInstances");
 		}
 		if (user.is_banned) {
-			this.broadcastEventToHosts({ data: { name, banned: false, reason: "" }}, libLink.messages.banlistUpdate);
+			this._controller.sendTo(new libData.InstanceBanlistUpdateEvent(name, false, ""), "allInstances");
 		}
 	}
 
-	async debugDumpWsRequestHandler(message) {
+	async handleDebugDumpWsRequest(request) {
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
-				libLink.messages.debugWsMessage.send(this, data);
+				this.send(new libData.DebugWsMessageEvent(data.direction, data.content));
 			}
 		};
 		this.connector._socket.clusterio_ignore_dump = true;

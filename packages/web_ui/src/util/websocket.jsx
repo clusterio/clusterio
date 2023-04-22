@@ -19,11 +19,11 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 		}
 
 		logger.verbose("Connector | registering control");
-		this.sendHandshake("register_control", {
-			token: this.token,
-			agent: "Clusterio Web UI",
-			version: packageJson.version,
-		});
+		this.sendHandshake(new libData.MessageRegisterControl(new libData.RegisterControlData(
+			this.token,
+			"Clusterio Web UI",
+			packageJson.version,
+		)));
 	}
 }
 
@@ -35,8 +35,7 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
  */
 export class Control extends libLink.Link {
 	constructor(connector, plugins) {
-		super("control", "controller", connector);
-		libLink.attachAllMessages(this);
+		super(connector);
 
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
@@ -45,7 +44,6 @@ export class Control extends libLink.Link {
 		this.plugins = plugins;
 		for (let plugin of plugins.values()) {
 			plugin.control = this;
-			libPlugin.attachPluginMessages(this, plugin);
 		}
 
 		/**
@@ -115,10 +113,20 @@ export class Control extends libLink.Link {
 				}
 			});
 		}
+
+		this.register(libData.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));
+		this.register(libData.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
+		this.register(libData.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
+		this.register(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.register(libData.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
+		this.register(libData.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
+		this.register(libData.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
+		this.register(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.register(libData.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
 	}
 
-	async accountUpdateEventHandler(message) {
-		this.accountRoles = message.data.roles;
+	async handleAccountUpdateEvent(event) {
+		this.accountRoles = event.roles;
 		this.emitAccountUpdate();
 	}
 
@@ -143,13 +151,13 @@ export class Control extends libLink.Link {
 		this.accountUpdateHandlers.splice(index, 1);
 	}
 
-	async hostUpdateEventHandler(message) {
+	async handleHostUpdateEvent(event) {
 		let handlers = [].concat(
 			this.hostUpdateHandlers.get(null) || [],
-			this.hostUpdateHandlers.get(message.data.id) || [],
+			this.hostUpdateHandlers.get(event.update.id) || [],
 		);
 		for (let handler of handlers) {
-			handler(message.data);
+			handler(event.update);
 		}
 	}
 
@@ -194,19 +202,19 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setHostSubscriptions.send(this, {
-			all: this.hostUpdateHandlers.has(null),
-			host_ids: [...this.hostUpdateHandlers.keys()].filter(e => e !== null),
-		});
+		await this.send(new libData.HostSetSubscriptionsRequest(
+			this.hostUpdateHandlers.has(null),
+			[...this.hostUpdateHandlers.keys()].filter(e => e !== null),
+		));
 	}
 
-	async instanceUpdateEventHandler(message) {
+	async handleInstanceDetailsUpdateEvent(event) {
 		let handlers = [].concat(
 			this.instanceUpdateHandlers.get(null) || [],
-			this.instanceUpdateHandlers.get(message.data.id) || [],
+			this.instanceUpdateHandlers.get(event.details.id) || [],
 		);
 		for (let handler of handlers) {
-			handler(message.data);
+			handler(event.details);
 		}
 	};
 
@@ -251,16 +259,16 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setInstanceSubscriptions.send(this, {
-			all: this.instanceUpdateHandlers.has(null),
-			instance_ids: [...this.instanceUpdateHandlers.keys()].filter(e => e !== null),
-		});
+		await this.send(new libData.InstanceDetailsSetSubscriptionsRequest(
+			this.instanceUpdateHandlers.has(null),
+			[...this.instanceUpdateHandlers.keys()].filter(e => e !== null),
+		));
 	}
 
-	async saveListUpdateEventHandler(message) {
-		let handlers = this.saveListUpdateHandlers.get(message.data.instance_id);
+	async handleInstanceSaveListUpdateEvent(event) {
+		let handlers = this.saveListUpdateHandlers.get(event.instanceId);
 		for (let handler of handlers || []) {
-			handler(message.data);
+			handler(event);
 		}
 	};
 
@@ -305,14 +313,14 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setSaveListSubscriptions.send(this, {
-			all: false,
-			instance_ids: [...this.saveListUpdateHandlers.keys()],
-		});
+		await this.send(new libData.InstanceSetSaveListSubscriptionsRequest(
+			false,
+			[...this.saveListUpdateHandlers.keys()],
+		));
 	}
 
-	async modPackUpdateEventHandler(message) {
-		let modPack = libData.ModPack.fromJSON(message.data.mod_pack);
+	async handleModPackUpdateEvent(event) {
+		let modPack = event.modPack;
 		let handlers = [].concat(
 			this.modPackUpdateHandlers.get(null) || [],
 			this.modPackUpdateHandlers.get(modPack.id) || [],
@@ -363,14 +371,14 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setModPackSubscriptions.send(this, {
-			all: this.modPackUpdateHandlers.has(null),
-			mod_pack_ids: [...this.modPackUpdateHandlers.keys()].filter(k => k !== null),
-		});
+		await this.send(new libData.ModPackSetSubscriptionsRequest(
+			this.modPackUpdateHandlers.has(null),
+			[...this.modPackUpdateHandlers.keys()].filter(k => k !== null),
+		));
 	}
 
-	async modUpdateEventHandler(message) {
-		let mod = libData.ModInfo.fromJSON(message.data.mod);
+	async handleModUpdateEvent(event) {
+		let mod = event.mod;
 		let handlers = [].concat(
 			this.modUpdateHandlers.get(null) || [],
 			this.modUpdateHandlers.get(mod.name) || []
@@ -421,19 +429,19 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setModSubscriptions.send(this, {
-			all: this.modUpdateHandlers.has(null),
-			mod_names: [...this.modUpdateHandlers.keys()].filter(k => k !== null),
-		});
+		await this.send(new libData.ModSetSubscriptionsRequest(
+			this.modUpdateHandlers.has(null),
+			[...this.modUpdateHandlers.keys()].filter(k => k !== null),
+		));
 	}
 
-	async userUpdateEventHandler(message) {
+	async handleUserUpdateEvent(event) {
 		let handlers = [].concat(
 			this.userUpdateHandlers.get(null) || [],
-			this.userUpdateHandlers.get(message.data.name) || [],
+			this.userUpdateHandlers.get(event.user.name) || [],
 		);
 		for (let handler of handlers) {
-			handler(message.data);
+			handler(event.user);
 		}
 	};
 
@@ -478,14 +486,14 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await libLink.messages.setUserSubscriptions.send(this, {
-			all: this.userUpdateHandlers.has(null),
-			names: [...this.userUpdateHandlers.keys()].filter(e => e !== null),
-		});
+		await this.send(new libData.UserSetSubscriptionsRequest(
+			this.userUpdateHandlers.has(null),
+			[...this.userUpdateHandlers.keys()].filter(e => e !== null),
+		));
 	}
 
-	async logMessageEventHandler(message) {
-		let info = message.data.info;
+	async handleLogMessageEvent(event) {
+		let info = event.info;
 
 		for (let [filter, handlers] of this.logHandlers) {
 			if (logFilter(filter)(info)) {
@@ -533,45 +541,41 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		let combinedFilter = {
-			all: false,
-			controller: false,
-			host_ids: [],
-			instance_ids: [],
-		};
+		let all = false;
+		let controller = false;
+		let hostIds = [];
+		let instanceIds = [];
 
 		for (let filter of this.logHandlers.keys()) {
-			if (filter.all) { combinedFilter.all = true; }
-			if (filter.controller) { combinedFilter.controller = true; }
-			for (let hostId of filter.host_ids || []) {
-				if (!combinedFilter.host_ids.includes(hostId)) {
-					combinedFilter.host_ids.push(hostId);
+			if (filter.all) { all = true; }
+			if (filter.controller) { controller = true; }
+			for (let hostId of filter.hostIds || []) {
+				if (!hostIds.includes(hostId)) {
+					hostIds.push(hostId);
 				}
 			}
-			for (let instanceId of filter.instance_ids || []) {
-				if (!combinedFilter.instance_ids.includes(instanceId)) {
-					combinedFilter.instance_ids.push(instanceId);
+			for (let instanceId of filter.instanceIds || []) {
+				if (!instanceIds.includes(instanceId)) {
+					instanceIds.push(instanceId);
 				}
 			}
 		}
 
-		await libLink.messages.setLogSubscriptions.send(this, { ...combinedFilter, max_level: null });
+		await this.send(new libData.LogSetSubscriptionsRequest(all, controller, hostIds, instanceIds, null));
 	}
 
-	async debugWsMessageEventHandler(message) {
+	async handleDebugWsMessageEvent(message) {
 		// eslint-disable-next-line no-console
 		console.log("WS", message.data.direction, message.data.content);
 	}
 
 	async shutdown() {
 		try {
-			await libLink.messages.prepareDisconnect.send(this);
+			await this.connector.disconnect();
 		} catch (err) {
 			if (!(err instanceof libErrors.SessionLost)) {
 				throw err;
 			}
 		}
-
-		await this.connector.close(1000, "Control Quit");
 	}
 }

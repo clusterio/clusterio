@@ -1,7 +1,7 @@
 import { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
-import { libLink, libLogging } from "@clusterio/lib";
+import { libData, libLogging } from "@clusterio/lib";
 const { logger } = libLogging;
 
 
@@ -10,8 +10,8 @@ export function useSaves(instanceId) {
 	let [saves, setSaves] = useState([]);
 
 	function updateSaves() {
-		libLink.messages.listSaves.send(control, { instance_id: instanceId }).then(result => {
-			setSaves(result.list);
+		control.sendTo(new libData.InstanceListSavesRequest(), { instanceId }).then(updatedSaves => {
+			setSaves(updatedSaves);
 		}).catch(err => {
 			logger.error(`Failed to list instance saves: ${err}`);
 			setSaves([]);
@@ -26,7 +26,7 @@ export function useSaves(instanceId) {
 		updateSaves();
 
 		function updateHandler(data) {
-			setSaves(data.list);
+			setSaves(data.saves);
 		}
 
 		control.onSaveListUpdate(instanceId, updateHandler);

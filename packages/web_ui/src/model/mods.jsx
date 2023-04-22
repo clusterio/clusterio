@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 
-import { libData, libLink, libLogging } from "@clusterio/lib";
+import { libData, libLogging } from "@clusterio/lib";
 
 import ControlContext from "../components/ControlContext";
 
@@ -12,8 +12,8 @@ export function useModList() {
 	let [modList, setModList] = useState([]);
 
 	function updateModList() {
-		libLink.messages.listMods.send(control).then(result => {
-			setModList(result.list.map(mod => libData.ModInfo.fromJSON(mod)));
+		control.send(new libData.ModListRequest()).then(mods => {
+			setModList(mods);
 		}).catch(err => {
 			logger.error(`Failed to list mods:\n${err}`);
 		});

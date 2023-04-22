@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Input, Typography } from "antd";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -22,11 +22,11 @@ export default function InstanceRcon(props) {
 
 		setRunning(true);
 		try {
-			let result = await libLink.messages.sendRcon.send(control, {
-				instance_id: props.id,
-				command: command,
-			});
-			setOutput(result.result);
+			let result = await control.sendTo(
+				new libData.InstanceSendRconRequest(command),
+				{ instanceId: props.id }
+			);
+			setOutput(result);
 		} finally {
 			setRunning(false);
 		}

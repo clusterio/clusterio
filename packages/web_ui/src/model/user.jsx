@@ -2,31 +2,30 @@ import React, { useEffect, useContext, useState } from "react";
 import { Tag } from "antd";
 import ControlContext from "../components/ControlContext";
 
-import { libLink, libLogging } from "@clusterio/lib";
+import { libData, libLogging } from "@clusterio/lib";
 const { logger } = libLogging;
 
 function calculateLastSeen(user, instanceId) {
 	let stats;
 	if (instanceId === undefined) {
-		stats = user["player_stats"];
+		stats = user.playerStats;
 	} else {
-		let entry = (user["instance_stats"] || []).find(([id]) => id === instanceId);
-		if (!entry) {
+		stats = (user.instanceStats || new Map()).get(instanceId);
+		if (!stats) {
 			return undefined;
 		}
-		stats = entry[1];
 	}
-	if (stats["last_leave_at"] > stats["last_join_at"]) {
-		return stats["last_leave_at"];
+	if (stats.lastLeaveAt > stats.lastJoinAt) {
+		return stats.lastLeaveAt;
 	}
-	if (stats["last_join_at"]) {
-		return stats["last_leave_at"];
+	if (stats.lastJoinAt) {
+		return stats.lastLeaveAt;
 	}
 	return undefined;
 }
 
 export function formatLastSeen(user, instanceId = undefined) {
-	if (user["instances"].some(id => instanceId === undefined || id === instanceId)) {
+	if (user.instances.some(id => instanceId === undefined || id === instanceId)) {
 		return <Tag color="green">Online</Tag>;
 	}
 	let lastSeen = calculateLastSeen(user, instanceId);
@@ -38,7 +37,7 @@ export function formatLastSeen(user, instanceId = undefined) {
 
 export function sortLastSeen(userA, userB, instanceIdA = undefined, instanceIdB = undefined) {
 	function epoch(user, instanceId) {
-		return user["instances"].some(id => instanceId === undefined || id === instanceId);
+		return user.instances.some(id => instanceId === undefined || id === instanceId);
 	}
 
 	let epochA = epoch(userA, instanceIdA);
@@ -57,8 +56,8 @@ export function useUser(name) {
 	let [user, setUser] = useState({ loading: true });
 
 	function updateUser() {
-		libLink.messages.getUser.send(control, { name }).then(result => {
-			setUser({ ...result, present: true });
+		control.send(new libData.UserGetRequest(name)).then(updatedUser => {
+			setUser({ ...updatedUser, present: true });
 		}).catch(err => {
 			logger.error(`Failed to get user: ${err}`);
 			setUser({ missing: true });
@@ -91,8 +90,8 @@ export function useUserList() {
 	let [userList, setUserList] = useState([]);
 
 	function updateUserList() {
-		libLink.messages.listUsers.send(control).then(result => {
-			setUserList(result.list);
+		control.send(new libData.UserListRequest()).then(users => {
+			setUserList(users);
 		}).catch(err => {
 			logger.error(`Failed to list users:\n${err}`);
 		});
@@ -105,7 +104,7 @@ export function useUserList() {
 			setUserList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(u => u.name === newUser.name);
-				if (!newUser.is_deleted) {
+				if (!newUser.isDeleted) {
 					if (index !== -1) {
 						newList[index] = newUser;
 					} else {

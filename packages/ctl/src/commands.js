@@ -10,7 +10,6 @@ const child_process = require("child_process");
 const stream = require("stream");
 const util = require("util");
 
-const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
 const libConfig = require("@clusterio/lib/config");
 const libCommand = require("@clusterio/lib/command");
@@ -91,9 +90,9 @@ const controllerConfigCommands = new libCommand.CommandTree({
 controllerConfigCommands.add(new libCommand.Command({
 	definition: ["list", "List controller configuration"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getControllerConfig.send(control);
+		let response = await control.send(new libData.ControllerConfigGetRequest());
 
-		for (let group of response.serialized_config.groups) {
+		for (let group of response.serializedConfig.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -115,10 +114,7 @@ controllerConfigCommands.add(new libCommand.Command({
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await libLink.messages.setControllerConfigField.send(control, {
-			field: args.field,
-			value: args.value,
-		});
+		await control.send(new libData.ControllerConfigSetFieldRequest(args.field, args.value));
 	},
 }));
 
@@ -135,22 +131,19 @@ controllerConfigCommands.add(new libCommand.Command({
 		if (args.stdin) {
 			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
-		let request = {
-			field: args.field,
-			prop: args.prop,
-		};
+		let value;
 		try {
 			if (args.value !== undefined) {
-				request.value = JSON.parse(args.value);
+				value = JSON.parse(args.value);
 			}
 		} catch (err) {
 			// See note for the instance version of set-prop
 			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
 				throw new libErrors.CommandError(`In parsing value '${args.value}': ${err.message}`);
 			}
-			request.value = args.value;
+			value = args.value;
 		}
-		await libLink.messages.setControllerConfigProp.send(control, request);
+		await control.send(new libData.ControllerConfigSetPropRequest(args.field, args.prop, value));
 	},
 }));
 controllerConfigCommands.add(new libCommand.Command({
@@ -162,7 +155,7 @@ controllerConfigCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getControllerConfig.send(control);
+		let response = await control.send(new ControllerConfigGetRequest());
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === -1) {
@@ -170,7 +163,7 @@ controllerConfigCommands.add(new libCommand.Command({
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
 		let allConfigElements = await serializedConfigToString(
-			response.serialized_config, libConfig.ControllerConfig, {}
+			response.serializedConfig, libConfig.ControllerConfig, {}
 		);
 		await fs.writeFile(tmpFile, allConfigElements, (err) => {
 			if (err) {
@@ -191,10 +184,10 @@ controllerConfigCommands.add(new libCommand.Command({
 			for (let index in final) {
 				if (index in final) {
 					try {
-						await libLink.messages.setControllerConfigField.send(control, {
-							field: index,
-							value: final[index],
-						});
+						await control.send(new ControllerConfigSetFieldRequest(
+							index,
+							final[index],
+						));
 					} catch (err) {
 						// eslint-disable-next-line
 						print(`Attempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
@@ -241,8 +234,8 @@ const hostCommands = new libCommand.CommandTree({ name: "host", description: "Ho
 hostCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listHosts.send(control);
-		print(asTable(response.list));
+		let hosts = await control.send(new libData.HostListRequest());
+		print(asTable(hosts));
 	},
 }));
 
@@ -252,7 +245,7 @@ hostCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let hostId = typeof args.id === "number" ? args.id : null;
-		let response = await libLink.messages.generateHostToken.send(control, { host_id: hostId });
+		let response = await control.send(new libData.HostGenerateTokenRequest(hostId));
 		print(response.token);
 	},
 }));
@@ -269,11 +262,11 @@ hostCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.createHostConfig.send(control, {
-			id: args.id, name: args.name, generate_token: args.generateToken,
-		});
+		let rawConfig = await control.send(
+			new libData.HostConfigCreateRequest(args.id, args.name, args.generateToken)
+		);
 
-		let content = JSON.stringify(response.serialized_config, null, 4);
+		let content = JSON.stringify(rawConfig.serializedConfig, null, 4);
 		if (args.output === "-") {
 			print(content);
 		} else {
@@ -297,8 +290,8 @@ const instanceCommands = new libCommand.CommandTree({
 instanceCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List instances known to the controller"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listInstances.send(control);
-		print(asTable(response.list));
+		let list = await control.send(new libData.InstanceDetailsListRequest());
+		print(asTable(list));
 	},
 }));
 
@@ -317,8 +310,8 @@ instanceCommands.add(new libCommand.Command({
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		let serialized_config = instanceConfig.serialize("controller");
-		await libLink.messages.createInstance.send(control, { serialized_config });
+		let serializedConfig = instanceConfig.serialize("controller");
+		await control.send(new libData.InstanceCreateRequest(serializedConfig));
 	},
 }));
 
@@ -331,9 +324,9 @@ instanceConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let response = await libLink.messages.getInstanceConfig.send(control, { instance_id: instanceId });
+		let response = await control.send(new libData.InstanceConfigGetRequest(instanceId));
 
-		for (let group of response.serialized_config.groups) {
+		for (let group of response.config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -357,11 +350,7 @@ instanceConfigCommands.add(new libCommand.Command({
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await libLink.messages.setInstanceConfigField.send(control, {
-			instance_id: instanceId,
-			field: args.field,
-			value: args.value,
-		});
+		await control.send(new libData.InstanceConfigSetFieldRequest(instanceId, args.field, args.value));
 	},
 }));
 
@@ -380,14 +369,10 @@ instanceConfigCommands.add(new libCommand.Command({
 		if (args.stdin) {
 			args.value = (await libHelpers.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
-		let request = {
-			instance_id: instanceId,
-			field: args.field,
-			prop: args.prop,
-		};
+		let value;
 		try {
 			if (args.value !== undefined) {
-				request.value = JSON.parse(args.value);
+				value = JSON.parse(args.value);
 			}
 		} catch (err) {
 			// If this is from stdin or looks like an array, object or string
@@ -406,9 +391,9 @@ instanceConfigCommands.add(new libCommand.Command({
 			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
 				throw new libErrors.CommandError(`In parsing value '${args.value}': ${err.message}`);
 			}
-			request.value = args.value;
+			value = args.value;
 		}
-		await libLink.messages.setInstanceConfigProp.send(control, request);
+		await control.send(new libData.InstanceConfigSetPropRequest(instanceId, args.field, args.prop, value));
 	},
 }));
 
@@ -423,7 +408,7 @@ instanceConfigCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let response = await libLink.messages.getInstanceConfig.send(control, { instance_id: instanceId });
+		let response = await control.send(new libData.InstanceConfigGetRequest(instanceId));
 		let tmpFile = await libFileOps.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === -1) {
@@ -432,7 +417,7 @@ instanceConfigCommands.add(new libCommand.Command({
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
 		let allConfigElements = await serializedConfigToString(
-			response.serialized_config,
+			response.serializedConfig,
 			libConfig.InstanceConfig,
 			disallowedList
 		);
@@ -455,11 +440,11 @@ instanceConfigCommands.add(new libCommand.Command({
 			for (let index in final) {
 				if (index in final) {
 					try {
-						await libLink.messages.setInstanceConfigField.send(control, {
-							instance_id: instanceId,
-							field: index,
-							value: final[index],
-						});
+						await control.send(new libData.InstanceConfigSetField(
+							instanceId,
+							index,
+							final[index],
+						));
 					} catch (err) {
 						// eslint-disable-next-line
 						print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
@@ -494,10 +479,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		let hostId = args.host ? await libCommand.resolveHost(control, args.host) : null;
-		await libLink.messages.assignInstanceCommand.send(control, {
-			instance_id: instanceId,
-			host_id: hostId,
-		});
+		await control.send(new libData.InstanceAssignRequest(instanceId, hostId));
 	},
 }));
 
@@ -533,12 +515,12 @@ instanceSaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let response = await libLink.messages.listSaves.send(control, { instance_id: instanceId });
-		for (let entry of response.list) {
-			entry.mtime = new Date(entry.mtime_ms).toLocaleString();
-			delete entry.mtime_ms;
+		let saves = await control.sendTo(new libData.InstanceListSavesRequest(), { instanceId });
+		for (let entry of saves) {
+			entry.mtime = new Date(entry.mtimeMs).toLocaleString();
+			delete entry.mtimeMs;
 		}
-		print(asTable(response.list));
+		print(asTable(saves));
 	},
 }));
 
@@ -556,14 +538,10 @@ instanceSaveCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		await libLink.messages.createSave.send(control, {
-			instance_id: instanceId,
-			name: args.name,
-			seed,
-			map_gen_settings: mapGenSettings,
-			map_settings: mapSettings,
-		});
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo(
+			new libData.InstanceCreateSaveRequest(args.name, seed, mapGenSettings, mapSettings), { instanceId }
+		);
 	},
 }));
 
@@ -575,11 +553,7 @@ instanceSaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.renameSave.send(control, {
-			instance_id: instanceId,
-			old_name: args.oldName,
-			new_name: args.newName,
-		});
+		await control.send(new libData.InstanceRenameSaveRequest(instanceId, args.oldName, args.newName));
 	},
 }));
 
@@ -591,11 +565,7 @@ instanceSaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.copySave.send(control, {
-			instance_id: instanceId,
-			source: args.source,
-			destination: args.destination,
-		});
+		await control.send(new libData.InstanceCopySaveRequest(instanceId, args.source, args.destination));
 	},
 }));
 
@@ -667,14 +637,16 @@ instanceSaveCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let sourceInstanceId = await libCommand.resolveInstance(control, args.sourceInstance);
 		let targetInstanceId = await libCommand.resolveInstance(control, args.targetInstance);
-		let result = await libLink.messages.transferSave.send(control, {
-			instance_id: sourceInstanceId,
-			source_save: args.sourceSave,
-			target_instance_id: targetInstanceId,
-			target_save: args.targetSave || args.sourceSave,
-			copy: args.copy,
-		});
-		print(`Transferred as ${result.save} to ${args.targetInstance}.`);
+		let storedName = await control.send(
+			new libData.InstanceTransferSaveRequest(
+				sourceInstanceId,
+				args.sourceSave,
+				targetInstanceId,
+				args.targetSave || args.sourceSave,
+				args.copy
+			)
+		);
+		print(`Transferred as ${storedName} to ${args.targetInstance}.`);
 	},
 }));
 
@@ -685,13 +657,10 @@ instanceSaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let result = await libLink.messages.downloadSave.send(control, {
-			instance_id: instanceId,
-			save: args.save,
-		});
+		let streamId = await control.send(new libData.InstanceDownloadSaveRequest(instanceId, args.save));
 
 		let url = new URL(control.config.get("control.controller_url"));
-		url.pathname += `api/stream/${result.stream_id}`;
+		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
 			core: { ca: control.tlsCa },
@@ -730,10 +699,7 @@ instanceSaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await libLink.messages.deleteSave.send(control, {
-			instance_id: instanceId,
-			save: args.save,
-		});
+		await control.send(new libData.InstanceDeleteSaveRequest(instanceId, args.save));
 	},
 }));
 instanceCommands.add(instanceSaveCommands);
@@ -744,10 +710,8 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		await libLink.messages.exportData.send(control, {
-			instance_id: instanceId,
-		});
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo(new libData.InstanceExportDataRequest(), { instanceId });
 	},
 }));
 
@@ -757,10 +721,8 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		await libLink.messages.extractPlayers.send(control, {
-			instance_id: instanceId,
-		});
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo(new libData.InstanceExtractPlayersRequest(), { instanceId });
 	},
 }));
 
@@ -774,11 +736,8 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		await libLink.messages.startInstance.send(control, {
-			instance_id: instanceId,
-			save: args.save || null,
-		});
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo(new libData.InstanceStartRequest(args.save), { instanceId });
 		control.keepOpen = args.keepOpen;
 	},
 }));
@@ -797,15 +756,11 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
-		await libLink.messages.loadScenario.send(control, {
-			instance_id: instanceId,
-			scenario: args.scenario,
-			seed,
-			map_gen_settings: mapGenSettings,
-			map_settings: mapSettings,
-		});
+		await control.sendTo(
+			new libData.InstanceLoadScenarioRequest(args.scenario, seed, mapGenSettings, mapSettings), { instanceId }
+		);
 		control.keepOpen = args.keepOpen;
 	},
 }));
@@ -816,10 +771,8 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		await libLink.messages.stopInstance.send(control, {
-			instance_id: instanceId,
-		});
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo(new libData.InstanceStopRequest(args.save), { instanceId });
 	},
 }));
 
@@ -829,10 +782,8 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		await control.setLogSubscriptions({ instance_ids: [instanceId] });
-		await libLink.messages.killInstance.send(control, {
-			instance_id: instanceId,
-		});
+		await control.setLogSubscriptions({ instanceIds: [instanceId] });
+		await control.sendTo(new libData.InstanceKillRequest(args.save), { instanceId });
 	},
 }));
 
@@ -841,9 +792,8 @@ instanceCommands.add(new libCommand.Command({
 		yargs.positional("instance", { describe: "Instance to delete", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.deleteInstance.send(control, {
-			instance_id: await libCommand.resolveInstance(control, args.instance),
-		});
+		let instanceId = await libCommand.resolveInstance(control, args.instance);
+		await control.send(new libData.InstanceDeleteRequest(instanceId));
 	},
 }));
 
@@ -853,13 +803,13 @@ instanceCommands.add(new libCommand.Command({
 		yargs.positional("command", { describe: "command to send", type: "string" });
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.sendRcon.send(control, {
-			instance_id: await libCommand.resolveInstance(control, args.instance),
-			command: args.command,
-		});
+		let result = await control.sendTo(
+			new libData.InstanceSendRconRequest(args.command),
+			{ instanceId: await libCommand.resolveInstance(control, args.instance) },
+		);
 
-		// Factorio includes a newline in it's response output.
-		process.stdout.write(response.result);
+		// Factorio includes a newline in its response output.
+		process.stdout.write(result);
 	},
 }));
 
@@ -870,36 +820,38 @@ modPackCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let mods = new Map(
-			(await libLink.messages.listMods.send(control)).list.map(m => [`${m.name}_${m.version}`, m])
+			(await control.send(new libData.ModListRequest())).map(m => [`${m.name}_${m.version}`, m])
 		);
-		let response = await libLink.messages.getModPack.send(control, {
-			id: await libCommand.resolveModPack(control, args.modPack),
-		});
+		let modPack = await control.send(
+			new libData.ModPackGetRequest(await libCommand.resolveModPack(control, args.modPack))
+		);
 
-		for (let [field, value] of Object.entries(response.mod_pack)) {
+		for (let [field, value] of Object.entries(modPack)) {
 			if (field === "mods") {
 				print(`${field}:`);
-				for (let entry of value) {
-					const mod = mods.get(`${entry.name}_${entry.version}`);
+				for (let [name, entry] of value) {
+					const mod = mods.get(`${name}_${entry.version}`);
 					const missing = !mod && "? ";
 					const badChecksum = mod && entry.sha1 && entry.sha1 !== mod.sha1 && "! ";
 					const warn = missing || badChecksum || "";
 					const enabled = entry.enabled ? "" : "(disabled) ";
-					print(`  ${warn}${enabled}${entry.name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
+					print(`  ${warn}${enabled}${name} ${entry.version}${entry.sha1 ? ` (${entry.sha1})` : ""}`);
 				}
 			} else if (field === "settings") {
 				print(`${field}:`);
 				for (let [scope, settings] of Object.entries(value)) {
 					print(`  ${scope}:`);
-					for (let [setting, settingValue] of Object.entries(settings)) {
+					for (let [setting, settingValue] of settings) {
 						print(`    ${setting}: ${JSON.stringify(settingValue.value)}`);
 					}
 				}
-			} else if (field === "export_manifest") {
+			} else if (field === "exportManifest") {
 				print(`${field}:`);
-				print("  assets:");
-				for (let [name, fileName] of Object.entries(value.assets)) {
-					print(`    ${name}: ${fileName}`);
+				if (value && value.assets) {
+					print("  assets:");
+					for (let [name, fileName] of Object.entries(value.assets)) {
+						print(`    ${name}: ${fileName}`);
+					}
 				}
 
 			} else {
@@ -912,16 +864,16 @@ modPackCommands.add(new libCommand.Command({
 modPackCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List mod packs in the cluster"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listModPacks.send(control);
-		let fields = ["id", "name", "factorio_version"];
-		for (let entry of response.list) {
+		let modPacks = await control.send(new libData.ModPackListRequest());
+		let fields = ["id", "name", "factorioVersion"];
+		for (let entry of modPacks) {
 			for (let field of Object.keys(entry)) {
 				if (!fields.includes(field)) {
 					delete entry[field];
 				}
 			}
 		}
-		print(asTable(response.list));
+		print(asTable(modPacks));
 	},
 }));
 
@@ -1014,7 +966,7 @@ modPackCommands.add(new libCommand.Command({
 		setModPackMods(modPack, args.mods);
 		setModPackModsEnabled(modPack, args.disabledMods, false);
 		setModPackSettings(modPack, args);
-		await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+		await control.send(new libData.ModPackCreateRequest(modPack));
 		print(`Created mod pack ${modPack.name} (${modPack.id})`);
 	},
 }));
@@ -1025,7 +977,7 @@ modPackCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		const modPack = libData.ModPack.fromModPackString(args.string);
-		await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+		await control.send(new libData.ModPackCreateRequest(modPack));
 		print(`Created mod pack ${modPack.name} (${modPack.id})`);
 	},
 }));
@@ -1035,10 +987,9 @@ modPackCommands.add(new libCommand.Command({
 		yargs.positional("string", { describe: "Mod pack to export", type: "string" });
 	}],
 	handler: async function(args, control) {
-		const response = await libLink.messages.getModPack.send(control, {
-			id: await libCommand.resolveModPack(control, args.modPack),
-		});
-		const modPack = libData.ModPack.fromJSON(response.mod_pack);
+		const modPack = await control.send(
+			new libData.ModPackGetRequest(await libCommand.resolveModPack(control, args.modPack))
+		);
 		print(modPack.toModPackString());
 	},
 }));
@@ -1062,10 +1013,9 @@ modPackCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getModPack.send(control, {
-			id: await libCommand.resolveModPack(control, args.modPack),
-		});
-		let modPack = libData.ModPack.fromJSON(response.mod_pack);
+		const modPack = await control.send(
+			new libData.ModPackGetRequest(await libCommand.resolveModPack(control, args.modPack))
+		);
 
 		if (args.name) { modPack.name = args.name; }
 		if (args.description) { modPack.description = args.description; }
@@ -1103,7 +1053,7 @@ modPackCommands.add(new libCommand.Command({
 				}
 			}
 		}
-		await libLink.messages.updateModPack.send(control, { mod_pack: modPack.toJSON() });
+		await control.send(new libData.ModPackUpdateRequest(modPack));
 	},
 }));
 
@@ -1113,7 +1063,7 @@ modPackCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		const id = await libCommand.resolveModPack(control, args.modPack);
-		await libLink.messages.deleteModPack.send(control, { id });
+		await control.send(new libData.ModPackDeleteRequest(id));
 	},
 }));
 
@@ -1124,8 +1074,8 @@ modCommands.add(new libCommand.Command({
 		yargs.positional("mod-version", { describe: "Version of the mod", type: "string" });
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getMod.send(control, { name: args.name, version: args.modVersion });
-		for (let [field, value] of Object.entries(response.mod)) {
+		let modInfo = await control.send(new libData.ModGetRequest(args.name, args.modVersion));
+		for (let [field, value] of Object.entries(modInfo)) {
 			if (value instanceof Array) {
 				print(`${field}:`);
 				for (let entry of value) {
@@ -1150,9 +1100,9 @@ modCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listMods.send(control);
+		let mods = await control.send(new libData.ModListRequest());
 		if (!args.fields.includes("all")) {
-			for (let entry of response.list) {
+			for (let entry of mods) {
 				for (let field of Object.keys(entry)) {
 					if (!args.fields.includes(field)) {
 						delete entry[field];
@@ -1160,7 +1110,7 @@ modCommands.add(new libCommand.Command({
 				}
 			}
 		}
-		print(asTable(response.list));
+		print(asTable(mods));
 	},
 }));
 
@@ -1197,14 +1147,14 @@ modCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.searchMods.send(control, {
-			"query": args.query,
-			"factorio_version": args.factorioVersion,
-			"page_size": args.pageSize,
-			"page": args.page,
-			"sort": args.sort,
-			"sort_order": args.sortOrder,
-		});
+		let response = await control.send(new libData.ModSearchRequest(
+			args.query,
+			args.factorioVersion,
+			args.page,
+			args.pageSize,
+			args.sort,
+			args.sortOrder
+		));
 		let results = response.results.flatMap(result => result.versions);
 		if (!args.fields.includes("all")) {
 			for (let entry of results) {
@@ -1215,10 +1165,10 @@ modCommands.add(new libCommand.Command({
 				}
 			}
 		}
-		for (let issue of response.query_issues) {
+		for (let issue of response.queryIssues) {
 			print(issue);
 		}
-		print(`page ${args.page} of ${response.page_count} (${response.result_count} results)`);
+		print(`page ${args.page} of ${response.pageCount} (${response.resultCount} results)`);
 		print(asTable(results));
 	},
 }));
@@ -1275,13 +1225,10 @@ modCommands.add(new libCommand.Command({
 		yargs.positional("mod-version", { describe: "Version of mod to download", type: "string" });
 	}],
 	handler: async function(args, control) {
-		let result = await libLink.messages.downloadMod.send(control, {
-			name: args.name,
-			version: args.modVersion,
-		});
+		let streamId = await control.send(new libData.ModDownloadRequest(args.name, args.modVersion));
 
 		let url = new URL(control.config.get("control.controller_url"));
-		url.pathname += `api/stream/${result.stream_id}`;
+		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
 			core: { ca: control.tlsCa },
@@ -1318,7 +1265,7 @@ modCommands.add(new libCommand.Command({
 		yargs.positional("mod-version", { describe: "Version of mod to delete", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.deleteMod.send(control, { name: args.name, version: args.modVersion });
+		await control.send(new libData.ModDeleteRequest(args.name, args.modVersion));
 	},
 }));
 
@@ -1326,8 +1273,8 @@ const permissionCommands = new libCommand.CommandTree({ name: "permission", desc
 permissionCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List permissions in the cluster"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listPermissions.send(control);
-		print(asTable(response.list));
+		let permissions = await control.send(new libData.PermissionListRequest());
+		print(asTable(permissions));
 	},
 }));
 
@@ -1336,8 +1283,8 @@ const roleCommands = new libCommand.CommandTree({ name: "role", description: "Ro
 roleCommands.add(new libCommand.Command({
 	definition: [["list", "l"], "List roles in the cluster"],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listRoles.send(control);
-		print(asTable(response.list));
+		let roles = await control.send(new libData.RoleListRequest());
+		print(asTable(roles));
 	},
 }));
 
@@ -1350,12 +1297,12 @@ roleCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.createRole.send(control, {
-			name: args.name,
-			description: args.description,
-			permissions: args.permissions,
-		});
-		logger.info(`Created role ID ${response.id}`);
+		let id = await control.send(new libData.RoleCreateRequest(
+			args.name,
+			args.description,
+			args.permissions,
+		));
+		logger.info(`Created role ID ${id}`);
 	},
 }));
 
@@ -1395,10 +1342,10 @@ roleCommands.add(new libCommand.Command({
 		if (args.setPerms !== undefined) {
 			role.permissions = args.setPerms;
 		}
-		await libLink.messages.updateRole.send(control, role);
+		await control.send(new libData.RoleUpdateRequest(role.id, role.name, role.description, role.permissions));
 
 		if (args.grantDefault) {
-			await libLink.messages.grantDefaultRolePermissions.send(control, { id: role.id });
+			await control.send(new libData.RoleGrantDefaultPermissionsRequest(role.id));
 		}
 	},
 }));
@@ -1409,7 +1356,7 @@ roleCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let role = await libCommand.retrieveRole(control, args.role);
-		await libLink.messages.deleteRole.send(control, { id: role.id });
+		await control.send(new libData.RoleDeleteRequest(role.id));
 	},
 }));
 
@@ -1423,16 +1370,15 @@ userCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.getUser.send(control, { name: args.name });
-		delete response["seq"];
-		Object.assign(response, response["player_stats"]);
-		delete response["player_stats"];
-		let instanceStats = response["instance_stats"];
-		delete response["instance_stats"];
-		print(asTable(Object.entries(response).map(([property, value]) => ({ property, value }))));
+		let user = await control.send(new libData.UserGetRequest(args.name));
+		Object.assign(user, user.playerStats);
+		delete user.playerStats;
+		let instanceStats = user.instanceStats;
+		delete user.instanceStats;
+		print(asTable(Object.entries(user).map(([property, value]) => ({ property, value }))));
 
 		if (args.instanceStats) {
-			let instances = (await libLink.messages.listInstances.send(control)).list;
+			let instances = await control.send(new libData.InstanceDetailsListRequest());
 			function instanceName(id) {
 				let instance = instances.find(i => i.id === id);
 				if (instance) {
@@ -1457,19 +1403,22 @@ userCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listUsers.send(control);
-		for (let user of response.list) {
+		let users = await control.send(new libData.UserListRequest());
+		for (let user of users) {
 			if (args.stats) {
-				Object.assign(user, user["player_stats"]);
+				Object.assign(user, user.playerStats);
 			}
-			delete user["player_stats"];
+			delete user.playerStats;
+			delete user.isDeleted;
+			delete user.banReason;
+			delete user.instanceStats;
 			if (!args.attributes) {
-				delete user["is_admin"];
-				delete user["is_whitelisted"];
-				delete user["is_banned"];
+				delete user.isAdmin;
+				delete user.isWhitelisted;
+				delete user.isBanned;
 			}
 		}
-		print(asTable(response.list));
+		print(asTable(users));
 	},
 }));
 
@@ -1478,7 +1427,7 @@ userCommands.add(new libCommand.Command({
 		yargs.positional("name", { describe: "Name of user to create", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.createUser.send(control, { name: args.name });
+		await control.send(new libData.UserCreateRequest(args.name));
 	},
 }));
 
@@ -1487,7 +1436,7 @@ userCommands.add(new libCommand.Command({
 		yargs.positional("name", { describe: "Name of user to revoke token for", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.revokeUserToken.send(control, { name: args.name });
+		await control.send(new libData.UserRevokeTokenRequest(args.name));
 	},
 }));
 
@@ -1500,9 +1449,7 @@ userCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.setUserAdmin.send(control, {
-			name: args.user, create: args.create, admin: !args.revoke,
-		});
+		await control.send(new libData.UserSetAdminRequest(args.user, args.create, !args.revoke));
 	},
 }));
 
@@ -1515,9 +1462,7 @@ userCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.setUserWhitelisted.send(control, {
-			name: args.user, create: args.create, whitelisted: !args.remove,
-		});
+		await control.send(new libData.UserSetWhitelistedRequest(args.user, args.create, !args.remove));
 	},
 }));
 
@@ -1531,9 +1476,7 @@ userCommands.add(new libCommand.Command({
 		});
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.setUserBanned.send(control, {
-			name: args.user, create: args.create, banned: !args.pardon, reason: args.reason,
-		});
+		await control.send(new libData.UserSetBannedRequest(args.user, args.create, !args.pardon, args.reason));
 	},
 }));
 
@@ -1543,7 +1486,7 @@ userCommands.add(new libCommand.Command({
 		yargs.positional("roles", { describe: "roles to assign", type: "string" });
 	}],
 	handler: async function(args, control) {
-		let response = await libLink.messages.listRoles.send(control);
+		let roles = await control.send(new libData.RoleListRequest());
 
 		let resolvedRoles = [];
 		for (let roleName of args.roles) {
@@ -1553,7 +1496,7 @@ userCommands.add(new libCommand.Command({
 
 			} else {
 				let found = false;
-				for (let role of response.list) {
+				for (let role of roles) {
 					if (role.name === roleName) {
 						resolvedRoles.push(role.id);
 						found = true;
@@ -1567,7 +1510,7 @@ userCommands.add(new libCommand.Command({
 			}
 		}
 
-		await libLink.messages.updateUserRoles.send(control, { name: args.user, roles: resolvedRoles });
+		await control.send(new libData.UserUpdateRolesRequest(args.user, resolvedRoles));
 	},
 }));
 
@@ -1576,7 +1519,7 @@ userCommands.add(new libCommand.Command({
 		yargs.positional("user", { describe: "Name of user to delete", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await libLink.messages.deleteUser.send(control, { name: args.user });
+		await control.send(new libData.UserDeleteRequest(args.user));
 	},
 }));
 
@@ -1596,9 +1539,9 @@ logCommands.add(new libCommand.Command({
 			process.exitCode = 1;
 			return;
 		}
-		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
-		let host_ids = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
-		await control.setLogSubscriptions({ all: args.all, controller: args.controller, host_ids, instance_ids });
+		let instanceIds = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
+		let hostIds = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
+		await control.setLogSubscriptions({ all: args.all, controller: args.controller, hostIds, instanceIds });
 		control.keepOpen = true;
 	},
 }));
@@ -1621,17 +1564,17 @@ logCommands.add(new libCommand.Command({
 			process.exitCode = 1;
 			return;
 		}
-		let instance_ids = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
-		let host_ids = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
-		let result = await libLink.messages.queryLog.send(control, {
-			all: args.all,
-			controller: args.controller,
-			host_ids,
-			instance_ids,
-			max_level: args.maxLevel,
-			limit: args.limit,
-			order: args.start ? "asc" : "desc",
-		});
+		let instanceIds = args.instance ? [await libCommand.resolveInstance(control, args.instance)] : [];
+		let hostIds = args.host ? [await libCommand.resolveHost(control, args.host)] : [];
+		let result = await control.send(new libData.LogQueryRequest(
+			args.all,
+			args.controller,
+			hostIds,
+			instanceIds,
+			args.maxLevel,
+			args.limit,
+			args.start ? "asc" : "desc",
+		));
 
 		if (!args.start) {
 			result.log.reverse();
@@ -1655,7 +1598,7 @@ const debugCommands = new libCommand.CommandTree({ name: "debug", description: "
 debugCommands.add(new libCommand.Command({
 	definition: ["dump-ws", "Dump WebSocket messages sent and received by controller", (yargs) => { }],
 	handler: async function(args, control) {
-		await libLink.messages.debugDumpWs.send(control);
+		await control.send(new libData.DebugDumpWsRequest());
 		control.keepOpen = true;
 	},
 }));

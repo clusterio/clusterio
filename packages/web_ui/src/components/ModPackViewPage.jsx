@@ -13,7 +13,7 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
-import { libData, libLink, libLogging } from "@clusterio/lib";
+import { libData, libLogging } from "@clusterio/lib";
 import ControlContext from "./ControlContext";
 import { useAccount } from "../model/account";
 import { useModPack } from "../model/mod_pack";
@@ -43,22 +43,20 @@ function SearchModsTable(props) {
 
 	useEffect(() => {
 		let canceled = false;
-		libLink.messages.searchMods.send(control, {
-			query: searchText,
-			factorio_version: factorioVersion,
-			page_size: modResultPageSize,
-			page: modResultPage,
-			sort: modResultSort,
-			sort_order: modResultSortOrder,
-		}).then(response => {
+		control.send(new libData.ModSearchRequest(
+			searchText,
+			factorioVersion,
+			modResultPage,
+			modResultPageSize,
+			modResultSort,
+			modResultSortOrder,
+		)).then(response => {
 			if (canceled) {
 				return;
 			}
 			// In React < v18 this causes 3 renders and a partial state necessitating the use
 			// of || 0 on modResultSelectedVersion.get() calls. Remove when updating React.
-			setModResults(response.results.map(
-				({ name, versions }) => ({ name, versions: versions.map(mod => libData.ModInfo.fromJSON(mod)) })
-			));
+			setModResults(response.results);
 			setModResultSelectedVersion(new Map(response.results.map(({ name, versions }) => [name, 0])));
 			setModResultCount(response.result_count);
 		});
@@ -686,8 +684,8 @@ export default function ModPackViewPage() {
 					okText="Delete"
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
-						libLink.messages.deleteModPack.send(
-							control, { id: modPack.id }
+						control.send(
+							new libData.ModPackDeleteRequest(modPack.id)
 						).then(() => {
 							history.push("/mods");
 						}).catch(notifyErrorHandler("Error deleting mod pack"));
@@ -785,8 +783,8 @@ export default function ModPackViewPage() {
 							<Button
 								type="primary"
 								onClick={() => {
-									libLink.messages.updateModPack.send(
-										control, { mod_pack: modifiedModPack.toJSON() }
+									control.send(
+										new libData.ModPackUpdateRequest(modifiedModPack)
 									).then(() => {
 										form.resetFields();
 										setChanges([]);

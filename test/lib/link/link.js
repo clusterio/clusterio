@@ -2,185 +2,400 @@
 const assert = require("assert").strict;
 const events = require("events");
 
+const libData = require("@clusterio/lib/data");
 const libLink = require("@clusterio/lib/link");
 const libErrors = require("@clusterio/lib/errors");
-const libSchema = require("@clusterio/lib/schema");
 const mock = require("../../mock");
 
+const addr = libData.Address.fromShorthand;
 
 describe("lib/link/link", function() {
+	function throwSimple(message) {
+		let err = new Error(message);
+		err.stack = message;
+		throw err;
+	}
+
 	describe("class Link", function() {
 		let testConnector;
 		let testLink;
+		let src = addr({ controlId: 1 });
+		let dst = addr("controller");
 
-		before(function() {
-			testConnector = new mock.MockConnector();
-			testLink = new libLink.Link("source", "target", testConnector);
-			testLink.setValidator("simple", libSchema.compile({
-				properties: {
-					"data": {
-						type: "object",
-						properties: {
-							"string": { type: "string" },
-						},
-					},
-				},
-			}));
+		class SimpleRequest {
+			static type = "request";
+			static src = ["controller", "control"];
+			static dst = ["controller", "control"];
+		}
+		class NumberRequest {
+			static type = "request";
+			static src = ["controller", "control"];
+			static dst = ["controller", "control"];
+			constructor(value) { this.value = value; }
+			static jsonSchema = { type: "number" };
+			toJSON() { return this.value; }
+			static fromJSON(json) { return new this(json); }
+		}
+		NumberRequest.Response = class {
+			constructor(value) { this.value = value; }
+			static jsonSchema = { type: "number" };
+			toJSON() { return this.value; }
+			static fromJSON(json) { return new this(json); }
+		};
+		class SimpleEvent {
+			static type = "event";
+			static src = ["controller", "control"];
+			static dst = ["controller", "control"];
+		}
+		class NumberEvent {
+			static type = "event";
+			static src = ["controller", "control"];
+			static dst = ["controller", "control"];
+			constructor(value) { this.value = value; }
+			static jsonSchema = { type: "number" };
+			toJSON() { return this.value; }
+			static fromJSON(json) { return new this(json); }
+		}
+
+		beforeEach(function() {
+			testConnector = new mock.MockConnector(src, dst);
+			testLink = new libLink.Link(testConnector);
 		});
 
-		it("should emitt error processing message to connector", async function() {
-			testLink.setHandler("throws", () => { throw new Error("Handler error"); }, () => true);
-			let result = events.once(testConnector, "message");
-			testConnector.emit("message", { seq: 1, type: "throws", data: {}});
-			await assert.rejects(result, new Error("Handler error"));
+		it("should handle unknown message", async function() {
+			testConnector.emit("message", { type: "unknown" });
+		});
+		it("should give an error response back on unrecognized request", function() {
+			testConnector.emit("message", new libData.MessageRequest(1, dst, src, "UnhandledRequest"));
+			assert.deepEqual(testConnector.sentMessages, [
+				new libData.MessageResponseError(
+					testConnector._seq - 1,
+					src,
+					dst,
+					new libData.ResponseError("Unrecognized request UnhandledRequest")
+				),
+			]);
+		});
+		it("should give an error response back on unhandled request", function() {
+			class UnhandledRequest {
+				static type = "request";
+				static src = "controller";
+				static dst = "control";
+			}
+			testLink.register(UnhandledRequest);
+			testConnector.emit("message", new libData.MessageRequest(1, dst, src, "UnhandledRequest"));
+			assert.deepEqual(testConnector.sentMessages, [
+				new libData.MessageResponseError(
+					testConnector._seq - 1,
+					src,
+					dst,
+					new libData.ResponseError("No handler registered for UnhandledRequest")
+				),
+			]);
 		});
 
-		it("should give an error response back on an unhandled request", function() {
-			testConnector.sentMessages = [];
-			testConnector.emit("message", { seq: 1, type: "unhandled_request", data: {}});
-			assert.deepEqual(testConnector.sentMessages, [{
-				type: "unhandled_response",
-				seq: testConnector._seq - 1,
-				data: { seq: 1, error: "No validator for unhandled_request on source-target" },
-			}]);
+		it("should send ready on connector prepareDisconnect", async function() {
+			let message = events.once(testConnector, "send");
+			message.catch(() => {});
+			testConnector.emit("disconnectPrepare");
+			assert.deepEqual(await message, [new libData.MessageDisconnect("ready")]);
+		});
+		it("should send ready on connector prepareDisconnect if an error occurs", async function() {
+			testLink.prepareDisconnect = async () => { throwSimple("Error occured"); };
+			let message = events.once(testConnector, "send");
+			message.catch(() => {});
+			testConnector.emit("disconnectPrepare");
+			assert.deepEqual(await message, [new libData.MessageDisconnect("ready")]);
 		});
 
-		describe(".setValidator()", function() {
-			it("should set the validator", function() {
-				testLink.setValidator("test", () => true);
-				assert(testLink._validators.has("test"), "validator was not added");
-			});
-			it("should throw on duplicated validator", function() {
-				assert.throws(
-					() => testLink.setValidator("test", () => true),
-					new Error("test already has a validator")
-				);
-			});
+		it("should reject pending requests on close", async function() {
+			let pending = testLink.send(new SimpleRequest());
+			pending.catch(() => {});
+			testConnector.emit("close");
+			await assert.rejects(pending, { message: "Session Closed" });
+		});
+		it("should reject pending requests on invalidate", async function() {
+			let pending = testLink.send(new SimpleRequest());
+			pending.catch(() => {});
+			testConnector.emit("invalidate");
+			await assert.rejects(pending, { message: "Session Lost" });
 		});
 
-		describe(".setHandler()", function() {
-			it("should throw if validator is not passed", function() {
-				assert.throws(
-					() => testLink.setHandler("no_validator_test", (message) => {}),
-					new Error("validator is required")
+		describe(".send()", function() {
+			it("should send request to the other side of the link", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.send(new SimpleRequest());
+				let srcReq = new libData.Address(libData.Address.control, 1, 1);
+				assert.deepEqual(
+					await message,
+					[new libData.MessageRequest(1, srcReq, dst, "SimpleRequest", undefined)]
 				);
 			});
-			it("should set the handler", function() {
-				function handler(message) { }
-				testLink.setHandler("handler_test", handler, (message) => true);
-				assert.equal(testLink._handlers.get("handler_test"), handler);
-			});
-			it("should throw on duplicated handler", function() {
-				assert.throws(
-					() => testLink.setHandler("handler_test", (message) => {}),
-					new Error("handler_test already has a handler")
+			it("should send request with data to the other side of the link", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.send(new NumberRequest(22));
+				let srcReq = new libData.Address(libData.Address.control, 1, 1);
+				assert.deepEqual(
+					await message,
+					[new libData.MessageRequest(1, srcReq, dst, "NumberRequest", new NumberRequest(22))]
 				);
 			});
-		});
-
-		describe(".processMessage()", function() {
-			it("should throw on invalid message", function() {
-				assert.throws(
-					() => testLink.processMessage({ data: "invalid message" }),
-					{ message: "Malformed" }
+			it("should send request and resolve when response is received", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				let request = testLink.send(new SimpleRequest());
+				let srcReq = new libData.Address(libData.Address.control, 1, 1);
+				testConnector.emit("message", new libData.MessageResponse(1, dst, srcReq));
+				await request;
+			});
+			it("should send request and reject with error when error response is received", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				let request = testLink.send(new SimpleRequest());
+				let srcReq = new libData.Address(libData.Address.control, 1, 1);
+				testConnector.emit(
+					"message", new libData.MessageResponseError(1, dst, srcReq, new libData.ResponseError("Error"))
 				);
-			});
-			it("should throw on message without validator", function() {
-				assert.throws(
-					() => testLink.processMessage({ seq: 1, type: "no_validator", data: {} }),
-					new libErrors.InvalidMessage("No validator for no_validator on source-target")
-				);
-			});
-			it("should throw on message failing validation", function() {
-				assert.throws(
-					() => testLink.processMessage({ seq: 1, type: "simple", data: { string: 1 }}),
-					{ message: "Validation failed for simple" }
-				);
-			});
-			it("should throw on unhandled message", function() {
-				assert.throws(
-					() => testLink.processMessage({ seq: 1, type: "simple", data: { string: "a" }}),
-					new libErrors.InvalidMessage("Unhandled message simple")
-				);
-			});
-		});
-
-		describe("._processHandler()", function() {
-			it("should call the handler", function() {
-				let handled = [];
-				testLink.setHandler("handled", (message) => handled.push(message), (message) => true);
-				testLink._processHandler({ seq: 1, type: "handled", data: { test: "foo" } });
-				assert.deepEqual(handled, [{ seq: 1, type: "handled", data: { test: "foo" } }]);
-			});
-			it("should return true if handled", function() {
-				let result = testLink._processHandler({ seq: 1, type: "handled", data: {} });
-				assert.equal(result, true);
-			});
-			it("should return false if not handled", function() {
-				let result = testLink._processHandler({ seq: 1, type: "not_handled", data: {} });
-				assert.equal(result, false);
-			});
-		});
-
-		describe("._processWaiters()", function() {
-			it("should call waiters", async function() {
-				let waiter = new Promise(resolve => {
-					testLink._waiters.set("test", [{ resolve, data: {} }]);
-				});
-				assert(
-					testLink._processWaiters({ type: "test", seq: 4, data: {} }),
-					"Waiter was not processed"
-				);
-				assert.deepEqual(await waiter, { type: "test", seq: 4, data: {} });
-			});
-			it("should filter on data", async function() {
-				let waiter = new Promise(resolve => {
-					testLink._waiters.set("test", [{ resolve, data: { a: 1, b: 2 } }]);
-				});
-				assert(
-					!testLink._processWaiters({ type: "test", seq: 4, data: {} }),
-					"Incorrectly matched empty message"
-				);
-				assert(
-					!testLink._processWaiters({ type: "test", seq: 4, data: { a: 1, b: 0 } }),
-					"Incorrectly matched message with wrong data"
-				);
-				assert(
-					testLink._processWaiters({ type: "test", seq: 4, data: { a: 1, b: 2, c: 3 } }),
-					"Did not match correct message"
-				);
-				assert.deepEqual(await waiter, { type: "test", seq: 4, data: { a: 1, b: 2, c: 3 } });
-			});
-		});
-
-		describe(".waitFor()", function() {
-			before(function() {
-				testLink.setValidator("waiter", (message) => true);
-			});
-
-			it("should throw on missing validator", async function() {
 				await assert.rejects(
-					testLink.waitFor("no_validator", {}),
-					new Error("No validator for no_validator on source-target")
+					request,
+					{ message: "Error" }
 				);
 			});
-			it("should wait for a given message", async function() {
-				let result = testLink.waitFor("waiter", {});
-				assert(
-					testLink._processWaiters({ type: "waiter", seq: 5, data: {} }),
-					"Did not proccess waiter"
-				);
-				assert.deepEqual(await result, { type: "waiter", seq: 5, data: {} });
+			it("should send request and resolve with data when response is received", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				let request = testLink.send(new NumberRequest(22));
+				let srcReq = new libData.Address(libData.Address.control, 1, 1);
+				testConnector.emit("message", new libData.MessageResponse(1, dst, srcReq, 44));
+				assert.deepEqual(await request, new NumberRequest.Response(44));
 			});
-			it("should handle multiple waiters", async function() {
-				let result1 = testLink.waitFor("waiter", {});
-				let result2 = testLink.waitFor("waiter", {});
-				assert(
-					testLink._processWaiters({ type: "waiter", seq: 5, data: {} }),
-					"Did not proccess waiter"
+			it("should send event to the other side of the link", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.send(new SimpleEvent());
+				assert.deepEqual(
+					await message,
+					[new libData.MessageEvent(1, src, dst, "SimpleEvent", undefined)]
 				);
-				assert.deepEqual(await result1, { type: "waiter", seq: 5, data: {} });
-				assert.deepEqual(await result2, { type: "waiter", seq: 5, data: {} });
+			});
+			it("should send event with data to the other side of the link", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.send(new NumberEvent(22));
+				assert.deepEqual(
+					await message,
+					[new libData.MessageEvent(1, src, dst, "NumberEvent", new NumberEvent(22))]
+				);
+			});
+		});
+		describe(".register()", function() {
+			it("should register a request", function() {
+				let handled = false;
+				testLink.register(SimpleRequest, async () => { handled = true; });
+				assert(testLink._registeredRequests.has("SimpleRequest"), "request was not registered");
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "SimpleRequest"));
+				assert(handled, "request was not handled");
+			});
+			it("should send response error from request handler throwing", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.register(SimpleRequest, async () => { throwSimple("Error"); });
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "SimpleRequest"));
+				assert.deepEqual(
+					await message,
+					[new libData.MessageResponseError(
+						1, src, dst, new libData.ResponseError("Error", undefined, "Error")
+					)]
+				);
+			});
+			it("should send response error on request validation failing", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.register(NumberRequest, async () => 1);
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "NumberRequest", "not a number"));
+				let response = (await message)[0];
+				assert.deepEqual(
+					response,
+					new libData.MessageResponseError(1, src, dst, new libData.ResponseError(
+						"Request NumberRequest failed validation",
+						response.data.code,
+						response.data.stack,
+					))
+				);
+			});
+			it("should send response error on response validation failing", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.register(NumberRequest, async () => "not a number");
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "NumberRequest", 1));
+				let response = (await message)[0];
+				assert.deepEqual(
+					response,
+					new libData.MessageResponseError(1, src, dst, new libData.ResponseError(
+						"Response for request NumberRequest failed validation",
+						response.data.code,
+						response.data.stack,
+					))
+				);
+			});
+			it("should send value returned from request handler", async function() {
+				let message = events.once(testConnector, "send");
+				message.catch(() => {});
+				testLink.register(NumberRequest, async (request) => request.value + 4);
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "NumberRequest", 1));
+				let response = (await message)[0];
+				assert.deepEqual(
+					response,
+					new libData.MessageResponse(1, src, dst, 5)
+				);
+			});
+			it("should register an event", function() {
+				let handled = false;
+				testLink.register(SimpleEvent, async () => { handled = true; });
+				assert(testLink._registeredEvents.has("SimpleEvent"), "event was not registered");
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "SimpleEvent"));
+				assert(handled, "event was not handled");
+			});
+			it("should pass value to event handler", async function() {
+				let value;
+				testLink.register(NumberEvent, async (event) => { value = event.value; });
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "NumberEvent", 9));
+				assert.deepEqual(value, 9);
+			});
+			it("should log errors from event handler", function() {
+				testLink.register(SimpleEvent, async () => { throwSimple("Error"); });
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "SimpleEvent"));
+			});
+			it("should throw on unknown type", function() {
+				assert.throws(
+					() => testLink.register({ name: "Bad", type: "bad" }),
+					{ message: "Class Bad has unrecognized type bad" }
+				);
+			});
+			it("should throw on double registration", function() {
+				testLink.register(SimpleRequest);
+				assert.throws(
+					() => testLink.register(SimpleRequest),
+					new Error("Request SimpleRequest is already registered")
+				);
+				testLink.register(SimpleEvent);
+				assert.throws(
+					() => testLink.register(SimpleEvent),
+					new Error("Event SimpleEvent is already registered")
+				);
+			});
+			it("should throw if Request has only one of jsonSchema and fromJSON", function() {
+				class BadRequest1 {
+					static type = "request";
+					static src = "controller";
+					static dst = "control";
+					static jsonSchema = {};
+				}
+				assert.throws(
+					() => testLink.register(BadRequest1),
+					new Error("Request BadRequest1 has static jsonSchema but is missing static fromJSON")
+				);
+				class BadRequest2 {
+					static type = "request";
+					static src = "controller";
+					static dst = "control";
+					static fromJSON() {};
+				}
+				assert.throws(
+					() => testLink.register(BadRequest2),
+					new Error("Request BadRequest2 has static fromJSON but is missing static jsonSchema")
+				);
+			});
+			it("should throw if Event has only one of jsonSchema and fromJSON", function() {
+				class BadEvent1 {
+					static type = "event";
+					static src = "controller";
+					static dst = "control";
+					static jsonSchema = {};
+				}
+				assert.throws(
+					() => testLink.register(BadEvent1),
+					new Error("Event BadEvent1 has static jsonSchema but is missing static fromJSON")
+				);
+				class BadEvent2 {
+					static type = "event";
+					static src = "controller";
+					static dst = "control";
+					static fromJSON() {};
+				}
+				assert.throws(
+					() => testLink.register(BadEvent2),
+					new Error("Event BadEvent2 has static fromJSON but is missing static jsonSchema")
+				);
+			});
+		});
+
+		describe("._processMessage()", function() {
+			it("should throw on unhandled type", function() {
+				assert.throws(
+					() => testLink._processMessage({ type: "invalid" }),
+					{ message: "Unhandled message type invalid" }
+				);
+			});
+			it("should throw on Event failing validation", function() {
+				class StringEvent {
+					static type = "event";
+					static src = "controller";
+					static dst = "control";
+					constructor(value) { this.value = value; }
+					static jsonSchema = { type: "string" };
+					static fromJSON(json) { return new this(json); };
+				}
+				testLink.register(StringEvent, () => {});
+				assert.throws(
+					() => testLink._processMessage(new libData.MessageEvent(1, dst, src, "StringEvent", 99)),
+					{ message: "Event StringEvent failed validation" }
+				);
+			});
+		});
+
+		describe(".snoopEvent()", function() {
+			it("should snoop an event", function() {
+				let handled = false;
+				testLink.snoopEvent(SimpleEvent, async () => { handled = true; });
+				assert(testLink._snoopedEvents.has("SimpleEvent"), "event was not snooped");
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "SimpleEvent"));
+				assert(handled, "event was not handled");
+			});
+			it("should log errors from snoop handler", function() {
+				testLink.snoopEvent(SimpleEvent, async () => { throwSimple("Error"); });
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "SimpleEvent"));
+			});
+			it("should throw on double registration", function() {
+				testLink.snoopEvent(SimpleEvent);
+				assert.throws(
+					() => testLink.snoopEvent(SimpleEvent),
+					new Error("Event SimpleEvent is already snooped")
+				);
+			});
+			it("should throw if Event has only one of jsonSchema and fromJSON", function() {
+				class BadEvent1 {
+					static type = "event";
+					static src = "controller";
+					static dst = "control";
+					static jsonSchema = {};
+				}
+				assert.throws(
+					() => testLink.snoopEvent(BadEvent1),
+					new Error("Event BadEvent1 has static jsonSchema but is missing static fromJSON")
+				);
+				class BadEvent2 {
+					static type = "event";
+					static src = "controller";
+					static dst = "control";
+					static fromJSON() {};
+				}
+				assert.throws(
+					() => testLink.snoopEvent(BadEvent2),
+					new Error("Event BadEvent2 has static fromJSON but is missing static jsonSchema")
+				);
 			});
 		});
 	});

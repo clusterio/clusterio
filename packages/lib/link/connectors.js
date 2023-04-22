@@ -1,9 +1,10 @@
 // Connection adapters for Links
 "use strict";
+const assert = require("assert").strict;
 const events = require("events");
 const WebSocket = require("isomorphic-ws");
 
-const libSchema = require("../schema");
+const libData = require("../data");
 const libErrors = require("../errors");
 const { logger } = require("../logging");
 const ExponentialBackoff = require("../ExponentialBackoff");
@@ -15,34 +16,103 @@ const ExponentialBackoff = require("../ExponentialBackoff");
  * @extends events.EventEmitter
  * @memberof module:lib/link
  */
-class WebSocketBaseConnector extends events.EventEmitter {
-	constructor(sessionTimeout) {
+class BaseConnector extends events.EventEmitter {
+	constructor(src, dst) {
 		super();
+		this._seq = 1;
+		this.src = src;
+		this.dst = dst;
+	}
 
-		this._sessionTimeout = sessionTimeout;
+	_reset() {
+		this._seq = 1;
+	}
+
+	_invalidate() {
+		this._seq = 1;
+	}
+
+	sendRequest(request, requestId, dst) {
+		let seq = this._seq;
+		this._seq += 1;
+		let src = new libData.Address(this.src.type, this.src.id, requestId);
+		let name = request.constructor.name;
+		let hasData = Boolean(request.constructor.jsonSchema);
+		const message = new libData.MessageRequest(seq, src, dst, name, hasData ? request : undefined);
+		this.send(message);
+		return seq;
+	}
+
+	sendResponse(response, dst) {
+		let seq = this._seq;
+		this._seq += 1;
+		const message = new libData.MessageResponse(seq, this.src, dst, response);
+		this.send(message);
+		return seq;
+	}
+
+	sendResponseError(error, dst) {
+		let seq = this._seq;
+		this._seq += 1;
+		const message = new libData.MessageResponseError(seq, this.src, dst, error);
+		this.send(message);
+		return seq;
+	}
+
+	sendEvent(event, dst) {
+		let seq = this._seq;
+		this._seq += 1;
+		let name = event.constructor.name;
+		let hasData = Boolean(event.constructor.jsonSchema);
+		const message = new libData.MessageEvent(seq, this.src, dst, name, hasData ? event : undefined);
+		this.send(message);
+		return seq;
+	}
+}
+
+/**
+ * Base connector for links
+ *
+ * @extends module:lib/link.BaseConnector
+ * @memberof module:lib/link
+ */
+class WebSocketBaseConnector extends BaseConnector {
+	constructor(src, dst) {
+		super(src, dst);
 
 		// One of closed, connecting (client only), connected and resuming.
 		this._state = "closed";
 		this._closing = false;
 		this._socket = null;
-		this._seq = 1;
 		this._lastHeartbeat = null;
 		this._heartbeatId = null;
 		this._heartbeatInterval = null;
-		this._lastReceivedSeq = null;
+		this._lastReceivedSeq = undefined;
 		this._sendBuffer = [];
 	}
 
 	_reset() {
 		this._state = "closed";
 		this._closing = false;
-		this._socket = null;
-		this._seq = 1;
+		assert(this._socket === null);
 		this._lastHeartbeat = null;
-		this._heartbeatId = null;
+		assert(this._heartbeatId === null);
 		this._heartbeatInterval = null;
-		this._lastReceivedSeq = null;
+		this._lastReceivedSeq = undefined;
 		this._sendBuffer.length = 0;
+		super._reset();
+	}
+
+	_invalidate() {
+		this._state = "connecting";
+		assert(this._closing === false);
+		assert(this._socket);
+		this._lastHeartbeat = null;
+		assert(this._heartbeatId === null);
+		this._heartbeatInterval = null;
+		this._lastReceivedSeq = undefined;
+		this._sendBuffer.length = 0;
+		super._invalidate();
 	}
 
 	_check(...expectedStates) {
@@ -54,7 +124,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	}
 
 	_dropSendBufferSeq(seq) {
-		if (seq === null) {
+		if (seq === undefined) {
 			return;
 		}
 
@@ -69,6 +139,45 @@ class WebSocketBaseConnector extends events.EventEmitter {
 		this._sendBuffer.splice(0, dropCount);
 	}
 
+	_parseMessage(text) {
+		let json;
+		try {
+			json = JSON.parse(text);
+		} catch (err) {
+			this.close(4000, "Malformed JSON");
+			return undefined;
+		}
+		if (!libData.Message.validate(json)) {
+			logger.error(`Received malformed message: ${text}`);
+			// logger.error(JSON.stringify(libData.Message.validate.errors, null, 4));
+			this.close(4000, "Malformed message");
+			return undefined;
+		}
+		return libData.Message.fromJSON(json);
+	}
+
+	_processMessage(message) {
+		if (message.type === "heartbeat") {
+			this._processHeartbeat(message);
+
+		} else if (message.type === "disconnect") {
+			if (message.data === "ready") {
+				this.emit("disconnectReady");
+
+			} else if (message.data === "prepare") {
+				this.setClosing();
+				this.emit("disconnectPrepare");
+			}
+
+		} else {
+			if (message.seq !== undefined) {
+				this._lastReceivedSeq = message.seq;
+			}
+
+			this.emit("message", message);
+		}
+	}
+
 	_doHeartbeat() {
 		this._check("connected");
 		if (Date.now() - this._lastHeartbeat > 2000 * this._heartbeatInterval) {
@@ -81,23 +190,13 @@ class WebSocketBaseConnector extends events.EventEmitter {
 			}
 
 		} else {
-			this._socket.send(JSON.stringify({
-				seq: null,
-				type: "heartbeat",
-				data: { seq: this._lastReceivedSeq },
-			}));
+			this._sendInternal(new libData.MessageHeartbeat(this._lastReceivedSeq));
 		}
 	}
 
 	_processHeartbeat(message) {
-		if (!libSchema.heartbeat(message)) {
-			logger.warn("Connector | closing after received invalid heartbeat");
-			this._socket.close(1002, "Invalid heartbeat");
-			return;
-		}
-
 		this._lastHeartbeat = Date.now();
-		this._dropSendBufferSeq(message.data.seq);
+		this._dropSendBufferSeq(message.seq);
 	}
 
 	/**
@@ -120,29 +219,30 @@ class WebSocketBaseConnector extends events.EventEmitter {
 		if (this._heartbeatId) {
 			clearInterval(this._heartbeatId);
 			this._heartbeatId = null;
-			this._lastHeartbeat = null;
 		}
 	}
 
 	/**
 	 * Send a message over the socket
 	 *
-	 * @param {string} type - Message type to send.
-	 * @param {Object} data - Data to send with message.
-	 * @returns {number} the sequence number of the message sent
+	 * This is a low level method that should only be used for implementing
+	 * links. See sendTo for sending requests and events.
+	 *
+	 * @param {module:lib/data.Message} message - Message to send.
 	 */
-	send(type, data) {
+	send(message) {
 		if (!["connected", "resuming"].includes(this._state)) {
 			throw new libErrors.SessionLost("No session");
 		}
-		let seq = this._seq;
-		this._seq += 1;
-		let message = { seq, type, data };
+
 		this._sendBuffer.push(message);
 		if (this._state === "connected") {
-			this._socket.send(JSON.stringify(message));
+			this._sendInternal(message);
 		}
-		return seq;
+	}
+
+	_sendInternal(message) {
+		this._socket.send(JSON.stringify(message));
 	}
 
 	/**
@@ -156,10 +256,39 @@ class WebSocketBaseConnector extends events.EventEmitter {
 	}
 
 	/**
+	 * Gracefully disconnect
+	 *
+	 * Sets closing flag an initiates the disconnect sequence.
+	 */
+	async disconnect() {
+		if (this._state !== "connected") {
+			await this.close(1000, "Disconnect");
+			return;
+		}
+
+		this.setClosing();
+		this.send(new libData.MessageDisconnect("prepare"));
+
+		let timeout;
+		let waitTimeout = new Promise(resolve => { timeout = setTimeout(resolve, 10000); }); // Make Configurable?
+		try {
+			await Promise.race([
+				waitTimeout,
+				events.once(this, "close"),
+				events.once(this, "disconnectReady"),
+			]);
+		} finally {
+			clearTimeout(timeout);
+		}
+
+		await this.close(1000, "Disconnect");
+	}
+
+	/**
 	 * True if the connection is established and active
 	 */
 	get connected() {
-		return this._state === "connected";
+		return !this._closing && this._state === "connected";
 	}
 
 	/**
@@ -186,7 +315,7 @@ class WebSocketBaseConnector extends events.EventEmitter {
  */
 class WebSocketClientConnector extends WebSocketBaseConnector {
 	constructor(url, maxReconnectDelay, tlsCa = null) {
-		super(null);
+		super(undefined, new libData.Address(libData.Address.controller, 0));
 
 		this._url = url;
 		this._backoff = new ExponentialBackoff({ max: maxReconnectDelay });
@@ -199,32 +328,40 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		// connected: Connection is online
 		this._reconnectId = null;
 		this._sessionToken = null;
+		this._sessionTimeout = null;
 		this._startedResuming = null;
 	}
 
 	_reset() {
 		clearTimeout(this._reconnectId);
 		this._reconnectId = null;
-		this._lastReceivedSeq = null;
 		this._sessionToken = null;
 		this._sessionTimeout = null;
-		this._sendBuffer.length = 0;
 		this._startedResuming = null;
 		super._reset();
+		this.src = undefined;
+	}
+
+	_invalidate() {
+		assert(this._reconnectId === null);
+		this._sessionToken = null;
+		this._sessionTimeout = null;
+		this._startedResuming = null;
+		super._invalidate();
+		this.src = undefined;
 	}
 
 	/**
 	 * Send a handshake message over the socket
 	 *
-	 * Used in the register function in order to send the register handshake
-	 * message over the WebSocket.
+	 * Used in the register function in order to send the handshake messages
+	 * over the WebSocket.
 	 *
-	 * @param {string} type - Message type to send.
-	 * @param {Object} data - Data to send with message.
+	 * @param {module:lib/data.Message} message - Message to send.
 	 */
-	sendHandshake(type, data) {
+	sendHandshake(message) {
 		this._check("connecting", "resuming");
-		this._socket.send(JSON.stringify({ seq: null, type, data }));
+		this._sendInternal(message);
 	}
 
 	/**
@@ -329,8 +466,13 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		) {
 			logger.error("Connector | Session timed out trying to resume");
 			this._reset();
-			this._state = "connecting";
-			this.emit("invalidate");
+			if (this._disconnecting) {
+				this._reset();
+				this.emit("close");
+			} else {
+				this._state = "connecting";
+				this.emit("invalidate");
+			}
 		}
 		logger.verbose(
 			`Connector | waiting ${(Math.round(delay / 10) / 100)} seconds for reconnect`
@@ -416,21 +558,15 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		// Handle messages
 		this._socket.onmessage = event => {
-			let message = JSON.parse(event.data);
+			let message = this._parseMessage(event.data);
+			if (!message) {
+				return;
+			}
 			if (["connecting", "resuming"].includes(this._state)) {
 				this._processHandshake(message);
 
 			} else if (this._state === "connected") {
-				if (message.seq !== null) {
-					this._lastReceivedSeq = message.seq;
-				}
-
-				if (message.type === "heartbeat") {
-					this._processHeartbeat(message);
-
-				} else {
-					this.emit("message", message);
-				}
+				this._processMessage(message);
 
 			} else {
 				throw new Error(`Received message in unexpected state ${this._state}`);
@@ -439,11 +575,6 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	}
 
 	_processHandshake(message) {
-		if (!libSchema.serverHandshake(message)) {
-			logger.warn("Connector | closing after received invalid handshake");
-			this._socket.close(1002, "Invalid handshake");
-			return;
-		}
 
 		let { type, data } = message;
 		if (type === "hello") {
@@ -451,10 +582,9 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 			this.emit("hello", data);
 			if (this._sessionToken) {
 				logger.verbose("Connector | Attempting resume");
-				this.sendHandshake("resume", {
-					session_token: this._sessionToken,
-					last_seq: this._lastReceivedSeq,
-				});
+				this.sendHandshake(new libData.MessageResume(
+					new libData.ResumeData(this._sessionToken, this._lastReceivedSeq)
+				));
 			} else {
 				this.register();
 			}
@@ -462,39 +592,39 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 		} else if (type === "ready") {
 			logger.verbose("Connector | received ready from controller");
 			this._state = "connected";
-			this._sessionToken = data.session_token;
-			this._sessionTimeout = data.session_timeout;
-			this._heartbeatInterval = data.heartbeat_interval;
+			this.src = data.src;
+			this._sessionToken = data.sessionToken;
+			this._sessionTimeout = data.sessionTimeout;
+			this._heartbeatInterval = data.heartbeatInterval;
 			this.startHeartbeat();
 			for (let bufferedMessage of this._sendBuffer) {
-				this._socket.send(JSON.stringify(bufferedMessage));
+				this._sendInternal(bufferedMessage);
 			}
 			this.emit("connect", data);
 
 		} else if (type === "continue") {
 			logger.info("Connector | resuming existing session");
 			this._state = "connected";
-			this._heartbeatInterval = data.heartbeat_interval;
-			this._sessionTimeout = data.session_timeout;
+			this._heartbeatInterval = data.heartbeatInterval;
+			this._sessionTimeout = data.sessionTimeout;
 			this.startHeartbeat();
-			this._dropSendBufferSeq(data.last_seq);
+			this._dropSendBufferSeq(data.lastSeq);
 			for (let bufferedMessage of this._sendBuffer) {
-				this._socket.send(JSON.stringify(bufferedMessage));
+				this._sendInternal(bufferedMessage);
 			}
 			this._startedResuming = null;
 			this.emit("resume");
 
 		} else if (type === "invalidate") {
 			logger.warn("Connector | session invalidated by controller");
-			this._state = "connecting";
-			this._seq = 1;
-			this._lastReceivedSeq = null;
-			this._sessionToken = null;
-			this._sessionTimeout = null;
-			this._sendBuffer.length = 0;
-			this._startedResuming = null;
-			this.emit("invalidate");
-			this.register();
+			if (this._disconnecting) {
+				this._reset();
+				this.emit("close");
+			} else {
+				this._invalidate();
+				this.emit("invalidate");
+				this.register();
+			}
 		}
 	}
 
@@ -515,12 +645,11 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
  * @extends events.EventEmitter
  * @memberof module:lib/link
  */
-class VirtualConnector extends events.EventEmitter {
-	constructor() {
-		super();
+class VirtualConnector extends BaseConnector {
+	constructor(src, dst) {
+		super(src, dst);
 
 		this.other = this;
-		this._seq = 1;
 	}
 
 	/**
@@ -529,32 +658,30 @@ class VirtualConnector extends events.EventEmitter {
 	 * Creates two virtual connectors that are liked to each othes such that
 	 * a message sent on one is received by the other.
 	 *
+	 * @param {module:lib/data.Address} src - Source for obverse connector
+	 * @param {module:lib/data.Address} dst - destination for obverse connector
 	 * @returns {Array} two virtuarl connectors.
 	 */
-	static makePair() {
-		let first = new this();
-		let second = new this();
-		first.other = second;
-		second.other = first;
-		return [first, second];
+	static makePair(src, dst) {
+		let obverse = new this(src, dst);
+		let reverse = new this(dst, src);
+		obverse.other = reverse;
+		reverse.other = obverse;
+		return [obverse, reverse];
 	}
 
 	/**
 	 * Send a message to the other end of the connector
 	 *
-	 * @param {string} type - Message type to send.
-	 * @param {Object} data - Data to send with message.
-	 * @returns {number} the sequence number of the message sent
+	 * @param {module:lib/data.Message} message - Message type to send.
 	 */
-	send(type, data) {
-		let seq = this._seq;
-		this._seq += 1;
-		this.other.emit("message", { seq, type, data });
-		return seq;
+	send(message) {
+		this.other.emit("message", message);
 	}
 }
 
 module.exports = {
+	BaseConnector,
 	WebSocketBaseConnector,
 	WebSocketClientConnector,
 	VirtualConnector,

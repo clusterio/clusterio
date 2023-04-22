@@ -23,9 +23,8 @@ require("../../plugins/subspace_storage/info");
 
 
 class TestControl extends libLink.Link {
-	constructor(connector) {
-		super("control", "controller", connector);
-		libLink.attachAllMessages(this);
+	constructor(connector, subscribe = true) {
+		super(connector);
 		this.hostUpdates = [];
 		this.instanceUpdates = [];
 		this.saveListUpdates = [];
@@ -34,63 +33,67 @@ class TestControl extends libLink.Link {
 		this.userUpdates = [];
 
 		this.connector.on("connect", () => {
-			libLink.messages.setHostSubscriptions.send(
-				this, { all: true, host_ids: [] }
+			if (!subscribe) {
+				return;
+			}
+			this.send(
+				new libData.HostSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
-			libLink.messages.setInstanceSubscriptions.send(
-				this, { all: true, instance_ids: [] }
+			this.send(
+				new libData.InstanceDetailsSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
-			libLink.messages.setSaveListSubscriptions.send(
-				this, { all: true, instance_ids: [] }
+			this.send(
+				new libData.InstanceSetSaveListSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
-			libLink.messages.setModSubscriptions.send(
-				this, { all: true, mod_names: [] }
+			this.send(
+				new libData.ModSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
-			libLink.messages.setUserSubscriptions.send(
-				this, { all: true, names: [] }
+			this.send(
+				new libData.UserSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
 		});
+
+		this.register(libData.AccountUpdateEvent);
+		this.register(libData.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
+		this.register(libData.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
+		this.register(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.register(libData.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
+		this.register(libData.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
+		this.register(libData.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
 	}
 
-	async prepareDisconnectRequestHandler(message, request) {
-		this.connector.setClosing();
-		return await super.prepareDisconnectRequestHandler(message, request);
+	async handleHostUpdateEvent(event) {
+		this.hostUpdates.push(event.update);
 	}
 
-	async debugWsMessageEventHandler() { }
-
-	async accountUpdateEventHandler() { }
-
-	async hostUpdateEventHandler(message) {
-		this.hostUpdates.push(message.data);
+	async handleInstanceDetailsUpdateEvent(event) {
+		this.instanceUpdates.push(event.details);
 	}
 
-	async instanceUpdateEventHandler(message) {
-		this.instanceUpdates.push(message.data);
+	async handleInstanceSaveListUpdateEvent(event) {
+		this.saveListUpdates.push(event);
 	}
 
-	async saveListUpdateEventHandler(message) {
-		this.saveListUpdates.push(message.data);
+	async handleModUpdateEvent(event) {
+		this.modUpdates.push(event.mod);
 	}
 
-	async modUpdateEventHandler(message) {
-		this.modUpdates.push(message.data.mod);
+	async handleModPackUpdateEvent(event) {
+		this.modPackUpdates.push(event.modPack);
 	}
 
-	async modPackUpdateEventHandler(message) {
-		this.modPackUpdates.push(message.data.mod_pack);
+	async handleUserUpdateEvent(event) {
+		this.userUpdates.push(event.user);
 	}
-
-	async userUpdateEventHandler(message) {
-		this.userUpdates.push(message.data);
-	}
-
-	async logMessageEventHandler() { }
 }
 
 class TestControlConnector extends libLink.WebSocketClientConnector {
 	register() {
-		this.sendHandshake("register_control", { token: this.token, agent: "clusterioctl", version: "test" });
+		this.sendHandshake(new libData.MessageRegisterControl(new libData.RegisterControlData(
+			this.token,
+			"clusterioctl",
+			"test",
+		)));
 	}
 }
 
@@ -143,8 +146,7 @@ async function execCtl(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	let response = await libLink.messages.sendRcon.send(control, { instance_id: instanceId, command });
-	return response.result;
+	return await control.sendTo(new libData.InstanceSendRconRequest(command), { instanceId });
 }
 
 function getControl() {
@@ -228,9 +230,9 @@ before(async function() {
 	testPack.factorioVersion = "1.1.0";
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
 	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
-	await libLink.messages.createModPack.send(control, { mod_pack: testPack.toJSON() });
-	await libLink.messages.setControllerConfigField.send(
-		control, { field: "controller.default_mod_pack_id", value: "12" }
+	await control.sendTo(new libData.ModPackCreateRequest(testPack), "controller");
+	await control.sendTo(
+		new libData.ControllerConfigSetFieldRequest("controller.default_mod_pack_id", "12"), "controller"
 	);
 });
 

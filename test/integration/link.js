@@ -15,10 +15,17 @@ describe("Integration of lib/link", function() {
 	before(async function() {
 		tlsCa = await fs.readFile("test/file/tls/cert.pem");
 	});
-	it("should emitt an error if authentication failed", async function() {
+	beforeEach(async function() {
 		controlConnector = new TestControlConnector(url, 0.2, tlsCa);
+		controlConnector.token = token;
+		control = new TestControl(controlConnector, false);
+	});
+	afterEach(async function() {
+		await controlConnector.disconnect();
+	});
+
+	it("should emitt an error if authentication failed", async function() {
 		controlConnector.token = "gibberish";
-		control = new TestControl(controlConnector);
 		await assert.rejects(
 			controlConnector.connect(),
 			new Error("Authentication failed: jwt malformed")
@@ -26,28 +33,29 @@ describe("Integration of lib/link", function() {
 	});
 
 	it("should connect with proper credentials", async function() {
-		controlConnector = new TestControlConnector(url, 0.2, tlsCa);
-		controlConnector.token = token;
-		control = new TestControl(controlConnector);
 		await controlConnector.connect();
 	});
 
 	it("should reconnect on connection lost", async function() {
+		await controlConnector.connect();
 		controlConnector._socket.close(1008, "Test");
 		await events.once(controlConnector, "resume");
 	});
 
 	it("should reconnect on connection terminated", async function() {
+		await controlConnector.connect();
 		controlConnector._socket.terminate();
 		await events.once(controlConnector, "resume");
 	});
 
 	it("should reconnect on connection heartbeat timeout", async function() {
+		await controlConnector.connect();
 		controlConnector.stopHeartbeat();
 		await events.once(controlConnector, "resume");
 	});
 
 	it("should invalidate on reconnection with bad session token", async function() {
+		await controlConnector.connect();
 		controlConnector._sessionToken = "blah";
 		controlConnector.stopHeartbeat();
 		await events.once(controlConnector, "invalidate");
@@ -55,6 +63,7 @@ describe("Integration of lib/link", function() {
 	});
 
 	it("should properly close connector if close is called during reconnect wait", async function() {
+		await controlConnector.connect();
 		controlConnector._socket.close(1008, "Test");
 		controlConnector.once("drop", () => {
 			controlConnector.close();

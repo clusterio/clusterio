@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Form, Input, Modal } from "antd";
 
-import { libFactorio, libLink } from "@clusterio/lib";
+import { libFactorio, libData } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -51,13 +51,10 @@ export default function LoadScenarioModal(props) {
 		}
 
 		setLoadingScenario(true);
-		libLink.messages.loadScenario.send(control, {
-			instance_id: props.instance.id,
-			scenario,
-			seed,
-			map_gen_settings: mapGenSettings,
-			map_settings: mapSettings,
-		}).then(() => {
+		control.sendTo(
+			new libData.InstanceLoadScenarioRequest(scenario, seed, mapGenSettings, mapSettings),
+			{ instanceId: props.instance.id }
+		).then(() => {
 			setVisible(false);
 		}).catch(
 			notifyErrorHandler("Error loading scenario")

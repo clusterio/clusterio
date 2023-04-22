@@ -2,10 +2,10 @@
 const jwt = require("jsonwebtoken");
 const WebSocket = require("ws");
 
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const { logger } = require("@clusterio/lib/logging");
 const libPrometheus = require("@clusterio/lib/prometheus");
-const libSchema = require("@clusterio/lib/schema");
 
 const ControlConnection = require("./ControlConnection");
 const packageVersion = require("../package").version;
@@ -40,7 +40,7 @@ class WsServer {
 		this.stopAcceptingNewSessions = false;
 
 		/** @type {Array<module:controller/src/ControlConnection>} */
-		this.controlConnections = [];
+		this.controlConnections = new Map();
 		/** @type {Map<number, module:controller/src/HostConnection>} */
 		this.hostConnections = new Map();
 		/** @type {Map<number, module:controller/src/WsServerConnector>} */
@@ -51,6 +51,7 @@ class WsServer {
 		// Unique string for the session token audience
 		this.sessionAud = `session-${Date.now()}`;
 		this.nextSessionId = 1;
+		this.nextControlId = 1;
 
 		/** @type {module:ws.Server} */
 		this.wss = new WebSocket.Server({
@@ -64,7 +65,7 @@ class WsServer {
 		this.stopAcceptingNewSessions = true;
 
 		let disconnectTasks = [];
-		for (let controlConnection of this.controlConnections) {
+		for (let controlConnection of this.controlConnections.values()) {
 			disconnectTasks.push(controlConnection.disconnect(1001, "Server Quit"));
 		}
 
@@ -122,11 +123,7 @@ class WsServer {
 			loadedPlugins[name] = plugin.info.version;
 		}
 
-		socket.send(JSON.stringify({ seq: null, type: "hello", data: {
-			version: packageVersion,
-			plugins: loadedPlugins,
-		}}));
-
+		socket.send(JSON.stringify(new libData.MessageHello(new libData.HelloData(packageVersion, loadedPlugins))));
 		this.attachHandler(socket, req);
 	}
 
@@ -159,46 +156,28 @@ ${err.stack}`
 		});
 	}
 
-	async handleHandshake(message, socket, req) {
+	async handleHandshake(rawMessage, socket, req) {
+		let message;
 		try {
-			message = JSON.parse(message);
+			const json = JSON.parse(rawMessage);
+			libData.Message.validate(json);
+			message = libData.Message.fromJSON(json);
 		} catch (err) {
-			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after receiving invalid JSON`);
+			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after receiving invalid message`);
 			wsRejectedConnectionsCounter.inc();
-			socket.close(1002, "Invalid JSON");
+			socket.close(1002, `Invalid message: ${err.message}`);
 			return;
 		}
 
-		if (!libSchema.clientHandshake(message)) {
+		if (message.type === "resume") {
+			this.resumeSession(message.data, socket, req);
+			return;
+		}
+
+		if (message.type !== "registerHost" && message.type !== "registerControl") {
 			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after receiving invalid handshake`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(1002, "Bad handshake");
-			return;
-		}
-
-		let { type, data } = message;
-
-		if (type === "resume") {
-			let connector;
-			try {
-				let payload = jwt.verify(
-					data.session_token,
-					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-					{ audience: this.sessionAud }
-				);
-
-				connector = this.activeConnectors.get(payload.sid);
-				if (!connector) {
-					throw new Error();
-				}
-
-			} catch (err) {
-				socket.send(JSON.stringify({ seq: null, type: "invalidate", data: {}}));
-				this.attachHandler(socket, req);
-				return;
-			}
-
-			connector.continue(socket, data.last_seq);
 			return;
 		}
 
@@ -209,46 +188,20 @@ ${err.stack}`
 			return;
 		}
 
-		// Validate token
-		let user;
-		try {
-			if (type === "register_host") {
-				let tokenPayload = jwt.verify(
-					data.token,
-					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-					// migrate: allow pre-rename tokens issued to hosts before alpha-14
-					{ audience: ["host", "slave"] }
-				);
-
-				// migrate: allow pre-rename tokens issued to hosts before alpha-14
-				if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
-					throw new Error("missmatched host id");
-				}
-
-			} else if (type === "register_control") {
-				let tokenPayload = jwt.verify(
-					data.token,
-					Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
-					{ audience: "user" }
-				);
-
-				user = this.controller.userManager.users.get(tokenPayload.user);
-				if (!user) {
-					throw new Error("invalid user");
-				}
-				if (tokenPayload.iat < user.tokenValidAfter) {
-					throw new Error("invalid token");
-				}
-				user.checkPermission("core.control.connect");
-			}
-
-		} catch (err) {
-			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);
-			wsRejectedConnectionsCounter.inc();
-			socket.close(4003, `Authentication failed: ${err.message}`);
+		if (message.type === "registerHost") {
+			await this.registerHost(message.data, socket, req);
 			return;
 		}
 
+		if (message.type === "registerControl") {
+			await this.registerControl(message.data, socket, req);
+			return;
+		}
+
+		throw new Error("This should be unreachable");
+	}
+
+	createSession(dst) {
 		let sessionId = this.nextSessionId;
 		this.nextSessionId += 1;
 		let sessionToken = jwt.sign(
@@ -257,66 +210,137 @@ ${err.stack}`
 		);
 		let sessionTimeout = this.controller.config.get("controller.session_timeout");
 		let heartbeatInterval = this.controller.config.get("controller.heartbeat_interval");
-		let connector = new WsServerConnector(sessionId, sessionTimeout, heartbeatInterval);
+		let connector = new WsServerConnector(dst, sessionId, sessionTimeout, heartbeatInterval);
 		this.activeConnectors.set(sessionId, connector);
 		connector.on("close", () => {
 			this.activeConnectors.delete(sessionId);
 		});
 
-		let additionalReadyData = {};
-		if (type === "register_host") {
-			let connection = this.hostConnections.get(data.id);
-			if (connection) {
-				logger.verbose(`WsServer | disconnecting existing connection for host ${data.id}`);
-				await connection.disconnect(1008, "Registered from another connection");
-			}
+		return [connector, sessionToken];
+	}
 
-			logger.info(
-				`WsServer | registered host ${data.name} (${data.id}) using agent ${data.agent} ${data.version}`
+	async registerHost(data, socket, req) {
+		try {
+			let tokenPayload = jwt.verify(
+				data.token,
+				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
+				// migrate: allow pre-rename tokens issued to hosts before alpha-14
+				{ audience: ["host", "slave"] }
 			);
-			if (data.agent === "Clusterio Host" && data.version !== packageVersion) {
-				logger.warn(
-					`Host ${data.name} (${data.id}) connected using version ${data.version} which does not match the ` +
-					`version of the controller is currently running (${packageVersion}). It may not work as expected.`
-				);
+
+			// migrate: allow pre-rename tokens issued to hosts before alpha-14
+			if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
+				throw new Error("missmatched host id");
 			}
-
-			connection = new HostConnection(data, connector, this.controller);
-			connector.on("close", () => {
-				if (this.hostConnections.get(data.id) === connection) {
-					this.hostConnections.delete(data.id);
-					this.controller.hostUpdated(this.controller.hosts.get(data.id));
-				} else {
-					logger.warn("Unlisted HostConnection closed");
-				}
-			});
-			this.hostConnections.set(data.id, connection);
-			this.controller.hostUpdated(this.controller.hosts.get(data.id));
-
-
-		} else if (type === "register_control") {
-			logger.verbose(`WsServer | registered control from ${req.socket.remoteAddress}`);
-			let connection = new ControlConnection(data, connector, this.controller, user);
-			connector.on("close", () => {
-				let index = this.controlConnections.indexOf(connection);
-				if (index !== -1) {
-					this.controlConnections.splice(index, 1);
-				} else {
-					logger.warn("Unlisted ControlConnection closed");
-				}
-			});
-			this.controlConnections.push(connection);
-			additionalReadyData["account"] = {
-				name: user.name,
-				roles: [...user.roles].map(r => ({
-					name: r.name,
-					id: r.id,
-					permissions: [...r.permissions],
-				})),
-			};
+		} catch (err) {
+			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);
+			wsRejectedConnectionsCounter.inc();
+			socket.close(4003, `Authentication failed: ${err.message}`);
+			return;
 		}
 
-		connector.ready(socket, sessionToken, additionalReadyData);
+		let [connector, sessionToken] = this.createSession(new libData.Address(libData.Address.host, data.id));
+		let connection = this.hostConnections.get(data.id);
+		if (connection) {
+			logger.verbose(`WsServer | disconnecting existing connection for host ${data.id}`);
+			await connection.disconnect(1008, "Registered from another connection");
+		}
+
+		logger.info(
+			`WsServer | registered host ${data.name} (${data.id}) using agent ${data.agent} ${data.version}`
+		);
+		if (data.agent === "Clusterio Host" && data.version !== packageVersion) {
+			logger.warn(
+				`Host ${data.name} (${data.id}) connected using version ${data.version} which does not match the ` +
+				`version of the controller is currently running (${packageVersion}). It may not work as expected.`
+			);
+		}
+
+		connection = new HostConnection(data, connector, this.controller);
+		connector.on("close", () => {
+			if (this.hostConnections.get(data.id) === connection) {
+				this.hostConnections.delete(data.id);
+				this.controller.hostUpdated(this.controller.hosts.get(data.id));
+			} else {
+				logger.warn("Unlisted HostConnection closed");
+			}
+		});
+		this.hostConnections.set(data.id, connection);
+		this.controller.hostUpdated(this.controller.hosts.get(data.id));
+		let src = new libData.Address(libData.Address.host, data.id);
+		connector.ready(socket, src, sessionToken);
+	}
+
+	async registerControl(data, socket, req) {
+		let user;
+		try {
+			let tokenPayload = jwt.verify(
+				data.token,
+				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
+				{ audience: "user" }
+			);
+
+			user = this.controller.userManager.users.get(tokenPayload.user);
+			if (!user) {
+				throw new Error("invalid user");
+			}
+			if (tokenPayload.iat < user.tokenValidAfter) {
+				throw new Error("invalid token");
+			}
+			user.checkPermission("core.control.connect");
+
+		} catch (err) {
+			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);
+			wsRejectedConnectionsCounter.inc();
+			socket.close(4003, `Authentication failed: ${err.message}`);
+			return;
+		}
+
+		let id = this.nextControlId;
+		this.nextControlId += 1;
+		let [connector, sessionToken] = this.createSession(new libData.Address(libData.Address.control, id));
+
+		logger.verbose(`WsServer | registered control ${id} from ${req.socket.remoteAddress}`);
+		let connection = new ControlConnection(data, connector, this.controller, user, id);
+		connector.on("close", () => {
+			this.controlConnections.delete(id);
+		});
+		this.controlConnections.set(id, connection);
+		let account = new libData.AccountDetails(
+			user.name,
+			[...user.roles].map(r => ({
+				name: r.name,
+				id: r.id,
+				permissions: [...r.permissions],
+			}))
+		);
+
+		let src = new libData.Address(libData.Address.control, id);
+		connector.ready(socket, src, sessionToken, account);
+	}
+
+	resumeSession(data, socket, req) {
+		let connector;
+		try {
+			let payload = jwt.verify(
+				data.sessionToken,
+				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
+				{ audience: this.sessionAud }
+			);
+
+			connector = this.activeConnectors.get(payload.sid);
+			if (!connector) {
+				throw new Error();
+			}
+
+		} catch (err) {
+			socket.send(JSON.stringify(new libData.MessageInvalidate()));
+			this.attachHandler(socket, req);
+			return;
+		}
+
+		connector.continue(socket, data.lastSeq);
+
 	}
 
 }

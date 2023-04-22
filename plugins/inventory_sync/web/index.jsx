@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 
 import { libPlugin } from "@clusterio/lib";
 import { PageLayout, ControlContext } from "@clusterio/web_ui";
-import info from "../info";
+import { DatabaseStatsRequest } from "../messages";
 
 import "./index.css";
 
@@ -14,16 +14,16 @@ function InventoryPage() {
 	useEffect(() => {
 		(async () => {
 			// Get statistics
-			updateStatsData(await info.messages.databaseStats.send(control, {}));
+			updateStatsData(await control.send(new DatabaseStatsRequest()));
 		})();
 	}, []);
 
 	return <PageLayout nav={[{ name: "Inventory sync" }]}>
 		<h2>Inventory sync</h2>
 		{statsData && <>
-			<p>Database size: {Math.round(statsData.database_size / 1000)}kB</p>
-			<p>Database entries: {statsData.database_entries}</p>
-			<p>Largest entry is {statsData.largest_entry.name} with {(statsData.largest_entry.size / 1000)}kB</p>
+			<p>Database size: {Math.round(statsData.databaseSize / 1000)}kB</p>
+			<p>Database entries: {statsData.databaseEntries}</p>
+			<p>Largest entry is {statsData.largestEntry.name} with {(statsData.largestEntry.size / 1000)}kB</p>
 		</>}
 	</PageLayout>;
 }

@@ -85,16 +85,16 @@ class WebConsoleFormat {
 /**
  * Filter object for logs
  * @typedef {Object} module:lib/logging~LogFilter
- * @property {string} [max_level] -
+ * @property {string} [maxLevel] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
  *     Include log entries from controller, all hosts and all instances.
  * @property {boolean} [controller] -
  *     Include log entries from the controller.
- * @property {Array<number>} [host_ids] -
+ * @property {Array<number>} [hostIds] -
  *     Include log entries for the given hosts and instances of those
  *     hosts by id.
- * @property {Array<number>} [instance_ids] -
+ * @property {Array<number>} [instanceIds] -
  *     Include log entries for the given instances by id.
  */
 
@@ -107,10 +107,10 @@ class WebConsoleFormat {
  *     filter returning true for log entries that match it.
  * @static
  */
-function logFilter({ all, controller, host_ids, instance_ids, max_level }) {
+function logFilter({ all, controller, hostIds, instanceIds, maxLevel }) {
 	return info => {
 		// Note: reversed to filter out undefined levels
-		if (max_level && !(levels[info.level] <= levels[max_level])) {
+		if (maxLevel && !(levels[info.level] <= levels[maxLevel])) {
 			return false;
 		}
 
@@ -121,14 +121,14 @@ function logFilter({ all, controller, host_ids, instance_ids, max_level }) {
 			return true;
 		}
 		if (
-			host_ids
+			hostIds
 			&& info.host_id !== undefined
 			&& info.instance_id === undefined
-			&& host_ids.includes(info.host_id)
+			&& hostIds.includes(info.host_id)
 		) {
 			return true;
 		}
-		if (instance_ids && info.instance_id !== undefined && instance_ids.includes(info.instance_id)) {
+		if (instanceIds && info.instance_id !== undefined && instanceIds.includes(info.instance_id)) {
 			return true;
 		}
 		return false;

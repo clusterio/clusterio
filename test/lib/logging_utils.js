@@ -98,12 +98,12 @@ describe("lib/logging_utils.js", function() {
 					let log = await libLoggingUtils.queryLog(logDir, { limit: 2, all: true }, index());
 					assert.deepEqual(log, allLines.slice(0, 2));
 				});
-				it("should filter by max_level", async function() {
-					let log = await libLoggingUtils.queryLog(logDir, { max_level: "info", all: true }, index());
+				it("should filter by maxLevel", async function() {
+					let log = await libLoggingUtils.queryLog(logDir, { maxLevel: "info", all: true }, index());
 					assert.deepEqual(log, allLines.filter(
 						info => ["fatal", "error", "warn", "audit", "info"].includes(info.level)
 					));
-					log = await libLoggingUtils.queryLog(logDir, { max_level: "fatal", all: true }, index());
+					log = await libLoggingUtils.queryLog(logDir, { maxLevel: "fatal", all: true }, index());
 					assert.deepEqual(log, allLines.filter(
 						info => ["fatal"].includes(info.level)
 					));
@@ -114,14 +114,14 @@ describe("lib/logging_utils.js", function() {
 						info => info.host_id === undefined && info.instance_id === undefined
 					));
 				});
-				it("should filter by host_ids", async function() {
-					let log = await libLoggingUtils.queryLog(logDir, { host_ids: [1, 2] }, index());
+				it("should filter by hostIds", async function() {
+					let log = await libLoggingUtils.queryLog(logDir, { hostIds: [1, 2] }, index());
 					assert.deepEqual(log, allLines.filter(
 						info => [1, 2].includes(info.host_id) && info.instance_id === undefined
 					));
 				});
-				it("should filter by instance_ids", async function() {
-					let log = await libLoggingUtils.queryLog(logDir, { instance_ids: [10, 11] }, index());
+				it("should filter by instanceIds", async function() {
+					let log = await libLoggingUtils.queryLog(logDir, { instanceIds: [10, 11] }, index());
 					assert.deepEqual(log, allLines.filter(info => [10, 11].includes(info.instance_id)));
 				});
 			});

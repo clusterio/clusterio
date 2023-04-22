@@ -13,13 +13,13 @@ const crypto = require("crypto"); // needed for getTempFile
  * @param {function(string): boolean} filter -
  *     Optional function to filter out files to ignore.  Should return true
  *     if the file is to be considered.
- * @returns {Promise<?string>}
+ * @returns {Promise<string|undefined>}
  *     Name of the file with the newest timestamp or null if the
  *     directory contains no files.
  */
 async function getNewestFile(directory, filter = (name) => true) {
 	let newestTime = new Date(0);
-	let newestFile = null;
+	let newestFile;
 	for (let entry of await fs.readdir(directory, { withFileTypes: true })) {
 		if (entry.isFile()) {
 			let stat = await fs.stat(path.join(directory, entry.name));

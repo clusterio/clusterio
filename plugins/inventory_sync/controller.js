@@ -5,6 +5,14 @@ const path = require("path");
 const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
 
+const {
+	AcquireRequest,
+	ReleaseRequest,
+	UploadRequest,
+	DownloadRequest,
+	DatabaseStatsRequest,
+} = require("./messages");
+
 async function loadDatabase(config, logger) {
 	let itemsPath = path.resolve(config.get("controller.database_directory"), "inventories.json");
 	logger.verbose(`Loading ${itemsPath}`);
@@ -39,6 +47,12 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 				this.logger.error(`Unexpected error autosaving player data:\n${err.stack}`);
 			});
 		}, this.controller.config.get("inventory_sync.autosave_interval") * 1000);
+
+		this.controller.register(AcquireRequest, this.handleAcquireRequest.bind(this));
+		this.controller.register(ReleaseRequest, this.handleReleaseRequest.bind(this));
+		this.controller.register(UploadRequest, this.handleUploadRequest.bind(this));
+		this.controller.register(DownloadRequest, this.handleDownloadRequest.bind(this));
+		this.controller.register(DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
 	}
 
 	async onInstanceStatusChanged(instance) {
@@ -84,10 +98,10 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		return false;
 	}
 
-	async acquireRequestHandler(message) {
-		let { instance_id, player_name } = message.data;
-		if (!this.acquire(instance_id, player_name)) {
-			let acquisitionRecord = this.acquiredPlayers.get(player_name);
+	async handleAcquireRequest(request) {
+		let { instanceId, playerName } = request;
+		if (!this.acquire(instanceId, playerName)) {
+			let acquisitionRecord = this.acquiredPlayers.get(playerName);
 			let instance = this.controller.instances.get(acquisitionRecord.instanceId);
 			return {
 				status: "busy",
@@ -95,75 +109,73 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			};
 		}
 
-		let playerData = this.playerDatastore.get(player_name);
-		return {
-			status: "acquired",
-			has_data: Boolean(playerData),
-			generation: playerData ? playerData.generation : 0,
-		};
+		let playerData = this.playerDatastore.get(playerName);
+		return new AcquireRequest.Response(
+			"acquired",
+			playerData ? playerData.generation : 0,
+			Boolean(playerData),
+		);
 	}
 
-	async releaseRequestHandler(message) {
-		let { instance_id, player_name } = message.data;
-		let acquisitionRecord = this.acquiredPlayers.get(player_name);
+	async handleReleaseRequest(request) {
+		let { instanceId, playerName } = request;
+		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
 			return;
 		}
 
-		if (acquisitionRecord.instanceId === instance_id) {
-			this.acquiredPlayers.delete(player_name);
+		if (acquisitionRecord.instanceId === instanceId) {
+			this.acquiredPlayers.delete(playerName);
 		}
 	}
 
-	async uploadRequestHandler(message) {
-		let { instance_id, player_name, player_data } = message.data;
-		let instanceName = this.controller.instances.get(instance_id).config.get("instance.name");
+	async handleUploadRequest(request) {
+		let { instanceId, playerName, playerData } = request;
+		let instanceName = this.controller.instances.get(instanceId).config.get("instance.name");
 		let store = true;
-		let acquisitionRecord = this.acquiredPlayers.get(player_name);
+		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
-			this.logger.warn(`${instanceName} uploaded ${player_name} without an acquisition`);
+			this.logger.warn(`${instanceName} uploaded ${playerName} without an acquisition`);
 			// Allow upload in this case as it might come from a crashed instance that restarted and is now
 			// uploading the player data for all the players that were online during the last autosave.
 
-		} else if (acquisitionRecord.instanceId !== instance_id) {
-			this.logger.warn(`${instanceName} uploaded ${player_name} while another instance has acquired it`);
+		} else if (acquisitionRecord.instanceId !== instanceId) {
+			this.logger.warn(`${instanceName} uploaded ${playerName} while another instance has acquired it`);
 			store = false;
 
 		} else {
-			this.acquiredPlayers.delete(player_name);
+			this.acquiredPlayers.delete(playerName);
 		}
 
-		this.acquiredPlayers.delete(player_name);
-		let oldPlayerData = this.playerDatastore.get(player_name);
-		if (store && oldPlayerData && oldPlayerData.generation >= player_data.generation) {
+		this.acquiredPlayers.delete(playerName);
+		let oldPlayerData = this.playerDatastore.get(playerName);
+		if (store && oldPlayerData && oldPlayerData.generation >= playerData.generation) {
 			this.logger.warn(
-				`${instanceName} uploaded generation ${player_data.generation} while the stored` +
-				`generation is ${oldPlayerData.generation} for ${player_name}`
+				`${instanceName} uploaded generation ${playerData.generation} while the stored` +
+				`generation is ${oldPlayerData.generation} for ${playerName}`
 			);
 			store = false;
 		}
 
 		if (store) {
-			this.logger.verbose(`Received player data for ${player_name} from ${instanceName}`);
-			this.playerDatastore.set(player_name, player_data);
+			this.logger.verbose(`Received player data for ${playerName} from ${instanceName}`);
+			this.playerDatastore.set(playerName, playerData);
 		}
 	}
 
-	async downloadRequestHandler(message) {
-		let { instance_id, player_name } = message.data;
-		let instanceName = this.controller.instances.get(instance_id).config.get("instance.name");
+	async handleDownloadRequest(request) {
+		let { instanceId, playerName } = request;
+		let instanceName = this.controller.instances.get(instanceId).config.get("instance.name");
 
-		let acquisitionRecord = this.acquiredPlayers.get(player_name);
+		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
-			this.logger.warn(`${instanceName} downloaded ${player_name} without an acquisition`);
-		} else if (acquisitionRecord.instanceId !== instance_id) {
-			this.logger.warn(`${instanceName} downloaded ${player_name} while another instance has acquired it`);
+			this.logger.warn(`${instanceName} downloaded ${playerName} without an acquisition`);
+		} else if (acquisitionRecord.instanceId !== instanceId) {
+			this.logger.warn(`${instanceName} downloaded ${playerName} while another instance has acquired it`);
 		}
 
-		this.logger.verbose(`Sending player data for ${player_name} to ${instanceName}`);
-		return {
-			player_data: this.playerDatastore.get(player_name) || null,
-		};
+		this.logger.verbose(`Sending player data for ${playerName} to ${instanceName}`);
+		return new DownloadRequest.Response(this.playerDatastore.get(playerName) || null);
 	}
 
 	async onShutdown() {
@@ -171,21 +183,21 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		await saveDatabase(this.controller.config, this.playerDatastore, this.logger);
 	}
 
-	async databaseStatsRequestHandler(message) {
+	async handleDatabaseStatsRequest() {
 		let playerDatastore = Array.from(this.playerDatastore.keys())
 			.map(name => ({
 				name,
 				length: JSON.stringify(this.playerDatastore.get(name)).length,
 			}))
-			.sort((a, b) => a.length - b.length);
-		return {
-			database_size: playerDatastore.map(x => x.length).reduce((a, b) => b - a, 0),
-			database_entries: playerDatastore.length,
-			largest_entry: {
+			.sort((a, b) => b.length - a.length);
+		return new DatabaseStatsRequest.Response(
+			playerDatastore.map(x => x.length).reduce((a, b) => b - a, 0),
+			playerDatastore.length,
+			{
 				name: playerDatastore[0] && playerDatastore[0].name || "-",
 				size: playerDatastore[0] && playerDatastore[0].length || 0,
 			},
-		};
+		);
 	}
 }
 

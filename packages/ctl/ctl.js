@@ -11,6 +11,7 @@ const version = require("./package").version;
 const setBlocking = require("set-blocking");
 
 const libLink = require("@clusterio/lib/link");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libConfig = require("@clusterio/lib/config");
 const libPlugin = require("@clusterio/lib/plugin");
@@ -35,11 +36,11 @@ class ControlConnector extends libLink.WebSocketClientConnector {
 
 	register() {
 		logger.verbose("Connector | registering control");
-		this.sendHandshake("register_control", {
-			token: this._token,
-			agent: "clusterioctl",
-			version: version,
-		});
+		this.sendHandshake(new libData.MessageRegisterControl(new libData.RegisterControlData(
+			this._token,
+			"clusterioctl",
+			version,
+		)));
 	}
 }
 
@@ -50,10 +51,8 @@ class ControlConnector extends libLink.WebSocketClientConnector {
  * @static
  */
 class Control extends libLink.Link {
-
 	constructor(connector, controlConfig, tlsCa, controlPlugins) {
-		super("control", "controller", connector);
-		libLink.attachAllMessages(this);
+		super(connector);
 
 		/**
 		 * Control config used for connecting to the controller.
@@ -70,62 +69,46 @@ class Control extends libLink.Link {
 		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
 		 */
 		this.plugins = controlPlugins;
-		for (let controlPlugin of controlPlugins.values()) {
-			libPlugin.attachPluginMessages(this, controlPlugin);
-		}
 
 		/**
 		 * Keep the control connection alive after the command completes.
 		 * @type {boolean}
 		 */
 		this.keepOpen = false;
+
+		this.register(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.register(libData.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
 	}
-
-	async accountUpdateEventHandler() { }
-
-	async hostUpdateEventHandler() { }
-
-	async instanceUpdateEventHandler() { }
-
-	async saveListUpdateEventHandler() { }
-
-	async modPackUpdateEventHandler() { }
-
-	async modUpdateEventHandler() { }
-
-	async userUpdateEventHandler() { }
 
 	async setLogSubscriptions({
 		all = false,
 		controller = false,
-		host_ids = [],
-		instance_ids = [],
-		max_level = null,
+		hostIds = [],
+		instanceIds = [],
+		maxLevel = null,
 	}) {
-		await libLink.messages.setLogSubscriptions.send(this, {
-			all, controller, host_ids, instance_ids, max_level,
-		});
+		await this.send(new libData.LogSetSubscriptionsRequest(
+			all, controller, hostIds, instanceIds, maxLevel,
+		));
 	}
 
-	async logMessageEventHandler(message) {
-		logger.log(message.data.info);
+	async handleLogMessageEvent(event) {
+		logger.log(event.info);
 	}
 
-	async debugWsMessageEventHandler(message) {
+	async handleDebugWsMessageEvent(event) {
 		// eslint-disable-next-line no-console
-		console.log("WS", message.data.direction, message.data.content);
+		console.log("WS", event.direction, event.content);
 	}
 
 	async shutdown() {
 		try {
-			await libLink.messages.prepareDisconnect.send(this);
+			await this.connector.disconnect();
 		} catch (err) {
 			if (!(err instanceof libErrors.SessionLost)) {
 				throw err;
 			}
 		}
-
-		await this.connector.close(1000, "Control Quit");
 	}
 }
 
@@ -300,7 +283,7 @@ async function startControl() {
 			process.exitCode = 1;
 
 		} else if (err instanceof libErrors.RequestError) {
-			logger.error(`Error sending request: ${err.message}`);
+			logger.error(`Error sending request:\n${err.stack}`);
 			process.exitCode = 1;
 
 		} else {

@@ -1,5 +1,5 @@
 "use strict";
-const { libConfig, libLink, libUsers } = require("@clusterio/lib");
+const { libConfig, libUsers } = require("@clusterio/lib");
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -47,20 +47,6 @@ libUsers.definePermission({
 	grantByDefault: true,
 });
 
-// JSON schema for subspace storage items
-const items = {
-	type: "array",
-	items: {
-		type: "array",
-		minItems: 2,
-		maxItems: 2,
-		items: [
-			{ type: "string" },
-			{ type: "integer" },
-		],
-	},
-};
-
 module.exports = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
@@ -73,55 +59,4 @@ module.exports = {
 
 	webEntrypoint: "./web",
 	routes: ["/storage"],
-
-	messages: {
-		// XXX this should be a request to be reliable
-		place: new libLink.Event({
-			type: "subspace_storage:place",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			eventProperties: {
-				"instance_id": { type: "integer" },
-				"items": items,
-			},
-		}),
-		remove: new libLink.Request({
-			type: "subspace_storage:remove",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"instance_id": { type: "integer" },
-				"items": items,
-			},
-			responseProperties: {
-				"items": items,
-			},
-		}),
-		getStorage: new libLink.Request({
-			type: "subspace_storage:get_storage",
-			links: ["instance-host", "host-controller", "control-controller"],
-			permission: "subspace_storage.storage.view",
-			forwardTo: "controller",
-			responseProperties: {
-				"items": items,
-			},
-		}),
-		updateStorage: new libLink.Event({
-			type: "subspace_storage:update_storage",
-			links: ["controller-host", "host-instance", "controller-control"],
-			broadcastTo: "instance",
-			eventProperties: {
-				"items": items,
-			},
-		}),
-
-		setStorageSubscription: new libLink.Request({
-			type: "subspace_storage:set_storage_subscription",
-			links: ["control-controller"],
-			permission: "subspace_storage.storage.view",
-			requestProperties: {
-				"storage": { type: "boolean" },
-			},
-		}),
-	},
 };

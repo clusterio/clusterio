@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Form, Input, Modal } from "antd";
 
-import { libFactorio, libLink } from "@clusterio/lib";
+import { libFactorio, libData } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -51,13 +51,10 @@ export default function CreateSaveModal(props) {
 		}
 
 		setCreatingSave(true);
-		libLink.messages.createSave.send(control, {
-			instance_id: props.instance.id,
-			name,
-			seed,
-			map_gen_settings: mapGenSettings,
-			map_settings: mapSettings,
-		}).then(() => {
+		control.sendTo(
+			new libData.InstanceCreateSaveRequest(name, seed, mapGenSettings, mapSettings),
+			{ instanceId: props.instance.id }
+		).then(() => {
 			form.resetFields();
 			setVisible(false);
 		}).catch(

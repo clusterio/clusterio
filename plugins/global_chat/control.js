@@ -1,6 +1,6 @@
 "use strict";
 const libPlugin = require("@clusterio/lib/plugin");
-const info = require("./info");
+const { ChatEvent } = require("./messages");
 const libCommand = require("@clusterio/lib/command");
 
 
@@ -12,10 +12,7 @@ globalChatCommands.add(new libCommand.Command({
 		yargs.positional("message", { describe: "message to send", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await info.messages.chat.send(control, {
-			instance_name: "Console",
-			content: args.message,
-		});
+		await control.sendTo(new ChatEvent("Console", args.message), "allInstances");
 	},
 }));
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useRef, useState } from "react";
 import { Typography } from "antd";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -60,8 +60,8 @@ export default function LogConsole(props) {
 		let logFilter = {
 			all: props.all || false,
 			controller: props.controller || false,
-			host_ids: props.hosts || [],
-			instance_ids: props.instances || [],
+			hostIds: props.hosts || [],
+			instanceIds: props.instances || [],
 		};
 
 		// Scroll view to the anchor so it sticks to the bottom
@@ -70,12 +70,15 @@ export default function LogConsole(props) {
 
 		if (account.hasPermission("core.log.query")) {
 			setPastLines([<span key={0}>{"Loading past entries..."}<br/></span>]);
-			libLink.messages.queryLog.send(control, {
-				...logFilter,
-				max_level: null,
-				limit: 400,
-				order: "desc",
-			}).then(result => {
+			control.send(new libData.LogQueryRequest(
+				logFilter.all,
+				logFilter.controller,
+				logFilter.hostIds,
+				logFilter.instanceIds,
+				null,
+				400,
+				"desc",
+			)).then(result => {
 				setPastLines(result.log.map((info, index) => formatLog(info, -index - 1)).reverse());
 			}).catch(err => {
 				setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);

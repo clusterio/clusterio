@@ -266,7 +266,7 @@ describe("controller/src/routes", function() {
 		});
 
 		it("should respond with 500 if the transfer failed", async function() {
-			controller.forwardRequestToInstance = async (data, request) => {
+			controller.sendToHostByInstanceId = async (request) => {
 				throw new Error("Something went wrong");
 			};
 			let response;
@@ -294,7 +294,7 @@ describe("controller/src/routes", function() {
 			});
 			assert.equal(response.statusCode, 500);
 			assert.deepEqual(JSON.parse(response.body), { errors: ["Something went wrong"], request_errors: [] });
-			controller.forwardRequestToInstance = async (data, request) => {
+			controller.sendToHostByInstanceId = async (request) => {
 				await new Promise(() => {});
 			};
 			response = await phin({
@@ -312,12 +312,12 @@ describe("controller/src/routes", function() {
 		});
 
 		it("should complete a valid transfer", async function() {
-			controller.forwardRequestToInstance = async (request, data) => {
+			controller.sendToHostByInstanceId = async (request) => {
 				let stream = await phin({
-					url: `http://localhost:${port}/api/stream/${data.stream_id}`,
+					url: `http://localhost:${port}/api/stream/${request.streamId}`,
 				});
 				assert.equal(stream.body.toString(), "totally a zip file");
-				return { save: data.filename };
+				return request.name;
 			};
 			let response;
 			response = await phin({
@@ -332,12 +332,12 @@ describe("controller/src/routes", function() {
 			assert.equal(response.statusCode, 200);
 		});
 		it("should complete a valid transfer with non-standerd mime type", async function() {
-			controller.forwardRequestToInstance = async (request, data) => {
+			controller.sendToHostByInstanceId = async (request) => {
 				let stream = await phin({
-					url: `http://localhost:${port}/api/stream/${data.stream_id}`,
+					url: `http://localhost:${port}/api/stream/${request.streamId}`,
 				});
 				assert.equal(stream.body.toString(), "totally a zip file");
-				return { save: data.filename };
+				return request.name;
 			};
 			let response;
 			response = await phin({

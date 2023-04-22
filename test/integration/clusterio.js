@@ -21,8 +21,8 @@ const {
 
 
 async function getInstances() {
-	let result = await libLink.messages.listInstances.send(getControl());
-	return new Map(result.list.map(instance => [instance.id, instance]));
+	let instances = await getControl().send(new libData.InstanceDetailsListRequest());
+	return new Map(instances.map(instance => [instance.id, instance]));
 }
 
 async function checkInstanceStatus(id, status) {
@@ -45,7 +45,7 @@ async function uploadSave(instanceId, name, content) {
 }
 
 async function deleteSave(instanceId, save) {
-	await libLink.messages.deleteSave.send(getControl(), { instance_id: instanceId, save });
+	await getControl().send(new libData.InstanceDeleteSaveRequest(instanceId, save));
 }
 
 describe("Integration of Clusterio", function() {
@@ -76,6 +76,7 @@ describe("Integration of Clusterio", function() {
 
 				let connectorB = new TestControlConnector(url, 2, tlsCa);
 				connectorB.token = controlToken;
+				connectorB.src = connectorA.src;
 				let controlB = new TestControl(connectorB);
 				connectorB._sessionToken = connectorA._sessionToken;
 				connectorB._sessionTimeout = connectorA._sessionTimeout;
@@ -89,36 +90,12 @@ describe("Integration of Clusterio", function() {
 
 		describe("queryLogRequestHandler", function() {
 			it("should honnor the limit", async function() {
-				let result = await libLink.messages.queryLog.send(getControl(), {
-					all: true,
-					controller: false,
-					host_ids: [],
-					instance_ids: [],
-					max_level: null,
-					limit: 10,
-					order: "asc",
-				});
+				let result = await getControl().send(new libData.LogQueryRequest(true, false, [], [], null, 10, "asc"));
 				assert.equal(result.log.length, 10);
 			});
 			it("should return entries by order", async function() {
-				let first = await libLink.messages.queryLog.send(getControl(), {
-					all: true,
-					controller: false,
-					host_ids: [],
-					instance_ids: [],
-					max_level: null,
-					limit: 1,
-					order: "asc",
-				});
-				let last = await libLink.messages.queryLog.send(getControl(), {
-					all: true,
-					controller: false,
-					host_ids: [],
-					instance_ids: [],
-					max_level: null,
-					limit: 1,
-					order: "desc",
-				});
+				let first = await getControl().send(new libData.LogQueryRequest(true, false, [], [], null, 1, "asc"));
+				let last = await getControl().send(new libData.LogQueryRequest(true, false, [], [], null, 1, "desc"));
 				assert(first.log[0].timestamp < last.log[0].timestamp, "first log entry happened after last");
 			});
 		});
@@ -183,8 +160,8 @@ describe("Integration of Clusterio", function() {
 				assert(sawConnected, "No host update with status connected was sent");
 				assert(sawDisconnected, "No host update with status disconnected was sent");
 
-				let result = await libLink.messages.listHosts.send(getControl());
-				let hosts = new Map(result.list.map(instance => [instance.id, instance]));
+				let result = await getControl().send(new libData.HostListRequest());
+				let hosts = new Map(result.map(instance => [instance.id, instance]));
 				assert(hosts.has(5), "Host list was not updated");
 			});
 		});
@@ -196,9 +173,9 @@ describe("Integration of Clusterio", function() {
 				await execCtl("controller config list");
 			});
 			it("should not leak auth_secret", async function() {
-				let result = await libLink.messages.getControllerConfig.send(getControl());
+				let result = await getControl().send(new libData.ControllerConfigGetRequest());
 				let done = false;
-				for (let group of result.serialized_config.groups) {
+				for (let group of result.serializedConfig.groups) {
 					if (group.name === "controller") {
 						assert.equal(Object.prototype.hasOwnProperty.call(group.fields, "auth_secret"), false);
 						done = true;
@@ -211,9 +188,9 @@ describe("Integration of Clusterio", function() {
 		describe("controller config set", function() {
 			it("sets given config option", async function() {
 				await execCtl('controller config set controller.name "Test Cluster"');
-				let result = await libLink.messages.getControllerConfig.send(getControl());
+				let result = await getControl().send(new libData.ControllerConfigGetRequest());
 				let done = false;
-				for (let group of result.serialized_config.groups) {
+				for (let group of result.serializedConfig.groups) {
 					if (group.name === "controller") {
 						assert.equal(group.fields.name, "Test Cluster");
 						done = true;
@@ -289,7 +266,7 @@ describe("Integration of Clusterio", function() {
 		describe("saveListUpdateEventHandler()", function() {
 			it("should have triggered for the created save", function() {
 				slowTest(this);
-				assert.equal(getControl().saveListUpdates.slice(-1)[0].list[0].name, "world.zip");
+				assert.equal(getControl().saveListUpdates.slice(-1)[0].saves[0].name, "world.zip");
 			});
 		});
 
@@ -307,8 +284,7 @@ describe("Integration of Clusterio", function() {
 				let exportPath = path.join("temp", "test", "static");
 				await fs.remove(exportPath);
 				await execCtl("instance export-data test");
-				let result = await libLink.messages.getDefaultModPack.send(getControl());
-				let modPack = libData.ModPack.fromJSON(result.mod_pack);
+				let modPack = await getControl().send(new libData.ModPackGetDefaultRequest());
 				let assets = modPack.exportManifest.assets;
 				assert(Object.keys(assets).length > 1, "Export assets is empty");
 				for (let key of ["settings", "prototypes", "item-metadata", "item-spritesheet", "locale"]) {
@@ -357,8 +333,8 @@ describe("Integration of Clusterio", function() {
 				let savesDir = path.join("temp", "test", "instances", "test", "saves");
 				await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
 				await execCtl("instance start test");
-				let result = await libLink.messages.listSaves.send(getControl(), { instance_id: 44 });
-				let running = result.list.find(s => s.loaded);
+				let saves = await getControl().sendTo(new libData.InstanceListSavesRequest(), { instanceId: 44 });
+				let running = saves.find(s => s.loaded);
 				assert(running.name !== "_autosave1.zip");
 			});
 		});
@@ -367,15 +343,9 @@ describe("Integration of Clusterio", function() {
 			it("sends the command", async function() {
 				slowTest(this);
 				await execCtl("instance send-rcon test technobabble");
-				let { log } = await libLink.messages.queryLog.send(getControl(), {
-					all: false,
-					controller: false,
-					host_ids: [],
-					instance_ids: [44],
-					max_level: null,
-					limit: 10,
-					order: "desc",
-				});
+				let { log } = await getControl().send(
+					new libData.LogQueryRequest(false, false, [], [44], null, 10, "desc")
+				);
 				assert(log.some(info => /technobabble/.test(info.message)), "Command was not sent");
 			});
 
@@ -486,41 +456,41 @@ describe("Integration of Clusterio", function() {
 
 		describe("user set-admin/whitelisted/banned", function() {
 			async function getUsers() {
-				let result = await libLink.messages.listUsers.send(getControl());
-				return new Map(result.list.map(user => [user.name, user]));
+				let users = await getControl().send(new libData.UserListRequest());
+				return new Map(users.map(user => [user.name, user]));
 			}
 
 			async function getUser(name) {
-				return await libLink.messages.getUser.send(getControl(), { name });
+				return await getControl().send(new libData.UserGetRequest(name));
 			}
 
-			let lists = ["admin", "whitelisted", "banned"];
+			let lists = [["admin", "isAdmin"], ["whitelisted", "isWhitelisted"], ["banned", "isBanned"]];
 			it("should add and remove the given user to the list", async function() {
 				slowTest(this);
 				getControl().userUpdates = [];
-				await libLink.messages.createUser.send(getControl(), { name: "list_test" });
+				await getControl().send(new libData.UserCreateRequest("list_test"));
 				let user = (await getUsers()).get("list_test");
-				for (let list of lists) {
-					assert.equal(user[`is_${list}`], false, `unexpected ${list} status`);
-					await execCtl(`user set-${list} list_test`);
+				for (let [listName, prop] of lists) {
+					assert.equal(user[prop], false, `unexpected ${listName} status`);
+					await execCtl(`user set-${listName} list_test`);
 				}
 				user = (await getUsers()).get("list_test");
-				for (let list of lists) {
-					assert.equal(user[`is_${list}`], true, `unexpected ${list} status`);
-					let remove = { admin: "--revoke", whitelisted: "--remove", banned: "--pardon" }[list];
-					await execCtl(`user set-${list} ${remove} list_test`);
+				for (let [listName, prop] of lists) {
+					assert.equal(user[prop], true, `unexpected ${listName} status`);
+					let remove = { admin: "--revoke", whitelisted: "--remove", banned: "--pardon" }[listName];
+					await execCtl(`user set-${listName} ${remove} list_test`);
 				}
 				user = (await getUsers()).get("list_test");
-				for (let list of lists) {
-					assert.equal(user[`is_${list}`], false, `unexpected ${list} status`);
+				for (let [listName, prop] of lists) {
+					assert.equal(user[prop], false, `unexpected ${listName} status`);
 				}
 				assert.equal(getControl().userUpdates.length, 7);
 			});
 			it("should not create the user if not instructed to", async function() {
 				slowTest(this);
-				for (let list of lists) {
+				for (let [listName, prop] of lists) {
 					try {
-						await execCtl(`user set-${list} no_create_test`);
+						await execCtl(`user set-${listName} no_create_test`);
 					} catch (err) { /* ignore */ }
 				}
 				let user = (await getUsers()).get("no_create_test");
@@ -529,10 +499,10 @@ describe("Integration of Clusterio", function() {
 			it("should create the user if instructed to", async function() {
 				slowTest(this);
 				getControl().userUpdates = [];
-				for (let list of lists) {
-					await execCtl(`user set-${list} --create test_create_${list}`);
-					let user = (await getUsers()).get(`test_create_${list}`);
-					assert.equal(user && user[`is_${list}`], true, `user not created and added to ${list}`);
+				for (let [listName, prop] of lists) {
+					await execCtl(`user set-${listName} --create test_create_${listName}`);
+					let user = (await getUsers()).get(`test_create_${listName}`);
+					assert.equal(user && user[prop], true, `user not created and added to ${listName}`);
 				}
 				assert.equal(getControl().userUpdates.length, 3);
 			});
@@ -541,9 +511,9 @@ describe("Integration of Clusterio", function() {
 				getControl().userUpdates = [];
 				await execCtl("user set-banned --create test_ban_reason --reason a-reason");
 				assert.equal(getControl().userUpdates.length, 1);
-				assert.equal(getControl().userUpdates[0].ban_reason, "a-reason");
+				assert.equal(getControl().userUpdates[0].banReason, "a-reason");
 				let user = await getUser("test_ban_reason");
-				assert.equal(user["ban_reason"], "a-reason");
+				assert.equal(user.banReason, "a-reason");
 			});
 		});
 
@@ -831,8 +801,8 @@ describe("Integration of Clusterio", function() {
 		describe("mod-pack create", function() {
 			it("should create a mod-pack", async function() {
 				await execCtl("mod-pack create empty-pack 1.1.0");
-				let response = await libLink.messages.listModPacks.send(getControl());
-				assert(response.list.some(modPack => modPack.name === "empty-pack"), "created pack is not in the list");
+				let modPacks = await getControl().send(new libData.ModPackListRequest());
+				assert(modPacks.some(modPack => modPack.name === "empty-pack"), "created pack is not in the list");
 			});
 			it("should allow setting all fields", async function() {
 				await execCtl(
@@ -844,8 +814,8 @@ describe("Integration of Clusterio", function() {
 					"--double-setting runtime-global MyDouble 12.25 " +
 					"--string-setting runtime-per-user MyString a-string"
 				);
-				let response = await libLink.messages.listModPacks.send(getControl());
-				let modPack = response.list.find(entry => entry.name === "full-pack");
+				let modPacks = await getControl().send(new libData.ModPackListRequest());
+				let modPack = modPacks.find(entry => entry.name === "full-pack");
 				assert(modPack, "created mod pack not found");
 				let reference = libData.ModPack.fromJSON({});
 				reference.id = modPack.id;
@@ -857,7 +827,7 @@ describe("Integration of Clusterio", function() {
 				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
 				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
 				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
-				assert.deepEqual(libData.ModPack.fromJSON(modPack), reference);
+				assert.deepEqual(modPack, reference);
 			});
 		});
 
@@ -895,18 +865,18 @@ describe("Integration of Clusterio", function() {
 		describe("mod-pack edit", function() {
 			it("runs", async function() {
 				await execCtl("mod-pack edit full-pack --factorio-version 1.2.0");
-				let response = await libLink.messages.listModPacks.send(getControl());
-				let modPack = response.list.find(entry => entry.name === "full-pack");
+				let modPacks = await getControl().send(new libData.ModPackListRequest());
+				let modPack = modPacks.find(entry => entry.name === "full-pack");
 				assert(modPack, "created mod pack not found");
-				assert.equal(modPack.factorio_version, "1.2.0");
+				assert.equal(modPack.factorioVersion, "1.2.0");
 			});
 		});
 
 		describe("mod-pack delete", function() {
 			it("deletes the pack", async function() {
 				await execCtl("mod-pack delete full-pack");
-				let response = await libLink.messages.listModPacks.send(getControl());
-				let modPack = response.list.find(entry => entry.name === "full-pack");
+				let modPacks = await getControl().send(new libData.ModPackListRequest());
+				let modPack = modPacks.find(entry => entry.name === "full-pack");
 				assert(!modPack, "mod pack not deleted");
 			});
 		});
@@ -938,11 +908,14 @@ describe("Integration of Clusterio", function() {
 					"version: 1.0.0\n" +
 					"title: An Empty Mod\n" +
 					"author: Me\n" +
+					"contact: \n" +
+					"homepage: \n" +
 					"description: An empty mod for testing\n" +
-					"factorio_version: 1.1\n" +
+					"factorioVersion: 1.1\n" +
 					"dependencies:\n" +
 					`size: ${stat.size}\n` +
-					`sha1: ${hash}\n`,
+					`sha1: ${hash}\n` +
+					"isDeleted: false\n",
 				);
 			});
 		});
@@ -991,7 +964,7 @@ describe("Integration of Clusterio", function() {
 					if (modUpdate.name !== "empty_mod" || modUpdate.version !== "1.0.0") {
 						continue;
 					}
-					if (modUpdate.is_deleted) {
+					if (modUpdate.isDeleted) {
 						eventsNotSeen.delete("deleted");
 					} else {
 						eventsNotSeen.delete("updated");
@@ -1018,11 +991,11 @@ describe("Integration of Clusterio", function() {
 			it("should create the given role", async function() {
 				let args = "--description \"A temp role\" --permissions core.control.connect";
 				await execCtl(`role create temp ${args}`);
-				let result = await libLink.messages.listRoles.send(getControl());
-				let tempRole = result.list.find(role => role.name === "temp");
+				let roles = await getControl().send(new libData.RoleListRequest());
+				let tempRole = roles.find(role => role.name === "temp");
 				assert.deepEqual(
 					tempRole,
-					{ id: 5, name: "temp", description: "A temp role", permissions: ["core.control.connect"] }
+					new libData.RawRole(5, "temp", "A temp role", ["core.control.connect"])
 				);
 			});
 		});
@@ -1031,28 +1004,28 @@ describe("Integration of Clusterio", function() {
 			it("should modify the given role", async function() {
 				let args = "--name new --description \"A new role\" --set-perms";
 				await execCtl(`role edit temp ${args}`);
-				let result = await libLink.messages.listRoles.send(getControl());
-				let newRole = result.list.find(role => role.name === "new");
-				assert.deepEqual(newRole, { id: 5, name: "new", description: "A new role", permissions: [] });
+				let roles = await getControl().send(new libData.RoleListRequest());
+				let newRole = roles.find(role => role.name === "new");
+				assert.deepEqual(newRole, new libData.RawRole(5, "new", "A new role", []));
 			});
 			it("should add permissions with --add-perms", async function() {
 				let args = "--name new --add-perms core.host.list core.instance.list";
 				await execCtl(`role edit new ${args}`);
-				let result = await libLink.messages.listRoles.send(getControl());
-				let newRole = result.list.find(role => role.name === "new");
+				let roles = await getControl().send(new libData.RoleListRequest());
+				let newRole = roles.find(role => role.name === "new");
 				assert.deepEqual(newRole.permissions, ["core.host.list", "core.instance.list"]);
 			});
 			it("should remove permissions with --remove-perms", async function() {
 				let args = "--name new --remove-perms core.host.list";
 				await execCtl(`role edit new ${args}`);
-				let result = await libLink.messages.listRoles.send(getControl());
-				let newRole = result.list.find(role => role.name === "new");
+				let roles = await getControl().send(new libData.RoleListRequest());
+				let newRole = roles.find(role => role.name === "new");
 				assert.deepEqual(newRole.permissions, ["core.instance.list"]);
 			});
 			it("should grant default permissions with --grant-default", async function() {
 				await execCtl("role edit new --grant-default");
-				let result = await libLink.messages.listRoles.send(getControl());
-				let newRole = result.list.find(role => role.name === "new");
+				let roles = await getControl().send(new libData.RoleListRequest());
+				let newRole = roles.find(role => role.name === "new");
 				let defaultPermissions = [...libUsers.permissions.values()]
 					.filter(p => p.grantByDefault)
 					.map(p => p.name)
@@ -1064,8 +1037,8 @@ describe("Integration of Clusterio", function() {
 		describe("role delete", function() {
 			it("should delete the given role", async function() {
 				await execCtl("role delete new");
-				let result = await libLink.messages.listRoles.send(getControl());
-				let newRole = result.list.find(role => role.name === "new");
+				let roles = await getControl().send(new libData.RoleListRequest());
+				let newRole = roles.find(role => role.name === "new");
 				assert(!newRole, "Role was not deleted");
 			});
 		});
@@ -1080,8 +1053,8 @@ describe("Integration of Clusterio", function() {
 			it("should create the given user", async function() {
 				getControl().userUpdates = [];
 				await execCtl("user create temp");
-				let result = await libLink.messages.listUsers.send(getControl());
-				let tempUser = result.list.find(user => user.name === "temp");
+				let users = await getControl().send(new libData.UserListRequest());
+				let tempUser = users.find(user => user.name === "temp");
 				assert(tempUser, "user was not created");
 				assert.equal(getControl().userUpdates.length, 1);
 				assert.equal(getControl().userUpdates[0].name, "temp");
@@ -1091,7 +1064,7 @@ describe("Integration of Clusterio", function() {
 		describe("user revoke-token", function() {
 			it("should kick existing sessions for the user", async function() {
 				slowTest(this);
-				await libLink.messages.createUser.send(getControl(), { name: "revokee" });
+				await getControl().send(new libData.UserCreateRequest("revokee"));
 				let tlsCa = await fs.readFile("test/file/tls/cert.pem");
 				let connector = new TestControlConnector(url, 2, tlsCa);
 				connector.token = jwt.sign(
@@ -1112,8 +1085,8 @@ describe("Integration of Clusterio", function() {
 			it("should set the roles on the user", async function() {
 				getControl().userUpdates = [];
 				await execCtl('user set-roles temp "Cluster Admin"');
-				let result = await libLink.messages.listUsers.send(getControl());
-				let tempUser = result.list.find(user => user.name === "temp");
+				let users = await getControl().send(new libData.UserListRequest());
+				let tempUser = users.find(user => user.name === "temp");
 				assert.deepEqual(tempUser.roles, [0]);
 				assert.equal(getControl().userUpdates.length, 1);
 			});
@@ -1123,11 +1096,11 @@ describe("Integration of Clusterio", function() {
 			it("should delete the user", async function() {
 				getControl().userUpdates = [];
 				await execCtl("user delete temp");
-				let result = await libLink.messages.listUsers.send(getControl());
-				let tempUser = result.list.find(user => user.name === "temp");
+				let users = await getControl().send(new libData.UserListRequest());
+				let tempUser = users.find(user => user.name === "temp");
 				assert(!tempUser, "user was note deleted");
 				assert.equal(getControl().userUpdates.length, 1);
-				assert.equal(getControl().userUpdates[0].is_deleted, true);
+				assert.equal(getControl().userUpdates[0].isDeleted, true);
 			});
 		});
 	});

@@ -2,7 +2,6 @@
 const assert = require("assert").strict;
 
 const mock = require("../mock");
-const libLink = require("@clusterio/lib/link");
 const libPlugin = require("@clusterio/lib/plugin");
 
 
@@ -68,33 +67,6 @@ describe("lib/plugin", function() {
 			await controllerPlugin.onShutdown();
 			controllerPlugin.onHostConnectionEvent({}, "connect");
 			await controllerPlugin.onPrepareHostDisconnect({});
-		});
-	});
-
-	describe("attachPluginMessages()", function() {
-		let mockLink = new libLink.Link("source", "target", new mock.MockConnector());
-		let mockEvent = new libLink.Event({ type: "test:test", links: ["target-source"] });
-		it("should accept pluginInfo without messages", function() {
-			libPlugin.attachPluginMessages(mockLink, { info: {} });
-		});
-		it("should attach handler for the given message", function() {
-			function mockEventEventHandler() { };
-			libPlugin.attachPluginMessages(
-				mockLink, { mockEventEventHandler, info: { name: "test", messages: { mockEvent }}}
-			);
-			assert(mockLink._handlers.get("test:test_event"), "handler was not registered");
-		});
-		it("should throw if missing handler for the given message", function() {
-			assert.throws(
-				() => libPlugin.attachPluginMessages(mockLink, { info: { name: "test", messages: { mockEvent }}}),
-				new Error("Missing mockEventEventHandler on plugin test for test:test_event on source-target link")
-			);
-		});
-		it("should throw if message starts with the wrong prefix", function() {
-			assert.throws(
-				() => libPlugin.attachPluginMessages(mockLink, { info: { name: "foo", messages: { mockEvent }}}),
-				new Error('Type of mockEvent message must start with "foo:"')
-			);
 		});
 	});
 

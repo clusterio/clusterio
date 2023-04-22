@@ -5,11 +5,11 @@
  */
 "use strict";
 const link = require("./link");
-const messages = require("./messages");
 const connectors = require("./connectors");
 
 module.exports = {
 	...link,
-	...messages,
 	...connectors,
+	Event: class Event {},
+	Request: class Request {},
 };

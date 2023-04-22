@@ -46,7 +46,7 @@ module.exports = Data;
 ```
 
 Serialising an instance of `Data` for JSON is as simple as doing `serialised = JSON.stringify(data)` as the `toJSON` method is automatically called by `JSON.stringify` to create a suitable object.
-Deserialising is done by calling the static `fromJSON` method with the serialised JSON data, like `data = Data.fromJson(JSON.parse(serialised))`.
+Deserialising is done by calling the static `fromJSON` method with the serialised JSON data, like `data = Data.fromJSON(JSON.parse(serialised))`.
 
 By structuring the classes like this they can be easily composed together.
 For example a class holding a data property with an instance of the Data class from the previous example can be created as follows.

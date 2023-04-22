@@ -1,6 +1,13 @@
 "use strict";
 const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
+const {
+	ContributionEvent,
+	ProgressEvent,
+	FinishedEvent,
+	Technology,
+	SyncTechnologiesRequest,
+} = require("./messages");
 
 
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
@@ -21,29 +28,31 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		});
 
 		this.syncStarted = false;
+		this.instance.register(ProgressEvent, this.handleProgressEvent.bind(this));
+		this.instance.register(FinishedEvent, this.handleFinishedEvent.bind(this));
 	}
 
 	async researchContribution(tech) {
-		this.info.messages.contribution.send(this.instance, tech);
+		this.instance.sendTo(new ContributionEvent(tech.name, tech.level, tech.contribution), "controller");
 	}
 
-	async progressEventHandler(message) {
+	async handleProgressEvent(event) {
 		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
 			return;
 		}
-		let techsJson = libLuaTools.escapeString(JSON.stringify(message.data.technologies));
+		let techsJson = libLuaTools.escapeString(JSON.stringify(event.technologies));
 		await this.sendOrderedRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
 	}
 
 	async researchFinished(tech) {
-		this.info.messages.finished.send(this.instance, tech);
+		this.instance.sendTo(new FinishedEvent(tech.name, tech.level), "allInstances");
 	}
 
-	async finishedEventHandler(message) {
+	async handleFinishedEvent(event) {
 		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
 			return;
 		}
-		let { name, level } = message.data;
+		let { name, level } = event;
 		await this.sendOrderedRcon(
 			`/sc research_sync.research_technology("${libLuaTools.escapeString(name)}", ${level})`, true
 		);
@@ -54,20 +63,20 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		let techsToSend = [];
 		let instanceTechs = new Map();
 		for (let tech of JSON.parse(dumpJson)) {
-			techsToSend.push([
+			techsToSend.push(new Technology(
 				tech.name,
 				tech.level,
 				tech.progress || null,
 				tech.researched,
-			]);
+			));
 			instanceTechs.set(tech.name, tech);
 		}
 
-		let response = await this.info.messages.syncTechnologies.send(this.instance, { technologies: techsToSend });
+		let controllerTechs = await this.instance.sendTo(new SyncTechnologiesRequest(techsToSend), "controller");
 		this.syncStarted = true;
 		let techsToSync = [];
-		for (let controllerTech of response.technologies) {
-			let [name, level, progress, researched] = controllerTech;
+		for (let controllerTech of controllerTechs) {
+			let { name, level, progress, researched } = controllerTech;
 			let instanceTech = instanceTechs.get(name);
 			if (
 				!instanceTech

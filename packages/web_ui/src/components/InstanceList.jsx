@@ -27,12 +27,12 @@ export default function InstanceList(props) {
 	}
 
 	function instancePublicAddress(instance) {
-		let host = hostList.find(s => s.id === instance.assigned_host);
-		if (host && host.public_address) {
-			if (instance.game_port) {
-				return `${host.public_address}:${instance.game_port}`;
+		let host = hostList.find(s => s.id === instance.assignedHost);
+		if (host && host.publicAddress) {
+			if (instance.gamePort) {
+				return `${host.publicAddress}:${instance.gamePort}`;
 			}
-			return host.public_address;
+			return host.publicAddress;
 		}
 		return null;
 	}
@@ -46,30 +46,30 @@ export default function InstanceList(props) {
 		},
 		{
 			title: "Assigned Host",
-			key: "assigned_host",
-			render: instance => hostName(instance["assigned_host"]),
-			sorter: (a, b) => strcmp(hostName(a["assigned_host"]), hostName(b["assigned_host"])),
+			key: "assignedHost",
+			render: instance => hostName(instance.assignedHost),
+			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
 			responsive: ["sm"],
 		},
 		{
 			title: "Public address",
-			key: "public_address",
+			key: "publicAddress",
 			render: instance => {
-				let public_address = instancePublicAddress(instance);
-				return public_address ? <>
-					{public_address}
+				let publicAddress = instancePublicAddress(instance);
+				return publicAddress ? <>
+					{publicAddress}
 					<Button
 						type="text"
 						icon={<CopyOutlined/>}
 						onClick={(e) => {
 							e.stopPropagation();
-							navigator.clipboard.writeText(public_address);
+							navigator.clipboard.writeText(publicAddress);
 							message.success("Copied public address!");
 						}}
 					/>
 				</> : "";
 			},
-			sorter: (a, b) => strcmp(hostPublicAddress(a["assigned_host"]), hostPublicAddress(b["assigned_host"])),
+			sorter: (a, b) => strcmp(hostPublicAddress(a.assignedHost), hostPublicAddress(b.assignedHost)),
 			responsive: ["lg"],
 		},
 		{
