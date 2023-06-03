@@ -1,4 +1,5 @@
 "use strict";
+const messages = require("./messages");
 
 module.exports = {
 	name: "global_chat",
@@ -6,4 +7,8 @@ module.exports = {
 	description: "Forwards chat between instances.",
 	instanceEntrypoint: "instance",
 	controlEntrypoint: "control",
+
+	messages: [
+		messages.ChatEvent,
+	],
 };

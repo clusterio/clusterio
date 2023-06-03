@@ -31,7 +31,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			task.finally(() => { this.pendingTasks.delete(task); });
 		});
 
-		this.instance.register(UpdateStorageEvent, this.handleUpdateStorageEvent.bind(this));
+		this.instance.handle(UpdateStorageEvent, this.handleUpdateStorageEvent.bind(this));
 	}
 
 	async onStart() {

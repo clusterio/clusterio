@@ -141,6 +141,7 @@ async function startHost() {
 
 	logger.info("Loading Plugin info");
 	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
+	libLink.registerPluginMessages(pluginInfos);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 

@@ -97,10 +97,10 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		routes.addApiRoutes(this.controller.app, this.items);
 
-		this.controller.register(GetStorageRequest, this.handleGetStorageRequest.bind(this));
-		this.controller.register(PlaceEvent, this.handlePlaceEvent.bind(this));
-		this.controller.register(RemoveRequest, this.handleRemoveRequest.bind(this));
-		this.controller.register(SetStorageSubscriptionRequest, this.handleSetStorageSubscriptionRequest.bind(this));
+		this.controller.handle(GetStorageRequest, this.handleGetStorageRequest.bind(this));
+		this.controller.handle(PlaceEvent, this.handlePlaceEvent.bind(this));
+		this.controller.handle(RemoveRequest, this.handleRemoveRequest.bind(this));
+		this.controller.handle(SetStorageSubscriptionRequest, this.handleSetStorageSubscriptionRequest.bind(this));
 	}
 
 	updateStorage() {

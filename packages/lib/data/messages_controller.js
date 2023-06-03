@@ -301,8 +301,8 @@ LogQueryRequest.Response = class Response {
 /** @memberof module:lib/data */
 class LogMessageEvent {
 	static type = "event";
-	static src = "host";
-	static dst = "controller";
+	static src = ["host", "controller"];
+	static dst = ["controller", "control"];
 
 	/** @type {object} */
 	info;

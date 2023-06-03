@@ -185,7 +185,7 @@ class MockController {
 		this.hosts = new Map();
 	}
 
-	register() {
+	handle() {
 	}
 
 	getControllerUrl() {
@@ -210,6 +210,7 @@ class MockController {
 }
 
 async function createControllerPlugin(ControllerPluginClass, info) {
+	libLink.registerPluginMessages([info]);
 	let controller = new MockController();
 	let metrics = {};
 	let logger = new MockLogger();

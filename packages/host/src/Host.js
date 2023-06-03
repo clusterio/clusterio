@@ -307,21 +307,21 @@ class Host extends libLink.Link {
 			});
 		}
 
-		this.register(libData.SyncUserListsEvent, this.handleSyncUserListsEvent.bind(this));
+		this.handle(libData.SyncUserListsEvent, this.handleSyncUserListsEvent.bind(this));
 		this.snoopEvent(libData.InstanceAdminlistUpdateEvent, this.handleAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(libData.InstanceBanlistUpdateEvent, this.handleBanlistUpdateEvent.bind(this));
 		this.snoopEvent(libData.InstanceWhitelistUpdateEvent, this.handleWhitelistUpdateEvent.bind(this));
-		this.register(libData.InstanceAssignInternalRequest, this.handleInstanceAssignInternalRequest.bind(this));
-		this.register(libData.InstanceUnassignInternalRequest, this.handleInstanceUnassignInternalRequest.bind(this));
-		this.register(libData.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
+		this.handle(libData.InstanceAssignInternalRequest, this.handleInstanceAssignInternalRequest.bind(this));
+		this.handle(libData.InstanceUnassignInternalRequest, this.handleInstanceUnassignInternalRequest.bind(this));
+		this.handle(libData.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
 		this.fallbackRequest(libData.InstanceListSavesRequest, this.fallbackInstanceListSavesRequest.bind(this));
-		this.register(libData.InstanceRenameSaveRequest, this.handleInstanceRenameSaveRequest.bind(this));
-		this.register(libData.InstanceCopySaveRequest, this.handleInstanceCopySaveRequest.bind(this));
-		this.register(libData.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
-		this.register(libData.InstanceDeleteSaveRequest, this.handleInstanceDeleteSaveRequest.bind(this));
-		this.register(libData.InstancePullSaveRequest, this.handleInstancePullSaveRequest.bind(this));
-		this.register(libData.InstancePushSaveRequest, this.handleInstancePushSaveRequest.bind(this));
-		this.register(libData.InstanceDeleteInternalRequest, this.handleInstanceDeleteInternalRequest.bind(this));
+		this.handle(libData.InstanceRenameSaveRequest, this.handleInstanceRenameSaveRequest.bind(this));
+		this.handle(libData.InstanceCopySaveRequest, this.handleInstanceCopySaveRequest.bind(this));
+		this.handle(libData.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
+		this.handle(libData.InstanceDeleteSaveRequest, this.handleInstanceDeleteSaveRequest.bind(this));
+		this.handle(libData.InstancePullSaveRequest, this.handleInstancePullSaveRequest.bind(this));
+		this.handle(libData.InstancePushSaveRequest, this.handleInstancePushSaveRequest.bind(this));
+		this.handle(libData.InstanceDeleteInternalRequest, this.handleInstanceDeleteInternalRequest.bind(this));
 	}
 
 	async _createNewInstanceDir(name) {

@@ -266,11 +266,11 @@ class RawUser { // TODO refactor into lib/user.User
 		properties: {
 			name: { type: "string" },
 			roles: { type: "array", items: { type: "integer" } },
+			instances: { type: "array", items: { type: "integer" } },
 			isAdmin: { type: "boolean" },
 			isBanned: { type: "boolean" },
 			isWhitelisted: { type: "boolean" },
 			banReason: { type: "string" },
-			instances: { type: "array", items: { type: "integer" } },
 			isDeleted: { type: "boolean" },
 			playerStats: PlayerStats.jsonSchema,
 			instanceStats: {
@@ -298,6 +298,24 @@ class RawUser { // TODO refactor into lib/user.User
 			json.name, json.roles, json.instances, json.isAdmin, json.isBanned, json.isWhitelisted, json.banReason,
 			json.isDeleted, playerStats, instanceStats
 		);
+	}
+
+	toJSON() {
+		const json = {
+			name: this.name,
+			roles: this.roles,
+			instances: this.instances,
+			isAdmin: this.isAdmin,
+			isBanned: this.isBanned,
+			isWhitelisted: this.isWhitelisted,
+			banReason: this.banReason,
+			isDeleted: this.isDeleted,
+			playerStats: this.playerStats,
+		};
+		if (this.instanceStats) {
+			json.instanceStats = [...this.instanceStats];
+		}
+		return json;
 	}
 }
 

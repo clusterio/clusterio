@@ -1,5 +1,6 @@
 "use strict";
 const { libConfig, libUsers } = require("@clusterio/lib");
+let messages = require("./messages");
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup { }
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -51,6 +52,13 @@ module.exports = {
 	controllerEntrypoint: "controller",
 	ControllerConfigGroup,
 
+	messages: [
+		messages.AcquireRequest,
+		messages.ReleaseRequest,
+		messages.UploadRequest,
+		messages.DownloadRequest,
+		messages.DatabaseStatsRequest,
+	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
 };

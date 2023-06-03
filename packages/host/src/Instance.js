@@ -211,23 +211,23 @@ class Instance extends libLink.Link {
 		this._hadPlayersOnline = false;
 		this._playerAutosaveSlot = 1;
 
-		this.register(libData.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
-		this.register(libData.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
-		this.register(libData.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
-		this.register(libData.InstanceWhitelistUpdateEvent, this.handleInstanceWhitelistUpdateEvent.bind(this));
-		this.register(libData.ControllerConnectionEvent, this.handleControllerConnectionEvent.bind(this));
-		this.register(
+		this.handle(libData.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
+		this.handle(libData.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
+		this.handle(libData.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
+		this.handle(libData.InstanceWhitelistUpdateEvent, this.handleInstanceWhitelistUpdateEvent.bind(this));
+		this.handle(libData.ControllerConnectionEvent, this.handleControllerConnectionEvent.bind(this));
+		this.handle(
 			libData.PrepareControllerDisconnectRequest, this.handlePrepareControllerDisconnectRequest.bind(this)
 		);
-		this.register(libData.InstanceMetricsRequest, this.handleInstanceMetricsRequest.bind(this));
-		this.register(libData.InstanceStartRequest, this.handleInstanceStartRequest.bind(this));
-		this.register(libData.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
-		this.register(libData.InstanceListSavesRequest, this.handleInstanceListSavesRequest.bind(this));
-		this.register(libData.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
-		this.register(libData.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
-		this.register(libData.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
-		this.register(libData.InstanceKillRequest, this.handleInstanceKillRequest.bind(this));
-		this.register(libData.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
+		this.handle(libData.InstanceMetricsRequest, this.handleInstanceMetricsRequest.bind(this));
+		this.handle(libData.InstanceStartRequest, this.handleInstanceStartRequest.bind(this));
+		this.handle(libData.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
+		this.handle(libData.InstanceListSavesRequest, this.handleInstanceListSavesRequest.bind(this));
+		this.handle(libData.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
+		this.handle(libData.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
+		this.handle(libData.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
+		this.handle(libData.InstanceKillRequest, this.handleInstanceKillRequest.bind(this));
+		this.handle(libData.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
 	}
 
 	_watchPlayerJoinsByChat() {

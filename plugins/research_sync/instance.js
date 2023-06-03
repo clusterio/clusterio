@@ -28,8 +28,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		});
 
 		this.syncStarted = false;
-		this.instance.register(ProgressEvent, this.handleProgressEvent.bind(this));
-		this.instance.register(FinishedEvent, this.handleFinishedEvent.bind(this));
+		this.instance.handle(ProgressEvent, this.handleProgressEvent.bind(this));
+		this.instance.handle(FinishedEvent, this.handleFinishedEvent.bind(this));
 	}
 
 	async researchContribution(tech) {

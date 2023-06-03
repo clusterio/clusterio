@@ -76,8 +76,8 @@ class Control extends libLink.Link {
 		 */
 		this.keepOpen = false;
 
-		this.register(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
-		this.register(libData.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
+		this.handle(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.handle(libData.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
 	}
 
 	async setLogSubscriptions({
@@ -114,6 +114,7 @@ class Control extends libLink.Link {
 
 async function loadPlugins(pluginList) {
 	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
+	libLink.registerPluginMessages(pluginInfos);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 

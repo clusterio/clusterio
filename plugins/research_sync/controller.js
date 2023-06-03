@@ -49,9 +49,9 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		this.progressBroadcastId = null;
 		this.progressToBroadcast = new Set();
 
-		this.controller.register(ContributionEvent, this.handleContributionEvent.bind(this));
-		this.controller.register(FinishedEvent, this.handleFinishedEvent.bind(this));
-		this.controller.register(SyncTechnologiesRequest, this.handleSyncTechnologiesRequest.bind(this));
+		this.controller.handle(ContributionEvent, this.handleContributionEvent.bind(this));
+		this.controller.handle(FinishedEvent, this.handleFinishedEvent.bind(this));
+		this.controller.handle(SyncTechnologiesRequest, this.handleSyncTechnologiesRequest.bind(this));
 	}
 
 	async onShutdown() {

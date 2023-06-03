@@ -461,7 +461,7 @@ class InstanceSetSaveListSubscriptionsRequest {
 /** @memberof module:lib/data */
 class InstanceSaveListUpdateEvent {
 	static type = "event";
-	static src = ["instance", "host"];
+	static src = ["instance", "host", "controller"];
 	static dst = ["controller", "control"];
 
 	/** @type {number} */
@@ -533,8 +533,8 @@ class InstanceCreateSaveRequest {
 /** @memberof module:lib/data */
 class InstanceRenameSaveRequest {
 	static type = "request";
-	static src = "control";
-	static dst = "host";
+	static src = ["control", "controller"];
+	static dst = ["controller", "host"];
 	static permission = "core.instance.save.rename";
 
 	/** @type {number} */
@@ -568,8 +568,8 @@ class InstanceRenameSaveRequest {
 /** @memberof module:lib/data */
 class InstanceCopySaveRequest {
 	static type = "request";
-	static src = "control";
-	static dst = "host";
+	static src = ["control", "controller"];
+	static dst = ["controller", "host"];
 	static permission = "core.instance.save.copy";
 
 	/** @type {number} */
@@ -603,8 +603,8 @@ class InstanceCopySaveRequest {
 /** @memberof module:lib/data */
 class InstanceDeleteSaveRequest {
 	static type = "request";
-	static src = "control";
-	static dst = "host";
+	static src = ["control", "controller"];
+	static dst = ["controller", "host"];
 	static permission = "core.instance.save.delete";
 
 	/** @type {number} */
@@ -667,7 +667,7 @@ class InstanceDownloadSaveRequest {
 /** @memberof module:lib/data */
 class InstanceTransferSaveRequest {
 	static type = "request";
-	static src = "control";
+	static src = ["control", "controller"];
 	static dst = ["controller", "host"];
 	static permission = "core.instance.save.transfer";
 
@@ -1081,7 +1081,7 @@ class InstanceInitialisedEvent {
 /** @memberof module:lib/data */
 class InstanceStatusChangedEvent {
 	static type = "event";
-	static src = "instance";
+	static src = ["instance", "host"];
 	static dst = "controller";
 
 	/** @type {integer} */

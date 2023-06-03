@@ -53,13 +53,13 @@ class TestControl extends libLink.Link {
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
 		});
 
-		this.register(libData.AccountUpdateEvent);
-		this.register(libData.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
-		this.register(libData.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
-		this.register(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
-		this.register(libData.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
-		this.register(libData.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
-		this.register(libData.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
+		this.handle(libData.AccountUpdateEvent);
+		this.handle(libData.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
+		this.handle(libData.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
+		this.handle(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(libData.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
+		this.handle(libData.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
+		this.handle(libData.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
 	}
 
 	async handleHostUpdateEvent(event) {

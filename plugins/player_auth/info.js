@@ -1,5 +1,6 @@
 "use strict";
 let { libConfig } = require("@clusterio/lib");
+let messages = require("./messages");
 
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
@@ -29,4 +30,9 @@ module.exports = {
 	instanceEntrypoint: "instance",
 	webEntrypoint: "./web",
 	ControllerConfigGroup,
+
+	messages: [
+		messages.FetchPlayerCodeRequest,
+		messages.SetVerifyCodeRequest,
+	],
 };

@@ -13,15 +13,18 @@ const addr = libData.Address.fromShorthand;
 describe("lib/command", function() {
 	let testRole = libData.RawRole.fromJSON({ id: 28, name: "Test Role", description: "Test", permissions: [] });
 
-	let loopbackConnector = new libLink.VirtualConnector(addr("controller"), addr("controller"));
-	let testControl = new mock.MockControl(loopbackConnector);
-	testControl.register(
+	let [controlConnector, controllerConnector] = libLink.VirtualConnector.makePair(
+		addr({ controlId: 1}), addr("controller")
+	);
+	let testControl = new mock.MockControl(controlConnector);
+	let testController = new libLink.Link(controllerConnector);
+	testController.handle(
 		libData.HostListRequest, () => [new libData.HostDetails("test", "0.1", "Test Host", 11, false)]
 	);
-	testControl.register(
+	testController.handle(
 		libData.InstanceDetailsListRequest, () => [new libData.InstanceDetails("Test Instance", 57, 4, null, "stopped")]
 	);
-	testControl.register(libData.RoleListRequest, () => [testRole]);
+	testController.handle(libData.RoleListRequest, () => [testRole]);
 
 	describe("resolveHost", function() {
 		it("should pass an integer like string back", async function() {

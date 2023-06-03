@@ -848,7 +848,7 @@ Message.validate = libSchema.compile(Message.jsonSchema);
 class PingRequest {
 	static type = "request";
 	static src = ["controller", "host", "control"];
-	static dest = ["controller", "host", "control"];
+	static dst = ["controller", "host", "control"];
 	static permission = null;
 }
 

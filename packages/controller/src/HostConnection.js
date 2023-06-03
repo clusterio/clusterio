@@ -58,11 +58,11 @@ class HostConnection extends BaseConnection {
 			}
 		});
 
-		this.register(libData.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
-		this.register(libData.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
-		this.register(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
-		this.register(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
-		this.register(libData.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
+		this.handle(libData.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
+		this.handle(libData.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
+		this.handle(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.handle(libData.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
 	}
 
 	_checkPluginVersions() {

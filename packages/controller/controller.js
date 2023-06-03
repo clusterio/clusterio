@@ -28,6 +28,7 @@ const jwt = require("jsonwebtoken");
 // homebrew modules
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
+const libLink = require("@clusterio/lib/link");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libPrometheus = require("@clusterio/lib/prometheus");
 const libConfig = require("@clusterio/lib/config");
@@ -290,6 +291,7 @@ async function initialize() {
 
 	logger.info("Loading Plugin info");
 	parameters.pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
+	libLink.registerPluginMessages(parameters.pluginInfos);
 	libConfig.registerPluginConfigGroups(parameters.pluginInfos);
 	libConfig.finalizeConfigs();
 

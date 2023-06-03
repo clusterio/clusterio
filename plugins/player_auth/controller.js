@@ -63,8 +63,8 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			this.handleVerify(req, res).catch(next);
 		});
 
-		this.controller.register(FetchPlayerCodeRequest, this.handleFetchPlayerCodeRequest.bind(this));
-		this.controller.register(SetVerifyCodeRequest, this.handleSetVerifyCodeRequest.bind(this));
+		this.controller.handle(FetchPlayerCodeRequest, this.handleFetchPlayerCodeRequest.bind(this));
+		this.controller.handle(SetVerifyCodeRequest, this.handleSetVerifyCodeRequest.bind(this));
 	}
 
 	async handlePlayerCode(req, res) {

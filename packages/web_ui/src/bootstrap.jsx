@@ -3,7 +3,7 @@ import "./index.css";
 import React from "react";
 import ReactDOM from "react-dom";
 
-import { libConfig, libLogging, libPlugin } from "@clusterio/lib";
+import { libConfig, libLink, libLogging, libPlugin } from "@clusterio/lib";
 const { ConsoleTransport, WebConsoleFormat, logger } = libLogging;
 
 import App from "./components/App";
@@ -102,6 +102,7 @@ export default async function bootstrap() {
 		format: new WebConsoleFormat(),
 	}));
 	let pluginInfos = await loadPluginInfos();
+	libLink.registerPluginMessages(pluginInfos);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 	let plugins = await loadPlugins(pluginInfos);

@@ -104,69 +104,69 @@ class ControlConnection extends BaseConnection {
 			});
 		}
 
-		this.register(libData.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
-		this.register(libData.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
-		this.register(libData.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
-		this.register(libData.HostListRequest, this.handleHostListRequest.bind(this));
-		this.register(libData.HostSetSubscriptionsRequest, this.handleHostSetSubscriptionsRequest.bind(this));
-		this.register(libData.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
-		this.register(libData.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
-		this.register(libData.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
-		this.register(libData.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
-		this.register(
+		this.handle(libData.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
+		this.handle(libData.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
+		this.handle(libData.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
+		this.handle(libData.HostListRequest, this.handleHostListRequest.bind(this));
+		this.handle(libData.HostSetSubscriptionsRequest, this.handleHostSetSubscriptionsRequest.bind(this));
+		this.handle(libData.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
+		this.handle(libData.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
+		this.handle(libData.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
+		this.handle(libData.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
+		this.handle(
 			libData.InstanceDetailsSetSubscriptionsRequest, this.handleInstanceDetailsSetSubscriptionsRequest.bind(this)
 		);
-		this.register(libData.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
-		this.register(libData.InstanceDeleteRequest, this.handleInstanceDeleteRequest.bind(this));
-		this.register(libData.InstanceConfigGetRequest, this.handleInstanceConfigGetRequest.bind(this));
-		this.register(libData.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
-		this.register(libData.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
-		this.register(libData.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
-		this.register(
+		this.handle(libData.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
+		this.handle(libData.InstanceDeleteRequest, this.handleInstanceDeleteRequest.bind(this));
+		this.handle(libData.InstanceConfigGetRequest, this.handleInstanceConfigGetRequest.bind(this));
+		this.handle(libData.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
+		this.handle(libData.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
+		this.handle(libData.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
+		this.handle(
 			libData.InstanceSetSaveListSubscriptionsRequest,
 			this.handleInstanceSetSaveListSubscriptionsRequest.bind(this)
 		);
-		this.register(
+		this.handle(
 			libData.InstanceRenameSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller)
 		);
-		this.register(libData.InstanceCopySaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
-		this.register(
+		this.handle(libData.InstanceCopySaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
+		this.handle(
 			libData.InstanceDeleteSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller)
 		);
-		this.register(libData.InstanceDownloadSaveRequest, this.handleInstanceDownloadSaveRequest.bind(this));
-		this.register(libData.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
-		this.register(libData.ModPackListRequest, this.handleModPackListRequest.bind(this));
-		this.register(libData.ModPackSetSubscriptionsRequest, this.handleModPackSetSubscriptionsRequest.bind(this));
-		this.register(libData.ModPackCreateRequest, this.handleModPackCreateRequest.bind(this));
-		this.register(libData.ModPackUpdateRequest, this.handleModPackUpdateRequest.bind(this));
-		this.register(libData.ModPackDeleteRequest, this.handleModPackDeleteRequest.bind(this));
-		this.register(libData.ModGetRequest, this.handleModGetRequest.bind(this));
-		this.register(libData.ModListRequest, this.handleModListRequest.bind(this));
-		this.register(libData.ModSearchRequest, this.handleModSearchRequest.bind(this));
-		this.register(libData.ModSetSubscriptionsRequest, this.handleModSetSubscriptionsRequest.bind(this));
-		this.register(libData.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
-		this.register(libData.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
-		this.register(libData.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
-		this.register(libData.LogQueryRequest, this.handleLogQueryRequest.bind(this));
-		this.register(libData.PermissionListRequest, this.handlePermissionListRequest.bind(this));
-		this.register(libData.RoleListRequest, this.handleRoleListRequest.bind(this));
-		this.register(libData.RoleCreateRequest, this.handleRoleCreateRequest.bind(this));
-		this.register(libData.RoleUpdateRequest, this.handleRoleUpdateRequest.bind(this));
-		this.register(
+		this.handle(libData.InstanceDownloadSaveRequest, this.handleInstanceDownloadSaveRequest.bind(this));
+		this.handle(libData.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
+		this.handle(libData.ModPackListRequest, this.handleModPackListRequest.bind(this));
+		this.handle(libData.ModPackSetSubscriptionsRequest, this.handleModPackSetSubscriptionsRequest.bind(this));
+		this.handle(libData.ModPackCreateRequest, this.handleModPackCreateRequest.bind(this));
+		this.handle(libData.ModPackUpdateRequest, this.handleModPackUpdateRequest.bind(this));
+		this.handle(libData.ModPackDeleteRequest, this.handleModPackDeleteRequest.bind(this));
+		this.handle(libData.ModGetRequest, this.handleModGetRequest.bind(this));
+		this.handle(libData.ModListRequest, this.handleModListRequest.bind(this));
+		this.handle(libData.ModSearchRequest, this.handleModSearchRequest.bind(this));
+		this.handle(libData.ModSetSubscriptionsRequest, this.handleModSetSubscriptionsRequest.bind(this));
+		this.handle(libData.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
+		this.handle(libData.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
+		this.handle(libData.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
+		this.handle(libData.LogQueryRequest, this.handleLogQueryRequest.bind(this));
+		this.handle(libData.PermissionListRequest, this.handlePermissionListRequest.bind(this));
+		this.handle(libData.RoleListRequest, this.handleRoleListRequest.bind(this));
+		this.handle(libData.RoleCreateRequest, this.handleRoleCreateRequest.bind(this));
+		this.handle(libData.RoleUpdateRequest, this.handleRoleUpdateRequest.bind(this));
+		this.handle(
 			libData.RoleGrantDefaultPermissionsRequest, this.handleRoleGrantDefaultPermissionsRequest.bind(this)
 		);
-		this.register(libData.RoleDeleteRequest, this.handleRoleDeleteRequest.bind(this));
-		this.register(libData.UserGetRequest, this.handleUserGetRequest.bind(this));
-		this.register(libData.UserListRequest, this.handleUserListRequest.bind(this));
-		this.register(libData.UserSetSubscriptionsRequest, this.handleUserSetSubscriptionsRequest.bind(this));
-		this.register(libData.UserCreateRequest, this.handleUserCreateRequest.bind(this));
-		this.register(libData.UserRevokeTokenRequest, this.handleUserRevokeTokenRequest.bind(this));
-		this.register(libData.UserUpdateRolesRequest, this.handleUserUpdateRolesRequest.bind(this));
-		this.register(libData.UserSetAdminRequest, this.handleUserSetAdminRequest.bind(this));
-		this.register(libData.UserSetBannedRequest, this.handleUserSetBannedRequest.bind(this));
-		this.register(libData.UserSetWhitelistedRequest, this.handleUserSetWhitelistedRequest.bind(this));
-		this.register(libData.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
-		this.register(libData.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
+		this.handle(libData.RoleDeleteRequest, this.handleRoleDeleteRequest.bind(this));
+		this.handle(libData.UserGetRequest, this.handleUserGetRequest.bind(this));
+		this.handle(libData.UserListRequest, this.handleUserListRequest.bind(this));
+		this.handle(libData.UserSetSubscriptionsRequest, this.handleUserSetSubscriptionsRequest.bind(this));
+		this.handle(libData.UserCreateRequest, this.handleUserCreateRequest.bind(this));
+		this.handle(libData.UserRevokeTokenRequest, this.handleUserRevokeTokenRequest.bind(this));
+		this.handle(libData.UserUpdateRolesRequest, this.handleUserUpdateRolesRequest.bind(this));
+		this.handle(libData.UserSetAdminRequest, this.handleUserSetAdminRequest.bind(this));
+		this.handle(libData.UserSetBannedRequest, this.handleUserSetBannedRequest.bind(this));
+		this.handle(libData.UserSetWhitelistedRequest, this.handleUserSetWhitelistedRequest.bind(this));
+		this.handle(libData.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
+		this.handle(libData.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
 	async handleControllerConfigGetRequest() {

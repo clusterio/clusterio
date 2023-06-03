@@ -20,7 +20,7 @@ function removeTags(content) {
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
 		this.messageQueue = [];
-		this.instance.register(ChatEvent, this.handleChatEvent.bind(this));
+		this.instance.handle(ChatEvent, this.handleChatEvent.bind(this));
 	}
 
 	onControllerConnectionEvent(event) {

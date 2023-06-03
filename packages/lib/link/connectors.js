@@ -36,8 +36,9 @@ class BaseConnector extends events.EventEmitter {
 		let seq = this._seq;
 		this._seq += 1;
 		let src = new libData.Address(this.src.type, this.src.id, requestId);
-		let name = request.constructor.name;
-		let hasData = Boolean(request.constructor.jsonSchema);
+		let Request = request.constructor;
+		let name = Request.plugin ? `${Request.plugin}:${Request.name}` : Request.name;
+		let hasData = Boolean(Request.jsonSchema);
 		const message = new libData.MessageRequest(seq, src, dst, name, hasData ? request : undefined);
 		this.send(message);
 		return seq;
@@ -62,8 +63,9 @@ class BaseConnector extends events.EventEmitter {
 	sendEvent(event, dst) {
 		let seq = this._seq;
 		this._seq += 1;
-		let name = event.constructor.name;
-		let hasData = Boolean(event.constructor.jsonSchema);
+		let Event = event.constructor;
+		let name = Event.plugin ? `${Event.plugin}:${Event.name}` : Event.name;
+		let hasData = Boolean(Event.jsonSchema);
 		const message = new libData.MessageEvent(seq, this.src, dst, name, hasData ? event : undefined);
 		this.send(message);
 		return seq;

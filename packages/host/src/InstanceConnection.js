@@ -14,7 +14,7 @@ class InstanceConnection extends libLink.Link {
 		this.plugins = new Map();
 		this.status = "stopped";
 
-		this.register(libData.InstanceInitialisedEvent, this.handleInstanceInitialisedEvent.bind(this));
+		this.handle(libData.InstanceInitialisedEvent, this.handleInstanceInitialisedEvent.bind(this));
 		this.snoopEvent(libData.InstanceStatusChangedEvent, this.snoopInstanceStatusChangedEvent.bind(this));
 	}
 

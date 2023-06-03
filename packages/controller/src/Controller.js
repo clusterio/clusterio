@@ -13,6 +13,7 @@ const libConfig = require("@clusterio/lib/config");
 const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libFileOps = require("@clusterio/lib/file_ops");
+const libLink = require("@clusterio/lib/link");
 const libLoggingUtils = require("@clusterio/lib/logging_utils");
 const libPlugin = require("@clusterio/lib/plugin");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
@@ -970,17 +971,20 @@ class Controller {
 		};
 	}
 
-	register(Class, handler) {
+	handle(Class, handler) {
 		if (Class.type === "request") {
-			this.registerRequest(Class, handler);
+			this.handleRequest(Class, handler);
 		} else if (Class.type === "event") {
-			this.registerEvent(Class, handler);
+			this.handleEvent(Class, handler);
 		} else {
 			throw new Error(`Class ${Class.name} has unrecognized type ${Class.type}`);
 		}
 	}
 
-	registerRequest(Request, handler) {
+	handleRequest(Request, handler) {
+		if (!libLink.Link._requestsByClass.has(Request)) {
+			throw new Error(`Unregistered Request class ${Request.name}`);
+		}
 		if (this._registeredRequests.has(Request)) {
 			throw new Error(`Request ${Request.name} is already registered`);
 		}
@@ -988,13 +992,19 @@ class Controller {
 	}
 
 	fallbackRequest(Request, handler) {
+		if (!libLink.Link._requestsByClass.has(Request)) {
+			throw new Error(`Unregistered Request class ${Request.name}`);
+		}
 		if (this._fallbackedRequests.has(Request)) {
 			throw new Error(`Request ${Request.name} is already fallbacked`);
 		}
 		this._fallbackedRequests.set(Request, handler);
 	}
 
-	registerEvent(Event, handler) {
+	handleEvent(Event, handler) {
+		if (!libLink.Link._eventsByClass.has(Event)) {
+			throw new Error(`Unregistered Event class ${Event.name}`);
+		}
 		if (this._registeredEvents.has(Event)) {
 			throw new Error(`Event ${Event.name} is already registered`);
 		}
@@ -1002,6 +1012,9 @@ class Controller {
 	}
 
 	snoopEvent(Event, handler) {
+		if (!libLink.Link._eventsByClass.has(Event)) {
+			throw new Error(`Unregistered Event class ${Event.name}`);
+		}
 		if (this._snoopedEvents.has(Event)) {
 			throw new Error(`Event ${Event.name} is already snooped`);
 		}

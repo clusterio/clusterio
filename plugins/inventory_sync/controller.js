@@ -48,11 +48,11 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			});
 		}, this.controller.config.get("inventory_sync.autosave_interval") * 1000);
 
-		this.controller.register(AcquireRequest, this.handleAcquireRequest.bind(this));
-		this.controller.register(ReleaseRequest, this.handleReleaseRequest.bind(this));
-		this.controller.register(UploadRequest, this.handleUploadRequest.bind(this));
-		this.controller.register(DownloadRequest, this.handleDownloadRequest.bind(this));
-		this.controller.register(DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
+		this.controller.handle(AcquireRequest, this.handleAcquireRequest.bind(this));
+		this.controller.handle(ReleaseRequest, this.handleReleaseRequest.bind(this));
+		this.controller.handle(UploadRequest, this.handleUploadRequest.bind(this));
+		this.controller.handle(DownloadRequest, this.handleDownloadRequest.bind(this));
+		this.controller.handle(DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
 	}
 
 	async onInstanceStatusChanged(instance) {

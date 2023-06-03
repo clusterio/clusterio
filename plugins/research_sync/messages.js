@@ -5,7 +5,7 @@ class ContributionEvent {
 	static type = "event";
 	static src = "instance";
 	static dst = "controller";
-	static json = "research_sync";
+	static plugin = "research_sync";
 
 	/** @type {string} */
 	name;
@@ -39,7 +39,7 @@ class ProgressEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "instance";
-	static json = "research_sync";
+	static plugin = "research_sync";
 
 	/** @type {Array<>} */
 	technologies;
@@ -74,9 +74,9 @@ class ProgressEvent {
 
 class FinishedEvent {
 	static type = "event";
-	static src = "instance";
+	static src = ["instance", "controller"];
 	static dst = "instance";
-	static json = "research_sync";
+	static plugin = "research_sync";
 
 	/** @type {string} */
 	name;
@@ -144,7 +144,7 @@ class SyncTechnologiesRequest {
 	static type = "request";
 	static src = "instance";
 	static dst = "controller";
-	static json = "research_sync";
+	static plugin = "research_sync";
 
 	/** @type {Array<Technology>} */
 	technologies;

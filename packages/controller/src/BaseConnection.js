@@ -19,13 +19,13 @@ class BaseConnection extends libLink.Link {
 		super(connector);
 		this.router = new ControllerRouter(controller);
 		this._controller = controller;
-		for (let [Request, handler] of controller._registeredRequests) { this.register(Request, handler); }
+		for (let [Request, handler] of controller._registeredRequests) { this.handle(Request, handler); }
 		for (let [Request, handler] of controller._fallbackedRequests) { this.fallbackRequest(Request, handler); }
-		for (let [Event, handler] of controller._registeredEvents) { this.register(Event, handler); }
+		for (let [Event, handler] of controller._registeredEvents) { this.handle(Event, handler); }
 		for (let [Event, handler] of controller._snoopedEvents) { this.snoopEvent(Event, handler); }
 
-		this.register(libData.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
-		this.register(libData.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
+		this.handle(libData.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
+		this.handle(libData.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
 	}
 
 	async disconnect(code, reason) {
