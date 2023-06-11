@@ -112,6 +112,19 @@ class ModPack {
 	 */
 	isDeleted = false;
 
+	shallowClone() {
+		const clone = new this.constructor();
+		clone.id = this.id;
+		clone.name = this.name;
+		clone.description = this.description;
+		clone.factorioVersion = this.factorioVersion;
+		clone.mods = this.mods;
+		clone.settings = this.settings;
+		clone.exportManifest = this.exportManifest;
+		clone.isDeleted = this.isDeleted;
+		return clone;
+	}
+
 	static jsonSchema = {
 		type: "object",
 		additionalProperties: false,

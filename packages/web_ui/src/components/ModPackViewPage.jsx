@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useContext, useRef, useState } from "react";
+import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import {
 	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, PageHeader, Pagination,
@@ -187,7 +187,7 @@ function SearchModsTable(props) {
 				onChange={modResultsTableChanged}
 				dataSource={modResults}
 				pagination={false}
-				rowKey={result => result.name}
+				rowKey="name"
 			/>
 		</ConfigProvider>
 	</>;
@@ -327,7 +327,7 @@ function ModsTable(props) {
 			}}
 			dataSource={mods}
 			pagination={false}
-			rowKey={mod => mod.name}
+			rowKey="name"
 			rowClassName={mod => {
 				if (deletedMods.has(mod.name)) {
 					return "deleted";
@@ -362,6 +362,45 @@ function groupToMap(array, fn) {
 	}
 	return map;
 }
+
+const SettingsTableField = memo((props) => {
+	const name = props.name;
+	const isBoolean = props.type === "bool-setting";
+	const isNumber = ["int-setting", "double-setting"].includes(props.type);
+	const isSelect = Boolean(props.allowedValues);
+	let input;
+	if (isBoolean) {
+		input = <Checkbox />;
+	} else if (isSelect) {
+		const options = Object.values(props.allowedValues).map(value => ({
+			value,
+			label: props.locale.get(`string-mod-setting.${name}-${value}`) || value,
+		}));
+		input = <Select options={options} />;
+	} else {
+		input = <Input />;
+	}
+
+	return <Form.Item
+		name={[props.scope, name]}
+		label={props.locale.get(`mod-setting-name.${name}`) || name}
+		tooltip={props.locale.get(`mod-setting-description.${name}`)}
+		labelCol={{ span: 8 }}
+		wrapperCol={{ span: 16 }}
+		valuePropName={isBoolean ? "checked" : "value"}
+		rules={[...isNumber ? [{
+			validator(rule, value) {
+				if (Number.isNaN(Number(value))) {
+					return Promise.reject(new Error("Must be a number"));
+				}
+				return Promise.resolve();
+			},
+		}] : []]}
+		className={ props.changed && "changed" }
+	>
+		{input}
+	</Form.Item>;
+});
 
 function SettingsTable(props) {
 	const [modList] = useModList();
@@ -403,47 +442,17 @@ function SettingsTable(props) {
 			<Typography.Title level={5}>
 				{props.locale.get(`mod-name.${mod}`) || modTitles.get(mod) || mod}
 			</Typography.Title>
-			{[...fieldsForMod].map(prototype => {
-				const name = prototype.name;
-				const isBoolean = prototype.type === "bool-setting";
-				const isNumber = ["int-setting", "double-setting"].includes(prototype.type);
-				const isSelect = Boolean(prototype.allowed_values);
-				let input;
-				if (isBoolean) {
-					input = <Checkbox />;
-				} else if (isSelect) {
-					const options = Object.values(prototype.allowed_values).map(value => ({
-						value,
-						label: props.locale.get(`string-mod-setting.${name}-${value}`) || value,
-					}));
-					input = <Select options={options} />;
-				} else {
-					input = <Input />;
-				}
-
-				return <Form.Item
-					name={[scope, name]}
-					key={`${scope} ${name}`}
-					label={props.locale.get(`mod-setting-name.${name}`) || name}
-					tooltip={props.locale.get(`mod-setting-description.${name}`)}
-					labelCol={{ span: 8 }}
-					wrapperCol={{ span: 16 }}
-					valuePropName={isBoolean ? "checked" : "value"}
-					rules={[...isNumber ? [{
-						validator(rule, value) {
-							if (Number.isNaN(Number(value))) {
-								return Promise.reject(new Error("Must be a number"));
-							}
-							return Promise.resolve();
-						},
-					}] : []]}
-					className={
-						hasChange(props.changes, { type: "settings.set", scope, name }) && "changed"
-					}
-				>
-					{input}
-				</Form.Item>;
-			})}
+			{[...fieldsForMod].map(
+				prototype => <SettingsTableField
+					key={`${scope} ${prototype.name}`}
+					name={prototype.name}
+					type={prototype.type}
+					scope={scope}
+					allowedValues={prototype.allowed_values}
+					locale={props.locale}
+					changed={hasChange(props.changes, { type: "settings.set", scope, name: prototype.name })}
+				/>
+			)}
 		</Fragment>);
 	}
 
@@ -499,7 +508,8 @@ function ExportButton(props) {
 		setVisible(false);
 	}
 
-	let exportString = props.modPack.toModPackString();
+	let exportString;
+	if (visible) { exportString = props.modPack.toModPackString(); }
 
 	return <>
 		<Button icon={<ExportOutlined />} onClick={() => { setVisible(true); }}>Export to string</Button>
@@ -548,6 +558,43 @@ function useExportedAsset(modPack, asset) {
 	return assetData;
 }
 
+function applyModPackChanges(modPack, changes) {
+	let modifiedModPack = modPack.shallowClone();
+	for (let change of changes) {
+		// Only modify fields that change to reduce re-renders
+		if (["mods.set", "mods.delete"].includes(change.type) && modifiedModPack.mods === modPack.mods) {
+			modifiedModPack.mods = new Map(modifiedModPack.mods);
+		}
+		if (
+			["settings.set", "settings.delete"].includes(change.type)
+			&& modifiedModPack.settings[change.scope] === modPack.settings[change.scope]
+		) {
+			if (modifiedModPack.settings === modPack.settings) {
+				modifiedModPack.settings = { ...modPack.settings };
+			}
+			modifiedModPack.settings[change.scope] = new Map(modifiedModPack.settings[change.scope]);
+		}
+
+		if (change.type === "name") {
+			modifiedModPack.name = change.value;
+		} else if (change.type === "description") {
+			modifiedModPack.description = change.value;
+		} else if (change.type === "factorioVersion") {
+			modifiedModPack.factorioVersion = change.value;
+		} else if (change.type === "mods.set") {
+			modifiedModPack.mods.set(change.name, change.value);
+		} else if (change.type === "mods.delete") {
+			modifiedModPack.mods.delete(change.name);
+		} else if (change.type === "settings.set") {
+			modifiedModPack.settings[change.scope].set(change.name, change.value);
+		} else if (change.type === "settings.delete") {
+			modifiedModPack.settings[change.scope].delete(change.name);
+		} else {
+			throw new Error(`Unknown change type ${change.type}`);
+		}
+	}
+}
+
 export default function ModPackViewPage() {
 	let account = useAccount();
 	let history = useHistory();
@@ -560,12 +607,20 @@ export default function ModPackViewPage() {
 	let prototypes = useExportedAsset(modPack, "settings");
 	let locale = useExportedAsset(modPack, "locale");
 	let [changes, setChanges] = useState([]);
-	let [modifiedModPack, setModifiedModPack] = useState(modPack);
 	let syncTimeout = useRef();
+
+	let modifiedModPack;
+	if (!(modPack instanceof libData.ModPack)) {
+		// Loading or invalid id
+		modifiedModPack = modPack;
+
+	} else {
+		modifiedModPack = applyModPackChanges(modPack, changes);
+	}
 
 	useEffect(() => () => { clearTimeout(syncTimeout.current); });
 
-	function pushChange(change) {
+	const pushChange = useCallback((change) => {
 		setChanges(oldChanges => {
 			const newChanges = [...oldChanges];
 			if (
@@ -580,20 +635,22 @@ export default function ModPackViewPage() {
 			}
 			return newChanges;
 		});
-	}
+	}, []);
 
-	function revertChange(change) {
-		const newChanges = [...changes];
-		const index = newChanges.findLastIndex(reference => (
-			change.type === reference.type && change.name === reference.name
-		));
-		if (index === -1) {
-			logger.error(`Unable to revert ${change.type} ${change.name}: change not found`);
-			return;
-		}
-		newChanges.splice(index, 1);
-		setChanges(newChanges);
-	}
+	const revertChange = useCallback((change) => {
+		setChanges(oldChanges => {
+			const newChanges = [...oldChanges];
+			const index = newChanges.findLastIndex(reference => (
+				change.type === reference.type && change.name === reference.name
+			));
+			if (index === -1) {
+				logger.error(`Unable to revert ${change.type} ${change.name}: change not found`);
+				return oldChanges;
+			}
+			newChanges.splice(index, 1);
+			return newChanges;
+		});
+	}, []);
 
 	function syncPack(fields) {
 		for (let field of fields) {
@@ -620,36 +677,6 @@ export default function ModPackViewPage() {
 			}
 		}
 	}
-
-	useEffect(() => {
-		// Loading or invalid id
-		if (!(modPack instanceof libData.ModPack)) {
-			setModifiedModPack(modPack);
-			return;
-		}
-
-		const modified = libData.ModPack.fromJSON(JSON.parse(JSON.stringify(modPack)));
-		for (let change of changes) {
-			if (change.type === "name") {
-				modified.name = change.value;
-			} else if (change.type === "description") {
-				modified.description = change.value;
-			} else if (change.type === "factorioVersion") {
-				modified.factorioVersion = change.value;
-			} else if (change.type === "mods.set") {
-				modified.mods.set(change.name, change.value);
-			} else if (change.type === "mods.delete") {
-				modified.mods.delete(change.name);
-			} else if (change.type === "settings.set") {
-				modified.settings[change.scope].set(change.name, change.value);
-			} else if (change.type === "settings.delete") {
-				modified.settings[change.scope].delete(change.name);
-			} else {
-				throw new Error(`Unknown change type ${change.type}`);
-			}
-		}
-		setModifiedModPack(modified);
-	}, [modPack, changes]);
 
 	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack.name || modPackId }];
 	if (modifiedModPack.loading) {
