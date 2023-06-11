@@ -1,5 +1,5 @@
 "use strict";
-const { jsonArray } = require("@clusterio/lib/data");
+const { libData } = require("@clusterio/lib");
 
 class ContributionEvent {
 	static type = "event";
@@ -166,7 +166,7 @@ class SyncTechnologiesRequest {
 		return new this(json.map(e => Technology.fromJSON(e)));
 	}
 
-	static Response = jsonArray(Technology);
+	static Response = libData.jsonArray(Technology);
 }
 
 module.exports = {

@@ -1,5 +1,5 @@
 "use strict";
-const { jsonArray } = require("@clusterio/lib/data");
+const { libData } = require("@clusterio/lib");
 
 class Item {
 	/** @type {string} */
@@ -87,7 +87,7 @@ class RemoveRequest {
 		return new this(json.items);
 	}
 
-	static Response = jsonArray(Item);
+	static Response = libData.jsonArray(Item);
 }
 
 class GetStorageRequest {
@@ -96,7 +96,7 @@ class GetStorageRequest {
 	static dst = "controller";
 	static plugin = "subspace_storage";
 	static permission = "subspace_storage.storage.view";
-	static Response = jsonArray(Item);
+	static Response = libData.jsonArray(Item);
 }
 
 class UpdateStorageEvent {
