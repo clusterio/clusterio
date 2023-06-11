@@ -2,6 +2,7 @@
 const webpack = require("webpack");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const { WebpackManifestPlugin } = require("webpack-manifest-plugin");
+const TerserPlugin = require("terser-webpack-plugin");
 
 module.exports = (env = {}) => ({
 	mode: env.production ? "production" : "development",
@@ -113,5 +114,18 @@ module.exports = (env = {}) => ({
 	},
 	optimization: {
 		moduleIds: "deterministic",
+		minimizer: [
+			new TerserPlugin({
+				terserOptions: {
+					compress: {
+						keep_classnames: true,
+						passes: 2,
+					},
+					mangle: {
+						keep_classnames: true,
+					},
+				},
+			}),
+		],
 	},
 });
