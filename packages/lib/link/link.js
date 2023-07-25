@@ -30,6 +30,7 @@ class Link {
 		this._eventHandlers = new Map();
 		this._eventSnoopers = new Map();
 		this._pendingRequests = new Map();
+		this._forwardedRequests = new Map();
 		this._nextRequestId = 1;
 
 		this.handle(libData.PingRequest, () => {});
@@ -65,20 +66,27 @@ class Link {
 		});
 
 		connector.on("invalidate", () => {
-			for (let pending of this._pendingRequests.values()) {
-				pending.reject(new libErrors.SessionLost("Session Lost"));
-			}
-
-			this._pendingRequests.clear();
+			this._clearPendingRequests(new libErrors.SessionLost("Session Lost"));
 		});
 
 		connector.on("close", () => {
-			for (let pending of this._pendingRequests.values()) {
-				pending.reject(new libErrors.SessionLost("Session Closed"));
-			}
-
-			this._pendingRequests.clear();
+			this._clearPendingRequests(new libErrors.SessionLost("Session Closed"));
 		});
+	}
+
+	_clearPendingRequests(err) {
+		for (let pending of this._pendingRequests.values()) {
+			pending.reject(err);
+		}
+		for (let pending of this._forwardedRequests.values()) {
+			if (pending.origin.connector.hasSession) {
+				pending.origin.connector.sendResponseError(
+					new libData.ResponseError(err.message, err.code), pending.src, pending.dst
+				);
+			}
+		}
+		this._pendingRequests.clear();
+		this._forwardedRequests.clear();
 	}
 
 	/**
@@ -115,6 +123,9 @@ class Link {
 		}
 
 		if (!message.dst.addressedTo(this.connector.src)) {
+			if (message.type === "response" || message.type === "responseError") {
+				this._forwardedRequests.delete(message.dst.index());
+			}
 			this._routeMessage(message, entry);
 			return;
 		}
@@ -409,6 +420,24 @@ class Link {
 		this._pendingRequests.set(requestId, pending);
 		this.connector.sendRequest(request, requestId, dst);
 		return pending.promise;
+	}
+
+	forwardRequest(message, origin) {
+		if (this.validateSent) {
+			let entry = this.constructor._requestsByName.get(message.name);
+			if (!entry) {
+				throw new Error(`Attempt to forward unregistered Request ${message.name}`);
+			}
+			entry.requestFromJSON(message.data);
+		}
+
+		let pending = {
+			origin,
+			src: message.src,
+			dst: message.dst,
+		};
+		this._forwardedRequests.set(message.src.index(), pending);
+		this.connector.send(message);
 	}
 
 	sendEvent(event, dst) {

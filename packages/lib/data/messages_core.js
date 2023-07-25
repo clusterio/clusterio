@@ -99,6 +99,14 @@ class Address {
 	}
 
 	/**
+	 * Returns a string suitable for indexing the address in a Map
+	 * @returns {string} unique string for this address
+	 */
+	index() {
+		return `${this.type}:${this.id}:${this.requestId}`;
+	}
+
+	/**
 	 * Returns true if this address targets the given destination
 	 * @param {module:lib/Data.Address} dst - Destination to check
 	 * @returns {boolean} true if this address is addressed to the given destination

@@ -151,7 +151,7 @@ class HostRouter {
 		}
 
 		if (nextHop) {
-			this.sendMessage(nextHop, message);
+			this.sendMessage(nextHop, message, origin);
 		} else {
 			this.warnUnrouted(message, msg);
 		}
@@ -208,9 +208,13 @@ class HostRouter {
 		});
 	}
 
-	sendMessage(nextHop, message) {
+	sendMessage(nextHop, message, origin) {
 		try {
-			nextHop.connector.send(message);
+			if (message.type === "request") {
+				nextHop.forwardRequest(message, origin);
+			} else {
+				nextHop.connector.send(message);
+			}
 		} catch (err) {
 			if (message.type === "request") {
 				origin.connector.sendResponseError(

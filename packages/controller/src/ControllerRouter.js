@@ -84,7 +84,11 @@ class ControllerRouter {
 		}
 
 		if (nextHop) {
-			nextHop.connector.send(message);
+			if (message.type === "request") {
+				nextHop.forwardRequest(message, origin);
+			} else {
+				nextHop.connector.send(message);
+			}
 		} else {
 			this.warnUnrouted(message, msg);
 		}
