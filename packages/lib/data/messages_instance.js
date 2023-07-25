@@ -86,7 +86,7 @@ class InstanceDetailsSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
-	static premission = "core.instance.subscribe";
+	static permission = "core.instance.subscribe";
 
 	/** @type {boolean} */
 	all;
@@ -144,7 +144,7 @@ class InstanceCreateRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
-	static premission = "core.instance.create";
+	static permission = "core.instance.create";
 
 	/** @type {object} */
 	config;
@@ -172,7 +172,7 @@ class InstanceConfigGetRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
-	static premission = "core.instance.get_config";
+	static permission = "core.instance.get_config";
 
 	/** @type {number} */
 	instanceId;
@@ -429,7 +429,7 @@ class InstanceSetSaveListSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
-	static premission = "core.instance.save.list_subscribe";
+	static permission = "core.instance.save.list_subscribe";
 
 	/** @type {boolean} */
 	all;
@@ -669,7 +669,15 @@ class InstanceTransferSaveRequest {
 	static type = "request";
 	static src = ["control", "controller"];
 	static dst = ["controller", "host"];
-	static permission = "core.instance.save.transfer";
+	static permission(user, message) {
+		user.checkPermission("core.instance.save.transfer");
+		if (message.data.copy) {
+			user.checkPermission("core.instance.save.copy");
+		} else if (message.data.sourceName !== message.data.targetName) {
+			user.checkPermission("core.instance.save.rename");
+		}
+	}
+
 
 	/** @type {number} */
 	sourceInstanceId;

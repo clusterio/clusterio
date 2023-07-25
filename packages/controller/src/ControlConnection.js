@@ -36,7 +36,6 @@ class ControlConnection extends BaseConnection {
 		this._agent = registerData.agent;
 		this._version = registerData.version;
 		this.id = id;
-		this.dst = new libData.Address(libData.Address.instance, id);
 
 		/**
 		 * The user making this connection.
@@ -167,6 +166,50 @@ class ControlConnection extends BaseConnection {
 		this.handle(libData.UserSetWhitelistedRequest, this.handleUserSetWhitelistedRequest.bind(this));
 		this.handle(libData.UserDeleteRequest, this.handleUserDeleteRequest.bind(this));
 		this.handle(libData.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
+	}
+
+	validateIngress(message) {
+		let origin = this.connector.dst;
+		if (origin.type !== message.src.type || origin.id !== message.src.id) {
+			throw new libErrors.InvalidMessage(`Received message with invalid src ${message.src} from ${origin}`);
+		}
+	}
+
+	validatePermission(message, entry) {
+		try {
+			this.checkPermission(message, entry);
+		} catch (err) {
+			this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
+			logger.audit(`Permission denied for ${message.name} by ${this.user.name} from ${this.connector.dst}`);
+			throw err;
+		}
+	}
+
+	checkPermission(message, entry) {
+		let permission;
+		if (message.type === "request") {
+			permission = entry.Request.permission;
+		} else if (message.type === "event") {
+			permission = entry.Event.permission;
+		} else {
+			return;
+		}
+
+		if (permission === null) {
+			return;
+		}
+
+		if (typeof permission === "string") {
+			this.user.checkPermission(permission);
+			return;
+		}
+
+		if (typeof permission === "function") {
+			permission(this.user, message);
+			return;
+		}
+
+		throw new Error("Should be unreachable");
 	}
 
 	async handleControllerConfigGetRequest() {
@@ -362,13 +405,6 @@ class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceTransferSaveRequest(request) {
-		// XXX if control sends the request directly to a host these checks are bypassed
-		if (request.copy) {
-			this.user.checkPermission("core.instance.save.copy");
-		} else if (request.sourceName !== request.targetName) {
-			this.user.checkPermission("core.instance.save.rename");
-		}
-
 		if (request.sourceInstanceId === request.targetInstanceId) {
 			throw new libErrors.RequestError("Source and target instance may not be the same");
 		}

@@ -26,12 +26,14 @@ describe("lib/link/link", function() {
 			static type = "request";
 			static src = ["controller", "control"];
 			static dst = ["controller", "control"];
+			static permission = null;
 		}
 		libLink.Link.register(SimpleRequest);
 		class NumberRequest {
 			static type = "request";
 			static src = ["controller", "control"];
 			static dst = ["controller", "control"];
+			static permission = null;
 			constructor(value) { this.value = value; }
 			static jsonSchema = { type: "number" };
 			toJSON() { return this.value; }
@@ -48,12 +50,14 @@ describe("lib/link/link", function() {
 			static type = "event";
 			static src = ["controller", "control"];
 			static dst = ["controller", "control"];
+			static permission = null;
 		}
 		libLink.Link.register(SimpleEvent);
 		class NumberEvent {
 			static type = "event";
 			static src = ["controller", "control"];
 			static dst = ["controller", "control"];
+			static permission = null;
 			constructor(value) { this.value = value; }
 			static jsonSchema = { type: "number" };
 			toJSON() { return this.value; }
@@ -69,33 +73,152 @@ describe("lib/link/link", function() {
 		it("should handle unknown message", async function() {
 			testConnector.emit("message", { type: "unknown" });
 		});
-		it("should give an error response back on unrecognized request", function() {
-			testConnector.emit("message", new libData.MessageRequest(1, dst, src, "UnhandledRequest"));
-			assert.deepEqual(testConnector.sentMessages, [
-				new libData.MessageResponseError(
-					testConnector._seq - 1,
-					src,
-					dst,
-					new libData.ResponseError("Unrecognized request UnhandledRequest")
-				),
-			]);
+
+		describe("Request handling", function() {
+			it("should give an error response back on unrecognized request", function() {
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "UnhandledRequest"));
+				assert.deepEqual(testConnector.sentMessages, [
+					new libData.MessageResponseError(
+						testConnector._seq - 1,
+						src,
+						dst,
+						new libData.ResponseError("Unrecognized request UnhandledRequest")
+					),
+				]);
+			});
+			it("should give an error response back on unhandled request", function() {
+				class UnhandledRequest {
+					static type = "request";
+					static src = "controller";
+					static dst = "control";
+				}
+				libLink.Link.register(UnhandledRequest);
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "UnhandledRequest"));
+				assert.deepEqual(testConnector.sentMessages, [
+					new libData.MessageResponseError(
+						testConnector._seq - 1,
+						src,
+						dst,
+						new libData.ResponseError("No handler for UnhandledRequest")
+					),
+				]);
+			});
+			it("should give an error response back on invalid src", function() {
+				class InvalidSrcRequest {
+					static type = "request";
+					static src = "host";
+					static dst = "control";
+				}
+				libLink.Link.register(InvalidSrcRequest);
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "InvalidSrcRequest"));
+				assert.deepEqual(testConnector.sentMessages, [
+					new libData.MessageResponseError(
+						testConnector._seq - 1,
+						src,
+						dst,
+						new libData.ResponseError("Source [Address controller:0] is not allowed for InvalidSrcRequest")
+					),
+				]);
+			});
+			it("should give an error response back on invalid dst", function() {
+				class InvalidDstRequest {
+					static type = "request";
+					static src = "controller";
+					static dst = "host";
+				}
+				libLink.Link.register(InvalidDstRequest);
+				testConnector.emit("message", new libData.MessageRequest(1, dst, src, "InvalidDstRequest"));
+				assert.deepEqual(testConnector.sentMessages, [
+					new libData.MessageResponseError(
+						testConnector._seq - 1,
+						src,
+						dst,
+						new libData.ResponseError(
+							"Destination [Address control:1] is not allowed for InvalidDstRequest"
+						)
+					),
+				]);
+			});
+			it("should give an error response back on broadcast src", function() {
+				testConnector.emit("message", new libData.MessageRequest(1, addr("allControls"), src, "SimpleRequest"));
+				assert.deepEqual(testConnector.sentMessages, [
+					new libData.MessageResponseError(
+						testConnector._seq - 1,
+						src,
+						addr("allControls"),
+						new libData.ResponseError("Message src may not be broadcast")
+					),
+				]);
+			});
+			it("should give an error response back on requst with broadcast dst", function() {
+				testConnector.emit("message", new libData.MessageRequest(1, dst, addr("allControls"), "SimpleRequest"));
+				assert.deepEqual(testConnector.sentMessages, [
+					new libData.MessageResponseError(
+						testConnector._seq - 1,
+						src,
+						dst,
+						new libData.ResponseError("Destination [Address 4:control] is not allowed for SimpleRequest")
+					),
+				]);
+			});
 		});
-		it("should give an error response back on unhandled request", function() {
-			class UnhandledRequest {
-				static type = "request";
-				static src = "controller";
-				static dst = "control";
-			}
-			libLink.Link.register(UnhandledRequest);
-			testConnector.emit("message", new libData.MessageRequest(1, dst, src, "UnhandledRequest"));
-			assert.deepEqual(testConnector.sentMessages, [
-				new libData.MessageResponseError(
-					testConnector._seq - 1,
-					src,
-					dst,
-					new libData.ResponseError("No handler for UnhandledRequest")
-				),
-			]);
+
+		describe("Event handling", function() {
+			it("should ignore unrecognized event", function() {
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "UnhandledEvent"));
+				assert.deepEqual(testConnector.sentMessages, []);
+			});
+			it("should ignore unhandled event", function() {
+				class UnhandledEvent {
+					static type = "event";
+					static src = "controller";
+					static dst = "control";
+				}
+				libLink.Link.register(UnhandledEvent);
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "UnhandledEvent"));
+				assert.deepEqual(testConnector.sentMessages, []);
+			});
+			it("should ignore invalid src", function() {
+				class InvalidSrcEvent {
+					static type = "event";
+					static src = "host";
+					static dst = "control";
+				}
+				let handled = false;
+				libLink.Link.register(InvalidSrcEvent);
+				testLink.snoopEvent(InvalidSrcEvent, async () => { handled = true; });
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "InvalidSrcEvent"));
+				assert(!handled, "event was not ignored");
+				assert.deepEqual(testConnector.sentMessages, []);
+			});
+			it("should ignore invalid dst", function() {
+				class InvalidDstEvent {
+					static type = "event";
+					static src = "controller";
+					static dst = "host";
+				}
+				libLink.Link.register(InvalidDstEvent);
+				let handled = false;
+				testLink.snoopEvent(InvalidDstEvent, async () => { handled = true; });
+				testConnector.emit("message", new libData.MessageEvent(1, dst, src, "InvalidDstEvent"));
+				testConnector.emit("message", new libData.MessageEvent(1, dst, addr("allControls"), "InvalidDstEvent"));
+				assert(!handled, "event was not ignored");
+				assert.deepEqual(testConnector.sentMessages, []);
+			});
+			it("should ignore broadcast src", function() {
+				let handled = false;
+				testLink.snoopEvent(SimpleEvent, async () => { handled = true; });
+				testConnector.emit("message", new libData.MessageEvent(1, addr("allControls"), src, "SimpleEvent"));
+				assert(!handled, "event was not ignored");
+				assert.deepEqual(testConnector.sentMessages, []);
+			});
+			it("should handle event with broadcast dst", function() {
+				let handled = false;
+				testLink.snoopEvent(SimpleEvent, async () => { handled = true; });
+				testConnector.emit("message", new libData.MessageEvent(1, dst, addr("allControls"), "SimpleEvent"));
+				assert(handled, "event was ignored");
+				assert.deepEqual(testConnector.sentMessages, []);
+			});
 		});
 
 		it("should send ready on connector prepareDisconnect", async function() {

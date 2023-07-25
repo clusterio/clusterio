@@ -96,6 +96,16 @@ class Link {
 		}
 
 		let entry = this._validateMessage(message);
+		if (entry && this.connector.dst.type === libData.Address.control) {
+			try {
+				this.validatePermission(message, entry); // Somewhat hacky, defined in ControlConnection
+			} catch (err) {
+				if (err instanceof libErrors.PermissionError) {
+					return;
+				}
+				throw err;
+			}
+		}
 
 		if (message.type === "event" && this._eventSnoopers.has(entry.Event)) {
 			let handler = this._eventSnoopers.get(entry.Event);
@@ -123,7 +133,29 @@ class Link {
 		}
 	}
 
+	/**
+	 * Ingress message validation
+	 *
+	 * Should be overridden by sub-classes to validate messages received.
+	 *
+	 * @param {module:lib/data.Message} message - Message to check.
+	 * @throws {module:lib/errors.InvalidMessage} if the message is invalid.
+	 */
+	validateIngress(message) { }
+
 	_validateMessage(message) {
+		try {
+			if (message.src.type === libData.Address.broadcast) {
+				throw new libErrors.InvalidMessage("Message src may not be broadcast");
+			}
+			this.validateIngress(message);
+		} catch (err) {
+			if (message.type === "request") {
+				this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
+			}
+			throw err;
+		}
+
 		if (message.type === "request") {
 			let entry = this.constructor._requestsByName.get(message.name);
 			if (!entry) {
@@ -173,6 +205,18 @@ class Link {
 		throw new Error("Should be unreachable");
 	}
 
+	/**
+	 * Message permission validation
+	 *
+	 * Called when an request or event is received by a control connector.
+	 * Should be overridden by sub-classes to validate messages received.
+	 *
+	 * @param {module:lib/data.Message} message - Message to check.
+	 * @param {object} entry - Request or Event entry for this Message.
+	 * @throws {module:lib/errors.PermissionError} if unauthorized.
+	 */
+	validatePermission(message, entry) { }
+
 	_routeMessage(message, entry) {
 		if (!this.router) {
 			let err = new libErrors.InvalidMessage(
@@ -196,10 +240,10 @@ class Link {
 		if (message.type !== "request") {
 			throw new Error(`Router requested fallback handling of unsupported message type ${message.type}`);
 		}
-		this._processRequest(message, entry, fallback);
+		this._processRequest(message, entry, fallback, message.dst);
 	}
 
-	_processRequest(message, entry, handler) {
+	_processRequest(message, entry, handler, spoofedSrc) {
 		if (!handler) {
 			this.connector.sendResponseError(
 				new libData.ResponseError(`No handler for ${entry.Request.name}`), message.src
@@ -233,7 +277,7 @@ class Link {
 						throw new Error(`Expected empty response from ${entry.Request.name} handler`);
 					}
 				}
-				this.connector.sendResponse(result, message.src);
+				this.connector.sendResponse(result, message.src, spoofedSrc);
 			}
 		).catch(
 			err => {
@@ -246,7 +290,7 @@ class Link {
 					logger.error(`Unexpected error responding to ${message.name}:\n${err.stack}`);
 				}
 				this.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code, err.stack), message.src
+					new libData.ResponseError(err.message, err.code, err.stack), message.src, spoofedSrc
 				);
 			}
 		);
@@ -258,6 +302,10 @@ class Link {
 			throw new libErrors.InvalidMessage(
 				`Received response ${message.dst.requestId} without a pending request`
 			);
+		}
+
+		if (!pending.dst.equals(message.src)) {
+			throw new libErrors.InvalidMessage(`Received reply from ${message.src} for message sent to ${pending.dst}`);
 		}
 
 		try {
@@ -350,6 +398,7 @@ class Link {
 
 		let pending = {
 			request: entry,
+			dst,
 		};
 		pending.promise = new Promise((resolve, reject) => {
 			pending.resolve = resolve;
@@ -516,6 +565,13 @@ class Link {
 			allowedDstTypes: this.allowedTypes(Request.dst, name, "dst"),
 		};
 
+		if (
+			entry.allowedSrcTypes.has(libData.Address.control)
+			&& !(Request.permission === null || ["function", "string"].includes(typeof Request.permission))
+		) {
+			throw new Error(`Invalid permission specification ${typeof Request.permission} on ${name}`);
+		}
+
 		let Response = Request.Response;
 		if (Response) {
 			entry.Response = Response;
@@ -563,6 +619,14 @@ class Link {
 			allowedSrcTypes: this.allowedTypes(Event.src, name, "src"),
 			allowedDstTypes: this.allowedTypes(Event.dst, name, "dst"),
 		};
+
+		if (
+			entry.allowedSrcTypes.has(libData.Address.control)
+			&& !(Event.permission === null || ["function", "string"].includes(typeof Event.permission))
+		) {
+			throw new Error(`Invalid permission specification ${typeof Event.permission} on ${name}`);
+		}
+
 		this._eventsByName.set(name, entry);
 		this._eventsByClass.set(Event, entry);
 	}

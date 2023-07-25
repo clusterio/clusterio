@@ -5,6 +5,7 @@ class ChatEvent {
 	static src = ["control", "instance"];
 	static dst = "instance";
 	static plugin = "global_chat";
+	static permission = null;
 
 	/** @type {string} */
 	instanceName;

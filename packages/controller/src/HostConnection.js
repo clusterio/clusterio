@@ -1,6 +1,7 @@
 "use strict";
 const libData = require("@clusterio/lib/data");
 const libConfig = require("@clusterio/lib/config");
+const libErrors = require("@clusterio/lib/errors");
 const { logger } = require("@clusterio/lib/logging");
 const libPlugin = require("@clusterio/lib/plugin");
 const PlayerStats = require("@clusterio/lib/PlayerStats");
@@ -63,6 +64,35 @@ class HostConnection extends BaseConnection {
 		this.handle(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
 		this.handle(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(libData.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
+	}
+
+	validateIngress(message) {
+		let origin = this.connector.dst;
+		switch (message.src.type) {
+			case libData.Address.control:
+			case libData.Address.controller:
+				throw new libErrors.InvalidMessage(`Received message with invalid src ${message.src} from ${origin}`);
+
+			case libData.Address.host:
+				if (message.src.id !== origin.id) {
+					throw new libErrors.InvalidMessage(
+						`Received message with invalid src ${message.src} from ${origin}`
+					);
+				}
+				break;
+
+			case libData.Address.instance:
+				let instance = this._controller.instances.get(message.src.id);
+				if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
+					throw new libErrors.InvalidMessage(
+						`Received message with invalid src ${message.src} from ${origin}`
+					);
+				}
+				break;
+
+			default:
+				throw new Error("Should be unreachable");
+		}
 	}
 
 	_checkPluginVersions() {

@@ -44,18 +44,18 @@ class BaseConnector extends events.EventEmitter {
 		return seq;
 	}
 
-	sendResponse(response, dst) {
+	sendResponse(response, dst, src = this.src) {
 		let seq = this._seq;
 		this._seq += 1;
-		const message = new libData.MessageResponse(seq, this.src, dst, response);
+		const message = new libData.MessageResponse(seq, src, dst, response);
 		this.send(message);
 		return seq;
 	}
 
-	sendResponseError(error, dst) {
+	sendResponseError(error, dst, src = this.src) {
 		let seq = this._seq;
 		this._seq += 1;
-		const message = new libData.MessageResponseError(seq, this.src, dst, error);
+		const message = new libData.MessageResponseError(seq, src, dst, error);
 		this.send(message);
 		return seq;
 	}

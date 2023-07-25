@@ -48,6 +48,11 @@ async function deleteSave(instanceId, save) {
 	await getControl().send(new libData.InstanceDeleteSaveRequest(instanceId, save));
 }
 
+async function getUsers() {
+	let users = await getControl().send(new libData.UserListRequest());
+	return new Map(users.map(user => [user.name, user]));
+}
+
 describe("Integration of Clusterio", function() {
 	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
@@ -455,11 +460,6 @@ describe("Integration of Clusterio", function() {
 		});
 
 		describe("user set-admin/whitelisted/banned", function() {
-			async function getUsers() {
-				let users = await getControl().send(new libData.UserListRequest());
-				return new Map(users.map(user => [user.name, user]));
-			}
-
 			async function getUser(name) {
 				return await getControl().send(new libData.UserGetRequest(name));
 			}
@@ -1089,6 +1089,31 @@ describe("Integration of Clusterio", function() {
 				let tempUser = users.find(user => user.name === "temp");
 				assert.deepEqual(tempUser.roles, [0]);
 				assert.equal(getControl().userUpdates.length, 1);
+			});
+
+			it("should restrict actions based on roles", async function() {
+				await execCtl('user set-roles temp "Player"');
+				let tempControl;
+				try {
+					let tlsCa = await fs.readFile("test/file/tls/cert.pem");
+					let connector = new TestControlConnector(url, 2, tlsCa);
+					connector.token = jwt.sign(
+						{ aud: "user", user: "temp" }, Buffer.from("TestSecretDoNotUse", "base64")
+					);
+					tempControl = new TestControl(connector);
+					await connector.connect();
+
+					await assert.rejects(
+						tempControl.send(new libData.UserCreateRequest("notallowed")),
+						new Error("Permission denied")
+					);
+
+				} finally {
+					await tempControl.connector.disconnect();
+				}
+
+				let users = await getUsers();
+				assert(!users.has("notallowed"), "user was created when it should not be allowed");
 			});
 		});
 
