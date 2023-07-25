@@ -8,6 +8,7 @@
     "fast-cover": "FAST_TEST=y nyc pnpm test",
     "ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
     "lint": "eslint \"*.js\" packages plugins test",
+    "lint-fix": "eslint --fix \"*.js\" packages plugins test",
     "docs": "jsdoc --configure docs/jsdoc.json",
     "bundle-dependencies": "bundle-dependencies"
   },
