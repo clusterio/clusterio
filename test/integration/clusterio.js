@@ -641,7 +641,11 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance create unassign --id 77");
 			});
 			after(async function() {
-				await execCtl("instance delete spam");
+				try {
+					await execCtl("instance delete spam");
+				} catch (err) {
+					// Ignore
+				}
 			});
 			for (let remote of [false, true]) {
 				let pri = 44;
@@ -783,6 +787,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("instanceUpdateEventHandler()", function() {
 			it("should have triggered for the previous instance status updates", function() {
+				slowTest(this);
 				let statusesToCheck = new Set([
 					"unassigned", "unknown", "stopped", "creating_save", "exporting_data",
 					"starting", "running", "stopping", "deleted",
