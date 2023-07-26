@@ -36,11 +36,15 @@ class ControlConnector extends libLink.WebSocketClientConnector {
 
 	register() {
 		logger.verbose("Connector | registering control");
-		this.sendHandshake(new libData.MessageRegisterControl(new libData.RegisterControlData(
-			this._token,
-			"clusterioctl",
-			version,
-		)));
+		this.sendHandshake(
+			new libData.MessageRegisterControl(
+				new libData.RegisterControlData(
+					this._token,
+					"clusterioctl",
+					version,
+				)
+			)
+		);
 	}
 }
 
@@ -87,9 +91,11 @@ class Control extends libLink.Link {
 		instanceIds = [],
 		maxLevel = null,
 	}) {
-		await this.send(new libData.LogSetSubscriptionsRequest(
-			all, controller, hostIds, instanceIds, maxLevel,
-		));
+		await this.send(
+			new libData.LogSetSubscriptionsRequest(
+				all, controller, hostIds, instanceIds, maxLevel,
+			)
+		);
 	}
 
 	async handleLogMessageEvent(event) {
@@ -166,11 +172,13 @@ async function startControl() {
 	let args = yargs.parse();
 
 	// Log stream for the ctl session.
-	logger.add(new ConsoleTransport({
-		errorLevels: Object.keys(levels),
-		level: args.logLevel,
-		format: new libLoggingUtils.TerminalFormat(),
-	}));
+	logger.add(
+		new ConsoleTransport({
+			errorLevels: Object.keys(levels),
+			level: args.logLevel,
+			format: new libLoggingUtils.TerminalFormat(),
+		})
+	);
 	libLoggingUtils.handleUnhandledErrors(logger);
 
 	logger.verbose(`Loading available plugins from ${args.pluginList}`);

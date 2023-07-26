@@ -19,11 +19,15 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 		}
 
 		logger.verbose("Connector | registering control");
-		this.sendHandshake(new libData.MessageRegisterControl(new libData.RegisterControlData(
-			this.token,
-			"Clusterio Web UI",
-			packageJson.version,
-		)));
+		this.sendHandshake(
+			new libData.MessageRegisterControl(
+				new libData.RegisterControlData(
+					this.token,
+					"Clusterio Web UI",
+					packageJson.version,
+				)
+			)
+		);
 	}
 }
 

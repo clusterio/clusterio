@@ -64,11 +64,15 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[0],
-				new libData.MessageEvent(1, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent("join", "player", undefined, new PlayerStats({
-						join_count: 1,
-						last_join_at: stats.lastJoinAt.getTime(),
-					}))
+				new libData.MessageEvent(
+					1, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"join", "player", undefined,
+						new PlayerStats({
+							join_count: 1,
+							last_join_at: stats.lastJoinAt.getTime(),
+						})
+					)
 				),
 			);
 		});
@@ -105,14 +109,18 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				new libData.MessageEvent(2, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent("leave", "player", "quit", new PlayerStats({
-						join_count: 1,
-						online_time_ms: stats.onlineTimeMs,
-						last_join_at: stats.lastJoinAt.getTime(),
-						last_leave_at: stats.lastLeaveAt.getTime(),
-						last_leave_reason: "quit",
-					}))
+				new libData.MessageEvent(
+					2, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"leave", "player", "quit",
+						new PlayerStats({
+							join_count: 1,
+							online_time_ms: stats.onlineTimeMs,
+							last_join_at: stats.lastJoinAt.getTime(),
+							last_leave_at: stats.lastLeaveAt.getTime(),
+							last_leave_reason: "quit",
+						})
+					)
 				),
 			);
 		});
@@ -151,11 +159,15 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("foo");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				new libData.MessageEvent(2, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent("join", "foo", undefined, new PlayerStats({
-						join_count: 1,
-						last_join_at: stats.lastJoinAt.getTime(),
-					}))
+				new libData.MessageEvent(
+					2, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"join", "foo", undefined,
+						new PlayerStats({
+							join_count: 1,
+							last_join_at: stats.lastJoinAt.getTime(),
+						})
+					)
 				)
 			);
 		});
@@ -168,14 +180,18 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				new libData.MessageEvent(2, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent("leave", "player", "quit", new PlayerStats({
-						join_count: 1,
-						online_time_ms: stats.onlineTimeMs,
-						last_join_at: stats.lastJoinAt.getTime(),
-						last_leave_at: stats.lastLeaveAt.getTime(),
-						last_leave_reason: "quit",
-					}))
+				new libData.MessageEvent(
+					2, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"leave", "player", "quit",
+						new PlayerStats({
+							join_count: 1,
+							online_time_ms: stats.onlineTimeMs,
+							last_join_at: stats.lastJoinAt.getTime(),
+							last_leave_at: stats.lastLeaveAt.getTime(),
+							last_leave_reason: "quit",
+						})
+					)
 				)
 			);
 		});

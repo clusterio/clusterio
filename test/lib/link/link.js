@@ -283,7 +283,10 @@ describe("lib/link/link", function() {
 				let request = testLink.send(new SimpleRequest());
 				let srcReq = new libData.Address(libData.Address.control, 1, 1);
 				testConnector.emit(
-					"message", new libData.MessageResponseError(1, dst, srcReq, new libData.ResponseError("Error"))
+					"message",
+					new libData.MessageResponseError(
+						1, dst, srcReq, new libData.ResponseError("Error")
+					)
 				);
 				await assert.rejects(
 					request,
@@ -345,11 +348,14 @@ describe("lib/link/link", function() {
 				let response = (await message)[0];
 				assert.deepEqual(
 					response,
-					new libData.MessageResponseError(1, src, dst, new libData.ResponseError(
-						"Request NumberRequest failed validation",
-						response.data.code,
-						response.data.stack,
-					))
+					new libData.MessageResponseError(
+						1, src, dst,
+						new libData.ResponseError(
+							"Request NumberRequest failed validation",
+							response.data.code,
+							response.data.stack,
+						)
+					)
 				);
 			});
 			it("should send response error on response validation failing", async function() {
@@ -360,11 +366,14 @@ describe("lib/link/link", function() {
 				let response = (await message)[0];
 				assert.deepEqual(
 					response,
-					new libData.MessageResponseError(1, src, dst, new libData.ResponseError(
-						"Response for request NumberRequest failed validation",
-						response.data.code,
-						response.data.stack,
-					))
+					new libData.MessageResponseError(
+						1, src, dst,
+						new libData.ResponseError(
+							"Response for request NumberRequest failed validation",
+							response.data.code,
+							response.data.stack,
+						)
+					)
 				);
 			});
 			it("should send value returned from request handler", async function() {

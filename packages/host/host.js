@@ -52,15 +52,19 @@ class HostConnector extends libLink.WebSocketClientConnector {
 			plugins[pluginInfo.name] = pluginInfo.version;
 		}
 
-		this.sendHandshake(new libData.MessageRegisterHost(new libData.RegisterHostData(
-			this.hostConfig.get("host.controller_token"),
-			"Clusterio Host",
-			version,
-			this.hostConfig.get("host.name"),
-			this.hostConfig.get("host.id"),
-			this.hostConfig.get("host.public_address"),
-			plugins,
-		)));
+		this.sendHandshake(
+			new libData.MessageRegisterHost(
+				new libData.RegisterHostData(
+					this.hostConfig.get("host.controller_token"),
+					"Clusterio Host",
+					version,
+					this.hostConfig.get("host.name"),
+					this.hostConfig.get("host.id"),
+					this.hostConfig.get("host.public_address"),
+					plugins,
+				)
+			)
+		);
 	}
 }
 

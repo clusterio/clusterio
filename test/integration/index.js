@@ -89,11 +89,15 @@ class TestControl extends libLink.Link {
 
 class TestControlConnector extends libLink.WebSocketClientConnector {
 	register() {
-		this.sendHandshake(new libData.MessageRegisterControl(new libData.RegisterControlData(
-			this.token,
-			"clusterioctl",
-			"test",
-		)));
+		this.sendHandshake(
+			new libData.MessageRegisterControl(
+				new libData.RegisterControlData(
+					this.token,
+					"clusterioctl",
+					"test",
+				)
+			)
+		);
 	}
 }
 

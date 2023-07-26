@@ -95,18 +95,26 @@ describe("lib/link/connectors", function() {
 			it("should call register on hello", function() {
 				let called = false;
 				testConnector.register = () => { called = true; };
-				testConnector._processHandshake(new libData.MessageHello(new libData.HelloData("test", {})));
+				testConnector._processHandshake(
+					new libData.MessageHello(
+						new libData.HelloData("test", {})
+					)
+				);
 				assert(called, "register was not called");
 			});
 			it("should emit connect on ready", async function() {
 				let result = events.once(testConnector, "connect");
-				testConnector._processHandshake(new libData.MessageReady(new libData.ReadyData(
-					new libData.Address(libData.Address.control, 1),
-					"x",
-					20,
-					10,
-					undefined
-				)));
+				testConnector._processHandshake(
+					new libData.MessageReady(
+						new libData.ReadyData(
+							new libData.Address(libData.Address.control, 1),
+							"x",
+							20,
+							10,
+							undefined
+						)
+					)
+				);
 				await result;
 				clearInterval(testConnector._heartbeatId);
 			});
