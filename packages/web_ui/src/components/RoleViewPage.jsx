@@ -3,7 +3,7 @@ import { useHistory, useParams } from "react-router-dom";
 import { Button, Checkbox, Form, Input, PageHeader, Popconfirm, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
-import { libLink, libUsers } from "@clusterio/lib";
+import { libData, libUsers } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -18,8 +18,8 @@ function useRole(id) {
 
 	function updateRole() {
 		// XXX optimize by requesting only the role in question
-		libLink.messages.listRoles.send(control).then(result => {
-			let match = result.list.find(u => u.id === id);
+		control.send(new libData.RoleListRequest()).then(roles => {
+			let match = roles.find(u => u.id === id);
 			if (!match) {
 				setRole({ missing: true });
 			} else {
@@ -92,12 +92,9 @@ export default function RoleViewPage() {
 					if (value) { newPermissions.push(name); }
 				}
 
-				libLink.messages.updateRole.send(control, {
-					id: roleId,
-					name: values.name || "",
-					description: values.description || "",
-					permissions: newPermissions,
-				}).then(() => {
+				control.send(
+					new libData.RoleUpdateRequest(roleId, values.name || "", values.description || "", newPermissions)
+				).then(() => {
 					setEdited(false);
 					updateRole();
 				}).catch(notifyErrorHandler("Error applying changes"));
@@ -114,8 +111,8 @@ export default function RoleViewPage() {
 						okText="Delete"
 						okButtonProps={{ danger: true }}
 						onConfirm={() => {
-							libLink.messages.deleteRole.send(
-								control, { id: roleId }
+							control.send(
+								new libData.RoleDeleteRequest(roleId)
 							).then(() => {
 								history.push("/roles");
 							}).catch(notifyErrorHandler("Error deleting role"));

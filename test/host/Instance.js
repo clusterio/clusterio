@@ -3,9 +3,13 @@ const assert = require("assert").strict;
 const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
+const libData = require("@clusterio/lib/data");
 const { wait } = require("@clusterio/lib/helpers");
+const PlayerStats = require("@clusterio/lib/PlayerStats");
 const Instance = require("@clusterio/host/src/Instance");
 const { MockConnector, MockServer } = require("../mock");
+
+const addr = libData.Address.fromShorthand;
 
 
 describe("class Instance", function() {
@@ -13,13 +17,16 @@ describe("class Instance", function() {
 		libConfig.InstanceConfig.finalize();
 	});
 
+	let src;
+	let dst = addr({ hostId: 1 });
 	let instance;
 	let connector;
 	beforeEach(async function() {
 		let instanceConfig = new libConfig.InstanceConfig("host");
 		await instanceConfig.init();
 		instanceConfig.set("instance.name", "foo");
-		connector = new MockConnector();
+		src = addr({ instanceId: instanceConfig.get("instance.id") });
+		connector = new MockConnector(src, dst);
 		instance = new Instance({}, connector, "dir", "factorioDir", instanceConfig);
 		instance.server = new MockServer();
 	});
@@ -57,19 +64,16 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[0],
-				{
-					seq: 1,
-					type: "player_event_event",
-					data: {
-						type: "join",
-						instance_id: instance.id,
-						name: "player",
-						stats: {
+				new libData.MessageEvent(
+					1, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"join", "player", undefined,
+						new PlayerStats({
 							join_count: 1,
 							last_join_at: stats.lastJoinAt.getTime(),
-						},
-					},
-				},
+						})
+					)
+				),
 			);
 		});
 
@@ -105,23 +109,19 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				{
-					seq: 2,
-					type: "player_event_event",
-					data: {
-						type: "leave",
-						instance_id: instance.id,
-						name: "player",
-						reason: "quit",
-						stats: {
+				new libData.MessageEvent(
+					2, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"leave", "player", "quit",
+						new PlayerStats({
 							join_count: 1,
 							online_time_ms: stats.onlineTimeMs,
 							last_join_at: stats.lastJoinAt.getTime(),
 							last_leave_at: stats.lastLeaveAt.getTime(),
 							last_leave_reason: "quit",
-						},
-					},
-				},
+						})
+					)
+				),
 			);
 		});
 
@@ -159,19 +159,16 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("foo");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				{
-					seq: 2,
-					type: "player_event_event",
-					data: {
-						type: "join",
-						instance_id: instance.id,
-						name: "foo",
-						stats: {
+				new libData.MessageEvent(
+					2, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"join", "foo", undefined,
+						new PlayerStats({
 							join_count: 1,
 							last_join_at: stats.lastJoinAt.getTime(),
-						},
-					},
-				},
+						})
+					)
+				)
 			);
 		});
 
@@ -183,23 +180,19 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				{
-					seq: 2,
-					type: "player_event_event",
-					data: {
-						type: "leave",
-						instance_id: instance.id,
-						name: "player",
-						reason: "quit",
-						stats: {
+				new libData.MessageEvent(
+					2, src, addr("controller"), "InstancePlayerUpdateEvent",
+					new libData.InstancePlayerUpdateEvent(
+						"leave", "player", "quit",
+						new PlayerStats({
 							join_count: 1,
 							online_time_ms: stats.onlineTimeMs,
 							last_join_at: stats.lastJoinAt.getTime(),
 							last_leave_at: stats.lastLeaveAt.getTime(),
 							last_leave_reason: "quit",
-						},
-					},
-				},
+						})
+					)
+				)
 			);
 		});
 	});

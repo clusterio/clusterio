@@ -16,22 +16,22 @@ describe("lib/data/ModPack", function() {
 				if (!validate(json)) {
 					throw validate.errors;
 				}
-				assert.deepEqual(new ModPack(json), pack);
+				assert.deepEqual(ModPack.fromJSON(json), pack);
 				const packStringed = ModPack.fromModPackString(pack.toModPackString());
 				packStringed.id = pack.id;
 				packStringed.exportManifest = pack.exportManifest;
 				assert.deepEqual(packStringed, pack);
 			}
 
-			check(new ModPack());
-			check(new ModPack({ name: "MyPack" }));
-			check(new ModPack({ description: "My Description" }));
-			check(new ModPack({ factorio_version: "2.0" }));
-			check(new ModPack({ mods: [
+			check(ModPack.fromJSON({}));
+			check(ModPack.fromJSON({ name: "MyPack" }));
+			check(ModPack.fromJSON({ description: "My Description" }));
+			check(ModPack.fromJSON({ factorio_version: "2.0" }));
+			check(ModPack.fromJSON({ mods: [
 				{ name: "subspace_storage", enabled: true, version: "1.99.8" },
 				{ name: "clusterio_lib", enabled: true, version: "0.1.2", sha1: "012345abcd" },
 			]}));
-			check(new ModPack({ settings: {
+			check(ModPack.fromJSON({ settings: {
 				"startup": {
 					"bool-setting": { "value": true },
 				},
@@ -42,9 +42,9 @@ describe("lib/data/ModPack", function() {
 					"string-setting": { "value": "a string" },
 				},
 			}}));
-			check(new ModPack({ export_manifest: { assets: { setting: "settings.json" }}}));
-			check(new ModPack({ deleted: true }));
-			check(new ModPack({
+			check(ModPack.fromJSON({ export_manifest: { assets: { setting: "settings.json" }}}));
+			check(ModPack.fromJSON({ deleted: true }));
+			check(ModPack.fromJSON({
 				name: "Super pack",
 				description: "Every option at once.",
 				factorio_version: "2.0",
@@ -71,7 +71,7 @@ describe("lib/data/ModPack", function() {
 		it("should sort integer factorio versions lexicographically", function() {
 			let unsortedVersions = ["1.0", "1.1.0", "0.1", "3.0.0", "1.2", "0.3.1", "0.3.3", "2.1.1", "0.0.1"];
 			let sortedVersions = ["0.0.1", "0.1", "0.3.1", "0.3.3", "1.0", "1.1.0", "1.2", "2.1.1", "3.0.0"];
-			let factorioMods = unsortedVersions.map(v => new ModPack({ factorio_version: v }));
+			let factorioMods = unsortedVersions.map(v => ModPack.fromJSON({ factorio_version: v }));
 			factorioMods.sort((a, b) => a.integerFactorioVersion - b.integerFactorioVersion);
 			assert.deepEqual(factorioMods.map(mod => mod.factorioVersion), sortedVersions);
 		});
@@ -105,7 +105,7 @@ describe("lib/data/ModPack", function() {
 			};
 			const mockLogger = { warn: () => {} };
 			it("should fill in defaults for settings", function() {
-				const pack = new ModPack();
+				const pack = ModPack.fromJSON({});
 				pack.fillDefaultSettings(prototypes, mockLogger);
 				assert.deepEqual(pack.toJSON().settings, {
 					"startup": {
@@ -120,7 +120,7 @@ describe("lib/data/ModPack", function() {
 				});
 			});
 			it("should not overwrite existing values", function() {
-				const pack = new ModPack({ settings: {
+				const pack = ModPack.fromJSON({ settings: {
 					"startup": {
 						"bool": { "value": false },
 					},
@@ -145,7 +145,7 @@ describe("lib/data/ModPack", function() {
 				});
 			});
 			it("should ignore unknown setting_type and missing default_value", function() {
-				const pack = new ModPack();
+				const pack = ModPack.fromJSON({});
 				pack.fillDefaultSettings({
 					"string-setting": {
 						"foo": {
@@ -196,7 +196,7 @@ describe("lib/data/ModPack", function() {
 
 		describe("toModSettingsDat()", function() {
 			it("should properly serialise settings", function() {
-				const pack = new ModPack({ settings: {
+				const pack = ModPack.fromJSON({ settings: {
 					"startup": {
 						"bool-setting": { "value": true },
 					},

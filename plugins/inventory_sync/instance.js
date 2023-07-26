@@ -6,6 +6,14 @@ const libErrors = require("@clusterio/lib/errors");
 const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 
+const {
+	AcquireRequest,
+	ReleaseRequest,
+	UploadRequest,
+	DownloadRequest,
+	DatabaseStatsRequest,
+} = require("./messages");
+
 /**
  * Splits string into array of strings with max of a certain length
  * @param {Number} chunkSize - Max length of each chunk
@@ -45,10 +53,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 						return;
 					}
 					this.playersToRelease.delete(player);
-					await this.info.messages.release.send(this.instance, {
-						instance_id: this.instance.id,
-						player_name,
-					});
+					await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, player_name));
 				}
 			})().catch(
 				err => this.logger.error(`Unpexpected error releasing queued up players:\n${err.stack}`)
@@ -65,12 +70,16 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 		if (this.host.connector.connected && !this.disconnecting) {
 			try {
+				let acquireResponse = await this.instance.sendTo(
+					"controller",
+					new AcquireRequest(this.instance.id, request.player_name),
+				);
 				response = {
 					player_name: request.player_name,
-					...await this.info.messages.acquire.send(this.instance, {
-						instance_id: this.instance.id,
-						player_name: request.player_name,
-					}),
+					status: acquireResponse.status,
+					generation: acquireResponse.generation,
+					has_data: acquireResponse.hasData,
+					message: acquireResponse.message,
 				};
 			} catch (err) {
 				if (!(err instanceof libErrors.SessionLost)) {
@@ -90,10 +99,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 
 		try {
-			await this.info.messages.release.send(this.instance, {
-				instance_id: this.instance.id,
-				player_name: request.player_name,
-			});
+			await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, request.player_name));
 		} catch (err) {
 			if (err instanceof libErrors.SessionLost) {
 				this.playersToRelease.set(request.player_name);
@@ -110,11 +116,10 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 		this.logger.verbose(`Uploading ${player_data.name} (${JSON.stringify(player_data).length / 1000}kB)`);
 		try {
-			await this.info.messages.upload.send(this.instance, {
-				instance_id: this.instance.id,
-				player_name: player_data.name,
-				player_data: player_data,
-			});
+			await this.instance.sendTo(
+				"controller",
+				new UploadRequest(this.instance.id, player_data.name, player_data),
+			);
 
 		} catch (err) {
 			if (!(err instanceof libErrors.SessionLost)) {
@@ -129,27 +134,24 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async handleDownload(request) {
-		const player_name = request.player_name;
-		this.logger.verbose(`Downloading ${player_name}`);
+		const playerName = request.player_name;
+		this.logger.verbose(`Downloading ${playerName}`);
 
-		let response = await this.info.messages.download.send(this.instance, {
-			instance_id: this.instance.id,
-			player_name,
-		});
+		let response = await this.instance.sendTo("controller", new DownloadRequest(this.instance.id, playerName));
 
 		if (!response.player_data) {
-			await this.sendRcon(`/sc inventory_sync.download_inventory('${player_name}',nil,0,0)`, true);
+			await this.sendRcon(`/sc inventory_sync.download_inventory('${playerName}',nil,0,0)`, true);
 			return;
 		}
 
 		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.player_data));
-		this.logger.verbose(`Sending inventory for ${player_name} in ${chunks.length} chunks`);
+		this.logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
 		for (let i = 0; i < chunks.length; i++) {
 			// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
 			const chunk = libLuaTools.escapeString(chunks[i]);
 			await this.sendRcon(
-				`/sc inventory_sync.download_inventory('${player_name}','${chunk}',${i + 1},${chunks.length})`,
+				`/sc inventory_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length})`,
 				true
 			);
 		}

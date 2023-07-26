@@ -1,6 +1,6 @@
 import { useEffect, useContext, useState } from "react";
 
-import { libData, libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 import ControlContext from "../components/ControlContext";
 
 
@@ -11,8 +11,7 @@ export function useExportManifest() {
 	let [exportManifest, setExportManifest] = useState(exportManifestCache || emptyCache);
 	useEffect(() => {
 		async function load() {
-			let result = await libLink.messages.getDefaultModPack.send(control);
-			let modPack = new libData.ModPack(result.mod_pack);
+			let modPack = await control.send(new libData.ModPackGetDefaultRequest());
 			if (modPack.exportManifest) {
 				exportManifestCache = modPack.exportManifest;
 				setExportManifest(exportManifestCache);

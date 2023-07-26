@@ -20,7 +20,7 @@ export default function HostViewPage(props) {
 	let [instanceList] = useInstanceList();
 	let [host] = useHost(hostId);
 
-	instanceList = instanceList.filter(instance => instance["assigned_host"] === hostId);
+	instanceList = instanceList.filter(instance => instance.assignedHost === hostId);
 
 	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host.name || hostId }];
 	if (host.loading) {

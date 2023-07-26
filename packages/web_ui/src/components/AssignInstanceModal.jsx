@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Form, Modal, Select, Typography } from "antd";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -33,10 +33,9 @@ export default function AssignInstanceModal(props) {
 		}
 
 		setApplying(true);
-		libLink.messages.assignInstanceCommand.send(control, {
-			instance_id: props.id,
-			host_id: hostId,
-		}).then(() => {
+		control.send(
+			new libData.InstanceAssignRequest(props.id, hostId)
+		).then(() => {
 			setVisible(false);
 			if (props.onFinish) {
 				props.onFinish();

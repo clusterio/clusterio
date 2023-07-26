@@ -8,6 +8,8 @@ const mock = require("../../../test/mock");
 const controller = require("../controller");
 const instance = require("../instance");
 const info = require("../info");
+const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("../messages");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 
 
@@ -291,9 +293,11 @@ describe("player_auth", function() {
 				});
 			});
 
-			describe(".fetchPlayerCodeRequestHandler()", function() {
+			describe(".handleFetchPlayerCodeRequest()", function() {
 				it("should return a code", async function() {
-					let result = await controllerPlugin.fetchPlayerCodeRequestHandler({ data: { player: "test" }});
+					let result = await controllerPlugin.handleFetchPlayerCodeRequest(
+						new FetchPlayerCodeRequest("test")
+					);
 					assert(typeof result.player_code === "string", "no code returned");
 					assert(result.player_code.length === 10, "incorrect code length returned");
 					let expires = controllerPlugin.players.get("test").expires;
@@ -302,11 +306,11 @@ describe("player_auth", function() {
 				});
 			});
 
-			describe(".setVerifyCodeRequestHandler()", function() {
+			describe(".handleSetVerifyCodeRequest()", function() {
 				it("should throw if player does not exist", async function() {
 					await assert.rejects(
-						controllerPlugin.setVerifyCodeRequestHandler(
-							{ data: { player: "invalid", verify_code: "invalid" }}
+						controllerPlugin.handleSetVerifyCodeRequest(
+							new SetVerifyCodeRequest("invalid", "invalid")
 						),
 						new libErrors.RequestError("invalid player")
 					);
@@ -315,8 +319,8 @@ describe("player_auth", function() {
 					let expires = Date.now() - 1000;
 					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
 					await assert.rejects(
-						controllerPlugin.setVerifyCodeRequestHandler(
-							{ data: { player: "expired", verify_code: "expired" }}
+						controllerPlugin.handleSetVerifyCodeRequest(
+							new SetVerifyCodeRequest("expired", "expired")
 						),
 						new libErrors.RequestError("invalid player")
 					);
@@ -326,8 +330,8 @@ describe("player_auth", function() {
 			describe("integration", function() {
 				it("should verify a full login flow", async function() {
 					let app = controllerPlugin.controller.app;
-					let { player_code } = await controllerPlugin.fetchPlayerCodeRequestHandler(
-						{ data: { player: "test" }}
+					let { player_code } = await controllerPlugin.handleFetchPlayerCodeRequest(
+						new FetchPlayerCodeRequest("test")
 					);
 
 					let playerCodeResult = await phin({
@@ -338,7 +342,9 @@ describe("player_auth", function() {
 					});
 
 					let { verify_code, verify_token } = playerCodeResult.body;
-					await controllerPlugin.setVerifyCodeRequestHandler({ data: { player: "test", verify_code }});
+					await controllerPlugin.handleSetVerifyCodeRequest(
+						new SetVerifyCodeRequest("test", verify_code)
+					);
 
 					let verifyResult = await phin({
 						url: `${controllerUrl}/api/player_auth/verify`,
@@ -372,14 +378,11 @@ describe("player_auth", function() {
 					it("should call /web-login error after error from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message", {
-								seq: 1,
-								type: "player_auth:fetch_player_code_response",
-								data: {
-									seq: message.seq,
-									error: "controller error",
-								},
-							});
+							instancePlugin.instance.connector.emit("message",
+								new libData.MessageResponseError(1, message.dst, message.src,
+									new libData.ResponseError("controller error")
+								)
+							);
 						});
 						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
 						let command = instancePlugin.instance.server.rconCommands[0];
@@ -388,15 +391,11 @@ describe("player_auth", function() {
 					it("should call /web-login open after a valid response from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message", {
-								seq: 1,
-								type: "player_auth:fetch_player_code_response",
-								data: {
-									seq: message.seq,
-									player_code: "code",
-									controller_url: "controller-url",
-								},
-							});
+							instancePlugin.instance.connector.emit("message",
+								new libData.MessageResponse(1, message.dst, message.src,
+									new FetchPlayerCodeRequest.Response("code", "controller-url")
+								)
+							);
 						});
 						await instancePlugin.handleEvent({ type: "open_dialog", player: "test" });
 						let command = instancePlugin.instance.server.rconCommands[0];
@@ -407,11 +406,9 @@ describe("player_auth", function() {
 					it("should call /web-login code_set after a valid response from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message", {
-								seq: 1,
-								type: "player_auth:set_verify_code_response",
-								data: { seq: message.seq },
-							});
+							instancePlugin.instance.connector.emit("message",
+								new libData.MessageResponse(1, message.dst, message.src)
+							);
 						});
 						await instancePlugin.handleEvent(
 							{ type: "set_verify_code", player: "test", verify_code: "verify" }
@@ -422,11 +419,11 @@ describe("player_auth", function() {
 					it("should call /web-login error after error from the controller", async function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
-							instancePlugin.instance.connector.emit("message", {
-								seq: 1,
-								type: "player_auth:set_verify_code_response",
-								data: { seq: message.seq, error: "controller error" },
-							});
+							instancePlugin.instance.connector.emit("message",
+								new libData.MessageResponseError(1, message.dst, message.src,
+									new libData.ResponseError("controller error")
+								)
+							);
 						});
 						await instancePlugin.handleEvent(
 							{ type: "set_verify_code", player: "test", verify_code: "verify" }

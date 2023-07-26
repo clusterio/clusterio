@@ -1,10 +1,12 @@
 "use strict";
 const assert = require("assert").strict;
+const libLink = require("@clusterio/lib/link");
 
 const mock = require("../../../test/mock");
 const lines = require("../../../test/lib/factorio/lines");
 const instance = require("../instance");
 const info = require("../info");
+const { ChatEvent } = require("../messages");
 
 
 describe("global_chat plugin", function() {
@@ -24,14 +26,15 @@ describe("global_chat plugin", function() {
 		let instancePlugin;
 
 		before(async function() {
+			libLink.Link.register(ChatEvent);
 			instancePlugin = new instance.InstancePlugin(info, new mock.MockInstance(), new mock.MockHost());
 			await instancePlugin.init();
 		});
 
-		describe(".chatEventHandler()", function() {
+		describe(".handleChatEvent()", function() {
 			it("should send received chat as command", async function() {
 				instancePlugin.instance.server.rconCommands = [];
-				await instancePlugin.chatEventHandler({ data: { instance_name: "test", content: "User: message" } });
+				await instancePlugin.handleChatEvent(new ChatEvent("test", "User: message"));
 				assert.deepEqual(
 					instancePlugin.instance.server.rconCommands,
 					["/sc game.print('[test] User: message')"],

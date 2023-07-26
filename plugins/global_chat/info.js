@@ -1,5 +1,5 @@
 "use strict";
-let { libLink } = require("@clusterio/lib");
+const messages = require("./messages");
 
 module.exports = {
 	name: "global_chat",
@@ -8,16 +8,7 @@ module.exports = {
 	instanceEntrypoint: "instance",
 	controlEntrypoint: "control",
 
-	messages: {
-		chat: new libLink.Event({
-			type: "global_chat:chat",
-			links: ["instance-host", "host-controller", "controller-host", "host-instance", "control-controller"],
-			forwardTo: "controller",
-			broadcastTo: "instance",
-			eventProperties: {
-				"instance_name": { type: "string" },
-				"content": { type: "string" },
-			},
-		}),
-	},
+	messages: [
+		messages.ChatEvent,
+	],
 };

@@ -3,7 +3,7 @@ import { Input, Table, Typography } from "antd";
 
 import { libPlugin } from "@clusterio/lib";
 import { notifyErrorHandler, useItemMetadata, useLocale, PageLayout, ControlContext } from "@clusterio/web_ui";
-import info from "../info";
+import { GetStorageRequest, SetStorageSubscriptionRequest } from "../messages";
 
 import "./index.css";
 
@@ -135,8 +135,8 @@ export class WebPlugin extends libPlugin.BaseWebPlugin {
 		}
 	}
 
-	async updateStorageEventHandler(message) {
-		this.updateStorage(message.data.items);
+	async updateStorageEventHandler(event) {
+		this.updateStorage(event.items);
 	}
 
 	onUpdate(callback) {
@@ -159,8 +159,8 @@ export class WebPlugin extends libPlugin.BaseWebPlugin {
 	}
 
 	updateStorage(items) {
-		for (let [name, amount] of items) {
-			this.storage.set(name, amount);
+		for (let item of items) {
+			this.storage.set(item.name, item.count);
 		}
 		for (let callback of this.callbacks) {
 			callback();
@@ -172,14 +172,14 @@ export class WebPlugin extends libPlugin.BaseWebPlugin {
 			return;
 		}
 
-		info.messages.setStorageSubscription.send(
-			this.control, { storage: Boolean(this.callbacks.length) }
+		this.control.send(
+			new SetStorageSubscriptionRequest(Boolean(this.callbacks.length))
 		).catch(notifyErrorHandler("Error subscribing to storage"));
 
 		if (this.callbacks.length) {
-			info.messages.getStorage.send(this.control).then(
-				result => {
-					this.updateStorage(result.items);
+			this.control.send(new GetStorageRequest()).then(
+				items => {
+					this.updateStorage(items);
 				}
 			).catch(notifyErrorHandler("Error updating storage"));
 		} else {

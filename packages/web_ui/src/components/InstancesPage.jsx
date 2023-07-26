@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
 import { Button, Form, Input, Modal, PageHeader } from "antd";
 
-import { libConfig, libLink } from "@clusterio/lib";
+import { libConfig, libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -28,8 +28,8 @@ function CreateInstanceButton(props) {
 		let instanceConfig = new libConfig.InstanceConfig("control");
 		await instanceConfig.init();
 		instanceConfig.set("instance.name", values.instanceName);
-		let serialized_config = instanceConfig.serialize("controller");
-		await libLink.messages.createInstance.send(control, { serialized_config });
+		let serializedConfig = instanceConfig.serialize("controller");
+		await control.send(new libData.InstanceCreateRequest(serializedConfig));
 		setVisible(false);
 		history.push(`/instances/${instanceConfig.get("instance.id")}/view`);
 	}
@@ -72,8 +72,8 @@ export default function InstancesPage() {
 				{account.hasPermission("core.instance.start")
 					&& <Button onClick={e => instanceList.forEach(instance => {
 						if (instance.status === "stopped") {
-							libLink.messages.startInstance.send(
-								control, { instance_id: instance.id, save: null }
+							control.send(
+								new libData.InstanceStartRequest(undefined), { instanceId: instance.id }
 							).catch(notifyErrorHandler("Error starting instance"));
 						}
 					})
@@ -83,8 +83,9 @@ export default function InstancesPage() {
 				{account.hasPermission("core.instance.stop")
 					&& <Button onClick={e => instanceList.forEach(instance => {
 						if (["starting", "running"].includes(instance.status)) {
-							libLink.messages.stopInstance.send(
-								control, { instance_id: instance.id }
+							control.sendTo(
+								{ instanceId: instance.id },
+								new libData.InstanceStopRequest(),
 							).catch(notifyErrorHandler("Error stopping instance"));
 						}
 					})

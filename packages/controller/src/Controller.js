@@ -114,6 +114,11 @@ class Controller {
 		this._state = "new";
 		this._shouldStop = false;
 
+		this._fallbackedRequests = new Map();
+		this._registeredRequests = new Map();
+		this._registeredEvents = new Map();
+		this._snoopedEvents = new Map();
+
 		this.devMiddleware = null;
 	}
 
@@ -413,7 +418,7 @@ class Controller {
 			}
 			return new Map();
 		}
-		return new Map(json.map(e => [e.id, new libData.ModPack(e)]));
+		return new Map(json.map(e => [e.id, libData.ModPack.fromJSON(e)]));
 	}
 
 	static async saveModPacks(filePath, modPacks) {
@@ -559,16 +564,16 @@ class Controller {
 	}
 
 	hostUpdated(host) {
-		let update = {
-			agent: host.agent,
-			version: host.version,
-			id: host.id,
-			name: host.name,
-			public_address: host.public_address || null,
-			connected: this.wsServer.hostConnections.has(host.id),
-		};
+		let update = new libData.HostDetails(
+			host.agent,
+			host.version,
+			host.name,
+			host.id,
+			this.wsServer.hostConnections.has(host.id),
+			host.public_address === null ? undefined : host.public_address,
+		);
 
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
 			}
@@ -602,7 +607,8 @@ class Controller {
 	 * let instanceConfig = new libConfig.InstanceConfig("controller");
 	 * await instanceConfig.init();
 	 * instanceConfig.set("instance.name", "My instance");
-	 * await controller.createInstance(instanceConfig);
+	 * let instance = await controller.instanceAssign(instanceConfig);
+	 * await controller.instanceAssign(instance.id, hostId);
 	 *
 	 * @param {module:lib/config.InstanceConfig} instanceConfig -
 	 *     Config to base newly created instance on.
@@ -681,17 +687,16 @@ class Controller {
 		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
 			let oldHostConnection = this.wsServer.hostConnections.get(currentAssignedHost);
 			if (oldHostConnection && !oldHostConnection.connector.closing) {
-				await libLink.messages.unassignInstance.send(oldHostConnection, { instance_id: instanceId });
+				await oldHostConnection.send(new libData.InstanceUnassignInternalRequest(instanceId));
 			}
 		}
 
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
 		if (hostId !== null) {
-			await libLink.messages.assignInstance.send(newHostConnection, {
-				instance_id: instanceId,
-				serialized_config: instance.config.serialize("host"),
-			});
+			await newHostConnection.send(
+				new libData.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
+			);
 		} else {
 			instance.status = "unassigned";
 			this.instanceUpdated(instance);
@@ -708,8 +713,9 @@ class Controller {
 	 */
 	async instanceDelete(instanceId) {
 		let instance = this.getRequestInstance(instanceId);
-		if (instance.config.get("instance.assigned_host") !== null) {
-			await this.forwardRequestToInstance(libLink.messages.deleteInstance, { instance_id: instanceId });
+		let hostId = instance.config.get("instance.assigned_host");
+		if (hostId !== null) {
+			await this.sendTo({ hostId }, new libData.InstanceDeleteInternalRequest(instanceId));
 		}
 		this.instances.delete(instanceId);
 
@@ -733,10 +739,9 @@ class Controller {
 		if (hostId !== null) {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
-				await libLink.messages.assignInstance.send(connection, {
-					instance_id: instance.id,
-					serialized_config: instance.config.serialize("host"),
-				});
+				await connection.send(
+					new libData.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
+				);
 			}
 		}
 	}
@@ -754,7 +759,7 @@ class Controller {
 	}
 
 	instanceUpdated(instance) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
 			}
@@ -763,18 +768,18 @@ class Controller {
 		}
 	}
 
-	saveListUpdate(data) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+	saveListUpdate(instanceId, saves) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
 			}
 
-			controlConnection.saveListUpdate(data);
+			controlConnection.saveListUpdate(instanceId, saves);
 		}
 	}
 
 	modPackUpdated(modPack) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
 			}
@@ -785,7 +790,7 @@ class Controller {
 	}
 
 	modUpdated(mod) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
 			}
@@ -797,7 +802,7 @@ class Controller {
 	}
 
 	userUpdated(user) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
 			}
@@ -812,15 +817,15 @@ class Controller {
 	 * @param {module:lib/users.User} user - User permisions updated for.
 	 */
 	userPermissionsUpdated(user) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
-				libLink.messages.accountUpdate.send(controlConnection, {
-					"roles": [...user.roles].map(r => ({
+				controlConnection.send(
+					new libData.AccountUpdateEvent([...user.roles].map(r => ({
 						name: r.name,
 						id: r.id,
 						permissions: [...r.permissions],
-					})),
-				});
+					})))
+				);
 			}
 		}
 	}
@@ -831,15 +836,17 @@ class Controller {
 	 * @param {module:lib/users.Role} role - Role permisions updated for.
 	 */
 	rolePermissionsUpdated(role) {
-		for (let controlConnection of this.wsServer.controlConnections) {
+		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user.roles.has(role)) {
-				libLink.messages.accountUpdate.send(controlConnection, {
-					"roles": [...controlConnection.user.roles].map(r => ({
-						name: r.name,
-						id: r.id,
-						permissions: [...r.permissions],
-					})),
-				});
+				controlConnection.send(
+					new libData.AccountUpdateEvent(
+						[...controlConnection.user.roles].map(r => ({
+							name: r.name,
+							id: r.id,
+							permissions: [...r.permissions],
+						}))
+					)
+				);
 			}
 		}
 	}
@@ -964,35 +971,196 @@ class Controller {
 		};
 	}
 
+	handle(Class, handler) {
+		if (Class.type === "request") {
+			this.handleRequest(Class, handler);
+		} else if (Class.type === "event") {
+			this.handleEvent(Class, handler);
+		} else {
+			throw new Error(`Class ${Class.name} has unrecognized type ${Class.type}`);
+		}
+	}
+
+	handleRequest(Request, handler) {
+		if (!libLink.Link._requestsByClass.has(Request)) {
+			throw new Error(`Unregistered Request class ${Request.name}`);
+		}
+		if (this._registeredRequests.has(Request)) {
+			throw new Error(`Request ${Request.name} is already registered`);
+		}
+		this._registeredRequests.set(Request, handler);
+	}
+
+	fallbackRequest(Request, handler) {
+		if (!libLink.Link._requestsByClass.has(Request)) {
+			throw new Error(`Unregistered Request class ${Request.name}`);
+		}
+		if (this._fallbackedRequests.has(Request)) {
+			throw new Error(`Request ${Request.name} is already fallbacked`);
+		}
+		this._fallbackedRequests.set(Request, handler);
+	}
+
+	handleEvent(Event, handler) {
+		if (!libLink.Link._eventsByClass.has(Event)) {
+			throw new Error(`Unregistered Event class ${Event.name}`);
+		}
+		if (this._registeredEvents.has(Event)) {
+			throw new Error(`Event ${Event.name} is already registered`);
+		}
+		this._registeredEvents.set(Event, handler);
+	}
+
+	snoopEvent(Event, handler) {
+		if (!libLink.Link._eventsByClass.has(Event)) {
+			throw new Error(`Unregistered Event class ${Event.name}`);
+		}
+		if (this._snoopedEvents.has(Event)) {
+			throw new Error(`Event ${Event.name} is already snooped`);
+		}
+		this._snoopedEvents.set(Event, handler);
+	}
+
 	/**
-	 * Forward the given request to the host contaning the instance
+	 * Send request or event
 	 *
-	 * Finds the host which the instance with the given instance ID is
-	 * currently assigned to and forwards the request to that instance.
-	 * The request data must have an instance_id parameter.
+	 * Routes the given request or event to the given destination.  The
+	 * destination argument supports address shorthands, see {@link
+	 * module:lib/data.Address.fromShorthand}
 	 *
-	 * @param {module:lib/link.Request} request - The request to send.
-	 * @param {object} data - Data to pass with the request.
-	 * @param {number} data.instance_id -
-	 *     ID of instance to send this request towards
-	 * @returns {Promise<object>} data returned from the request.
+	 * @param {*|module:lib/data.Address} address - Where to send it.
+	 * @param {*} requestOrEvent - The request or event to send.
+	 * @returns {Promise<*>|undefined}
+	 *     Promise that resolves to the response if a request was sent or
+	 *     undefined if it was an event.
 	 */
-	async forwardRequestToInstance(request, data) {
-		let instance = this.getRequestInstance(data.instance_id);
+	sendTo(address, requestOrEvent) {
+		let dst = libData.Address.fromShorthand(address);
+		if (requestOrEvent.constructor.type === "request") {
+			return this.sendRequest(requestOrEvent, dst);
+		}
+		if (requestOrEvent.constructor.type === "event") {
+			return this.sendEvent(requestOrEvent, dst);
+		}
+		throw Error(`Unknown type ${requestOrEvent.constructor.type}.`);
+	}
+
+	async sendRequest(request, dst) {
+		let connection;
+		if (dst.type === libData.Address.controller) {
+			throw new Error("controller as dst is not supported.");
+
+		} else if (dst.type === libData.Address.control) {
+			connection = this.wsServer.controlConnections.get(dst.id);
+			if (!connection) {
+				throw new libErrors.RequestError("Target control connection does not exist.");
+			}
+
+		} else if (dst.type === libData.Address.instance) {
+			let instance = this.getRequestInstance(dst.id);
+			let hostId = instance.config.get("instance.assigned_host");
+			if (hostId === null) {
+				throw new libErrors.RequestError("Instance is not assigned to a host");
+			}
+			connection = this.wsServer.hostConnections.get(hostId);
+			if (!connection) {
+				throw new libErrors.RequestError("Host containing instance is not connected");
+			}
+
+		} else if (dst.type === libData.Address.host) {
+			connection = this.wsServer.hostConnections.get(dst.id);
+			if (!connection) {
+				throw new libErrors.RequestError("Host is not connected");
+			}
+
+		} else {
+			throw new Error(`Unknown address type ${dst.type}`);
+		}
+
+		return connection.sendRequest(request, dst);
+	}
+
+	sendEvent(event, dst) {
+		let connection;
+		if (dst.type === libData.Address.controller) {
+			throw new Error("controller as dst is not supported.");
+
+		} else if (dst.type === libData.Address.control) {
+			connection = this.wsServer.controlConnections.get(dst.id);
+
+		} else if (dst.type === libData.Address.instance) {
+			let instance = this.instances.get(dst.id);
+			if (!instance) {
+				return;
+			}
+			let hostId = instance.config.get("instance.assigned_host");
+			if (hostId === null) {
+				return;
+			}
+			connection = this.wsServer.hostConnections.get(hostId);
+
+		} else if (dst.type === libData.Address.host) {
+			connection = this.wsServer.hostConnections.get(dst.id);
+
+		} else if (dst.type === libData.Address.broadcast) {
+			if (dst.id === libData.Address.control) {
+				for (let controlConnection of this.wsServer.controlConnections.values()) {
+					controlConnection.sendEvent(event, dst);
+				}
+
+			} else if (dst.id === libData.Address.instance || dst.id === libData.Address.host) {
+				for (let hostConnection of this.wsServer.hostConnections.values()) {
+					hostConnection.sendEvent(event, dst);
+				}
+
+			} else {
+				throw new Error(`Unexpected broacdast target ${dst.id}`);
+			}
+			return;
+
+		} else {
+			throw new Error(`Unknown address type ${dst.type}`);
+		}
+
+		if (connection) {
+			connection.sendEvent(event, dst);
+		}
+	}
+
+	sendToHostByInstanceId(requestOrEvent) {
+		if (requestOrEvent.constructor.type === "request") {
+			return this.sendRequestToHostByInstanceId(requestOrEvent);
+		}
+		if (requestOrEvent.constructor.type === "event") {
+			return this.sendEventToHostByInstanceId(requestOrEvent);
+		}
+		throw Error(`Unknown type ${requestOrEvent.constructor.type}.`);
+	}
+
+	async sendRequestToHostByInstanceId(request) {
+		let instance = this.getRequestInstance(request.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
 			throw new libErrors.RequestError("Instance is not assigned to a host");
 		}
-
 		let connection = this.wsServer.hostConnections.get(hostId);
 		if (!connection) {
 			throw new libErrors.RequestError("Host containing instance is not connected");
 		}
-		if (request.plugin && !connection.plugins.has(request.plugin)) {
-			throw new libErrors.RequestError(`Host containing instance does not have ${request.plugin} plugin`);
-		}
+		return await connection.send(request);
+	}
 
-		return await request.send(connection, data);
+	sendEventToHostByInstanceId(event) {
+		let instance = this.getRequestInstance(event.instanceId);
+		let hostId = instance.config.get("instance.assigned_host");
+		if (hostId === null) {
+			return;
+		}
+		let connection = this.wsServer.hostConnections.get(hostId);
+		if (!connection) {
+			return;
+		}
+		connection.send(event);
 	}
 }
 

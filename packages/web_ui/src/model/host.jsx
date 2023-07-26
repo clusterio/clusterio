@@ -1,7 +1,7 @@
 import { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 
 export function useHost(id) {
@@ -10,8 +10,8 @@ export function useHost(id) {
 
 	function updateHost() {
 		// XXX optimize by requesting only the host in question
-		libLink.messages.listHosts.send(control).then(result => {
-			let match = result.list.find(i => i.id === id);
+		control.send(new libData.HostListRequest()).then(hosts => {
+			let match = hosts.find(i => i.id === id);
 			if (!match) {
 				setHost({ missing: true });
 			} else {
@@ -45,8 +45,8 @@ export function useHostList() {
 	let [hostList, setHostList] = useState([]);
 
 	function updateHostList() {
-		libLink.messages.listHosts.send(control).then(result => {
-			setHostList(result.list);
+		control.send(new libData.HostListRequest()).then(hosts => {
+			setHostList(hosts);
 		});
 	}
 

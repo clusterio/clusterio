@@ -22,6 +22,7 @@ const winston = require("winston");
 require("winston-daily-rotate-file");
 
 // internal libraries
+const libData = require("@clusterio/lib/data");
 const libLink = require("@clusterio/lib/link");
 const libPluginLoader = require("@clusterio/lib/plugin_loader");
 const libErrors = require("@clusterio/lib/errors");
@@ -51,15 +52,19 @@ class HostConnector extends libLink.WebSocketClientConnector {
 			plugins[pluginInfo.name] = pluginInfo.version;
 		}
 
-		this.sendHandshake("register_host", {
-			token: this.hostConfig.get("host.controller_token"),
-			agent: "Clusterio Host",
-			version,
-			id: this.hostConfig.get("host.id"),
-			name: this.hostConfig.get("host.name"),
-			public_address: this.hostConfig.get("host.public_address"),
-			plugins,
-		});
+		this.sendHandshake(
+			new libData.MessageRegisterHost(
+				new libData.RegisterHostData(
+					this.hostConfig.get("host.controller_token"),
+					"Clusterio Host",
+					version,
+					this.hostConfig.get("host.name"),
+					this.hostConfig.get("host.id"),
+					this.hostConfig.get("host.public_address"),
+					plugins,
+				)
+			)
+		);
 	}
 }
 
@@ -140,6 +145,7 @@ async function startHost() {
 
 	logger.info("Loading Plugin info");
 	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
+	libLink.registerPluginMessages(pluginInfos);
 	libConfig.registerPluginConfigGroups(pluginInfos);
 	libConfig.finalizeConfigs();
 

@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button } from "antd";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -16,15 +16,17 @@ export default function StartStopInstanceButton(props) {
 		setSwitching(true);
 		let action;
 		if (props.instance["status"] === "stopped") {
-			action = libLink.messages.startInstance.send(
-				control, { instance_id: props.instance["id"], save: null }
+			action = control.sendTo(
+				{ instanceId: props.instance["id"] },
+				new libData.InstanceStartRequest(undefined),
 			).catch(
 				notifyErrorHandler("Error starting instance")
 			);
 
 		} else if (["starting", "running"].includes(props.instance["status"])) {
-			action = libLink.messages.stopInstance.send(
-				control, { instance_id: props.instance["id"] }
+			action = control.sendTo(
+				{ instanceId: props.instance["id"] },
+				new libData.InstanceStopRequest(),
 			).catch(
 				notifyErrorHandler("Error stopping instance")
 			);

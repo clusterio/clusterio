@@ -6,7 +6,7 @@ import {
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
-import { libErrors, libLink } from "@clusterio/lib";
+import { libErrors, libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
@@ -42,8 +42,8 @@ export default function UserViewPage() {
 	let [rolesError, setRolesError] = useState();
 
 	useEffect(() => {
-		libLink.messages.listRoles.send(control).then(result => {
-			setRoles(new Map(result["list"].map(role => [role["id"], role])));
+		control.send(new libData.RoleListRequest()).then(newRoles => {
+			setRoles(new Map(newRoles.map(role => [role.id, role])));
 		}).catch(() => {
 			setRoles(new Map());
 		});
@@ -53,9 +53,9 @@ export default function UserViewPage() {
 		if (
 			account.hasPermission("core.user.set_banned")
 			&& !banReasonDirty
-			&& user["ban_reason"] !== form.getFieldValue("ban_reason")
+			&& user.banReason !== form.getFieldValue("banReason")
 		) {
-			form.setFieldsValue({ "ban_reason": user["ban_reason"] });
+			form.setFieldsValue({ "banReason": user.banReason });
 		}
 	}, [account, form, user, banReasonDirty]);
 
@@ -83,7 +83,7 @@ export default function UserViewPage() {
 	let roleSelector = <Form.Item
 		noStyle
 		name="roles"
-		initialValue={user["roles"]}
+		initialValue={user.roles}
 		rules={[
 			{ validator: () => (rolesError ? Promise.reject(rolesError) : Promise.resolve()) },
 		]}
@@ -95,19 +95,19 @@ export default function UserViewPage() {
 			showArrow={true}
 			filterOption={(inputValue, option) => {
 				let role = roles.get(option.value);
-				return role && role["name"].toLowerCase().includes(inputValue.toLowerCase());
+				return role && role.name.toLowerCase().includes(inputValue.toLowerCase());
 			}}
 		>
 			{roles && [...roles.values()].map(r => <Select.Option
-				key={r["id"]}
-				value={r["id"]}
-			>{r["name"]}</Select.Option>)}
+				key={r.id}
+				value={r.id}
+			>{r.name}</Select.Option>)}
 		</Select>
 	</Form.Item>;
 
 	function instanceName(id) {
 		let instance = instanceList.find(i => i.id === id);
-		return instance ? instance["name"] : id;
+		return instance ? instance.name : id;
 	}
 
 	return <PageLayout nav={nav}>
@@ -116,9 +116,9 @@ export default function UserViewPage() {
 			title={<Space>
 				{userName}
 				<span>
-					{user["is_admin"] && <Tag color="gold">Admin</Tag>}
-					{user["is_whitelisted"] && <Tag>Whitelisted</Tag>}
-					{user["is_banned"] && <Tag color="red">Banned</Tag>}
+					{user.isAdmin && <Tag color="gold">Admin</Tag>}
+					{user.isWhitelisted && <Tag>Whitelisted</Tag>}
+					{user.isBanned && <Tag color="red">Banned</Tag>}
 				</span>
 			</Space>}
 			extra={<>
@@ -127,8 +127,8 @@ export default function UserViewPage() {
 				) && <Button
 					danger
 					onClick={() => {
-						libLink.messages.revokeUserToken.send(
-							control, { name: userName }
+						control.send(
+							new libData.UserRevokeTokenRequest(userName)
 						).then(() => {
 							notify("User token revoked");
 						}, err => {
@@ -144,14 +144,14 @@ export default function UserViewPage() {
 				{account.hasPermission("core.user.delete") && <Popconfirm
 					title={<>
 						Delete user account and all data associated with it?
-						{(user["is_banned"] && <><br/>This will remove the user ban!</>)}
+						{(user.isBanned && <><br/>This will remove the user ban!</>)}
 					</>}
 					placement="bottomRight"
 					okText="Delete"
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
-						libLink.messages.deleteUser.send(
-							control, { name: userName }
+						control.send(
+							new libData.UserDeleteRequest(userName)
 						).then(() => {
 							history.push("/users");
 						}).catch(notifyErrorHandler("Error deleting user"));
@@ -187,8 +187,8 @@ export default function UserViewPage() {
 					<Col flex="auto">
 						{account.hasPermission("core.user.update_roles")
 							? roleSelector
-							: [...user["roles"]].map(id => <Tag key={id}>{
-								roles ? (roles.get(id) || { name: id })["name"] : id
+							: [...user.roles].map(id => <Tag key={id}>{
+								roles ? (roles.get(id) || { name: id }).name : id
 							}</Tag>)
 						}
 					</Col>
@@ -200,10 +200,9 @@ export default function UserViewPage() {
 							onClick={() => {
 								let newRoles = form.getFieldValue("roles");
 								setApplyingRoles(true);
-								libLink.messages.updateUserRoles.send(control, {
-									name: userName,
-									roles: newRoles,
-								}).then(() => {
+								control.send(
+									new libData.UserUpdateRolesRequest(userName, newRoles)
+								).then(() => {
 									setRolesDirty(false);
 									setRolesError();
 								}).catch(err => {
@@ -219,25 +218,21 @@ export default function UserViewPage() {
 			</Form.Item>
 			{account.hasPermission("core.user.set_admin") && <Form.Item label="In-game Admin">
 				<Switch
-					checked={user["is_admin"]}
+					checked={user.isAdmin}
 					onClick={() => {
-						libLink.messages.setUserAdmin.send(control, {
-							name: userName,
-							admin: !user["is_admin"],
-							create: false,
-						}).catch(notifyErrorHandler("Error toggling user admin status"));
+						control.send(
+							new libData.UserSetAdminRequest(userName, false, !user.isAdmin)
+						).catch(notifyErrorHandler("Error toggling user admin status"));
 					}}
 				/>
 			</Form.Item>}
 			{account.hasPermission("core.user.set_whitelisted") && <Form.Item label="Whitelisted">
 				<Switch
-					checked={user["is_whitelisted"]}
+					checked={user.isWhitelisted}
 					onClick={() => {
-						libLink.messages.setUserWhitelisted.send(control, {
-							name: userName,
-							whitelisted: !user["is_whitelisted"],
-							create: false,
-						}).catch(notifyErrorHandler("Error toggling user whitelisted status"));
+						control.send(
+							new libData.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
+						).catch(notifyErrorHandler("Error toggling user whitelisted status"));
 					}}
 				/>
 			</Form.Item>}
@@ -245,50 +240,45 @@ export default function UserViewPage() {
 				? <Form.Item label="Ban reason">
 					<Row gutter={[8, 8]} justify={"end"}>
 						<Col flex="auto" style={{ minWidth: "20em" }}>
-							<Form.Item noStyle name="ban_reason" initialValue={user["ban_reason"]}>
+							<Form.Item noStyle name="banReason" initialValue={user.banReason}>
 								<Input
 									onChange={e => {
-										setBanReasonDirty(e.target.value !== user["ban_reason"]);
+										setBanReasonDirty(e.target.value !== user.banReason);
 									}}
 								/>
 							</Form.Item>
 						</Col>
 						<Col flex="0 0 auto">
-							{user["is_banned"]
+							{user.isBanned
 								? <Space>
 									<Button
 										type={banReasonDirty ? "primary" : "default"}
 										onClick={() => {
-											libLink.messages.setUserBanned.send(control, {
-												name: userName,
-												create: false,
-												banned: true,
-												reason: form.getFieldValue("ban_reason"),
-											}).then(() => {
+											control.send(
+												new libData.UserSetBannedRequest(
+													userName, false, true, form.getFieldValue("banReason")
+												)
+											).then(() => {
 												setBanReasonDirty(false);
 											}).catch(notifyErrorHandler("Error updating ban"));
 										}}
 									>Update</Button>
 									<Button
 										onClick={() => {
-											libLink.messages.setUserBanned.send(control, {
-												name: userName,
-												create: false,
-												banned: false,
-												reason: "",
-											}).catch(notifyErrorHandler("Error unbanning user"));
+											control.send(
+												new libData.UserSetBannedRequest(userName, false, false, "")
+											).catch(notifyErrorHandler("Error unbanning user"));
 										}}
 									>Unban</Button>
 								</Space>
 								: <Button
 									type={banReasonDirty ? "primary" : "default"}
 									onClick={() => {
-										libLink.messages.setUserBanned.send(control, {
-											name: userName,
-											create: false,
-											banned: true,
-											reason: form.getFieldValue("ban_reason"),
-										}).then(() => {
+										control.send(
+											new libData.UserSetBannedRequest(
+												userName, false, true, form.getFieldValue("banReason")
+											)
+										).then(() => {
 											setBanReasonDirty(false);
 										}).catch(notifyErrorHandler("Error banning user"));
 									}}
@@ -297,17 +287,17 @@ export default function UserViewPage() {
 						</Col>
 					</Row>
 				</Form.Item>
-				: user["is_banned"]
-					&& <Form.Item label="Ban reason">{user["ban_reason"]}</Form.Item>
+				: user.isBanned
+					&& <Form.Item label="Ban reason">{user.banReason}</Form.Item>
 			}
 		</Form>
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
 			<Descriptions.Item label="Total online time">
-				{formatDuration(user["player_stats"]["online_time_ms"] || 0)}
+				{formatDuration(user.playerStats.onlineTimeMs || 0)}
 			</Descriptions.Item>
 			<Descriptions.Item label="Total join count">
-				{user["player_stats"]["join_count"] || 0}
+				{user.playerStats.joinCount || 0}
 			</Descriptions.Item>
 			<Descriptions.Item label="Last seen">
 				{formatLastSeen(user) || " "}
@@ -327,14 +317,14 @@ export default function UserViewPage() {
 				{
 					title: "Online time",
 					key: "onlineTime",
-					render: ([, stats]) => formatDuration(stats["online_time_ms"] || 0),
-					sorter: (a, b) => (a[1]["online_time_ms"] || 0) - (b[1]["online_time_ms"] || 0),
+					render: ([, stats]) => formatDuration(stats.onlineTimeMs || 0),
+					sorter: (a, b) => (a[1].onlineTimeMs || 0) - (b[1].onlineTimeMs || 0),
 				},
 				{
 					title: "Join count",
 					key: "joinCoint",
-					render: ([, stats]) => stats["join_count"] || 0,
-					sorter: (a, b) => (a[1]["join_count"] || 0) - (b[1]["join_count"] || 0),
+					render: ([, stats]) => stats.joinCount || 0,
+					sorter: (a, b) => (a[1].joinCount || 0) - (b[1].joinCount || 0),
 					responsive: ["sm"],
 				},
 				{
@@ -344,7 +334,7 @@ export default function UserViewPage() {
 					sorter: (a, b) => sortLastSeen(user, user, a[0], b[0]),
 				},
 			]}
-			dataSource={user["instance_stats"]}
+			dataSource={[...user.instanceStats.entries()]}
 			pagination={false}
 			rowKey={([id]) => id}
 			onRow={([id], rowIndex) => ({

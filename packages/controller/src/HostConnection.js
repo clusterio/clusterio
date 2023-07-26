@@ -1,6 +1,7 @@
 "use strict";
+const libData = require("@clusterio/lib/data");
 const libConfig = require("@clusterio/lib/config");
-const libLink = require("@clusterio/lib/link");
+const libErrors = require("@clusterio/lib/errors");
 const { logger } = require("@clusterio/lib/logging");
 const libPlugin = require("@clusterio/lib/plugin");
 const PlayerStats = require("@clusterio/lib/PlayerStats");
@@ -17,7 +18,7 @@ const InstanceInfo = require("./InstanceInfo");
  */
 class HostConnection extends BaseConnection {
 	constructor(registerData, connector, controller) {
-		super("host", connector, controller);
+		super(connector, controller);
 
 		this._agent = registerData.agent;
 		this._id = registerData.id;
@@ -31,7 +32,7 @@ class HostConnection extends BaseConnection {
 			id: this._id,
 			name: this._name,
 			version: this._version,
-			public_address: registerData.public_address,
+			public_address: registerData.publicAddress,
 			plugins: registerData.plugins,
 		});
 
@@ -57,6 +58,41 @@ class HostConnection extends BaseConnection {
 				libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 		});
+
+		this.handle(libData.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
+		this.handle(libData.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
+		this.handle(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.handle(libData.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
+	}
+
+	validateIngress(message) {
+		let origin = this.connector.dst;
+		switch (message.src.type) {
+			case libData.Address.control:
+			case libData.Address.controller:
+				throw new libErrors.InvalidMessage(`Received message with invalid src ${message.src} from ${origin}`);
+
+			case libData.Address.host:
+				if (message.src.id !== origin.id) {
+					throw new libErrors.InvalidMessage(
+						`Received message with invalid src ${message.src} from ${origin}`
+					);
+				}
+				break;
+
+			case libData.Address.instance:
+				let instance = this._controller.instances.get(message.src.id);
+				if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
+					throw new libErrors.InvalidMessage(
+						`Received message with invalid src ${message.src} from ${origin}`
+					);
+				}
+				break;
+
+			default:
+				throw new Error("Should be unreachable");
+		}
 	}
 
 	_checkPluginVersions() {
@@ -83,6 +119,11 @@ class HostConnection extends BaseConnection {
 		}
 	}
 
+	async prepareDisconnect() {
+		await libPlugin.invokeHook(this._controller.plugins, "onPrepareHostDisconnect", this);
+		return await super.prepareDisconnect();
+	}
+
 	/**
 	 * ID of the host this connection is connected to
 	 *
@@ -92,15 +133,15 @@ class HostConnection extends BaseConnection {
 		return this._id;
 	}
 
-	async instanceStatusChangedEventHandler(message, event) {
-		let instance = this._controller.instances.get(message.data.instance_id);
+	async handleInstanceStatusChangedEvent(request) {
+		let instance = this._controller.instances.get(request.instanceId);
 
 		// It's possible to get updates from an instance that does not exist
 		// or is not assigned to the host it originated from if it was
 		// reassigned or deleted while the connection to the host it was
 		// originally on was down at the time.
 		if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
-			logger.warn(`Got bogus update for instance id ${message.data.instance_id}`);
+			logger.warn(`Got bogus update for instance id ${request.instanceId}`);
 			return;
 		}
 
@@ -109,41 +150,40 @@ class HostConnection extends BaseConnection {
 		// changed.  Hosts also send status updates on assignInstance which
 		// for hacky reason is also used to push config changes and
 		// restablish status after a connection loss.
-		if (instance.status === message.data.status) {
+		if (instance.status === request.status) {
 			return;
 		}
 
 		let prev = instance.status;
-		instance.status = message.data.status;
-		instance.game_port = message.data.game_port;
+		instance.status = request.status;
+		instance.game_port = request.gamePort;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		this._controller.instanceUpdated(instance);
 		await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
-	async updateInstancesRequestHandler(message) {
+	async handleInstancesUpdateRequest(request) {
 		// Push updated instance configs
 		for (let instance of this._controller.instances.values()) {
 			if (instance.config.get("instance.assigned_host") === this._id) {
-				await libLink.messages.assignInstance.send(this, {
-					instance_id: instance.id,
-					serialized_config: instance.config.serialize("host"),
-				});
+				await this.send(
+					new libData.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
+				);
 			}
 		}
 
 		// Assign instances the host has but controller does not
-		for (let instanceData of message.data.instances) {
+		for (let instanceData of request.instances) {
 			let instanceConfig = new libConfig.InstanceConfig("controller");
-			await instanceConfig.load(instanceData.serialized_config, "host");
+			await instanceConfig.load(instanceData.config, "host");
 
 			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
 				// Check if this instance is assigned somewhere else.
 				if (controllerInstance.config.get("instance.assigned_host") !== this._id) {
-					await libLink.messages.unassignInstance.send(this, {
-						instance_id: controllerInstance.id,
-					});
+					await this.send(
+						new libData.InstanceUnassignInternalRequest(instanceConfig.get("instance.id"))
+					);
 					continue;
 				}
 
@@ -152,7 +192,7 @@ class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status;
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					this._controller.instanceUpdated(instance);
+					this._controller.instanceUpdated(controllerInstance);
 					await libPlugin.invokeHook(
 						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
 					);
@@ -164,10 +204,11 @@ class HostConnection extends BaseConnection {
 			let newInstance = new InstanceInfo({ config: instanceConfig, status: instanceData.status });
 			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.addInstanceHooks(newInstance);
-			await libLink.messages.assignInstance.send(this, {
-				instance_id: instanceConfig.get("instance.id"),
-				serialized_config: instanceConfig.serialize("host"),
-			});
+			await this.send(
+				new libData.InstanceAssignInternalRequest(
+					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
+				)
+			);
 			await libPlugin.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance, null);
 		}
 
@@ -188,40 +229,43 @@ class HostConnection extends BaseConnection {
 			}
 		}
 
-		libLink.messages.syncUserLists.send(this, { adminlist, banlist, whitelist });
+		await this.send(new libData.SyncUserListsEvent(adminlist, banlist, whitelist));
 	}
 
-	async saveListUpdateEventHandler(message) {
-		this._controller.saveListUpdate(message.data);
+	async handleInstanceSaveListUpdateEvent(event) {
+		this._controller.saveListUpdate(event.instanceId, event.saves);
 	}
 
-	async logMessageEventHandler(message) {
+	async handleLogMessageEvent(event) {
 		this._controller.clusterLogger.log({
-			...message.data.info,
+			...event.info,
 			host_id: this._id,
 			host_name: this._name,
 		});
 	}
 
-	async playerEventEventHandler(message) {
-		let { instance_id, name, type, stats } = message.data;
-		let user = this._controller.userManager.users.get(name);
+	async handleInstancePlayerUpdateEvent(event, src) {
+		let instanceId = src.id;
+		let user = this._controller.userManager.users.get(event.name);
 		if (!user) {
-			user = this._controller.userManager.createUser(name);
+			user = this._controller.userManager.createUser(event.name);
 		}
 
-		if (type === "join") {
-			user.notifyJoin(instance_id);
-		} else if (type === "leave") {
-			user.notifyLeave(instance_id);
+		if (event.type === "join") {
+			user.notifyJoin(instanceId);
+		} else if (event.type === "leave") {
+			user.notifyLeave(instanceId);
 		}
-		user.instanceStats.set(instance_id, new PlayerStats(stats));
+		user.instanceStats.set(instanceId, new PlayerStats(event.stats));
 		user.recalculatePlayerStats();
 		this._controller.userUpdated(user);
 
-		delete message.data.stats;
-		let instance = this._controller.instances.get(instance_id);
-		await libPlugin.invokeHook(this._controller.plugins, "onPlayerEvent", instance, message.data);
+		let instance = this._controller.instances.get(instanceId);
+		await libPlugin.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
+			type: event.type,
+			name: event.name,
+			reason: event.reason,
+		});
 	}
 }
 

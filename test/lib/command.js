@@ -2,46 +2,29 @@
 const assert = require("assert").strict;
 
 const libCommand = require("@clusterio/lib/command");
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libLink = require("@clusterio/lib/link");
 const mock = require("../mock");
 
+const addr = libData.Address.fromShorthand;
+
 
 describe("lib/command", function() {
-	let testRole = { id: 28, name: "Test Role", description: "Test", permissions: [] };
-	let mockConnector = new mock.MockConnector();
-	mockConnector.on("send", function(message) {
-		if (message.type === "list_hosts_request") {
-			this.emit("message", {
-				seq: 1, type: "list_hosts_response",
-				data: {
-					seq: message.seq,
-					list: [{ agent: "test", version: "0.1", id: 11, name: "Test Host", connected: false }],
-				},
-			});
-		} else if (message.type === "list_instances_request") {
-			this.emit("message", {
-				seq: 1, type: "list_instances_response",
-				data: {
-					seq: message.seq,
-					list: [{ id: 57, assigned_host: 4, name: "Test Instance", status: "stopped" }],
-				},
-			});
-		} else if (message.type === "list_roles_request") {
-			this.emit("message", {
-				seq: 1, type: "list_roles_response",
-				data: {
-					seq: message.seq,
-					list: [testRole],
-				},
-			});
-		}
-	});
+	let testRole = libData.RawRole.fromJSON({ id: 28, name: "Test Role", description: "Test", permissions: [] });
 
-	let testControl = new mock.MockControl(mockConnector);
-	libLink.messages.listHosts.attach(testControl);
-	libLink.messages.listInstances.attach(testControl);
-	libLink.messages.listRoles.attach(testControl);
+	let [controlConnector, controllerConnector] = libLink.VirtualConnector.makePair(
+		addr({ controlId: 1}), addr("controller")
+	);
+	let testControl = new mock.MockControl(controlConnector);
+	let testController = new libLink.Link(controllerConnector);
+	testController.handle(
+		libData.HostListRequest, () => [new libData.HostDetails("test", "0.1", "Test Host", 11, false)]
+	);
+	testController.handle(
+		libData.InstanceDetailsListRequest, () => [new libData.InstanceDetails("Test Instance", 57, 4, null, "stopped")]
+	);
+	testController.handle(libData.RoleListRequest, () => [testRole]);
 
 	describe("resolveHost", function() {
 		it("should pass an integer like string back", async function() {

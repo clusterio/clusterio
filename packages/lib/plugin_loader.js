@@ -7,6 +7,7 @@
 
 const libErrors = require("./errors");
 const libPlugin = require("./plugin");
+const { logger } = require("./logging");
 const path = require("path");
 
 
@@ -40,6 +41,12 @@ async function loadPluginInfos(pluginList) {
 			throw new libErrors.EnvironmentError(
 				`Expected plugin at ${pluginPath} to be named ${pluginName} but got ${pluginInfo.name}`
 			);
+		}
+
+		// migrate: ignore incompatible old plugins
+		if (pluginInfo.messages && !(pluginInfo.messages instanceof Array)) {
+			logger.warn(`Ignoring incompatible pre alpha.14 plugin ${pluginName}`);
+			continue;
 		}
 
 		pluginInfo.requirePath = pluginPath;

@@ -5,7 +5,7 @@ import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
-import { libData, libHelpers, libLink, libLogging } from "@clusterio/lib";
+import { libData, libHelpers, libLogging } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useModList } from "../model/mods";
@@ -47,7 +47,7 @@ function ImportModPackButton() {
 						return; // Validation failed
 					}
 					const modPack = libData.ModPack.fromModPackString(values.string);
-					await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+					await control.send(new libData.ModPackCreateRequest(modPack));
 					history.push(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
@@ -95,11 +95,11 @@ function CreateModPackButton() {
 					} catch {
 						return; // Validation failed
 					}
-					const modPack = new libData.ModPack();
+					const modPack = libData.ModPack.fromJSON({});
 					modPack.name = values.name;
 					modPack.factorioVersion = values.factorioVersion;
 					if (values.description) { modPack.description = values.description; }
-					await libLink.messages.createModPack.send(control, { mod_pack: modPack.toJSON() });
+					await control.send(new libData.ModPackCreateRequest(modPack.toJSON()));
 					history.push(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
@@ -139,11 +139,11 @@ export default function ModsPage() {
 			{account.hasPermission("core.mod.download")
 				&& <Typography.Link
 					onClick={() => {
-						libLink.messages.downloadMod.send(
-							control, { name: mod.name, version: mod.version }
-						).then(response => {
+						control.send(
+							new libData.ModDownloadRequest(mod.name, mod.version)
+						).then(streamId => {
 							let url = new URL(webRoot, document.location);
-							url.pathname += `api/stream/${response.stream_id}`;
+							url.pathname += `api/stream/${streamId}`;
 							document.location = url;
 						}).catch(
 							notifyErrorHandler("Error downloading save")
@@ -153,10 +153,10 @@ export default function ModsPage() {
 			}
 			{account.hasPermission("core.mod.delete")
 				&& <Popconfirm
-					title="Are you sure you want to delete this mod?"
+					title={`Delete ${mod.name}_${mod.version}.zip?`}
 					onConfirm={event => {
-						libLink.messages.deleteMod.send(
-							control, { name: mod.name, version: mod.version }
+						control.send(
+							new libData.ModDeleteRequest(mod.name, mod.version)
 						).catch(notifyErrorHandler("Error deleting mod"));
 					}}
 					okText="Delete"

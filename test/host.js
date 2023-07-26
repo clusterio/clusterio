@@ -3,6 +3,7 @@ const assert = require("assert").strict;
 const path = require("path");
 
 const libConfig = require("@clusterio/lib/config");
+const libData = require("@clusterio/lib/data");
 const Host = require("@clusterio/host/src/Host");
 
 describe("Host testing", function() {
@@ -30,7 +31,7 @@ describe("Host testing", function() {
 	});
 
 	describe("class Host", function() {
-		describe(".syncUserListsEventHandler()", function() {
+		describe(".handleSyncUserListsEvent()", function() {
 			let mockHost;
 			beforeEach(function() {
 				mockHost = {
@@ -38,16 +39,14 @@ describe("Host testing", function() {
 					whitelist: new Set(),
 					banlist: new Map(),
 					broadcasts: [],
-					broadcastEventToInstance(message, event) {
-						this.broadcasts.push(message["data"]);
+					broadcastEventToInstance(event) {
+						this.broadcasts.push(event);
 					},
-					syncUserListsEventHandler: Host.prototype.syncUserListsEventHandler,
+					handleSyncUserListsEvent: Host.prototype.handleSyncUserListsEvent,
 					syncLists(adminlist, banlist, whitelist) {
-						return this.syncUserListsEventHandler({ "data": {
-							"adminlist": adminlist,
-							"banlist": banlist,
-							"whitelist": whitelist,
-						}});
+						return this.handleSyncUserListsEvent(
+							new libData.SyncUserListsEvent(adminlist, banlist, whitelist)
+						);
 					},
 				};
 			});
@@ -57,8 +56,8 @@ describe("Host testing", function() {
 				await mockHost.syncLists(["admin1", "admin2"], [], []);
 
 				assert.deepEqual(mockHost.broadcasts, [
-					{ "name": "admin1", "admin": true },
-					{ "name": "admin2", "admin": true },
+					new libData.InstanceAdminlistUpdateEvent("admin1", true),
+					new libData.InstanceAdminlistUpdateEvent("admin2", true),
 				]);
 			});
 
@@ -66,7 +65,7 @@ describe("Host testing", function() {
 				mockHost.adminlist.add("admin1").add("admin2");
 				await mockHost.syncLists(["admin1"], [], []);
 				assert.deepEqual(mockHost.broadcasts, [
-					{ "name": "admin2", "admin": false },
+					new libData.InstanceAdminlistUpdateEvent("admin2", false),
 				]);
 			});
 
@@ -75,8 +74,8 @@ describe("Host testing", function() {
 				await mockHost.syncLists([], [], ["player1", "player2"]);
 
 				assert.deepEqual(mockHost.broadcasts, [
-					{ "name": "player1", "whitelisted": true },
-					{ "name": "player2", "whitelisted": true },
+					new libData.InstanceWhitelistUpdateEvent("player1", true),
+					new libData.InstanceWhitelistUpdateEvent("player2", true),
 				]);
 			});
 
@@ -85,7 +84,7 @@ describe("Host testing", function() {
 				await mockHost.syncLists([], [], ["player1"]);
 
 				assert.deepEqual(mockHost.broadcasts, [
-					{ "name": "player2", "whitelisted": false },
+					new libData.InstanceWhitelistUpdateEvent("player2", false),
 				]);
 			});
 
@@ -94,8 +93,8 @@ describe("Host testing", function() {
 				await mockHost.syncLists([], [["badie1", "greifing"], ["badie2", "annoying"]], []);
 
 				assert.deepEqual(mockHost.broadcasts, [
-					{ "name": "badie1", "banned": true, "reason": "greifing" },
-					{ "name": "badie2", "banned": true, "reason": "annoying" },
+					new libData.InstanceBanlistUpdateEvent("badie1", true, "greifing"),
+					new libData.InstanceBanlistUpdateEvent("badie2", true, "annoying"),
 				]);
 			});
 
@@ -104,7 +103,7 @@ describe("Host testing", function() {
 				await mockHost.syncLists([], [["badie1", "greifing"]], []);
 
 				assert.deepEqual(mockHost.broadcasts, [
-					{ "name": "badie2", "banned": false, "reason": "" },
+					new libData.InstanceBanlistUpdateEvent("badie2", false, ""),
 				]);
 			});
 		});

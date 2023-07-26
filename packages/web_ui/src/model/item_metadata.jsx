@@ -11,6 +11,7 @@ export function useItemMetadata() {
 		async function load() {
 			if (
 				!exportManifest
+				|| !exportManifest.assets
 				|| !exportManifest.assets["item-metadata"]
 				|| !exportManifest.assets["item-spritesheet"]
 			) {

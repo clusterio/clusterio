@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
 import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -26,11 +26,9 @@ function CreateRoleButton() {
 			return;
 		}
 
-		let result = await libLink.messages.createRole.send(control, {
-			name: values.roleName,
-			description: values.description || "",
-			permissions: [],
-		});
+		let result = await control.send(
+			new libData.RoleCreateRequest(values.roleName, values.description || "", [])
+		);
 		setVisible(false);
 		history.push(`/roles/${result.id}/view`);
 	}
@@ -68,8 +66,8 @@ export default function RolesPage() {
 	let [roles, setRoles] = useState([]);
 
 	useEffect(() => {
-		libLink.messages.listRoles.send(control).then(result => {
-			setRoles(result["list"]);
+		control.send(new libData.RoleListRequest()).then(newRoles => {
+			setRoles(newRoles);
 		}).catch(notifyErrorHandler("Error fetching role list"));
 	}, []);
 
@@ -84,7 +82,7 @@ export default function RolesPage() {
 				{
 					title: "Name",
 					dataIndex: "name",
-					sorter: (a, b) => strcmp(a["name"], b["name"]),
+					sorter: (a, b) => strcmp(a.name, b.name),
 				},
 				{
 					title: "Description",
@@ -93,10 +91,10 @@ export default function RolesPage() {
 			]}
 			dataSource={roles}
 			pagination={false}
-			rowKey={role => role["id"]}
+			rowKey={role => role.id}
 			onRow={(role, rowIndex) => ({
 				onClick: event => {
-					history.push(`/roles/${role["id"]}/view`);
+					history.push(`/roles/${role.id}/view`);
 				},
 			})}
 		/>

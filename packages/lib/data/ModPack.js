@@ -112,6 +112,19 @@ class ModPack {
 	 */
 	isDeleted = false;
 
+	shallowClone() {
+		const clone = new this.constructor();
+		clone.id = this.id;
+		clone.name = this.name;
+		clone.description = this.description;
+		clone.factorioVersion = this.factorioVersion;
+		clone.mods = this.mods;
+		clone.settings = this.settings;
+		clone.exportManifest = this.exportManifest;
+		clone.isDeleted = this.isDeleted;
+		return clone;
+	}
+
 	static jsonSchema = {
 		type: "object",
 		additionalProperties: false,
@@ -142,29 +155,33 @@ class ModPack {
 
 	static validate = libSchema.compile(this.jsonSchema);
 
-	constructor(json = {}) {
+	static fromJSON(json) {
+		const modPack = new this();
+
 		if (json.id) {
-			this.id = json.id;
+			modPack.id = json.id;
 		} else {
-			this.id = Math.random() * 2**31 | 0;
+			modPack.id = Math.random() * 2**31 | 0;
 		}
-		if (json.name) { this.name = json.name; }
-		if (json.description) { this.description = json.description; }
-		if (json.factorio_version) { this.factorioVersion = json.factorio_version; }
-		if (json.mods) { this.mods = new Map(json.mods.map(m => [m.name, m])); }
+		if (json.name) { modPack.name = json.name; }
+		if (json.description) { modPack.description = json.description; }
+		if (json.factorio_version) { modPack.factorioVersion = json.factorio_version; }
+		if (json.mods) { modPack.mods = new Map(json.mods.map(m => [m.name, m])); }
 		if (json.settings) {
-			this.settings = {
+			modPack.settings = {
 				"startup": new Map(Object.entries(json.settings["startup"])),
 				"runtime-global": new Map(Object.entries(json.settings["runtime-global"])),
 				"runtime-per-user": new Map(Object.entries(json.settings["runtime-per-user"])),
 			};
 		}
-		if (json.export_manifest) { this.exportManifest = new ExportManifest(json.export_manifest); }
-		if (json.is_deleted) { this.isDeleted = json.is_deleted; }
+		if (json.export_manifest) { modPack.exportManifest = ExportManifest.fromJSON(json.export_manifest); }
+		if (json.is_deleted) { modPack.isDeleted = json.is_deleted; }
 
-		if (!this.mods.has("base")) {
-			this.mods.set("base", { name: "base", enabled: true, version: this.factorioVersion });
+		if (!modPack.mods.has("base")) {
+			modPack.mods.set("base", { name: "base", enabled: true, version: modPack.factorioVersion });
 		}
+
+		return modPack;
 	}
 
 	toJSON() {
@@ -180,7 +197,7 @@ class ModPack {
 				"runtime-per-user": Object.fromEntries(this.settings["runtime-per-user"]),
 			},
 		};
-		if (this.exportManifest) { json.export_manifest = this.exportManifest.toJSON(); }
+		if (this.exportManifest) { json.export_manifest = this.exportManifest; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
@@ -217,7 +234,7 @@ class ModPack {
 			throw new Error("Malformed mod pack string: Schema validation failed");
 		}
 
-		return new this(json);
+		return this.fromJSON(json);
 	}
 
 	toModSettingsDat() {

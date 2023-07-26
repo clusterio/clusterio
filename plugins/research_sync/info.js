@@ -1,22 +1,5 @@
 "use strict";
-const { libLink } = require("@clusterio/lib");
-
-
-// schema used for syncing technologies to and from the controller
-const technologies = {
-	type: "array",
-	items: {
-		type: "array",
-		minItems: 4,
-		maxItems: 4,
-		items: [
-			{ type: "string" },
-			{ type: "integer" },
-			{ type: ["null", "number"] },
-			{ type: "boolean" },
-		],
-	},
-};
+const messages = require("./messages");
 
 module.exports = {
 	name: "research_sync",
@@ -25,56 +8,10 @@ module.exports = {
 	instanceEntrypoint: "instance",
 	controllerEntrypoint: "controller",
 
-	messages: {
-		contribution: new libLink.Event({
-			type: "research_sync:contribution",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			eventProperties: {
-				"name": { type: "string" },
-				"level": { type: "integer" },
-				"contribution": { type: "number" },
-			},
-		}),
-		progress: new libLink.Event({
-			type: "research_sync:progress",
-			links: ["controller-host", "host-instance"],
-			broadcastTo: "instance",
-			eventProperties: {
-				"technologies": {
-					type: "array",
-					items: {
-						additionalProperties: false,
-						required: ["name", "level", "progress"],
-						properties: {
-							"name": { type: "string" },
-							"level": { type: "integer" },
-							"progress": { type: "number" },
-						},
-					},
-				},
-			},
-		}),
-		finished: new libLink.Event({
-			type: "research_sync:finished",
-			links: ["instance-host", "host-controller", "controller-host", "host-instance"],
-			forwardTo: "controller",
-			broadcastTo: "instance",
-			eventProperties: {
-				"name": { type: "string" },
-				"level": { type: "integer" },
-			},
-		}),
-		syncTechnologies: new libLink.Request({
-			type: "research_sync:sync_technologies",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"technologies": technologies,
-			},
-			responseProperties: {
-				"technologies": technologies,
-			},
-		}),
-	},
+	messages: [
+		messages.ContributionEvent,
+		messages.ProgressEvent,
+		messages.FinishedEvent,
+		messages.SyncTechnologiesRequest,
+	],
 };

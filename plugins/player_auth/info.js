@@ -1,5 +1,6 @@
 "use strict";
-let { libConfig, libLink } = require("@clusterio/lib");
+let { libConfig } = require("@clusterio/lib");
+let messages = require("./messages");
 
 
 class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
@@ -30,27 +31,8 @@ module.exports = {
 	webEntrypoint: "./web",
 	ControllerConfigGroup,
 
-	messages: {
-		fetchPlayerCode: new libLink.Request({
-			type: "player_auth:fetch_player_code",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"player": { type: "string" },
-			},
-			responseProperties: {
-				"player_code": { type: "string" },
-				"controller_url": { type: "string" },
-			},
-		}),
-		setVerifyCode: new libLink.Request({
-			type: "player_auth:set_verify_code",
-			links: ["instance-host", "host-controller"],
-			forwardTo: "controller",
-			requestProperties: {
-				"player": { type: "string" },
-				"verify_code": { type: "string" },
-			},
-		}),
-	},
+	messages: [
+		messages.FetchPlayerCodeRequest,
+		messages.SetVerifyCodeRequest,
+	],
 };

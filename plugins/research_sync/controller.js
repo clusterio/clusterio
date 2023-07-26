@@ -6,6 +6,14 @@ const libFileOps = require("@clusterio/lib/file_ops");
 const libPlugin = require("@clusterio/lib/plugin");
 const RateLimiter = require("@clusterio/lib/RateLimiter");
 
+const {
+	ContributionEvent,
+	ProgressEvent,
+	FinishedEvent,
+	Technology,
+	SyncTechnologiesRequest,
+} = require("./messages");
+
 
 async function loadTechnologies(controllerConfig, logger) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
@@ -40,6 +48,10 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		this.lastProgressBroadcast = Date.now();
 		this.progressBroadcastId = null;
 		this.progressToBroadcast = new Set();
+
+		this.controller.handle(ContributionEvent, this.handleContributionEvent.bind(this));
+		this.controller.handle(FinishedEvent, this.handleFinishedEvent.bind(this));
+		this.controller.handle(SyncTechnologiesRequest, this.handleSyncTechnologiesRequest.bind(this));
 	}
 
 	async onShutdown() {
@@ -59,12 +71,12 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		this.lastProgressBroadcast = Date.now();
 		if (techs.length) {
-			this.broadcastEventToHosts(this.info.messages.progress, { technologies: techs });
+			this.controller.sendTo("allInstances", new ProgressEvent(techs));
 		}
 	}
 
-	async contributionEventHandler(message) {
-		let { name, level, contribution } = message.data;
+	async handleContributionEvent(event) {
+		let { name, level, contribution } = event;
 		let tech = this.technologies.get(name);
 		if (!tech) {
 			tech = { level, progress: 0, researched: false };
@@ -97,12 +109,12 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			tech.progress = null;
 			this.progressToBroadcast.delete(name);
 
-			this.broadcastEventToHosts(this.info.messages.finished, { name, level: tech.level });
+			this.controller.sendTo("allInstances", new FinishedEvent(name, tech.level));
 		}
 	}
 
-	async finishedEventHandler(message) {
-		let { name, level } = message.data;
+	async handleFinishedEvent(event) {
+		let { name, level } = event;
 		let tech = this.technologies.get(name);
 		if (!tech || tech.level <= level) {
 			this.progressToBroadcast.delete(name);
@@ -110,7 +122,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		}
 	}
 
-	async syncTechnologiesRequestHandler(message) {
+	async handleSyncTechnologiesRequest(request) {
 		function baseLevel(name) {
 			let match = /-(\d+)$/.exec(name);
 			if (!match) {
@@ -119,15 +131,15 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			return Number.parseInt(match[1], 10);
 		}
 
-		for (let instanceTech of message.data.technologies) {
-			let [name, level, progress, researched] = instanceTech;
+		for (let instanceTech of request.technologies) {
+			let { name, level, progress, researched } = instanceTech;
 			let tech = this.technologies.get(name);
 			if (!tech) {
 				this.technologies.set(name, { level, progress, researched });
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
-					this.broadcastEventToHosts(this.info.messages.finished, { name, level });
+					this.controller.sendTo("allInstances", new FinishedEvent(name, tech));
 				}
 
 			} else {
@@ -138,7 +150,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
 					if (level - !researched > tech.level - !tech.researched) {
-						this.broadcastEventToHosts(this.info.messages.finished, { name, level: level - !researched });
+						this.controller.sendTo("allInstances", new FinishedEvent(name, level - !researched));
 					}
 					tech.level = level;
 					tech.progress = progress;
@@ -160,10 +172,10 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		let technologies = [];
 		for (let [name, tech] of this.technologies) {
-			technologies.push([name, tech.level, tech.progress, tech.researched]);
+			technologies.push(new Technology(name, tech.level, tech.progress, tech.researched));
 		}
 
-		return { technologies };
+		return technologies;
 	}
 }
 

@@ -4,6 +4,8 @@
 "use strict";
 const libPlugin = require("@clusterio/lib/plugin");
 
+const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("./messages");
+
 
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async init() {
@@ -25,19 +27,16 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 			let response;
 			try {
-				response = await this.info.messages.fetchPlayerCode.send(this.instance, { player: event.player });
+				response = await this.instance.sendTo("controller", new FetchPlayerCodeRequest(event.player));
 			} catch (err) {
 				await this.sendRcon(`/web-login error ${event.player} ${err.message}`);
 				return;
 			}
-			await this.sendRcon(`/web-login open ${event.player} ${response.controller_url} ${response.player_code}`);
+			await this.sendRcon(`/web-login open ${event.player} ${response.controllerUrl} ${response.playerCode}`);
 
 		} else if (event.type === "set_verify_code") {
 			try {
-				await this.info.messages.setVerifyCode.send(this.instance, {
-					player: event.player,
-					verify_code: event.verify_code,
-				});
+				await this.instance.sendTo("controller", new SetVerifyCodeRequest(event.player, event.verify_code));
 
 			} catch (err) {
 				await this.sendRcon(`/web-login error ${event.player} ${err.message}`);

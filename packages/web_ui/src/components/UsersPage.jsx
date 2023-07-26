@@ -2,7 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
 import { Button, Form, Input, Modal, PageHeader, Space, Table, Tag } from "antd";
 
-import { libLink } from "@clusterio/lib";
+import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -28,7 +28,7 @@ function CreateUserButton() {
 			return;
 		}
 
-		await libLink.messages.createUser.send(control, { name: values.userName });
+		await control.send(new libData.UserCreateRequest(values.userName));
 		setVisible(false);
 		history.push(`/users/${values.userName}/view`);
 	}
@@ -64,8 +64,8 @@ export default function UsersPage() {
 	let [roles, setRoles] = useState(new Map());
 
 	useEffect(() => {
-		libLink.messages.listRoles.send(control).then(result => {
-			setRoles(new Map(result["list"].map(role => [role["id"], role])));
+		control.send(new libData.RoleListRequest()).then(newRoles => {
+			setRoles(new Map(newRoles.map(role => [role.id, role])));
 		}).catch(() => {
 			// ignore
 		});
@@ -83,28 +83,28 @@ export default function UsersPage() {
 					title: "Name",
 					key: "name",
 					render: user => <Space>
-						{user["name"]}
+						{user.name}
 						<span>
-							{user["is_admin"] && <Tag color="gold">Admin</Tag>}
-							{user["is_whitelisted"] && <Tag>Whitelisted</Tag>}
-							{user["is_banned"] && <Tag color="red">Banned</Tag>}
+							{user.isAdmin && <Tag color="gold">Admin</Tag>}
+							{user.isWhitelisted && <Tag>Whitelisted</Tag>}
+							{user.isBanned && <Tag color="red">Banned</Tag>}
 						</span>
 					</Space>,
 					defaultSortOrder: "ascend",
-					sorter: (a, b) => strcmp(a["name"], b["name"]),
+					sorter: (a, b) => strcmp(a.name, b.name),
 				},
 				{
 					title: "Roles",
 					key: "roles",
-					render: user => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id })["name"]}</Tag>),
+					render: user => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>),
 				},
 				{
 					title: "Online time",
 					key: "onlineTime",
-					render: user => user["player_stats"]["online_time_ms"]
-						&& formatDuration(user["player_stats"]["online_time_ms"]),
-					sorter: (a, b) => (a["player_stats"]["online_time_ms"] || 0) -
-						(b["player_stats"]["online_time_ms"] || 0),
+					render: user => (user.playerStats.onlineTimeMs
+						? formatDuration(user.playerStats.onlineTimeMs) : null),
+					sorter: (a, b) => (a.playerStats.onlineTimeMs || 0) -
+						(b.playerStats.onlineTimeMs || 0),
 					responsive: ["lg"],
 				},
 				{
@@ -117,10 +117,10 @@ export default function UsersPage() {
 			]}
 			dataSource={userList}
 			pagination={false}
-			rowKey={user => user["name"]}
+			rowKey={user => user.name}
 			onRow={(user, rowIndex) => ({
 				onClick: event => {
-					history.push(`/users/${user["name"]}/view`);
+					history.push(`/users/${user.name}/view`);
 				},
 			})}
 		/>

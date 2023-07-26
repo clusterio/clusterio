@@ -1,8 +1,10 @@
 "use strict";
+const libData = require("@clusterio/lib/data");
 const libErrors = require("@clusterio/lib/errors");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 const libPlugin = require("@clusterio/lib/plugin");
+const ControllerRouter = require("./ControllerRouter");
 
 
 /**
@@ -12,68 +14,28 @@ const libPlugin = require("@clusterio/lib/plugin");
  * @alias module:controller/src/BaseConnection
  */
 class BaseConnection extends libLink.Link {
-	constructor(target, connector, controller) {
+	constructor(connector, controller) {
 		/** @member {module:controller/src/WsServerConnector} module:controller/src/BaseConnection#connector */
-		super("controller", target, connector);
+		super(connector);
+		this.router = new ControllerRouter(controller);
 		this._controller = controller;
-		this._disconnecting = false;
-		libLink.attachAllMessages(this);
-		for (let controllerPlugin of this._controller.plugins.values()) {
-			libPlugin.attachPluginMessages(this, controllerPlugin);
-		}
-	}
+		for (let [Request, handler] of controller._registeredRequests) { this.handle(Request, handler); }
+		for (let [Request, handler] of controller._fallbackedRequests) { this.fallbackRequest(Request, handler); }
+		for (let [Event, handler] of controller._registeredEvents) { this.handle(Event, handler); }
+		for (let [Event, handler] of controller._snoopedEvents) { this.snoopEvent(Event, handler); }
 
-	async forwardRequestToInstance(message, request) {
-		return await this._controller.forwardRequestToInstance(request, message.data);
-	}
-
-	async forwardEventToInstance(message, event) {
-		let instance = this._controller.instances.get(message.data.instance_id);
-		if (!instance) { return; }
-
-		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId === null) { return; }
-
-		let connection = this._controller.wsServer.hostConnections.get(hostId);
-		if (!connection || connection.closing) { return; }
-		if (event.plugin && !connection.plugins.has(event.plugin)) { return; }
-
-		event.send(connection, message.data);
-	}
-
-	async broadcastEventToHosts(message, event) {
-		for (let hostConnection of this._controller.wsServer.hostConnections.values()) {
-			// Do not broadcast back to the source
-			if (hostConnection === this) { continue; }
-			if (hostConnection.connector.closing) { continue; }
-			if (event.plugin && !hostConnection.plugins.has(event.plugin)) { continue; }
-
-			event.send(hostConnection, message.data);
-		}
-	}
-
-	async broadcastEventToInstance(message, event) {
-		await this.broadcastEventToHosts(message, event);
-	}
-
-	async prepareDisconnectRequestHandler(message, request) {
-		await libPlugin.invokeHook(this._controller.plugins, "onPrepareHostDisconnect", this);
-		this._disconnecting = true;
-		this.connector.setClosing();
-		return await super.prepareDisconnectRequestHandler(message, request);
+		this.handle(libData.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
+		this.handle(libData.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
 	}
 
 	async disconnect(code, reason) {
-		this.connector.setClosing();
 		try {
-			await libLink.messages.prepareDisconnect.send(this);
+			await this.connector.disconnect();
 		} catch (err) {
 			if (!(err instanceof libErrors.SessionLost)) {
 				logger.error(`"Unexpected error preparing disconnect:\n${err.stack}`);
 			}
 		}
-
-		await this.connector.close(code, reason);
 	}
 
 	/**
@@ -82,19 +44,19 @@ class BaseConnection extends libLink.Link {
 	 * @type {boolean}
 	 */
 	get connected() {
-		return !this._disconnecting && this.connector.connected;
+		return this.connector.connected;
 	}
 
-	async getModPackRequestHandler(message) {
-		let { id } = message.data;
+	async handleModPackGetRequest(request) {
+		let { id } = request;
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
-		return { mod_pack: modPack.toJSON() };
+		return modPack;
 	}
 
-	async getDefaultModPackRequestHandler(message) {
+	async handleModPackGetDefaultRequest() {
 		let id = this._controller.config.get("controller.default_mod_pack_id");
 		if (id === null) {
 			throw new libErrors.RequestError("Default mod pack not set on controller");
@@ -103,7 +65,7 @@ class BaseConnection extends libLink.Link {
 		if (!modPack) {
 			throw new libErrors.RequestError(`Default mod pack configured (${id}) does not exist`);
 		}
-		return { mod_pack: modPack.toJSON() };
+		return modPack;
 	}
 }
 

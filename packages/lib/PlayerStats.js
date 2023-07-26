@@ -62,6 +62,10 @@ class PlayerStats {
 		}
 	}
 
+	static fromJSON(json) {
+		return new this(json);
+	}
+
 	toJSON() {
 		let json = {};
 		if (this.joinCount) {

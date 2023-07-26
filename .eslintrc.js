@@ -136,7 +136,7 @@ module.exports = {
 		"linebreak-style": ["error", "unix"],
 		"lines-around-comment": "off",
 		"lines-around-directive": "off",
-		"lines-between-class-members": ["error", "always"],
+		"lines-between-class-members": ["error", "always", { "exceptAfterSingleLine": true }],
 		"max-classes-per-file": "off",
 		"max-depth": "error",
 		"max-len": ["error", { "code": 120 }],

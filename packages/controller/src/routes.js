@@ -49,12 +49,12 @@ async function getMetrics(req, res, next) {
 
 	let requests = [];
 	let timeout = req.app.locals.controller.config.get("controller.metrics_timeout") * 1000;
-	for (let hostConnection of req.app.locals.controller.wsServer.hostConnections.values()) {
+	for (let [hostId, hostConnection] of req.app.locals.controller.wsServer.hostConnections) {
 		if (!hostConnection.connected) {
 			continue;
 		}
 		requests.push(libHelpers.timeout(
-			libLink.messages.getMetrics.send(hostConnection).catch(err => {
+			hostConnection.send(new libData.HostMetricsRequest()).catch(err => {
 				if (!(err instanceof libErrors.SessionLost)) {
 					logger.error(`Unexpected error gathering metrics from host:\n${err.stack}`);
 				}
@@ -232,7 +232,7 @@ async function uploadExport(req, res) {
 		await libFileOps.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
 
-	modPack.exportManifest = new libData.ExportManifest({ assets });
+	modPack.exportManifest = new libData.ExportManifest(assets);
 	modPack.fillDefaultSettings(settingPrototypes, logger);
 	res.app.locals.controller.modPackUpdated(modPack);
 
@@ -361,15 +361,17 @@ async function uploadSave(req, res) {
 		});
 
 		try {
-			let result = await Promise.race([
-				req.app.locals.controller.forwardRequestToInstance(libLink.messages.pullSave, {
-					instance_id: instanceId,
-					stream_id: proxyStream.id,
-					filename,
-				}),
+			let storedName = await Promise.race([
+				req.app.locals.controller.sendToHostByInstanceId(
+					new libData.InstancePullSaveRequest(
+						instanceId,
+						proxyStream.id,
+						filename,
+					)
+				),
 				timeout,
 			]);
-			saves.push(result.save);
+			saves.push(storedName);
 
 		} catch (err) {
 			proxyStream.events.emit("close");

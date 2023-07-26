@@ -102,8 +102,7 @@ const serverSettingsActions = {
  */
 class Instance extends libLink.Link {
 	constructor(host, connector, dir, factorioDir, instanceConfig) {
-		super("instance", "host", connector);
-		libLink.attachAllMessages(this);
+		super(connector);
 		this._host = host;
 		this._dir = dir;
 
@@ -211,6 +210,24 @@ class Instance extends libLink.Link {
 		this._playerCheckInterval = null;
 		this._hadPlayersOnline = false;
 		this._playerAutosaveSlot = 1;
+
+		this.handle(libData.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
+		this.handle(libData.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
+		this.handle(libData.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
+		this.handle(libData.InstanceWhitelistUpdateEvent, this.handleInstanceWhitelistUpdateEvent.bind(this));
+		this.handle(libData.ControllerConnectionEvent, this.handleControllerConnectionEvent.bind(this));
+		this.handle(
+			libData.PrepareControllerDisconnectRequest, this.handlePrepareControllerDisconnectRequest.bind(this)
+		);
+		this.handle(libData.InstanceMetricsRequest, this.handleInstanceMetricsRequest.bind(this));
+		this.handle(libData.InstanceStartRequest, this.handleInstanceStartRequest.bind(this));
+		this.handle(libData.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
+		this.handle(libData.InstanceListSavesRequest, this.handleInstanceListSavesRequest.bind(this));
+		this.handle(libData.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
+		this.handle(libData.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
+		this.handle(libData.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
+		this.handle(libData.InstanceKillRequest, this.handleInstanceKillRequest.bind(this));
+		this.handle(libData.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
 	}
 
 	_watchPlayerJoinsByChat() {
@@ -284,9 +301,9 @@ class Instance extends libLink.Link {
 			instance_id: this.id,
 			type: "join",
 			name,
-			stats: stats.toJSON(),
+			stats,
 		};
-		libLink.messages.playerEvent.send(this, event);
+		this.sendTo("controller", new libData.InstancePlayerUpdateEvent("join", name, undefined, stats));
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -306,13 +323,13 @@ class Instance extends libLink.Link {
 			type: "leave",
 			name,
 			reason,
-			stats: stats.toJSON(),
+			stats,
 		};
-		libLink.messages.playerEvent.send(this, event);
+		this.sendTo("controller", new libData.InstancePlayerUpdateEvent("leave", name, reason, stats));
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
-	async extractPlayersRequestHandler() {
+	async handleInstanceExtractPlayersRequest() {
 		const exportPlayerTimes = `/sc
 local players = {}
 for _, p in pairs(game.players) do
@@ -320,6 +337,7 @@ for _, p in pairs(game.players) do
 end
 rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		let playerTimes = JSON.parse(await this.sendRcon(exportPlayerTimes));
+		let count = 0;
 
 		for (let [name, onlineTimeTicks] of Object.entries(playerTimes)) {
 			let stats = this.playerStats.get(name);
@@ -335,9 +353,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				name,
 				stats: stats.toJSON(),
 			};
-			libLink.messages.playerEvent.send(this, event);
+			this.sendTo("controller", new libData.InstancePlayerUpdateEvent("import", name, undefined, stats));
 			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+			count += 1;
 		}
+		this.logger.info(`Extracted data for ${count} player(s)`);
 	}
 
 	async sendRcon(message, expectEmpty, plugin = "") {
@@ -371,24 +391,27 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				type = "special";
 			}
 
-			list.push({
-				name,
+			list.push(new libData.SaveDetails(
 				type,
-				size: stat.size,
-				mtime_ms: stat.mtimeMs,
-				loaded: name === loadedSave,
-				default: name === defaultSave,
-			});
+				name,
+				stat.size,
+				stat.mtimeMs,
+				name === loadedSave,
+				name === defaultSave,
+			));
 		}
 
 		return list;
 	}
 
 	async sendSaveListUpdate() {
-		libLink.messages.saveListUpdate.send(this, {
-			instance_id: this.id,
-			list: await Instance.listSaves(this.path("saves"), this._loadedSave),
-		});
+		this.sendTo(
+			"controller",
+			new libData.InstanceSaveListUpdateEvent(
+				this.id,
+				await Instance.listSaves(this.path("saves"), this._loadedSave),
+			),
+		);
 	}
 
 	async _autosave(name) {
@@ -415,11 +438,14 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 	notifyStatus(status) {
 		this._status = status;
-		libLink.messages.instanceStatusChanged.send(this, {
-			instance_id: this.id,
-			status,
-			game_port: this.server && this.server.gamePort || this.config.get("factorio.game_port") || null,
-		});
+		this.sendTo(
+			"controller",
+			new libData.InstanceStatusChangedEvent(
+				this.id,
+				status,
+				this.server && this.server.gamePort || this.config.get("factorio.game_port") || null,
+			),
+		);
 	}
 
 	/**
@@ -467,7 +493,6 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
-		libPlugin.attachPluginMessages(this, instancePlugin);
 
 		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
 	}
@@ -528,7 +553,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
-		libLink.messages.instanceInitialized.send(this, { instance_id: this.id, plugins });
+		this.send(new libData.InstanceInitialisedEvent(plugins));
 	}
 
 	/**
@@ -598,13 +623,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 */
 	async syncMods() {
 		const modPackId = this.config.get("factorio.mod_pack");
-		let response;
+		let modPack;
 		if (modPackId === null) {
-			response = await libLink.messages.getDefaultModPack.send(this);
+			modPack = await this.sendTo("controller", new libData.ModPackGetDefaultRequest());
 		} else {
-			response = await libLink.messages.getModPack.send(this, { id: modPackId });
+			modPack = await this.sendTo("controller", new libData.ModPackGetRequest(modPackId));
 		}
-		this.activeModPack = new libData.ModPack(response.mod_pack);
+		this.activeModPack = modPack;
 
 		// TODO validate factorioVersion
 
@@ -698,21 +723,21 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 *
 	 * Creates a new save if no save is passed and patches it with modules.
 	 *
-	 * @param {string|null} saveName -
+	 * @param {string|undefined} saveName -
 	 *     Save to prepare from the instance saves directory.  Creates a new
 	 *     save if null.
 	 * @returns {Promise<string>} Name of the save prepared.
 	 */
 	async prepareSave(saveName) {
 		// Use latest save if no save was specified
-		if (saveName === null) {
+		if (saveName === undefined) {
 			saveName = await libFileOps.getNewestFile(
 				this.path("saves"), (name) => !name.endsWith(".tmp.zip")
 			);
 		}
 
 		// Create save if no save was found.
-		if (saveName === null) {
+		if (saveName === undefined) {
 			this.logger.info("Creating new save");
 			await this.server.create("world.zip");
 			saveName = "world.zip";
@@ -907,36 +932,35 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	async adminlistUpdateEventHandler(message) {
+	async handleInstanceAdminlistUpdateEvent(request) {
 		if (!this.config.get("factorio.sync_adminlist")) {
 			return;
 		}
 
-		let { name, admin } = message.data;
+		let { name, admin } = request;
 		let command = admin ? `/promote ${name}` : `/demote ${name}`;
 		await this.sendRcon(command);
 	}
 
-	async banlistUpdateEventHandler(message) {
+	async handleInstanceBanlistUpdateEvent(request) {
 		if (!this.config.get("factorio.sync_banlist")) {
 			return;
 		}
 
-		let { name, banned, reason } = message.data;
+		let { name, banned, reason } = request;
 		let command = banned ? `/ban ${name} ${reason}` : `/unban ${name}`;
 		await this.sendRcon(command);
 	}
 
-	async whitelistUpdateEventHandler(message) {
+	async handleInstanceWhitelistUpdateEvent(request) {
 		if (!this.config.get("factorio.sync_whitelist")) {
 			return;
 		}
 
-		let { name, whitelisted } = message.data;
+		let { name, whitelisted } = request;
 		let command = whitelisted ? `/whitelist add ${name}` : `/whiteliste remove ${name}`;
 		await this.sendRcon(command);
 	}
-
 
 	/**
 	 * Stop the instance
@@ -962,15 +986,15 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.server.kill(true);
 	}
 
-	async controllerConnectionEventEventHandler(message) {
-		await libPlugin.invokeHook(this.plugins, "onControllerConnectionEvent", message.data.event);
+	async handleControllerConnectionEvent(event) {
+		await libPlugin.invokeHook(this.plugins, "onControllerConnectionEvent", event.event);
 	}
 
-	async prepareControllerDisconnectRequestHandler() {
+	async handlePrepareControllerDisconnectRequest() {
 		await libPlugin.invokeHook(this.plugins, "onPrepareControllerDisconnect");
 	}
 
-	async getMetricsRequestHandler() {
+	async handleInstanceMetricsRequest() {
 		let results = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
 			let pluginResults = await libPlugin.invokeHook(this.plugins, "onMetrics");
@@ -988,11 +1012,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			instanceFactorioMemoryUsage.labels(String(this.id)).set(stats.memory);
 		}
 
-		return { results };
+		return new libData.InstanceMetricsRequest.Response(results);
 	}
 
-	async startInstanceRequestHandler(message) {
-		let saveName = message.data.save;
+	async handleInstanceStartRequest(request) {
+		let saveName = request.save;
 		try {
 			await this.prepare();
 			saveName = await this.prepareSave(saveName);
@@ -1010,7 +1034,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	async loadScenarioRequestHandler(message) {
+	async handleInstanceLoadScenarioRequest(request) {
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
 			throw new libErrors.RequestError("Load scenario cannot be used with save patching enabled");
@@ -1024,22 +1048,20 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			throw err;
 		}
 
-		let { scenario, seed, map_gen_settings, map_settings } = message.data;
+		let { scenario, seed, mapGenSettings, mapSettings } = request;
 		try {
-			await this.startScenario(scenario, seed, map_gen_settings, map_settings);
+			await this.startScenario(scenario, seed, mapGenSettings, mapSettings);
 		} catch (err) {
 			await this.stop();
 			throw err;
 		}
 	}
 
-	async listSavesRequestHandler(message) {
-		return {
-			list: await Instance.listSaves(this.path("saves"), this._loadedSave),
-		};
+	async handleInstanceListSavesRequest() {
+		return await Instance.listSaves(this.path("saves"), this._loadedSave);
 	}
 
-	async createSaveRequestHandler(message) {
+	async handleInstanceCreateSaveRequest(request) {
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");
@@ -1055,13 +1077,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 
 		this.server.on("exit", () => this.notifyExit());
-		let { name, seed, map_gen_settings, map_settings } = message.data;
-		await this.server.create(name, seed, map_gen_settings, map_settings);
+		let { name, seed, mapGenSettings, mapSettings } = request;
+		await this.server.create(name, seed, mapGenSettings, mapSettings);
 		await this.sendSaveListUpdate();
 		this.logger.info("Successfully created save");
 	}
 
-	async exportDataRequestHandler() {
+	async handleInstanceExportDataRequest() {
 		this.notifyStatus("exporting_data");
 		try {
 			this.logger.verbose("Writing server-settings.json");
@@ -1093,17 +1115,16 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	async stopInstanceRequestHandler() {
+	async handleInstanceStopRequest() {
 		await this.stop();
 	}
 
-	async killInstanceRequestHandler() {
+	async handleInstanceKillRequest() {
 		await this.kill();
 	}
 
-	async sendRconRequestHandler(message) {
-		let result = await this.sendRcon(message.data.command);
-		return { result };
+	async handleInstanceSendRconRequest(request) {
+		return await this.sendRcon(request.command);
 	}
 
 	/**

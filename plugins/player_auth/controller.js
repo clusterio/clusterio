@@ -11,6 +11,8 @@ const libPlugin = require("@clusterio/lib/plugin");
 const libErrors = require("@clusterio/lib/errors");
 const { basicType } = require("@clusterio/lib/helpers");
 
+const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("./messages");
+
 
 async function generateCode(length) {
 	// ji1lI, 0oOQ, and 2Z are not present to ease reading.
@@ -60,6 +62,9 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		this.controller.app.post("/api/player_auth/verify", express.json(), (req, res, next) => {
 			this.handleVerify(req, res).catch(next);
 		});
+
+		this.controller.handle(FetchPlayerCodeRequest, this.handleFetchPlayerCodeRequest.bind(this));
+		this.controller.handle(SetVerifyCodeRequest, this.handleSetVerifyCodeRequest.bind(this));
 	}
 
 	async handlePlayerCode(req, res) {
@@ -159,15 +164,15 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 		res.send({ error: true, message: "invalid player_code" });
 	}
 
-	async fetchPlayerCodeRequestHandler(message) {
+	async handleFetchPlayerCodeRequest(request) {
 		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
 		let expires = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
-		this.players.set(message.data.player, { playerCode, verifyCode: null, expires });
+		this.players.set(request.player, { playerCode, verifyCode: null, expires });
 		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
 	}
 
-	async setVerifyCodeRequestHandler(message) {
-		let { player, verify_code } = message.data;
+	async handleSetVerifyCodeRequest(request) {
+		let { player, verifyCode } = request;
 		if (!this.players.has(player)) {
 			throw new libErrors.RequestError("invalid player");
 		}
@@ -177,7 +182,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			throw new libErrors.RequestError("invalid player");
 		}
 
-		entry.verifyCode = verify_code;
+		entry.verifyCode = verifyCode;
 	}
 }
 

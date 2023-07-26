@@ -2,6 +2,15 @@
 const libPlugin = require("@clusterio/lib/plugin");
 const libLuaTools = require("@clusterio/lib/lua_tools");
 
+const {
+	Item,
+	PlaceEvent,
+	RemoveRequest,
+	GetStorageRequest,
+	UpdateStorageEvent,
+	SetStorageSubscriptionRequest,
+} = require("./messages");
+
 class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	unexpectedError(err) {
 		this.logger.error(`Unexpected error:\n${err.stack}`);
@@ -21,6 +30,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			this.pendingTasks.add(task);
 			task.finally(() => { this.pendingTasks.delete(task); });
 		});
+
+		this.instance.handle(UpdateStorageEvent, this.handleUpdateStorageEvent.bind(this));
 	}
 
 	async onStart() {
@@ -33,9 +44,9 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			).catch(err => this.unexpectedError(err));
 		}, 5000);
 
-		let response = await this.info.messages.getStorage.send(this.instance);
+		let items = await this.instance.sendTo("controller", new GetStorageRequest());
 		// TODO Diff with dump of invdata produce minimal command to sync
-		let itemsJson = libLuaTools.escapeString(JSON.stringify(response.items));
+		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
 		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
 	}
 
@@ -60,10 +71,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			return;
 		}
 
-		this.info.messages.place.send(this.instance, {
-			items,
-			instance_id: this.instance.id,
-		});
+		this.instance.sendTo("controller", new PlaceEvent(items));
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
 			this.logger.verbose("Exported the following to controller:");
@@ -72,32 +80,29 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	// request items --------------------------------------------------------------
-	async requestItems(items) {
+	async requestItems(requestItems) {
 		// Request the items all at once
-		let response = await this.info.messages.remove.send(this.instance, {
-			instance_id: this.instance.id,
-			items,
-		});
+		let items = await this.instance.sendTo("controller", new RemoveRequest(requestItems));
 
-		if (!response.items.length) {
+		if (!items.length) {
 			return;
 		}
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
 			this.logger.verbose("Imported following from controller:");
-			this.logger.verbose(JSON.stringify(response.items));
+			this.logger.verbose(JSON.stringify(items));
 		}
 
-		let itemsJson = libLuaTools.escapeString(JSON.stringify(response.items));
+		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
 		await this.sendRcon(`/sc __subspace_storage__ Import("${itemsJson}")`, true);
 	}
 
 	// combinator signals ---------------------------------------------------------
-	async updateStorageEventHandler(message) {
+	async handleUpdateStorageEvent(request) {
 		if (this.instance.status !== "running") {
 			return;
 		}
-		let items = message.data.items;
+		let items = request.items;
 
 		// XXX this should be moved to instance/clusterio api
 		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);

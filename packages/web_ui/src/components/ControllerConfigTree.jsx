@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 
-import { libConfig, libLink } from "@clusterio/lib";
+import { libConfig, libData } from "@clusterio/lib";
 
 import BaseConfigTree from "./BaseConfigTree";
 import ControlContext from "./ControlContext";
@@ -10,27 +10,26 @@ export default function ControllerConfigTree(props) {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
-		let result = await libLink.messages.getControllerConfig.send(control);
-		return result.serialized_config;
+		let result = await control.send(new libData.ControllerConfigGetRequest());
+		return result.serializedConfig;
 	}
 
 	async function setField(field, value) {
-		await libLink.messages.setControllerConfigField.send(control, {
+		await control.send(new libData.ControllerConfigSetFieldRequest(
 			field,
-			value: String(value),
-		});
+			String(value),
+		));
 	}
 
 	async function setProp(field, prop, value) {
-		let data = { field, prop };
 		if (value) {
 			try {
-				data.value = JSON.parse(value);
+				value = JSON.parse(value);
 			} catch (err) {
 				return;
 			}
 		}
-		await libLink.messages.setControllerConfigProp.send(control, data);
+		await control.send(new libData.ControllerConfigSetPropRequest(field, prop, value));
 	}
 
 	return <BaseConfigTree

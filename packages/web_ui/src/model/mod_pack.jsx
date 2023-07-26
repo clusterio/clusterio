@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 
-import { libData, libLink, libLogging } from "@clusterio/lib";
+import { libData, libLogging } from "@clusterio/lib";
 
 import ControlContext from "../components/ControlContext";
 
@@ -11,8 +11,8 @@ export function useModPack(id) {
 	let [modPack, setModPack] = useState({ loading: true });
 
 	function updateModPack() {
-		libLink.messages.getModPack.send(control, { id }).then(result => {
-			setModPack(new libData.ModPack(result.mod_pack));
+		control.send(new libData.ModPackGetRequest(id)).then(updatedModPack => {
+			setModPack(updatedModPack);
 		}).catch(err => {
 			logger.error(`Failed to get mod pack: ${err}`);
 			setModPack({ missing: true });
@@ -40,8 +40,8 @@ export function useModPackList() {
 	let [modPackList, setModPackList] = useState([]);
 
 	function updateModPackList() {
-		libLink.messages.listModPacks.send(control).then(result => {
-			setModPackList(result.list.map(pack => new libData.ModPack(pack)));
+		control.send(new libData.ModPackListRequest()).then(modPacks => {
+			setModPackList(modPacks);
 		}).catch(err => {
 			logger.error(`Failed to list mod packs:\n${err}`);
 		});

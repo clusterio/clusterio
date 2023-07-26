@@ -22,6 +22,10 @@ class ExportManifest {
 	 */
 	assets = {};
 
+	constructor(assets) {
+		if (assets) { this.assets = assets; }
+	}
+
 	static jsonSchema = {
 		type: "object",
 		additionalProperties: false,
@@ -34,12 +38,8 @@ class ExportManifest {
 		},
 	};
 
-	constructor(json = {}) {
-		if (json.assets) { this.assets = json.assets; }
-	}
-
-	toJSON() {
-		return { assets: this.assets };
+	static fromJSON(json) {
+		return new this(json.assets);
 	}
 }
 

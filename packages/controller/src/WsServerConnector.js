@@ -1,6 +1,7 @@
 "use strict";
 const events = require("events");
 
+const libData = require("@clusterio/lib/data");
 const libLink = require("@clusterio/lib/link");
 const { logger } = require("@clusterio/lib/logging");
 
@@ -12,9 +13,10 @@ const { logger } = require("@clusterio/lib/logging");
  * @alias module:controller/src/WsServerConnector
  */
 class WsServerConnector extends libLink.WebSocketBaseConnector {
-	constructor(sessionId, sessionTimeout, heartbeatInterval) {
-		super(sessionTimeout);
+	constructor(dst, sessionId, sessionTimeout, heartbeatInterval) {
+		super(new libData.Address(libData.Address.controller, 0), dst);
 
+		this._sessionTimeout = sessionTimeout;
 		this._socket = null;
 		this._sessionId = sessionId;
 		this._heartbeatInterval = heartbeatInterval;
@@ -38,27 +40,27 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 	 * Sends the ready message over the socket to initiate the session.
 	 *
 	 * @param {Object} socket - WebSocket connection to client.
+	 * @param {module:lib/data.Address} src - Source address for this link.
 	 * @param {string} sessionToken -
 	 *     the session token to send to the client.
-	 * @param {Object=} additionalData -
-	 *     extra properties to send along the ready message.
+	 * @param {module:lib/data.AccountDetails=} account -
+	 *     account data to provide to control connection
 	 */
-	ready(socket, sessionToken, additionalData) {
+	ready(socket, src, sessionToken, account) {
 		this._socket = socket;
-		this._socket.send(JSON.stringify({
-			seq: null,
-			type: "ready",
-			data: {
-				session_token: sessionToken,
-				session_timeout: this._sessionTimeout,
-				heartbeat_interval: this._heartbeatInterval,
-				...additionalData,
-			},
-		}));
+		this._sendInternal(new libData.MessageReady(
+			new libData.ReadyData(
+				src,
+				sessionToken,
+				this._sessionTimeout,
+				this._heartbeatInterval,
+				account,
+			),
+		));
 
 		this._state = "connected";
 		this._attachSocketHandlers();
-		this.emit("connect");
+		this.emit("connect", { src: this.src });
 	}
 
 	/**
@@ -68,7 +70,7 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 	 * socket given from the message sequence given.
 	 *
 	 * @param {module:net.Socket} socket - New socket to continue on.
-	 * @param {number} lastSeq - The last message the client received.
+	 * @param {number=} lastSeq - The last message the client received.
 	 */
 	continue(socket, lastSeq) {
 
@@ -87,15 +89,9 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 			this._timeoutId = null;
 		}
 
-		this._socket.send(JSON.stringify({
-			seq: null,
-			type: "continue",
-			data: {
-				last_seq: this._lastReceivedSeq,
-				session_timeout: this._sessionTimeout,
-				heartbeat_interval: this._heartbeatInterval,
-			},
-		}));
+		this._sendInternal(new libData.MessageContinue(
+			new libData.ContinueData(this._sessionTimeout, this._heartbeatInterval, this._lastReceivedSeq)
+		));
 
 		this._state = "connected";
 		this._attachSocketHandlers();
@@ -118,6 +114,7 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 		this._socket.on("close", (code, reason) => {
 			logger.verbose(`Connector | Close (code: ${code}, reason: ${reason})`);
 			this.stopHeartbeat();
+			this._socket = null;
 
 			if (this._closing) {
 				this._reset();
@@ -148,18 +145,12 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 
 		// Handle messages
 		this._socket.on("message", data => {
-			let message = JSON.parse(data);
-			if (["connected", "closing"].includes(this._state)) {
-				if (message.seq !== null) {
-					this._lastReceivedSeq = message.seq;
-				}
-
-				if (message.type === "heartbeat") {
-					this._processHeartbeat(message);
-
-				} else {
-					this.emit("message", message);
-				}
+			let message = this._parseMessage(data);
+			if (!message) {
+				return;
+			}
+			if (this._state === "connected") {
+				this._processMessage(message);
 
 			} else {
 				throw new Error(`Received message in unexpected state ${this._state}`);
