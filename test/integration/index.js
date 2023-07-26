@@ -150,7 +150,7 @@ async function execCtl(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	return await control.sendTo(new libData.InstanceSendRconRequest(command), { instanceId });
+	return await control.sendTo({ instanceId }, new libData.InstanceSendRconRequest(command));
 }
 
 function getControl() {
@@ -234,9 +234,10 @@ before(async function() {
 	testPack.factorioVersion = "1.1.0";
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
 	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
-	await control.sendTo(new libData.ModPackCreateRequest(testPack), "controller");
+	await control.sendTo("controller", new libData.ModPackCreateRequest(testPack));
 	await control.sendTo(
-		new libData.ControllerConfigSetFieldRequest("controller.default_mod_pack_id", "12"), "controller"
+		"controller",
+		new libData.ControllerConfigSetFieldRequest("controller.default_mod_pack_id", "12"),
 	);
 });
 

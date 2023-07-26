@@ -52,8 +52,8 @@ export default function LoadScenarioModal(props) {
 
 		setLoadingScenario(true);
 		control.sendTo(
+			{ instanceId: props.instance.id },
 			new libData.InstanceLoadScenarioRequest(scenario, seed, mapGenSettings, mapSettings),
-			{ instanceId: props.instance.id }
 		).then(() => {
 			setVisible(false);
 		}).catch(

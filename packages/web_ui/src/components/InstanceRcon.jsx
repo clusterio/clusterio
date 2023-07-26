@@ -23,8 +23,8 @@ export default function InstanceRcon(props) {
 		setRunning(true);
 		try {
 			let result = await control.sendTo(
+				{ instanceId: props.id },
 				new libData.InstanceSendRconRequest(command),
-				{ instanceId: props.id }
 			);
 			setOutput(result);
 		} finally {

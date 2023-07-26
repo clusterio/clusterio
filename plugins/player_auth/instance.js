@@ -27,7 +27,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 			let response;
 			try {
-				response = await this.instance.sendTo(new FetchPlayerCodeRequest(event.player), "controller");
+				response = await this.instance.sendTo("controller", new FetchPlayerCodeRequest(event.player));
 			} catch (err) {
 				await this.sendRcon(`/web-login error ${event.player} ${err.message}`);
 				return;
@@ -36,7 +36,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 		} else if (event.type === "set_verify_code") {
 			try {
-				await this.instance.sendTo(new SetVerifyCodeRequest(event.player, event.verify_code), "controller");
+				await this.instance.sendTo("controller", new SetVerifyCodeRequest(event.player, event.verify_code));
 
 			} catch (err) {
 				await this.sendRcon(`/web-login error ${event.player} ${err.message}`);

@@ -303,7 +303,7 @@ class Instance extends libLink.Link {
 			name,
 			stats,
 		};
-		this.sendTo(new libData.InstancePlayerUpdateEvent("join", name, undefined, stats), "controller");
+		this.sendTo("controller", new libData.InstancePlayerUpdateEvent("join", name, undefined, stats));
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -325,7 +325,7 @@ class Instance extends libLink.Link {
 			reason,
 			stats,
 		};
-		this.sendTo(new libData.InstancePlayerUpdateEvent("leave", name, reason, stats), "controller");
+		this.sendTo("controller", new libData.InstancePlayerUpdateEvent("leave", name, reason, stats));
 		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -353,7 +353,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				name,
 				stats: stats.toJSON(),
 			};
-			this.sendTo(new libData.InstancePlayerUpdateEvent("import", name, undefined, stats), "controller");
+			this.sendTo("controller", new libData.InstancePlayerUpdateEvent("import", name, undefined, stats));
 			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
 			count += 1;
 		}
@@ -405,10 +405,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async sendSaveListUpdate() {
-		this.sendTo(new libData.InstanceSaveListUpdateEvent(
-			this.id,
-			await Instance.listSaves(this.path("saves"), this._loadedSave),
-		), "controller");
+		this.sendTo(
+			"controller",
+			new libData.InstanceSaveListUpdateEvent(
+				this.id,
+				await Instance.listSaves(this.path("saves"), this._loadedSave),
+			),
+		);
 	}
 
 	async _autosave(name) {
@@ -436,12 +439,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	notifyStatus(status) {
 		this._status = status;
 		this.sendTo(
+			"controller",
 			new libData.InstanceStatusChangedEvent(
 				this.id,
 				status,
 				this.server && this.server.gamePort || this.config.get("factorio.game_port") || null,
 			),
-			"controller"
 		);
 	}
 
@@ -622,9 +625,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		const modPackId = this.config.get("factorio.mod_pack");
 		let modPack;
 		if (modPackId === null) {
-			modPack = await this.sendTo(new libData.ModPackGetDefaultRequest(), "controller");
+			modPack = await this.sendTo("controller", new libData.ModPackGetDefaultRequest());
 		} else {
-			modPack = await this.sendTo(new libData.ModPackGetRequest(modPackId), "controller");
+			modPack = await this.sendTo("controller", new libData.ModPackGetRequest(modPackId));
 		}
 		this.activeModPack = modPack;
 

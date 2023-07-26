@@ -71,7 +71,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		this.lastProgressBroadcast = Date.now();
 		if (techs.length) {
-			this.controller.sendTo(new ProgressEvent(techs), "allInstances");
+			this.controller.sendTo("allInstances", new ProgressEvent(techs));
 		}
 	}
 
@@ -109,7 +109,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 			tech.progress = null;
 			this.progressToBroadcast.delete(name);
 
-			this.controller.sendTo(new FinishedEvent(name, tech.level), "allInstances");
+			this.controller.sendTo("allInstances", new FinishedEvent(name, tech.level));
 		}
 	}
 
@@ -139,7 +139,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
-					this.controller.sendTo(new FinishedEvent(name, tech), "allInstances");
+					this.controller.sendTo("allInstances", new FinishedEvent(name, tech));
 				}
 
 			} else {
@@ -150,7 +150,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
 					if (level - !researched > tech.level - !tech.researched) {
-						this.controller.sendTo(new FinishedEvent(name, level - !researched), "allInstances");
+						this.controller.sendTo("allInstances", new FinishedEvent(name, level - !researched));
 					}
 					tech.level = level;
 					tech.progress = progress;

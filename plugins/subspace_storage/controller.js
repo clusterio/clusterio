@@ -122,7 +122,7 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 
 		itemsToUpdate = [...itemsToUpdate.entries()];
 		let update = new UpdateStorageEvent(itemsToUpdate);
-		this.controller.sendTo(update, "allInstances");
+		this.controller.sendTo("allInstances", update);
 		for (let link of this.subscribedControlLinks) {
 			link.send(update);
 		}

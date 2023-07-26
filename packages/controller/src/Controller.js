@@ -715,7 +715,7 @@ class Controller {
 		let instance = this.getRequestInstance(instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId !== null) {
-			await this.sendTo(new libData.InstanceDeleteInternalRequest(instanceId), { hostId });
+			await this.sendTo({ hostId }, new libData.InstanceDeleteInternalRequest(instanceId));
 		}
 		this.instances.delete(instanceId);
 
@@ -1028,13 +1028,13 @@ class Controller {
 	 * destination argument supports address shorthands, see {@link
 	 * module:lib/data.Address.fromShorthand}
 	 *
-	 * @param {*} requestOrEvent - The request or event to send.
 	 * @param {*|module:lib/data.Address} address - Where to send it.
+	 * @param {*} requestOrEvent - The request or event to send.
 	 * @returns {Promise<*>|undefined}
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
-	sendTo(requestOrEvent, address) {
+	sendTo(address, requestOrEvent) {
 		let dst = libData.Address.fromShorthand(address);
 		if (requestOrEvent.constructor.type === "request") {
 			return this.sendRequest(requestOrEvent, dst);

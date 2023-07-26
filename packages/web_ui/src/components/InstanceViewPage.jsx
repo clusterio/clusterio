@@ -132,7 +132,8 @@ export default function InstanceViewPage(props) {
 			if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
-					new libData.InstanceExportDataRequest(), { instanceId }
+					{ instanceId },
+					new libData.InstanceExportDataRequest(),
 				).catch(
 					notifyErrorHandler("Error exporting data")
 				).finally(() => {
@@ -141,12 +142,14 @@ export default function InstanceViewPage(props) {
 
 			} else if (key === "extract") {
 				control.sendTo(
-					new libData.InstanceExtractPlayersRequest(), { instanceId }
+					{ instanceId },
+					new libData.InstanceExtractPlayersRequest(),
 				).catch(notifyErrorHandler("Error extracting player data"));
 
 			} else if (key === "kill") {
 				control.sendTo(
-					new libData.InstanceKillRequest(), { instanceId }
+					{ instanceId },
+					new libData.InstanceKillRequest(),
 				).catch(notifyErrorHandler("Error killing instance"));
 
 			} else if (key === "delete") {

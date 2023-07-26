@@ -338,7 +338,7 @@ describe("Integration of Clusterio", function() {
 				let savesDir = path.join("temp", "test", "instances", "test", "saves");
 				await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
 				await execCtl("instance start test");
-				let saves = await getControl().sendTo(new libData.InstanceListSavesRequest(), { instanceId: 44 });
+				let saves = await getControl().sendTo({ instanceId: 44 }, new libData.InstanceListSavesRequest());
 				let running = saves.find(s => s.loaded);
 				assert(running.name !== "_autosave1.zip");
 			});

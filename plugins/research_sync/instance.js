@@ -33,7 +33,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async researchContribution(tech) {
-		this.instance.sendTo(new ContributionEvent(tech.name, tech.level, tech.contribution), "controller");
+		this.instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
 	}
 
 	async handleProgressEvent(event) {
@@ -45,7 +45,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	async researchFinished(tech) {
-		this.instance.sendTo(new FinishedEvent(tech.name, tech.level), "allInstances");
+		this.instance.sendTo("allInstances", new FinishedEvent(tech.name, tech.level));
 	}
 
 	async handleFinishedEvent(event) {
@@ -72,7 +72,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			instanceTechs.set(tech.name, tech);
 		}
 
-		let controllerTechs = await this.instance.sendTo(new SyncTechnologiesRequest(techsToSend), "controller");
+		let controllerTechs = await this.instance.sendTo("controller", new SyncTechnologiesRequest(techsToSend));
 		this.syncStarted = true;
 		let techsToSync = [];
 		for (let controllerTech of controllerTechs) {

@@ -84,7 +84,8 @@ export default function InstancesPage() {
 					&& <Button onClick={e => instanceList.forEach(instance => {
 						if (["starting", "running"].includes(instance.status)) {
 							control.sendTo(
-								new libData.InstanceStopRequest(), { instanceId: instance.id }
+								{ instanceId: instance.id },
+								new libData.InstanceStopRequest(),
 							).catch(notifyErrorHandler("Error stopping instance"));
 						}
 					})

@@ -374,19 +374,19 @@ class Link {
 	 *     undefined if it was an event.
 	 */
 	send(requestOrEvent) {
-		return this.sendTo(requestOrEvent, this.connector.dst);
+		return this.sendTo(this.connector.dst, requestOrEvent);
 	}
 
 	/**
 	 * Send a request or event to the given address
 	 *
-	 * @param {*} requestOrEvent - Request or event to send
 	 * @param {*|module:lib/data.Address} destination - Where to send it
+	 * @param {*} requestOrEvent - Request or event to send
 	 * @returns {Promise<*>|undefined}
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
-	sendTo(requestOrEvent, destination) {
+	sendTo(destination, requestOrEvent) {
 		let dst = libData.Address.fromShorthand(destination);
 
 		if (requestOrEvent.constructor.type === "request") {

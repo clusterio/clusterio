@@ -39,7 +39,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	}
 
 	sendChat(message) {
-		this.instance.sendTo(new ChatEvent(this.instance.name, message), "allInstances");
+		this.instance.sendTo("allInstances", new ChatEvent(this.instance.name, message));
 	}
 
 	async onOutput(output) {

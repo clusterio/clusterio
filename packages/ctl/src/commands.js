@@ -515,7 +515,7 @@ instanceSaveCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
-		let saves = await control.sendTo(new libData.InstanceListSavesRequest(), { instanceId });
+		let saves = await control.sendTo({ instanceId }, new libData.InstanceListSavesRequest());
 		for (let entry of saves) {
 			entry.mtime = new Date(entry.mtimeMs).toLocaleString();
 			delete entry.mtimeMs;
@@ -540,7 +540,8 @@ instanceSaveCommands.add(new libCommand.Command({
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		await control.sendTo(
-			new libData.InstanceCreateSaveRequest(args.name, seed, mapGenSettings, mapSettings), { instanceId }
+			{ instanceId },
+			new libData.InstanceCreateSaveRequest(args.name, seed, mapGenSettings, mapSettings),
 		);
 	},
 }));
@@ -711,7 +712,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo(new libData.InstanceExportDataRequest(), { instanceId });
+		await control.sendTo({ instanceId }, new libData.InstanceExportDataRequest());
 	},
 }));
 
@@ -722,7 +723,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo(new libData.InstanceExtractPlayersRequest(), { instanceId });
+		await control.sendTo({ instanceId }, new libData.InstanceExtractPlayersRequest());
 	},
 }));
 
@@ -737,7 +738,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo(new libData.InstanceStartRequest(args.save), { instanceId });
+		await control.sendTo({ instanceId }, new libData.InstanceStartRequest(args.save));
 		control.keepOpen = args.keepOpen;
 	},
 }));
@@ -759,7 +760,8 @@ instanceCommands.add(new libCommand.Command({
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		await control.sendTo(
-			new libData.InstanceLoadScenarioRequest(args.scenario, seed, mapGenSettings, mapSettings), { instanceId }
+			{ instanceId },
+			new libData.InstanceLoadScenarioRequest(args.scenario, seed, mapGenSettings, mapSettings),
 		);
 		control.keepOpen = args.keepOpen;
 	},
@@ -772,7 +774,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo(new libData.InstanceStopRequest(args.save), { instanceId });
+		await control.sendTo({ instanceId }, new libData.InstanceStopRequest(args.save));
 	},
 }));
 
@@ -783,7 +785,7 @@ instanceCommands.add(new libCommand.Command({
 	handler: async function(args, control) {
 		let instanceId = await libCommand.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo(new libData.InstanceKillRequest(args.save), { instanceId });
+		await control.sendTo({ instanceId }, new libData.InstanceKillRequest(args.save));
 	},
 }));
 
@@ -804,8 +806,8 @@ instanceCommands.add(new libCommand.Command({
 	}],
 	handler: async function(args, control) {
 		let result = await control.sendTo(
-			new libData.InstanceSendRconRequest(args.command),
 			{ instanceId: await libCommand.resolveInstance(control, args.instance) },
+			new libData.InstanceSendRconRequest(args.command),
 		);
 
 		// Factorio includes a newline in its response output.

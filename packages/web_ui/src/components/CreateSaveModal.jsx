@@ -52,8 +52,8 @@ export default function CreateSaveModal(props) {
 
 		setCreatingSave(true);
 		control.sendTo(
+			{ instanceId: props.instance.id },
 			new libData.InstanceCreateSaveRequest(name, seed, mapGenSettings, mapSettings),
-			{ instanceId: props.instance.id }
 		).then(() => {
 			form.resetFields();
 			setVisible(false);

@@ -17,14 +17,16 @@ export default function StartStopInstanceButton(props) {
 		let action;
 		if (props.instance["status"] === "stopped") {
 			action = control.sendTo(
-				new libData.InstanceStartRequest(undefined), { instanceId: props.instance["id"] }
+				{ instanceId: props.instance["id"] },
+				new libData.InstanceStartRequest(undefined),
 			).catch(
 				notifyErrorHandler("Error starting instance")
 			);
 
 		} else if (["starting", "running"].includes(props.instance["status"])) {
 			action = control.sendTo(
-				new libData.InstanceStopRequest(), { instanceId: props.instance["id"] }
+				{ instanceId: props.instance["id"] },
+				new libData.InstanceStopRequest(),
 			).catch(
 				notifyErrorHandler("Error stopping instance")
 			);

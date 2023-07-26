@@ -151,7 +151,7 @@ async function resolveHost(client, hostName) {
 	if (/^-?\d+$/.test(hostName)) {
 		hostId = parseInt(hostName, 10);
 	} else {
-		let hosts = await client.sendTo(new libData.HostListRequest(), "controller");
+		let hosts = await client.sendTo("controller", new libData.HostListRequest());
 		for (let host of hosts) {
 			if (host.name === hostName) {
 				hostId = host.id;
@@ -183,7 +183,7 @@ async function resolveInstance(client, instanceName) {
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
-		let instances = await client.sendTo(new libData.InstanceDetailsListRequest(), "controller");
+		let instances = await client.sendTo("controller", new libData.InstanceDetailsListRequest());
 		for (let instance of instances) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
@@ -216,7 +216,7 @@ async function resolveModPack(client, modPackName) {
 	if (/^-?\d+/.test(modPackName)) {
 		modPackId = parseInt(modPackName, 10);
 	} else {
-		let modPacks = await client.sendTo(new libData.ModPackListRequest(), "controller");
+		let modPacks = await client.sendTo("controller", new libData.ModPackListRequest());
 		for (let modPack of modPacks) {
 			if (modPack.name === modPackName) {
 				modPackId = modPack.id;
@@ -244,7 +244,7 @@ async function resolveModPack(client, modPackName) {
  * @static
  */
 async function retrieveRole(client, roleName) {
-	let roles = await client.sendTo(new libData.RoleListRequest(), "controller");
+	let roles = await client.sendTo("controller", new libData.RoleListRequest());
 
 	let resolvedRole;
 	if (/^-?\d+$/.test(roleName)) {

@@ -421,7 +421,7 @@ class ControlConnection extends BaseConnection {
 
 		// Let host handle request if source and target is on the same host.
 		if (sourceHostId === targetHostId) {
-			return await this._controller.sendTo(request, { hostId: sourceHostId });
+			return await this._controller.sendTo({ hostId: sourceHostId }, request);
 		}
 
 		// Check connectivity
@@ -451,23 +451,23 @@ class ControlConnection extends BaseConnection {
 		// ensure the file size is known prior to the target host pull.
 		await Promise.all([
 			this._controller.sendTo(
+				{ hostId: sourceHostId },
 				new libData.InstancePushSaveRequest(request.sourceInstanceId, stream.id, request.sourceName),
-				{ hostId: sourceHostId }
 			),
 			events.once(stream.events, "source"),
 		]);
 
 		// Establish pull from target host to stream and wait for completion.
 		let storedName = await this._controller.sendTo(
-			new libData.InstancePullSaveRequest(request.targetInstanceId, stream.id, request.targetName),
 			{ hostId: targetHostId },
+			new libData.InstancePullSaveRequest(request.targetInstanceId, stream.id, request.targetName),
 		);
 
 		// Delete source save if this is not a copy
 		if (!request.copy) {
 			await this._controller.sendTo(
+				{ hostId: sourceHostId },
 				new libData.InstanceDeleteSaveRequest(request.sourceInstanceId, request.sourceName),
-				{ hostId: sourceHostId }
 			);
 		}
 
@@ -887,7 +887,7 @@ class ControlConnection extends BaseConnection {
 
 		user.isAdmin = admin;
 		this._controller.userUpdated(user);
-		this._controller.sendTo(new libData.InstanceAdminlistUpdateEvent(name, admin), "allInstances");
+		this._controller.sendTo("allInstances", new libData.InstanceAdminlistUpdateEvent(name, admin));
 	}
 
 	async handleUserSetBannedRequest(request) {
@@ -905,7 +905,7 @@ class ControlConnection extends BaseConnection {
 		user.isBanned = banned;
 		user.banReason = reason;
 		this._controller.userUpdated(user);
-		this._controller.sendTo(new libData.InstanceBanlistUpdateEvent(name, banned, reason), "allInstances");
+		this._controller.sendTo("allInstances", new libData.InstanceBanlistUpdateEvent(name, banned, reason));
 	}
 
 	async handleUserSetWhitelistedRequest(request) {
@@ -922,7 +922,7 @@ class ControlConnection extends BaseConnection {
 
 		user.isWhitelisted = whitelisted;
 		this._controller.userUpdated(user);
-		this._controller.sendTo(new libData.InstanceWhitelistUpdateEvent(name, whitelisted), "allInstances");
+		this._controller.sendTo("allInstances", new libData.InstanceWhitelistUpdateEvent(name, whitelisted));
 	}
 
 	async handleUserDeleteRequest(request) {
@@ -937,13 +937,13 @@ class ControlConnection extends BaseConnection {
 		this._controller.userUpdated(user);
 
 		if (user.is_admin) {
-			this._controller.sendTo(new libData.InstanceAdminlistUpdateEvent(name, false), "allInstances");
+			this._controller.sendTo("allInstances", new libData.InstanceAdminlistUpdateEvent(name, false));
 		}
 		if (user.is_whitelisted) {
-			this._controller.sendTo(new libData.InstanceWhitelistUpdateEvent(name, false), "allInstances");
+			this._controller.sendTo("allInstances", new libData.InstanceWhitelistUpdateEvent(name, false));
 		}
 		if (user.is_banned) {
-			this._controller.sendTo(new libData.InstanceBanlistUpdateEvent(name, false, ""), "allInstances");
+			this._controller.sendTo("allInstances", new libData.InstanceBanlistUpdateEvent(name, false, ""));
 		}
 	}
 

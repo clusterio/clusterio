@@ -228,7 +228,8 @@ export default function SavesList(props) {
 					onClick={() => {
 						setStarting(true);
 						control.sendTo(
-							new libData.InstanceStartRequest(save.name), { instanceId: props.instance.id }
+							{ instanceId: props.instance.id },
+							new libData.InstanceStartRequest(save.name),
 						).catch(
 							notifyErrorHandler("Error loading save")
 						).finally(

@@ -53,7 +53,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 						return;
 					}
 					this.playersToRelease.delete(player);
-					await this.instance.sendTo(new ReleaseRequest(this.instance.id, player_name), "controller");
+					await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, player_name));
 				}
 			})().catch(
 				err => this.logger.error(`Unpexpected error releasing queued up players:\n${err.stack}`)
@@ -71,8 +71,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		if (this.host.connector.connected && !this.disconnecting) {
 			try {
 				let acquireResponse = await this.instance.sendTo(
+					"controller",
 					new AcquireRequest(this.instance.id, request.player_name),
-					"controller"
 				);
 				response = {
 					player_name: request.player_name,
@@ -99,7 +99,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 
 		try {
-			await this.instance.sendTo(new ReleaseRequest(this.instance.id, request.player_name), "controller");
+			await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, request.player_name));
 		} catch (err) {
 			if (err instanceof libErrors.SessionLost) {
 				this.playersToRelease.set(request.player_name);
@@ -117,8 +117,8 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		this.logger.verbose(`Uploading ${player_data.name} (${JSON.stringify(player_data).length / 1000}kB)`);
 		try {
 			await this.instance.sendTo(
+				"controller",
 				new UploadRequest(this.instance.id, player_data.name, player_data),
-				"controller"
 			);
 
 		} catch (err) {
@@ -137,7 +137,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		const playerName = request.player_name;
 		this.logger.verbose(`Downloading ${playerName}`);
 
-		let response = await this.instance.sendTo(new DownloadRequest(this.instance.id, playerName), "controller");
+		let response = await this.instance.sendTo("controller", new DownloadRequest(this.instance.id, playerName));
 
 		if (!response.player_data) {
 			await this.sendRcon(`/sc inventory_sync.download_inventory('${playerName}',nil,0,0)`, true);

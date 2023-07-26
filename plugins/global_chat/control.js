@@ -12,7 +12,7 @@ globalChatCommands.add(new libCommand.Command({
 		yargs.positional("message", { describe: "message to send", type: "string" });
 	}],
 	handler: async function(args, control) {
-		await control.sendTo(new ChatEvent("Console", args.message), "allInstances");
+		await control.sendTo("allInstances", new ChatEvent("Console", args.message));
 	},
 }));
 

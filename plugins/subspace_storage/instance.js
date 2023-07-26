@@ -44,7 +44,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			).catch(err => this.unexpectedError(err));
 		}, 5000);
 
-		let items = await this.instance.sendTo(new GetStorageRequest(), "controller");
+		let items = await this.instance.sendTo("controller", new GetStorageRequest());
 		// TODO Diff with dump of invdata produce minimal command to sync
 		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
 		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
@@ -71,7 +71,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			return;
 		}
 
-		this.instance.sendTo(new PlaceEvent(items), "controller");
+		this.instance.sendTo("controller", new PlaceEvent(items));
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
 			this.logger.verbose("Exported the following to controller:");
@@ -82,7 +82,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	// request items --------------------------------------------------------------
 	async requestItems(requestItems) {
 		// Request the items all at once
-		let items = await this.instance.sendTo(new RemoveRequest(requestItems), "controller");
+		let items = await this.instance.sendTo("controller", new RemoveRequest(requestItems));
 
 		if (!items.length) {
 			return;
