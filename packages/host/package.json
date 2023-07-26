@@ -19,13 +19,13 @@
   },
   "dependencies": {
     "@clusterio/lib": "^2.0.0-alpha.13",
-    "fs-extra": "^8.1.0",
-    "phin": "^3.5.1",
-    "pidusage": "^2.0.18",
+    "fs-extra": "^11.1.1",
+    "phin": "^3.7.0",
+    "pidusage": "^3.0.2",
     "set-blocking": "^2.0.0",
-    "winston": "^3.3.3",
-    "winston-daily-rotate-file": "^4.5.5",
-    "yargs": "^14.2.0"
+    "winston": "^3.10.0",
+    "winston-daily-rotate-file": "^4.7.1",
+    "yargs": "^17.7.2"
   },
   "publishConfig": {
     "access": "public"

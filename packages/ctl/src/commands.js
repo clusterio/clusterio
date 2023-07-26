@@ -381,6 +381,9 @@ instanceConfigCommands.add(new libCommand.Command({
 			// with the all the layers of quote removal at play is difficult.
 			// See the following table for how to pass "That's a \" quote" in
 			// different environments:
+			// ----------------------- WARNING -------------------------------
+			// This table is most likely invalid due a change in yargs parsing
+			// ---------------------------------------------------------------
 			// cmd              : """""That's a \\"" quote"""""
 			// cmd + npx        : """""""""""That's a \\\\"""" quote"""""""""""
 			// PowerShell       : '"""""That''s a \\"" quote"""""'

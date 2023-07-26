@@ -432,6 +432,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	_doConnect() {
 		let url = new URL(this._url);
 		url.pathname += "api/socket";
+		url.protocol = url.protocol.replace("http", "ws");
 
 		// Open WebSocket to controller
 		logger.verbose(`Connector | connecting to ${url}`);

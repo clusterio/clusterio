@@ -27,12 +27,12 @@
     "@clusterio/lib": "^2.0.0-alpha.13",
     "@clusterio/web_ui": "^2.0.0-alpha.13",
     "antd": "^4.16.0",
-    "phin": "^3.5.1",
+    "phin": "^3.7.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
-    "webpack": "^5.36.2",
-    "webpack-cli": "^4.7.0",
-    "webpack-merge": "^5.2.0"
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-merge": "^5.9.0"
   },
   "publishConfig": {
     "access": "public"
