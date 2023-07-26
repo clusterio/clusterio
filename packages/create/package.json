@@ -13,7 +13,7 @@
     "clusterio"
   ],
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "dependencies": {
     "chalk": "^4.1.0",

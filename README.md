@@ -89,7 +89,7 @@ Check out the documentation on [Writing Plugins](/docs/writing-plugins.md) for w
 
 ## Installation
 
-Clusterio runs on Node.js v12 and up, it's distributed via npm and comes with a guided install script.
+Clusterio runs on Node.js v18 and up, it's distributed via npm and comes with a guided install script.
 If you already have a recent Node.js installed, you can set it up in a new directory with:
 
     npm init "@clusterio"
@@ -99,11 +99,11 @@ Otherwise see below for OS specific instructions.
 
 ### Ubuntu setup
 
-1.  Install Node.js v12 or higher.
-    For 20.04 LTS or below the version of Node.js provided by the Ubuntu repos are too old and you will have to use the nodesource PPA, otherwise you may skip the first line.
+1.  Install Node.js v18 or higher.
+    Note the version of Node.js provided by the Ubuntu/debian repos are too old and you will have to use the nodesource PPA
 
-        wget -qO - https://deb.nodesource.com/setup_14.x | sudo -E bash -
-        sudo apt install nodejs
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - &&\
+        sudo apt-get install -y nodejs
 
 2.  Log in as the user you wish to install Clusterio as (do not use root), and then create a new directory and run the Clusterio installer:
 
