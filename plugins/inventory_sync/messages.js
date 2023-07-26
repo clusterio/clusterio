@@ -47,6 +47,7 @@ AcquireRequest.Response = class Response {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["status"],
 		properties: {
 			"status": {
@@ -165,6 +166,7 @@ DownloadRequest.Response = class Response {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["playerData"],
 		properties: {
 			"playerData": { type: ["object", "null"] },

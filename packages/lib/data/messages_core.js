@@ -67,7 +67,6 @@ class Address {
 	static jsonSchema = {
 		type: "array",
 		minItems: 2,
-		maxItems: 3,
 		items: [
 			{ type: "integer", minimum: 0, maximum: 4 },
 			{ type: "integer" },
@@ -175,6 +174,7 @@ class HelloData {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["version", "plugins"],
 		properties: {
 			"version": { type: "string" },
@@ -354,14 +354,13 @@ class AccountDetails {
 	}
 
 	static jsonSchema = {
-		additionalProperties: false,
+		type: "object",
 		required: ["name", "roles"],
 		properties: {
 			"name": { type: "string" },
 			"roles": {
 				type: "array",
 				items: {
-					additionalProperties: false,
 					type: "object",
 					required: ["name", "id", "permissions"],
 					properties: {
@@ -404,7 +403,7 @@ class ReadyData {
 	}
 
 	static jsonSchema = {
-		additionalProperties: false,
+		type: "object",
 		required: ["src", "sessionToken", "sessionTimeout", "heartbeatInterval"],
 		properties: {
 			"src": Address.jsonSchema,
@@ -519,6 +518,7 @@ class ContinueData {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["sessionTimeout", "heartbeatInterval"],
 		properties: {
 			"sessionTimeout": { type: "number" },
@@ -701,6 +701,7 @@ class ResponseError {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["message"],
 		properties: {
 			"message": { type: "string" },

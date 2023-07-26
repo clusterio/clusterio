@@ -46,6 +46,7 @@ class PlaceEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["items"],
 		properties: {
 			"items": {
@@ -74,6 +75,7 @@ class RemoveRequest {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["items"],
 		properties: {
 			"items": {
@@ -113,6 +115,7 @@ class UpdateStorageEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["items"],
 		properties: {
 			"items": {
@@ -142,6 +145,7 @@ class SetStorageSubscriptionRequest {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["storage"],
 		properties: {
 			"storage": { type: "boolean" },

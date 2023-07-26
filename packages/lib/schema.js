@@ -7,6 +7,7 @@ const Ajv = require("ajv");
 const ajv = new Ajv({
 	allowUnionTypes: true,
 	strict: "log",
+	strictTuples: false,
 	verbose: true,
 });
 

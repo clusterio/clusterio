@@ -55,6 +55,7 @@ class ProgressEvent {
 			technologies: {
 				type: "array",
 				items: {
+					type: "object",
 					required: ["name", "level", "progress"],
 					properties: {
 						name: { type: "string" },

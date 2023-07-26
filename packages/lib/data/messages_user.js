@@ -18,6 +18,7 @@ class RawPermission { // TODO refactor into lib/user.Permission
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["name", "title", "description"],
 		properties: {
 			name: { type: "string" },
@@ -277,6 +278,7 @@ class RawUser { // TODO refactor into lib/user.User
 				type: "array",
 				items: {
 					type: "array",
+					minItems: 2,
 					items: [{ type: "integer" }, PlayerStats.jsonSchema],
 				},
 			},
