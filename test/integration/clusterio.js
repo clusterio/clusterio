@@ -850,6 +850,7 @@ describe("Integration of Clusterio", function() {
 
 		describe("mod-pack import/export", function() {
 			it("should should roundtrip a mod-pack", async function() {
+				slowTest(this);
 				let reference = libData.ModPack.fromJSON({});
 				reference.name = "imported-pack";
 				reference.description = "Description";
