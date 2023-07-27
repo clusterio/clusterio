@@ -6,7 +6,7 @@ const Jimp = require("jimp");
 const JSZip = require("jszip");
 
 const libIni = require("../ini");
-const libBuildMod = require("../build_mod");
+const libBuildMod = require("../../build_mod");
 const libZipOps = require("../zip_ops");
 
 /**
@@ -35,7 +35,7 @@ async function generateExportMod(server) {
 		build: true,
 		pack: true,
 		// XXX fix path when moving lib/factorio to host
-		sourceDir: path.join(__dirname, "..", "..", "host", "lua", "export"),
+		sourceDir: path.join(__dirname, "..", "..", "..", "host", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version.replace(/\.\d+$/, ""),
