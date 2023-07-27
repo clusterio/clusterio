@@ -593,6 +593,7 @@ function applyModPackChanges(modPack, changes) {
 			throw new Error(`Unknown change type ${change.type}`);
 		}
 	}
+	return modifiedModPack;
 }
 
 export default function ModPackViewPage() {
