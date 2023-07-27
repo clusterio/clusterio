@@ -1,7 +1,7 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import {
-	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, PageHeader, Pagination,
+	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
 } from "antd";
 import InfoCircleOutlined from "@ant-design/icons/InfoCircleOutlined";
@@ -20,6 +20,7 @@ import { useModPack } from "../model/mod_pack";
 import { useModList } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
 import notify, { notifyErrorHandler } from "../util/notify";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
@@ -682,27 +683,20 @@ export default function ModPackViewPage() {
 	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack.name || modPackId }];
 	if (modifiedModPack.loading) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title={modPackId}
-			/>
+			<PageHeader title={modPackId} />
 			<Spin size="large" />
 		</PageLayout>;
 	}
 
 	if (modifiedModPack.missing) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title="Mod Pack Not Found"
-			/>
+			<PageHeader title="Mod Pack Not Found" />
 			<p>Mod pack with id {modPackId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			className="site-page-header"
 			title={modPack.name}
 			extra={<Space>
 				<ExportButton modPack={modifiedModPack}/>

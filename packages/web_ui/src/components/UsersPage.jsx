@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Space, Table, Tag } from "antd";
+import { Button, Form, Input, Modal, Space, Table, Tag } from "antd";
 
 import { libData } from "@clusterio/lib";
 
@@ -8,6 +8,7 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { formatLastSeen, sortLastSeen, useUserList } from "../model/user";
@@ -73,7 +74,6 @@ export default function UsersPage() {
 
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Users"
 			extra={account.hasPermission("core.user.create") && <CreateUserButton />}
 		/>

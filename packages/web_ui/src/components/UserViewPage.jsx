@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import {
-	Button, Col, Descriptions, Form, Input, PageHeader, Popconfirm,
+	Button, Col, Descriptions, Form, Input, Popconfirm,
 	Row, Table, Tag, Select, Space, Spin, Switch,
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
@@ -11,6 +11,7 @@ import { libErrors, libData } from "@clusterio/lib";
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
@@ -62,20 +63,14 @@ export default function UserViewPage() {
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
 	if (user.loading) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title={userName}
-			/>
+			<PageHeader title={userName} />
 			<Spin size="large" />
 		</PageLayout>;
 	}
 
 	if (user.missing) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title="User not found"
-			/>
+			<PageHeader title="User not found" />
 			<p>User with name {userName} was not found on the controller.</p>
 		</PageLayout>;
 	}
@@ -112,7 +107,6 @@ export default function UserViewPage() {
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			className="site-page-header"
 			title={<Space>
 				{userName}
 				<span>

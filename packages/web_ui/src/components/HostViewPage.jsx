@@ -1,5 +1,5 @@
 import React from "react";
-import { Descriptions, PageHeader, Spin, Tag, Typography } from "antd";
+import { Descriptions, Spin, Tag, Typography } from "antd";
 import { useParams } from "react-router-dom";
 
 import InstanceList from "./InstanceList";
@@ -7,6 +7,7 @@ import LogConsole from "./LogConsole";
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
 import { useHost } from "../model/host";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 
@@ -29,19 +30,13 @@ export default function HostViewPage(props) {
 
 	if (host.missing) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title={hostId}
-			/>
+			<PageHeader title={hostId} />
 			<p>Host with id {hostId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 
 	return <PageLayout nav={nav}>
-		<PageHeader
-			className="site-page-header"
-			title={host.name || hostId}
-		/>
+		<PageHeader title={host.name || hostId} />
 
 		<Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 4 }}>
 			<Descriptions.Item label="Name">{host["name"]}</Descriptions.Item>

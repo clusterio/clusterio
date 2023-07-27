@@ -1,6 +1,6 @@
 import React, { Fragment, useState, useContext } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Popconfirm, Space, Table, Typography, Upload } from "antd";
+import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload } from "antd";
 import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import UploadOutlined from "@ant-design/icons/UploadOutlined";
@@ -12,6 +12,7 @@ import { useModList } from "../model/mods";
 import { useModPackList } from "../model/mod_pack";
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
@@ -184,10 +185,7 @@ export default function ModsPage() {
 	}
 
 	return <PageLayout nav={[{ name: "Mods" }]}>
-		<PageHeader
-			className="site-page-header"
-			title="Mods"
-		/>
+		<PageHeader title="Mods" />
 		<SectionHeader
 			title="Mod Packs"
 			extra={<Space>

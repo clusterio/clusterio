@@ -1,12 +1,13 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, InputNumber, Modal, PageHeader, Table, Tag, Typography } from "antd";
+import { Button, Form, InputNumber, Modal, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
 import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { useHostList } from "../model/host";
@@ -182,7 +183,6 @@ export default function HostsPage() {
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Hosts"
 			extra={account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton />}
 		/>

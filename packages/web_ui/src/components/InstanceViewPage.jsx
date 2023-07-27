@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Dropdown, Menu, Modal, PageHeader, Space, Spin, Typography } from "antd";
+import { Alert, Button, Descriptions, Dropdown, Menu, Modal, Space, Spin, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -8,6 +8,7 @@ import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import InstanceConfigTree from "./InstanceConfigTree";
@@ -187,7 +188,6 @@ export default function InstanceViewPage(props) {
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			className="site-page-header"
 			title={instance.name}
 			extra={instanceButtons}
 		/>

@@ -1,12 +1,13 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
+import { Button, Form, Input, Modal, Table } from "antd";
 
 import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 
@@ -73,7 +74,6 @@ export default function RolesPage() {
 
 	return <PageLayout nav={[{ name: "Roles" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Roles"
 			extra={account.hasPermission("core.role.create") && <CreateRoleButton />}
 		/>

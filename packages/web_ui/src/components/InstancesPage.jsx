@@ -1,11 +1,12 @@
 import React, { useContext, useState } from "react";
 import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader } from "antd";
+import { Button, Form, Input, Modal } from "antd";
 
 import { libConfig, libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { useInstanceList } from "../model/instance";
@@ -65,7 +66,6 @@ export default function InstancesPage() {
 
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Instances"
 			extra={<>
 				{account.hasPermission("core.instance.create") && <CreateInstanceButton />}

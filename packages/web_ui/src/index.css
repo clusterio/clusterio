@@ -67,29 +67,43 @@ body {
 	padding-right: 64px;
 }
 
-.site-page-header {
+.page-header {
 	padding: 0 0 16px;
 }
 
-.section-header {
+.site-layout-content > h2:first-child {
+	margin-top: 0;
+}
+
+.section-header, .page-header {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
+}
+
+.section-header {
 	margin-top: 16px;
 	margin-bottom: 8px;
 }
 
-.section-header-title {
+.section-header-title, .page-header-title {
 	flex: auto;
 	overflow: hidden;
-	font-weight: bold;
-	font-size: 16px;
-	line-height: 1.5715;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
-.section-header-extra {
+.section-header-title {
+	font-weight: bold;
+	font-size: 16px;
+	line-height: 1.5715;
+}
+
+.page-header-title {
+	margin: 4px 0;
+}
+
+.section-header-extra, .page-header-extra {
 	margin-left: auto;
 }
 
