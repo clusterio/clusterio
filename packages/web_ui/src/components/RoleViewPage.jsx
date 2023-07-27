@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button, Checkbox, Form, Input, Popconfirm, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
@@ -43,7 +43,7 @@ export default function RoleViewPage() {
 	let params = useParams();
 	let roleId = Number(params.id);
 
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -108,7 +108,7 @@ export default function RoleViewPage() {
 							control.send(
 								new libData.RoleDeleteRequest(roleId)
 							).then(() => {
-								history.push("/roles");
+								navigate("/roles");
 							}).catch(notifyErrorHandler("Error deleting role"));
 						}}
 					>

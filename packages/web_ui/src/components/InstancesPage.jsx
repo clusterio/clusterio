@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal } from "antd";
 
 import { libConfig, libData } from "@clusterio/lib";
@@ -15,7 +15,7 @@ import { notifyErrorHandler } from "../util/notify";
 
 function CreateInstanceButton(props) {
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
@@ -32,7 +32,7 @@ function CreateInstanceButton(props) {
 		let serializedConfig = instanceConfig.serialize("controller");
 		await control.send(new libData.InstanceCreateRequest(serializedConfig));
 		setOpen(false);
-		history.push(`/instances/${instanceConfig.get("instance.id")}/view`);
+		navigate(`/instances/${instanceConfig.get("instance.id")}/view`);
 	}
 
 	return <>

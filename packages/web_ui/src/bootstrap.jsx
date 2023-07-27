@@ -1,7 +1,7 @@
 import "./index.css";
 
 import React from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 
 import { libConfig, libLink, libLogging, libPlugin } from "@clusterio/lib";
 const { ConsoleTransport, WebConsoleFormat, logger } = libLogging;
@@ -111,5 +111,6 @@ export default async function bootstrap() {
 	let controlConnector = new ControlConnector(wsUrl, 120);
 	let control = new Control(controlConnector, plugins);
 
-	ReactDOM.render(<App control={control}/>, document.getElementById("root"));
+	const root = createRoot(document.getElementById("root"));
+	root.render(<App control={control}/>);
 }

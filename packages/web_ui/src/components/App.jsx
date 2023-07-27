@@ -8,7 +8,7 @@ import SiteLayout from "./SiteLayout";
 import ControlContext from "./ControlContext";
 import LoginForm from "./LoginForm";
 
-import { Card, Spin, Typography } from "antd";
+import { Card, ConfigProvider, Spin, Typography, theme } from "antd";
 
 const { Paragraph } = Typography;
 const { logger } = libLogging;
@@ -93,11 +93,15 @@ export default function App(props) {
 
 	return (
 		<ErrorBoundary Component={ErrorCard}>
-			<ControlContext.Provider value={props.control}>
-				<BrowserRouter basename={webRoot}>
-					{page}
-				</BrowserRouter>
-			</ControlContext.Provider>
+			<ConfigProvider
+				theme={{ algorithm: theme.darkAlgorithm }}
+			>
+				<ControlContext.Provider value={props.control}>
+					<BrowserRouter basename={webRoot}>
+						{page}
+					</BrowserRouter>
+				</ControlContext.Provider>
+			</ConfigProvider>
 		</ErrorBoundary>
 	);
 }

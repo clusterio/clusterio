@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Descriptions, Dropdown, Menu, Modal, Space, Spin, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
@@ -60,7 +60,7 @@ export default function InstanceViewPage(props) {
 	let params = useParams();
 	let instanceId = Number(params.id);
 
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -84,7 +84,7 @@ export default function InstanceViewPage(props) {
 				action={
 					<Button
 						type="text"
-						onClick={() => { history.push("/instances"); }}
+						onClick={() => { navigate("/instances"); }}
 					>
 						Go back to instances list
 					</Button>
@@ -163,7 +163,7 @@ export default function InstanceViewPage(props) {
 						control.send(
 							new libData.InstanceDeleteRequest(instanceId)
 						).then(() => {
-							history.push("/instances");
+							navigate("/instances");
 						}).catch(notifyErrorHandler("Error deleting instance"));
 					},
 				});

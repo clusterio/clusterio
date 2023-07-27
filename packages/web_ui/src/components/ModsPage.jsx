@@ -1,5 +1,5 @@
 import React, { Fragment, useState, useContext } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload } from "antd";
 import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
@@ -25,7 +25,7 @@ const { logger } = libLogging;
 
 function ImportModPackButton() {
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 	function close() {
@@ -49,7 +49,7 @@ function ImportModPackButton() {
 					}
 					const modPack = libData.ModPack.fromModPackString(values.string);
 					await control.send(new libData.ModPackCreateRequest(modPack));
-					history.push(`/mods/mod-packs/${modPack.id}/view`);
+					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
 		>
@@ -74,7 +74,7 @@ function ImportModPackButton() {
 
 function CreateModPackButton() {
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 	function close() {
@@ -101,7 +101,7 @@ function CreateModPackButton() {
 					modPack.factorioVersion = values.factorioVersion;
 					if (values.description) { modPack.description = values.description; }
 					await control.send(new libData.ModPackCreateRequest(modPack.toJSON()));
-					history.push(`/mods/mod-packs/${modPack.id}/view`);
+					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
 		>
@@ -131,7 +131,7 @@ function CreateModPackButton() {
 export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [modList] = useModList();
 	let [modPackList] = useModPackList();
 
@@ -217,7 +217,7 @@ export default function ModsPage() {
 			rowKey={modPack => modPack.id}
 			onRow={(modPack, rowIndex) => ({
 				onClick: event => {
-					history.push(`/mods/mod-packs/${modPack.id}/view`);
+					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				},
 			})}
 		/>

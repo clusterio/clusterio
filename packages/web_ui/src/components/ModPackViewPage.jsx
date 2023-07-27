@@ -1,5 +1,5 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
 	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
@@ -599,7 +599,7 @@ function applyModPackChanges(modPack, changes) {
 
 export default function ModPackViewPage() {
 	let account = useAccount();
-	let history = useHistory();
+	let navigate = useNavigate();
 	let control = useContext(ControlContext);
 	let params = useParams();
 	let modPackId = Number(params.id);
@@ -709,7 +709,7 @@ export default function ModPackViewPage() {
 						control.send(
 							new libData.ModPackDeleteRequest(modPack.id)
 						).then(() => {
-							history.push("/mods");
+							navigate("/mods");
 						}).catch(notifyErrorHandler("Error deleting mod pack"));
 					}}
 				>
@@ -783,40 +783,35 @@ export default function ModPackViewPage() {
 		</Form>
 
 		<div
-			className="ant-notification ant-notification-bottom"
+			className="sticky-notice"
 			style={{
 				visibility: changes.length ? "visible" : "hidden",
-				inset: "auto auto 24px auto",
-				position: "sticky",
-				marginTop: 16,
 			}}
 		>
-			<div className="ant-notification-notice" style={{ width: "auto", maxWidth: 384, marginBottom: 0 }}>
-				<Row style={{ alignItems: "center", rowGap: 12 }}>
-					<Col flex="auto">You have unsaved changes</Col>
-					<Col flex="0 0 auto" style={{ marginLeft: "auto" }}>
-						<Space>
-							<Button
-								onClick={() => {
+			<Row style={{ alignItems: "center", rowGap: 12 }}>
+				<Col flex="auto">You have unsaved changes</Col>
+				<Col flex="0 0 auto" style={{ marginLeft: "auto" }}>
+					<Space>
+						<Button
+							onClick={() => {
+								form.resetFields();
+								setChanges([]);
+							}}
+						>Revert</Button>
+						<Button
+							type="primary"
+							onClick={() => {
+								control.send(
+									new libData.ModPackUpdateRequest(modifiedModPack)
+								).then(() => {
 									form.resetFields();
 									setChanges([]);
-								}}
-							>Revert</Button>
-							<Button
-								type="primary"
-								onClick={() => {
-									control.send(
-										new libData.ModPackUpdateRequest(modifiedModPack)
-									).then(() => {
-										form.resetFields();
-										setChanges([]);
-									}).catch(notifyErrorHandler("Error deleting mod pack"));
-								}}
-							>Apply</Button>
-						</Space>
-					</Col>
-				</Row>
-			</div>
+								}).catch(notifyErrorHandler("Error deleting mod pack"));
+							}}
+						>Apply</Button>
+					</Space>
+				</Col>
+			</Row>
 		</div>
 	</PageLayout>;
 

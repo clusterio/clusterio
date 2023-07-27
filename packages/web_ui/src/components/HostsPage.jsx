@@ -1,5 +1,5 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Form, InputNumber, Modal, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
@@ -178,7 +178,7 @@ function CopyButton({ text, message }) {
 
 export default function HostsPage() {
 	let account = useAccount();
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [hostList] = useHostList();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
@@ -226,7 +226,7 @@ export default function HostsPage() {
 			pagination={false}
 			onRow={(record, rowIndex) => ({
 				onClick: event => {
-					history.push(`/hosts/${record.id}/view`);
+					navigate(`/hosts/${record.id}/view`);
 				},
 			})}
 		/>

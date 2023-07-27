@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Switch, Route, useHistory } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { Dropdown, Layout, Menu } from "antd";
 import UserOutlined from "@ant-design/icons/UserOutlined";
 import webUiPackage from "../../package.json";
@@ -14,7 +14,7 @@ const { Header, Sider } = Layout;
 
 
 export default function SiteLayout(props) {
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState(null);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
@@ -29,7 +29,7 @@ export default function SiteLayout(props) {
 	let accountMenuProps = {
 		onClick: ({ key }) => {
 			if (key === "user") {
-				history.push(`/users/${account.name}/view`);
+				navigate(`/users/${account.name}/view`);
 			} else if (key === "logOut") {
 				account.logOut();
 			}
@@ -107,22 +107,24 @@ export default function SiteLayout(props) {
 					defaultOpenKeys={[...menuGroups.keys()]}
 					selectedKeys={[currentSidebarPath]}
 					style={{ height: "100%", borderRight: 0 }}
-					onClick={({ key }) => history.push(key)}
+					onClick={({ key }) => navigate(key)}
 					items={menuItems}
 				/>
 			</Sider>
 			<Layout className="site-layout-content-container">
-				<Switch>
-					{combinedPages.map(({path, sidebarPath, content}) => <Route exact path={path} key={path}>
-						<SetSidebar path={sidebarPath ? sidebarPath : path} />
-						<ErrorBoundary Component={ErrorPage}>
-							{content}
-						</ErrorBoundary>
-					</Route>)}
-					<Route>
-						<SetSidebar path={null} />
-					</Route>
-				</Switch>
+				<Routes>
+					{combinedPages.map(({path, sidebarPath, content}) => <Route
+						path={path}
+						key={path}
+						element={<>
+							<SetSidebar path={sidebarPath ? sidebarPath : path} />
+							<ErrorBoundary Component={ErrorPage}>
+								{content}
+							</ErrorBoundary>
+						</>}
+					/>)}
+					<Route element={<SetSidebar path={null} />} />
+				</Routes>
 			</Layout>
 		</Layout>
 	</Layout>;

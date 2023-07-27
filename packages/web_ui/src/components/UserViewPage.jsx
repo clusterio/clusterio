@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
 	Button, Col, Descriptions, Form, Input, Popconfirm,
 	Row, Table, Tag, Select, Space, Spin, Switch,
@@ -29,7 +29,7 @@ export default function UserViewPage() {
 	let params = useParams();
 	let userName = params.name;
 
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -147,7 +147,7 @@ export default function UserViewPage() {
 						control.send(
 							new libData.UserDeleteRequest(userName)
 						).then(() => {
-							history.push("/users");
+							navigate("/users");
 						}).catch(notifyErrorHandler("Error deleting user"));
 					}}
 				>
@@ -333,7 +333,7 @@ export default function UserViewPage() {
 			rowKey={([id]) => id}
 			onRow={([id], rowIndex) => ({
 				onClick: event => {
-					history.push(`/instances/${id}/view`);
+					navigate(`/instances/${id}/view`);
 				},
 			})}
 		/>

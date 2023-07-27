@@ -2,7 +2,8 @@
 "use strict";
 const assert = require("assert").strict;
 const events = require("events");
-const WebSocket = require("isomorphic-ws");
+// eslint-disable-next-line node/no-process-env
+const WebSocket = process.env.APP_ENV === "browser" ? window.WebSocket : require("ws");
 
 const libData = require("../data");
 const libErrors = require("../errors");

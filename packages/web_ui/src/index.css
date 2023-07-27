@@ -1,5 +1,3 @@
-@import '~antd/dist/antd.dark.css';
-
 body {
 	margin: 0;
 }
@@ -157,7 +155,8 @@ body {
 	height: 64px;
 	font-size: 18px;
 	line-height: 72px;
-	text-align: center;
+	display: flex;
+	justify-content: center;
 }
 
 .account-dropdown-header::after {
@@ -339,8 +338,8 @@ body {
 	border: none;
 }
 
-tr.no-expanded-padding > td,
-.ant-table.ant-table-small .ant-table-tbody > tr.no-expanded-padding > td {
+div.ant-table tr.no-expanded-padding > td,
+div.ant-table.ant-table-small .ant-table-tbody > tr.no-expanded-padding > td {
 	padding: 0;
 }
 
@@ -367,4 +366,19 @@ tr.ant-table-row.deleted {
 .ant-table-tbody > tr.deleted > td.ant-table-cell-row-hover
 tr.ant-table-row.deleted {
 	background: #441c18;
+}
+
+.sticky-notice {
+	position: sticky;
+	inset: auto auto 24px auto;
+	background: #1f1f1f;
+	padding: 24px;
+	width: auto;
+	margin: 16px auto 0;
+	box-shadow:
+		0 6px 16px 0 rgba(0, 0, 0, 0.08),
+		0 3px 6px -4px rgba(0, 0, 0, 0.12),
+		0 9px 28px 8px rgba(0, 0, 0, 0.05);
+	border-radius: 8px;
+	max-width: 384px;
 }

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Table } from "antd";
 
 import { libData } from "@clusterio/lib";
@@ -16,7 +16,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 function CreateRoleButton() {
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
@@ -31,7 +31,7 @@ function CreateRoleButton() {
 			new libData.RoleCreateRequest(values.roleName, values.description || "", [])
 		);
 		setOpen(false);
-		history.push(`/roles/${result.id}/view`);
+		navigate(`/roles/${result.id}/view`);
 	}
 
 	return <>
@@ -62,7 +62,7 @@ function CreateRoleButton() {
 export default function RolesPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let [roles, setRoles] = useState([]);
 
@@ -94,7 +94,7 @@ export default function RolesPage() {
 			rowKey={role => role.id}
 			onRow={(role, rowIndex) => ({
 				onClick: event => {
-					history.push(`/roles/${role.id}/view`);
+					navigate(`/roles/${role.id}/view`);
 				},
 			})}
 		/>

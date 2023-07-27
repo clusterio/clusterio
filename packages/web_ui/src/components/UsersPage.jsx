@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Space, Table, Tag } from "antd";
 
 import { libData } from "@clusterio/lib";
@@ -18,7 +18,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 function CreateUserButton() {
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
@@ -31,7 +31,7 @@ function CreateUserButton() {
 
 		await control.send(new libData.UserCreateRequest(values.userName));
 		setOpen(false);
-		history.push(`/users/${values.userName}/view`);
+		navigate(`/users/${values.userName}/view`);
 	}
 
 	return <>
@@ -59,7 +59,7 @@ function CreateUserButton() {
 export default function UsersPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [userList] = useUserList();
 
 	let [roles, setRoles] = useState(new Map());
@@ -120,7 +120,7 @@ export default function UsersPage() {
 			rowKey={user => user.name}
 			onRow={(user, rowIndex) => ({
 				onClick: event => {
-					history.push(`/users/${user.name}/view`);
+					navigate(`/users/${user.name}/view`);
 				},
 			})}
 		/>
