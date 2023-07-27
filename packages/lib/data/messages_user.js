@@ -2,7 +2,7 @@
 const PlayerStats = require("../PlayerStats");
 const { jsonArray, JsonNumber } = require("./composites");
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RawPermission { // TODO refactor into lib/user.Permission
 	/** @type {string} */
 	name;
@@ -32,7 +32,7 @@ class RawPermission { // TODO refactor into lib/user.Permission
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class PermissionListRequest {
 	static type = "request";
 	static src = "control";
@@ -77,7 +77,7 @@ class RawRole { // TODO refactor into lib/user.Role
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RoleListRequest {
 	static type = "request";
 	static src = "control";
@@ -86,7 +86,7 @@ class RoleListRequest {
 	static Response = jsonArray(RawRole);
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RoleCreateRequest {
 	static type = "request";
 	static src = "control";
@@ -126,7 +126,7 @@ class RoleCreateRequest {
 	static Response = JsonNumber;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RoleUpdateRequest {
 	static type = "request";
 	static src = "control";
@@ -168,7 +168,7 @@ class RoleUpdateRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RoleGrantDefaultPermissionsRequest {
 	static type = "request";
 	static src = "control";
@@ -195,7 +195,7 @@ class RoleGrantDefaultPermissionsRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RoleDeleteRequest {
 	static type = "request";
 	static src = "control";
@@ -222,7 +222,7 @@ class RoleDeleteRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class RawUser { // TODO refactor into lib/user.User
 	/** @type {string} */
 	name;
@@ -240,9 +240,9 @@ class RawUser { // TODO refactor into lib/user.User
 	banReason;
 	/** @type {boolean|undefined} */
 	isDeleted;
-	/** @type {module:lib/PlayerStats} */
+	/** @type {module:lib.PlayerStats} */
 	playerStats;
-	/** @type {Map<number, module:lib/PlayerStats>|undefined} */
+	/** @type {Map<number, module:lib.PlayerStats>|undefined} */
 	instanceStats;
 
 	constructor(
@@ -321,7 +321,7 @@ class RawUser { // TODO refactor into lib/user.User
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserGetRequest {
 	static type = "request";
 	static src = "control";
@@ -350,7 +350,7 @@ class UserGetRequest {
 	static Response = RawUser;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserListRequest {
 	static type = "request";
 	static src = "control";
@@ -359,7 +359,7 @@ class UserListRequest {
 	static Response = jsonArray(RawUser);
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -393,7 +393,7 @@ class UserSetSubscriptionsRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserCreateRequest {
 	static type = "request";
 	static src = "control";
@@ -420,7 +420,7 @@ class UserCreateRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserRevokeTokenRequest {
 	static type = "request";
 	static src = "control";
@@ -447,7 +447,7 @@ class UserRevokeTokenRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserUpdateRolesRequest {
 	static type = "request";
 	static src = "control";
@@ -481,7 +481,7 @@ class UserUpdateRolesRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserSetAdminRequest {
 	static type = "request";
 	static src = "control";
@@ -516,7 +516,7 @@ class UserSetAdminRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserSetWhitelistedRequest {
 	static type = "request";
 	static src = "control";
@@ -551,7 +551,7 @@ class UserSetWhitelistedRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserSetBannedRequest {
 	static type = "request";
 	static src = "control";
@@ -590,7 +590,7 @@ class UserSetBannedRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserDeleteRequest {
 	static type = "request";
 	static src = "control";
@@ -618,7 +618,7 @@ class UserDeleteRequest {
 }
 
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class AccountUpdateEvent {
 	static type = "event";
 	static src = "controller";
@@ -657,13 +657,13 @@ class AccountUpdateEvent {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class UserUpdateEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
 
-	/** @type {module:lib/data.RawUser} */
+	/** @type {module:lib.RawUser} */
 	user;
 
 	constructor(user) {

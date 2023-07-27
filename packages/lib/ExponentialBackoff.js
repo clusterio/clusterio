@@ -15,7 +15,7 @@
  * `base` if more time than the value for `reset` has passed between two
  * invocations of delay.
  *
- * @alias module:lib/ExponentialBackoff
+ * @alias module:lib.ExponentialBackoff
  */
 class ExponentialBackoff {
 	/**

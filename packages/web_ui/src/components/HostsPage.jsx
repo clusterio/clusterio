@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button, Form, InputNumber, Modal, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -47,7 +47,7 @@ function GenerateHostTokenButton(props) {
 			form.setFields([{ name: "hostId", errors: [] }]);
 		}
 
-		let newToken = await control.send(new libData.HostGenerateTokenRequest(id));
+		let newToken = await control.send(new lib.HostGenerateTokenRequest(id));
 		setToken(newToken);
 		setHostId(id);
 	}

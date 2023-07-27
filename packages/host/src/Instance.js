@@ -6,47 +6,38 @@ const phin = require("phin");
 const util = require("util");
 
 // internal libraries
-const libData = require("@clusterio/lib/data");
-const libFileOps = require("@clusterio/lib/file_ops");
-const libFactorio = require("@clusterio/lib/factorio");
-const libLink = require("@clusterio/lib/link");
-const PlayerStats = require("@clusterio/lib/PlayerStats");
-const libPlugin = require("@clusterio/lib/plugin");
-const libPluginLoader = require("@clusterio/lib/plugin_loader");
-const libErrors = require("@clusterio/lib/errors");
-const libPrometheus = require("@clusterio/lib/prometheus");
-const libLuaTools = require("@clusterio/lib/lua_tools");
-const libLogging = require("@clusterio/lib/logging");
+const lib = require("@clusterio/lib");
+const { PlayerStats } = lib;
 
 
-const instanceRconCommandDuration = new libPrometheus.Histogram(
+const instanceRconCommandDuration = new lib.Histogram(
 	"clusterio_instance_rcon_command_duration_seconds",
 	"Histogram of the RCON command duration from request to response.",
 	{ labels: ["instance_id"] }
 );
 
-const instanceRconCommandSize = new libPrometheus.Histogram(
+const instanceRconCommandSize = new lib.Histogram(
 	"clusterio_instance_rcon_command_size_bytes",
 	"Histogram of the RCON command sizes that are sent.",
 	{
 		labels: ["instance_id", "plugin"],
-		buckets: libPrometheus.Histogram.exponential(16, 2, 12),
+		buckets: lib.Histogram.exponential(16, 2, 12),
 	}
 );
 
-const instanceFactorioCpuTime = new libPrometheus.Gauge(
+const instanceFactorioCpuTime = new lib.Gauge(
 	"clusterio_instance_factorio_cpu_time_total",
 	"Factorio CPU time spent in seconds.",
 	{ labels: ["instance_id"] }
 );
 
-const instanceFactorioMemoryUsage = new libPrometheus.Gauge(
+const instanceFactorioMemoryUsage = new lib.Gauge(
 	"clusterio_instance_factorio_resident_memory_bytes",
 	"Factorio resident memory size in bytes.",
 	{ labels: ["instance_id"] }
 );
 
-const instanceFactorioAutosaveSize = new libPrometheus.Gauge(
+const instanceFactorioAutosaveSize = new lib.Gauge(
 	"clusterio_instance_factorio_autosave_bytes",
 	"Size of Factorio server autosave in bytes.",
 	{ labels: ["instance_id"] }
@@ -100,7 +91,7 @@ const serverSettingsActions = {
  * Keeps track of the runtime parameters of an instance
  * @alias module:host/src/Instance
  */
-class Instance extends libLink.Link {
+class Instance extends lib.Link {
 	constructor(host, connector, dir, factorioDir, instanceConfig) {
 		super(connector);
 		this._host = host;
@@ -115,13 +106,13 @@ class Instance extends libLink.Link {
 		 */
 		this.id = this.config.get("instance.id");
 
-		this.logger = libLogging.logger.child({
+		this.logger = lib.logger.child({
 			instance_id: this.id,
 			instance_name: this.name,
 		});
 
 		this._configFieldChanged = (group, field, prev) => {
-			let hook = () => libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
+			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
 
 			if (group.name === "factorio" && field === "settings") {
 				this.updateFactorioSettings(group.get(field), prev).finally(hook);
@@ -152,18 +143,18 @@ class Instance extends libLink.Link {
 		// Valid statuses are stopped, starting, running, stopping, creating_save and exporting_data.
 		this._status = "stopped";
 		this._loadedSave = null;
-		this.server = new libFactorio.FactorioServer(
+		this.server = new lib.FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
 
 		this.server.on("output", (parsed, line) => {
 			this.logger.log("server", { message: line, instance_id: this.id, parsed });
 
-			libPlugin.invokeHook(this.plugins, "onOutput", parsed, line);
+			lib.invokeHook(this.plugins, "onOutput", parsed, line);
 		});
 
 		this.server.on("error", err => {
-			if (err instanceof libErrors.EnvironmentError) {
+			if (err instanceof lib.EnvironmentError) {
 				this.logger.error(err.message);
 			} else {
 				this.logger.error(`${this.name}:\n${err.stack}`);
@@ -192,13 +183,13 @@ class Instance extends libLink.Link {
 
 		/**
 		 * Mod pack currently running on this instance
-		 * @type {module:lib/data.ModPack}
+		 * @type {module:lib.ModPack}
 		 */
 		this.activeModPack = undefined;
 
 		/**
 		 * Per player statistics recorded by this instance.
-		 * @type {Map<string, module:lib/PlayerStats>}
+		 * @type {Map<string, module:lib.PlayerStats>}
 		 */
 		this.playerStats = new Map();
 
@@ -211,23 +202,23 @@ class Instance extends libLink.Link {
 		this._hadPlayersOnline = false;
 		this._playerAutosaveSlot = 1;
 
-		this.handle(libData.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
-		this.handle(libData.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
-		this.handle(libData.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
-		this.handle(libData.InstanceWhitelistUpdateEvent, this.handleInstanceWhitelistUpdateEvent.bind(this));
-		this.handle(libData.ControllerConnectionEvent, this.handleControllerConnectionEvent.bind(this));
+		this.handle(lib.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
+		this.handle(lib.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
+		this.handle(lib.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
+		this.handle(lib.InstanceWhitelistUpdateEvent, this.handleInstanceWhitelistUpdateEvent.bind(this));
+		this.handle(lib.ControllerConnectionEvent, this.handleControllerConnectionEvent.bind(this));
 		this.handle(
-			libData.PrepareControllerDisconnectRequest, this.handlePrepareControllerDisconnectRequest.bind(this)
+			lib.PrepareControllerDisconnectRequest, this.handlePrepareControllerDisconnectRequest.bind(this)
 		);
-		this.handle(libData.InstanceMetricsRequest, this.handleInstanceMetricsRequest.bind(this));
-		this.handle(libData.InstanceStartRequest, this.handleInstanceStartRequest.bind(this));
-		this.handle(libData.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
-		this.handle(libData.InstanceListSavesRequest, this.handleInstanceListSavesRequest.bind(this));
-		this.handle(libData.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
-		this.handle(libData.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
-		this.handle(libData.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
-		this.handle(libData.InstanceKillRequest, this.handleInstanceKillRequest.bind(this));
-		this.handle(libData.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
+		this.handle(lib.InstanceMetricsRequest, this.handleInstanceMetricsRequest.bind(this));
+		this.handle(lib.InstanceStartRequest, this.handleInstanceStartRequest.bind(this));
+		this.handle(lib.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
+		this.handle(lib.InstanceListSavesRequest, this.handleInstanceListSavesRequest.bind(this));
+		this.handle(lib.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
+		this.handle(lib.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
+		this.handle(lib.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
+		this.handle(lib.InstanceKillRequest, this.handleInstanceKillRequest.bind(this));
+		this.handle(lib.InstanceSendRconRequest, this.handleInstanceSendRconRequest.bind(this));
 	}
 
 	_watchPlayerJoinsByChat() {
@@ -303,8 +294,8 @@ class Instance extends libLink.Link {
 			name,
 			stats,
 		};
-		this.sendTo("controller", new libData.InstancePlayerUpdateEvent("join", name, undefined, stats));
-		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, undefined, stats));
+		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
 	_recordPlayerLeave(name, reason) {
@@ -325,8 +316,8 @@ class Instance extends libLink.Link {
 			reason,
 			stats,
 		};
-		this.sendTo("controller", new libData.InstancePlayerUpdateEvent("leave", name, reason, stats));
-		libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, reason, stats));
+		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
 	async handleInstanceExtractPlayersRequest() {
@@ -353,8 +344,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				name,
 				stats: stats.toJSON(),
 			};
-			this.sendTo("controller", new libData.InstancePlayerUpdateEvent("import", name, undefined, stats));
-			libPlugin.invokeHook(this.plugins, "onPlayerEvent", event);
+			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, undefined, stats));
+			lib.invokeHook(this.plugins, "onPlayerEvent", event);
 			count += 1;
 		}
 		this.logger.info(`Extracted data for ${count} player(s)`);
@@ -374,7 +365,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	static async listSaves(savesDir, loadedSave) {
 		let defaultSave = null;
 		if (loadedSave === null) {
-			defaultSave = await libFileOps.getNewestFile(
+			defaultSave = await lib.getNewestFile(
 				savesDir, (name) => !name.endsWith(".tmp.zip")
 			);
 		}
@@ -391,7 +382,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				type = "special";
 			}
 
-			list.push(new libData.SaveDetails(
+			list.push(new lib.SaveDetails(
 				type,
 				name,
 				stat.size,
@@ -407,7 +398,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async sendSaveListUpdate() {
 		this.sendTo(
 			"controller",
-			new libData.InstanceSaveListUpdateEvent(
+			new lib.InstanceSaveListUpdateEvent(
 				this.id,
 				await Instance.listSaves(this.path("saves"), this._loadedSave),
 			),
@@ -440,7 +431,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this._status = status;
 		this.sendTo(
 			"controller",
-			new libData.InstanceStatusChangedEvent(
+			new lib.InstanceStatusChangedEvent(
 				this.id,
 				status,
 				this.server && this.server.gamePort || this.config.get("factorio.game_port") || null,
@@ -467,9 +458,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		clearTimeout(this._playerCheckInterval);
 
 		// Clear metrics this instance is exporting
-		for (let collector of libPrometheus.defaultRegistry.collectors) {
+		for (let collector of lib.defaultRegistry.collectors) {
 			if (
-				collector instanceof libPrometheus.ValueCollector
+				collector instanceof lib.ValueCollector
 				&& collector.metric.labels.includes("instance_id")
 			) {
 				collector.removeAll({ instance_id: String(this.id) });
@@ -489,7 +480,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 	async _loadPlugin(pluginInfo, host) {
 		let pluginLoadStarted = Date.now();
-		let InstancePluginClass = await libPluginLoader.loadInstancePluginClass(pluginInfo);
+		let InstancePluginClass = await lib.loadInstancePluginClass(pluginInfo);
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
@@ -516,7 +507,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			players: [...this.playerStats],
 			player_autosave_slot: this._playerAutosaveSlot,
 		}, null, 4);
-		await libFileOps.safeOutputFile(this.path("instance-stats.json"), content);
+		await lib.safeOutputFile(this.path("instance-stats.json"), content);
 	}
 
 	async init(pluginInfos) {
@@ -553,7 +544,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
-		this.send(new libData.InstanceInitialisedEvent(plugins));
+		this.send(new lib.InstanceInitialisedEvent(plugins));
 	}
 
 	/**
@@ -588,7 +579,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 */
 	async writeServerSettings() {
 		let serverSettings = await this.resolveServerSettings(this.config.get("factorio.settings"));
-		await libFileOps.safeOutputFile(
+		await lib.safeOutputFile(
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, 4)
 		);
@@ -625,9 +616,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		const modPackId = this.config.get("factorio.mod_pack");
 		let modPack;
 		if (modPackId === null) {
-			modPack = await this.sendTo("controller", new libData.ModPackGetDefaultRequest());
+			modPack = await this.sendTo("controller", new lib.ModPackGetDefaultRequest());
 		} else {
-			modPack = await this.sendTo("controller", new libData.ModPackGetRequest(modPackId));
+			modPack = await this.sendTo("controller", new lib.ModPackGetRequest(modPackId));
 		}
 		this.activeModPack = modPack;
 
@@ -691,7 +682,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_adminlist")) {
 			this.logger.verbose("Writing server-adminlist.json");
-			libFileOps.safeOutputFile(
+			lib.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
 				JSON.stringify([...this._host.adminlist], null, 4)
 			);
@@ -699,7 +690,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_banlist")) {
 			this.logger.verbose("Writing server-banlist.json");
-			libFileOps.safeOutputFile(
+			lib.safeOutputFile(
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._host.banlist].map(
 					([username, reason]) => ({ username, reason })
@@ -709,7 +700,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		if (this.config.get("factorio.sync_whitelist")) {
 			this.logger.verbose("Writing server-whitelist.json");
-			libFileOps.safeOutputFile(
+			lib.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
 				JSON.stringify([...this._host.whitelist], null, 4)
 			);
@@ -731,7 +722,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async prepareSave(saveName) {
 		// Use latest save if no save was specified
 		if (saveName === undefined) {
-			saveName = await libFileOps.getNewestFile(
+			saveName = await lib.getNewestFile(
 				this.path("saves"), (name) => !name.endsWith(".tmp.zip")
 			);
 		}
@@ -832,7 +823,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			}
 		}
 
-		await libFactorio.patch(this.path("saves", saveName), [...modules.values()]);
+		await lib.patch(this.path("saves", saveName), [...modules.values()]);
 		return saveName;
 	}
 
@@ -860,7 +851,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 
 		await this.sendSaveListUpdate();
-		await libPlugin.invokeHook(this.plugins, "onStart");
+		await lib.invokeHook(this.plugins, "onStart");
 
 		this.notifyStatus("running");
 	}
@@ -885,7 +876,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.server.startScenario(scenario, seed, mapGenSettings, mapSettings);
 		this._watchPlayerJoinsByChat();
 
-		await libPlugin.invokeHook(this.plugins, "onStart");
+		await lib.invokeHook(this.plugins, "onStart");
 
 		this.notifyStatus("running");
 	}
@@ -894,7 +885,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Update instance information on the Factorio side
 	 */
 	async updateInstanceData() {
-		let name = libLuaTools.escapeString(this.name);
+		let name = lib.escapeString(this.name);
 		await this.sendRcon(`/sc clusterio_private.update_instance(${this.id}, "${name}")`, true);
 	}
 
@@ -973,7 +964,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// XXX this needs more thought to it
 		if (this.server._state === "running") {
-			await libPlugin.invokeHook(this.plugins, "onStop");
+			await lib.invokeHook(this.plugins, "onStop");
 			await this.server.stop();
 			await this.sendSaveListUpdate();
 		}
@@ -987,20 +978,20 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async handleControllerConnectionEvent(event) {
-		await libPlugin.invokeHook(this.plugins, "onControllerConnectionEvent", event.event);
+		await lib.invokeHook(this.plugins, "onControllerConnectionEvent", event.event);
 	}
 
 	async handlePrepareControllerDisconnectRequest() {
-		await libPlugin.invokeHook(this.plugins, "onPrepareControllerDisconnect");
+		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect");
 	}
 
 	async handleInstanceMetricsRequest() {
 		let results = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
-			let pluginResults = await libPlugin.invokeHook(this.plugins, "onMetrics");
+			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
-					results.push(libPrometheus.serializeResult(metric));
+					results.push(lib.serializeResult(metric));
 				}
 			}
 		}
@@ -1012,7 +1003,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			instanceFactorioMemoryUsage.labels(String(this.id)).set(stats.memory);
 		}
 
-		return new libData.InstanceMetricsRequest.Response(results);
+		return new lib.InstanceMetricsRequest.Response(results);
 	}
 
 	async handleInstanceStartRequest(request) {
@@ -1037,7 +1028,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async handleInstanceLoadScenarioRequest(request) {
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
-			throw new libErrors.RequestError("Load scenario cannot be used with save patching enabled");
+			throw new lib.RequestError("Load scenario cannot be used with save patching enabled");
 		}
 
 		try {
@@ -1091,7 +1082,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 			this.logger.info("Exporting data .....");
 			await this.syncMods();
-			let zip = await libFactorio.exportData(this.server);
+			let zip = await lib.exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._host.config.get("host.controller_url"));

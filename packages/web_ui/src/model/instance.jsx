@@ -1,16 +1,16 @@
 import { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
-import { libData, libLogging } from "@clusterio/lib";
-const { logger } = libLogging;
+import * as lib from "@clusterio/lib";
 
+const { logger } = lib;
 
 export function useInstance(id) {
 	let control = useContext(ControlContext);
 	let [instance, setInstance] = useState({ loading: true });
 
 	function updateInstance() {
-		control.send(new libData.InstanceDetailsGetRequest(id)).then(updatedInstance => {
+		control.send(new lib.InstanceDetailsGetRequest(id)).then(updatedInstance => {
 			setInstance({ ...updatedInstance, present: true });
 		}).catch(err => {
 			logger.error(`Failed to get instance: ${err}`);
@@ -44,7 +44,7 @@ export function useInstanceList() {
 	let [instanceList, setInstanceList] = useState([]);
 
 	function updateInstanceList() {
-		control.send(new libData.InstanceDetailsListRequest()).then(instances => {
+		control.send(new lib.InstanceDetailsListRequest()).then(instances => {
 			setInstanceList(instances);
 		}).catch(err => {
 			logger.error(`Failed to list instances:\n${err}`);

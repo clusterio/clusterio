@@ -1,60 +1,60 @@
 "use strict";
 const assert = require("assert").strict;
-const libIni = require("@clusterio/lib/ini");
+const lib = require("@clusterio/lib");
 
 describe("lib/ini", function() {
 	describe("parse()", function() {
 		it("should ignore comments", function() {
 			assert.deepEqual(
-				libIni.parse("# A comment\n; Another comment\nfoo=bar\n"),
+				lib.parse("# A comment\n; Another comment\nfoo=bar\n"),
 				{ foo: "bar" },
 			);
 		});
 		it("should ignore certain whitespace", function() {
 			assert.deepEqual(
-				libIni.parse("  # A comment  \n\n [spam] \t \n \tfoo=bar\n"),
+				lib.parse("  # A comment  \n\n [spam] \t \n \tfoo=bar\n"),
 				{ spam: { foo: "bar" }}
 			);
 		});
 		it("should preserve certain whitespace", function() {
 			assert.deepEqual(
-				libIni.parse("[\t spam\t ]\nfoo =\t bar \n"),
+				lib.parse("[\t spam\t ]\nfoo =\t bar \n"),
 				{ "\t spam\t ": { "foo ": "\t bar " }}
 			);
 		});
 		it("should not treat characters specially", function() {
 			assert.deepEqual(
-				libIni.parse("[#;spam]\nfoo#;=#;bar=#;'\""),
+				lib.parse("[#;spam]\nfoo#;=#;bar=#;'\""),
 				{ "#;spam": { "foo#;": "#;bar=#;'\"" }}
 			);
 		});
 		it("should handle windows line endings", function() {
 			assert.deepEqual(
-				libIni.parse("[spam]\r\nfoo=bar\r\n"),
+				lib.parse("[spam]\r\nfoo=bar\r\n"),
 				{ "spam": { "foo": "bar" }}
 			);
 		});
 		it("should throw on incomplete section", function() {
 			assert.throws(
-				() => libIni.parse("[spam"),
+				() => lib.parse("[spam"),
 				new Error("Unterminated section header on line 1")
 			);
 		});
 		it("should throw on missing value", function() {
 			assert.throws(
-				() => libIni.parse("key"),
+				() => lib.parse("key"),
 				new Error("Missing value for key key on line 1")
 			);
 		});
 		it("should throw on duplicated section", function() {
 			assert.throws(
-				() => libIni.parse("[spam]\n[spam]\n"),
+				() => lib.parse("[spam]\n[spam]\n"),
 				new Error("Duplicated section [spam] on line 2")
 			);
 		});
 		it("should throw on duplicated keys", function() {
 			assert.throws(
-				() => libIni.parse("key=value\nkey=value\n"),
+				() => lib.parse("key=value\nkey=value\n"),
 				new Error("Duplicated key key on line 2")
 			);
 		});
@@ -73,7 +73,7 @@ describe("lib/ini", function() {
 				[{ "#;spam": { "foo#;": "#;bar=#;'\"" }}, "[#;spam]\nfoo#;=#;bar=#;'\"\n"],
 			];
 			for (let [input, expected] of cases) {
-				assert.equal(libIni.stringify(input), expected);
+				assert.equal(lib.stringify(input), expected);
 			}
 		});
 	});
@@ -86,7 +86,7 @@ describe("lib/ini", function() {
 			{ first: { foo: "1", bar: "2" }, second: { spam: "true" }},
 			{ '"#;[] ': ' "#;[] ', ' #;"[ ': { '"#;[] ': ' "#;[ ' }},
 		]) {
-			let actual = libIni.parse(libIni.stringify(expected));
+			let actual = lib.parse(lib.stringify(expected));
 			assert.deepEqual(actual, expected);
 		}
 	});

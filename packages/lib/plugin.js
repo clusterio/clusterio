@@ -9,10 +9,10 @@ const helpers = require("./helpers");
 /**
  * Conceptual base for controller and instance plugins.
  * @typedef {
- *     module:lib/plugin.BaseControllerPlugin
- *     |module:lib/plugin.BaseInstancePlugin
- *     |module:lib/plugin.BaseControlPlugin
- * } module:lib/plugin.BasePlugin
+ *     module:lib.BaseControllerPlugin
+ *     |module:lib.BaseInstancePlugin
+ *     |module:lib.BaseControlPlugin
+ * } module:lib.BasePlugin
  */
 
 /**
@@ -77,7 +77,7 @@ class BaseInstancePlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed.
 	 *
-	 * @param {module:lib/config.ConfigGroup} group -
+	 * @param {module:lib.ConfigGroup} group -
 	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
@@ -366,7 +366,7 @@ class BaseControllerPlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed on the controller.
 	 *
-	 * @param {module:lib/config.ConfigGroup} group -
+	 * @param {module:lib.ConfigGroup} group -
 	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
@@ -381,7 +381,7 @@ class BaseControllerPlugin {
 	 *
 	 * @param {module:controller/src/InstanceInfo} instance -
 	 *     The instance the config changed on.
-	 * @param {module:lib/config.ConfigGroup} group -
+	 * @param {module:lib.ConfigGroup} group -
 	 *     The group who's field got changed.
 	 * @param {string} field - Name of the field that changed.
 	 * @param {*} prev - The previous value of the field.
@@ -504,7 +504,7 @@ class BaseControllerPlugin {
 	 * If the mod pack has been deleted its `.isDeleted` property will be
 	 * true.
 	 *
-	 * @param {module:lib/data.ModPack} modPack - Mod pack that updated.
+	 * @param {module:lib.ModPack} modPack - Mod pack that updated.
 	 */
 	async onModPackUpdated(modPack) { }
 
@@ -516,7 +516,7 @@ class BaseControllerPlugin {
 	 *
 	 * If a mod has been deleted its `.isDeleted` property will be true.
 	 *
-	 * @param {module:lib/data.ModInfo} mod - Mod that updated.
+	 * @param {module:lib.ModInfo} mod - Mod that updated.
 	 */
 	async onModUpdated(mod) { }
 
@@ -601,9 +601,9 @@ class BaseControlPlugin {
 	 *
 	 * Invoked by clusterioctl to let plugins add commands.  `rootCommand` is
 	 * the top level command node which the plugin should add its own {@link
-	 * module:lib/command.CommandTree} to.
+	 * module:lib.CommandTree} to.
 	 *
-	 * @param {module:lib/command.CommandTree} rootCommand -
+	 * @param {module:lib.CommandTree} rootCommand -
 	 *     Root of the clusterioctl command tree.
 	 */
 	async addCommands(rootCommand) { }
@@ -612,7 +612,7 @@ class BaseControlPlugin {
 
 /**
  * Plugin supplied login form
- * @typedef {Object} module:lib/plugin~LoginForm
+ * @typedef {Object} module:lib~LoginForm
  * @property {string} name -
  *     Internal name of the login form, this should start with the
  *     plugin name followed by a dot.
@@ -627,7 +627,7 @@ class BaseControlPlugin {
 
 /**
  * Plugin supplied pages
- * @typedef {Object} module:lib/plugin~Page
+ * @typedef {Object} module:lib~Page
  * @property {string} path - URL path to this page.
  * @property {string=} sidebarPath -
  *     If present and this path matches one of the pages in the sidebar it
@@ -669,7 +669,7 @@ class BaseWebPlugin {
 		/**
 		 * Control link to the controller, not available until the
 		 * connect event in onControllerConnectionEvent is signaled.
-		 * @type {?module:lib/link.Link}
+		 * @type {?module:lib.Link}
 		 */
 		this.control = null;
 
@@ -685,14 +685,14 @@ class BaseWebPlugin {
 		/**
 		 * List of login forms provided by this plugin
 		 *
-		 * @type {Array<module:lib/plugin~LoginForm>}
+		 * @type {Array<module:lib~LoginForm>}
 		 */
 		this.loginForms = [];
 
 		/**
 		 * List of pages provided by this plugin
 		 *
-		 * @type {Array<module:lib/plugin~Page>}
+		 * @type {Array<module:lib~Page>}
 		 */
 		this.pages = [];
 

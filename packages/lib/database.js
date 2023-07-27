@@ -170,7 +170,7 @@ class ItemDatabase {
 	 * Create a new item database
 	 *
 	 * @param {object|undefined} serialized - An object from a previous call to
-	 *     {@link module:lib/database~ItemDatabase#serialize} to restore the
+	 *     {@link module:libbase~ItemDatabase#serialize} to restore the
 	 *     database from.  An empty database will be created if this parameter
 	 *     is left undefined.
 	 */

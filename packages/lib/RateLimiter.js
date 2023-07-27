@@ -19,7 +19,7 @@
  *     // and one more time 1 second later for 99 other activations that were
  *     // exceeding the rate limit.
  * }
- * @alias module:lib/RateLimiter
+ * @alias module:lib.RateLimiter
  */
 class RateLimiter {
 	/**

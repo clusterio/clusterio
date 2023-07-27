@@ -2,19 +2,17 @@
 const assert = require("assert").strict;
 const path = require("path");
 
-const libConfig = require("@clusterio/lib/config");
-const libData = require("@clusterio/lib/data");
-const { wait } = require("@clusterio/lib/helpers");
-const PlayerStats = require("@clusterio/lib/PlayerStats");
+const lib = require("@clusterio/lib");
+const { PlayerStats, wait } = lib;
 const Instance = require("@clusterio/host/src/Instance");
 const { MockConnector, MockServer } = require("../mock");
 
-const addr = libData.Address.fromShorthand;
+const addr = lib.Address.fromShorthand;
 
 
 describe("class Instance", function() {
 	before(function() {
-		libConfig.InstanceConfig.finalize();
+		lib.InstanceConfig.finalize();
 	});
 
 	let src;
@@ -22,7 +20,7 @@ describe("class Instance", function() {
 	let instance;
 	let connector;
 	beforeEach(async function() {
-		let instanceConfig = new libConfig.InstanceConfig("host");
+		let instanceConfig = new lib.InstanceConfig("host");
 		await instanceConfig.init();
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
@@ -64,9 +62,9 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[0],
-				new libData.MessageEvent(
+				new lib.MessageEvent(
 					1, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent(
+					new lib.InstancePlayerUpdateEvent(
 						"join", "player", undefined,
 						new PlayerStats({
 							join_count: 1,
@@ -109,9 +107,9 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				new libData.MessageEvent(
+				new lib.MessageEvent(
 					2, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent(
+					new lib.InstancePlayerUpdateEvent(
 						"leave", "player", "quit",
 						new PlayerStats({
 							join_count: 1,
@@ -159,9 +157,9 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("foo");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				new libData.MessageEvent(
+				new lib.MessageEvent(
 					2, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent(
+					new lib.InstancePlayerUpdateEvent(
 						"join", "foo", undefined,
 						new PlayerStats({
 							join_count: 1,
@@ -180,9 +178,9 @@ describe("class Instance", function() {
 			let stats = instance.playerStats.get("player");
 			assert.deepEqual(
 				connector.sentMessages[1],
-				new libData.MessageEvent(
+				new lib.MessageEvent(
 					2, src, addr("controller"), "InstancePlayerUpdateEvent",
-					new libData.InstancePlayerUpdateEvent(
+					new lib.InstancePlayerUpdateEvent(
 						"leave", "player", "quit",
 						new PlayerStats({
 							join_count: 1,

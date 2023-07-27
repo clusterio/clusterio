@@ -15,7 +15,7 @@ const { integerModVersion, integerFactorioVersion, modVersionRegExp } = require(
  *
  * See https://wiki.factorio.com/Tutorial:Mod_structure#info.json for
  * details of the invidiual fields sourced from info.json.
- * @alias module:lib/data.ModInfo
+ * @alias module:lib.ModInfo
  */
 class ModInfo {
 	/**

@@ -21,7 +21,7 @@ const { LineSplitter } = require("../stream");
  * reading the changelog.txt in it.
  *
  * @param {string} changelogPath - Path to changelog.txt.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -55,7 +55,7 @@ async function getVersion(changelogPath) {
  * @param {string} a - Version to compare.
  * @param {string} b - Version to compare.
  * @returns {number} 1 if a < b, 0 if a = b and -1 if a > b.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -87,7 +87,7 @@ function versionOrder(a, b) {
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
  * @returns {Promise<Array>} Array with path to data dir and version found.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -145,7 +145,7 @@ async function findVersion(factorioDir, targetVersion) {
  * RFC 6335.
  *
  * @return {number} a number in the range 49152 to 65535.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -164,7 +164,7 @@ function randomDynamicPort() {
  *
  * @param {number} length - the length of the password to generate.
  * @return {Promise<string>} password of the given length
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -207,7 +207,7 @@ async function generatePassword(length) {
  * @param {string} source - Passed into the output structure as source
  *
  * @returns {object} - An object with interpeted data.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -412,7 +412,7 @@ const outputHeuristics = [
  * - save-finished - invoked when the server has finished a manual save
  * - exit - invoked when the sterver has exited
  * @extends events.EventEmitter
- * @memberof module:lib/factorio
+ * @memberof module:lib
  */
 class FactorioServer extends events.EventEmitter {
 	/**

@@ -77,7 +77,7 @@ function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
  *
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
- *     module:lib/plugin_loader.loadPluginInfos} to load class from.
+ *     module:lib.loadPluginInfos} to load class from.
  * @returns {Promise<function>} plugin class
  * @static
  */
@@ -90,7 +90,7 @@ async function loadControllerPluginClass(pluginInfo) {
  *
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
- *     module:lib/plugin_loader.loadPluginInfos} to load class from.
+ *     module:lib.loadPluginInfos} to load class from.
  * @returns {Promise<function>} plugin class
  * @static
  */
@@ -103,7 +103,7 @@ async function loadInstancePluginClass(pluginInfo) {
  *
  * @param {Object} pluginInfo -
  *     Plugin info object returned from {@link
- *     module:lib/plugin_loader.loadPluginInfos} to load class from.
+ *     module:lib.loadPluginInfos} to load class from.
  * @returns {Promise<function>} plugin class
  * @static
  */

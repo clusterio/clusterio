@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button } from "antd";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -18,7 +18,7 @@ export default function StartStopInstanceButton(props) {
 		if (props.instance["status"] === "stopped") {
 			action = control.sendTo(
 				{ instanceId: props.instance["id"] },
-				new libData.InstanceStartRequest(undefined),
+				new lib.InstanceStartRequest(undefined),
 			).catch(
 				notifyErrorHandler("Error starting instance")
 			);
@@ -26,7 +26,7 @@ export default function StartStopInstanceButton(props) {
 		} else if (["starting", "running"].includes(props.instance["status"])) {
 			action = control.sendTo(
 				{ instanceId: props.instance["id"] },
-				new libData.InstanceStopRequest(),
+				new lib.InstanceStopRequest(),
 			).catch(
 				notifyErrorHandler("Error stopping instance")
 			);

@@ -52,10 +52,10 @@ class Command {
 /**
  * A node in the command tree that can hold commands and sub trees
  *
- * Container which can contain {@link module:lib/command.Command}s and other
+ * Container which can contain {@link module:lib.Command}s and other
  * CommandTrees.  This is used by clusterioctl to hold the full tree of
  * available commands, you may extend this tree by using a control plugin,
- * see {@link module:lib/plugin.BaseControlPlugin#addCommands}
+ * see {@link module:lib.BaseControlPlugin#addCommands}
  *
  * @static
  */
@@ -83,7 +83,7 @@ class CommandTree {
 	/**
 	 * Add a command or command tree to this tree
 	 *
-	 * @param {module:lib/command.Command|module:lib/command.CommandTree} command -
+	 * @param {module:lib.Command|module:lib.CommandTree} command -
 	 *    The command to add to this command tree.
 	 */
 	add(command) {
@@ -104,7 +104,7 @@ class CommandTree {
 	 *
 	 * @param {string} name -
 	 *     The name of the command or command tree to retrieve.
-	 * @return {?module:lib/command.Command|module:lib/command.CommandTree}
+	 * @return {?module:lib.Command|module:lib.CommandTree}
 	 *    The command to add to this command tree.
 	 */
 	get(name) {
@@ -141,7 +141,7 @@ class CommandTree {
  * Resolves a string with either an host name or an id into an integer with
  * the host ID.
  *
- * @param {module:lib/link.Link} client - link to controller to query host on.
+ * @param {module:lib.Link} client - link to controller to query host on.
  * @param {string} hostName - string with name or id of host.
  * @returns {Promise<number>} host ID.
  * @static
@@ -173,7 +173,7 @@ async function resolveHost(client, hostName) {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param {module:lib/link.Link} client - link to controller to query instance on.
+ * @param {module:lib.Link} client - link to controller to query instance on.
  * @param {string} instanceName - string with name or id of instance.
  * @returns {Promise<number>} instance ID.
  * @static
@@ -205,7 +205,7 @@ async function resolveInstance(client, instanceName) {
  * Resolevs a string with either a mod pack name or an id into an integer
  * with the mod pack ID.
  *
- * @param {module:lib/link.Link} client -
+ * @param {module:lib.Link} client -
  *     link to controller to query mod pack on.
  * @param {string} modPackName - string with name or id of mod pack.
  * @returns {Promise<number>} mod pack ID.
@@ -238,7 +238,7 @@ async function resolveModPack(client, modPackName) {
  * Resolves a string with either a role name or an id into an object
  * representing the role.
  *
- * @param {module:lib/link.Link} client - link to controller to query role on.
+ * @param {module:lib.Link} client - link to controller to query role on.
  * @param {string} roleName - string with name or id of role.
  * @returns {Promise<object>} Role info.
  * @static

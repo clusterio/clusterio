@@ -7,9 +7,8 @@ const express = require("express");
 const util = require("util");
 const jwt = require("jsonwebtoken");
 
-const libPlugin = require("@clusterio/lib/plugin");
-const libErrors = require("@clusterio/lib/errors");
-const { basicType } = require("@clusterio/lib/helpers");
+const lib = require("@clusterio/lib");
+const { basicType } = lib;
 
 const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("./messages");
 
@@ -30,7 +29,7 @@ async function generateCode(length) {
 }
 
 
-class ControllerPlugin extends libPlugin.BaseControllerPlugin {
+class ControllerPlugin extends lib.BaseControllerPlugin {
 	async init() {
 		// Store of validation attempts by players
 		this.players = new Map();
@@ -174,12 +173,12 @@ class ControllerPlugin extends libPlugin.BaseControllerPlugin {
 	async handleSetVerifyCodeRequest(request) {
 		let { player, verifyCode } = request;
 		if (!this.players.has(player)) {
-			throw new libErrors.RequestError("invalid player");
+			throw new lib.RequestError("invalid player");
 		}
 
 		let entry = this.players.get(player);
 		if (entry.expires < Date.now()) {
-			throw new libErrors.RequestError("invalid player");
+			throw new lib.RequestError("invalid player");
 		}
 
 		entry.verifyCode = verifyCode;

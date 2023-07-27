@@ -5,7 +5,7 @@
  *
  * Tracks files stored on disk for data that extracted from Factorio using a
  * given mod pack.
- * @alias module:lib/data.ExportManifest
+ * @alias module:lib.ExportManifest
  */
 class ExportManifest {
 

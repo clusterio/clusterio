@@ -4,7 +4,7 @@ const ModInfo = require("./ModInfo");
 const { jsonArray, JsonString } = require("./composites");
 
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackGetRequest {
 	static type = "request";
 	static src = ["instance", "control"];
@@ -33,7 +33,7 @@ class ModPackGetRequest {
 	static Response = ModPack;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackGetDefaultRequest {
 	static type = "request";
 	static src = ["instance", "control"];
@@ -42,7 +42,7 @@ class ModPackGetDefaultRequest {
 	static Response = ModPack;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackListRequest {
 	static type = "request";
 	static src = "control";
@@ -51,14 +51,14 @@ class ModPackListRequest {
 	static Response = jsonArray(ModPack);
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ModPackCreateRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
 	static permission = "core.mod_pack.create";
 
-	/** @type {module:lib/data.ModPack} */
+	/** @type {module:lib.ModPack} */
 	modPack;
 
 	constructor(modPack) {
@@ -78,14 +78,14 @@ class ModPackCreateRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackUpdateRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
 	static permission = "core.mod_pack.update";
 
-	/** @type {module:lib/data.ModPack} */
+	/** @type {module:lib.ModPack} */
 	modPack;
 
 	constructor(modPack) {
@@ -105,7 +105,7 @@ class ModPackUpdateRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackDeleteRequest {
 	static type = "request";
 	static src = "control";
@@ -132,7 +132,7 @@ class ModPackDeleteRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -166,7 +166,7 @@ class ModPackSetSubscriptionsRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModGetRequest {
 	static type = "request";
 	static src = "control";
@@ -199,7 +199,7 @@ class ModGetRequest {
 	static Response = ModInfo;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModListRequest {
 	static type = "request";
 	static src = "control";
@@ -208,7 +208,7 @@ class ModListRequest {
 	static Response = jsonArray(ModInfo);
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModSearchRequest {
 	static type = "request";
 	static src = "control";
@@ -305,7 +305,7 @@ ModSearchRequest.Response = class Response {
 	}
 };
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -339,7 +339,7 @@ class ModSetSubscriptionsRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModDownloadRequest {
 	static type = "request";
 	static src = "control";
@@ -372,7 +372,7 @@ class ModDownloadRequest {
 	static Response = JsonString;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModDeleteRequest {
 	static type = "request";
 	static src = "control";
@@ -403,13 +403,13 @@ class ModDeleteRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModPackUpdateEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
 
-	/** @type {module:lib/data.ModPack} */
+	/** @type {module:lib.ModPack} */
 	modPack;
 
 	constructor(modPack) {
@@ -429,13 +429,13 @@ class ModPackUpdateEvent {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ModUpdateEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
 
-	/** @type {module:lib/data.ModInfo} */
+	/** @type {module:lib.ModInfo} */
 	mod;
 
 	constructor(mod) {

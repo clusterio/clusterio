@@ -100,8 +100,8 @@ class Role {
  *
  * Ensures the role with id 0 exisits and has the core.admin permission.
  *
- * @param {Map<number, module:lib/user.Role>} roles - role storage to modify.
- * @returns {module:lib/permission.Role} the default admin role
+ * @param {Map<number, module:lib.Role>} roles - role storage to modify.
+ * @returns {module:lib.Role} the default admin role
  * @static
  */
 function ensureDefaultAdminRole(roles) {
@@ -121,7 +121,7 @@ function ensureDefaultAdminRole(roles) {
  * assigned by default.  Note that this may not be the same role as the one
  * that is assigned to new users by default.
  *
- * @param {Map<number, module:lib/user.Role>} roles - role storage to modify.
+ * @param {Map<number, module:lib.Role>} roles - role storage to modify.
  * @static
  */
 function ensureDefaultPlayerRole(roles) {
@@ -186,7 +186,7 @@ class User {
 
 		/**
 		 * Roles this user has
-		 * @type {Set<module:lib/permissions.Role>}
+		 * @type {Set<module:lib.Role>}
 		 */
 		this.roles = new Set();
 		if (serializedUser.roles) {
@@ -200,7 +200,7 @@ class User {
 
 		/**
 		 * Per instance statistics for the player this user account is tied to.
-		 * @type {Map<number, module:lib/PlayerStats>}
+		 * @type {Map<number, module:lib.PlayerStats>}
 		 */
 		this.instanceStats = new Map(
 			(serializedUser.instance_stats ? serializedUser.instance_stats : []).map(
@@ -210,7 +210,7 @@ class User {
 
 		/**
 		 * Combined statistics for the player this user account is tied to.
-		 * @type {module:lib/PlayerStats}
+		 * @type {module:lib.PlayerStats}
 		 */
 		this.playerStats = this._calculatePlayerStats();
 
@@ -286,7 +286,7 @@ class User {
 	 *
 	 * @param {string} permission - The permission to check for.
 	 * @throws {Error} If the given permission does not exist.
-	 * @throws {module:lib/errors.PermissionError} if the user does noh have the given permission.
+	 * @throws {module:lib.PermissionError} if the user does noh have the given permission.
 	 */
 	checkPermission(permission) {
 		if (!permissions.has(permission)) {
@@ -336,7 +336,7 @@ class User {
 }
 /**
  * Set of users currently online in the cluster.
- * @type {module:lib/users.User}
+ * @type {module:lib.User}
  */
 User.onlineUsers = new Set();
 

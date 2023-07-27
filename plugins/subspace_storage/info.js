@@ -1,8 +1,8 @@
 "use strict";
-const { libConfig, libUsers } = require("@clusterio/lib");
+const lib = require("@clusterio/lib");
 const messages = require("./messages");
 
-class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
+class ControllerConfigGroup extends lib.PluginConfigGroup {}
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "subspace_storage";
 ControllerConfigGroup.define({
@@ -29,7 +29,7 @@ ControllerConfigGroup.define({
 });
 ControllerConfigGroup.finalize();
 
-class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
+class InstanceConfigGroup extends lib.PluginConfigGroup {}
 InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 InstanceConfigGroup.groupName = "subspace_storage";
 InstanceConfigGroup.define({
@@ -41,7 +41,7 @@ InstanceConfigGroup.define({
 });
 InstanceConfigGroup.finalize();
 
-libUsers.definePermission({
+lib.definePermission({
 	name: "subspace_storage.storage.view",
 	title: "View Subspace Storage",
 	description: "View the items and fluids stored in the shared subspace.",

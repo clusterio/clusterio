@@ -8,7 +8,7 @@
  *
  * @param {JSZip} zip - Zip to search through.
  * @returns {string} name of the root folder.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */

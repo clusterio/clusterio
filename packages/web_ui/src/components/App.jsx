@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
-import { libLogging } from "@clusterio/lib";
+import { logger } from "@clusterio/lib";
 
 import ErrorBoundary from "./ErrorBoundary";
 import SiteLayout from "./SiteLayout";
@@ -11,7 +11,6 @@ import LoginForm from "./LoginForm";
 import { Card, ConfigProvider, Spin, Typography, theme } from "antd";
 
 const { Paragraph } = Typography;
-const { logger } = libLogging;
 
 
 function ErrorCard(props) {

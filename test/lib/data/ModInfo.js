@@ -3,16 +3,15 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 
-const libSchema = require("@clusterio/lib/schema");
-const libHash = require("@clusterio/lib/hash");
+const lib = require("@clusterio/lib");
 const libBuildMod = require("@clusterio/lib/build_mod");
-const ModInfo = require("@clusterio/lib/data/ModInfo");
+const { ModInfo } = lib;
 
 
 describe("lib/data/ModInfo", function() {
 	describe("class ModInfo", function() {
 		it("should round trip serialize", function() {
-			const validate = libSchema.compile(ModInfo.jsonSchema);
+			const validate = lib.compile(ModInfo.jsonSchema);
 			function check(pack) {
 				const json = JSON.parse(JSON.stringify(pack));
 				if (!validate(json)) {
@@ -78,7 +77,7 @@ describe("lib/data/ModInfo", function() {
 				outputDir: path.join("temp", "test"),
 			});
 			const filePath = path.join("temp", "test", "empty_mod_1.0.0.zip");
-			const hash = await libHash.hashFile(filePath);
+			const hash = await lib.hashFile(filePath);
 			const stat = await fs.stat(filePath);
 			const mod = await ModInfo.fromModFile(filePath);
 			assert.deepEqual(

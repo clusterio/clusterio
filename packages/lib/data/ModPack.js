@@ -9,7 +9,7 @@ const { integerFactorioVersion } = require("./version");
 
 /**
  * A setting for a mod.
- * @typedef {object} module:lib/data.ModPack~ModSetting
+ * @typedef {object} module:lib.ModPack~ModSetting
  * @property {boolean|number|string} value - Value of the given mod setting.
  */
 const ModSettingJsonSchema = {
@@ -28,7 +28,7 @@ const ModSettingsJsonSchema = {
 
 /**
  * A mod in a mod pack
- * @typedef {object} module:lib/data.ModPack~ModRecord
+ * @typedef {object} module:lib.ModPack~ModRecord
  * @property {string} name - name of the mod.
  * @property {boolean} enabled - if mod is to be loaded.
  * @property {string} version - version of the mod.
@@ -49,7 +49,7 @@ const ModRecordJsonSchema = {
  * Factorio Mod Pack
  *
  * Tracks mods and settings for a collection of Factorio mods.
- * @alias module:lib/data.ModPack
+ * @alias module:lib.ModPack
  */
 class ModPack {
 	/**
@@ -86,13 +86,13 @@ class ModPack {
 
 	/**
 	 * Mods included in this mod pack
-	 * @type {Map<string, module:lib/data.ModPack~ModRecord>}
+	 * @type {Map<string, module:lib.ModPack~ModRecord>}
 	 */
 	mods = new Map();
 
 	/**
 	 * Mod settings for this mod pack
-	 * @type {Object<string, Map<string, module:lib/data.ModPack~ModSetting>>=}
+	 * @type {Object<string, Map<string, module:lib.ModPack~ModSetting>>=}
 	 */
 	settings = {
 		"startup": new Map(),
@@ -102,7 +102,7 @@ class ModPack {
 
 	/**
 	 * Mapping to files containing exported data for this modpack
-	 * @type {module:lib/data.ExportManifest|undefined}
+	 * @type {module:lib.ExportManifest|undefined}
 	 */
 	exportManifest;
 

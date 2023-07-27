@@ -2,7 +2,7 @@
 const PlayerStats = require("../PlayerStats");
 const { JsonString, jsonArray } = require("./composites");
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDetails {
 	/** @type {string} */
 	name;
@@ -43,7 +43,7 @@ class InstanceDetails {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDetailsGetRequest {
 	static type = "request";
 	static src = "control";
@@ -72,7 +72,7 @@ class InstanceDetailsGetRequest {
 	static Response = InstanceDetails;
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDetailsListRequest {
 	static type = "request";
 	static src = "control";
@@ -81,7 +81,7 @@ class InstanceDetailsListRequest {
 	static Response = jsonArray(InstanceDetails);
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDetailsSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -115,13 +115,13 @@ class InstanceDetailsSetSubscriptionsRequest {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDetailsUpdateEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
 
-	/** @type {module:lib/data.InstanceDetails} */
+	/** @type {module:lib.InstanceDetails} */
 	details;
 
 	constructor(details) {
@@ -139,7 +139,7 @@ class InstanceDetailsUpdateEvent {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceCreateRequest {
 	static type = "request";
 	static src = "control";
@@ -167,7 +167,7 @@ class InstanceCreateRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceConfigGetRequest {
 	static type = "request";
 	static src = "control";
@@ -215,7 +215,7 @@ InstanceConfigGetRequest.Response = class Response {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceConfigSetFieldRequest {
 	static type = "request";
 	static src = "control";
@@ -250,7 +250,7 @@ class InstanceConfigSetFieldRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceConfigSetPropRequest {
 	static type = "request";
 	static src = "control";
@@ -291,7 +291,7 @@ class InstanceConfigSetPropRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceAssignRequest {
 	static type = "request";
 	static src = "control";
@@ -322,7 +322,7 @@ class InstanceAssignRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceMetricsRequest {
 	static type = "request";
 	static src = "host";
@@ -351,7 +351,7 @@ InstanceMetricsRequest.Response = class Response { // TODO: Use JSON class patte
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceStartRequest {
 	static type = "request";
 	static src = ["control", "controller"];
@@ -377,7 +377,7 @@ class InstanceStartRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class SaveDetails {
 	/** @type {string} */
 	type;
@@ -419,7 +419,7 @@ class SaveDetails {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceListSavesRequest {
 	static type = "request";
 	static src = "control";
@@ -428,7 +428,7 @@ class InstanceListSavesRequest {
 	static Response = jsonArray(SaveDetails);
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceSetSaveListSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -462,7 +462,7 @@ class InstanceSetSaveListSubscriptionsRequest {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceSaveListUpdateEvent {
 	static type = "event";
 	static src = ["instance", "host", "controller"];
@@ -470,7 +470,7 @@ class InstanceSaveListUpdateEvent {
 
 	/** @type {number} */
 	instanceId;
-	/** @type {module:lib/data.SaveDetails} */
+	/** @type {module:lib.SaveDetails} */
 	saves;
 
 	constructor(instanceId, saves) {
@@ -495,7 +495,7 @@ class InstanceSaveListUpdateEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceCreateSaveRequest {
 	static type = "request";
 	static src = "control";
@@ -534,7 +534,7 @@ class InstanceCreateSaveRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceRenameSaveRequest {
 	static type = "request";
 	static src = ["control", "controller"];
@@ -569,7 +569,7 @@ class InstanceRenameSaveRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceCopySaveRequest {
 	static type = "request";
 	static src = ["control", "controller"];
@@ -604,7 +604,7 @@ class InstanceCopySaveRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDeleteSaveRequest {
 	static type = "request";
 	static src = ["control", "controller"];
@@ -635,7 +635,7 @@ class InstanceDeleteSaveRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDownloadSaveRequest {
 	static type = "request";
 	static src = "control";
@@ -668,7 +668,7 @@ class InstanceDownloadSaveRequest {
 	static Response = JsonString;
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceTransferSaveRequest {
 	static type = "request";
 	static src = ["control", "controller"];
@@ -724,7 +724,7 @@ class InstanceTransferSaveRequest {
 }
 
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstancePullSaveRequest {
 	static type = "request";
 	static src = "controller";
@@ -760,7 +760,7 @@ class InstancePullSaveRequest {
 	static Response = JsonString;
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstancePushSaveRequest {
 	static type = "request";
 	static src = "controller";
@@ -794,7 +794,7 @@ class InstancePushSaveRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceLoadScenarioRequest {
 	static type = "request";
 	static src = "control";
@@ -833,7 +833,7 @@ class InstanceLoadScenarioRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceExportDataRequest {
 	static type = "request";
 	static src = "control";
@@ -841,7 +841,7 @@ class InstanceExportDataRequest {
 	static permission = "core.instance.export_data";
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceExtractPlayersRequest {
 	static type = "request";
 	static src = "control";
@@ -849,7 +849,7 @@ class InstanceExtractPlayersRequest {
 	static permission = "core.instance.extract_players";
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceStopRequest {
 	static type = "request";
 	static src = "control";
@@ -857,7 +857,7 @@ class InstanceStopRequest {
 	static permission = "core.instance.stop";
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceKillRequest {
 	static type = "request";
 	static src = "control";
@@ -865,7 +865,7 @@ class InstanceKillRequest {
 	static permission = "core.instance.kill";
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDeleteRequest {
 	static type = "request";
 	static src = "control";
@@ -892,7 +892,7 @@ class InstanceDeleteRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDeleteInternalRequest {
 	static type = "request";
 	static src = "controller";
@@ -918,7 +918,7 @@ class InstanceDeleteInternalRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceSendRconRequest {
 	static type = "request";
 	static src = "control";
@@ -948,7 +948,7 @@ class InstanceSendRconRequest {
 }
 
 // TODO remove this after config refactor
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class RawInstanceInfo {
 	/** @type {object} */
 	config;
@@ -977,13 +977,13 @@ class RawInstanceInfo {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstancesUpdateRequest {
 	static type = "request";
 	static src = "host";
 	static dst = "controller";
 
-	/** @type {Array<module:lib/data.RawInstanceInfo>} */
+	/** @type {Array<module:lib.RawInstanceInfo>} */
 	instances;
 
 	constructor(instances) {
@@ -1004,7 +1004,7 @@ class InstancesUpdateRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceAssignInternalRequest {
 	static type = "request";
 	static src = "controller";
@@ -1035,7 +1035,7 @@ class InstanceAssignInternalRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceUnassignInternalRequest {
 	static type = "request";
 	static src = "controller";
@@ -1061,7 +1061,7 @@ class InstanceUnassignInternalRequest {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceInitialisedEvent {
 	static type = "event";
 	static src = "instance";
@@ -1090,7 +1090,7 @@ class InstanceInitialisedEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceStatusChangedEvent {
 	static type = "event";
 	static src = ["instance", "host"];
@@ -1129,13 +1129,13 @@ class InstanceStatusChangedEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceDetailsChangedEvent {
 	static type = "event";
 	static src = "instance";
 	static dst = "controller";
 
-	/** @type {module:lib/data.InstanceDetails} */
+	/** @type {module:lib.InstanceDetails} */
 	details;
 
 	constructor(details) {
@@ -1149,7 +1149,7 @@ class InstanceDetailsChangedEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceBanlistUpdateEvent {
 	static type = "event";
 	static src = "controller";
@@ -1185,7 +1185,7 @@ class InstanceBanlistUpdateEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceAdminlistUpdateEvent {
 	static type = "event";
 	static src = "controller";
@@ -1216,7 +1216,7 @@ class InstanceAdminlistUpdateEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstanceWhitelistUpdateEvent {
 	static type = "event";
 	static src = "controller";
@@ -1247,7 +1247,7 @@ class InstanceWhitelistUpdateEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class InstancePlayerUpdateEvent {
 	static type = "event";
 	static src = "instance";

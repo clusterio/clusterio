@@ -6,7 +6,7 @@ import {
 import CaretLeftOutlined from "@ant-design/icons/CaretLeftOutlined";
 import LeftOutlined from "@ant-design/icons/LeftOutlined";
 
-import { libData, libHelpers } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -37,7 +37,7 @@ function RenameModal(props) {
 				initialValues={{ newName: props.save.name }}
 				onFinish={values => {
 					control.send(
-						new libData.InstanceRenameSaveRequest(props.instanceId, props.save.name, values.newName)
+						new lib.InstanceRenameSaveRequest(props.instanceId, props.save.name, values.newName)
 					).then(() => {
 						setOpen(false);
 						form.resetFields();
@@ -76,7 +76,7 @@ function CopyModal(props) {
 				initialValues={{ newName: props.save.name }}
 				onFinish={values => {
 					control.send(
-						new libData.InstanceCopySaveRequest(props.instanceId, props.save.name, values.newName)
+						new lib.InstanceCopySaveRequest(props.instanceId, props.save.name, values.newName)
 					).then(() => {
 						setOpen(false);
 						form.resetFields();
@@ -120,7 +120,7 @@ function TransferModal(props) {
 				onFinish={values => {
 					setOpen(false);
 					let hide = message.loading("Transferring save...", 0);
-					control.send(new libData.InstanceTransferSaveRequest(
+					control.send(new lib.InstanceTransferSaveRequest(
 						props.instanceId,
 						props.save.name,
 						values.targetInstanceId,
@@ -203,7 +203,7 @@ export default function SavesList(props) {
 				title: "Size",
 				key: "size",
 				responsive: ["sm"],
-				render: save => libHelpers.formatBytes(save.size),
+				render: save => lib.formatBytes(save.size),
 				align: "right",
 				sorter: (a, b) => a.size - b.size,
 			},
@@ -229,7 +229,7 @@ export default function SavesList(props) {
 						setStarting(true);
 						control.sendTo(
 							{ instanceId: props.instance.id },
-							new libData.InstanceStartRequest(save.name),
+							new lib.InstanceStartRequest(save.name),
 						).catch(
 							notifyErrorHandler("Error loading save")
 						).finally(
@@ -247,7 +247,7 @@ export default function SavesList(props) {
 					disabled={hostOffline}
 					onClick={() => {
 						control.send(
-							new libData.InstanceDownloadSaveRequest(props.instance.id, save.name)
+							new lib.InstanceDownloadSaveRequest(props.instance.id, save.name)
 						).then(streamId => {
 							let url = new URL(webRoot, document.location);
 							url.pathname += `api/stream/${streamId}`;
@@ -267,7 +267,7 @@ export default function SavesList(props) {
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
 						control.send(
-							new libData.InstanceDeleteSaveRequest(props.instance.id, save.name)
+							new lib.InstanceDeleteSaveRequest(props.instance.id, save.name)
 						).catch(notifyErrorHandler("Error deleting save"));
 					}}
 				>

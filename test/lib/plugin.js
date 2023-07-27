@@ -2,14 +2,14 @@
 const assert = require("assert").strict;
 
 const mock = require("../mock");
-const libPlugin = require("@clusterio/lib/plugin");
+const lib = require("@clusterio/lib");
 
 
 describe("lib/plugin", function() {
 	describe("class BaseInstancePlugin", function() {
 		let instancePlugin;
 		it("should be constructible", async function() {
-			instancePlugin = new libPlugin.BaseInstancePlugin({}, new mock.MockInstance(), {});
+			instancePlugin = new lib.BaseInstancePlugin({}, new mock.MockInstance(), {});
 			await instancePlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
@@ -56,7 +56,7 @@ describe("lib/plugin", function() {
 	describe("class BaseControllerPlugin", function() {
 		let controllerPlugin;
 		it("should be constructible", async function() {
-			controllerPlugin = new libPlugin.BaseControllerPlugin({}, {}, {}, new mock.MockLogger());
+			controllerPlugin = new lib.BaseControllerPlugin({}, {}, {}, new mock.MockLogger());
 			await controllerPlugin.init();
 		});
 		it("should define defaults for hooks", async function() {
@@ -87,15 +87,15 @@ describe("lib/plugin", function() {
 			}],
 		]);
 		it("should invoke the hook on the plugin", async function() {
-			await libPlugin.invokeHook(plugins, "test");
+			await lib.invokeHook(plugins, "test");
 			assert(betaTestCalled, "Hook was not called");
 		});
 		it("should pass and return args", async function() {
-			let result = await libPlugin.invokeHook(plugins, "pass", 1234);
+			let result = await lib.invokeHook(plugins, "pass", 1234);
 			assert.deepEqual(result, [1234]);
 		});
 		it("should ignore errors", async function() {
-			await libPlugin.invokeHook(plugins, "error");
+			await lib.invokeHook(plugins, "error");
 		});
 	});
 });

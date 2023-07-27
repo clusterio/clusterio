@@ -2,7 +2,7 @@
 const libSchema = require("../schema");
 
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class Address {
 	/** Controller address */
 	static controller = 0;
@@ -44,9 +44,9 @@ class Address {
 	 *   `"allHosts"`: new Address(Address.broadcast, Address.host)
 	 *   `"allInstances"`: new Address(Address.broadcast, Address.instance)
 	 *   `"allControls"`: new Address(Address.broadcast, Address.control)
-	 * @param {module:lib/data.Address|string|object} shorthand -
+	 * @param {module:lib.Address|string|object} shorthand -
 	 *     Shorthand to translate with.
-	 * @returns {module:lib/data.Address} Translated address.
+	 * @returns {module:lib.Address} Translated address.
 	 */
 	static fromShorthand(shorthand) {
 		if (shorthand instanceof Address) { return shorthand; }
@@ -107,7 +107,7 @@ class Address {
 
 	/**
 	 * Returns true if this address targets the given destination
-	 * @param {module:lib/Data.Address} dst - Destination to check
+	 * @param {module:lib.Address} dst - Destination to check
 	 * @returns {boolean} true if this address is addressed to the given destination
 	 */
 	addressedTo(dst) {
@@ -129,7 +129,7 @@ class Address {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class Message {
 	/** @type {string} */
 	type;
@@ -161,7 +161,7 @@ class Message {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class HelloData {
 	/** @type {string} */
 	version;
@@ -190,9 +190,9 @@ class HelloData {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageHello extends Message {
-	/** @type {module:lib/data.HelloData} */
+	/** @type {module:lib.HelloData} */
 	data;
 
 	constructor(data) {
@@ -214,7 +214,7 @@ class MessageHello extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class RegisterHostData {
 	/** @type {string} */
 	token;
@@ -263,9 +263,9 @@ class RegisterHostData {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageRegisterHost extends Message {
-	/** @type {module:lib/data.RegisterHostData} */
+	/** @type {module:lib.RegisterHostData} */
 	data;
 
 	constructor(data) {
@@ -287,7 +287,7 @@ class MessageRegisterHost extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class RegisterControlData {
 	/** @type {string} */
 	token;
@@ -317,9 +317,9 @@ class RegisterControlData {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageRegisterControl extends Message {
-	/** @type {module:lib/data.RegisterControlData} */
+	/** @type {module:lib.RegisterControlData} */
 	data;
 
 	constructor(data) {
@@ -341,7 +341,7 @@ class MessageRegisterControl extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class AccountDetails {
 	/** @type {string} */
 	name;
@@ -381,9 +381,9 @@ class AccountDetails {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ReadyData {
-	/** @type {module:lib/data.Address} */
+	/** @type {module:lib.Address} */
 	src;
 	/** @type {string} */
 	sessionToken;
@@ -427,9 +427,9 @@ class ReadyData {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageReady extends Message {
-	/** @type {module:lib/data.ReadyData} */
+	/** @type {module:lib.ReadyData} */
 	data;
 
 	constructor(data) {
@@ -451,7 +451,7 @@ class MessageReady extends Message {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ResumeData {
 	/** @type {string} */
 	sessionToken;
@@ -478,9 +478,9 @@ class ResumeData {
 }
 
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageResume extends Message {
-	/** @type {module:lib/data.ResumeData} */
+	/** @type {module:lib.ResumeData} */
 	data;
 
 	constructor(data) {
@@ -502,7 +502,7 @@ class MessageResume extends Message {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ContinueData {
 	/** @type {number} */
 	sessionTimeout;
@@ -532,9 +532,9 @@ class ContinueData {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageContinue extends Message {
-	/** @type {module:lib/data.ContinueData} */
+	/** @type {module:lib.ContinueData} */
 	data;
 
 	constructor(data) {
@@ -556,7 +556,7 @@ class MessageContinue extends Message {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageInvalidate extends Message {
 	constructor() {
 		super("invalidate");
@@ -574,7 +574,7 @@ class MessageInvalidate extends Message {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageHeartbeat extends Message {
 	/** @type {integer|undefined} */
 	seq;
@@ -598,7 +598,7 @@ class MessageHeartbeat extends Message {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageRequest extends Message {
 	/** @type {number} */
 	seq;
@@ -644,7 +644,7 @@ class MessageRequest extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageResponse extends Message {
 	/** @type {number} */
 	seq;
@@ -685,7 +685,7 @@ class MessageResponse extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ResponseError {
 	/** @type {string} */
 	message;
@@ -715,7 +715,7 @@ class ResponseError {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageResponseError extends Message {
 	/** @type {number} */
 	seq;
@@ -723,7 +723,7 @@ class MessageResponseError extends Message {
 	src;
 	/** @type {Address} */
 	dst;
-	/** @type {module:lib/data.ResponseError} */
+	/** @type {module:lib.ResponseError} */
 	data;
 
 	constructor(seq, src, dst, data) {
@@ -756,7 +756,7 @@ class MessageResponseError extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageEvent extends Message {
 	/** @type {number} */
 	seq;
@@ -802,7 +802,7 @@ class MessageEvent extends Message {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class MessageDisconnect extends Message {
 	/** @type {string} */
 	data;
@@ -853,7 +853,7 @@ Message.jsonSchema = {
 };
 Message.validate = libSchema.compile(Message.jsonSchema);
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class PingRequest {
 	static type = "request";
 	static src = ["controller", "host", "control"];

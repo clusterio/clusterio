@@ -2,8 +2,7 @@
  * @module
  */
 "use strict";
-const libPlugin = require("@clusterio/lib/plugin");
-const libLuaTools = require("@clusterio/lib/lua_tools");
+const lib = require("@clusterio/lib");
 const { ChatEvent } = require("./messages");
 
 
@@ -17,7 +16,7 @@ function removeTags(content) {
 	return content.replace(/(\[gps=-?\d+,-?\d+\]|\[train=\d+\])/g, "");
 }
 
-class InstancePlugin extends libPlugin.BaseInstancePlugin {
+class InstancePlugin extends lib.BaseInstancePlugin {
 	async init() {
 		this.messageQueue = [];
 		this.instance.handle(ChatEvent, this.handleChatEvent.bind(this));
@@ -35,7 +34,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 	async handleChatEvent(event) {
 		// TODO check if cross server chat is enabled
 		let content = `[${event.instanceName}] ${removeTags(event.content)}`;
-		await this.sendRcon(`/sc game.print('${libLuaTools.escapeString(content)}')`, true);
+		await this.sendRcon(`/sc game.print('${lib.escapeString(content)}')`, true);
 	}
 
 	sendChat(message) {

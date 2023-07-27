@@ -2,7 +2,7 @@
 const { JsonString } = require("./composites");
 
 // TODO: remove after config refactor
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class RawConfig {
 	/** @type {object} */
 	serializedConfig;
@@ -24,7 +24,7 @@ class RawConfig {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ControllerConfigGetRequest {
 	static type = "request";
 	static src = "control";
@@ -33,7 +33,7 @@ class ControllerConfigGetRequest {
 	static Response = RawConfig;
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ControllerConfigSetFieldRequest {
 	static type = "request";
 	static src = "control";
@@ -64,7 +64,7 @@ class ControllerConfigSetFieldRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class ControllerConfigSetPropRequest {
 	static type = "request";
 	static src = "control";
@@ -99,7 +99,7 @@ class ControllerConfigSetPropRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class HostGenerateTokenRequest {
 	static type = "request";
 	static src = "control";
@@ -128,7 +128,7 @@ class HostGenerateTokenRequest {
 	static Response = JsonString;
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class HostConfigCreateRequest {
 	static type = "request";
 	static src = "control";
@@ -165,7 +165,7 @@ class HostConfigCreateRequest {
 	static Response = RawConfig;
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class LogSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -214,7 +214,7 @@ class LogSetSubscriptionsRequest {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class LogQueryRequest {
 	static type = "request";
 	static src = "control";
@@ -298,7 +298,7 @@ LogQueryRequest.Response = class Response {
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class LogMessageEvent {
 	static type = "event";
 	static src = ["host", "controller"];
@@ -331,7 +331,7 @@ class LogMessageEvent {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class DebugDumpWsRequest {
 	static type = "request";
 	static src = "control";
@@ -339,7 +339,7 @@ class DebugDumpWsRequest {
 	static permission = "core.debug.dump_ws";
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class DebugWsMessageEvent {
 	static type = "event";
 	static src = "controller";

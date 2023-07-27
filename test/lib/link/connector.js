@@ -3,13 +3,12 @@ const assert = require("assert").strict;
 const events = require("events");
 
 const mock = require("../../mock");
-const libData = require("@clusterio/lib/data");
-const libLink = require("@clusterio/lib/link");
+const lib = require("@clusterio/lib");
 
 
 describe("lib/link/connectors", function() {
 	describe("class WebSocketBaseConnector", function() {
-		let testConnector = new libLink.WebSocketBaseConnector();
+		let testConnector = new lib.WebSocketBaseConnector();
 
 		describe("._dropSendBufferSeq()", function() {
 			beforeEach(function() {
@@ -35,7 +34,7 @@ describe("lib/link/connectors", function() {
 	});
 
 	describe("class WebSocketClientConnector", function() {
-		let testConnector = new libLink.WebSocketClientConnector("url", 1);
+		let testConnector = new lib.WebSocketClientConnector("url", 1);
 		testConnector._socket = new mock.MockSocket();
 
 		describe(".register()", function() {
@@ -51,7 +50,7 @@ describe("lib/link/connectors", function() {
 			it("calls send on the socket", function() {
 				testConnector._state = "connecting";
 				testConnector._socket.sentMessages = [];
-				testConnector.sendHandshake(new libData.MessageInvalidate());
+				testConnector.sendHandshake(new lib.MessageInvalidate());
 				assert.deepEqual(
 					testConnector._socket.sentMessages.map(JSON.parse),
 					[{ type: "invalidate" }]
@@ -63,7 +62,7 @@ describe("lib/link/connectors", function() {
 			it("calls send on the socket", function() {
 				testConnector._state = "connected";
 				testConnector._socket.sentMessages = [];
-				testConnector.send(new libData.MessageHeartbeat(1));
+				testConnector.send(new lib.MessageHeartbeat(1));
 				assert.deepEqual(
 					testConnector._socket.sentMessages.map(JSON.parse),
 					[{ seq: 1, type: "heartbeat"}]
@@ -96,8 +95,8 @@ describe("lib/link/connectors", function() {
 				let called = false;
 				testConnector.register = () => { called = true; };
 				testConnector._processHandshake(
-					new libData.MessageHello(
-						new libData.HelloData("test", {})
+					new lib.MessageHello(
+						new lib.HelloData("test", {})
 					)
 				);
 				assert(called, "register was not called");
@@ -105,9 +104,9 @@ describe("lib/link/connectors", function() {
 			it("should emit connect on ready", async function() {
 				let result = events.once(testConnector, "connect");
 				testConnector._processHandshake(
-					new libData.MessageReady(
-						new libData.ReadyData(
-							new libData.Address(libData.Address.control, 1),
+					new lib.MessageReady(
+						new lib.ReadyData(
+							new lib.Address(lib.Address.control, 1),
 							"x",
 							20,
 							10,
@@ -128,7 +127,7 @@ describe("lib/link/connectors", function() {
 			it("should throw on message received in invalid state", function() {
 				testConnector._state = "closed";
 				assert.throws(
-					() => testConnector._socket.events.get("message")(JSON.stringify(new libData.MessageInvalidate())),
+					() => testConnector._socket.events.get("message")(JSON.stringify(new lib.MessageInvalidate())),
 					new Error("Received message in unexpected state closed")
 				);
 			});
@@ -136,15 +135,15 @@ describe("lib/link/connectors", function() {
 				testConnector._state = "connecting";
 				let called = false;
 				testConnector._processHandshake = () => { called = true; };
-				testConnector._socket.events.get("message")(JSON.stringify(new libData.MessageInvalidate()));
+				testConnector._socket.events.get("message")(JSON.stringify(new lib.MessageInvalidate()));
 				assert(called, "_processHandshake was not called");
 			});
 			it("should emit message on message in connected state", async function() {
 				testConnector._socket.sentMessages = [];
 				testConnector._state = "connected";
 				let result = events.once(testConnector, "message");
-				let addr = new libData.Address(libData.Address.control, 1);
-				let event = new libData.MessageEvent(1, addr, addr, "TestEvent");
+				let addr = new lib.Address(lib.Address.control, 1);
+				let event = new lib.MessageEvent(1, addr, addr, "TestEvent");
 				testConnector._socket.events.get("message")(JSON.stringify(event));
 				assert.deepEqual((await result)[0], event);
 			});

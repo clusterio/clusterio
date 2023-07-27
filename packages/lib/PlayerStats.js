@@ -2,7 +2,7 @@
 
 /**
  * Stastics collected about a player.
- * @alias module:lib/PlayerStats
+ * @alias module:lib.PlayerStats
  */
 class PlayerStats {
 	/**

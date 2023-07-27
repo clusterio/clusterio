@@ -16,9 +16,9 @@ const libZipOps = require("../zip_ops");
  * the server given, with dependencies generated for all the mods present in
  * the server's mods folder.
  *
- * @param {module:lib/factorio.FactorioServer} server -
+ * @param {module:lib.FactorioServer} server -
  *     The server to generate the export mod for.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  */
 async function generateExportMod(server) {
 	let dependencies = [];
@@ -63,12 +63,12 @@ async function loadZip(server, modVersions, mod) {
 /**
  * Load the given Factorio file path into a Buffer
  *
- * @param {module:lib/factorio.FactorioServer} server -
+ * @param {module:lib.FactorioServer} server -
  *     The server to load the file from.
  * @param {Map<string, string>} modVersions - Mapping of mod to version used.
  * @param {string} modPath - Factorio style path to the file to load.
  * @returns {Promise<?Buffer>} The content of the file or null if not found.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -250,14 +250,14 @@ function filterItems(prototypes) {
  * Assembles and packs the icons for the item prototypes given into a single
  * spritesheet and json file with meta data.
  *
- * @param {module:lib/factorio.FactorioServer} server -
+ * @param {module:lib.FactorioServer} server -
  *     The server to generate the export mod for.
  * @param {Map<string, string>} modVersions -
  *     Mapping of mod name to versions to get icons from.
  * @param {Array<Object>} items - Array of item prototypes.
  * @return {Promise<{itemSheet: Jimp, itemData: Map<string,Object>}>}
  *     Item spritesheet and metadata.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -321,14 +321,14 @@ async function exportItems(server, modVersions, items) {
  * Parses and merges all the locales for the all the mods given through
  * `modVersions` and `modOrder`.
  *
- * @param {module:lib/factorio.FactorioServer} server -
+ * @param {module:lib.FactorioServer} server -
  *     The server to export the locale from.
  * @param {Map<string, string>} modVersions -
  *     Mapping of mod name to version to export locale from.
  * @param {Array<string>} modOrder - Load order of the mods.
  * @param {string} languageCode - Language to export locale for.
  * @returns {Promise<Map<string, string>>} merged locale information
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -377,10 +377,10 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 /**
  * Export the locale and item icons for the given factorio server
  *
- * @param {module:lib/factorio.FactorioServer} server -
+ * @param {module:lib.FactorioServer} server -
  *     The server to export the data from.
  * @returns {Promise<JSZip>} zip file with exported data.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  */
 async function exportData(server) {
 	await generateExportMod(server);

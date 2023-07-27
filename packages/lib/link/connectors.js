@@ -15,7 +15,7 @@ const ExponentialBackoff = require("../ExponentialBackoff");
  * Base connector for links
  *
  * @extends events.EventEmitter
- * @memberof module:lib/link
+ * @memberof module:lib
  */
 class BaseConnector extends events.EventEmitter {
 	constructor(src, dst) {
@@ -76,8 +76,8 @@ class BaseConnector extends events.EventEmitter {
 /**
  * Base connector for links
  *
- * @extends module:lib/link.BaseConnector
- * @memberof module:lib/link
+ * @extends module:lib.BaseConnector
+ * @memberof module:lib
  */
 class WebSocketBaseConnector extends BaseConnector {
 	constructor(src, dst) {
@@ -231,7 +231,7 @@ class WebSocketBaseConnector extends BaseConnector {
 	 * This is a low level method that should only be used for implementing
 	 * links. See sendTo for sending requests and events.
 	 *
-	 * @param {module:lib/data.Message} message - Message to send.
+	 * @param {module:lib.Message} message - Message to send.
 	 */
 	send(message) {
 		if (!["connected", "resuming"].includes(this._state)) {
@@ -313,8 +313,8 @@ class WebSocketBaseConnector extends BaseConnector {
 /**
  * Connector for controller clients
  *
- * @extends module:lib/link.WebSocketBaseConnector
- * @memberof module:lib/link
+ * @extends module:lib.WebSocketBaseConnector
+ * @memberof module:lib
  */
 class WebSocketClientConnector extends WebSocketBaseConnector {
 	constructor(url, maxReconnectDelay, tlsCa = null) {
@@ -360,7 +360,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	 * Used in the register function in order to send the handshake messages
 	 * over the WebSocket.
 	 *
-	 * @param {module:lib/data.Message} message - Message to send.
+	 * @param {module:lib.Message} message - Message to send.
 	 */
 	sendHandshake(message) {
 		this._check("connecting", "resuming");
@@ -647,7 +647,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
  * Connector for in-memory local links
  *
  * @extends events.EventEmitter
- * @memberof module:lib/link
+ * @memberof module:lib
  */
 class VirtualConnector extends BaseConnector {
 	constructor(src, dst) {
@@ -662,8 +662,8 @@ class VirtualConnector extends BaseConnector {
 	 * Creates two virtual connectors that are liked to each othes such that
 	 * a message sent on one is received by the other.
 	 *
-	 * @param {module:lib/data.Address} src - Source for obverse connector
-	 * @param {module:lib/data.Address} dst - destination for obverse connector
+	 * @param {module:lib.Address} src - Source for obverse connector
+	 * @param {module:lib.Address} dst - destination for obverse connector
 	 * @returns {Array} two virtuarl connectors.
 	 */
 	static makePair(src, dst) {
@@ -677,7 +677,7 @@ class VirtualConnector extends BaseConnector {
 	/**
 	 * Send a message to the other end of the connector
 	 *
-	 * @param {module:lib/data.Message} message - Message type to send.
+	 * @param {module:lib.Message} message - Message type to send.
 	 */
 	send(message) {
 		this.other.emit("message", message);

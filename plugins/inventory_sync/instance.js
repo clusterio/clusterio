@@ -2,16 +2,13 @@
  * @module
  */
 "use strict";
-const libErrors = require("@clusterio/lib/errors");
-const libPlugin = require("@clusterio/lib/plugin");
-const libLuaTools = require("@clusterio/lib/lua_tools");
+const lib = require("@clusterio/lib");
 
 const {
 	AcquireRequest,
 	ReleaseRequest,
 	UploadRequest,
 	DownloadRequest,
-	DatabaseStatsRequest,
 } = require("./messages");
 
 /**
@@ -24,7 +21,7 @@ function chunkify(chunkSize, string) {
 	return string.match(new RegExp(`.{1,${chunkSize}}`, "g"));
 }
 
-class InstancePlugin extends libPlugin.BaseInstancePlugin {
+class InstancePlugin extends lib.BaseInstancePlugin {
 	async init() {
 		this.playersToRelease = new Set();
 		this.disconnecting = false;
@@ -82,14 +79,14 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 					message: acquireResponse.message,
 				};
 			} catch (err) {
-				if (!(err instanceof libErrors.SessionLost)) {
+				if (!(err instanceof lib.SessionLost)) {
 					this.logger.error(`Unexpected error sending aquire request:\n${err.stack}`);
 					response.message = err.message;
 				}
 			}
 		}
 
-		let json = libLuaTools.escapeString(JSON.stringify(response));
+		let json = lib.escapeString(JSON.stringify(response));
 		await this.sendRcon(`/sc inventory_sync.acquire_response("${json}")`, true);
 	}
 
@@ -101,7 +98,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		try {
 			await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, request.player_name));
 		} catch (err) {
-			if (err instanceof libErrors.SessionLost) {
+			if (err instanceof lib.SessionLost) {
 				this.playersToRelease.set(request.player_name);
 			} else {
 				this.logger.error(`Unexpected error releasing player ${request.player_name}:\n${err.stack}`);
@@ -122,7 +119,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			);
 
 		} catch (err) {
-			if (!(err instanceof libErrors.SessionLost)) {
+			if (!(err instanceof lib.SessionLost)) {
 				this.logger.error(`Unexpected error uploading inventory for ${player_data.name}:\n${err.stack}`);
 			}
 			return;
@@ -149,7 +146,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		this.logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
 		for (let i = 0; i < chunks.length; i++) {
 			// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
-			const chunk = libLuaTools.escapeString(chunks[i]);
+			const chunk = lib.escapeString(chunks[i]);
 			await this.sendRcon(
 				`/sc inventory_sync.download_inventory('${playerName}','${chunk}',${i + 1},${chunks.length})`,
 				true

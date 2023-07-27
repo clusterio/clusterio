@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Table } from "antd";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -28,7 +28,7 @@ function CreateRoleButton() {
 		}
 
 		let result = await control.send(
-			new libData.RoleCreateRequest(values.roleName, values.description || "", [])
+			new lib.RoleCreateRequest(values.roleName, values.description || "", [])
 		);
 		setOpen(false);
 		navigate(`/roles/${result.id}/view`);
@@ -67,7 +67,7 @@ export default function RolesPage() {
 	let [roles, setRoles] = useState([]);
 
 	useEffect(() => {
-		control.send(new libData.RoleListRequest()).then(newRoles => {
+		control.send(new lib.RoleListRequest()).then(newRoles => {
 			setRoles(newRoles);
 		}).catch(notifyErrorHandler("Error fetching role list"));
 	}, []);

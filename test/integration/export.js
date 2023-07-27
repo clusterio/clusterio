@@ -2,17 +2,17 @@
 const assert = require("assert").strict;
 const path = require("path");
 
-const libFactorio = require("@clusterio/lib/factorio");
+const lib = require("@clusterio/lib");
 
 
 describe("Integration of lib/factorio/export", function() {
 	describe("exportLocale()", function() {
 		it("returns a nested Map with base game locale information", async function() {
 			let writePath = path.join("temp", "test", "server");
-			let testServer = new libFactorio.FactorioServer("factorio", writePath, {});
+			let testServer = new lib.FactorioServer("factorio", writePath, {});
 			await testServer.init();
 
-			let locale = await libFactorio._exportLocale(testServer, new Map(), ["base"], "en");
+			let locale = await lib._exportLocale(testServer, new Map(), ["base"], "en");
 
 			assert(locale instanceof Map, "locale is not a map");
 			assert.equal(locale.get("entity-name.fish"), "Fish");

@@ -1,13 +1,13 @@
-import { libData, libErrors, libLink, libLogging, libPlugin } from "@clusterio/lib";
-const { logFilter, logger } = libLogging;
+import * as lib from "@clusterio/lib";
 import packageJson from "../../package.json";
 
+const { logFilter, logger } = lib;
 
 /**
  * Connector for control connection to controller
  * @private
  */
-export class ControlConnector extends libLink.WebSocketClientConnector {
+export class ControlConnector extends lib.WebSocketClientConnector {
 	constructor(url, maxReconnectDelay) {
 		super(url, maxReconnectDelay);
 		this.token = null;
@@ -20,8 +20,8 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
 
 		logger.verbose("Connector | registering control");
 		this.sendHandshake(
-			new libData.MessageRegisterControl(
-				new libData.RegisterControlData(
+			new lib.MessageRegisterControl(
+				new lib.RegisterControlData(
 					this.token,
 					"Clusterio Web UI",
 					packageJson.version,
@@ -37,13 +37,13 @@ export class ControlConnector extends libLink.WebSocketClientConnector {
  * Connects to the controller over WebSocket and sends commands to it.
  * @static
  */
-export class Control extends libLink.Link {
+export class Control extends lib.Link {
 	constructor(connector, plugins) {
 		super(connector);
 
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
-		 * @type {Map<string, module:lib/plugin.BaseWebPlugin>}
+		 * @type {Map<string, module:lib.BaseWebPlugin>}
 		 */
 		this.plugins = plugins;
 		for (let plugin of plugins.values()) {
@@ -118,15 +118,15 @@ export class Control extends libLink.Link {
 			});
 		}
 
-		this.handle(libData.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));
-		this.handle(libData.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
-		this.handle(libData.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
-		this.handle(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
-		this.handle(libData.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
-		this.handle(libData.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
-		this.handle(libData.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
-		this.handle(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
-		this.handle(libData.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
+		this.handle(lib.AccountUpdateEvent, this.handleAccountUpdateEvent.bind(this));
+		this.handle(lib.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
+		this.handle(lib.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
+		this.handle(lib.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(lib.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
+		this.handle(lib.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
+		this.handle(lib.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
+		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
 	}
 
 	async handleAccountUpdateEvent(event) {
@@ -206,7 +206,7 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await this.send(new libData.HostSetSubscriptionsRequest(
+		await this.send(new lib.HostSetSubscriptionsRequest(
 			this.hostUpdateHandlers.has(null),
 			[...this.hostUpdateHandlers.keys()].filter(e => e !== null),
 		));
@@ -263,7 +263,7 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await this.send(new libData.InstanceDetailsSetSubscriptionsRequest(
+		await this.send(new lib.InstanceDetailsSetSubscriptionsRequest(
 			this.instanceUpdateHandlers.has(null),
 			[...this.instanceUpdateHandlers.keys()].filter(e => e !== null),
 		));
@@ -317,7 +317,7 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await this.send(new libData.InstanceSetSaveListSubscriptionsRequest(
+		await this.send(new lib.InstanceSetSaveListSubscriptionsRequest(
 			false,
 			[...this.saveListUpdateHandlers.keys()],
 		));
@@ -375,7 +375,7 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await this.send(new libData.ModPackSetSubscriptionsRequest(
+		await this.send(new lib.ModPackSetSubscriptionsRequest(
 			this.modPackUpdateHandlers.has(null),
 			[...this.modPackUpdateHandlers.keys()].filter(k => k !== null),
 		));
@@ -433,7 +433,7 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await this.send(new libData.ModSetSubscriptionsRequest(
+		await this.send(new lib.ModSetSubscriptionsRequest(
 			this.modUpdateHandlers.has(null),
 			[...this.modUpdateHandlers.keys()].filter(k => k !== null),
 		));
@@ -490,7 +490,7 @@ export class Control extends libLink.Link {
 			return;
 		}
 
-		await this.send(new libData.UserSetSubscriptionsRequest(
+		await this.send(new lib.UserSetSubscriptionsRequest(
 			this.userUpdateHandlers.has(null),
 			[...this.userUpdateHandlers.keys()].filter(e => e !== null),
 		));
@@ -565,7 +565,7 @@ export class Control extends libLink.Link {
 			}
 		}
 
-		await this.send(new libData.LogSetSubscriptionsRequest(all, controller, hostIds, instanceIds, null));
+		await this.send(new lib.LogSetSubscriptionsRequest(all, controller, hostIds, instanceIds, null));
 	}
 
 	async handleDebugWsMessageEvent(message) {
@@ -577,7 +577,7 @@ export class Control extends libLink.Link {
 		try {
 			await this.connector.disconnect();
 		} catch (err) {
-			if (!(err instanceof libErrors.SessionLost)) {
+			if (!(err instanceof lib.SessionLost)) {
 				throw err;
 			}
 		}

@@ -1,16 +1,16 @@
 import { useEffect, useContext, useState } from "react";
 import ControlContext from "../components/ControlContext";
 
-import { libData, libLogging } from "@clusterio/lib";
-const { logger } = libLogging;
+import * as lib from "@clusterio/lib";
 
+const { logger } = lib;
 
 export function useSaves(instanceId) {
 	let control = useContext(ControlContext);
 	let [saves, setSaves] = useState([]);
 
 	function updateSaves() {
-		control.sendTo({ instanceId }, new libData.InstanceListSavesRequest()).then(updatedSaves => {
+		control.sendTo({ instanceId }, new lib.InstanceListSavesRequest()).then(updatedSaves => {
 			setSaves(updatedSaves);
 		}).catch(err => {
 			logger.error(`Failed to list instance saves: ${err}`);

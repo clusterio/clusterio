@@ -2,15 +2,14 @@
 const assert = require("assert").strict;
 const zlib = require("zlib");
 
-const libSchema = require("@clusterio/lib/schema");
-const ExportManifest = require("@clusterio/lib/data/ExportManifest");
-const ModPack = require("@clusterio/lib/data/ModPack");
+const lib = require("@clusterio/lib");
+const { ModPack } = lib;
 
 
 describe("lib/data/ModPack", function() {
 	describe("class ModPack", function() {
 		it("should round trip serialize", function() {
-			const validate = libSchema.compile(ModPack.jsonSchema);
+			const validate = lib.compile(ModPack.jsonSchema);
 			function check(pack) {
 				const json = JSON.parse(JSON.stringify(pack));
 				if (!validate(json)) {

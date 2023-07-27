@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 
-const libFileOps = require("@clusterio/lib/file_ops");
+const lib = require("@clusterio/lib");
 
 describe("lib/file_ops", function() {
 	let baseDir = path.join("temp", "test", "file_ops");
@@ -28,30 +28,30 @@ describe("lib/file_ops", function() {
 
 	describe("getNewestFile()", function() {
 		it("returns a string in a directory with files", async function() {
-			let newest = await libFileOps.getNewestFile(path.join(baseDir, "test"));
+			let newest = await lib.getNewestFile(path.join(baseDir, "test"));
 			assert.equal(typeof newest, "string");
 		});
 		it("returns undefined if all entries were filtered out", async function() {
-			let newest = await libFileOps.getNewestFile(path.join(baseDir, "test"), (name) => !name.endsWith(".txt"));
+			let newest = await lib.getNewestFile(path.join(baseDir, "test"), (name) => !name.endsWith(".txt"));
 			assert.equal(newest, undefined);
 		});
 		it("returns undefined if directory is empty", async function() {
-			let newest = await libFileOps.getNewestFile(path.join(baseDir, "test", "folder"));
+			let newest = await lib.getNewestFile(path.join(baseDir, "test", "folder"));
 			assert.equal(newest, undefined);
 		});
 	});
 
 	describe("getNewestFile()", function() {
 		it("returns 0 if directory does not exist", async function() {
-			let size = await libFileOps.directorySize(path.join(baseDir, "invalid"));
+			let size = await lib.directorySize(path.join(baseDir, "invalid"));
 			assert.equal(size, 0);
 		});
 		it("returns 0 if directory is empty", async function() {
-			let size = await libFileOps.directorySize(path.join(baseDir, "test", "folder"));
+			let size = await lib.directorySize(path.join(baseDir, "test", "folder"));
 			assert.equal(size, 0);
 		});
 		it("returns size of files in directory", async function() {
-			let size = await libFileOps.directorySize(path.join(baseDir, "test"));
+			let size = await lib.directorySize(path.join(baseDir, "test"));
 			assert.equal(size, 21);
 		});
 	});
@@ -64,7 +64,7 @@ describe("lib/file_ops", function() {
 				[["file.txt", ".txt"], "file.txt"],
 			];
 			for (let [args, expected] of cases) {
-				let actual = await libFileOps.findUnusedName(path.join(baseDir, "test", "folder"), ...args);
+				let actual = await lib.findUnusedName(path.join(baseDir, "test", "folder"), ...args);
 				assert.equal(actual, expected);
 			}
 		});
@@ -78,7 +78,7 @@ describe("lib/file_ops", function() {
 				[["bar-1.txt", ".txt"], "bar-3.txt"],
 			];
 			for (let [args, expected] of cases) {
-				let actual = await libFileOps.findUnusedName(path.join(baseDir, "find"), ...args);
+				let actual = await lib.findUnusedName(path.join(baseDir, "find"), ...args);
 				assert.equal(actual, expected);
 			}
 		});
@@ -87,14 +87,14 @@ describe("lib/file_ops", function() {
 	describe("safeOutputFile()", function() {
 		it("should write new target file", async function() {
 			let target = path.join(baseDir, "safe", "simple.txt");
-			await libFileOps.safeOutputFile(target, "a text file", "utf8");
+			await lib.safeOutputFile(target, "a text file", "utf8");
 			assert(!await fs.pathExists(`${target}.tmp`), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "a text file");
 		});
 		it("should overwrite existing target file", async function() {
 			let target = path.join(baseDir, "safe", "exists.txt");
 			await fs.outputFile(target, "previous", "utf8");
-			await libFileOps.safeOutputFile(target, "current", "utf8");
+			await lib.safeOutputFile(target, "current", "utf8");
 			assert(!await fs.pathExists(`${target}.tmp`), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "current");
 		});
@@ -102,11 +102,11 @@ describe("lib/file_ops", function() {
 
 	describe("checkFilename()", function() {
 		it("should allow a basic name", function() {
-			libFileOps.checkFilename("file");
+			lib.checkFilename("file");
 		});
 
 		function check(item, msg) {
-			assert.throws(() => libFileOps.checkFilename(item), new Error(msg));
+			assert.throws(() => lib.checkFilename(item), new Error(msg));
 		}
 
 		it("should throw on non-string", function() {
@@ -152,7 +152,7 @@ describe("lib/file_ops", function() {
 
 	describe("cleanFilename()", function() {
 		function clean(item, expected) {
-			assert.equal(libFileOps.cleanFilename(item), expected);
+			assert.equal(lib.cleanFilename(item), expected);
 		}
 
 		it("should allow a basic name", function() {
@@ -160,7 +160,7 @@ describe("lib/file_ops", function() {
 		});
 
 		function check(item, msg) {
-			assert.throws(() => libFileOps.cleanFilename(item), new Error(msg));
+			assert.throws(() => lib.cleanFilename(item), new Error(msg));
 		}
 
 		it("should throw on non-string", function() {

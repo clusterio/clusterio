@@ -1,12 +1,11 @@
 "use strict";
 const assert = require("assert").strict;
-const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
 const stream = require("stream");
 const util = require("util");
 
-const libStream = require("@clusterio/lib/stream");
+const lib = require("@clusterio/lib");
 
 const finished = util.promisify(stream.finished);
 
@@ -14,7 +13,7 @@ const finished = util.promisify(stream.finished);
 describe("lib/stream", function() {
 	describe("class LineSplitter", function() {
 		function createSplitter(lines) {
-			let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
+			let lineStream = new lib.LineSplitter({ readableObjectMode: true });
 			lineStream.on("data", line => lines.push(line.toString("utf-8")));
 			return lineStream;
 		}
@@ -61,7 +60,7 @@ describe("lib/stream", function() {
 
 	describe("class ReverseLineSplitter", function() {
 		function createReverseSplitter(lines) {
-			let lineStream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
+			let lineStream = new lib.ReverseLineSplitter({ readableObjectMode: true });
 			lineStream.on("data", line => lines.push(line.toString("utf-8")));
 			return lineStream;
 		}
@@ -111,7 +110,7 @@ describe("lib/stream", function() {
 			let content = "";
 			for (let i = 0; i < 10; i++) { content += String(i).repeat(10); }
 			await fs.outputFile(path.join("temp", "test", "reverse.txt"), content);
-			let reverseStream = await libStream.createReverseReadStream(
+			let reverseStream = await lib.createReverseReadStream(
 				path.join("temp", "test", "reverse.txt"),
 				{ encoding: "utf8", highWaterMark: 10 }
 			);
@@ -131,9 +130,9 @@ describe("lib/stream", function() {
 			ws.end();
 			await finished(ws);
 
-			let lineStream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
+			let lineStream = new lib.ReverseLineSplitter({ readableObjectMode: true });
 			let index = 99999;
-			let rs = await libStream.createReverseReadStream(path.join("temp", "test", "reverse.txt"));
+			let rs = await lib.createReverseReadStream(path.join("temp", "test", "reverse.txt"));
 			lineStream.on("data", line => {
 				let n = Number(line.toString());
 				if (index !== n) {

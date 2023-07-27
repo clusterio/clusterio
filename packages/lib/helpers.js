@@ -210,18 +210,18 @@ function wordMatches(word, ...texts) {
 }
 
 /**
- * @typedef {object} module:lib/helpers~ParsedTerm
+ * @typedef {object} module:lib~ParsedTerm
  * @property {string} type - Type of term, either attribute or word.
  * @property {string=} name - attribute only: Name of attribute.
  * @property {boolean=} exclude - word only: exclude results with this word.
- * @property {string | module:lib/helpers.ParsedTerm} value -
+ * @property {string | module:lib.ParsedTerm} value -
  *     Parsed value of this term. Is a string if type is word, and a
  *     ParsedTerm if type is attribute.
  */
 
 /**
- * @typedef {object} module:lib/helpers~ParsedSearch
- * @property {Array<module:lib/helpers~ParsedTerm>} terms -
+ * @typedef {object} module:lib~ParsedSearch
+ * @property {Array<module:lib~ParsedTerm>} terms -
  *     Parsed result of search terms.
  * @property {Array<string>} issues -
  *     Issues detected while parsing the seach string.
@@ -248,7 +248,7 @@ function wordMatches(word, ...texts) {
  * @param {Object<string, string>} attributes -
  *     Recognized attributes and their format. Currently only word is
  *     supported.
- * @returns {module:lib/helpers~ParsedSearch} parsed terms of the search.
+ * @returns {module:lib~ParsedSearch} parsed terms of the search.
  * @static
  */
 function parseSearchString(input, attributes = {}) {

@@ -27,7 +27,7 @@ const knownScenarios = {
  *
  * @param {Object} patchInfo - The patch info files's json content
  * @returns {string} Generated control.lua code.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -77,7 +77,7 @@ function generateLoader(patchInfo) {
  * their dependents.  Throws an error if this is not possible.
  *
  * @param {Array<Object>} modules - Array of modules to reorder
- * @memberof module:lib/factorio
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -175,7 +175,7 @@ function reorderDependencies(modules) {
  *
  * @param {string} savePath - Path to the Factorio save to patch.
  * @param {Array<Object>} modules - Description of the modules to patch.
- * @memberof module:lib/factorio
+ * @memberof module:lib
  */
 async function patch(savePath, modules) {
 	let zip = await JSZip.loadAsync(await fs.readFile(savePath));

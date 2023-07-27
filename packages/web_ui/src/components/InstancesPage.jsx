@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal } from "antd";
 
-import { libConfig, libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -26,11 +26,11 @@ function CreateInstanceButton(props) {
 			return;
 		}
 
-		let instanceConfig = new libConfig.InstanceConfig("control");
+		let instanceConfig = new lib.InstanceConfig("control");
 		await instanceConfig.init();
 		instanceConfig.set("instance.name", values.instanceName);
 		let serializedConfig = instanceConfig.serialize("controller");
-		await control.send(new libData.InstanceCreateRequest(serializedConfig));
+		await control.send(new lib.InstanceCreateRequest(serializedConfig));
 		setOpen(false);
 		navigate(`/instances/${instanceConfig.get("instance.id")}/view`);
 	}
@@ -73,7 +73,7 @@ export default function InstancesPage() {
 					&& <Button onClick={e => instanceList.forEach(instance => {
 						if (instance.status === "stopped") {
 							control.send(
-								new libData.InstanceStartRequest(undefined), { instanceId: instance.id }
+								new lib.InstanceStartRequest(undefined), { instanceId: instance.id }
 							).catch(notifyErrorHandler("Error starting instance"));
 						}
 					})
@@ -85,7 +85,7 @@ export default function InstancesPage() {
 						if (["starting", "running"].includes(instance.status)) {
 							control.sendTo(
 								{ instanceId: instance.id },
-								new libData.InstanceStopRequest(),
+								new lib.InstanceStopRequest(),
 							).catch(notifyErrorHandler("Error stopping instance"));
 						}
 					})

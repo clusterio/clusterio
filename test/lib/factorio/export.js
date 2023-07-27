@@ -2,7 +2,7 @@
 const assert = require("assert").strict;
 const path = require("path");
 
-const libFactorio = require("@clusterio/lib/factorio");
+const lib = require("@clusterio/lib");
 
 
 describe("lib/factorio/export", function() {
@@ -10,12 +10,12 @@ describe("lib/factorio/export", function() {
 		let testServer;
 		before(async function() {
 			let writePath = path.join("temp", "test", "server");
-			testServer = new libFactorio.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
+			testServer = new lib.FactorioServer(path.join("test", "file", "factorio"), writePath, {});
 			await testServer.init();
 		});
 
 		it("returns a flattened mapping with locale definitions", async function() {
-			let locale = await libFactorio._exportLocale(testServer, new Map(), ["base"], "en");
+			let locale = await lib._exportLocale(testServer, new Map(), ["base"], "en");
 			assert.deepEqual(locale, new Map([["test.key-a", "1"], ["test.key-b", "2"]]));
 		});
 	});

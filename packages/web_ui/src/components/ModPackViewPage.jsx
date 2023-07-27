@@ -4,16 +4,14 @@ import {
 	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
 } from "antd";
-import InfoCircleOutlined from "@ant-design/icons/InfoCircleOutlined";
 import ExportOutlined from "@ant-design/icons/ExportOutlined";
 import FileUnknownOutlined from "@ant-design/icons/FileUnknownOutlined";
 import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
 import CloseOutlined from "@ant-design/icons/CloseOutlined";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
-import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
-import { libData, libLogging } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 import ControlContext from "./ControlContext";
 import { useAccount } from "../model/account";
 import { useModPack } from "../model/mod_pack";
@@ -25,7 +23,7 @@ import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 
-const { logger } = libLogging;
+const { logger } = lib;
 const { Paragraph, Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
 
@@ -44,7 +42,7 @@ function SearchModsTable(props) {
 
 	useEffect(() => {
 		let canceled = false;
-		control.send(new libData.ModSearchRequest(
+		control.send(new lib.ModSearchRequest(
 			searchText,
 			factorioVersion,
 			modResultPage,
@@ -535,7 +533,7 @@ function ExportButton(props) {
 function useExportedAsset(modPack, asset) {
 	let [assetData, setAssetData] = useState(asset === "locale" ? new Map() : {});
 	let assetFilename;
-	if (modPack instanceof libData.ModPack && modPack.exportManifest && modPack.exportManifest.assets[asset]) {
+	if (modPack instanceof lib.ModPack && modPack.exportManifest && modPack.exportManifest.assets[asset]) {
 		assetFilename = modPack.exportManifest.assets[asset];
 	}
 	useEffect(() => {
@@ -612,7 +610,7 @@ export default function ModPackViewPage() {
 	let syncTimeout = useRef();
 
 	let modifiedModPack;
-	if (!(modPack instanceof libData.ModPack)) {
+	if (!(modPack instanceof lib.ModPack)) {
 		// Loading or invalid id
 		modifiedModPack = modPack;
 
@@ -707,7 +705,7 @@ export default function ModPackViewPage() {
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
 						control.send(
-							new libData.ModPackDeleteRequest(modPack.id)
+							new lib.ModPackDeleteRequest(modPack.id)
 						).then(() => {
 							navigate("/mods");
 						}).catch(notifyErrorHandler("Error deleting mod pack"));
@@ -802,7 +800,7 @@ export default function ModPackViewPage() {
 							type="primary"
 							onClick={() => {
 								control.send(
-									new libData.ModPackUpdateRequest(modifiedModPack)
+									new lib.ModPackUpdateRequest(modifiedModPack)
 								).then(() => {
 									form.resetFields();
 									setChanges([]);

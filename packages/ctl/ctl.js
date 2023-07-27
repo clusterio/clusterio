@@ -10,16 +10,8 @@ const yargs = require("yargs");
 const version = require("./package").version;
 const setBlocking = require("set-blocking");
 
-const libLink = require("@clusterio/lib/link");
-const libData = require("@clusterio/lib/data");
-const libErrors = require("@clusterio/lib/errors");
-const libConfig = require("@clusterio/lib/config");
-const libPlugin = require("@clusterio/lib/plugin");
-const libPluginLoader = require("@clusterio/lib/plugin_loader");
-const libCommand = require("@clusterio/lib/command");
-const libSharedCommands = require("@clusterio/lib/shared_commands");
-const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
-const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const lib = require("@clusterio/lib");
+const { ConsoleTransport, levels, logger } = lib;
 
 const commands = require("./src/commands");
 
@@ -28,7 +20,7 @@ const commands = require("./src/commands");
  * Connector for control connection to controller
  * @private
  */
-class ControlConnector extends libLink.WebSocketClientConnector {
+class ControlConnector extends lib.WebSocketClientConnector {
 	constructor(url, maxReconnectDelay, tlsCa, token) {
 		super(url, maxReconnectDelay, tlsCa);
 		this._token = token;
@@ -37,8 +29,8 @@ class ControlConnector extends libLink.WebSocketClientConnector {
 	register() {
 		logger.verbose("Connector | registering control");
 		this.sendHandshake(
-			new libData.MessageRegisterControl(
-				new libData.RegisterControlData(
+			new lib.MessageRegisterControl(
+				new lib.RegisterControlData(
 					this._token,
 					"clusterioctl",
 					version,
@@ -54,13 +46,13 @@ class ControlConnector extends libLink.WebSocketClientConnector {
  * Connects to the controller over WebSocket and sends commands to it.
  * @static
  */
-class Control extends libLink.Link {
+class Control extends lib.Link {
 	constructor(connector, controlConfig, tlsCa, controlPlugins) {
 		super(connector);
 
 		/**
 		 * Control config used for connecting to the controller.
-		 * @type {module:lib/config.ControlConfig}
+		 * @type {module:lib.ControlConfig}
 		 */
 		this.config = controlConfig;
 		/**
@@ -70,7 +62,7 @@ class Control extends libLink.Link {
 		this.tlsCa = tlsCa;
 		/**
 		 * Mapping of plugin names to their instance for loaded plugins.
-		 * @type {Map<string, module:lib/plugin.BaseControlPlugin>}
+		 * @type {Map<string, module:lib.BaseControlPlugin>}
 		 */
 		this.plugins = controlPlugins;
 
@@ -80,8 +72,8 @@ class Control extends libLink.Link {
 		 */
 		this.keepOpen = false;
 
-		this.handle(libData.LogMessageEvent, this.handleLogMessageEvent.bind(this));
-		this.handle(libData.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
+		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
+		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
 	}
 
 	async setLogSubscriptions({
@@ -92,7 +84,7 @@ class Control extends libLink.Link {
 		maxLevel = null,
 	}) {
 		await this.send(
-			new libData.LogSetSubscriptionsRequest(
+			new lib.LogSetSubscriptionsRequest(
 				all, controller, hostIds, instanceIds, maxLevel,
 			)
 		);
@@ -111,7 +103,7 @@ class Control extends libLink.Link {
 		try {
 			await this.connector.disconnect();
 		} catch (err) {
-			if (!(err instanceof libErrors.SessionLost)) {
+			if (!(err instanceof lib.SessionLost)) {
 				throw err;
 			}
 		}
@@ -119,10 +111,10 @@ class Control extends libLink.Link {
 }
 
 async function loadPlugins(pluginList) {
-	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
-	libLink.registerPluginMessages(pluginInfos);
-	libConfig.registerPluginConfigGroups(pluginInfos);
-	libConfig.finalizeConfigs();
+	let pluginInfos = await lib.loadPluginInfos(pluginList);
+	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginConfigGroups(pluginInfos);
+	lib.finalizeConfigs();
 
 	let controlPlugins = new Map();
 	for (let pluginInfo of pluginInfos) {
@@ -130,7 +122,7 @@ async function loadPlugins(pluginList) {
 			continue;
 		}
 
-		let ControlPluginClass = await libPluginLoader.loadControlPluginClass(pluginInfo);
+		let ControlPluginClass = await lib.loadControlPluginClass(pluginInfo);
 		let controlPlugin = new ControlPluginClass(pluginInfo, logger);
 		controlPlugins.set(pluginInfo.name, controlPlugin);
 		await controlPlugin.init();
@@ -162,8 +154,8 @@ async function startControl() {
 			default: "plugin-list.json",
 			type: "string",
 		})
-		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("control-config", "Manage Control config", libSharedCommands.configCommand)
+		.command("plugin", "Manage available plugins", lib.pluginCommand)
+		.command("control-config", "Manage Control config", lib.configCommand)
 		.wrap(yargs.terminalWidth())
 		.help(false) // Disable help to avoid triggering it on the first parse.
 	;
@@ -176,10 +168,10 @@ async function startControl() {
 		new ConsoleTransport({
 			errorLevels: Object.keys(levels),
 			level: args.logLevel,
-			format: new libLoggingUtils.TerminalFormat(),
+			format: new lib.TerminalFormat(),
 		})
 	);
-	libLoggingUtils.handleUnhandledErrors(logger);
+	lib.handleUnhandledErrors(logger);
 
 	logger.verbose(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
@@ -193,7 +185,7 @@ async function startControl() {
 
 	// If the command is plugin management we don't try to load plugins
 	if (args._[0] === "plugin") {
-		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		await lib.handlePluginCommand(args, pluginList, args.pluginList);
 		return;
 	}
 
@@ -211,7 +203,7 @@ async function startControl() {
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
-	let controlConfig = new libConfig.ControlConfig("control");
+	let controlConfig = new lib.ControlConfig("control");
 	try {
 		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
 
@@ -221,7 +213,7 @@ async function startControl() {
 			await controlConfig.init();
 
 		} else {
-			throw new libErrors.StartupError(`Failed to load ${args.config}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
 		}
 	}
 
@@ -232,14 +224,14 @@ async function startControl() {
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await libSharedCommands.handleConfigCommand(args, controlConfig, args.config);
+		await lib.handleConfigCommand(args, controlConfig, args.config);
 		return;
 	}
 
 	// Determine which command is being executed.
 	let commandPath = [...args._];
 	let targetCommand = rootCommands;
-	while (commandPath.length && targetCommand instanceof libCommand.CommandTree) {
+	while (commandPath.length && targetCommand instanceof lib.CommandTree) {
 		targetCommand = targetCommand.get(commandPath.shift());
 	}
 
@@ -266,8 +258,8 @@ async function startControl() {
 	try {
 		await controlConnector.connect();
 	} catch (err) {
-		if (err instanceof libErrors.AuthenticationFailed) {
-			throw new libErrors.StartupError(err.message);
+		if (err instanceof lib.AuthenticationFailed) {
+			throw new lib.StartupError(err.message);
 		}
 		throw err;
 	}
@@ -287,11 +279,11 @@ async function startControl() {
 
 	} catch (err) {
 		control.keepOpen = false;
-		if (err instanceof libErrors.CommandError) {
+		if (err instanceof lib.CommandError) {
 			logger.error(`Error running command: ${err.message}`);
 			process.exitCode = 1;
 
-		} else if (err instanceof libErrors.RequestError) {
+		} else if (err instanceof lib.RequestError) {
 			logger.error(`Error sending request:\n${err.stack}`);
 			process.exitCode = 1;
 
@@ -321,7 +313,7 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startControl().catch(err => {
-		if (!(err instanceof libErrors.StartupError)) {
+		if (!(err instanceof lib.StartupError)) {
 			logger.fatal(`
 +------------------------------------------------------------+
 | Unexpected error occured while starting control, please    |

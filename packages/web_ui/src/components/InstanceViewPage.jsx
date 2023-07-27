@@ -4,7 +4,7 @@ import { Alert, Button, Descriptions, Dropdown, Menu, Modal, Space, Spin, Typogr
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -134,7 +134,7 @@ export default function InstanceViewPage(props) {
 				setExportingData(true);
 				control.sendTo(
 					{ instanceId },
-					new libData.InstanceExportDataRequest(),
+					new lib.InstanceExportDataRequest(),
 				).catch(
 					notifyErrorHandler("Error exporting data")
 				).finally(() => {
@@ -144,13 +144,13 @@ export default function InstanceViewPage(props) {
 			} else if (key === "extract") {
 				control.sendTo(
 					{ instanceId },
-					new libData.InstanceExtractPlayersRequest(),
+					new lib.InstanceExtractPlayersRequest(),
 				).catch(notifyErrorHandler("Error extracting player data"));
 
 			} else if (key === "kill") {
 				control.sendTo(
 					{ instanceId },
-					new libData.InstanceKillRequest(),
+					new lib.InstanceKillRequest(),
 				).catch(notifyErrorHandler("Error killing instance"));
 
 			} else if (key === "delete") {
@@ -161,7 +161,7 @@ export default function InstanceViewPage(props) {
 					okButtonProps: { danger: true },
 					onOk: () => {
 						control.send(
-							new libData.InstanceDeleteRequest(instanceId)
+							new lib.InstanceDeleteRequest(instanceId)
 						).then(() => {
 							navigate("/instances");
 						}).catch(notifyErrorHandler("Error deleting instance"));

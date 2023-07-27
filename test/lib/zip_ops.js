@@ -2,7 +2,7 @@
 const assert = require("assert").strict;
 const JSZip = require("jszip");
 
-const { findRoot } = require("@clusterio/lib/zip_ops");
+const { findRoot } = require("@clusterio/lib");
 
 
 describe("lib/factorio", function() {

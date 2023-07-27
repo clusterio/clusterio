@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button, Checkbox, Form, Input, Popconfirm, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
-import { libData, libUsers } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -19,7 +19,7 @@ function useRole(id) {
 
 	function updateRole() {
 		// XXX optimize by requesting only the role in question
-		control.send(new libData.RoleListRequest()).then(roles => {
+		control.send(new lib.RoleListRequest()).then(roles => {
 			let match = roles.find(u => u.id === id);
 			if (!match) {
 				setRole({ missing: true });
@@ -70,7 +70,7 @@ export default function RoleViewPage() {
 		name: role["name"],
 		description: role["description"],
 		permissions: {
-			...Object.fromEntries([...libUsers.permissions.values()].map(perm => [
+			...Object.fromEntries([...lib.permissions.values()].map(perm => [
 				perm.name, role["permissions"].includes(perm.name),
 			])),
 		},
@@ -88,7 +88,7 @@ export default function RoleViewPage() {
 				}
 
 				control.send(
-					new libData.RoleUpdateRequest(roleId, values.name || "", values.description || "", newPermissions)
+					new lib.RoleUpdateRequest(roleId, values.name || "", values.description || "", newPermissions)
 				).then(() => {
 					setEdited(false);
 					updateRole();
@@ -106,7 +106,7 @@ export default function RoleViewPage() {
 						okButtonProps={{ danger: true }}
 						onConfirm={() => {
 							control.send(
-								new libData.RoleDeleteRequest(roleId)
+								new lib.RoleDeleteRequest(roleId)
 							).then(() => {
 								navigate("/roles");
 							}).catch(notifyErrorHandler("Error deleting role"));
@@ -125,7 +125,7 @@ export default function RoleViewPage() {
 				<Input disabled={!canUpdate}/>
 			</Form.Item>
 			<h3>Permissions</h3>
-			{[...libUsers.permissions.values()].map(({name, title, description}) => (
+			{[...lib.permissions.values()].map(({name, title, description}) => (
 				<Form.Item
 					name={["permissions", name]}
 					key={name}

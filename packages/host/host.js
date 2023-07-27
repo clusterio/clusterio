@@ -22,19 +22,13 @@ const winston = require("winston");
 require("winston-daily-rotate-file");
 
 // internal libraries
-const libData = require("@clusterio/lib/data");
-const libLink = require("@clusterio/lib/link");
-const libPluginLoader = require("@clusterio/lib/plugin_loader");
-const libErrors = require("@clusterio/lib/errors");
-const libConfig = require("@clusterio/lib/config");
-const libSharedCommands = require("@clusterio/lib/shared_commands");
-const { ConsoleTransport, FilteredTransport, levels, logger } = require("@clusterio/lib/logging");
-const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const lib = require("@clusterio/lib");
+const { ConsoleTransport, levels, logger } = lib;
 
 const Host = require("./src/Host");
 
 
-class HostConnector extends libLink.WebSocketClientConnector {
+class HostConnector extends lib.WebSocketClientConnector {
 	constructor(hostConfig, tlsCa, pluginInfos) {
 		super(
 			hostConfig.get("host.controller_url"),
@@ -53,8 +47,8 @@ class HostConnector extends libLink.WebSocketClientConnector {
 		}
 
 		this.sendHandshake(
-			new libData.MessageRegisterHost(
-				new libData.RegisterHostData(
+			new lib.MessageRegisterHost(
+				new lib.RegisterHostData(
 					this.hostConfig.get("host.controller_token"),
 					"Clusterio Host",
 					version,
@@ -99,8 +93,8 @@ async function startHost() {
 			default: "plugin-list.json",
 			type: "string",
 		})
-		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Host config", libSharedCommands.configCommand)
+		.command("plugin", "Manage available plugins", lib.pluginCommand)
+		.command("config", "Manage Host config", lib.configCommand)
 		.command("run", "Run host")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
@@ -116,11 +110,11 @@ async function startHost() {
 	if (args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({
 			level: args.logLevel,
-			format: new libLoggingUtils.TerminalFormat(),
+			format: new lib.TerminalFormat(),
 			filter: info => info.instance_id === undefined,
 		}));
 	}
-	libLoggingUtils.handleUnhandledErrors(logger);
+	lib.handleUnhandledErrors(logger);
 
 	let command = args._[0];
 	if (command === "run") {
@@ -139,18 +133,18 @@ async function startHost() {
 
 	// If the command is plugin management we don't try to load plugins
 	if (command === "plugin") {
-		await libSharedCommands.handlePluginCommand(args, pluginList, args.pluginList);
+		await lib.handlePluginCommand(args, pluginList, args.pluginList);
 		return;
 	}
 
 	logger.info("Loading Plugin info");
-	let pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
-	libLink.registerPluginMessages(pluginInfos);
-	libConfig.registerPluginConfigGroups(pluginInfos);
-	libConfig.finalizeConfigs();
+	let pluginInfos = await lib.loadPluginInfos(pluginList);
+	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginConfigGroups(pluginInfos);
+	lib.finalizeConfigs();
 
 	logger.info(`Loading config from ${args.config}`);
-	let hostConfig = new libConfig.HostConfig("host");
+	let hostConfig = new lib.HostConfig("host");
 	try {
 		await hostConfig.load(JSON.parse(await fs.readFile(args.config)));
 
@@ -160,12 +154,12 @@ async function startHost() {
 			await hostConfig.init();
 
 		} else {
-			throw new libErrors.StartupError(`Failed to load ${args.config}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
 		}
 	}
 
 	if (command === "config") {
-		await libSharedCommands.handleConfigCommand(args, hostConfig, args.config);
+		await lib.handleConfigCommand(args, hostConfig, args.config);
 		return;
 	}
 
@@ -242,7 +236,7 @@ async function startHost() {
 	});
 
 	hostConnector.once("connect", () => {
-		logger.add(new libLoggingUtils.LinkTransport({ link: host }));
+		logger.add(new lib.LinkTransport({ link: host }));
 	});
 
 	await hostConnector.connect();
@@ -259,10 +253,10 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startHost().catch(err => {
-		if (err instanceof libErrors.AuthenticationFailed) {
+		if (err instanceof lib.AuthenticationFailed) {
 			logger.fatal(err.message);
 
-		} else if (err instanceof libErrors.StartupError) {
+		} else if (err instanceof lib.StartupError) {
 			logger.fatal(`
 +----------------------------------+
 | Unable to to start clusteriohost |
@@ -270,7 +264,7 @@ I           version of clusterio.  Expect things to break. I
 ${err.stack}`
 			);
 
-		} else if (err instanceof libErrors.PluginError) {
+		} else if (err instanceof lib.PluginError) {
 			logger.fatal(`
 ${err.pluginName} plugin threw an unexpected error
 during startup, please report it to the plugin author.

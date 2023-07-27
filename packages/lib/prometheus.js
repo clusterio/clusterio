@@ -7,13 +7,13 @@
  * metric collections in prom-client.
  *
  * The ordinary use case of instrumenting a code base should be covered by
- * {@link module:lib/prometheus.Counter}, {@link
- * module:lib/prometheus.Gauge}, {@link module:lib/prometheus.Histogram} and
- * {@link module:lib/prometheus.exposition}.  See documentation for each of
+ * {@link module:lib.Counter}, {@link
+ * module:lib.Gauge}, {@link module:lib.Histogram} and
+ * {@link module:lib.exposition}.  See documentation for each of
  * the listed interfaces for more information.
  *
  * @example
- * const { Counter, exposition } = require("@clusterio/lib/prometheus");
+ * const { Counter, exposition } = require("@clusterio/lib");
  *
  * // Collectors are by default registered to the default collector regitry.
  * const totalRequests = new Counter(
@@ -42,9 +42,9 @@
 "use strict";
 
 /**
- * Result from collecting a {@link module:lib/prometheus.Collector}
+ * Result from collecting a {@link module:lib.Collector}
  * @typedef {Object} CollectorResult
- * @property {module:lib/prometheus.Metric} metric -
+ * @property {module:lib.Metric} metric -
  *     Metric collected.
  * @property {Map<string, Map<string, number>>} samples -
  *     Mapping of metric suffix to mapping of label keys to values
@@ -165,7 +165,7 @@ class Metric {
 
 /**
  * The default registry which collectors are regististered to.
- * @type {module:lib/prometheus.CollectorRegistry}
+ * @type {module:lib.CollectorRegistry}
  * @static
  */
 let defaultRegistry;
@@ -176,7 +176,7 @@ let defaultRegistry;
  * This servers mostly as a conceptual base for all collectors, the only
  * feature implemented here is registring to the default registry on
  * construction.  If you want to implement a custom collector you most
- * likely want to base it on {@link module:lib/prometheus.LabeledCollector}
+ * likely want to base it on {@link module:lib.LabeledCollector}
  * instead.
  *
  * @static
@@ -197,7 +197,7 @@ class Collector {
 	/**
 	 * Retrieve metric data from this collctor.
 	 *
-	 * Called by {@link module:lib/prometheus.CollectorRegistry} to gather
+	 * Called by {@link module:lib.CollectorRegistry} to gather
 	 * the metric data this Collector exports.
 	 *
 	 * @returns {*} Async iterator of {@link CollectorResult}.
@@ -318,7 +318,7 @@ function removeMatchingLabels(mapping, labels) {
  * set is a child to the collector that can be retrieved with the .labels()
  * method.
  *
- * @extends module:lib/prometheus.Collector
+ * @extends module:lib.Collector
  * @static
  */
 class LabeledCollector extends Collector {
@@ -341,7 +341,7 @@ class LabeledCollector extends Collector {
 	 *     collected.  The collector being collected is passed as the
 	 *     argument.
 	 * @param {
-	 *     function(module:lib/prometheus.LabeledCollector,string)
+	 *     function(module:lib.LabeledCollector,string)
 	 * } childClass -
 	 *     Constructor taking instance of collector and label key as
 	 *     arguments and returns a child instance.
@@ -461,7 +461,7 @@ class LabeledCollector extends Collector {
 /**
  * Base class for implementing single value per label collectors
  *
- * @extends module:lib/prometheus.LabeledCollector
+ * @extends module:lib.LabeledCollector
  * @static
  */
 class ValueCollector extends LabeledCollector {
@@ -485,8 +485,8 @@ class ValueCollector extends LabeledCollector {
 	 *     argument.
 	 * @param {
 	 *     function(
-	 *         new:module:lib/prometheus.ValueCollectorChild,
-	 *         module:lib/prometheus.LabeledCollector,
+	 *         new:module:lib.ValueCollectorChild,
+	 *         module:lib.LabeledCollector,
 	 *         string
 	 *     )
 	 * } childClass -
@@ -555,7 +555,7 @@ class ValueCollectorChild {
 
 /**
  * Child counter holding the value for a single label set.
- * @extends module:lib/prometheus~ValueCollectorChild
+ * @extends module:lib~ValueCollectorChild
  */
 class CounterChild extends ValueCollectorChild {
 	/**
@@ -597,7 +597,7 @@ class CounterChild extends ValueCollectorChild {
  *
  * The `totalRequests` counter will register with the default registry and
  * provided exposition is set up (see {@link
- * module:lib/prometheus.exposition}) the counter will be exported to
+ * module:lib.exposition}) the counter will be exported to
  * Prometheus starting out with a value of 0.  And that is all there is to
  * it.
  *
@@ -652,7 +652,7 @@ class CounterChild extends ValueCollectorChild {
  * labels you actually need as resource usage for a metric increases
  * exponentially with the number of labels used.
  *
- * @extends module:lib/prometheus.ValueCollector
+ * @extends module:lib.ValueCollector
  * @static
  */
 class Counter extends ValueCollector {
@@ -689,7 +689,7 @@ class Counter extends ValueCollector {
 
 /**
  * Child gauge holding the value for a single label set.
- * @extends module:lib/prometheus~ValueCollectorChild
+ * @extends module:lib~ValueCollectorChild
  */
 class GaugeChild extends ValueCollectorChild {
 	/**
@@ -771,7 +771,7 @@ class GaugeChild extends ValueCollectorChild {
  *
  * The `activeRequests` gauge will register with the default registry and
  * provided exposition is set up (see {@link
- * module:lib/prometheus.exposition}) the gauge will be exported to
+ * module:lib.exposition}) the gauge will be exported to
  * Prometheus starting out with a value of 0.
  *
  * Sometimes keeping track of the value measured is impractical or
@@ -842,7 +842,7 @@ class GaugeChild extends ValueCollectorChild {
  * labels you actually need as resource usage for a metric increases
  * exponentially with the number of labels used.
  *
- * @extends module:lib/prometheus.ValueCollector
+ * @extends module:lib.ValueCollector
  * @static
  */
 class Gauge extends ValueCollector {
@@ -1637,7 +1637,7 @@ async function* expositionLines(resultsIterator) {
  * @param {*} resultsIterator -
  *     Asynchronously itreable of {@link CollectorResult} results to create
  *     exposition for.  Defaults to collecting results from {@link
- *     module:lib/prometheus.defaultRegistry}.
+ *     module:lib.defaultRegistry}.
  * @returns {string} Prometheus exposition.
  *
  * @property {string} exposition.contentType
@@ -1658,10 +1658,10 @@ exposition.contentType = "text/plain; version=0.0.4";
 /**
  * Serialize CollectorResult into a plain object
  *
- * Converts a {@link module:lib/prometheus~CollectorResult} into a plain
+ * Converts a {@link module:lib~CollectorResult} into a plain
  * object form that can be stringified to JSON.
  *
- * @param {module:lib/prometheus~CollectorResult} result -
+ * @param {module:lib~CollectorResult} result -
  *     Result to serialize into plain object form.
  * @param {Object} options - Options for controlling the serialization.
  * @param {string} options.addLabels -
@@ -1724,10 +1724,10 @@ function serializeResult(result, options = {}) {
 /**
  * Deserialize CollectorResult from plain object
  *
- * Reverse counterpart to {@link module:lib/prometheus.serializeResult}.
+ * Reverse counterpart to {@link module:lib.serializeResult}.
  *
  * @param {Object} serializedResult - Previously serialized result object.
- * @returns {module:lib/prometheus~CollectorResult} deserialized result.
+ * @returns {module:lib~CollectorResult} deserialized result.
  * @static
  */
 function deserializeResult(serializedResult) {
@@ -1748,7 +1748,7 @@ function deserializeResult(serializedResult) {
 
 /**
  * Default collectors provided by this library
- * @type {Object<string, module:lib/prometheus.Collector>}
+ * @type {Object<string, module:lib.Collector>}
  */
 let defaultCollectors = {};
 defaultCollectors.processCpuSecondsTotal = new Gauge(

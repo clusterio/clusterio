@@ -3,12 +3,12 @@ import "./index.css";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-import { libConfig, libLink, libLogging, libPlugin } from "@clusterio/lib";
-const { ConsoleTransport, WebConsoleFormat, logger } = libLogging;
+import * as lib from "@clusterio/lib";
 
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";
 
+const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
 async function loadScript(url) {
 	let script = document.createElement("script");
@@ -73,7 +73,7 @@ async function loadPlugins(pluginInfos) {
 			continue;
 		}
 		try {
-			let WebPluginClass = libPlugin.BaseWebPlugin;
+			let WebPluginClass = lib.BaseWebPlugin;
 			if (pluginInfo.webEntrypoint) {
 				let webModule = (await pluginInfo.container.get(pluginInfo.webEntrypoint))();
 				if (!webModule.WebPlugin) {
@@ -102,9 +102,9 @@ export default async function bootstrap() {
 		format: new WebConsoleFormat(),
 	}));
 	let pluginInfos = await loadPluginInfos();
-	libLink.registerPluginMessages(pluginInfos);
-	libConfig.registerPluginConfigGroups(pluginInfos);
-	libConfig.finalizeConfigs();
+	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginConfigGroups(pluginInfos);
+	lib.finalizeConfigs();
 	let plugins = await loadPlugins(pluginInfos);
 
 	let wsUrl = new URL(window.webRoot, document.location);

@@ -2,7 +2,7 @@
 const { jsonArray } = require("./composites");
 
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class HostDetails {
 	/** @type {string} */
 	agent;
@@ -44,7 +44,7 @@ class HostDetails {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class HostListRequest {
 	static type = "request";
 	static src = "control";
@@ -53,7 +53,7 @@ class HostListRequest {
 	static Response = jsonArray(HostDetails);
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class HostSetSubscriptionsRequest {
 	static type = "request";
 	static src = "control";
@@ -88,13 +88,13 @@ class HostSetSubscriptionsRequest {
 }
 
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class HostUpdateEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
 
-	/** @type {module:lib/data.HostDetails} */
+	/** @type {module:lib.HostDetails} */
 	update;
 
 	constructor(update) {
@@ -114,7 +114,7 @@ class HostUpdateEvent {
 	}
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class HostMetricsRequest {
 	static type = "request";
 	static src = "controller";
@@ -143,7 +143,7 @@ HostMetricsRequest.Response = class Response { // TODO: Use JSON class pattern i
 	}
 };
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class ControllerConnectionEvent {
 	static type = "event";
 	static src = "host";
@@ -169,14 +169,14 @@ class ControllerConnectionEvent {
 	}
 }
 
-/* @memberof module:lib/data */
+/* @memberof module:lib */
 class PrepareControllerDisconnectRequest {
 	static type = "request";
 	static src = "host";
 	static dst = "instance";
 }
 
-/** @memberof module:lib/data */
+/** @memberof module:lib */
 class SyncUserListsEvent {
 	static type = "event";
 	static src = "controller";

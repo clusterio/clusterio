@@ -2,9 +2,8 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const libFileOps = require("@clusterio/lib/file_ops");
-const libPlugin = require("@clusterio/lib/plugin");
-const RateLimiter = require("@clusterio/lib/RateLimiter");
+const lib = require("@clusterio/lib");
+const { RateLimiter } = lib;
 
 const {
 	ContributionEvent,
@@ -34,10 +33,10 @@ async function loadTechnologies(controllerConfig, logger) {
 async function saveTechnologies(controllerConfig, technologies, logger) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
-	await libFileOps.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
+	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
 }
 
-class ControllerPlugin extends libPlugin.BaseControllerPlugin {
+class ControllerPlugin extends lib.BaseControllerPlugin {
 	async init() {
 		this.technologies = await loadTechnologies(this.controller.config, this.logger);
 		this.progressRateLimiter = new RateLimiter({

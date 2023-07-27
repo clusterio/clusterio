@@ -14,7 +14,7 @@ const { basicType } = require("../helpers");
  * does not permitt this access is done.
  *
  * @extends Error
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 class InvalidAccess extends Error { };
 
@@ -25,7 +25,7 @@ class InvalidAccess extends Error { };
  * field.
  *
  * @extends Error
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 class InvalidValue extends Error { };
 
@@ -36,7 +36,7 @@ class InvalidValue extends Error { };
  * attempted to be accessed.
  *
  * @extends Error
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 class InvalidField extends Error { };
 
@@ -51,7 +51,7 @@ class InvalidField extends Error { };
  * @param {string} separator - Separator to split string by.
  * @param {string} string - String to split
  * @returns {Array} string split on separator.
- * @memberof module:lib/config
+ * @memberof module:lib
  * @private
  * @inner
  */
@@ -77,7 +77,7 @@ function splitOn(separator, string) {
  *
  * @extends events.EventEmitter
  *
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 class Config extends events.EventEmitter {
 	/**
@@ -236,7 +236,7 @@ class Config extends events.EventEmitter {
 	 * Get the config group instance with the given name
 	 *
 	 * @param {string} name - Name of group to get.
-	 * @returns {module:lib/config.ConfigGroup} config group.
+	 * @returns {module:lib.ConfigGroup} config group.
 	 */
 	group(name) {
 		if (!this._initialized) {
@@ -287,7 +287,7 @@ class Config extends events.EventEmitter {
 	 * Adds the ConfigGroup to this config as a group that will get
 	 * initialized, loaded and serialized with this config class.
 	 *
-	 * @param {module:lib/config.ConfigGroup} group - class to register.
+	 * @param {module:lib.ConfigGroup} group - class to register.
 	 */
 	static registerGroup(group) {
 		this._initSubclass();
@@ -317,7 +317,7 @@ class Config extends events.EventEmitter {
  * loading a config with invalid values will result in those being replaced
  * by the innitial value for those fields.
  *
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 class ConfigGroup {
 	/**
@@ -326,7 +326,7 @@ class ConfigGroup {
 	 * After the creation of the new config group you have to call
 	 * either .init() or .load() on it in order to fully initialize it.
 	 *
-	 * @param {module:lib/config.Config} config -
+	 * @param {module:lib.Config} config -
 	 *     Parent config for this group instance.
 	 */
 	constructor(config) {
@@ -345,7 +345,7 @@ class ConfigGroup {
 	 * @param {object} def - definition for for the field to check.
 	 * @param {string} remote - location of remote access to check for.
 	 * @param {boolean} error - throw on failure to pass check.
-	 * @throws {module:lib/config.InvalidAccess}
+	 * @throws {module:lib.InvalidAccess}
 	 *     if access is not granted and error is true.
 	 * @returns {boolean} true if access is granted
 	 * @private
@@ -456,8 +456,8 @@ class ConfigGroup {
 	 * @param {string} name - Name of field to set.
 	 * @param {*} value - Value to set for field.
 	 * @param {string=} location - Location used for access control.
-	 * @throws {module:lib/config.InvalidField} if field is not defined.
-	 * @throws {module:lib/config.InvalidValue} if value is not allowed for the field.
+	 * @throws {module:lib.InvalidField} if field is not defined.
+	 * @throws {module:lib.InvalidValue} if value is not allowed for the field.
 	 */
 	set(name, value, location = this.config.location) {
 		let def = this.constructor._definitions.get(name);
@@ -524,8 +524,8 @@ class ConfigGroup {
 	 * @param {string} prop - Name of property to set on field.
 	 * @param {*} value - the value to set the property to.
 	 * @param {string=} location - Location used for access control.
-	 * @throws {module:lib/config.InvalidField} if field is not defined.
-	 * @throws {module:lib/config.InvalidValue} if field is not an object.
+	 * @throws {module:lib.InvalidField} if field is not defined.
+	 * @throws {module:lib.InvalidValue} if field is not an object.
 	 */
 	setProp(name, prop, value, location = this.config.location) {
 		let def = this.constructor._definitions.get(name);
@@ -829,8 +829,8 @@ class ConfigGroup {
  * plugins.  This is currently only the enabled field.  It is otherwise
  * identical to the ConfigGroup class.
  *
- * @extends module:lib/config.ConfigGroup
- * @memberof module:lib/config
+ * @extends module:lib.ConfigGroup
+ * @memberof module:lib
  */
 class PluginConfigGroup extends ConfigGroup {
 	static _initSubclass() {

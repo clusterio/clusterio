@@ -188,10 +188,10 @@ class LogIndex {
 	 *
 	 * Loads index.json from the given log directy expecting it to contain
 	 * data about previously indexed files saved with {@link
-	 * module:lib/logging_utils.LogIndex#save}.
+	 * module:lib.LogIndex#save}.
 	 *
 	 * @param {string} logDirectory - Path to directory to load from.
-	 * @returns {Promise<module:lib/logging_utils.LogIndex>} loaded or created log index.
+	 * @returns {Promise<module:lib.LogIndex>} loaded or created log index.
 	 */
 	static async load(logDirectory) {
 		try {
@@ -275,7 +275,7 @@ class LogIndex {
 	 *
 	 * @param {string} file -
 	 *     Name of file in the log directory to check for.
-	 * @param {module:lib/logging~LogFilter} filter -
+	 * @param {module:lib~LogFilter} filter -
 	 *     Filter to check index if file contains entries for.
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
@@ -314,7 +314,7 @@ class LogIndex {
 
 /**
  * Filter object for querying logs
- * @typedef {Object} module:lib/logging_utils~QueryLogFilter
+ * @typedef {Object} module:lib~QueryLogFilter
  * @property {number} [limit=100] - Maximum number of entries to return.
  * @property {string} [order="asc"] -
  *     Return entries in ascending ("asc") date order or desceding ("desc")
@@ -336,9 +336,9 @@ class LogIndex {
  * Query log directory
  *
  * @param {string} logDirectory - path to directory with logs.
- * @param {module:lib/logging_utils~QueryLogFilter} filter -
+ * @param {module:lib~QueryLogFilter} filter -
  *     Filter to limit logs by.
- * @param {module:lib/logging_utils.LogIndex=} index -
+ * @param {module:lib.LogIndex=} index -
  *     Index to speed up query with.
  * @returns {Promise<Array<Object>>} log entries matching the filter
  */

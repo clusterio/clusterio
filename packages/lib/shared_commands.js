@@ -120,7 +120,7 @@ function configCommand(yargs) {
  * Handle the actions that are made available by configCommand.
  *
  * @param {Object} args - yargs args object.
- * @param {module:lib/config.Config} instance - Config instance.
+ * @param {module:lib.Config} instance - Config instance.
  * @param {string} configPath - Path to configuration file.
  */
 async function handleConfigCommand(args, instance, configPath) {

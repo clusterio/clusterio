@@ -9,16 +9,8 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const stream = require("stream");
 
-const libConfig = require("@clusterio/lib/config");
-const libData = require("@clusterio/lib/data");
-const libErrors = require("@clusterio/lib/errors");
-const libFileOps = require("@clusterio/lib/file_ops");
-const libLink = require("@clusterio/lib/link");
-const libLoggingUtils = require("@clusterio/lib/logging_utils");
-const libPlugin = require("@clusterio/lib/plugin");
-const libPluginLoader = require("@clusterio/lib/plugin_loader");
-const libPrometheus = require("@clusterio/lib/prometheus");
-const { logger } = require("@clusterio/lib/logging");
+const lib = require("@clusterio/lib");
+const { logger } = lib;
 
 const HttpCloser = require("./HttpCloser");
 const InstanceInfo = require("./InstanceInfo");
@@ -28,13 +20,13 @@ const UserManager = require("./UserManager");
 const WsServer = require("./WsServer");
 
 
-const endpointDurationSummary = new libPrometheus.Summary(
+const endpointDurationSummary = new lib.Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
 	"Time it took to respond to a an HTTP request",
 	{ labels: ["route"] }
 );
 
-const logSizeGauge = new libPrometheus.Gauge(
+const logSizeGauge = new lib.Gauge(
 	"clusterio_controller_log_bytes",
 	"Size of all log files currently stored on the controller."
 );
@@ -54,7 +46,7 @@ class Controller {
 		this.configPath = configPath;
 		/**
 		 * Controller config.
-		 * @type {module:lib/config.ControllerConfig}
+		 * @type {module:lib.ControllerConfig}
 		 */
 		this.config = config;
 
@@ -76,13 +68,13 @@ class Controller {
 
 		/**
 		 * Mapping of mod pack id to mod pack
-		 * @type {Map<number, module:lib/data.ModPack>}
+		 * @type {Map<number, module:lib.ModPack>}
 		 */
 		this.modPacks = null;
 
 		/**
 		 * Mapping of mod names to mod infos
-		 * @type {Map<string, module:lib/data.ModInfo>}
+		 * @type {Map<string, module:lib.ModInfo>}
 		 */
 		this.mods = null;
 
@@ -98,7 +90,7 @@ class Controller {
 
 		/**
 		 * Mapping of plugin name to loaded plugin
-		 * @type {Map<string, module:lib/plugin.BaseControllerPlugin>}
+		 * @type {Map<string, module:lib.BaseControllerPlugin>}
 		 */
 		this.plugins = new Map();
 
@@ -150,15 +142,15 @@ class Controller {
 	 */
 	async logSize() {
 		return (await Promise.all([
-			libFileOps.directorySize(path.join(this.logDirectory, "cluster")),
-			libFileOps.directorySize(path.join(this.logDirectory, "controller")),
-			libFileOps.directorySize(path.join(this.logDirectory, "host")),
+			lib.directorySize(path.join(this.logDirectory, "cluster")),
+			lib.directorySize(path.join(this.logDirectory, "controller")),
+			lib.directorySize(path.join(this.logDirectory, "host")),
 		])).reduce((a, v) => a + v, 0);
 	}
 
 	async _startInternal(args) {
 		this.logDirectory = args.logDirectory;
-		this.clusterLogIndex = await libLoggingUtils.LogIndex.load(path.join(this.logDirectory, "cluster"));
+		this.clusterLogIndex = await lib.LogIndex.load(path.join(this.logDirectory, "cluster"));
 		this.clusterLogBuildInterval = setInterval(() => {
 			this.clusterLogIndex.buildIndex().catch(
 				err => logger.error(`Error building cluster log index:\n${err.stack}`)
@@ -181,7 +173,7 @@ class Controller {
 				for (let name of args.devPlugin) {
 					let info = this.pluginInfos.find(i => i.name === name);
 					if (!info) {
-						throw new libErrors.StartupError(`No plugin named ${name}`);
+						throw new lib.StartupError(`No plugin named ${name}`);
 					}
 					let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
 					devPlugins.set(name, webpackConfigs.length);
@@ -210,7 +202,7 @@ class Controller {
 		this.mods = await Controller.loadModInfos(modsDirectory);
 
 		this.config.on("fieldChanged", (group, field, prev) => {
-			libPlugin.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
+			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
 		});
 		for (let instance of this.instances.values()) {
 			this.addInstanceHooks(instance);
@@ -230,7 +222,7 @@ class Controller {
 		let tls_key = this.config.get("controller.tls_private_key");
 
 		if (httpsPort && (!tls_cert || !tls_key)) {
-			throw new libErrors.StartupError(
+			throw new lib.StartupError(
 				"tls_certificate and tls_private_key must be configure in order to use https_port"
 			);
 		}
@@ -265,7 +257,7 @@ class Controller {
 				privateKey = await fs.readFile(tls_key);
 
 			} catch (err) {
-				throw new libErrors.StartupError(
+				throw new lib.StartupError(
 					`Error loading ssl certificate: ${err.message}`
 				);
 			}
@@ -313,7 +305,7 @@ class Controller {
 		}
 
 		logger.info("Saving config");
-		await libFileOps.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
+		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
 
 		if (this.devMiddleware) {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
@@ -336,7 +328,7 @@ class Controller {
 			await this.userManager.save(path.join(databaseDirectory, "users.json"));
 		}
 
-		await libPlugin.invokeHook(this.plugins, "onShutdown");
+		await lib.invokeHook(this.plugins, "onShutdown");
 
 		if (this.wsServer) {
 			await this.wsServer.stop();
@@ -373,7 +365,7 @@ class Controller {
 	}
 
 	static async saveHosts(filePath, hosts) {
-		await libFileOps.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, 4));
 	}
 
 	static async loadInstances(filePath) {
@@ -383,7 +375,7 @@ class Controller {
 		try {
 			let serialized = JSON.parse(await fs.readFile(filePath));
 			for (let serializedConfig of serialized) {
-				let instanceConfig = new libConfig.InstanceConfig("controller");
+				let instanceConfig = new lib.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
 				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				let instance = new InstanceInfo({ config: instanceConfig, status });
@@ -405,7 +397,7 @@ class Controller {
 			serialized.push(instance.config.serialize());
 		}
 
-		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
 	static async loadModPacks(filePath) {
@@ -418,11 +410,11 @@ class Controller {
 			}
 			return new Map();
 		}
-		return new Map(json.map(e => [e.id, libData.ModPack.fromJSON(e)]));
+		return new Map(json.map(e => [e.id, lib.ModPack.fromJSON(e)]));
 	}
 
 	static async saveModPacks(filePath, modPacks) {
-		await libFileOps.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
 	}
 
 	static async loadModInfos(modsDirectory) {
@@ -440,7 +432,7 @@ class Controller {
 			logger.info(`Loading info for Mod ${entry.name}`);
 			let modInfo;
 			try {
-				modInfo = await libData.ModInfo.fromModFile(path.join(modsDirectory, entry.name));
+				modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, entry.name));
 			} catch (err) {
 				logger.error(`Error loading mod ${entry.name}: ${err.message}`);
 				continue;
@@ -488,13 +480,13 @@ class Controller {
 	/**
 	 * Query controller log
 	 *
-	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
+	 * @param {module:lib~QueryLogFilter} filter -
 	 *     Filter to limit entries with. Note that only the controller log can
 	 *     be queried from this function.
 	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
 	async queryControllerLog(filter) {
-		return await libLoggingUtils.queryLog(
+		return await lib.queryLog(
 			path.join(this.logDirectory, "controller"), filter,
 		);
 	}
@@ -502,12 +494,12 @@ class Controller {
 	/**
 	 * Query cluster log
 	 *
-	 * @param {module:lib/logging_utils~QueryLogFilter} filter -
+	 * @param {module:lib~QueryLogFilter} filter -
 	 *     Filter to limit entries with.
 	 * @returns {Promise<Array<Object>>} log entries matching the filter
 	 */
 	async queryClusterLog(filter) {
-		return await libLoggingUtils.queryLog(
+		return await lib.queryLog(
 			path.join(this.logDirectory, "cluster"), filter, this.clusterLogIndex,
 		);
 	}
@@ -564,7 +556,7 @@ class Controller {
 	}
 
 	hostUpdated(host) {
-		let update = new libData.HostDetails(
+		let update = new lib.HostDetails(
 			host.agent,
 			host.version,
 			host.name,
@@ -587,12 +579,12 @@ class Controller {
 	 *
 	 * @param {number} instanceId - ID of instance to get.
 	 * @returns {object} instance
-	 * @throws {module:lib/errors.RequestError} if the instance does not exist.
+	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
 	getRequestInstance(instanceId) {
 		let instance = this.instances.get(instanceId);
 		if (!instance) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} does not exist`);
+			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 		return instance;
 	}
@@ -604,20 +596,20 @@ class Controller {
 	 * creates an instance using that config in the cluster.
 	 *
 	 * @example
-	 * let instanceConfig = new libConfig.InstanceConfig("controller");
+	 * let instanceConfig = new lib.InstanceConfig("controller");
 	 * await instanceConfig.init();
 	 * instanceConfig.set("instance.name", "My instance");
 	 * let instance = await controller.instanceAssign(instanceConfig);
 	 * await controller.instanceAssign(instance.id, hostId);
 	 *
-	 * @param {module:lib/config.InstanceConfig} instanceConfig -
+	 * @param {module:lib.InstanceConfig} instanceConfig -
 	 *     Config to base newly created instance on.
 	 * @returns {module:controller/src/InstanceInfo} The created instance
 	 */
 	async instanceCreate(instanceConfig) {
 		let instanceId = instanceConfig.get("instance.id");
 		if (this.instances.has(instanceId)) {
-			throw new libErrors.RequestError(`Instance with ID ${instanceId} already exists`);
+			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
 
 		// Add common settings for the Factorio server
@@ -648,7 +640,7 @@ class Controller {
 
 		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
 		this.instances.set(instanceId, instance);
-		await libPlugin.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
+		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
 		this.addInstanceHooks(instance);
 	}
 
@@ -678,7 +670,7 @@ class Controller {
 				// target host be connected to the controller while doing the
 				// assignment, but it is IMHO a better user experience if this
 				// is the case.
-				throw new libErrors.RequestError("Target host is not connected to the controller");
+				throw new lib.RequestError("Target host is not connected to the controller");
 			}
 		}
 
@@ -687,7 +679,7 @@ class Controller {
 		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
 			let oldHostConnection = this.wsServer.hostConnections.get(currentAssignedHost);
 			if (oldHostConnection && !oldHostConnection.connector.closing) {
-				await oldHostConnection.send(new libData.InstanceUnassignInternalRequest(instanceId));
+				await oldHostConnection.send(new lib.InstanceUnassignInternalRequest(instanceId));
 			}
 		}
 
@@ -695,7 +687,7 @@ class Controller {
 		instance.config.set("instance.assigned_host", hostId);
 		if (hostId !== null) {
 			await newHostConnection.send(
-				new libData.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
+				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);
 		} else {
 			instance.status = "unassigned";
@@ -715,14 +707,14 @@ class Controller {
 		let instance = this.getRequestInstance(instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId !== null) {
-			await this.sendTo({ hostId }, new libData.InstanceDeleteInternalRequest(instanceId));
+			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
 		}
 		this.instances.delete(instanceId);
 
 		let prev = instance.status;
 		instance.status = "deleted";
 		this.instanceUpdated(instance);
-		await libPlugin.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
+		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	/**
@@ -740,7 +732,7 @@ class Controller {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await connection.send(
-					new libData.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
+					new lib.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
 				);
 			}
 		}
@@ -752,7 +744,7 @@ class Controller {
 				this.instanceUpdated(instance);
 			}
 
-			libPlugin.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
+			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
 		});
 
 		this.instanceUpdated(instance);
@@ -786,7 +778,7 @@ class Controller {
 			controlConnection.modPackUpdated(modPack);
 		}
 
-		libPlugin.invokeHook(this.plugins, "onModPackUpdated", modPack);
+		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
 
 	modUpdated(mod) {
@@ -798,7 +790,7 @@ class Controller {
 			controlConnection.modUpdated(mod);
 		}
 
-		libPlugin.invokeHook(this.plugins, "onModUpdated", mod);
+		lib.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
 	userUpdated(user) {
@@ -814,13 +806,13 @@ class Controller {
 	/**
 	 * Notify connected control clients under the given user that the
 	 * permissions for this user may have changed.
-	 * @param {module:lib/users.User} user - User permisions updated for.
+	 * @param {module:lib.User} user - User permisions updated for.
 	 */
 	userPermissionsUpdated(user) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
 				controlConnection.send(
-					new libData.AccountUpdateEvent([...user.roles].map(r => ({
+					new lib.AccountUpdateEvent([...user.roles].map(r => ({
 						name: r.name,
 						id: r.id,
 						permissions: [...r.permissions],
@@ -833,13 +825,13 @@ class Controller {
 	/**
 	 * Notify connected control clients with the given role that the
 	 * permissions may have changed.
-	 * @param {module:lib/users.Role} role - Role permisions updated for.
+	 * @param {module:lib.Role} role - Role permisions updated for.
 	 */
 	rolePermissionsUpdated(role) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user.roles.has(role)) {
 				controlConnection.send(
-					new libData.AccountUpdateEvent(
+					new lib.AccountUpdateEvent(
 						[...controlConnection.user.roles].map(r => ({
 							name: r.name,
 							id: r.id,
@@ -864,10 +856,10 @@ class Controller {
 				continue;
 			}
 
-			let ControllerPluginClass = libPlugin.BaseControllerPlugin;
+			let ControllerPluginClass = lib.BaseControllerPlugin;
 			try {
 				if (pluginInfo.controllerEntrypoint) {
-					ControllerPluginClass = await libPluginLoader.loadControllerPluginClass(pluginInfo);
+					ControllerPluginClass = await lib.loadControllerPluginClass(pluginInfo);
 				}
 
 				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics, logger);
@@ -875,7 +867,7 @@ class Controller {
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
 			} catch (err) {
-				throw new libErrors.PluginError(pluginInfo.name, err);
+				throw new lib.PluginError(pluginInfo.name, err);
 			}
 
 			logger.info(`Loaded plugin ${pluginInfo.name}`);
@@ -899,7 +891,7 @@ class Controller {
 			});
 
 			function wrapError(err) {
-				reject(new libErrors.StartupError(
+				reject(new lib.StartupError(
 					`Server listening failed: ${err.message}`
 				));
 			}
@@ -982,7 +974,7 @@ class Controller {
 	}
 
 	handleRequest(Request, handler) {
-		if (!libLink.Link._requestsByClass.has(Request)) {
+		if (!lib.Link._requestsByClass.has(Request)) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
 		if (this._registeredRequests.has(Request)) {
@@ -992,7 +984,7 @@ class Controller {
 	}
 
 	fallbackRequest(Request, handler) {
-		if (!libLink.Link._requestsByClass.has(Request)) {
+		if (!lib.Link._requestsByClass.has(Request)) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
 		if (this._fallbackedRequests.has(Request)) {
@@ -1002,7 +994,7 @@ class Controller {
 	}
 
 	handleEvent(Event, handler) {
-		if (!libLink.Link._eventsByClass.has(Event)) {
+		if (!lib.Link._eventsByClass.has(Event)) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
 		}
 		if (this._registeredEvents.has(Event)) {
@@ -1012,7 +1004,7 @@ class Controller {
 	}
 
 	snoopEvent(Event, handler) {
-		if (!libLink.Link._eventsByClass.has(Event)) {
+		if (!lib.Link._eventsByClass.has(Event)) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
 		}
 		if (this._snoopedEvents.has(Event)) {
@@ -1026,16 +1018,16 @@ class Controller {
 	 *
 	 * Routes the given request or event to the given destination.  The
 	 * destination argument supports address shorthands, see {@link
-	 * module:lib/data.Address.fromShorthand}
+	 * module:lib.Address.fromShorthand}
 	 *
-	 * @param {*|module:lib/data.Address} address - Where to send it.
+	 * @param {*|module:lib.Address} address - Where to send it.
 	 * @param {*} requestOrEvent - The request or event to send.
 	 * @returns {Promise<*>|undefined}
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
 	sendTo(address, requestOrEvent) {
-		let dst = libData.Address.fromShorthand(address);
+		let dst = lib.Address.fromShorthand(address);
 		if (requestOrEvent.constructor.type === "request") {
 			return this.sendRequest(requestOrEvent, dst);
 		}
@@ -1047,30 +1039,30 @@ class Controller {
 
 	async sendRequest(request, dst) {
 		let connection;
-		if (dst.type === libData.Address.controller) {
+		if (dst.type === lib.Address.controller) {
 			throw new Error("controller as dst is not supported.");
 
-		} else if (dst.type === libData.Address.control) {
+		} else if (dst.type === lib.Address.control) {
 			connection = this.wsServer.controlConnections.get(dst.id);
 			if (!connection) {
-				throw new libErrors.RequestError("Target control connection does not exist.");
+				throw new lib.RequestError("Target control connection does not exist.");
 			}
 
-		} else if (dst.type === libData.Address.instance) {
+		} else if (dst.type === lib.Address.instance) {
 			let instance = this.getRequestInstance(dst.id);
 			let hostId = instance.config.get("instance.assigned_host");
 			if (hostId === null) {
-				throw new libErrors.RequestError("Instance is not assigned to a host");
+				throw new lib.RequestError("Instance is not assigned to a host");
 			}
 			connection = this.wsServer.hostConnections.get(hostId);
 			if (!connection) {
-				throw new libErrors.RequestError("Host containing instance is not connected");
+				throw new lib.RequestError("Host containing instance is not connected");
 			}
 
-		} else if (dst.type === libData.Address.host) {
+		} else if (dst.type === lib.Address.host) {
 			connection = this.wsServer.hostConnections.get(dst.id);
 			if (!connection) {
-				throw new libErrors.RequestError("Host is not connected");
+				throw new lib.RequestError("Host is not connected");
 			}
 
 		} else {
@@ -1082,13 +1074,13 @@ class Controller {
 
 	sendEvent(event, dst) {
 		let connection;
-		if (dst.type === libData.Address.controller) {
+		if (dst.type === lib.Address.controller) {
 			throw new Error("controller as dst is not supported.");
 
-		} else if (dst.type === libData.Address.control) {
+		} else if (dst.type === lib.Address.control) {
 			connection = this.wsServer.controlConnections.get(dst.id);
 
-		} else if (dst.type === libData.Address.instance) {
+		} else if (dst.type === lib.Address.instance) {
 			let instance = this.instances.get(dst.id);
 			if (!instance) {
 				return;
@@ -1099,16 +1091,16 @@ class Controller {
 			}
 			connection = this.wsServer.hostConnections.get(hostId);
 
-		} else if (dst.type === libData.Address.host) {
+		} else if (dst.type === lib.Address.host) {
 			connection = this.wsServer.hostConnections.get(dst.id);
 
-		} else if (dst.type === libData.Address.broadcast) {
-			if (dst.id === libData.Address.control) {
+		} else if (dst.type === lib.Address.broadcast) {
+			if (dst.id === lib.Address.control) {
 				for (let controlConnection of this.wsServer.controlConnections.values()) {
 					controlConnection.sendEvent(event, dst);
 				}
 
-			} else if (dst.id === libData.Address.instance || dst.id === libData.Address.host) {
+			} else if (dst.id === lib.Address.instance || dst.id === lib.Address.host) {
 				for (let hostConnection of this.wsServer.hostConnections.values()) {
 					hostConnection.sendEvent(event, dst);
 				}
@@ -1141,11 +1133,11 @@ class Controller {
 		let instance = this.getRequestInstance(request.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
-			throw new libErrors.RequestError("Instance is not assigned to a host");
+			throw new lib.RequestError("Instance is not assigned to a host");
 		}
 		let connection = this.wsServer.hostConnections.get(hostId);
 		if (!connection) {
-			throw new libErrors.RequestError("Host containing instance is not connected");
+			throw new lib.RequestError("Host containing instance is not connected");
 		}
 		return await connection.send(request);
 	}

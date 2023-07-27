@@ -16,7 +16,7 @@ const stream = require("stream");
  * let fileStream = fs.createReadStream(path);
  * fileStream.pipe(lineStream);
  *
- * @memberof module:lib/stream
+ * @memberof module:lib
  */
 class LineSplitter extends stream.Transform {
 	constructor(options) {
@@ -63,7 +63,7 @@ class LineSplitter extends stream.Transform {
  * Transform splitting a reverse stream into lines
  *
  * Splits up a reverse stream of chunks created by {@link
- * module:lib/stream.createReverseReadStream} by newlines and passes on the
+ * module:lib.createReverseReadStream} by newlines and passes on the
  * lines one by one in reverse order removing the line feed and optional
  * carriage return from the lines.
  *
@@ -73,7 +73,7 @@ class LineSplitter extends stream.Transform {
  * let revFileStream = await libStream.createReverseReadStream(path);
  * revFileStream.pipe(revLineStream);
  *
- * @memberof module:lib/stream
+ * @memberof module:lib
  */
 class ReverseLineSplitter extends stream.Transform {
 	constructor(options) {
@@ -141,7 +141,7 @@ class ReverseLineSplitter extends stream.Transform {
  * @param {object} options -
  *     Options to pass to fs.createReadStream.  Values passed for `fd` and
  *     `fs` will be ignored.
- * @memberof module:lib/stream
+ * @memberof module:lib
  */
 async function createReverseReadStream(path, options) {
 	const fileFd = await fs.open(path, "r");

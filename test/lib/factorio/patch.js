@@ -4,7 +4,7 @@ const fs = require("fs-extra");
 const JSZip = require("jszip");
 const path = require("path");
 
-const libFactorio = require("@clusterio/lib/factorio");
+const lib = require("@clusterio/lib");
 
 
 describe("lib/factorio", function() {
@@ -38,7 +38,7 @@ describe("lib/factorio", function() {
 		};
 
 		it("should produce output matching the reference", function() {
-			assert.equal(libFactorio._generateLoader(patchInfo), reference);
+			assert.equal(lib._generateLoader(patchInfo), reference);
 		});
 	});
 
@@ -48,7 +48,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
 				{ name: "b", version: "1.0.0", dependencies: {} },
 			];
-			libFactorio._reorderDependencies(modules);
+			lib._reorderDependencies(modules);
 			assert(modules[0].name === "b", "Dependency was not reorederd");
 		});
 		it("should throw on invalid version", function() {
@@ -56,7 +56,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "foo", dependencies: {} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Invalid version 'foo' for module a")
 			);
 		});
@@ -65,7 +65,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "1.0.0", dependencies: {"b": "invalid"} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Invalid version range 'invalid' for dependency b on module a")
 			);
 		});
@@ -74,7 +74,7 @@ describe("lib/factorio", function() {
 				{ name: "a", version: "1.0.0", dependencies: {"b": "*"} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Missing dependency b for module a")
 			);
 			modules = [
@@ -83,7 +83,7 @@ describe("lib/factorio", function() {
 				{ name: "c", version: "1.0.0", dependencies: {"d": "*"} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Missing dependency d for module c")
 			);
 		});
@@ -93,7 +93,7 @@ describe("lib/factorio", function() {
 				{ name: "b", version: "1.0.0", dependencies: {"a": ">=2"} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Module b requires a >=2")
 			);
 		});
@@ -103,7 +103,7 @@ describe("lib/factorio", function() {
 				{ name: "b", version: "1.0.0", dependencies: {"a": "*"} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Module dependency loop detected: a -> b -> a")
 			);
 			modules = [
@@ -113,7 +113,7 @@ describe("lib/factorio", function() {
 				{ name: "c", version: "1.0.0", dependencies: {"a": "*"} },
 			];
 			assert.throws(
-				() => libFactorio._reorderDependencies(modules),
+				() => lib._reorderDependencies(modules),
 				new Error("Module dependency loop detected: b -> c -> a -> b")
 			);
 		});
@@ -153,7 +153,7 @@ describe("lib/factorio", function() {
 				}
 				let success = false;
 				try {
-					libFactorio._reorderDependencies(modules);
+					lib._reorderDependencies(modules);
 					success = true;
 				} catch (err) { }
 				if (success) {
@@ -176,7 +176,7 @@ describe("lib/factorio", function() {
 			await fs.outputFile(zipPath, await zip.generateAsync({ type: "nodebuffer" }));
 
 			await assert.rejects(
-				libFactorio.patch(zipPath, []),
+				lib.patch(zipPath, []),
 				new Error("Unable to patch save, unknown scenario (3acc3be3861144e55604f5ac2f2555071885ebc4)")
 			);
 		});

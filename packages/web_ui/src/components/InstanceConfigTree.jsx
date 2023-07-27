@@ -1,6 +1,6 @@
 import React, { useContext } from "react";
 
-import { libConfig, libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import BaseConfigTree from "./BaseConfigTree";
 import ControlContext from "./ControlContext";
@@ -10,12 +10,12 @@ export default function InstanceConfigTree(props) {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
-		let result = await control.send(new libData.InstanceConfigGetRequest(props.id));
+		let result = await control.send(new lib.InstanceConfigGetRequest(props.id));
 		return result.config;
 	}
 
 	async function setField(field, value) {
-		await control.send(new libData.InstanceConfigSetFieldRequest(props.id, field, value));
+		await control.send(new lib.InstanceConfigSetFieldRequest(props.id, field, value));
 	}
 
 	async function setProp(field, prop, value) {
@@ -26,11 +26,11 @@ export default function InstanceConfigTree(props) {
 				return;
 			}
 		}
-		await control.send(new libData.InstanceConfigSetPropRequest(props.id, field, prop, value));
+		await control.send(new lib.InstanceConfigSetPropRequest(props.id, field, prop, value));
 	}
 
 	return <BaseConfigTree
-		ConfigClass={libConfig.InstanceConfig}
+		ConfigClass={lib.InstanceConfig}
 		retrieveConfig={retrieveConfig}
 		setField={setField}
 		setProp={setProp}

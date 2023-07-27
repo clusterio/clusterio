@@ -324,7 +324,7 @@ function readMapSettings(state) {
 }
 
 /**
- * @typedef {object} module:lib/factorio.MapExchangeResult
+ * @typedef {object} module:lib.MapExchangeResult
  * @property {array} version -
  *     Version of Factorio the string was created with.
  * @property {object} map_gen_settings -
@@ -344,8 +344,8 @@ function readMapSettings(state) {
  * save to set the map gen settings and the map settings for the save.
  *
  * @param {string} exchangeString - Max Exchange String to parse.
- * @returns {module:lib/factorio.MapExchangeResult} Parsed result.
- * @memberof module:lib/factorio
+ * @returns {module:lib.MapExchangeResult} Parsed result.
+ * @memberof module:lib
  */
 function readMapExchangeString(exchangeString) {
 	exchangeString = exchangeString.replace(/[ \t\n\r]+/g, "");

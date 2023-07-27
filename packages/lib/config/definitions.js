@@ -5,9 +5,9 @@ const classes = require("./classes");
 
 
 /**
- * Controller config group for {@link module:lib/config.ControllerConfig}
- * @extends module:lib/config.ConfigGroup
- * @memberof module:lib/config
+ * Controller config group for {@link module:lib.ControllerConfig}
+ * @extends module:lib.ConfigGroup
+ * @memberof module:lib
  */
 class ControllerGroup extends classes.ConfigGroup { }
 ControllerGroup.defaultAccess = ["controller", "host", "control"];
@@ -140,17 +140,17 @@ ControllerGroup.finalize();
 
 /**
  * Controller Config class
- * @extends module:lib/config.Config
- * @memberof module:lib/config
+ * @extends module:lib.Config
+ * @memberof module:lib
  */
 class ControllerConfig extends classes.Config { }
 ControllerConfig.registerGroup(ControllerGroup);
 
 
 /**
- * Host config group for {@link module:lib/config.HostConfig}
- * @extends module:lib/config.ConfigGroup
- * @memberof module:lib/config
+ * Host config group for {@link module:lib.HostConfig}
+ * @extends module:lib.ConfigGroup
+ * @memberof module:lib
  */
 class HostGroup extends classes.ConfigGroup {}
 HostGroup.defaultAccess = ["controller", "host", "control"];
@@ -232,17 +232,17 @@ HostGroup.finalize();
 
 /**
  * Host Config class
- * @extends module:lib/config.Config
- * @memberof module:lib/config
+ * @extends module:lib.Config
+ * @memberof module:lib
  */
 class HostConfig extends classes.Config { }
 HostConfig.registerGroup(HostGroup);
 
 
 /**
- * Instance config group for {@link module:lib/config.InstanceConfig}
- * @extends module:lib/config.ConfigGroup
- * @memberof module:lib/config
+ * Instance config group for {@link module:lib.InstanceConfig}
+ * @extends module:lib.ConfigGroup
+ * @memberof module:lib
  */
 class InstanceGroup extends classes.ConfigGroup { }
 InstanceGroup.defaultAccess = ["controller", "host", "control"];
@@ -272,9 +272,9 @@ InstanceGroup.define({
 InstanceGroup.finalize();
 
 /**
- * Factorio config group for {@link module:lib/config.InstanceConfig}
- * @extends module:lib/config.ConfigGroup
- * @memberof module:lib/config
+ * Factorio config group for {@link module:lib.InstanceConfig}
+ * @extends module:lib.ConfigGroup
+ * @memberof module:lib
  */
 class FactorioGroup extends classes.ConfigGroup { }
 FactorioGroup.defaultAccess = ["controller", "host", "control"];
@@ -398,8 +398,8 @@ FactorioGroup.finalize();
 
 /**
  * Instance config class
- * @extends module:lib/config.Config
- * @memberof module:lib/config
+ * @extends module:lib.Config
+ * @memberof module:lib
  */
 class InstanceConfig extends classes.Config { }
 InstanceConfig.registerGroup(InstanceGroup);
@@ -407,9 +407,9 @@ InstanceConfig.registerGroup(FactorioGroup);
 
 
 /**
- * Control config group for {@link module:lib/config.ControlConfig}
- * @extends module:lib/config.ConfigGroup
- * @memberof module:lib/config
+ * Control config group for {@link module:lib.ControlConfig}
+ * @extends module:lib.ConfigGroup
+ * @memberof module:lib
  */
 class ControlGroup extends classes.ConfigGroup {}
 ControlGroup.defaultAccess = ["control"];
@@ -443,8 +443,8 @@ ControlGroup.finalize();
 
 /**
  * Control config class
- * @extends module:lib/config.Config
- * @memberof module:lib/config
+ * @extends module:lib.Config
+ * @memberof module:lib
  */
 class ControlConfig extends classes.Config { }
 ControlConfig.registerGroup(ControlGroup);
@@ -468,7 +468,7 @@ function validateGroup(pluginInfo, groupName) {
  * Registers the config groups for the provided plugin infos
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 function registerPluginConfigGroups(pluginInfos) {
 	for (let pluginInfo of pluginInfos) {
@@ -503,7 +503,7 @@ function registerPluginConfigGroups(pluginInfos) {
 /**
  * Lock configs from adding more groups and make them usable
  *
- * @memberof module:lib/config
+ * @memberof module:lib
  */
 function finalizeConfigs() {
 	ControllerConfig.finalize();

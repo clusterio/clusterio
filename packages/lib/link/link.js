@@ -17,7 +17,7 @@ const { dataClasses } = require("./messages");
 /**
  * Common interface for server and client connections
  *
- * @memberof module:lib/link
+ * @memberof module:lib
  */
 class Link {
 	constructor(connector) {
@@ -95,8 +95,8 @@ class Link {
 	 * Validates and invokes the handler and/or waiters for a message that has
 	 * been received.  An unhandled message is considered to be an error.
 	 *
-	 * @param {module:lib/data.Message} message - Message to process.
-	 * @throws {module:lib/errors.InvalidMessage} if the message is invalid or not handled.
+	 * @param {module:lib.Message} message - Message to process.
+	 * @throws {module:lib.InvalidMessage} if the message is invalid or not handled.
 	 */
 	_processMessage(message) {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
@@ -149,8 +149,8 @@ class Link {
 	 *
 	 * Should be overridden by sub-classes to validate messages received.
 	 *
-	 * @param {module:lib/data.Message} message - Message to check.
-	 * @throws {module:lib/errors.InvalidMessage} if the message is invalid.
+	 * @param {module:lib.Message} message - Message to check.
+	 * @throws {module:lib.InvalidMessage} if the message is invalid.
 	 */
 	validateIngress(message) { }
 
@@ -222,9 +222,9 @@ class Link {
 	 * Called when an request or event is received by a control connector.
 	 * Should be overridden by sub-classes to validate messages received.
 	 *
-	 * @param {module:lib/data.Message} message - Message to check.
+	 * @param {module:lib.Message} message - Message to check.
 	 * @param {object} entry - Request or Event entry for this Message.
-	 * @throws {module:lib/errors.PermissionError} if unauthorized.
+	 * @throws {module:lib.PermissionError} if unauthorized.
 	 */
 	validatePermission(message, entry) { }
 
@@ -380,7 +380,7 @@ class Link {
 	/**
 	 * Send a request or event to the given address
 	 *
-	 * @param {*|module:lib/data.Address} destination - Where to send it
+	 * @param {*|module:lib.Address} destination - Where to send it
 	 * @param {*} requestOrEvent - Request or event to send
 	 * @returns {Promise<*>|undefined}
 	 *     Promise that resolves to the response if a request was sent or

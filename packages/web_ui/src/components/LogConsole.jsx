@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useRef, useState } from "react";
 import { Typography } from "antd";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -70,7 +70,7 @@ export default function LogConsole(props) {
 
 		if (account.hasPermission("core.log.query")) {
 			setPastLines([<span key={0}>{"Loading past entries..."}<br/></span>]);
-			control.send(new libData.LogQueryRequest(
+			control.send(new lib.LogQueryRequest(
 				logFilter.all,
 				logFilter.controller,
 				logFilter.hostIds,

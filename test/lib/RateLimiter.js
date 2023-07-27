@@ -1,8 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 
-const { wait } = require("@clusterio/lib/helpers");
-const RateLimiter = require("@clusterio/lib/RateLimiter");
+const { RateLimiter, wait } = require("@clusterio/lib");
 
 
 describe("lib/RateLimiter", function() {
