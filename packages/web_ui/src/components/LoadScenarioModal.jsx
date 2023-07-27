@@ -8,7 +8,7 @@ import { notifyErrorHandler } from "../util/notify";
 
 
 export default function LoadScenarioModal(props) {
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [loadingScenario, setLoadingScenario] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
@@ -55,7 +55,7 @@ export default function LoadScenarioModal(props) {
 			{ instanceId: props.instance.id },
 			new libData.InstanceLoadScenarioRequest(scenario, seed, mapGenSettings, mapSettings),
 		).then(() => {
-			setVisible(false);
+			setOpen(false);
 		}).catch(
 			notifyErrorHandler("Error loading scenario")
 		).finally(() => {
@@ -80,7 +80,7 @@ export default function LoadScenarioModal(props) {
 	}
 
 	function handleCancel() {
-		setVisible(false);
+		setOpen(false);
 	}
 
 	return <>
@@ -88,7 +88,7 @@ export default function LoadScenarioModal(props) {
 			loading={loadingScenario}
 			disabled={props.instance.status !== "stopped"}
 			onClick={() => {
-				setVisible(true);
+				setOpen(true);
 			}}
 		>
 			Load scenario
@@ -97,7 +97,7 @@ export default function LoadScenarioModal(props) {
 			title="Load Scenario"
 			width={560}
 			okText="Load"
-			visible={visible}
+			open={open}
 			confirmLoading={loadingScenario}
 			onOk={loadScenario}
 			onCancel={handleCancel}

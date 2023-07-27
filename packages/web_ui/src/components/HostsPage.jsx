@@ -1,12 +1,13 @@
 import React, { useContext, useRef, useState, useEffect } from "react";
-import { useHistory } from "react-router-dom";
-import { Button, Form, InputNumber, Modal, PageHeader, Table, Tag, Typography } from "antd";
+import { useNavigate } from "react-router-dom";
+import { Button, Form, InputNumber, Modal, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
 import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { useHostList } from "../model/host";
@@ -17,7 +18,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 function GenerateHostTokenButton(props) {
 	let control = useContext(ControlContext);
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [token, setToken] = useState(null);
 	let [hostId, setHostId] = useState(null);
 	let [form] = Form.useForm();
@@ -53,23 +54,23 @@ function GenerateHostTokenButton(props) {
 
 	// Generate a new random
 	useEffect(() => {
-		if (visible) {
+		if (open) {
 			generateToken().catch(notifyErrorHandler("Error generating token"));
 		}
-	}, [visible]);
+	}, [open]);
 
 	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
 	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/") <= 1).join(" ");
 	return <>
 		<Button
-			onClick={() => { setVisible(true); }}
+			onClick={() => { setOpen(true); }}
 		>Generate Token</Button>
 		<Modal
 			title="Generate Host Token"
-			visible={visible}
+			open={open}
 			footer={null}
 			onCancel={() => {
-				setVisible(false);
+				setOpen(false);
 				setToken(null);
 				form.resetFields();
 			}}
@@ -177,12 +178,11 @@ function CopyButton({ text, message }) {
 
 export default function HostsPage() {
 	let account = useAccount();
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [hostList] = useHostList();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Hosts"
 			extra={account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton />}
 		/>
@@ -226,7 +226,7 @@ export default function HostsPage() {
 			pagination={false}
 			onRow={(record, rowIndex) => ({
 				onClick: event => {
-					history.push(`/hosts/${record.id}/view`);
+					navigate(`/hosts/${record.id}/view`);
 				},
 			})}
 		/>

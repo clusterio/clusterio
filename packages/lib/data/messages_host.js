@@ -27,6 +27,7 @@ class HostDetails {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["agent", "version", "name", "id", "connected"],
 		properties: {
 			"agent": { type: "string" },
@@ -156,6 +157,7 @@ class ControllerConnectionEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["event"],
 		properties: {
 			"event": { type: "string" },
@@ -194,6 +196,7 @@ class SyncUserListsEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["adminlist", "banlist", "whitelist"],
 		properties: {
 			"adminlist": {
@@ -204,7 +207,7 @@ class SyncUserListsEvent {
 				type: "array",
 				items: {
 					type: "array",
-					additionalItems: false,
+					minItems: 2,
 					items: [{ type: "string" }, { type: "string" }],
 				},
 			},

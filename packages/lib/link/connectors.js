@@ -2,7 +2,8 @@
 "use strict";
 const assert = require("assert").strict;
 const events = require("events");
-const WebSocket = require("isomorphic-ws");
+// eslint-disable-next-line node/no-process-env
+const WebSocket = process.env.APP_ENV === "browser" ? window.WebSocket : require("ws");
 
 const libData = require("../data");
 const libErrors = require("../errors");
@@ -432,6 +433,7 @@ class WebSocketClientConnector extends WebSocketBaseConnector {
 	_doConnect() {
 		let url = new URL(this._url);
 		url.pathname += "api/socket";
+		url.protocol = url.protocol.replace("http", "ws");
 
 		// Open WebSocket to controller
 		logger.verbose(`Connector | connecting to ${url}`);

@@ -15,16 +15,16 @@
     "factorio"
   ],
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "dependencies": {
     "@clusterio/lib": "^2.0.0-alpha.13",
-    "as-table": "^1.0.31",
-    "fs-extra": "^8.1.0",
-    "phin": "^3.5.1",
+    "as-table": "^1.0.55",
+    "fs-extra": "^11.1.1",
+    "phin": "^3.7.0",
     "set-blocking": "^2.0.0",
-    "winston": "^3.3.3",
-    "yargs": "^14.2.0"
+    "winston": "^3.10.0",
+    "yargs": "^17.7.2"
   },
   "publishConfig": {
     "access": "public"

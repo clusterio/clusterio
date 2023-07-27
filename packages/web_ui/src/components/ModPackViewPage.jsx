@@ -1,7 +1,7 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, PageHeader, Pagination,
+	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
 } from "antd";
 import InfoCircleOutlined from "@ant-design/icons/InfoCircleOutlined";
@@ -20,6 +20,7 @@ import { useModPack } from "../model/mod_pack";
 import { useModList } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
 import notify, { notifyErrorHandler } from "../util/notify";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
@@ -485,7 +486,7 @@ function CopyButton(props) {
 	}, []);
 
 	let denied = clipboard.readPermissionState === "denied";
-	return <Tooltip title={denied ? clipboard.deniedReason : "Copied!"} visible={denied ? undefined : copiedVisible}>
+	return <Tooltip title={denied ? clipboard.deniedReason : "Copied!"} open={denied ? undefined : copiedVisible}>
 		<Button disabled={denied} onClick={() => {
 			try {
 				clipboard.writeText(props.content);
@@ -503,19 +504,19 @@ function CopyButton(props) {
 }
 
 function ExportButton(props) {
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	function close() {
-		setVisible(false);
+		setOpen(false);
 	}
 
 	let exportString;
-	if (visible) { exportString = props.modPack.toModPackString(); }
+	if (open) { exportString = props.modPack.toModPackString(); }
 
 	return <>
-		<Button icon={<ExportOutlined />} onClick={() => { setVisible(true); }}>Export to string</Button>
+		<Button icon={<ExportOutlined />} onClick={() => { setOpen(true); }}>Export to string</Button>
 		<Modal
 			title="Mod Pack String"
-			visible={visible}
+			open={open}
 			onOk={close}
 			onCancel={close}
 			destroyOnClose
@@ -593,11 +594,12 @@ function applyModPackChanges(modPack, changes) {
 			throw new Error(`Unknown change type ${change.type}`);
 		}
 	}
+	return modifiedModPack;
 }
 
 export default function ModPackViewPage() {
 	let account = useAccount();
-	let history = useHistory();
+	let navigate = useNavigate();
 	let control = useContext(ControlContext);
 	let params = useParams();
 	let modPackId = Number(params.id);
@@ -681,27 +683,20 @@ export default function ModPackViewPage() {
 	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack.name || modPackId }];
 	if (modifiedModPack.loading) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title={modPackId}
-			/>
+			<PageHeader title={modPackId} />
 			<Spin size="large" />
 		</PageLayout>;
 	}
 
 	if (modifiedModPack.missing) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title="Mod Pack Not Found"
-			/>
+			<PageHeader title="Mod Pack Not Found" />
 			<p>Mod pack with id {modPackId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			className="site-page-header"
 			title={modPack.name}
 			extra={<Space>
 				<ExportButton modPack={modifiedModPack}/>
@@ -714,7 +709,7 @@ export default function ModPackViewPage() {
 						control.send(
 							new libData.ModPackDeleteRequest(modPack.id)
 						).then(() => {
-							history.push("/mods");
+							navigate("/mods");
 						}).catch(notifyErrorHandler("Error deleting mod pack"));
 					}}
 				>
@@ -788,40 +783,35 @@ export default function ModPackViewPage() {
 		</Form>
 
 		<div
-			className="ant-notification ant-notification-bottom"
+			className="sticky-notice"
 			style={{
 				visibility: changes.length ? "visible" : "hidden",
-				inset: "auto auto 24px auto",
-				position: "sticky",
-				marginTop: 16,
 			}}
 		>
-			<div className="ant-notification-notice" style={{ width: "auto", maxWidth: 384, marginBottom: 0 }}>
-				<Row style={{ alignItems: "center", rowGap: 12 }}>
-					<Col flex="auto">You have unsaved changes</Col>
-					<Col flex="0 0 auto" style={{ marginLeft: "auto" }}>
-						<Space>
-							<Button
-								onClick={() => {
+			<Row style={{ alignItems: "center", rowGap: 12 }}>
+				<Col flex="auto">You have unsaved changes</Col>
+				<Col flex="0 0 auto" style={{ marginLeft: "auto" }}>
+					<Space>
+						<Button
+							onClick={() => {
+								form.resetFields();
+								setChanges([]);
+							}}
+						>Revert</Button>
+						<Button
+							type="primary"
+							onClick={() => {
+								control.send(
+									new libData.ModPackUpdateRequest(modifiedModPack)
+								).then(() => {
 									form.resetFields();
 									setChanges([]);
-								}}
-							>Revert</Button>
-							<Button
-								type="primary"
-								onClick={() => {
-									control.send(
-										new libData.ModPackUpdateRequest(modifiedModPack)
-									).then(() => {
-										form.resetFields();
-										setChanges([]);
-									}).catch(notifyErrorHandler("Error deleting mod pack"));
-								}}
-							>Apply</Button>
-						</Space>
-					</Col>
-				</Row>
-			</div>
+								}).catch(notifyErrorHandler("Error deleting mod pack"));
+							}}
+						>Apply</Button>
+					</Space>
+				</Col>
+			</Row>
 		</div>
 	</PageLayout>;
 

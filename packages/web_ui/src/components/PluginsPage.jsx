@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
 
 import notify from "../util/notify";
@@ -11,7 +11,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 export default function PluginsPage() {
 	let plugins = useContext(ControlContext).plugins;
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState([]);
 
 	useEffect(() => {
@@ -79,7 +79,7 @@ export default function PluginsPage() {
 			pagination={false}
 			onRow={plugin => ({
 				onClick: event => {
-					history.push(`/plugins/${plugin.meta.name}/view`);
+					navigate(`/plugins/${plugin.meta.name}/view`);
 				},
 			})}
 		/>

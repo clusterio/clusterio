@@ -182,6 +182,7 @@ class InstanceConfigGetRequest {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["instanceId"],
 		properties: {
 			"instanceId": { type: "integer" },
@@ -235,6 +236,7 @@ class InstanceConfigSetFieldRequest {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["instanceId", "field", "value"],
 		properties: {
 			"instanceId": { type: "integer" },
@@ -274,6 +276,7 @@ class InstanceConfigSetPropRequest {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["instanceId", "field", "prop"],
 		properties: {
 			"instanceId": { type: "integer" },
@@ -306,6 +309,7 @@ class InstanceAssignRequest {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["instanceId", "hostId"],
 		properties: {
 			"instanceId": { type: "number" },
@@ -556,7 +560,7 @@ class InstanceRenameSaveRequest {
 		properties: {
 			"instanceId": { type: "integer" },
 			"oldName": { type: "string" },
-			"newname": { type: "string" },
+			"newName": { type: "string" },
 		},
 	};
 
@@ -1167,6 +1171,7 @@ class InstanceBanlistUpdateEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["name", "banned", "reason"],
 		properties: {
 			"name": { type: "string" },
@@ -1198,6 +1203,7 @@ class InstanceAdminlistUpdateEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["name", "admin"],
 		properties: {
 			"name": { type: "string" },
@@ -1228,6 +1234,7 @@ class InstanceWhitelistUpdateEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["name", "whitelisted"],
 		properties: {
 			"name": { type: "string" },
@@ -1266,6 +1273,7 @@ class InstancePlayerUpdateEvent {
 	}
 
 	static jsonSchema = {
+		type: "object",
 		required: ["type", "name"],
 		properties: {
 			"type": { type: "string", enum: ["join", "leave", "import"] },

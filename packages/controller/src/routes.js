@@ -1,5 +1,5 @@
 "use strict";
-const Busboy = require("busboy");
+const busboy = require("busboy");
 const crypto = require("crypto");
 const events = require("events");
 const fs = require("fs-extra");
@@ -304,7 +304,7 @@ async function getStream(req, res) {
 		}
 		stream.source.pipe(res);
 		stream.flowing = true;
-		res.on("finish", () => {
+		res.on("close", () => {
 			stream.events.emit("close");
 		});
 		clearTimeout(stream.timeout);
@@ -342,7 +342,7 @@ async function uploadSave(req, res) {
 		res.status(415).json({ request_errors: ["invalid Content-Type"] });
 		return;
 	}
-	let mimeType = match[1].toLowerCase();
+	let contentMime = match[1].toLowerCase();
 
 	let tasks = [];
 	let errors = [];
@@ -381,16 +381,16 @@ async function uploadSave(req, res) {
 		}
 	}
 
-	if (mimeType === "multipart/form-data") {
+	if (contentMime === "multipart/form-data") {
 		await new Promise(resolve => {
 			let fields = {};
-			let busboy = new Busboy({ headers: req.headers });
-			busboy.on("file", (fieldname, stream, filename, transferEncoding, fileMime) => {
+			let parser = busboy({ headers: req.headers });
+			parser.on("file", (name, stream, { filename, mimeType }) => {
 				if (fields.instanceId === undefined) {
 					requestErrors.push("instance_id must come before files uploaded");
 				}
 
-				if (!zipMimes.includes(fileMime)) {
+				if (!zipMimes.includes(mimeType)) {
 					requestErrors.push("invalid file Content-Type");
 				}
 
@@ -403,25 +403,25 @@ async function uploadSave(req, res) {
 					return;
 				}
 
-				tasks.push(handleFile(fields.instanceId, stream, filename, fileMime));
+				tasks.push(handleFile(fields.instanceId, stream, filename, mimeType));
 			});
-			busboy.on("field", (fieldname, value, fieldnameTruncated, valueTruncated, transferEncoding, valueMime) => {
-				if (fieldname === "instance_id") {
+			parser.on("field", (name, value, info) => {
+				if (name === "instance_id") {
 					fields.instanceId = Number.parseInt(value, 10);
 					if (Number.isNaN(fields.instanceId)) {
 						requestErrors.push("invalid instance_id");
 					}
 				}
 			});
-			busboy.on("finish", resolve);
-			busboy.on("error", (err) => {
+			parser.on("close", resolve);
+			parser.on("error", (err) => {
 				logger.error(`Error parsing multipart request in upload-save:\n${err.stack}`);
 				errors.push(err.message);
 			});
-			req.pipe(busboy);
+			req.pipe(parser);
 		});
 
-	} else if (zipMimes.includes(mimeType)) {
+	} else if (zipMimes.includes(contentMime)) {
 		let filename = req.query.filename;
 		if (typeof filename !== "string") {
 			requestErrors.push("Missing or invalid filename parameter");
@@ -436,7 +436,7 @@ async function uploadSave(req, res) {
 		if (errors.length || requestErrors.length) {
 			req.resume();
 		} else {
-			tasks.push(handleFile(instanceId, req, filename, mimeType));
+			tasks.push(handleFile(instanceId, req, filename, contentMime));
 		}
 
 	} else {
@@ -482,7 +482,7 @@ async function uploadMod(req, res) {
 		res.status(415).json({ request_errors: ["invalid Content-Type"] });
 		return;
 	}
-	let mimeType = match[1].toLowerCase();
+	let contentMime = match[1].toLowerCase();
 
 	let tasks = [];
 	let errors = [];
@@ -544,11 +544,11 @@ async function uploadMod(req, res) {
 		}
 	}
 
-	if (mimeType === "multipart/form-data") {
+	if (contentMime === "multipart/form-data") {
 		await new Promise(resolve => {
-			let busboy = new Busboy({ headers: req.headers });
-			busboy.on("file", (fieldname, stream, filename, transferEncoding, fileMime) => {
-				if (!zipMimes.includes(fileMime)) {
+			let parser = busboy({ headers: req.headers });
+			parser.on("file", (name, stream, { filename, mimeType }) => {
+				if (!zipMimes.includes(mimeType)) {
 					requestErrors.push("invalid file Content-Type");
 				}
 
@@ -563,15 +563,15 @@ async function uploadMod(req, res) {
 
 				tasks.push(handleFile(stream, filename));
 			});
-			busboy.on("finish", resolve);
-			busboy.on("error", (err) => {
+			parser.on("close", resolve);
+			parser.on("error", (err) => {
 				logger.error(`Error parsing multipart request in upload-mod:\n${err.stack}`);
 				errors.push(err.message);
 			});
-			req.pipe(busboy);
+			req.pipe(parser);
 		});
 
-	} else if (zipMimes.includes(mimeType)) {
+	} else if (zipMimes.includes(contentMime)) {
 		let filename = req.query.filename;
 		if (typeof filename !== "string") {
 			requestErrors.push("Missing or invalid filename parameter");

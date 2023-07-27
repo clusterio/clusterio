@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Dropdown, Menu, Modal, PageHeader, Space, Spin, Typography } from "antd";
+import { useNavigate, useParams } from "react-router-dom";
+import { Alert, Button, Descriptions, Dropdown, Menu, Modal, Space, Spin, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -8,6 +8,7 @@ import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import InstanceConfigTree from "./InstanceConfigTree";
@@ -59,7 +60,7 @@ export default function InstanceViewPage(props) {
 	let params = useParams();
 	let instanceId = Number(params.id);
 
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -83,7 +84,7 @@ export default function InstanceViewPage(props) {
 				action={
 					<Button
 						type="text"
-						onClick={() => { history.push("/instances"); }}
+						onClick={() => { navigate("/instances"); }}
 					>
 						Go back to instances list
 					</Button>
@@ -126,9 +127,9 @@ export default function InstanceViewPage(props) {
 			label: "Delete",
 		});
 	}
-	let instanceButtonsMenu = <Menu
-		items={instanceButtonMenuItems}
-		onClick={({ key }) => {
+	let instanceButtonsMenuProps = {
+		items: instanceButtonMenuItems,
+		onClick: ({ key }) => {
 			if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
@@ -162,13 +163,13 @@ export default function InstanceViewPage(props) {
 						control.send(
 							new libData.InstanceDeleteRequest(instanceId)
 						).then(() => {
-							history.push("/instances");
+							navigate("/instances");
 						}).catch(notifyErrorHandler("Error deleting instance"));
 					},
 				});
 			}
-		}}
-	/>;
+		},
+	};
 	let instanceButtons = <Space>
 		{
 			account.hasAnyPermission("core.instance.start", "core.instance.stop")
@@ -180,14 +181,13 @@ export default function InstanceViewPage(props) {
 			"core.instance.extract_players",
 			"core.instance.kill",
 			"core.instance.delete",
-		) && <Dropdown placement="bottomRight" trigger={["click"]} overlay={instanceButtonsMenu}>
+		) && <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
 			<Button>More <DownOutlined /></Button>
 		</Dropdown>}
 	</Space>;
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			className="site-page-header"
 			title={instance.name}
 			extra={instanceButtons}
 		/>

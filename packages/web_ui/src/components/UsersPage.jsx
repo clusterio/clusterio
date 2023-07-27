@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Space, Table, Tag } from "antd";
+import { useNavigate } from "react-router-dom";
+import { Button, Form, Input, Modal, Space, Table, Tag } from "antd";
 
 import { libData } from "@clusterio/lib";
 
@@ -8,6 +8,7 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { formatLastSeen, sortLastSeen, useUserList } from "../model/user";
@@ -17,8 +18,8 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 function CreateUserButton() {
 	let control = useContext(ControlContext);
-	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let navigate = useNavigate();
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	async function createUser() {
@@ -29,21 +30,21 @@ function CreateUserButton() {
 		}
 
 		await control.send(new libData.UserCreateRequest(values.userName));
-		setVisible(false);
-		history.push(`/users/${values.userName}/view`);
+		setOpen(false);
+		navigate(`/users/${values.userName}/view`);
 	}
 
 	return <>
 		<Button
 			type="primary"
-			onClick={() => { setVisible(true); }}
+			onClick={() => { setOpen(true); }}
 		>Create</Button>
 		<Modal
 			title="Create User"
 			okText="Create"
-			visible={visible}
+			open={open}
 			onOk={() => { createUser().catch(notifyErrorHandler("Error creating user")); }}
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			destroyOnClose
 		>
 			<Form form={form}>
@@ -58,7 +59,7 @@ function CreateUserButton() {
 export default function UsersPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [userList] = useUserList();
 
 	let [roles, setRoles] = useState(new Map());
@@ -73,7 +74,6 @@ export default function UsersPage() {
 
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Users"
 			extra={account.hasPermission("core.user.create") && <CreateUserButton />}
 		/>
@@ -120,7 +120,7 @@ export default function UsersPage() {
 			rowKey={user => user.name}
 			onRow={(user, rowIndex) => ({
 				onClick: event => {
-					history.push(`/users/${user.name}/view`);
+					navigate(`/users/${user.name}/view`);
 				},
 			})}
 		/>

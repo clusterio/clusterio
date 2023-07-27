@@ -1,4 +1,4 @@
-FROM node:12 as subspace_storage_builder
+FROM node:20 as subspace_storage_builder
 RUN apt update && apt install -y git
 WORKDIR /
 RUN git clone https://github.com/clusterio/subspace_storage.git
@@ -6,7 +6,7 @@ WORKDIR /subspace_storage
 RUN npm install \
 && node build
 
-FROM node:12 as clusterio_builder
+FROM node:20 as clusterio_builder
 RUN apt update \
 && apt install -y wget \
 && mkdir /clusterio

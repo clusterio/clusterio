@@ -246,7 +246,7 @@ describe("Integration of Clusterio", function() {
 				let value = JSON.stringify({ lan: true, public: false }).replace(
 					/"/g, process.platform === "win32" ? '""' : '\\"'
 				);
-				await execCtl(`instance config set-prop test factorio.settings visibility "'${value}'"`);
+				await execCtl(`instance config set-prop test factorio.settings visibility "${value}"`);
 				await execCtl("instance config set-prop test factorio.settings require_user_verification false");
 			});
 		});
@@ -442,7 +442,7 @@ describe("Integration of Clusterio", function() {
 				];
 
 				for (let [prop, value] of testConfigs) {
-					value = `"'${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}'"`;
+					value = `"${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}"`;
 					let args = `test factorio.settings ${prop} ${value}`;
 					await execCtl(`instance config set-prop ${args}`);
 				}

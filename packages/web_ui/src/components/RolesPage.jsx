@@ -1,12 +1,13 @@
 import React, { useContext, useEffect, useState } from "react";
-import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader, Table } from "antd";
+import { useNavigate } from "react-router-dom";
+import { Button, Form, Input, Modal, Table } from "antd";
 
 import { libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 
@@ -15,8 +16,8 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 function CreateRoleButton() {
 	let control = useContext(ControlContext);
-	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let navigate = useNavigate();
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	async function createRole() {
@@ -29,21 +30,21 @@ function CreateRoleButton() {
 		let result = await control.send(
 			new libData.RoleCreateRequest(values.roleName, values.description || "", [])
 		);
-		setVisible(false);
-		history.push(`/roles/${result.id}/view`);
+		setOpen(false);
+		navigate(`/roles/${result.id}/view`);
 	}
 
 	return <>
 		<Button
 			type="primary"
-			onClick={() => { setVisible(true); }}
+			onClick={() => { setOpen(true); }}
 		>Create</Button>
 		<Modal
 			title="Create Role"
 			okText="Create"
-			visible={visible}
+			open={open}
 			onOk={() => { createRole().catch(notifyErrorHandler("Error creating role")); }}
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			destroyOnClose
 		>
 			<Form form={form}>
@@ -61,7 +62,7 @@ function CreateRoleButton() {
 export default function RolesPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let [roles, setRoles] = useState([]);
 
@@ -73,7 +74,6 @@ export default function RolesPage() {
 
 	return <PageLayout nav={[{ name: "Roles" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Roles"
 			extra={account.hasPermission("core.role.create") && <CreateRoleButton />}
 		/>
@@ -94,7 +94,7 @@ export default function RolesPage() {
 			rowKey={role => role.id}
 			onRow={(role, rowIndex) => ({
 				onClick: event => {
-					history.push(`/roles/${role.id}/view`);
+					navigate(`/roles/${role.id}/view`);
 				},
 			})}
 		/>

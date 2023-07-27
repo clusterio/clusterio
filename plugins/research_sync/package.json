@@ -14,7 +14,7 @@
     "url": "https://github.com/clusterio/clusterio/issues"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=18"
   },
   "peerDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.0"
@@ -25,9 +25,9 @@
   "devDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.13",
     "@clusterio/web_ui": "^2.0.0-alpha.13",
-    "webpack": "^5.36.2",
-    "webpack-cli": "^4.7.0",
-    "webpack-merge": "^5.2.0"
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-merge": "^5.9.0"
   },
   "publishConfig": {
     "access": "public"

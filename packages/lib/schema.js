@@ -5,11 +5,10 @@
 "use strict";
 const Ajv = require("ajv");
 const ajv = new Ajv({
+	allowUnionTypes: true,
+	strict: "log",
+	strictTuples: false,
 	verbose: true,
-	format: "full",
-	extendRefs: "fail",
-	strictDefaults: true,
-	strictKeywords: true,
 });
 
 module.exports = {

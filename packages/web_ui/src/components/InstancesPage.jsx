@@ -1,11 +1,12 @@
 import React, { useContext, useState } from "react";
-import { useHistory } from "react-router-dom";
-import { Button, Form, Input, Modal, PageHeader } from "antd";
+import { useNavigate } from "react-router-dom";
+import { Button, Form, Input, Modal } from "antd";
 
 import { libConfig, libData } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { useInstanceList } from "../model/instance";
@@ -14,8 +15,8 @@ import { notifyErrorHandler } from "../util/notify";
 
 function CreateInstanceButton(props) {
 	let control = useContext(ControlContext);
-	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let navigate = useNavigate();
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	async function createInstance() {
@@ -30,23 +31,23 @@ function CreateInstanceButton(props) {
 		instanceConfig.set("instance.name", values.instanceName);
 		let serializedConfig = instanceConfig.serialize("controller");
 		await control.send(new libData.InstanceCreateRequest(serializedConfig));
-		setVisible(false);
-		history.push(`/instances/${instanceConfig.get("instance.id")}/view`);
+		setOpen(false);
+		navigate(`/instances/${instanceConfig.get("instance.id")}/view`);
 	}
 
 	return <>
 		<Button
 			type="primary"
 			onClick={() => {
-				setVisible(true);
+				setOpen(true);
 			}}
 		>Create</Button>
 		<Modal
 			title="Create Instance"
 			okText="Create"
-			visible={visible}
+			open={open}
 			onOk={() => { createInstance().catch(notifyErrorHandler("Error creating instance")); }}
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			destroyOnClose
 		>
 			<Form form={form}>
@@ -65,7 +66,6 @@ export default function InstancesPage() {
 
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
-			className="site-page-header"
 			title="Instances"
 			extra={<>
 				{account.hasPermission("core.instance.create") && <CreateInstanceButton />}

@@ -19,17 +19,17 @@ import { notifyErrorHandler } from "../util/notify";
 
 function RenameModal(props) {
 	let control = useContext(ControlContext);
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	return <>
-		<Button disabled={props.disabled} onClick={() => setVisible(true)}>Rename</Button>
+		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Rename</Button>
 		<Modal
 			title="Rename save"
 			okText="Rename"
-			visible={visible}
+			open={open}
 			onOk={() => form.submit()}
-			onCancel={() => setVisible(false)}
+			onCancel={() => setOpen(false)}
 		>
 			<Form
 				form={form}
@@ -39,7 +39,7 @@ function RenameModal(props) {
 					control.send(
 						new libData.InstanceRenameSaveRequest(props.instanceId, props.save.name, values.newName)
 					).then(() => {
-						setVisible(false);
+						setOpen(false);
 						form.resetFields();
 					}).catch(notifyErrorHandler("Error renaming save"));
 				}}
@@ -58,17 +58,17 @@ function RenameModal(props) {
 
 function CopyModal(props) {
 	let control = useContext(ControlContext);
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	return <>
-		<Button disabled={props.disabled} onClick={() => setVisible(true)}>Copy</Button>
+		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Copy</Button>
 		<Modal
 			title="Copy save"
 			okText="Copy"
-			visible={visible}
+			open={open}
 			onOk={() => form.submit()}
-			onCancel={() => setVisible(false)}
+			onCancel={() => setOpen(false)}
 		>
 			<Form
 				form={form}
@@ -78,7 +78,7 @@ function CopyModal(props) {
 					control.send(
 						new libData.InstanceCopySaveRequest(props.instanceId, props.save.name, values.newName)
 					).then(() => {
-						setVisible(false);
+						setOpen(false);
 						form.resetFields();
 					}).catch(notifyErrorHandler("Error copying save"));
 				}}
@@ -98,18 +98,18 @@ function CopyModal(props) {
 function TransferModal(props) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 	let [instanceList] = useInstanceList();
 
 	return <>
-		<Button disabled={props.disabled} onClick={() => setVisible(true)}>Transfer</Button>
+		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Transfer</Button>
 		<Modal
 			title="Transfer save"
 			okText="Transfer"
-			visible={visible}
+			open={open}
 			onOk={() => form.submit()}
-			onCancel={() => setVisible(false)}
+			onCancel={() => setOpen(false)}
 			destroyOnClose
 		>
 			<Form
@@ -118,7 +118,7 @@ function TransferModal(props) {
 				wrapperCol={{ span: 18 }}
 				initialValues={{ transferredName: props.save.name, copy: false }}
 				onFinish={values => {
-					setVisible(false);
+					setOpen(false);
 					let hide = message.loading("Transferring save...", 0);
 					control.send(new libData.InstanceTransferSaveRequest(
 						props.instanceId,

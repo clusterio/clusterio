@@ -1,5 +1,5 @@
 import React from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { message, Button, Space, Table } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 
@@ -12,7 +12,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 
 export default function InstanceList(props) {
 	let account = useAccount();
-	let history = useHistory();
+	let navigate = useNavigate();
 	let [hostList] = useHostList();
 
 	function hostName(hostId) {
@@ -102,7 +102,7 @@ export default function InstanceList(props) {
 		pagination={false}
 		onRow={(record, rowIndex) => ({
 			onClick: event => {
-				history.push(`/instances/${record.id}/view`);
+				navigate(`/instances/${record.id}/view`);
 			},
 		})}
 	/>;

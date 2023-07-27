@@ -1,12 +1,13 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useHistory, useParams } from "react-router-dom";
-import { Button, Checkbox, Form, Input, PageHeader, Popconfirm, Spin } from "antd";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button, Checkbox, Form, Input, Popconfirm, Spin } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
 import { libData, libUsers } from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
+import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
@@ -42,7 +43,7 @@ export default function RoleViewPage() {
 	let params = useParams();
 	let roleId = Number(params.id);
 
-	let history = useHistory();
+	let navigate = useNavigate();
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
@@ -53,20 +54,14 @@ export default function RoleViewPage() {
 	let nav = [{ name: "Roles", path: "/roles" }, { name: role["name"] || roleId }];
 	if (role.loading) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title={roleId}
-			/>
+			<PageHeader title={roleId} />
 			<Spin size="large" />
 		</PageLayout>;
 	}
 
 	if (role.missing) {
 		return <PageLayout nav={nav}>
-			<PageHeader
-				className="site-page-header"
-				title="Role not found"
-			/>
+			<PageHeader title="Role not found" />
 			<p>Role with id {roleId} was not found on the controller.</p>
 		</PageLayout>;
 	}
@@ -101,7 +96,6 @@ export default function RoleViewPage() {
 			}}
 		>
 			<PageHeader
-				className="site-page-header"
 				title={role["name"]}
 				extra={<>
 					{canUpdate && <Button type={edited ? "primary" : "default"} htmlType="submit">Apply</Button>}
@@ -114,7 +108,7 @@ export default function RoleViewPage() {
 							control.send(
 								new libData.RoleDeleteRequest(roleId)
 							).then(() => {
-								history.push("/roles");
+								navigate("/roles");
 							}).catch(notifyErrorHandler("Error deleting role"));
 						}}
 					>

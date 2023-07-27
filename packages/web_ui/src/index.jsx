@@ -23,6 +23,7 @@ export { default as InstanceStatusTag } from "./components/InstanceStatusTag";
 export { default as StartStopInstanceButton } from "./components/StartStopInstanceButton";
 export { statusColors } from "./components/InstanceStatusTag";
 
+export { default as PageHeader } from "./components/PageHeader";
 export { default as PageLayout } from "./components/PageLayout";
 export { default as SavesList } from "./components/SavesList";
 export { default as SectionHeader } from "./components/SectionHeader";
