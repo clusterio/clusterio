@@ -181,8 +181,8 @@ The format of this log should be self explanatory, please follow it carefully.
 
 ## Supported Node.js and Factorio Versions
 
-Clusterio run on Node.js v16 and up, make sure to check that the Node builtin API's and npm packages you use are supported on these versions.
-The GitHub Actions tests are run on whatever version of Node.js v16 and v18 is the default.
+Clusterio run on Node.js v18 and up, make sure to check that the Node builtin API's and npm packages you use are supported on these versions.
+The GitHub Actions tests are run on whatever version of Node.js v18 and v20 is the default.
 
 For Factorio Clusterio 2.0 aims to support version 0.17.69 and up, including the latest experimental release.
 It's recommended that you use the lua API reference for 0.17.69, as there's no information on what version Factorio API's were introduced in.
