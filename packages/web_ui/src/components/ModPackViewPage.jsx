@@ -485,7 +485,7 @@ function CopyButton(props) {
 	}, []);
 
 	let denied = clipboard.readPermissionState === "denied";
-	return <Tooltip title={denied ? clipboard.deniedReason : "Copied!"} visible={denied ? undefined : copiedVisible}>
+	return <Tooltip title={denied ? clipboard.deniedReason : "Copied!"} open={denied ? undefined : copiedVisible}>
 		<Button disabled={denied} onClick={() => {
 			try {
 				clipboard.writeText(props.content);
@@ -503,19 +503,19 @@ function CopyButton(props) {
 }
 
 function ExportButton(props) {
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	function close() {
-		setVisible(false);
+		setOpen(false);
 	}
 
 	let exportString;
-	if (visible) { exportString = props.modPack.toModPackString(); }
+	if (open) { exportString = props.modPack.toModPackString(); }
 
 	return <>
-		<Button icon={<ExportOutlined />} onClick={() => { setVisible(true); }}>Export to string</Button>
+		<Button icon={<ExportOutlined />} onClick={() => { setOpen(true); }}>Export to string</Button>
 		<Modal
 			title="Mod Pack String"
-			visible={visible}
+			open={open}
 			onOk={close}
 			onCancel={close}
 			destroyOnClose

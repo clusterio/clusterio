@@ -11,20 +11,16 @@ const { Paragraph } = Typography;
 
 
 export default function AssignInstanceModal(props) {
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [hostList] = useHostList();
 	let [applying, setApplying] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
 
-	function open() {
-		setVisible(true);
-	}
-
 	function handleAssign() {
 		let hostId = form.getFieldValue("host");
 		if (hostId === undefined) {
-			setVisible(false);
+			setOpen(false);
 			return;
 		}
 
@@ -36,7 +32,7 @@ export default function AssignInstanceModal(props) {
 		control.send(
 			new libData.InstanceAssignRequest(props.id, hostId)
 		).then(() => {
-			setVisible(false);
+			setOpen(false);
 			if (props.onFinish) {
 				props.onFinish();
 			}
@@ -48,17 +44,17 @@ export default function AssignInstanceModal(props) {
 	}
 
 	function handleCancel() {
-		setVisible(false);
+		setOpen(false);
 	}
 
 	return <>
-		<Button {...props.buttonProps} onClick={open}>
+		<Button {...props.buttonProps} onClick={() => setOpen(true)}>
 			{props.buttonContent || "Assign"}
 		</Button>
 		<Modal
 			title="Assign Instance"
 			okText="Assign"
-			visible={visible}
+			open={open}
 			confirmLoading={applying}
 			onOk={handleAssign}
 			onCancel={handleCancel}

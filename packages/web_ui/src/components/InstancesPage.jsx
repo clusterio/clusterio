@@ -15,7 +15,7 @@ import { notifyErrorHandler } from "../util/notify";
 function CreateInstanceButton(props) {
 	let control = useContext(ControlContext);
 	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	async function createInstance() {
@@ -30,7 +30,7 @@ function CreateInstanceButton(props) {
 		instanceConfig.set("instance.name", values.instanceName);
 		let serializedConfig = instanceConfig.serialize("controller");
 		await control.send(new libData.InstanceCreateRequest(serializedConfig));
-		setVisible(false);
+		setOpen(false);
 		history.push(`/instances/${instanceConfig.get("instance.id")}/view`);
 	}
 
@@ -38,15 +38,15 @@ function CreateInstanceButton(props) {
 		<Button
 			type="primary"
 			onClick={() => {
-				setVisible(true);
+				setOpen(true);
 			}}
 		>Create</Button>
 		<Modal
 			title="Create Instance"
 			okText="Create"
-			visible={visible}
+			open={open}
 			onOk={() => { createInstance().catch(notifyErrorHandler("Error creating instance")); }}
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			destroyOnClose
 		>
 			<Form form={form}>

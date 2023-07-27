@@ -16,7 +16,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 function CreateRoleButton() {
 	let control = useContext(ControlContext);
 	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	async function createRole() {
@@ -29,21 +29,21 @@ function CreateRoleButton() {
 		let result = await control.send(
 			new libData.RoleCreateRequest(values.roleName, values.description || "", [])
 		);
-		setVisible(false);
+		setOpen(false);
 		history.push(`/roles/${result.id}/view`);
 	}
 
 	return <>
 		<Button
 			type="primary"
-			onClick={() => { setVisible(true); }}
+			onClick={() => { setOpen(true); }}
 		>Create</Button>
 		<Modal
 			title="Create Role"
 			okText="Create"
-			visible={visible}
+			open={open}
 			onOk={() => { createRole().catch(notifyErrorHandler("Error creating role")); }}
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			destroyOnClose
 		>
 			<Form form={form}>

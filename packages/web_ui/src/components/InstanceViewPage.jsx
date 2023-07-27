@@ -126,9 +126,9 @@ export default function InstanceViewPage(props) {
 			label: "Delete",
 		});
 	}
-	let instanceButtonsMenu = <Menu
-		items={instanceButtonMenuItems}
-		onClick={({ key }) => {
+	let instanceButtonsMenuProps = {
+		items: instanceButtonMenuItems,
+		onClick: ({ key }) => {
 			if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
@@ -167,8 +167,8 @@ export default function InstanceViewPage(props) {
 					},
 				});
 			}
-		}}
-	/>;
+		},
+	};
 	let instanceButtons = <Space>
 		{
 			account.hasAnyPermission("core.instance.start", "core.instance.stop")
@@ -180,7 +180,7 @@ export default function InstanceViewPage(props) {
 			"core.instance.extract_players",
 			"core.instance.kill",
 			"core.instance.delete",
-		) && <Dropdown placement="bottomRight" trigger={["click"]} overlay={instanceButtonsMenu}>
+		) && <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
 			<Button>More <DownOutlined /></Button>
 		</Dropdown>}
 	</Space>;

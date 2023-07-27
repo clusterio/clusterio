@@ -18,7 +18,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 function CreateUserButton() {
 	let control = useContext(ControlContext);
 	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 
 	async function createUser() {
@@ -29,21 +29,21 @@ function CreateUserButton() {
 		}
 
 		await control.send(new libData.UserCreateRequest(values.userName));
-		setVisible(false);
+		setOpen(false);
 		history.push(`/users/${values.userName}/view`);
 	}
 
 	return <>
 		<Button
 			type="primary"
-			onClick={() => { setVisible(true); }}
+			onClick={() => { setOpen(true); }}
 		>Create</Button>
 		<Modal
 			title="Create User"
 			okText="Create"
-			visible={visible}
+			open={open}
 			onOk={() => { createUser().catch(notifyErrorHandler("Error creating user")); }}
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			destroyOnClose
 		>
 			<Form form={form}>

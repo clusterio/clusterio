@@ -26,20 +26,20 @@ export default function SiteLayout(props) {
 		return null;
 	}
 
-	let accountMenu = <Menu
-		onClick={({ key }) => {
+	let accountMenuProps = {
+		onClick: ({ key }) => {
 			if (key === "user") {
 				history.push(`/users/${account.name}/view`);
 			} else if (key === "logOut") {
 				account.logOut();
 			}
-		}}
-		items={[
+		},
+		items: [
 			{ label: account.name, key: "user" },
 			{ type: "divider" },
 			{ label: "Log out", danger: true, key: "logOut" },
-		]}
-	/>;
+		],
+	};
 
 	let combinedPages = [...pages];
 	for (let plugin of plugins.values()) {
@@ -88,7 +88,7 @@ export default function SiteLayout(props) {
 				className="account-dropdown-header"
 				placement="bottomRight"
 				trigger="click"
-				overlay={accountMenu}
+				menu={accountMenuProps}
 			>
 				<UserOutlined/>
 			</Dropdown>

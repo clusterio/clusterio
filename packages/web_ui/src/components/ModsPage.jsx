@@ -25,19 +25,19 @@ const { logger } = libLogging;
 function ImportModPackButton() {
 	let control = useContext(ControlContext);
 	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 	function close() {
-		setVisible(false);
+		setOpen(false);
 	}
 	return <>
-		<Button icon={<ImportOutlined />} onClick={() => { setVisible(true); }}>Import string</Button>
+		<Button icon={<ImportOutlined />} onClick={() => { setOpen(true); }}>Import string</Button>
 		<Modal
 			title="Import Mod Pack String"
-			visible={visible}
+			open={open}
 			okText="Import"
 			cancelText="Cancel"
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			onOk={() => {
 				(async () => {
 					let values;
@@ -74,19 +74,19 @@ function ImportModPackButton() {
 function CreateModPackButton() {
 	let control = useContext(ControlContext);
 	let history = useHistory();
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
 	function close() {
-		setVisible(false);
+		setOpen(false);
 	}
 	return <>
-		<Button type="primary" icon={<PlusOutlined />} onClick={() => { setVisible(true); }}>Create</Button>
+		<Button type="primary" icon={<PlusOutlined />} onClick={() => { setOpen(true); }}>Create</Button>
 		<Modal
 			title="Create Mod Pack"
-			visible={visible}
+			open={open}
 			okText="Create"
 			cancelText="Cancel"
-			onCancel={() => { setVisible(false); }}
+			onCancel={() => { setOpen(false); }}
 			onOk={() => {
 				(async () => {
 					let values;

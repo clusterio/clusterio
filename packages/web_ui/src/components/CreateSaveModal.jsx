@@ -8,7 +8,7 @@ import { notifyErrorHandler } from "../util/notify";
 
 
 export default function CreateSaveModal(props) {
-	let [visible, setVisible] = useState(false);
+	let [open, setOpen] = useState(false);
 	let [creatingSave, setCreatingSave] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
@@ -56,7 +56,7 @@ export default function CreateSaveModal(props) {
 			new libData.InstanceCreateSaveRequest(name, seed, mapGenSettings, mapSettings),
 		).then(() => {
 			form.resetFields();
-			setVisible(false);
+			setOpen(false);
 		}).catch(
 			notifyErrorHandler("Error creating save")
 		).finally(() => {
@@ -81,7 +81,7 @@ export default function CreateSaveModal(props) {
 	}
 
 	function handleCancel() {
-		setVisible(false);
+		setOpen(false);
 	}
 
 	return <>
@@ -89,7 +89,7 @@ export default function CreateSaveModal(props) {
 			loading={creatingSave}
 			disabled={props.instance.status !== "stopped"}
 			onClick={() => {
-				setVisible(true);
+				setOpen(true);
 			}}
 		>
 			Create save
@@ -98,7 +98,7 @@ export default function CreateSaveModal(props) {
 			title="Create Save"
 			width={560}
 			okText="Create"
-			visible={visible}
+			open={open}
 			confirmLoading={creatingSave}
 			onOk={createSave}
 			onCancel={handleCancel}
