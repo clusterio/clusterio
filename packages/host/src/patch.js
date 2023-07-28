@@ -7,8 +7,7 @@ const JSZip = require("jszip");
 const path = require("path");
 const semver = require("semver");
 
-const libHash = require("../hash");
-const { findRoot } = require("../zip_ops");
+const lib = require("@clusterio/lib");
 
 
 const knownScenarios = {
@@ -179,7 +178,7 @@ function reorderDependencies(modules) {
  */
 async function patch(savePath, modules) {
 	let zip = await JSZip.loadAsync(await fs.readFile(savePath));
-	let root = zip.folder(findRoot(zip));
+	let root = zip.folder(lib.findRoot(zip));
 
 	let patchInfoFile = root.file("clusterio.json");
 	let patchInfo;
@@ -190,7 +189,7 @@ async function patch(savePath, modules) {
 	// No info file present, try to detect if it's a known compatible scenario.
 	} else {
 		let controlStream = root.file("control.lua").nodeStream("nodebuffer");
-		let controlHash = await libHash.hashStream(controlStream);
+		let controlHash = await lib.hashStream(controlStream);
 
 		if (controlHash in knownScenarios) {
 			patchInfo = {

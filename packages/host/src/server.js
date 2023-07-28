@@ -8,12 +8,7 @@ const util = require("util");
 const crypto = require("crypto");
 const rconClient = require("rcon-client");
 
-const libErrors = require("../errors");
-const libFileOps = require("../file_ops");
-const libIni = require("../ini");
-const { logger } = require("../logging");
-const { escapeRegExp } = require("../helpers");
-const { LineSplitter } = require("../stream");
+const lib = require("@clusterio/lib");
 
 
 /**
@@ -449,7 +444,7 @@ class FactorioServer extends events.EventEmitter {
 		this._version = null;
 		this._dataDir = null;
 
-		this._logger = options.logger || logger;
+		this._logger = options.logger || lib.logger;
 		this._targetVersion = options.version || "latest";
 		/** UDP port used for hosting the Factorio game server on */
 		this.gamePort = options.gamePort || randomDynamicPort();
@@ -483,9 +478,9 @@ class FactorioServer extends events.EventEmitter {
 			this._stripRegExp = new RegExp(
 				// The script printer formats paths using / on both windows and linux.
 				// But the save path is printed with \ on windows and / on linux.
-				`(${escapeRegExp(tempPath.replace(/\\/g, "/"))})|` +
-				`(${escapeRegExp(writePath)})|` +
-				`(\\.\\.\\.[${escapeRegExp(chars)}/]*?currently-playing/)`,
+				`(${lib.escapeRegExp(tempPath.replace(/\\/g, "/"))})|` +
+				`(${lib.escapeRegExp(writePath)})|` +
+				`(\\.\\.\\.[${lib.escapeRegExp(chars)}/]*?currently-playing/)`,
 				"g"
 			);
 		}
@@ -691,10 +686,10 @@ class FactorioServer extends events.EventEmitter {
 	}
 
 	_attachStdio() {
-		let stdout = new LineSplitter({ readableObjectMode: true });
+		let stdout = new lib.LineSplitter({ readableObjectMode: true });
 		stdout.on("data", line => { this._handleOutput(line, "stdout"); });
 		this._server.stdout.pipe(stdout);
-		let stderr = new LineSplitter({ readableObjectMode: true });
+		let stderr = new lib.LineSplitter({ readableObjectMode: true });
 		stderr.on("data", line => { this._handleOutput(line, "stderr"); });
 		this._server.stderr.pipe(stderr);
 	}
@@ -714,9 +709,9 @@ class FactorioServer extends events.EventEmitter {
 			if (this._state !== "stopping") {
 				if (signal === "SIGKILL") {
 					if (this._killed) {
-						this.emit("error", new libErrors.EnvironmentError("Factorio server was killed"));
+						this.emit("error", new lib.EnvironmentError("Factorio server was killed"));
 					} else {
-						this.emit("error", new libErrors.EnvironmentError(
+						this.emit("error", new lib.EnvironmentError(
 							"Factorio server was unexpectedly killed, is the system low on memory?"
 						));
 					}
@@ -729,13 +724,13 @@ class FactorioServer extends events.EventEmitter {
 						msg = `Factorio server was unexpectedly shut by down by signal ${signal}`;
 					}
 
-					this.emit("error", new libErrors.EnvironmentError(msg));
+					this.emit("error", new lib.EnvironmentError(msg));
 
 				} else if (this._unexpected.length === 1) {
-					this.emit("error", new libErrors.EnvironmentError(this._unexpected[0]));
+					this.emit("error", new lib.EnvironmentError(this._unexpected[0]));
 
 				} else {
-					this.emit("error", new libErrors.EnvironmentError(
+					this.emit("error", new lib.EnvironmentError(
 						"Factorio server unexpectedly shut down. Possible causes:"+
 						`\n- ${this._unexpected.join("\n- ")}`
 					));
@@ -751,9 +746,9 @@ class FactorioServer extends events.EventEmitter {
 		});
 		this._server.on("error", err => {
 			if (err.code === "EACCES") {
-				this.emit("error", new libErrors.EnvironmentError("Unable to run server: Permission denied"));
+				this.emit("error", new lib.EnvironmentError("Unable to run server: Permission denied"));
 			} else {
-				this.emit("error", new libErrors.EnvironmentError(`Unexpected error:\n${err.stack}`));
+				this.emit("error", new lib.EnvironmentError(`Unexpected error:\n${err.stack}`));
 			}
 
 			if (this._rconClient) {
@@ -823,7 +818,7 @@ class FactorioServer extends events.EventEmitter {
 			}
 		} catch (err) {
 			if (err.code === "EACCES") {
-				throw new libErrors.EnvironmentError("Unable to run server: Permission denied");
+				throw new lib.EnvironmentError("Unable to run server: Permission denied");
 			}
 			throw err;
 		} finally {
@@ -1132,23 +1127,23 @@ class FactorioServer extends events.EventEmitter {
 	}
 
 	async _writeConfigIni() {
-		let content = libIni.stringify({
+		let content = lib.stringify({
 			path: {
 				"read-data": this.dataPath(),
 				"write-data": this.writePath(),
 			},
 		});
-		await libFileOps.safeOutputFile(this.writePath("config.ini"), content);
+		await lib.safeOutputFile(this.writePath("config.ini"), content);
 	}
 
 	async _writeMapSettings(mapGenSettings, mapSettings) {
 		if (mapGenSettings) {
-			await libFileOps.safeOutputFile(
+			await lib.safeOutputFile(
 				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, 4)
 			);
 		}
 		if (mapSettings) {
-			await libFileOps.safeOutputFile(
+			await lib.safeOutputFile(
 				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, 4)
 			);
 		}

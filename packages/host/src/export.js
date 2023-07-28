@@ -5,9 +5,8 @@ const path = require("path");
 const Jimp = require("jimp");
 const JSZip = require("jszip");
 
-const libIni = require("../ini");
-const libBuildMod = require("../../build_mod");
-const libZipOps = require("../zip_ops");
+const lib = require("@clusterio/lib");
+const libBuildMod = require("@clusterio/lib/build_mod");
 
 /**
  * Generate the export mod needed for exportData
@@ -16,7 +15,7 @@ const libZipOps = require("../zip_ops");
  * the server given, with dependencies generated for all the mods present in
  * the server's mods folder.
  *
- * @param {module:lib.FactorioServer} server -
+ * @param {module:host/src/server.FactorioServer} server -
  *     The server to generate the export mod for.
  * @memberof module:lib
  */
@@ -34,8 +33,7 @@ async function generateExportMod(server) {
 		clean: false,
 		build: true,
 		pack: true,
-		// XXX fix path when moving lib/factorio to host
-		sourceDir: path.join(__dirname, "..", "..", "..", "host", "lua", "export"),
+		sourceDir: path.join(__dirname, "..", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version.replace(/\.\d+$/, ""),
@@ -57,13 +55,13 @@ async function loadZip(server, modVersions, mod) {
 		zipCache.set(zipPath, zip);
 	}
 
-	return zip.folder(libZipOps.findRoot(zip));
+	return zip.folder(lib.findRoot(zip));
 }
 
 /**
  * Load the given Factorio file path into a Buffer
  *
- * @param {module:lib.FactorioServer} server -
+ * @param {module:host/src/server.FactorioServer} server -
  *     The server to load the file from.
  * @param {Map<string, string>} modVersions - Mapping of mod to version used.
  * @param {string} modPath - Factorio style path to the file to load.
@@ -250,7 +248,7 @@ function filterItems(prototypes) {
  * Assembles and packs the icons for the item prototypes given into a single
  * spritesheet and json file with meta data.
  *
- * @param {module:lib.FactorioServer} server -
+ * @param {module:host/src/server.FactorioServer} server -
  *     The server to generate the export mod for.
  * @param {Map<string, string>} modVersions -
  *     Mapping of mod name to versions to get icons from.
@@ -321,7 +319,7 @@ async function exportItems(server, modVersions, items) {
  * Parses and merges all the locales for the all the mods given through
  * `modVersions` and `modOrder`.
  *
- * @param {module:lib.FactorioServer} server -
+ * @param {module:host/src/server.FactorioServer} server -
  *     The server to export the locale from.
  * @param {Map<string, string>} modVersions -
  *     Mapping of mod name to version to export locale from.
@@ -349,7 +347,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 	}
 
 	let baseLocaleFilePath = server.dataPath("base", "locale", languageCode, "base.cfg");
-	mergeLocale(libIni.parse(await fs.readFile(baseLocaleFilePath, "utf8")));
+	mergeLocale(lib.parse(await fs.readFile(baseLocaleFilePath, "utf8")));
 
 	for (let mod of modOrder) {
 		if (["core", "base", "export"].includes(mod)) {
@@ -367,7 +365,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 		}
 		for (let file of zip.file(new RegExp(`locale\\/${languageCode}\\/.*\\.cfg`))) {
 			let content = await file.async("nodebuffer");
-			mergeLocale(libIni.parse(content.toString("utf8")));
+			mergeLocale(lib.parse(content.toString("utf8")));
 		}
 	}
 
@@ -377,7 +375,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 /**
  * Export the locale and item icons for the given factorio server
  *
- * @param {module:lib.FactorioServer} server -
+ * @param {module:host/src/server.FactorioServer} server -
  *     The server to export the data from.
  * @returns {Promise<JSZip>} zip file with exported data.
  * @memberof module:lib

@@ -9,6 +9,10 @@ const util = require("util");
 const lib = require("@clusterio/lib");
 const { PlayerStats } = lib;
 
+const { FactorioServer } = require("./server");
+const { patch } = require("./patch");
+const { exportData } = require("./export");
+
 
 const instanceRconCommandDuration = new lib.Histogram(
 	"clusterio_instance_rcon_command_duration_seconds",
@@ -143,7 +147,7 @@ class Instance extends lib.Link {
 		// Valid statuses are stopped, starting, running, stopping, creating_save and exporting_data.
 		this._status = "stopped";
 		this._loadedSave = null;
-		this.server = new lib.FactorioServer(
+		this.server = new FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
 
@@ -823,7 +827,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			}
 		}
 
-		await lib.patch(this.path("saves", saveName), [...modules.values()]);
+		await patch(this.path("saves", saveName), [...modules.values()]);
 		return saveName;
 	}
 
@@ -1082,7 +1086,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 			this.logger.info("Exporting data .....");
 			await this.syncMods();
-			let zip = await lib.exportData(this.server);
+			let zip = await exportData(this.server);
 
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._host.config.get("host.controller_url"));
