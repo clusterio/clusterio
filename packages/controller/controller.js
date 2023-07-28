@@ -130,7 +130,7 @@ async function handleBootstrapCommand(args, controllerConfig) {
 			return;
 		}
 		// eslint-disable-next-line no-console
-		console.log(user.createToken(controllerConfig.get("controller.auth_secret")));
+		console.log(userManager.signUserToken(user.name));
 
 	} else if (subCommand === "generate-host-token") {
 		// eslint-disable-next-line no-console
@@ -151,7 +151,8 @@ async function handleBootstrapCommand(args, controllerConfig) {
 
 		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
 		controlConfig.set(
-			"control.controller_token", admin.createToken(controllerConfig.get("controller.auth_secret"))
+			"control.controller_token",
+			userManager.signUserToken(admin.name),
 		);
 
 		let content = JSON.stringify(controlConfig.serialize(), null, 4);

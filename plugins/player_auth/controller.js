@@ -149,7 +149,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 						return;
 					}
 
-					let token = user.createToken(secret);
+					let token = this.controller.userManager.signUserToken(user.name);
 					res.send({ verified: true, token });
 					return;
 

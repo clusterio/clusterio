@@ -7,8 +7,6 @@
  * @module lib/users
  */
 "use strict";
-const jwt = require("jsonwebtoken");
-
 const libErrors = require("./errors");
 
 const PlayerStats = require("./PlayerStats");
@@ -255,16 +253,6 @@ class User {
 		}
 
 		return serialized;
-	}
-
-	/**
-	 * Generate access token for this user
-	 *
-	 * @param {string} secret - Secret to sign token with.
-	 * @returns {string} JWT access token for the user.
-	 */
-	createToken(secret) {
-		return jwt.sign({ aud: "user", user: this.name }, Buffer.from(secret, "base64"));
 	}
 
 	/**

@@ -1,5 +1,6 @@
 "use strict";
 const fs = require("fs-extra");
+const jwt = require("jsonwebtoken");
 
 const lib = require("@clusterio/lib");
 
@@ -83,6 +84,20 @@ class UserManager {
 		this.users.set(name, user);
 		return user;
 	}
+
+	/**
+	 * Sign access token for the given user name
+	 *
+	 * @param {string} name - user name to sign token for
+	 * @returns {string} JWT access token for the user.
+	 */
+	signUserToken(name) {
+		return jwt.sign(
+			{ aud: "user", user: name },
+			Buffer.from(this._config.get("controller.auth_secret"), "base64")
+		);
+	}
+
 }
 
 module.exports = UserManager;

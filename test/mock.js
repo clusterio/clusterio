@@ -165,7 +165,7 @@ class MockController {
 			},
 		};
 
-		this.userManager = new UserManager();
+		this.userManager = new UserManager(this.config);
 		this.userManager.roles = new Map([
 			[0, new lib.Role({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
 			[1, new lib.Role({ id: 1, name: "Player", description: "player", permissions: [] })],
