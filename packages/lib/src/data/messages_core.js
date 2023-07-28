@@ -1,5 +1,6 @@
+// Note: Run compile_validator script after making changes to this file.
 "use strict";
-const libSchema = require("../schema");
+const message_validate = require("./message_validate.js");
 
 
 /** @memberof module:lib */
@@ -851,7 +852,7 @@ Message.jsonSchema = {
 		MessageDisconnect.jsonSchema,
 	],
 };
-Message.validate = libSchema.compile(Message.jsonSchema);
+Message.validate = message_validate;
 
 /** @memberof module:lib */
 class PingRequest {
