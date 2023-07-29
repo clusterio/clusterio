@@ -5,9 +5,10 @@
   "repository": "https://github.com/clusterio/clusterio",
   "license": "MIT",
   "scripts": {
-    "prepare": "pnpm run compile_validator",
+    "prepare": "pnpm run compile_validator && tsc || true",
     "compile_validator": "node scripts/compile_validator.js"
   },
+  "main": "dist/index.js",
   "browser": "browser.js",
   "keywords": [
     "factorio"
@@ -31,5 +32,9 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.5",
+    "typescript": "^5.1.6"
   }
 }

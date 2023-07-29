@@ -1,0 +1,18 @@
+{
+  "include": ["index.ts", "build_mod.js", "src/**/*.ts", "src/**/*.js"],
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "module": "commonjs",
+    "target": "es2022",
+    "rootDir": ".",
+    "outDir": "dist",
+    "composite": false,
+    "strict": false,
+    "alwaysStrict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmitOnError": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}

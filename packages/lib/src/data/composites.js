@@ -21,11 +21,14 @@ function jsonPrimitive(type) {
 		},
 	};
 }
+const JsonBoolean = jsonPrimitive("boolean");
+const JsonNumber = jsonPrimitive("number");
+const JsonString = jsonPrimitive("string");
 
 module.exports = {
-	JsonBoolean: jsonPrimitive("boolean"),
-	JsonNumber: jsonPrimitive("number"),
-	JsonString: jsonPrimitive("string"),
+	JsonBoolean,
+	JsonNumber,
+	JsonString,
 
 	jsonArray,
 	jsonPrimitive,

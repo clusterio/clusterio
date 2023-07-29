@@ -416,7 +416,7 @@ function handleUnhandledErrors() {
 	/* eslint-enable node/no-process-exit */
 }
 
-
+const _formatServerOutput = formatServerOutput;
 module.exports = {
 	TerminalFormat,
 	LinkTransport,
@@ -425,5 +425,5 @@ module.exports = {
 	queryLog,
 
 	// for testing only
-	_formatServerOutput: formatServerOutput,
+	_formatServerOutput,
 };
