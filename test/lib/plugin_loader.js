@@ -3,8 +3,8 @@ const assert = require("assert").strict;
 const fs = require("fs-extra");
 const path = require("path");
 
-const libPluginLoader = require("@clusterio/lib/plugin_loader");
-const { escapeRegExp } = require("@clusterio/lib/helpers");
+const lib = require("@clusterio/lib");
+const { escapeRegExp } = lib;
 
 
 describe("lib/plugin_loader", function() {
@@ -34,13 +34,13 @@ describe("lib/plugin_loader", function() {
 
 		it("should throw on missing plugin", async function() {
 			await assert.rejects(
-				libPluginLoader.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
+				lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
 				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}/info'`)
 			);
 		});
 		it("should load test plugin", async function() {
 			assert.deepEqual(
-				await libPluginLoader.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
+				await lib.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
 				[{ name: "test", version: "0.0.1", requirePath: path.resolve(testPlugin) }]
 			);
 		});
@@ -53,13 +53,13 @@ describe("lib/plugin_loader", function() {
 				brokenMessage = err.message;
 			}
 			await assert.rejects(
-				libPluginLoader.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
+				lib.loadPluginInfos(new Map([["broken", path.resolve(brokenPlugin)]])),
 				{ message: `PluginError: ${brokenMessage}` }
 			);
 		});
 		it("should reject on invalid plugin", async function() {
 			await assert.rejects(
-				libPluginLoader.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
+				lib.loadPluginInfos(new Map([["invalid", path.resolve(invalidPlugin)]])),
 				{ message: `Expected plugin at ${path.resolve(invalidPlugin)} to be named invalid but got wrong` }
 			);
 		});
@@ -80,7 +80,7 @@ describe("lib/plugin_loader", function() {
 		});
 		it("should throw if class is missing from entrypoint", async function() {
 			await assert.rejects(
-				libPluginLoader.loadControllerPluginClass({
+				lib.loadControllerPluginClass({
 					name: "test",
 					controllerEntrypoint: "controller",
 					requirePath: path.resolve(missingClass),
@@ -94,7 +94,7 @@ describe("lib/plugin_loader", function() {
 		});
 		it("should throw if class is not a subclass of BaseControllerPlugin", async function() {
 			await assert.rejects(
-				libPluginLoader.loadControllerPluginClass({
+				lib.loadControllerPluginClass({
 					name: "test",
 					controllerEntrypoint: "controller",
 					requirePath: path.resolve(wrongParentClass),

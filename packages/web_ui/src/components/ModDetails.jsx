@@ -2,7 +2,7 @@ import React, { Fragment } from "react";
 import { Descriptions, Grid, Typography } from "antd";
 import ExclamationCircleOutlined from "@ant-design/icons/ExclamationCircleOutlined";
 
-import { libHelpers } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 const { useBreakpoint } = Grid;
 
@@ -39,7 +39,7 @@ export default function ModDetails(props) {
 		}
 		{mod.filename && <Descriptions.Item label="Filename">{mod.filename}</Descriptions.Item>}
 		{mod.size !== undefined
-			&& <Descriptions.Item label="Size">{libHelpers.formatBytes(mod.size)}</Descriptions.Item>
+			&& <Descriptions.Item label="Size">{lib.formatBytes(mod.size)}</Descriptions.Item>
 		}
 		{mod.sha1 && <Descriptions.Item label="SHA1" span={2}>{mod.sha1}</Descriptions.Item>}
 		{mod.dependencies && mod.dependencies.length

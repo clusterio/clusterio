@@ -1,9 +1,9 @@
 "use strict";
-let { libConfig } = require("@clusterio/lib");
+const lib = require("@clusterio/lib");
 let messages = require("./messages");
 
 
-class ControllerConfigGroup extends libConfig.PluginConfigGroup {}
+class ControllerConfigGroup extends lib.PluginConfigGroup {}
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "player_auth";
 ControllerConfigGroup.define({

@@ -1,17 +1,14 @@
 "use strict";
-const libPlugin = require("@clusterio/lib/plugin");
-const libLuaTools = require("@clusterio/lib/lua_tools");
+const lib = require("@clusterio/lib");
 
 const {
-	Item,
 	PlaceEvent,
 	RemoveRequest,
 	GetStorageRequest,
 	UpdateStorageEvent,
-	SetStorageSubscriptionRequest,
 } = require("./messages");
 
-class InstancePlugin extends libPlugin.BaseInstancePlugin {
+class InstancePlugin extends lib.BaseInstancePlugin {
 	unexpectedError(err) {
 		this.logger.error(`Unexpected error:\n${err.stack}`);
 	}
@@ -46,7 +43,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 
 		let items = await this.instance.sendTo("controller", new GetStorageRequest());
 		// TODO Diff with dump of invdata produce minimal command to sync
-		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
+		let itemsJson = lib.escapeString(JSON.stringify(items));
 		await this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}", true)`, true);
 	}
 
@@ -93,7 +90,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 			this.logger.verbose(JSON.stringify(items));
 		}
 
-		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
+		let itemsJson = lib.escapeString(JSON.stringify(items));
 		await this.sendRcon(`/sc __subspace_storage__ Import("${itemsJson}")`, true);
 	}
 
@@ -107,7 +104,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		// XXX this should be moved to instance/clusterio api
 		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);
 
-		let itemsJson = libLuaTools.escapeString(JSON.stringify(items));
+		let itemsJson = lib.escapeString(JSON.stringify(items));
 		let task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
 		this.pendingTasks.add(task);
 		task.finally(() => { this.pendingTasks.delete(task); });

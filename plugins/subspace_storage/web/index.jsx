@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Input, Table, Typography } from "antd";
 
-import { libPlugin } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 import { notifyErrorHandler, useItemMetadata, useLocale, PageLayout, ControlContext } from "@clusterio/web_ui";
 import { GetStorageRequest, SetStorageSubscriptionRequest } from "../messages";
 
@@ -114,7 +114,7 @@ function StoragePage() {
 	</PageLayout>;
 }
 
-export class WebPlugin extends libPlugin.BaseWebPlugin {
+export class WebPlugin extends lib.BaseWebPlugin {
 	async init() {
 		this.pages = [
 			{

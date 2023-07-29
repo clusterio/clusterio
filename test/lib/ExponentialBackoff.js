@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 
-const ExponentialBackoff = require("@clusterio/lib/ExponentialBackoff");
+const { ExponentialBackoff } = require("@clusterio/lib");
 
 describe("lib/ExponentialBackoff", function() {
 	describe("class ExponentialBackoff", function() {

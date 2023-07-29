@@ -2,10 +2,8 @@
 const jwt = require("jsonwebtoken");
 const WebSocket = require("ws");
 
-const libData = require("@clusterio/lib/data");
-const libErrors = require("@clusterio/lib/errors");
-const { logger } = require("@clusterio/lib/logging");
-const libPrometheus = require("@clusterio/lib/prometheus");
+const lib = require("@clusterio/lib");
+const { logger } = lib;
 
 const ControlConnection = require("./ControlConnection");
 const packageVersion = require("../package").version;
@@ -13,18 +11,18 @@ const HostConnection = require("./HostConnection");
 const WsServerConnector = require("./WsServerConnector");
 
 
-const wsMessageCounter = new libPrometheus.Counter(
+const wsMessageCounter = new lib.Counter(
 	"clusterio_controller_websocket_message_total",
 	"How many messages have been received over WebSocket on the controller",
 	{ labels: ["direction"] }
 );
 
-const wsConnectionsCounter = new libPrometheus.Counter(
+const wsConnectionsCounter = new lib.Counter(
 	"clusterio_controller_websocket_connections_total",
 	"How many WebSocket connections have been initiated on the controller"
 );
 
-const wsRejectedConnectionsCounter = new libPrometheus.Counter(
+const wsRejectedConnectionsCounter = new lib.Counter(
 	"clusterio_controller_websocket_rejected_connections_total",
 	"How many WebSocket connections have been rejected during the handshake on the controller"
 );
@@ -78,7 +76,7 @@ class WsServer {
 			try {
 				await task;
 			} catch (err) {
-				if (!(err instanceof libErrors.SessionLost)) {
+				if (!(err instanceof lib.SessionLost)) {
 					logger.warn(`Unexpected error disconnecting connector:\n${err.stack}`);
 				}
 			}
@@ -123,7 +121,7 @@ class WsServer {
 			loadedPlugins[name] = plugin.info.version;
 		}
 
-		socket.send(JSON.stringify(new libData.MessageHello(new libData.HelloData(packageVersion, loadedPlugins))));
+		socket.send(JSON.stringify(new lib.MessageHello(new lib.HelloData(packageVersion, loadedPlugins))));
 		this.attachHandler(socket, req);
 	}
 
@@ -160,8 +158,8 @@ ${err.stack}`
 		let message;
 		try {
 			const json = JSON.parse(rawMessage);
-			libData.Message.validate(json);
-			message = libData.Message.fromJSON(json);
+			lib.Message.validate(json);
+			message = lib.Message.fromJSON(json);
 		} catch (err) {
 			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after receiving invalid message`);
 			wsRejectedConnectionsCounter.inc();
@@ -239,7 +237,7 @@ ${err.stack}`
 			return;
 		}
 
-		let [connector, sessionToken] = this.createSession(new libData.Address(libData.Address.host, data.id));
+		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));
 		let connection = this.hostConnections.get(data.id);
 		if (connection) {
 			logger.verbose(`WsServer | disconnecting existing connection for host ${data.id}`);
@@ -267,7 +265,7 @@ ${err.stack}`
 		});
 		this.hostConnections.set(data.id, connection);
 		this.controller.hostUpdated(this.controller.hosts.get(data.id));
-		let src = new libData.Address(libData.Address.host, data.id);
+		let src = new lib.Address(lib.Address.host, data.id);
 		connector.ready(socket, src, sessionToken);
 	}
 
@@ -298,7 +296,7 @@ ${err.stack}`
 
 		let id = this.nextControlId;
 		this.nextControlId += 1;
-		let [connector, sessionToken] = this.createSession(new libData.Address(libData.Address.control, id));
+		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.control, id));
 
 		logger.verbose(`WsServer | registered control ${id} from ${req.socket.remoteAddress}`);
 		let connection = new ControlConnection(data, connector, this.controller, user, id);
@@ -306,7 +304,7 @@ ${err.stack}`
 			this.controlConnections.delete(id);
 		});
 		this.controlConnections.set(id, connection);
-		let account = new libData.AccountDetails(
+		let account = new lib.AccountDetails(
 			user.name,
 			[...user.roles].map(r => ({
 				name: r.name,
@@ -315,7 +313,7 @@ ${err.stack}`
 			}))
 		);
 
-		let src = new libData.Address(libData.Address.control, id);
+		let src = new lib.Address(lib.Address.control, id);
 		connector.ready(socket, src, sessionToken, account);
 	}
 
@@ -334,7 +332,7 @@ ${err.stack}`
 			}
 
 		} catch (err) {
-			socket.send(JSON.stringify(new libData.MessageInvalidate()));
+			socket.send(JSON.stringify(new lib.MessageInvalidate()));
 			this.attachHandler(socket, req);
 			return;
 		}

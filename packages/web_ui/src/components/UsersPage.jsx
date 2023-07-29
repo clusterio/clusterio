@@ -2,7 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Space, Table, Tag } from "antd";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
@@ -29,7 +29,7 @@ function CreateUserButton() {
 			return;
 		}
 
-		await control.send(new libData.UserCreateRequest(values.userName));
+		await control.send(new lib.UserCreateRequest(values.userName));
 		setOpen(false);
 		navigate(`/users/${values.userName}/view`);
 	}
@@ -65,7 +65,7 @@ export default function UsersPage() {
 	let [roles, setRoles] = useState(new Map());
 
 	useEffect(() => {
-		control.send(new libData.RoleListRequest()).then(newRoles => {
+		control.send(new lib.RoleListRequest()).then(newRoles => {
 			setRoles(new Map(newRoles.map(role => [role.id, role])));
 		}).catch(() => {
 			// ignore

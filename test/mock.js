@@ -3,16 +3,11 @@ const events = require("events");
 const http = require("http");
 const express = require("express");
 
-const libData = require("@clusterio/lib/data");
-const libHelpers = require("@clusterio/lib/helpers");
-const libLink = require("@clusterio/lib/link");
-const libPlugin = require("@clusterio/lib/plugin");
-const libUsers = require("@clusterio/lib/users");
-const libPrometheus = require("@clusterio/lib/prometheus");
+const lib = require("@clusterio/lib");
 
 const UserManager = require("@clusterio/controller/src/UserManager");
 
-const addr = libData.Address.fromShorthand;
+const addr = lib.Address.fromShorthand;
 
 class MockLogger {
 	child() { return this; }
@@ -72,7 +67,7 @@ class MockSocket {
 	}
 }
 
-class MockConnector extends libLink.BaseConnector {
+class MockConnector extends lib.BaseConnector {
 	constructor(src, dst) {
 		super(src, dst);
 
@@ -107,7 +102,7 @@ class MockServer extends events.EventEmitter {
 			result = { response: result };
 		}
 		if (result.time) {
-			await libHelpers.wait(result.time);
+			await lib.wait(result.time);
 		}
 		if (result.response instanceof Error) {
 			throw result.response;
@@ -116,7 +111,7 @@ class MockServer extends events.EventEmitter {
 	}
 }
 
-class MockInstance extends libLink.Link {
+class MockInstance extends lib.Link {
 	constructor() {
 		super(new MockConnector(addr({ instanceId: 7357 }), addr({ hostId: 1 })));
 		this.logger = new MockLogger();
@@ -143,13 +138,13 @@ class MockInstance extends libLink.Link {
 	}
 }
 
-class MockHost extends libLink.Link {
+class MockHost extends lib.Link {
 	constructor() {
 		super(new MockConnector(addr({ hostId: 1 }), addr("controller")));
 	}
 }
 
-class MockControl extends libLink.Link { }
+class MockControl extends lib.Link { }
 
 class MockController {
 	constructor() {
@@ -170,16 +165,16 @@ class MockController {
 			},
 		};
 
-		this.userManager = new UserManager();
+		this.userManager = new UserManager(this.config);
 		this.userManager.roles = new Map([
-			[0, new libUsers.Role({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
-			[1, new libUsers.Role({ id: 1, name: "Player", description: "player", permissions: [] })],
+			[0, new lib.Role({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
+			[1, new lib.Role({ id: 1, name: "Player", description: "player", permissions: [] })],
 		]);
 		this.userManager.roles.get(1).grantDefaultPermissions();
 
 		this.userManager.users = new Map([
-			["test", new libUsers.User({ name: "test", roles: [0, 1] }, this.userManager.roles)],
-			["player", new libUsers.User({ name: "player", roles: [1] }, this.userManager.roles)],
+			["test", new lib.User({ name: "test", roles: [0, 1] }, this.userManager.roles)],
+			["player", new lib.User({ name: "player", roles: [1] }, this.userManager.roles)],
 		]);
 		this.instances = new Map();
 		this.hosts = new Map();
@@ -210,7 +205,7 @@ class MockController {
 }
 
 async function createControllerPlugin(ControllerPluginClass, info) {
-	libLink.registerPluginMessages([info]);
+	lib.registerPluginMessages([info]);
 	let controller = new MockController();
 	let metrics = {};
 	let logger = new MockLogger();

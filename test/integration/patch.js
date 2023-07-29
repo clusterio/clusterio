@@ -4,7 +4,7 @@ const fs = require("fs-extra");
 const JSZip = require("jszip");
 const path = require("path");
 
-const libFactorio = require("@clusterio/lib/factorio");
+const { patch } = require("@clusterio/host/src/patch");
 
 const { slowTest } = require("./index");
 
@@ -17,7 +17,7 @@ describe("Integration of lib/factorio/patch", function() {
 		let savePath = path.join("temp", "test", "integration", "saves", "test.zip");
 		it("should patch a freeplay game", async function() {
 			slowTest(this);
-			await libFactorio.patch(savePath, [{
+			await patch(savePath, [{
 				name: "test",
 				version: "1.0.0",
 				dependencies: {},
@@ -39,7 +39,7 @@ describe("Integration of lib/factorio/patch", function() {
 		});
 		it("should remove old modules in a save", async function() {
 			slowTest(this);
-			await libFactorio.patch(savePath, []);
+			await patch(savePath, []);
 			let zip = await JSZip.loadAsync(await fs.readFile(savePath));
 			assert.equal(zip.file("test/modules/test/test.lua"), null);
 		});

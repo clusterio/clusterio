@@ -49,7 +49,7 @@ Without it the plugin will not recognized by Clusterio.
 Here's an example of it:
 
 ```js
-const { libLink } = require("@clusterio/lib"); // For messages
+const lib = require("@clusterio/lib"); // For messages
 
 module.exports = {
     name: "foo_frobber",
@@ -120,9 +120,9 @@ The plugin class should derive from its respective base class defined in `lib/pl
 For example, to define a ControllerPlugin class the following code can be used:
 
 ```js
-const libPlugin = require("@clusterio/lib/plugin");
+const lib = require("@clusterio/lib");
 
-class ControllerPlugin extends libPlugin.BaseControllerPlugin {
+class ControllerPlugin extends lib.BaseControllerPlugin {
     async init() {
         this.foo = 42;
         await this.startFrobnication();
@@ -206,9 +206,9 @@ You can take advantage of it by subclassing `PluginConfigGroup`, setting `defaul
 For example in info.js:
 
 ```js
-const libConfig = require("@clusterio/lib/config");
+const lib = require("@clusterio/lib");
 
-class ControllerConfigGroup extends libConfig.PluginConfigGroup { }
+class ControllerConfigGroup extends lib.PluginConfigGroup { }
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "foo_frobber";
 ControllerConfigGroup.define({
@@ -333,7 +333,7 @@ The Event constructor takes an object of properties that define the event, for e
 
 ```js
 messages: {
-    startFrobnication: new libLink.Event({
+    startFrobnication: new lib.Event({
         type: "foo_frobber:start_frobnication",
         links: ["controller-host", "host-instance"],
         forwardTo: "instance",
@@ -408,7 +408,7 @@ For example, the following could be defined in `info.js`:
 
 ```js
 messages: {
-    reportFrobnication: new libLink.Request({
+    reportFrobnication: new lib.Request({
         type: "foo_frobber:report_frobnication",
         links: ["controller-host", "host-instance"],
         forwardTo: "instance",
@@ -530,7 +530,7 @@ In its simplest form collecting data from plugins consists of defining the metri
 For example:
 
 ```js
-const { Counter } = require("@clusterio/lib/prometheus");
+const { Counter } = require("@clusterio/lib");
 
 const fooMetric = new Counter(
     "clusterio_foo_frobber_foo_metric", "Measures the level of foo",
@@ -546,7 +546,7 @@ It's recommended that plugin metrics follow `clusterio_<plugin_name>_<metric_nam
 For metrics that are per-instance, you must define an `instance_id` label and set it accordingly, for example:
 
 ```js
-const { Counter } = require("@clusterio/lib/prometheus");
+const { Counter } = require("@clusterio/lib");
 
 const barMetric = new Gauge(
     "clusterio_foo_frobber_bar_metric", "Bar instance level",
@@ -570,7 +570,7 @@ The control entrypoint for plugins allows you to extend clustectl with your own 
 The creation of custom commands typically starts with defining a command tree for the plugin:
 
 ```js
-const { Command, CommandTree } = require("@clusterio/lib/command");
+const { Command, CommandTree } = require("@clusterio/lib");
 const fooFrobberCommands = new CommandTree({
     name: "foo-frobber", description: "Foo Frobber Plugin commands"
 });
@@ -605,9 +605,9 @@ Note that messages sent from clusterioctl needs to have `"control-controller"` a
 To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in `addCommands` callback of the Control plugin:
 
 ```js
-const libPlugin = require("@clusterio/lib/plugin");
+const lib = require("@clusterio/lib");
 
-class ControlPlugin extends libPlugin.BaseControlPlugin {
+class ControlPlugin extends lib.BaseControlPlugin {
     async addCommands(rootCommand) {
         rootCommand.add(fooFrobberCommands);
     }

@@ -205,12 +205,13 @@ Fields in configs and messages sent over links uses lowercase_underscore.
 JavaScript files are named using lowercase_underscore for files that export multiple items.
 Files containing and exporting a single class should be named the same as the class in PascalCase.
 
-Imported modules from the lib package are prefixed with lib to make them easier to distinguish, as the names tend to be very generic.
+Relative imports in lib package are prefixed with lib to make them easier to distinguish, as the names tend to be very generic.
 E.g.:
 
-    const libLink = require("@clusterio/lib/link");
-    const libLuaTools = require("@clusterio/lib/lua_tools");
+    const libLink = require("./link");
+    const libLuaTools = require("./lua_tools");
 
+Note that no sub-modules of the lib package is imported directly from the outside of it with the exception of `build_mod`.
 
 For lua code lowercase_underscore is used for everything.
 

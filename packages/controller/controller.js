@@ -26,16 +26,8 @@ require("winston-daily-rotate-file");
 const jwt = require("jsonwebtoken");
 
 // homebrew modules
-const libErrors = require("@clusterio/lib/errors");
-const libFileOps = require("@clusterio/lib/file_ops");
-const libLink = require("@clusterio/lib/link");
-const libPluginLoader = require("@clusterio/lib/plugin_loader");
-const libPrometheus = require("@clusterio/lib/prometheus");
-const libConfig = require("@clusterio/lib/config");
-const libUsers = require("@clusterio/lib/users");
-const libSharedCommands = require("@clusterio/lib/shared_commands");
-const { ConsoleTransport, levels, logger } = require("@clusterio/lib/logging");
-const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const lib = require("@clusterio/lib");
+const { ConsoleTransport, levels, logger } = lib;
 
 const Controller = require("./src/Controller");
 const UserManager = require("./src/UserManager");
@@ -45,7 +37,7 @@ const version = require("./package").version;
 let controller;
 
 
-void new libPrometheus.Gauge(
+void new lib.Gauge(
 	"clusterio_controller_host_mapping",
 	"Mapping of Host ID to name",
 	{
@@ -65,7 +57,7 @@ void new libPrometheus.Gauge(
 	}
 );
 
-void new libPrometheus.Gauge(
+void new lib.Gauge(
 	"clusterio_controller_instance_mapping",
 	"Mapping of Instance ID to name and host",
 	{
@@ -86,19 +78,19 @@ void new libPrometheus.Gauge(
 	}
 );
 
-void new libPrometheus.Gauge(
+void new lib.Gauge(
 	"clusterio_controller_websocket_active_connections",
 	"How many WebSocket connections are currently open to the controller",
 	{ callback: function(gauge) { gauge.set(controller.wsServer.activeConnectors.size); }}
 );
 
-void new libPrometheus.Gauge(
+void new lib.Gauge(
 	"clusterio_controller_active_hosts",
 	"How many hosts are currently connected to the controller",
 	{ callback: function(gauge) { gauge.set(controller.wsServer.hostConnections.size); }}
 );
 
-void new libPrometheus.Gauge(
+void new lib.Gauge(
 	"clusterio_controller_connected_clients_count", "How many clients are currently connected to this controller",
 	{
 		labels: ["type"], callback: async function(gauge) {
@@ -125,7 +117,7 @@ async function handleBootstrapCommand(args, controllerConfig) {
 			admin = userManager.createUser(args.name);
 		}
 
-		let adminRole = libUsers.ensureDefaultAdminRole(userManager.roles);
+		let adminRole = lib.ensureDefaultAdminRole(userManager.roles);
 		admin.roles.add(adminRole);
 		admin.isAdmin = true;
 		await userManager.save(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
@@ -138,7 +130,7 @@ async function handleBootstrapCommand(args, controllerConfig) {
 			return;
 		}
 		// eslint-disable-next-line no-console
-		console.log(user.createToken(controllerConfig.get("controller.auth_secret")));
+		console.log(userManager.signUserToken(user.name));
 
 	} else if (subCommand === "generate-host-token") {
 		// eslint-disable-next-line no-console
@@ -154,12 +146,13 @@ async function handleBootstrapCommand(args, controllerConfig) {
 			process.exitCode = 1;
 			return;
 		}
-		let controlConfig = new libConfig.ControlConfig("control");
+		let controlConfig = new lib.ControlConfig("control");
 		await controlConfig.init();
 
 		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
 		controlConfig.set(
-			"control.controller_token", admin.createToken(controllerConfig.get("controller.auth_secret"))
+			"control.controller_token",
+			userManager.signUserToken(admin.name),
 		);
 
 		let content = JSON.stringify(controlConfig.serialize(), null, 4);
@@ -168,7 +161,7 @@ async function handleBootstrapCommand(args, controllerConfig) {
 			console.log(content);
 		} else {
 			logger.info(`Writing ${args.output}`);
-			await libFileOps.safeOutputFile(args.output, content);
+			await lib.safeOutputFile(args.output, content);
 		}
 	}
 }
@@ -212,8 +205,8 @@ async function initialize() {
 			default: "plugin-list.json",
 			type: "string",
 		})
-		.command("plugin", "Manage available plugins", libSharedCommands.pluginCommand)
-		.command("config", "Manage Controller config", libSharedCommands.configCommand)
+		.command("plugin", "Manage available plugins", lib.pluginCommand)
+		.command("config", "Manage Controller config", lib.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
 				.command("create-admin <name>", "Create a cluster admin")
@@ -262,10 +255,10 @@ async function initialize() {
 	if (parameters.args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({
 			level: parameters.args.logLevel,
-			format: new libLoggingUtils.TerminalFormat(),
+			format: new lib.TerminalFormat(),
 		}));
 	}
-	libLoggingUtils.handleUnhandledErrors(logger);
+	lib.handleUnhandledErrors(logger);
 
 	let command = parameters.args._[0];
 	if (command === "run") {
@@ -285,19 +278,19 @@ async function initialize() {
 
 	// If the command is plugin management we don't try to load plugins
 	if (command === "plugin") {
-		await libSharedCommands.handlePluginCommand(parameters.args, pluginList, parameters.args.pluginList);
+		await lib.handlePluginCommand(parameters.args, pluginList, parameters.args.pluginList);
 		return parameters;
 	}
 
 	logger.info("Loading Plugin info");
-	parameters.pluginInfos = await libPluginLoader.loadPluginInfos(pluginList);
-	libLink.registerPluginMessages(parameters.pluginInfos);
-	libConfig.registerPluginConfigGroups(parameters.pluginInfos);
-	libConfig.finalizeConfigs();
+	parameters.pluginInfos = await lib.loadPluginInfos(pluginList);
+	lib.registerPluginMessages(parameters.pluginInfos);
+	lib.registerPluginConfigGroups(parameters.pluginInfos);
+	lib.finalizeConfigs();
 
 	parameters.controllerConfigPath = parameters.args.config;
 	logger.info(`Loading config from ${parameters.controllerConfigPath}`);
-	parameters.controllerConfig = new libConfig.ControllerConfig("controller");
+	parameters.controllerConfig = new lib.ControllerConfig("controller");
 	try {
 		await parameters.controllerConfig.load(JSON.parse(await fs.readFile(parameters.controllerConfigPath)));
 
@@ -307,7 +300,7 @@ async function initialize() {
 			await parameters.controllerConfig.init();
 
 		} else {
-			throw new libErrors.StartupError(`Failed to load ${parameters.controllerConfigPath}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${parameters.controllerConfigPath}: ${err.message}`);
 		}
 	}
 
@@ -316,13 +309,13 @@ async function initialize() {
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
 		parameters.controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
-		await libFileOps.safeOutputFile(
+		await lib.safeOutputFile(
 			parameters.controllerConfigPath, JSON.stringify(parameters.controllerConfig.serialize(), null, 4)
 		);
 	}
 
 	if (command === "config") {
-		await libSharedCommands.handleConfigCommand(
+		await lib.handleConfigCommand(
 			parameters.args, parameters.controllerConfig, parameters.controllerConfigPath
 		);
 
@@ -393,14 +386,14 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startup().catch(err => {
-		if (err instanceof libErrors.StartupError) {
+		if (err instanceof lib.StartupError) {
 			logger.fatal(`
 +-------------------------------+
 | Unable to to start controller |
 +-------------------------------+
 ${err.stack}`
 			);
-		} else if (err instanceof libErrors.PluginError) {
+		} else if (err instanceof lib.PluginError) {
 			logger.fatal(`
 ${err.pluginName} plugin threw an unexpected error
 during startup, please report it to the plugin author.

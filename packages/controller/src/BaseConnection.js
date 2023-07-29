@@ -1,19 +1,16 @@
 "use strict";
-const libData = require("@clusterio/lib/data");
-const libErrors = require("@clusterio/lib/errors");
-const libLink = require("@clusterio/lib/link");
-const { logger } = require("@clusterio/lib/logging");
-const libPlugin = require("@clusterio/lib/plugin");
+const lib = require("@clusterio/lib");
+const { logger } = lib;
 const ControllerRouter = require("./ControllerRouter");
 
 
 /**
  * Base class for controller connections
  *
- * @extends module:lib/link.Link
+ * @extends module:lib.Link
  * @alias module:controller/src/BaseConnection
  */
-class BaseConnection extends libLink.Link {
+class BaseConnection extends lib.Link {
 	constructor(connector, controller) {
 		/** @member {module:controller/src/WsServerConnector} module:controller/src/BaseConnection#connector */
 		super(connector);
@@ -24,15 +21,15 @@ class BaseConnection extends libLink.Link {
 		for (let [Event, handler] of controller._registeredEvents) { this.handle(Event, handler); }
 		for (let [Event, handler] of controller._snoopedEvents) { this.snoopEvent(Event, handler); }
 
-		this.handle(libData.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
-		this.handle(libData.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
+		this.handle(lib.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
+		this.handle(lib.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
 	}
 
 	async disconnect(code, reason) {
 		try {
 			await this.connector.disconnect();
 		} catch (err) {
-			if (!(err instanceof libErrors.SessionLost)) {
+			if (!(err instanceof lib.SessionLost)) {
 				logger.error(`"Unexpected error preparing disconnect:\n${err.stack}`);
 			}
 		}
@@ -51,7 +48,7 @@ class BaseConnection extends libLink.Link {
 		let { id } = request;
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
-			throw new libErrors.RequestError(`Mod pack with ID ${id} does not exist`);
+			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
 		return modPack;
 	}
@@ -59,11 +56,11 @@ class BaseConnection extends libLink.Link {
 	async handleModPackGetDefaultRequest() {
 		let id = this._controller.config.get("controller.default_mod_pack_id");
 		if (id === null) {
-			throw new libErrors.RequestError("Default mod pack not set on controller");
+			throw new lib.RequestError("Default mod pack not set on controller");
 		}
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
-			throw new libErrors.RequestError(`Default mod pack configured (${id}) does not exist`);
+			throw new lib.RequestError(`Default mod pack configured (${id}) does not exist`);
 		}
 		return modPack;
 	}

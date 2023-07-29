@@ -2,8 +2,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const libFileOps = require("@clusterio/lib/file_ops");
-const libPlugin = require("@clusterio/lib/plugin");
+const lib = require("@clusterio/lib");
 
 const {
 	AcquireRequest,
@@ -34,11 +33,11 @@ async function saveDatabase(controllerConfig, playerDatastore, logger) {
 		let file = path.resolve(controllerConfig.get("controller.database_directory"), "inventories.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(Array.from(playerDatastore));
-		await libFileOps.safeOutputFile(file, content);
+		await lib.safeOutputFile(file, content);
 	}
 }
 
-class ControllerPlugin extends libPlugin.BaseControllerPlugin {
+class ControllerPlugin extends lib.BaseControllerPlugin {
 	async init() {
 		this.acquiredPlayers = new Map();
 		this.playerDatastore = await loadDatabase(this.controller.config, this.logger);

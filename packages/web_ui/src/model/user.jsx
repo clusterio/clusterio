@@ -2,8 +2,9 @@ import React, { useEffect, useContext, useState } from "react";
 import { Tag } from "antd";
 import ControlContext from "../components/ControlContext";
 
-import { libData, libLogging } from "@clusterio/lib";
-const { logger } = libLogging;
+import * as lib from "@clusterio/lib";
+
+const { logger } = lib;
 
 function calculateLastSeen(user, instanceId) {
 	let stats;
@@ -56,7 +57,7 @@ export function useUser(name) {
 	let [user, setUser] = useState({ loading: true });
 
 	function updateUser() {
-		control.send(new libData.UserGetRequest(name)).then(updatedUser => {
+		control.send(new lib.UserGetRequest(name)).then(updatedUser => {
 			setUser({ ...updatedUser, present: true });
 		}).catch(err => {
 			logger.error(`Failed to get user: ${err}`);
@@ -90,7 +91,7 @@ export function useUserList() {
 	let [userList, setUserList] = useState([]);
 
 	function updateUserList() {
-		control.send(new libData.UserListRequest()).then(users => {
+		control.send(new lib.UserListRequest()).then(users => {
 			setUserList(users);
 		}).catch(err => {
 			logger.error(`Failed to list users:\n${err}`);

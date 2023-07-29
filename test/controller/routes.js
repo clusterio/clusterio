@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const http = require("http");
 const phin = require("phin");
 
-const { wait } = require("@clusterio/lib/helpers");
+const { wait } = require("@clusterio/lib");
 const routes = require("@clusterio/controller/src/routes");
 const mock = require("../mock");
 

@@ -1,5 +1,5 @@
 "use strict";
-const libData = require("@clusterio/lib/data");
+const lib = require("@clusterio/lib");
 
 class ControllerRouter {
 	/** @type {module:controller/src/Controller} */
@@ -20,8 +20,8 @@ class ControllerRouter {
 	}
 
 	/**
-	 * @param {module:lib/link.Link} origin - Source link of the message.
-	 * @param {module:lib/data.Message} message
+	 * @param {module:lib.Link} origin - Source link of the message.
+	 * @param {module:lib.Message} message
 	 *    Link the message originated from.
 	 * @param {boolean} hasFallback - true if fallback handling is available.
 	 * @returns {boolean} true if the message was handled
@@ -34,15 +34,15 @@ class ControllerRouter {
 		let dst = message.dst;
 		let nextHop;
 		let msg;
-		if (dst.type === libData.Address.broadcast) {
+		if (dst.type === lib.Address.broadcast) {
 			this.broadcastMessage(origin, message);
 			return true;
-		} else if (dst.type === libData.Address.host) {
+		} else if (dst.type === lib.Address.host) {
 			nextHop = this.controller.wsServer.hostConnections.get(dst.id);
 			if (!nextHop) {
 				msg = `Host ${dst.id} is offline`;
 			}
-		} else if (dst.type === libData.Address.instance) {
+		} else if (dst.type === lib.Address.instance) {
 			let instance = this.controller.instances.get(dst.id);
 			if (!instance) {
 				msg = `Instance ${dst.id} does not exist`;
@@ -57,12 +57,12 @@ class ControllerRouter {
 					}
 				}
 			}
-		} else if (dst.type === libData.Address.control) {
+		} else if (dst.type === lib.Address.control) {
 			nextHop = this.controller.wsServer.controlConnections.get(dst.id);
 			if (!nextHop) {
 				msg = "Control connection does not exist";
 			}
-		} else if (dst.type === libData.Address.controller) {
+		} else if (dst.type === lib.Address.controller) {
 			msg = `Unexpected message forwarded to ${dst}`;
 		}
 
@@ -77,7 +77,7 @@ class ControllerRouter {
 					return false;
 				}
 				origin.connector.sendResponseError(
-					new libData.ResponseError(msg || "Unroutable destination"), message.src
+					new lib.ResponseError(msg || "Unroutable destination"), message.src
 				);
 				return true;
 			}
@@ -100,13 +100,13 @@ class ControllerRouter {
 		let dst = message.dst;
 		if (message.type !== "event") {
 			this.warnUnrouted(message, `Unexpected broadcast of ${message.type}`);
-		} else if (dst.id === libData.Address.host || dst.id === libData.Address.instance) {
+		} else if (dst.id === lib.Address.host || dst.id === lib.Address.instance) {
 			for (let hostConnection of this.controller.wsServer.hostConnections.values()) {
 				if (hostConnection !== origin) {
 					hostConnection.connector.send(message);
 				}
 			}
-		} else if (dst.id === libData.Address.control) {
+		} else if (dst.id === lib.Address.control) {
 			for (let controlConnection of this.controller.wsServer.controlConnections.values()) {
 				if (controlConnection !== origin) {
 					controlConnection.connector.send(message);

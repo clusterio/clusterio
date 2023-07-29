@@ -1,11 +1,8 @@
 "use strict";
-const libData = require("@clusterio/lib/data");
-const libLink = require("@clusterio/lib/link");
-const libPlugin = require("@clusterio/lib/plugin");
-const libErrors = require("@clusterio/lib/errors");
+const lib = require("@clusterio/lib");
 
 
-class InstanceConnection extends libLink.Link {
+class InstanceConnection extends lib.Link {
 	constructor(connector, host, instanceId) {
 		super(connector);
 		this.host = host;
@@ -14,8 +11,8 @@ class InstanceConnection extends libLink.Link {
 		this.plugins = new Map();
 		this.status = "stopped";
 
-		this.handle(libData.InstanceInitialisedEvent, this.handleInstanceInitialisedEvent.bind(this));
-		this.snoopEvent(libData.InstanceStatusChangedEvent, this.snoopInstanceStatusChangedEvent.bind(this));
+		this.handle(lib.InstanceInitialisedEvent, this.handleInstanceInitialisedEvent.bind(this));
+		this.snoopEvent(lib.InstanceStatusChangedEvent, this.snoopInstanceStatusChangedEvent.bind(this));
 	}
 
 	async broadcastEventToInstance(message, event) {

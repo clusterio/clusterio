@@ -1,6 +1,5 @@
 "use strict";
-const libPlugin = require("@clusterio/lib/plugin");
-const libLuaTools = require("@clusterio/lib/lua_tools");
+const lib = require("@clusterio/lib");
 const {
 	ContributionEvent,
 	ProgressEvent,
@@ -10,7 +9,7 @@ const {
 } = require("./messages");
 
 
-class InstancePlugin extends libPlugin.BaseInstancePlugin {
+class InstancePlugin extends lib.BaseInstancePlugin {
 	unexpectedError(err) {
 		this.logger.error(`Unexpected error:\n${err.stack}`);
 	}
@@ -40,7 +39,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
 			return;
 		}
-		let techsJson = libLuaTools.escapeString(JSON.stringify(event.technologies));
+		let techsJson = lib.escapeString(JSON.stringify(event.technologies));
 		await this.sendOrderedRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
 	}
 
@@ -54,7 +53,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 		let { name, level } = event;
 		await this.sendOrderedRcon(
-			`/sc research_sync.research_technology("${libLuaTools.escapeString(name)}", ${level})`, true
+			`/sc research_sync.research_technology("${lib.escapeString(name)}", ${level})`, true
 		);
 	}
 
@@ -89,7 +88,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		}
 
 		if (techsToSync.length) {
-			let syncJson = libLuaTools.escapeString(JSON.stringify(techsToSync));
+			let syncJson = lib.escapeString(JSON.stringify(techsToSync));
 			await this.sendOrderedRcon(`/sc research_sync.sync_technologies("${syncJson}")`, true);
 		}
 	}

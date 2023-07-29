@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 
-import { libPlugin } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 import { PageLayout, ControlContext } from "@clusterio/web_ui";
 import { DatabaseStatsRequest } from "../messages";
 
@@ -28,7 +28,7 @@ function InventoryPage() {
 	</PageLayout>;
 }
 
-export class WebPlugin extends libPlugin.BaseWebPlugin {
+export class WebPlugin extends lib.BaseWebPlugin {
 	async init() {
 		this.pages = [
 			{

@@ -2,7 +2,7 @@
 const assert = require("assert").strict;
 const zlib = require("zlib");
 
-const libFactorio = require("@clusterio/lib/factorio");
+const lib = require("@clusterio/lib");
 
 const testStrings = require("./test_strings");
 
@@ -23,26 +23,26 @@ class Random {
 describe("lib/factorio/exchange_string", function() {
 	describe("readMapExchangeString", function() {
 		it("should parse a valid string", function() {
-			let result = libFactorio.readMapExchangeString(testStrings.default);
+			let result = lib.readMapExchangeString(testStrings.default);
 			assert.equal(result.map_gen_settings.seed, 1234567890);
 
-			result = libFactorio.readMapExchangeString(testStrings.modified);
+			result = lib.readMapExchangeString(testStrings.modified);
 			assert.equal(result.checksum, 4092204126);
 		});
 
 		it("should handle malformed strings", function() {
 			assert.throws(
-				() => libFactorio.readMapExchangeString("<<blah>>"),
+				() => lib.readMapExchangeString("<<blah>>"),
 				new Error("Not a map exchange string")
 			);
 
 			assert.throws(
-				() => libFactorio.readMapExchangeString(testStrings.default.slice(0, 100)),
+				() => lib.readMapExchangeString(testStrings.default.slice(0, 100)),
 				new Error("Not a map exchange string")
 			);
 
 			assert.throws(
-				() => libFactorio.readMapExchangeString(`>>>${Buffer.from("abk430ia404ah3b4").toString("base64")}<<<`),
+				() => lib.readMapExchangeString(`>>>${Buffer.from("abk430ia404ah3b4").toString("base64")}<<<`),
 				new Error("Malformed map exchange string: zlib inflate failed")
 			);
 
@@ -56,7 +56,7 @@ describe("lib/factorio/exchange_string", function() {
 				// eslint-disable-next-line node/no-sync
 				data = zlib.deflateSync(data);
 				assert.throws(
-					() => libFactorio.readMapExchangeString(`>>>${data.toString("base64")}<<<`),
+					() => lib.readMapExchangeString(`>>>${data.toString("base64")}<<<`),
 					new Error("Malformed map exchange string: reached end before finishing parsing")
 				);
 			}
@@ -65,7 +65,7 @@ describe("lib/factorio/exchange_string", function() {
 			// eslint-disable-next-line node/no-sync
 			pastEnd = zlib.deflateSync(Buffer.concat([zlib.inflateSync(pastEnd), Buffer.from("junk")]));
 			assert.throws(
-				() => libFactorio.readMapExchangeString(`>>>${pastEnd.toString("base64")}<<<`),
+				() => lib.readMapExchangeString(`>>>${pastEnd.toString("base64")}<<<`),
 				new Error("Malformed map exchange string: data after end")
 			);
 		});

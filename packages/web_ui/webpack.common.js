@@ -45,10 +45,6 @@ module.exports = (env = {}) => ({
 				use: require.resolve("null-loader"),
 			},
 			{
-				test: /node_modules.jsonwebtoken/,
-				use: require.resolve("null-loader"),
-			},
-			{
 				test: /node_modules.winston.dist.winston.transports.(http|file)/,
 				use: require.resolve("null-loader"),
 			},

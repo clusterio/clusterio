@@ -2,11 +2,8 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const libDatabase = require("@clusterio/lib/database");
-const libFileOps = require("@clusterio/lib/file_ops");
-const libPlugin = require("@clusterio/lib/plugin");
-const { Counter, Gauge } = require("@clusterio/lib/prometheus");
-const RateLimiter = require("@clusterio/lib/RateLimiter");
+const lib = require("@clusterio/lib");
+const { Counter, Gauge, RateLimiter } = lib;
 
 const routes = require("./routes");
 const dole = require("./dole");
@@ -43,12 +40,12 @@ async function loadDatabase(config, logger) {
 	logger.verbose(`Loading ${itemsPath}`);
 	try {
 		let content = await fs.readFile(itemsPath);
-		return new libDatabase.ItemDatabase(JSON.parse(content));
+		return new lib.ItemDatabase(JSON.parse(content));
 
 	} catch (err) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Creating new item database");
-			return new libDatabase.ItemDatabase();
+			return new lib.ItemDatabase();
 		}
 		throw err;
 	}
@@ -59,13 +56,13 @@ async function saveDatabase(controllerConfig, items, logger) {
 		let file = path.resolve(controllerConfig.get("controller.database_directory"), "items.json");
 		logger.verbose(`writing ${file}`);
 		let content = JSON.stringify(items.serialize());
-		await libFileOps.safeOutputFile(file, content);
+		await lib.safeOutputFile(file, content);
 	} else if (items) {
 		logger.error(`Item database too large, not saving (${items.size})`);
 	}
 }
 
-class ControllerPlugin extends libPlugin.BaseControllerPlugin {
+class ControllerPlugin extends lib.BaseControllerPlugin {
 	async init() {
 
 		this.items = await loadDatabase(this.controller.config, this.logger);

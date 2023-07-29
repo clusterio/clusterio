@@ -6,7 +6,7 @@ import {
 } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 
-import { libErrors, libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useInstanceList } from "../model/instance";
@@ -43,7 +43,7 @@ export default function UserViewPage() {
 	let [rolesError, setRolesError] = useState();
 
 	useEffect(() => {
-		control.send(new libData.RoleListRequest()).then(newRoles => {
+		control.send(new lib.RoleListRequest()).then(newRoles => {
 			setRoles(new Map(newRoles.map(role => [role.id, role])));
 		}).catch(() => {
 			setRoles(new Map());
@@ -122,11 +122,11 @@ export default function UserViewPage() {
 					danger
 					onClick={() => {
 						control.send(
-							new libData.UserRevokeTokenRequest(userName)
+							new lib.UserRevokeTokenRequest(userName)
 						).then(() => {
 							notify("User token revoked");
 						}, err => {
-							if (err instanceof libErrors.SessionLost && userName === account.name) {
+							if (err instanceof lib.SessionLost && userName === account.name) {
 								// Got kicked out after revoking our own token
 								notify("User token revoked");
 								return;
@@ -145,7 +145,7 @@ export default function UserViewPage() {
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
 						control.send(
-							new libData.UserDeleteRequest(userName)
+							new lib.UserDeleteRequest(userName)
 						).then(() => {
 							navigate("/users");
 						}).catch(notifyErrorHandler("Error deleting user"));
@@ -195,7 +195,7 @@ export default function UserViewPage() {
 								let newRoles = form.getFieldValue("roles");
 								setApplyingRoles(true);
 								control.send(
-									new libData.UserUpdateRolesRequest(userName, newRoles)
+									new lib.UserUpdateRolesRequest(userName, newRoles)
 								).then(() => {
 									setRolesDirty(false);
 									setRolesError();
@@ -215,7 +215,7 @@ export default function UserViewPage() {
 					checked={user.isAdmin}
 					onClick={() => {
 						control.send(
-							new libData.UserSetAdminRequest(userName, false, !user.isAdmin)
+							new lib.UserSetAdminRequest(userName, false, !user.isAdmin)
 						).catch(notifyErrorHandler("Error toggling user admin status"));
 					}}
 				/>
@@ -225,7 +225,7 @@ export default function UserViewPage() {
 					checked={user.isWhitelisted}
 					onClick={() => {
 						control.send(
-							new libData.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
+							new lib.UserSetWhitelistedRequest(userName, false, !user.isWhitelisted)
 						).catch(notifyErrorHandler("Error toggling user whitelisted status"));
 					}}
 				/>
@@ -249,7 +249,7 @@ export default function UserViewPage() {
 										type={banReasonDirty ? "primary" : "default"}
 										onClick={() => {
 											control.send(
-												new libData.UserSetBannedRequest(
+												new lib.UserSetBannedRequest(
 													userName, false, true, form.getFieldValue("banReason")
 												)
 											).then(() => {
@@ -260,7 +260,7 @@ export default function UserViewPage() {
 									<Button
 										onClick={() => {
 											control.send(
-												new libData.UserSetBannedRequest(userName, false, false, "")
+												new lib.UserSetBannedRequest(userName, false, false, "")
 											).catch(notifyErrorHandler("Error unbanning user"));
 										}}
 									>Unban</Button>
@@ -269,7 +269,7 @@ export default function UserViewPage() {
 									type={banReasonDirty ? "primary" : "default"}
 									onClick={() => {
 										control.send(
-											new libData.UserSetBannedRequest(
+											new lib.UserSetBannedRequest(
 												userName, false, true, form.getFieldValue("banReason")
 											)
 										).then(() => {

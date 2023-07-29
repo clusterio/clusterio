@@ -9,8 +9,7 @@ const controller = require("../controller");
 const instance = require("../instance");
 const info = require("../info");
 const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("../messages");
-const libData = require("@clusterio/lib/data");
-const libErrors = require("@clusterio/lib/errors");
+const lib = require("@clusterio/lib");
 
 
 describe("player_auth", function() {
@@ -312,7 +311,7 @@ describe("player_auth", function() {
 						controllerPlugin.handleSetVerifyCodeRequest(
 							new SetVerifyCodeRequest("invalid", "invalid")
 						),
-						new libErrors.RequestError("invalid player")
+						new lib.RequestError("invalid player")
 					);
 				});
 				it("should throw if player code has expired", async function() {
@@ -322,7 +321,7 @@ describe("player_auth", function() {
 						controllerPlugin.handleSetVerifyCodeRequest(
 							new SetVerifyCodeRequest("expired", "expired")
 						),
-						new libErrors.RequestError("invalid player")
+						new lib.RequestError("invalid player")
 					);
 				});
 			});
@@ -379,8 +378,8 @@ describe("player_auth", function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message",
-								new libData.MessageResponseError(1, message.dst, message.src,
-									new libData.ResponseError("controller error")
+								new lib.MessageResponseError(1, message.dst, message.src,
+									new lib.ResponseError("controller error")
 								)
 							);
 						});
@@ -392,7 +391,7 @@ describe("player_auth", function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message",
-								new libData.MessageResponse(1, message.dst, message.src,
+								new lib.MessageResponse(1, message.dst, message.src,
 									new FetchPlayerCodeRequest.Response("code", "controller-url")
 								)
 							);
@@ -407,7 +406,7 @@ describe("player_auth", function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message",
-								new libData.MessageResponse(1, message.dst, message.src)
+								new lib.MessageResponse(1, message.dst, message.src)
 							);
 						});
 						await instancePlugin.handleEvent(
@@ -420,8 +419,8 @@ describe("player_auth", function() {
 						instancePlugin.instance.server.reset();
 						instancePlugin.instance.connector.once("send", message => {
 							instancePlugin.instance.connector.emit("message",
-								new libData.MessageResponseError(1, message.dst, message.src,
-									new libData.ResponseError("controller error")
+								new lib.MessageResponseError(1, message.dst, message.src,
+									new lib.ResponseError("controller error")
 								)
 							);
 						});

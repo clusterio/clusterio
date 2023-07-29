@@ -9,15 +9,8 @@ const path = require("path");
 const nodeStream = require("stream");
 const util = require("util");
 
-const libData = require("@clusterio/lib/data");
-const libErrors = require("@clusterio/lib/errors");
-const libFileOps = require("@clusterio/lib/file_ops");
-const libHash = require("@clusterio/lib/hash");
-const libHelpers = require("@clusterio/lib/helpers");
-const libLink = require("@clusterio/lib/link");
-const libPlugin = require("@clusterio/lib/plugin");
-const libPrometheus = require("@clusterio/lib/prometheus");
-const { logger } = require("@clusterio/lib/logging");
+const lib = require("@clusterio/lib");
+const { logger } = lib;
 
 const finished = util.promisify(nodeStream.finished);
 
@@ -40,7 +33,7 @@ function mergeSamples(destinationResult, sourceResult) {
 // Prometheus polling endpoint
 async function getMetrics(req, res, next) {
 	let results = [];
-	let pluginResults = await libPlugin.invokeHook(req.app.locals.controller.plugins, "onMetrics");
+	let pluginResults = await lib.invokeHook(req.app.locals.controller.plugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
@@ -53,9 +46,9 @@ async function getMetrics(req, res, next) {
 		if (!hostConnection.connected) {
 			continue;
 		}
-		requests.push(libHelpers.timeout(
-			hostConnection.send(new libData.HostMetricsRequest()).catch(err => {
-				if (!(err instanceof libErrors.SessionLost)) {
+		requests.push(lib.timeout(
+			hostConnection.send(new lib.HostMetricsRequest()).catch(err => {
+				if (!(err instanceof lib.SessionLost)) {
 					logger.error(`Unexpected error gathering metrics from host:\n${err.stack}`);
 				}
 				return null;
@@ -64,7 +57,7 @@ async function getMetrics(req, res, next) {
 		));
 	}
 
-	for await (let result of await libPrometheus.defaultRegistry.collect()) {
+	for await (let result of await lib.defaultRegistry.collect()) {
 		results.push(result);
 	}
 
@@ -87,12 +80,12 @@ async function getMetrics(req, res, next) {
 	}
 
 	for (let result of resultMap.values()) {
-		results.push(libPrometheus.deserializeResult(result));
+		results.push(lib.deserializeResult(result));
 	}
 
 
-	let text = await libPrometheus.exposition(results);
-	res.set("Content-Type", libPrometheus.exposition.contentType);
+	let text = await lib.exposition(results);
+	res.set("Content-Type", lib.exposition.contentType);
 	res.send(text);
 }
 
@@ -227,12 +220,12 @@ async function uploadExport(req, res) {
 		}
 
 		let { name, ext } = path.posix.parse(filePath);
-		let hash = await libHash.hashStream(file.nodeStream());
+		let hash = await lib.hashStream(file.nodeStream());
 		assets[name] = `${name}.${hash}${ext}`;
-		await libFileOps.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
+		await lib.safeOutputFile(path.join("static", `${name}.${hash}${ext}`), await file.async("nodebuffer"));
 	}
 
-	modPack.exportManifest = new libData.ExportManifest(assets);
+	modPack.exportManifest = new lib.ExportManifest(assets);
 	modPack.fillDefaultSettings(settingPrototypes, logger);
 	res.app.locals.controller.modPackUpdated(modPack);
 
@@ -363,7 +356,7 @@ async function uploadSave(req, res) {
 		try {
 			let storedName = await Promise.race([
 				req.app.locals.controller.sendToHostByInstanceId(
-					new libData.InstancePullSaveRequest(
+					new lib.InstancePullSaveRequest(
 						instanceId,
 						proxyStream.id,
 						filename,
@@ -462,9 +455,9 @@ async function uploadSave(req, res) {
 
 function checkModName(name) {
 	try {
-		libFileOps.checkFilename(name);
+		lib.checkFilename(name);
 	} catch (err) {
-		throw new libErrors.RequestError(`Mod name ${err.message}`);
+		throw new lib.RequestError(`Mod name ${err.message}`);
 	}
 }
 
@@ -512,7 +505,7 @@ async function uploadMod(req, res) {
 					break;
 				} catch (err) {
 					if (err.code === "EEXIST") {
-						tempFilename = await libFileOps.findUnusedName(modsDirectory, tempFilename, ".tmp.zip");
+						tempFilename = await lib.findUnusedName(modsDirectory, tempFilename, ".tmp.zip");
 					} else {
 						throw err;
 					}
@@ -521,7 +514,7 @@ async function uploadMod(req, res) {
 			stream.pipe(writeStream);
 			await finished(writeStream);
 
-			const modInfo = await libData.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
+			const modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
 			await fs.rename(path.join(modsDirectory, tempFilename), path.join(modsDirectory, modInfo.filename));
 			req.app.locals.controller.mods.set(modInfo.filename, modInfo);
 			req.app.locals.controller.modUpdated(modInfo);

@@ -8,11 +8,8 @@ const phin = require("phin");
 const util = require("util");
 const events = require("events");
 
-const libData = require("@clusterio/lib/data");
-const libLink = require("@clusterio/lib/link");
-const { LineSplitter } = require("@clusterio/lib/stream");
-const { ConsoleTransport, logger } = require("@clusterio/lib/logging");
-const libLoggingUtils = require("@clusterio/lib/logging_utils");
+const lib = require("@clusterio/lib");
+const { LineSplitter, ConsoleTransport, logger } = lib;
 
 // Make sure permissions from plugins are loaded
 require("../../plugins/global_chat/info");
@@ -22,7 +19,7 @@ require("../../plugins/statistics_exporter/info");
 require("../../plugins/subspace_storage/info");
 
 
-class TestControl extends libLink.Link {
+class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
 		super(connector);
 		this.hostUpdates = [];
@@ -37,29 +34,29 @@ class TestControl extends libLink.Link {
 				return;
 			}
 			this.send(
-				new libData.HostSetSubscriptionsRequest(true, [])
+				new lib.HostSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
 			this.send(
-				new libData.InstanceDetailsSetSubscriptionsRequest(true, [])
+				new lib.InstanceDetailsSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
 			this.send(
-				new libData.InstanceSetSaveListSubscriptionsRequest(true, [])
+				new lib.InstanceSetSaveListSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
 			this.send(
-				new libData.ModSetSubscriptionsRequest(true, [])
+				new lib.ModSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
 			this.send(
-				new libData.UserSetSubscriptionsRequest(true, [])
+				new lib.UserSetSubscriptionsRequest(true, [])
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
 		});
 
-		this.handle(libData.AccountUpdateEvent);
-		this.handle(libData.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
-		this.handle(libData.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
-		this.handle(libData.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
-		this.handle(libData.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
-		this.handle(libData.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
-		this.handle(libData.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
+		this.handle(lib.AccountUpdateEvent);
+		this.handle(lib.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
+		this.handle(lib.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
+		this.handle(lib.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(lib.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
+		this.handle(lib.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
+		this.handle(lib.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
 	}
 
 	async handleHostUpdateEvent(event) {
@@ -87,11 +84,11 @@ class TestControl extends libLink.Link {
 	}
 }
 
-class TestControlConnector extends libLink.WebSocketClientConnector {
+class TestControlConnector extends lib.WebSocketClientConnector {
 	register() {
 		this.sendHandshake(
-			new libData.MessageRegisterControl(
-				new libData.RegisterControlData(
+			new lib.MessageRegisterControl(
+				new lib.RegisterControlData(
 					this.token,
 					"clusterioctl",
 					"test",
@@ -150,7 +147,7 @@ async function execCtl(...args) {
 }
 
 async function sendRcon(instanceId, command) {
-	return await control.sendTo({ instanceId }, new libData.InstanceSendRconRequest(command));
+	return await control.sendTo({ instanceId }, new lib.InstanceSendRconRequest(command));
 }
 
 function getControl() {
@@ -183,7 +180,7 @@ before(async function() {
 	// Some integration tests may cause log events
 	logger.add(new ConsoleTransport({
 		level: "info",
-		format: new libLoggingUtils.TerminalFormat(),
+		format: new lib.TerminalFormat(),
 	}));
 
 	await fs.remove(databaseDir);
@@ -228,16 +225,16 @@ before(async function() {
 	control = new TestControl(controlConnector);
 	await controlConnector.connect();
 
-	const testPack = libData.ModPack.fromJSON({});
+	const testPack = lib.ModPack.fromJSON({});
 	testPack.id = 12;
 	testPack.name = "subspace_storage-pack";
 	testPack.factorioVersion = "1.1.0";
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
 	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
-	await control.sendTo("controller", new libData.ModPackCreateRequest(testPack));
+	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
 		"controller",
-		new libData.ControllerConfigSetFieldRequest("controller.default_mod_pack_id", "12"),
+		new lib.ControllerConfigSetFieldRequest("controller.default_mod_pack_id", "12"),
 	);
 });
 

@@ -1,20 +1,19 @@
 "use strict";
 const events = require("events");
 
-const libData = require("@clusterio/lib/data");
-const libLink = require("@clusterio/lib/link");
-const { logger } = require("@clusterio/lib/logging");
+const lib = require("@clusterio/lib");
+const { logger } = lib;
 
 
 /**
  * Connector for controller connections
  *
- * @extends module:lib/link.WebSocketBaseConnector
+ * @extends module:lib.WebSocketBaseConnector
  * @alias module:controller/src/WsServerConnector
  */
-class WsServerConnector extends libLink.WebSocketBaseConnector {
+class WsServerConnector extends lib.WebSocketBaseConnector {
 	constructor(dst, sessionId, sessionTimeout, heartbeatInterval) {
-		super(new libData.Address(libData.Address.controller, 0), dst);
+		super(new lib.Address(lib.Address.controller, 0), dst);
 
 		this._sessionTimeout = sessionTimeout;
 		this._socket = null;
@@ -40,16 +39,16 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 	 * Sends the ready message over the socket to initiate the session.
 	 *
 	 * @param {Object} socket - WebSocket connection to client.
-	 * @param {module:lib/data.Address} src - Source address for this link.
+	 * @param {module:lib.Address} src - Source address for this link.
 	 * @param {string} sessionToken -
 	 *     the session token to send to the client.
-	 * @param {module:lib/data.AccountDetails=} account -
+	 * @param {module:lib.AccountDetails=} account -
 	 *     account data to provide to control connection
 	 */
 	ready(socket, src, sessionToken, account) {
 		this._socket = socket;
-		this._sendInternal(new libData.MessageReady(
-			new libData.ReadyData(
+		this._sendInternal(new lib.MessageReady(
+			new lib.ReadyData(
 				src,
 				sessionToken,
 				this._sessionTimeout,
@@ -89,8 +88,8 @@ class WsServerConnector extends libLink.WebSocketBaseConnector {
 			this._timeoutId = null;
 		}
 
-		this._sendInternal(new libData.MessageContinue(
-			new libData.ContinueData(this._sessionTimeout, this._heartbeatInterval, this._lastReceivedSeq)
+		this._sendInternal(new lib.MessageContinue(
+			new lib.ContinueData(this._sessionTimeout, this._heartbeatInterval, this._lastReceivedSeq)
 		));
 
 		this._state = "connected";

@@ -1,8 +1,8 @@
 "use strict";
 const fs = require("fs-extra");
+const jwt = require("jsonwebtoken");
 
-const libFileOps = require("@clusterio/lib/file_ops");
-const libUsers = require("@clusterio/lib/users");
+const lib = require("@clusterio/lib");
 
 /**
  * Manages users and roles
@@ -21,12 +21,12 @@ class UserManager {
 		try {
 			let content = JSON.parse(await fs.readFile(filePath));
 			for (let serializedRole of content.roles) {
-				let role = new libUsers.Role(serializedRole);
+				let role = new lib.Role(serializedRole);
 				loadedRoles.set(role.id, role);
 			}
 
 			for (let serializedUser of content.users) {
-				let user = new libUsers.User(serializedUser, loadedRoles);
+				let user = new lib.User(serializedUser, loadedRoles);
 				loadedUsers.set(user.name, user);
 			}
 
@@ -36,8 +36,8 @@ class UserManager {
 			}
 
 			// Create default roles if loading failed
-			libUsers.ensureDefaultAdminRole(loadedRoles);
-			libUsers.ensureDefaultPlayerRole(loadedRoles);
+			lib.ensureDefaultAdminRole(loadedRoles);
+			lib.ensureDefaultPlayerRole(loadedRoles);
 		}
 
 		this.roles = loadedRoles;
@@ -63,7 +63,7 @@ class UserManager {
 			users: serializedUsers,
 			roles: serializedRoles,
 		};
-		await libFileOps.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
 	/**
@@ -72,7 +72,7 @@ class UserManager {
 	 * Creates a new user and add it to the user database.
 	 *
 	 * @param {string} name - Name of the user to create.
-	 * @returns {module:lib/users.User} newly created user.
+	 * @returns {module:lib.User} newly created user.
 	 */
 	createUser(name) {
 		if (this.users.has(name)) {
@@ -80,10 +80,24 @@ class UserManager {
 		}
 
 		let defaultRoleId = this._config.get("controller.default_role_id");
-		let user = new libUsers.User({ name, roles: [defaultRoleId] }, this.roles);
+		let user = new lib.User({ name, roles: [defaultRoleId] }, this.roles);
 		this.users.set(name, user);
 		return user;
 	}
+
+	/**
+	 * Sign access token for the given user name
+	 *
+	 * @param {string} name - user name to sign token for
+	 * @returns {string} JWT access token for the user.
+	 */
+	signUserToken(name) {
+		return jwt.sign(
+			{ aud: "user", user: name },
+			Buffer.from(this._config.get("controller.auth_secret"), "base64")
+		);
+	}
+
 }
 
 module.exports = UserManager;

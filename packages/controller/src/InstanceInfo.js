@@ -5,7 +5,7 @@
  * @alias module:controller/src/InstanceInfo
  */
 class InstanceInfo {
-	/** @type {module:lib/config.InstanceConfig} */
+	/** @type {module:lib.InstanceConfig} */
 	config;
 
 	/**

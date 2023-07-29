@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Form, Input, Modal } from "antd";
 
-import { libFactorio, libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -22,7 +22,7 @@ export default function CreateSaveModal(props) {
 		if (values.exchangeString && values.exchangeString.trim()) {
 			let result;
 			try {
-				result = libFactorio.readMapExchangeString(values.exchangeString);
+				result = lib.readMapExchangeString(values.exchangeString);
 			} catch (err) {
 				form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 				return;
@@ -53,7 +53,7 @@ export default function CreateSaveModal(props) {
 		setCreatingSave(true);
 		control.sendTo(
 			{ instanceId: props.instance.id },
-			new libData.InstanceCreateSaveRequest(name, seed, mapGenSettings, mapSettings),
+			new lib.InstanceCreateSaveRequest(name, seed, mapGenSettings, mapSettings),
 		).then(() => {
 			form.resetFields();
 			setOpen(false);
@@ -68,7 +68,7 @@ export default function CreateSaveModal(props) {
 		let exchangeString = form.getFieldValue("exchangeString");
 		let result;
 		try {
-			result = libFactorio.readMapExchangeString(exchangeString);
+			result = lib.readMapExchangeString(exchangeString);
 		} catch (err) {
 			form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 			return;

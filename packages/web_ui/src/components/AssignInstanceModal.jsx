@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Button, Form, Modal, Select, Typography } from "antd";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -30,7 +30,7 @@ export default function AssignInstanceModal(props) {
 
 		setApplying(true);
 		control.send(
-			new libData.InstanceAssignRequest(props.id, hostId)
+			new lib.InstanceAssignRequest(props.id, hostId)
 		).then(() => {
 			setOpen(false);
 			if (props.onFinish) {

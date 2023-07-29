@@ -5,7 +5,7 @@ import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
 import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
-import { libData, libHelpers, libLogging } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
 import { useModList } from "../model/mods";
@@ -19,8 +19,6 @@ import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 
 const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
-
-const { logger } = libLogging;
 
 
 function ImportModPackButton() {
@@ -47,8 +45,8 @@ function ImportModPackButton() {
 					} catch {
 						return; // Validation failed
 					}
-					const modPack = libData.ModPack.fromModPackString(values.string);
-					await control.send(new libData.ModPackCreateRequest(modPack));
+					const modPack = lib.ModPack.fromModPackString(values.string);
+					await control.send(new lib.ModPackCreateRequest(modPack));
 					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
@@ -60,7 +58,7 @@ function ImportModPackButton() {
 						{ required: true },
 						{ async validator(rule, value) {
 							if (value) {
-								libData.ModPack.fromModPackString(value);
+								lib.ModPack.fromModPackString(value);
 							}
 						}},
 					]}
@@ -96,11 +94,11 @@ function CreateModPackButton() {
 					} catch {
 						return; // Validation failed
 					}
-					const modPack = libData.ModPack.fromJSON({});
+					const modPack = lib.ModPack.fromJSON({});
 					modPack.name = values.name;
 					modPack.factorioVersion = values.factorioVersion;
 					if (values.description) { modPack.description = values.description; }
-					await control.send(new libData.ModPackCreateRequest(modPack.toJSON()));
+					await control.send(new lib.ModPackCreateRequest(modPack.toJSON()));
 					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
@@ -141,7 +139,7 @@ export default function ModsPage() {
 				&& <Typography.Link
 					onClick={() => {
 						control.send(
-							new libData.ModDownloadRequest(mod.name, mod.version)
+							new lib.ModDownloadRequest(mod.name, mod.version)
 						).then(streamId => {
 							let url = new URL(webRoot, document.location);
 							url.pathname += `api/stream/${streamId}`;
@@ -157,7 +155,7 @@ export default function ModsPage() {
 					title={`Delete ${mod.name}_${mod.version}.zip?`}
 					onConfirm={event => {
 						control.send(
-							new libData.ModDeleteRequest(mod.name, mod.version)
+							new lib.ModDeleteRequest(mod.name, mod.version)
 						).catch(notifyErrorHandler("Error deleting mod"));
 					}}
 					okText="Delete"
@@ -251,7 +249,7 @@ export default function ModsPage() {
 					title: "Size",
 					key: "size",
 					responsive: ["lg"],
-					render: mod => libHelpers.formatBytes(mod.size),
+					render: mod => lib.formatBytes(mod.size),
 					align: "right",
 					sorter: (a, b) => a.size - b.size,
 				},

@@ -1,7 +1,6 @@
 "use strict";
-const libPlugin = require("@clusterio/lib/plugin");
-const { Gauge } = require("@clusterio/lib/prometheus");
-const libHelpers = require("@clusterio/lib/helpers");
+const lib = require("@clusterio/lib");
+const { Gauge } = lib;
 
 
 const instancePlayerCount = new Gauge(
@@ -37,7 +36,7 @@ function setForceFlowStatistic(instanceId, forceName, statisticName, direction, 
 }
 
 
-class InstancePlugin extends libPlugin.BaseInstancePlugin {
+class InstancePlugin extends lib.BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("statistics_exporter plugin requires save patching.");
@@ -86,7 +85,7 @@ class InstancePlugin extends libPlugin.BaseInstancePlugin {
 		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to controller.
 		let timeout = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
-		await libHelpers.timeout(this.gatherMetrics(), timeout);
+		await lib.timeout(this.gatherMetrics(), timeout);
 	}
 }
 

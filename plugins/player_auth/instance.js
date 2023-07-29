@@ -2,12 +2,12 @@
  * @module
  */
 "use strict";
-const libPlugin = require("@clusterio/lib/plugin");
+const lib = require("@clusterio/lib");
 
 const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("./messages");
 
 
-class InstancePlugin extends libPlugin.BaseInstancePlugin {
+class InstancePlugin extends lib.BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("player_auth plugin requires save patching.");

@@ -1,6 +1,5 @@
 import { notification } from "antd";
-import { libLogging } from "@clusterio/lib";
-const { logger } = libLogging;
+import { logger } from "@clusterio/lib";
 
 
 export default function notify(message, type = "info", description = undefined) {

@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
-const libLink = require("@clusterio/lib/link");
+const lib = require("@clusterio/lib");
 
 const mock = require("../../../test/mock");
 const lines = require("../../../test/lib/factorio/lines");
@@ -26,7 +26,7 @@ describe("global_chat plugin", function() {
 		let instancePlugin;
 
 		before(async function() {
-			libLink.Link.register(ChatEvent);
+			lib.Link.register(ChatEvent);
 			instancePlugin = new instance.InstancePlugin(info, new mock.MockInstance(), new mock.MockHost());
 			await instancePlugin.init();
 		});

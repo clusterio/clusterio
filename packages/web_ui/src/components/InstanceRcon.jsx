@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { Input, Typography } from "antd";
 
-import { libData } from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
@@ -24,7 +24,7 @@ export default function InstanceRcon(props) {
 		try {
 			let result = await control.sendTo(
 				{ instanceId: props.id },
-				new libData.InstanceSendRconRequest(command),
+				new lib.InstanceSendRconRequest(command),
 			);
 			setOutput(result);
 		} finally {

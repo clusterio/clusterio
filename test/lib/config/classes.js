@@ -1,5 +1,5 @@
 "use strict";
-const classes = require("@clusterio/lib/config/classes");
+const lib = require("@clusterio/lib");
 const assert = require("assert").strict;
 const events = require("events");
 
@@ -8,12 +8,12 @@ describe("lib/config/classes", function() {
 	describe("ConfigGroup", function() {
 		let mockConfig = new events.EventEmitter();
 		mockConfig.location = "local";
-		class TestGroup extends classes.ConfigGroup { }
+		class TestGroup extends lib.ConfigGroup { }
 		TestGroup.defaultAccess = ["local", "remote"];
 		TestGroup.groupName = "test_group";
 		describe(".define()", function() {
 			it("should throw if groupName is not set", function() {
-				class NoGroupName extends classes.ConfigGroup { }
+				class NoGroupName extends lib.ConfigGroup { }
 				assert.throws(
 					() => NoGroupName.define({ name: "a", type: "string", optional: true }),
 					new Error("Expected ConfigGroup class NoGroupName to have the groupName property set to a string")
@@ -68,7 +68,7 @@ describe("lib/config/classes", function() {
 				}
 			});
 			it("should throw on defaultAccess not set", function() {
-				class NoAccessGroup extends classes.ConfigGroup { }
+				class NoAccessGroup extends lib.ConfigGroup { }
 				NoAccessGroup.groupName = "no_access";
 				assert.throws(
 					() => NoAccessGroup.define({ name: "a", type: "string", optional: true }),
@@ -134,7 +134,7 @@ describe("lib/config/classes", function() {
 
 		describe(".finalize()", function() {
 			it("should throw if groupName is not set", function() {
-				class NoGroupName extends classes.ConfigGroup { }
+				class NoGroupName extends lib.ConfigGroup { }
 				assert.throws(
 					() => NoGroupName.finalize(),
 					new Error("Expected ConfigGroup class NoGroupName to have the groupName property set to a string")
@@ -360,7 +360,7 @@ describe("lib/config/classes", function() {
 			it("should throw if field is inaccessible", function() {
 				assert.throws(
 					() => testInstance.get("priv", "remote"),
-					new classes.InvalidAccess("Field 'priv' is not accessible from remote")
+					new lib.InvalidAccess("Field 'priv' is not accessible from remote")
 				);
 			});
 		});
@@ -375,14 +375,14 @@ describe("lib/config/classes", function() {
 			it("should throw if field does not exist", function() {
 				assert.throws(
 					() => testInstance.set("bar", 1),
-					new classes.InvalidField("No field named 'bar'")
+					new lib.InvalidField("No field named 'bar'")
 				);
 			});
 
 			it("should throw if field is inaccesible", function() {
 				assert.throws(
 					() => testInstance.set("priv", "bad", "remote"),
-					new classes.InvalidAccess("Field 'priv' is not accessible from remote")
+					new lib.InvalidAccess("Field 'priv' is not accessible from remote")
 				);
 			});
 
@@ -430,7 +430,7 @@ describe("lib/config/classes", function() {
 
 				assert.throws(
 					() => testInstance.set("bool", "blah"),
-					new classes.InvalidValue("Expected type of bool to be boolean, not string")
+					new lib.InvalidValue("Expected type of bool to be boolean, not string")
 				);
 			});
 
@@ -449,7 +449,7 @@ describe("lib/config/classes", function() {
 
 				assert.throws(
 					() => testInstance.set("func", "blah"),
-					new classes.InvalidValue("Expected type of func to be number, not string")
+					new lib.InvalidValue("Expected type of func to be number, not string")
 				);
 			});
 
@@ -465,7 +465,7 @@ describe("lib/config/classes", function() {
 				}
 				assert.throws(
 					() => testInstance.set("json", "blah"),
-					new classes.InvalidValue(`Error parsing value for json: ${errMsg}`)
+					new lib.InvalidValue(`Error parsing value for json: ${errMsg}`)
 				);
 			});
 		});
@@ -482,21 +482,21 @@ describe("lib/config/classes", function() {
 			it("should throw if field does not exist", function() {
 				assert.throws(
 					() => testInstance.setProp("bar", 1),
-					new classes.InvalidField("No field named 'bar'")
+					new lib.InvalidField("No field named 'bar'")
 				);
 			});
 
 			it("should throw if field is inaccesible", function() {
 				assert.throws(
 					() => testInstance.setProp("priv", "prop", "bad", "remote"),
-					new classes.InvalidAccess("Field 'priv' is not accessible from remote")
+					new lib.InvalidAccess("Field 'priv' is not accessible from remote")
 				);
 			});
 
 			it("should throw if field is not an object", function() {
 				assert.throws(
 					() => testInstance.setProp("enum", "prop", "a"),
-					new classes.InvalidField("Cannot set property on non-object field 'enum'")
+					new lib.InvalidField("Cannot set property on non-object field 'enum'")
 				);
 			});
 
@@ -521,13 +521,13 @@ describe("lib/config/classes", function() {
 	});
 
 	describe("Config", function() {
-		class AlphaGroup extends classes.ConfigGroup { }
+		class AlphaGroup extends lib.ConfigGroup { }
 		AlphaGroup.defaultAccess = ["local", "remote"];
 		AlphaGroup.groupName = "alpha";
-		class BetaGroup extends classes.ConfigGroup { }
+		class BetaGroup extends lib.ConfigGroup { }
 		BetaGroup.defaultAccess = ["local", "remote"];
 		BetaGroup.groupName = "beta";
-		class TestConfig extends classes.Config { }
+		class TestConfig extends lib.Config { }
 
 		before(function() {
 			AlphaGroup.define({ name: "foo", type: "string", optional: true });
@@ -540,9 +540,9 @@ describe("lib/config/classes", function() {
 
 		describe(".registerGroup()", function() {
 			it("should throw if the class is finalized", function() {
-				class FinalizedConfig extends classes.Config { }
+				class FinalizedConfig extends lib.Config { }
 				FinalizedConfig.finalize();
-				class TestGroup extends classes.ConfigGroup { }
+				class TestGroup extends lib.ConfigGroup { }
 				TestGroup.groupName = "test";
 				TestGroup.finalize();
 
@@ -552,7 +552,7 @@ describe("lib/config/classes", function() {
 				);
 			});
 			it("should throw if the group is not finalized", function() {
-				class UnfinishedGroup extends classes.ConfigGroup { }
+				class UnfinishedGroup extends lib.ConfigGroup { }
 
 				assert.throws(
 					() => TestConfig.registerGroup(UnfinishedGroup),

@@ -1,7 +1,7 @@
 "use strict";
-const { libConfig } = require("@clusterio/lib");
+const lib = require("@clusterio/lib");
 
-class InstanceConfigGroup extends libConfig.PluginConfigGroup {}
+class InstanceConfigGroup extends lib.PluginConfigGroup {}
 InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
 InstanceConfigGroup.groupName = "statistics_exporter";
 InstanceConfigGroup.define({
