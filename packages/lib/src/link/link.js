@@ -423,14 +423,6 @@ class Link {
 	}
 
 	forwardRequest(message, origin) {
-		if (this.validateSent) {
-			let entry = this.constructor._requestsByName.get(message.name);
-			if (!entry) {
-				throw new Error(`Attempt to forward unregistered Request ${message.name}`);
-			}
-			entry.requestFromJSON(message.data);
-		}
-
 		let pending = {
 			origin,
 			src: message.src,
