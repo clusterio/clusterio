@@ -10,6 +10,8 @@ const yargs = require("yargs");
 const version = require("./package").version;
 const setBlocking = require("set-blocking");
 
+// Reduce startup time by lazy compiling schemas.
+global.lazySchemaCompilation = true;
 const lib = require("@clusterio/lib");
 const { ConsoleTransport, levels, logger } = lib;
 
