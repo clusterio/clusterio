@@ -1,0 +1,4 @@
+{
+  "entryPoints": ["index.ts"],
+  "includeVersion": true
+}

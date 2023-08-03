@@ -84,7 +84,7 @@ class WebConsoleFormat {
 
 /**
  * Filter object for logs
- * @typedef {Object} module:lib~LogFilter
+ * @typedef {Object} LogFilter
  * @property {string} [maxLevel] -
  *     Maximum log level to include. Higher levels are more verbose.
  * @property {boolean} [all] -
@@ -101,7 +101,7 @@ class WebConsoleFormat {
 /**
  * Create log filter by level and source.
  *
- * @param {module:lib~LogFilter} filter -
+ * @param {LogFilter} filter -
  *     Filter to filter log entries by.
  * @returns {function(object): boolean}
  *     filter returning true for log entries that match it.

@@ -6,13 +6,13 @@
 
 const helpers = require("./helpers");
 
-/**
+/* TODO fix when converting to ts
  * Conceptual base for controller and instance plugins.
  * @typedef {
- *     module:lib.BaseControllerPlugin
- *     |module:lib.BaseInstancePlugin
- *     |module:lib.BaseControlPlugin
- * } module:lib.BasePlugin
+ *     BaseControllerPlugin
+ *     |BaseInstancePlugin
+ *     |BaseControlPlugin
+ * } BasePlugin
  */
 
 /**
@@ -612,7 +612,7 @@ class BaseControlPlugin {
 
 /**
  * Plugin supplied login form
- * @typedef {Object} module:lib~LoginForm
+ * @typedef {Object} LoginForm
  * @property {string} name -
  *     Internal name of the login form, this should start with the
  *     plugin name followed by a dot.
@@ -627,7 +627,7 @@ class BaseControlPlugin {
 
 /**
  * Plugin supplied pages
- * @typedef {Object} module:lib~Page
+ * @typedef {Object} Page
  * @property {string} path - URL path to this page.
  * @property {string=} sidebarPath -
  *     If present and this path matches one of the pages in the sidebar it

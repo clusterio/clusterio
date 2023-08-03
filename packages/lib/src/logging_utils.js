@@ -275,7 +275,7 @@ class LogIndex {
 	 *
 	 * @param {string} file -
 	 *     Name of file in the log directory to check for.
-	 * @param {module:lib~LogFilter} filter -
+	 * @param {LogFilter} filter -
 	 *     Filter to check index if file contains entries for.
 	 * @returns {boolean}
 	 *     true if the file may contain entries included by the filter.
@@ -314,7 +314,7 @@ class LogIndex {
 
 /**
  * Filter object for querying logs
- * @typedef {Object} module:lib~QueryLogFilter
+ * @typedef {Object} QueryLogFilter
  * @property {number} [limit=100] - Maximum number of entries to return.
  * @property {string} [order="asc"] -
  *     Return entries in ascending ("asc") date order or desceding ("desc")
@@ -336,7 +336,7 @@ class LogIndex {
  * Query log directory
  *
  * @param {string} logDirectory - path to directory with logs.
- * @param {module:lib~QueryLogFilter} filter -
+ * @param {QueryLogFilter} filter -
  *     Filter to limit logs by.
  * @param {module:lib.LogIndex=} index -
  *     Index to speed up query with.
