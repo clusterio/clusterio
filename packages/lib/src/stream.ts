@@ -1,7 +1,7 @@
 "use strict";
-const assert = require("assert");
-const fs = require("fs-extra");
-const stream = require("stream");
+import assert from "assert";
+import fs from "fs-extra";
+import stream from "stream";
 
 
 /**
@@ -11,20 +11,17 @@ const stream = require("stream");
  * one removing the line feed and optional carriage return from the lines.
  *
  * @example
- * let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
+ * ```ts
+ * let lineStream = new lib.LineSplitter({ readableObjectMode: true });
  * lineStream.on("data", line => { console.log(line.toString("utf8")); });
  * let fileStream = fs.createReadStream(path);
  * fileStream.pipe(lineStream);
- *
- * @memberof module:lib
+ * ```
  */
-class LineSplitter extends stream.Transform {
-	constructor(options) {
-		super(options);
-		this._partial = null;
-	}
+export class LineSplitter extends stream.Transform {
+	_partial: Buffer | null = null;
 
-	_transform(chunk, encoding, callback) {
+	_transform(chunk: Buffer, _encoding: string, callback: stream.TransformCallback) {
 		if (this._partial) {
 			chunk = Buffer.concat([this._partial, chunk]);
 			this._partial = null;
@@ -43,14 +40,14 @@ class LineSplitter extends stream.Transform {
 				end -= 1;
 			}
 
-			let line = chunk.slice(0, end);
-			chunk = chunk.slice(next);
+			let line = chunk.subarray(0, end);
+			chunk = chunk.subarray(next);
 			this.push(line);
 		}
 		callback();
 	}
 
-	_flush(callback) {
+	_flush(callback: stream.TransformCallback) {
 		if (this._partial) {
 			this.push(this._partial);
 			this._partial = null;
@@ -63,25 +60,22 @@ class LineSplitter extends stream.Transform {
  * Transform splitting a reverse stream into lines
  *
  * Splits up a reverse stream of chunks created by {@link
- * module:lib.createReverseReadStream} by newlines and passes on the
+ * createReverseReadStream} by newlines and passes on the
  * lines one by one in reverse order removing the line feed and optional
  * carriage return from the lines.
  *
  * @example
- * let revLineStream = new libStream.ReverseLineSplitter({ readableObjectMode: true });
+ * ```ts
+ * let revLineStream = new lib.ReverseLineSplitter({ readableObjectMode: true });
  * revLineStream.on("data", line => { console.log(line.toString("utf8")); });
- * let revFileStream = await libStream.createReverseReadStream(path);
+ * let revFileStream = await lib.createReverseReadStream(path);
  * revFileStream.pipe(revLineStream);
- *
- * @memberof module:lib
+ * ```
  */
-class ReverseLineSplitter extends stream.Transform {
-	constructor(options) {
-		super(options);
-		this._partial = null;
-	}
+export class ReverseLineSplitter extends stream.Transform {
+	_partial: Buffer | null = null;
 
-	_transform(chunk, encoding, callback) {
+	_transform(chunk: Buffer, _encoding: string, callback: stream.TransformCallback) {
 		if (this._partial) {
 			chunk = Buffer.concat([chunk, this._partial]);
 			this._partial = null;
@@ -103,14 +97,14 @@ class ReverseLineSplitter extends stream.Transform {
 				}
 			}
 
-			let line = chunk.slice(next + 1, end + 1);
-			chunk = chunk.slice(0, next + 1);
+			let line = chunk.subarray(next + 1, end + 1);
+			chunk = chunk.subarray(0, next + 1);
 			this.push(line);
 		}
 		callback();
 	}
 
-	_flush(callback) {
+	_flush(callback: stream.TransformCallback) {
 		if (this._partial) {
 			let end = this._partial.length - 1;
 			if (this._partial[end] === "\n".charCodeAt(0)) {
@@ -120,13 +114,15 @@ class ReverseLineSplitter extends stream.Transform {
 					end -= 1;
 				}
 			}
-			this.push(this._partial.slice(0, end + 1));
+			this.push(this._partial.subarray(0, end + 1));
 			this._partial = null;
 		}
 		callback();
 	}
 }
 
+
+type ReadStreamOptions = Parameters<typeof fs.createReadStream>[1];
 
 /**
  * Create a file read stream running in reverse
@@ -136,19 +132,28 @@ class ReverseLineSplitter extends stream.Transform {
  * are not reversed, thus the file content can be recreated by concatenating
  * the chunks together in the reverse order they are read.
  *
- * @param {string} path -
+ * @param path -
  *     Path to file to open. May be anything accepted by fs.open.
- * @param {object} options -
+ * @param options -
  *     Options to pass to fs.createReadStream.  Values passed for `fd` and
  *     `fs` will be ignored.
- * @memberof module:lib
  */
-async function createReverseReadStream(path, options) {
+export async function createReverseReadStream(path: string, options: ReadStreamOptions) {
+	if (typeof options === "string") {
+		options = { encoding: options };
+	}
 	const fileFd = await fs.open(path, "r");
 	const fileSize = (await fs.fstat(fileFd)).size;
 	let filePosition = fileSize;
 	const reverseFs = {
-		read(fd, buffer, offset, length, position, callback) {
+		read(
+			fd: number,
+			buffer: Buffer,
+			offset: number,
+			length: number,
+			position: number,
+			callback: () => void,
+		) {
 			assert(fd === fileFd);
 			assert(position === undefined);
 			length = Math.min(length, filePosition);
@@ -156,13 +161,10 @@ async function createReverseReadStream(path, options) {
 			return fs.read(fd, buffer, offset, length, filePosition, callback);
 		},
 		open() { assert(false); },
-		close(fd, callback) { return fs.close(fd, callback); },
+		close(fd: number, callback: () => void) { return fs.close(fd, callback); },
 	};
-	return fs.createReadStream("", { ...options, fd: fileFd, fs: reverseFs });
+	return fs.createReadStream(
+		"",
+		{ ...options, fd: fileFd, fs: reverseFs } as ReadStreamOptions, // type specification is missing fs prop.
+	);
 }
-
-module.exports = {
-	LineSplitter,
-	ReverseLineSplitter,
-	createReverseReadStream,
-};
