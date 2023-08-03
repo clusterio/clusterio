@@ -2,7 +2,6 @@
  * Collection of small utilites that are useful in multiple places.
  * @module lib/helpers
  */
-"use strict";
 
 /**
  * Return a string describing the type of the value passed
@@ -10,11 +9,10 @@
  * Works the same as typeof, excpet that null and array types get their
  * own string.
  *
- * @param {*} value - value to return the type of.
- * @returns {string} basic type of the value passed.
- * @static
+ * @param value - value to return the type of.
+ * @returns basic type of the value passed.
  */
-function basicType(value) {
+export function basicType(value: unknown) {
 	if (value === null) { return "null"; }
 	if (value instanceof Array) { return "array"; }
 	return typeof value;
@@ -24,10 +22,9 @@ function basicType(value) {
 /**
  * Asynchronously wait for the given duration
  *
- * @param {number} duration - Time to wait for in milliseconds.
- * @static
+ * @param duration - Time to wait for in milliseconds.
  */
-async function wait(duration) {
+export async function wait(duration: number) {
 	await new Promise(resolve => { setTimeout(resolve, duration); });
 }
 
@@ -38,10 +35,9 @@ async function wait(duration) {
  * @param {Promise} promise - Promise to wait for.
  * @param {number} time - Maximum time im milliseconds to wait for.
  * @param {*=} timeoutResult - Value to return if the operation timed out.
- * @static
  */
-async function timeout(promise, time, timeoutResult) {
-	let timer;
+export async function timeout<T>(promise: Promise<T>, time: number, timeoutResult: T) {
+	let timer: ReturnType<typeof setTimeout>;
 	try {
 		return await Promise.race([
 			promise,
@@ -62,18 +58,17 @@ async function timeout(promise, time, timeoutResult) {
  * Reads the stream given asynchronously until the end is reached and
  * returns all the data which was read from the stream.
  *
- * @param {Readable} stream - byte stream to read to the end.
- * @returns {Promise<Buffer>} content of the stream.
- * @static
+ * @param stream - byte stream to read to the end.
+ * @returns content of the stream.
  */
-async function readStream(stream) {
-	let chunks = [];
+export async function readStream(stream: NodeJS.ReadableStream & { isTTY?: boolean }) {
+	let chunks: Buffer[] = [];
 	for await (let chunk of stream) {
 		// Support using ^Z to end input on Windows
 		if (process.platform === "win32" && stream.isTTY && chunk.toString() === "\x1a\r\n") {
 			break;
 		}
-		chunks.push(chunk);
+		chunks.push(chunk as Buffer);
 	}
 	return Buffer.concat(chunks);
 }
@@ -87,11 +82,10 @@ async function readStream(stream) {
  *
  * See https://stackoverflow.com/a/9310752
  *
- * @param {string} text - Text to escape RegExp meta chars in.
- * @returns {string} escaped text.
- * @static
+ * @param text - Text to escape RegExp meta chars in.
+ * @returns escaped text.
  */
-function escapeRegExp(text) {
+export function escapeRegExp(text: string) {
 	return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 }
 
@@ -99,11 +93,10 @@ function escapeRegExp(text) {
  * Format byte count for human readable display
  *
  * Shortens a large number of bytes using the kB/MB/GB/TB prefixes.
- * @param {number} bytes - Count of bytes to format.
- * @returns {string} formatted text.
- * @static
+ * @param bytes - Count of bytes to format.
+ * @returns formatted text.
  */
-function formatBytes(bytes) {
+export function formatBytes(bytes: number) {
 	if (bytes === 0) {
 		return "0\u{A0}Bytes"; // No-break space
 	}
@@ -114,7 +107,7 @@ function formatBytes(bytes) {
 	return (power > 0 ? (bytes / factor ** power).toFixed(2) : bytes) + units[power];
 }
 
-function parseSearchIdentifier(pos, input) {
+function parseSearchIdentifier(pos: number, input: string): [number, string] {
 	// character = ? all characters excluding space : " ?
 	// identifier = 1*character
 	let startPos = pos;
@@ -124,15 +117,14 @@ function parseSearchIdentifier(pos, input) {
 	return [pos, input.slice(startPos, pos)];
 }
 
-function parseSearchWord(pos, input) {
+function parseSearchWord(pos: number, input: string): [number, ParsedWord] {
 	// non quote character = ? all characters excluding " ?
 	// word op = "-"
 	// word = [ word op ], ( identifier | '"', *non quote character, '"' )
-	let word = {
-		type: "word",
-	};
+	let exclude = false;
+	let value: string;
 	if (input.charAt(pos) === "-") {
-		word.exclude = true;
+		exclude = true;
 		pos += 1;
 	}
 	if (input.charAt(pos) === '"') {
@@ -146,21 +138,33 @@ function parseSearchWord(pos, input) {
 		if (input.charAt(pos) === '"') {
 			pos += 1;
 		}
-		word.value = input.slice(startPos, endPos);
+		value = input.slice(startPos, endPos);
 	} else {
-		([pos, word.value] = parseSearchIdentifier(pos, input));
+		([pos, value] = parseSearchIdentifier(pos, input));
+	}
+	let word: ParsedWord = {
+		type: "word",
+		value,
+	};
+	if (exclude) {
+		word.exclude = true;
 	}
 	return [pos, word];
 }
 
-function parseSearchTerm(pos, input, attributes, issues) {
+function parseSearchTerm(
+	pos: number,
+	input: string,
+	attributes: Record<string, string>,
+	issues: Array<string>
+): [number, ParsedTerm] {
 	// attribute = identifier, ':', word
 	// term = word | attribute
-	let term;
+	let term: ParsedTerm;
 	if (["-", '"'].includes(input.charAt(pos))) {
 		([pos, term] = parseSearchWord(pos, input));
 	} else {
-		let identifier;
+		let identifier: string;
 		([pos, identifier] = parseSearchIdentifier(pos, input));
 		if (input.charAt(pos) === ":") {
 			pos += 1;
@@ -168,7 +172,7 @@ function parseSearchTerm(pos, input, attributes, issues) {
 			if (!Object.prototype.hasOwnProperty.call(attributes, identifier)) {
 				issues.push(`Unregonized attribute "${identifier}", use quotes to escape colons`);
 			} else if (attributes[identifier] === "word") {
-				let value;
+				let value: ParsedWord;
 				([pos, value] = parseSearchWord(pos, input));
 				term = { type: "attribute", name: identifier, value };
 			} else {
@@ -188,17 +192,17 @@ function parseSearchTerm(pos, input, attributes, issues) {
  * of the passed text snippets. If the word mode is exclude then returns
  * true if none of the passed text snippets match.
  *
- * @param {lib/helpers.ParsedTerm} word - Word to match.
- * @param {...string} texts - Text to match word in.
- * @returns {boolean} true if the word matches.
+ * @param word - Word to match.
+ * @param texts - Text to match word in.
+ * @returns true if the word matches.
  */
-function wordMatches(word, ...texts) {
+export function wordMatches(word: ParsedTerm, ...texts: string[]) {
 	if (word.type !== "word") {
 		throw Error("wordMatches: parameter is not a word");
 	}
 	let matches = false;
 	for (let text of texts) {
-		if (text.includes(word.value)) {
+		if (text.includes(word.value as string)) {
 			matches = true;
 			break;
 		}
@@ -209,23 +213,35 @@ function wordMatches(word, ...texts) {
 	return matches;
 }
 
-/**
- * @typedef {object} ParsedTerm
- * @property {string} type - Type of term, either attribute or word.
- * @property {string=} name - attribute only: Name of attribute.
- * @property {boolean=} exclude - word only: exclude results with this word.
- * @property {string | ParsedTerm} value -
- *     Parsed value of this term. Is a string if type is word, and a
- *     ParsedTerm if type is attribute.
- */
+export interface ParsedAttribute {
+	/** Type of term, either attribute or word. */
+	type: "attribute"
+	/** Name of attribute. */
+	name: string;
+	/** Parsed value of this attribute. */
+	value: ParsedWord;
+}
+
+export interface ParsedWord {
+	/** Type of term, either attribute or word. */
+	type: "word";
+	/** Exclude results with this word. */
+	exclude?: boolean;
+	/** Parsed text of this word. */
+	value: string;
+}
+
+export type ParsedTerm = ParsedAttribute | ParsedWord;
 
 /**
- * @typedef {object} ParsedSearch
- * @property {Array<ParsedTerm>} terms -
- *     Parsed result of search terms.
- * @property {Array<string>} issues -
- *     Issues detected while parsing the seach string.
+ * Result from {@link parseSearchString}.
  */
+export interface ParsedSearch {
+	/** Parsed result of search terms. */
+	terms: Array<ParsedTerm>;
+	/** Issues detected while parsing the seach string. */
+	issues: Array<string>;
+};
 
 /**
  * Parse a search string with optional attributes
@@ -244,14 +260,16 @@ function wordMatches(word, ...texts) {
  * The issues should be shown to the end user so that they can correct their
  * search.
  *
- * @param {string} input - Search expression to parse.
- * @param {Object<string, string>} attributes -
+ * @param input - Search expression to parse.
+ * @param attributes -
  *     Recognized attributes and their format. Currently only word is
  *     supported.
- * @returns {ParsedSearch} parsed terms of the search.
- * @static
+ * @returns parsed terms of the search.
  */
-function parseSearchString(input, attributes = {}) {
+export function parseSearchString(
+	input: string,
+	attributes: Record<string, string> = {}
+): ParsedSearch {
 	// whitespace = 1*" "
 	// search = [ term, *( [ whitespace ], term ) ]
 	input = input.trim();
@@ -261,7 +279,7 @@ function parseSearchString(input, attributes = {}) {
 	};
 	let pos = 0;
 	while (pos < input.length) {
-		let term;
+		let term: ParsedTerm;
 		([pos, term] = parseSearchTerm(pos, input, attributes, parsed.issues));
 		if (term) {
 			parsed.terms.push(term);
@@ -276,15 +294,3 @@ function parseSearchString(input, attributes = {}) {
 	}
 	return parsed;
 }
-
-
-module.exports = {
-	basicType,
-	wait,
-	timeout,
-	readStream,
-	escapeRegExp,
-	formatBytes,
-	wordMatches,
-	parseSearchString,
-};
