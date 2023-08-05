@@ -3,15 +3,15 @@
  * @module lib/shared_commands
  */
 "use strict";
-const path = require("path");
+import path from "path";
 
-const libConfig = require("./config");
-const libFileOps = require("./file_ops");
-const { logger } = require("./logging");
-const libHelpers = require("./helpers");
+import * as libConfig from "./config";
+import * as libFileOps from "./file_ops";
+import { logger } from "./logging";
+import * as libHelpers from "./helpers";
 
 
-function print(...content) {
+function print(...content: any[]) {
 	// eslint-disable-next-line no-console
 	console.log(...content);
 }
@@ -22,9 +22,9 @@ function print(...content) {
  * Can be passed to yargs.command to implement a plugin list management
  * command.  Use handlePluginCommand to do the requested action.
  *
- * @param {Object} yargs - yargs command builder.
+ * @param yargs - yargs command builder.
  */
-function pluginCommand(yargs) {
+export function pluginCommand(yargs: any) {
 	yargs
 		.command("add <path>", "Add plugin by require path")
 		.command("remove <name>", "Remove plugin by name")
@@ -40,20 +40,24 @@ function pluginCommand(yargs) {
  *
  * Handle the actions that are made available by pluginCommand.
  *
- * @param {Object} args - yargs args object.
- * @param {Map<string, string>} pluginList - Current list of plugins.
- * @param {string} pluginListPath - Path to plugin list config file.
+ * @param args - yargs args object.
+ * @param pluginList - Current list of plugins.
+ * @param pluginListPath - Path to plugin list config file.
  */
-async function handlePluginCommand(args, pluginList, pluginListPath) {
+export async function handlePluginCommand(
+	args: Record<string, unknown>,
+	pluginList: Map<string, string>,
+	pluginListPath: string
+) {
 	let command = args._[1];
 
 	if (command === "add") {
-		let pluginPath = args.path;
+		let pluginPath = args.path as string;
 		if (/^\.\.?[\/\\]/.test(pluginPath)) {
 			pluginPath = path.resolve(pluginPath);
 		}
 
-		let pluginInfo;
+		let pluginInfo: { name: string };
 		try {
 			// eslint-disable-next-line node/global-require
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
@@ -74,7 +78,7 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
 		print(`Added ${pluginInfo.name}`);
 
 	} else if (command === "remove") {
-		if (!pluginList.delete(args.name)) {
+		if (!pluginList.delete(args.name as string)) {
 			logger.error(`Plugin with name ${args.name} does not exist`);
 			process.exitCode = 1;
 			return;
@@ -97,11 +101,11 @@ async function handlePluginCommand(args, pluginList, pluginListPath) {
  * Can be passed to yargs.command to implement a config command.  Use
  * handleConfigCommand to do the requested action.
  *
- * @param {Object} yargs - yargs command builder.
+ * @param yargs - yargs command builder.
  */
-function configCommand(yargs) {
+export function configCommand(yargs: any) {
 	yargs
-		.command("set <field> [value]", "Set config field", yargs => {
+		.command("set <field> [value]", "Set config field", (yargs: any) => {
 			yargs.options({
 				"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 			});
@@ -119,15 +123,19 @@ function configCommand(yargs) {
  *
  * Handle the actions that are made available by configCommand.
  *
- * @param {Object} args - yargs args object.
- * @param {module:lib.Config} instance - Config instance.
- * @param {string} configPath - Path to configuration file.
+ * @param args - yargs args object.
+ * @param instance - Config instance.
+ * @param configPath - Path to configuration file.
  */
-async function handleConfigCommand(args, instance, configPath) {
+export async function handleConfigCommand(
+	args: Record<string, unknown>,
+	instance: libConfig.Config,
+	configPath: string
+) {
 	let command = args._[1];
 
 	if (command === "list") {
-		for (let GroupClass of instance.constructor.groups.values()) {
+		for (let GroupClass of (instance as any).constructor.groups.values()) {
 			for (let def of GroupClass.definitions.values()) {
 				let value = instance.get(def.fullName);
 				print(`${def.fullName} ${JSON.stringify(value)}`);
@@ -136,7 +144,7 @@ async function handleConfigCommand(args, instance, configPath) {
 
 	} else if (command === "show") {
 		try {
-			print(instance.get(args.field));
+			print(instance.get(args.field as string));
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField) {
 				logger.error(err.message);
@@ -154,7 +162,7 @@ async function handleConfigCommand(args, instance, configPath) {
 		}
 
 		try {
-			instance.set(args.field, args.value);
+			instance.set(args.field as string, args.value);
 			await libFileOps.safeOutputFile(configPath, JSON.stringify(instance.serialize(), null, 4));
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
@@ -165,12 +173,3 @@ async function handleConfigCommand(args, instance, configPath) {
 		}
 	}
 }
-
-
-module.exports = {
-	pluginCommand,
-	handlePluginCommand,
-
-	configCommand,
-	handleConfigCommand,
-};

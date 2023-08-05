@@ -3,12 +3,10 @@
  * Helpers for loading plugins in Node.js
  * @module lib/plugin_loader
  */
-"use strict";
-
-const libErrors = require("./errors");
-const libPlugin = require("./plugin");
-const { logger } = require("./logging");
-const path = require("path");
+import path from "path";
+import * as libErrors from "./errors";
+import * as libPlugin from "./plugin";
+import { logger } from "./logging";
 
 
 /**
@@ -18,16 +16,15 @@ const path = require("path");
  * loaded the info modules will not be reloaded should this function be
  * called again.
  *
- * @param {Map<string, string>} pluginList -
+ * @param pluginList -
  *     Mapping of plugin name to require path for the plugins to load.
- * @returns {Promise<Array<Object>>} Array of plugin info modules.
- * @static
+ * @returns Array of plugin info modules.
  */
-async function loadPluginInfos(pluginList) {
-	let plugins = [];
+export async function loadPluginInfos(pluginList: Map<string, string>) {
+	let plugins: libPlugin.PluginInfo[] = [];
 	for (let [pluginName, pluginPath] of pluginList) {
-		let pluginInfo;
-		let pluginPackage;
+		let pluginInfo: libPlugin.PluginInfo;
+		let pluginPackage: { version: string };
 
 		try {
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
@@ -56,7 +53,12 @@ async function loadPluginInfos(pluginList) {
 	return plugins;
 }
 
-function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
+function loadPluginClass(
+	entrypointName: string,
+	className: string,
+	pluginClass: any,
+	pluginInfo: libPlugin.PluginInfo
+) {
 	let resolvedPath = path.posix.join(pluginInfo.requirePath, pluginInfo[entrypointName]);
 	let entrypoint = require(resolvedPath);
 	if (!entrypoint[className]) {
@@ -75,45 +77,41 @@ function loadPluginClass(entrypointName, className, pluginClass, pluginInfo) {
 /**
  * Load controller plugin class of a plugin
  *
- * @param {Object} pluginInfo -
+ * @param pluginInfo -
  *     Plugin info object returned from {@link
- *     module:lib.loadPluginInfos} to load class from.
- * @returns {Promise<function>} plugin class
- * @static
+ *     loadPluginInfos} to load class from.
+ * @returns plugin class
  */
-async function loadControllerPluginClass(pluginInfo) {
+export async function loadControllerPluginClass(
+	pluginInfo: libPlugin.PluginInfo
+): Promise<libPlugin.BaseControllerPlugin> {
 	return loadPluginClass("controllerEntrypoint", "ControllerPlugin", libPlugin.BaseControllerPlugin, pluginInfo);
 }
 
 /**
  * Load instance plugin class of a plugin
- *
- * @param {Object} pluginInfo -
+ 
+ * @param pluginInfo -
  *     Plugin info object returned from {@link
- *     module:lib.loadPluginInfos} to load class from.
- * @returns {Promise<function>} plugin class
- * @static
+ *     loadPluginInfos} to load class from.
+ * @returns plugin class
  */
-async function loadInstancePluginClass(pluginInfo) {
+export async function loadInstancePluginClass(
+	pluginInfo: libPlugin.PluginInfo
+): Promise<libPlugin.BaseInstancePlugin> {
 	return loadPluginClass("instanceEntrypoint", "InstancePlugin", libPlugin.BaseInstancePlugin, pluginInfo);
 }
 
 /**
  * Load control plugin class of a plugin
  *
- * @param {Object} pluginInfo -
+ * @param pluginInfo -
  *     Plugin info object returned from {@link
- *     module:lib.loadPluginInfos} to load class from.
- * @returns {Promise<function>} plugin class
- * @static
+ *     loadPluginInfos} to load class from.
+ * @returns plugin class
  */
-async function loadControlPluginClass(pluginInfo) {
+export async function loadControlPluginClass(
+	pluginInfo: libPlugin.PluginInfo
+): Promise<libPlugin.BaseControlPlugin> {
 	return loadPluginClass("controlEntrypoint", "ControlPlugin", libPlugin.BaseControlPlugin, pluginInfo);
 }
-
-module.exports = {
-	loadPluginInfos,
-	loadControllerPluginClass,
-	loadInstancePluginClass,
-	loadControlPluginClass,
-};

@@ -1,6 +1,3 @@
-"use strict";
-
-
 /**
  * Helper class for implementing the exponential backoff algorithm
  *
@@ -14,49 +11,48 @@
  * the passed value of `max`.  The value for the delay will reset back to
  * `base` if more time than the value for `reset` has passed between two
  * invocations of delay.
- *
- * @alias module:lib.ExponentialBackoff
  */
-class ExponentialBackoff {
+export default class ExponentialBackoff {
+	/**
+	 * Base delay in seconds.  The first delay will on average be this
+	 * long, but can be anywhere between 0 and 2 times this value.
+	 */
+	base = 1;
+	/**
+	 * Maximum delay in seconds.  A delay will not take more than this
+	 * value.
+	 */
+	max = 60;
+	/**
+	 * Time in seconds between two invocations of delay which will cause
+	 * it to start over with `base` instead of doubling.
+	 */
+	reset: number;
+
+	private _exp = 0;
+	private _lastInvocationTime = Date.now();
+
 	/**
 	 * Construct ExponentialBackoff helper
 	 *
 	 * The options passed may also be modified on the instance at runtime.
 	 *
-	 * @param {object=} options -
+	 * @param options -
 	 *     Options for this exponential backoff helper
-	 * @param {number=} [options.base=1] -
+	 * @param [options.base=1] -
 	 *     Base delay in seconds.  The first delay will on average be this
 	 *     long, but can be anywhere between 0 and 2 times this value.
-	 * @param {number=} [options.max=60] -
+	 * @param [options.max=60] -
 	 *     Maximum delay in seconds.  A delay will not take more than this
 	 *     value.
-	 * @param {number=} [options.reset=2*max] -
+	 * @param [options.reset=2*max] -
 	 *     Time in seconds between two invocations of delay which will cause
 	 *     it to start over with `base` instead of doubling.
 	 */
-	constructor(options = {}) {
-		/**
-		 * Base delay in seconds.  The first delay will on average be this
-		 * long, but can be anywhere between 0 and 2 times this value.
-		 * @type {number}
-		 */
+	constructor(options: { base?: number, max?: number, reset?: number } = {}) {
 		this.base = options.base || 1;
-		/**
-		 * Maximum delay in seconds.  A delay will not take more than this
-		 * value.
-		 * @type {number}
-		 */
 		this.max = options.max || 60;
-		/**
-		 * Time in seconds between two invocations of delay which will cause
-		 * it to start over with `base` instead of doubling.
-		 * @type {number}
-		 */
 		this.reset = options.reset || 2 * this.max;
-
-		this._exp = 0;
-		this._lastInvocationTime = Date.now();
 	}
 
 	/**
@@ -66,7 +62,7 @@ class ExponentialBackoff {
 	 * algorithm.  This is a value between 0 and min(2 * options.base *
 	 * 2<sup>retries</sup>, optinos.max).
 	 *
-	 * @returns {number} time in milliseconds to wait.
+	 * @returns time in milliseconds to wait.
 	 */
 	delay() {
 		let invocationTime = Date.now();

@@ -1,39 +1,31 @@
-"use strict";
-
 /**
  * Stastics collected about a player.
- * @alias module:lib.PlayerStats
  */
-class PlayerStats {
+export default class PlayerStats {
 	/**
 	 * Count of the number of times this player has been seen joining this server.
-	 * @type {number}
 	 */
 	joinCount = 0;
 
 	/**
 	 * Time in ms this player has been seen online on this instance.
-	 * @type {number}
 	 */
 	onlineTimeMs = 0;
 
 	/**
 	 * Timestamp the player was last seen joining.
-	 * @type {Date=}
 	 */
-	lastJoinAt;
+	lastJoinAt?: Date;
 
 	/**
 	 * Timestamp the player was last seen leaving.
-	 * @type {Date=}
 	 */
-	lastLeaveAt;
+	lastLeaveAt?: Date;
 
 	/**
 	 * Reason the player was last seen leaving with.
-	 * @type {string=}
 	 */
-	lastLeaveReason;
+	lastLeaveReason?: string;
 
 	static jsonSchema = {
 		type: "object",
@@ -62,7 +54,7 @@ class PlayerStats {
 		}
 	}
 
-	static fromJSON(json) {
+	static fromJSON(json: any) {
 		return new this(json);
 	}
 
@@ -84,5 +76,3 @@ class PlayerStats {
 		return json;
 	}
 }
-
-module.exports = PlayerStats;

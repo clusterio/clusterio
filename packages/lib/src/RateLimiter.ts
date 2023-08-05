@@ -1,6 +1,3 @@
-"use strict";
-
-
 /**
  * Helper class for rate limiting actions
  *
@@ -8,6 +5,7 @@
  * limited on invocations.
  *
  * @example
+ * ```ts
  * const rateLimiter = RateLimiter({
  *     action: () => { console.log("action"); },
  *     maxRate: 1,
@@ -19,36 +17,36 @@
  *     // and one more time 1 second later for 99 other activations that were
  *     // exceeding the rate limit.
  * }
- * @alias module:lib.RateLimiter
+ * ```
  */
-class RateLimiter {
+export default class RateLimiter {
+	/**
+	 * Maximum rate of activations per second.
+	 */
+	maxRate: number;
+	/**
+	 * Callback invoked at most `maxRate` per second on activation.
+	 */
+	action: Function | null;
+
+	private _lastRun = 0;
+	private _runTimeout = null;
+	private lastProgressBroadcast = Date.now();
+
 	/**
 	 * Construct RateLimiter helper
 	 *
 	 * The options passed may also be modified on the instance at runtime.
 	 *
-	 * @param {object=} options - Options for this rate limiter
-	 * @param {number=} options.maxRate -
+	 * @param options - Options for this rate limiter
+	 * @param options.maxRate -
 	 *     Maximum rate of activations per second.
-	 * @param {function()=} options.action -
+	 * @param options.action -
 	 *     Callback invoked at maste `maxRate` per second on activation.
 	 */
-	constructor(options = {}) {
-		/**
-		 * Maximum rate of activations per second.
-		 * @type {number}
-		 */
+	constructor(options: { maxRate?: number, action?: Function } = {}) {
 		this.maxRate = options.maxRate || 1;
-
-		/**
-		 * Callback invoked at most `maxRate` per second on activation.
-		 * @type {function()}
-		 */
 		this.action = options.action || null;
-
-		this._lastRun = 0;
-		this._runTimeout = null;
-		this.lastProgressBroadcast = Date.now();
 	}
 
 	/**
@@ -59,7 +57,7 @@ class RateLimiter {
 	 * invoked immediatly, otherwise a timeout is registered to invoke the
 	 * action at next point in time where it will be within the rate limit.
 	 *
-	 * @returns {boolean} true if activation was within the rate limit.
+	 * @returns true if activation was within the rate limit.
 	 */
 	activate() {
 		let now = Date.now();
@@ -100,5 +98,3 @@ class RateLimiter {
 		}
 	}
 }
-
-module.exports = RateLimiter;

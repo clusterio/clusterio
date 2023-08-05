@@ -2,15 +2,14 @@
  * Utilities for dealing with Lua
  * @module lib/lua_tools
  */
-"use strict";
 
 /**
  * Escapes a string for inclusion into a lua string
  *
- * @param {string} content - String to escape.
- * @returns {string} Escaped string.
+ * @param content - String to escape.
+ * @returns Escaped string.
  */
-function escapeString(content) {
+export function escapeString(content: string) {
 	return content
 		.replace(/\\/g, "\\\\")
 		.replace(/"/g, '\\"')
@@ -20,7 +19,3 @@ function escapeString(content) {
 		.replace(/\r/g, "\\r")
 	;
 }
-
-module.exports = {
-	escapeString,
-};

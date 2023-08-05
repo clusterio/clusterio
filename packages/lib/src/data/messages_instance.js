@@ -1,5 +1,5 @@
 "use strict";
-const PlayerStats = require("../PlayerStats");
+const PlayerStats = require("../PlayerStats").default;
 const { JsonString, jsonArray } = require("./composites");
 
 /** @memberof module:lib */

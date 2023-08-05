@@ -7,24 +7,23 @@
  * @module lib/users
  */
 "use strict";
-const libErrors = require("./errors");
+import * as libErrors from "./errors";
 
-const PlayerStats = require("./PlayerStats");
+import PlayerStats from "./PlayerStats";
 
 
 /**
  * Represents a permission that can be granted
- * @static
  */
-class Permission {
-	constructor(name, title, description, grantByDefault) {
-		this.name = name;
-		this.title = title;
-		this.description = description;
-		this.grantByDefault = grantByDefault;
-	}
+export class Permission {
+	constructor(
+		public name: string,
+		public title: string,
+		public description: string,
+		public grantByDefault: boolean,
+	) { }
 }
-const permissions = new Map();
+export const permissions = new Map<string, Permission>();
 
 /**
  * Define a new user permission for Clusterio
@@ -33,15 +32,25 @@ const permissions = new Map();
  * granted to roles, and checked on users.  Name should be `lower_case`
  * style and start with the plugin name followed by a dot.
  *
- * @param {Object} def - The definition for the permission.
- * @param {string} def.name - The internal name for the permission.
- * @param {string} def.title - User facing name for permission.
- * @param {string} def.description - User facing description.
- * @param {boolean} def.grantByDefault -
+ * @param def - The definition for the permission.
+ * @param def.name - The internal name for the permission.
+ * @param def.title - User facing name for permission.
+ * @param def.description - User facing description.
+ * @param def.grantByDefault -
  *     If true this role is granted by the generated Player role by default.
  *
  */
-function definePermission({ name, title, description, grantByDefault=false }) {
+export function definePermission({
+	name,
+	title,
+	description,
+	grantByDefault = false,
+}: {
+	name: string,
+	title: string,
+	description: string,
+	grantByDefault?: boolean,
+}) {
 	if (typeof name !== "string" || !name.length) {
 		throw new Error("Expected name to be a non-empty string");
 	}
@@ -64,10 +73,14 @@ function definePermission({ name, title, description, grantByDefault=false }) {
 
 /**
  * Represents a collection of granted permissions
- * @static
  */
-class Role {
-	constructor(serializedRole) {
+export class Role {
+	id: number;
+	name: string;
+	description: string;
+	permissions: Set<string>;
+
+	constructor(serializedRole: ReturnType<Role["serialize"]>) {
 		this.id = serializedRole.id;
 		this.name = serializedRole.name;
 		this.description = serializedRole.description;
@@ -98,14 +111,18 @@ class Role {
  *
  * Ensures the role with id 0 exisits and has the core.admin permission.
  *
- * @param {Map<number, module:lib.Role>} roles - role storage to modify.
- * @returns {module:lib.Role} the default admin role
- * @static
+ * @param roles - role storage to modify.
+ * @returns the default admin role
  */
-function ensureDefaultAdminRole(roles) {
+export function ensureDefaultAdminRole(roles: Map<number, Role>) {
 	let admin = roles.get(0);
 	if (!admin) {
-		admin = new Role({ id: 0, name: "Cluster Admin", description: "Cluster wide administrator." });
+		admin = new Role({
+			id: 0,
+			name: "Cluster Admin",
+			description: "Cluster wide administrator.",
+			permissions: [],
+		});
 		roles.set(0, admin);
 	}
 	admin.permissions.add("core.admin");
@@ -119,13 +136,17 @@ function ensureDefaultAdminRole(roles) {
  * assigned by default.  Note that this may not be the same role as the one
  * that is assigned to new users by default.
  *
- * @param {Map<number, module:lib.Role>} roles - role storage to modify.
- * @static
+ * @param roles - role storage to modify.
  */
-function ensureDefaultPlayerRole(roles) {
+export function ensureDefaultPlayerRole(roles: Map<number, Role>) {
 	let player = roles.get(1);
 	if (!player) {
-		player = new Role({ id: 1, name: "Player", description: "Default player role." });
+		player = new Role({
+			id: 1,
+			name: "Player",
+			description: "Default player role.",
+			permissions: [],
+		});
 		roles.set(1, player);
 	}
 	player.grantDefaultPermissions();
@@ -136,56 +157,42 @@ function ensureDefaultPlayerRole(roles) {
  * Represeents a user in the cluster
  *
  * Holds data about a Factorio user in the cluster.
- * @static
  */
-class User {
-	constructor(serializedUser, loadedRoles) {
-		/**
-		 * Factorio user name.
-		 * @type {string}
-		 */
+export class User {
+	/** Factorio user name.  */
+	name: string;
+	/** Instances this user is online on.  */
+	instances: Set<number>;
+	/** Unix time in seconds the user token must be issued after to be valid.  */
+	tokenValidAfter: number;
+	/** True if the user is promoted to admin on the Factorio instances.  */
+	isAdmin: boolean;
+	/** True if the user is whitelisted on the Factorio instances.  */
+	isWhitelisted: boolean;
+	/** True if the user is banned from Factorio instances.  */
+	isBanned: boolean;
+	/** Reason for being banned.  Ignored if isBanned is false.  */
+	banReason: string;
+	/** Roles this user has */
+	roles: Set<Role>;
+	/** Per instance statistics for the player this user account is tied to.  */
+	instanceStats: Map<number, PlayerStats>;
+	/** Combined statistics for the player this user account is tied to.  */
+	playerStats: PlayerStats;
+	/** True if this user object has been removed from the cluster.  */
+	isDeleted: boolean;
+
+	constructor(
+		serializedUser: ReturnType<User["serialize"]>,
+		loadedRoles: Map<number, Role>
+	) {
 		this.name = serializedUser.name;
-
-		/**
-		 * Instances this user is online on.
-		 * @type {Set<number>}
-		 */
 		this.instances = new Set();
-
-		/**
-		 * Unix time in seconds the user token must be issued after to be valid.
-		 * @type {number}
-		 */
 		this.tokenValidAfter = serializedUser.token_valid_after || 0;
-
-		/**
-		 * True if the user is promoted to admin on the Factorio instances.
-		 * @type {boolean}
-		 */
 		this.isAdmin = Boolean(serializedUser.is_admin);
-
-		/**
-		 * True if the user is whitelisted on the Factorio instances.
-		 * @type {boolean}
-		 */
 		this.isWhitelisted = Boolean(serializedUser.is_whitelisted);
-
-		/**
-		 * True if the user is banned from Factorio instances.
-		 * @type {boolean}
-		 */
 		this.isBanned = Boolean(serializedUser.is_banned);
-
-		/**
-		 * Reason for being banned.  Ignored if isBanned is false.
-		 * @type {string}
-		 */
 		this.banReason = serializedUser.ban_reason || "";
-
-		/**
-		 * Roles this user has
-		 * @type {Set<module:lib.Role>}
-		 */
 		this.roles = new Set();
 		if (serializedUser.roles) {
 			for (let roleId of serializedUser.roles) {
@@ -195,32 +202,26 @@ class User {
 				}
 			}
 		}
-
-		/**
-		 * Per instance statistics for the player this user account is tied to.
-		 * @type {Map<number, module:lib.PlayerStats>}
-		 */
 		this.instanceStats = new Map(
 			(serializedUser.instance_stats ? serializedUser.instance_stats : []).map(
 				([id, stats]) => [id, new PlayerStats(stats)]
 			)
 		);
-
-		/**
-		 * Combined statistics for the player this user account is tied to.
-		 * @type {module:lib.PlayerStats}
-		 */
 		this.playerStats = this._calculatePlayerStats();
-
-		/**
-		 * True if this user object has been removed from the cluster.
-		 * @type {boolean}
-		 */
 		this.isDeleted = false;
 	}
 
 	serialize() {
-		let serialized = {
+		let serialized: {
+			name: string,
+			roles?: number[],
+			token_valid_after?: number,
+			is_admin?: boolean,
+			is_whitelisted?: boolean,
+			is_banned?: boolean,
+			ban_reason?: string,
+			instance_stats?: [number, object][],
+		} = {
 			name: this.name,
 		};
 
@@ -272,11 +273,11 @@ class User {
 	 * permission.  If the permission is not granted for the user a
 	 * "Permission denied" error is thrown.
 	 *
-	 * @param {string} permission - The permission to check for.
+	 * @param permission - The permission to check for.
 	 * @throws {Error} If the given permission does not exist.
-	 * @throws {module:lib.PermissionError} if the user does noh have the given permission.
+	 * @throws {libErrors.PermissionError} if the user does noh have the given permission.
 	 */
-	checkPermission(permission) {
+	checkPermission(permission: string) {
 		if (!permissions.has(permission)) {
 			throw new Error(`permission ${permission} does not exist`);
 		}
@@ -290,12 +291,12 @@ class User {
 		throw new libErrors.PermissionError("Permission denied");
 	}
 
-	notifyJoin(instance_id) {
+	notifyJoin(instance_id: number) {
 		this.instances.add(instance_id);
 		User.onlineUsers.add(this);
 	}
 
-	notifyLeave(instance_id) {
+	notifyLeave(instance_id: number) {
 		this.instances.delete(instance_id);
 		if (!this.instances.size) {
 			User.onlineUsers.delete(this);
@@ -321,12 +322,11 @@ class User {
 		}
 		return playerStats;
 	}
+	/**
+	 * Set of users currently online in the cluster.
+	 */
+	static onlineUsers = new Set<User>();
 }
-/**
- * Set of users currently online in the cluster.
- * @type {module:lib.User}
- */
-User.onlineUsers = new Set();
 
 // Definitions for the built in permissions used in Clusterio.
 // description should answer "this permission allows you to ___"
@@ -677,14 +677,3 @@ definePermission({
 	title: "Dump WebSocket",
 	description: "Dump all WebSocket communicatation from the controller.",
 });
-
-module.exports = {
-	Permission,
-	Role,
-	User,
-
-	permissions,
-	definePermission,
-	ensureDefaultAdminRole,
-	ensureDefaultPlayerRole,
-};

@@ -2,18 +2,61 @@
  * Plugin interfaces and utilities.
  * @module lib/plugin
  */
-"use strict";
+import * as libHelpers from "./helpers";
+import type { Logger } from "./logging";
+import type { ConfigGroup } from "./config";
+import type { CollectorResult } from "./prometheus";
+import type { ParsedFactorioOutput } from "./logging_utils";
+import type { ModPack, ModInfo } from "./data";
+import type { Link } from "./link";
+import type { CommandTree } from "./command";
 
-const helpers = require("./helpers");
-
-/* TODO fix when converting to ts
+/**
  * Conceptual base for controller and instance plugins.
- * @typedef {
- *     BaseControllerPlugin
- *     |BaseInstancePlugin
- *     |BaseControlPlugin
- * } BasePlugin
  */
+export type BasePlugin =
+	| BaseControllerPlugin
+	| BaseInstancePlugin
+	| BaseControlPlugin
+	| BaseWebPlugin
+;
+
+// TODO Add proper typing for plugins
+export type PluginInfo = any;
+type Controller = any;
+type Instance = any;
+type Host = any;
+type InstanceInfo = any;
+type HostConnection = any;
+type ControlConnection = any;
+type Event = any;
+type React = any;
+
+/**
+ * Information about the event.
+ */
+interface PlayerEvent {
+	type: "join" | "leave" | "import";
+	/** Name of the player that joined/left */
+	name: string,
+	/**
+	 * Only present for type "leave". Reason for player leaving the
+	 * game, one of the possible reasons in defines.disconnect_reason
+	 * or "server_quit" if the server exits while the player is online.
+	 */
+	reason?: string;
+}
+type InstanceStatus =
+	| "unassigned"
+	| "unknown"
+	| "stopped"
+	| "starting"
+	| "running"
+	| "stopping"
+	| "creating_save"
+	| "exporting_data"
+	| "deleted"
+;
 
 /**
  * Base class for instance plugins
@@ -27,40 +70,43 @@ const helpers = require("./helpers");
  * Instances may be started and stopped many times, and many instances may
  * be running at the same time, each of which will have their own instance
  * of the InstancePlugin class.
- *
- * @static
  */
-class BaseInstancePlugin {
-	constructor(info, instance, host) {
+export class BaseInstancePlugin {
+	/**
+	 * Logger for this plugin
+	 *
+	 * Instance of winston Logger for sending log messages from this
+	 * plugin.  Supported methods and their corresponding log levels are
+	 * `error`, `warn`, `audit`, `info` and `verbose`.
+	 */
+	logger: Logger;
+
+	private _pendingRconMessages: {
+		resolve: (result: string) => void,
+		reject: (err: Error) => void,
+		message: string,
+		expectEmpty: boolean,
+	}[] = [];
+	private _sendingRconMessages = false;
+
+	constructor(
 		/**
 		 * The plugin's own info module
 		 */
-		this.info = info;
-
+		public info: PluginInfo,
 		/**
 		 * Instance the plugin started for
-		 * @type {module:host/src/Instance}
 		 */
-		this.instance = instance;
-
+		public instance: Instance,
 		/**
 		 * Host running the instance
 		 *
 		 * With the exepction of accessing the host's config you should
 		 * avoid ineracting with the host object directly.
-		 *
-		 * @type {module:host/src/Host}
 		 */
-		this.host = host;
-
-		/**
-		 * Logger for this plugin
-		 *
-		 * Instance of winston Logger for sending log messages from this
-		 * plugin.  Supported methods and their corresponding log levels are
-		 * `error`, `warn`, `audit`, `info` and `verbose`.
-		 */
-		this.logger = instance.logger.child({ plugin: this.info.name });
+		public host: Host,
+	) {
+		this.logger = instance.logger.child({ plugin: this.info.name }) as unknown as Logger;
 
 		this._pendingRconMessages = [];
 		this._sendingRconMessages = false;
@@ -77,12 +123,12 @@ class BaseInstancePlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed.
 	 *
-	 * @param {module:lib.ConfigGroup} group -
+	 * @param group -
 	 *     The group who's field got changed.
-	 * @param {string} field - Name of the field that changed.
-	 * @param {*} prev - The previous value of the field.
+	 * @param field - Name of the field that changed.
+	 * @param prev - The previous value of the field.
 	 */
-	async onInstanceConfigFieldChanged(group, field, prev) { }
+	async onInstanceConfigFieldChanged(group: ConfigGroup, field: string, prev: unknown) { }
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -97,9 +143,9 @@ class BaseInstancePlugin {
 	 * the Gauges/Counters/etc in onMetric and let Clusterio deal will
 	 * collecting the values.
 	 *
-	 * @returns {*} an async iterator of prometheus metric results or undefined.
+	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics() { }
+	async onMetrics(): Promise<void | AsyncIterator<CollectorResult>> { }
 
 	/**
 	 * Called after the Factorio server is started
@@ -130,24 +176,10 @@ class BaseInstancePlugin {
 	 * stderr.  The output is a parsed form of the line and contains the
 	 * following properties:
 	 *
-	 * @param {Object} parsed - parsed server output.
-	 * @param {string} parsed.source -
-	 *     Where the message came from, one of "stdout" and "stderr".
-	 * @param {string} parsed.format -
-	 *     Timestamp format, one of "date", "seconds" and "none".
-	 * @param {string=} parsed.time -
-	 *     Timestamp of the message.  Not present if format is "none".
-	 * @param {string} parsed.type -
-	 *     Type of message, one of "log", "action" and "generic".
-	 * @param {string=} parsed.level -
-	 *     Log level for "log" type.  i.e "Info" normally.
-	 * @param {string=} parsed.file - File reported for "log" type.
-	 * @param {string=} parsed.action -
-	 *     Kind of action for "action" type. i.e "CHAT" for chat.
-	 * @param {string} parsed.message - Main content of the line.
-	 * @param {string} line - raw line of server output.
+	 * @param parsed - parsed server output.
+	 * @param line - raw line of server output.
 	 */
-	async onOutput(parsed, line) { }
+	async onOutput(parsed: ParsedFactorioOutput, line: string) { }
 
 	/**
 	 * Called when an event on the controller connection happens
@@ -181,9 +213,9 @@ class BaseInstancePlugin {
 	 * send any messages that goes to or via the controller after the
 	 * connection has been closed and before a new one is established.
 	 *
-	 * @param {string} event - one of connect, drop, resume and close
+	 * @param event - one of connect, drop, resume and close
 	 */
-	onControllerConnectionEvent(event) { }
+	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
 
 	/**
 	 * Called when the controller is preparing to disconnect from the host
@@ -195,25 +227,19 @@ class BaseInstancePlugin {
 	 * Plugins must stop sending messages to the controller, or are forwarded
 	 * via the controller after the prepare disconnect has been handled.
 	 *
-	 * @param {module:controller/src/HostConnection} connection -
+	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	async onPrepareControllerDisconnect(connection) { }
+	async onPrepareControllerDisconnect(connection: HostConnection) { }
 
 	/**
 	 * Called when a player joins or leaves the game
 	 *
 	 * Invoked when a player either joins or leaves the instance.
 	 *
-	 * @param {Object} event - Information about the event.
-	 * @param {string} event.type - Either "join", "leave" or "import".
-	 * @param {string} event.name - Name of the player that joined/left.
-	 * @param {string=} event.reason -
-	 *     Only present for type "leave". Reason for player leaving the
-	 *     game, one of the possible reasons in defines.disconnect_reason
-	 *     or "server_quit" if the server exits while the player is online.
+	 * @param event - Information about the event.
 	 */
-	async onPlayerEvent(event) { }
+	async onPlayerEvent(event: PlayerEvent) { }
 
 	/**
 	 * Send RCON message to instance
@@ -227,13 +253,13 @@ class BaseInstancePlugin {
 	 * running some time after `onStart` and some time before `onStop` is
 	 * invoked.
 	 *
-	 * @param {string} message - message to send to server over RCON.
-	 * @param {boolean=} [expectEmpty=false] -
+	 * @param message - message to send to server over RCON.
+	 * @param expectEmpty -
 	 *     if true throw if the response is not empty.  Useful for detecting
 	 *     errors that might have been sent in response.
-	 * @returns {Promise<string>} response from server.
+	 * @returns response from server.
 	 */
-	async sendRcon(message, expectEmpty=false) {
+	async sendRcon(message: string, expectEmpty=false): Promise<string> {
 		return await this.instance.sendRcon(message, expectEmpty, this.info.name);
 	}
 
@@ -252,14 +278,14 @@ class BaseInstancePlugin {
 	 * running some time after `onStart` and some time before `onStop` is
 	 * invoked.
 	 *
-	 * @param {string} message - message to send to server over RCON.
-	 * @param {boolean=} [expectEmpty=false] -
+	 * @param message - message to send to server over RCON.
+	 * @param [expectEmpty=false] -
 	 *     if true throw if the response is not empty.  Useful for detecting
 	 *     errors that might have been sent in response.
-	 * @returns {Promise<string>} response from server.
+	 * @returns response from server.
 	 */
-	async sendOrderedRcon(message, expectEmpty=false) {
-		let promise = new Promise((resolve, reject) => {
+	async sendOrderedRcon(message: string, expectEmpty=false) {
+		let promise = new Promise<string>((resolve, reject) => {
 			this._pendingRconMessages.push({resolve, reject, message, expectEmpty});
 		});
 		if (!this._sendingRconMessages) {
@@ -291,28 +317,24 @@ class BaseInstancePlugin {
  * To be discovered the class must be exported under the name `ControllerPlugin`
  * in the module specified by the `controllerEntrypoint` in the plugin's info.js
  * file.
- *
- * @static
  */
-class BaseControllerPlugin {
-	constructor(info, controller, metrics, logger) {
-		this.info = info;
+export class BaseControllerPlugin {
+	/**
+	 * Logger for this plugin
+	 *
+	 * Instance of winston Logger for sending log messages from this
+	 * plugin.  Supported methods and their corresponding log levels are
+	 * `error`, `warn`, `audit`, `info` and `verbose`.
+	 */
+	logger: Logger;
 
-		/**
-		 * Controller
-		 * @type {module:controller/src/Controller}
-		 */
-		this.controller = controller;
-		this.metrics = metrics;
-
-		/**
-		 * Logger for this plugin
-		 *
-		 * Instance of winston Logger for sending log messages from this
-		 * plugin.  Supported methods and their corresponding log levels are
-		 * `error`, `warn`, `audit`, `info` and `verbose`.
-		 */
-		this.logger = logger.child({ plugin: this.info.name });
+	constructor(
+		public info: PluginInfo,
+		public controller: Controller,
+		public metrics: any[],
+		logger: Logger
+	) {
+		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
 	}
 
 	/**
@@ -354,11 +376,11 @@ class BaseControllerPlugin {
 	 * the case of network outages if reconnect fails to re-establish the
 	 * session between the controller and the host.
 	 *
-	 * @param {module:controller/src/InstanceInfo} instance -
+	 * @param instance -
 	 *     The instance that changed.
-	 * @param {?string} prev - the previous status of the instance.
+	 * @param prev - the previous status of the instance.
 	 */
-	async onInstanceStatusChanged(instance, prev) { }
+	async onInstanceStatusChanged(instance: InstanceInfo, prev?: InstanceStatus) { }
 
 	/**
 	 * Called when the value of a controller config field changed.
@@ -366,12 +388,12 @@ class BaseControllerPlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed on the controller.
 	 *
-	 * @param {module:lib.ConfigGroup} group -
+	 * @param group -
 	 *     The group who's field got changed.
-	 * @param {string} field - Name of the field that changed.
-	 * @param {*} prev - The previous value of the field.
+	 * @param field - Name of the field that changed.
+	 * @param prev - The previous value of the field.
 	 */
-	async onControllerConfigFieldChanged(group, field, prev) { }
+	async onControllerConfigFieldChanged(group: ConfigGroup, field: string, prev: unknown) { }
 
 	/**
 	 * Called when the value of an instance config field changed.
@@ -379,14 +401,14 @@ class BaseControllerPlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed on an instance.
 	 *
-	 * @param {module:controller/src/InstanceInfo} instance -
+	 * @param instance -
 	 *     The instance the config changed on.
-	 * @param {module:lib.ConfigGroup} group -
+	 * @param group -
 	 *     The group who's field got changed.
-	 * @param {string} field - Name of the field that changed.
-	 * @param {*} prev - The previous value of the field.
+	 * @param field - Name of the field that changed.
+	 * @param prev - The previous value of the field.
 	 */
-	async onInstanceConfigFieldChanged(instance, group, field, prev) { }
+	async onInstanceConfigFieldChanged(instance: InstanceInfo, group: ConfigGroup, field: string, prev: unknown) { }
 
 	/**
 	 * Called before collecting Prometheus metrics
@@ -401,9 +423,9 @@ class BaseControllerPlugin {
 	 * the Gauges/Counters/etc in onMetric and let Clusterio deal will
 	 * collecting the values.
 	 *
-	 * @returns {*} an async iterator of prometheus metric results or undefined.
+	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics() { }
+	async onMetrics(): Promise<void | AsyncIterator<CollectorResult>> { }
 
 	/**
 	 * Called when the controller is shutting down
@@ -439,11 +461,11 @@ class BaseControllerPlugin {
 	 *
 	 * Invoked when the connection to the host has been closed.
 	 *
-	 * @param {module:controller/src/HostConnection} connection -
+	 * @param connection -
 	 *     The connection the event occured on.
-	 * @param {string} event - one of connect, drop, resume and close
+	 * @param event - one of connect, drop, resume and close
 	 */
-	onHostConnectionEvent(connection, event) { }
+	onHostConnectionEvent(connection: HostConnection, event: "connect" | "drop" | "resume" | "close") { }
 
 	/**
 	 * Called when an avent on a control connection happens
@@ -475,11 +497,11 @@ class BaseControllerPlugin {
 	 *
 	 * Invoked when the connection to the control has been closed.
 	 *
-	 * @param {module:controller/src/ControlConnection} connection -
+	 * @param connection -
 	 *     The connection the event occured on.
-	 * @param {string} event - one of connect, drop, resume, and close.
+	 * @param event - one of connect, drop, resume, and close.
 	 */
-	onControlConnectionEvent(connection, event) { }
+	onControlConnectionEvent(connection: ControlConnection, event: "connect" | "drop" | "resume" | "close") { }
 
 	/**
 	 * Called when a host is preparing to disconnect from the controller
@@ -490,10 +512,10 @@ class BaseControllerPlugin {
 	 * Plugins must stop sending messages to the host in question after the
 	 * prepare disconnect has been handled.
 	 *
-	 * @param {module:controller/src/HostConnection} connection -
+	 * @param connection -
 	 *     The connection to the host preparing to disconnect.
 	 */
-	async onPrepareHostDisconnect(connection) { }
+	async onPrepareHostDisconnect(connection: HostConnection) { }
 
 	/**
 	 * Called when a mod pack is updated
@@ -504,9 +526,9 @@ class BaseControllerPlugin {
 	 * If the mod pack has been deleted its `.isDeleted` property will be
 	 * true.
 	 *
-	 * @param {module:lib.ModPack} modPack - Mod pack that updated.
+	 * @param modPack - Mod pack that updated.
 	 */
-	async onModPackUpdated(modPack) { }
+	async onModPackUpdated(modPack: ModPack) { }
 
 	/**
 	 * Called when a mod stored on the controller is updated
@@ -516,9 +538,9 @@ class BaseControllerPlugin {
 	 *
 	 * If a mod has been deleted its `.isDeleted` property will be true.
 	 *
-	 * @param {module:lib.ModInfo} mod - Mod that updated.
+	 * @param mod - Mod that updated.
 	 */
-	async onModUpdated(mod) { }
+	async onModUpdated(mod: ModInfo) { }
 
 	/**
 	 * Called when a player joins or leaves an instance
@@ -526,17 +548,11 @@ class BaseControllerPlugin {
 	 * Invoked when a player either joins or leaves an instance in the
 	 * cluster.
 	 *
-	 * @param {module:controller/src/InstanceInfo} instance -
+	 * @param instance -
 	 *     The instance it occured on.
-	 * @param {Object} event - Information about the event.
-	 * @param {string} event.type - Either "join", "leave" or "import".
-	 * @param {string} event.name - Name of the player that joined/left.
-	 * @param {string=} event.reason -
-	 *     Only present for type "leave". Reason for player leaving the
-	 *     game, one of the possible reasons in defines.disconnect_reason
-	 *     or "server_quit" if the server exits while the player is online.
+	 * @param event - Information about the event.
 	 */
-	async onPlayerEvent(instance, event) { }
+	async onPlayerEvent(instance: InstanceInfo, event: PlayerEvent) { }
 
 	/**
 	 * Broadcast event to all connected hosts
@@ -545,20 +561,15 @@ class BaseControllerPlugin {
 	 * This does not include hosts that are in the process of closing the
 	 * connection, which typically happens when they are shutting down.
 	 *
-	 * @param {*} event - Event to send
-	 * @param {Object} data - Data ta pass with the event.
+	 * @param event - Event to send
 	 */
-	broadcastEventToHosts(event, data={}) {
-		if (event.type !== "event") {
-			this.logger.warn(`Ignoring broadcast of ${event.type}`);
-			return;
-		}
+	broadcastEventToHosts(event: Event) {
 		for (let hostConnection of this.controller.wsServer.hostConnections.values()) {
 			if (
 				!hostConnection.connector.closing
-				&& (!event.plugin || hostConnection.plugins.has(event.plugin))
+				&& (!event.constructor.plugin || hostConnection.plugins.has(event.constructor.plugin))
 			) {
-				event.send(hostConnection, data);
+				hostConnection.send(event);
 			}
 		}
 	}
@@ -571,24 +582,25 @@ class BaseControllerPlugin {
  * clusterioctl in order to extend its functionallity.  To be discovered the
  * class must be exported under the name `ControlPlugin` in the module
  * specified by the `controlEntrypoint` in the plugin's info.js file.
- *
- * @static
  */
-class BaseControlPlugin {
-	constructor(info, logger) {
+export class BaseControlPlugin {
+	/**
+	 * Logger for this plugin
+	 *
+	 * Instance of winston Logger for sending log messages from this
+	 * plugin.  Supported methods and their corresponding log levels are
+	 * `error`, `warn`, `audit`, `info` and `verbose`.
+	 */
+	logger: Logger;
+
+	constructor(
 		/**
 		 * The plugin's own info module
 		 */
-		this.info = info;
-
-		/**
-		 * Logger for this plugin
-		 *
-		 * Instance of winston Logger for sending log messages from this
-		 * plugin.  Supported methods and their corresponding log levels are
-		 * `error`, `warn`, `audit`, `info` and `verbose`.
-		 */
-		this.logger = logger.child({ plugin: this.info.name });
+		public info: PluginInfo,
+		logger: Logger,
+	) {
+		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
 	}
 
 	/**
@@ -601,136 +613,153 @@ class BaseControlPlugin {
 	 *
 	 * Invoked by clusterioctl to let plugins add commands.  `rootCommand` is
 	 * the top level command node which the plugin should add its own {@link
-	 * module:lib.CommandTree} to.
+	 * CommandTree} to.
 	 *
-	 * @param {module:lib.CommandTree} rootCommand -
+	 * @param rootCommand -
 	 *     Root of the clusterioctl command tree.
 	 */
-	async addCommands(rootCommand) { }
+	async addCommands(rootCommand: CommandTree) { }
 }
+
 
 
 /**
  * Plugin supplied login form
- * @typedef {Object} LoginForm
- * @property {string} name -
- *     Internal name of the login form, this should start with the
- *     plugin name followed by a dot.
- * @property {string} title -
- *     Name displayed above this form in the login window.
- * @property {React.Component} Component -
- *     React component that's rendered for this login form.  This is
- *     supplied the setToken function via its props which should be
- *     called when an authentication token is aquired via this
- *     form.
  */
+export interface PluginLoginForm {
+	/**
+	 * Internal name of the login form, this should start with the
+	 * plugin name followed by a dot.
+	 */
+	name: string;
+
+	/** Name displayed above this form in the login window.  */
+	title: string;
+
+	/**
+	 * React component that's rendered for this login form.  This is
+	 * supplied the setToken function via its props which should be called
+	 * when an authentication token is aquired via this form.
+	 */
+	Component: React["Component"];
+};
+
 
 /**
  * Plugin supplied pages
- * @typedef {Object} Page
- * @property {string} path - URL path to this page.
- * @property {string=} sidebarPath -
- *     If present and this path matches one of the pages in the sidebar it
- *     will cause that sidebar entry to be highlighted as active.
- * @property {string=} sidebarGroup -
- *     If present group this entry under a group of the given name in the
- *     sidebar.
- * @property {string=} sidebarName -
- *     If present creates an entry in the sidebar for this page with the
- *     given text.
- * @property {ReactNode} content -
- *     A react node which is rendered when this page is navigated to.
- *     Should render a PageLayout.
  */
+export interface PluginPage {
+	/** URL path to this page. */
+	path: string;
+	/**
+	 * If present and this path matches one of the pages in the sidebar it
+	 * will cause that sidebar entry to be highlighted as active.
+	 */
+	sidebarPath?: string;
+	/**
+	 * If present group this entry under a group of the given name in the
+	 * sidebar.
+	 */
+	sidebarGroup?: string;
+	/**
+	 * If present creates an entry in the sidebar for this page with the
+	 * given text.
+	 */
+	sidebarName?: string;
+	/**
+	 * A react node which is rendered when this page is navigated to.
+	 * Should render a PageLayout.
+	 */
+	content?: React["ReactNode"];
+};
 
 /**
  * Base class for web interface plugins
- *
- * @static
  */
-class BaseWebPlugin {
-	constructor(container, packageData, info, logger) {
+export class BaseWebPlugin {
+	/**
+	 * Contents of the plugin's package.json file
+	 */
+	package: any;
+	/**
+	 * Control link to the controller, not available until the
+	 * connect event in onControllerConnectionEvent is signaled.
+	 */
+	control?: Link;
+	/**
+	 * Logger for this plugin
+	 *
+	 * Instance of winston Logger for sending log messages from this
+	 * plugin.  Supported methods and their corresponding log levels are
+	 * `error`, `warn`, `audit`, `info` and `verbose`.
+	 */
+	logger: Logger;
+	/**
+	 * List of login forms provided by this plugin
+	 */
+	loginForms: PluginLoginForm[] = [];
+	/**
+	 * List of pages provided by this plugin
+	 */
+	pages: PluginPage[] = [];
+	/**
+	 * Extra react component to add to core components
+	 *
+	 * Interface to augment core components of the web UI.  Setting a
+	 * component as one of the supported properties of this object will
+	 * cause the web UI to render it when displaying that component,
+	 * usually at the end.  Each component will receive a `plugin` param
+	 * which is the instance of the web plugin that contained the
+	 * component extra.
+	 */
+	componentExtra: {
+		/** Placed at the end of the controller page. */
+		ControllerPage?: React["ComponentType"],
+		/** Placed at the end of the hosts list page. */
+		HostsPage?: React["ComponentType"],
+		/**
+		 * Placed at the end of each host page.  Takes a `host` param which
+		 * is the host the page is displayed for.
+		 */
+		HostViewPage?: React["ComponentType"],
+		/** Placed at the end of the instance list page.  */
+		InstancesPage?: React["ComponentType"],
+		/**
+		 * Placed at the end of each instance page.  Takes an `instance`
+		 * param which is the instance the page is displayed for.
+		 */
+		InstanceViewPage?: React["ComponentType"],
+		/** Placed at the end of the users list page.  */
+		UsersPage?: React["ComponentType"],
+		/**
+		 * Placed at the end of each user page.  Takes a `user` param which
+		 * is the user object the page is displayed for.
+		 */
+		UserViewPage?: React["ComponentType"],
+		/** Placed at the end of the roles list page.  */
+		RolesPage?: React["ComponentType"],
+		/**
+		 * Placed at the end of each role page.  Takes a `role` param which
+		 * is the role object the page is displayed for.
+		 */
+		RoleViewPage?: React["ComponentType"],
+	} = {};
+
+
+	constructor(
 		/**
 		 * Webpack container for this plugin
 		 */
-		this.container = container;
-
-		/**
-		 * Contents of the plugin's package.json file
-		 * @type {Object}
-		 */
-		this.package = packageData;
-
+		public container: any,
+		packageData: any,
 		/**
 		 * The plugin's own info module
 		 */
-		this.info = info;
-
-		/**
-		 * Control link to the controller, not available until the
-		 * connect event in onControllerConnectionEvent is signaled.
-		 * @type {?module:lib.Link}
-		 */
-		this.control = null;
-
-		/**
-		 * Logger for this plugin
-		 *
-		 * Instance of winston Logger for sending log messages from this
-		 * plugin.  Supported methods and their corresponding log levels are
-		 * `error`, `warn`, `audit`, `info` and `verbose`.
-		 */
-		this.logger = logger.child({ plugin: this.info.name });
-
-		/**
-		 * List of login forms provided by this plugin
-		 *
-		 * @type {Array<module:lib~LoginForm>}
-		 */
-		this.loginForms = [];
-
-		/**
-		 * List of pages provided by this plugin
-		 *
-		 * @type {Array<module:lib~Page>}
-		 */
-		this.pages = [];
-
-		/**
-		 * Extra react component to add to core components
-		 *
-		 * Interface to augment core components of the web UI.  Setting a
-		 * component as one of the supported properties of this object will
-		 * cause the web UI to render it when displaying that component,
-		 * usually at the end.  Each component will receive a `plugin` param
-		 * which is the instance of the web plugin that contained the
-		 * component extra.
-		 *
-		 * @type {object}
-		 * @property {React.ComponentType} ControllerPage -
-		 *     Placed at the end of the controller page.
-		 * @property {React.ComponentType} HostsPage -
-		 *     Placed at the end of the hosts list page.
-		 * @property {React.ComponentType} HostViewPage -
-		 *     Placed at the end of each host page.  Takes a `host` param
-		 *     which is the host the page is displayed for.
-		 * @property {React.ComponentType} InstancesPage -
-		 *     Placed at the end of the instance list page.
-		 * @property {React.ComponentType} InstanceViewPage -
-		 *     Placed at the end of each instance page.  Takes an `instance`
-		 *     param which is the instance the page is displayed for.
-		 * @property {React.ComponentType} UsersPage -
-		 *     Placed at the end of the users list page.
-		 * @property {React.ComponentType} UserViewPage -
-		 *     Placed at the end of each user page.  Takes a `user` param
-		 *     which is the user object the page is displayed for.
-		 * @property {React.ComponentType} RolesPage -
-		 *     Placed at the end of the roles list page.
-		 * @property {React.ComponentType} RoleViewPage -
-		 *     Placed at the end of each role page.  Takes a `role` param
-		 *     which is the role object the page is displayed for.
-		 */
-		this.componentExtra = {};
+		public info: PluginInfo,
+		logger: Logger,
+	) {
+		this.package = packageData;
+		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
 	}
 
 	/**
@@ -770,27 +799,27 @@ class BaseWebPlugin {
 	 * send any messages that goes to or via the controller after the
 	 * connection has been closed and before a new one is established.
 	 *
-	 * @param {string} event - one of connect, drop, resume and close
+	 * @param event - one of connect, drop, resume and close
 	 */
-	onControllerConnectionEvent(event) { }
+	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") { }
 }
 
 /**
  * Invokes the given hook on all plugins
  *
- * @param {Map<string, Object>} plugins -
+ * @param plugins -
  *     Mapping of plugin names to plugins to invoke the hook on.
- * @param {string} hook - Name of hook to invoke.
- * @param {...*} args - Arguments to pass on to the hook.
- * @returns {Promise<Array>} Non-empty return values from the hooks.
+ * @param hook - Name of hook to invoke.
+ * @param args - Arguments to pass on to the hook.
+ * @returns Non-undefined return values from the hooks.
  */
-async function invokeHook(plugins, hook, ...args) {
-	let results = [];
+export async function invokeHook(plugins: Map<string, BasePlugin>, hook: string, ...args: any[]) {
+	let results: unknown[] = [];
 	for (let [name, plugin] of plugins) {
 		try {
 			// Use an object to detect if the hook failed on timeout or tried to return a value looking like an error
 			const timeout = {};
-			let result = await helpers.timeout(
+			let result = await libHelpers.timeout(
 				plugin[hook](...args),
 				15000,
 				timeout
@@ -806,13 +835,3 @@ async function invokeHook(plugins, hook, ...args) {
 	}
 	return results;
 }
-
-
-module.exports = {
-	BaseInstancePlugin,
-	BaseControllerPlugin,
-	BaseControlPlugin,
-	BaseWebPlugin,
-
-	invokeHook,
-};

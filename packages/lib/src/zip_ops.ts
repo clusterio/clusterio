@@ -1,4 +1,4 @@
-"use strict";
+import type JSZip from "jszip";
 
 /**
  * Returns the root folder in the zip file
@@ -6,13 +6,10 @@
  * Returns the name of the folder that all files in the zip file is
  * contained in.  Throws an error if there are multiple such folders.
  *
- * @param {JSZip} zip - Zip to search through.
- * @returns {string} name of the root folder.
- * @memberof module:lib
- * @private
- * @inner
+ * @param zip - Zip to search through.
+ * @returns name of the root folder.
  */
-function findRoot(zip) {
+export function findRoot(zip: JSZip) {
 	let root = null;
 	zip.forEach((relativePath, file) => {
 		let index = relativePath.indexOf("/");
@@ -34,7 +31,3 @@ function findRoot(zip) {
 
 	return root;
 }
-
-module.exports = {
-	findRoot,
-};

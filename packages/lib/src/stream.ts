@@ -138,7 +138,7 @@ type ReadStreamOptions = Parameters<typeof fs.createReadStream>[1];
  *     Options to pass to fs.createReadStream.  Values passed for `fd` and
  *     `fs` will be ignored.
  */
-export async function createReverseReadStream(path: string, options: ReadStreamOptions) {
+export async function createReverseReadStream(path: string, options?: ReadStreamOptions) {
 	if (typeof options === "string") {
 		options = { encoding: options };
 	}

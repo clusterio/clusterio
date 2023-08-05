@@ -6,29 +6,37 @@
  * @author Hornwitser
  * @module lib/command
  */
-"use strict";
-const libData = require("./data");
-const libLink = require("./link");
-const libErrors = require("./errors");
+import * as libData from "./data";
+import * as libErrors from "./errors";
+import type { Link } from "./link";
+
+
+export type CommandHandler = (args: Record<string, unknown>, control: Link) => Promise<void>;
+export type CommandDefinition = [string | string[], string?, Function?];
 
 /**
  * Represents a command that can be runned by clusterioctl
- * @static
  */
-class Command {
+export class Command {
+	private _handler: CommandHandler;
+	private _definition: CommandDefinition;
+
+	name: string;
+	alias: string[];
+
 	/**
 	 * Define an executable command.
 	 *
-	 * @param {Object} cmd - Command definiton.
-	 * @param {Array} cmd.definiton -
+	 * @param cmd - Command definiton.
+	 * @param cmd.definiton -
 	 *     Arguments to pass to yargs .command method to define this
 	 *     command.
-	 * @param {function(args, control)} handler -
+	 * @param cmd.handler -
 	 *     Async function invoked when the command is executed.  Is given
 	 *     the parsed args and a reference to the {@link
 	 *     module:ctl/ctl.Control} instance.
 	 */
-	constructor({ definition, handler }) {
+	constructor({ definition, handler }: { definition: CommandDefinition, handler: CommandHandler }) {
 		if (definition[0] instanceof Array) {
 			this.name = definition[0][0].split(" ")[0];
 			this.alias = definition[0].slice(1);
@@ -40,11 +48,11 @@ class Command {
 		this._handler = handler;
 	}
 
-	register(yargs) {
+	register(yargs: any) {
 		yargs.command(...this._definition);
 	}
 
-	async run(args, control) {
+	async run(args: Record<string, unknown>, control: Link) {
 		await this._handler(args, control);
 	}
 }
@@ -56,20 +64,23 @@ class Command {
  * CommandTrees.  This is used by clusterioctl to hold the full tree of
  * available commands, you may extend this tree by using a control plugin,
  * see {@link module:lib.BaseControlPlugin#addCommands}
- *
- * @static
  */
-class CommandTree {
+export class CommandTree {
+	public name: string;
+	public alias: string[];
+	public description: string;
+	public subCommands: Map<string, Command | CommandTree>;
+
 	/**
 	 * Define a command containing sub commands.
 	 *
-	 * @param {Object} cmd - Command definition
-	 * @param {string} cmd.name - Name of the command.
-	 * @param {Array<string>} cmd.alias - Aliases for this tree.
-	 * @param {description} cmd.description -
+	 * @param cmd - Command definition
+	 * @param cmd.name - Name of the command.
+	 * @param cmd.alias - Aliases for this tree.
+	 * @param cmd.description -
 	 *     Descripton to provide for this command tree node.
 	 */
-	constructor({ name, alias, description }) {
+	constructor({ name, alias, description }: { name: string, alias: string[], description: string }) {
 		if (typeof name !== "string") {
 			throw new Error("name must be a string");
 		}
@@ -83,10 +94,10 @@ class CommandTree {
 	/**
 	 * Add a command or command tree to this tree
 	 *
-	 * @param {module:lib.Command|module:lib.CommandTree} command -
+	 * @param command -
 	 *    The command to add to this command tree.
 	 */
-	add(command) {
+	add(command: Command | CommandTree) {
 		if (this.subCommands.has(command.name)) {
 			throw new Error(`Command ${command.name} already exists`);
 		}
@@ -102,13 +113,13 @@ class CommandTree {
 	/**
 	 * Get a command or command tree from this tree
 	 *
-	 * @param {string} name -
+	 * @param name -
 	 *     The name of the command or command tree to retrieve.
-	 * @return {?module:lib.Command|module:lib.CommandTree}
+	 * @return
 	 *    The command to add to this command tree.
 	 */
-	get(name) {
-		return this.subCommands.get(name) || null;
+	get(name: string) {
+		return this.subCommands.get(name);
 	}
 
 	/**
@@ -117,10 +128,10 @@ class CommandTree {
 	 * Traverses the the tree of sub-commands recursively and adds all of
 	 * them to the given yargs parser.
 	 *
-	 * @param {Object} yargs - yargs parser to register with.
+	 * @param yargs - yargs parser to register with.
 	 */
-	register(yargs) {
-		yargs.command([this.name].concat(this.alias), this.description, (yargs) => {
+	register(yargs: any) {
+		yargs.command([this.name].concat(this.alias), this.description, (yargs: any) => {
 			for (let [name, command] of this.subCommands) {
 				// Check if the entry is not an alias.
 				if (name === command.name) {
@@ -141,13 +152,12 @@ class CommandTree {
  * Resolves a string with either an host name or an id into an integer with
  * the host ID.
  *
- * @param {module:lib.Link} client - link to controller to query host on.
- * @param {string} hostName - string with name or id of host.
- * @returns {Promise<number>} host ID.
- * @static
+ * @param client - link to controller to query host on.
+ * @param hostName - string with name or id of host.
+ * @returns host ID.
  */
-async function resolveHost(client, hostName) {
-	let hostId;
+export async function resolveHost(client: Link, hostName: string) {
+	let hostId: number;
 	if (/^-?\d+$/.test(hostName)) {
 		hostId = parseInt(hostName, 10);
 	} else {
@@ -173,13 +183,12 @@ async function resolveHost(client, hostName) {
  * Resolves a string with either an instance name or an id into an integer
  * with the instance ID.
  *
- * @param {module:lib.Link} client - link to controller to query instance on.
- * @param {string} instanceName - string with name or id of instance.
- * @returns {Promise<number>} instance ID.
- * @static
+ * @param client - link to controller to query instance on.
+ * @param instanceName - string with name or id of instance.
+ * @returns instance ID.
  */
-async function resolveInstance(client, instanceName) {
-	let instanceId;
+export async function resolveInstance(client: Link, instanceName: string) {
+	let instanceId: number;
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
@@ -205,14 +214,13 @@ async function resolveInstance(client, instanceName) {
  * Resolevs a string with either a mod pack name or an id into an integer
  * with the mod pack ID.
  *
- * @param {module:lib.Link} client -
+ * @param client -
  *     link to controller to query mod pack on.
- * @param {string} modPackName - string with name or id of mod pack.
- * @returns {Promise<number>} mod pack ID.
- * @static
+ * @param modPackName - string with name or id of mod pack.
+ * @returns mod pack ID.
  */
-async function resolveModPack(client, modPackName) {
-	let modPackId;
+export async function resolveModPack(client: Link, modPackName: string) {
+	let modPackId: number;
 	if (/^-?\d+/.test(modPackName)) {
 		modPackId = parseInt(modPackName, 10);
 	} else {
@@ -238,15 +246,14 @@ async function resolveModPack(client, modPackName) {
  * Resolves a string with either a role name or an id into an object
  * representing the role.
  *
- * @param {module:lib.Link} client - link to controller to query role on.
- * @param {string} roleName - string with name or id of role.
- * @returns {Promise<object>} Role info.
- * @static
+ * @param client - link to controller to query role on.
+ * @param roleName - string with name or id of role.
+ * @returns Role info.
  */
-async function retrieveRole(client, roleName) {
+export async function retrieveRole(client: Link, roleName: string) {
 	let roles = await client.sendTo("controller", new libData.RoleListRequest());
 
-	let resolvedRole;
+	let resolvedRole: libData.RawRole;
 	if (/^-?\d+$/.test(roleName)) {
 		let roleId = parseInt(roleName, 10);
 		for (let role of roles) {
@@ -271,13 +278,3 @@ async function retrieveRole(client, roleName) {
 
 	return resolvedRole;
 }
-
-module.exports = {
-	Command,
-	CommandTree,
-
-	resolveHost,
-	resolveInstance,
-	resolveModPack,
-	retrieveRole,
-};

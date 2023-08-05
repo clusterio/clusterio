@@ -2,18 +2,17 @@
  * Hashing functions
  * @module lib/hash
  */
-"use strict";
-const crypto = require("crypto");
-const fs = require("fs-extra");
+import crypto from "crypto";
+import fs from "fs-extra";
 
 
 /**
  * Returns a promise that resolves to the SHA1 hash of the stream given
  *
- * @param {Stream} stream - Node stream of the content to hash.
- * @returns {Promise<string>} hash of the stream.
+ * @param stream - Node stream of the content to hash.
+ * @returns hash of the stream.
  */
-function hashStream(stream) {
+export function hashStream(stream: NodeJS.ReadableStream): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let hasher = crypto.createHash("sha1");
 		hasher.setEncoding("hex");
@@ -33,14 +32,9 @@ function hashStream(stream) {
 /**
  * Returns a promise that resolves to the SHA1 hash of the file given by path
  *
- * @param {string} path - Path to the file to hash.
- * @returns {Promise<string>} hash of the file given.
+ * @param path - Path to the file to hash.
+ * @returns hash of the file given.
  */
-function hashFile(path) {
+export function hashFile(path: string) {
 	return hashStream(fs.createReadStream(path));
 }
-
-module.exports = {
-	hashStream,
-	hashFile,
-};

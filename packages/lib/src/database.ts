@@ -4,23 +4,21 @@
  * @module lib/database
  * @author Hornwitser
  */
+import fs from "fs-extra";
 
-"use strict";
-const fs = require("fs-extra");
-
-const libFileOps = require("./file_ops");
-const { basicType } = require("./helpers");
+import * as libFileOps from "./file_ops";
+import { basicType } from "./helpers";
 
 
 /**
  * Converts a Map with only string keys to a JavaScript object.
  *
- * @param {Map} map - the Map to convert to an object.
- * @return {object} - Object with the mapping's key-values as properties.
+ * @param map - the Map to convert to an object.
+ * @return Object with the mapping's key-values as properties.
  * @throws {Error} if there are non-string keys in map.
  */
-function mapToObject(map) {
-	let obj = {};
+export function mapToObject<T>(map: Map<string, T>) {
+	let obj: Record<string, T> = {};
 	for (let [key, value] of map) {
 		if (typeof key !== "string") {
 			throw new Error(
@@ -40,14 +38,15 @@ function mapToObject(map) {
  * properties as key value pairs and converts it into a JavaScript Map.
  * Returns an empty Map if the file does not exist.
  *
- * @param {string} filePath - The path to the JSON file to load.
+ * @param filePath - The path to the JSON file to load.
+ * @returns promise resolving to the loaded map
  * @throws {Error} If JSON file did not contain an object.
  * @throws {Error} If an error occured reading the file.
  */
-async function loadJsonAsMap(filePath) {
+export async function loadJsonAsMap(filePath: string): Promise<Map<string, unknown>> {
 	try {
 		let content = await fs.readFile(filePath);
-		let parsed = JSON.parse(content);
+		let parsed = JSON.parse(content.toString());
 
 		if (basicType(parsed) !== "object") {
 			throw new Error(`Expected object but got ${basicType(parsed)}`);
@@ -72,12 +71,12 @@ async function loadJsonAsMap(filePath) {
  * If the directory the file is to be saved into doesn't exist it will be
  * created.
  *
- * @param {string} filePath - The path to the JSON file that will be saved.
- * @param {Map} map - Map with only string keys to save.
+ * @param filePath - The path to the JSON file that will be saved.
+ * @param map - Map with only string keys to save.
  * @throws {Error} if there are non-string keys in map.
  * @throws {Error} if an error occured writing to the file.
  */
-async function saveMapAsJson(filePath, map) {
+export async function saveMapAsJson(filePath: string, map: Map<string, unknown>) {
 	let obj = mapToObject(map);
 	await libFileOps.safeOutputFile(filePath, JSON.stringify(obj, null, 4));
 }
@@ -88,15 +87,15 @@ async function saveMapAsJson(filePath, map) {
  * Loads the JSON file specified by path containing an array of objects that
  * each have an id property into a Map from the id to the object.
  *
- * @param {string} filePath - The path to the JSON file to load.
+ * @param filePath - The path to the JSON file to load.
  * @throws {Error} If JSON file did not contain an array.
  * @throws {Error} If there are objects in the array without an id property.
  * @throws {Error} If an error occured reading the file.
  */
-async function loadJsonArrayAsMap(filePath) {
+export async function loadJsonArrayAsMap(filePath: string): Promise<Map<unknown, unknown>> {
 	try {
 		let content = await fs.readFile(filePath);
-		let parsed = JSON.parse(content);
+		let parsed = JSON.parse(content.toString());
 
 		if (basicType(parsed) !== "array") {
 			throw new Error(`Expected array but got ${basicType(parsed)}`);
@@ -132,24 +131,24 @@ async function loadJsonArrayAsMap(filePath) {
  * Save the values of a Map with objects containing an id property that is
  * equal to the key the objects are stored at into a JSON file.
  *
- * @param {string} filePath - The path to the JSON file that will be saved.
- * @param {Map} map -
+ * @param filePath - The path to the JSON file that will be saved.
+ * @param map -
  *     Map with objects containing an id property equal to the key they are
  *     stored under.
  * @throws {Error} if an error occured writing to the file.
  */
-async function saveMapAsJsonArray(filePath, map) {
+export async function saveMapAsJsonArray(filePath: string, map: Map<unknown, { id: unknown }>) {
 	await libFileOps.safeOutputFile(filePath, JSON.stringify([...map.values()], null, 4));
 }
 
 
-function checkName(name) {
+function checkName(name: unknown): asserts name is string {
 	if (typeof name !== "string") {
 		throw new Error("name must be a string");
 	}
 }
 
-function checkCount(count) {
+function checkCount(count: unknown): asserts count is number {
 	if (typeof count !== "number" || isNaN(count)) {
 		throw new Error("count must be a number");
 	}
@@ -164,7 +163,8 @@ function checkCount(count) {
  * serialized the database discards entries with a zero counts, and when
  * deserialized the content is verified.
  */
-class ItemDatabase {
+export class ItemDatabase {
+	private _items: Map<string, number> = new Map();
 
 	/**
 	 * Create a new item database
@@ -174,9 +174,7 @@ class ItemDatabase {
 	 *     database from.  An empty database will be created if this parameter
 	 *     is left undefined.
 	 */
-	constructor(serialized) {
-		this._items = new Map();
-
+	constructor(serialized?: object) {
 		// Verify the content of the serialized database
 		if (serialized !== undefined) {
 			for (let [name, count] of Object.entries(serialized)) {
@@ -194,10 +192,10 @@ class ItemDatabase {
 	 * Serialize the item database into a plain JavaScript object that can be
 	 * turned inta a string with JSON.stringify().
 	 *
-	 * @returns {object} Serialized representation of the database
+	 * @returns Serialized representation of the database
 	 */
 	serialize() {
-		let obj = {};
+		let obj: Record<string, number> = {};
 		for (let [name, count] of this._items) {
 			if (count !== 0) {
 				obj[name] = count;
@@ -223,10 +221,10 @@ class ItemDatabase {
 	 * database.  If the item has not been previously stored into the database
 	 * then 0 is returned.
 	 *
-	 * @param {string} name - The name of the item to get the count of.
-	 * @returns {number} The count of the item stored.
+	 * @param name - The name of the item to get the count of.
+	 * @returns The count of the item stored.
 	 */
-	getItemCount(name) {
+	getItemCount(name: string) {
 		checkName(name);
 
 		if (!this._items.has(name)) {
@@ -241,10 +239,10 @@ class ItemDatabase {
 	 *
 	 * Add count copies of the item specified by name to the item database.
 	 *
-	 * @param {string} name - The name of the item to add.
-	 * @param {number} count - The count of item to remove.
+	 * @param name - The name of the item to add.
+	 * @param count - The count of item to remove.
 	 */
-	addItem(name, count) {
+	addItem(name: string, count: number) {
 		checkName(name);
 		checkCount(count);
 
@@ -262,10 +260,10 @@ class ItemDatabase {
 	 * If count is greater than the currently stored count the stored item
 	 * count will become negative.
 	 *
-	 * @param {string} name - The name of the item to remove.
-	 * @param {number} count - The count of items to remove.
+	 * @param name - The name of the item to remove.
+	 * @param count - The count of items to remove.
 	 */
-	removeItem(name, count) {
+	removeItem(name: string, count: number) {
 		checkName(name);
 		checkCount(count);
 
@@ -277,12 +275,3 @@ class ItemDatabase {
 		this._items.set(name, count);
 	};
 }
-
-module.exports = {
-	mapToObject,
-	loadJsonAsMap,
-	saveMapAsJson,
-	loadJsonArrayAsMap,
-	saveMapAsJsonArray,
-	ItemDatabase,
-};

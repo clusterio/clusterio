@@ -1,9 +1,9 @@
 "use strict";
-const winston = require("winston");
-const Transport = require("winston-transport");
-const { LEVEL, MESSAGE } = require("triple-beam");
+import winston from "winston";
+import Transport from "winston-transport";
+import { LEVEL, MESSAGE } from "triple-beam";
 
-const levels = Object.freeze({
+export const levels = Object.freeze({
 	fatal: 0,
 	error: 1,
 	warn: 2,
@@ -13,7 +13,7 @@ const levels = Object.freeze({
 	verbose: 6,
 });
 
-const colors = {
+export const colors = {
 	fatal: "inverse red",
 	error: "bold brightRed",
 	warn: "bold brightYellow",
@@ -21,21 +21,31 @@ const colors = {
 	info: "bold brightBlue",
 	server: "bold",
 	verbose: "bold grey",
-};
+} as const;
 winston.addColors(colors);
 
 // The Console Transport is replicated here because it's overly complicated
 // in winston, writes to stdout/err instead of console and doesn't work in
 // the browser.
-class ConsoleTransport extends Transport {
-	constructor(options = {}) {
+export class ConsoleTransport extends Transport {
+	errorLevels: Set<string>;
+	warnLevels: Set<string>;
+	filter: (info: object) => boolean;
+
+	constructor(
+		options: Transport.TransportStreamOptions & {
+			errorLevels?: string[],
+			warnLevels?: string[],
+			filter?: ConsoleTransport["filter"]
+		} = {}
+	) {
 		super(options);
 		this.errorLevels = new Set(options.errorLevels || ["fatal", "error"]);
 		this.warnLevels = new Set(options.warnLevels || ["warn"]);
 		this.filter = options.filter || (() => true);
 	}
 
-	log(info, callback) {
+	log(info: any, callback: Function) {
 		if (!this.filter(info)) {
 			return callback();
 		}
@@ -56,12 +66,12 @@ class ConsoleTransport extends Transport {
 /**
  * Formats winston log messages for the web console
  */
-class WebConsoleFormat {
-	constructor(options = {}) {
-		this.options = options;
-	}
+export class WebConsoleFormat {
+	constructor(
+		public options = {}
+	) { }
 
-	transform(info, options) {
+	transform(info: any, _options: {}) {
 		let src = " ";
 		if (info.host_id !== undefined) {
 			src += `s:${info.host_name} - `;
@@ -84,31 +94,41 @@ class WebConsoleFormat {
 
 /**
  * Filter object for logs
- * @typedef {Object} LogFilter
- * @property {string} [maxLevel] -
- *     Maximum log level to include. Higher levels are more verbose.
- * @property {boolean} [all] -
- *     Include log entries from controller, all hosts and all instances.
- * @property {boolean} [controller] -
- *     Include log entries from the controller.
- * @property {Array<number>} [hostIds] -
- *     Include log entries for the given hosts and instances of those
- *     hosts by id.
- * @property {Array<number>} [instanceIds] -
- *     Include log entries for the given instances by id.
  */
+export interface LogFilter {
+	/**
+	 * Maximum log level to include. Higher levels are more verbose.
+	 */
+	maxLevel?: keyof typeof levels;
+	/**
+	 * Include log entries from controller, all hosts and all instances.
+	 */
+	all?: boolean;
+	/**
+	 * Include log entries from the controller.
+	 */
+	controller?: boolean;
+	/**
+	 * Include log entries for the given hosts and instances of those
+	 * hosts by id.
+	 */
+	hostIds?: number[];
+	/**
+	 * Include log entries for the given instances by id.
+	 */
+	instanceIds?: number[];
+}
 
 /**
  * Create log filter by level and source.
  *
- * @param {LogFilter} filter -
+ * @param filter -
  *     Filter to filter log entries by.
- * @returns {function(object): boolean}
+ * @returns
  *     filter returning true for log entries that match it.
- * @static
  */
-function logFilter({ all, controller, hostIds, instanceIds, maxLevel }) {
-	return info => {
+export function logFilter({ all, controller, hostIds, instanceIds, maxLevel }: LogFilter) {
+	return (info: any) => {
 		// Note: reversed to filter out undefined levels
 		if (maxLevel && !(levels[info.level] <= levels[maxLevel])) {
 			return false;
@@ -135,17 +155,23 @@ function logFilter({ all, controller, hostIds, instanceIds, maxLevel }) {
 	};
 }
 
-const logger = winston.createLogger({
+export const logger = winston.createLogger({
 	level: "verbose",
 	levels,
 	format: winston.format.timestamp(),
-});
+}) as unknown as Logger;
 
-module.exports = {
-	ConsoleTransport,
-	WebConsoleFormat,
-	colors,
-	levels,
-	logFilter,
-	logger,
+// Who in their right mind thought that log levels should be hard coded
+// into the type when you can define custom levels you want to support?
+export type Logger = Omit<winston.Logger,
+	"error" | "warn" | "help" | "data" | "info" | "debug" | "prompt" | "http" | "verbose" | "input" | "silly" |
+	"emerg" | "alert" | "crit" | "warning" | "notice"
+> & {
+	fatal: winston.LeveledLogMethod,
+	error: winston.LeveledLogMethod,
+	warn: winston.LeveledLogMethod,
+	audit: winston.LeveledLogMethod,
+	info: winston.LeveledLogMethod,
+	server: winston.LeveledLogMethod,
+	verbose: winston.LeveledLogMethod,
 };

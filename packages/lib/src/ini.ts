@@ -5,17 +5,14 @@
  * @author Hornwitser
  */
 
-"use strict";
-
 /**
  * Parse INI file into object of sections
- * @param {string} input - content of INI file to parse.
- * @returns {object<string, object<string, string>>}
- *     sections parsed from the ini file.
+ * @param input - content of INI file to parse.
+ * @returns sections parsed from the ini file.
  */
-function parse(input) {
-	const sections = {};
-	let currentSection = sections;
+export function parse(input: string) {
+	const sections: Record<string, string | Record<string, string>> = {};
+	let currentSection: Record<string, string> = sections as Record<string, string>;
 	const lines = input.split(/\r\n|\n/);
 	for (let number = 1; number <= lines.length; number++) {
 		let line = lines[number - 1].replace(/^[\t ]+/, "");
@@ -56,11 +53,11 @@ function parse(input) {
 
 /**
  * Serialize an object of section definitions into an INI file
- * @param {object<string, object<string, string>>} sections -
+ * @param sections -
  *     Sections to encode into ini format
- * @returns {string} sections serialized into INI format
+ * @returns sections serialized into INI format
  */
-function stringify(sections) {
+export function stringify(sections: Record<string, string | Record<string, string>>) {
 	let serialized = [];
 	let first = true;
 
@@ -87,8 +84,3 @@ function stringify(sections) {
 	if (serialized.length) { serialized.push(""); }
 	return serialized.join("\n");
 }
-
-module.exports = {
-	parse,
-	stringify,
-};

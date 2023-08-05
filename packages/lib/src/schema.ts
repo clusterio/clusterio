@@ -2,8 +2,7 @@
  * JSON schemas used for validating link messages
  * @module lib/schema
  */
-"use strict";
-const Ajv = require("ajv");
+import Ajv, { JSONSchemaType, ValidateFunction } from "ajv";
 const ajv = new Ajv({
 	// These are duplicated in scripts/compile_validator
 	allowUnionTypes: true,
@@ -14,17 +13,16 @@ const ajv = new Ajv({
 
 /**
  * Compile JSON schema into validator
- * @function
- * @param {Object} schema - JSON schema to create validator for.
- * @returns {Function} Validator for the schema.
+ * @param schema - JSON schema to create validator for.
+ * @returns Validator for the schema.
  */
-function compile(schema) {
+export function compile<T>(schema: JSONSchemaType<T>) {
 	if (typeof global !== "object" || !global.lazySchemaCompilation) {
-		return ajv.compile(schema);
+		return ajv.compile<T>(schema);
 	}
 
-	let doValidate;
-	function validate(data) {
+	let doValidate: ValidateFunction<T>;
+	const validate = <ValidateFunction<T>>function (data) {
 		if (!doValidate) {
 			doValidate = ajv.compile(schema);
 		}
@@ -32,9 +30,5 @@ function compile(schema) {
 		validate.errors = doValidate.errors;
 		return result;
 	}
-	return validate;
+	return validate
 }
-
-module.exports = {
-	compile,
-};

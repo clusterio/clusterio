@@ -5,24 +5,95 @@
  * @module lib/logging_utils
  */
 "use strict";
-const events = require("events");
-const fs = require("fs-extra");
-const path = require("path");
-const stream = require("stream");
-const util = require("util");
-const winston = require("winston");
-const Transport = require("winston-transport");
-const { LEVEL, MESSAGE } = require("triple-beam");
-const chalk = require("chalk");
+import fs from "fs-extra";
+import path from "path";
+import stream from "stream";
+import util from "util";
+import winston from "winston";
+import Transport from "winston-transport";
+import { LEVEL, MESSAGE } from "triple-beam";
+import chalk from "chalk";
 
-const libData = require("./data");
-const libErrors = require("./errors");
-const libFileOps = require("./file_ops");
-const { levels, logFilter, logger } = require("./logging");
-const libStream = require("./stream");
+import * as libData from "./data";
+import * as libErrors from "./errors";
+import * as libFileOps from "./file_ops";
+import { type LogFilter, levels, logFilter, logger } from "./logging";
+import * as libStream from "./stream";
+import type { Link } from "./link";
 
 const finished = util.promisify(stream.finished);
 
+interface SecondsLogOutput {
+	/** Where the message came from, one of "stdout" and "stderr". */
+	source: "stdout" | "stderr";
+	/** Timestamp format, one of "date", "seconds" and "none". */
+	format: "seconds";
+	/** Timestamp of the message.  Not present if format is "none". */
+	time: string;
+	/** Type of message, one of "log", "action" and "generic". */
+	type: "log";
+	/** Log level for "log" type.  i.e "Info" normally. */
+	level: string;
+	/** File reported for "log" type. */
+	file: string;
+	/** Main content of the line. */
+	message: string;
+}
+interface SecondsGenericOutput {
+	/** Where the message came from, one of "stdout" and "stderr". */
+	source: "stdout" | "stderr";
+	/** Timestamp format, one of "date", "seconds" and "none". */
+	format: "seconds";
+	/** Timestamp of the message.  Not present if format is "none". */
+	time: string;
+	/** Type of message, one of "log", "action" and "generic". */
+	type: "generic";
+	/** Main content of the line. */
+	message: string;
+}
+interface DateActionOutput {
+	/** Where the message came from, one of "stdout" and "stderr". */
+	source: "stdout" | "stderr";
+	/** Timestamp format, one of "date", "seconds" and "none". */
+	format: "date";
+	/** Timestamp of the message.  Not present if format is "none". */
+	time: string;
+	/** Type of message, one of "log", "action" and "generic". */
+	type: "action";
+	/** Kind of action for "action" type. i.e "CHAT" for chat. */
+	action: string;
+	/** Main content of the line. */
+	message: string;
+}
+interface DateGenericOutput {
+	/** Where the message came from, one of "stdout" and "stderr". */
+	source: "stdout" | "stderr";
+	/** Timestamp format, one of "date", "seconds" and "none". */
+	format: "date";
+	/** Timestamp of the message.  Not present if format is "none". */
+	time: string;
+	/** Type of message, one of "log", "action" and "generic". */
+	type: "generic";
+	/** Main content of the line. */
+	message: string;
+}
+interface UnformattedOutput {
+	/** Where the message came from, one of "stdout" and "stderr". */
+	source: "stdout" | "stderr";
+	/** Timestamp format, one of "date", "seconds" and "none". */
+	format: "none";
+	/** Type of message, one of "log", "action" and "generic". */
+	type: "generic";
+	/** Main content of the line. */
+	message: string;
+}
+export type ParsedFactorioOutput =
+	| SecondsLogOutput
+	| SecondsGenericOutput
+	| DateActionOutput
+	| DateGenericOutput
+	| UnformattedOutput
+;
 
 /**
  * Format a parsed Factorio message with colors
@@ -30,11 +101,11 @@ const finished = util.promisify(stream.finished);
  * Formats a parsed Factorio output from lib/factorio into a readable
  * colorized output using terminal escape codes that can be printed.
  *
- * @param {Object} parsed - Parsed Factorio server output.
- * @returns {string} terminal colorized message.
+ * @param parsed - Parsed Factorio server output.
+ * @returns terminal colorized message.
  * @private
  */
-function formatServerOutput(parsed) {
+function formatServerOutput(parsed: ParsedFactorioOutput) {
 	let time = "";
 	if (parsed.format === "seconds") {
 		time = `${chalk.yellow(parsed.time.padStart(8))} `;
@@ -71,15 +142,17 @@ function formatServerOutput(parsed) {
 
 /**
  * Formats winston log messages for a character terminal.
- * @static
  */
-class TerminalFormat {
-	constructor(options = {}) {
-		this.options = options;
+export class TerminalFormat {
+	colorize: winston.Logform.Colorizer;
+
+	constructor(
+		public options: object = {}
+	) {
 		this.colorize = winston.format.colorize(options);
 	}
 
-	transform(info, options) {
+	transform(info: any, options: { showTimestamp: boolean }) {
 		info = this.colorize.transform(info, this.colorize.options);
 		let ts = "";
 		if (options.showTimestamp && info.timestamp) {
@@ -112,17 +185,24 @@ class TerminalFormat {
 
 /**
  * Sends logs over a lib/link connection.
- * @static
  */
-class LinkTransport extends Transport {
-	constructor(options) {
+export class LinkTransport extends Transport {
+	link: Link;
+	filter?: (info: any) => boolean;
+
+	constructor(
+		options: Transport.TransportStreamOptions & {
+			link: Link,
+			filter?: (info: any) => boolean,
+		}
+	) {
 		super(options);
 
 		this.link = options.link;
-		this.filter = options.filter || null;
+		this.filter = options.filter;
 	}
 
-	log(info, callback) {
+	log(info: any, callback: Function) {
 		if (this.filter && !this.filter(info)) {
 			return callback();
 		}
@@ -144,18 +224,26 @@ const logIndexVersion = 2;
 
 /**
  * Keeps an index over a log directory to speed up queries to it
- * @static
  */
-class LogIndex {
-	constructor(logDirectory, serialized) {
-		this.logDirectory = logDirectory;
+export class LogIndex {
+	index: Map<string, {
+		levels: Set<keyof typeof levels>,
+		controller: boolean,
+		hostIds: Set<number>,
+		instanceIds: Set<number>,
+	}>;
+
+	constructor(
+		public logDirectory: string,
+		serialized: any,
+	) {
 		this.index = new Map();
 
 		if (serialized.version !== logIndexVersion) {
 			return;
 		}
 
-		for (let [file, serializedEntry] of Object.entries(serialized.files)) {
+		for (let [file, serializedEntry] of Object.entries(serialized.files) as [string, any][]) {
 			this.index.set(file, {
 				levels: new Set(serializedEntry.levels),
 				controller: serializedEntry.controller,
@@ -190,13 +278,13 @@ class LogIndex {
 	 * data about previously indexed files saved with {@link
 	 * module:lib.LogIndex#save}.
 	 *
-	 * @param {string} logDirectory - Path to directory to load from.
-	 * @returns {Promise<module:lib.LogIndex>} loaded or created log index.
+	 * @param logDirectory - Path to directory to load from.
+	 * @returns loaded or created log index.
 	 */
-	static async load(logDirectory) {
+	static async load(logDirectory: string) {
 		try {
 			let content = await fs.readFile(path.join(logDirectory, "index.json"));
-			return new LogIndex(logDirectory, JSON.parse(content));
+			return new LogIndex(logDirectory, JSON.parse(content.toString()));
 		} catch (err) {
 			if (err.code !== "ENOENT") {
 				logger.warn(`Failed to load ${path.join(logDirectory, "index.json")}: ${err}`);
@@ -218,19 +306,19 @@ class LogIndex {
 		);
 	}
 
-	async indexFile(file) {
+	async indexFile(file: string) {
 		let filePath = path.join(this.logDirectory, file);
 		let lineStream = new libStream.LineSplitter({ readableObjectMode: true });
 		let fileStream = fs.createReadStream(filePath);
 		fileStream.pipe(lineStream);
 		let entry = {
-			levels: new Set(),
+			levels: new Set() as Set<keyof typeof levels>,
 			controller: false,
-			hostIds: new Set(),
-			instanceIds: new Set(),
+			hostIds: new Set() as Set<number>,
+			instanceIds: new Set() as Set<number>,
 		};
 		for await (let line of lineStream) {
-			let info;
+			let info: any;
 			try {
 				info = JSON.parse(line);
 			} catch (err) {
@@ -273,14 +361,14 @@ class LogIndex {
 	/**
 	 * Check if a file includes entries for the given filter
 	 *
-	 * @param {string} file -
+	 * @param file -
 	 *     Name of file in the log directory to check for.
-	 * @param {LogFilter} filter -
+	 * @param filter -
 	 *     Filter to check index if file contains entries for.
-	 * @returns {boolean}
+	 * @returns
 	 *     true if the file may contain entries included by the filter.
 	 */
-	filterIncludesFile(file, { maxLevel, all, controller, instanceIds, hostIds }) {
+	filterIncludesFile(file: string, { maxLevel, all, controller, instanceIds, hostIds }: LogFilter) {
 		let entry = this.index.get(file);
 		if (!entry) {
 			return true;
@@ -314,35 +402,51 @@ class LogIndex {
 
 /**
  * Filter object for querying logs
- * @typedef {Object} QueryLogFilter
- * @property {number} [limit=100] - Maximum number of entries to return.
- * @property {string} [order="asc"] -
- *     Return entries in ascending ("asc") date order or desceding ("desc")
- *     date order.
- * @property {string} [maxLevel] -
- *     Maximum log level to include. Higher levels are more verbose.
- * @property {boolean} [all] -
- *     Include log entries from controller, all hosts and all instances.
- * @property {boolean} [controller] -
- *     Include log entries from the controller.
- * @property {Array<number>} [hostIds] -
- *     Include log entries for the given hosts and instances of those
- *     hosts by id.
- * @property {Array<number>} [instanceIds] -
- *     Include log entries for the given instances by id.
  */
+export interface QueryLogFilter {
+	/**
+	 * Maximum number of entries to return.  Defaults to 100.
+	 */
+	limit?: number;
+	/**
+	 * Return entries in ascending ("asc") date order or desceding ("desc")
+	 * date order. Defaults to "asc".
+	 */
+	order: "asc" | "desc";
+	/**
+	 * Maximum log level to include. Higher levels are more verbose.
+	 */
+	maxLevel: keyof typeof levels;
+	/**
+	 * Include log entries from controller, all hosts and all instances.
+	 */
+	all: boolean;
+	/**
+	 * Include log entries from the controller.
+	 */
+	controller: boolean;
+	/**
+	 * Include log entries for the given hosts and instances of those
+	 * hosts by id.
+	 */
+	hostIds: number[];
+	/**
+	 * Include log entries for the given instances by id.
+	 */
+	instanceIds: number[];
+}
 
 /**
  * Query log directory
  *
- * @param {string} logDirectory - path to directory with logs.
- * @param {QueryLogFilter} filter -
+ * @param logDirectory - path to directory with logs.
+ * @param filter -
  *     Filter to limit logs by.
- * @param {module:lib.LogIndex=} index -
+ * @param index -
  *     Index to speed up query with.
- * @returns {Promise<Array<Object>>} log entries matching the filter
+ * @returns log entries matching the filter
  */
-async function queryLog(logDirectory, filter, index) {
+export async function queryLog(logDirectory: string, filter: QueryLogFilter, index: LogIndex) {
 	let files = (await fs.readdir(logDirectory)).filter(entry => logFileGlob.test(entry));
 
 	filter = {
@@ -363,8 +467,8 @@ async function queryLog(logDirectory, filter, index) {
 			continue;
 		}
 		let filePath = path.join(logDirectory, file);
-		let fileStream;
-		let lineStream;
+		let fileStream: fs.ReadStream;
+		let lineStream: libStream.LineSplitter;
 		if (filter.order === "asc") {
 			lineStream = new libStream.LineSplitter({ readableObjectMode: true });
 			fileStream = fs.createReadStream(filePath);
@@ -373,7 +477,7 @@ async function queryLog(logDirectory, filter, index) {
 			fileStream = await libStream.createReverseReadStream(filePath);
 		}
 		lineStream.on("data", line => {
-			let info;
+			let info: any;
 			try {
 				info = JSON.parse(line);
 			} catch (err) {
@@ -403,27 +507,18 @@ async function queryLog(logDirectory, filter, index) {
 	return log;
 }
 
-function handleUnhandledErrors() {
+export function handleUnhandledErrors() {
 	/* eslint-disable node/no-process-exit */
 	process.on("uncaughtException", err => {
 		logger.fatal(`Uncaught exception:\n${err.stack}`);
 		process.exit(1);
 	});
-	process.on("unhandledRejection", (reason, promise) => {
+	process.on("unhandledRejection", (reason: Error, _promise) => {
 		logger.fatal(`Unhandled rejection:\n${reason.stack ? reason.stack : reason}`);
 		process.exit(1);
 	});
 	/* eslint-enable node/no-process-exit */
 }
 
-const _formatServerOutput = formatServerOutput;
-module.exports = {
-	TerminalFormat,
-	LinkTransport,
-	LogIndex,
-	handleUnhandledErrors,
-	queryLog,
-
-	// for testing only
-	_formatServerOutput,
-};
+// for testing only
+export const _formatServerOutput = formatServerOutput;

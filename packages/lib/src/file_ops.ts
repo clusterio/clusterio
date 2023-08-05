@@ -1,25 +1,24 @@
 /**
  * @module lib/file_ops
  */
-"use strict";
-const fs = require("fs-extra");
-const path = require("path");
-const crypto = require("crypto"); // needed for getTempFile
+import fs from "fs-extra";
+import path from "path";
+import crypto from "crypto"; // needed for getTempFile
 
 /**
  * Returns the newest file in a directory
  *
- * @param {string} directory - The directory to look for the newest file in.
- * @param {function(string): boolean} filter -
+ * @param directory - The directory to look for the newest file in.
+ * @param filter -
  *     Optional function to filter out files to ignore.  Should return true
  *     if the file is to be considered.
- * @returns {Promise<string|undefined>}
+ * @returns
  *     Name of the file with the newest timestamp or null if the
  *     directory contains no files.
  */
-async function getNewestFile(directory, filter = (name) => true) {
+export async function getNewestFile(directory: string, filter = (_name: string) => true) {
 	let newestTime = new Date(0);
-	let newestFile;
+	let newestFile: string | undefined;
 	for (let entry of await fs.readdir(directory, { withFileTypes: true })) {
 		if (entry.isFile()) {
 			let stat = await fs.stat(path.join(directory, entry.name));
@@ -40,11 +39,11 @@ async function getNewestFile(directory, filter = (name) => true) {
  * Error reading the size of files are ignored, and error reading the
  * directory will result in 0 being returned.
  *
- * @param {string} directory - The directory to sum files in.
- * @returns {Promise<number>} The size in bytes of all files in the directory.
+ * @param directory - The directory to sum files in.
+ * @returns The size in bytes of all files in the directory.
  */
-async function directorySize(directory) {
-	let dirEntries;
+export async function directorySize(directory: string) {
+	let dirEntries: fs.Dirent[];
 	try {
 		dirEntries = await fs.readdir(directory, { withFileTypes: true });
 	} catch (err) {
@@ -53,7 +52,7 @@ async function directorySize(directory) {
 		}
 		throw err;
 	}
-	let statTasks = [];
+	let statTasks: Promise<number>[] = [];
 	for (let entry of dirEntries) {
 		if (entry.isFile()) {
 			statTasks.push(fs
@@ -77,13 +76,13 @@ async function directorySize(directory) {
  * racy and a file or folder may have been created in the folder by the time
  * this function returns.
  *
- * @param {string} directory - directory to check in.
- * @param {string} name - file name to check for, may have extension.
- * @param {string} extension - dot extension used for the file name.
- * @returns {Promise<string>} modified name with extension that likely does
+ * @param directory - directory to check in.
+ * @param name - file name to check for, may have extension.
+ * @param extension - dot extension used for the file name.
+ * @returns modified name with extension that likely does
  *     not exist in the folder
  */
-async function findUnusedName(directory, name, extension = "") {
+export async function findUnusedName(directory: string, name: string, extension = "") {
 	if (extension && name.endsWith(extension)) {
 		name = name.slice(0, -extension.length);
 	}
@@ -101,25 +100,27 @@ async function findUnusedName(directory, name, extension = "") {
 		}
 	}
 }
+
 /**
+ * Generate collision resistante temporary file name
+ *
  * Warning: this function should not be relied upon to be accurate for
  * security sensitive applications.  The selection process is inherently
  * racy and a file or folder may have been created in the folder by the time
  * this function returns.
  *
- * @param {string} prefix - Prefix for file
- * @param {string} suffix - Suffix for file
- * @param {string} tmpdir - Directory for temp file
+ * @param prefix - Prefix for file
+ * @param suffix - Suffix for file
+ * @param tmpdir - Directory for temp file
+ * @returns Temporary file name
  */
-async function getTempFile(prefix, suffix, tmpdir) {
-	prefix = (typeof prefix !== "undefined") ? prefix : "tmp.";
-	suffix = (typeof suffix !== "undefined") ? suffix : "";
-	tmpdir = (typeof tmpdir !== "undefined") ? tmpdir : "./";
+export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
 	let fileName = path.join(prefix + crypto.randomBytes(16).toString("hex") + suffix);
 	let freeFile = await findUnusedName(tmpdir, fileName);
 	let fullPath = path.join(tmpdir, freeFile);
 	return fullPath;
 }
+
 /**
  * Safely write data to a file
  *
@@ -131,11 +132,11 @@ async function getTempFile(prefix, suffix, tmpdir) {
  * should not be too much of an issue as the next time the same file is
  * written the temporary will be overwritten and renamed to the target file.
  *
- * @param {string} file - Path to file to write.
- * @param {string|Buffer} data - Content to write.
- * @param {object|string} options - see fs.writeFile, `flag` must not be set.
+ * @param file - Path to file to write.
+ * @param data - Content to write.
+ * @param options - see fs.writeFile, `flag` must not be set.
  */
-async function safeOutputFile(file, data, options={}) {
+export async function safeOutputFile(file: string, data: string | Buffer, options: fs.WriteFileOptions ={}) {
 	let directory = path.dirname(file);
 	if (!await fs.pathExists(directory)) {
 		await fs.mkdirs(directory);
@@ -153,7 +154,7 @@ async function safeOutputFile(file, data, options={}) {
 }
 
 
-// Reserved names by allmost all filesystems
+// Reserved names by almost all filesystems
 const badNames = [".", ".."];
 
 // Reserved namespaces in Windows
@@ -167,10 +168,10 @@ const badWinNamespaces = [
 /**
  * Check if a string is a valid file name
  *
- * @param {string} name - Name to check
+ * @param name - Name to check
  * @throws Error if the name is unsuitable.
  */
-function checkFilename(name) {
+export function checkFilename(name: string) {
 	// All of these are bad in Windows only, except for /, . and ..
 	// See: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file
 	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
@@ -208,10 +209,10 @@ function checkFilename(name) {
 /**
  * Clean up string to be suitable for use as filename
  *
- * @param {string} name - Arbitrary name string
- * @returns {string} Filename suitable to use in the filesystem
+ * @param name - Arbitrary name string
+ * @returns Filename suitable to use in the filesystem
  */
-function cleanFilename(name) {
+export function cleanFilename(name: string) {
 	// copied from checkFilename due to RegExp with global flag containing state.
 	const badChars = /[<>:"\/\\|?*\x00-\x1f]/g;
 	const badEnd = /[. ]$/;
@@ -233,14 +234,3 @@ function cleanFilename(name) {
 
 	return name;
 }
-
-
-module.exports = {
-	getNewestFile,
-	directorySize,
-	findUnusedName,
-	getTempFile,
-	safeOutputFile,
-	checkFilename,
-	cleanFilename,
-};
