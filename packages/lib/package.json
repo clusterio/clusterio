@@ -5,7 +5,7 @@
   "repository": "https://github.com/clusterio/clusterio",
   "license": "MIT",
   "scripts": {
-    "prepare": "pnpm run compile_validator && tsc || true",
+    "prepare": "pnpm run compile_validator && tsc",
     "compile_validator": "node scripts/compile_validator.js"
   },
   "main": "dist/index.js",

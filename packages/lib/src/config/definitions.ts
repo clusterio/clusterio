@@ -1,13 +1,11 @@
 // Core definitions for the configuration system
-"use strict";
-
-const classes = require("./classes");
+import * as classes from "./classes";
+import type { PluginInfo } from "../plugin";
 
 
 /**
- * Controller config group for {@link module:lib.ControllerConfig}
- * @extends module:lib.ConfigGroup
- * @memberof module:lib
+ * Controller config group for {@link ControllerConfig}
+ * @extends classes.ConfigGroup
  */
 class ControllerGroup extends classes.ConfigGroup { }
 ControllerGroup.defaultAccess = ["controller", "host", "control"];
@@ -140,17 +138,15 @@ ControllerGroup.finalize();
 
 /**
  * Controller Config class
- * @extends module:lib.Config
- * @memberof module:lib
+ * @extends classes.Config
  */
 class ControllerConfig extends classes.Config { }
 ControllerConfig.registerGroup(ControllerGroup);
 
 
 /**
- * Host config group for {@link module:lib.HostConfig}
- * @extends module:lib.ConfigGroup
- * @memberof module:lib
+ * Host config group for {@link HostConfig}
+ * @extends classes.ConfigGroup
  */
 class HostGroup extends classes.ConfigGroup {}
 HostGroup.defaultAccess = ["controller", "host", "control"];
@@ -232,17 +228,15 @@ HostGroup.finalize();
 
 /**
  * Host Config class
- * @extends module:lib.Config
- * @memberof module:lib
+ * @extends classes.Config
  */
 class HostConfig extends classes.Config { }
 HostConfig.registerGroup(HostGroup);
 
 
 /**
- * Instance config group for {@link module:lib.InstanceConfig}
- * @extends module:lib.ConfigGroup
- * @memberof module:lib
+ * Instance config group for {@link classes.InstanceConfig}
+ * @extends classes.ConfigGroup
  */
 class InstanceGroup extends classes.ConfigGroup { }
 InstanceGroup.defaultAccess = ["controller", "host", "control"];
@@ -272,9 +266,8 @@ InstanceGroup.define({
 InstanceGroup.finalize();
 
 /**
- * Factorio config group for {@link module:lib.InstanceConfig}
- * @extends module:lib.ConfigGroup
- * @memberof module:lib
+ * Factorio config group for {@link classes.InstanceConfig}
+ * @extends classes.ConfigGroup
  */
 class FactorioGroup extends classes.ConfigGroup { }
 FactorioGroup.defaultAccess = ["controller", "host", "control"];
@@ -398,8 +391,7 @@ FactorioGroup.finalize();
 
 /**
  * Instance config class
- * @extends module:lib.Config
- * @memberof module:lib
+ * @extends classes.Config
  */
 class InstanceConfig extends classes.Config { }
 InstanceConfig.registerGroup(InstanceGroup);
@@ -407,9 +399,8 @@ InstanceConfig.registerGroup(FactorioGroup);
 
 
 /**
- * Control config group for {@link module:lib.ControlConfig}
- * @extends module:lib.ConfigGroup
- * @memberof module:lib
+ * Control config group for {@link classes.ControlConfig}
+ * @extends classes.ConfigGroup
  */
 class ControlGroup extends classes.ConfigGroup {}
 ControlGroup.defaultAccess = ["control"];
@@ -443,14 +434,13 @@ ControlGroup.finalize();
 
 /**
  * Control config class
- * @extends module:lib.Config
- * @memberof module:lib
+ * @extends classes.Config
  */
 class ControlConfig extends classes.Config { }
 ControlConfig.registerGroup(ControlGroup);
 
 
-function validateGroup(pluginInfo, groupName) {
+function validateGroup(pluginInfo: PluginInfo, groupName: string) {
 	if (!(pluginInfo[groupName].prototype instanceof classes.PluginConfigGroup)) {
 		throw new Error(
 			`Expected ${groupName} for ${pluginInfo.name} to be a subclass of PluginConfigGroup`
@@ -468,9 +458,8 @@ function validateGroup(pluginInfo, groupName) {
  * Registers the config groups for the provided plugin infos
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
- * @memberof module:lib
  */
-function registerPluginConfigGroups(pluginInfos) {
+function registerPluginConfigGroups(pluginInfos: PluginInfo[]) {
 	for (let pluginInfo of pluginInfos) {
 		if (pluginInfo.ControllerConfigGroup) {
 			validateGroup(pluginInfo, "ControllerConfigGroup");
@@ -502,8 +491,6 @@ function registerPluginConfigGroups(pluginInfos) {
 
 /**
  * Lock configs from adding more groups and make them usable
- *
- * @memberof module:lib
  */
 function finalizeConfigs() {
 	ControllerConfig.finalize();

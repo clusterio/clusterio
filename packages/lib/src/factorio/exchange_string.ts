@@ -1,51 +1,50 @@
 "use strict";
-const zlib = require("zlib");
-
+import zlib from "zlib";
 
 class MapReaderState {
-	constructor(buf) {
-		this.pos = 0;
-		this.buf = buf;
-		this.last_position = { x: 0, y: 0 };
-	}
+	pos = 0;
+	last_position = { x: 0, y: 0 };
+	constructor(
+		public buf: Buffer
+	) { }
 }
 
-function readUInt8(state) {
+function readUInt8(state: MapReaderState) {
 	let value = state.buf.readUInt8(state.pos);
 	state.pos += 1;
 	return value;
 }
 
-function readBool(state) {
+function readBool(state: MapReaderState) {
 	let value = readUInt8(state) !== 0;
 	return value;
 }
 
-function readInt16(state) {
+function readInt16(state: MapReaderState) {
 	let value = state.buf.readInt16LE(state.pos);
 	state.pos += 2;
 	return value;
 }
 
-function readUInt16(state) {
+function readUInt16(state: MapReaderState) {
 	let value = state.buf.readUInt16LE(state.pos);
 	state.pos += 2;
 	return value;
 }
 
-function readInt32(state) {
+function readInt32(state: MapReaderState) {
 	let value = state.buf.readInt32LE(state.pos);
 	state.pos += 4;
 	return value;
 }
 
-function readUInt32(state) {
+function readUInt32(state: MapReaderState) {
 	let value = state.buf.readUInt32LE(state.pos);
 	state.pos += 4;
 	return value;
 }
 
-function readUInt32so(state) {
+function readUInt32so(state: MapReaderState) {
 	let value = readUInt8(state);
 	if (value === 0xff) {
 		return readUInt32(state);
@@ -54,26 +53,26 @@ function readUInt32so(state) {
 	return value;
 }
 
-function readFloat(state) {
+function readFloat(state: MapReaderState) {
 	let value = state.buf.readFloatLE(state.pos);
 	state.pos += 4;
 	return value;
 }
 
-function readDouble(state) {
+function readDouble(state: MapReaderState) {
 	let value = state.buf.readDoubleLE(state.pos);
 	state.pos += 8;
 	return value;
 }
 
-function readString(state) {
+function readString(state: MapReaderState) {
 	let size = readUInt32so(state);
-	let data = state.buf.slice(state.pos, state.pos + size).toString("utf-8");
+	let data = state.buf.subarray(state.pos, state.pos + size).toString("utf-8");
 	state.pos += size;
 	return data;
 }
 
-function readOptional(state, readValue) {
+function readOptional<T>(state: MapReaderState, readValue: (state: MapReaderState) => T) {
 	let load = readUInt8(state) !== 0;
 	if (!load) {
 		return null;
@@ -81,10 +80,10 @@ function readOptional(state, readValue) {
 	return readValue(state);
 }
 
-function readArray(state, readItem) {
+function readArray<T>(state: MapReaderState, readItem: (state: MapReaderState) => T) {
 	let size = readUInt32so(state);
 
-	let array = [];
+	let array: T[] = [];
 	for (let i = 0; i < size; i++) {
 		let item = readItem(state);
 		array.push(item);
@@ -93,10 +92,14 @@ function readArray(state, readItem) {
 	return array;
 }
 
-function readDict(state, readKey, readValue) {
+function readDict<K, V>(
+	state: MapReaderState,
+	readKey: (state: MapReaderState) => K,
+	readValue: (state: MapReaderState) => V
+) {
 	let size = readUInt32so(state);
 
-	let mapping = new Map();
+	let mapping = new Map<K, V>();
 	for (let i = 0; i < size; i++) {
 		let key = readKey(state);
 		let value = readValue(state);
@@ -106,7 +109,7 @@ function readDict(state, readKey, readValue) {
 	return mapping;
 }
 
-function readVersion(state) {
+function readVersion(state: MapReaderState) {
 	let major = readUInt16(state);
 	let minor = readUInt16(state);
 	let patch = readUInt16(state);
@@ -114,7 +117,7 @@ function readVersion(state) {
 	return [major, minor, patch, developer];
 }
 
-function readFrequencySizeRichness(state) {
+function readFrequencySizeRichness(state: MapReaderState) {
 	return {
 		frequency: readFloat(state),
 		size: readFloat(state),
@@ -122,15 +125,15 @@ function readFrequencySizeRichness(state) {
 	};
 }
 
-function readAutoplaceSetting(state) {
+function readAutoplaceSetting(state: MapReaderState) {
 	return {
 		treat_missing_as_default: readBool(state),
 		settings: Object.fromEntries(readDict(state, readString, readFrequencySizeRichness)),
 	};
 }
 
-function readMapPosition(state) {
-	let x, y;
+function readMapPosition(state: MapReaderState) {
+	let x: number, y: number;
 	let x_diff = readInt16(state) / 256;
 	if (x_diff === 0x7fff / 256) {
 		x = readInt32(state) / 256;
@@ -145,7 +148,7 @@ function readMapPosition(state) {
 	return { x, y };
 }
 
-function readBoundingBox(state) {
+function readBoundingBox(state: MapReaderState) {
 	return {
 		left_top: readMapPosition(state),
 		right_bottom: readMapPosition(state),
@@ -156,7 +159,7 @@ function readBoundingBox(state) {
 	};
 }
 
-function readCliffSettings(state) {
+function readCliffSettings(state: MapReaderState) {
 	return {
 		name: readString(state),
 		elevation_0: readFloat(state),
@@ -165,7 +168,7 @@ function readCliffSettings(state) {
 	};
 }
 
-function readMapGenSettings(state) {
+function readMapGenSettings(state: MapReaderState) {
 	return {
 		terrain_segmentation: readFloat(state),
 		water: readFloat(state),
@@ -184,7 +187,7 @@ function readMapGenSettings(state) {
 	};
 }
 
-function readPollution(state) {
+function readPollution(state: MapReaderState) {
 	return {
 		enabled: readOptional(state, readBool),
 		diffusion_ratio: readOptional(state, readDouble),
@@ -201,24 +204,23 @@ function readPollution(state) {
 	};
 }
 
-function readSteeringValue(state) {
+function readSteeringValue(state: MapReaderState) {
 	return {
 		radius: readOptional(state, readDouble),
 		separation_factor: readOptional(state, readDouble),
 		separation_force: readOptional(state, readDouble),
 		force_unit_fuzzy_goto_behavior: readOptional(state, readBool),
 	};
-
 }
 
-function readSteering(state) {
+function readSteering(state: MapReaderState) {
 	return {
 		default: readSteeringValue(state),
 		moving: readSteeringValue(state),
 	};
 }
 
-function readEnemyEvolution(state) {
+function readEnemyEvolution(state: MapReaderState) {
 	return {
 		enabled: readOptional(state, readBool),
 		time_factor: readOptional(state, readDouble),
@@ -227,7 +229,7 @@ function readEnemyEvolution(state) {
 	};
 }
 
-function readEnemyExpansion(state) {
+function readEnemyExpansion(state: MapReaderState) {
 	return {
 		enabled: readOptional(state, readBool),
 		max_expansion_distance: readOptional(state, readUInt32),
@@ -245,7 +247,7 @@ function readEnemyExpansion(state) {
 	};
 }
 
-function readUnitGroup(state) {
+function readUnitGroup(state: MapReaderState) {
 	return {
 		min_group_gathering_time: readOptional(state, readUInt32),
 		max_group_gathering_time: readOptional(state, readUInt32),
@@ -263,7 +265,7 @@ function readUnitGroup(state) {
 	};
 }
 
-function readPathFinder(state) {
+function readPathFinder(state: MapReaderState) {
 	return {
 		fwd2bwd_ratio: readOptional(state, readInt32),
 		goal_pressure_ratio: readOptional(state, readDouble),
@@ -301,7 +303,7 @@ function readPathFinder(state) {
 	};
 }
 
-function readDifficultySettings(state) {
+function readDifficultySettings(state: MapReaderState) {
 	return {
 		recipe_difficulty: readUInt8(state),
 		technology_difficulty: readUInt8(state),
@@ -310,7 +312,7 @@ function readDifficultySettings(state) {
 	};
 }
 
-function readMapSettings(state) {
+function readMapSettings(state: MapReaderState) {
 	return {
 		pollution: readPollution(state),
 		steering: readSteering(state),
@@ -323,18 +325,23 @@ function readMapSettings(state) {
 	};
 }
 
-/**
- * @typedef {object} MapExchangeResult
- * @property {array} version -
- *     Version of Factorio the string was created with.
- * @property {object} map_gen_settings -
- *     Decoded map generator settings in the format the --map-gen-settings
- *     command line option to Factorio expect.
- * @property {object} map_settings -
- *     Decoded map settings in the format the --map-settings command line option
- *     to Factorio expects.
- * @property {number} checksum - checksum for the exchange string.
- */
+export interface MapExchangeData {
+	/** Version of Factorio the string was created with. */
+	version: ReturnType<typeof readVersion>;
+	unknown: number;
+	/**
+	 * Decoded map generator settings in the format the --map-gen-settings
+	 * command line option to Factorio expect.
+	 */
+	map_gen_settings: ReturnType<typeof readMapGenSettings>;
+	/**
+	 * Decoded map settings in the format the --map-settings command line
+	 * option to Factorio expects.
+	 */
+	map_settings: ReturnType<typeof readMapSettings>;
+	/** CRC32 checksum for the exchange string. */
+	checksum: number;
+}
 
 /**
  * Parse a Map Exchange String
@@ -343,11 +350,10 @@ function readMapSettings(state) {
  * data structures that can be fed into the Factorio server when creating a
  * save to set the map gen settings and the map settings for the save.
  *
- * @param {string} exchangeString - Max Exchange String to parse.
- * @returns {MapExchangeResult} Parsed result.
- * @memberof module:lib
+ * @param exchangeString - Max Exchange String to parse.
+ * @returns Parsed result.
  */
-function readMapExchangeString(exchangeString) {
+export function readMapExchangeString(exchangeString: string) {
 	exchangeString = exchangeString.replace(/[ \t\n\r]+/g, "");
 	if (!/>>>[0-9a-zA-Z\/+]+={0,3}<<</.test(exchangeString)) {
 		throw new Error("Not a map exchange string");
@@ -364,7 +370,7 @@ function readMapExchangeString(exchangeString) {
 	}
 
 	let state = new MapReaderState(buf);
-	let data;
+	let data: MapExchangeData;
 
 	try {
 		data = {
@@ -387,7 +393,3 @@ function readMapExchangeString(exchangeString) {
 
 	return data;
 }
-
-module.exports = {
-	readMapExchangeString,
-};

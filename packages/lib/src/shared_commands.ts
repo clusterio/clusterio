@@ -135,7 +135,7 @@ export async function handleConfigCommand(
 	let command = args._[1];
 
 	if (command === "list") {
-		for (let GroupClass of (instance as any).constructor.groups.values()) {
+		for (let GroupClass of (instance.constructor as typeof libConfig.Config).groups.values()) {
 			for (let def of GroupClass.definitions.values()) {
 				let value = instance.get(def.fullName);
 				print(`${def.fullName} ${JSON.stringify(value)}`);

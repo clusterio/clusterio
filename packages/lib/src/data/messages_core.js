@@ -19,10 +19,10 @@ class Address {
 	/** @type {number} */
 	type;
 
-	/** @type {string} */
+	/** @type {number} */
 	id;
 
-	/** @type {string|undefined} */
+	/** @type {number|undefined} */
 	requestId;
 
 	constructor(type, id, requestId) {

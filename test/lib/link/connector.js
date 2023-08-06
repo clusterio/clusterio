@@ -37,15 +37,6 @@ describe("lib/link/connectors", function() {
 		let testConnector = new lib.WebSocketClientConnector("url", 1);
 		testConnector._socket = new mock.MockSocket();
 
-		describe(".register()", function() {
-			it("is abstract", function() {
-				assert.throws(
-					() => testConnector.register(),
-					new Error("Abstract function")
-				);
-			});
-		});
-
 		describe(".sendHandshake()", function() {
 			it("calls send on the socket", function() {
 				testConnector._state = "connecting";

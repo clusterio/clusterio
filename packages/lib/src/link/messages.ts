@@ -1,15 +1,18 @@
 "use strict";
-const core = require("../data/messages_core");
-const controller = require("../data/messages_controller");
-const host = require("../data/messages_host");
-const instance = require("../data/messages_instance");
-const mod = require("../data/messages_mod");
-const user = require("../data/messages_user");
+import * as core from "../data/messages_core";
+import * as controller from "../data/messages_controller";
+import * as host from "../data/messages_host";
+import * as instance from "../data/messages_instance";
+import * as mod from "../data/messages_mod";
+import * as user from "../data/messages_user";
 
-// Event and Request payloads registered with the Link class. Used to decode
-// the data payload of incomming requsts and event messages into instances of
-// their proper classes.
-const dataClasses = [
+/**
+ * Event and Request payloads registered with the Link class. Used to decode
+ * the data payload of incomming requsts and event messages into instances of
+ * their proper classes.
+ * @internal
+ */
+export const dataClasses = [
 	core.PingRequest,
 
 	controller.ControllerConfigGetRequest,
@@ -107,5 +110,3 @@ const dataClasses = [
 	user.AccountUpdateEvent,
 	user.UserUpdateEvent,
 ];
-
-module.exports = { dataClasses };

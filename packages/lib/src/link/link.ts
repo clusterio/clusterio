@@ -1,11 +1,45 @@
 // Implementation of Link class
-"use strict";
+import * as libData from "../data";
+import * as libErrors from "../errors";
+import { logger } from "../logging";
+import * as libSchema from "../schema";
+import { dataClasses } from "./messages";
+import { BaseConnector, WebSocketBaseConnector } from "./connectors";
+import { strict as assert } from "assert";
+import type { PluginInfo } from "../plugin";
 
-const libData = require("../data");
-const libErrors = require("../errors");
-const { logger } = require("../logging");
-const libSchema = require("../schema");
-const { dataClasses } = require("./messages");
+interface RequestEntry {
+	Request: typeof libData.Request;
+	name: string,
+	allowedSrcTypes: Set<number>;
+	allowedDstTypes: Set<number>;
+	requestFromJSON: (json: any) => libData.Request;
+	Response?: any;
+	responseFromJSON: (json: any) => any;
+}
+
+interface PendingRequest {
+	promise: Promise<any>;
+	request: RequestEntry;
+	resolve: (result: any) => void;
+	reject: (err: Error) => void;
+	dst: libData.Address;
+}
+interface ForwardedRequest {
+	origin: Link;
+	src: libData.Address;
+	dst: libData.Address;
+}
+
+interface EventEntry {
+	Event: typeof libData.Event;
+	name: string,
+	allowedSrcTypes: Set<number>;
+	allowedDstTypes: Set<number>;
+	eventFromJSON: (json: any) => libData.Event;
+}
+type RequestHandler = (request: libData.Request, src: libData.Address, dst: libData.Address) => any;
+type EventHandler = (request: libData.Event, src: libData.Address, dst: libData.Address) => any;
 
 // Some definitions for the terminology used here:
 // link: Either side of a controller - client connection
@@ -16,23 +50,23 @@ const { dataClasses } = require("./messages");
 
 /**
  * Common interface for server and client connections
- *
- * @memberof module:lib
  */
-class Link {
-	constructor(connector) {
-		this.connector = connector;
-		this.router = undefined;
-		this.validateSent = true;
+export class Link {
+	router = undefined;
+	validateSent = true;
 
-		this._requestHandlers = new Map();
-		this._requestFallbacks = new Map();
-		this._eventHandlers = new Map();
-		this._eventSnoopers = new Map();
-		this._pendingRequests = new Map();
-		this._forwardedRequests = new Map();
-		this._nextRequestId = 1;
+	_requestHandlers = new Map();
+	_requestFallbacks = new Map();
+	_eventHandlers = new Map();
+	_eventSnoopers = new Map();
+	_pendingRequests = new Map<number, PendingRequest>();
+	_forwardedRequests = new Map<string, ForwardedRequest>();
+	_nextRequestId = 1;
 
+	constructor(
+		public connector: BaseConnector
+	) {
+		// @ts-ignore: TODO Remove when lib/data is migrated to ts
 		this.handle(libData.PingRequest, () => {});
 
 		// Process messages received by the connector
@@ -74,11 +108,12 @@ class Link {
 		});
 	}
 
-	_clearPendingRequests(err) {
+	_clearPendingRequests(err: Error & { code?: string }) {
 		for (let pending of this._pendingRequests.values()) {
 			pending.reject(err);
 		}
 		for (let pending of this._forwardedRequests.values()) {
+			assert(pending.origin.connector instanceof WebSocketBaseConnector);
 			if (pending.origin.connector.hasSession) {
 				pending.origin.connector.sendResponseError(
 					new libData.ResponseError(err.message, err.code), pending.src, pending.dst
@@ -95,10 +130,12 @@ class Link {
 	 * Validates and invokes the handler and/or waiters for a message that has
 	 * been received.  An unhandled message is considered to be an error.
 	 *
-	 * @param {module:lib.Message} message - Message to process.
-	 * @throws {module:lib.InvalidMessage} if the message is invalid or not handled.
+	 * @param message - Message to process.
+	 * @throws {libErrors.InvalidMessage} if the message is invalid or not handled.
 	 */
-	_processMessage(message) {
+	_processMessage(
+		message: libData.MessageRequest | libData.MessageResponse | libData.MessageResponseError | libData.MessageEvent
+	) {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
 			throw new libErrors.InvalidMessage(`Unhandled message type ${message.type}`);
 		}
@@ -115,10 +152,11 @@ class Link {
 			}
 		}
 
-		if (message.type === "event" && this._eventSnoopers.has(entry.Event)) {
-			let handler = this._eventSnoopers.get(entry.Event);
-			handler(entry.eventFromJSON(message.data), message.src, message.dst).catch(err => {
-				logger.error(`Unexpected error snooping ${message.name}:\n${err.stack}`);
+		if (message.type === "event" && this._eventSnoopers.has((entry as EventEntry).Event)) {
+			let handler = this._eventSnoopers.get((entry as EventEntry).Event);
+			let event = message as libData.MessageEvent;
+			handler((entry as EventEntry).eventFromJSON(event.data), event.src, event.dst).catch((err: Error) => {
+				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
 			});
 		}
 
@@ -131,7 +169,11 @@ class Link {
 		}
 
 		if (message.type === "request") {
-			this._processRequest(message, entry, this._requestHandlers.get(entry.Request));
+			this._processRequest(
+				message as libData.MessageRequest,
+				entry as RequestEntry,
+				this._requestHandlers.get((entry as RequestEntry).Request)
+			);
 
 		} else if (message.type === "response") {
 			this._processResponse(message);
@@ -140,7 +182,10 @@ class Link {
 			this._processResponseError(message);
 
 		} else if (message.type === "event") {
-			this._processEvent(message, entry);
+			this._processEvent(
+				message as libData.MessageEvent,
+				entry as EventEntry
+			);
 		}
 	}
 
@@ -149,12 +194,14 @@ class Link {
 	 *
 	 * Should be overridden by sub-classes to validate messages received.
 	 *
-	 * @param {module:lib.Message} message - Message to check.
-	 * @throws {module:lib.InvalidMessage} if the message is invalid.
+	 * @param message - Message to check.
+	 * @throws {libErrors.InvalidMessage} if the message is invalid.
 	 */
-	validateIngress(message) { }
+	validateIngress(message: libData.Message) { }
 
-	_validateMessage(message) {
+	_validateMessage(
+		message: libData.MessageRequest | libData.MessageResponse | libData.MessageResponseError | libData.MessageEvent
+	) {
 		try {
 			if (message.src.type === libData.Address.broadcast) {
 				throw new libErrors.InvalidMessage("Message src may not be broadcast");
@@ -168,7 +215,8 @@ class Link {
 		}
 
 		if (message.type === "request") {
-			let entry = this.constructor._requestsByName.get(message.name);
+			assert(message instanceof libData.MessageRequest);
+			let entry = Link._requestsByName.get(message.name);
 			if (!entry) {
 				let err = new libErrors.InvalidMessage(`Unrecognized request ${message.name}`);
 				this.connector.sendResponseError(new libData.ResponseError(err.message, err.code), message.src);
@@ -193,7 +241,8 @@ class Link {
 			return undefined;
 
 		} else if (message.type === "event") {
-			let entry = this.constructor._eventsByName.get(message.name);
+			assert(message instanceof libData.MessageEvent);
+			let entry = Link._eventsByName.get(message.name);
 			if (!entry) {
 				throw new libErrors.InvalidMessage(`Unrecognized event ${message.name}`);
 			}
@@ -222,26 +271,29 @@ class Link {
 	 * Called when an request or event is received by a control connector.
 	 * Should be overridden by sub-classes to validate messages received.
 	 *
-	 * @param {module:lib.Message} message - Message to check.
-	 * @param {object} entry - Request or Event entry for this Message.
-	 * @throws {module:lib.PermissionError} if unauthorized.
+	 * @param message - Message to check.
+	 * @param entry - Request or Event entry for this Message.
+	 * @throws {libErrors.PermissionError} if unauthorized.
 	 */
-	validatePermission(message, entry) { }
+	validatePermission(message: libData.Message, entry: RequestEntry | EventEntry) { }
 
-	_routeMessage(message, entry) {
+	_routeMessage(message: libData.Message, entry?: RequestEntry | EventEntry) {
 		if (!this.router) {
 			let err = new libErrors.InvalidMessage(
-				`Received message addressed to ${message.dst} but this link does not route messages`
+				`Received message addressed to ${(message as libData.MessageRequest).dst} but this link `+
+				`does not route messages`
 			);
 			if (message.type === "request") {
 				this.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code), message.src
+					new libData.ResponseError(err.message, err.code), (message as libData.MessageRequest).src
 				);
 			}
 			throw err;
 		}
 
-		let fallback = message.type === "request" ? this._requestFallbacks.get(entry.Request) : undefined;
+		let fallback =
+			message.type === "request" ? this._requestFallbacks.get((entry as RequestEntry).Request) : undefined
+		;
 		if (this.router.forwardMessage(this, message, Boolean(fallback))) {
 			return;
 		}
@@ -251,10 +303,20 @@ class Link {
 		if (message.type !== "request") {
 			throw new Error(`Router requested fallback handling of unsupported message type ${message.type}`);
 		}
-		this._processRequest(message, entry, fallback, message.dst);
+		this._processRequest(
+			message as libData.MessageRequest,
+			entry as RequestEntry,
+			fallback,
+			(message as libData.MessageRequest).dst
+		);
 	}
 
-	_processRequest(message, entry, handler, spoofedSrc) {
+	_processRequest(
+		message: libData.MessageRequest,
+		entry: RequestEntry,
+		handler: RequestHandler,
+		spoofedSrc?: libData.Address
+	) {
 		if (!handler) {
 			this.connector.sendResponseError(
 				new libData.ResponseError(`No handler for ${entry.Request.name}`), message.src
@@ -262,7 +324,7 @@ class Link {
 			return;
 		}
 
-		let response;
+		let response: any;
 		try {
 			response = handler(entry.requestFromJSON(message.data), message.src, message.dst);
 		} catch (err) {
@@ -280,7 +342,7 @@ class Link {
 		}
 
 		response.then(
-			result => {
+			(result: any) => {
 				if (this.validateSent) {
 					if (entry.Response) {
 						entry.responseFromJSON(JSON.parse(JSON.stringify(result)));
@@ -291,7 +353,7 @@ class Link {
 				this.connector.sendResponse(result, message.src, spoofedSrc);
 			}
 		).catch(
-			err => {
+			(err: Error & { code?: string }) => {
 				if (err instanceof libErrors.InvalidMessage) {
 					logger.error(err.message);
 					if (err.errors) {
@@ -307,7 +369,7 @@ class Link {
 		);
 	}
 
-	_processResponse(message) {
+	_processResponse(message: libData.MessageResponse) {
 		let pending = this._pendingRequests.get(message.dst.requestId);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
@@ -327,7 +389,7 @@ class Link {
 		}
 	}
 
-	_processResponseError(message) {
+	_processResponseError(message: libData.MessageResponseError) {
 		let pending = this._pendingRequests.get(message.dst.requestId);
 		if (!pending) {
 			throw new libErrors.InvalidMessage(
@@ -338,13 +400,15 @@ class Link {
 		pending.reject(new libErrors.RequestError(message.data.message, message.data.code, message.data.stack));
 	}
 
-	_processEvent(message, entry) {
+	_processEvent(message: libData.MessageEvent, entry: EventEntry) {
 		let handler = this._eventHandlers.get(entry.Event);
 		if (!handler) {
 			throw new libErrors.InvalidMessage(`Unhandled event ${message.name}`);
 		}
 
-		handler(entry.eventFromJSON(message.data), message.src, message.dst).catch(err => {
+		handler(
+			entry.eventFromJSON(message.data), message.src, message.dst
+		).catch((err: Error) => {
 			logger.error(`Unexpected error handling ${message.name}:\n${err.stack}`);
 		});
 	}
@@ -368,38 +432,46 @@ class Link {
 
 	/**
 	 * Send a request or event to the other side of this link
-	 * @param {*} requestOrEvent - Request or event to send
-	 * @returns {Promise<*>|undefined}
+	 * @param requestOrEvent - Request or event to send
+	 * @returns
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
-	send(requestOrEvent) {
+	send(requestOrEvent: libData.Request): Promise<unknown>;
+	send(requestOrEvent: libData.Event): void;
+	send(requestOrEvent: libData.Request | libData.Event): Promise<unknown> | void {
 		return this.sendTo(this.connector.dst, requestOrEvent);
 	}
 
 	/**
 	 * Send a request or event to the given address
 	 *
-	 * @param {*|module:lib.Address} destination - Where to send it
-	 * @param {*} requestOrEvent - Request or event to send
-	 * @returns {Promise<*>|undefined}
+	 * @param destination - Where to send it
+	 * @param requestOrEvent - Request or event to send
+	 * @returns
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
-	sendTo(destination, requestOrEvent) {
+	sendTo(destination: libData.AddressShorthand, requestOrEvent: libData.Request): Promise<unknown>;
+	sendTo(destination: libData.AddressShorthand, requestOrEvent: libData.Event): void;
+	sendTo(
+		destination: libData.AddressShorthand,
+		requestOrEvent: libData.Request | libData.Event,
+	): Promise<unknown> | void {
 		let dst = libData.Address.fromShorthand(destination);
 
-		if (requestOrEvent.constructor.type === "request") {
+		// TODO investigate if these types can be inferred
+		if ((requestOrEvent.constructor as any).type === "request") {
 			return this.sendRequest(requestOrEvent, dst);
 		}
-		if (requestOrEvent.constructor.type === "event") {
+		if ((requestOrEvent.constructor as any).type === "event") {
 			return this.sendEvent(requestOrEvent, dst);
 		}
-		throw Error(`Expected request or event but got type ${requestOrEvent.constructor.type}`);
+		throw Error(`Expected request or event but got type ${(requestOrEvent.constructor as any).type}`);
 	}
 
-	sendRequest(request, dst) {
-		let entry = this.constructor._requestsByClass.get(request.constructor);
+	sendRequest(request: libData.Request, dst: libData.Address) {
+		let entry = Link._requestsByClass.get(request.constructor as typeof libData.Request);
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Request ${request.constructor.name}`);
 		}
@@ -407,22 +479,22 @@ class Link {
 			entry.requestFromJSON(JSON.parse(JSON.stringify(request)));
 		}
 
-		let pending = {
-			request: entry,
-			dst,
-		};
-		pending.promise = new Promise((resolve, reject) => {
-			pending.resolve = resolve;
-			pending.reject = reject;
+		let resolve: (value: unknown) => void;
+		let reject: (reason: any) => void;
+		let promise = new Promise((res, rej) => {
+			resolve = res;
+			reject = rej;
 		});
 		let requestId = this._nextRequestId;
 		this._nextRequestId += 1;
-		this._pendingRequests.set(requestId, pending);
+		this._pendingRequests.set(
+			requestId, { request: entry, promise, resolve, reject, dst, }
+		);
 		this.connector.sendRequest(request, requestId, dst);
-		return pending.promise;
+		return promise;
 	}
 
-	forwardRequest(message, origin) {
+	forwardRequest(message: libData.MessageRequest, origin: Link) {
 		let pending = {
 			origin,
 			src: message.src,
@@ -432,8 +504,8 @@ class Link {
 		this.connector.send(message);
 	}
 
-	sendEvent(event, dst) {
-		let entry = this.constructor._eventsByClass.get(event.constructor);
+	sendEvent(event: libData.Event, dst: libData.Address) {
+		let entry = Link._eventsByClass.get(event.constructor as typeof libData.Event);
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Event ${event.constructor.name}`);
 		}
@@ -444,18 +516,23 @@ class Link {
 		this.connector.sendEvent(event, dst);
 	}
 
-	handle(Class, handler) {
+	handle(Class: typeof libData.Request, handler: RequestHandler): void;
+	handle(Class: typeof libData.Event, handler: EventHandler): void;
+	handle(
+		Class: typeof libData.Request | typeof libData.Event,
+		handler: RequestHandler | EventHandler,
+	) {
 		if (Class.type === "request") {
 			this.handleRequest(Class, handler);
 		} else if (Class.type === "event") {
 			this.handleEvent(Class, handler);
 		} else {
-			throw new Error(`Class ${Class.name} has unrecognized type ${Class.type}`);
+			throw new Error(`Class ${(Class as any).name} has unrecognized type ${(Class as any).type}`);
 		}
 	}
 
-	handleRequest(Request, handler) {
-		let entry = this.constructor._requestsByClass.get(Request);
+	handleRequest(Request: typeof libData.Request, handler: RequestHandler) {
+		let entry = Link._requestsByClass.get(Request);
 		if (!entry) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
@@ -465,8 +542,8 @@ class Link {
 		this._requestHandlers.set(Request, handler);
 	}
 
-	fallbackRequest(Request, handler) {
-		let entry = this.constructor._requestsByClass.get(Request);
+	fallbackRequest(Request: typeof libData.Request, handler: RequestHandler) {
+		let entry = Link._requestsByClass.get(Request);
 		if (!entry) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
@@ -476,8 +553,8 @@ class Link {
 		this._requestFallbacks.set(Request, handler);
 	}
 
-	handleEvent(Event, handler) {
-		let entry = this.constructor._eventsByClass.get(Event);
+	handleEvent(Event: typeof libData.Event, handler: EventHandler) {
+		let entry = Link._eventsByClass.get(Event);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
 		}
@@ -487,8 +564,8 @@ class Link {
 		this._eventHandlers.set(Event, handler);
 	}
 
-	snoopEvent(Event, handler) {
-		let entry = this.constructor._eventsByClass.get(Event);
+	snoopEvent(Event: typeof libData.Event, handler: EventHandler) {
+		let entry = Link._eventsByClass.get(Event);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
 		}
@@ -498,23 +575,23 @@ class Link {
 		this._eventSnoopers.set(Event, handler);
 	}
 
-	static register(Class) {
+	static register(Class: typeof libData.Request | typeof libData.Event) {
 		if (Class.type === "request") {
 			this.registerRequest(Class);
 		} else if (Class.type === "event") {
 			this.registerEvent(Class);
 		} else {
-			throw new Error(`Data class ${Class.name} has unknown type ${Class.type}`);
+			throw new Error(`Data class ${(Class as any).name} has unknown type ${(Class as any).type}`);
 		}
 	}
 
-	static requestFromJSON(Request, name) {
+	static requestFromJSON(Request: typeof libData.Request, name: string) {
 		if (Request.fromJSON) {
 			if (!Request.jsonSchema) {
 				throw new Error(`Request ${name} has static fromJSON but is missing static jsonSchema`);
 			}
-			let validate = libSchema.compile(Request.jsonSchema);
-			return (json) => {
+			let validate = libSchema.compile(Request.jsonSchema as any);
+			return (json: any) => {
 				if (!validate(json)) {
 					throw new libErrors.InvalidMessage(`Request ${name} failed validation`, validate.errors);
 				}
@@ -527,7 +604,7 @@ class Link {
 		return () => new Request();
 	}
 
-	static responseFromJSON(Response, name) {
+	static responseFromJSON(Response: libData.Serialisable, name: string) {
 		if (!Response.jsonSchema) {
 			throw new Error(`Response for Request ${name} is missing static jsonSchema`);
 		}
@@ -535,8 +612,8 @@ class Link {
 			throw new Error(`Response for Request ${name} is missing static fromJSON`);
 		}
 
-		let validate = libSchema.compile(Response.jsonSchema);
-		return (json) => {
+		let validate = libSchema.compile(Response.jsonSchema as any);
+		return (json: any) => {
 			if (!validate(json)) {
 				throw new libErrors.InvalidMessage(
 					`Response for request ${name} failed validation`, validate.errors
@@ -546,7 +623,7 @@ class Link {
 		};
 	}
 
-	static allowedTypes(types, name, side) {
+	static allowedTypes(types: libData.AddressType | libData.AddressType[], name: string, side: "src" | "dst") {
 		if (types === undefined) {
 			throw new Error(`Missing ${side} specification in ${name}`);
 		}
@@ -555,7 +632,7 @@ class Link {
 			types = [types];
 		}
 
-		let allowed = new Set();
+		let allowed = new Set<number>();
 		for (let type of types) {
 			let id = libData.Address[type];
 			if (typeof id !== "number") {
@@ -569,21 +646,22 @@ class Link {
 		return allowed;
 	}
 
-	static _requestsByName = new Map();
-	static _requestsByClass = new Map();
+	static _requestsByName = new Map<string, RequestEntry>();
+	static _requestsByClass = new Map<typeof libData.Request, RequestEntry>();
 
-	static registerRequest(Request) {
+	static registerRequest(Request: typeof libData.Request) {
 		const name = Request.plugin ? `${Request.plugin}:${Request.name}` : Request.name;
 		if (this._requestsByName.has(name)) {
 			throw new Error(`Request ${name} is already registered`);
 		}
 
-		let entry = {
+		let entry: RequestEntry = {
 			Request,
 			name,
 			requestFromJSON: this.requestFromJSON(Request, name),
 			allowedSrcTypes: this.allowedTypes(Request.src, name, "src"),
 			allowedDstTypes: this.allowedTypes(Request.dst, name, "dst"),
+			responseFromJSON: (_json: any) => undefined,
 		};
 
 		if (
@@ -597,21 +675,19 @@ class Link {
 		if (Response) {
 			entry.Response = Response;
 			entry.responseFromJSON = this.responseFromJSON(Response, name);
-		} else {
-			entry.responseFromJSON = () => undefined;
 		}
 
 		this._requestsByName.set(name, entry);
 		this._requestsByClass.set(Request, entry);
 	}
 
-	static eventFromJSON(Event, name) {
+	static eventFromJSON(Event: typeof libData.Event, name: string) {
 		if (Event.fromJSON) {
 			if (!Event.jsonSchema) {
 				throw new Error(`Event ${name} has static fromJSON but is missing static jsonSchema`);
 			}
-			let validate = libSchema.compile(Event.jsonSchema);
-			return (json) => {
+			let validate = libSchema.compile(Event.jsonSchema as any);
+			return (json: any) => {
 				if (!validate(json)) {
 					throw new libErrors.InvalidMessage(`Event ${name} failed validation`, validate.errors);
 				}
@@ -621,13 +697,13 @@ class Link {
 		if (Event.jsonSchema) {
 			throw new Error(`Event ${name} has static jsonSchema but is missing static fromJSON`);
 		}
-		return () => new Event();
+		return (json: any) => new Event();
 	}
 
-	static _eventsByName = new Map();
-	static _eventsByClass = new Map();
+	static _eventsByName = new Map<string, EventEntry>();
+	static _eventsByClass = new Map<typeof libData.Event, EventEntry>();
 
-	static registerEvent(Event) {
+	static registerEvent(Event: typeof libData.Event) {
 		const name = Event.plugin ? `${Event.plugin}:${Event.name}` : Event.name;
 		if (this._eventsByName.has(name)) {
 			throw new Error(`Event ${name} is already registered`);
@@ -654,10 +730,11 @@ class Link {
 }
 
 for (let Class of dataClasses) {
+	// @ts-ignore: TODO Remove when lib/data is migrated to ts
 	Link.register(Class);
 }
 
-function registerPluginMessages(pluginInfos) {
+export function registerPluginMessages(pluginInfos: PluginInfo[]) {
 	for (let pluginInfo of pluginInfos) {
 		for (let Class of pluginInfo.messages || []) {
 			if (Class.plugin !== pluginInfo.name) {
@@ -670,9 +747,3 @@ function registerPluginMessages(pluginInfos) {
 		}
 	}
 }
-
-
-module.exports = {
-	Link,
-	registerPluginMessages,
-};
