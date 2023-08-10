@@ -17,19 +17,11 @@ export * from "./version";
 
 // TODO: Remove/migrate after lib/data is migrated to ts
 import type { User } from "../users";
-export type AddressType = "controller" | "host" | "instance" | "control" | "broadcast";
 export interface Serialisable {
 	jsonSchema: object,
 	fromJSON(json: any): object,
 }
-
-import type { Address } from "./messages_core";
-export type AddressShorthand =
-	| "controller"
-	| { instanceId: number }
-	| { hostId: number }
-	| { controlId: number }
-	| Address
+import { AddressType } from "./messages_core";
 
 export class Request {
 	static type: "request";

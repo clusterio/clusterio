@@ -248,7 +248,7 @@ class ControlConnection extends BaseConnection {
 
 	async handleHostGenerateTokenRequest(message) {
 		let hostId = message.host_id;
-		if (hostId === null) {
+		if (hostId === undefined) {
 			hostId = Math.random() * 2**31 | 0;
 		}
 		return this._controller.generateHostToken(hostId);
@@ -279,7 +279,7 @@ class ControlConnection extends BaseConnection {
 			instance.config.get("instance.name"),
 			instance.id,
 			instance.config.get("instance.assigned_host"),
-			instance.game_port || null,
+			instance.game_port || undefined,
 			instance.status,
 		);
 	}
@@ -290,8 +290,8 @@ class ControlConnection extends BaseConnection {
 			list.push(new lib.InstanceDetails(
 				instance.config.get("instance.name"),
 				instance.id,
-				instance.config.get("instance.assigned_host"),
-				instance.game_port || null,
+				instance.config.get("instance.assigned_host") || undefined,
+				instance.game_port || undefined,
 				instance.status,
 			));
 		}
@@ -311,8 +311,8 @@ class ControlConnection extends BaseConnection {
 				new lib.InstanceDetails(
 					instance.config.get("instance.name"),
 					instance.id,
-					instance.config.get("instance.assigned_host"),
-					instance.game_port || null,
+					instance.config.get("instance.assigned_host") || undefined,
+					instance.game_port || undefined,
 					instance.status,
 				)
 			));

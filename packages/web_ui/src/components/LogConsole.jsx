@@ -75,7 +75,7 @@ export default function LogConsole(props) {
 				logFilter.controller,
 				logFilter.hostIds,
 				logFilter.instanceIds,
-				null,
+				undefined,
 				400,
 				"desc",
 			)).then(result => {

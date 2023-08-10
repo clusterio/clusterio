@@ -176,10 +176,10 @@ export class Link {
 			);
 
 		} else if (message.type === "response") {
-			this._processResponse(message);
+			this._processResponse(message as libData.MessageResponse);
 
 		} else if (message.type === "responseError") {
-			this._processResponseError(message);
+			this._processResponseError(message as libData.MessageResponseError);
 
 		} else if (message.type === "event") {
 			this._processEvent(
@@ -362,9 +362,13 @@ export class Link {
 				} else if (!(err instanceof libErrors.RequestError)) {
 					logger.error(`Unexpected error responding to ${message.name}:\n${err.stack}`);
 				}
-				this.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code, err.stack), message.src, spoofedSrc
-				);
+				try {
+					this.connector.sendResponseError(
+						new libData.ResponseError(err.message, err.code, err.stack), message.src, spoofedSrc
+					);
+				} catch (err) {
+					logger.error(`Unexpected error sending error response for ${message.name}:\n${err.stack}`);
+				}
 			}
 		);
 	}

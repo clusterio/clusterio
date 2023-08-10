@@ -92,12 +92,14 @@ describe("Integration of Clusterio", function() {
 
 		describe("queryLogRequestHandler", function() {
 			it("should honnor the limit", async function() {
-				let result = await getControl().send(new lib.LogQueryRequest(true, false, [], [], null, 10, "asc"));
+				let result = await getControl().send(
+					new lib.LogQueryRequest(true, false, [], [], undefined, 10, "asc")
+				);
 				assert.equal(result.log.length, 10);
 			});
 			it("should return entries by order", async function() {
-				let first = await getControl().send(new lib.LogQueryRequest(true, false, [], [], null, 1, "asc"));
-				let last = await getControl().send(new lib.LogQueryRequest(true, false, [], [], null, 1, "desc"));
+				let first = await getControl().send(new lib.LogQueryRequest(true, false, [], [], undefined, 1, "asc"));
+				let last = await getControl().send(new lib.LogQueryRequest(true, false, [], [], undefined, 1, "desc"));
 				assert(first.log[0].timestamp < last.log[0].timestamp, "first log entry happened after last");
 			});
 		});
@@ -346,7 +348,7 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				await execCtl("instance send-rcon test technobabble");
 				let { log } = await getControl().send(
-					new lib.LogQueryRequest(false, false, [], [44], null, 10, "desc")
+					new lib.LogQueryRequest(false, false, [], [44], undefined, 10, "desc")
 				);
 				assert(log.some(info => /technobabble/.test(info.message)), "Command was not sent");
 			});
