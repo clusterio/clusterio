@@ -1,84 +1,81 @@
 "use strict";
-const zlib = require("zlib");
+import zlib from "zlib";
+import { Type, Static } from "@sinclair/typebox";
 
-const libSchema = require("../schema");
+import * as libSchema from "../schema";
 
-const ExportManifest = require("./ExportManifest");
-const { integerFactorioVersion } = require("./version");
+import ExportManifest from "./ExportManifest";
+import { integerFactorioVersion } from "./version";
+import type { Logger } from "../logging";
 
 
 /**
  * A setting for a mod.
- * @typedef {object} module:lib.ModPack~ModSetting
- * @property {boolean|number|string} value - Value of the given mod setting.
  */
-const ModSettingJsonSchema = {
-	type: "object",
-	additionalProperties: false,
-	required: ["value"],
-	properties: {
-		"value": { type: ["boolean", "number", "string"] },
-	},
-};
+interface ModSetting {
+	/** Value of the given mod setting. */
+	value: boolean | number | string;
+}
 
-const ModSettingsJsonSchema = {
-	type: "object",
-	additionalProperties: ModSettingJsonSchema,
-};
+const ModSettingJsonSchema = Type.Object({
+	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String()]),
+});
+
+const ModSettingsJsonSchema = Type.Record(Type.String(), ModSettingJsonSchema);
 
 /**
  * A mod in a mod pack
- * @typedef {object} module:lib.ModPack~ModRecord
- * @property {string} name - name of the mod.
- * @property {boolean} enabled - if mod is to be loaded.
- * @property {string} version - version of the mod.
- * @property {string=} sha1 - SHA1 hash of the zip file.
  */
-const ModRecordJsonSchema = {
-	type: "object",
-	required: ["name", "enabled", "version"],
-	properties: {
-		"name": { type: "string" },
-		"enabled": { type: "boolean" },
-		"version": { type: "string" },
-		"sha1": { type: "string" },
-	},
-};
+interface ModRecord {
+	/** name of the mod. */
+	name: string,
+	/** if mod is to be loaded. */
+	enabled: boolean,
+	/** version of the mod. */
+	version: string,
+	/** SHA1 hash of the zip file. */
+	sha1?: string,
+}
+
+const ModRecordJsonSchema = Type.Object({
+	"name": Type.String(),
+	"enabled": Type.Boolean(),
+	"version": Type.String(),
+	"sha1": Type.Optional(Type.String()),
+});
+
+type PropertyType = null | boolean | number | string | PropertyType[] | { [key: string]: PropertyType };
 
 /**
  * Factorio Mod Pack
  *
  * Tracks mods and settings for a collection of Factorio mods.
- * @alias module:lib.ModPack
  */
-class ModPack {
+export default class ModPack {
+	declare ["constructor"]: typeof ModPack;
+
 	/**
 	 * Id of this mod pack
-	 * @type {number}
 	 */
-	id;
+	id: number;
 
 	/**
 	 * Name of this mod pack.
-	 * @type {string}
 	 */
 	name = "";
 
 	/**
 	 * Description for this modpcak.
-	 * @type {string}
 	 */
 	description = "";
 
 	/**
 	 * Version of Factorio this mod pack is for
-	 * @type {string}
 	 */
 	factorioVersion = "1.1.0";
 
 	/**
 	 * Integer representation of the factorioVersion
-	 * @type {number}
 	 */
 	get integerFactorioVersion() {
 		return integerFactorioVersion(this.factorioVersion);
@@ -86,29 +83,25 @@ class ModPack {
 
 	/**
 	 * Mods included in this mod pack
-	 * @type {Map<string, module:lib.ModPack~ModRecord>}
 	 */
-	mods = new Map();
+	mods = new Map<string, ModRecord>();
 
 	/**
 	 * Mod settings for this mod pack
-	 * @type {Object<string, Map<string, module:lib.ModPack~ModSetting>>=}
 	 */
 	settings = {
-		"startup": new Map(),
-		"runtime-global": new Map(),
-		"runtime-per-user": new Map(),
+		"startup": new Map<string, ModSetting>(),
+		"runtime-global": new Map<string, ModSetting>(),
+		"runtime-per-user": new Map<string, ModSetting>(),
 	};
 
 	/**
 	 * Mapping to files containing exported data for this modpack
-	 * @type {module:lib.ExportManifest|undefined}
 	 */
-	exportManifest;
+	exportManifest?: ExportManifest;
 
 	/**
 	 * True if this mod pack has been deleted from the list of mod packs.
-	 * @type {boolean}
 	 */
 	isDeleted = false;
 
@@ -125,37 +118,24 @@ class ModPack {
 		return clone;
 	}
 
-	static jsonSchema = {
-		type: "object",
-		additionalProperties: false,
-		required: ["name", "description", "factorio_version", "mods", "settings"],
-		properties: {
-			"id": { type: "integer" },
-			"name": { type: "string" },
-			"description": { type: "string" },
-			"factorio_version": { type: "string" },
-			"mods": {
-				type: "array",
-				items: ModRecordJsonSchema,
-			},
-			"settings": {
-				type: "object",
-				additionalProperties: false,
-				required: ["startup", "runtime-global", "runtime-per-user"],
-				properties: {
-					"startup": ModSettingsJsonSchema,
-					"runtime-global": ModSettingsJsonSchema,
-					"runtime-per-user": ModSettingsJsonSchema,
-				},
-			},
-			"export_manifest": ExportManifest.jsonSchema,
-			"is_deleted": { type: "boolean" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"id": Type.Optional(Type.Integer()),
+		"name": Type.String(),
+		"description": Type.String(),
+		"factorio_version": Type.String(),
+		"mods": Type.Array(ModRecordJsonSchema),
+		"settings": Type.Object({
+			"startup": ModSettingsJsonSchema,
+			"runtime-global": ModSettingsJsonSchema,
+			"runtime-per-user": ModSettingsJsonSchema,
+		}),
+		"export_manifest": Type.Optional(ExportManifest.jsonSchema),
+		"is_deleted": Type.Optional(Type.Boolean()),
+	});
 
-	static validate = libSchema.compile(this.jsonSchema);
+	static validate = libSchema.compile<Static<typeof ModPack.jsonSchema>>(this.jsonSchema as any);
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof ModPack.jsonSchema>) {
 		const modPack = new this();
 
 		if (json.id) {
@@ -185,7 +165,7 @@ class ModPack {
 	}
 
 	toJSON() {
-		let json = {
+		let json: Static<typeof ModPack.jsonSchema> = {
 			id: this.id,
 			name: this.name,
 			description: this.description,
@@ -212,7 +192,7 @@ class ModPack {
 		return buf.toString("base64");
 	}
 
-	static fromModPackString(modPackString) {
+	static fromModPackString(modPackString: string) {
 		let buf = Buffer.from(modPackString, "base64");
 		try {
 			// eslint-disable-next-line node/no-sync
@@ -223,9 +203,9 @@ class ModPack {
 			}
 		}
 
-		let json;
+		let json: unknown;
 		try {
-			json = JSON.parse(buf);
+			json = JSON.parse(buf.toString());
 		} catch (err) {
 			throw new Error(`Malformed mod pack string: ${err.message}`);
 		}
@@ -238,16 +218,16 @@ class ModPack {
 	}
 
 	toModSettingsDat() {
-		function uint8Byte(int) {
+		function uint8Byte(int: number) {
 			return Buffer.from(Uint8Array.from([int]).buffer);
 		}
-		function int16Bytes(int) {
+		function int16Bytes(int: number) {
 			return Buffer.from(Int16Array.from([int]).buffer);
 		}
-		function uint32Bytes(int) {
+		function uint32Bytes(int: number) {
 			return Buffer.from(Uint32Array.from([int]).buffer);
 		}
-		function uint32SpaceOptimizedBytes(int) {
+		function uint32SpaceOptimizedBytes(int: number) {
 			if (0 <= int && int < 0xff) {
 				return uint8Byte(int);
 			}
@@ -256,17 +236,17 @@ class ModPack {
 				uint32Bytes(int),
 			]);
 		}
-		function doubleBytes(double) {
+		function doubleBytes(double: number) {
 			return Buffer.from(Float64Array.from([double]).buffer);
 		}
-		function stringBytes(str) {
+		function stringBytes(str: string) {
 			const buf = Buffer.from(str, "utf8");
 			return Buffer.concat([
 				uint32SpaceOptimizedBytes(buf.length),
 				buf,
 			]);
 		}
-		function immutableStringBytes(str) {
+		function immutableStringBytes(str: string) {
 			if (str === undefined) {
 				return uint8Byte(1); // empty
 			}
@@ -275,7 +255,7 @@ class ModPack {
 				stringBytes(str),
 			]);
 		}
-		function versionBytes(version) {
+		function versionBytes(version: string) {
 			const [main, major, minor] = version.split(".").map(n => Number.parseInt(n, 10));
 			return Buffer.concat([
 				int16Bytes(main),
@@ -285,7 +265,7 @@ class ModPack {
 				Buffer.alloc(1), // reserved byte
 			]);
 		}
-		function propertyTreeListBytes(entries) {
+		function propertyTreeListBytes(entries: [string, PropertyType][]) {
 			const sizeBytes = uint32Bytes(entries.length);
 			const itemBytes = entries.flatMap(([key, item]) => [
 				immutableStringBytes(key),
@@ -297,15 +277,15 @@ class ModPack {
 				...itemBytes,
 			]);
 		}
-		function propertyTreeBytes(element) {
-			let type;
-			let dataBytes;
+		function propertyTreeBytes(element: PropertyType) {
+			let type: number;
+			let dataBytes: Buffer;
 			if (typeof element === null) {
 				type = 1;
 				dataBytes = Buffer.alloc(0);
 			} else if (typeof element === "boolean") {
 				type = 1;
-				dataBytes = uint8Byte(element);
+				dataBytes = uint8Byte(Number(element));
 			} else if (typeof element === "number") {
 				type = 2;
 				dataBytes = doubleBytes(element);
@@ -340,11 +320,11 @@ class ModPack {
 	 * Uses the provided setting prototypes to add any missing mod settings
 	 * in the mod pack with the default value from the prototype.
 	 *
-	 * @param {Object<string, object>} settingPrototypes -
+	 * @param settingPrototypes -
 	 *     Setting prototypes exported from the game.
-	 * @param {Logger} logger - Logger used to report warnings on.
+	 * @param logger - Logger used to report warnings on.
 	 */
-	fillDefaultSettings(settingPrototypes, logger) {
+	fillDefaultSettings(settingPrototypes: Record<string, object>, logger: Logger) {
 		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting"];
 		let prototypes = Object.entries(settingPrototypes)
 			.filter(([type, _]) => knownTypes.includes(type))
@@ -368,5 +348,3 @@ class ModPack {
 		}
 	}
 }
-
-module.exports = ModPack;

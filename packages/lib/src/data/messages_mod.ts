@@ -56,7 +56,7 @@ export class ModPackCreateRequest {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"modPack": Type.Unsafe<object>(ModPack.jsonSchema),
+		"modPack": ModPack.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -76,7 +76,7 @@ export class ModPackUpdateRequest {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"modPack": Type.Unsafe<object>(ModPack.jsonSchema),
+		"modPack": ModPack.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -203,7 +203,7 @@ export class ModSearchRequest {
 			"results": Type.Array(
 				Type.Object({
 					"name": Type.String(),
-					"versions": Type.Array(Type.Unsafe<object>(ModInfo.jsonSchema)),
+					"versions": Type.Array(ModInfo.jsonSchema),
 				}),
 			),
 		});
@@ -296,7 +296,7 @@ export class ModPackUpdateEvent {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"modPack": Type.Unsafe<object>(ModPack.jsonSchema),
+		"modPack": ModPack.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -315,7 +315,7 @@ export class ModUpdateEvent {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"mod": Type.Unsafe<object>(ModInfo.jsonSchema),
+		"mod": ModInfo.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {

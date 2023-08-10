@@ -1,13 +1,12 @@
-"use strict";
-const fs = require("fs-extra");
-const JSZip = require("jszip");
-const path = require("path");
+import fs from "fs-extra";
+import JSZip from "jszip";
+import { Type, Static } from "@sinclair/typebox";
 
-const libHash = require("../hash");
-const libSchema = require("../schema");
-const { findRoot } = require("../zip_ops");
+import * as libHash from "../hash";
+import * as libSchema from "../schema";
+import { findRoot } from "../zip_ops";
 
-const { integerModVersion, integerFactorioVersion, modVersionRegExp } = require("./version");
+import { integerModVersion, integerFactorioVersion, modVersionRegExp } from "./version";
 
 
 /**
@@ -15,27 +14,23 @@ const { integerModVersion, integerFactorioVersion, modVersionRegExp } = require(
  *
  * See https://wiki.factorio.com/Tutorial:Mod_structure#info.json for
  * details of the invidiual fields sourced from info.json.
- * @alias module:lib.ModInfo
  */
-class ModInfo {
+export default class ModInfo {
 	/**
 	 * Internal name of this mod.
 	 * This is the name of the zip file as well as the name that appears in
 	 * info.json.
-	 * @type {string}
 	 */
 	name = "";
 
 	/**
 	 * Version of the mod.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	version = "";
 
 	/**
 	 * Integer representation of the version
-	 * @type {number}
 	 */
 	get integerVersion() {
 		return integerModVersion(this.version);
@@ -44,42 +39,36 @@ class ModInfo {
 	/**
 	 * Display name of the mod.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	title = "";
 
 	/**
 	 * Author of the mod.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	author = "";
 
 	/**
 	 * Contact field for mod.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	contact = "";
 
 	/**
 	 * Homepage of the mod.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	homepage = "";
 
 	/**
 	 * Description of the mod.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	description = "";
 
 	/**
 	 * Major version of Factorio this mod supports.
 	 * Sourced from info.json.
-	 * @type {string}
 	 */
 	factorioVersion = "0.12";
 
@@ -94,13 +83,11 @@ class ModInfo {
 	/**
 	 * Dependiences for this mod.
 	 * Sourced from info.json.
-	 * @type {Array<string>}
 	 */
 	dependencies = ["base"];
 
 	/**
 	 * Expected name of zip file containing this mod.
-	 * @type {number}
 	 */
 	get filename() {
 		return `${this.name}_${this.version}.zip`;
@@ -108,54 +95,44 @@ class ModInfo {
 
 	/**
 	 * Size of the mod in bytes
-	 * @type {number}
 	 */
 	size = 0;
 
 	/**
 	 * SHA1 hash of this mod
-	 * @type {string=}
 	 */
-	sha1;
+	sha1: string;
 
 	/**
 	 * True if this mod has been deleted
-	 * @type {boolean}
 	 */
 	isDeleted = false;
 
 	// Content of info.json found in mod files
-	static infoJsonSchema = {
-		type: "object",
-		required: ["name", "version", "title", "author"],
-		properties: {
-			"name": { type: "string" },
-			"version": { type: "string" },
-			"title": { type: "string" },
-			"author": { type: "string" },
-			"contact": { type: "string" },
-			"homepage": { type: "string" },
-			"description": { type: "string" },
-			"factorio_version": { type: "string" },
-			"dependencies": { type: "array", items: { type: "string" } },
-		},
-	};
+	static infoJsonSchema = Type.Object({
+		"name": Type.String(),
+		"version": Type.String(),
+		"title": Type.String(),
+		"author": Type.String(),
+		"contact": Type.Optional(Type.String()),
+		"homepage": Type.Optional(Type.String()),
+		"description": Type.Optional(Type.String()),
+		"factorio_version": Type.Optional(Type.String()),
+		"dependencies": Type.Optional(Type.Array(Type.String())),
+	});
 
-	static validateInfo = libSchema.compile(this.infoJsonSchema);
+	static validateInfo = libSchema.compile<Static<typeof this.infoJsonSchema>>(this.infoJsonSchema as any);
 
-	static jsonSchema = {
-		type: "object",
-		properties: {
-			...this.infoJsonSchema.properties,
-			"size": { type: "integer" },
-			"sha1": { type: "string" },
-			"is_deleted": { type: "boolean" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		...this.infoJsonSchema.properties,
+		"size": Type.Optional(Type.Integer()),
+		"sha1": Type.Optional(Type.String()),
+		"is_deleted": Type.Optional(Type.Boolean()),
+	});
 
-	static validate = libSchema.compile(this.jsonSchema);
+	static validate = libSchema.compile(this.jsonSchema as any);
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof ModInfo.jsonSchema>) {
 		const modInfo = new this();
 
 		// info.json fields
@@ -178,7 +155,7 @@ class ModInfo {
 	}
 
 	toJSON() {
-		let json = {
+		let json: Static<typeof ModInfo.jsonSchema> = {
 			name: this.name,
 			version: this.version,
 			title: this.title,
@@ -187,7 +164,7 @@ class ModInfo {
 		if (this.contact) { json.contact = this.contact; }
 		if (this.homepage) { json.homepage = this.homepage; }
 		if (this.description) { json.description = this.description; }
-		if (this.factorio_version !== "0.12") { json.factorio_version = this.factorioVersion; }
+		if (this.factorioVersion !== "0.12") { json.factorio_version = this.factorioVersion; }
 		if (this.dependencies.length !== 1 || this.dependencies[0] !== "base") {
 			json.dependencies = this.dependencies;
 		}
@@ -198,7 +175,7 @@ class ModInfo {
 	}
 
 	static async fromModFile(modPath) {
-		let modInfo;
+		let modInfo: Static<typeof ModInfo.jsonSchema>;
 		{
 			// XXX: JSZip needs the whole archive loaded in memory to work.
 			// This is clearly untenable and will be replaced later.
@@ -231,5 +208,3 @@ class ModInfo {
 		});
 	}
 }
-
-module.exports = ModInfo;
