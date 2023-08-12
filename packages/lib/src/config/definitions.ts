@@ -7,7 +7,7 @@ import type { PluginInfo } from "../plugin";
  * Controller config group for {@link ControllerConfig}
  * @extends classes.ConfigGroup
  */
-class ControllerGroup extends classes.ConfigGroup { }
+export class ControllerGroup extends classes.ConfigGroup { }
 ControllerGroup.defaultAccess = ["controller", "host", "control"];
 ControllerGroup.groupName = "controller";
 ControllerGroup.define({
@@ -140,7 +140,7 @@ ControllerGroup.finalize();
  * Controller Config class
  * @extends classes.Config
  */
-class ControllerConfig extends classes.Config { }
+export class ControllerConfig extends classes.Config { }
 ControllerConfig.registerGroup(ControllerGroup);
 
 
@@ -148,7 +148,7 @@ ControllerConfig.registerGroup(ControllerGroup);
  * Host config group for {@link HostConfig}
  * @extends classes.ConfigGroup
  */
-class HostGroup extends classes.ConfigGroup {}
+export class HostGroup extends classes.ConfigGroup {}
 HostGroup.defaultAccess = ["controller", "host", "control"];
 HostGroup.groupName = "host";
 HostGroup.define({
@@ -230,7 +230,7 @@ HostGroup.finalize();
  * Host Config class
  * @extends classes.Config
  */
-class HostConfig extends classes.Config { }
+export class HostConfig extends classes.Config { }
 HostConfig.registerGroup(HostGroup);
 
 
@@ -238,7 +238,7 @@ HostConfig.registerGroup(HostGroup);
  * Instance config group for {@link classes.InstanceConfig}
  * @extends classes.ConfigGroup
  */
-class InstanceGroup extends classes.ConfigGroup { }
+export class InstanceGroup extends classes.ConfigGroup { }
 InstanceGroup.defaultAccess = ["controller", "host", "control"];
 InstanceGroup.groupName = "instance";
 InstanceGroup.define({
@@ -269,7 +269,7 @@ InstanceGroup.finalize();
  * Factorio config group for {@link classes.InstanceConfig}
  * @extends classes.ConfigGroup
  */
-class FactorioGroup extends classes.ConfigGroup { }
+export class FactorioGroup extends classes.ConfigGroup { }
 FactorioGroup.defaultAccess = ["controller", "host", "control"];
 FactorioGroup.groupName = "factorio";
 FactorioGroup.define({
@@ -393,7 +393,7 @@ FactorioGroup.finalize();
  * Instance config class
  * @extends classes.Config
  */
-class InstanceConfig extends classes.Config { }
+export class InstanceConfig extends classes.Config { }
 InstanceConfig.registerGroup(InstanceGroup);
 InstanceConfig.registerGroup(FactorioGroup);
 
@@ -402,7 +402,7 @@ InstanceConfig.registerGroup(FactorioGroup);
  * Control config group for {@link classes.ControlConfig}
  * @extends classes.ConfigGroup
  */
-class ControlGroup extends classes.ConfigGroup {}
+export class ControlGroup extends classes.ConfigGroup {}
 ControlGroup.defaultAccess = ["control"];
 ControlGroup.groupName = "control";
 ControlGroup.define({
@@ -436,7 +436,7 @@ ControlGroup.finalize();
  * Control config class
  * @extends classes.Config
  */
-class ControlConfig extends classes.Config { }
+export class ControlConfig extends classes.Config { }
 ControlConfig.registerGroup(ControlGroup);
 
 
@@ -459,7 +459,7 @@ function validateGroup(pluginInfo: PluginInfo, groupName: string) {
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
  */
-function registerPluginConfigGroups(pluginInfos: PluginInfo[]) {
+export function registerPluginConfigGroups(pluginInfos: PluginInfo[]) {
 	for (let pluginInfo of pluginInfos) {
 		if (pluginInfo.ControllerConfigGroup) {
 			validateGroup(pluginInfo, "ControllerConfigGroup");
@@ -492,25 +492,9 @@ function registerPluginConfigGroups(pluginInfos: PluginInfo[]) {
 /**
  * Lock configs from adding more groups and make them usable
  */
-function finalizeConfigs() {
+export function finalizeConfigs() {
 	ControllerConfig.finalize();
 	HostConfig.finalize();
 	InstanceConfig.finalize();
 	ControlConfig.finalize();
 }
-
-module.exports = {
-	ControllerGroup,
-	HostGroup,
-	InstanceGroup,
-	FactorioGroup,
-	ControlGroup,
-
-	ControllerConfig,
-	HostConfig,
-	InstanceConfig,
-	ControlConfig,
-
-	registerPluginConfigGroups,
-	finalizeConfigs,
-};

@@ -340,7 +340,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 	constructor(
 		protected _url: string,
 		maxReconnectDelay: number,
-		protected _tlsCa = null
+		protected _tlsCa: string | undefined,
 	) {
 		super(undefined as any, new libData.Address(libData.Address.controller, 0));
 		this._backoff = new ExponentialBackoff({ max: maxReconnectDelay });

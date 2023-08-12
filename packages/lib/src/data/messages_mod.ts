@@ -193,7 +193,7 @@ export class ModSearchRequest {
 			public queryIssues: string[],
 			public pageCount: number,
 			public resultCount: number,
-			public results: object[],
+			public results: { name: string, versions: ModInfo[] }[],
 		) { }
 
 		static jsonSchema = Type.Object({
