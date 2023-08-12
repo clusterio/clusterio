@@ -6,12 +6,11 @@
     "target": "es2022",
     "rootDir": ".",
     "outDir": "dist",
-    "composite": false,
+    "composite": true,
     "strict": true,
     "alwaysStrict": true,
     "allowJs": true,
     "checkJs": false,
-    "noEmitOnError": false,
     "esModuleInterop": true,
     "skipLibCheck": true
   }
