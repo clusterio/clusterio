@@ -4,18 +4,18 @@
  * Command line interface for controlling a Clusterio cluster
  * @module ctl/ctl
  */
-"use strict";
-const fs = require("fs-extra");
-const yargs = require("yargs");
-const version = require("./package").version;
-const setBlocking = require("set-blocking");
+import fs from "fs-extra";
+import yargs from "yargs";
+import { version } from "./package.json";
+import setBlocking from "set-blocking";
+import { strict as assert } from "assert";
 
 // Reduce startup time by lazy compiling schemas.
-global.lazySchemaCompilation = true;
-const lib = require("@clusterio/lib");
-const { ConsoleTransport, levels, logger } = lib;
+(global as any).lazySchemaCompilation = true;
+import * as lib from "@clusterio/lib";
+import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-const commands = require("./src/commands");
+import * as commands from "./src/commands";
 
 
 /**
@@ -23,7 +23,9 @@ const commands = require("./src/commands");
  * @private
  */
 class ControlConnector extends lib.WebSocketClientConnector {
-	constructor(url, maxReconnectDelay, tlsCa, token) {
+	private _token: string;
+
+	constructor(url: string, maxReconnectDelay: number, tlsCa: string | undefined, token: string) {
 		super(url, maxReconnectDelay, tlsCa);
 		this._token = token;
 	}
@@ -48,31 +50,26 @@ class ControlConnector extends lib.WebSocketClientConnector {
  * Connects to the controller over WebSocket and sends commands to it.
  * @static
  */
-class Control extends lib.Link {
-	constructor(connector, controlConfig, tlsCa, controlPlugins) {
+export class Control extends lib.Link {
+	/** Control config used for connecting to the controller. */
+	config: lib.ControlConfig;
+	/** Certificate authority used to validate TLS connections to the controller. */
+	tlsCa?: string;
+	/** Mapping of plugin names to their instance for loaded plugins. */
+	plugins: Map<string, lib.BaseControlPlugin>;
+	/** Keep the control connection alive after the command completes. */
+	keepOpen = false;
+
+	constructor(
+		connector: ControlConnector,
+		controlConfig: lib.ControlConfig,
+		tlsCa: string | undefined,
+		controlPlugins: Map<string, lib.BaseControlPlugin>
+	) {
 		super(connector);
-
-		/**
-		 * Control config used for connecting to the controller.
-		 * @type {module:lib.ControlConfig}
-		 */
 		this.config = controlConfig;
-		/**
-		 * Certificate authority used to validate TLS connections to the controller.
-		 * @type {?string}
-		 */
 		this.tlsCa = tlsCa;
-		/**
-		 * Mapping of plugin names to their instance for loaded plugins.
-		 * @type {Map<string, module:lib.BaseControlPlugin>}
-		 */
 		this.plugins = controlPlugins;
-
-		/**
-		 * Keep the control connection alive after the command completes.
-		 * @type {boolean}
-		 */
-		this.keepOpen = false;
 
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
@@ -81,9 +78,9 @@ class Control extends lib.Link {
 	async setLogSubscriptions({
 		all = false,
 		controller = false,
-		hostIds = [],
-		instanceIds = [],
-		maxLevel = undefined,
+		hostIds = [] as number[],
+		instanceIds = [] as number[],
+		maxLevel = undefined as keyof typeof levels | undefined,
 	}) {
 		await this.send(
 			new lib.LogSetSubscriptionsRequest(
@@ -92,18 +89,18 @@ class Control extends lib.Link {
 		);
 	}
 
-	async handleLogMessageEvent(event) {
-		logger.log(event.info);
+	async handleLogMessageEvent(event: lib.LogMessageEvent) {
+		logger.log(event.info as any);
 	}
 
-	async handleDebugWsMessageEvent(event) {
+	async handleDebugWsMessageEvent(event: lib.DebugWsMessageEvent) {
 		// eslint-disable-next-line no-console
 		console.log("WS", event.direction, event.content);
 	}
 
 	async shutdown() {
 		try {
-			await this.connector.disconnect();
+			await (this.connector as ControlConnector).disconnect();
 		} catch (err) {
 			if (!(err instanceof lib.SessionLost)) {
 				throw err;
@@ -112,13 +109,13 @@ class Control extends lib.Link {
 	}
 }
 
-async function loadPlugins(pluginList) {
+async function loadPlugins(pluginList: Map<string, string>) {
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginConfigGroups(pluginInfos);
 	lib.finalizeConfigs();
 
-	let controlPlugins = new Map();
+	let controlPlugins = new Map<string, lib.BaseControlPlugin>();
 	for (let pluginInfo of pluginInfos) {
 		if (!pluginInfo.controlEntrypoint) {
 			continue;
@@ -130,6 +127,15 @@ async function loadPlugins(pluginList) {
 		await controlPlugin.init();
 	}
 	return controlPlugins;
+}
+
+interface CtlArguments {
+	[index: string]: unknown;
+	$0: string,
+	_: (string | number)[],
+	logLevel: keyof typeof levels,
+	config: string,
+	pluginList: string,
 }
 
 async function startControl() {
@@ -163,7 +169,7 @@ async function startControl() {
 	;
 
 	// Parse the args first to get the configured plugin list.
-	let args = yargs.parse();
+	let args = yargs.parseSync() as CtlArguments;
 
 	// Log stream for the ctl session.
 	logger.add(
@@ -173,13 +179,13 @@ async function startControl() {
 			format: new lib.TerminalFormat(),
 		})
 	);
-	lib.handleUnhandledErrors(logger);
+	lib.handleUnhandledErrors();
 
 	logger.verbose(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
-		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
-	} catch (err) {
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList, "utf8")));
+	} catch (err: any) {
 		if (err.code !== "ENOENT") {
 			throw err;
 		}
@@ -201,15 +207,15 @@ async function startControl() {
 	args = yargs
 		.help()
 		.strict()
-		.parse()
+		.parse() as CtlArguments
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
 	let controlConfig = new lib.ControlConfig("control");
 	try {
-		await controlConfig.load(JSON.parse(await fs.readFile(args.config)));
+		await controlConfig.load(JSON.parse(await fs.readFile(args.config, "utf8")));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Config not found, initializing new config");
 			await controlConfig.init();
@@ -221,7 +227,7 @@ async function startControl() {
 
 	if (args._.length === 0) {
 		yargs.showHelp();
-		yargs.exit();
+		yargs.exit(1, undefined as unknown as Error); // Type definition file is wrong.
 	}
 
 	// Handle the control-config command before trying to connect.
@@ -231,11 +237,12 @@ async function startControl() {
 	}
 
 	// Determine which command is being executed.
-	let commandPath = [...args._];
-	let targetCommand = rootCommands;
+	let commandPath = [...args._] as string[];
+	let targetCommand: lib.CommandTree | lib.Command = rootCommands;
 	while (commandPath.length && targetCommand instanceof lib.CommandTree) {
-		targetCommand = targetCommand.get(commandPath.shift());
+		targetCommand = targetCommand.get(commandPath.shift()!)!;
 	}
+	assert(targetCommand instanceof lib.Command);
 
 	// The remaining commands require connecting to the controller.
 	if (!controlConfig.get("control.controller_url") || !controlConfig.get("control.controller_token")) {
@@ -244,17 +251,17 @@ async function startControl() {
 		return;
 	}
 
-	let tlsCa = null;
-	let tlsCaPath = controlConfig.get("control.tls_ca");
+	let tlsCa: string | undefined;
+	let tlsCaPath = controlConfig.get("control.tls_ca") as string | null;
 	if (tlsCaPath) {
-		tlsCa = await fs.readFile(tlsCaPath);
+		tlsCa = await fs.readFile(tlsCaPath, "utf8");
 	}
 
 	let controlConnector = new ControlConnector(
-		controlConfig.get("control.controller_url"),
-		controlConfig.get("control.max_reconnect_delay"),
+		controlConfig.get("control.controller_url") as string,
+		controlConfig.get("control.max_reconnect_delay") as number,
 		tlsCa,
-		controlConfig.get("control.controller_token")
+		controlConfig.get("control.controller_token") as string,
 	);
 	let control = new Control(controlConnector, controlConfig, tlsCa, controlPlugins);
 	try {
@@ -303,10 +310,6 @@ async function startControl() {
 		}
 	}
 }
-
-module.exports = {
-	Control,
-};
 
 
 if (module === require.main) {
