@@ -237,9 +237,9 @@ hostCommands.add(new lib.Command({
 		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
 	}],
 	handler: async function(args, control) {
-		let hostId = typeof args.id === "number" ? args.id : null;
+		let hostId = typeof args.id === "number" ? args.id : undefined;
 		let response = await control.send(new lib.HostGenerateTokenRequest(hostId));
-		print(response.token);
+		print(response);
 	},
 }));
 
@@ -480,9 +480,9 @@ instanceCommands.add(new lib.Command({
 }));
 
 async function loadMapSettings(args) {
-	let seed = args.seed !== undefined ? args.seed : null;
-	let mapGenSettings = null;
-	let mapSettings = null;
+	let seed = args.seed;
+	let mapGenSettings;
+	let mapSettings;
 	if (args.mapExchangeString) {
 		let parsed = lib.readMapExchangeString(args.mapExchangeString);
 		mapGenSettings = parsed.map_gen_settings;
@@ -1551,7 +1551,7 @@ logCommands.add(new lib.Command({
 			"controller": { describe: "Query log of the controller", nargs: 0, type: "boolean", default: false },
 			"host": { describe: "Query log of given host", nargs: 1, type: "string", default: null },
 			"instance": { describe: "Query log of given instance", nargs: 1, type: "string", default: null },
-			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: null },
+			"max-level": { describe: "Maximum log level to return", nargs: 1, type: "string", default: undefined },
 			"limit": { describe: "Max number of entries to return", nargs: 1, type: "number", default: 1000 },
 			"start": { describe: "Limit from the start instead of the end", nargs: 0, type: "boolean", default: false },
 		});

@@ -796,9 +796,11 @@ class FactorioServer extends events.EventEmitter {
 			[
 				"--config", this.writePath("config.ini"),
 				"--create", this.writePath("saves", name),
-				...(seed !== null ? ["--map-gen-seed", seed] : []),
-				...(mapGenSettings !== null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
-				...(mapSettings !== null ? ["--map-settings", this.writePath("map-settings.json")] : []),
+				/* eslint-disable eqeqeq, no-eq-null */
+				...(seed != null ? ["--map-gen-seed", seed] : []),
+				...(mapGenSettings != null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
+				...(mapSettings != null ? ["--map-settings", this.writePath("map-settings.json")] : []),
+				/* eslint-enable eqeqeq, no-eq-null */
 				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
@@ -886,9 +888,11 @@ class FactorioServer extends events.EventEmitter {
 			[
 				"--config", this.writePath("config.ini"),
 				"--start-server-load-scenario", scenario,
-				...(seed !== null ? ["--map-gen-seed", seed] : []),
-				...(mapGenSettings !== null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
-				...(mapSettings !== null ? ["--map-settings", this.writePath("map-settings.json")] : []),
+				/* eslint-disable eqeqeq, no-eq-null */
+				...(seed != null ? ["--map-gen-seed", seed] : []),
+				...(mapGenSettings != null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
+				...(mapSettings != null ? ["--map-settings", this.writePath("map-settings.json")] : []),
+				/* eslint-enable eqeqeq, no-eq-null */
 				"--port", this.gamePort,
 				"--rcon-port", this.rconPort,
 				"--rcon-password", this.rconPassword,

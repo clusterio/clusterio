@@ -1,0 +1,7 @@
+{
+    "$schema": "https://typedoc.org/schema.json",
+    "entryPoints": ["packages/lib/"],
+    "entryPointStrategy": "packages",
+    "cleanOutputDir": false,
+    "out": "docs/api"
+}

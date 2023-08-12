@@ -457,7 +457,7 @@ class Host extends lib.Link {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		this.send(
 			new lib.InstanceStatusChangedEvent(
-				instanceId, instanceConnection ? instanceConnection.status : "stopped", null
+				instanceId, instanceConnection ? instanceConnection.status : "stopped", undefined
 			)
 		);
 

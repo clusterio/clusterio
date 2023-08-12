@@ -16,9 +16,9 @@ export default function LoadScenarioModal(props) {
 	function loadScenario() {
 		let values = form.getFieldsValue();
 		let scenario = values.scenario || "base/freeplay";
-		let seed = values.seed === undefined ? null : Number.parseInt(values.seed, 10);
-		let mapGenSettings = null;
-		let mapSettings = null;
+		let seed = values.seed === undefined ? undefined : Number.parseInt(values.seed, 10);
+		let mapGenSettings;
+		let mapSettings;
 		if (values.exchangeString && values.exchangeString.trim()) {
 			let result;
 			try {

@@ -83,7 +83,7 @@ class Control extends lib.Link {
 		controller = false,
 		hostIds = [],
 		instanceIds = [],
-		maxLevel = null,
+		maxLevel = undefined,
 	}) {
 		await this.send(
 			new lib.LogSetSubscriptionsRequest(
@@ -286,7 +286,11 @@ async function startControl() {
 			process.exitCode = 1;
 
 		} else if (err instanceof lib.RequestError) {
-			logger.error(`Error sending request:\n${err.stack}`);
+			if (err.stack) {
+				logger.error(`Error sending request:\n${err.stack}`);
+			} else {
+				logger.error(`Error sending request: ${err.message}`);
+			}
 			process.exitCode = 1;
 
 		} else {
@@ -315,6 +319,9 @@ I           version of clusterio.  Expect things to break. I
 `
 	);
 	startControl().catch(err => {
+		if (err.errors) {
+			logger.fatal(JSON.stringify(err.errors, null, 4));
+		}
 		if (!(err instanceof lib.StartupError)) {
 			logger.fatal(`
 +------------------------------------------------------------+

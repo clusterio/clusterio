@@ -565,7 +565,7 @@ export class Control extends lib.Link {
 			}
 		}
 
-		await this.send(new lib.LogSetSubscriptionsRequest(all, controller, hostIds, instanceIds, null));
+		await this.send(new lib.LogSetSubscriptionsRequest(all, controller, hostIds, instanceIds, undefined));
 	}
 
 	async handleDebugWsMessageEvent(message) {

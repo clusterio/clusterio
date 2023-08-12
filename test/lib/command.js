@@ -19,7 +19,7 @@ describe("lib/command", function() {
 		lib.HostListRequest, () => [new lib.HostDetails("test", "0.1", "Test Host", 11, false)]
 	);
 	testController.handle(
-		lib.InstanceDetailsListRequest, () => [new lib.InstanceDetails("Test Instance", 57, 4, null, "stopped")]
+		lib.InstanceDetailsListRequest, () => [new lib.InstanceDetails("Test Instance", 57, 4, undefined, "stopped")]
 	);
 	testController.handle(lib.RoleListRequest, () => [testRole]);
 
