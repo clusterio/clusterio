@@ -54,7 +54,7 @@ export async function loadJsonAsMap(filePath: string): Promise<Map<string, unkno
 
 		return new Map(Object.entries(parsed));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			// File does not exist, return empty map
 			return new Map();
@@ -115,7 +115,7 @@ export async function loadJsonArrayAsMap(filePath: string): Promise<Map<unknown,
 		}
 		return map;
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			// File does not exist, return empty map
 			return new Map();
@@ -247,7 +247,7 @@ export class ItemDatabase {
 		checkCount(count);
 
 		if (this._items.has(name)) {
-			count += this._items.get(name);
+			count += this._items.get(name)!;
 		}
 
 		this._items.set(name, count);
@@ -269,7 +269,7 @@ export class ItemDatabase {
 
 		count = -count;
 		if (this._items.has(name)) {
-			count += this._items.get(name);
+			count += this._items.get(name)!;
 		}
 
 		this._items.set(name, count);

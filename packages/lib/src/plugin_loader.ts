@@ -30,7 +30,7 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
 			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
 
-		} catch (err) {
+		} catch (err: any) {
 			throw new libErrors.PluginError(pluginName, err);
 		}
 

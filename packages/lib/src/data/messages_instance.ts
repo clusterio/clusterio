@@ -35,10 +35,10 @@ export class InstanceDetails {
 
 export class InstanceDetailsGetRequest {
 	declare ["constructor"]: typeof InstanceDetailsGetRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.get";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.get" as const;
 
 	constructor(
 		public instanceId: number,
@@ -57,19 +57,19 @@ export class InstanceDetailsGetRequest {
 
 export class InstanceDetailsListRequest {
 	declare ["constructor"]: typeof InstanceDetailsListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.list" as const;
 	static Response = jsonArray(InstanceDetails);
 };
 
 export class InstanceDetailsSetSubscriptionsRequest {
 	declare ["constructor"]: typeof InstanceDetailsSetSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.subscribe";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.subscribe" as const;
 
 	constructor(
 		public all: boolean = false,
@@ -88,9 +88,9 @@ export class InstanceDetailsSetSubscriptionsRequest {
 
 export class InstanceDetailsUpdateEvent {
 	declare ["constructor"]: typeof InstanceDetailsUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public details: InstanceDetails,
@@ -109,10 +109,10 @@ export class InstanceDetailsUpdateEvent {
 
 export class InstanceCreateRequest {
 	declare ["constructor"]: typeof InstanceCreateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.create";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.create" as const;
 
 	constructor(
 		public config: object,
@@ -130,10 +130,10 @@ export class InstanceCreateRequest {
 
 export class InstanceConfigGetRequest {
 	declare ["constructor"]: typeof InstanceConfigGetRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.get_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.get_config" as const;
 
 	constructor(
 		public instanceId: number,
@@ -165,10 +165,10 @@ export class InstanceConfigGetRequest {
 
 export class InstanceConfigSetFieldRequest {
 	declare ["constructor"]: typeof InstanceConfigSetFieldRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.update_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.update_config" as const;
 
 	constructor(
 		public instanceId: number,
@@ -189,10 +189,10 @@ export class InstanceConfigSetFieldRequest {
 
 export class InstanceConfigSetPropRequest {
 	declare ["constructor"]: typeof InstanceConfigSetPropRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.update_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.update_config" as const;
 
 	constructor(
 		public instanceId: number,
@@ -215,10 +215,10 @@ export class InstanceConfigSetPropRequest {
 
 export class InstanceAssignRequest {
 	declare ["constructor"]: typeof InstanceAssignRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.assign";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.assign" as const;
 
 	constructor(
 		public instanceId: number,
@@ -237,9 +237,9 @@ export class InstanceAssignRequest {
 
 export class InstanceMetricsRequest {
 	declare ["constructor"]: typeof InstanceMetricsRequest;
-	static type = "request";
-	static src = "host";
-	static dst = "instance";
+	static type = "request" as const;
+	static src = "host" as const;
+	static dst = "instance" as const;
 
 	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
 		constructor(
@@ -258,10 +258,10 @@ export class InstanceMetricsRequest {
 
 export class InstanceStartRequest {
 	declare ["constructor"]: typeof InstanceStartRequest;
-	static type = "request";
-	static src = ["control", "controller"];
-	static dst = "instance";
-	static permission = "core.instance.start";
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.start" as const;
 
 	constructor(
 		public save?: string,
@@ -302,19 +302,19 @@ export class SaveDetails {
 
 export class InstanceListSavesRequest {
 	declare ["constructor"]: typeof InstanceListSavesRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.save.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.save.list" as const;
 	static Response = jsonArray(SaveDetails);
 }
 
 export class InstanceSetSaveListSubscriptionsRequest {
 	declare ["constructor"]: typeof InstanceSetSaveListSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.save.list_subscribe";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.save.list_subscribe" as const;
 
 	constructor(
 		public all: boolean = false,
@@ -333,9 +333,9 @@ export class InstanceSetSaveListSubscriptionsRequest {
 
 export class InstanceSaveListUpdateEvent {
 	declare ["constructor"]: typeof InstanceSaveListUpdateEvent;
-	static type = "event";
-	static src = ["instance", "host", "controller"];
-	static dst = ["controller", "control"];
+	static type = "event" as const;
+	static src = ["instance", "host", "controller"] as const;
+	static dst = ["controller", "control"] as const;
 
 	constructor(
 		public instanceId: number,
@@ -354,10 +354,10 @@ export class InstanceSaveListUpdateEvent {
 
 export class InstanceCreateSaveRequest {
 	declare ["constructor"]: typeof InstanceCreateSaveRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.save.create";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.save.create" as const;
 
 	constructor(
 		public name: string,
@@ -380,10 +380,10 @@ export class InstanceCreateSaveRequest {
 
 export class InstanceRenameSaveRequest {
 	declare ["constructor"]: typeof InstanceRenameSaveRequest;
-	static type = "request";
-	static src = ["control", "controller"];
-	static dst = ["controller", "host"];
-	static permission = "core.instance.save.rename";
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = ["controller", "host"] as const;
+	static permission = "core.instance.save.rename" as const;
 
 	constructor(
 		public instanceId: number,
@@ -404,10 +404,10 @@ export class InstanceRenameSaveRequest {
 
 export class InstanceCopySaveRequest {
 	declare ["constructor"]: typeof InstanceCopySaveRequest;
-	static type = "request";
-	static src = ["control", "controller"];
-	static dst = ["controller", "host"];
-	static permission = "core.instance.save.copy";
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = ["controller", "host"] as const;
+	static permission = "core.instance.save.copy" as const;
 
 	constructor(
 		public instanceId: number,
@@ -428,10 +428,10 @@ export class InstanceCopySaveRequest {
 
 export class InstanceDeleteSaveRequest {
 	declare ["constructor"]: typeof InstanceDeleteSaveRequest;
-	static type = "request";
-	static src = ["control", "controller"];
-	static dst = ["controller", "host"];
-	static permission = "core.instance.save.delete";
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = ["controller", "host"] as const;
+	static permission = "core.instance.save.delete" as const;
 
 	constructor(
 		public instanceId: number,
@@ -450,10 +450,10 @@ export class InstanceDeleteSaveRequest {
 
 export class InstanceDownloadSaveRequest {
 	declare ["constructor"]: typeof InstanceDownloadSaveRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.save.download";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.save.download" as const;
 
 	constructor(
 		public instanceId: number,
@@ -474,9 +474,9 @@ export class InstanceDownloadSaveRequest {
 
 export class InstanceTransferSaveRequest {
 	declare ["constructor"]: typeof InstanceTransferSaveRequest;
-	static type = "request";
-	static src = ["control", "controller"];
-	static dst = ["controller", "host"];
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = ["controller", "host"] as const;
 	static permission(user: User, message: MessageRequest) {
 		user.checkPermission("core.instance.save.transfer");
 		if (typeof message.data === "object" && message.data !== null) {
@@ -517,9 +517,9 @@ export class InstanceTransferSaveRequest {
 
 export class InstancePullSaveRequest {
 	declare ["constructor"]: typeof InstancePullSaveRequest;
-	static type = "request";
-	static src = "controller";
-	static dst = "host";
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public instanceId: number,
@@ -542,9 +542,9 @@ export class InstancePullSaveRequest {
 
 export class InstancePushSaveRequest {
 	declare ["constructor"]: typeof InstancePushSaveRequest;
-	static type = "request";
-	static src = "controller";
-	static dst = "host";
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public instanceId: number,
@@ -565,10 +565,10 @@ export class InstancePushSaveRequest {
 
 export class InstanceLoadScenarioRequest {
 	declare ["constructor"]: typeof InstanceLoadScenarioRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.load_scenario";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.load_scenario" as const;
 
 	constructor(
 		public scenario: string,
@@ -591,42 +591,42 @@ export class InstanceLoadScenarioRequest {
 
 export class InstanceExportDataRequest {
 	declare ["constructor"]: typeof InstanceExportDataRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.export_data";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.export_data" as const;
 }
 
 export class InstanceExtractPlayersRequest {
 	declare ["constructor"]: typeof InstanceExtractPlayersRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.extract_players";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.extract_players" as const;
 }
 
 export class InstanceStopRequest {
 	declare ["constructor"]: typeof InstanceStopRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.stop";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.stop" as const;
 }
 
 export class InstanceKillRequest {
 	declare ["constructor"]: typeof InstanceKillRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.kill";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.kill" as const;
 }
 
 export class InstanceDeleteRequest {
 	declare ["constructor"]: typeof InstanceDeleteRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.instance.delete";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.instance.delete" as const;
 
 	constructor(
 		public instanceId: number,
@@ -643,9 +643,9 @@ export class InstanceDeleteRequest {
 
 export class InstanceDeleteInternalRequest {
 	declare ["constructor"]: typeof InstanceDeleteInternalRequest;
-	static type = "request";
-	static src = "controller";
-	static dst = "host";
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public instanceId: number,
@@ -662,10 +662,10 @@ export class InstanceDeleteInternalRequest {
 
 export class InstanceSendRconRequest {
 	declare ["constructor"]: typeof InstanceSendRconRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "instance";
-	static permission = "core.instance.send_rcon";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "instance" as const;
+	static permission = "core.instance.send_rcon" as const;
 
 	constructor(
 		public command: string,
@@ -704,9 +704,9 @@ export class RawInstanceInfo {
 
 export class InstancesUpdateRequest {
 	declare ["constructor"]: typeof InstancesUpdateRequest;
-	static type = "request";
-	static src = "host";
-	static dst = "controller";
+	static type = "request" as const;
+	static src = "host" as const;
+	static dst = "controller" as const;
 
 	constructor(
 		public instances: RawInstanceInfo[],
@@ -725,9 +725,9 @@ export class InstancesUpdateRequest {
 
 export class InstanceAssignInternalRequest {
 	declare ["constructor"]: typeof InstanceAssignInternalRequest;
-	static type = "request";
-	static src = "controller";
-	static dst = "host";
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public instanceId: number,
@@ -747,9 +747,9 @@ export class InstanceAssignInternalRequest {
 
 export class InstanceUnassignInternalRequest {
 	declare ["constructor"]: typeof InstanceUnassignInternalRequest;
-	static type = "request";
-	static src = "controller";
-	static dst = "host";
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public instanceId: number,
@@ -766,9 +766,9 @@ export class InstanceUnassignInternalRequest {
 
 export class InstanceInitialisedEvent {
 	declare ["constructor"]: typeof InstanceInitialisedEvent;
-	static type = "event";
-	static src = "instance";
-	static dst = "host";
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public plugins: Record<string, string>,
@@ -785,9 +785,9 @@ export class InstanceInitialisedEvent {
 
 export class InstanceStatusChangedEvent {
 	declare ["constructor"]: typeof InstanceStatusChangedEvent;
-	static type = "event";
-	static src = ["instance", "host"];
-	static dst = "controller";
+	static type = "event" as const;
+	static src = ["instance", "host"] as const;
+	static dst = "controller" as const;
 
 	constructor(
 		public instanceId: number,
@@ -810,9 +810,9 @@ export class InstanceStatusChangedEvent {
 
 export class InstanceDetailsChangedEvent {
 	declare ["constructor"]: typeof InstanceDetailsChangedEvent;
-	static type = "event";
-	static src = "instance";
-	static dst = "controller";
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
 
 	constructor(
 		public details: InstanceDetails,
@@ -827,9 +827,9 @@ export class InstanceDetailsChangedEvent {
 
 export class InstanceBanlistUpdateEvent {
 	declare ["constructor"]: typeof InstanceBanlistUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "instance";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "instance" as const;
 
 	constructor(
 		public name: string,
@@ -850,9 +850,9 @@ export class InstanceBanlistUpdateEvent {
 
 export class InstanceAdminlistUpdateEvent {
 	declare ["constructor"]: typeof InstanceAdminlistUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "instance";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "instance" as const;
 
 	constructor(
 		public name: string,
@@ -871,9 +871,9 @@ export class InstanceAdminlistUpdateEvent {
 
 export class InstanceWhitelistUpdateEvent {
 	declare ["constructor"]: typeof InstanceWhitelistUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "instance";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "instance" as const;
 
 	constructor(
 		public name: string,
@@ -892,9 +892,9 @@ export class InstanceWhitelistUpdateEvent {
 
 export class InstancePlayerUpdateEvent {
 	declare ["constructor"]: typeof InstancePlayerUpdateEvent;
-	static type = "event";
-	static src = "instance";
-	static dst = "controller";
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
 
 	constructor(
 		public type: string,

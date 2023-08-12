@@ -2,14 +2,13 @@
 "use strict";
 import { strict as assert } from "assert";
 import events from "events";
-// eslint-disable-next-line node/no-process-env
-// @ts-ignore
-const WebSocket = process.env.APP_ENV === "browser" ? window.WebSocket : require("ws");
+import WebSocket from "./WebSocket";
 
 import * as libData from "../data";
 import * as libErrors  from "../errors";
 import { logger }  from "../logging";
 import ExponentialBackoff  from "../ExponentialBackoff";
+import type { Request, Event } from "./link";
 
 
 /**
@@ -37,15 +36,15 @@ export abstract class BaseConnector extends events.EventEmitter {
 
 	abstract send(message: libData.Message): void;
 
-	sendRequest(
-		request: libData.Request,
+	sendRequest<Req, Res>(
+		request: Request<Req, Res>,
 		requestId: number,
 		dst: libData.Address
 	) {
 		let seq = this._seq;
 		this._seq += 1;
 		let src = new libData.Address(this.src.type, this.src.id, requestId);
-		let Request = request.constructor as typeof libData.Request;
+		let Request = request.constructor;
 		let name = Request.plugin ? `${Request.plugin}:${Request.name}` : Request.name;
 		let hasData = Boolean(Request.jsonSchema);
 		const message = new libData.MessageRequest(seq, src, dst, name, hasData ? request : undefined);
@@ -69,10 +68,10 @@ export abstract class BaseConnector extends events.EventEmitter {
 		return seq;
 	}
 
-	sendEvent(event: libData.Event, dst: libData.Address) {
+	sendEvent<T>(event: Event<T>, dst: libData.Address) {
 		let seq = this._seq;
 		this._seq += 1;
-		let Event = event.constructor as typeof libData.Event;
+		let Event = event.constructor;
 		let name = Event.plugin ? `${Event.plugin}:${Event.name}` : Event.name;
 		let hasData = Boolean(Event.jsonSchema);
 		const message = new libData.MessageEvent(seq, this.src, dst, name, hasData ? event : undefined);
@@ -82,6 +81,12 @@ export abstract class BaseConnector extends events.EventEmitter {
 }
 
 type ConnectorState = "closed" | "connecting" | "connected" | "resuming";
+type ReliableMessages =
+	| libData.MessageRequest
+	| libData.MessageResponse
+	| libData.MessageResponseError
+	| libData.MessageEvent
+;
 
 /**
  * Base connector for links
@@ -92,12 +97,12 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	// One of closed, connecting (client only), connected and resuming.
 	_state: ConnectorState = "closed";
 	_closing = false;
-	_socket = null;
-	_lastHeartbeat = null;
-	_heartbeatId: NodeJS.Timer = null;
+	_socket: WebSocket | null = null;
+	_lastHeartbeat: number | null = null;
+	_heartbeatId: NodeJS.Timer | null = null;
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
-	_sendBuffer = [];
+	_sendBuffer: (ReliableMessages)[] = [];
 
 	constructor(src: libData.Address, dst: libData.Address) {
 		super(src, dst);
@@ -194,13 +199,13 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 
 	_doHeartbeat() {
 		this._check("connected");
-		if (Date.now() - this._lastHeartbeat > 2000 * this._heartbeatInterval) {
+		if (Date.now() - this._lastHeartbeat! > 2000 * this._heartbeatInterval!) {
 			logger.verbose("Connector | closing after heartbeat timed out");
 			// eslint-disable-next-line node/no-process-env
 			if (process.env.APP_ENV === "browser") {
-				this._socket.close(4008, "Heartbeat timeout");
+				this._socket!.close(4008, "Heartbeat timeout");
 			} else {
-				this._socket.terminate();
+				this._socket!.terminate();
 			}
 
 		} else {
@@ -223,7 +228,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		this._lastHeartbeat = Date.now();
 		this._heartbeatId = setInterval(() => {
 			this._doHeartbeat();
-		}, this._heartbeatInterval * 1000);
+		}, this._heartbeatInterval! * 1000);
 	}
 
 	/**
@@ -244,7 +249,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 *
 	 * @param message - Message to send.
 	 */
-	send(message: libData.Message) {
+	send(message: ReliableMessages) {
 		if (!["connected", "resuming"].includes(this._state)) {
 			throw new libErrors.SessionLost("No session");
 		}
@@ -256,7 +261,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	}
 
 	_sendInternal(message: libData.Message) {
-		this._socket.send(JSON.stringify(message));
+		this._socket!.send(JSON.stringify(message));
 	}
 
 	/**
@@ -280,9 +285,9 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		}
 
 		this.setClosing();
-		this.send(new libData.MessageDisconnect("prepare"));
+		this._sendInternal(new libData.MessageDisconnect("prepare"));
 
-		let timeout: NodeJS.Timeout;
+		let timeout: NodeJS.Timeout | undefined;
 		let waitTimeout = new Promise(resolve => { timeout = setTimeout(resolve, 10000); }); // Make Configurable?
 		try {
 			await Promise.race([
@@ -326,7 +331,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
  * @extends module:lib.WebSocketBaseConnector
  */
 export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
-	_reconnectId: NodeJS.Timeout | null = null;
+	_reconnectId?: NodeJS.Timeout;
 	_sessionToken: string | null = null;
 	_sessionTimeout: number | null = null;
 	_startedResuming: number | null = null;
@@ -337,7 +342,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		maxReconnectDelay: number,
 		protected _tlsCa = null
 	) {
-		super(undefined, new libData.Address(libData.Address.controller, 0));
+		super(undefined as any, new libData.Address(libData.Address.controller, 0));
 		this._backoff = new ExponentialBackoff({ max: maxReconnectDelay });
 
 		// The following states are used in the client connector
@@ -349,21 +354,21 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 	_reset() {
 		clearTimeout(this._reconnectId);
-		this._reconnectId = null;
+		this._reconnectId = undefined;
 		this._sessionToken = null;
 		this._sessionTimeout = null;
 		this._startedResuming = null;
 		super._reset();
-		this.src = undefined;
+		this.src = undefined as any;
 	}
 
 	_invalidate() {
-		assert(this._reconnectId === null);
+		assert(this._reconnectId === undefined);
 		this._sessionToken = null;
 		this._sessionTimeout = null;
 		this._startedResuming = null;
 		super._invalidate();
-		this.src = undefined;
+		this.src = undefined as any;
 	}
 
 	/**
@@ -394,7 +399,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		this._closing = true;
 		if (this._state === "connected" || this._socket) {
-			this._socket.close(code, reason);
+			this._socket!.close(code, reason);
 			await events.once(this, "close");
 
 		} else {
@@ -421,7 +426,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		if (this._socket) {
-			this._socket.close(1000, "Connector closing");
+			this._socket!.close(1000, "Connector closing");
 
 		} else {
 			this._reset();
@@ -471,14 +476,14 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			throw new Error("Cannot reconnect while socket is open");
 		}
 
-		if (this._reconnectId !== null) {
+		if (this._reconnectId !== undefined) {
 			logger.error("Unexpected double call to reconnect");
 		}
 
 		let delay = this._backoff.delay();
 		if (
 			this._state === "resuming"
-			&& this._startedResuming + this._sessionTimeout * 1000 < Date.now() + delay
+			&& this._startedResuming! + this._sessionTimeout! * 1000 < Date.now() + delay
 		) {
 			logger.error("Connector | Session timed out trying to resume");
 			this._reset();
@@ -494,14 +499,13 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			`Connector | waiting ${(Math.round(delay / 10) / 100)} seconds for reconnect`
 		);
 		this._reconnectId = setTimeout(() => {
-			this._reconnectId = null;
+			this._reconnectId = undefined;
 			this._doConnect();
 		}, delay);
 	}
 
 	_attachSocketHandlers() {
-		// TODO type event
-		this._socket.onclose = (event: any) => {
+		this._socket!.onclose = (event) => {
 			const previousState = this._state;
 
 			// Authentication failed
@@ -544,7 +548,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 		};
 
-		this._socket.onerror = (event: any) => {
+		this._socket!.onerror = (event) => {
 			// It's assumed that close is always called by ws
 			let code = !event.error ? "" : `, code: ${event.error.code}`;
 			let message = `Connector | Socket error: ${event.message || "unknown error"}${code}`;
@@ -568,13 +572,13 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 		};
 
-		this._socket.onopen = () => {
+		this._socket!.onopen = () => {
 			logger.verbose("Connector | Open");
 		};
 
 		// Handle messages
-		this._socket.onmessage = (event: any) => {
-			let message = this._parseMessage(event.data);
+		this._socket!.onmessage = (event) => {
+			let message = this._parseMessage(event.data as string);
 			if (!message) {
 				return;
 			}

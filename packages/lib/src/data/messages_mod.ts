@@ -6,10 +6,10 @@ import { JsonString, jsonArray } from "./composites";
 
 export class ModPackGetRequest {
 	declare ["constructor"]: typeof ModPackGetRequest;
-	static type = "request";
-	static src = ["instance", "control"];
-	static dst = "controller";
-	static permission = "core.mod_pack.get";
+	static type = "request" as const;
+	static src = ["instance", "control"] as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.get" as const;
 
 	constructor(
 		public id: number,
@@ -28,28 +28,28 @@ export class ModPackGetRequest {
 
 export class ModPackGetDefaultRequest {
 	declare ["constructor"]: typeof ModPackGetDefaultRequest;
-	static type = "request";
-	static src = ["instance", "control"];
-	static dst = "controller";
-	static permission = "core.mod_pack.get";
+	static type = "request" as const;
+	static src = ["instance", "control"] as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.get" as const;
 	static Response = ModPack;
 }
 
 export class ModPackListRequest {
 	declare ["constructor"]: typeof ModPackListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod_pack.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.list" as const;
 	static Response = jsonArray(ModPack);
 }
 
 export class ModPackCreateRequest {
 	declare ["constructor"]: typeof ModPackCreateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod_pack.create";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.create" as const;
 
 	constructor(
 		public modPack: ModPack,
@@ -66,10 +66,10 @@ export class ModPackCreateRequest {
 
 export class ModPackUpdateRequest {
 	declare ["constructor"]: typeof ModPackUpdateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod_pack.update";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.update" as const;
 
 	constructor(
 		public modPack: ModPack,
@@ -86,10 +86,10 @@ export class ModPackUpdateRequest {
 
 export class ModPackDeleteRequest {
 	declare ["constructor"]: typeof ModPackDeleteRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod_pack.delete";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.delete" as const;
 
 	constructor(
 		public id: number,
@@ -106,10 +106,10 @@ export class ModPackDeleteRequest {
 
 export class ModPackSetSubscriptionsRequest {
 	declare ["constructor"]: typeof ModPackSetSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod_pack.subscribe";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod_pack.subscribe" as const;
 
 	constructor(
 		public all: boolean,
@@ -128,10 +128,10 @@ export class ModPackSetSubscriptionsRequest {
 
 export class ModGetRequest {
 	declare ["constructor"]: typeof ModGetRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod.get";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.get" as const;
 
 	constructor(
 		public name: string,
@@ -152,19 +152,19 @@ export class ModGetRequest {
 
 export class ModListRequest {
 	declare ["constructor"]: typeof ModListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.list" as const;
 	static Response = jsonArray(ModInfo);
 }
 
 export class ModSearchRequest {
 	declare ["constructor"]: typeof ModSearchRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod.search";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.search" as const;
 
 	constructor(
 		public query: string,
@@ -178,8 +178,8 @@ export class ModSearchRequest {
 	static jsonSchema = Type.Object({
 		"query": Type.String(),
 		"factorioVersion": Type.String(),
-		"pageSize": Type.Integer(),
-		"page": Type.Optional(Type.Integer()),
+		"page": Type.Integer(),
+		"pageSize": Type.Optional(Type.Integer()),
 		"sort": Type.Optional(Type.String()),
 		"sortOrder": Type.Optional(Type.String()),
 	});
@@ -219,10 +219,10 @@ export class ModSearchRequest {
 
 export class ModSetSubscriptionsRequest {
 	declare ["constructor"]: typeof ModSetSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod.subscribe";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.subscribe" as const;
 
 	constructor(
 		public all: boolean,
@@ -241,10 +241,10 @@ export class ModSetSubscriptionsRequest {
 
 export class ModDownloadRequest {
 	declare ["constructor"]: typeof ModDownloadRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod.download";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.download" as const;
 
 	constructor(
 		public name: string,
@@ -265,10 +265,10 @@ export class ModDownloadRequest {
 
 export class ModDeleteRequest {
 	declare ["constructor"]: typeof ModDeleteRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.mod.delete";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.mod.delete" as const;
 
 	constructor(
 		public name: string,
@@ -287,9 +287,9 @@ export class ModDeleteRequest {
 
 export class ModPackUpdateEvent {
 	declare ["constructor"]: typeof ModPackUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public modPack: ModPack,
@@ -306,9 +306,9 @@ export class ModPackUpdateEvent {
 
 export class ModUpdateEvent {
 	declare ["constructor"]: typeof ModUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public mod: ModInfo,

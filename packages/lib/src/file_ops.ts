@@ -46,7 +46,7 @@ export async function directorySize(directory: string) {
 	let dirEntries: fs.Dirent[];
 	try {
 		dirEntries = await fs.readdir(directory, { withFileTypes: true });
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			return 0;
 		}
@@ -92,7 +92,7 @@ export async function findUnusedName(directory: string, name: string, extension 
 			return `${name}${extension}`;
 		}
 
-		let match = /^(.*?)(-(\d+))?$/.exec(name);
+		let match = /^(.*?)(-(\d+))?$/.exec(name)!;
 		if (!match[2]) {
 			name = `${match[1]}-2`;
 		} else {

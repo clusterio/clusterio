@@ -27,11 +27,10 @@ export default class RateLimiter {
 	/**
 	 * Callback invoked at most `maxRate` per second on activation.
 	 */
-	action: Function | null;
+	action?: Function;
 
 	private _lastRun = 0;
-	private _runTimeout = null;
-	private lastProgressBroadcast = Date.now();
+	private _runTimeout?: NodeJS.Timeout;
 
 	/**
 	 * Construct RateLimiter helper
@@ -46,7 +45,7 @@ export default class RateLimiter {
 	 */
 	constructor(options: { maxRate?: number, action?: Function } = {}) {
 		this.maxRate = options.maxRate || 1;
-		this.action = options.action || null;
+		this.action = options.action || undefined;
 	}
 
 	/**
@@ -62,11 +61,13 @@ export default class RateLimiter {
 	activate() {
 		let now = Date.now();
 		if (now < this._lastRun + 1000 / this.maxRate) {
-			if (!this._runTimeout && this.action !== null) {
+			if (!this._runTimeout && this.action) {
 				this._runTimeout = setTimeout(() => {
-					this._runTimeout = null;
+					this._runTimeout = undefined;
 					this._lastRun = Date.now();
-					this.action();
+					if (this.action) {
+						this.action();
+					}
 				}, this._lastRun + 1000 / this.maxRate - now);
 			}
 			return false;
@@ -75,11 +76,11 @@ export default class RateLimiter {
 		// We may end up activating before the timeout does.
 		if (this._runTimeout) {
 			clearTimeout(this._runTimeout);
-			this._runTimeout = null;
+			this._runTimeout = undefined;
 		}
 
 		this._lastRun = now;
-		if (this.action !== null) {
+		if (this.action) {
 			this.action();
 		}
 		return true;

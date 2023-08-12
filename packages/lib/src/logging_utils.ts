@@ -256,7 +256,12 @@ export class LogIndex {
 	serialize() {
 		let serialized = {
 			version: logIndexVersion,
-			files: {},
+			files: {} as Record<string, {
+				levels: string[],
+				controller: boolean,
+				hostIds: number[],
+				instanceIds: number[],
+			}>,
 		};
 
 		for (let [file, entry] of this.index) {
@@ -285,7 +290,7 @@ export class LogIndex {
 		try {
 			let content = await fs.readFile(path.join(logDirectory, "index.json"));
 			return new LogIndex(logDirectory, JSON.parse(content.toString()));
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				logger.warn(`Failed to load ${path.join(logDirectory, "index.json")}: ${err}`);
 			}
@@ -369,7 +374,7 @@ export class LogIndex {
 	 *     true if the file may contain entries included by the filter.
 	 */
 	filterIncludesFile(file: string, { maxLevel, all, controller, instanceIds, hostIds }: LogFilter) {
-		let entry = this.index.get(file);
+		const entry = this.index.get(file);
 		if (!entry) {
 			return true;
 		}
@@ -412,7 +417,7 @@ export interface QueryLogFilter {
 	 * Return entries in ascending ("asc") date order or desceding ("desc")
 	 * date order. Defaults to "asc".
 	 */
-	order: "asc" | "desc";
+	order?: "asc" | "desc";
 	/**
 	 * Maximum log level to include. Higher levels are more verbose.
 	 */
@@ -461,7 +466,7 @@ export async function queryLog(logDirectory: string, filter: QueryLogFilter, ind
 	}
 
 	const includeEntry = logFilter(filter);
-	let log = [];
+	let log: object[] = [];
 	for (let file of files) {
 		if (index && !index.filterIncludesFile(file, filter)) {
 			continue;
@@ -485,7 +490,7 @@ export async function queryLog(logDirectory: string, filter: QueryLogFilter, ind
 			}
 			if (includeEntry(info)) {
 				log.push(info);
-				if (log.length >= filter.limit) {
+				if (log.length >= Number(filter.limit)) {
 					lineStream.destroy();
 					fileStream.destroy();
 				}
@@ -494,13 +499,13 @@ export async function queryLog(logDirectory: string, filter: QueryLogFilter, ind
 		fileStream.pipe(lineStream);
 		try {
 			await finished(lineStream);
-		} catch (err) {
-			if (log.length < filter.limit || err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
+		} catch (err: any) {
+			if (log.length < Number(filter.limit) || err.code !== "ERR_STREAM_PREMATURE_CLOSE") {
 				throw err;
 			}
 		}
 
-		if (log.length >= filter.limit) {
+		if (log.length >= Number(filter.limit)) {
 			break;
 		}
 	}

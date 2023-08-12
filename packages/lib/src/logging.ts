@@ -130,7 +130,7 @@ export interface LogFilter {
 export function logFilter({ all, controller, hostIds, instanceIds, maxLevel }: LogFilter) {
 	return (info: any) => {
 		// Note: reversed to filter out undefined levels
-		if (maxLevel && !(levels[info.level] <= levels[maxLevel])) {
+		if (maxLevel && !((levels as any)[info.level] <= levels[maxLevel])) {
 			return false;
 		}
 

@@ -22,10 +22,10 @@ export class RawPermission { // TODO refactor into lib/user.Permission
 
 export class PermissionListRequest {
 	declare ["constructor"]: typeof PermissionListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.permission.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.permission.list" as const;
 	static Response = jsonArray(RawPermission);
 }
 
@@ -51,19 +51,19 @@ export class RawRole { // TODO refactor into lib/user.Role
 
 export class RoleListRequest {
 	declare ["constructor"]: typeof RoleListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.role.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.role.list" as const;
 	static Response = jsonArray(RawRole);
 }
 
 export class RoleCreateRequest {
 	declare ["constructor"]: typeof RoleCreateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.role.create";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.role.create" as const;
 
 	constructor(
 		public name: string,
@@ -86,10 +86,10 @@ export class RoleCreateRequest {
 
 export class RoleUpdateRequest {
 	declare ["constructor"]: typeof RoleUpdateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.role.update";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.role.update" as const;
 
 	constructor(
 		public id: number,
@@ -112,10 +112,10 @@ export class RoleUpdateRequest {
 
 export class RoleGrantDefaultPermissionsRequest {
 	declare ["constructor"]: typeof RoleGrantDefaultPermissionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.role.update";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.role.update" as const;
 
 	constructor(
 		public id: number,
@@ -132,10 +132,10 @@ export class RoleGrantDefaultPermissionsRequest {
 
 export class RoleDeleteRequest {
 	declare ["constructor"]: typeof RoleDeleteRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.role.delete";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.role.delete" as const;
 
 	constructor(
 		public id: number,
@@ -173,20 +173,20 @@ export class RawUser { // TODO refactor into lib/user.User
 		isWhitelisted: Type.Optional(Type.Boolean()),
 		banReason: Type.Optional(Type.String()),
 		isDeleted: Type.Optional(Type.Boolean()),
-		playerStats: Type.Optional(Type.Unsafe<unknown>(PlayerStats.jsonSchema)),
+		playerStats: Type.Optional(PlayerStats.jsonSchema),
 		instanceStats: Type.Optional(
 			Type.Array(
-				Type.Tuple([Type.Integer(), Type.Unsafe<unknown>(PlayerStats.jsonSchema)]),
+				Type.Tuple([Type.Integer(), PlayerStats.jsonSchema]),
 			)
 		),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		let playerStats: PlayerStats;
+		let playerStats: PlayerStats | undefined;
 		if (json.playerStats) {
 			playerStats = PlayerStats.fromJSON(json.playerStats);
 		}
-		let instanceStats: Map<number, PlayerStats>;
+		let instanceStats: Map<number, PlayerStats> | undefined;
 		if (json.instanceStats) {
 			instanceStats = new Map(
 				json.instanceStats.map(([id, stats]) => [id, PlayerStats.fromJSON(stats)])
@@ -208,10 +208,12 @@ export class RawUser { // TODO refactor into lib/user.User
 			isWhitelisted: this.isWhitelisted,
 			banReason: this.banReason,
 			isDeleted: this.isDeleted,
-			playerStats: this.playerStats,
 		};
+		if (this.playerStats) {
+			json.playerStats = this.playerStats.toJSON()
+		}
 		if (this.instanceStats) {
-			json.instanceStats = [...this.instanceStats];
+			json.instanceStats = [...this.instanceStats].map(([k, v]) => [k, v.toJSON()]);
 		}
 		return json;
 	}
@@ -219,10 +221,10 @@ export class RawUser { // TODO refactor into lib/user.User
 
 export class UserGetRequest {
 	declare ["constructor"]: typeof UserGetRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.get";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.get" as const;
 
 	constructor(
 		public name: string,
@@ -241,19 +243,19 @@ export class UserGetRequest {
 
 export class UserListRequest {
 	declare ["constructor"]: typeof UserListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.list" as const;
 	static Response = jsonArray(RawUser);
 }
 
 export class UserSetSubscriptionsRequest {
 	declare ["constructor"]: typeof UserSetSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.subscribe";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.subscribe" as const;
 
 	constructor(
 		public all: boolean,
@@ -272,10 +274,10 @@ export class UserSetSubscriptionsRequest {
 
 export class UserCreateRequest {
 	declare ["constructor"]: typeof UserCreateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.create";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.create" as const;
 
 	constructor(
 		public name: string,
@@ -292,10 +294,10 @@ export class UserCreateRequest {
 
 export class UserRevokeTokenRequest {
 	declare ["constructor"]: typeof UserRevokeTokenRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.revoke_token";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.revoke_token" as const;
 
 	constructor(
 		public name: string,
@@ -312,10 +314,10 @@ export class UserRevokeTokenRequest {
 
 export class UserUpdateRolesRequest {
 	declare ["constructor"]: typeof UserUpdateRolesRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.update_roles";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.update_roles" as const;
 
 	constructor(
 		public name: string,
@@ -334,10 +336,10 @@ export class UserUpdateRolesRequest {
 
 export class UserSetAdminRequest {
 	declare ["constructor"]: typeof UserSetAdminRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.set_admin";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.set_admin" as const;
 
 	constructor(
 		public name: string,
@@ -358,10 +360,10 @@ export class UserSetAdminRequest {
 
 export class UserSetWhitelistedRequest {
 	declare ["constructor"]: typeof UserSetWhitelistedRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.set_whitelisted";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.set_whitelisted" as const;
 
 	constructor(
 		public name: string,
@@ -382,10 +384,10 @@ export class UserSetWhitelistedRequest {
 
 export class UserSetBannedRequest {
 	declare ["constructor"]: typeof UserSetBannedRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.set_banned";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.set_banned" as const;
 
 	constructor(
 		public name: string,
@@ -408,10 +410,10 @@ export class UserSetBannedRequest {
 
 export class UserDeleteRequest {
 	declare ["constructor"]: typeof UserDeleteRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.user.delete";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.user.delete" as const;
 
 	constructor(
 		public name: string,
@@ -429,9 +431,9 @@ export class UserDeleteRequest {
 
 export class AccountUpdateEvent {
 	declare ["constructor"]: typeof AccountUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public roles?: { name: string, id: number, permissions: string[] }[],
@@ -454,9 +456,9 @@ export class AccountUpdateEvent {
 
 export class UserUpdateEvent {
 	declare ["constructor"]: typeof UserUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public user: RawUser,

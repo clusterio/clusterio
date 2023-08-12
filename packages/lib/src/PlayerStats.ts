@@ -1,3 +1,5 @@
+import { Type, Static } from "@sinclair/typebox";
+
 /**
  * Stastics collected about a player.
  */
@@ -27,18 +29,15 @@ export default class PlayerStats {
 	 */
 	lastLeaveReason?: string;
 
-	static jsonSchema = {
-		type: "object",
-		properties: {
-			"join_count": { type: "integer" },
-			"online_time_ms": { type: "number" },
-			"last_join_at": { type: "number" },
-			"last_leave_at": { type: "number" },
-			"last_leave_reason": { type: "string" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"join_count": Type.Optional(Type.Integer()),
+		"online_time_ms": Type.Optional(Type.Number()),
+		"last_join_at": Type.Optional(Type.Number()),
+		"last_leave_at": Type.Optional(Type.Number()),
+		"last_leave_reason": Type.Optional(Type.String()),
+	});
 
-	constructor(json = {}) {
+	constructor(json: Static<typeof PlayerStats.jsonSchema> = {}) {
 		if (json["join_count"]) {
 			this.joinCount = json["join_count"];
 		}
@@ -54,12 +53,12 @@ export default class PlayerStats {
 		}
 	}
 
-	static fromJSON(json: any) {
+	static fromJSON(json: Static<typeof PlayerStats.jsonSchema>) {
 		return new this(json);
 	}
 
 	toJSON() {
-		let json = {};
+		let json: Static<typeof PlayerStats.jsonSchema> = {};
 		if (this.joinCount) {
 			json["join_count"] = this.joinCount;
 		}

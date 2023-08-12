@@ -297,11 +297,11 @@ export class BaseInstancePlugin {
 	async _sendPendingRconMessages() {
 		this._sendingRconMessages = true;
 		while (this._pendingRconMessages.length) {
-			let task = this._pendingRconMessages.shift();
+			let task = this._pendingRconMessages.shift()!;
 			try {
 				let result = await this.sendRcon(task.message, task.expectEmpty);
 				task.resolve(result);
-			} catch (err) {
+			} catch (err: any) {
 				task.reject(err);
 			}
 		}
@@ -820,7 +820,7 @@ export async function invokeHook(plugins: Map<string, BasePlugin>, hook: string,
 			// Use an object to detect if the hook failed on timeout or tried to return a value looking like an error
 			const timeout = {};
 			let result = await libHelpers.timeout(
-				plugin[hook](...args),
+				(plugin as any)[hook](...args),
 				15000,
 				timeout
 			);
@@ -829,7 +829,7 @@ export async function invokeHook(plugins: Map<string, BasePlugin>, hook: string,
 			} else if (result !== undefined) {
 				results.push(result);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			plugin.logger.error(`Ignoring error from plugin ${name} in ${hook}:\n${err.stack}`);
 		}
 	}

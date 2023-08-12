@@ -7,7 +7,7 @@
  * Thrown by commands when they fail
  */
 export class CommandError extends Error {
-	code: "CommandError";
+	code = "CommandError";
 }
 
 /**
@@ -45,10 +45,10 @@ export class PermissionError extends RequestError {
  * Signal for messages that fail validation
  */
 export class InvalidMessage extends Error {
-	code: "InvalidMessage";
+	code = "InvalidMessage";
 	constructor(
 		message: string,
-		public errors: object = null,
+		public errors?: object | null,
 	) {
 		super(message);
 	}
@@ -58,35 +58,35 @@ export class InvalidMessage extends Error {
  * Thrown from requests when the session it was sent on was lost
  */
 export class SessionLost extends Error {
-	code: "SessionLost";
+	code = "SessionLost";
 }
 
 /**
  * Thrown when WebSocket authentication failed
  */
 export class AuthenticationFailed extends Error {
-	code: "AuthenticationFailed";
+	code = "AuthenticationFailed";
 }
 
 /**
  * Errror class for known errors occuring during startup
  */
 export class StartupError extends Error {
-	code: "StartupError";
+	code = "StartupError";
 }
 
 /**
  * Errors outside of our control
  */
 export class EnvironmentError extends Error {
-	code: "EnvironmentError";
+	code = "EnvironmentError";
 }
 
 /**
  * Errors caused by plugins
  */
 export class PluginError extends Error {
-	code: "PluginError";
+	code = "PluginError";
 	constructor(
 		public pluginName: string,
 		public original: Error

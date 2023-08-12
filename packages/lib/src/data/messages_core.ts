@@ -323,7 +323,7 @@ export class ReadyData {
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		let account: AccountDetails;
+		let account: AccountDetails | undefined;
 		if (json.account) { account = AccountDetails.fromJSON(json.account); }
 		return new this(
 			Address.fromJSON(json.src),
@@ -622,8 +622,9 @@ Message.jsonSchema = Type.Union([
 ]);
 
 export class PingRequest {
-	static type = "request";
-	static src = ["controller", "host", "control"];
-	static dst = ["controller", "host", "control"];
+	declare ["constructor"]: typeof PingRequest;
+	static type = "request" as const;
+	static src = ["controller", "host", "control"] as const;
+	static dst = ["controller", "host", "control"] as const;
 	static permission = null;
 }

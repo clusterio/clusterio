@@ -28,19 +28,19 @@ export class HostDetails {
 
 export class HostListRequest {
 	declare ["constructor"]: typeof HostListRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.host.list";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.list" as const;
 	static Response = jsonArray(HostDetails);
 }
 
 export class HostSetSubscriptionsRequest {
 	declare ["constructor"]: typeof HostSetSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.host.subscribe";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.subscribe" as const;
 
 	constructor(
 		public all: boolean,
@@ -60,9 +60,9 @@ export class HostSetSubscriptionsRequest {
 
 export class HostUpdateEvent {
 	declare ["constructor"]: typeof HostUpdateEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public update: HostDetails,
@@ -79,9 +79,9 @@ export class HostUpdateEvent {
 
 export class HostMetricsRequest {
 	declare ["constructor"]: typeof HostMetricsRequest;
-	static type = "request";
-	static src = "controller";
-	static dst = "host";
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
 		constructor(
 			public results: object[],
@@ -99,9 +99,9 @@ export class HostMetricsRequest {
 
 export class ControllerConnectionEvent {
 	declare ["constructor"]: typeof ControllerConnectionEvent;
-	static type = "event";
-	static src = "host";
-	static dst = "instance";
+	static type = "event" as const;
+	static src = "host" as const;
+	static dst = "instance" as const;
 
 	constructor(
 		public event: string,
@@ -118,16 +118,16 @@ export class ControllerConnectionEvent {
 
 export class PrepareControllerDisconnectRequest {
 	declare ["constructor"]: typeof PrepareControllerDisconnectRequest;
-	static type = "request";
-	static src = "host";
-	static dst = "instance";
+	static type = "request" as const;
+	static src = "host" as const;
+	static dst = "instance" as const;
 }
 
 export class SyncUserListsEvent {
 	declare ["constructor"]: typeof SyncUserListsEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "host";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
 
 	constructor(
 		public adminlist: Set<string>,

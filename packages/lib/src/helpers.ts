@@ -37,7 +37,7 @@ export async function wait(duration: number) {
  * @param {*=} timeoutResult - Value to return if the operation timed out.
  */
 export async function timeout<T>(promise: Promise<T>, time: number, timeoutResult: T) {
-	let timer: ReturnType<typeof setTimeout>;
+	let timer: NodeJS.Timer | undefined;
 	try {
 		return await Promise.race([
 			promise,
@@ -157,10 +157,10 @@ function parseSearchTerm(
 	input: string,
 	attributes: Record<string, string>,
 	issues: Array<string>
-): [number, ParsedTerm] {
+): [number, ParsedTerm | undefined] {
 	// attribute = identifier, ':', word
 	// term = word | attribute
-	let term: ParsedTerm;
+	let term: ParsedTerm | undefined;
 	if (["-", '"'].includes(input.charAt(pos))) {
 		([pos, term] = parseSearchWord(pos, input));
 	} else {
@@ -274,12 +274,12 @@ export function parseSearchString(
 	// search = [ term, *( [ whitespace ], term ) ]
 	input = input.trim();
 	let parsed = {
-		terms: [],
-		issues: [],
+		terms: [] as ParsedTerm[],
+		issues: [] as string[],
 	};
 	let pos = 0;
 	while (pos < input.length) {
-		let term: ParsedTerm;
+		let term: ParsedTerm | undefined;
 		([pos, term] = parseSearchTerm(pos, input, attributes, parsed.issues));
 		if (term) {
 			parsed.terms.push(term);

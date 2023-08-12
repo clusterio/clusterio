@@ -363,7 +363,7 @@ export function readMapExchangeString(exchangeString: string) {
 	try {
 		// eslint-disable-next-line node/no-sync
 		buf = zlib.inflateSync(buf);
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code.startsWith("Z_")) {
 			throw new Error("Malformed map exchange string: zlib inflate failed");
 		}
@@ -380,7 +380,7 @@ export function readMapExchangeString(exchangeString: string) {
 			map_settings: readMapSettings(state),
 			checksum: readUInt32(state),
 		};
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ERR_OUT_OF_RANGE") {
 			throw new Error("Malformed map exchange string: reached end before finishing parsing");
 		}

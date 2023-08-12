@@ -80,7 +80,7 @@ describe("lib/link/link", function() {
 						testConnector._seq - 1,
 						src,
 						dst,
-						new lib.ResponseError("Unrecognized request UnhandledRequest")
+						new lib.ResponseError("Unrecognized request UnhandledRequest", "InvalidMessage")
 					),
 				]);
 			});
@@ -114,7 +114,10 @@ describe("lib/link/link", function() {
 						testConnector._seq - 1,
 						src,
 						dst,
-						new lib.ResponseError("Source [Address controller:0] is not allowed for InvalidSrcRequest")
+						new lib.ResponseError(
+							"Source [Address controller:0] is not allowed for InvalidSrcRequest",
+							"InvalidMessage"
+						)
 					),
 				]);
 			});
@@ -132,7 +135,8 @@ describe("lib/link/link", function() {
 						src,
 						dst,
 						new lib.ResponseError(
-							"Destination [Address control:1] is not allowed for InvalidDstRequest"
+							"Destination [Address control:1] is not allowed for InvalidDstRequest",
+							"InvalidMessage",
 						)
 					),
 				]);
@@ -144,7 +148,7 @@ describe("lib/link/link", function() {
 						testConnector._seq - 1,
 						src,
 						addr("allControls"),
-						new lib.ResponseError("Message src may not be broadcast")
+						new lib.ResponseError("Message src may not be broadcast", "InvalidMessage")
 					),
 				]);
 			});
@@ -155,7 +159,10 @@ describe("lib/link/link", function() {
 						testConnector._seq - 1,
 						src,
 						dst,
-						new lib.ResponseError("Destination [Address 4:control] is not allowed for SimpleRequest")
+						new lib.ResponseError(
+							"Destination [Address 4:control] is not allowed for SimpleRequest",
+							"InvalidMessage",
+						)
 					),
 				]);
 			});

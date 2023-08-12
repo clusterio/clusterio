@@ -49,7 +49,7 @@ export async function handlePluginCommand(
 	pluginList: Map<string, string>,
 	pluginListPath: string
 ) {
-	let command = args._[1];
+	let command = (args._ as string[])[1];
 
 	if (command === "add") {
 		let pluginPath = args.path as string;
@@ -61,7 +61,7 @@ export async function handlePluginCommand(
 		try {
 			// eslint-disable-next-line node/global-require
 			pluginInfo = require(path.posix.join(pluginPath, "info"));
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);
 			process.exitCode = 1;
 			return;
@@ -132,7 +132,7 @@ export async function handleConfigCommand(
 	instance: libConfig.Config,
 	configPath: string
 ) {
-	let command = args._[1];
+	let command = (args._ as string[])[1];
 
 	if (command === "list") {
 		for (let GroupClass of (instance.constructor as typeof libConfig.Config).groups.values()) {

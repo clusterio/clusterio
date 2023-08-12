@@ -10,7 +10,7 @@ import type JSZip from "jszip";
  * @returns name of the root folder.
  */
 export function findRoot(zip: JSZip) {
-	let root = null;
+	let root: undefined | string;
 	zip.forEach((relativePath, file) => {
 		let index = relativePath.indexOf("/");
 		if (index === -1) {
@@ -18,14 +18,14 @@ export function findRoot(zip: JSZip) {
 		}
 
 		let pathRoot = relativePath.slice(0, index);
-		if (root === null) {
+		if (root === undefined) {
 			root = pathRoot;
 		} else if (root !== pathRoot) {
 			throw new Error("Zip contains multiple root folders");
 		}
 	});
 
-	if (root === null) {
+	if (root === undefined) {
 		throw new Error("Empty zip file");
 	}
 

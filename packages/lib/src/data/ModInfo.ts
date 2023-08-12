@@ -101,7 +101,7 @@ export default class ModInfo {
 	/**
 	 * SHA1 hash of this mod
 	 */
-	sha1: string;
+	sha1?: string;
 
 	/**
 	 * True if this mod has been deleted
@@ -174,13 +174,13 @@ export default class ModInfo {
 		return json;
 	}
 
-	static async fromModFile(modPath) {
+	static async fromModFile(modPath: string) {
 		let modInfo: Static<typeof ModInfo.jsonSchema>;
 		{
 			// XXX: JSZip needs the whole archive loaded in memory to work.
 			// This is clearly untenable and will be replaced later.
 			let zip = await JSZip.loadAsync(await fs.readFile(modPath));
-			let root = zip.folder(findRoot(zip));
+			let root = zip.folder(findRoot(zip))!;
 
 			let infoFile = root.file("info.json");
 			if (!infoFile) {

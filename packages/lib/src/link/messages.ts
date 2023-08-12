@@ -5,6 +5,7 @@ import * as host from "../data/messages_host";
 import * as instance from "../data/messages_instance";
 import * as mod from "../data/messages_mod";
 import * as user from "../data/messages_user";
+import type { RequestClass, EventClass } from "./link";
 
 /**
  * Event and Request payloads registered with the Link class. Used to decode
@@ -12,7 +13,7 @@ import * as user from "../data/messages_user";
  * their proper classes.
  * @internal
  */
-export const dataClasses = [
+export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)[] = [
 	core.PingRequest,
 
 	controller.ControllerConfigGetRequest,

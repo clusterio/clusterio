@@ -44,7 +44,6 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			action: () => this.broadcastProgress(),
 		});
 
-		this.lastProgressBroadcast = Date.now();
 		this.progressBroadcastId = null;
 		this.progressToBroadcast = new Set();
 
@@ -68,7 +67,6 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 		this.progressToBroadcast.clear();
 
-		this.lastProgressBroadcast = Date.now();
 		if (techs.length) {
 			this.controller.sendTo("allInstances", new ProgressEvent(techs));
 		}

@@ -57,7 +57,7 @@ export default class ModPack {
 	/**
 	 * Id of this mod pack
 	 */
-	id: number;
+	id?: number;
 
 	/**
 	 * Name of this mod pack.
@@ -197,7 +197,7 @@ export default class ModPack {
 		try {
 			// eslint-disable-next-line node/no-sync
 			buf = zlib.inflateSync(buf);
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code.startsWith("Z_")) {
 				throw new Error("Malformed mod pack string: zlib inflate failed");
 			}
@@ -206,7 +206,7 @@ export default class ModPack {
 		let json: unknown;
 		try {
 			json = JSON.parse(buf.toString());
-		} catch (err) {
+		} catch (err: any) {
 			throw new Error(`Malformed mod pack string: ${err.message}`);
 		}
 
@@ -246,7 +246,7 @@ export default class ModPack {
 				buf,
 			]);
 		}
-		function immutableStringBytes(str: string) {
+		function immutableStringBytes(str?: string) {
 			if (str === undefined) {
 				return uint8Byte(1); // empty
 			}
@@ -265,7 +265,7 @@ export default class ModPack {
 				Buffer.alloc(1), // reserved byte
 			]);
 		}
-		function propertyTreeListBytes(entries: [string, PropertyType][]) {
+		function propertyTreeListBytes(entries: [string | undefined, PropertyType][]) {
 			const sizeBytes = uint32Bytes(entries.length);
 			const itemBytes = entries.flatMap(([key, item]) => [
 				immutableStringBytes(key),
@@ -295,7 +295,7 @@ export default class ModPack {
 			} else if (element instanceof Array) {
 				type = 4;
 				dataBytes = propertyTreeListBytes(element.map(item => [undefined, item]));
-			} else if (typeof element === "object") {
+			} else if (typeof element === "object" && element !== null) {
 				type = 5;
 				dataBytes = propertyTreeListBytes(Object.entries(element));
 			} else {
@@ -332,19 +332,20 @@ export default class ModPack {
 		;
 
 		for (let prototype of prototypes) {
-			if (!["startup", "runtime-global", "runtime-per-user"].includes(prototype.setting_type)) {
-				logger.warn(`Ignoring ${prototype.name} with unknown setting_type ${prototype.setting_type}`);
+			const settingType = prototype.setting_type as keyof typeof this.settings;
+			if (!["startup", "runtime-global", "runtime-per-user"].includes(settingType)) {
+				logger.warn(`Ignoring ${prototype.name} with unknown setting_type ${settingType}`);
 				continue;
 			}
 			if (prototype.default_value === undefined) {
 				logger.warn(`Ignoring ${prototype.name} with missing default_value`);
 				continue;
 			}
-			if (this.settings[prototype.setting_type].get(prototype.name)) {
+			if (this.settings[settingType].get(prototype.name)) {
 				continue;
 			}
 
-			this.settings[prototype.setting_type].set(prototype.name, { value: prototype.default_value });
+			this.settings[settingType].set(prototype.name, { value: prototype.default_value });
 		}
 	}
 }

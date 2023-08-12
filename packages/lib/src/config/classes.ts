@@ -521,7 +521,7 @@ export class ConfigGroup {
 			} else if (def.type === "object") {
 				try {
 					value = JSON.parse(value);
-				} catch (err) {
+				} catch (err: any) {
 					throw new InvalidValue(`Error parsing value for ${name}: ${err.message}`);
 				}
 			}
@@ -567,7 +567,7 @@ export class ConfigGroup {
 			throw new InvalidValue(`Cannot set property on non-object field '${name}'`);
 		}
 
-		let prev = this._fields.get(name) as object;
+		let prev = this._fields.get(name) as Record<string, unknown>;
 		let updated = {...prev || {}};
 
 		if (value !== undefined) {
@@ -648,9 +648,9 @@ export class ConfigGroup {
 	 * @returns JSON serializable representation of the group.
 	 */
 	serialize(location: ConfigLocation = this.config.location) {
-		let fields = {};
+		let fields: Record<string, unknown> = {};
 		for (let [name, value] of this._fields) {
-			let def = (this.constructor as typeof ConfigGroup)._definitions.get(name);
+			let def = (this.constructor as typeof ConfigGroup)._definitions.get(name)!;
 			if (!this._checkAccess(def, location, false)) {
 				continue;
 			}
@@ -753,76 +753,77 @@ export class ConfigGroup {
 		});
 
 		// Validate properties
-		let validTypes = ["boolean", "string", "number", "object"];
-		// eslint-disable-next-line complexity
-		Object.keys(item).forEach(key => {
-			let value = item[key];
-			let valueType = basicType(value);
-			switch (key) {
-				case "type":
-					if (!validTypes.includes(value)) {
-						throw new Error(`${value} is not a valid type`);
-					}
-					break;
+		{
+			const {
+				type, access, enum: enum_, name, title, description, restartRequired,
+				restartRequiredProps, optional, initial_value, ...rest
+			} = item;
 
-				case "access":
-					if (valueType !== "array") {
-						throw new Error("access must be an array");
-					}
-					break;
-
-				case "enum":
-					if (valueType !== "array") {
-						throw new Error("enum must be an array");
-					}
-					break;
-
-				case "name":
-					if (valueType !== "string") {
-						throw new Error("name must be a string");
-					}
-					break;
-
-				case "title":
-					if (valueType !== "string") {
-						throw new Error("title must be a string");
-					}
-					break;
-
-				case "description":
-					if (valueType !== "string") {
-						throw new Error("description must be a string");
-					}
-					break;
-
-				case "restartRequired":
-					if (valueType !== "boolean") {
-						throw new Error("restartRequired must be a boolean");
-					}
-					break;
-
-				case "restartRequiredProps":
-					if (valueType !== "array") {
-						throw new Error("restartRequiredProps must be a array");
-					}
-					break;
-
-				case "optional":
-					if (valueType !== "boolean") {
-						throw new Error("optional must be a boolean");
-					}
-					break;
-
-				case "initial_value":
-					if (valueType !== item.type && valueType !== "function") {
-						throw new Error("initial_value must match the type or be a function");
-					}
-					break;
-
-				default:
-					throw new Error(`Unknown property ${key}`);
+			let validTypes = ["boolean", "string", "number", "object"];
+			if (type !== undefined) {
+				if (!validTypes.includes(type)) {
+					throw new Error(`${type} is not a valid type`);
+				}
 			}
-		});
+
+			if (access !== undefined) {
+				if (basicType(access) !== "array") {
+					throw new Error("access must be an array");
+				}
+			}
+
+			if (enum_ !== undefined) {
+				if (basicType(enum_) !== "array") {
+					throw new Error("enum must be an array");
+				}
+			}
+
+			if (name !== undefined) {
+				if (typeof name !== "string") {
+					throw new Error("name must be a string");
+				}
+			}
+
+			if (title !== undefined) {
+				if (typeof title !== "string") {
+					throw new Error("title must be a string");
+				}
+			}
+
+			if (description !== undefined) {
+				if (typeof description !== "string") {
+					throw new Error("description must be a string");
+				}
+			}
+
+			if (restartRequired !== undefined) {
+				if (typeof restartRequired !== "boolean") {
+					throw new Error("restartRequired must be a boolean");
+				}
+			}
+
+			if (restartRequiredProps !== undefined) {
+				if (basicType(restartRequiredProps) !== "array") {
+					throw new Error("restartRequiredProps must be a array");
+				}
+			}
+
+			if (optional !== undefined) {
+				if (typeof optional !== "boolean") {
+					throw new Error("optional must be a boolean");
+				}
+			}
+
+			if (initial_value !== undefined) {
+				if (basicType(initial_value) !== item.type && basicType(initial_value) !== "function") {
+					throw new Error("initial_value must match the type or be a function");
+				}
+			}
+
+			for (let key of Object.keys(rest)) {
+				throw new Error(`Unknown property ${key}`);
+			}
+		}
 
 		if (this._definitions.has(item.name)) {
 			throw new Error(`Config field ${item.name} has already been defined`);

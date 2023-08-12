@@ -310,10 +310,16 @@ export class User {
 	_calculatePlayerStats() {
 		let playerStats = new PlayerStats();
 		for (let instanceStats of this.instanceStats.values()) {
-			if (!playerStats.lastJoinAt || instanceStats.lastJoinAt > playerStats.lastJoinAt) {
+			if (
+				instanceStats.lastJoinAt
+				&& (!playerStats.lastJoinAt || instanceStats.lastJoinAt > playerStats.lastJoinAt)
+			) {
 				playerStats.lastJoinAt = instanceStats.lastJoinAt;
 			}
-			if (!playerStats.lastLeaveAt || instanceStats.lastLeaveAt > playerStats.lastLeaveAt) {
+			if (
+				instanceStats.lastLeaveAt
+				&& (!playerStats.lastLeaveAt || instanceStats.lastLeaveAt > playerStats.lastLeaveAt)
+			) {
 				playerStats.lastLeaveAt = instanceStats.lastLeaveAt;
 				playerStats.lastLeaveReason = instanceStats.lastLeaveReason;
 			}

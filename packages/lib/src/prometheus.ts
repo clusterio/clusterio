@@ -307,11 +307,11 @@ function removeMatchingLabels(mapping: Map<string, unknown>, labels: Record<stri
  * @extends Collector
  */
 export class LabeledCollector<Child> extends Collector {
-	callback: (collector: LabeledCollector<Child>) => void | Promise<void>;
+	callback: ((collector: any) => (void | Promise<void>)) | undefined;
 	metric: Metric;
 
 	private _children: Map<string, Child>;
-	private _childClass: { new(collector: LabeledCollector<Child>, key: string): Child };
+	private _childClass: { new(collector: any, key: string): Child };
 
 	/**
 	 * Create optionally labeled collector
@@ -343,9 +343,9 @@ export class LabeledCollector<Child> extends Collector {
 			labels?: string[],
 			_reservedLabels?: string[],
 			register?: boolean,
-			callback?: (collector: LabeledCollector<Child>) => void | Promise<void>,
+			callback?: (collector: any) => (void | Promise<void>),
 		},
-		childClass: { new(collector: LabeledCollector<Child>, key: string): Child }
+		childClass: { new(collector: any, key: string): Child }
 	) {
 		const { labels = [], _reservedLabels = [], register = true, callback, ...rest } = options;
 
@@ -485,7 +485,7 @@ export class ValueCollector<Child extends { get(): number }> extends LabeledColl
 			labels?: string[],
 			_reservedLabels?: string[],
 			register?: boolean,
-			callback?: (collector: ValueCollector<Child>) => void | Promise<void>,
+			callback?: (collector: any) => (void | Promise<void>),
 		},
 		childClass: { new(collector: ValueCollector<Child>, key: string): Child }
 	) {
@@ -507,12 +507,13 @@ export class ValueCollector<Child extends { get(): number }> extends LabeledColl
 	 * @returns value stored.
 	 */
 	get() {
-		return this._defaultChild.get();
+		return this._defaultChild!.get();
 	}
 
 	remove(...labels: LabelValues) {
 		let key = super.remove(...labels);
 		this._values.delete(key);
+		return key;
 	}
 
 	removeAll(labels: Record<string, string>) {
@@ -546,7 +547,7 @@ class ValueCollectorChild {
 	 * @returns value stored.
 	 */
 	get() {
-		return this._values.get(this._key);
+		return this._values.get(this._key)!;
 	}
 }
 
@@ -565,7 +566,7 @@ class CounterChild extends ValueCollectorChild {
 			throw new Error("Expected value to be a positive number");
 		}
 
-		this._values.set(this._key, this._values.get(this._key) + value);
+		this._values.set(this._key, this._values.get(this._key)! + value);
 	}
 }
 
@@ -673,7 +674,7 @@ export class Counter extends ValueCollector<CounterChild> {
 		options: {
 			labels?: string[],
 			register?: boolean,
-			callback?: (collector: Counter) => void | Promise<void>,
+			callback?: (collector: Collector) => (void | Promise<void>),
 		} = {},
 	) {
 		super("counter", name, help, options, CounterChild);
@@ -686,7 +687,7 @@ export class Counter extends ValueCollector<CounterChild> {
 	 * @param value - Positive number to increment by.
 	 */
 	inc(value = 1) {
-		this._defaultChild.inc(value);
+		this._defaultChild!.inc(value);
 	}
 }
 
@@ -701,7 +702,7 @@ class GaugeChild extends ValueCollectorChild {
 	 * @param value - number to increment by.
 	 */
 	inc(value = 1) {
-		this._values.set(this._key, this._values.get(this._key) + value);
+		this._values.set(this._key, this._values.get(this._key)! + value);
 	}
 
 	/**
@@ -710,7 +711,7 @@ class GaugeChild extends ValueCollectorChild {
 	 * @param value - number to decrease by.
 	 */
 	dec(value = 1) {
-		this._values.set(this._key, this._values.get(this._key) - value);
+		this._values.set(this._key, this._values.get(this._key)! - value);
 	}
 
 	/**
@@ -869,7 +870,7 @@ export class Gauge extends ValueCollector<GaugeChild> {
 		options: {
 			labels?: string[],
 			register?: boolean,
-			callback?: (collector: Gauge) => void | Promise<void>,
+			callback?: (collector: Gauge) => (void | Promise<void>),
 		} = {},
 	) {
 		super("gauge", name, help, options, GaugeChild);
@@ -882,7 +883,7 @@ export class Gauge extends ValueCollector<GaugeChild> {
 	 * @param value - number to increment by.
 	 */
 	inc(value = 1) {
-		this._defaultChild.inc(value);
+		this._defaultChild!.inc(value);
 	}
 
 	/**
@@ -892,7 +893,7 @@ export class Gauge extends ValueCollector<GaugeChild> {
 	 * @param value - number to decrease by.
 	 */
 	dec(value = 1) {
-		this._defaultChild.dec(value);
+		this._defaultChild!.dec(value);
 	}
 
 	/**
@@ -902,7 +903,7 @@ export class Gauge extends ValueCollector<GaugeChild> {
 	 * @param value - number to set gauge to.
 	 */
 	set(value: number) {
-		this._defaultChild.set(value);
+		this._defaultChild!.set(value);
 	}
 
 	/**
@@ -911,7 +912,7 @@ export class Gauge extends ValueCollector<GaugeChild> {
 	 * Note: Only works if this is an unlabeled collector.
 	 */
 	setToCurrentTime() {
-		this._defaultChild.setToCurrentTime();
+		this._defaultChild!.setToCurrentTime();
 	}
 
 	/**
@@ -923,7 +924,7 @@ export class Gauge extends ValueCollector<GaugeChild> {
 	 *     seconds from when the timer was started
 	 */
 	startTimer() {
-		return this._defaultChild.startTimer();
+		return this._defaultChild!.startTimer();
 	}
 }
 
@@ -964,8 +965,8 @@ class SummaryChild {
 	 * @param value - number to count into summary.
 	 */
 	observe(value: number) {
-		this._sumValues.set(this._key, this._sumValues.get(this._key) + value);
-		this._countValues.set(this._key, this._countValues.get(this._key) + 1);
+		this._sumValues.set(this._key, this._sumValues.get(this._key)! + value);
+		this._countValues.set(this._key, this._countValues.get(this._key)! + 1);
 	}
 
 	/**
@@ -1083,7 +1084,7 @@ export class Summary extends LabeledCollector<SummaryChild> {
 		options: {
 			labels?: string[],
 			register?: boolean,
-			callback?: (collector: Summary) => void | Promise<void>,
+			callback?: (collector: Summary) => (void | Promise<void>),
 		} = {},
 	) {
 		super("summary", name, help, options, SummaryChild);
@@ -1111,7 +1112,7 @@ export class Summary extends LabeledCollector<SummaryChild> {
 	 * @type {number}
 	 */
 	get sum() {
-		return this._defaultChild.sum;
+		return this._defaultChild!.sum;
 	}
 
 	/**
@@ -1121,7 +1122,7 @@ export class Summary extends LabeledCollector<SummaryChild> {
 	 * @type {number}
 	 */
 	get count() {
-		return this._defaultChild.count;
+		return this._defaultChild!.count;
 	}
 
 	/**
@@ -1131,7 +1132,7 @@ export class Summary extends LabeledCollector<SummaryChild> {
 	 * @param value - number to count into histogram buckets.
 	 */
 	observe(value: number) {
-		this._defaultChild.observe(value);
+		this._defaultChild!.observe(value);
 	}
 
 	/**
@@ -1143,13 +1144,14 @@ export class Summary extends LabeledCollector<SummaryChild> {
 	 *     when the timer was started into the metric.
 	 */
 	startTimer() {
-		return this._defaultChild.startTimer();
+		return this._defaultChild!.startTimer();
 	}
 
 	remove(...labels: LabelValues) {
 		let key = super.remove(...labels);
 		this._sumValues.delete(key);
 		this._countValues.delete(key);
+		return key;
 	}
 
 	removeAll(labels: Record<string, string>) {
@@ -1240,12 +1242,12 @@ class HistogramChild {
 	observe(value: number) {
 		for (let [bound, key] of this._bucketKeys) {
 			if (value <= bound) {
-				this._bucketValues.set(key, this._bucketValues.get(key) + 1);
+				this._bucketValues.set(key, this._bucketValues.get(key)! + 1);
 			}
 		}
 
-		this._sumValues.set(this._key, this._sumValues.get(this._key) + value);
-		this._countValues.set(this._key, this._countValues.get(this._key) + 1);
+		this._sumValues.set(this._key, this._sumValues.get(this._key)! + value);
+		this._countValues.set(this._key, this._countValues.get(this._key)! + 1);
 	}
 
 	/**
@@ -1371,7 +1373,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 			buckets?: number[],
 			labels?: string[],
 			register?: boolean,
-			callback?: (collector: Histogram) => void | Promise<void>,
+			callback?: (collector: Histogram) => (void | Promise<void>),
 		} = {},
 	) {
 		// These defaults are taken from the Python Prometheus client
@@ -1411,7 +1413,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	 * Note: Only available if this is an unlabeled collector.
 	 */
 	get buckets() {
-		return this._defaultChild.buckets;
+		return this._defaultChild!.buckets;
 	}
 
 	/**
@@ -1420,7 +1422,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	 * Note: Only available if this is an unlabeled collector.
 	 */
 	get sum() {
-		return this._defaultChild.sum;
+		return this._defaultChild!.sum;
 	}
 
 	/**
@@ -1429,7 +1431,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	 * Note: Only available if this is an unlabeled collector.
 	 */
 	get count() {
-		return this._defaultChild.count;
+		return this._defaultChild!.count;
 	}
 
 	/**
@@ -1438,7 +1440,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	 * Note: Only works if this is an unlabeled collector.
 	 */
 	observe(value: number) {
-		this._defaultChild.observe(value);
+		this._defaultChild!.observe(value);
 	}
 
 	/**
@@ -1450,7 +1452,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	 *     when the timer was started into the metric.
 	 */
 	startTimer() {
-		return this._defaultChild.startTimer();
+		return this._defaultChild!.startTimer();
 	}
 
 	remove(...labels: LabelValues) {
@@ -1461,6 +1463,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 		}
 		this._sumValues.delete(key);
 		this._countValues.delete(key);
+		return key;
 	}
 
 	removeAll(labels: Record<string, string>) {

@@ -157,12 +157,11 @@ export class CommandTree {
  * @returns host ID.
  */
 export async function resolveHost(client: Link, hostName: string) {
-	let hostId: number;
+	let hostId: number | undefined;
 	if (/^-?\d+$/.test(hostName)) {
 		hostId = parseInt(hostName, 10);
 	} else {
 		let hosts = await client.sendTo("controller", new libData.HostListRequest());
-		// @ts-ignore: TODO Remove when lib/data is migrated to ts
 		for (let host of hosts) {
 			if (host.name === hostName) {
 				hostId = host.id;
@@ -189,12 +188,11 @@ export async function resolveHost(client: Link, hostName: string) {
  * @returns instance ID.
  */
 export async function resolveInstance(client: Link, instanceName: string) {
-	let instanceId: number;
+	let instanceId: number | undefined;
 	if (/^-?\d+$/.test(instanceName)) {
 		instanceId = parseInt(instanceName, 10);
 	} else {
 		let instances = await client.sendTo("controller", new libData.InstanceDetailsListRequest());
-		// @ts-ignore: TODO Remove when lib/data is migrated to ts
 		for (let instance of instances) {
 			if (instance.name === instanceName) {
 				instanceId = instance.id;
@@ -222,12 +220,11 @@ export async function resolveInstance(client: Link, instanceName: string) {
  * @returns mod pack ID.
  */
 export async function resolveModPack(client: Link, modPackName: string) {
-	let modPackId: number;
+	let modPackId: number | undefined;
 	if (/^-?\d+/.test(modPackName)) {
 		modPackId = parseInt(modPackName, 10);
 	} else {
 		let modPacks = await client.sendTo("controller", new libData.ModPackListRequest());
-		// @ts-ignore: TODO Remove when lib/data is migrated to ts
 		for (let modPack of modPacks) {
 			if (modPack.name === modPackName) {
 				modPackId = modPack.id;
@@ -256,10 +253,9 @@ export async function resolveModPack(client: Link, modPackName: string) {
 export async function retrieveRole(client: Link, roleName: string) {
 	let roles = await client.sendTo("controller", new libData.RoleListRequest());
 
-	let resolvedRole: libData.RawRole;
+	let resolvedRole: libData.RawRole | undefined;
 	if (/^-?\d+$/.test(roleName)) {
 		let roleId = parseInt(roleName, 10);
-		// @ts-ignore: TODO Remove when lib/data is migrated to ts
 		for (let role of roles) {
 			if (role.id === roleId) {
 				resolvedRole = role;
@@ -268,7 +264,6 @@ export async function retrieveRole(client: Link, roleName: string) {
 		}
 
 	} else {
-		// @ts-ignore: TODO Remove when lib/data is migrated to ts
 		for (let role of roles) {
 			if (role.name === roleName) {
 				resolvedRole = role;

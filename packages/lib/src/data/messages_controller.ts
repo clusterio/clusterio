@@ -19,19 +19,19 @@ export class RawConfig {
 
 export class ControllerConfigGetRequest {
 	declare ["constructor"]: typeof ControllerConfigGetRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.controller.get_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.get_config" as const;
 	static Response = RawConfig;
 }
 
 export class ControllerConfigSetFieldRequest {
 	declare ["constructor"]: typeof ControllerConfigSetFieldRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.controller.update_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.update_config" as const;
 
 	constructor(
 		public field: string,
@@ -50,10 +50,10 @@ export class ControllerConfigSetFieldRequest {
 
 export class ControllerConfigSetPropRequest {
 	declare ["constructor"]: typeof ControllerConfigSetPropRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.controller.update_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.update_config" as const;
 
 	constructor(
 		public field: string,
@@ -74,10 +74,10 @@ export class ControllerConfigSetPropRequest {
 
 export class HostGenerateTokenRequest {
 	declare ["constructor"]: typeof HostGenerateTokenRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.host.generate_token";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.generate_token" as const;
 
 	constructor(
 		public hostId?: number,
@@ -96,10 +96,10 @@ export class HostGenerateTokenRequest {
 
 export class HostConfigCreateRequest {
 	declare ["constructor"]: typeof HostConfigCreateRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.host.create_config";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.create_config" as const;
 
 	constructor(
 		public id: number | undefined,
@@ -122,10 +122,10 @@ export class HostConfigCreateRequest {
 
 export class LogSetSubscriptionsRequest {
 	declare ["constructor"]: typeof LogSetSubscriptionsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.log.follow";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.log.follow" as const;
 
 	constructor(
 		public all?: boolean,
@@ -150,10 +150,10 @@ export class LogSetSubscriptionsRequest {
 
 export class LogQueryRequest {
 	declare ["constructor"]: typeof LogQueryRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.log.query";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.log.query" as const;
 
 	constructor(
 		public all: boolean,
@@ -197,9 +197,9 @@ export class LogQueryRequest {
 
 export class LogMessageEvent {
 	declare ["constructor"]: typeof LogMessageEvent;
-	static type = "event";
-	static src = ["host", "controller"];
-	static dst = ["controller", "control"];
+	static type = "event" as const;
+	static src = ["host", "controller"] as const;
+	static dst = ["controller", "control"] as const;
 
 	constructor(
 		public info: object,
@@ -219,17 +219,17 @@ export class LogMessageEvent {
 
 export class DebugDumpWsRequest {
 	declare ["constructor"]: typeof DebugDumpWsRequest;
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static permission = "core.debug.dump_ws";
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.debug.dump_ws" as const;
 }
 
 export class DebugWsMessageEvent {
 	declare ["constructor"]: typeof DebugWsMessageEvent;
-	static type = "event";
-	static src = "controller";
-	static dst = "control";
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
 
 	constructor(
 		public direction: string,

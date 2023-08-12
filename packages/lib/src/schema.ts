@@ -17,7 +17,7 @@ const ajv = new Ajv({
  * @returns Validator for the schema.
  */
 export function compile<T>(schema: JSONSchemaType<T>) {
-	if (typeof global !== "object" || !global.lazySchemaCompilation) {
+	if (typeof global !== "object" || !(global as any).lazySchemaCompilation) {
 		return ajv.compile<T>(schema);
 	}
 
