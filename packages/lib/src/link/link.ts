@@ -67,8 +67,8 @@ interface EventEntry {
 	allowedDstTypes: Set<number>;
 	eventFromJSON: (json: any) => Event<unknown>;
 }
-type RequestHandler<Req, Res> = (request: Request<Req, Res>, src: libData.Address, dst: libData.Address) => any;
-type EventHandler<T> = (event: Event<T>, src: libData.Address, dst: libData.Address) => any;
+type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst: libData.Address) => Promise<Res>;
+type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
 
 interface Router {
 	forwardMessage(origin: Link, message: Message, fallback: boolean): boolean,
@@ -99,7 +99,7 @@ export class Link {
 	constructor(
 		public connector: BaseConnector
 	) {
-		this.handle(libData.PingRequest, () => {});
+		this.handle(libData.PingRequest, async () => {});
 
 		// Process messages received by the connector
 		connector.on("message", payload => {

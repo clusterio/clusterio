@@ -9,10 +9,10 @@
 import * as libData from "./data";
 import * as libErrors from "./errors";
 import type { Link } from "./link";
+import type { Argv } from "yargs";
 
-
-export type CommandHandler = (args: Record<string, unknown>, control: Link) => Promise<void>;
-export type CommandDefinition = [string | string[], string?, Function?];
+export type CommandHandler = (args: any, control: any) => Promise<void>;
+export type CommandDefinition = [string | string[], string?, ((yargs: Argv) => void)?];
 
 /**
  * Represents a command that can be runned by clusterioctl
@@ -80,7 +80,7 @@ export class CommandTree {
 	 * @param cmd.description -
 	 *     Descripton to provide for this command tree node.
 	 */
-	constructor({ name, alias, description }: { name: string, alias: string[], description: string }) {
+	constructor({ name, alias, description }: { name: string, alias?: string[], description: string }) {
 		if (typeof name !== "string") {
 			throw new Error("name must be a string");
 		}

@@ -84,7 +84,7 @@ function loadPluginClass(
  */
 export async function loadControllerPluginClass(
 	pluginInfo: libPlugin.PluginInfo
-): Promise<libPlugin.BaseControllerPlugin> {
+): Promise<typeof libPlugin.BaseControllerPlugin> {
 	return loadPluginClass("controllerEntrypoint", "ControllerPlugin", libPlugin.BaseControllerPlugin, pluginInfo);
 }
 
@@ -98,7 +98,7 @@ export async function loadControllerPluginClass(
  */
 export async function loadInstancePluginClass(
 	pluginInfo: libPlugin.PluginInfo
-): Promise<libPlugin.BaseInstancePlugin> {
+): Promise<typeof libPlugin.BaseInstancePlugin> {
 	return loadPluginClass("instanceEntrypoint", "InstancePlugin", libPlugin.BaseInstancePlugin, pluginInfo);
 }
 
@@ -112,6 +112,6 @@ export async function loadInstancePluginClass(
  */
 export async function loadControlPluginClass(
 	pluginInfo: libPlugin.PluginInfo
-): Promise<libPlugin.BaseControlPlugin> {
+): Promise<typeof libPlugin.BaseControlPlugin> {
 	return loadPluginClass("controlEntrypoint", "ControlPlugin", libPlugin.BaseControlPlugin, pluginInfo);
 }

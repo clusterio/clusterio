@@ -1,47 +1,49 @@
-"use strict";
-const fs = require("fs-extra");
-const asTable = require("as-table").configure({ delimiter: " | " });
-const events = require("events");
-const path = require("path");
-const winston = require("winston");
-const phin = require("phin");
-const os = require("os");
-const child_process = require("child_process");
-const stream = require("stream");
-const util = require("util");
+import fs from "fs-extra";
+import asTableModule from "as-table";
+import events from "events";
+import path from "path";
+import winston from "winston";
+import phin from "phin";
+import os from "os";
+import child_process from "child_process";
+import stream from "stream";
+import util from "util";
+import type { Argv } from "yargs";
 
-const lib = require("@clusterio/lib");
-const { ConsoleTransport, levels, logger } = lib;
+import * as lib from "@clusterio/lib";
+import { ConsoleTransport, levels, logger } from "@clusterio/lib";
+import type { Control } from "../ctl.js";
 
+const asTable = asTableModule.configure({ delimiter: " | " });
 const finished = util.promisify(stream.finished);
 
 
-function print(...content) {
+function print(...content: any) {
 	// eslint-disable-next-line no-console
 	console.log(...content);
 }
 
-async function getEditor(argsEditor) {
+async function getEditor(argsEditor: string) {
 	// eslint-disable-next-line
-	return argsEditor || process.env.EDITOR || process.env.VISUAL || -1
+	return argsEditor || process.env.EDITOR || process.env.VISUAL || undefined
 	// needed for the process.env statements to not be flagged by eslint
 	// priority for editors is CLI argument > env.EDITOR > env.VISUAL
 }
 
-async function configToKeyVal(data) {
-	let final = {};
+async function configToKeyVal(data: string) {
+	let final: Record<string, string> = {};
 	let splitData = data.split(/\r?\n/);
 	// split on newlines
 	let filtered = splitData.filter((value) => value[0] !== "#").filter((a) => a);
 	// the last filter removes empty elements left by the first. Not done on one line due to readability.
 	for (let index in filtered) {
 		if (index in filtered) {
-			filtered[index] = filtered[index].split("=");
+			let split = filtered[index].split("=");
 			let finalIndex = filtered[index][0].trim();
 			// split on the = we added earlier, giving us both value and key
 			let part = "";
 			try {
-				part = filtered[index][1].trim();
+				part = split[1].trim();
 				// it's a string if we can read it
 			} catch (err) {
 				// if we can't read it, it's a empty field and therefor null
@@ -53,7 +55,11 @@ async function configToKeyVal(data) {
 	return final;
 }
 
-async function serializedConfigToString(serializedConfig, configGroup, disallowedList) {
+async function serializedConfigToString(
+	serializedConfig: any,
+	configGroup: typeof lib.Config,
+	disallowedList: Record<string, unknown>,
+) {
 	let allConfigElements = "";
 	for (let group of serializedConfig.groups) {
 		for (let [name, value] of Object.entries(group.fields)) {
@@ -62,7 +68,7 @@ async function serializedConfigToString(serializedConfig, configGroup, disallowe
 			}
 			let desc = "";
 			try {
-				desc += configGroup.groups.get(group.name)._definitions.get(name).description;
+				desc += configGroup.groups.get(group.name)!._definitions.get(name)!.description;
 			} catch (err) {
 				desc += "No description found";
 			}
@@ -80,12 +86,13 @@ const controllerCommands = new lib.CommandTree({ name: "controller", description
 const controllerConfigCommands = new lib.CommandTree({
 	name: "config", alias: ["c"], description: "controller config management",
 });
+
 controllerConfigCommands.add(new lib.Command({
 	definition: ["list", "List controller configuration"],
-	handler: async function(args, control) {
+	handler: async function(args: {}, control: Control) {
 		let response = await control.send(new lib.ControllerConfigGetRequest());
 
-		for (let group of response.serializedConfig.groups) {
+		for (let group of (response.serializedConfig as any).groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -101,13 +108,13 @@ controllerConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { field: string, value: string, stdin?: boolean }, control: Control) {
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await control.send(new lib.ControllerConfigSetFieldRequest(args.field, args.value));
+		await control.send(new lib.ControllerConfigSetFieldRequest(args.field as string, args.value as string));
 	},
 }));
 
@@ -120,7 +127,7 @@ controllerConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { field: string, prop: string, value: string, stdin?: boolean }, control: Control) {
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
@@ -129,7 +136,7 @@ controllerConfigCommands.add(new lib.Command({
 			if (args.value !== undefined) {
 				value = JSON.parse(args.value);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			// See note for the instance version of set-prop
 			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
 				throw new lib.CommandError(`In parsing value '${args.value}': ${err.message}`);
@@ -147,28 +154,24 @@ controllerConfigCommands.add(new lib.Command({
 			default: "",
 		});
 	}],
-	handler: async function(args, control) {
-		let response = await control.send(new ControllerConfigGetRequest());
+	handler: async function(args: { editor: string }, control: Control) {
+		let response = await control.send(new lib.ControllerConfigGetRequest());
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
-		if (editor === -1) {
+		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
 		let allConfigElements = await serializedConfigToString(
 			response.serializedConfig, lib.ControllerConfig, {}
 		);
-		await fs.writeFile(tmpFile, allConfigElements, (err) => {
-			if (err) {
-				throw err;
-			}
-		});
+		await fs.writeFile(tmpFile, allConfigElements);
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
 			stdio: "inherit",
-  			detached: false,
+			detached: false,
 		});
 		editorSpawn.on("data", (data) => {
-  			process.stdout.pipe(data);
+			process.stdout.pipe(data);
 		});
 		let doneEmitter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
@@ -177,7 +180,7 @@ controllerConfigCommands.add(new lib.Command({
 			for (let index in final) {
 				if (index in final) {
 					try {
-						await control.send(new ControllerConfigSetFieldRequest(
+						await control.send(new lib.ControllerConfigSetFieldRequest(
 							index,
 							final[index],
 						));
@@ -192,12 +195,12 @@ controllerConfigCommands.add(new lib.Command({
 			doneEmitter.emit("dot_on_done");
 		});
 		await events.once(doneEmitter, "dot_on_done");
-		await fs.unlink(tmpFile, (err) => {
-			if (err) {
-				print("err: temporary file", tmpFile, "could not be deleted.");
-				print("This is not fatal, but they may build up over time if the issue persists.");
-			}
-		});
+		try {
+			await fs.unlink(tmpFile);
+		} catch (err) {
+			print("err: temporary file", tmpFile, "could not be deleted.");
+			print("This is not fatal, but they may build up over time if the issue persists.");
+		}
 	},
 }));
 
@@ -209,13 +212,13 @@ const controllerPluginCommands = new lib.CommandTree({
 });
 controllerPluginCommands.add(new lib.Command({
 	definition: ["list", "List plugins on controller"],
-	handler: async function(args, control) {
-		let url = new URL(control.config.get("control.controller_url"));
+	handler: async function(args: {}, control: Control) {
+		let url = new URL(control.config.get("control.controller_url") as string);
 		url.pathname += "api/plugins";
-		let response = await phin({
+		let response = await phin<[]>({
 			url,
 			parse: "json",
-			core: { ca: control.tlsCa },
+			core: { ca: control.tlsCa } as {},
 		});
 		print(asTable(response.body));
 	},
@@ -226,7 +229,7 @@ controllerCommands.add(controllerPluginCommands);
 const hostCommands = new lib.CommandTree({ name: "host", description: "Host management" });
 hostCommands.add(new lib.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
-	handler: async function(args, control) {
+	handler: async function(args: {}, control: Control) {
 		let hosts = await control.send(new lib.HostListRequest());
 		print(asTable(hosts));
 	},
@@ -236,7 +239,7 @@ hostCommands.add(new lib.Command({
 	definition: ["generate-token", "Generate token for a host", (yargs) => {
 		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { id?: number }, control: Control) {
 		let hostId = typeof args.id === "number" ? args.id : undefined;
 		let response = await control.send(new lib.HostGenerateTokenRequest(hostId));
 		print(response);
@@ -245,8 +248,8 @@ hostCommands.add(new lib.Command({
 
 hostCommands.add(new lib.Command({
 	definition: ["create-config", "Create host config", (yargs) => {
-		yargs.option("id", { type: "number", nargs: 1, describe: "Host id", default: null });
-		yargs.option("name", { type: "string", nargs: 1, describe: "Host name", default: null });
+		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
+		yargs.option("name", { type: "string", nargs: 1, describe: "Host name" });
 		yargs.option("generate-token", {
 			type: "boolean", nargs: 0, describe: "Generate authentication token", default: false,
 		});
@@ -254,7 +257,10 @@ hostCommands.add(new lib.Command({
 			type: "string", nargs: 1, describe: "Path to output config (- for stdout)", default: "config-host.json",
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: { id?: number, name?: string, generateToken: boolean, output: string },
+		control: Control
+	) {
 		let rawConfig = await control.send(
 			new lib.HostConfigCreateRequest(args.id, args.name, args.generateToken)
 		);
@@ -266,7 +272,7 @@ hostCommands.add(new lib.Command({
 			logger.info(`Writing ${args.output}`);
 			try {
 				await fs.outputFile(args.output, content, { flag: "wx" });
-			} catch (err) {
+			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					throw new lib.CommandError(`File ${args.output} already exists`);
 				}
@@ -282,7 +288,7 @@ const instanceCommands = new lib.CommandTree({
 });
 instanceCommands.add(new lib.Command({
 	definition: [["list", "l"], "List instances known to the controller"],
-	handler: async function(args, control) {
+	handler: async function(args: {}, control: Control) {
 		let list = await control.send(new lib.InstanceDetailsListRequest());
 		print(asTable(list));
 	},
@@ -296,10 +302,10 @@ instanceCommands.add(new lib.Command({
 			"id": { type: "number", nargs: 1, describe: "Instance id" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string, id?: number }, control: Control) {
 		let instanceConfig = new lib.InstanceConfig("control");
 		await instanceConfig.init();
-		if (args.id) {
+		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
@@ -315,11 +321,11 @@ instanceConfigCommands.add(new lib.Command({
 	definition: ["list <instance>", "List configuration for an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to list config for", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 
-		for (let group of response.config.groups) {
+		for (let group of (response.config as any).groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -336,7 +342,10 @@ instanceConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: { instance: string, field: string, value: string, stdin?: boolean },
+		control: Control,
+	) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
@@ -357,7 +366,10 @@ instanceConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: { instance: string, field: string, prop: string, value: string, stdin?: boolean },
+		control: Control
+	) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
@@ -367,7 +379,7 @@ instanceConfigCommands.add(new lib.Command({
 			if (args.value !== undefined) {
 				value = JSON.parse(args.value);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			// If this is from stdin or looks like an array, object or string
 			// literal throw the parse error, otherwise assume this is a string.
 			// The resoning behind this is that correctly quoting the string
@@ -402,32 +414,28 @@ instanceConfigCommands.add(new lib.Command({
 			default: "",
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, editor: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
-		if (editor === -1) {
+		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
 		let allConfigElements = await serializedConfigToString(
-			response.serializedConfig,
+			response.config,
 			lib.InstanceConfig,
 			disallowedList
 		);
-		await fs.writeFile(tmpFile, allConfigElements, (err) => {
-			if (err) {
-				throw err;
-			}
-		});
+		await fs.writeFile(tmpFile, allConfigElements);
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
 			stdio: "inherit",
-  			detached: false,
+			detached: false,
 		});
 		editorSpawn.on("data", (data) => {
-  			process.stdout.pipe(data);
+			process.stdout.pipe(data);
 		});
 		let doneEmitter = new events.EventEmitter();
 		editorSpawn.on("exit", async (exit) => {
@@ -436,7 +444,7 @@ instanceConfigCommands.add(new lib.Command({
 			for (let index in final) {
 				if (index in final) {
 					try {
-						await control.send(new lib.InstanceConfigSetField(
+						await control.send(new lib.InstanceConfigSetFieldRequest(
 							instanceId,
 							index,
 							final[index],
@@ -457,12 +465,12 @@ instanceConfigCommands.add(new lib.Command({
 			doneEmitter.emit("dot_on_done");
 		});
 		await events.once(doneEmitter, "dot_on_done");
-		await fs.unlink(tmpFile, (err) => {
-			if (err) {
-				print("err: temporary file", tmpFile, "could not be deleted.");
-				print("This is not fatal, but they may build up over time if the issue persists.");
-			}
-		});
+		try {
+			await fs.unlink(tmpFile)
+		} catch (err) {
+			print("err: temporary file", tmpFile, "could not be deleted.");
+			print("This is not fatal, but they may build up over time if the issue persists.");
+		}
 	},
 }));
 instanceCommands.add(instanceConfigCommands);
@@ -472,14 +480,16 @@ instanceCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to assign", type: "string" });
 		yargs.positional("host", { describe: "Host to assign to or unassign if none", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, host?: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let hostId = args.host ? await lib.resolveHost(control, args.host) : null;
+		let hostId = args.host ? await lib.resolveHost(control, args.host) : undefined;
 		await control.send(new lib.InstanceAssignRequest(instanceId, hostId));
 	},
 }));
 
-async function loadMapSettings(args) {
+async function loadMapSettings(
+	args: { seed?: number, mapExchangeString?: string, mapGenSettings?: string, mapSettings?: string},
+) {
 	let seed = args.seed;
 	let mapGenSettings;
 	let mapSettings;
@@ -489,10 +499,10 @@ async function loadMapSettings(args) {
 		mapSettings = parsed.map_settings;
 	}
 	if (args.mapGenSettings) {
-		mapGenSettings = JSON.parse(await fs.readFile(args.mapGenSettings));
+		mapGenSettings = JSON.parse((await fs.readFile(args.mapGenSettings)).toString());
 	}
 	if (args.mapSettings) {
-		mapSettings = JSON.parse(await fs.readFile(args.mapSettings));
+		mapSettings = JSON.parse((await fs.readFile(args.mapSettings)).toString());
 	}
 
 	return {
@@ -509,14 +519,12 @@ instanceSaveCommands.add(new lib.Command({
 	definition: ["list <instance>", "list saves on an instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to list saves on", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let saves = await control.sendTo({ instanceId }, new lib.InstanceListSavesRequest());
-		for (let entry of saves) {
-			entry.mtime = new Date(entry.mtimeMs).toLocaleString();
-			delete entry.mtimeMs;
-		}
-		print(asTable(saves));
+		print(asTable(saves.map(
+			({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() })
+		)));
 	},
 }));
 
@@ -531,7 +539,17 @@ instanceSaveCommands.add(new lib.Command({
 			"map-settings": { describe: "path to file to use for map-settings", nargs: 1, type: "string" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			instance: string,
+			name: string,
+			seed?: number,
+			mapExchangeString?: string,
+			mapGenSettings?: string,
+			mapSettings?: string,
+		},
+		control: Control
+	) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
@@ -548,7 +566,7 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("old-name", { describe: "Old name of save.", type: "string" });
 		yargs.positional("new-name", { describe: "New name of save.", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, oldName: string, newName: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.send(new lib.InstanceRenameSaveRequest(instanceId, args.oldName, args.newName));
 	},
@@ -560,7 +578,7 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("source", { describe: "Save to copy.", type: "string" });
 		yargs.positional("destination", { describe: "Name of copy.", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, source: string, destination: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.send(new lib.InstanceCopySaveRequest(instanceId, args.source, args.destination));
 	},
@@ -574,7 +592,7 @@ instanceSaveCommands.add(new lib.Command({
 			"name": { describe: "Name to give save on server", nargs: 1, type: "string" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, filepath: string, name?: string }, control: Control) {
 		let filename = args.name || path.basename(args.filepath);
 		if (!filename.endsWith(".zip")) {
 			throw new lib.CommandError("Save name must end with .zip");
@@ -583,18 +601,18 @@ instanceSaveCommands.add(new lib.Command({
 		let content = await fs.readFile(args.filepath);
 
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let url = new URL(control.config.get("control.controller_url"));
+		let url = new URL(control.config.get("control.controller_url") as string);
 		url.pathname += "api/upload-save";
-		url.searchParams.append("instance_id", instanceId);
+		url.searchParams.append("instance_id", String(instanceId));
 		url.searchParams.append("filename", filename);
 
-		let result = await phin({
+		let result = await phin<{ errors?: string[], request_errors?: string[], saves?: string[] }>({
 			url, method: "POST",
 			headers: {
 				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa },
+			core: { ca: control.tlsCa } as {},
 			data: content,
 			parse: "json",
 		});
@@ -631,7 +649,16 @@ instanceSaveCommands.add(new lib.Command({
 			});
 		},
 	],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			sourceInstance: string,
+			sourceSave: string,
+			targetInstance: string,
+			targetSave: string,
+			copy: boolean,
+		},
+		control: Control
+	) {
 		let sourceInstanceId = await lib.resolveInstance(control, args.sourceInstance);
 		let targetInstanceId = await lib.resolveInstance(control, args.targetInstance);
 		let storedName = await control.send(
@@ -652,15 +679,15 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to download save from", type: "string" });
 		yargs.positional("save", { describe: "Save to download", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, save: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let streamId = await control.send(new lib.InstanceDownloadSaveRequest(instanceId, args.save));
 
-		let url = new URL(control.config.get("control.controller_url"));
+		let url = new URL(control.config.get("control.controller_url") as string);
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: control.tlsCa },
+			core: { ca: control.tlsCa } as {},
 			stream: true,
 		});
 
@@ -671,7 +698,7 @@ instanceSaveCommands.add(new lib.Command({
 				writeStream = fs.createWriteStream(tempFilename, { flags: "wx" });
 				await events.once(writeStream, "open");
 				break;
-			} catch (err) {
+			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					tempFilename = await lib.findUnusedName(".", tempFilename, ".tmp.zip");
 				} else {
@@ -694,7 +721,7 @@ instanceSaveCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to delete save from", type: "string" });
 		yargs.positional("save", { describe: "Save to delete", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, save: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.send(new lib.InstanceDeleteSaveRequest(instanceId, args.save));
 	},
@@ -705,7 +732,7 @@ instanceCommands.add(new lib.Command({
 	definition: ["export-data <instance>", "Export item icons and locale from instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to export from", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		await control.sendTo({ instanceId }, new lib.InstanceExportDataRequest());
@@ -716,7 +743,7 @@ instanceCommands.add(new lib.Command({
 	definition: ["extract-players <instance>", "Extract players from running save into the cluster.", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to extract players and online time from", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		await control.sendTo({ instanceId }, new lib.InstanceExtractPlayersRequest());
@@ -731,7 +758,7 @@ instanceCommands.add(new lib.Command({
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, save?: string, keepOpen: boolean }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		await control.sendTo({ instanceId }, new lib.InstanceStartRequest(args.save));
@@ -751,7 +778,17 @@ instanceCommands.add(new lib.Command({
 			"keep-open": { describe: "Keep console open", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			instance: string,
+			scenario: string,
+			seed?: number,
+			mapExchangeString?: string,
+			mapGenSettings?: string,
+			mapSettings?: string,
+			keepOpen: boolean,
+		},
+		control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
 		let { seed, mapGenSettings, mapSettings } = await loadMapSettings(args);
@@ -767,10 +804,10 @@ instanceCommands.add(new lib.Command({
 	definition: ["stop <instance>", "Stop instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to stop", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceStopRequest(args.save));
+		await control.sendTo({ instanceId }, new lib.InstanceStopRequest());
 	},
 }));
 
@@ -778,10 +815,10 @@ instanceCommands.add(new lib.Command({
 	definition: ["kill <instance>", "Kill instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to kill", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.setLogSubscriptions({ instanceIds: [instanceId] });
-		await control.sendTo({ instanceId }, new lib.InstanceKillRequest(args.save));
+		await control.sendTo({ instanceId }, new lib.InstanceKillRequest());
 	},
 }));
 
@@ -789,7 +826,7 @@ instanceCommands.add(new lib.Command({
 	definition: ["delete <instance>", "Delete instance", (yargs) => {
 		yargs.positional("instance", { describe: "Instance to delete", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		await control.send(new lib.InstanceDeleteRequest(instanceId));
 	},
@@ -800,7 +837,7 @@ instanceCommands.add(new lib.Command({
 		yargs.positional("instance", { describe: "Instance to send to", type: "string" });
 		yargs.positional("command", { describe: "command to send", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { instance: string, command: string }, control: Control) {
 		let result = await control.sendTo(
 			{ instanceId: await lib.resolveInstance(control, args.instance) },
 			new lib.InstanceSendRconRequest(args.command),
@@ -816,7 +853,7 @@ modPackCommands.add(new lib.Command({
 	definition: ["show <mod-pack>", "Show details of mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to show", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { modPack: string }, control: Control) {
 		let mods = new Map(
 			(await control.send(new lib.ModListRequest())).map(m => [`${m.name}_${m.version}`, m])
 		);
@@ -839,7 +876,7 @@ modPackCommands.add(new lib.Command({
 				print(`${field}:`);
 				for (let [scope, settings] of Object.entries(value)) {
 					print(`  ${scope}:`);
-					for (let [setting, settingValue] of settings) {
+					for (let [setting, settingValue] of settings as any) {
 						print(`    ${setting}: ${JSON.stringify(settingValue.value)}`);
 					}
 				}
@@ -861,12 +898,13 @@ modPackCommands.add(new lib.Command({
 
 modPackCommands.add(new lib.Command({
 	definition: [["list", "l"], "List mod packs in the cluster"],
-	handler: async function(args, control) {
+	handler: async function(args: {}, control: Control) {
 		let modPacks = await control.send(new lib.ModPackListRequest());
 		let fields = ["id", "name", "factorioVersion"];
 		for (let entry of modPacks) {
 			for (let field of Object.keys(entry)) {
 				if (!fields.includes(field)) {
+					// @ts-ignore
 					delete entry[field];
 				}
 			}
@@ -875,8 +913,11 @@ modPackCommands.add(new lib.Command({
 	},
 }));
 
-function setModPackSettings(modPack, args) {
-	function doSettings(settings, cast) {
+function setModPackSettings(
+	modPack: lib.ModPack,
+	args: { boolSetting?: string[], intSetting?: string[], doubleSetting?: string[], stringSetting?: string[] },
+) {
+	function doSettings(settings: string[], cast: (value: string) => (string | number | boolean)) {
 		for (let i = 0; i + 2 < settings.length; i += 3) {
 			const [scope, name, value] = settings.slice(i, i + 3);
 			if (!["startup", "runtime-global", "runtime-per-user"].includes(scope)) {
@@ -884,7 +925,8 @@ function setModPackSettings(modPack, args) {
 					`Setting scope must be one of startup, runtime-gloabl, or runtime-per-user, not ${scope}`
 				);
 			}
-			modPack.settings[scope].set(name, { value: cast(value) });
+			const checkedScope = scope as "startup" | "runtime-global" | "runtime-per-user";
+			modPack.settings[checkedScope].set(name, { value: cast(value) });
 		}
 	}
 
@@ -912,7 +954,7 @@ function setModPackSettings(modPack, args) {
 	doSettings(args.stringSetting || [], value => value);
 }
 
-function setModPackMods(modPack, mods) {
+function setModPackMods(modPack: lib.ModPack, mods: string[] | undefined) {
 	for (let mod of mods || []) {
 		const [name, version, sha1] = mod.split(":");
 		if (!version) {
@@ -928,12 +970,12 @@ function setModPackMods(modPack, mods) {
 	}
 }
 
-function setModPackModsEnabled(modPack, mods, enabled) {
+function setModPackModsEnabled(modPack: lib.ModPack, mods: string[] | undefined, enabled: boolean) {
 	for (let mod of mods || []) {
 		if (!modPack.mods.has(mod)) {
 			throw new lib.CommandError(`Mod named ${mod} does not exist in the mod pack`);
 		}
-		modPack.mods.get(mod).enabled = enabled;
+		modPack.mods.get(mod)!.enabled = enabled;
 	}
 }
 
@@ -951,8 +993,21 @@ modPackCommands.add(new lib.Command({
 			"string-setting": { describe: "Set string setting", array: true, nargs: 3, type: "string" },
 		});
 	}],
-	handler: async function(args, control) {
-		const modPack = lib.ModPack.fromJSON({});
+	handler: async function(
+		args: {
+			name: string,
+			factorioVersion: string,
+			description?: string,
+			mods?: string[],
+			disabledMods?: string[],
+			boolSetting?: string[],
+			intSetting?: string[],
+			doubleSetting?: string[],
+			stringSetting?: string[],
+		},
+		control: Control,
+	) {
+		const modPack = new lib.ModPack();
 		modPack.name = args.name;
 		if (args.description) { modPack.description = args.description; }
 		if (args.factorioVersion) {
@@ -973,7 +1028,7 @@ modPackCommands.add(new lib.Command({
 	definition: ["import <string>", "Import mod pack string", (yargs) => {
 		yargs.positional("string", { describe: "Mod pack string to import", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { string: string }, control: Control) {
 		const modPack = lib.ModPack.fromModPackString(args.string);
 		await control.send(new lib.ModPackCreateRequest(modPack));
 		print(`Created mod pack ${modPack.name} (${modPack.id})`);
@@ -984,7 +1039,7 @@ modPackCommands.add(new lib.Command({
 	definition: ["export <mod-pack>", "Export mod pack string", (yargs) => {
 		yargs.positional("string", { describe: "Mod pack to export", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { modPack: string }, control: Control) {
 		const modPack = await control.send(
 			new lib.ModPackGetRequest(await lib.resolveModPack(control, args.modPack))
 		);
@@ -1010,7 +1065,24 @@ modPackCommands.add(new lib.Command({
 			"remove-setting": { describe: "Remove a setting", array: true, nargs: 2, type: "string" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			modPack: string,
+			name?: string,
+			description?: string,
+			factorioVersion?: string,
+			addMods?: string[],
+			enableMods?: string[],
+			disableMods?: string[],
+			removeMods?: string[],
+			boolSetting?: string[],
+			intSetting?: string[],
+			doubleSetting?: string[],
+			stringSetting?: string[],
+			removeSetting?: string[],
+		},
+		control: Control,
+	) {
 		const modPack = await control.send(
 			new lib.ModPackGetRequest(await lib.resolveModPack(control, args.modPack))
 		);
@@ -1038,14 +1110,15 @@ modPackCommands.add(new lib.Command({
 		setModPackSettings(modPack, args);
 		if (args.removeSetting) {
 			for (let i = 0; i + 1 < args.removeSetting.length; i += 2) {
-				const [scope, name] = settings.slice(i, i + 2);
+				const [scope, name] = args.removeSetting.slice(i, i + 2);
 				if (!["startup", "runtime-global", "runtime-per-user"].includes(scope)) {
 					throw new lib.CommandError(
 						`Setting scope must be one of startup, runtime-gloabl, or runtime-per-user, not ${scope}`
 					);
 				}
-				if (modPack.settings[scope].has(name)) {
-					modPack.settings[scope].delete(name);
+				const checkedScope = scope as "startup" | "runtime-global" | "runtime-per-user";
+				if (modPack.settings[checkedScope].has(name)) {
+					modPack.settings[checkedScope].delete(name);
 				} else {
 					logger.warn(`Mod setting ${scope} ${name} did not exist on ${modPack.name}`);
 				}
@@ -1059,7 +1132,7 @@ modPackCommands.add(new lib.Command({
 	definition: ["delete <mod-pack>", "Delete mod pack", (yargs) => {
 		yargs.positional("mod-pack", { describe: "Mod pack to delete", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { modPack: string }, control: Control) {
 		const id = await lib.resolveModPack(control, args.modPack);
 		await control.send(new lib.ModPackDeleteRequest(id));
 	},
@@ -1071,7 +1144,7 @@ modCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Mod name to show details for", type: "string" });
 		yargs.positional("mod-version", { describe: "Version of the mod", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string, modVersion: string }, control: Control) {
 		let modInfo = await control.send(new lib.ModGetRequest(args.name, args.modVersion));
 		for (let [field, value] of Object.entries(modInfo)) {
 			if (value instanceof Array) {
@@ -1097,12 +1170,13 @@ modCommands.add(new lib.Command({
 			},
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { fields: string[] }, control: Control) {
 		let mods = await control.send(new lib.ModListRequest());
 		if (!args.fields.includes("all")) {
 			for (let entry of mods) {
 				for (let field of Object.keys(entry)) {
 					if (!args.fields.includes(field)) {
+						// @ts-ignore
 						delete entry[field];
 					}
 				}
@@ -1144,7 +1218,18 @@ modCommands.add(new lib.Command({
 			},
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			factorioVersion: string,
+			query: string,
+			page: number,
+			pageSize: number,
+			sort?: string,
+			sortOrder: "asc" | "desc",
+			fields: string[],
+		},
+		control: Control
+	) {
 		let response = await control.send(new lib.ModSearchRequest(
 			args.query,
 			args.factorioVersion,
@@ -1158,6 +1243,7 @@ modCommands.add(new lib.Command({
 			for (let entry of results) {
 				for (let field of Object.keys(entry)) {
 					if (!args.fields.includes(field)) {
+						// @ts-ignore
 						delete entry[field];
 					}
 				}
@@ -1175,7 +1261,7 @@ modCommands.add(new lib.Command({
 	definition: ["upload <file>", "Upload mod to the cluster", (yargs) => {
 		yargs.positional("file", { describe: "File to upload", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { file: string }, control: Control) {
 		let filename = path.basename(args.file);
 		if (!filename.endsWith(".zip")) {
 			throw new lib.CommandError("Mod filename must end with .zip");
@@ -1183,17 +1269,19 @@ modCommands.add(new lib.Command({
 		// phin doesn't support streaming requests :(
 		let content = await fs.readFile(args.file);
 
-		let url = new URL(control.config.get("control.controller_url"));
+		let url = new URL(control.config.get("control.controller_url") as string);
 		url.pathname += "api/upload-mod";
 		url.searchParams.append("filename", filename);
 
-		let result = await phin({
+		let result = await phin<
+			{ errors?: [], request_errors?: [], mods: Parameters<typeof lib.ModInfo.fromJSON>[0][]}
+		>({
 			url, method: "POST",
 			headers: {
 				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa },
+			core: { ca: control.tlsCa } as {},
 			data: content,
 			parse: "json",
 		});
@@ -1222,14 +1310,14 @@ modCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Internal name of mod to download", type: "string" });
 		yargs.positional("mod-version", { describe: "Version of mod to download", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string, modVersion: string }, control: Control) {
 		let streamId = await control.send(new lib.ModDownloadRequest(args.name, args.modVersion));
 
-		let url = new URL(control.config.get("control.controller_url"));
+		let url = new URL(control.config.get("control.controller_url") as string);
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: control.tlsCa },
+			core: { ca: control.tlsCa } as {},
 			stream: true,
 		});
 
@@ -1241,7 +1329,7 @@ modCommands.add(new lib.Command({
 				writeStream = fs.createWriteStream(tempFilename, { flags: "wx" });
 				await events.once(writeStream, "open");
 				break;
-			} catch (err) {
+			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					tempFilename = await lib.findUnusedName(".", tempFilename, ".tmp.zip");
 				} else {
@@ -1262,7 +1350,7 @@ modCommands.add(new lib.Command({
 		yargs.positional("name", { describe: "Name of mod to delete", type: "string" });
 		yargs.positional("mod-version", { describe: "Version of mod to delete", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string, modVersion: string }, control: Control) {
 		await control.send(new lib.ModDeleteRequest(args.name, args.modVersion));
 	},
 }));
@@ -1270,7 +1358,7 @@ modCommands.add(new lib.Command({
 const permissionCommands = new lib.CommandTree({ name: "permission", description: "Permission inspection" });
 permissionCommands.add(new lib.Command({
 	definition: [["list", "l"], "List permissions in the cluster"],
-	handler: async function(args, control) {
+	handler: async function(args: {}, control: Control) {
 		let permissions = await control.send(new lib.PermissionListRequest());
 		print(asTable(permissions));
 	},
@@ -1280,7 +1368,7 @@ permissionCommands.add(new lib.Command({
 const roleCommands = new lib.CommandTree({ name: "role", description: "Role management" });
 roleCommands.add(new lib.Command({
 	definition: [["list", "l"], "List roles in the cluster"],
-	handler: async function(args, control) {
+	handler: async function(args: {}, control: Control) {
 		let roles = await control.send(new lib.RoleListRequest());
 		print(asTable(roles));
 	},
@@ -1294,7 +1382,7 @@ roleCommands.add(new lib.Command({
 			"permissions": { describe: "Permissions role grants", nargs: 1, array: true, type: "string", default: [] },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string, description: string, permissions: string[] }, control: Control) {
 		let id = await control.send(new lib.RoleCreateRequest(
 			args.name,
 			args.description,
@@ -1318,7 +1406,18 @@ roleCommands.add(new lib.Command({
 			"grant-default": { describe: "Add default permissions to role", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			role: string,
+			name?: string,
+			description?: string,
+			setPerms?: string[],
+			addPerms?: string[],
+			removePerms?: string[],
+			grantDefault?: boolean,
+		},
+		control: Control
+	) {
 		let role = await lib.retrieveRole(control, args.role);
 
 		if (args.name !== undefined) {
@@ -1352,7 +1451,7 @@ roleCommands.add(new lib.Command({
 	definition: ["delete <role>", "Delete role", (yargs) => {
 		yargs.positional("role", { describe: "Role to delete", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { role: string }, control: Control) {
 		let role = await lib.retrieveRole(control, args.role);
 		await control.send(new lib.RoleDeleteRequest(role.id));
 	},
@@ -1367,7 +1466,7 @@ userCommands.add(new lib.Command({
 			"instance-stats": { describe: "include per-instance stats", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string, instanceStats: boolean }, control: Control) {
 		let user = await control.send(new lib.UserGetRequest(args.name));
 		Object.assign(user, user.playerStats);
 		delete user.playerStats;
@@ -1377,14 +1476,14 @@ userCommands.add(new lib.Command({
 
 		if (args.instanceStats) {
 			let instances = await control.send(new lib.InstanceDetailsListRequest());
-			function instanceName(id) {
+			function instanceName(id: number) {
 				let instance = instances.find(i => i.id === id);
 				if (instance) {
 					return instance.name;
 				}
 				return "<deleted>";
 			}
-			for (let [id, playerInstanceStats] of instanceStats) {
+			for (let [id, playerInstanceStats] of instanceStats || []) {
 				print();
 				print(`Instance ${instanceName(id)} (${id}):`);
 				print(asTable(Object.entries(playerInstanceStats).map(([property, value]) => ({ property, value }))));
@@ -1400,7 +1499,7 @@ userCommands.add(new lib.Command({
 			"attributes": { describe: "include admin/whitelisted/banned", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { stats: boolean, attributes: boolean }, control: Control) {
 		let users = await control.send(new lib.UserListRequest());
 		for (let user of users) {
 			if (args.stats) {
@@ -1424,7 +1523,7 @@ userCommands.add(new lib.Command({
 	definition: ["create <name>", "Create a user", (yargs) => {
 		yargs.positional("name", { describe: "Name of user to create", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string }, control: Control) {
 		await control.send(new lib.UserCreateRequest(args.name));
 	},
 }));
@@ -1433,7 +1532,7 @@ userCommands.add(new lib.Command({
 	definition: ["revoke-token <name>", "Revoke token for user", (yargs) => {
 		yargs.positional("name", { describe: "Name of user to revoke token for", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { name: string }, control: Control) {
 		await control.send(new lib.UserRevokeTokenRequest(args.name));
 	},
 }));
@@ -1446,7 +1545,7 @@ userCommands.add(new lib.Command({
 			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { user: string, revoke: boolean, create: boolean }, control: Control) {
 		await control.send(new lib.UserSetAdminRequest(args.user, args.create, !args.revoke));
 	},
 }));
@@ -1459,7 +1558,7 @@ userCommands.add(new lib.Command({
 			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { user: string, remove: boolean, create: boolean }, control: Control) {
 		await control.send(new lib.UserSetWhitelistedRequest(args.user, args.create, !args.remove));
 	},
 }));
@@ -1473,7 +1572,15 @@ userCommands.add(new lib.Command({
 			"create": { describe: "Create user if it does not exist", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			user: string,
+			pardon: boolean,
+			reason: string,
+			create: boolean
+		},
+		control: Control
+	) {
 		await control.send(new lib.UserSetBannedRequest(args.user, args.create, !args.pardon, args.reason));
 	},
 }));
@@ -1483,7 +1590,7 @@ userCommands.add(new lib.Command({
 		yargs.positional("user", { describe: "Name of user to change roles for", type: "string" });
 		yargs.positional("roles", { describe: "roles to assign", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { user: string, roles: string[] }, control: Control) {
 		let roles = await control.send(new lib.RoleListRequest());
 
 		let resolvedRoles = [];
@@ -1516,7 +1623,7 @@ userCommands.add(new lib.Command({
 	definition: ["delete <user>", "Delete user", (yargs) => {
 		yargs.positional("user", { describe: "Name of user to delete", type: "string" });
 	}],
-	handler: async function(args, control) {
+	handler: async function(args: { user: string }, control: Control) {
 		await control.send(new lib.UserDeleteRequest(args.user));
 	},
 }));
@@ -1531,7 +1638,10 @@ logCommands.add(new lib.Command({
 			"instance": { describe: "Follow log of given instance", nargs: 1, type: "string", default: null },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: { all: boolean, controller: boolean, host: string | null, instance: string | null },
+		control: Control
+	) {
 		if (!args.all && !args.controller && !args.host && !args.instance) {
 			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
@@ -1556,7 +1666,18 @@ logCommands.add(new lib.Command({
 			"start": { describe: "Limit from the start instead of the end", nargs: 0, type: "boolean", default: false },
 		});
 	}],
-	handler: async function(args, control) {
+	handler: async function(
+		args: {
+			all: boolean,
+			controller: boolean,
+			host: string | null,
+			instance: string | null,
+			maxLevel?: string,
+			limit: number,
+			start: boolean,
+		},
+		control: Control
+	) {
 		if (!args.all && !args.controller && !args.host && !args.instance) {
 			logger.error("At least one of --all, --controller, --host and --instance must be passed");
 			process.exitCode = 1;
@@ -1569,7 +1690,7 @@ logCommands.add(new lib.Command({
 			args.controller,
 			hostIds,
 			instanceIds,
-			args.maxLevel,
+			args.maxLevel as keyof typeof levels,
 			args.limit,
 			args.start ? "asc" : "desc",
 		));
@@ -1587,21 +1708,21 @@ logCommands.add(new lib.Command({
 			],
 		});
 		for (let info of result.log) {
-			stdoutLogger.log(info);
+			stdoutLogger.log(info as any);
 		}
 	},
 }));
 
 const debugCommands = new lib.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new lib.Command({
-	definition: ["dump-ws", "Dump WebSocket messages sent and received by controller", (yargs) => { }],
-	handler: async function(args, control) {
+	definition: ["dump-ws", "Dump WebSocket messages sent and received by controller"],
+	handler: async function(args: {}, control: Control) {
 		await control.send(new lib.DebugDumpWsRequest());
 		control.keepOpen = true;
 	},
 }));
 
-async function registerCommands(controlPlugins, yargs) {
+export async function registerCommands(controlPlugins: Map<string, lib.BaseControlPlugin>, yargs: Argv) {
 	const rootCommands = new lib.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
 	rootCommands.add(controllerCommands);
 	rootCommands.add(hostCommands);
@@ -1626,7 +1747,3 @@ async function registerCommands(controlPlugins, yargs) {
 
 	return rootCommands;
 }
-
-module.exports = {
-	registerCommands,
-};

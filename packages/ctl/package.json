@@ -4,12 +4,13 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "main": "ctl.js",
+  "main": "dist/ctl.js",
   "scripts": {
+    "prepare": "tsc --build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusterioctl": "./ctl.js"
+    "clusterioctl": "./dist/ctl.js"
   },
   "keywords": [
     "factorio"
@@ -28,5 +29,12 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.1",
+    "@types/node": "^20.4.5",
+    "@types/set-blocking": "^2.0.0",
+    "@types/yargs": "^17.0.24",
+    "typescript": "^5.1.6"
   }
 }

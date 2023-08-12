@@ -821,7 +821,7 @@ describe("Integration of Clusterio", function() {
 				let modPacks = await getControl().send(new lib.ModPackListRequest());
 				let modPack = modPacks.find(entry => entry.name === "full-pack");
 				assert(modPack, "created mod pack not found");
-				let reference = lib.ModPack.fromJSON({});
+				let reference = lib.ModPack.fromJSON({ factorio_version: "0.17.59" });
 				reference.id = modPack.id;
 				reference.name = "full-pack";
 				reference.description = "Description";
