@@ -7,6 +7,7 @@
     "rootDir": ".",
     "outDir": "dist",
     "composite": true,
+    "sourceMap": true,
     "strict": true,
     "alwaysStrict": true,
     "allowJs": true,
