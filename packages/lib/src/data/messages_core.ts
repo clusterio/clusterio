@@ -48,7 +48,7 @@ export class Address {
 	 *     Shorthand to translate with.
 	 * @returns Translated address.
 	 */
-	static fromShorthand(shorthand: AddressShorthand) {
+	static fromShorthand(shorthand: AddressShorthand | Address) {
 		if (shorthand instanceof Address) { return shorthand; }
 		if (shorthand === "controller") { return new Address(Address.controller, 0); }
 		if (shorthand === "allHosts") { return new Address(Address.broadcast, Address.host); }
@@ -171,6 +171,8 @@ export class Message {
 		throw new Error(`Unrecognized message type ${json.type}`);
 	}
 }
+
+export type MessageSrcDst = MessageRequest | MessageResponse | MessageResponseError | MessageEvent;
 
 export class HelloData {
 	constructor(

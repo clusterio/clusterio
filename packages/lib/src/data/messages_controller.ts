@@ -80,7 +80,7 @@ export class HostGenerateTokenRequest {
 	static permission = "core.host.generate_token" as const;
 
 	constructor(
-		public hostId?: number,
+		public hostId: number | null = null,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -202,7 +202,7 @@ export class LogMessageEvent {
 	static dst = ["controller", "control"] as const;
 
 	constructor(
-		public info: object,
+		public info: { level: string, message: string },
 	) { }
 
 	static jsonSchema = Type.Object({
