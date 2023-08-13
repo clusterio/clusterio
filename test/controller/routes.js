@@ -7,7 +7,7 @@ const http = require("http");
 const phin = require("phin");
 
 const { wait } = require("@clusterio/lib");
-const routes = require("@clusterio/controller/src/routes");
+const routes = require("@clusterio/controller/dist/controller/src/routes");
 const mock = require("../mock");
 
 

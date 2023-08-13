@@ -5,7 +5,7 @@ const express = require("express");
 
 const lib = require("@clusterio/lib");
 
-const UserManager = require("@clusterio/controller/src/UserManager");
+const UserManager = require("@clusterio/controller/dist/controller/src/UserManager");
 
 const addr = lib.Address.fromShorthand;
 
