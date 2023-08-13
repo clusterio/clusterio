@@ -1,51 +1,47 @@
-"use strict";
-const fs = require("fs-extra");
-const jwt = require("jsonwebtoken");
+import fs from "fs-extra";
+import jwt from "jsonwebtoken";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 /**
  * Manages users and roles
  * @alias module:controller/src/UserManager
  */
-class UserManager {
-	constructor(config) {
-		this._config = config;
-		this.roles = null;
-		this.users = null;
+export default class UserManager {
+	roles: Map<number, lib.Role> = new Map();
+	users: Map<string, lib.User> = new Map();
+
+	constructor(
+		private _config: lib.ControllerConfig
+	) {
 	}
 
-	async load(filePath) {
-		let loadedRoles = new Map();
-		let loadedUsers = new Map();
+	async load(filePath: string): Promise<void> {
 		try {
-			let content = JSON.parse(await fs.readFile(filePath));
+			let content = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
 			for (let serializedRole of content.roles) {
 				let role = new lib.Role(serializedRole);
-				loadedRoles.set(role.id, role);
+				this.roles.set(role.id, role);
 			}
 
 			for (let serializedUser of content.users) {
-				let user = new lib.User(serializedUser, loadedRoles);
-				loadedUsers.set(user.name, user);
+				let user = new lib.User(serializedUser, this.roles);
+				this.users.set(user.name, user);
 			}
 
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
 
 			// Create default roles if loading failed
-			lib.ensureDefaultAdminRole(loadedRoles);
-			lib.ensureDefaultPlayerRole(loadedRoles);
+			lib.ensureDefaultAdminRole(this.roles);
+			lib.ensureDefaultPlayerRole(this.roles);
 		}
-
-		this.roles = loadedRoles;
-		this.users = loadedUsers;
 	}
 
-	async save(filePath) {
-		if (!this.roles || !this.users) {
+	async save(filePath:string): Promise<void> {
+		if (this.roles.size === 0 || this.users.size === 0) {
 			return;
 		}
 
@@ -67,19 +63,19 @@ class UserManager {
 	}
 
 	/**
-	 * Create a new user
-	 *
 	 * Creates a new user and add it to the user database.
-	 *
-	 * @param {string} name - Name of the user to create.
-	 * @returns {module:lib.User} newly created user.
+	 * @param name - Name of the user to create.
 	 */
-	createUser(name) {
+	createUser(name:string): lib.User {
 		if (this.users.has(name)) {
 			throw new Error(`User '${name}' already exists`);
 		}
 
 		let defaultRoleId = this._config.get("controller.default_role_id");
+		if (defaultRoleId === null) {
+			throw new Error(`controller.default_role_id is not defined.`);
+		}
+
 		let user = new lib.User({ name, roles: [defaultRoleId] }, this.roles);
 		this.users.set(name, user);
 		return user;
@@ -88,16 +84,13 @@ class UserManager {
 	/**
 	 * Sign access token for the given user name
 	 *
-	 * @param {string} name - user name to sign token for
-	 * @returns {string} JWT access token for the user.
+	 * @param name - user name to sign token for
+	 * @returns JWT access token for the user.
 	 */
-	signUserToken(name) {
+	signUserToken(name: string): string {
 		return jwt.sign(
 			{ aud: "user", user: name },
 			Buffer.from(this._config.get("controller.auth_secret"), "base64")
 		);
 	}
-
 }
-
-module.exports = UserManager;

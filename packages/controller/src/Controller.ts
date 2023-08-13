@@ -1,32 +1,39 @@
-"use strict";
-const compression = require("compression");
-const events = require("events");
-const express = require("express");
-const fs = require("fs-extra");
-const http = require("http");
-const https = require("https");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const stream = require("stream");
-
-const lib = require("@clusterio/lib");
-const { logger } = lib;
-
-const HttpCloser = require("./HttpCloser");
-const InstanceInfo = require("./InstanceInfo");
-const metrics = require("./metrics");
-const routes = require("./routes");
-const UserManager = require("./UserManager");
-const WsServer = require("./WsServer");
+import type winston from "winston";
+import type { AddressInfo } from "net";
+import type { ControllerArgs } from "../controller";
+import type { HostInfo } from "./HostConnection";
+import type { Request, Response, Application } from "express";
 
 
-const endpointDurationSummary = new lib.Summary(
+import compression from "compression";
+import events, { EventEmitter } from "events";
+import express from "express";
+import fs from "fs-extra";
+import http from "http";
+import https from "https";
+import jwt from "jsonwebtoken";
+import path from "path";
+import stream from "stream";
+
+import * as lib from "@clusterio/lib";
+const { logger, Summary, Gauge } = lib;
+
+import HttpCloser from "./HttpCloser";
+import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
+import metrics from "./metrics";
+import routes from "./routes";
+import UserManager from "./UserManager";
+import WsServer from "./WsServer";
+import yargs from "yargs";
+import HostConnection from "./HostConnection";
+
+const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
 	"Time it took to respond to a an HTTP request",
 	{ labels: ["route"] }
 );
 
-const logSizeGauge = new lib.Gauge(
+const logSizeGauge = new Gauge(
 	"clusterio_controller_log_bytes",
 	"Size of all log files currently stored on the controller."
 );
@@ -35,86 +42,73 @@ const logSizeGauge = new lib.Gauge(
  * Manages all controller related operations
  * @alias module:controller/src/Controller
  */
-class Controller {
-	constructor(clusterLogger, pluginInfos, configPath, config) {
+export default class Controller {
+	clusterLogger: winston.Logger;
+	/** Array of plugin info objects for known plugins */
+	pluginInfos: lib.PluginInfo[];
+	configPath: string;
+	/** Controller config. */
+	config: lib.ControllerConfig;
+	app: Application;
+
+	/** Mapping of host id to host info */
+	hosts: Map<number, HostInfo> = new Map();
+	/** Mapping of instance id to instance info */
+	instances: Map<number, InstanceInfo> = new Map();
+	/** Mapping of mod pack id to mod pack */
+	modPacks: Map<number, lib.ModPack> = new Map();
+	/** Mapping of mod names to mod infos */
+	mods: Map<string, lib.ModInfo> = new Map();
+	/** User and roles manager for the cluster */
+	userManager: UserManager;
+
+	httpServer: http.Server | null = null;
+	httpServerCloser: HttpCloser | null = null;
+	httpsServer: https.Server | null = null;
+	httpsServerCloser: HttpCloser | null = null;
+
+	/** Mapping of plugin name to loaded plugin */
+	plugins: Map<string, lib.BaseControllerPlugin> = new Map();
+
+	/** WebSocket server */
+	wsServer: WsServer;
+	debugEvents: events.EventEmitter = new events.EventEmitter();
+	private _events: events.EventEmitter = new events.EventEmitter();
+	
+	// Possible states are new, starting, running, stopping, stopped
+	private _state: string = "new";
+	private _shouldStop: boolean = false;
+	_fallbackedRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
+	_registeredRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
+	_registeredEvents = new Map();
+	_snoopedEvents = new Map();
+
+	devMiddleware: any | null = null;
+	
+	logDirectory: string = "";
+	clusterLogIndex: lib.LogIndex | null = null;
+	clusterLogBuildInterval: NodeJS.Timer | null = null;
+
+	constructor(
+		clusterLogger: winston.Logger,
+		pluginInfos: any[],
+		configPath: string,
+		config: lib.ControllerConfig
+	) {
 		this.clusterLogger = clusterLogger;
-		/**
-		 * Array of plugin info objects for known plugins
-		 * @type {Array<object>}
-		 */
 		this.pluginInfos = pluginInfos;
 		this.configPath = configPath;
-		/**
-		 * Controller config.
-		 * @type {module:lib.ControllerConfig}
-		 */
 		this.config = config;
 
 		this.app = express();
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 
-		/**
-		 * Mapping of host id to host info
-		 * @type {Map<number, Object>}
-		 */
-		this.hosts = null;
-
-		/**
-		 * Mapping of instance id to instance info
-		 * @type {Map<number, module:controller/src/InstanceInfo>}
-		 */
-		this.instances = null;
-
-		/**
-		 * Mapping of mod pack id to mod pack
-		 * @type {Map<number, module:lib.ModPack>}
-		 */
-		this.modPacks = null;
-
-		/**
-		 * Mapping of mod names to mod infos
-		 * @type {Map<string, module:lib.ModInfo>}
-		 */
-		this.mods = null;
-
-		/**
-		 * User and roles manager for the cluster
-		 * @type {module:controller/src/UserManager}
-		 */
-		this.userManager = null;
-		this.httpServer = null;
-		this.httpServerCloser = null;
-		this.httpsServer = null;
-		this.httpsServerCloser = null;
-
-		/**
-		 * Mapping of plugin name to loaded plugin
-		 * @type {Map<string, module:lib.BaseControllerPlugin>}
-		 */
-		this.plugins = new Map();
-
-		/**
-		 * WebSocket server
-		 * @type {module:controller/src/WsServer}
-		 */
 		this.wsServer = new WsServer(this);
-
-		this.debugEvents = new events.EventEmitter();
-		this._events = new events.EventEmitter();
-		// Possible states are new, starting, running, stopping, stopped
-		this._state = "new";
-		this._shouldStop = false;
-
-		this._fallbackedRequests = new Map();
-		this._registeredRequests = new Map();
-		this._registeredEvents = new Map();
-		this._snoopedEvents = new Map();
-
-		this.devMiddleware = null;
+		this.userManager = new UserManager(this.config);
 	}
 
-	async start(args) {
+	async start(args: ControllerArgs) {
 		if (this._state !== "new") {
 			throw new Error(`Cannot start in state ${this._state}`);
 		}
@@ -148,13 +142,16 @@ class Controller {
 		])).reduce((a, v) => a + v, 0);
 	}
 
-	async _startInternal(args) {
+	async _startInternal(args: ControllerArgs) {
 		this.logDirectory = args.logDirectory;
 		this.clusterLogIndex = await lib.LogIndex.load(path.join(this.logDirectory, "cluster"));
+		
 		this.clusterLogBuildInterval = setInterval(() => {
-			this.clusterLogIndex.buildIndex().catch(
-				err => logger.error(`Error building cluster log index:\n${err.stack}`)
-			);
+			if (this.clusterLogIndex) {
+				this.clusterLogIndex.buildIndex().catch(
+					err => logger.error(`Error building cluster log index:\n${err.stack}`)
+				);
+			}
 		}, 600e3);
 		logSizeGauge.callback = async () => { logSizeGauge.set(await this.logSize()); };
 
@@ -165,6 +162,7 @@ class Controller {
 			const webpack = require("webpack");
 			const webpackDevMiddleware = require("webpack-dev-middleware");
 			const webpackConfigs = [];
+
 			if (args.dev) {
 				webpackConfigs.push(require("../webpack.config")({}));
 			}
@@ -191,10 +189,9 @@ class Controller {
 		let databaseDirectory = this.config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
-		this.hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
-		this.instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
-		this.modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
-		this.userManager = new UserManager(this.config);
+		await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
+		await Controller.loadInstances(path.join(databaseDirectory, "instances.json"), this.instances);
+		await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
 		let modsDirectory = this.config.get("controller.mods_directory");
@@ -230,7 +227,9 @@ class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifest = await Controller.loadJsonObject(path.join(__dirname, "..", "dist", "web", "manifest.json"));
+			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json")
+
+			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
 				logger.error("Missing main.js entry in dist/web/manifest.json");
 			}
@@ -247,16 +246,16 @@ class Controller {
 			this.httpServer = http.createServer(this.app);
 			this.httpServerCloser = new HttpCloser(this.httpServer);
 			await this.listen(this.httpServer, httpPort, bindAddress);
-			logger.info(`Listening for HTTP on port ${this.httpServer.address().port}`);
+			logger.info(`Listening for HTTP on port ${(this.httpServer.address() as AddressInfo).port}`);
 		}
 
-		if (httpsPort) {
+		if (httpsPort && tls_cert && tls_key) {
 			let certificate, privateKey;
 			try {
 				certificate = await fs.readFile(tls_cert);
 				privateKey = await fs.readFile(tls_key);
 
-			} catch (err) {
+			} catch (err: any) {
 				throw new lib.StartupError(
 					`Error loading ssl certificate: ${err.message}`
 				);
@@ -268,7 +267,7 @@ class Controller {
 			}, this.app);
 			this.httpsServerCloser = new HttpCloser(this.httpsServer);
 			await this.listen(this.httpsServer, httpsPort, bindAddress);
-			logger.info(`Listening for HTTPS on port ${this.httpsServer.address().port}`);
+			logger.info(`Listening for HTTPS on port ${(this.httpsServer.address() as AddressInfo).port}`);
 		}
 
 		logger.info("Started controller");
@@ -299,7 +298,11 @@ class Controller {
 		// This function should never throw.
 		this._state = "stopping";
 		logger.info("Stopping controller");
-		clearInterval(this.clusterLogBuildInterval);
+
+		if (this.clusterLogBuildInterval) {
+			clearInterval(this.clusterLogBuildInterval);
+		}
+
 		if (this.clusterLogIndex) {
 			await this.clusterLogIndex.save();
 		}
@@ -312,15 +315,15 @@ class Controller {
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
-		if (this.hosts) {
+		if (this.hosts.size > 0) {
 			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
 		}
 
-		if (this.instances) {
+		if (this.instances.size > 0) {
 			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
-		if (this.modPacks) {
+		if (this.modPacks.size > 0) {
 			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
 		}
 
@@ -336,88 +339,99 @@ class Controller {
 
 		let stopTasks = [];
 		logger.info("Stopping HTTP(S) server");
-		if (this.httpServer && this.httpServer.listening) { stopTasks.push(this.httpServerCloser.close()); }
-		if (this.httpsServer && this.httpsServer.listening) { stopTasks.push(this.httpsServerCloser.close()); }
+		if (this.httpServer && this.httpServer.listening && this.httpServerCloser) {
+			stopTasks.push(this.httpServerCloser.close());
+		}
+		if (this.httpsServer && this.httpsServer.listening && this.httpsServerCloser) {
+			stopTasks.push(this.httpsServerCloser.close());
+		}
 		await Promise.all(stopTasks);
 
 		logger.info("Goodbye");
 	}
 
-	static async loadHosts(filePath) {
-		let serialized;
-		try {
-			serialized = JSON.parse(await fs.readFile(filePath));
+	static async loadHosts(filePath: string, hosts:Map<number, any>) {
+		hosts.clear();
 
-		} catch (err) {
+		try {
+			const serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			// TODO: Remove after release.
+			if (serialized.length && !(serialized[0] instanceof Array)) {
+				for (let [id, host] of serialized) {
+					hosts.set(id ,host)
+				}
+			}
+
+		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
-
-			return new Map();
+			hosts.clear();
 		}
-
-		// TODO: Remove after release.
-		if (serialized.length && !(serialized[0] instanceof Array)) {
-			return new Map(); // Discard old format.
-		}
-
-		return new Map(serialized);
 	}
 
-	static async saveHosts(filePath, hosts) {
+	static async saveHosts(filePath: string, hosts: Map<number, HostInfo>) {
 		await lib.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, 4));
 	}
 
-	static async loadInstances(filePath) {
+	static async loadInstances(filePath: string, instances: Map<number, InstanceInfo>) {
 		logger.info(`Loading ${filePath}`);
+		instances.clear();
 
-		let instances = new Map();
 		try {
-			let serialized = JSON.parse(await fs.readFile(filePath));
+			const serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
 			for (let serializedConfig of serialized) {
 				let instanceConfig = new lib.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
 				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
-				let instance = new InstanceInfo({ config: instanceConfig, status });
+				let instance = new InstanceInfo({
+					config: instanceConfig,
+					status: status as InstanceStatus,
+				});
 				instances.set(instanceConfig.get("instance.id"), instance);
 			}
 
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
 		}
-
-		return instances;
 	}
 
-	static async saveInstances(filePath, instances) {
+	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
 		let serialized = [];
-		for (let instance of instances.values()) {
+		for (const instance of instances.values()) {
 			serialized.push(instance.config.serialize());
 		}
 
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
-	static async loadModPacks(filePath) {
-		let json;
+	static async loadModPacks(filePath: string, modPacks: Map<number, lib.ModPack>) {
+		modPacks.clear();
+
 		try {
-			json = JSON.parse(await fs.readFile(filePath));
-		} catch (err) {
+			const json = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+
+			for (const modPackJson of json) {
+				modPacks.set(
+					modPackJson.id,
+					lib.ModPack.fromJSON(modPackJson)
+				)
+			}
+
+		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
-			return new Map();
 		}
-		return new Map(json.map(e => [e.id, lib.ModPack.fromJSON(e)]));
 	}
 
-	static async saveModPacks(filePath, modPacks) {
+	static async saveModPacks(filePath: string, modPacks: Map<number, lib.ModPack>) {
 		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
 	}
 
-	static async loadModInfos(modsDirectory) {
+	static async loadModInfos(modsDirectory: string) {
 		let mods = new Map();
 		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
@@ -433,7 +447,7 @@ class Controller {
 			let modInfo;
 			try {
 				modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, entry.name));
-			} catch (err) {
+			} catch (err: any) {
 				logger.error(`Error loading mod ${entry.name}: ${err.message}`);
 				continue;
 			}
@@ -451,11 +465,11 @@ class Controller {
 		return mods;
 	}
 
-	static async loadJsonObject(filePath, throwOnMissing = false) {
+	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
 		let manifest = {};
 		try {
-			manifest = JSON.parse(await fs.readFile(filePath));
-		} catch (err) {
+			manifest = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+		} catch (err: any) {
 			if (!throwOnMissing && err.code !== "ENOENT") {
 				throw err;
 			}
@@ -463,7 +477,7 @@ class Controller {
 		return manifest;
 	}
 
-	async deleteMod(name, version) {
+	async deleteMod(name: string, version: string): Promise<void> {
 		let filename = `${name}_${version}.zip`;
 		let mod = this.mods.get(filename);
 		if (!mod) {
@@ -480,32 +494,32 @@ class Controller {
 	/**
 	 * Query controller log
 	 *
-	 * @param {module:lib~QueryLogFilter} filter -
+	 * @param filter -
 	 *     Filter to limit entries with. Note that only the controller log can
 	 *     be queried from this function.
-	 * @returns {Promise<Array<Object>>} log entries matching the filter
+	 * @returns log entries matching the filter
 	 */
-	async queryControllerLog(filter) {
-		return await lib.queryLog(
-			path.join(this.logDirectory, "controller"), filter,
+	async queryControllerLog(filter: lib.QueryLogFilter): Promise<object[]> {
+		return lib.queryLog(
+			path.join(this.logDirectory, "controller"), filter, null,
 		);
 	}
 
 	/**
 	 * Query cluster log
 	 *
-	 * @param {module:lib~QueryLogFilter} filter -
+	 * @param filter -
 	 *     Filter to limit entries with.
-	 * @returns {Promise<Array<Object>>} log entries matching the filter
+	 * @returns log entries matching the filter
 	 */
-	async queryClusterLog(filter) {
+	async queryClusterLog(filter: lib.QueryLogFilter): Promise<object[]> {
 		return await lib.queryLog(
 			path.join(this.logDirectory, "cluster"), filter, this.clusterLogIndex,
 		);
 	}
 
-	static addAppRoutes(app, pluginInfos) {
-		app.use((req, res, next) => {
+	static addAppRoutes(app: Application, pluginInfos: any[]) {
+		app.use((req: Request, res: Response, next) => {
 			let start = process.hrtime.bigint();
 			stream.finished(res, () => {
 				let routePath = "static";
@@ -521,7 +535,7 @@ class Controller {
 
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
-		app.use("/static", express.static(path.join(__dirname, "..", "dist", "web", "static"), staticOptions));
+		app.use("/static", express.static(path.join(__dirname, "..", "..", "..", "dist", "web", "static"), staticOptions));
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
 		// Add API routes
@@ -545,17 +559,17 @@ class Controller {
 	/**
 	 * Generate access token for host
 	 *
-	 * @param {number} hostId - ID of host to generate a token for.
-	 * @returns {string} access token for host
+	 * @returns access token for host
+	 * @param hostId - ID of host to generate a token for.
 	 */
-	generateHostToken(hostId) {
+	generateHostToken(hostId: number): string {
 		return jwt.sign(
 			{ aud: "host", host: hostId },
 			Buffer.from(this.config.get("controller.auth_secret"), "base64")
 		);
 	}
 
-	hostUpdated(host) {
+	hostUpdated(host: HostInfo) {
 		let update = new lib.HostDetails(
 			host.agent,
 			host.version,
@@ -577,11 +591,10 @@ class Controller {
 	/**
 	 * Get instance by ID for a request
 	 *
-	 * @param {number} instanceId - ID of instance to get.
-	 * @returns {object} instance
+	 * @param instanceId - ID of instance to get.
 	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
-	getRequestInstance(instanceId) {
+	getRequestInstance(instanceId:number):InstanceInfo {
 		let instance = this.instances.get(instanceId);
 		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -602,11 +615,11 @@ class Controller {
 	 * let instance = await controller.instanceAssign(instanceConfig);
 	 * await controller.instanceAssign(instance.id, hostId);
 	 *
-	 * @param {module:lib.InstanceConfig} instanceConfig -
+	 * @param instanceConfig -
 	 *     Config to base newly created instance on.
-	 * @returns {module:controller/src/InstanceInfo} The created instance
+	 * @returns The created instance
 	 */
-	async instanceCreate(instanceConfig) {
+	async instanceCreate(instanceConfig: lib.InstanceConfig): Promise<InstanceInfo> {
 		let instanceId = instanceConfig.get("instance.id");
 		if (this.instances.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
@@ -642,6 +655,7 @@ class Controller {
 		this.instances.set(instanceId, instance);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
 		this.addInstanceHooks(instance);
+		return instance;
 	}
 
 	/**
@@ -654,14 +668,14 @@ class Controller {
 	 * Note: this will not transfer any files or saves stored on the host
 	 * the instance was previously assgined to the new one.
 	 *
-	 * @param {number} instanceId - ID of Instance to assign.
-	 * @param {number} hostId - ID of host to assign instance to.
+	 * @param instanceId - ID of Instance to assign.
+	 * @param hostId - ID of host to assign instance to.
 	 */
-	async instanceAssign(instanceId, hostId) {
+	async instanceAssign(instanceId: number, hostId: number | null) {
 		let instance = this.getRequestInstance(instanceId);
 
 		// Check if target host is connected
-		let newHostConnection;
+		let newHostConnection: HostConnection | undefined;
 		if (hostId !== null) {
 			newHostConnection = this.wsServer.hostConnections.get(hostId);
 			if (!newHostConnection) {
@@ -676,7 +690,7 @@ class Controller {
 
 		// Unassign from currently assigned host if it is connected.
 		let currentAssignedHost = instance.config.get("instance.assigned_host");
-		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
+		if (currentAssignedHost !== null && currentAssignedHost !== undefined && hostId !== currentAssignedHost) {
 			let oldHostConnection = this.wsServer.hostConnections.get(currentAssignedHost);
 			if (oldHostConnection && !oldHostConnection.connector.closing) {
 				await oldHostConnection.send(new lib.InstanceUnassignInternalRequest(instanceId));
@@ -685,12 +699,12 @@ class Controller {
 
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
-		if (hostId !== null) {
+		if (hostId !== null && newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);
 		} else {
-			instance.status = "unassigned";
+			instance.status = "unassigned"
 			this.instanceUpdated(instance);
 		}
 	}
@@ -701,12 +715,12 @@ class Controller {
 	 * Permanently deletes the instance from its assigned host (if assigned)
 	 * and the controller.  This action cannot be undone.
 	 *
-	 * @param {number} instanceId - ID of instance to delete.
+	 * @param instanceId - ID of instance to delete.
 	 */
-	async instanceDelete(instanceId) {
+	async instanceDelete(instanceId: number) {
 		let instance = this.getRequestInstance(instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId !== null) {
+		if (hostId !== null && hostId !== undefined) {
 			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
 		}
 		this.instances.delete(instanceId);
@@ -723,12 +737,12 @@ class Controller {
 	 * Used to push config changes to the assigned host when the config of
 	 * an instance has changed.
 	 *
-	 * @param {module:controller/src/InstanceInfo} instance -
+	 * @param instance -
 	 *     Instance to nodify the config updated.
 	 */
-	async instanceConfigUpdated(instance) {
+	async instanceConfigUpdated(instance: InstanceInfo) {
 		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId !== null) {
+		if (hostId !== null && hostId !== undefined) {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await connection.send(
@@ -738,8 +752,8 @@ class Controller {
 		}
 	}
 
-	addInstanceHooks(instance) {
-		instance.config.on("fieldChanged", (group, field, prev) => {
+	addInstanceHooks(instance: InstanceInfo) {
+		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
 			if (group.name === "instance" && field === "name") {
 				this.instanceUpdated(instance);
 			}
@@ -750,7 +764,7 @@ class Controller {
 		this.instanceUpdated(instance);
 	}
 
-	instanceUpdated(instance) {
+	instanceUpdated(instance: InstanceInfo) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
@@ -760,7 +774,7 @@ class Controller {
 		}
 	}
 
-	saveListUpdate(instanceId, saves) {
+	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
@@ -770,7 +784,7 @@ class Controller {
 		}
 	}
 
-	modPackUpdated(modPack) {
+	modPackUpdated(modPack: lib.ModPack) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
@@ -781,7 +795,7 @@ class Controller {
 		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
 
-	modUpdated(mod) {
+	modUpdated(mod: lib.ModInfo) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
@@ -793,7 +807,7 @@ class Controller {
 		lib.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
-	userUpdated(user) {
+	userUpdated(user: lib.User) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.connector.closing) {
 				continue;
@@ -806,9 +820,9 @@ class Controller {
 	/**
 	 * Notify connected control clients under the given user that the
 	 * permissions for this user may have changed.
-	 * @param {module:lib.User} user - User permisions updated for.
+	 * @param user - User permisions updated for.
 	 */
-	userPermissionsUpdated(user) {
+	userPermissionsUpdated(user: lib.User) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
 				controlConnection.send(
@@ -825,9 +839,9 @@ class Controller {
 	/**
 	 * Notify connected control clients with the given role that the
 	 * permissions may have changed.
-	 * @param {module:lib.Role} role - Role permisions updated for.
+	 * @param role - Role permisions updated for.
 	 */
-	rolePermissionsUpdated(role) {
+	rolePermissionsUpdated(role: lib.Role) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user.roles.has(role)) {
 				controlConnection.send(
@@ -862,11 +876,12 @@ class Controller {
 					ControllerPluginClass = await lib.loadControllerPluginClass(pluginInfo);
 				}
 
+				//@ts-ignore //TODO::: metrics is lib.Counter but ControllerPluginClass expect any[], can't figure out how the metrics is used.
 				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics, logger);
 				await controllerPlugin.init();
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
-			} catch (err) {
+			} catch (err: any) {
 				throw new lib.PluginError(pluginInfo.name, err);
 			}
 
@@ -883,14 +898,14 @@ class Controller {
 	 * @param {*} args - Arguments to the .listen() call on the server.
 	 * @returns {Promise} promise that resolves the server is listening.
 	 */
-	listen(server, ...args) {
+	listen(server: http.Server|https.Server, ...args: any[]): Promise<void> {
 		return new Promise((resolve, reject) => {
 			server.on("upgrade", (req, socket, head) => {
 				logger.verbose("handling WebSocket upgrade");
 				this.wsServer.handleUpgrade(req, socket, head);
 			});
 
-			function wrapError(err) {
+			function wrapError(err: any) {
 				reject(new lib.StartupError(
 					`Server listening failed: ${err.message}`
 				));
@@ -908,13 +923,13 @@ class Controller {
 	/**
 	 * Returns the URL needed to connect to the controller.
 	 *
-	 * @returns {string} controller URL.
+	 * @returns controller URL.
 	 */
-	getControllerUrl() {
+	getControllerUrl(): string {
 		return Controller.calculateControllerUrl(this.config);
 	}
 
-	static calculateControllerUrl(config) {
+	static calculateControllerUrl(config: lib.ControllerConfig) {
 		let url = config.get("controller.external_address");
 		if (!url) {
 			if (config.get("controller.https_port")) {
@@ -932,24 +947,25 @@ class Controller {
 	 * @param {string} route - route the interface is served under.
 	 * @returns {function} Experess.js route handler.
 	 */
-	static serveWeb(route) {
+	static serveWeb(route: string) {
 		// The depth is is the number of slashes in the route minus one, but due
 		// to lenient matching on trailing slashes in the route we need to
 		// compensate if the request path contains a slash but not the route,
 		// and vice versa.
-		let routeDepth = (route.match(/\//g) || []).length - 1 - (route.slice(-1) === "/");
-		return function(req, res, next) {
-			let depth = routeDepth + (req.path.slice(-1) === "/");
+		let routeDepth = (route.match(/\//g) || []).length - 1 - Number(route.slice(-1) === "/");
+		return function(req: Request, res: Response, next: Function) {
+			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
 			let staticRoot = webRoot;
-			let mainBundle;
+			let mainBundle: string = "";
 			if (res.app.locals.mainBundle) {
 				mainBundle = res.app.locals.mainBundle;
 			} else {
 				let stats = res.locals.webpack.devMiddleware.stats.stats[0];
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
-			fs.readFile(path.join(__dirname, "..", "web", "index.html"), "utf8").then((content) => {
+
+			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))
@@ -963,7 +979,7 @@ class Controller {
 		};
 	}
 
-	handle(Class, handler) {
+	handle(Class: any, handler: any) {
 		if (Class.type === "request") {
 			this.handleRequest(Class, handler);
 		} else if (Class.type === "event") {
@@ -973,7 +989,7 @@ class Controller {
 		}
 	}
 
-	handleRequest(Request, handler) {
+	handleRequest(Request: any, handler: any) {
 		if (!lib.Link._requestsByClass.has(Request)) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
@@ -983,7 +999,7 @@ class Controller {
 		this._registeredRequests.set(Request, handler);
 	}
 
-	fallbackRequest(Request, handler) {
+	fallbackRequest(Request: any, handler: any) {
 		if (!lib.Link._requestsByClass.has(Request)) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
@@ -993,7 +1009,7 @@ class Controller {
 		this._fallbackedRequests.set(Request, handler);
 	}
 
-	handleEvent(Event, handler) {
+	handleEvent(Event: any, handler: any) {
 		if (!lib.Link._eventsByClass.has(Event)) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
 		}
@@ -1003,7 +1019,7 @@ class Controller {
 		this._registeredEvents.set(Event, handler);
 	}
 
-	snoopEvent(Event, handler) {
+	snoopEvent(Event: any, handler: any) {
 		if (!lib.Link._eventsByClass.has(Event)) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
 		}
@@ -1026,7 +1042,7 @@ class Controller {
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
-	sendTo(address, requestOrEvent) {
+	sendTo(address: lib.AddressShorthand, requestOrEvent: any) {
 		let dst = lib.Address.fromShorthand(address);
 		if (requestOrEvent.constructor.type === "request") {
 			return this.sendRequest(requestOrEvent, dst);
@@ -1037,7 +1053,7 @@ class Controller {
 		throw Error(`Unknown type ${requestOrEvent.constructor.type}.`);
 	}
 
-	async sendRequest(request, dst) {
+	async sendRequest(request: any, dst: lib.Address) {
 		let connection;
 		if (dst.type === lib.Address.controller) {
 			throw new Error("controller as dst is not supported.");
@@ -1072,7 +1088,7 @@ class Controller {
 		return connection.sendRequest(request, dst);
 	}
 
-	sendEvent(event, dst) {
+	sendEvent<T>(event: lib.Event<T>, dst: lib.Address) {
 		let connection;
 		if (dst.type === lib.Address.controller) {
 			throw new Error("controller as dst is not supported.");
@@ -1119,7 +1135,7 @@ class Controller {
 		}
 	}
 
-	sendToHostByInstanceId(requestOrEvent) {
+	async sendToHostByInstanceId(requestOrEvent: any) {
 		if (requestOrEvent.constructor.type === "request") {
 			return this.sendRequestToHostByInstanceId(requestOrEvent);
 		}
@@ -1129,7 +1145,7 @@ class Controller {
 		throw Error(`Unknown type ${requestOrEvent.constructor.type}.`);
 	}
 
-	async sendRequestToHostByInstanceId(request) {
+	async sendRequestToHostByInstanceId(request: any) {
 		let instance = this.getRequestInstance(request.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
@@ -1142,7 +1158,7 @@ class Controller {
 		return await connection.send(request);
 	}
 
-	sendEventToHostByInstanceId(event) {
+	sendEventToHostByInstanceId(event: any) {
 		let instance = this.getRequestInstance(event.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
@@ -1155,5 +1171,3 @@ class Controller {
 		connection.send(event);
 	}
 }
-
-module.exports = Controller;

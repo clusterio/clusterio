@@ -150,7 +150,7 @@ export class ControllerConfig extends classes.Config {
 	get(name: "controller.external_address"): string | null;
 	get(name: "controller.tls_certificate"): string | null;
 	get(name: "controller.tls_private_key"): string | null;
-	get(name: "controller.auth_secret"): string | null;
+	get(name: "controller.auth_secret"): string;
 	get(name: "controller.heartbeat_interval"): number;
 	get(name: "controller.session_timeout"): number;
 	get(name: "controller.metrics_timeout"): number;

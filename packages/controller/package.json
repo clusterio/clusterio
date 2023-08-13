@@ -4,13 +4,14 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "main": "controller.js",
+  "main": "controller.ts",
   "scripts": {
-    "prepare": "webpack-cli --env production",
+    "prepare": "webpack-cli --env production && pnpm build",
+    "build": "tsc --build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusteriocontroller": "./controller.js"
+    "clusteriocontroller": "./dist/controller/controller.js"
   },
   "keywords": [
     "factorio"
@@ -35,6 +36,15 @@
   },
   "devDependencies": {
     "@clusterio/web_ui": "^2.0.0-alpha.13",
+	 "@types/busboy": "^1.5.0",
+    "@types/compression": "^1.7.2",
+    "@types/express": "^4.17.17",
+    "@types/fs-extra": "^11.0.1",
+    "@types/jsonwebtoken": "^9.0.2",
+    "@types/node": "^20.4.5",
+    "@types/set-blocking": "^2.0.0",
+    "@types/ws": "^8.5.5",
+    "@types/yargs": "^17.0.24",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.4.14",

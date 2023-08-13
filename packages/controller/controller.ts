@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/**
+/** 
  * Clusterio controller
  *
  * Facilitates communication between hosts and control of the cluster
@@ -14,27 +14,28 @@
  * npx clusteriocontroller run
  */
 
-"use strict";
-const path = require("path");
-const fs = require("fs-extra");
-const crypto = require("crypto");
-const setBlocking = require("set-blocking");
-const yargs = require("yargs");
-const util = require("util");
-const winston = require("winston");
-require("winston-daily-rotate-file");
-const jwt = require("jsonwebtoken");
+import path from "path";
+import fs from "fs-extra";
+
+import crypto from "crypto";
+import setBlocking from "set-blocking";
+import yargs from "yargs";
+import util from "util";
+import winston from "winston";
+import DailyRotateFile from "winston-daily-rotate-file";
+
+import jwt from "jsonwebtoken";
 
 // homebrew modules
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 const { ConsoleTransport, levels, logger } = lib;
 
-const Controller = require("./src/Controller");
-const UserManager = require("./src/UserManager");
-const version = require("./package").version;
+import Controller from "./src/Controller";
+import UserManager from "./src/UserManager";
+const version = process.env.npm_package_version;
 
 // globals
-let controller;
+let controller: Controller;
 
 
 void new lib.Gauge(
@@ -42,7 +43,7 @@ void new lib.Gauge(
 	"Mapping of Host ID to name",
 	{
 		labels: ["host_id", "host_name"],
-		callback: function(gauge) {
+		callback: function(gauge:lib.Gauge) {
 			gauge.clear();
 			if (!controller || !controller.hosts) {
 				return;
@@ -62,7 +63,7 @@ void new lib.Gauge(
 	"Mapping of Instance ID to name and host",
 	{
 		labels: ["instance_id", "instance_name", "host_id"],
-		callback: function(gauge) {
+		callback: function(gauge:lib.Gauge) {
 			gauge.clear();
 			if (!controller || !controller.instances) {
 				return;
@@ -81,19 +82,26 @@ void new lib.Gauge(
 void new lib.Gauge(
 	"clusterio_controller_websocket_active_connections",
 	"How many WebSocket connections are currently open to the controller",
-	{ callback: function(gauge) { gauge.set(controller.wsServer.activeConnectors.size); }}
+	{ callback: function(gauge:lib.Gauge) {
+			gauge.set(controller.wsServer.activeConnectors.size);
+		}
+	}
 );
 
 void new lib.Gauge(
 	"clusterio_controller_active_hosts",
 	"How many hosts are currently connected to the controller",
-	{ callback: function(gauge) { gauge.set(controller.wsServer.hostConnections.size); }}
+	{ callback: function(gauge:lib.Gauge) {
+			gauge.set(controller.wsServer.hostConnections.size);
+		}
+	}
 );
 
 void new lib.Gauge(
-	"clusterio_controller_connected_clients_count", "How many clients are currently connected to this controller",
+	"clusterio_controller_connected_clients_count",
+	"How many clients are currently connected to this controller",
 	{
-		labels: ["type"], callback: async function(gauge) {
+		labels: ["type"], callback: async function(gauge:lib.Gauge) {
 			gauge.labels("host").set(controller.wsServer.hostConnections.size);
 			gauge.labels("control").set(controller.wsServer.controlConnections.size);
 		},
@@ -101,7 +109,10 @@ void new lib.Gauge(
 );
 
 
-async function handleBootstrapCommand(args, controllerConfig) {
+async function handleBootstrapCommand(
+	args: any,
+	controllerConfig: lib.ControllerConfig
+): Promise<void> {
 	let subCommand = args._[1];
 	let userManager = new UserManager(controllerConfig);
 	await userManager.load(path.join(controllerConfig.get("controller.database_directory"), "users.json"));
@@ -166,18 +177,31 @@ async function handleBootstrapCommand(args, controllerConfig) {
 	}
 }
 
-async function initialize() {
-	let parameters = {
-		args: null,
-		shouldRun: false,
-		clusterLogger: null,
-		pluginInfos: null,
-		controllerConfigPath: null,
-		controllerConfig: null,
-	};
 
+export interface ControllerArgs {
+	[x: string]: unknown;
+	logLevel: string;
+	logDirectory: string;
+	pluginList: string;
+	devPlugin?: (string | number)[] | undefined;
+	dev?: boolean;
+	config: string;
+	_: (string | number)[];
+	$0: string;
+}
+
+interface InitializeParameters {
+	args: ControllerArgs;
+	shouldRun: boolean;
+	clusterLogger: winston.Logger;
+	pluginInfos: any[] | null;
+	controllerConfigPath: string | null;
+	controllerConfig: lib.ControllerConfig | null;
+}
+
+async function initialize(): Promise<InitializeParameters> {
 	// argument parsing
-	parameters.args = yargs
+	const args = await yargs
 		.scriptName("controller")
 		.usage("$0 <command> [options]")
 		.option("log-level", {
@@ -232,45 +256,46 @@ async function initialize() {
 	;
 
 	// Combined log stream of the whole cluster.
-	parameters.clusterLogger = winston.createLogger({
+	const clusterLogger = winston.createLogger({
 		format: winston.format.json(),
 		level: "verbose",
 		levels,
 	});
-	parameters.clusterLogger.add(new winston.transports.DailyRotateFile({
+	clusterLogger.add(new DailyRotateFile({
 		filename: "cluster-%DATE%.log",
 		utc: true,
-		dirname: path.join(parameters.args.logDirectory, "cluster"),
+		dirname: path.join(args.logDirectory, "cluster"),
 	}));
 
 	// Log stream for the controller.
-	logger.add(new winston.transports.DailyRotateFile({
+	logger.add(new DailyRotateFile({
 		format: winston.format.json(),
 		filename: "controller-%DATE%.log",
-		dirname: path.join(parameters.args.logDirectory, "controller"),
+		dirname: path.join(args.logDirectory, "controller"),
 	}));
 	logger.add(new winston.transports.Stream({
-		stream: parameters.clusterLogger,
+		stream: clusterLogger,
 	}));
-	if (parameters.args.logLevel !== "none") {
+	if (args.logLevel !== "none") {
 		logger.add(new ConsoleTransport({
-			level: parameters.args.logLevel,
+			level: args.logLevel,
 			format: new lib.TerminalFormat(),
 		}));
 	}
-	lib.handleUnhandledErrors(logger);
+	lib.handleUnhandledErrors();
 
-	let command = parameters.args._[0];
+	let command = args._[0];
+	let shouldRun = false;
 	if (command === "run") {
 		logger.info(`Starting Clusterio controller ${version}`);
-		parameters.shouldRun = true;
+		shouldRun = true;
 	}
 
-	logger.info(`Loading available plugins from ${parameters.args.pluginList}`);
+	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
-		pluginList = new Map(JSON.parse(await fs.readFile(parameters.args.pluginList)));
-	} catch (err) {
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList, { encoding: 'utf8' })));
+	} catch (err: any) {
 		if (err.code !== "ENOENT") {
 			throw err;
 		}
@@ -278,52 +303,67 @@ async function initialize() {
 
 	// If the command is plugin management we don't try to load plugins
 	if (command === "plugin") {
-		await lib.handlePluginCommand(parameters.args, pluginList, parameters.args.pluginList);
-		return parameters;
+		await lib.handlePluginCommand(args, pluginList, args.pluginList);
+		return {
+			args,
+			shouldRun,
+			clusterLogger,
+			pluginInfos: null,
+			controllerConfigPath: null,
+			controllerConfig: null,
+		};
 	}
 
 	logger.info("Loading Plugin info");
-	parameters.pluginInfos = await lib.loadPluginInfos(pluginList);
-	lib.registerPluginMessages(parameters.pluginInfos);
-	lib.registerPluginConfigGroups(parameters.pluginInfos);
+	const pluginInfos = await lib.loadPluginInfos(pluginList);
+	lib.registerPluginMessages(pluginInfos);
+	lib.registerPluginConfigGroups(pluginInfos);
 	lib.finalizeConfigs();
 
-	parameters.controllerConfigPath = parameters.args.config;
-	logger.info(`Loading config from ${parameters.controllerConfigPath}`);
-	parameters.controllerConfig = new lib.ControllerConfig("controller");
+	const controllerConfigPath = args.config;
+	logger.info(`Loading config from ${controllerConfigPath}`);
+	const controllerConfig = new lib.ControllerConfig("controller");
 	try {
-		await parameters.controllerConfig.load(JSON.parse(await fs.readFile(parameters.controllerConfigPath)));
+		let fileData = await fs.readFile(controllerConfigPath, { encoding: 'utf8' })
+		await controllerConfig.load(JSON.parse(fileData));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			await parameters.controllerConfig.init();
+			await controllerConfig.init();
 
 		} else {
-			throw new lib.StartupError(`Failed to load ${parameters.controllerConfigPath}: ${err.message}`);
+			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
 		}
 	}
 
-	if (!parameters.controllerConfig.get("controller.auth_secret")) {
+	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
 		let asyncRandomBytes = util.promisify(crypto.randomBytes);
 		let bytes = await asyncRandomBytes(256);
-		parameters.controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
+		controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
 		await lib.safeOutputFile(
-			parameters.controllerConfigPath, JSON.stringify(parameters.controllerConfig.serialize(), null, 4)
+			controllerConfigPath, JSON.stringify(controllerConfig.serialize(), null, 4)
 		);
 	}
 
 	if (command === "config") {
 		await lib.handleConfigCommand(
-			parameters.args, parameters.controllerConfig, parameters.controllerConfigPath
+			args, controllerConfig, controllerConfigPath
 		);
 
 	} else if (command === "bootstrap") {
-		await handleBootstrapCommand(parameters.args, parameters.controllerConfig);
+		await handleBootstrapCommand(args, controllerConfig);
 	}
 
-	return parameters;
+	return {
+		args,
+		clusterLogger,
+		pluginInfos,
+		controllerConfigPath,
+		controllerConfig,
+		shouldRun,
+	}
 }
 
 async function startup() {
@@ -331,8 +371,15 @@ async function startup() {
 	// and as the process name in ps/top on linux.
 	process.title = "clusteriocontroller";
 
-	let { args, shouldRun, clusterLogger, pluginInfos, controllerConfigPath, controllerConfig } = await initialize();
-	if (!shouldRun) {
+	let {
+		args,
+		shouldRun,
+		clusterLogger,
+		pluginInfos,
+		controllerConfigPath,
+		controllerConfig
+	} = await initialize();
+	if (!shouldRun || !pluginInfos || !controllerConfigPath || !controllerConfig) {
 		return;
 	}
 

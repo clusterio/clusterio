@@ -1,15 +1,20 @@
-"use strict";
-const events = require("events");
-const fs = require("fs-extra");
-const path = require("path");
+import type WsServerConnector from "./WsServerConnector";
+import type { HostInfo } from "./HostConnection";
 
-const lib = require("@clusterio/lib");
+import events from "events";
+import fs from "fs-extra";
+import path from "path";
+
+import * as lib from "@clusterio/lib";
 const { logFilter, logger } = lib;
 
-const BaseConnection = require("./BaseConnection");
-const routes = require("./routes");
+import BaseConnection  from "./BaseConnection";
+import routes  from "./routes";
+import Controller from "./Controller";
+import { promises } from "dns";
+import InstanceInfo from "./InstanceInfo";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 const queryLogTime = new lib.Summary(
 	"clusterio_controller_query_log_duration_seconds",
@@ -22,66 +27,49 @@ const queryLogTime = new lib.Summary(
  * @extends module:controller/src/BaseConnection
  * @alias module:controller/src/ControlConnection
  */
-class ControlConnection extends BaseConnection {
-	constructor(registerData, connector, controller, user, id) {
+export default class ControlConnection extends BaseConnection {
+	private _agent: string;
+	private _version: string;
+	hostSubscriptions: { all:boolean, hostIds:number[] } = { all:false, hostIds:[] };
+	instanceSubscriptions: { all:boolean, instanceIds:number[] } = { all:false, instanceIds:[] };
+	saveListSubscriptions: { all:boolean, instanceIds:number[] } = { all:false, instanceIds:[] };
+	modPackSubscriptions: { all:boolean, modPackIds:number[] }  = { all:false, modPackIds:[] };
+	modSubscriptions: { all:boolean, modNames:string[] } = { all:false, modNames:[] };
+	userSubscriptions: { all:boolean, names:string[]} = { all:false, names:[] };
+	logTransport: lib.LinkTransport | null = null;
+	logSubscriptions: {
+		all: boolean,
+		controller: boolean,
+		hostIds: number[],
+		instanceIds: number[],
+	} = {
+		all: false,
+		controller: false,
+		hostIds: [],
+		instanceIds: [],
+	};
+	ws_dumper: ((...args: any[]) => void) | null = null;
+	declare connector: WsServerConnector;
+
+	constructor(
+		registerData: { agent:string, version:string },
+		connector: WsServerConnector,
+		controller: Controller,
+		public user: lib.User, // The user making this connection.
+		public id: number
+	) {
 		super(connector, controller);
 
 		this._agent = registerData.agent;
 		this._version = registerData.version;
-		this.id = id;
 
-		/**
-		 * The user making this connection.
-		 * @type {module:lib.User}
-		 */
-		this.user = user;
-
-		this.hostSubscriptions = {
-			all: false,
-			hostIds: [],
-		};
-
-		this.instanceSubscriptions = {
-			all: false,
-			instanceIds: [],
-		};
-
-		this.saveListSubscriptions = {
-			all: false,
-			instanceIds: [],
-		};
-
-		this.modPackSubscriptions = {
-			all: false,
-			modPackIds: [],
-		};
-
-		this.modSubscriptions = {
-			all: false,
-			modNames: [],
-		};
-
-		this.userSubscriptions = {
-			all: false,
-			names: [],
-		};
-
-		this.logTransport = null;
-		this.logSubscriptions = {
-			all: false,
-			controller: false,
-			hostIds: [],
-			instanceIds: [],
-		};
-
-		this.ws_dumper = null;
 		this.connector.on("connect", () => {
 			this.connector._socket.clusterio_ignore_dump = Boolean(this.ws_dumper);
 		});
 		this.connector.on("close", () => {
 			if (this.logTransport) {
-				this.logTransport = null;
 				logger.remove(this.logTransport);
+				this.logTransport = null;
 			}
 			if (this.ws_dumper) {
 				this._controller.debugEvents.off("message", this.ws_dumper);
@@ -91,7 +79,10 @@ class ControlConnection extends BaseConnection {
 		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
 				for (let controllerPlugin of this._controller.plugins.values()) {
-					controllerPlugin.onControlConnectionEvent(this, event);
+					controllerPlugin.onControlConnectionEvent(
+						this,
+						event as "connect" | "drop" | "resume" | "close"
+					);
 				}
 			});
 		}
@@ -105,26 +96,17 @@ class ControlConnection extends BaseConnection {
 		this.handle(lib.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
 		this.handle(lib.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
 		this.handle(lib.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
-		this.handle(
-			lib.InstanceDetailsSetSubscriptionsRequest, this.handleInstanceDetailsSetSubscriptionsRequest.bind(this)
-		);
+		this.handle(lib.InstanceDetailsSetSubscriptionsRequest, this.handleInstanceDetailsSetSubscriptionsRequest.bind(this));
 		this.handle(lib.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
 		this.handle(lib.InstanceDeleteRequest, this.handleInstanceDeleteRequest.bind(this));
 		this.handle(lib.InstanceConfigGetRequest, this.handleInstanceConfigGetRequest.bind(this));
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
-		this.handle(
-			lib.InstanceSetSaveListSubscriptionsRequest,
-			this.handleInstanceSetSaveListSubscriptionsRequest.bind(this)
-		);
-		this.handle(
-			lib.InstanceRenameSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller)
-		);
+		this.handle(lib.InstanceSetSaveListSubscriptionsRequest, this.handleInstanceSetSaveListSubscriptionsRequest.bind(this));
+		this.handle(lib.InstanceRenameSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
 		this.handle(lib.InstanceCopySaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
-		this.handle(
-			lib.InstanceDeleteSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller)
-		);
+		this.handle(lib.InstanceDeleteSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
 		this.handle(lib.InstanceDownloadSaveRequest, this.handleInstanceDownloadSaveRequest.bind(this));
 		this.handle(lib.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
 		this.handle(lib.ModPackListRequest, this.handleModPackListRequest.bind(this));
@@ -144,9 +126,7 @@ class ControlConnection extends BaseConnection {
 		this.handle(lib.RoleListRequest, this.handleRoleListRequest.bind(this));
 		this.handle(lib.RoleCreateRequest, this.handleRoleCreateRequest.bind(this));
 		this.handle(lib.RoleUpdateRequest, this.handleRoleUpdateRequest.bind(this));
-		this.handle(
-			lib.RoleGrantDefaultPermissionsRequest, this.handleRoleGrantDefaultPermissionsRequest.bind(this)
-		);
+		this.handle(lib.RoleGrantDefaultPermissionsRequest, this.handleRoleGrantDefaultPermissionsRequest.bind(this));
 		this.handle(lib.RoleDeleteRequest, this.handleRoleDeleteRequest.bind(this));
 		this.handle(lib.UserGetRequest, this.handleUserGetRequest.bind(this));
 		this.handle(lib.UserListRequest, this.handleUserListRequest.bind(this));
@@ -161,29 +141,35 @@ class ControlConnection extends BaseConnection {
 		this.handle(lib.DebugDumpWsRequest, this.handleDebugDumpWsRequest.bind(this));
 	}
 
-	validateIngress(message) {
+	validateIngress(message: lib.MessageRequest | lib.MessageEvent) {
 		let origin = this.connector.dst;
 		if (origin.type !== message.src.type || origin.id !== message.src.id) {
 			throw new lib.InvalidMessage(`Received message with invalid src ${message.src} from ${origin}`);
 		}
 	}
 
-	validatePermission(message, entry) {
+	validatePermission(
+		message: lib.MessageRequest | lib.MessageEvent,
+		entry: lib.RequestEntry | lib.EventEntry
+	) {
 		try {
 			this.checkPermission(message, entry);
-		} catch (err) {
+		} catch (err: any) {
 			this.connector.sendResponseError(new lib.ResponseError(err.message, err.code), message.src);
 			logger.audit(`Permission denied for ${message.name} by ${this.user.name} from ${this.connector.dst}`);
 			throw err;
 		}
 	}
 
-	checkPermission(message, entry) {
+	checkPermission(
+		message: lib.MessageRequest | lib.MessageEvent,
+		entry: lib.RequestEntry | lib.EventEntry
+	) {
 		let permission;
 		if (message.type === "request") {
-			permission = entry.Request.permission;
+			permission = (entry as lib.RequestEntry).Request.permission;
 		} else if (message.type === "event") {
-			permission = entry.Event.permission;
+			permission = (entry as lib.EventEntry).Event.permission;
 		} else {
 			return;
 		}
@@ -205,20 +191,20 @@ class ControlConnection extends BaseConnection {
 		throw new Error("Should be unreachable");
 	}
 
-	async handleControllerConfigGetRequest() {
+	async handleControllerConfigGetRequest(): Promise<lib.RawConfig> {
 		return new lib.RawConfig(this._controller.config.serialize("control"));
 	}
 
-	async handleControllerConfigSetFieldRequest(request) {
+	async handleControllerConfigSetFieldRequest(request: lib.ControllerConfigSetFieldRequest) {
 		this._controller.config.set(request.field, request.value, "control");
 	}
 
-	async handleControllerConfigSetPropRequest(request) {
+	async handleControllerConfigSetPropRequest(request: lib.ControllerConfigSetPropRequest) {
 		let { field, prop, value } = request;
 		this._controller.config.setProp(field, prop, value, "control");
 	}
 
-	async handleHostListRequest() {
+	async handleHostListRequest(): Promise<lib.HostDetails[]> {
 		let list = [];
 		for (let host of this._controller.hosts.values()) {
 			list.push(new lib.HostDetails(
@@ -233,11 +219,14 @@ class ControlConnection extends BaseConnection {
 		return list;
 	}
 
-	async handleHostSetSubscriptionsRequest(request) {
+	async handleHostSetSubscriptionsRequest(request: lib.HostSetSubscriptionsRequest) {
 		this.hostSubscriptions = { ...request };
 	}
 
-	hostUpdated(host, update) {
+	hostUpdated(
+		host: HostInfo,
+		update: lib.HostDetails
+	) {
 		if (
 			this.hostSubscriptions.all
 			|| this.hostSubscriptions.hostIds.includes(host.id)
@@ -246,15 +235,15 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleHostGenerateTokenRequest(message) {
-		let hostId = message.host_id;
-		if (hostId === undefined) {
+	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
+		let hostId = message.hostId;
+		if (hostId === null) {
 			hostId = Math.random() * 2**31 | 0;
 		}
 		return this._controller.generateHostToken(hostId);
 	}
 
-	async handleHostConfigCreateRequest(request) {
+	async handleHostConfigCreateRequest(request: lib.HostConfigCreateRequest) {
 		let hostConfig = new lib.HostConfig("control");
 		await hostConfig.init();
 
@@ -272,14 +261,14 @@ class ControlConnection extends BaseConnection {
 		return new lib.RawConfig(hostConfig.serialize());
 	}
 
-	async handleInstanceDetailsGetRequest(request) {
+	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {
 		let instance = this._controller.getRequestInstance(request.instanceId);
 
 		return new lib.InstanceDetails(
 			instance.config.get("instance.name"),
 			instance.id,
 			instance.config.get("instance.assigned_host"),
-			instance.game_port || undefined,
+			instance.config.get("factorio.game_port"),
 			instance.status,
 		);
 	}
@@ -290,19 +279,19 @@ class ControlConnection extends BaseConnection {
 			list.push(new lib.InstanceDetails(
 				instance.config.get("instance.name"),
 				instance.id,
-				instance.config.get("instance.assigned_host") || undefined,
-				instance.game_port || undefined,
+				instance.config.get("instance.assigned_host"),
+				instance.config.get("factorio.game_port"),
 				instance.status,
 			));
 		}
 		return list;
 	}
 
-	async handleInstanceDetailsSetSubscriptionsRequest(request) {
+	async handleInstanceDetailsSetSubscriptionsRequest(request: lib.InstanceDetailsSetSubscriptionsRequest) {
 		this.instanceSubscriptions = { ...request };
 	}
 
-	instanceUpdated(instance) {
+	instanceUpdated(instance: InstanceInfo) {
 		if (
 			this.instanceSubscriptions.all
 			|| this.instanceSubscriptions.instanceIds.includes(instance.id)
@@ -311,8 +300,8 @@ class ControlConnection extends BaseConnection {
 				new lib.InstanceDetails(
 					instance.config.get("instance.name"),
 					instance.id,
-					instance.config.get("instance.assigned_host") || undefined,
-					instance.game_port || undefined,
+					instance.config.get("instance.assigned_host"),
+					instance.config.get("factorio.game_port"),
 					instance.status,
 				)
 			));
@@ -320,22 +309,22 @@ class ControlConnection extends BaseConnection {
 	}
 
 	// XXX should probably add a hook for host reuqests?
-	async handleInstanceCreateRequest(request) {
+	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
 		let instanceConfig = new lib.InstanceConfig("controller");
-		await instanceConfig.load(request.config);
+		await instanceConfig.load(request.config as lib.SerializedConfig);
 		await this._controller.instanceCreate(instanceConfig);
 	}
 
-	async handleInstanceDeleteRequest(request) {
+	async handleInstanceDeleteRequest(request: lib.InstanceDeleteRequest) {
 		await this._controller.instanceDelete(request.instanceId);
 	}
 
-	async handleInstanceConfigGetRequest(request) {
+	async handleInstanceConfigGetRequest(request: lib.InstanceConfigGetRequest) {
 		let instance = this._controller.getRequestInstance(request.instanceId);
 		return new lib.InstanceConfigGetRequest.Response(instance.config.serialize("control"));
 	}
 
-	async handleInstanceConfigSetFieldRequest(request) {
+	async handleInstanceConfigSetFieldRequest(request: lib.InstanceConfigSetFieldRequest) {
 		let instance = this._controller.getRequestInstance(request.instanceId);
 		if (request.field === "instance.assigned_host") {
 			throw new lib.RequestError("instance.assigned_host must be set through the assign-host interface");
@@ -350,22 +339,22 @@ class ControlConnection extends BaseConnection {
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
-	async handleInstanceConfigSetPropRequest(request) {
+	async handleInstanceConfigSetPropRequest(request: lib.InstanceConfigSetPropRequest) {
 		let instance = this._controller.getRequestInstance(request.instanceId);
 		let { field, prop, value } = request;
 		instance.config.setProp(field, prop, value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
-	async handleInstanceAssignRequest(request) {
-		await this._controller.instanceAssign(request.instanceId, request.hostId);
+	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
+		await this._controller.instanceAssign(request.instanceId, request.hostId || null);
 	}
 
-	async handleInstanceSetSaveListSubscriptionsRequest(request) {
+	async handleInstanceSetSaveListSubscriptionsRequest(request: lib.InstanceSetSaveListSubscriptionsRequest) {
 		this.saveListSubscriptions = { ...request };
 	}
 
-	saveListUpdate(instanceId, saves) {
+	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
 		if (
 			this.saveListSubscriptions.all
 			|| this.saveListSubscriptions.instanceIds.includes(instanceId)
@@ -374,7 +363,7 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleInstanceDownloadSaveRequest(request) {
+	async handleInstanceDownloadSaveRequest(request: lib.InstanceDownloadSaveRequest) {
 		let { instanceId, name } = request;
 		let stream = await routes.createProxyStream(this._controller.app);
 		stream.filename = name;
@@ -397,7 +386,7 @@ class ControlConnection extends BaseConnection {
 		return stream.id;
 	}
 
-	async handleInstanceTransferSaveRequest(request) {
+	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
 		if (request.sourceInstanceId === request.targetInstanceId) {
 			throw new lib.RequestError("Source and target instance may not be the same");
 		}
@@ -471,29 +460,29 @@ class ControlConnection extends BaseConnection {
 		return [...this._controller.modPacks.values()];
 	}
 
-	async handleModPackSetSubscriptionsRequest(request) {
+	async handleModPackSetSubscriptionsRequest(request: lib.ModPackSetSubscriptionsRequest) {
 		this.modPackSubscriptions = { ...request };
 	}
 
-	async handleModPackCreateRequest(request) {
+	async handleModPackCreateRequest(request: lib.ModPackCreateRequest) {
 		let modPack = request.modPack;
-		if (this._controller.modPacks.has(modPack.id)) {
+		if (!modPack.id || this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
 		this._controller.modPackUpdated(modPack);
 	}
 
-	async handleModPackUpdateRequest(request) {
+	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
 		let modPack = request.modPack;
-		if (!this._controller.modPacks.has(modPack.id)) {
+		if (!modPack.id || !this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
 		this._controller.modPackUpdated(modPack);
 	}
 
-	async handleModPackDeleteRequest(request) {
+	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
 		let { id } = request;
 		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
@@ -504,16 +493,16 @@ class ControlConnection extends BaseConnection {
 		this._controller.modPackUpdated(modPack);
 	}
 
-	modPackUpdated(modPack) {
+	modPackUpdated(modPack: lib.ModPack) {
 		if (
 			this.modPackSubscriptions.all
-			|| this.modPackSubscriptions.modPackIds.includes(modPack.id)
+			|| this.modPackSubscriptions.modPackIds.includes(modPack.id||-1)
 		) {
 			this.send(new lib.ModPackUpdateEvent(modPack));
 		}
 	}
 
-	async handleModGetRequest(request) {
+	async handleModGetRequest(request: lib.ModGetRequest) {
 		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
 		let mod = this._controller.mods.get(filename);
@@ -527,7 +516,7 @@ class ControlConnection extends BaseConnection {
 		return [...this._controller.mods.values()];
 	}
 
-	static termsMatchesMod(terms, mod) {
+	static termsMatchesMod(terms: lib.ParsedTerm[], mod: lib.ModInfo) {
 		for (let term of terms) {
 			if (term.type === "word") {
 				if (!lib.wordMatches(term,
@@ -537,7 +526,7 @@ class ControlConnection extends BaseConnection {
 					return false;
 				}
 			} else if (term.type === "attribute") {
-				if (!lib.wordMatches(term.value, mod[term.name])) {
+				if (!lib.wordMatches(term.value, mod[term.name as keyof lib.ModInfo] as string)) {
 					return false;
 				}
 			}
@@ -545,7 +534,7 @@ class ControlConnection extends BaseConnection {
 		return true;
 	}
 
-	async handleModSearchRequest(request) {
+	async handleModSearchRequest(request: lib.ModSearchRequest) {
 		let query = lib.parseSearchString(request.query, {
 			name: "word",
 			// version
@@ -562,7 +551,8 @@ class ControlConnection extends BaseConnection {
 		});
 		let factorioVersion = request.factorioVersion;
 
-		let results = new Map();
+		type ModVersions = { name: string, versions: lib.ModInfo[] };
+		let results: Map<string, ModVersions> = new Map();
 		for (let mod of this._controller.mods.values()) {
 			if (
 				mod.factorioVersion !== factorioVersion
@@ -589,14 +579,14 @@ class ControlConnection extends BaseConnection {
 		const sort = request.sort;
 		if (sort) {
 			const sorters = {
-				name: (a, b) => strcmp(a.versions[0].name, b.versions[0].name),
-				title: (a, b) => strcmp(a.versions[0].title, b.versions[0].title),
-				author: (a, b) => strcmp(a.versions[0].author, b.versions[0].author),
+				name: (a:ModVersions, b:ModVersions) => strcmp(a.versions[0].name, b.versions[0].name),
+				title: (a:ModVersions, b:ModVersions) => strcmp(a.versions[0].title, b.versions[0].title),
+				author: (a:ModVersions, b:ModVersions) => strcmp(a.versions[0].author, b.versions[0].author),
 			};
 			if (!Object.prototype.hasOwnProperty.call(sorters, sort)) {
 				throw new lib.RequestError(`Invalid value for sort: ${sort}`);
 			}
-			resultList.sort(sorters[sort]);
+			resultList.sort(sorters[sort as keyof typeof sorters]);
 			let order = request.sortOrder;
 			if (order === "desc") {
 				resultList.reverse();
@@ -615,11 +605,11 @@ class ControlConnection extends BaseConnection {
 		};
 	}
 
-	async handleModSetSubscriptionsRequest(request) {
+	async handleModSetSubscriptionsRequest(request: lib.ModSetSubscriptionsRequest) {
 		this.modSubscriptions = { ...request };
 	}
 
-	async handleModDownloadRequest(request) {
+	async handleModDownloadRequest(request: lib.ModDownloadRequest) {
 		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
 		let mod = this._controller.mods.get(filename);
@@ -637,16 +627,21 @@ class ControlConnection extends BaseConnection {
 		return stream.id;
 	}
 
-	async handleModDeleteRequest(request) {
+	async handleModDeleteRequest(request: lib.ModDeleteRequest) {
 		await this._controller.deleteMod(request.name, request.version);
 	}
 
-	async handleLogSetSubscriptionsRequest(request) {
-		this.logSubscriptions = { ...request };
+	async handleLogSetSubscriptionsRequest(request: lib.LogSetSubscriptionsRequest) {
+		this.logSubscriptions = { 
+			all: request.all || false,
+			controller: request.controller || false,
+			hostIds: request.hostIds || [],
+			instanceIds: request.instanceIds || [],
+		};
 		this.updateLogSubscriptions();
 	}
 
-	modUpdated(mod) {
+	modUpdated(mod: lib.ModInfo) {
 		if (
 			this.modSubscriptions.all
 			|| this.modSubscriptions.modNames.includes(mod.name)
@@ -670,15 +665,25 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleLogQueryRequest(request) {
+	async handleLogQueryRequest(request: lib.LogQueryRequest) {
+		let _request = {
+			limit: request.limit,
+			order: request.order,
+			maxLevel: request.maxLevel || "info",
+			all: request.all,
+			controller: request.controller,
+			hostIds: request.hostIds,
+			instanceIds: request.instanceIds,
+		}
+
 		let observeDuration = queryLogTime.startTimer();
 		let { all, controller, hostIds, instanceIds } = request;
 
 		let log;
 		if (!all && controller && !hostIds.length && !instanceIds.length) {
-			log = await this._controller.queryControllerLog(request);
+			log = await this._controller.queryControllerLog(_request);
 		} else {
-			log = await this._controller.queryClusterLog(request);
+			log = await this._controller.queryClusterLog(_request);
 		}
 
 		observeDuration();
@@ -710,7 +715,7 @@ class ControlConnection extends BaseConnection {
 		return list;
 	}
 
-	async handleRoleCreateRequest(request) {
+	async handleRoleCreateRequest(request: lib.RoleCreateRequest) {
 		let lastId = Math.max.apply(null, [...this._controller.userManager.roles.keys()]);
 
 		// Start at 5 to leave space for future default roles
@@ -719,7 +724,7 @@ class ControlConnection extends BaseConnection {
 		return id;
 	}
 
-	async handleRoleUpdateRequest(request) {
+	async handleRoleUpdateRequest(request: lib.RoleUpdateRequest) {
 		let { id, name, description, permissions } = request;
 		let role = this._controller.userManager.roles.get(id);
 		if (!role) {
@@ -732,7 +737,7 @@ class ControlConnection extends BaseConnection {
 		this._controller.rolePermissionsUpdated(role);
 	}
 
-	async handleRoleGrantDefaultPermissionsRequest(request) {
+	async handleRoleGrantDefaultPermissionsRequest(request: lib.RoleGrantDefaultPermissionsRequest) {
 		let role = this._controller.userManager.roles.get(request.id);
 		if (!role) {
 			throw new lib.RequestError(`Role with ID ${request.id} does not exist`);
@@ -742,7 +747,7 @@ class ControlConnection extends BaseConnection {
 		this._controller.rolePermissionsUpdated(role);
 	}
 
-	async handleRoleDeleteRequest(request) {
+	async handleRoleDeleteRequest(request: lib.RoleDeleteRequest) {
 		let id = request.id;
 		let role = this._controller.userManager.roles.get(id);
 		if (!role) {
@@ -756,7 +761,7 @@ class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleUserGetRequest(request) {
+	async handleUserGetRequest(request: lib.UserGetRequest) {
 		let name = request.name;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
@@ -773,7 +778,7 @@ class ControlConnection extends BaseConnection {
 			user.banReason,
 			undefined,
 			user.playerStats,
-			[...user.instanceStats],
+			user.instanceStats,
 		);
 	}
 
@@ -796,11 +801,11 @@ class ControlConnection extends BaseConnection {
 		return list;
 	}
 
-	async handleUserSetSubscriptionsRequest(request) {
+	async handleUserSetSubscriptionsRequest(request: lib.UserSetSubscriptionsRequest) {
 		this.userSubscriptions = { ...request };
 	}
 
-	userUpdated(user) {
+	userUpdated(user: any) {
 		if (
 			this.userSubscriptions.all
 			|| this.userSubscriptions.names.includes(user.name)
@@ -816,18 +821,18 @@ class ControlConnection extends BaseConnection {
 					user.banReason,
 					user.isDeleted,
 					user.playerStats,
-					[...user.instanceStats],
+					user.instanceStats,
 				)
 			));
 		}
 	}
 
-	async handleUserCreateRequest(request) {
+	async handleUserCreateRequest(request: lib.UserCreateRequest) {
 		let user = this._controller.userManager.createUser(request.name);
 		this._controller.userUpdated(user);
 	}
 
-	async handleUserRevokeTokenRequest(request) {
+	async handleUserRevokeTokenRequest(request: lib.UserRevokeTokenRequest) {
 		let user = this._controller.userManager.users.get(request.name);
 		if (!user) {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
@@ -845,13 +850,13 @@ class ControlConnection extends BaseConnection {
 		this._controller.userUpdated(user);
 	}
 
-	async handleUserUpdateRolesRequest(request) {
+	async handleUserUpdateRolesRequest(request: lib.UserUpdateRolesRequest) {
 		let user = this._controller.userManager.users.get(request.name);
 		if (!user) {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
 		}
 
-		let resolvedRoles = new Set();
+		let resolvedRoles: Set<lib.Role> = new Set();
 		for (let roleId of request.roles) {
 			let role = this._controller.userManager.roles.get(roleId);
 			if (!role) {
@@ -866,7 +871,7 @@ class ControlConnection extends BaseConnection {
 		this._controller.userUpdated(user);
 	}
 
-	async handleUserSetAdminRequest(request) {
+	async handleUserSetAdminRequest(request: lib.UserSetAdminRequest) {
 		let { name, create, admin } = request;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
@@ -883,7 +888,7 @@ class ControlConnection extends BaseConnection {
 		this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, admin));
 	}
 
-	async handleUserSetBannedRequest(request) {
+	async handleUserSetBannedRequest(request: lib.UserSetBannedRequest) {
 		let { name, create, banned, reason } = request;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
@@ -901,7 +906,7 @@ class ControlConnection extends BaseConnection {
 		this._controller.sendTo("allInstances", new lib.InstanceBanlistUpdateEvent(name, banned, reason));
 	}
 
-	async handleUserSetWhitelistedRequest(request) {
+	async handleUserSetWhitelistedRequest(request: lib.UserSetWhitelistedRequest) {
 		let { name, create, whitelisted } = request;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
@@ -918,7 +923,7 @@ class ControlConnection extends BaseConnection {
 		this._controller.sendTo("allInstances", new lib.InstanceWhitelistUpdateEvent(name, whitelisted));
 	}
 
-	async handleUserDeleteRequest(request) {
+	async handleUserDeleteRequest(request: lib.UserDeleteRequest) {
 		let name = request.name;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
@@ -929,18 +934,18 @@ class ControlConnection extends BaseConnection {
 		this._controller.userManager.users.delete(name);
 		this._controller.userUpdated(user);
 
-		if (user.is_admin) {
+		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));
 		}
-		if (user.is_whitelisted) {
+		if (user.isWhitelisted) {
 			this._controller.sendTo("allInstances", new lib.InstanceWhitelistUpdateEvent(name, false));
 		}
-		if (user.is_banned) {
+		if (user.isBanned) {
 			this._controller.sendTo("allInstances", new lib.InstanceBanlistUpdateEvent(name, false, ""));
 		}
 	}
 
-	async handleDebugDumpWsRequest(request) {
+	async handleDebugDumpWsRequest(request: lib.DebugDumpWsRequest) {
 		this.ws_dumper = data => {
 			if (this.connector.connected) {
 				this.send(new lib.DebugWsMessageEvent(data.direction, data.content));

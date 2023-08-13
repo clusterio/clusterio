@@ -1,26 +1,29 @@
-"use strict";
-const busboy = require("busboy");
-const crypto = require("crypto");
-const events = require("events");
-const fs = require("fs-extra");
-const JSZip = require("jszip");
-const jwt = require("jsonwebtoken");
-const path = require("path");
-const nodeStream = require("stream");
-const util = require("util");
+import type { IncomingMessage, ServerResponse } from "http"; "http";
+import type { Application, Express, Request, Response } from "express";
+import type Controller from "./Controller";
 
-const lib = require("@clusterio/lib");
+import busboy from "busboy";
+import crypto from "crypto";
+import events from "events";
+import fs from "fs-extra";
+import JSZip from "jszip";
+import jwt from "jsonwebtoken";
+import path from "path";
+import nodeStream from "stream";
+import util from "util";
+
+import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
 const finished = util.promisify(nodeStream.finished);
 
 
 // Merges samples from sourceResult to destinationResult
-function mergeSamples(destinationResult, sourceResult) {
+function mergeSamples(destinationResult: any, sourceResult: any) {
 	let receivedSamples = new Map(sourceResult.samples);
 	for (let [suffix, suffixSamples] of destinationResult.samples) {
 		if (receivedSamples.has(suffix)) {
-			suffixSamples.push(...receivedSamples.get(suffix));
+			suffixSamples.push(...receivedSamples.get(suffix) as any[]);
 			receivedSamples.delete(suffix);
 		}
 	}
@@ -31,23 +34,25 @@ function mergeSamples(destinationResult, sourceResult) {
 }
 
 // Prometheus polling endpoint
-async function getMetrics(req, res, next) {
-	let results = [];
-	let pluginResults = await lib.invokeHook(req.app.locals.controller.plugins, "onMetrics");
+async function getMetrics(req: Request, res: Response, next: any) {
+	const controller: Controller = req.app.locals.controller
+
+	let results: any[] = [];
+	let pluginResults: any[] = await lib.invokeHook(controller.plugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
 		}
 	}
 
-	let requests = [];
-	let timeout = req.app.locals.controller.config.get("controller.metrics_timeout") * 1000;
-	for (let [hostId, hostConnection] of req.app.locals.controller.wsServer.hostConnections) {
+	let requests: Promise<any>[] = [];
+	let timeout = controller.config.get("controller.metrics_timeout") * 1000;
+	for (let [hostId, hostConnection] of controller.wsServer.hostConnections) {
 		if (!hostConnection.connected) {
 			continue;
 		}
 		requests.push(lib.timeout(
-			hostConnection.send(new lib.HostMetricsRequest()).catch(err => {
+			hostConnection.send(new lib.HostMetricsRequest()).catch((err: any) => {
 				if (!(err instanceof lib.SessionLost)) {
 					logger.error(`Unexpected error gathering metrics from host:\n${err.stack}`);
 				}
@@ -61,7 +66,7 @@ async function getMetrics(req, res, next) {
 		results.push(result);
 	}
 
-	let resultMap = new Map();
+	let resultMap: Map<string, any> = new Map();
 	for (let response of await Promise.all(requests)) {
 		if (!response) {
 			// TODO: Log timeout occured?
@@ -74,28 +79,34 @@ async function getMetrics(req, res, next) {
 
 			} else {
 				// Merge metrics received by multiple hosts
-				mergeSamples(resultMap.get(result.metric.name), result);
+				mergeSamples(resultMap.get(result.metric.name)!, result);
 			}
 		}
 	}
-
+	
+	// TODO: results seem to mix deserialized and serialized lib.CollectorResult ?
+	// mergeSamples imply samples be [string, [string, number][]]
+	// but lib.defaultRegistry.collect() imply Map<string, Map<string, number>>
 	for (let result of resultMap.values()) {
 		results.push(lib.deserializeResult(result));
 	}
 
 
+	// lib.exposition expect AsyncIterable<CollectorResult> as parameter.
+	// Should wrap results into a Generator functions ?
+	// @ts-ignore 
 	let text = await lib.exposition(results);
 	res.set("Content-Type", lib.exposition.contentType);
 	res.send(text);
 }
 
-function getPlugins(req, res) {
+function getPlugins(req: Request, res: Response) {
 	let plugins = [];
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.controller.plugins.has(name);
 		let enabled = loaded && req.app.locals.controller.config.group(pluginInfo.name).get("load_plugin");
-		let web = {};
+		let web: { main:any, error:string|undefined } = { main: undefined, error: undefined};
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
 			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)];
@@ -116,7 +127,7 @@ function getPlugins(req, res) {
 	res.send(plugins);
 }
 
-function validateHostToken(req, res, next) {
+function validateHostToken(req: Request, res: Response, next: any) {
 	let token = req.header("x-access-token");
 	if (!token) {
 		res.sendStatus(401);
@@ -138,7 +149,7 @@ function validateHostToken(req, res, next) {
 	next();
 }
 
-function validateUserToken(req, res, next) {
+function validateUserToken(req: Request, res: Response, next: any) {
 	let token = req.header("x-access-token");
 	if (!token) {
 		res.sendStatus(401);
@@ -151,11 +162,15 @@ function validateUserToken(req, res, next) {
 			Buffer.from(req.app.locals.controller.config.get("controller.auth_secret"), "base64"),
 			{ audience: "user" }
 		);
+
+		if (typeof tokenPayload === "string") {
+			throw new Error("unexpected JsonWebToken type");
+		}
 		let user = req.app.locals.controller.userManager.users.get(tokenPayload.user);
 		if (!user) {
 			throw new Error("invalid user");
 		}
-		if (tokenPayload.iat < user.tokenValidAfter) {
+		if (!tokenPayload.iat || tokenPayload.iat < user.tokenValidAfter) {
 			throw new Error("invalid token");
 		}
 		res.locals.user = user;
@@ -169,7 +184,7 @@ function validateUserToken(req, res, next) {
 }
 
 // Handle an uploaded export package.
-async function uploadExport(req, res) {
+async function uploadExport(req: Request, res: Response) {
 	if (req.get("Content-Type") !== "application/zip") {
 		res.sendStatus(415);
 		return;
@@ -194,9 +209,9 @@ async function uploadExport(req, res) {
 	for await (let chunk of req) {
 		data.push(chunk);
 	}
-	data = Buffer.concat(data);
-	let zip = await JSZip.loadAsync(data);
-	data = null;
+	let buffer: Buffer | null = Buffer.concat(data);
+	let zip = await JSZip.loadAsync(buffer);
+	buffer = null;
 
 	// This is hardcoded to prevent path expansion attacks
 	let exportFiles = [
@@ -207,7 +222,7 @@ async function uploadExport(req, res) {
 		"export/locale.json",
 	];
 
-	let assets = {};
+	let assets: any = {};
 	let settingPrototypes = {};
 	for (let filePath of exportFiles) {
 		let file = zip.file(filePath);
@@ -232,11 +247,24 @@ async function uploadExport(req, res) {
 	res.sendStatus(200);
 }
 
-async function createProxyStream(app) {
+
+interface ProxyStream {
+	id: string;
+	source: nodeStream.Readable | null;
+	flowing: boolean;
+	size: number | null;
+	mime: string | null;
+	filename: string | null;
+	events: events.EventEmitter;
+	timeout: NodeJS.Timeout;
+}
+
+async function createProxyStream(app: Application): Promise<ProxyStream> {
 	let asyncRandomBytes = util.promisify(crypto.randomBytes);
 	let id = (await asyncRandomBytes(8)).toString("hex");
-	let stream = {
+	let stream: ProxyStream = {
 		id,
+		source: null,
 		flowing: false,
 		size: null,
 		mime: null,
@@ -257,7 +285,7 @@ async function createProxyStream(app) {
 	return stream;
 }
 
-async function putStream(req, res) {
+async function putStream(req: Request, res: Response) {
 	let stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.source) {
 		res.sendStatus(404);
@@ -278,7 +306,7 @@ async function putStream(req, res) {
 	});
 }
 
-async function getStream(req, res) {
+async function getStream(req: Request, res: Response) {
 	let stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.flowing) {
 		res.sendStatus(404);
@@ -321,15 +349,15 @@ const zipMimes = [
 
 const contentTypeRegExp = /^([!#$%&'*+\-.^_`|~0-9A-Za-z]+\/[!#$%&'*+\-.^_`|~0-9A-Za-z]+)/;
 
-async function uploadSave(req, res) {
+async function uploadSave(req: Request, res: Response) {
 	try {
 		res.locals.user.checkPermission("core.instance.save.upload");
-	} catch (err) {
+	} catch (err: any) {
 		res.status(403).json({ request_errors: [err.message] });
 		return;
 	}
 
-	let contentType = req.get("Content-Type");
+	let contentType = req.get("Content-Type") || "";
 	let match = contentTypeRegExp.exec(contentType);
 	if (!match) {
 		res.status(415).json({ request_errors: ["invalid Content-Type"] });
@@ -338,11 +366,11 @@ async function uploadSave(req, res) {
 	let contentMime = match[1].toLowerCase();
 
 	let tasks = [];
-	let errors = [];
+	let errors: string[] = [];
 	let requestErrors = [];
-	let saves = [];
+	let saves: string[] = [];
 
-	async function handleFile(instanceId, stream, filename, streamMime) {
+	async function handleFile(instanceId:number, stream: nodeStream.Readable, filename: string, streamMime: string) {
 		let proxyStream = await createProxyStream(req.app);
 		proxyStream.source = stream;
 		proxyStream.mime = streamMime;
@@ -354,7 +382,7 @@ async function uploadSave(req, res) {
 		});
 
 		try {
-			let storedName = await Promise.race([
+			let storedName: string = await Promise.race([
 				req.app.locals.controller.sendToHostByInstanceId(
 					new lib.InstancePullSaveRequest(
 						instanceId,
@@ -366,7 +394,7 @@ async function uploadSave(req, res) {
 			]);
 			saves.push(storedName);
 
-		} catch (err) {
+		} catch (err: any) {
 			proxyStream.events.emit("close");
 			logger.error(`Error uploading save: ${err.message}`);
 			errors.push(err.message);
@@ -376,10 +404,10 @@ async function uploadSave(req, res) {
 
 	if (contentMime === "multipart/form-data") {
 		await new Promise(resolve => {
-			let fields = {};
+			let instanceId:number | undefined;
 			let parser = busboy({ headers: req.headers });
-			parser.on("file", (name, stream, { filename, mimeType }) => {
-				if (fields.instanceId === undefined) {
+			parser.on("file", (name: string, stream: nodeStream.Readable, { filename, mimeType }: { filename: string, mimeType: string } ) => {
+				if (instanceId === undefined) {
 					requestErrors.push("instance_id must come before files uploaded");
 				}
 
@@ -396,18 +424,18 @@ async function uploadSave(req, res) {
 					return;
 				}
 
-				tasks.push(handleFile(fields.instanceId, stream, filename, mimeType));
+				tasks.push(handleFile(instanceId as number, stream, filename, mimeType));
 			});
 			parser.on("field", (name, value, info) => {
 				if (name === "instance_id") {
-					fields.instanceId = Number.parseInt(value, 10);
-					if (Number.isNaN(fields.instanceId)) {
+					instanceId = Number.parseInt(value, 10);
+					if (Number.isNaN(instanceId)) {
 						requestErrors.push("invalid instance_id");
 					}
 				}
 			});
 			parser.on("close", resolve);
-			parser.on("error", (err) => {
+			parser.on("error", (err: any) => {
 				logger.error(`Error parsing multipart request in upload-save:\n${err.stack}`);
 				errors.push(err.message);
 			});
@@ -415,13 +443,13 @@ async function uploadSave(req, res) {
 		});
 
 	} else if (zipMimes.includes(contentMime)) {
-		let filename = req.query.filename;
+		let filename = String(req.query.filename);
 		if (typeof filename !== "string") {
 			requestErrors.push("Missing or invalid filename parameter");
 		} else if (!filename.endsWith(".zip")) {
 			requestErrors.push("filename must end with .zip");
 		}
-		let instanceId = Number.parseInt(req.query.instance_id, 10);
+		let instanceId = Number.parseInt(String(req.query.instance_id), 10);
 		if (Number.isNaN(instanceId)) {
 			requestErrors.push("Missing or invalid instance_id parameter");
 		}
@@ -453,23 +481,23 @@ async function uploadSave(req, res) {
 	res.json({ saves });
 }
 
-function checkModName(name) {
+function checkModName(name: string) {
 	try {
 		lib.checkFilename(name);
-	} catch (err) {
+	} catch (err: any) {
 		throw new lib.RequestError(`Mod name ${err.message}`);
 	}
 }
 
-async function uploadMod(req, res) {
+async function uploadMod(req: Request, res: Response) {
 	try {
 		res.locals.user.checkPermission("core.mod.upload");
-	} catch (err) {
+	} catch (err: any) {
 		res.status(403).json({ request_errors: [err.message] });
 		return;
 	}
 
-	let contentType = req.get("Content-Type");
+	let contentType = req.get("Content-Type")!;
 	let match = contentTypeRegExp.exec(contentType);
 	if (!match) {
 		res.status(415).json({ request_errors: ["invalid Content-Type"] });
@@ -478,15 +506,15 @@ async function uploadMod(req, res) {
 	let contentMime = match[1].toLowerCase();
 
 	let tasks = [];
-	let errors = [];
+	let errors: string[] = [];
 	let requestErrors = [];
-	let mods = [];
+	let mods: any[] = [];
 
-	async function handleFile(stream, filename) {
+	async function handleFile(stream: nodeStream.Readable, filename: string) {
 		try {
 			checkModName(filename);
 
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Error uploading mod: ${err.message}`);
 			errors.push(err.message);
 			stream.resume();
@@ -495,15 +523,16 @@ async function uploadMod(req, res) {
 
 		const modsDirectory = req.app.locals.controller.config.get("controller.mods_directory");
 		let tempFilename = filename.replace(/(\.zip)?$/, ".tmp.zip");
+
+		let writeStream;
 		try {
 
-			let writeStream;
 			while (true) {
 				try {
 					writeStream = fs.createWriteStream(path.join(modsDirectory, tempFilename), { flags: "wx" });
 					await events.once(writeStream, "open");
 					break;
-				} catch (err) {
+				} catch (err: any) {
 					if (err.code === "EEXIST") {
 						tempFilename = await lib.findUnusedName(modsDirectory, tempFilename, ".tmp.zip");
 					} else {
@@ -520,18 +549,21 @@ async function uploadMod(req, res) {
 			req.app.locals.controller.modUpdated(modInfo);
 			mods.push(modInfo.toJSON());
 
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Error uploading mod: ${err.message}`);
 			errors.push(err.message);
 			stream.resume();
 
 			// Attempt to clean up.
-			writeStream.destroy();
+			if (writeStream) {
+				writeStream.destroy();
+			}
+
 			try {
 				await fs.unlink(path.join(modsDirectory, tempFilename));
-			} catch (unlinkErr) {
+			} catch (unlinkErr: any) {
 				if (unlinkErr.code !== "ENOENT") {
-					logger.error(`Error removing ${tempFilename}: ${err.message}`);
+					logger.error(`Error removing ${tempFilename}: ${unlinkErr.message}`);
 				}
 			}
 		}
@@ -540,7 +572,7 @@ async function uploadMod(req, res) {
 	if (contentMime === "multipart/form-data") {
 		await new Promise(resolve => {
 			let parser = busboy({ headers: req.headers });
-			parser.on("file", (name, stream, { filename, mimeType }) => {
+			parser.on("file", (name:string, stream: nodeStream.Readable, { filename, mimeType }: { filename: string, mimeType: string }) => {
 				if (!zipMimes.includes(mimeType)) {
 					requestErrors.push("invalid file Content-Type");
 				}
@@ -557,7 +589,7 @@ async function uploadMod(req, res) {
 				tasks.push(handleFile(stream, filename));
 			});
 			parser.on("close", resolve);
-			parser.on("error", (err) => {
+			parser.on("error", (err: any) => {
 				logger.error(`Error parsing multipart request in upload-mod:\n${err.stack}`);
 				errors.push(err.message);
 			});
@@ -575,7 +607,7 @@ async function uploadMod(req, res) {
 		if (errors.length || requestErrors.length) {
 			req.resume();
 		} else {
-			tasks.push(handleFile(req, filename));
+			tasks.push(handleFile(req, filename as string));
 		}
 
 	} else {
@@ -600,22 +632,22 @@ async function uploadMod(req, res) {
 }
 
 
-function addRouteHandlers(app) {
-	app.get("/metrics", (req, res, next) => getMetrics(req, res, next).catch(next));
+function addRouteHandlers(app: Application) {
+	app.get("/metrics", (req:Request, res:Response, next:any) => getMetrics(req, res, next).catch(next));
 	app.get("/api/plugins", getPlugins);
 	app.put("/api/upload-export",
 		validateHostToken,
-		(req, res, next) => uploadExport(req, res).catch(next)
+		(req:Request, res:Response, next:any) => uploadExport(req, res).catch(next)
 	);
-	app.put("/api/stream/:id", (req, res, next) => putStream(req, res).catch(next));
-	app.get("/api/stream/:id", (req, res, next) => getStream(req, res).catch(next));
+	app.put("/api/stream/:id", (req:Request, res:Response, next:any) => putStream(req, res).catch(next));
+	app.get("/api/stream/:id", (req:Request, res:Response, next:any) => getStream(req, res).catch(next));
 	app.post("/api/upload-save",
 		validateUserToken,
-		(req, res, next) => uploadSave(req, res).catch(next)
+		(req:Request, res:Response, next:any) => uploadSave(req, res).catch(next)
 	);
 	app.post("/api/upload-mod",
 		validateUserToken,
-		(req, res, next) => uploadMod(req, res).catch(next)
+		(req:Request, res:Response, next:any) => uploadMod(req, res).catch(next)
 	);
 }
 
@@ -637,8 +669,8 @@ const webRoutes = [
 	"/plugins/:name/view",
 ];
 
-module.exports = {
+export default {
 	addRouteHandlers,
 	webRoutes,
 	createProxyStream,
-};
+}

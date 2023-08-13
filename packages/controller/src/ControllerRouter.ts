@@ -1,39 +1,44 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import type Controller from "./Controller";
+import type BaseConnection from "./BaseConnection";
 
-class ControllerRouter {
-	/** @type {module:controller/src/Controller} */
-	controller;
+import * as lib from "@clusterio/lib";
+import HostConnection from "./HostConnection";
+import ControlConnection from "./ControlConnection";
+const { logger } = lib;
 
-	pendingRequests = new Map();
+export default class ControllerRouter {
+	pendingRequests: Map<any, any> = new Map();
 
-	constructor(controller) {
-		this.controller = controller;
+	constructor(
+		public controller: Controller
+	) {}
+
+	addHostConnection(connection: HostConnection) {
+		this.controller.wsServer.hostConnections.set(connection.id, connection);
 	}
 
-	addHostConnection(connection) {
-		this.hostConnections.set(connection.id, connection);
-	}
-
-	addControlConnection(connection) {
-		this.controlConnections.set(connection.id, connection);
+	addControlConnection(connection: ControlConnection) {
+		this.controller.wsServer.controlConnections.set(connection.id, connection);
 	}
 
 	/**
-	 * @param {module:lib.Link} origin - Source link of the message.
-	 * @param {module:lib.Message} message
-	 *    Link the message originated from.
-	 * @param {boolean} hasFallback - true if fallback handling is available.
-	 * @returns {boolean} true if the message was handled
+	 * @param origin - Source link of the message.
+	 * @param message - Link the message originated from.
+	 * @param hasFallback - true if fallback handling is available.
+	 * @returns true if the message was handled
 	 */
-	forwardMessage(origin, message, hasFallback) {
+	forwardMessage(
+		origin: ControlConnection | HostConnection,
+		message: lib.MessageSrcDst,
+		hasFallback: boolean
+	): boolean {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
 			throw new Error(`Message type ${message.type} can't be forwarded`);
 		}
 
-		let dst = message.dst;
-		let nextHop;
-		let msg;
+		let dst: lib.Address = message.dst;
+		let nextHop: ControlConnection | HostConnection | undefined;
+		let msg: string = "";
 		if (dst.type === lib.Address.broadcast) {
 			this.broadcastMessage(origin, message);
 			return true;
@@ -67,7 +72,7 @@ class ControllerRouter {
 		}
 
 		if (nextHop === origin) {
-			msg = `Message would return back to sender ${origin.dst}.`;
+			msg = `Message would return back to sender ${origin.id}.`;
 			nextHop = undefined;
 		}
 
@@ -85,9 +90,9 @@ class ControllerRouter {
 
 		if (nextHop) {
 			if (message.type === "request") {
-				nextHop.forwardRequest(message, origin);
+				nextHop.forwardRequest(message as lib.MessageRequest, origin);
 			} else {
-				nextHop.connector.send(message);
+				nextHop.connector._sendInternal(message);
 			}
 		} else {
 			this.warnUnrouted(message, msg);
@@ -96,7 +101,10 @@ class ControllerRouter {
 		return true;
 	}
 
-	broadcastMessage(origin, message) {
+	broadcastMessage(
+		origin: lib.Link,
+		message: lib.MessageSrcDst,
+	) {
 		let dst = message.dst;
 		if (message.type !== "event") {
 			this.warnUnrouted(message, `Unexpected broadcast of ${message.type}`);
@@ -117,7 +125,10 @@ class ControllerRouter {
 		}
 	}
 
-	warnUnrouted(message, msg) {
+	warnUnrouted(
+		message: lib.MessageSrcDst,
+		msg: string
+	) {
 		let dst = message.dst;
 		let baseMsg = `No destination for ${message.constructor.name} routed from ${message.src} to ${dst}`;
 		logger.warn(msg ? `${baseMsg}: ${msg}.` : `${baseMsg}.`);

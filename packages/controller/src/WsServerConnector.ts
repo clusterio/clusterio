@@ -1,9 +1,9 @@
-"use strict";
-const events = require("events");
+import type WebSocket from "ws";
 
-const lib = require("@clusterio/lib");
+import events from "events";
+
+import * as lib from "@clusterio/lib";
 const { logger } = lib;
-
 
 /**
  * Connector for controller connections
@@ -11,15 +11,16 @@ const { logger } = lib;
  * @extends module:lib.WebSocketBaseConnector
  * @alias module:controller/src/WsServerConnector
  */
-class WsServerConnector extends lib.WebSocketBaseConnector {
-	constructor(dst, sessionId, sessionTimeout, heartbeatInterval) {
-		super(new lib.Address(lib.Address.controller, 0), dst);
+export default class WsServerConnector extends lib.WebSocketBaseConnector {
+	_timeoutId: NodeJS.Timeout | null = null;
 
-		this._sessionTimeout = sessionTimeout;
-		this._socket = null;
-		this._sessionId = sessionId;
-		this._heartbeatInterval = heartbeatInterval;
-		this._timeoutId = null;
+	constructor(
+		dst: lib.Address,
+		private _sessionId: number,
+		private _sessionTimeout: number,
+		public _heartbeatInterval: number,
+	) {
+		super(new lib.Address(lib.Address.controller, 0), dst);
 
 		// The following states are used in the server connector
 		// closed: Connection is closed
@@ -28,8 +29,10 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 	}
 
 	_reset() {
-		clearTimeout(this._timeoutId);
-		this._timeoutId = null;
+		if (this._timeoutId) {
+			clearTimeout(this._timeoutId);
+			this._timeoutId = null;
+		}
 		super._reset();
 	}
 
@@ -38,14 +41,17 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 	 *
 	 * Sends the ready message over the socket to initiate the session.
 	 *
-	 * @param {Object} socket - WebSocket connection to client.
-	 * @param {module:lib.Address} src - Source address for this link.
-	 * @param {string} sessionToken -
-	 *     the session token to send to the client.
-	 * @param {module:lib.AccountDetails=} account -
-	 *     account data to provide to control connection
+	 * @param socket - WebSocket connection to client.
+	 * @param src - Source address for this link.
+	 * @param sessionToken - the session token to send to the client.
+	 * @param account - account data to provide to control connection
 	 */
-	ready(socket, src, sessionToken, account) {
+	ready(
+		socket: WebSocket,
+		src: lib.Address,
+		sessionToken: string,
+		account: lib.AccountDetails | undefined
+	) {
 		this._socket = socket;
 		this._sendInternal(new lib.MessageReady(
 			new lib.ReadyData(
@@ -68,10 +74,13 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 	 * Terminates the current socket and contiunes the session over the
 	 * socket given from the message sequence given.
 	 *
-	 * @param {module:net.Socket} socket - New socket to continue on.
-	 * @param {number=} lastSeq - The last message the client received.
+	 * @param socket - New socket to continue on.
+	 * @param lastSeq - The last message the client received.
 	 */
-	continue(socket, lastSeq) {
+	continue(
+		socket: WebSocket.WebSocket,
+		lastSeq: number
+	) {
 
 		// It's possible the previous connection hasn't closed yet due to a
 		// stale connection.  Terminate it if so.
@@ -110,7 +119,7 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 	_attachSocketHandlers() {
 		this.startHeartbeat();
 
-		this._socket.on("close", (code, reason) => {
+		this._socket.on("close", (code: number, reason: string) => {
 			logger.verbose(`Connector | Close (code: ${code}, reason: ${reason})`);
 			this.stopHeartbeat();
 			this._socket = null;
@@ -124,10 +133,9 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 				this.emit("drop");
 				this._timeoutId = setTimeout(() => { this._timedOut(); }, this._sessionTimeout * 1000);
 			}
-
 		});
 
-		this._socket.on("error", err => {
+		this._socket.on("error", (err: any) => {
 			// It's assumed that close is always called by ws
 			logger.verbose("Connector | Error:", err);
 		});
@@ -135,15 +143,15 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 		this._socket.on("open", () => {
 			logger.verbose("Connector | Open");
 		});
-		this._socket.on("ping", data => {
+		this._socket.on("ping", (data: string) => {
 			logger.verbose(`Connector | Ping (data: ${data}`);
 		});
-		this._socket.on("pong", data => {
+		this._socket.on("pong", (data: string) => {
 			logger.verbose(`Connector | Pong (data: ${data}`);
 		});
 
 		// Handle messages
-		this._socket.on("message", data => {
+		this._socket.on("message", (data: string) => {
 			let message = this._parseMessage(data);
 			if (!message) {
 				return;
@@ -162,10 +170,13 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 	 *
 	 * Sends a close frame and disconnects the connector.
 	 *
-	 * @param {number} code - WebSocket close code.
-	 * @param {string} reason - WebSocket close reason.
+	 * @param code - WebSocket close code.
+	 * @param reason - WebSocket close reason.
 	 */
-	async close(code, reason) {
+	async close(
+		code: number,
+		reason: string
+	): Promise<void> {
 		if (this._state === "closed") {
 			return;
 		}
@@ -213,5 +224,3 @@ class WsServerConnector extends lib.WebSocketBaseConnector {
 		this._closing = true;
 	}
 }
-
-module.exports = WsServerConnector;
