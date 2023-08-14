@@ -268,7 +268,7 @@ export default class ControlConnection extends BaseConnection {
 			instance.config.get("instance.name"),
 			instance.id,
 			instance.config.get("instance.assigned_host"),
-			instance.config.get("factorio.game_port"),
+			instance.game_port,
 			instance.status,
 		);
 	}
@@ -280,7 +280,7 @@ export default class ControlConnection extends BaseConnection {
 				instance.config.get("instance.name"),
 				instance.id,
 				instance.config.get("instance.assigned_host"),
-				instance.config.get("factorio.game_port"),
+				instance.game_port,
 				instance.status,
 			));
 		}
@@ -301,7 +301,7 @@ export default class ControlConnection extends BaseConnection {
 					instance.config.get("instance.name"),
 					instance.id,
 					instance.config.get("instance.assigned_host"),
-					instance.config.get("factorio.game_port"),
+					instance.game_port,
 					instance.status,
 				)
 			));

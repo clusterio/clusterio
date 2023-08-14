@@ -26,6 +26,7 @@ export type InstanceStatus =
 export default class InstanceInfo {
 	config: lib.InstanceConfig;
 	status: InstanceStatus;
+	game_port: number | null = null;
 
 	constructor(
 		{ config, status }:

@@ -177,7 +177,7 @@ export default class HostConnection extends BaseConnection {
 
 		let prev = instance.status;
 		instance.status = request.status as lib.InstanceStatus;
-		instance.config.set("factorio.game_port", request.gamePort);
+		instance.game_port = request.gamePort || null;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		this._controller.instanceUpdated(instance);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
