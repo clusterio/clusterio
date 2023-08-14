@@ -21,7 +21,7 @@ const { logger, Summary, Gauge } = lib;
 import HttpCloser from "./HttpCloser";
 import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
 import metrics from "./metrics";
-import routes from "./routes";
+import * as routes from "./routes";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
 import yargs from "yargs";
@@ -671,12 +671,12 @@ export default class Controller {
 	 * @param instanceId - ID of Instance to assign.
 	 * @param hostId - ID of host to assign instance to.
 	 */
-	async instanceAssign(instanceId: number, hostId: number | null) {
+	async instanceAssign(instanceId: number, hostId?: number) {
 		let instance = this.getRequestInstance(instanceId);
 
 		// Check if target host is connected
 		let newHostConnection: HostConnection | undefined;
-		if (hostId !== null) {
+		if (hostId !== undefined) {
 			newHostConnection = this.wsServer.hostConnections.get(hostId);
 			if (!newHostConnection) {
 				// The case of the host not getting the assign instance message
@@ -690,7 +690,7 @@ export default class Controller {
 
 		// Unassign from currently assigned host if it is connected.
 		let currentAssignedHost = instance.config.get("instance.assigned_host");
-		if (currentAssignedHost !== null && currentAssignedHost !== undefined && hostId !== currentAssignedHost) {
+		if (currentAssignedHost !== null && hostId !== currentAssignedHost) {
 			let oldHostConnection = this.wsServer.hostConnections.get(currentAssignedHost);
 			if (oldHostConnection && !oldHostConnection.connector.closing) {
 				await oldHostConnection.send(new lib.InstanceUnassignInternalRequest(instanceId));
@@ -704,7 +704,7 @@ export default class Controller {
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);
 		} else {
-			instance.status = "unassigned"
+			instance.status = "unassigned";
 			this.instanceUpdated(instance);
 		}
 	}
@@ -720,7 +720,7 @@ export default class Controller {
 	async instanceDelete(instanceId: number) {
 		let instance = this.getRequestInstance(instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId !== null && hostId !== undefined) {
+		if (hostId !== null) {
 			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
 		}
 		this.instances.delete(instanceId);
@@ -742,7 +742,7 @@ export default class Controller {
 	 */
 	async instanceConfigUpdated(instance: InstanceInfo) {
 		let hostId = instance.config.get("instance.assigned_host");
-		if (hostId !== null && hostId !== undefined) {
+		if (hostId !== null) {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await connection.send(
@@ -1036,13 +1036,13 @@ export default class Controller {
 	 * destination argument supports address shorthands, see {@link
 	 * module:lib.Address.fromShorthand}
 	 *
-	 * @param {*|module:lib.Address} address - Where to send it.
-	 * @param {*} requestOrEvent - The request or event to send.
-	 * @returns {Promise<*>|undefined}
+	 * @param address - Where to send it.
+	 * @param requestOrEvent - The request or event to send.
+	 * @returns
 	 *     Promise that resolves to the response if a request was sent or
 	 *     undefined if it was an event.
 	 */
-	sendTo(address: lib.AddressShorthand, requestOrEvent: any) {
+	sendTo(address: lib.AddressShorthand, requestOrEvent: any): Promise<any> | void {
 		let dst = lib.Address.fromShorthand(address);
 		if (requestOrEvent.constructor.type === "request") {
 			return this.sendRequest(requestOrEvent, dst);

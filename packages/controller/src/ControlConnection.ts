@@ -8,8 +8,8 @@ import path from "path";
 import * as lib from "@clusterio/lib";
 const { logFilter, logger } = lib;
 
-import BaseConnection  from "./BaseConnection";
-import routes  from "./routes";
+import BaseConnection from "./BaseConnection";
+import * as routes from "./routes";
 import Controller from "./Controller";
 import { promises } from "dns";
 import InstanceInfo from "./InstanceInfo";
@@ -237,7 +237,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
 		let hostId = message.hostId;
-		if (hostId === null) {
+		if (hostId === undefined) {
 			hostId = Math.random() * 2**31 | 0;
 		}
 		return this._controller.generateHostToken(hostId);
@@ -347,7 +347,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
-		await this._controller.instanceAssign(request.instanceId, request.hostId || null);
+		await this._controller.instanceAssign(request.instanceId, request.hostId);
 	}
 
 	async handleInstanceSetSaveListSubscriptionsRequest(request: lib.InstanceSetSaveListSubscriptionsRequest) {
@@ -466,7 +466,10 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleModPackCreateRequest(request: lib.ModPackCreateRequest) {
 		let modPack = request.modPack;
-		if (!modPack.id || this._controller.modPacks.has(modPack.id)) {
+		if (modPack.id === undefined) {
+			throw new lib.RequestError(`Mod pack need an ID to be created`);
+		}
+		if (this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
@@ -475,7 +478,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
 		let modPack = request.modPack;
-		if (!modPack.id || !this._controller.modPacks.has(modPack.id)) {
+		if (modPack.id === undefined || !this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
@@ -496,7 +499,7 @@ export default class ControlConnection extends BaseConnection {
 	modPackUpdated(modPack: lib.ModPack) {
 		if (
 			this.modPackSubscriptions.all
-			|| this.modPackSubscriptions.modPackIds.includes(modPack.id||-1)
+			|| this.modPackSubscriptions.modPackIds.includes(modPack.id!)
 		) {
 			this.send(new lib.ModPackUpdateEvent(modPack));
 		}

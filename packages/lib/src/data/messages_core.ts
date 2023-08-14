@@ -48,7 +48,7 @@ export class Address {
 	 *     Shorthand to translate with.
 	 * @returns Translated address.
 	 */
-	static fromShorthand(shorthand: AddressShorthand | Address) {
+	static fromShorthand(shorthand: AddressShorthand) {
 		if (shorthand instanceof Address) { return shorthand; }
 		if (shorthand === "controller") { return new Address(Address.controller, 0); }
 		if (shorthand === "allHosts") { return new Address(Address.broadcast, Address.host); }

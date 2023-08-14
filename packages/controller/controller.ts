@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/** 
+/**
  * Clusterio controller
  *
  * Facilitates communication between hosts and control of the cluster

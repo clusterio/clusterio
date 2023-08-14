@@ -13,14 +13,6 @@ export default class ControllerRouter {
 		public controller: Controller
 	) {}
 
-	addHostConnection(connection: HostConnection) {
-		this.controller.wsServer.hostConnections.set(connection.id, connection);
-	}
-
-	addControlConnection(connection: ControlConnection) {
-		this.controller.wsServer.controlConnections.set(connection.id, connection);
-	}
-
 	/**
 	 * @param origin - Source link of the message.
 	 * @param message - Link the message originated from.
@@ -72,7 +64,7 @@ export default class ControllerRouter {
 		}
 
 		if (nextHop === origin) {
-			msg = `Message would return back to sender ${origin.id}.`;
+			msg = `Message would return back to sender ${origin.connector.dst}.`;
 			nextHop = undefined;
 		}
 
@@ -92,7 +84,7 @@ export default class ControllerRouter {
 			if (message.type === "request") {
 				nextHop.forwardRequest(message as lib.MessageRequest, origin);
 			} else {
-				nextHop.connector._sendInternal(message);
+				nextHop.connector.send(message);
 			}
 		} else {
 			this.warnUnrouted(message, msg);

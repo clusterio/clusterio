@@ -1,5 +1,4 @@
-import type { IncomingMessage, ServerResponse } from "http"; "http";
-import type { Application, Express, Request, Response } from "express";
+import type { Application, Request, Response } from "express";
 import type Controller from "./Controller";
 
 import busboy from "busboy";
@@ -259,7 +258,7 @@ interface ProxyStream {
 	timeout: NodeJS.Timeout;
 }
 
-async function createProxyStream(app: Application): Promise<ProxyStream> {
+export async function createProxyStream(app: Application): Promise<ProxyStream> {
 	let asyncRandomBytes = util.promisify(crypto.randomBytes);
 	let id = (await asyncRandomBytes(8)).toString("hex");
 	let stream: ProxyStream = {
@@ -632,7 +631,7 @@ async function uploadMod(req: Request, res: Response) {
 }
 
 
-function addRouteHandlers(app: Application) {
+export function addRouteHandlers(app: Application) {
 	app.get("/metrics", (req:Request, res:Response, next:any) => getMetrics(req, res, next).catch(next));
 	app.get("/api/plugins", getPlugins);
 	app.put("/api/upload-export",
@@ -652,7 +651,7 @@ function addRouteHandlers(app: Application) {
 }
 
 // Routes used in the web interface and served by the controller
-const webRoutes = [
+export const webRoutes = [
 	"/",
 	"/controller",
 	"/hosts",
@@ -668,9 +667,3 @@ const webRoutes = [
 	"/plugins",
 	"/plugins/:name/view",
 ];
-
-export default {
-	addRouteHandlers,
-	webRoutes,
-	createProxyStream,
-}

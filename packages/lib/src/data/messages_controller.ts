@@ -80,7 +80,7 @@ export class HostGenerateTokenRequest {
 	static permission = "core.host.generate_token" as const;
 
 	constructor(
-		public hostId: number | null = null,
+		public hostId?: number,
 	) { }
 
 	static jsonSchema = Type.Object({
