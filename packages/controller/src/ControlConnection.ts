@@ -672,7 +672,7 @@ export default class ControlConnection extends BaseConnection {
 		let _request = {
 			limit: request.limit,
 			order: request.order,
-			maxLevel: request.maxLevel || "info",
+			maxLevel: request.maxLevel,
 			all: request.all,
 			controller: request.controller,
 			hostIds: request.hostIds,

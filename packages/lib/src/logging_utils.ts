@@ -421,7 +421,7 @@ export interface QueryLogFilter {
 	/**
 	 * Maximum log level to include. Higher levels are more verbose.
 	 */
-	maxLevel: keyof typeof levels;
+	maxLevel?: keyof typeof levels;
 	/**
 	 * Include log entries from controller, all hosts and all instances.
 	 */
