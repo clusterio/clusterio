@@ -52,13 +52,13 @@ export default class Controller {
 	app: Application;
 
 	/** Mapping of host id to host info */
-	hosts: Map<number, HostInfo> = new Map();
+	hosts: Map<number, HostInfo> | null = null;
 	/** Mapping of instance id to instance info */
-	instances: Map<number, InstanceInfo> = new Map();
+	instances: Map<number, InstanceInfo> | null = null;
 	/** Mapping of mod pack id to mod pack */
-	modPacks: Map<number, lib.ModPack> = new Map();
+	modPacks: Map<number, lib.ModPack> | null = null;
 	/** Mapping of mod names to mod infos */
-	mods: Map<string, lib.ModInfo> = new Map();
+	mods: Map<string, lib.ModInfo> | null = null;
 	/** User and roles manager for the cluster */
 	userManager: UserManager;
 
@@ -189,9 +189,9 @@ export default class Controller {
 		let databaseDirectory = this.config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
-		await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
-		await Controller.loadInstances(path.join(databaseDirectory, "instances.json"), this.instances);
-		await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
+		this.hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
+		this.instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
+		this.modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		await this.userManager.load(path.join(databaseDirectory, "users.json"));
 
 		let modsDirectory = this.config.get("controller.mods_directory");
@@ -201,7 +201,7 @@ export default class Controller {
 		this.config.on("fieldChanged", (group, field, prev) => {
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
 		});
-		for (let instance of this.instances.values()) {
+		for (let instance of this.instances!.values()) {
 			this.addInstanceHooks(instance);
 		}
 
@@ -315,15 +315,15 @@ export default class Controller {
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
-		if (this.hosts.size > 0) {
+		if (this.hosts) {
 			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
 		}
 
-		if (this.instances.size > 0) {
+		if (this.instances) {
 			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
-		if (this.modPacks.size > 0) {
+		if (this.modPacks) {
 			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
 		}
 
@@ -350,36 +350,36 @@ export default class Controller {
 		logger.info("Goodbye");
 	}
 
-	static async loadHosts(filePath: string, hosts:Map<number, any>) {
-		hosts.clear();
-
+	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
+		let serialized: [number, HostInfo][];
 		try {
-			const serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
-			// TODO: Remove after release.
-			if (serialized.length && !(serialized[0] instanceof Array)) {
-				for (let [id, host] of serialized) {
-					hosts.set(id ,host)
-				}
-			}
+			serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
 
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
-			hosts.clear();
+			return new Map();
 		}
+
+		// TODO: Remove after release.
+		if (serialized.length && !(serialized[0] instanceof Array)) {
+			return new Map(); // Discard old format.
+		}
+
+		return new Map(serialized);
 	}
 
 	static async saveHosts(filePath: string, hosts: Map<number, HostInfo>) {
 		await lib.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, 4));
 	}
 
-	static async loadInstances(filePath: string, instances: Map<number, InstanceInfo>) {
+	static async loadInstances(filePath: string): Promise<Map<number, InstanceInfo>> {
 		logger.info(`Loading ${filePath}`);
-		instances.clear();
 
+		let instances = new Map();
 		try {
-			const serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			let serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 			for (let serializedConfig of serialized) {
 				let instanceConfig = new lib.InstanceConfig("controller");
 				await instanceConfig.load(serializedConfig);
@@ -395,7 +395,10 @@ export default class Controller {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
+			return new Map();
 		}
+
+		return instances;
 	}
 
 	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
@@ -407,31 +410,24 @@ export default class Controller {
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
 	}
 
-	static async loadModPacks(filePath: string, modPacks: Map<number, lib.ModPack>) {
-		modPacks.clear();
-
+	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
+		let json;
 		try {
-			const json = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
-
-			for (const modPackJson of json) {
-				modPacks.set(
-					modPackJson.id,
-					lib.ModPack.fromJSON(modPackJson)
-				)
-			}
-
+			json = JSON.parse(await fs.readFile(filePath, { encoding : "utf8" }));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
 			}
+			return new Map();
 		}
+		return new Map(json.map((e: any) => [e.id, lib.ModPack.fromJSON(e)]));
 	}
 
 	static async saveModPacks(filePath: string, modPacks: Map<number, lib.ModPack>) {
 		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
 	}
 
-	static async loadModInfos(modsDirectory: string) {
+	static async loadModInfos(modsDirectory: string): Promise<Map<string,lib.ModInfo>> {
 		let mods = new Map();
 		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
@@ -479,14 +475,14 @@ export default class Controller {
 
 	async deleteMod(name: string, version: string): Promise<void> {
 		let filename = `${name}_${version}.zip`;
-		let mod = this.mods.get(filename);
+		let mod = this.mods!.get(filename);
 		if (!mod) {
 			throw new Error(`Mod ${filename} does not exist`);
 		}
 
 		let modsDirectory = this.config.get("controller.mods_directory");
 		await fs.unlink(path.join(modsDirectory, filename));
-		this.mods.delete(filename);
+		this.mods!.delete(filename);
 		mod.isDeleted = true;
 		this.modUpdated(mod);
 	}
@@ -595,7 +591,7 @@ export default class Controller {
 	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
 	getRequestInstance(instanceId:number):InstanceInfo {
-		let instance = this.instances.get(instanceId);
+		let instance = this.instances!.get(instanceId);
 		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
@@ -621,7 +617,7 @@ export default class Controller {
 	 */
 	async instanceCreate(instanceConfig: lib.InstanceConfig): Promise<InstanceInfo> {
 		let instanceId = instanceConfig.get("instance.id");
-		if (this.instances.has(instanceId)) {
+		if (this.instances!.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
 
@@ -652,7 +648,7 @@ export default class Controller {
 		instanceConfig.set("factorio.settings", settings);
 
 		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
-		this.instances.set(instanceId, instance);
+		this.instances!.set(instanceId, instance);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
 		this.addInstanceHooks(instance);
 		return instance;
@@ -723,7 +719,7 @@ export default class Controller {
 		if (hostId !== null) {
 			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
 		}
-		this.instances.delete(instanceId);
+		this.instances!.delete(instanceId);
 
 		let prev = instance.status;
 		instance.status = "deleted";
@@ -1097,7 +1093,7 @@ export default class Controller {
 			connection = this.wsServer.controlConnections.get(dst.id);
 
 		} else if (dst.type === lib.Address.instance) {
-			let instance = this.instances.get(dst.id);
+			let instance = this.instances!.get(dst.id);
 			if (!instance) {
 				return;
 			}

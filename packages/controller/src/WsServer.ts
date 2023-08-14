@@ -273,13 +273,13 @@ ${err.stack}`
 		connector.on("close", () => {
 			if (this.hostConnections.get(data.id) === connection) {
 				this.hostConnections.delete(data.id);
-				this.controller.hostUpdated(this.controller.hosts.get(data.id) as HostInfo);
+				this.controller.hostUpdated(this.controller.hosts!.get(data.id) as HostInfo);
 			} else {
 				logger.warn("Unlisted HostConnection closed");
 			}
 		});
 		this.hostConnections.set(data.id, connection);
-		this.controller.hostUpdated(this.controller.hosts.get(data.id) as HostInfo);
+		this.controller.hostUpdated(this.controller.hosts!.get(data.id) as HostInfo);
 		let src = new lib.Address(lib.Address.host, data.id);
 		connector.ready(socket, src, sessionToken, undefined);
 	}

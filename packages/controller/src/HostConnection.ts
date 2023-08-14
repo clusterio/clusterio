@@ -45,7 +45,7 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
-		this._controller.hosts.set(this._id, {
+		this._controller.hosts!.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
@@ -65,7 +65,7 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
-			for (let instance of this._controller.instances.values()) {
+			for (let instance of this._controller.instances!.values()) {
 				if (instance.config.get("instance.assigned_host") !== this._id) {
 					continue;
 				}
@@ -100,7 +100,7 @@ export default class HostConnection extends BaseConnection {
 				break;
 
 			case lib.Address.instance:
-				let instance = this._controller.instances.get(message.src.id);
+				let instance = this._controller.instances!.get(message.src.id);
 				if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
 					throw new lib.InvalidMessage(
 						`Received message with invalid src ${message.src} from ${origin}`
@@ -152,7 +152,7 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {
-		let instance = this._controller.instances.get(request.instanceId);
+		let instance = this._controller.instances!.get(request.instanceId);
 
 		// It's possible to get updates from an instance that does not exist
 		// or is not assigned to the host it originated from if it was
@@ -182,7 +182,7 @@ export default class HostConnection extends BaseConnection {
 
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
 		// Push updated instance configs
-		for (let instance of this._controller.instances.values()) {
+		for (let instance of this._controller.instances!.values()) {
 			if (instance.config.get("instance.assigned_host") === this._id) {
 				await this.send(
 					new lib.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
@@ -195,7 +195,7 @@ export default class HostConnection extends BaseConnection {
 			let instanceConfig = new lib.InstanceConfig("controller");
 			await instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
 
-			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
+			let controllerInstance = this._controller.instances!.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
 				// Check if this instance is assigned somewhere else.
 				if (controllerInstance.config.get("instance.assigned_host") !== this._id) {
@@ -220,7 +220,7 @@ export default class HostConnection extends BaseConnection {
 
 			instanceConfig.set("instance.assigned_host", this._id);
 			let newInstance = new InstanceInfo({ config: instanceConfig, status: instanceData.status as InstanceStatus });
-			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
+			this._controller.instances!.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.addInstanceHooks(newInstance);
 			await this.send(
 				new lib.InstanceAssignInternalRequest(
@@ -283,7 +283,7 @@ export default class HostConnection extends BaseConnection {
 		user.recalculatePlayerStats();
 		this._controller.userUpdated(user);
 
-		let instance = this._controller.instances.get(instanceId);
+		let instance = this._controller.instances!.get(instanceId);
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.type,
 			name: event.name,

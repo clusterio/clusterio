@@ -40,7 +40,7 @@ export default class ControllerRouter {
 				msg = `Host ${dst.id} is offline`;
 			}
 		} else if (dst.type === lib.Address.instance) {
-			let instance = this.controller.instances.get(dst.id);
+			let instance = this.controller.instances!.get(dst.id);
 			if (!instance) {
 				msg = `Instance ${dst.id} does not exist`;
 			} else {
