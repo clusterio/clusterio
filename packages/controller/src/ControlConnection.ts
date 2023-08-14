@@ -408,12 +408,12 @@ export default class ControlConnection extends BaseConnection {
 
 		// Check connectivity
 		let sourceHostConnection = this._controller.wsServer.hostConnections.get(sourceHostId);
-		if (!sourceHostConnection || sourceHostConnection.closing) {
+		if (!sourceHostConnection || sourceHostConnection.connector.closing) {
 			throw new lib.RequestError("Source host is not connected to the controller");
 		}
 
 		let targetHostConnection = this._controller.wsServer.hostConnections.get(targetHostId);
-		if (!targetHostConnection || targetHostConnection.closing) {
+		if (!targetHostConnection || targetHostConnection.connector.closing) {
 			throw new lib.RequestError("Target host is not connected to the controller");
 		}
 

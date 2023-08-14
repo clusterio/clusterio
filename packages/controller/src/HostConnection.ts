@@ -30,7 +30,6 @@ export default class HostConnection extends BaseConnection {
 	private _name: any;
 	private _version: any;
 	plugins: Map<string, Object>;
-	closing: boolean = false;
 
 	constructor(
 		registerData: any,
@@ -65,8 +64,6 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		this.connector.on("close", () => {
-			this.closing = true;
-
 			// Update status to unknown for instances on this host.
 			for (let instance of this._controller.instances.values()) {
 				if (instance.config.get("instance.assigned_host") !== this._id) {
