@@ -58,7 +58,7 @@ function splitOn(separator: string, string: string) {
 	return [string.slice(0, index), string.slice(index + separator.length)];
 }
 
-type SerializedConfig = ReturnType<Config["serialize"]>;
+export type SerializedConfig = ReturnType<Config["serialize"]>;
 type SerializedGroup = ReturnType<ConfigGroup["serialize"]>;
 
 /**

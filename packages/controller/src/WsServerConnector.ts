@@ -5,6 +5,11 @@ import events from "events";
 import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
+export interface WebSocketClusterio extends WebSocket {
+	clusterio_ignore_dump?: boolean;
+}
+
+
 /**
  * Connector for controller connections
  *
@@ -13,6 +18,7 @@ const { logger } = lib;
  */
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	_timeoutId: NodeJS.Timeout | null = null;
+	declare _socket: WebSocketClusterio | null;
 
 	constructor(
 		dst: lib.Address,
@@ -47,7 +53,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	 * @param account - account data to provide to control connection
 	 */
 	ready(
-		socket: WebSocket,
+		socket: WebSocket.WebSocket,
 		src: lib.Address,
 		sessionToken: string,
 		account: lib.AccountDetails | undefined
@@ -84,7 +90,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 
 		// It's possible the previous connection hasn't closed yet due to a
 		// stale connection.  Terminate it if so.
-		if (this._state === "connected") {
+		if (this._state === "connected" && this._socket !== null) {
 			this._socket.terminate();
 			this._socket.once("close", () => this.continue(socket, lastSeq));
 			return;
@@ -117,6 +123,10 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	}
 
 	_attachSocketHandlers() {
+		if (this._socket === null) {
+			throw new Error("this._socket is null");
+		}
+
 		this.startHeartbeat();
 
 		this._socket.on("close", (code: number, reason: string) => {
@@ -188,7 +198,9 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 		}
 
 		this._closing = true;
-		this._socket.close(code, reason);
+		if (this._socket !== null) {
+			this._socket.close(code, reason);
+		}
 		await events.once(this, "close");
 	}
 

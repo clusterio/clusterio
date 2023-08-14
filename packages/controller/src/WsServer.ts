@@ -1,6 +1,7 @@
 import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
 import type Controller from "./Controller";
+import type { WebSocketClusterio } from "./WsServerConnector";
 
 import jwt from "jsonwebtoken";
 import WebSocket, { WebSocketServer } from "ws";
@@ -11,11 +12,6 @@ const { logger } = lib;
 import ControlConnection from "./ControlConnection";
 import HostConnection, { HostInfo } from "./HostConnection";
 import WsServerConnector from "./WsServerConnector";
-
-export interface WebSocketClusterio extends WebSocket {
-	clusterio_ignore_dump: boolean | undefined;
-}
-
 
 const packageVersion = require("../package.json").version;
 

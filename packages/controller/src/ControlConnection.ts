@@ -64,7 +64,7 @@ export default class ControlConnection extends BaseConnection {
 		this._version = registerData.version;
 
 		this.connector.on("connect", () => {
-			this.connector._socket.clusterio_ignore_dump = Boolean(this.ws_dumper);
+			this.connector._socket!.clusterio_ignore_dump = Boolean(this.ws_dumper);
 		});
 		this.connector.on("close", () => {
 			if (this.logTransport) {
@@ -264,11 +264,21 @@ export default class ControlConnection extends BaseConnection {
 	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {
 		let instance = this._controller.getRequestInstance(request.instanceId);
 
+		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
+		if (assigned_host === null) {
+			assigned_host = undefined;
+		}
+
+		let game_port: number|null|undefined = instance.game_port
+		if (game_port === null) {
+			game_port = undefined;
+		}
+
 		return new lib.InstanceDetails(
 			instance.config.get("instance.name"),
 			instance.id,
-			instance.config.get("instance.assigned_host"),
-			instance.game_port,
+			assigned_host,
+			game_port,
 			instance.status,
 		);
 	}
@@ -276,11 +286,21 @@ export default class ControlConnection extends BaseConnection {
 	async handleInstanceDetailsListRequest() {
 		let list = [];
 		for (let instance of this._controller.instances!.values()) {
+			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
+			if (assigned_host === null) {
+				assigned_host = undefined;
+			}
+	
+			let game_port: number|null|undefined = instance.game_port
+			if (game_port === null) {
+				game_port = undefined;
+			}
+
 			list.push(new lib.InstanceDetails(
 				instance.config.get("instance.name"),
 				instance.id,
-				instance.config.get("instance.assigned_host"),
-				instance.game_port,
+				assigned_host,
+				game_port,
 				instance.status,
 			));
 		}
@@ -296,12 +316,23 @@ export default class ControlConnection extends BaseConnection {
 			this.instanceSubscriptions.all
 			|| this.instanceSubscriptions.instanceIds.includes(instance.id)
 		) {
+			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
+			if (assigned_host === null) {
+				assigned_host = undefined;
+			}
+	
+			let game_port: number|null|undefined = instance.game_port
+			if (game_port === null) {
+				game_port = undefined;
+			}
+
+
 			this.send(new lib.InstanceDetailsUpdateEvent(
 				new lib.InstanceDetails(
 					instance.config.get("instance.name"),
 					instance.id,
-					instance.config.get("instance.assigned_host"),
-					instance.game_port,
+					assigned_host,
+					game_port,
 					instance.status,
 				)
 			));
@@ -954,7 +985,7 @@ export default class ControlConnection extends BaseConnection {
 				this.send(new lib.DebugWsMessageEvent(data.direction, data.content));
 			}
 		};
-		this.connector._socket.clusterio_ignore_dump = true;
+		this.connector._socket!.clusterio_ignore_dump = true;
 		this._controller.debugEvents.on("message", this.ws_dumper);
 	}
 }
