@@ -442,7 +442,7 @@ async function uploadSave(req: Request, res: Response) {
 		});
 
 	} else if (zipMimes.includes(contentMime)) {
-		let filename = String(req.query.filename);
+		let filename = req.query.filename;
 		if (typeof filename !== "string") {
 			requestErrors.push("Missing or invalid filename parameter");
 		} else if (!filename.endsWith(".zip")) {
@@ -456,7 +456,7 @@ async function uploadSave(req: Request, res: Response) {
 		if (errors.length || requestErrors.length) {
 			req.resume();
 		} else {
-			tasks.push(handleFile(instanceId, req, filename, contentMime));
+			tasks.push(handleFile(instanceId, req, filename as string, contentMime));
 		}
 
 	} else {
