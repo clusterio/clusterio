@@ -71,8 +71,11 @@ export default class UserManager {
 			throw new Error(`User '${name}' already exists`);
 		}
 
+		let roles = [];
 		let defaultRoleId = this._config.get("controller.default_role_id");
-		let roles = defaultRoleId ? [defaultRoleId] : [];
+		if (defaultRoleId !== null) {
+			roles.push(defaultRoleId)
+		}
 
 		let user = new lib.User({ name, roles }, this.roles);
 		this.users.set(name, user);
