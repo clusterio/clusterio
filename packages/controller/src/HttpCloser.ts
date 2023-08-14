@@ -74,8 +74,8 @@ export default class HttpCloser {
 		for (let response of this._responses) {
 			if (!response.headersSent) {
 				response.setHeader("Connection", "close");
-			} else if (response.socket) {
-				let socket = response.socket;
+			} else {
+				let socket = response.socket!;
 				response.once("finish", () => {
 					socket.end();
 				});
