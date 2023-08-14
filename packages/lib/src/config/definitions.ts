@@ -439,17 +439,18 @@ export class InstanceConfig extends classes.Config {
 	get(name: "factorio.rcon_port"): number | null;
 	get(name: "factorio.rcon_password"): string | null;
 	get(name: "factorio.player_online_autosave_slots"): number;
-	get(name: "factorio.mod_pack"): string | null;
+	get(name: "factorio.mod_pack"): number | null;
 	get(name: "factorio.enable_save_patching"): boolean;
 	get(name: "factorio.enable_whitelist"): boolean;
 	get(name: "factorio.enable_authserver_bans"): boolean;
-	get(name: "factorio.settings"): Object;
+	get(name: "factorio.settings"): Record<string, unknown>;
 	get(name: "factorio.verbose_logging"): boolean;
 	get(name: "factorio.strip_paths"): boolean;
 	get(name: "factorio.sync_adminlist"): boolean;
 	get(name: "factorio.sync_whitelist"): boolean;
+	get(name: "factorio.sync_banlist"): boolean;
 	get(name: "factorio.max_concurrent_commands"): number;
-	get(name: string) { 
+	get(name: string) {
 		return super.get(name);
 	}
 }

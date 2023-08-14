@@ -1,17 +1,17 @@
-"use strict";
-const fs = require("fs-extra");
-const path = require("path");
-const pidusage = require("pidusage");
-const phin = require("phin");
-const util = require("util");
+import fs from "fs-extra";
+import path from "path";
+import pidusage from "pidusage";
+import phin from "phin";
+import util from "util";
+import type { Static } from "@sinclair/typebox";
 
 // internal libraries
-const lib = require("@clusterio/lib");
-const { PlayerStats } = lib;
+import * as lib from "@clusterio/lib";
 
-const { FactorioServer } = require("./server");
-const { patch } = require("./patch");
-const { exportData } = require("./export");
+import { FactorioServer } from "./server";
+import { ModuleInfo, patch } from "./patch";
+import { exportData } from "./export";
+import type Host from "./Host"
 
 
 const instanceRconCommandDuration = new lib.Histogram(
@@ -47,8 +47,8 @@ const instanceFactorioAutosaveSize = new lib.Gauge(
 	{ labels: ["instance_id"] }
 );
 
-function applyAsConfig(name) {
-	return async function action(instance, value, logger) {
+function applyAsConfig(name: string) {
+	return async function action(instance: Instance, value: unknown, logger: lib.Logger) {
 		if (name === "tags" && value instanceof Array) {
 			// Replace spaces with non-break spaces and delimit by spaces.
 			// This does change the defined tags, but there doesn't seem to
@@ -57,7 +57,7 @@ function applyAsConfig(name) {
 		}
 		try {
 			await instance.sendRcon(`/config set ${name} ${value}`);
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Error applying server setting ${name} ${err.message}`);
 		}
 	};
@@ -78,10 +78,10 @@ const serverSettingsActions = {
 	"game_password": applyAsConfig("password"),
 	"require_user_verification": applyAsConfig("require-user-verification"),
 	"tags": applyAsConfig("tags"),
-	"visibility": async (instance, value, logger) => {
+	"visibility": async (instance: Instance, value: unknown, logger: lib.Logger) => {
 		for (let scope of ["lan", "public", "steam"]) {
 			try {
-				let enabled = Boolean(value[scope]);
+				let enabled = Boolean((value as Record<string, string>)[scope]);
 				await instance.sendRcon(`/config set visibility-${scope} ${enabled}`);
 			} catch (err) {
 				logger.error(`Error applying visibility ${scope} ${err}`);
@@ -95,8 +95,46 @@ const serverSettingsActions = {
  * Keeps track of the runtime parameters of an instance
  * @alias module:host/src/Instance
  */
-class Instance extends lib.Link {
-	constructor(host, connector, dir, factorioDir, instanceConfig) {
+export default class Instance extends lib.Link {
+	/**
+	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
+	 */
+	readonly id: number
+	plugins: Map<string, lib.BaseInstancePlugin>;
+	config: lib.InstanceConfig;
+	logger: lib.Logger;
+	server: FactorioServer;
+	/**
+	 * Mod pack currently running on this instance
+	 */
+	activeModPack = new lib.ModPack();
+	/**
+	 * Per player statistics recorded by this instance.
+	 */
+	playerStats: Map<string, lib.PlayerStats> = new Map();
+	/**
+	 * Players currently online on the instance.
+	 */
+	playersOnline: Set<string> = new Set();
+
+
+	_host: Host;
+	_dir: string;
+	_configFieldChanged: (group: lib.ConfigGroup, field: string, prev: unknown) => void;
+	_status: "stopped" | "starting" | "running" | "stopping" | "creating_save" | "exporting_data" = "stopped";
+	_loadedSave: string | null = null;
+	_playerCheckInterval: ReturnType<typeof setInterval> | undefined;
+	_hadPlayersOnline = false;
+	_playerAutosaveSlot = 1;
+
+
+	constructor(
+		host: Host,
+		connector: lib.VirtualConnector,
+		dir: string,
+		factorioDir: string,
+		instanceConfig: lib.InstanceConfig
+	) {
 		super(connector);
 		this._host = host;
 		this._dir = dir;
@@ -104,10 +142,6 @@ class Instance extends lib.Link {
 		this.plugins = new Map();
 		this.config = instanceConfig;
 
-		/**
-		 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
-		 * @constant {number}
-		 */
 		this.id = this.config.get("instance.id");
 
 		this.logger = lib.logger.child({
@@ -115,16 +149,16 @@ class Instance extends lib.Link {
 			instance_name: this.name,
 		});
 
-		this._configFieldChanged = (group, field, prev) => {
+		this._configFieldChanged = (group: lib.ConfigGroup, field: string, prev: unknown) => {
 			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
 
 			if (group.name === "factorio" && field === "settings") {
-				this.updateFactorioSettings(group.get(field), prev).finally(hook);
+				this.updateFactorioSettings(group.get(field) as any, prev as any).finally(hook);
 			} else if (group.name === "factorio" && field === "enable_whitelist") {
-				this.updateFactorioWhitelist(group.get(field)).finally(hook);
+				this.updateFactorioWhitelist(group.get(field) as any).finally(hook);
 			} else {
 				if (group.name === "factorio" && field === "max_concurrent_commands") {
-					this.server.maxConcurrentCommands = group.get(field);
+					this.server.maxConcurrentCommands = group.get(field) as number;
 				}
 				hook();
 			}
@@ -134,9 +168,9 @@ class Instance extends lib.Link {
 		let serverOptions = {
 			logger: this.logger,
 			version: this.config.get("factorio.version"),
-			gamePort: this.config.get("factorio.game_port"),
-			rconPort: this.config.get("factorio.rcon_port"),
-			rconPassword: this.config.get("factorio.rcon_password"),
+			gamePort: this.config.get("factorio.game_port") ?? undefined,
+			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
+			rconPassword: this.config.get("factorio.rcon_password") ?? undefined,
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
 			enableAuthserverBans: this.config.get("factorio.enable_authserver_bans"),
 			verboseLogging: this.config.get("factorio.verbose_logging"),
@@ -144,9 +178,6 @@ class Instance extends lib.Link {
 			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
 		};
 
-		// Valid statuses are stopped, starting, running, stopping, creating_save and exporting_data.
-		this._status = "stopped";
-		this._loadedSave = null;
 		this.server = new FactorioServer(
 			factorioDir, this._dir, serverOptions
 		);
@@ -185,27 +216,6 @@ class Instance extends lib.Link {
 			}
 		});
 
-		/**
-		 * Mod pack currently running on this instance
-		 * @type {module:lib.ModPack}
-		 */
-		this.activeModPack = undefined;
-
-		/**
-		 * Per player statistics recorded by this instance.
-		 * @type {Map<string, module:lib.PlayerStats>}
-		 */
-		this.playerStats = new Map();
-
-		/**
-		 * Players currently online on the instance.
-		 * @type {Map<string, string>}
-		 */
-		this.playersOnline = new Set();
-		this._playerCheckInterval = null;
-		this._hadPlayersOnline = false;
-		this._playerAutosaveSlot = 1;
-
 		this.handle(lib.InstanceExtractPlayersRequest, this.handleInstanceExtractPlayersRequest.bind(this));
 		this.handle(lib.InstanceAdminlistUpdateEvent, this.handleInstanceAdminlistUpdateEvent.bind(this));
 		this.handle(lib.InstanceBanlistUpdateEvent, this.handleInstanceBanlistUpdateEvent.bind(this));
@@ -226,12 +236,12 @@ class Instance extends lib.Link {
 	}
 
 	_watchPlayerJoinsByChat() {
-		this.server.on("output", (parsed, line) => {
+		this.server.on("output", (parsed: lib.ParsedFactorioOutput, line: string) => {
 			if (parsed.type !== "action") {
 				return;
 			}
 
-			let name = /^([^ ]+)/.exec(parsed.message)[1];
+			let name = /^([^ ]+)/.exec(parsed.message)![1];
 			if (parsed.action === "JOIN") {
 				this._recordPlayerJoin(name);
 			} else if (["LEAVE", "KICK", "BAN"].includes(parsed.action)) {
@@ -239,7 +249,7 @@ class Instance extends lib.Link {
 					"LEAVE": "quit",
 					"KICK": "kicked",
 					"BAN": "banned",
-				}[parsed.action];
+				}[parsed.action]!;
 				this._recordPlayerLeave(name, reason);
 			}
 		});
@@ -278,7 +288,7 @@ class Instance extends lib.Link {
 		}
 	}
 
-	_recordPlayerJoin(name) {
+	_recordPlayerJoin(name: string) {
 		if (this.playersOnline.has(name)) {
 			return;
 		}
@@ -286,7 +296,7 @@ class Instance extends lib.Link {
 
 		let stats = this.playerStats.get(name);
 		if (!stats) {
-			stats = new PlayerStats();
+			stats = new lib.PlayerStats();
 			this.playerStats.set(name, stats);
 		}
 		stats.lastJoinAt = new Date();
@@ -302,15 +312,15 @@ class Instance extends lib.Link {
 		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
-	_recordPlayerLeave(name, reason) {
+	_recordPlayerLeave(name: string, reason: string) {
 		if (!this.playersOnline.delete(name)) {
 			return;
 		}
 
-		let stats = this.playerStats.get(name);
+		let stats = this.playerStats.get(name)!;
 		stats.lastLeaveAt = new Date();
 		stats.lastLeaveReason = reason;
-		stats.onlineTimeMs += stats.lastLeaveAt.getTime() - stats.lastJoinAt.getTime();
+		stats.onlineTimeMs += stats.lastLeaveAt.getTime() - stats.lastJoinAt!.getTime();
 		this._hadPlayersOnline = true;
 
 		let event = {
@@ -331,13 +341,13 @@ for _, p in pairs(game.players) do
 	players[p.name] = p.online_time
 end
 rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
-		let playerTimes = JSON.parse(await this.sendRcon(exportPlayerTimes));
+		let playerTimes: Record<string, number> = JSON.parse(await this.sendRcon(exportPlayerTimes));
 		let count = 0;
 
 		for (let [name, onlineTimeTicks] of Object.entries(playerTimes)) {
 			let stats = this.playerStats.get(name);
 			if (!stats) {
-				stats = new PlayerStats();
+				stats = new lib.PlayerStats();
 				this.playerStats.set(name, stats);
 			}
 			stats.onlineTimeMs = onlineTimeTicks * 1000 / 60;
@@ -355,7 +365,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this.logger.info(`Extracted data for ${count} player(s)`);
 	}
 
-	async sendRcon(message, expectEmpty, plugin = "") {
+	async sendRcon(message: string, expectEmpty = false, plugin = "") {
 		let instanceId = String(this.id);
 		let observeDuration = instanceRconCommandDuration.labels(instanceId).startTimer();
 		try {
@@ -366,7 +376,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	static async listSaves(savesDir, loadedSave) {
+	static async listSaves(savesDir: string, loadedSave: string | null) {
 		let defaultSave = null;
 		if (loadedSave === null) {
 			defaultSave = await lib.getNewestFile(
@@ -374,9 +384,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			);
 		}
 
-		let list = [];
+		let list: lib.SaveDetails[] = [];
 		for (let name of await fs.readdir(savesDir)) {
-			let type;
+			let type: "file" | "directory" | "special";
 			let stat = await fs.stat(path.join(savesDir, name));
 			if (stat.isFile()) {
 				type = "file";
@@ -409,7 +419,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		);
 	}
 
-	async _autosave(name) {
+	async _autosave(name: string) {
 		let stat = await fs.stat(this.path("saves", `${name}.zip`));
 		instanceFactorioAutosaveSize.labels(String(this.id)).set(stat.size);
 
@@ -431,7 +441,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.sendSaveListUpdate();
 	}
 
-	notifyStatus(status) {
+	notifyStatus(status: Instance["_status"]) {
 		this._status = status;
 		this.sendTo(
 			"controller",
@@ -447,8 +457,6 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Current state of the instance
 	 *
 	 * One of stopped, starting, running, stopping, creating_save and exporting_data
-	 *
-	 * @returns {string} instance status.
 	 */
 	get status() {
 		return this._status;
@@ -482,7 +490,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
-	async _loadPlugin(pluginInfo, host) {
+	async _loadPlugin(pluginInfo: lib.PluginInfo, host: Host) {
 		let pluginLoadStarted = Date.now();
 		let InstancePluginClass = await lib.loadInstancePluginClass(pluginInfo);
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
@@ -495,14 +503,16 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async _loadStats() {
 		let instanceStats;
 		try {
-			instanceStats = JSON.parse(await fs.readFile(this.path("instance-stats.json")));
-		} catch (err) {
+			instanceStats = JSON.parse(await fs.readFile(this.path("instance-stats.json"), "utf8"));
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				return;
 			}
 			throw err;
 		}
-		this.playerStats = new Map(instanceStats["players"].map(([id, stats]) => [id, new PlayerStats(stats)]));
+		this.playerStats = new Map(instanceStats["players"].map(
+			([id, stats]: [number, Static<typeof lib.PlayerStats.jsonSchema>]) => [id, new lib.PlayerStats(stats)])
+		);
 		this._playerAutosaveSlot = instanceStats["player_autosave_slot"] || 1;
 	}
 
@@ -514,7 +524,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await lib.safeOutputFile(this.path("instance-stats.json"), content);
 	}
 
-	async init(pluginInfos) {
+	async init(pluginInfos: lib.PluginInfo[]) {
 		this.notifyStatus("starting");
 		try {
 			await this._loadStats();
@@ -544,7 +554,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			}
 		}
 
-		let plugins = {};
+		let plugins: Record<string, string> = {};
 		for (let [name, plugin] of this.plugins) {
 			plugins[name] = plugin.info.version;
 		}
@@ -557,11 +567,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Use the example settings as the basis and override it with all the
 	 * entries from the given settings object.
 	 *
-	 * @param {Object} overrides - Server settings to override.
-	 * @returns {Promise<Object>}
+	 * @param overrides - Server settings to override.
+	 * @returns
 	 *     server example settings with the given settings applied over it.
 	 */
-	async resolveServerSettings(overrides) {
+	async resolveServerSettings(overrides: Record<string, unknown>) {
 		let serverSettings = await this.server.exampleSettings();
 
 		for (let [key, value] of Object.entries(overrides)) {
@@ -595,11 +605,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Creates the neccessary files for starting up a new instance into the
 	 * provided instance directory.
 	 *
-	 * @param {String} instanceDir -
+	 * @param instanceDir -
 	 *     Directory to create the new instance into.
-	 * @param {String} factorioDir - Path to factorio installation.
+	 * @param factorioDir - Path to factorio installation.
 	 */
-	static async create(instanceDir, factorioDir) {
+	static async create(instanceDir: string, factorioDir: string) {
 		await fs.ensureDir(path.join(instanceDir, "script-output"));
 		await fs.ensureDir(path.join(instanceDir, "saves"));
 	}
@@ -722,12 +732,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 *
 	 * Creates a new save if no save is passed and patches it with modules.
 	 *
-	 * @param {string|undefined} saveName -
+	 * @param saveName -
 	 *     Save to prepare from the instance saves directory.  Creates a new
 	 *     save if null.
-	 * @returns {Promise<string>} Name of the save prepared.
+	 * @returns Name of the save prepared.
 	 */
-	async prepareSave(saveName) {
+	async prepareSave(saveName?: string) {
 		// Use latest save if no save was specified
 		if (saveName === undefined) {
 			saveName = await lib.getNewestFile(
@@ -766,8 +776,16 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		// Patch save with lua modules from plugins
 		this.logger.verbose("Patching save");
 
+		interface ModuleJson {
+			version: string,
+			name: string;
+			load?: string[];
+			require?: string[];
+			dependencies?: Record<string, string>;
+		}
+
 		// Find plugin modules to patch in
-		let modules = new Map();
+		let modules: Map<string, ModuleInfo> = new Map();
 		for (let [pluginName, plugin] of this.plugins) {
 			let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
 			let modulePath = path.join(path.dirname(pluginPackagePath), "module");
@@ -780,30 +798,29 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
 			}
 
-			let module;
+			let module: Omit<ModuleJson, "version">;
 			try {
-				module = JSON.parse(await fs.readFile(moduleJsonPath));
-			} catch (err) {
+				module = JSON.parse(await fs.readFile(moduleJsonPath, "utf8"));
+			} catch (err: any) {
 				throw new Error(`Loading module/module.json in plugin ${pluginName} failed: ${err.message}`);
 			}
 			if (module.name !== pluginName) {
 				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
 			}
 
-			module = {
+			modules.set(module.name, {
 				version: plugin.info.version,
 				dependencies: { "clusterio": "*" },
 				path: modulePath,
 				load: [],
 				require: [],
 				...module,
-			};
-			modules.set(module.name, module);
+			});
 		}
 
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
-		let modulesDirectory = path.join(__dirname, "..", "modules");
+		let modulesDirectory = path.join(__dirname, "..", "..", "modules");
 		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
 			if (!entry.isFile()) {
 				if (modules.has(entry.name)) {
@@ -815,19 +832,18 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 					throw new Error(`Module ${entry.name} is missing module.json`);
 				}
 
-				let module = JSON.parse(await fs.readFile(moduleJsonPath));
+				let module: ModuleJson = JSON.parse(await fs.readFile(moduleJsonPath, "utf8"));
 				if (module.name !== entry.name) {
 					throw new Error(`Expected name of module ${entry.name} to match the directory name`);
 				}
 
-				module = {
+				modules.set(module.name, {
 					path: path.join(modulesDirectory, entry.name),
 					dependencies: { "clusterio": "*" },
 					load: [],
 					require: [],
 					...module,
-				};
-				modules.set(module.name, module);
+				});
 			}
 		}
 
@@ -840,9 +856,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 *
 	 * Launches the Factorio server for this instance with the given save.
 	 *
-	 * @param {String} saveName - Name of save game to load.
+	 * @param saveName - Name of save game to load.
 	 */
-	async start(saveName) {
+	async start(saveName: string) {
 		this.server.on("rcon-ready", () => {
 			this.logger.verbose("RCON connection established");
 		});
@@ -870,12 +886,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Launches the Factorio server for this instance with the given
 	 * scenario.
 	 *
-	 * @param {String} scenario - Name of scenario to load.
-	 * @param {?number} seed - seed to use.
-	 * @param {?object} mapGenSettings - MapGenSettings to use.
-	 * @param {?object} mapSettings - MapSettings to use.
+	 * @param scenario - Name of scenario to load.
+	 * @param seed - seed to use.
+	 * @param mapGenSettings - MapGenSettings to use.
+	 * @param mapSettings - MapSettings to use.
 	 */
-	async startScenario(scenario, seed, mapGenSettings, mapSettings) {
+	async startScenario(scenario: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
 		this.server.on("rcon-ready", () => {
 			this.logger.verbose("RCON connection established");
 		});
@@ -897,7 +913,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.sendRcon(`/sc clusterio_private.update_instance(${this.id}, "${name}")`, true);
 	}
 
-	async updateFactorioSettings(current, previous) {
+	async updateFactorioSettings(current: Record<string, unknown>, previous: Record<string, unknown>) {
 		current = await this.resolveServerSettings(current);
 		previous = await this.resolveServerSettings(previous);
 
@@ -911,10 +927,10 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	/**
 	 * Enable or disable the player whitelist
 	 *
-	 * @param {boolean} enable -
+	 * @param enable -
 	 *     True to enable the whitelist, False to disable the whitelist.
 	 */
-	async updateFactorioWhitelist(enable) {
+	async updateFactorioWhitelist(enable: boolean) {
 		if (!enable) {
 			await this.sendRcon("/whitelist disable");
 		}
@@ -931,7 +947,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	async handleInstanceAdminlistUpdateEvent(request) {
+	async handleInstanceAdminlistUpdateEvent(request: lib.InstanceAdminlistUpdateEvent) {
 		if (!this.config.get("factorio.sync_adminlist")) {
 			return;
 		}
@@ -941,7 +957,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.sendRcon(command);
 	}
 
-	async handleInstanceBanlistUpdateEvent(request) {
+	async handleInstanceBanlistUpdateEvent(request: lib.InstanceBanlistUpdateEvent) {
 		if (!this.config.get("factorio.sync_banlist")) {
 			return;
 		}
@@ -951,7 +967,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.sendRcon(command);
 	}
 
-	async handleInstanceWhitelistUpdateEvent(request) {
+	async handleInstanceWhitelistUpdateEvent(request: lib.InstanceWhitelistUpdateEvent) {
 		if (!this.config.get("factorio.sync_whitelist")) {
 			return;
 		}
@@ -985,7 +1001,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.server.kill(true);
 	}
 
-	async handleControllerConnectionEvent(event) {
+	async handleControllerConnectionEvent(event: lib.ControllerConnectionEvent) {
 		await lib.invokeHook(this.plugins, "onControllerConnectionEvent", event.event);
 	}
 
@@ -998,7 +1014,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		if (!["stopped", "stopping"].includes(this._status)) {
 			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
-				for await (let metric of metricIterator) {
+				for await (let metric of metricIterator as any) {
 					results.push(lib.serializeResult(metric));
 				}
 			}
@@ -1014,7 +1030,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		return new lib.InstanceMetricsRequest.Response(results);
 	}
 
-	async handleInstanceStartRequest(request) {
+	async handleInstanceStartRequest(request: lib.InstanceStartRequest) {
 		let saveName = request.save;
 		try {
 			await this.prepare();
@@ -1033,7 +1049,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	async handleInstanceLoadScenarioRequest(request) {
+	async handleInstanceLoadScenarioRequest(request: lib.InstanceLoadScenarioRequest) {
 		if (this.config.get("factorio.enable_save_patching")) {
 			this.notifyExit();
 			throw new lib.RequestError("Load scenario cannot be used with save patching enabled");
@@ -1060,7 +1076,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		return await Instance.listSaves(this.path("saves"), this._loadedSave);
 	}
 
-	async handleInstanceCreateSaveRequest(request) {
+	async handleInstanceCreateSaveRequest(request: lib.InstanceCreateSaveRequest) {
 		this.notifyStatus("creating_save");
 		try {
 			this.logger.verbose("Writing server-settings.json");
@@ -1095,11 +1111,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let content = await zip.generateAsync({ type: "nodebuffer" });
 			let url = new URL(this._host.config.get("host.controller_url"));
 			url.pathname += "api/upload-export";
-			url.searchParams.set("mod_pack_id", this.activeModPack.id);
+			url.searchParams.set("mod_pack_id", String(this.activeModPack.id));
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
-				core: { ca: this._host.tlsCa },
+				core: { ca: this._host.tlsCa } as {},
 				headers: {
 					"Content-Type": "application/zip",
 					"x-access-token": this._host.config.get("host.controller_token"),
@@ -1122,7 +1138,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await this.kill();
 	}
 
-	async handleInstanceSendRconRequest(request) {
+	async handleInstanceSendRconRequest(request: lib.InstanceSendRconRequest) {
 		return await this.sendRcon(request.command);
 	}
 
@@ -1143,11 +1159,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * returns a path to the mods directory of the instance.  If no parts are
 	 * given it returns a path to the directory of the instance.
 	 *
-	 * @returns {string} path in instance directory.
+	 * @returns path in instance directory.
 	 */
-	path(...parts) {
+	path(...parts: string[]) {
 		return path.join(this._dir, ...parts);
 	}
 }
-
-module.exports = Instance;

@@ -1,0 +1,19 @@
+{
+  "include": ["host.ts", "package.json", "src/**/*.ts", "src/**/*.js"],
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "module": "commonjs",
+    "target": "es2022",
+    "rootDir": ".",
+    "outDir": "dist",
+    "composite": true,
+    "sourceMap": true,
+    "strict": true,
+    "alwaysStrict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}

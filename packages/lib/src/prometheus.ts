@@ -1696,28 +1696,23 @@ exposition.contentType = "text/plain; version=0.0.4";
 export function serializeResult(
 	result: CollectorResult,
 	options: {
-		addLabels?: string,
+		addLabels?: Record<string, string>,
 		metricName?: string,
 		metricHelp?: string,
 	} = {}
 ) {
-	let addLabels = null;
-	let metricName = result.metric.name;
-	let metricHelp = result.metric.help;
-	for (let [name, value] of Object.entries(options)) {
-		if (name === "addLabels") {
-			addLabels = value;
-		} else if (name === "metricName") {
-			metricName = value;
-		} else if (name === "metricHelp") {
-			metricHelp = value;
-		} else {
-			throw new Error(`Unrecognized option '${name}'`);
-		}
+	let {
+		addLabels,
+		metricName = result.metric.name,
+		metricHelp = result.metric.help,
+		...rest
+	} = options;
+	for (let name of Object.keys(rest)) {
+		throw new Error(`Unrecognized option '${name}'`);
 	}
 
 	let samples: Map<string, Map<string, number>>;
-	if (addLabels === null) {
+	if (!addLabels) {
 		samples = result.samples;
 		addLabels = {};
 

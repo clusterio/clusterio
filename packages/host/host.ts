@@ -12,36 +12,37 @@
  * @example
  * npx clusteriohost run
  */
-"use strict";
-const fs = require("fs-extra");
-const path = require("path");
-const yargs = require("yargs");
-const setBlocking = require("set-blocking");
-const version = require("./package").version;
-const winston = require("winston");
-require("winston-daily-rotate-file");
+import fs from "fs-extra";
+import path from "path";
+import yargs from "yargs";
+import setBlocking from "set-blocking";
+import { version } from "./package.json";
+import winston from "winston";
+import "winston-daily-rotate-file";
 
 // internal libraries
-const lib = require("@clusterio/lib");
-const { ConsoleTransport, levels, logger } = lib;
+import * as lib from "@clusterio/lib";
+import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
-const Host = require("./src/Host");
+import Host from "./src/Host";
 
 
-class HostConnector extends lib.WebSocketClientConnector {
-	constructor(hostConfig, tlsCa, pluginInfos) {
+export class HostConnector extends lib.WebSocketClientConnector {
+	constructor(
+		public hostConfig: lib.HostConfig,
+		tlsCa: string | undefined,
+		public pluginInfos: lib.PluginInfo[]
+	) {
 		super(
 			hostConfig.get("host.controller_url"),
 			hostConfig.get("host.max_reconnect_delay"),
 			tlsCa
 		);
-		this.hostConfig = hostConfig;
-		this.pluginInfos = pluginInfos;
 	}
 
 	register() {
 		logger.info("Connector | registering host");
-		let plugins = {};
+		let plugins: Record<string, string> = {};
 		for (let pluginInfo of this.pluginInfos) {
 			plugins[pluginInfo.name] = pluginInfo.version;
 		}
@@ -98,7 +99,7 @@ async function startHost() {
 		.command("run", "Run host")
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
-		.argv
+		.parseSync()
 	;
 
 	logger.add(new winston.transports.DailyRotateFile({
@@ -111,10 +112,10 @@ async function startHost() {
 		logger.add(new ConsoleTransport({
 			level: args.logLevel,
 			format: new lib.TerminalFormat(),
-			filter: info => info.instance_id === undefined,
+			filter: (info: any) => info.instance_id === undefined,
 		}));
 	}
-	lib.handleUnhandledErrors(logger);
+	lib.handleUnhandledErrors();
 
 	let command = args._[0];
 	if (command === "run") {
@@ -124,8 +125,8 @@ async function startHost() {
 	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
-		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList)));
-	} catch (err) {
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList, "utf8")));
+	} catch (err: any) {
 		if (err.code !== "ENOENT") {
 			throw err;
 		}
@@ -146,9 +147,9 @@ async function startHost() {
 	logger.info(`Loading config from ${args.config}`);
 	let hostConfig = new lib.HostConfig("host");
 	try {
-		await hostConfig.load(JSON.parse(await fs.readFile(args.config)));
+		await hostConfig.load(JSON.parse(await fs.readFile(args.config, "utf8")));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
 			await hostConfig.init();
@@ -194,10 +195,10 @@ async function startHost() {
 		return;
 	}
 
-	let tlsCa = null;
+	let tlsCa: string | undefined;
 	let tlsCaPath = hostConfig.get("host.tls_ca");
 	if (tlsCaPath) {
-		tlsCa = await fs.readFile(tlsCaPath);
+		tlsCa = await fs.readFile(tlsCaPath, "utf8");
 	}
 
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
