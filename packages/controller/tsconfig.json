@@ -1,5 +1,5 @@
 {
-  "include": ["controller.ts", "src/**/*.ts"],
+  "include": ["controller.ts", "package.json", "src/**/*.ts"],
   "compilerOptions": {
     "lib": ["esnext"],
     "module": "commonjs",
@@ -13,6 +13,7 @@
     "checkJs": false,
     "noEmitOnError": false,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+	 "resolveJsonModule": true
   }
 }

@@ -17,7 +17,7 @@ export interface WebSocketClusterio extends WebSocket {
 }
 
 
-const packageVersion = process.env.npm_package_version || "-1";
+const packageVersion = require("../package.json").version;
 
 const wsMessageCounter = new lib.Counter(
 	"clusterio_controller_websocket_message_total",

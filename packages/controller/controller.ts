@@ -32,7 +32,7 @@ const { ConsoleTransport, levels, logger } = lib;
 
 import Controller from "./src/Controller";
 import UserManager from "./src/UserManager";
-const version = process.env.npm_package_version;
+const version = require("./package.json").version;
 
 // globals
 let controller: Controller;
