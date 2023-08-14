@@ -72,11 +72,9 @@ export default class UserManager {
 		}
 
 		let defaultRoleId = this._config.get("controller.default_role_id");
-		if (defaultRoleId === null) {
-			throw new Error(`controller.default_role_id is not defined.`);
-		}
+		let roles = defaultRoleId ? [defaultRoleId] : [];
 
-		let user = new lib.User({ name, roles: [defaultRoleId] }, this.roles);
+		let user = new lib.User({ name, roles }, this.roles);
 		this.users.set(name, user);
 		return user;
 	}
