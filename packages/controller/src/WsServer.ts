@@ -289,7 +289,7 @@ ${err.stack}`
 		try {
 			let tokenPayload = jwt.verify(
 				data.token,
-				this.controller.config.get("controller.auth_secret"),
+				Buffer.from(this.controller.config.get("controller.auth_secret"), "base64"),
 				{ audience: "user" }
 			);
 
