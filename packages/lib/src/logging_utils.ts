@@ -421,7 +421,7 @@ export interface QueryLogFilter {
 	/**
 	 * Maximum log level to include. Higher levels are more verbose.
 	 */
-	maxLevel: keyof typeof levels;
+	maxLevel?: keyof typeof levels;
 	/**
 	 * Include log entries from controller, all hosts and all instances.
 	 */
@@ -451,7 +451,7 @@ export interface QueryLogFilter {
  *     Index to speed up query with.
  * @returns log entries matching the filter
  */
-export async function queryLog(logDirectory: string, filter: QueryLogFilter, index: LogIndex) {
+export async function queryLog(logDirectory: string, filter: QueryLogFilter, index: LogIndex | null) {
 	let files = (await fs.readdir(logDirectory)).filter(entry => logFileGlob.test(entry));
 
 	filter = {

@@ -172,6 +172,8 @@ export class Message {
 	}
 }
 
+export type MessageSrcDst = MessageRequest | MessageResponse | MessageResponseError | MessageEvent;
+
 export class HelloData {
 	constructor(
 		public version: string,

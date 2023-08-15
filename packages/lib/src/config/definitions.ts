@@ -140,7 +140,27 @@ ControllerGroup.finalize();
  * Controller Config class
  * @extends classes.Config
  */
-export class ControllerConfig extends classes.Config { }
+export class ControllerConfig extends classes.Config {
+	get(name: "controller.name"): string;
+	get(name: "controller.mods_directory"): string;
+	get(name: "controller.database_directory"): string;
+	get(name: "controller.http_port"): number | null;
+	get(name: "controller.https_port"): number | null;
+	get(name: "controller.bind_address"): string | null;
+	get(name: "controller.external_address"): string | null;
+	get(name: "controller.tls_certificate"): string | null;
+	get(name: "controller.tls_private_key"): string | null;
+	get(name: "controller.auth_secret"): string;
+	get(name: "controller.heartbeat_interval"): number;
+	get(name: "controller.session_timeout"): number;
+	get(name: "controller.metrics_timeout"): number;
+	get(name: "controller.proxy_stream_timeout"): number;
+	get(name: "controller.default_mod_pack_id"): number | null;
+	get(name: "controller.default_role_id"): number | null;
+	get(name: string) {
+		return super.get(name);
+	}
+}
 ControllerConfig.registerGroup(ControllerGroup);
 
 
@@ -230,7 +250,22 @@ HostGroup.finalize();
  * Host Config class
  * @extends classes.Config
  */
-export class HostConfig extends classes.Config { }
+export class HostConfig extends classes.Config {
+	get(name: "host.name"): string;
+	get(name: "host.id"): number;
+	get(name: "host.factorio_directory"): string;
+	get(name: "host.mods_directory"): string;
+	get(name: "host.mods_directory_is_shared"): boolean;
+	get(name: "host.instances_directory"): string;
+	get(name: "host.controller_url"): string;
+	get(name: "host.controller_token"): string;
+	get(name: "host.tls_ca"): string | null;
+	get(name: "host.public_address"): string;
+	get(name: "host.max_reconnect_delay"): number;
+	get(name: string) { 
+		return super.get(name);
+	}
+}
 HostConfig.registerGroup(HostGroup);
 
 
@@ -393,7 +428,31 @@ FactorioGroup.finalize();
  * Instance config class
  * @extends classes.Config
  */
-export class InstanceConfig extends classes.Config { }
+export class InstanceConfig extends classes.Config {
+	get(name: "instance.name"): string;
+	get(name: "instance.id"): number;
+	get(name: "instance.assigned_host"): number | null;
+	get(name: "instance.auto_start"): boolean;
+
+	get(name: "factorio.version"): string;
+	get(name: "factorio.game_port"): number | null;
+	get(name: "factorio.rcon_port"): number | null;
+	get(name: "factorio.rcon_password"): string | null;
+	get(name: "factorio.player_online_autosave_slots"): number;
+	get(name: "factorio.mod_pack"): string | null;
+	get(name: "factorio.enable_save_patching"): boolean;
+	get(name: "factorio.enable_whitelist"): boolean;
+	get(name: "factorio.enable_authserver_bans"): boolean;
+	get(name: "factorio.settings"): Object;
+	get(name: "factorio.verbose_logging"): boolean;
+	get(name: "factorio.strip_paths"): boolean;
+	get(name: "factorio.sync_adminlist"): boolean;
+	get(name: "factorio.sync_whitelist"): boolean;
+	get(name: "factorio.max_concurrent_commands"): number;
+	get(name: string) { 
+		return super.get(name);
+	}
+}
 InstanceConfig.registerGroup(InstanceGroup);
 InstanceConfig.registerGroup(FactorioGroup);
 

@@ -7,7 +7,7 @@ const util = require("util");
 
 const phin = require("phin");
 
-const HttpCloser = require("@clusterio/controller/src/HttpCloser");
+const HttpCloser = require("@clusterio/controller/dist/controller/src/HttpCloser").default;
 
 // Time to wait during async operations to ensure they happened in order.
 const tick = 20;

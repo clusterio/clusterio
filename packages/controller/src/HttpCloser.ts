@@ -1,6 +1,7 @@
-"use strict";
-const http = require("http");
-const https = require("https");
+import type { Socket } from "net";
+
+import http from "http";
+import https from "https";
 
 /**
  * Gracefully close a Node.js HTTP(S) server
@@ -19,34 +20,37 @@ const https = require("https");
  *
  * @alias module:controller/src/HttpCloser
  */
-class HttpCloser {
+export default class HttpCloser {
+	private _server: http.Server | https.Server;
+	private _sockets: Set<Socket>;
+	private _responses: Set<http.ServerResponse>;
+
 	/**
 	 * Server to attach this closer to.
-	 * @param {https.Server | http.Server} server - HTTP(S) to attach to
 	 */
-	constructor(server) {
+	constructor(server: http.Server | https.Server) {
 		this._server = server;
 		this._sockets = new Set();
 		this._responses = new Set();
 
-		if (this._server instanceof http.Server) {
-			this._server.on("connection", this._addSocket.bind(this));
-		} else if (this._server instanceof https.Server) {
+		if (this._server instanceof https.Server) {
 			this._server.on("secureConnection", this._addSocket.bind(this));
+		} else if (this._server instanceof http.Server) {
+			this._server.on("connection", this._addSocket.bind(this));
 		} else {
 			throw Error("server must be an instance of either http.Server or https.Server.");
 		}
 		this._server.on("request", this._addRequest.bind(this));
 	}
 
-	_addSocket(socket) {
+	_addSocket(socket:Socket) {
 		this._sockets.add(socket);
 		socket.once("close", () => {
 			this._sockets.delete(socket);
 		});
 	}
 
-	_addRequest(request, response) {
+	_addRequest(request: http.IncomingMessage, response: http.ServerResponse) {
 		this._responses.add(response);
 		response.once("close", () => this._responses.delete(response));
 		response.once("finish", () => this._responses.delete(response));
@@ -62,16 +66,16 @@ class HttpCloser {
 	 * If there's requests in progress that still haven't been completed
 	 * after the timeout value passed they will be aborted.
 	 *
-	 * @param {number} timeout -
+	 * @param timeout -
 	 *     Time in ms to wait for connections to close.
 	 */
-	async close(timeout = 5000) {
+	async close(timeout:number = 5000): Promise<void> {
 		let activeSockets = new Set();
 		for (let response of this._responses) {
 			if (!response.headersSent) {
 				response.setHeader("Connection", "close");
 			} else {
-				let socket = response.socket;
+				let socket = response.socket!;
 				response.once("finish", () => {
 					socket.end();
 				});
@@ -104,5 +108,3 @@ class HttpCloser {
 		});
 	}
 };
-
-module.exports = HttpCloser;

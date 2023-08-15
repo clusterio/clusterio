@@ -202,7 +202,7 @@ export class LogMessageEvent {
 	static dst = ["controller", "control"] as const;
 
 	constructor(
-		public info: object,
+		public info: { level: string, message: string },
 	) { }
 
 	static jsonSchema = Type.Object({

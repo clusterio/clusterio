@@ -37,7 +37,7 @@ export interface Event<T> {
 }
 export type EventClass<T> = Event<T>["constructor"];
 
-interface RequestEntry {
+export interface RequestEntry {
 	Request: RequestClass<unknown, unknown>;
 	name: string,
 	allowedSrcTypes: Set<number>;
@@ -60,15 +60,15 @@ interface ForwardedRequest {
 	dst: libData.Address;
 }
 
-interface EventEntry {
+export interface EventEntry {
 	Event: EventClass<unknown>;
 	name: string,
 	allowedSrcTypes: Set<number>;
 	allowedDstTypes: Set<number>;
 	eventFromJSON: (json: any) => Event<unknown>;
 }
-type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst: libData.Address) => Promise<Res>;
-type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
+export type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst: libData.Address) => Promise<Res>;
+export type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
 
 interface Router {
 	forwardMessage(origin: Link, message: Message, fallback: boolean): boolean,
