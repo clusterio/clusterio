@@ -255,7 +255,7 @@ interface ProxyStream {
 	mime: string | null;
 	filename: string | null;
 	events: events.EventEmitter;
-	timeout: NodeJS.Timeout;
+	timeout: ReturnType<typeof setTimeout>;
 }
 
 export async function createProxyStream(app: Application): Promise<ProxyStream> {

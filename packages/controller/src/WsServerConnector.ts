@@ -17,7 +17,7 @@ export interface WebSocketClusterio extends WebSocket {
  * @alias module:controller/src/WsServerConnector
  */
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
-	_timeoutId: NodeJS.Timeout | null = null;
+	_timeoutId: ReturnType<typeof setTimeout> | null = null;
 	declare _socket: WebSocketClusterio | null;
 
 	constructor(

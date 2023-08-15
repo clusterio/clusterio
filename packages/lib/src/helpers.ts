@@ -37,7 +37,7 @@ export async function wait(duration: number) {
  * @param {*=} timeoutResult - Value to return if the operation timed out.
  */
 export async function timeout<T>(promise: Promise<T>, time: number, timeoutResult: T) {
-	let timer: NodeJS.Timer | undefined;
+	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
 		return await Promise.race([
 			promise,
