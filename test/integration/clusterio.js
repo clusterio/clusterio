@@ -788,9 +788,13 @@ describe("Integration of Clusterio", function() {
 			it("should have triggered for the previous instance status updates", function() {
 				slowTest(this);
 				let statusesToCheck = new Set([
-					"unassigned", "unknown", "stopped", "creating_save", "exporting_data",
+					"unassigned", "stopped", "creating_save", "exporting_data",
 					"starting", "running", "stopping", "deleted",
 				]);
+				// Windows does not see the unknown status because alt-host is not spawned.
+				if (process.platform !== "win32") {
+					statusesToCheck.add("unknown");
+				}
 				let statusesNotSeen = new Set(statusesToCheck);
 
 				for (let update of getControl().instanceUpdates) {
