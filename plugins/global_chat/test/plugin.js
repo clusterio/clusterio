@@ -4,9 +4,9 @@ const lib = require("@clusterio/lib");
 
 const mock = require("../../../test/mock");
 const lines = require("../../../test/lib/factorio/lines");
-const instance = require("../instance");
-const info = require("../info");
-const { ChatEvent } = require("../messages");
+const instance = require("../dist/plugin/instance");
+const info = require("../dist/plugin/info").default;
+const { ChatEvent } = require("../dist/plugin/messages");
 
 
 describe("global_chat plugin", function() {

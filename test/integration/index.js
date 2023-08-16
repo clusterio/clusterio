@@ -12,7 +12,7 @@ const lib = require("@clusterio/lib");
 const { LineSplitter, ConsoleTransport, logger } = lib;
 
 // Make sure permissions from plugins are loaded
-require("../../plugins/global_chat/info");
+require("../../plugins/global_chat/dist/plugin/info");
 require("../../plugins/player_auth/info");
 require("../../plugins/research_sync/info");
 require("../../plugins/statistics_exporter/info");
