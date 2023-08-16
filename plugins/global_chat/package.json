@@ -6,6 +6,7 @@
   "homepage": "https://github.com/clusterio/clusterio#readme",
   "license": "MIT",
   "repository": "clusterio/clusterio",
+  "main": "dist/plugin/info.js",
   "scripts": {
     "prepare": "webpack-cli --env production",
     "test": "echo \"Error: run tests from root\" && exit 1"
@@ -22,11 +23,16 @@
   "devDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.13",
     "@clusterio/web_ui": "^2.0.0-alpha.13",
+    "@types/node": "^20.4.5",
+    "typescript": "^5.1.6",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
     "webpack-merge": "^5.9.0"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.30.4"
   }
 }

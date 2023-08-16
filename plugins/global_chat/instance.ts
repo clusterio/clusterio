@@ -1,28 +1,24 @@
-/**
- * @module
- */
-"use strict";
-const lib = require("@clusterio/lib");
-const { ChatEvent } = require("./messages");
-
+import * as lib from "@clusterio/lib";
+import { ChatEvent } from "./messages";
 
 /**
  * Removes gps and train tags from messags
  *
- * @param {string} content - string to strip tags from.
- * @returns {string} stripped string.
+ * @param content - string to strip tags from.
+ * @returns stripped string.
  */
-function removeTags(content) {
+function removeTags(content: string): string {
 	return content.replace(/(\[gps=-?\d+,-?\d+\]|\[train=\d+\])/g, "");
 }
 
-class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends lib.BaseInstancePlugin {
+	messageQueue: string[] = [];
+
 	async init() {
-		this.messageQueue = [];
 		this.instance.handle(ChatEvent, this.handleChatEvent.bind(this));
 	}
 
-	onControllerConnectionEvent(event) {
+	onControllerConnectionEvent(event: string) {
 		if (event === "connect") {
 			for (let message of this.messageQueue) {
 				this.sendChat(message);
@@ -31,17 +27,17 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		}
 	}
 
-	async handleChatEvent(event) {
+	async handleChatEvent(event: ChatEvent) {
 		// TODO check if cross server chat is enabled
 		let content = `[${event.instanceName}] ${removeTags(event.content)}`;
 		await this.sendRcon(`/sc game.print('${lib.escapeString(content)}')`, true);
 	}
 
-	sendChat(message) {
+	sendChat(message: string) {
 		this.instance.sendTo("allInstances", new ChatEvent(this.instance.name, message));
 	}
 
-	async onOutput(output) {
+	async onOutput(output: lib.ParsedFactorioOutput) {
 		if (output.type === "action" && output.action === "CHAT") {
 			if (this.host.connector.connected) {
 				this.sendChat(output.message);
@@ -54,9 +50,5 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 	// TODO implement info command in lua?
 }
 
-module.exports = {
-	InstancePlugin,
-
-	// For testing only
-	_removeTags: removeTags,
-};
+// For testing only
+export const _removeTags = removeTags;

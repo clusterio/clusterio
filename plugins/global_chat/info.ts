@@ -1,14 +1,17 @@
-"use strict";
-const messages = require("./messages");
+import type { PluginInfo } from "@clusterio/lib";
 
-module.exports = {
+import { ChatEvent } from "./messages";
+
+const info: PluginInfo = {
 	name: "global_chat",
 	title: "Global Chat",
 	description: "Forwards chat between instances.",
-	instanceEntrypoint: "instance",
-	controlEntrypoint: "control",
+	instanceEntrypoint: "dist/plugin/instance",
+	controlEntrypoint: "dist/plugin/control",
 
 	messages: [
-		messages.ChatEvent,
+		ChatEvent,
 	],
-};
+}
+
+export default info;
