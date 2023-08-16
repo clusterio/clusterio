@@ -35,7 +35,7 @@ describe("lib/plugin_loader", function() {
 		it("should throw on missing plugin", async function() {
 			await assert.rejects(
 				lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
-				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}/info'`)
+				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}/package.json'`)
 			);
 		});
 		it("should load test plugin", async function() {
