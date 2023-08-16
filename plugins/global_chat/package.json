@@ -8,7 +8,7 @@
   "repository": "clusterio/clusterio",
   "main": "dist/plugin/info.js",
   "scripts": {
-    "prepare": "webpack-cli --env production",
+    "prepare": "webpack-cli --env production && tsc --build",
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
