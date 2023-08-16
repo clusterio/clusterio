@@ -84,7 +84,7 @@ export default class HostConnection extends BaseConnection {
 		this.handle(lib.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
 	}
 
-	validateIngress(message: lib.MessageSrcDst) {
+	validateIngress(message: lib.MessageRoutable) {
 		let origin = this.connector.dst;
 		switch (message.src.type) {
 			case lib.Address.control:

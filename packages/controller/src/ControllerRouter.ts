@@ -21,7 +21,7 @@ export default class ControllerRouter {
 	 */
 	forwardMessage(
 		origin: ControlConnection | HostConnection,
-		message: lib.MessageSrcDst,
+		message: lib.MessageRoutable,
 		hasFallback: boolean
 	): boolean {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
@@ -95,7 +95,7 @@ export default class ControllerRouter {
 
 	broadcastMessage(
 		origin: lib.Link,
-		message: lib.MessageSrcDst,
+		message: lib.MessageRoutable,
 	) {
 		let dst = message.dst;
 		if (message.type !== "event") {
@@ -118,7 +118,7 @@ export default class ControllerRouter {
 	}
 
 	warnUnrouted(
-		message: lib.MessageSrcDst,
+		message: lib.MessageRoutable,
 		msg: string
 	) {
 		let dst = message.dst;

@@ -8,7 +8,7 @@ import { BaseConnector, WebSocketBaseConnector } from "./connectors";
 import { strict as assert } from "assert";
 import type { PluginInfo } from "../plugin";
 import type { User } from "../users";
-import type { AddressType, JSONDeserialisable, Message, MessageRequest, MessageEvent } from "../data";
+import type { AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent } from "../data";
 
 export interface Request<Req, Res> {
 	constructor: Partial<JSONDeserialisable<Request<Req, Res>>> & {
@@ -71,7 +71,7 @@ export type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst:
 export type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
 
 interface Router {
-	forwardMessage(origin: Link, message: Message, fallback: boolean): boolean,
+	forwardMessage(origin: Link, message: MessageRoutable, fallback: boolean): boolean,
 }
 
 // Some definitions for the terminology used here:
@@ -166,7 +166,7 @@ export class Link {
 	 * @throws {libErrors.InvalidMessage} if the message is invalid or not handled.
 	 */
 	_processMessage(
-		message: libData.MessageRequest | libData.MessageResponse | libData.MessageResponseError | libData.MessageEvent
+		message: MessageRoutable
 	) {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
 			throw new libErrors.InvalidMessage(`Unhandled message type ${message.type}`);
@@ -175,7 +175,10 @@ export class Link {
 		let entry = this._validateMessage(message);
 		if (entry && this.connector.dst.type === libData.Address.control) {
 			try {
-				this.validatePermission(message, entry); // Somewhat hacky, defined in ControlConnection
+				this.validatePermission(
+					message as libData.MessageRequest | libData.MessageEvent,
+					entry
+				); // Somewhat hacky, defined in ControlConnection
 			} catch (err) {
 				if (err instanceof libErrors.PermissionError) {
 					return;
@@ -229,10 +232,10 @@ export class Link {
 	 * @param message - Message to check.
 	 * @throws {libErrors.InvalidMessage} if the message is invalid.
 	 */
-	validateIngress(message: libData.Message) { }
+	validateIngress(message: MessageRoutable) { }
 
 	_validateMessage(
-		message: libData.MessageRequest | libData.MessageResponse | libData.MessageResponseError | libData.MessageEvent
+		message: MessageRoutable
 	) {
 		try {
 			if (message.src.type === libData.Address.broadcast) {
@@ -307,9 +310,9 @@ export class Link {
 	 * @param entry - Request or Event entry for this Message.
 	 * @throws {libErrors.PermissionError} if unauthorized.
 	 */
-	validatePermission(message: libData.Message, entry: RequestEntry | EventEntry) { }
+	validatePermission(message: libData.MessageRequest | libData.MessageEvent, entry: RequestEntry | EventEntry) { }
 
-	_routeMessage(message: libData.Message, entry?: RequestEntry | EventEntry) {
+	_routeMessage(message: MessageRoutable, entry?: RequestEntry | EventEntry) {
 		if (!this.router) {
 			let err = new libErrors.InvalidMessage(
 				`Received message addressed to ${(message as libData.MessageRequest).dst} but this link `+

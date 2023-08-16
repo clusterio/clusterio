@@ -81,12 +81,6 @@ export abstract class BaseConnector extends events.EventEmitter {
 }
 
 type ConnectorState = "closed" | "connecting" | "connected" | "resuming";
-type ReliableMessages =
-	| libData.MessageRequest
-	| libData.MessageResponse
-	| libData.MessageResponseError
-	| libData.MessageEvent
-;
 
 /**
  * Base connector for links
@@ -102,7 +96,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	_heartbeatId: ReturnType<typeof setInterval> | null = null;
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
-	_sendBuffer: (ReliableMessages)[] = [];
+	_sendBuffer: (libData.MessageRoutable)[] = [];
 
 	constructor(src: libData.Address, dst: libData.Address) {
 		super(src, dst);
@@ -249,7 +243,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 *
 	 * @param message - Message to send.
 	 */
-	send(message: ReliableMessages) {
+	send(message: libData.MessageRoutable) {
 		if (!["connected", "resuming"].includes(this._state)) {
 			throw new libErrors.SessionLost("No session");
 		}
