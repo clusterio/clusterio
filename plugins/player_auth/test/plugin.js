@@ -7,7 +7,7 @@ const mock = require("../../../test/mock");
 
 const controller = require("../controller");
 const instance = require("../instance");
-const info = require("../info");
+const info = require("../info").default;
 const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("../messages");
 const lib = require("@clusterio/lib");
 

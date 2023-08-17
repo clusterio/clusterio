@@ -59,15 +59,8 @@ export async function handlePluginCommand(
 
 		let pluginInfo: { name: string };
 		try {
-			const pluginPackage: { main?: string } = require(path.posix.join(pluginPath, "package.json"));
 			// eslint-disable-next-line node/global-require
-			const pluginInfoRequired = require(path.posix.join(pluginPath, pluginPackage.main ?? "info"));
-			if (pluginInfoRequired.name === undefined) {
-				pluginInfo = pluginInfoRequired.default
-			} else {
-				pluginInfo = pluginInfoRequired
-			}
-
+			pluginInfo = require(pluginPath).default;
 		} catch (err: any) {
 			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);
 			process.exitCode = 1;

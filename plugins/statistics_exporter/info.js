@@ -13,7 +13,7 @@ InstanceConfigGroup.define({
 });
 InstanceConfigGroup.finalize();
 
-module.exports = {
+module.exports.default = {
 	name: "statistics_exporter",
 	title: "Statistics Exporter",
 	description:

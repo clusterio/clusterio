@@ -41,7 +41,7 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-module.exports = {
+module.exports.default = {
 	name: "inventory_sync",
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",

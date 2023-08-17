@@ -22,7 +22,7 @@ ControllerConfigGroup.define({
 });
 ControllerConfigGroup.finalize();
 
-module.exports = {
+module.exports.default = {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",

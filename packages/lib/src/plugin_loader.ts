@@ -27,14 +27,8 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		let pluginPackage: { version: string, main?: string };
 
 		try {
+			pluginInfo = require(pluginPath).default;
 			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
-			const pluginInfoRequired = require(path.posix.join(pluginPath, pluginPackage.main ?? "info"));
-			if (pluginInfoRequired.name === undefined) {
-				pluginInfo = pluginInfoRequired.default
-			} else {
-				pluginInfo = pluginInfoRequired
-			}
-
 		} catch (err: any) {
 			throw new libErrors.PluginError(pluginName, err);
 		}

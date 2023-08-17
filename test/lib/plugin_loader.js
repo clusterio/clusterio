@@ -18,11 +18,11 @@ describe("lib/plugin_loader", function() {
 			async function writePlugin(pluginPath, infoName) {
 				await fs.outputFile(
 					path.join(pluginPath, "info.js"),
-					`module.exports = { name: "${infoName}" };`
+					`module.exports.default = { name: "${infoName}" };`
 				);
 				await fs.outputFile(
 					path.join(pluginPath, "package.json"),
-					'{ "version": "0.0.1" }'
+					'{ "version": "0.0.1", "main":"info.js" }'
 				);
 			}
 
@@ -35,7 +35,7 @@ describe("lib/plugin_loader", function() {
 		it("should throw on missing plugin", async function() {
 			await assert.rejects(
 				lib.loadPluginInfos(new Map([["missing", missingPlugin]]), []),
-				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}/package.json'`)
+				new RegExp(`^Error: PluginError: Cannot find module '${escapeRegExp(missingPlugin)}'`)
 			);
 		});
 		it("should load test plugin", async function() {
