@@ -1,7 +1,7 @@
 "use strict";
 const messages = require("./messages");
 
-module.exports = {
+module.exports.default = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",

@@ -48,7 +48,7 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-module.exports = {
+module.exports.default = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",

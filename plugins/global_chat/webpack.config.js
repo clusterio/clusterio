@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "global_chat",
 			library: { type: "var", name: "plugin_global_chat" },
 			exposes: {
-				"./info": "./info.js",
+				"./info": "./dist/plugin/info.js",
 				"./package.json": "./package.json",
 			},
 			shared: {

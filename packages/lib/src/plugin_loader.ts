@@ -24,12 +24,11 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 	let plugins: libPlugin.PluginInfo[] = [];
 	for (let [pluginName, pluginPath] of pluginList) {
 		let pluginInfo: libPlugin.PluginInfo;
-		let pluginPackage: { version: string };
+		let pluginPackage: { version: string, main?: string };
 
 		try {
-			pluginInfo = require(path.posix.join(pluginPath, "info"));
+			pluginInfo = require(pluginPath).default;
 			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
-
 		} catch (err: any) {
 			throw new libErrors.PluginError(pluginName, err);
 		}
