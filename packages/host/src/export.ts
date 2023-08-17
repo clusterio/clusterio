@@ -1,12 +1,43 @@
 // Export of item icons and locale
 "use strict";
-const fs = require("fs-extra");
-const path = require("path");
-const Jimp = require("jimp");
-const JSZip = require("jszip");
+import fs from "fs-extra";
+import path from "path";
+import Jimp from "jimp";
+import JSZip from "jszip";
 
-const lib = require("@clusterio/lib");
-const libBuildMod = require("@clusterio/lib/build_mod");
+import * as lib from "@clusterio/lib";
+import * as libBuildMod from "@clusterio/lib/dist/build_mod";
+import type { FactorioServer } from "./server";
+
+interface Prototype {
+	[index: string]: unknown,
+	type: string,
+	name: string,
+}
+interface SimpleIconSpecification {
+	icon: string;
+	icon_size: number;
+	icon_mipmaps?: number;
+}
+type Color = { r: number, g: number, b: number, a: number };
+interface IconLayer {
+	icon: string;
+	icon_size: number;
+	tint?: Color,
+	shift?: [number, number],
+	scale?: number,
+	icon_mipmaps?: number,
+}
+interface LayeredIconSpecification {
+	icons: IconLayer[];
+	icon_size: number;
+	icon_mipmaps?: number;
+}
+type IconSpecification = LayeredIconSpecification | SimpleIconSpecification;
+type ItemPrototype = Prototype & IconSpecification;
+
+
+type Prototypes = Record<string, Record<string, Prototype>>
 
 /**
  * Generate the export mod needed for exportData
@@ -15,11 +46,10 @@ const libBuildMod = require("@clusterio/lib/build_mod");
  * the server given, with dependencies generated for all the mods present in
  * the server's mods folder.
  *
- * @param {module:host/src/server.FactorioServer} server -
+ * @param server -
  *     The server to generate the export mod for.
- * @memberof module:lib
  */
-async function generateExportMod(server) {
+async function generateExportMod(server: FactorioServer) {
 	let dependencies = [];
 	let splitter = /^(.*)_(\d+\.\d+\.\d+)(\.zip)?$/;
 	for (let entry of await fs.readdir(server.writePath("mods"))) {
@@ -33,7 +63,7 @@ async function generateExportMod(server) {
 		clean: false,
 		build: true,
 		pack: true,
-		sourceDir: path.join(__dirname, "..", "lua", "export"),
+		sourceDir: path.join(__dirname, "..", "..", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version.replace(/\.\d+$/, ""),
@@ -42,7 +72,7 @@ async function generateExportMod(server) {
 }
 
 let zipCache = new Map();
-async function loadZip(server, modVersions, mod) {
+async function loadZip(server: FactorioServer, modVersions: Map<string, string>, mod: string) {
 	let modVersion = modVersions.get(mod);
 	if (!modVersion) {
 		throw new Error(`Got path for unknown mod ${mod}`);
@@ -61,16 +91,13 @@ async function loadZip(server, modVersions, mod) {
 /**
  * Load the given Factorio file path into a Buffer
  *
- * @param {module:host/src/server.FactorioServer} server -
- *     The server to load the file from.
- * @param {Map<string, string>} modVersions - Mapping of mod to version used.
- * @param {string} modPath - Factorio style path to the file to load.
- * @returns {Promise<?Buffer>} The content of the file or null if not found.
- * @memberof module:lib
- * @private
- * @inner
+ * @param server - The server to load the file from.
+ * @param modVersions - Mapping of mod to version used.
+ * @param modPath - Factorio style path to the file to load.
+ * @returns The content of the file or null if not found.
+ * @internal
  */
-async function loadFile(server, modVersions, modPath) {
+async function loadFile(server: FactorioServer, modVersions: Map<string, string>, modPath: string) {
 	let match = /^__([^\/]+)__\/(.*)$/.exec(modPath);
 	if (!match) {
 		throw new Error(`Bad mod path ${match}`);
@@ -81,7 +108,7 @@ async function loadFile(server, modVersions, modPath) {
 	if (["core", "base"].includes(mod)) {
 		try {
 			return await fs.readFile(server.dataPath(mod, filePath));
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				return null;
 			}
@@ -92,7 +119,7 @@ async function loadFile(server, modVersions, modPath) {
 	let zip;
 	try {
 		zip = await loadZip(server, modVersions, mod);
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			return null;
 		}
@@ -107,7 +134,15 @@ async function loadFile(server, modVersions, modPath) {
 	return await file.async("nodebuffer");
 }
 
-async function loadIcon(server, modVersions, iconPath, iconSize, iconMipmaps, iconCache) {
+type IconCache = Map<string, Jimp | null>;
+async function loadIcon(
+	server: FactorioServer,
+	modVersions: Map<string, string>,
+	iconPath: string,
+	iconSize: number,
+	iconMipmaps: number,
+	iconCache: IconCache,
+) {
 	let icon = iconCache.get(iconPath);
 	if (icon === undefined) {
 		let fileContent = await loadFile(server, modVersions, iconPath);
@@ -124,7 +159,13 @@ async function loadIcon(server, modVersions, iconPath, iconSize, iconMipmaps, ic
 	return icon;
 }
 
-async function loadSimpleIcon(server, modVersions, item, size, iconCache) {
+async function loadSimpleIcon(
+	server: FactorioServer,
+	modVersions: Map<string, string>,
+	item: SimpleIconSpecification,
+	size: number,
+	iconCache: IconCache,
+) {
 	let icon = await loadIcon(server, modVersions, item.icon, item.icon_size, 0, iconCache);
 	if (icon) {
 		let iconScale = size / item.icon_size;
@@ -136,7 +177,13 @@ async function loadSimpleIcon(server, modVersions, item, size, iconCache) {
 	return icon;
 }
 
-async function loadLayeredIcon(server, modVersions, item, size, iconCache) {
+async function loadLayeredIcon(
+	server: FactorioServer,
+	modVersions: Map<string, string>,
+	item: LayeredIconSpecification,
+	size: number,
+	iconCache: IconCache,
+) {
 	let baseLayerSize = item.icons[0].icon_size || item.icon_size;
 	let icon = await Jimp.create(size, size);
 
@@ -156,7 +203,7 @@ async function loadLayeredIcon(server, modVersions, item, size, iconCache) {
 
 		iconLayer = iconLayer.clone();
 
-		let tint;
+		let tint: Color;
 		if (layer.tint) {
 			let divisor = (layer.tint.r > 1 || layer.tint.g > 1 || layer.tint.b > 1) ? 255 : 1;
 			tint = {
@@ -188,7 +235,7 @@ async function loadLayeredIcon(server, modVersions, item, size, iconCache) {
 			if (x < 0 || x >= size || y < 0 || y >= size) {
 				return;
 			}
-			let sdata = iconLayer.bitmap.data;
+			let sdata = iconLayer!.bitmap.data;
 			let ddata = icon.bitmap.data;
 			let didx = icon.getPixelIndex(x, y);
 
@@ -235,10 +282,10 @@ const itemTypes = new Set([
 	// TODO consider adding virtual signals and recipes
 ]);
 
-function filterItems(prototypes) {
+function filterItems(prototypes: Prototypes): ItemPrototype[] {
 	return Object.entries(prototypes)
 		.filter(([type, _]) => itemTypes.has(type))
-		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes))
+		.flatMap(([_, typePrototypes]) => Object.values(typePrototypes)) as ItemPrototype[]
 	;
 }
 
@@ -248,18 +295,15 @@ function filterItems(prototypes) {
  * Assembles and packs the icons for the item prototypes given into a single
  * spritesheet and json file with meta data.
  *
- * @param {module:host/src/server.FactorioServer} server -
+ * @param server -
  *     The server to generate the export mod for.
- * @param {Map<string, string>} modVersions -
+ * @param modVersions -
  *     Mapping of mod name to versions to get icons from.
- * @param {Array<Object>} items - Array of item prototypes.
- * @return {Promise<{itemSheet: Jimp, itemData: Map<string,Object>}>}
- *     Item spritesheet and metadata.
- * @memberof module:lib
- * @private
- * @inner
+ * @param items - Array of item prototypes.
+ * @return Item spritesheet and metadata.
+ * @internal
  */
-async function exportItems(server, modVersions, items) {
+async function exportItems(server: FactorioServer, modVersions: Map<string, string>, items: ItemPrototype[]) {
 
 	// Size to render icons at
 	let size = 32;
@@ -272,19 +316,19 @@ async function exportItems(server, modVersions, items) {
 	let itemData = new Map();
 	let pos = 0;
 
-	let iconCache = new Map();
+	let iconCache: IconCache = new Map();
 	let simpleIcons = new Map();
 	for (let item of items) {
-		let icon;
-		let iconPos;
+		let icon: Jimp | null = null;
+		let iconPos: number | undefined;
 		if (item.icons) {
-			icon = await loadLayeredIcon(server, modVersions, item, size, iconCache);
+			icon = await loadLayeredIcon(server, modVersions, item as LayeredIconSpecification, size, iconCache);
 			iconPos = pos;
 
 		} else {
 			iconPos = simpleIcons.get(item.icon);
 			if (iconPos === undefined) {
-				icon = await loadSimpleIcon(server, modVersions, item, size, iconCache);
+				icon = await loadSimpleIcon(server, modVersions, item as SimpleIconSpecification, size, iconCache);
 				if (icon) {
 					iconPos = pos;
 					simpleIcons.set(item.icon, pos);
@@ -319,21 +363,22 @@ async function exportItems(server, modVersions, items) {
  * Parses and merges all the locales for the all the mods given through
  * `modVersions` and `modOrder`.
  *
- * @param {module:host/src/server.FactorioServer} server -
- *     The server to export the locale from.
- * @param {Map<string, string>} modVersions -
- *     Mapping of mod name to version to export locale from.
- * @param {Array<string>} modOrder - Load order of the mods.
- * @param {string} languageCode - Language to export locale for.
- * @returns {Promise<Map<string, string>>} merged locale information
- * @memberof module:lib
- * @private
- * @inner
+ * @param server - The server to export the locale from.
+ * @param modVersions - Mapping of mod name to version to export locale from.
+ * @param modOrder - Load order of the mods.
+ * @param languageCode - Language to export locale for.
+ * @returns merged locale information
+ * @internal
  */
-async function exportLocale(server, modVersions, modOrder, languageCode) {
-	let mergedLocales = new Map();
+async function exportLocale(
+	server: FactorioServer,
+	modVersions: Map<string, string>,
+	modOrder: string[],
+	languageCode: string
+) {
+	let mergedLocales = new Map<string, string>();
 
-	function mergeLocale(locale) {
+	function mergeLocale(locale: Record<string, string | Record<string, string>>) {
 		for (let [category, entries] of Object.entries(locale)) {
 			if (typeof entries === "string") {
 				mergedLocales.set(category, entries);
@@ -357,7 +402,7 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 		let zip;
 		try {
 			zip = await loadZip(server, modVersions, mod);
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				continue;
 			}
@@ -375,20 +420,18 @@ async function exportLocale(server, modVersions, modOrder, languageCode) {
 /**
  * Export the locale and item icons for the given factorio server
  *
- * @param {module:host/src/server.FactorioServer} server -
- *     The server to export the data from.
- * @returns {Promise<JSZip>} zip file with exported data.
- * @memberof module:lib
+ * @param server - The server to export the data from.
+ * @returns zip file with exported data.
  */
-async function exportData(server) {
+export async function exportData(server: FactorioServer) {
 	await generateExportMod(server);
 
-	let settings = {};
-	let prototypes = {};
+	let settings: Prototypes = {};
+	let prototypes: Prototypes = {};
 	let modVersions = new Map();
-	let modOrder = [];
+	let modOrder: string[] = [];
 
-	function add(obj, prototype) {
+	function add(obj: Prototypes, prototype: Prototype) {
 		if (!Object.prototype.hasOwnProperty.call(obj, prototype.type)) {
 			obj[prototype.type] = {};
 		}
@@ -465,9 +508,5 @@ async function exportData(server) {
 }
 
 
-module.exports = {
-	exportData,
-
-	// For testing only
-	_exportLocale: exportLocale,
-};
+// For testing only
+export const _exportLocale = exportLocale;

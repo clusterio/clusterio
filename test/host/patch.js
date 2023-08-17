@@ -4,7 +4,7 @@ const fs = require("fs-extra");
 const JSZip = require("jszip");
 const path = require("path");
 
-const patch = require("@clusterio/host/src/patch");
+const patch = require("@clusterio/host/dist/src/patch");
 
 
 describe("host/patch", function() {

@@ -4,12 +4,13 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "main": "host.js",
+  "main": "dist/host.js",
   "scripts": {
+    "prepare": "tsc --build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusteriohost": "./host.js"
+    "clusteriohost": "./dist/host.js"
   },
   "keywords": [
     "factorio"
@@ -33,5 +34,15 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "^0.30.4",
+    "@types/fs-extra": "^11.0.1",
+    "@types/node": "^20.4.5",
+    "@types/pidusage": "^2.0.2",
+    "@types/semver": "^7.5.0",
+    "@types/set-blocking": "^2.0.0",
+    "@types/yargs": "^17.0.24",
+    "typescript": "^5.1.6"
   }
 }

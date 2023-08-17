@@ -3,7 +3,8 @@ const assert = require("assert").strict;
 const path = require("path");
 
 const lib = require("@clusterio/lib");
-const Host = require("@clusterio/host/src/Host");
+const Host = require("@clusterio/host/dist/src/Host").default;
+const { _discoverInstances } = require("@clusterio/host/dist/src/Host");
 
 describe("Host testing", function() {
 	before(function() {
@@ -13,7 +14,7 @@ describe("Host testing", function() {
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
 			let instancePath = path.join("test", "file", "instances");
-			let instanceInfos = await Host._discoverInstances(instancePath);
+			let instanceInfos = await _discoverInstances(instancePath);
 
 			let referenceConfig = new lib.InstanceConfig("host");
 			await referenceConfig.init();

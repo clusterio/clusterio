@@ -5,7 +5,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
-const { FactorioServer, _getVersion } = require("@clusterio/host/src/server");
+const { FactorioServer, _getVersion } = require("@clusterio/host/dist/src/server");
 const { logger } = lib;
 
 const { slowTest } = require("./index");

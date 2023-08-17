@@ -1,27 +1,28 @@
 "use strict";
-const fs = require("fs-extra");
-const path = require("path");
-const events = require("events");
-const pidusage = require("pidusage");
-const setBlocking = require("set-blocking");
-const phin = require("phin");
-const stream = require("stream");
-const util = require("util");
+import fs from "fs-extra";
+import path from "path";
+import events from "events";
+import pidusage from "pidusage";
+import setBlocking from "set-blocking";
+import phin from "phin";
+import stream from "stream";
+import util from "util";
 
 // internal libraries
-const lib = require("@clusterio/lib");
-const { logger } = lib;
+import * as lib from "@clusterio/lib";
+import { logger } from "@clusterio/lib";
 
-const Instance = require("./Instance");
-const InstanceConnection = require("./InstanceConnection");
+import type { HostConnector } from "../host";
+import Instance from "./Instance";
+import InstanceConnection from "./InstanceConnection";
 
 const finished = util.promisify(stream.finished);
 
 
-function checkRequestSaveName(name) {
+function checkRequestSaveName(name: string) {
 	try {
 		lib.checkFilename(name);
-	} catch (err) {
+	} catch (err: any) {
 		throw new lib.RequestError(`Save name ${err.message}`);
 	}
 }
@@ -33,22 +34,22 @@ function checkRequestSaveName(name) {
  * instance definitions and return a mapping of instance id to
  * instanceInfo objects.
  *
- * @param {string} instancesDir - Directory containing instances
- * @returns {Promise<Map<integer, Object>>}
+ * @param instancesDir - Directory containing instances
+ * @returns
  *     mapping between instance id and information about this instance.
- * @private
+ * @internal
  */
-async function discoverInstances(instancesDir) {
-	let instanceInfos = new Map();
+async function discoverInstances(instancesDir: string) {
+	let instanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
 	for (let entry of await fs.readdir(instancesDir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
 			let instanceConfig = new lib.InstanceConfig("host");
 			let configPath = path.join(instancesDir, entry.name, "instance.json");
 
 			try {
-				await instanceConfig.load(JSON.parse(await fs.readFile(configPath)));
+				await instanceConfig.load(JSON.parse(await fs.readFile(configPath, "utf8")));
 
-			} catch (err) {
+			} catch (err: any) {
 				if (err.code === "ENOENT") {
 					continue; // Ignore folders without config.json
 				}
@@ -81,27 +82,24 @@ const instanceStartingMessages = new Set([
 ]);
 
 class HostRouter {
-	/** @type {module:host/src/Host} */
-	host;
-
-	constructor(host) {
-		this.host = host;
-	}
+	constructor(
+		public host: Host
+	) { }
 
 	/**
 	 * Forward a message to the next hop towards its destination.
 	 *
-	 * @param {module:lib.Link} origin -
+	 * @param origin -
 	 *    Link the message originated from.
-	 * @param {module:lib.Message} message - Message to process.
-	 * @param {boolean} hasFallback - is fallback available
-	 * @returns {boolean} true if the message was handled, false if fallback
+	 * @param message - Message to process.
+	 * @param hasFallback - is fallback available
+	 * @returns true if the message was handled, false if fallback
 	 *     is requested
 	 */
-	forwardMessage(origin, message, hasFallback) {
+	forwardMessage(origin: lib.Link, message: lib.MessageRoutable, hasFallback: boolean) {
 		let dst = message.dst;
-		let nextHop;
-		let msg;
+		let nextHop: lib.Link | undefined;
+		let msg: string | undefined;
 		if (dst.type === lib.Address.broadcast) {
 			this.broadcastMessage(origin, message);
 			return true;
@@ -113,16 +111,19 @@ class HostRouter {
 		) {
 			nextHop = this.host;
 		} else if (dst.type === lib.Address.instance && this.host.instanceInfos.has(dst.id)) {
-			nextHop = this.host.instanceConnections.get(dst.id);
+			nextHop = this.host.instanceConnections.get(dst.id)!;
 		}
 
 		if (nextHop === origin) {
-			msg = `Message would return back to sender ${origin.dst}.`;
+			msg = `Message would return back to sender ${origin.connector.dst}.`;
 			nextHop = undefined;
 		}
 
 		if (message.type === "request") {
-			if (dst.type === lib.Address.instance && instanceStartingMessages.has(message.name)) {
+			if (
+				dst.type === lib.Address.instance
+				&& instanceStartingMessages.has((message as lib.MessageRequest).name)
+			) {
 				this.wakeInstance(origin, message, nextHop);
 				return true;
 
@@ -151,7 +152,7 @@ class HostRouter {
 		return true;
 	}
 
-	broadcastMessage(origin, message) {
+	broadcastMessage(origin: lib.Link, message: lib.MessageRoutable) {
 		let dst = message.dst;
 		if (message.type !== "event") {
 			this.warnUnrouted(message, `Unexpected broadcast of ${message.type}`);
@@ -168,14 +169,14 @@ class HostRouter {
 			if (this.host !== origin) {
 				this.host.connector.send(message);
 			} else {
-				logger.warn(`Received control broadcast of ${message.name} from master.`);
+				logger.warn(`Received control broadcast of ${(message as lib.MessageEvent).name} from master.`);
 			}
 		} else {
 			this.warnUnrouted(message, `Unexpected broacdast target ${dst.id}`);
 		}
 	}
 
-	wakeInstance(origin, message, nextHop) {
+	wakeInstance(origin: lib.Link, message: lib.MessageRoutable, nextHop?: lib.Link) {
 		let dst = message.dst;
 		if (nextHop) {
 			origin.connector.sendResponseError(
@@ -200,24 +201,24 @@ class HostRouter {
 		});
 	}
 
-	sendMessage(nextHop, message, origin) {
+	sendMessage(nextHop: lib.Link, message: lib.MessageRoutable, origin: lib.Link) {
 		try {
 			if (message.type === "request") {
-				nextHop.forwardRequest(message, origin);
+				nextHop.forwardRequest(message as lib.MessageRequest, origin);
 			} else {
 				nextHop.connector.send(message);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			if (message.type === "request") {
 				origin.connector.sendResponseError(
 					new lib.ResponseError(err.message, err.code, err.stack), message.src
 				);
 			}
-			logger.warn(`Failed to deliver ${message.name || "message"} (${message.type}): ${err.message}`);
+			logger.warn(`Failed to deliver ${(message as any).name || "message"} (${message.type}): ${err.message}`);
 		}
 	}
 
-	warnUnrouted(message, msg) {
+	warnUnrouted(message: lib.MessageRoutable, msg?: string) {
 		let dst = message.dst;
 		let baseMsg = `No destination for ${message.constructor.name} routed from ${message.src} to ${dst}`;
 		logger.warn(msg ? `${baseMsg}: ${msg}.` : `${baseMsg}.`);
@@ -228,38 +229,49 @@ class HostRouter {
  * Handles running the host
  *
  * Connects to the controller over the WebSocket and manages intsances.
- * @alias module:host/src/Host
  */
-class Host extends lib.Link {
-	constructor(connector, hostConfig, tlsCa, pluginInfos) {
+export default class Host extends lib.Link {
+	declare ["connector"]: HostConnector;
+
+	router = new HostRouter(this);
+	/**
+	 * Certificate authority used to validate TLS connections to the controller.
+	 */
+	tlsCa?: string;
+	pluginInfos: lib.PluginInfo[];
+	config: lib.HostConfig;
+
+	instanceConnections = new Map<number, InstanceConnection>();
+	discoveredInstanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
+	instanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
+
+	adminlist = new Set<string>();
+	banlist = new Map<string, string>();
+	whitelist = new Set<string>();
+
+	serverVersion = "unknown";
+	serverPlugins = new Map<string, string>();
+
+	_startup = true;
+	_disconnecting = false;
+	_shuttingDown = false;
+
+	constructor(
+		connector: HostConnector,
+		hostConfig: lib.HostConfig,
+		tlsCa: string | undefined,
+		pluginInfos: lib.PluginInfo[]
+	) {
 		super(connector);
-
-		this.router = new HostRouter(this);
-		this.pluginInfos = pluginInfos;
-		this.config = hostConfig;
-
-		/**
-		 * Certificate authority used to validate TLS connections to the controller.
-		 * @type {?string}
-		 */
 		this.tlsCa = tlsCa;
 
-		this.instanceConnections = new Map();
-		this.discoveredInstanceInfos = new Map();
-		this.instanceInfos = new Map();
-
-		this.adminlist = new Set();
-		this.banlist = new Map();
-		this.whitelist = new Set();
+		this.pluginInfos = pluginInfos;
+		this.config = hostConfig;
 
 		this.connector.on("hello", data => {
 			this.serverVersion = data.version;
 			this.serverPlugins = new Map(Object.entries(data.plugins));
 		});
-
-		this._startup = true;
-		this._disconnecting = false;
-		this._shuttingDown = false;
 
 		this.connector.on("connect", () => {
 			if (this._shuttingDown) {
@@ -320,11 +332,11 @@ class Host extends lib.Link {
 		this.handle(lib.InstanceDeleteInternalRequest, this.handleInstanceDeleteInternalRequest.bind(this));
 	}
 
-	async _createNewInstanceDir(name) {
+	async _createNewInstanceDir(name: string) {
 		name = lib.cleanFilename(name);
 		try {
 			lib.checkFilename(name);
-		} catch (err) {
+		} catch (err: any) {
 			throw new Error(`Instance folder was unepectedly invalid: name ${err.message}`);
 		}
 
@@ -333,7 +345,7 @@ class Host extends lib.Link {
 			let candidateDir = path.join(instancesDir, await lib.findUnusedName(instancesDir, name));
 			try {
 				await fs.mkdir(candidateDir);
-			} catch (err) {
+			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					continue;
 				}
@@ -344,15 +356,17 @@ class Host extends lib.Link {
 		throw Error("Unable to create instance dir, retry threshold reached");
 	}
 
-	async broadcastEventToInstance(event) {
+	async broadcastEventToInstance<T>(event: lib.Event<T>) {
 		for (let instanceConnection of this.instanceConnections.values()) {
-			if (event.constructor.plugin && !instanceConnection.plugins.has(event.plugin)) { continue; }
+			if (event.constructor.plugin && !instanceConnection.plugins.has(event.constructor.plugin)) {
+				continue;
+			}
 			instanceConnection.send(event);
 		}
 	}
 
-	async handleSyncUserListsEvent(request) {
-		let updateList = (list, updatedList, Event) => {
+	async handleSyncUserListsEvent(event: lib.SyncUserListsEvent) {
+		let updateList = (list: Set<string>, updatedList: Set<string>, Event: lib.EventClass<unknown>) => {
 			let added = new Set(updatedList);
 			let removed = new Set(list);
 			list.forEach(el => added.delete(el));
@@ -369,10 +383,10 @@ class Host extends lib.Link {
 			}
 		};
 
-		updateList(this.adminlist, request.adminlist, lib.InstanceAdminlistUpdateEvent);
-		updateList(this.whitelist, request.whitelist, lib.InstanceWhitelistUpdateEvent);
+		updateList(this.adminlist, event.adminlist, lib.InstanceAdminlistUpdateEvent);
+		updateList(this.whitelist, event.whitelist, lib.InstanceWhitelistUpdateEvent);
 
-		let addedOrChanged = new Map(request.banlist);
+		let addedOrChanged = new Map(event.banlist);
 		let removed = new Set(this.banlist.keys());
 		addedOrChanged.forEach((_, name) => removed.delete(name));
 		this.banlist.forEach((reason, name) => {
@@ -392,8 +406,8 @@ class Host extends lib.Link {
 		}
 	}
 
-	async handleAdminlistUpdateEvent(request) {
-		let { name, admin } = request;
+	async handleAdminlistUpdateEvent(event: lib.InstanceAdminlistUpdateEvent) {
+		let { name, admin } = event;
 		if (admin) {
 			this.adminlist.add(name);
 		} else {
@@ -401,8 +415,8 @@ class Host extends lib.Link {
 		}
 	}
 
-	async handleBanlistUpdateEvent(request) {
-		let { name, banned, reason } = request;
+	async handleBanlistUpdateEvent(event: lib.InstanceBanlistUpdateEvent) {
+		let { name, banned, reason } = event;
 		if (banned) {
 			this.banlist.set(name, reason);
 		} else {
@@ -410,8 +424,8 @@ class Host extends lib.Link {
 		}
 	}
 
-	async handleWhitelistUpdateEvent(request) {
-		let { name, whitelisted } = request;
+	async handleWhitelistUpdateEvent(event: lib.InstanceWhitelistUpdateEvent) {
+		let { name, whitelisted } = event;
 		if (whitelisted) {
 			this.whitelist.add(name);
 		} else {
@@ -419,21 +433,21 @@ class Host extends lib.Link {
 		}
 	}
 
-	async handleInstanceAssignInternalRequest(request) {
+	async handleInstanceAssignInternalRequest(request: lib.InstanceAssignInternalRequest) {
 		let { instanceId, config } = request;
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (instanceInfo) {
-			instanceInfo.config.update(config, true, "controller");
+			instanceInfo.config.update(config as any, true, "controller");
 			logger.verbose(`Updated config for ${instanceInfo.path}`, this.instanceLogMeta(instanceId, instanceInfo));
 
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instanceId);
 			if (instanceInfo) {
-				instanceInfo.config.update(config, true, "controller");
+				instanceInfo.config.update(config as any, true, "controller");
 
 			} else {
 				let instanceConfig = new lib.InstanceConfig("host");
-				await instanceConfig.load(config, "controller");
+				await instanceConfig.load(config as any, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
@@ -472,7 +486,7 @@ class Host extends lib.Link {
 		);
 	}
 
-	async handleInstanceUnassignInternalRequest(request) {
+	async handleInstanceUnassignInternalRequest(request: lib.InstanceUnassignInternalRequest) {
 		let instanceId = request.instanceId;
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (instanceInfo) {
@@ -486,7 +500,7 @@ class Host extends lib.Link {
 		}
 	}
 
-	instanceLogMeta(instanceId, instanceInfo) {
+	instanceLogMeta(instanceId: number, instanceInfo?: { config: lib.InstanceConfig }) {
 		instanceInfo = instanceInfo || this.instanceInfos.get(instanceId);
 		if (!instanceInfo) {
 			return { instance_id: instanceId, instance_name: String(instanceId) };
@@ -494,7 +508,7 @@ class Host extends lib.Link {
 		return { instance_id: instanceId, instance_name: instanceInfo.config.get("instance.name") };
 	}
 
-	getRequestInstanceInfo(instanceId) {
+	getRequestInstanceInfo(instanceId: number) {
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (!instanceInfo) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -505,16 +519,16 @@ class Host extends lib.Link {
 	/**
 	 * Initialize and connect an unloaded instance
 	 *
-	 * @param {number} instanceId - ID of instance to initialize.
-	 * @returns {Promise<module:host/host~InstanceConnection>} connection to instance.
+	 * @param instanceId - ID of instance to initialize.
+	 * @returns connection to instance.
 	 */
-	async _connectInstance(instanceId) {
+	async _connectInstance(instanceId: number) {
 		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 		if (this.instanceConnections.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
 		}
 
-		let hostAddress = new lib.Address(lib.Address.host, this.id);
+		let hostAddress = new lib.Address(lib.Address.host, this.config.get("host.id"));
 		let instanceAddress = new lib.Address(lib.Address.instance, instanceId);
 		let [connectionClient, connectionServer] = lib.VirtualConnector.makePair(instanceAddress, hostAddress);
 		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
@@ -554,12 +568,12 @@ class Host extends lib.Link {
 		return { results };
 	}
 
-	async fallbackInstanceListSavesRequest(request, src, dst) {
+	async fallbackInstanceListSavesRequest(request: lib.InstanceListSavesRequest, src: lib.Address, dst: lib.Address) {
 		let instanceInfo = this.getRequestInstanceInfo(dst.id);
 		return await Instance.listSaves(path.join(instanceInfo.path, "saves"), null);
 	}
 
-	async handleInstanceRenameSaveRequest(request) {
+	async handleInstanceRenameSaveRequest(request: lib.InstanceRenameSaveRequest) {
 		let { instanceId, oldName, newName } = request;
 		checkRequestSaveName(oldName);
 		checkRequestSaveName(newName);
@@ -570,7 +584,7 @@ class Host extends lib.Link {
 				path.join(instanceInfo.path, "saves", newName),
 				{ overwrite: false },
 			);
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${oldName} does not exist`);
 			}
@@ -579,7 +593,7 @@ class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
 	}
 
-	async handleInstanceCopySaveRequest(request) {
+	async handleInstanceCopySaveRequest(request: lib.InstanceCopySaveRequest) {
 		let { instanceId, source, destination } = request;
 		checkRequestSaveName(source);
 		checkRequestSaveName(destination);
@@ -590,7 +604,7 @@ class Host extends lib.Link {
 				path.join(instanceInfo.path, "saves", destination),
 				{ overwrite: false, errorOnExist: true },
 			);
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${source} does not exist`);
 			}
@@ -599,7 +613,7 @@ class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
 	}
 
-	async handleInstanceTransferSaveRequest(request) {
+	async handleInstanceTransferSaveRequest(request: lib.InstanceTransferSaveRequest) {
 		let { sourceName, targetName, copy, sourceInstanceId, targetInstanceId } = request;
 		checkRequestSaveName(sourceName);
 		checkRequestSaveName(targetName);
@@ -626,7 +640,7 @@ class Host extends lib.Link {
 					{ overwrite: true },
 				);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${sourceName} does not exist`);
 			}
@@ -638,9 +652,9 @@ class Host extends lib.Link {
 		return targetName;
 	}
 
-	async sendSaveListUpdate(instanceId, savesDir) {
+	async sendSaveListUpdate(instanceId: number, savesDir: string) {
 		let instanceConnection = this.instanceConnections.get(instanceId);
-		let saveList;
+		let saveList: lib.SaveDetails[];
 		if (instanceConnection) {
 			saveList = await instanceConnection.send(new lib.InstanceListSavesRequest());
 		} else {
@@ -650,14 +664,14 @@ class Host extends lib.Link {
 		this.send(new lib.InstanceSaveListUpdateEvent(instanceId, saveList));
 	}
 
-	async handleInstanceDeleteSaveRequest(request) {
+	async handleInstanceDeleteSaveRequest(request: lib.InstanceDeleteSaveRequest) {
 		let { instanceId, name } = request;
 		checkRequestSaveName(name);
 		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 
 		try {
 			await fs.unlink(path.join(instanceInfo.path, "saves", name));
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${name} does not exist`);
 			}
@@ -666,7 +680,7 @@ class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
 	}
 
-	async handleInstancePullSaveRequest(request) {
+	async handleInstancePullSaveRequest(request: lib.InstancePullSaveRequest) {
 		let { instanceId, streamId, name } = request;
 		checkRequestSaveName(name);
 		let instanceInfo = this.getRequestInstanceInfo(instanceId);
@@ -675,7 +689,7 @@ class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: this.tlsCa },
+			core: { ca: this.tlsCa } as {},
 			stream: true,
 		});
 
@@ -686,13 +700,13 @@ class Host extends lib.Link {
 
 		let savesDir = path.join(instanceInfo.path, "saves");
 		let tempFilename = name.replace(/(\.zip)?$/, ".tmp.zip");
-		let writeStream;
+		let writeStream: NodeJS.WritableStream;
 		while (true) {
 			try {
 				writeStream = fs.createWriteStream(path.join(savesDir, tempFilename), { flags: "wx" });
 				await events.once(writeStream, "open");
 				break;
-			} catch (err) {
+			} catch (err: any) {
 				if (err.code === "EEXIST") {
 					tempFilename = await lib.findUnusedName(savesDir, tempFilename, ".tmp.zip");
 				} else {
@@ -710,16 +724,16 @@ class Host extends lib.Link {
 		return name;
 	}
 
-	async handleInstancePushSaveRequest(request) {
+	async handleInstancePushSaveRequest(request: lib.InstancePushSaveRequest) {
 		let { instanceId, streamId, name } = request;
 		checkRequestSaveName(name);
 		let instanceInfo = this.getRequestInstanceInfo(instanceId);
 
-		let content;
+		let content: Buffer;
 		try {
 			// phin doesn't support streaming requests :(
 			content = await fs.readFile(path.join(instanceInfo.path, "saves", name));
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "ENOENT") {
 				throw new lib.RequestError(`${name} does not exist`);
 			}
@@ -730,19 +744,21 @@ class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		phin({
 			url, method: "PUT",
-			core: { ca: this.tlsCa },
+			core: { ca: this.tlsCa } as {},
 			data: content,
 		}).catch(err => {
 			logger.error(`Error pushing save to controller:\n${err.stack}`, this.instanceLogMeta(instanceId));
 		});
 	}
 
-	async stopInstance(instanceId) {
+	async stopInstance(instanceId: number) {
 		let instanceConnection = this.instanceConnections.get(instanceId);
-		await instanceConnection.send(new lib.InstanceStopRequest());
+		if (instanceConnection) {
+			await instanceConnection.send(new lib.InstanceStopRequest());
+		}
 	}
 
-	async handleInstanceDeleteInternalRequest(request) {
+	async handleInstanceDeleteInternalRequest(request: lib.InstanceDeleteInternalRequest) {
 		let instanceId = request.instanceId;
 		if (this.instanceConnections.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} is running`);
@@ -784,8 +800,8 @@ class Host extends lib.Link {
 				if (instanceInfo.config.get("instance.auto_start")) {
 					try {
 						let instanceConnection = await this._connectInstance(instanceId);
-						await instanceConnection.send(new lib.InstanceStartRequest(null));
-					} catch (err) {
+						await instanceConnection.send(new lib.InstanceStartRequest());
+					} catch (err: any) {
 						logger.error(
 							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`,
 							this.instanceLogMeta(instanceId, instanceInfo)
@@ -816,14 +832,14 @@ class Host extends lib.Link {
 		for (let instanceId of this.instanceConnections.keys()) {
 			try {
 				await this.stopInstance(instanceId);
-			} catch (err) {
+			} catch (err: any) {
 				logger.error(`Unexpected error stopping instance:\n${err.stack}`);
 			}
 		}
 
 		try {
 			await this.connector.disconnect();
-		} catch (err) {
+		} catch (err: any) {
 			if (!(err instanceof lib.SessionLost)) {
 				logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
 			}
@@ -832,7 +848,7 @@ class Host extends lib.Link {
 		try {
 			// Clear silly interval in pidfile library.
 			pidusage.clear();
-		} catch (err) {
+		} catch (err: any) {
 			setBlocking(true);
 			logger.error(`
 +------------------------------------------------------------+
@@ -849,15 +865,11 @@ ${err.stack}`
 	/**
 	 * True if the connection to the controller is connected, not in the dropped
 	 * state,and not in the process of disconnecting.
-	 * @type {boolean}
 	 */
 	get connected() {
 		return !this._disconnecting && this.connector.connected;
 	}
 }
 
-module.exports = Host;
-
 // For testing only
-module.exports._discoverInstances = discoverInstances;
-
+export const _discoverInstances = discoverInstances;

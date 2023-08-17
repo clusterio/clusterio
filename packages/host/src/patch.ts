@@ -1,16 +1,36 @@
 // Library for patching Factorio saves with scenario code.
 
 "use strict";
-const events = require("events");
-const fs = require("fs-extra");
-const JSZip = require("jszip");
-const path = require("path");
-const semver = require("semver");
+import events from "events";
+import fs from "fs-extra";
+import JSZip from "jszip";
+import path from "path";
+import semver from "semver";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 
-const knownScenarios = {
+interface ScenarioInfo {
+	name: string;
+	modules: string[];
+}
+
+export interface ModuleInfo {
+	name: string;
+	version: string;
+	path: string;
+	dependencies: Record<string, string>;
+	load: string[];
+	require: string[];
+}
+
+interface PatchInfo {
+	patch_number: number;
+	scenario: ScenarioInfo;
+	modules: { name: string, files: { path: string, load: boolean, require: boolean }[],  }[];
+}
+
+const knownScenarios: Record<string, ScenarioInfo> = {
 	// First seen in 0.17.63
 	"4e866186ebe297f1038fd325b09df1a1f5e2fdd1": {
 		"name": "freeplay",
@@ -24,13 +44,11 @@ const knownScenarios = {
 /**
  * Generates control.lua code for loading the Clusterio modules
  *
- * @param {Object} patchInfo - The patch info files's json content
- * @returns {string} Generated control.lua code.
- * @memberof module:lib
- * @private
- * @inner
+ * @param patchInfo - The patch info files's json content
+ * @returns Generated control.lua code.
+ * @internal
  */
-function generateLoader(patchInfo) {
+function generateLoader(patchInfo: PatchInfo) {
 	let lines = [
 		"-- Auto generated scenario module loader created by Clusterio",
 		"-- Modifications to this file will be lost when loaded in Clusterio",
@@ -75,12 +93,10 @@ function generateLoader(patchInfo) {
  * satisfy the property that dependencies are earlier in the array than
  * their dependents.  Throws an error if this is not possible.
  *
- * @param {Array<Object>} modules - Array of modules to reorder
- * @memberof module:lib
- * @private
- * @inner
+ * @param modules - Array of modules to reorder
+ * @internal
  */
-function reorderDependencies(modules) {
+function reorderDependencies(modules: ModuleInfo[]) {
 	let index = 0;
 	let present = new Map();
 	let hold = new Map();
@@ -141,7 +157,7 @@ function reorderDependencies(modules) {
 
 	// Start with a random module from the remaining modules
 	for (let module of remaining.values()) {
-		let cycle = [];
+		let cycle: string[] = [];
 		while (true) {
 			// Find an unmet dependency
 			let dependency = Object.keys(module.dependencies).find(name => !present.has(name));
@@ -172,28 +188,33 @@ function reorderDependencies(modules) {
  * modules that were added.  Will also remove any previous module
  * located in the save.
  *
- * @param {string} savePath - Path to the Factorio save to patch.
- * @param {Array<Object>} modules - Description of the modules to patch.
- * @memberof module:lib
+ * @param savePath - Path to the Factorio save to patch.
+ * @param modules - Description of the modules to patch.
  */
-async function patch(savePath, modules) {
+export async function patch(savePath: string, modules: ModuleInfo[]) {
 	let zip = await JSZip.loadAsync(await fs.readFile(savePath));
-	let root = zip.folder(lib.findRoot(zip));
+	let root = zip.folder(lib.findRoot(zip))!;
 
 	let patchInfoFile = root.file("clusterio.json");
-	let patchInfo;
+	let patchInfo: PatchInfo;
 	if (patchInfoFile !== null) {
 		let content = await patchInfoFile.async("string");
 		patchInfo = JSON.parse(content);
 
 	// No info file present, try to detect if it's a known compatible scenario.
 	} else {
-		let controlStream = root.file("control.lua").nodeStream("nodebuffer");
+		let controlFile = root.file("control.lua");
+		if (!controlFile) {
+			throw new Error("Unable to patch save, missing control.lua file.");
+		}
+		let controlStream = controlFile.nodeStream("nodebuffer");
 		let controlHash = await lib.hashStream(controlStream);
 
 		if (controlHash in knownScenarios) {
 			patchInfo = {
+				"patch_number": 0,
 				"scenario": knownScenarios[controlHash],
+				"modules": [],
 			};
 		} else {
 			throw new Error(`Unable to patch save, unknown scenario (${controlHash})`);
@@ -213,15 +234,15 @@ async function patch(savePath, modules) {
 
 	// Add the modules to the save.
 	for (let module of modules) {
-		let moduleDir = root.folder(`modules/${module.name}`);
+		let moduleDir = root.folder(`modules/${module.name}`)!;
 		let moduleInfo = {
 			"name": module.name,
-			"files": [],
+			"files": [] as { path: string, load: boolean, require: boolean }[],
 		};
 
-		let dirs = [[module.path, ""]];
+		let dirs: [string, string][] = [[module.path, ""]];
 		while (dirs.length) {
-			let [dir, relativeDir] = dirs.pop();
+			let [dir, relativeDir] = dirs.pop()!;
 			for (let entry of await fs.readdir(dir, { withFileTypes: true })) {
 				let fsPath = path.join(dir, entry.name);
 				let relativePath = path.posix.join(relativeDir, entry.name);
@@ -261,10 +282,6 @@ async function patch(savePath, modules) {
 	await fs.rename(tempSavePath, savePath);
 }
 
-module.exports = {
-	patch,
-
-	// For testing only
-	_generateLoader: generateLoader,
-	_reorderDependencies: reorderDependencies,
-};
+// For testing only
+export const _generateLoader = generateLoader;
+export const _reorderDependencies = reorderDependencies;

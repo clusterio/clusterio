@@ -4,7 +4,7 @@ const path = require("path");
 
 const lib = require("@clusterio/lib");
 const { PlayerStats, wait } = lib;
-const Instance = require("@clusterio/host/src/Instance");
+const Instance = require("@clusterio/host/dist/src/Instance").default;
 const { MockConnector, MockServer } = require("../mock");
 
 const addr = lib.Address.fromShorthand;

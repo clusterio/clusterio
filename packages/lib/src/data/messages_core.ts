@@ -172,7 +172,7 @@ export class Message {
 	}
 }
 
-export type MessageSrcDst = MessageRequest | MessageResponse | MessageResponseError | MessageEvent;
+export type MessageRoutable = MessageRequest | MessageResponse | MessageResponseError | MessageEvent;
 
 export class HelloData {
 	constructor(

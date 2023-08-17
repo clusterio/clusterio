@@ -165,7 +165,8 @@ export const logger = winston.createLogger({
 // into the type when you can define custom levels you want to support?
 export type Logger = Omit<winston.Logger,
 	"error" | "warn" | "help" | "data" | "info" | "debug" | "prompt" | "http" | "verbose" | "input" | "silly" |
-	"emerg" | "alert" | "crit" | "warning" | "notice"
+	"emerg" | "alert" | "crit" | "warning" | "notice" |
+	"child"
 > & {
 	fatal: winston.LeveledLogMethod,
 	error: winston.LeveledLogMethod,
@@ -174,4 +175,5 @@ export type Logger = Omit<winston.Logger,
 	info: winston.LeveledLogMethod,
 	server: winston.LeveledLogMethod,
 	verbose: winston.LeveledLogMethod,
+	child(options: Object): Logger,
 };

@@ -1,30 +1,27 @@
 // Factorio Server interface
-"use strict";
-const fs = require("fs-extra");
-const child_process = require("child_process");
-const path = require("path");
-const events = require("events");
-const util = require("util");
-const crypto = require("crypto");
-const rconClient = require("rcon-client");
+import fs from "fs-extra";
+import child_process from "child_process";
+import path from "path";
+import events from "events";
+import util from "util";
+import crypto from "crypto";
+import { Rcon } from "rcon-client";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 
 /**
  * Determines the version of Factorio the datadir is pointing to by
  * reading the changelog.txt in it.
  *
- * @param {string} changelogPath - Path to changelog.txt.
- * @memberof module:lib
- * @private
- * @inner
+ * @param changelogPath - Path to changelog.txt.
+ * @internal
  */
-async function getVersion(changelogPath) {
+async function getVersion(changelogPath: string) {
 	let changelog;
 	try {
 		changelog = await fs.readFile(changelogPath, "utf-8");
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			return null;
 		}
@@ -47,14 +44,12 @@ async function getVersion(changelogPath) {
 /**
  * Comparison function for sorting Factorio version strings
  *
- * @param {string} a - Version to compare.
- * @param {string} b - Version to compare.
- * @returns {number} 1 if a < b, 0 if a = b and -1 if a > b.
- * @memberof module:lib
- * @private
- * @inner
+ * @param a - Version to compare.
+ * @param b - Version to compare.
+ * @returns 1 if a < b, 0 if a = b and -1 if a > b.
+ * @internal
  */
-function versionOrder(a, b) {
+function versionOrder(a: string, b: string) {
 	let aParts = a.split(".").map(s => Number.parseInt(s, 10));
 	let bParts = b.split(".").map(s => Number.parseInt(s, 10));
 
@@ -77,16 +72,14 @@ function versionOrder(a, b) {
  * Searches the given factorio dir for an installation of Factorio of
  * the target version.
  *
- * @param {string} factorioDir - Path to Factorio installation dir(s).
- * @param {string} targetVersion -
+ * @param factorioDir - Path to Factorio installation dir(s).
+ * @param targetVersion -
  *     Version to look for, supports the special value "latest" for the
  *     latest version available.
- * @returns {Promise<Array>} Array with path to data dir and version found.
- * @memberof module:lib
- * @private
- * @inner
+ * @returns Array with path to data dir and version found.
+ * @internal
  */
-async function findVersion(factorioDir, targetVersion) {
+async function findVersion(factorioDir: string, targetVersion: string) {
 
 	// There are two supported setups: having the factorio dir be the actual
 	// install directory, and having the factorio dir be a folder containing
@@ -139,10 +132,8 @@ async function findVersion(factorioDir, targetVersion) {
  * Returns a random port number in the Dynamic Ports range as defined by
  * RFC 6335.
  *
- * @return {number} a number in the range 49152 to 65535.
- * @memberof module:lib
- * @private
- * @inner
+ * @return a number in the range 49152 to 65535.
+ * @internal
  */
 function randomDynamicPort() {
 	const start = 49152;
@@ -157,17 +148,15 @@ function randomDynamicPort() {
  * Uses crypto.randomBytes to generate a secure alphanumeric password of
  * the given length.
  *
- * @param {number} length - the length of the password to generate.
- * @return {Promise<string>} password of the given length
- * @memberof module:lib
- * @private
- * @inner
+ * @param length - the length of the password to generate.
+ * @return password of the given length
+ * @internal
  */
-async function generatePassword(length) {
-	function validChar(byte) {
+async function generatePassword(length: number) {
+	function validChar(byte: number) {
 		const ranges = ["az", "AZ", "09"];
 		return ranges.some(range => (
-			range.codePointAt(0) <= byte && byte <= range.codePointAt(1)
+			range.codePointAt(0)! <= byte && byte <= range.codePointAt(1)!
 		));
 	}
 	let randomBytesAsync = util.promisify(crypto.randomBytes);
@@ -198,28 +187,22 @@ async function generatePassword(length) {
  *
  * TODO document output format.
  *
- * @param {string} line - A line of output not including the line terminator
- * @param {string} source - Passed into the output structure as source
+ * @param line - A line of output not including the line terminator
+ * @param source - Passed into the output structure as source
  *
- * @returns {object} - An object with interpeted data.
- * @memberof module:lib
- * @private
- * @inner
+ * @returns - An object with interpeted data.
+ * @internal
  */
-function parseOutput(line, source) {
-	let output = {
-		source,
-	};
-
+function parseOutput(line: string, source: "stdout" | "stderr"): lib.ParsedFactorioOutput {
 	// There are three broad categories of output from Factorio, the first kind
 	// starts with the seconds since the server started and has a format of
 	// "   0.704 message"
 	const secRegex = /^ {0,3}(\d+\.\d+) (.*)$/;
 	let secMatch = secRegex.exec(line);
 	if (secMatch) {
-		output.format = "seconds";
-		output.time = secMatch[1];
-		let secContent = secMatch[2];
+		const format = "seconds";
+		const time = secMatch[1];
+		const secContent = secMatch[2];
 
 		// A seconds output has two different kinds of formats: The first is a
 		// log level and source location and has a format of
@@ -229,15 +212,25 @@ function parseOutput(line, source) {
 		const secLogRegex = /^(\w+) ((\w+\.cpp:\d+)|([@=].*?:\d+)): (.*)$/;
 		let secLogMatch = secLogRegex.exec(secContent);
 		if (secLogMatch) {
-			output.type = "log";
-			output.level = secLogMatch[1];
-			output.file = secLogMatch[2];
-			output.message = secLogMatch[5];
+			return {
+				source,
+				format,
+				time,
+				type: "log",
+				level: secLogMatch[1],
+				file: secLogMatch[2],
+				message: secLogMatch[5],
+			}
 
 		// The other possibility is that the content is a generic message
 		} else {
-			output.type = "generic";
-			output.message = secContent;
+			return {
+				source,
+				format,
+				time,
+				type: "generic",
+				message: secContent,
+			}
 		}
 
 	// The second category of output starts with a date stamp of the format
@@ -246,8 +239,8 @@ function parseOutput(line, source) {
 		const dateRegex = /^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (.*)$/;
 		let dateMatch = dateRegex.exec(line);
 		if (dateMatch) {
-			output.format = "date";
-			output.time = dateMatch[1];
+			const format = "date";
+			const time = dateMatch[1];
 			let dateContent = dateMatch[2];
 
 			// A date output has two general formats.  The first is an action
@@ -255,26 +248,47 @@ function parseOutput(line, source) {
 			const dateActionRegex = /^\[(\w+)\] (.*)$/;
 			let dateActionMatch = dateActionRegex.exec(dateContent);
 			if (dateActionMatch) {
-				output.type = "action";
-				output.action = dateActionMatch[1];
-				output.message = dateActionMatch[2];
+				return {
+					source,
+					format,
+					time,
+					type: "action",
+					action: dateActionMatch[1],
+					message: dateActionMatch[2],
+				}
 
 			// The other format is a generic message
 			} else {
-				output.type = "generic";
-				output.message = dateContent;
+				return {
+					source,
+					format,
+					time,
+					type: "generic",
+					message: dateContent,
+				}
 			}
 
 		// The last category of output is simply a generic message with no
 		// formating.
 		} else {
-			output.format = "none";
-			output.type = "generic";
-			output.message = line;
+			return {
+				source,
+				format: "none",
+				type: "generic",
+				message: line,
+			}
 		}
 	}
+}
 
-	return output;
+// https://stackoverflow.com/a/49402091
+type KeysOfUnion<T> = T extends T ? keyof T : never;
+
+interface Heuristic {
+	filter: {
+		[P in KeysOfUnion<lib.ParsedFactorioOutput>]?: string | string[] | RegExp;
+	},
+	action(this: FactorioServer, parsed: lib.ParsedFactorioOutput): void;
 }
 
 // These are filters applied to the output from Factorio.  The filter
@@ -285,7 +299,7 @@ function parseOutput(line, source) {
 //
 // If the filter matches the action is called with the FactorioServer
 // instance bound as this.
-const outputHeuristics = [
+const outputHeuristics: Heuristic[] = [
 	// Message indicating the RCON interface has started
 	{
 		filter: { type: "log", message: /^Starting RCON interface/ },
@@ -309,7 +323,7 @@ const outputHeuristics = [
 			message: /^Saving to _autosave\d+ \((non-)?blocking\)\.$/,
 		},
 		action: function(parsed) {
-			let name = /^Saving to (_autosave\d+) /.exec(parsed.message)[1];
+			let name = /^Saving to (_autosave\d+) /.exec(parsed.message)![1];
 			this.emit("_autosave", name);
 		},
 	},
@@ -354,7 +368,7 @@ const outputHeuristics = [
 			// when an error occurs.  Since we can't send input there we terminate the server
 			// process when this happens.
 			if (process.platform === "win32" && parsed.message === "Quitting: multiplayer error.") {
-				this._server.kill();
+				this._server!.kill();
 			}
 		},
 	},
@@ -389,6 +403,37 @@ const outputHeuristics = [
 ];
 
 
+export interface FactorioServerOptions {
+	/** Logger to use for reporting errors. */
+	logger?: lib.Logger,
+	/**
+	 * Version of Factorio to use.  Can also be the string "latest" to use
+	 * the latest version found in `factorioDir`.
+	 */
+	version?: string,
+	/** UDP port to host game on. */
+	gamePort?: number,
+	/** TCP port to use for RCON. */
+	rconPort?: number,
+	/** Password use for RCON. */
+	rconPassword?: string,
+	/** Turn on whitelisting. */
+	enableWhitelist?: boolean,
+	/** Enable Factorio.com based multiplayer bans. */
+	enableAuthserverBans?: boolean,
+	/** Enable verbose logging. */
+	verboseLogging?: boolean,
+	/** Strip paths in the console. */
+	stripPaths?: boolean,
+	/**
+	 * Maximum number of RCON commands transmitted in parallel on the RCON
+	 * connection.
+	 */
+	maxConcurrentCommands?: number
+	/** Timeout in ms to wait for a response to a shutdown command. */
+	hangTimeout?: number,
+}
+
 /**
  * Factorio Server interface
  *
@@ -407,42 +452,59 @@ const outputHeuristics = [
  * - save-finished - invoked when the server has finished a manual save
  * - exit - invoked when the sterver has exited
  * @extends events.EventEmitter
- * @memberof module:lib
  */
-class FactorioServer extends events.EventEmitter {
+export class FactorioServer extends events.EventEmitter {
+	/** UDP port used for hosting the Factorio game server on */
+	gamePort: number;
+	/** TCP port used for RCON on the Factorio game server */
+	rconPort: number;
+	/** Password used for RCON on the Factorio game server */
+	rconPassword: string;
+	/** Enable player whitelist */
+	enableWhitelist: boolean;
+	/** Enable Factorio.com based multiplayer bans **/
+	enableAuthserverBans: boolean;
+	/** Enable verbose logging */
+	verboseLogging: boolean
+	/** Timeout in ms to wait for a response to a shutdown command */
+	hangTimeout = 5000;
+
+	_factorioDir: string;
+	_writeDir: string;
+
+	// Resolved in init
+	_version: string | null = null;
+	_dataDir: string | null = null;
+
+
+	_logger: lib.Logger;
+	_targetVersion: string;
+	_state: "new" | "init" | "create" | "running" | "stopping" = "new";
+	_server: child_process.ChildProcessWithoutNullStreams | null = null;
+	_rconClient: Rcon | null= null;
+	_rconReady = false;
+	_gameReady = false;
+	_stripRegExp?: RegExp;
+	_maxConcurrentCommands = 5;
+
+	// Array of possible causes for an unexpected shutdown
+	_unexpected: string[] = [];
+	_killed = false;
+	_runningAutosave: string | null = null;
+
+
 	/**
 	 * Create a Factorio server interface
 	 *
-	 * @param {string} factorioDir - Directory of the Factorio install(s).
-	 * @param {string} writeDir - Directory to write runtime data to.
-	 * @param {object} options - Optional parameters.
-	 * @param {Logger} options.logger - Logger to use for reporting errors.
-	 * @param {string} options.version -
-	 *     Version of Factorio to use.  Can also be the string "latest" to
-	 *     use the latest version found in `factorioDir`.
-	 * @param {number} options.gamePort - UDP port to host game on.
-	 * @param {number} options.rconPort - TCP port to use for RCON.
-	 * @param {string} options.rconPassword - Password use for RCON.
-	 * @param {boolean} options.enableWhitelist - Turn on whitelisting.
-	 * @param {boolean} options.enableAuthserverBans -
-	 *     Enable Factorio.com based multiplayer bans.
-	 * @param {boolean} options.verboseLogging - Enable verbose logging.
-	 * @param {boolean} options.stripPaths - Strip paths in the console.
-	 * @param {number} options.maxConcurrentCommands -
-	 *     Maximum number of RCON commands transmitted in parallel on the
-	 *     RCON connection.
-	 * @param {number} options.hangTimeout -
-	 *     Timeout in ms to wait for a response to a shutdown command.
+	 * @param factorioDir - Directory of the Factorio install(s).
+	 * @param writeDir - Directory to write runtime data to.
+	 * @param options - Optional parameters.
 	 */
-	constructor(factorioDir, writeDir, options) {
+	constructor(factorioDir: string, writeDir: string, options: FactorioServerOptions) {
 		super();
 
 		this._factorioDir = factorioDir;
 		this._writeDir = writeDir;
-
-		// Resolved in init
-		this._version = null;
-		this._dataDir = null;
 
 		this._logger = options.logger || lib.logger;
 		this._targetVersion = options.version || "latest";
@@ -451,27 +513,22 @@ class FactorioServer extends events.EventEmitter {
 		/** TCP port used for RCON on the Factorio game server */
 		this.rconPort = options.rconPort || randomDynamicPort();
 		/** Password used for RCON on the Factorio game server */
-		this.rconPassword = options.rconPassword;
+		this.rconPassword = options.rconPassword as string; // init will generate one if not there
 		/** Enable player whitelist */
-		this.enableWhitelist = options.enableWhitelist;
+		this.enableWhitelist = options.enableWhitelist || false;
 		/** Enable Factorio.com based multiplayer bans **/
-		this.enableAuthserverBans = options.enableAuthserverBans;
+		this.enableAuthserverBans = options.enableAuthserverBans || false;
 		/** Enable verbose logging */
-		this.verboseLogging = options.verboseLogging;
+		this.verboseLogging = options.verboseLogging || false;
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
 		/** Timeout in ms to wait for a response to a shutdown command */
-		this.hangTimeout = options.hangTimeout || 5000;
-		this._state = "new";
-		this._server = null;
-		this._rconClient = null;
-		this._rconReady = false;
-		this._gameReady = false;
+		this.hangTimeout = options.hangTimeout ?? 5000;
 
 		if (options.stripPaths) {
-			let chars = new Set(path.resolve(this.writePath("temp")));
-			chars.delete(":"); // Having a colon could lead to matching the line number
-			chars = [...chars].join("");
+			let charSet = new Set(path.resolve(this.writePath("temp")));
+			charSet.delete(":"); // Having a colon could lead to matching the line number
+			let chars = [...charSet].join("");
 
 			let tempPath = `${path.resolve(this.writePath("temp", "currently-playing"))}${path.sep}`;
 			let writePath = `${path.resolve(this.writePath())}${path.sep}`;
@@ -485,12 +542,7 @@ class FactorioServer extends events.EventEmitter {
 			);
 		}
 
-		// Array of possible causes for an unexpected shutdown
-		this._unexpected = [];
-		this._killed = false;
-
 		// Track autosaving
-		this._runningAutosave = null;
 		this.on("_autosave", name => {
 			this.emit("autosave-start", name);
 			this._runningAutosave = name;
@@ -506,7 +558,7 @@ class FactorioServer extends events.EventEmitter {
 		});
 	}
 
-	_check(expectedStates) {
+	_check(expectedStates: FactorioServer["_state"][]) {
 		if (!expectedStates.includes(this._state)) {
 			throw new Error(
 				`Expected state ${expectedStates} but state is ${this._state}`
@@ -514,31 +566,31 @@ class FactorioServer extends events.EventEmitter {
 		}
 	}
 
-	async _handleIpc(line) {
+	async _handleIpc(line: Buffer) {
 		let channelEnd = line.indexOf("?");
 		if (channelEnd === -1) {
 			throw new Error(`Malformed IPC line "${line.toString()}"`);
 		}
 
 		let channel = line
-			.slice(6, channelEnd)
+			.subarray(6, channelEnd)
 			.toString("utf-8")
 			.replace(/\\x([0-9a-f]{2})/g, (match, p1) => (
 				String.fromCharCode(parseInt(p1, 16))
 			))
 		;
 
-		let type = line.slice(channelEnd + 1, channelEnd + 2).toString("utf-8");
+		let type = line.subarray(channelEnd + 1, channelEnd + 2).toString("utf-8");
 		let content;
 		if (type === "j") {
 			try {
-				content = JSON.parse(line.slice(channelEnd + 2).toString("utf-8"));
+				content = JSON.parse(line.subarray(channelEnd + 2).toString("utf-8"));
 			} catch (err) {
-				throw new Error(`Malformed JSON to ${channel}: ${line.slice(channelEnd + 2).toString("utf-8")}`);
+				throw new Error(`Malformed JSON to ${channel}: ${line.subarray(channelEnd + 2).toString("utf-8")}`);
 			}
 
 		} else if (type === "f") {
-			let fileName = line.slice(channelEnd + 2).toString("utf-8");
+			let fileName = line.subarray(channelEnd + 2).toString("utf-8");
 			let filePath = this.writePath("script-output", fileName);
 
 			// Prevent malicious names
@@ -564,15 +616,15 @@ class FactorioServer extends events.EventEmitter {
 		}
 	}
 
-	_handleOutput(line, source) {
-		if (line.slice(0, 6).equals(Buffer.from("\f$ipc:"))) {
-			this._handleIpc(line).catch(err => this.emit("error", err));
+	_handleOutput(rawLine: Buffer, source: "stdout" | "stderr") {
+		if (rawLine.subarray(0, 6).equals(Buffer.from("\f$ipc:"))) {
+			this._handleIpc(rawLine).catch(err => this.emit("error", err));
 			return;
 		}
 
-		this.emit(source, line);
+		this.emit(source, rawLine);
 
-		line = line.toString("utf-8");
+		let line = rawLine.toString("utf-8");
 		if (this._stripRegExp) {
 			line = line.replace(this._stripRegExp, "");
 		}
@@ -586,14 +638,14 @@ class FactorioServer extends events.EventEmitter {
 				}
 
 				if (expected instanceof RegExp) {
-					if (!expected.test(parsed[name])) {
+					if (!expected.test((parsed as any)[name])) {
 						continue heuristicLoop;
 					}
 				} else if (expected instanceof Array) {
-					if (!expected.includes(parsed[name])) {
+					if (!expected.includes((parsed as any)[name])) {
 						continue heuristicLoop;
 					}
-				} else if (expected !== parsed[name]) {
+				} else if (expected !== (parsed as any)[name]) {
 					continue heuristicLoop;
 				}
 			}
@@ -622,7 +674,7 @@ class FactorioServer extends events.EventEmitter {
 			maxPending: this.maxConcurrentCommands,
 		};
 
-		this._rconClient = new rconClient.Rcon(config);
+		this._rconClient = new Rcon(config);
 		this._rconClient.on("error", () => { /* Ignore */ });
 		this._rconClient.on("authenticated", () => { this._rconReady = true; this.emit("rcon-ready"); });
 		this._rconClient.on("end", () => {
@@ -635,15 +687,18 @@ class FactorioServer extends events.EventEmitter {
 		await this._rconClient.connect();
 	}
 
+	/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 	get maxConcurrentCommands() {
 		return this._maxConcurrentCommands;
 	}
 
-	set maxConcurrentCommands(value) {
+	set maxConcurrentCommands(value: number) {
 		this._maxConcurrentCommands = value;
 		this.setMaxListeners(value + 5);
 		if (this._rconClient) {
+			// @ts-ignore
 			if (this._rconClient.sendQueue) {
+				// @ts-ignore
 				this._rconClient.sendQueue.maxConcurrent = value;
 			}
 			// XXX: Workaround to suppress bogus event listener warning
@@ -662,7 +717,7 @@ class FactorioServer extends events.EventEmitter {
 	async init() {
 		this._check(["new"]);
 		[this._dataDir, this._version] = await findVersion(this._factorioDir, this._targetVersion);
-		this.rconPassword = this.rconPassword || await generatePassword(10);
+		this.rconPassword = this.rconPassword ?? await generatePassword(10);
 		this._state = "init";
 	}
 
@@ -672,7 +727,7 @@ class FactorioServer extends events.EventEmitter {
 	 * constructor.
 	 */
 	get version() {
-		return this._version;
+		return this._version!;
 	}
 
 	/**
@@ -688,10 +743,10 @@ class FactorioServer extends events.EventEmitter {
 	_attachStdio() {
 		let stdout = new lib.LineSplitter({ readableObjectMode: true });
 		stdout.on("data", line => { this._handleOutput(line, "stdout"); });
-		this._server.stdout.pipe(stdout);
+		this._server!.stdout.pipe(stdout);
 		let stderr = new lib.LineSplitter({ readableObjectMode: true });
 		stderr.on("data", line => { this._handleOutput(line, "stderr"); });
-		this._server.stderr.pipe(stderr);
+		this._server!.stderr.pipe(stderr);
 	}
 
 	_resetState() {
@@ -705,7 +760,7 @@ class FactorioServer extends events.EventEmitter {
 	}
 
 	_watchExit() {
-		this._server.on("exit", (code, signal) => {
+		this._server!.on("exit", (code, signal) => {
 			if (this._state !== "stopping") {
 				if (signal === "SIGKILL") {
 					if (this._killed) {
@@ -744,7 +799,7 @@ class FactorioServer extends events.EventEmitter {
 			this._resetState();
 			this.emit("exit");
 		});
-		this._server.on("error", err => {
+		this._server!.on("error", (err: any) => {
 			if (err.code === "EACCES") {
 				this.emit("error", new lib.EnvironmentError("Unable to run server: Permission denied"));
 			} else {
@@ -777,15 +832,15 @@ class FactorioServer extends events.EventEmitter {
 	 * Spawns the Factorio server with the --create argument to create a new
 	 * map save with the given name.
 	 *
-	 * @param {string} name -
+	 * @param name -
 	 *     Name of the save to create.  Should end with ".zip".
-	 * @param {?number=} seed - Seed to pass via --map-gen-seed
-	 * @param {?object=} mapGenSettings -
+	 * @param seed - Seed to pass via --map-gen-seed
+	 * @param mapGenSettings -
 	 *     Map get settings to pass via --map-gen-settings.
-	 * @param {?object=} mapSettings -
+	 * @param mapSettings -
 	 *     Map setting to pass via --map-settings.
 	 */
-	async create(name, seed = null, mapGenSettings = null, mapSettings = null) {
+	async create(name: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
 		this._check(["init"]);
 		this._state = "create";
 
@@ -796,11 +851,11 @@ class FactorioServer extends events.EventEmitter {
 			[
 				"--config", this.writePath("config.ini"),
 				"--create", this.writePath("saves", name),
-				/* eslint-disable eqeqeq, no-eq-null */
-				...(seed != null ? ["--map-gen-seed", seed] : []),
-				...(mapGenSettings != null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
-				...(mapSettings != null ? ["--map-settings", this.writePath("map-settings.json")] : []),
-				/* eslint-enable eqeqeq, no-eq-null */
+				...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
+				...(mapGenSettings !== undefined ?
+					["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
+				),
+				...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
 				...(this.verboseLogging ? ["--verbose"] : []),
 			],
 			{
@@ -818,7 +873,7 @@ class FactorioServer extends events.EventEmitter {
 			if (code !== 0) {
 				throw new Error(`Factorio exited with status ${code}`);
 			}
-		} catch (err) {
+		} catch (err: any) {
 			if (err.code === "EACCES") {
 				throw new lib.EnvironmentError("Unable to run server: Permission denied");
 			}
@@ -836,7 +891,7 @@ class FactorioServer extends events.EventEmitter {
 	 *
 	 * @param {string} save - Name of the save to run.
 	 */
-	async start(save) {
+	async start(save: string) {
 		this._check(["init"]);
 		this._state = "running";
 
@@ -846,8 +901,8 @@ class FactorioServer extends events.EventEmitter {
 			[
 				"--config", this.writePath("config.ini"),
 				"--start-server", this.writePath("saves", save),
-				"--port", this.gamePort,
-				"--rcon-port", this.rconPort,
+				"--port", String(this.gamePort),
+				"--rcon-port", String(this.rconPort),
 				"--rcon-password", this.rconPassword,
 				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
 				...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
@@ -870,14 +925,14 @@ class FactorioServer extends events.EventEmitter {
 	 * Spawn the Factorio server with the --start-server-load-scenario
 	 * argument to start the given scenario.
 	 *
-	 * @param {string} scenario - Name of the scenario to run.
-	 * @param {?number=} seed - Seed to pass via --map-gen-seed
-	 * @param {?object=} mapGenSettings -
+	 * @param scenario - Name of the scenario to run.
+	 * @param seed - Seed to pass via --map-gen-seed
+	 * @param mapGenSettings -
 	 *     Map get settings to pass via --map-gen-settings.
-	 * @param {?object=} mapSettings -
+	 * @param mapSettings -
 	 *     Map setting to pass via --map-settings.
 	 */
-	async startScenario(scenario, seed = null, mapGenSettings = null, mapSettings = null) {
+	async startScenario(scenario: string, seed?: number, mapGenSettings?: object, mapSettings?: object) {
 		this._check(["init"]);
 		this._state = "running";
 
@@ -888,13 +943,13 @@ class FactorioServer extends events.EventEmitter {
 			[
 				"--config", this.writePath("config.ini"),
 				"--start-server-load-scenario", scenario,
-				/* eslint-disable eqeqeq, no-eq-null */
-				...(seed != null ? ["--map-gen-seed", seed] : []),
-				...(mapGenSettings != null ? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []),
-				...(mapSettings != null ? ["--map-settings", this.writePath("map-settings.json")] : []),
-				/* eslint-enable eqeqeq, no-eq-null */
-				"--port", this.gamePort,
-				"--rcon-port", this.rconPort,
+				...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
+				...(mapGenSettings !== undefined ?
+					["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
+				),
+				...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
+				"--port", String(this.gamePort),
+				"--rcon-port", String(this.rconPort),
 				"--rcon-password", this.rconPassword,
 				...(this.enableWhitelist ? ["--use-server-whitelist"] : []),
 				...(this.enableAuthserverBans ? ["--use-authserver-bans"] : []),
@@ -918,13 +973,13 @@ class FactorioServer extends events.EventEmitter {
 	 * If the rcon connection hasn't been established yet, this will
 	 * wait until it is establied and then send the message.
 	 *
-	 * @param {string} message - message to send to server over RCON.
-	 * @param {boolean} expectEmpty -
+	 * @param message - message to send to server over RCON.
+	 * @param expectEmpty -
 	 *     if true throw if the response is not empty.  Useful for detecting
 	 *     errors that might have been sent in response.
-	 * @returns {Promise<string>} response from server.
+	 * @returns response from server.
 	 */
-	async sendRcon(message, expectEmpty) {
+	async sendRcon(message: string, expectEmpty?: boolean) {
 		this._check(["running", "stopping"]);
 		if (!this._rconReady) {
 			await events.once(this, "rcon-ready");
@@ -959,13 +1014,13 @@ class FactorioServer extends events.EventEmitter {
 				if (this._rconClient) {
 					this._rconClient.end().catch(() => {});
 				}
-				this._server.kill("SIGKILL");
+				this._server!.kill("SIGKILL");
 			}
 		}, this.hangTimeout);
 
 		// It's possible the server decides to exit on its own, in which
 		// case the stop operation has to be cancelled.
-		this._server.once("exit", () => {
+		this._server!.once("exit", () => {
 			stopped = true;
 			clearTimeout(timeoutId);
 		});
@@ -1011,7 +1066,7 @@ class FactorioServer extends events.EventEmitter {
 		// complaint for the lack of graceful shutdown to the Factorio
 		// developers.  Rcon does not recognize /quit, stdin is not
 		// recognized, and there's no "send CTRL+C to process" on Windows.
-		this._server.kill();
+		this._server!.kill();
 
 		// There appears to be an race condition where sending SIGTERM
 		// immediatly before the RCON interface comes online causes the
@@ -1020,7 +1075,7 @@ class FactorioServer extends events.EventEmitter {
 		// case there's no recovering from it.
 		if (process.platform !== "win32") {
 			this.on("_quitting", setAlive);
-			await events.once(this._server, "exit");
+			await events.once(this._server!, "exit");
 
 			clearTimeout(timeoutId);
 			this.off("_quitting", setAlive);
@@ -1028,7 +1083,7 @@ class FactorioServer extends events.EventEmitter {
 		// On windows the process is terminated immediately, but to keep
 		// ordering wait until after the exit event here.
 		} else {
-			await events.once(this._server, "exit");
+			await events.once(this._server!, "exit");
 		}
 	}
 
@@ -1036,7 +1091,7 @@ class FactorioServer extends events.EventEmitter {
 	 * Kill the server
 	 *
 	 * Terminates the server without any cleanup or saving.
-	 * @param {boolean} [unexpected=false] -
+	 * @param unexpected -
 	 *     If true raise an error event as a result of killing the Factorio
 	 *     process.
 	 */
@@ -1046,8 +1101,8 @@ class FactorioServer extends events.EventEmitter {
 		if (!unexpected) {
 			this._state = "stopping";
 		}
-		this._server.kill("SIGKILL");
-		await new Promise(resolve => this._server.once("exit", resolve));
+		this._server!.kill("SIGKILL");
+		await new Promise(resolve => this._server!.once("exit", resolve));
 	}
 
 	/**
@@ -1056,7 +1111,7 @@ class FactorioServer extends events.EventEmitter {
 	 * Ensures achievements are disabled on the save that's running.  This is
 	 * necessary in order to run any commands at all.
 	 *
-	 * @returns {Promise<boolean>}
+	 * @returns
 	 *     True if acheivements got disabled and false if they already where
 	 *     disabled.
 	 */
@@ -1085,11 +1140,11 @@ class FactorioServer extends events.EventEmitter {
 	 * the data directory of the Factorio server.  Not valid before init has
 	 * been called.
 	 *
-	 * @param {...string} parts - Extra parts to add to the data path.
-	 * @returns {string} Data directory path.
+	 * @param parts - Extra parts to add to the data path.
+	 * @returns Data directory path.
 	 */
-	dataPath(...parts) {
-		return path.join(this._dataDir, ...parts);
+	dataPath(...parts: string[]) {
+		return path.join(this._dataDir!, ...parts);
 	}
 
 	/**
@@ -1097,7 +1152,7 @@ class FactorioServer extends events.EventEmitter {
 	 *
 	 * Get the path to the factorio binary depending on the platform (MacOS support)
 	 *
-	 * @returns {string} Path to factorio binary
+	 * @returns Path to factorio binary
 	 */
 	binaryPath() {
 		if (process.platform === "darwin") {
@@ -1112,10 +1167,10 @@ class FactorioServer extends events.EventEmitter {
 	 * Creates a path using path.join with the given parts that's relative to
 	 * the write directory of the Factorio server.
 	 *
-	 * @param {...string} parts - Extra parts to add to the write path.
-	 * @returns {string} Write directory path.
+	 * @param parts - Extra parts to add to the write path.
+	 * @returns Write directory path.
 	 */
-	writePath(...parts) {
+	writePath(...parts: string[]) {
 		return path.join(this._writeDir, ...parts);
 	}
 
@@ -1124,7 +1179,7 @@ class FactorioServer extends events.EventEmitter {
 	 *
 	 * Loads server-settings.example.json from the data dir.
 	 *
-	 * @returns {Promise<object>} the parsed server-settings.
+	 * @returns the parsed server-settings.
 	 */
 	async exampleSettings() {
 		return JSON.parse(await fs.readFile(this.dataPath("server-settings.example.json"), "utf-8"));
@@ -1140,7 +1195,7 @@ class FactorioServer extends events.EventEmitter {
 		await lib.safeOutputFile(this.writePath("config.ini"), content);
 	}
 
-	async _writeMapSettings(mapGenSettings, mapSettings) {
+	async _writeMapSettings(mapGenSettings?: object, mapSettings?: object) {
 		if (mapGenSettings) {
 			await lib.safeOutputFile(
 				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, 4)
@@ -1155,14 +1210,10 @@ class FactorioServer extends events.EventEmitter {
 }
 
 
-module.exports = {
-	FactorioServer,
-
-	// For testing only
-	_getVersion: getVersion,
-	_versionOrder: versionOrder,
-	_findVersion: findVersion,
-	_randomDynamicPort: randomDynamicPort,
-	_generatePassword: generatePassword,
-	_parseOutput: parseOutput,
-};
+// For testing only
+export const _getVersion = getVersion;
+export const _versionOrder = versionOrder;
+export const _findVersion = findVersion;
+export const _randomDynamicPort = randomDynamicPort;
+export const _generatePassword = generatePassword;
+export const _parseOutput = parseOutput;
