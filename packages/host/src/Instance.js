@@ -662,7 +662,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			// not something we want to have.  For this reason the mods
 			// are hard linked instead.
 			} else {
-				await fs.link(target, link);
+				try {
+					await fs.link(target, link);
+				} catch (err) {
+					this.logger.warn(`Failed to link mod ${modFile}.`);
+				}
 			}
 		}
 

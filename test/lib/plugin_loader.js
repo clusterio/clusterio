@@ -79,30 +79,32 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 		it("should throw if class is missing from entrypoint", async function() {
+			const requirePath = path.resolve(missingClass);
 			await assert.rejects(
 				lib.loadControllerPluginClass({
 					name: "test",
 					controllerEntrypoint: "controller",
-					requirePath: path.resolve(missingClass),
+					requirePath,
 				}),
 				{
 					message:
-						`PluginError: Expected ${path.resolve(missingClass, "controller")} ` +
+						`PluginError: Expected ${path.posix.join(requirePath, "controller")} ` +
 						"to export a class named ControllerPlugin",
 				}
 			);
 		});
 		it("should throw if class is not a subclass of BaseControllerPlugin", async function() {
+			const requirePath = path.resolve(wrongParentClass);
 			await assert.rejects(
 				lib.loadControllerPluginClass({
 					name: "test",
 					controllerEntrypoint: "controller",
-					requirePath: path.resolve(wrongParentClass),
+					requirePath,
 				}),
 				{
 					message:
 						"PluginError: Expected ControllerPlugin exported from " +
-						`${path.resolve(wrongParentClass, "controller")} to be a subclass of BaseControllerPlugin`,
+						`${path.posix.join(requirePath, "controller")} to be a subclass of BaseControllerPlugin`,
 				}
 			);
 		});

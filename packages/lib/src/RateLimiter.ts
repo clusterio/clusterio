@@ -30,7 +30,7 @@ export default class RateLimiter {
 	action?: Function;
 
 	private _lastRun = 0;
-	private _runTimeout?: NodeJS.Timeout;
+	private _runTimeout?: ReturnType<typeof setTimeout>;
 
 	/**
 	 * Construct RateLimiter helper

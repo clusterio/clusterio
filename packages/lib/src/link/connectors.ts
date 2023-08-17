@@ -99,7 +99,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	_closing = false;
 	_socket: WebSocket | null = null;
 	_lastHeartbeat: number | null = null;
-	_heartbeatId: NodeJS.Timer | null = null;
+	_heartbeatId: ReturnType<typeof setInterval> | null = null;
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
 	_sendBuffer: (ReliableMessages)[] = [];
@@ -287,7 +287,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		this.setClosing();
 		this._sendInternal(new libData.MessageDisconnect("prepare"));
 
-		let timeout: NodeJS.Timeout | undefined;
+		let timeout: ReturnType<typeof setTimeout> | undefined;
 		let waitTimeout = new Promise(resolve => { timeout = setTimeout(resolve, 10000); }); // Make Configurable?
 		try {
 			await Promise.race([
@@ -331,7 +331,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
  * @extends module:lib.WebSocketBaseConnector
  */
 export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
-	_reconnectId?: NodeJS.Timeout;
+	_reconnectId?: ReturnType<typeof setTimeout>;
 	_sessionToken: string | null = null;
 	_sessionTimeout: number | null = null;
 	_startedResuming: number | null = null;

@@ -87,7 +87,7 @@ export default class Controller {
 	
 	logDirectory: string = "";
 	clusterLogIndex: lib.LogIndex | null = null;
-	clusterLogBuildInterval: NodeJS.Timer | null = null;
+	clusterLogBuildInterval: ReturnType<typeof setInterval> | null = null;
 
 	constructor(
 		clusterLogger: winston.Logger,
