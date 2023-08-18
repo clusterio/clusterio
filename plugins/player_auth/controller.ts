@@ -1,19 +1,17 @@
-/**
- * @module
- */
-"use strict";
-const crypto = require("crypto");
-const express = require("express");
-const util = require("util");
-const jwt = require("jsonwebtoken");
+import type { Request, Response } from "express";
 
-const lib = require("@clusterio/lib");
+import crypto from "crypto";
+import express from "express";
+import util from "util";
+import jwt from "jsonwebtoken";
+
+import * as lib from "@clusterio/lib";
 const { basicType } = lib;
 
-const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("./messages");
+import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages";
 
 
-async function generateCode(length) {
+async function generateCode(length: number): Promise<string> {
 	// ji1lI, 0oOQ, and 2Z are not present to ease reading.
 	let letters = "abcdefghkmnpqrstuvwxyzABCDEFGHJKLMNPRSTUVWXY3456789";
 	let asyncRandomBytes = util.promisify(crypto.randomBytes);
@@ -29,7 +27,11 @@ async function generateCode(length) {
 }
 
 
-class ControllerPlugin extends lib.BaseControllerPlugin {
+type PlayerCode = { playerCode: string, verifyCode: string | null, expires: number };
+
+export class ControllerPlugin extends lib.BaseControllerPlugin {
+	players!: Map<string, PlayerCode>;
+
 	async init() {
 		// Store of validation attempts by players
 		this.players = new Map();
@@ -44,7 +46,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			}
 		}, 60e3).unref();
 
-		this.controller.app.get("/api/player_auth/servers", (req, res) => {
+		this.controller.app.get("/api/player_auth/servers", (req: Request, res: Response) => {
 			let servers = [];
 			for (let instance of this.controller.instances.values()) {
 				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
@@ -54,11 +56,11 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			res.send(servers);
 		});
 
-		this.controller.app.post("/api/player_auth/player_code", express.json(), (req, res, next) => {
+		this.controller.app.post("/api/player_auth/player_code", express.json(), (req: Request, res: Response, next: any) => {
 			this.handlePlayerCode(req, res).catch(next);
 		});
 
-		this.controller.app.post("/api/player_auth/verify", express.json(), (req, res, next) => {
+		this.controller.app.post("/api/player_auth/verify", express.json(), (req: Request, res: Response, next: any) => {
 			this.handleVerify(req, res).catch(next);
 		});
 
@@ -66,7 +68,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		this.controller.handle(SetVerifyCodeRequest, this.handleSetVerifyCodeRequest.bind(this));
 	}
 
-	async handlePlayerCode(req, res) {
+	async handlePlayerCode(req: Request, res: Response) {
 		if (basicType(req.body) !== "object") {
 			res.sendStatus(400);
 			return;
@@ -100,7 +102,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		res.send({ error: true, message: "invalid player_code" });
 	}
 
-	async handleVerify(req, res) {
+	async handleVerify(req: Request, res: Response) {
 		if (basicType(req.body) !== "object") {
 			res.sendStatus(400);
 			return;
@@ -126,7 +128,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 
 		let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 		try {
-			let payload = jwt.verify(verifyToken, secret, { audience: "player_auth.verify_code" });
+			let payload = jwt.verify(verifyToken, secret, { audience: "player_auth.verify_code" }) as jwt.JwtPayload;
 			if (payload.verify_code !== verifyCode) {
 				throw new Error("invalid verify_code");
 			}
@@ -135,7 +137,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 				throw new Error("invalid player_code");
 			}
 
-		} catch (err) {
+		} catch (err: any) {
 			res.send({ error: true, message: err.message });
 			return;
 		}
@@ -163,21 +165,18 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		res.send({ error: true, message: "invalid player_code" });
 	}
 
-	async handleFetchPlayerCodeRequest(request) {
+	async handleFetchPlayerCodeRequest(request: FetchPlayerCodeRequest) {
 		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
 		let expires = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
 		this.players.set(request.player, { playerCode, verifyCode: null, expires });
 		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
 	}
 
-	async handleSetVerifyCodeRequest(request) {
+	async handleSetVerifyCodeRequest(request: SetVerifyCodeRequest) {
 		let { player, verifyCode } = request;
-		if (!this.players.has(player)) {
-			throw new lib.RequestError("invalid player");
-		}
 
 		let entry = this.players.get(player);
-		if (entry.expires < Date.now()) {
+		if (!entry || entry.expires < Date.now()) {
 			throw new lib.RequestError("invalid player");
 		}
 
@@ -185,9 +184,5 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 	}
 }
 
-module.exports = {
-	ControllerPlugin,
-
-	// For testing only
-	_generateCode: generateCode,
-};
+// For testing only
+export const _generateCode = generateCode;

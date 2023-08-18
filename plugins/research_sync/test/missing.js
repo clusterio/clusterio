@@ -2,5 +2,5 @@
 // required here in order to track coverage for them.
 
 "use strict";
-require("../instance");
-require("../controller");
+require("../dist/plugin/instance");
+require("../dist/plugin/controller");

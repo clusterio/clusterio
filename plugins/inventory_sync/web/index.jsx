@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 
 import * as lib from "@clusterio/lib";
 import { PageLayout, ControlContext } from "@clusterio/web_ui";
-import { DatabaseStatsRequest } from "../messages";
+import { DatabaseStatsRequest } from "../dist/plugin/messages";
 
 import "./index.css";
 

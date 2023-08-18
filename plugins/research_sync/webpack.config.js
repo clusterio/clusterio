@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "research_sync",
 			library: { type: "var", name: "plugin_research_sync" },
 			exposes: {
-				"./info": "./info.js",
+				"./info": "./dist/plugin/info.js",
 				"./package.json": "./package.json",
 			},
 			shared: {

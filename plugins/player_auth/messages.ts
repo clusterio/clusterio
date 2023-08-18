@@ -1,87 +1,61 @@
-"use strict";
+import { Type, Static } from "@sinclair/typebox";
 
-
-class FetchPlayerCodeRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "player_auth";
-
-	/** @type {string} */
-	player;
-
-	constructor(player) {
-		this.player = player;
+class FetchPlayerCodeResponse {
+	constructor(
+		public playerCode: string,
+		public controllerUrl: string
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["player"],
-		properties: {
-			"player": { type: "string" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"playerCode": Type.String(),
+		"controllerUrl": Type.String(),
+	})
 
-	static fromJSON(json) {
-		return new this(json.player);
-	}
-}
-FetchPlayerCodeRequest.Response = class Response {
-	/** @type {string} */
-	playerCode;
-	/** @type {string} */
-	controllerUrl;
-
-	constructor(playerCode, controllerUrl) {
-		this.playerCode = playerCode;
-		this.controllerUrl = controllerUrl;
-	}
-
-	static jsonSchema = {
-		type: "object",
-		required: ["playerCode", "controllerUrl"],
-		properties: {
-			"playerCode": { type: "string" },
-			"controllerUrl": { type: "string" },
-		},
-	};
-
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof FetchPlayerCodeResponse.jsonSchema>): FetchPlayerCodeResponse {
 		return new this(json.playerCode, json.controllerUrl);
 	}
 };
 
-class SetVerifyCodeRequest {
+export class FetchPlayerCodeRequest {
+	static type = "request";
+	static src = "instance";
+	static dst = "controller";
+	static plugin = "player_auth";
+	static Response = FetchPlayerCodeResponse;
+
+	constructor(
+		public player: string
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"player": Type.String(),
+	})
+
+	static fromJSON(json: Static<typeof FetchPlayerCodeRequest.jsonSchema>): FetchPlayerCodeRequest {
+		return new this(json.player);
+	}
+}
+
+export class SetVerifyCodeRequest {
 	static type = "request";
 	static src = "instance";
 	static dst = "controller";
 	static plugin = "player_auth";
 
-	/** @type {string} */
-	player;
-	/** @type {string} */
-	verifyCode;
-
-	constructor(player, verifyCode) {
-		this.player = player;
-		this.verifyCode = verifyCode;
+	constructor(
+		public player: string,
+		public verifyCode: string
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["player", "verifyCode"],
-		properties: {
-			"player": { type: "string" },
-			"verifyCode": { type: "string" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"player": Type.String(),
+		"verifyCode": Type.String(),
+	})
 
-	static fromJSON(json) {
-		return new this(json.playerCode, json.verifyCode);
+	static fromJSON(json: Static<typeof SetVerifyCodeRequest.jsonSchema>): SetVerifyCodeRequest {
+		return new this(json.player, json.verifyCode);
 	}
 }
-
-module.exports = {
-	FetchPlayerCodeRequest,
-	SetVerifyCodeRequest,
-};

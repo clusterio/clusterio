@@ -1,25 +1,20 @@
-"use strict";
-const fs = require("fs-extra");
-const path = require("path");
+import type InstanceInfo from "@clusterio/controller/src/InstanceInfo";
+import type Controller from "@clusterio/controller/src/Controller";
+import type { IpcPlayerData } from "./instance";
 
-const lib = require("@clusterio/lib");
+import fs from "fs-extra";
+import path from "path";
+import * as lib from "@clusterio/lib";
+import * as msg from "./messages";
 
-const {
-	AcquireRequest,
-	ReleaseRequest,
-	UploadRequest,
-	DownloadRequest,
-	DatabaseStatsRequest,
-} = require("./messages");
-
-async function loadDatabase(config, logger) {
+async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 	let itemsPath = path.resolve(config.get("controller.database_directory"), "inventories.json");
 	logger.verbose(`Loading ${itemsPath}`);
 	try {
-		let content = await fs.readFile(itemsPath);
+		let content = await fs.readFile(itemsPath, { encoding: "utf8" });
 		return new Map(JSON.parse(content));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Creating new player data database");
 			return new Map();
@@ -28,7 +23,11 @@ async function loadDatabase(config, logger) {
 	}
 }
 
-async function saveDatabase(controllerConfig, playerDatastore, logger) {
+async function saveDatabase(
+	controllerConfig: lib.ControllerConfig,
+	playerDatastore: Map<string, IpcPlayerData>,
+	logger: lib.Logger,
+) {
 	if (playerDatastore) {
 		let file = path.resolve(controllerConfig.get("controller.database_directory"), "inventories.json");
 		logger.verbose(`writing ${file}`);
@@ -37,7 +36,11 @@ async function saveDatabase(controllerConfig, playerDatastore, logger) {
 	}
 }
 
-class ControllerPlugin extends lib.BaseControllerPlugin {
+export class ControllerPlugin extends lib.BaseControllerPlugin {
+	acquiredPlayers!: Map<string, { instanceId: number, expires?: number }>;
+	playerDatastore!: Map<string, IpcPlayerData>;
+	autosaveId!: ReturnType<typeof setInterval>;
+
 	async init() {
 		this.acquiredPlayers = new Map();
 		this.playerDatastore = await loadDatabase(this.controller.config, this.logger);
@@ -47,14 +50,14 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			});
 		}, this.controller.config.get("inventory_sync.autosave_interval") * 1000);
 
-		this.controller.handle(AcquireRequest, this.handleAcquireRequest.bind(this));
-		this.controller.handle(ReleaseRequest, this.handleReleaseRequest.bind(this));
-		this.controller.handle(UploadRequest, this.handleUploadRequest.bind(this));
-		this.controller.handle(DownloadRequest, this.handleDownloadRequest.bind(this));
-		this.controller.handle(DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
+		this.controller.handle(msg.AcquireRequest, this.handleAcquireRequest.bind(this));
+		this.controller.handle(msg.ReleaseRequest, this.handleReleaseRequest.bind(this));
+		this.controller.handle(msg.UploadRequest, this.handleUploadRequest.bind(this));
+		this.controller.handle(msg.DownloadRequest, this.handleDownloadRequest.bind(this));
+		this.controller.handle(msg.DatabaseStatsRequest, this.handleDatabaseStatsRequest.bind(this));
 	}
 
-	async onInstanceStatusChanged(instance) {
+	async onInstanceStatusChanged(instance: InstanceInfo) {
 		let instanceId = instance.id;
 		if (["unassigned", "deleted"].includes(instance.status)) {
 			for (let [playerName, acquisitionRecord] of this.acquiredPlayers) {
@@ -82,7 +85,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	acquire(instanceId, playerName) {
+	acquire(instanceId: number, playerName: string): boolean {
 		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (
 			!acquisitionRecord
@@ -97,11 +100,11 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		return false;
 	}
 
-	async handleAcquireRequest(request) {
+	async handleAcquireRequest(request: msg.AcquireRequest) {
 		let { instanceId, playerName } = request;
 		if (!this.acquire(instanceId, playerName)) {
 			let acquisitionRecord = this.acquiredPlayers.get(playerName);
-			let instance = this.controller.instances.get(acquisitionRecord.instanceId);
+			let instance = this.controller.instances.get(acquisitionRecord!.instanceId);
 			return {
 				status: "busy",
 				message: instance.config.get("instance.name"),
@@ -109,14 +112,14 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 
 		let playerData = this.playerDatastore.get(playerName);
-		return new AcquireRequest.Response(
+		return new msg.AcquireRequest.Response(
 			"acquired",
 			playerData ? playerData.generation : 0,
 			Boolean(playerData),
 		);
 	}
 
-	async handleReleaseRequest(request) {
+	async handleReleaseRequest(request: msg.ReleaseRequest) {
 		let { instanceId, playerName } = request;
 		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
@@ -128,7 +131,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	async handleUploadRequest(request) {
+	async handleUploadRequest(request: msg.UploadRequest) {
 		let { instanceId, playerName, playerData } = request;
 		let instanceName = this.controller.instances.get(instanceId).config.get("instance.name");
 		let store = true;
@@ -162,7 +165,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	async handleDownloadRequest(request) {
+	async handleDownloadRequest(request: msg.DownloadRequest) {
 		let { instanceId, playerName } = request;
 		let instanceName = this.controller.instances.get(instanceId).config.get("instance.name");
 
@@ -174,7 +177,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 
 		this.logger.verbose(`Sending player data for ${playerName} to ${instanceName}`);
-		return new DownloadRequest.Response(this.playerDatastore.get(playerName) || null);
+		return new msg.DownloadRequest.Response(this.playerDatastore.get(playerName) || null);
 	}
 
 	async onShutdown() {
@@ -189,7 +192,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 				length: JSON.stringify(this.playerDatastore.get(name)).length,
 			}))
 			.sort((a, b) => b.length - a.length);
-		return new DatabaseStatsRequest.Response(
+		return new msg.DatabaseStatsRequest.Response(
 			playerDatastore.map(x => x.length).reduce((a, b) => b - a, 0),
 			playerDatastore.length,
 			{
@@ -199,7 +202,3 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		);
 	}
 }
-
-module.exports = {
-	ControllerPlugin,
-};

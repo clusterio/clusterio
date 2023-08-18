@@ -1,98 +1,72 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import { Type, Static } from "@sinclair/typebox";
+import * as lib from "@clusterio/lib";
+import { type } from "os";
 
-class Item {
-	/** @type {string} */
-	name;
-	/** @type {number} */
-	count;
-
-	constructor(name, count) {
-		this.name = name;
-		this.count = count;
+export class Item {
+	constructor(
+		public name: string,
+		public count: number
+	) {
 	}
 
-	static jsonSchema = {
-		type: "array",
-		minItems: 2,
-		maxItems: 2,
-		items: [
-			{ type: "string" },
-			{ type: "integer" },
-		],
-	};
+	static jsonSchema = Type.Tuple([
+		Type.String(),
+		Type.Number(),
+	]);
 
 	toJSON() {
 		return [this.name, this.count];
 	}
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof Item.jsonSchema>): Item {
 		return new this(json[0], json[1]);
 	}
 }
 
 // XXX this should be a request to be reliable
-class PlaceEvent {
+export class PlaceEvent {
 	static type = "event";
 	static src = "instance";
 	static dst = "controller";
 	static plugin = "subspace_storage";
 
-	/** @type {Array<Item>} */
-	items;
-
-	constructor(items) {
-		this.items = items;
+	constructor(
+		public items: Item[]
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["items"],
-		properties: {
-			"items": {
-				type: "array",
-				items: Item.jsonSchema,
-			},
-		},
-	};
+	static jsonSchema = Type.Object({
+		"items": Type.Array(Item.jsonSchema)
+	})
 
-	static fromJSON(json) {
-		return new this(json.items);
+	static fromJSON(json: Static<typeof PlaceEvent.jsonSchema>): PlaceEvent {
+		return new this(json.items.map(item => Item.fromJSON(item)));
 	}
 }
 
-class RemoveRequest {
+export class RemoveRequest {
 	static type = "request";
 	static src = "instance";
 	static dst = "controller";
 	static plugin = "subspace_storage";
 
-	/** @type {Array<Item>} */
-	items;
-
-	constructor(items) {
-		this.items = items;
+	constructor(
+		public items: Item[]
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["items"],
-		properties: {
-			"items": {
-				type: "array",
-				items: Item.jsonSchema,
-			},
-		},
-	};
+	static jsonSchema = Type.Object({
+		"items": Type.Array(Item.jsonSchema)
+	})
 
-	static fromJSON(json) {
-		return new this(json.items);
+	static fromJSON(json: Static<typeof RemoveRequest.jsonSchema>): RemoveRequest {
+		return new this(json.items.map(item => Item.fromJSON(item)));
 	}
 
 	static Response = lib.jsonArray(Item);
 }
 
-class GetStorageRequest {
+export class GetStorageRequest {
 	static type = "request";
 	static src = ["instance", "control"];
 	static dst = "controller";
@@ -101,67 +75,43 @@ class GetStorageRequest {
 	static Response = lib.jsonArray(Item);
 }
 
-class UpdateStorageEvent {
+export class UpdateStorageEvent {
 	static type = "request";
 	static src = "controller";
 	static dst = ["instance", "control"];
 	static plugin = "subspace_storage";
 
-	/** @type {Array<Item>} */
-	items;
-
-	constructor(items) {
-		this.items = items;
+	constructor(
+		public items: Item[]
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["items"],
-		properties: {
-			"items": {
-				type: "array",
-				items: Item.jsonSchema,
-			},
-		},
-	};
+	static jsonSchema = Type.Object({
+		"items": Type.Array(Item.jsonSchema)
+	})
 
-	static fromJSON(json) {
-		return new this(json.items);
+	static fromJSON(json: Static<typeof UpdateStorageEvent.jsonSchema>): UpdateStorageEvent {
+		return new this(json.items.map(item => Item.fromJSON(item)));
 	}
 }
 
-class SetStorageSubscriptionRequest {
+export class SetStorageSubscriptionRequest {
 	static type = "request";
 	static src = "control";
 	static dst = "controller";
 	static plugin = "subspace_storage";
 	static permission = "subspace_storage.storage.view";
 
-	/** @type {boolean} */
-	storage;
-
-	constructor(storage) {
-		this.storage = storage;
+	constructor(
+		public storage: boolean
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["storage"],
-		properties: {
-			"storage": { type: "boolean" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"storage": Type.Boolean()
+	})
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof SetStorageSubscriptionRequest.jsonSchema>): SetStorageSubscriptionRequest {
 		return new this(json.storage);
 	}
 }
-
-module.exports = {
-	Item,
-	PlaceEvent,
-	RemoveRequest,
-	GetStorageRequest,
-	UpdateStorageEvent,
-	SetStorageSubscriptionRequest,
-};

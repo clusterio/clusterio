@@ -1,6 +1,5 @@
-"use strict";
-const lib = require("@clusterio/lib");
-let messages = require("./messages");
+import * as lib from "@clusterio/lib";
+import * as messages from "./messages";
 
 class ControllerConfigGroup extends lib.PluginConfigGroup { }
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -41,15 +40,15 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-module.exports.default = {
+const info: lib.PluginInfo = {
 	name: "inventory_sync",
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",
 
-	instanceEntrypoint: "instance",
+	instanceEntrypoint: "dist/plugin/instance",
 	InstanceConfigGroup,
 
-	controllerEntrypoint: "controller",
+	controllerEntrypoint: "dist/plugin/controller",
 	ControllerConfigGroup,
 
 	messages: [
@@ -61,4 +60,6 @@ module.exports.default = {
 	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
-};
+}
+
+export default info;

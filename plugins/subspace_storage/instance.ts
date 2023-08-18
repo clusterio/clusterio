@@ -1,24 +1,29 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
-const {
+import {
 	PlaceEvent,
 	RemoveRequest,
 	GetStorageRequest,
 	UpdateStorageEvent,
-} = require("./messages");
+	Item,
+} from "./messages";
 
-class InstancePlugin extends lib.BaseInstancePlugin {
-	unexpectedError(err) {
+type IpcItems = { name: string, count: number }[];
+
+export class InstancePlugin extends lib.BaseInstancePlugin {
+	pendingTasks!: Set<any>;
+	pingId?: ReturnType<typeof setTimeout>;
+
+	unexpectedError(err: Error) {
 		this.logger.error(`Unexpected error:\n${err.stack}`);
 	}
 
 	async init() {
 		this.pendingTasks = new Set();
-		this.instance.server.on("ipc-subspace_storage:output", (output) => {
+		this.instance.server.on("ipc-subspace_storage:output", (output: IpcItems) => {
 			this.provideItems(output).catch(err => this.unexpectedError(err));
 		});
-		this.instance.server.on("ipc-subspace_storage:orders", (orders) => {
+		this.instance.server.on("ipc-subspace_storage:orders", (orders: IpcItems) => {
 			if (this.instance.status !== "running" || !this.host.connected) {
 				return;
 			}
@@ -57,7 +62,7 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 	}
 
 	// provide items --------------------------------------------------------------
-	async provideItems(items) {
+	async provideItems(items: IpcItems) {
 		if (!this.host.connector.hasSession) {
 			// For now the items are voided if the controller connection is
 			// down, which is no different from the previous behaviour.
@@ -68,7 +73,8 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 			return;
 		}
 
-		this.instance.sendTo("controller", new PlaceEvent(items));
+		const fromIpcItems = items.map(item => new Item(item.name, item.count))
+		this.instance.sendTo("controller", new PlaceEvent(fromIpcItems));
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
 			this.logger.verbose("Exported the following to controller:");
@@ -77,9 +83,10 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 	}
 
 	// request items --------------------------------------------------------------
-	async requestItems(requestItems) {
+	async requestItems(requestItems: IpcItems) {
 		// Request the items all at once
-		let items = await this.instance.sendTo("controller", new RemoveRequest(requestItems));
+		let fromIpcItems = requestItems.map(item => new Item(item.name, item.count))
+		let items = await this.instance.sendTo("controller", new RemoveRequest(fromIpcItems));
 
 		if (!items.length) {
 			return;
@@ -95,14 +102,14 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 	}
 
 	// combinator signals ---------------------------------------------------------
-	async handleUpdateStorageEvent(request) {
+	async handleUpdateStorageEvent(event: UpdateStorageEvent) {
 		if (this.instance.status !== "running") {
 			return;
 		}
-		let items = request.items;
+		let items = event.items;
 
 		// XXX this should be moved to instance/clusterio api
-		items.push(["signal-unixtime", Math.floor(Date.now()/1000)]);
+		items.push(new Item("signal-unixtime", Math.floor(Date.now()/1000)));
 
 		let itemsJson = lib.escapeString(JSON.stringify(items));
 		let task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
@@ -111,7 +118,3 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		await task;
 	}
 }
-
-module.exports = {
-	InstancePlugin,
-};

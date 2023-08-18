@@ -1,179 +1,133 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import { Type, Static } from "@sinclair/typebox";
+import * as lib from "@clusterio/lib";
 
-class ContributionEvent {
+export class ContributionEvent {
 	static type = "event";
 	static src = "instance";
 	static dst = "controller";
 	static plugin = "research_sync";
 
-	/** @type {string} */
-	name;
-	/** @type {number} */
-	level;
-	/** @type {number} */
-	contribution;
-
-	constructor(name, level, contribution) {
-		this.name = name;
-		this.level = level;
-		this.contribution = contribution;
+	constructor(
+		public name: string,
+		public level: number,
+		public contribution: number
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["name", "level", "contribution"],
-		properties: {
-			name: { type: "string" },
-			level: { type: "integer" },
-			contribution: { type: "number" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"level": Type.Integer(),
+		"contribution": Type.Number(),
+	})
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof ContributionEvent.jsonSchema>): ContributionEvent {
 		return new this(json.name, json.level, json.contribution);
 	}
 }
 
-class ProgressEvent {
+
+export class TechnologyProgress {
+	constructor(
+		public name: string,
+		public level: number,
+		public progress: number | null,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"level": Type.Integer(),
+		"progress": Type.Number(),
+	})
+}
+
+export class ProgressEvent {
 	static type = "event";
 	static src = "controller";
 	static dst = "instance";
 	static plugin = "research_sync";
 
-	/** @type {Array<Technology>} */
-	technologies;
-
-	constructor(technologies) {
-		this.technologies = technologies;
+	constructor(
+		public technologies: TechnologyProgress[],
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["technologies"],
-		properties: {
-			technologies: {
-				type: "array",
-				items: {
-					type: "object",
-					required: ["name", "level", "progress"],
-					properties: {
-						name: { type: "string" },
-						level: { type: "integer" },
-						progress: { type: "number" },
-					},
-					additionalProperties: false,
-				},
-			},
-		},
-	};
+	static jsonSchema = Type.Object({
+		"technologies": Type.Array(
+			TechnologyProgress.jsonSchema
+		)
+	})
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof ProgressEvent.jsonSchema>): ProgressEvent {
 		return new this(json.technologies);
 	}
 }
 
-class FinishedEvent {
+export class FinishedEvent {
 	static type = "event";
 	static src = ["instance", "controller"];
 	static dst = "instance";
 	static plugin = "research_sync";
 
-	/** @type {string} */
-	name;
-	/** @type {number} */
-	level;
-
-	constructor(name, level) {
-		this.name = name;
-		this.level = level;
+	constructor(
+		public name: string,
+		public level: number,
+	) {
 	}
 
-	static jsonSchema = {
-		type: "object",
-		required: ["name", "level"],
-		properties: {
-			name: { type: "string" },
-			level: { type: "integer" },
-		},
-	};
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"level": Type.Integer(),
+	})
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof FinishedEvent.jsonSchema>): FinishedEvent {
 		return new this(json.name, json.level);
 	}
 }
 
-class Technology {
-	/** @type {string} */
-	name;
-	/** @type {number} */
-	level;
-	/** @type {?number} */
-	progress;
-	/** @type {boolean} */
-	researched;
-
-	constructor(name, level, progress, researched) {
-		this.name = name;
-		this.level = level;
-		this.progress = progress;
-		this.researched = researched;
+export class Technology {
+	constructor(
+		public name: string,
+		public level: number,
+		public progress: number | null,
+		public researched: boolean,
+	) {
 	}
 
-	static jsonSchema = {
-		type: "array",
-		minItems: 4,
-		maxItems: 4,
-		items: [
-			{ type: "string" },
-			{ type: "integer" },
-			{ type: ["null", "number"] },
-			{ type: "boolean" },
-		],
-	};
-
+	static jsonSchema = Type.Tuple([
+		Type.String(),
+		Type.Integer(),
+		Type.Union([ Type.Number(), Type.Null() ]),
+		Type.Boolean(),
+	])
 	toJSON() {
 		return [this.name, this.level, this.progress, this.researched];
 	}
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof Technology.jsonSchema>): Technology {
 		return new this(json[0], json[1], json[2], json[3]);
 	}
 }
 
-class SyncTechnologiesRequest {
+export class SyncTechnologiesRequest {
 	static type = "request";
 	static src = "instance";
 	static dst = "controller";
 	static plugin = "research_sync";
 
-	/** @type {Array<Technology>} */
-	technologies;
-
-	constructor(technologies) {
-		this.technologies = technologies;
+	constructor(
+		public technologies: Technology[]
+	) {
 	}
 
-	static jsonSchema = {
-		type: "array",
-		items: Technology.jsonSchema,
-	};
-
+	static jsonSchema = Type.Array(Technology.jsonSchema);
 	toJSON() {
 		return this.technologies;
 	}
 
-	static fromJSON(json) {
+	static fromJSON(json: Static<typeof SyncTechnologiesRequest.jsonSchema>): SyncTechnologiesRequest {
 		return new this(json.map(e => Technology.fromJSON(e)));
 	}
 
 	static Response = lib.jsonArray(Technology);
 }
-
-module.exports = {
-	ContributionEvent,
-	ProgressEvent,
-	FinishedEvent,
-	Technology,
-	SyncTechnologiesRequest,
-};

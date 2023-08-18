@@ -1,42 +1,52 @@
-"use strict";
-const fs = require("fs-extra");
-const path = require("path");
+import fs from "fs-extra";
+import path from "path";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 const { RateLimiter } = lib;
 
-const {
+import {
 	ContributionEvent,
 	ProgressEvent,
 	FinishedEvent,
 	Technology,
 	SyncTechnologiesRequest,
-} = require("./messages");
+} from "./messages";
 
 
-async function loadTechnologies(controllerConfig, logger) {
+async function loadTechnologies(
+	controllerConfig: lib.ControllerConfig,
+	logger: lib.Logger
+): Promise<Map<any, any>> {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`Loading ${filePath}`);
 	try {
-		return new Map(JSON.parse(await fs.readFile(filePath)));
+		return new Map(JSON.parse(await fs.readFile(filePath, { encoding: "utf8" })));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Creating new technologies database");
 			return new Map();
-
 		}
 		throw err;
 	}
 }
 
-async function saveTechnologies(controllerConfig, technologies, logger) {
+async function saveTechnologies(
+	controllerConfig: lib.ControllerConfig,
+	technologies: Map<any, any>,
+	logger: lib.Logger
+) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
 	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
 }
 
-class ControllerPlugin extends lib.BaseControllerPlugin {
+export class ControllerPlugin extends lib.BaseControllerPlugin {
+	technologies!: Map<string, Technology>;
+	progressRateLimiter!: lib.RateLimiter;
+	progressBroadcastId!: ReturnType<typeof setInterval> | null;
+	progressToBroadcast!: Set<string>;
+
 	async init() {
 		this.technologies = await loadTechnologies(this.controller.config, this.logger);
 		this.progressRateLimiter = new RateLimiter({
@@ -61,8 +71,8 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		let techs = [];
 		for (let name of this.progressToBroadcast) {
 			let tech = this.technologies.get(name);
-			if (tech.progress) {
-				techs.push({ name, level: tech.level, progress: tech.progress });
+			if (tech && tech.progress) {
+				techs.push(new Technology(name, tech.level, tech.progress, false));
 			}
 		}
 		this.progressToBroadcast.clear();
@@ -72,11 +82,11 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	async handleContributionEvent(event) {
+	async handleContributionEvent(event: ContributionEvent) {
 		let { name, level, contribution } = event;
 		let tech = this.technologies.get(name);
 		if (!tech) {
-			tech = { level, progress: 0, researched: false };
+			tech = new Technology(name, level, 0, false);
 			this.technologies.set(name, tech);
 
 		// Ignore contribution to already researched technologies
@@ -95,11 +105,11 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			return;
 		}
 
-		let newProgress = tech.progress + contribution;
+		let newProgress = tech.progress! + contribution;
 		if (newProgress < 1) {
 			tech.progress = newProgress;
 			this.progressToBroadcast.add(name);
-			this.progressRateLimiter.activate();
+			this.progressRateLimiter!.activate();
 
 		} else {
 			tech.researched = true;
@@ -110,17 +120,17 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	async handleFinishedEvent(event) {
+	async handleFinishedEvent(event: FinishedEvent) {
 		let { name, level } = event;
 		let tech = this.technologies.get(name);
 		if (!tech || tech.level <= level) {
 			this.progressToBroadcast.delete(name);
-			this.technologies.set(name, { level, progress: null, researched: true });
+			this.technologies.set(name, new Technology(name, level, null, true));
 		}
 	}
 
-	async handleSyncTechnologiesRequest(request) {
-		function baseLevel(name) {
+	async handleSyncTechnologiesRequest(request: SyncTechnologiesRequest): Promise<Technology[]> {
+		function baseLevel(name: string): number {
 			let match = /-(\d+)$/.exec(name);
 			if (!match) {
 				return 1;
@@ -132,11 +142,11 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			let { name, level, progress, researched } = instanceTech;
 			let tech = this.technologies.get(name);
 			if (!tech) {
-				this.technologies.set(name, { level, progress, researched });
+				this.technologies.set(name, new Technology(name, level, progress, researched));
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
-					this.controller.sendTo("allInstances", new FinishedEvent(name, tech));
+					this.controller.sendTo("allInstances", new FinishedEvent(name, level));
 				}
 
 			} else {
@@ -146,8 +156,8 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 
 				if (tech.level < level || researched) {
 					// Send update if the unlocked level is greater
-					if (level - !researched > tech.level - !tech.researched) {
-						this.controller.sendTo("allInstances", new FinishedEvent(name, level - !researched));
+					if (level - Number(!researched) > tech.level - Number(!tech.researched)) {
+						this.controller.sendTo("allInstances", new FinishedEvent(name, level - Number(!researched)));
 					}
 					tech.level = level;
 					tech.progress = progress;
@@ -159,7 +169,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 						this.progressToBroadcast.delete(name);
 					}
 
-				} else if (tech.progress < progress) {
+				} else if (tech.progress && progress && tech.progress < progress) {
 					tech.progress = progress;
 					this.progressToBroadcast.add(name);
 				}
@@ -175,8 +185,3 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		return technologies;
 	}
 }
-
-
-module.exports = {
-	ControllerPlugin,
-};

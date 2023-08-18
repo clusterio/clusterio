@@ -13,10 +13,10 @@ const { LineSplitter, ConsoleTransport, logger } = lib;
 
 // Make sure permissions from plugins are loaded
 require("../../plugins/global_chat/dist/plugin/info");
-require("../../plugins/player_auth/info");
-require("../../plugins/research_sync/info");
-require("../../plugins/statistics_exporter/info");
-require("../../plugins/subspace_storage/info");
+require("../../plugins/player_auth/dist/plugin/info");
+require("../../plugins/research_sync/dist/plugin/info");
+require("../../plugins/statistics_exporter/dist/plugin/info");
+require("../../plugins/subspace_storage/dist/plugin/info");
 
 
 class TestControl extends lib.Link {

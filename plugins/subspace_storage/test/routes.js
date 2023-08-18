@@ -1,7 +1,7 @@
 "use strict";
 const assert = require("assert").strict;
 
-const routes = require("../routes");
+const routes = require("../dist/plugin/routes");
 const { get } = require("../../../test/integration");
 
 

@@ -1,47 +1,61 @@
-/**
- * @module
- */
-"use strict";
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
+import { AcquireRequest, ReleaseRequest, UploadRequest, DownloadRequest } from "./messages";
 
-const {
-	AcquireRequest,
-	ReleaseRequest,
-	UploadRequest,
-	DownloadRequest,
-} = require("./messages");
+type IpcPlayerName = {
+	player_name: string
+}
+export type IpcPlayerData = { //.\module\serialize.lua:serialize.serialize_player()
+	generation: number,
+	controller: string,
+	name: string,
+	color: number[],
+	chat_color: number[],
+	tag: string,
+	force: string,
+	cheat_mode: boolean,
+	flashlight: boolean,
+	ticks_to_respawn?: number,
+	character?: any,
+	inventories?: any,
+	hotbar?: string[],
+	personal_logistic_slots?: {name:string, min:number, max:number}[],
+	crafting_queue?: any,
+}
 
 /**
  * Splits string into array of strings with max of a certain length
- * @param {Number} chunkSize - Max length of each chunk
- * @param {String} string - String to split into chunks
- * @returns {String[]} Chunks
+ * @param chunkSize - Max length of each chunk
+ * @param string - String to split into chunks
  */
-function chunkify(chunkSize, string) {
-	return string.match(new RegExp(`.{1,${chunkSize}}`, "g"));
+function chunkify(chunkSize: number, string: string): string[] {
+	return string.match(new RegExp(`.{1,${chunkSize}}`, "g")) || [];
 }
 
-class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends lib.BaseInstancePlugin {
+	playersToRelease!: Set<string>;
+	disconnecting!: boolean;
+
 	async init() {
 		this.playersToRelease = new Set();
 		this.disconnecting = false;
 
 		// Handle IPC from scenario script
-		this.instance.server.on("ipc-inventory_sync_acquire", content => this.handleAcquire(content)
+		this.instance.server.on("ipc-inventory_sync_acquire", (request: IpcPlayerName) => this.handleAcquire(request)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_acquire:\n${err.stack}`)));
-		this.instance.server.on("ipc-inventory_sync_release", content => this.handleRelease(content)
+		this.instance.server.on("ipc-inventory_sync_release", (request: IpcPlayerName) => this.handleRelease(request)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_release:\n${err.stack}`)));
-		this.instance.server.on("ipc-inventory_sync_upload", content => this.handleUpload(content)
+		this.instance.server.on("ipc-inventory_sync_upload", (player_data: IpcPlayerData) => this.handleUpload(player_data)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_upload:\n${err.stack}`)));
-		this.instance.server.on("ipc-inventory_sync_download", content => this.handleDownload(content)
+		this.instance.server.on("ipc-inventory_sync_download", (request: IpcPlayerName) => this.handleDownload(request)
 			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)));
 	}
 
-	onPrepareControllerDisconnect() {
+	async onPrepareControllerDisconnect() {
 		this.disconnecting = true;
 	}
 
-	onControllerConnectionEvent(event) {
+	
+	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
 		if (event === "connect") {
 			this.disconnecting = false;
 			(async () => {
@@ -49,7 +63,7 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 					if (!this.host.connector.connected || this.disconnecting) {
 						return;
 					}
-					this.playersToRelease.delete(player);
+					this.playersToRelease.delete(player_name);
 					await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, player_name));
 				}
 			})().catch(
@@ -58,11 +72,13 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		}
 	}
 
-	async handleAcquire(request) {
+	async handleAcquire(request: IpcPlayerName) {
 		let response = {
 			player_name: request.player_name,
 			status: "error",
 			message: "Controller is temporarily unavailable",
+			generation: undefined,
+			has_data: undefined,
 		};
 
 		if (this.host.connector.connected && !this.disconnecting) {
@@ -78,7 +94,7 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 					has_data: acquireResponse.hasData,
 					message: acquireResponse.message,
 				};
-			} catch (err) {
+			} catch (err: any) {
 				if (!(err instanceof lib.SessionLost)) {
 					this.logger.error(`Unexpected error sending aquire request:\n${err.stack}`);
 					response.message = err.message;
@@ -90,23 +106,23 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		await this.sendRcon(`/sc inventory_sync.acquire_response("${json}")`, true);
 	}
 
-	async handleRelease(request) {
+	async handleRelease(request: IpcPlayerName) {
 		if (!this.host.connector.connected) {
-			this.playersToRelease.set(request.player_name);
+			this.playersToRelease.add(request.player_name);
 		}
 
 		try {
 			await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, request.player_name));
-		} catch (err) {
+		} catch (err: any) {
 			if (err instanceof lib.SessionLost) {
-				this.playersToRelease.set(request.player_name);
+				this.playersToRelease.add(request.player_name);
 			} else {
 				this.logger.error(`Unexpected error releasing player ${request.player_name}:\n${err.stack}`);
 			}
 		}
 	}
 
-	async handleUpload(player_data) {
+	async handleUpload(player_data: IpcPlayerData) {
 		if (!this.host.connector.connected || this.disconnecting) {
 			return;
 		}
@@ -118,7 +134,7 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 				new UploadRequest(this.instance.id, player_data.name, player_data),
 			);
 
-		} catch (err) {
+		} catch (err: any) {
 			if (!(err instanceof lib.SessionLost)) {
 				this.logger.error(`Unexpected error uploading inventory for ${player_data.name}:\n${err.stack}`);
 			}
@@ -130,7 +146,7 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		);
 	}
 
-	async handleDownload(request) {
+	async handleDownload(request: IpcPlayerName) {
 		const playerName = request.player_name;
 		this.logger.verbose(`Downloading ${playerName}`);
 
@@ -154,7 +170,3 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		}
 	}
 }
-
-module.exports = {
-	InstancePlugin,
-};

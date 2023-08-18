@@ -1,16 +1,27 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const {
+import * as lib from "@clusterio/lib";
+import {
 	ContributionEvent,
 	ProgressEvent,
 	FinishedEvent,
 	Technology,
 	SyncTechnologiesRequest,
-} = require("./messages");
+} from "./messages";
 
+// ./module/sync.lua
+type IpcContribution = {
+	name: string,
+	level: number,
+	contribution: number,
+};
+type IpcFinished = {
+	name: string,
+	level: number,
+};
 
-class InstancePlugin extends lib.BaseInstancePlugin {
-	unexpectedError(err) {
+export class InstancePlugin extends lib.BaseInstancePlugin {
+	syncStarted!: boolean;
+
+	unexpectedError(err: Error) {
 		this.logger.error(`Unexpected error:\n${err.stack}`);
 	}
 
@@ -19,10 +30,10 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 			throw new Error("research_sync plugin requires save patching.");
 		}
 
-		this.instance.server.on("ipc-research_sync:contribution", (tech) => {
+		this.instance.server.on("ipc-research_sync:contribution", (tech: IpcContribution) => {
 			this.researchContribution(tech).catch(err => this.unexpectedError(err));
 		});
-		this.instance.server.on("ipc-research_sync:finished", (tech) => {
+		this.instance.server.on("ipc-research_sync:finished", (tech: IpcFinished) => {
 			this.researchFinished(tech).catch(err => this.unexpectedError(err));
 		});
 
@@ -31,11 +42,11 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		this.instance.handle(FinishedEvent, this.handleFinishedEvent.bind(this));
 	}
 
-	async researchContribution(tech) {
+	async researchContribution(tech: IpcContribution) {
 		this.instance.sendTo("controller", new ContributionEvent(tech.name, tech.level, tech.contribution));
 	}
 
-	async handleProgressEvent(event) {
+	async handleProgressEvent(event: ProgressEvent) {
 		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
 			return;
 		}
@@ -43,11 +54,11 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		await this.sendOrderedRcon(`/sc research_sync.update_progress("${techsJson}")`, true);
 	}
 
-	async researchFinished(tech) {
+	async researchFinished(tech: IpcFinished) {
 		this.instance.sendTo("allInstances", new FinishedEvent(tech.name, tech.level));
 	}
 
-	async handleFinishedEvent(event) {
+	async handleFinishedEvent(event: FinishedEvent) {
 		if (!this.syncStarted || !["starting", "running"].includes(this.instance.status)) {
 			return;
 		}
@@ -93,7 +104,3 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		}
 	}
 }
-
-module.exports = {
-	InstancePlugin,
-};

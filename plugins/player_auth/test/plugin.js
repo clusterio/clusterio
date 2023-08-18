@@ -5,10 +5,10 @@ const jwt = require("jsonwebtoken");
 
 const mock = require("../../../test/mock");
 
-const controller = require("../controller");
-const instance = require("../instance");
-const info = require("../info").default;
-const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("../messages");
+const controller = require("../dist/plugin/controller");
+const instance = require("../dist/plugin/instance");
+const info = require("../dist/plugin/info").default;
+const { FetchPlayerCodeRequest, SetVerifyCodeRequest } = require("../dist/plugin/messages");
 const lib = require("@clusterio/lib");
 
 
