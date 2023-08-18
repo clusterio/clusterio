@@ -224,14 +224,14 @@ export class ItemDatabase {
 	 * @param name - The name of the item to get the count of.
 	 * @returns The count of the item stored.
 	 */
-	getItemCount(name: string) {
+	getItemCount(name: string): number {
 		checkName(name);
 
 		if (!this._items.has(name)) {
 			return 0;
 		}
 
-		return this._items.get(name);
+		return this._items.get(name)!;
 	}
 
 	/**
@@ -274,4 +274,11 @@ export class ItemDatabase {
 
 		this._items.set(name, count);
 	};
+
+	/**
+	 * Allow to iterate through the items.
+	 */
+	getEntries(): IterableIterator<[string, number]> {
+		return this._items.entries()
+	}
 }
