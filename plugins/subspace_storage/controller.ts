@@ -136,7 +136,6 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		let update = UpdateStorageEvent.fromJSON({ items: itemsToUpdate });
 		this.controller.sendTo("allInstances", update);
 		for (let link of this.subscribedControlLinks) {
-			//@ts-ignore // don't know how to properly implement lib.Request<req, res>
 			link.send(update);
 		}
 		this.itemsLastUpdate = new Map(this.items.getEntries());

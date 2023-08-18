@@ -2,10 +2,11 @@ import { Type, Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
 
 export class ContributionEvent {
-	static type = "event";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "research_sync";
+	declare ["constructor"]: typeof ContributionEvent;
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "research_sync" as const;
 
 	constructor(
 		public name: string,
@@ -42,10 +43,11 @@ export class TechnologyProgress {
 }
 
 export class ProgressEvent {
-	static type = "event";
-	static src = "controller";
-	static dst = "instance";
-	static plugin = "research_sync";
+	declare ["constructor"]: typeof ProgressEvent;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "instance" as const;
+	static plugin = "research_sync" as const;
 
 	constructor(
 		public technologies: TechnologyProgress[],
@@ -64,10 +66,11 @@ export class ProgressEvent {
 }
 
 export class FinishedEvent {
-	static type = "event";
-	static src = ["instance", "controller"];
-	static dst = "instance";
-	static plugin = "research_sync";
+	declare ["constructor"]: typeof FinishedEvent;
+	static type = "event" as const;
+	static src = ["instance", "controller"] as const;
+	static dst = "instance" as const;
+	static plugin = "research_sync" as const;
 
 	constructor(
 		public name: string,
@@ -110,10 +113,11 @@ export class Technology {
 }
 
 export class SyncTechnologiesRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "research_sync";
+	declare ["constructor"]: typeof SyncTechnologiesRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "research_sync" as const;
 
 	constructor(
 		public technologies: Technology[]

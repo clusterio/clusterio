@@ -25,10 +25,11 @@ export class Item {
 
 // XXX this should be a request to be reliable
 export class PlaceEvent {
-	static type = "event";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "subspace_storage";
+	declare ["constructor"]: typeof PlaceEvent;
+	static type = "event" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "subspace_storage" as const;
 
 	constructor(
 		public items: Item[]
@@ -45,10 +46,11 @@ export class PlaceEvent {
 }
 
 export class RemoveRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "subspace_storage";
+	declare ["constructor"]: typeof RemoveRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "subspace_storage" as const;
 
 	constructor(
 		public items: Item[]
@@ -67,19 +69,21 @@ export class RemoveRequest {
 }
 
 export class GetStorageRequest {
-	static type = "request";
-	static src = ["instance", "control"];
-	static dst = "controller";
-	static plugin = "subspace_storage";
-	static permission = "subspace_storage.storage.view";
+	declare ["constructor"]: typeof GetStorageRequest;
+	static type = "request" as const;
+	static src = ["instance", "control"] as const;
+	static dst = "controller" as const;
+	static plugin = "subspace_storage" as const;
+	static permission = "subspace_storage.storage.view" as const;
 	static Response = lib.jsonArray(Item);
 }
 
 export class UpdateStorageEvent {
-	static type = "request";
-	static src = "controller";
-	static dst = ["instance", "control"];
-	static plugin = "subspace_storage";
+	declare ["constructor"]: typeof UpdateStorageEvent;
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = ["instance", "control"] as const;
+	static plugin = "subspace_storage" as const;
 
 	constructor(
 		public items: Item[]
@@ -96,11 +100,12 @@ export class UpdateStorageEvent {
 }
 
 export class SetStorageSubscriptionRequest {
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static plugin = "subspace_storage";
-	static permission = "subspace_storage.storage.view";
+	declare ["constructor"]: typeof SetStorageSubscriptionRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "subspace_storage" as const;
+	static permission = "subspace_storage.storage.view" as const;
 
 	constructor(
 		public storage: boolean

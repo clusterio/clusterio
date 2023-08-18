@@ -18,10 +18,11 @@ class FetchPlayerCodeResponse {
 };
 
 export class FetchPlayerCodeRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "player_auth";
+	declare ["constructor"]: typeof FetchPlayerCodeRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "player_auth" as const;
 	static Response = FetchPlayerCodeResponse;
 
 	constructor(
@@ -39,10 +40,11 @@ export class FetchPlayerCodeRequest {
 }
 
 export class SetVerifyCodeRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "player_auth";
+	declare ["constructor"]: typeof SetVerifyCodeRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "player_auth" as const;
 
 	constructor(
 		public player: string,

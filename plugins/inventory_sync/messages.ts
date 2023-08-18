@@ -29,10 +29,11 @@ class AcquireResponse {
 	}
 };
 export class AcquireRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "inventory_sync";
+	declare ["constructor"]: typeof AcquireRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
 	static Response = AcquireResponse;
 
 	constructor(
@@ -52,10 +53,11 @@ export class AcquireRequest {
 }
 
 export class ReleaseRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "inventory_sync";
+	declare ["constructor"]: typeof ReleaseRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
 
 	constructor(
 		public instanceId: number,
@@ -74,10 +76,11 @@ export class ReleaseRequest {
 }
 
 export class UploadRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "inventory_sync";
+	declare ["constructor"]: typeof UploadRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
 
 	constructor(
 		public instanceId: number,
@@ -113,10 +116,11 @@ class DownloadResponse {
 }
 
 export class DownloadRequest {
-	static type = "request";
-	static src = "instance";
-	static dst = "controller";
-	static plugin = "inventory_sync";
+	declare ["constructor"]: typeof DownloadRequest;
+	static type = "request" as const;
+	static src = "instance" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
 	static Response = DownloadResponse;
 
 	constructor(
@@ -158,10 +162,11 @@ class DatabaseStatsResponse {
 }
 
 export class DatabaseStatsRequest {
-	static type = "request";
-	static src = "control";
-	static dst = "controller";
-	static plugin = "inventory_sync";
-	static permission = "inventory_sync.inventory.view";
+	declare ["constructor"]: typeof DatabaseStatsRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static plugin = "inventory_sync" as const;
+	static permission = "inventory_sync.inventory.view" as const;
 	static Response = DatabaseStatsResponse;
 }
