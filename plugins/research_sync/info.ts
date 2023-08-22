@@ -1,12 +1,13 @@
-"use strict";
-const messages = require("./messages");
+import type { PluginInfo } from "@clusterio/lib";
 
-module.exports.default = {
+import * as messages from "./messages";
+
+const info: PluginInfo = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",
-	instanceEntrypoint: "instance",
-	controllerEntrypoint: "controller",
+	instanceEntrypoint: "dist/plugin/instance",
+	controllerEntrypoint: "dist/plugin/controller",
 
 	messages: [
 		messages.ContributionEvent,
@@ -15,3 +16,5 @@ module.exports.default = {
 		messages.SyncTechnologiesRequest,
 	],
 };
+
+export default info;

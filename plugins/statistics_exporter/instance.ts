@@ -1,7 +1,23 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 const { Gauge } = lib;
 
+type IpcStats = {
+	game_tick: number,
+	player_count: number,
+	game_flow_statistics: {
+		pollution_statistics: IpcFlowType,
+	},
+	force_flow_statistics: {
+		[key:string]: {
+			[key:string]: IpcFlowType,
+		}
+	},
+}
+
+type IpcFlowType = {
+	"input": Record<string, number>,
+	"output": Record<string, number>,
+}
 
 const instancePlayerCount = new Gauge(
 	"clusterio_statistics_exporter_instance_player_count",
@@ -24,7 +40,14 @@ const instanceGameFlowStatistics = new Gauge(
 	{ labels: ["instance_id", "statistic", "direction", "name"] },
 );
 
-function setForceFlowStatistic(instanceId, forceName, statisticName, direction, item, value) {
+function setForceFlowStatistic(
+	instanceId: number,
+	forceName: string,
+	statisticName: string,
+	direction: string,
+	item: string,
+	value: number,
+) {
 	instanceForceFlowStatistics.labels(String(instanceId), forceName, statisticName, direction, item).set(value);
 
 	// For item and fluid statistics it's useful to compare the input flow with the
@@ -36,7 +59,7 @@ function setForceFlowStatistic(instanceId, forceName, statisticName, direction, 
 }
 
 
-class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends lib.BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("statistics_exporter plugin requires save patching.");
@@ -45,10 +68,10 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 
 	async gatherMetrics() {
 		let string = await this.sendRcon("/sc statistics_exporter.export()");
-		let stats;
+		let stats: IpcStats;
 		try {
 			stats = JSON.parse(string);
-		} catch (err) {
+		} catch (err: any) {
 			throw new Error(`Error parsing statistics JSON: ${err.message}, content "${string}"`);
 		}
 
@@ -85,16 +108,11 @@ class InstancePlugin extends lib.BaseInstancePlugin {
 		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to controller.
 		let timeout = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
-		await lib.timeout(this.gatherMetrics(), timeout);
+		await lib.timeout(this.gatherMetrics(), timeout, undefined);
 	}
 }
 
-module.exports = {
-	InstancePlugin,
-
-	// For testing only
-	_instancePlayerCount: instancePlayerCount,
-	_instanceGameTicksTotal: instanceGameTicksTotal,
-	_instanceForceFlowStatistics: instanceForceFlowStatistics,
-	_instanceGameFlowStatistics: instanceGameFlowStatistics,
-};
+export const _instancePlayerCount = instancePlayerCount;
+export const _instanceGameTicksTotal = instanceGameTicksTotal;
+export const _instanceForceFlowStatistics = instanceForceFlowStatistics;
+export const _instanceGameFlowStatistics = instanceGameFlowStatistics;

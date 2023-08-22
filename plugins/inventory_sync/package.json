@@ -6,9 +6,9 @@
   "homepage": "https://github.com/clusterio/factorioClusterio#readme",
   "license": "MIT",
   "repository": "clusterio/factorioClusterio",
-  "main": "./info.js",
+  "main": "dist/plugin/info.js",
   "scripts": {
-    "prepare": "webpack-cli --env production",
+    "prepare": "tsc --build && webpack-cli --env production",
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "bugs": {
@@ -21,14 +21,18 @@
     "@clusterio/lib": "^2.0.0-alpha.0"
   },
   "dependencies": {
+    "@sinclair/typebox": "^0.30.4",
     "fs-extra": "^8.1.0"
   },
   "devDependencies": {
     "@clusterio/lib": "^2.0.0-alpha.13",
     "@clusterio/web_ui": "^2.0.0-alpha.13",
+    "@types/fs-extra": "^11.0.1",
+    "@types/node": "^20.4.5",
     "antd": "^5.7.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "typescript": "^5.1.6",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
     "webpack-merge": "^5.9.0"

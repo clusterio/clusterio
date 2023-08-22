@@ -1,9 +1,10 @@
 import { Type, Static } from "@sinclair/typebox";
 export class ChatEvent {
-	static type = "event";
-	static src = ["control", "instance"];
-	static dst = "instance";
-	static plugin = "global_chat";
+	declare ["constructor"]: typeof ChatEvent;
+	static type = "event" as const;
+	static src = ["control", "instance"] as const;
+	static dst = "instance" as const;
+	static plugin = "global_chat" as const;
 	static permission = null;
 
 	constructor(

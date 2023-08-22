@@ -1,7 +1,6 @@
-"use strict";
-const doleNN = require("./dole_nn_base");
+import * as doleNN from "./dole_nn_base";
 
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 const { Gauge } = lib;
 
 
@@ -17,8 +16,8 @@ const prometheusDoleFactorGauge = new Gauge(
 	{ labels: ["resource"] }
 );
 
-class NeuralDole {
-	getRequestStats(itemname, samples) {
+export class NeuralDole {
+	getRequestStats(itemname: string, samples: number): number {
 		let sum = 0;
 		samples = Math.min(samples, (this.stats[itemname] || []).length - 1);
 		if (samples < 1) {
@@ -33,25 +32,25 @@ class NeuralDole {
 		return sum / samples;
 	}
 
-	constructor({
-		items,
-	}) {
+	items: lib.ItemDatabase;
+	itemsLastTick: Map<string, number>;
+	dole: any = {};
+	carry: any = {};
+	lastRequest: any = {};
+	stats: any = {};
+	debt: any = {};
+	constructor({ items }: { items: lib.ItemDatabase }) {
 		// Set some storage variables for the dole divider
 		this.items = items;
-		this.itemsLastTick = new Map(items._items);
-		this.dole = {};
-		this.carry = {};
-		this.lastRequest = {};
-		this.stats=[];
-		this.debt= {};
+		this.itemsLastTick = new Map(items.getEntries());
 	}
 
 	doMagic() {
-		for (let [name, count] of this.items._items) {
+		for (let [name, count] of this.items.getEntries()) {
 			let magicData = doleNN.tick(
 				count,
 				this.dole[name],
-				this.itemsLastTick.get(name),
+				this.itemsLastTick.get(name) || 0,
 				this.getRequestStats(name, 5)
 			);
 			this.stats[name] = this.stats[name] || [];
@@ -64,31 +63,31 @@ class NeuralDole {
 			// DONE handle magicData[1] for graphing for our users
 			prometheusNNDoleGauge.labels(name).set(magicData[1] || 0);
 		}
-		this.itemsLastTick = new Map(this.items._items);
+		this.itemsLastTick = new Map(this.items.getEntries());
 	}
 
-	divider(object) {
+	divider(object: { name:string, count:number, instanceId:number, instanceName:string }): number {
 		let magicData = doleNN.dose(
 			object.count, // numReq
-			this.items.getItemCount(object.name),
+			this.items.getItemCount(object.name) || 0,
 			this.itemsLastTick.get(object.name) || 0,
 			this.dole[object.name],
-			this.carry[`${object.name} ${object.instanceID}`] || 0,
-			this.lastRequest[`${object.name}_${object.instanceID}_${object.instanceName}`] || 0,
+			this.carry[`${object.name} ${object.instanceId}`] || 0,
+			this.lastRequest[`${object.name}_${object.instanceId}_${object.instanceName}`] || 0,
 			this.getRequestStats(object.name, 5),
-			this.debt[`${object.name} ${object.instanceID}`] || 0
+			this.debt[`${object.name} ${object.instanceId}`] || 0
 		);
 		if ((this.stats[object.name] || []).length > 0) {
 			this.stats[object.name][0].req += Number(object.count);
 			this.stats[object.name][0].given += Number(magicData[0]);
 		}
-		this.lastRequest[`${object.name}_${object.instanceID}_${object.instanceName}`] = object.count;
+		this.lastRequest[`${object.name}_${object.instanceId}_${object.instanceName}`] = object.count;
 		// 0. Number of items to give in that dose
 		// 1. New dole for item X
 		// 2. New carry for item X instance Y
 		this.dole[object.name] = magicData[1];
-		this.carry[`${object.name} ${object.instanceID}`] = magicData[2];
-		this.debt[`${object.name} ${object.instanceID}`] = magicData[3];
+		this.carry[`${object.name} ${object.instanceId}`] = magicData[2];
+		this.debt[`${object.name} ${object.instanceId}`] = magicData[3];
 
 		// Remove item from DB and send it
 		this.items.removeItem(object.name, magicData[0]);
@@ -99,13 +98,19 @@ class NeuralDole {
 
 // If the server regularly can't fulfill requests, this number grows until
 // it can. Then it slowly shrinks back down.
-let _doleDivisionFactor = {};
-function doleDivider({
-	object,
-	items,
-	logItemTransfers,
-	logger,
-}) {
+let _doleDivisionFactor: { [key:string]: number } = {};
+export function doleDivider({
+		object,
+		items,
+		logItemTransfers,
+		logger,
+	} :{
+		object: { name:string, count:number, instanceId:number, instanceName:string },
+		items: lib.ItemDatabase,
+		logItemTransfers: boolean,
+		logger: lib.Logger,
+	},
+) {
 	let itemCount = items.getItemCount(object.name);
 	// lower rates will equal more dramatic swings
 	const doleDivisionRetardation = 10;
@@ -143,8 +148,3 @@ function doleDivider({
 	return 0;
 	// console.log(`failure out of ${object.name}/${object.count} from ${object.instanceID} (${object.instanceName})`);
 }
-
-module.exports = {
-	doleDivider,
-	NeuralDole,
-};

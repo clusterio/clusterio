@@ -1,25 +1,24 @@
 // Sigmoids...
 
-"use strict";
-function sigmoid0(x) {
+function sigmoid0(x: number): number {
 	return x / (1 + Math.abs(x));
 }
 
-function sigmoid1(x) {
+function sigmoid1(x: number): number {
 	if (x >= 0.0) {
 		return 1.0;
 	}
 	return 0.0;
 }
 
-function sigmoid2(x) {
+function sigmoid2(x: number): number {
 	if (x >= 0.0) {
 		return x;
 	}
 	return 0.0;
 }
 
-function sigmoid3(x) {
+function sigmoid3(x: number) {
 	return x;
 }
 
@@ -36,12 +35,21 @@ function sigmoid3(x) {
 //     requests for item, numinstance - number of instances requesting that item
 // debt - debt for item X instance Y
 
-// Returns: Array of 3 elements
+// Returns: Array of 4 elements
 // 0.Number of items to give in that dose
 // 1.New dole for item X
 // 2.New carry for item X instance Y
 // 3.New debt
-function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_total_adj, debt) {
+export function dose(
+	numreq: number,
+	instore: number,
+	store_last_tick: number,
+	dole: number,
+	carry: number,
+	prev_req: number,
+	numreq_total_adj: number,
+	debt: number,
+): [number, number, number, number] {
 	numreq = Number(numreq);
 	instore = Number(instore);
 	let instore_adj = instore;
@@ -115,7 +123,12 @@ function dose(numreq, instore, store_last_tick, dole, carry, prev_req, numreq_to
 // Returns: Array of 2 elements
 // 0.New dole for item X
 // 1.Guessed percentage average of items supplied in last 10 ticks
-function tick(instore, dole, store_last_tick, numreq_total_adj) {
+export function tick(
+	instore: number,
+	dole: number,
+	store_last_tick: number,
+	numreq_total_adj: number,
+): [number, number] {
 	let instore_adj = instore;
 	if (instore_adj === 0) {
 		instore_adj = 0.1;
@@ -148,5 +161,3 @@ function tick(instore, dole, store_last_tick, numreq_total_adj) {
 
 	return [sigmoid0(outputs[0]), avg];
 }
-
-module.exports = { dose, tick };

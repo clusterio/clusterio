@@ -1,7 +1,5 @@
-"use strict";
-const lib = require("@clusterio/lib");
-let messages = require("./messages");
-
+import * as lib from "@clusterio/lib";
+import * as messages from "./messages";
 
 class ControllerConfigGroup extends lib.PluginConfigGroup {}
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -22,12 +20,12 @@ ControllerConfigGroup.define({
 });
 ControllerConfigGroup.finalize();
 
-module.exports.default = {
+const info: lib.PluginInfo = {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",
-	controllerEntrypoint: "controller",
-	instanceEntrypoint: "instance",
+	controllerEntrypoint: "dist/plugin/controller",
+	instanceEntrypoint: "dist/plugin/instance",
 	webEntrypoint: "./web",
 	ControllerConfigGroup,
 
@@ -36,3 +34,5 @@ module.exports.default = {
 		messages.SetVerifyCodeRequest,
 	],
 };
+
+export default info;

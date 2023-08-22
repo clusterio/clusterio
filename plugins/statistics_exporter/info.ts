@@ -1,5 +1,4 @@
-"use strict";
-const lib = require("@clusterio/lib");
+import * as lib from "@clusterio/lib";
 
 class InstanceConfigGroup extends lib.PluginConfigGroup {}
 InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -13,12 +12,14 @@ InstanceConfigGroup.define({
 });
 InstanceConfigGroup.finalize();
 
-module.exports.default = {
+const info: lib.PluginInfo = {
 	name: "statistics_exporter",
 	title: "Statistics Exporter",
 	description:
 		"Provides in-game item/fluid production, builds, kills, and pollution "+
 		"statistics to the cluster's Prometheus endpoint.",
-	instanceEntrypoint: "instance",
+	instanceEntrypoint: "dist/plugin/instance",
 	InstanceConfigGroup,
 };
+
+export default info;

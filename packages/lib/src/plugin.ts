@@ -10,6 +10,9 @@ import type { ParsedFactorioOutput } from "./logging_utils";
 import type { ModPack, ModInfo } from "./data";
 import type { Link } from "./link";
 import type { CommandTree } from "./command";
+import type { User } from "./users";
+import type { MessageRequest, MessageEvent } from "./data";
+
 
 /**
  * Conceptual base for controller and instance plugins.
@@ -671,6 +674,10 @@ export interface PluginPage {
 	 * Should render a PageLayout.
 	 */
 	content?: React["ReactNode"];
+	/**
+	 * Permission to access page. function are expected to throw an error if access is deny.
+	 */
+	permission?: string | ((user: User, message: MessageRequest|MessageEvent) => void);
 };
 
 /**

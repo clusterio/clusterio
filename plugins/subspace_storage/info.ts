@@ -1,6 +1,5 @@
-"use strict";
-const lib = require("@clusterio/lib");
-const messages = require("./messages");
+import * as lib from "@clusterio/lib";
+import * as messages from "./messages";
 
 class ControllerConfigGroup extends lib.PluginConfigGroup {}
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
@@ -52,10 +51,10 @@ module.exports.default = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
-	instanceEntrypoint: "instance",
+	instanceEntrypoint: "dist/plugin/instance",
 	InstanceConfigGroup,
 
-	controllerEntrypoint: "controller",
+	controllerEntrypoint: "dist/plugin/controller",
 	ControllerConfigGroup,
 
 	messages: [

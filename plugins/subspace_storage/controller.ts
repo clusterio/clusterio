@@ -1,21 +1,22 @@
-"use strict";
-const fs = require("fs-extra");
-const path = require("path");
+import type ControlConnection from "@clusterio/controller/src/ControlConnection";
 
-const lib = require("@clusterio/lib");
-const { Counter, Gauge, RateLimiter } = lib;
+import fs from "fs-extra";
+import path from "path";
 
-const routes = require("./routes");
-const dole = require("./dole");
+import * as lib from "@clusterio/lib";
+const { Counter, Gauge } = lib;
 
-const {
+import * as routes from "./routes";
+import * as dole from "./dole";
+
+import {
 	Item,
 	PlaceEvent,
 	RemoveRequest,
 	GetStorageRequest,
 	UpdateStorageEvent,
 	SetStorageSubscriptionRequest,
-} = require("./messages");
+} from "./messages";
 
 
 const exportCounter = new Counter(
@@ -35,14 +36,17 @@ const controllerInventoryGauge = new Gauge(
 );
 
 
-async function loadDatabase(config, logger) {
+async function loadDatabase(
+	config: lib.ControllerConfig,
+	logger: lib.Logger
+): Promise<lib.ItemDatabase> {
 	let itemsPath = path.resolve(config.get("controller.database_directory"), "items.json");
 	logger.verbose(`Loading ${itemsPath}`);
 	try {
-		let content = await fs.readFile(itemsPath);
+		let content = await fs.readFile(itemsPath, { encoding: "utf8" });
 		return new lib.ItemDatabase(JSON.parse(content));
 
-	} catch (err) {
+	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Creating new item database");
 			return new lib.ItemDatabase();
@@ -51,7 +55,11 @@ async function loadDatabase(config, logger) {
 	}
 }
 
-async function saveDatabase(controllerConfig, items, logger) {
+async function saveDatabase(
+	controllerConfig: lib.ControllerConfig,
+	items: lib.ItemDatabase,
+	logger: lib.Logger,
+) {
 	if (items && items.size < 50000) {
 		let file = path.resolve(controllerConfig.get("controller.database_directory"), "items.json");
 		logger.verbose(`writing ${file}`);
@@ -62,21 +70,28 @@ async function saveDatabase(controllerConfig, items, logger) {
 	}
 }
 
-class ControllerPlugin extends lib.BaseControllerPlugin {
-	async init() {
+export class ControllerPlugin extends lib.BaseControllerPlugin {
+	items!: lib.ItemDatabase;
+	itemUpdateRateLimiter!: lib.RateLimiter;
+	itemsLastUpdate!: Map<string, number>;
+	subscribedControlLinks!: Set<ControlConnection>;
+	autosaveId!: ReturnType<typeof setInterval>;
+	doleMagicId!: ReturnType<typeof setInterval>;
+	neuralDole!: dole.NeuralDole;
 
+	async init() {
 		this.items = await loadDatabase(this.controller.config, this.logger);
-		this.itemUpdateRateLimiter = new RateLimiter({
+		this.itemUpdateRateLimiter = new lib.RateLimiter({
 			maxRate: 1,
 			action: () => {
 				try {
 					this.broadcastStorage();
-				} catch (err) {
+				} catch (err: any) {
 					this.logger.error(`Unexpected error sending storage update:\n${err.stack}`);
 				}
 			},
 		});
-		this.itemsLastUpdate = new Map(this.items._items.entries());
+		this.itemsLastUpdate = new Map(this.items.getEntries());
 		this.autosaveId = setInterval(() => {
 			saveDatabase(this.controller.config, this.items, this.logger).catch(err => {
 				this.logger.error(`Unexpected error autosaving items:\n${err.stack}`);
@@ -105,32 +120,32 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 	}
 
 	broadcastStorage() {
-		let itemsToUpdate = new Map();
-		for (let [name, count] of this.items._items) {
+		let itemsToUpdateMap:Map<string, number> = new Map();
+		for (let [name, count] of this.items.getEntries()) {
 			if (this.itemsLastUpdate.get(name) === count) {
 				continue;
 			}
-			itemsToUpdate.set(name, count);
+			itemsToUpdateMap.set(name, count);
 		}
 
-		if (!itemsToUpdate.size) {
+		if (!itemsToUpdateMap.size) {
 			return;
 		}
 
-		itemsToUpdate = [...itemsToUpdate.entries()];
-		let update = new UpdateStorageEvent(itemsToUpdate);
+		let itemsToUpdate = [...itemsToUpdateMap.entries()];
+		let update = UpdateStorageEvent.fromJSON({ items: itemsToUpdate });
 		this.controller.sendTo("allInstances", update);
 		for (let link of this.subscribedControlLinks) {
 			link.send(update);
 		}
-		this.itemsLastUpdate = new Map(this.items._items.entries());
+		this.itemsLastUpdate = new Map(this.items.getEntries());
 	}
 
 	async handleGetStorageRequest() {
-		return [...this.items._items.entries()];
+		return [...this.items.getEntries()];
 	}
 
-	async handlePlaceEvent(request, src) {
+	async handlePlaceEvent(request: PlaceEvent, src: lib.Address) {
 		let instanceId = src.id;
 
 		for (let item of request.items) {
@@ -147,7 +162,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	async handleRemoveRequest(request, src) {
+	async handleRemoveRequest(request: RemoveRequest, src: lib.Address) {
 		let method = this.controller.config.get("subspace_storage.division_method");
 		let instanceId = src.id;
 
@@ -171,7 +186,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 			// use fancy neural net to calculate a "fair" dole division rate.
 			if (method === "neural_dole") {
 				for (let item of request.items) {
-					let count = neuralDole.divider({ name: item.name, count: item.count, instanceId, instanceName });
+					let count = this.neuralDole.divider({ name: item.name, count: item.count, instanceId, instanceName });
 					if (count > 0) {
 						itemsRemoved.push(new Item(item.name, count));
 					}
@@ -212,7 +227,7 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		return itemsRemoved;
 	}
 
-	async handleSetStorageSubscriptionRequest(request, src) {
+	async handleSetStorageSubscriptionRequest(request: SetStorageSubscriptionRequest, src: lib.Address) {
 		let link = this.controller.wsServer.controlConnections.get(src.id);
 		if (request.storage) {
 			this.subscribedControlLinks.add(link);
@@ -221,15 +236,15 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 	}
 
-	onControlConnectionEvent(connection, event) {
+	onControlConnectionEvent(connection: ControlConnection, event: string) {
 		if (event === "close") {
 			this.subscribedControlLinks.delete(connection);
 		}
 	}
 
-	onMetrics() {
+	async onMetrics() {
 		if (this.items) {
-			for (let [key, count] of this.items._items) {
+			for (let [key, count] of this.items.getEntries()) {
 				controllerInventoryGauge.labels(key).set(Number(count) || 0);
 			}
 		}
@@ -242,7 +257,3 @@ class ControllerPlugin extends lib.BaseControllerPlugin {
 		await saveDatabase(this.controller.config, this.items, this.logger);
 	}
 }
-
-module.exports = {
-	ControllerPlugin,
-};

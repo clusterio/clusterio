@@ -3,7 +3,7 @@ import { Input, Table, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
 import { notifyErrorHandler, useItemMetadata, useLocale, PageLayout, ControlContext } from "@clusterio/web_ui";
-import { GetStorageRequest, SetStorageSubscriptionRequest } from "../messages";
+import { GetStorageRequest, SetStorageSubscriptionRequest } from "../dist/plugin/messages";
 
 import "./index.css";
 
