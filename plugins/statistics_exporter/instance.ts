@@ -15,8 +15,8 @@ type IpcStats = {
 }
 
 type IpcFlowType = {
-	"input": number,
-	"output": number,
+	"input": Record<string, number>,
+	"output": Record<string, number>,
 }
 
 const instancePlayerCount = new Gauge(
