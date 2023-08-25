@@ -1,4 +1,4 @@
 {
     "name": "inventory_sync",
-    "load": ["inventory_sync.lua", "save_crafts.lua", "restore_crafts.lua", "gui/dialog_failed_download.lua"]
+    "load": ["inventory_sync.lua", "gui/dialog_failed_download.lua"]
 }

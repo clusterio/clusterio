@@ -164,7 +164,7 @@ export default class Controller {
 			const webpackConfigs = [];
 
 			if (args.dev) {
-				webpackConfigs.push(require("../webpack.config")({}));
+				webpackConfigs.push(require("../../../webpack.config")({}));
 			}
 			if (args.devPlugin) {
 				let devPlugins = new Map();

@@ -9,7 +9,7 @@ import type { Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
 
 import { FactorioServer } from "./server";
-import { ModuleInfo, patch } from "./patch";
+import { SaveModule, patch } from "./patch";
 import { exportData } from "./export";
 import type Host from "./Host"
 
@@ -776,74 +776,26 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		// Patch save with lua modules from plugins
 		this.logger.verbose("Patching save");
 
-		interface ModuleJson {
-			version: string,
-			name: string;
-			load?: string[];
-			require?: string[];
-			dependencies?: Record<string, string>;
-		}
-
 		// Find plugin modules to patch in
-		let modules: Map<string, ModuleInfo> = new Map();
-		for (let [pluginName, plugin] of this.plugins) {
-			let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
-			let modulePath = path.join(path.dirname(pluginPackagePath), "module");
-			if (!await fs.pathExists(modulePath)) {
+		let modules: Map<string, SaveModule> = new Map();
+		for (let plugin of this.plugins.values()) {
+			let module = await SaveModule.fromPlugin(plugin);
+			if (!module) {
 				continue;
 			}
-
-			let moduleJsonPath = path.join(modulePath, "module.json");
-			if (!await fs.pathExists(moduleJsonPath)) {
-				throw new Error(`Module for plugin ${pluginName} is missing module.json`);
-			}
-
-			let module: Omit<ModuleJson, "version">;
-			try {
-				module = JSON.parse(await fs.readFile(moduleJsonPath, "utf8"));
-			} catch (err: any) {
-				throw new Error(`Loading module/module.json in plugin ${pluginName} failed: ${err.message}`);
-			}
-			if (module.name !== pluginName) {
-				throw new Error(`Expected name of module for plugin ${pluginName} to match the plugin name`);
-			}
-
-			modules.set(module.name, {
-				version: plugin.info.version,
-				dependencies: { "clusterio": "*" },
-				path: modulePath,
-				load: [],
-				require: [],
-				...module,
-			});
+			modules.set(module.info.name, module);
 		}
 
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
 		let modulesDirectory = path.join(__dirname, "..", "..", "modules");
 		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
-			if (!entry.isFile()) {
+			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
 					throw new Error(`Module with name ${entry.name} already exists in a plugin`);
 				}
-
-				let moduleJsonPath = path.join(modulesDirectory, entry.name, "module.json");
-				if (!await fs.pathExists(moduleJsonPath)) {
-					throw new Error(`Module ${entry.name} is missing module.json`);
-				}
-
-				let module: ModuleJson = JSON.parse(await fs.readFile(moduleJsonPath, "utf8"));
-				if (module.name !== entry.name) {
-					throw new Error(`Expected name of module ${entry.name} to match the directory name`);
-				}
-
-				modules.set(module.name, {
-					path: path.join(modulesDirectory, entry.name),
-					dependencies: { "clusterio": "*" },
-					load: [],
-					require: [],
-					...module,
-				});
+				let module = await SaveModule.fromDirectory(path.join(modulesDirectory, entry.name));
+				modules.set(module.info.name, module);
 			}
 		}
 
