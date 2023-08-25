@@ -27,6 +27,14 @@ describe("Integration of lib/factorio/patch", function() {
 			let zip = await JSZip.loadAsync(await fs.readFile(savePath));
 			assert.equal(await zip.file("test/modules/test/test.lua").async("string"), "-- test\n");
 			assert.equal(await zip.file("test/modules/subdir/dir/test.lua").async("string"), "-- test\n");
+			assert.equal(
+				await zip.file("test/locale/en/test.cfg").async("string"),
+				"module-test=A Test\n"
+			);
+			assert.equal(
+				await zip.file("test/locale/en/test-locale.cfg").async("string"),
+				"module-test-locale=Test Locale\n"
+			);
 		});
 		it("should remove old modules in a save", async function() {
 			slowTest(this);

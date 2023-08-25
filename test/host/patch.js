@@ -9,6 +9,27 @@ const patch = require("@clusterio/host/dist/src/patch");
 
 
 describe("host/patch", function() {
+	describe("class SaveModule", function() {
+		describe("static moduleFilePath()", function() {
+			it("Should remap locale files", function() {
+				const mappings = [
+					["locale/en/foo.cfg", "locale/en/test-foo.cfg"],
+					["locale/en/foo.txt", "locale/en/test-foo.txt"],
+					["locale/en/foo.txt.tmp", "locale/en/test-foo.txt.tmp"],
+					["locale/en/foo", "locale/en/test-foo"],
+					["locale/en.cfg", "locale/en/test.cfg"],
+					["locale/en.txt", "locale/en/test.txt"],
+					["locale/en.txt.tmp", "locale/en/test.txt.tmp"],
+					["locale/en", "locale/en/test"],
+					["locale/en/bar/foo.cfg", "locale/en/test-bar/foo.cfg"],
+				];
+				for (let [input, expected] of mappings) {
+					assert.equal(patch.SaveModule.moduleFilePath(input, "test"), expected);
+				}
+			});
+		});
+	});
+
 	describe("generateLoader()", function() {
 		let reference = [
 			"-- Auto generated scenario module loader created by Clusterio",

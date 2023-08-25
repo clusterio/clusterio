@@ -21,6 +21,21 @@ export class SaveModule {
 		public files = new Map<string, Buffer>,
 	) { }
 
+	static moduleFilePath(filePath: string, moduleName: string) {
+		// Map locale files to the save's locale folder
+		if (filePath.startsWith("locale/")) {
+			const slashes = filePath.match(/\//g)!.length;
+			if (slashes > 1) {
+				const secondSlash = filePath.indexOf("/", "locale/".length);
+				return `${filePath.slice(0, secondSlash)}/${moduleName}-${filePath.slice(secondSlash + 1)}`;
+			}
+			const period = `${filePath}.`.indexOf(".");
+			return `${filePath.slice(0, period)}/${moduleName}${filePath.slice(period)}`;
+		}
+		// Map all other files into modules/name in the save.
+		return path.posix.join("modules", moduleName, filePath);
+	}
+
 	async loadFiles(moduleDirectory: string) {
 		let dirs: [string, string][] = [[moduleDirectory, ""]];
 		while (dirs.length) {
@@ -28,9 +43,9 @@ export class SaveModule {
 			for (let entry of await fs.readdir(dir, { withFileTypes: true })) {
 				let fsPath = path.join(dir, entry.name);
 				let relativePath = path.posix.join(relativeDir, entry.name);
-				let savePath = path.posix.join("modules", this.info.name, relativePath);
 
 				if (entry.isFile()) {
+					let savePath = SaveModule.moduleFilePath(relativePath, this.info.name);
 					this.files.set(savePath, await fs.readFile(fsPath));
 
 				} else if (entry.isDirectory()) {
