@@ -8,7 +8,7 @@ const jsonPlayerData = Type.Object({
 	name: Type.String(),
 })
 
-class AcquireResponse {
+export class AcquireResponse {
 	constructor(
 		public status: string,
 		public generation?: number,
@@ -100,7 +100,7 @@ export class UploadRequest {
 	}
 }
 
-class DownloadResponse {
+export class DownloadResponse {
 	constructor(
 		public playerData: IpcPlayerData | null
 	) {
