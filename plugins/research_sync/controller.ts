@@ -1,5 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
+import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 const { RateLimiter } = lib;
@@ -10,18 +11,19 @@ import {
 	FinishedEvent,
 	Technology,
 	SyncTechnologiesRequest,
+	TechnologyProgress,
 } from "./messages";
-
 
 async function loadTechnologies(
 	controllerConfig: lib.ControllerConfig,
 	logger: lib.Logger
-): Promise<Map<any, any>> {
+): Promise<Map<string, Technology>> {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`Loading ${filePath}`);
 	try {
-		return new Map(JSON.parse(await fs.readFile(filePath, { encoding: "utf8" })));
-
+		type rawMapEntry = [string, Static<typeof Technology.jsonSchema>];
+		const rawMap: rawMapEntry[] = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }))
+		return new Map(rawMap.map(([name, rawTechnology]) => [name, Technology.fromJSON(rawTechnology)]));
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Creating new technologies database");
@@ -33,7 +35,7 @@ async function loadTechnologies(
 
 async function saveTechnologies(
 	controllerConfig: lib.ControllerConfig,
-	technologies: Map<any, any>,
+	technologies: Map<string, Technology>,
 	logger: lib.Logger
 ) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
@@ -72,7 +74,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		for (let name of this.progressToBroadcast) {
 			let tech = this.technologies.get(name);
 			if (tech && tech.progress) {
-				techs.push(new Technology(name, tech.level, tech.progress, false));
+				techs.push(new TechnologyProgress(name, tech.level, tech.progress));
 			}
 		}
 		this.progressToBroadcast.clear();
