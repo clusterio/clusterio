@@ -3,7 +3,7 @@ import {
 	ContributionEvent,
 	ProgressEvent,
 	FinishedEvent,
-	Technology,
+	TechnologySync,
 	SyncTechnologiesRequest,
 } from "./messages";
 
@@ -73,7 +73,7 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 		let techsToSend = [];
 		let instanceTechs = new Map();
 		for (let tech of JSON.parse(dumpJson)) {
-			techsToSend.push(new Technology(
+			techsToSend.push(new TechnologySync(
 				tech.name,
 				tech.level,
 				tech.progress || null,

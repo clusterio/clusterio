@@ -9,10 +9,17 @@ import {
 	ContributionEvent,
 	ProgressEvent,
 	FinishedEvent,
-	Technology,
+	TechnologySync,
 	SyncTechnologiesRequest,
 	TechnologyProgress,
 } from "./messages";
+
+type Technology = {
+	level: number,
+	progress: number | null,
+	researched: boolean,
+}
+
 
 async function loadTechnologies(
 	controllerConfig: lib.ControllerConfig,
@@ -21,9 +28,7 @@ async function loadTechnologies(
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`Loading ${filePath}`);
 	try {
-		type rawMapEntry = [string, Static<typeof Technology.jsonSchema>];
-		const rawMap: rawMapEntry[] = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }))
-		return new Map(rawMap.map(([name, rawTechnology]) => [name, Technology.fromJSON(rawTechnology)]));
+		return new Map(JSON.parse(await fs.readFile(filePath, "utf8")));
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Creating new technologies database");
@@ -88,7 +93,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		let { name, level, contribution } = event;
 		let tech = this.technologies.get(name);
 		if (!tech) {
-			tech = new Technology(name, level, 0, false);
+			tech = { level, progress: 0, researched: false };
 			this.technologies.set(name, tech);
 
 		// Ignore contribution to already researched technologies
@@ -127,11 +132,11 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		let tech = this.technologies.get(name);
 		if (!tech || tech.level <= level) {
 			this.progressToBroadcast.delete(name);
-			this.technologies.set(name, new Technology(name, level, null, true));
+			this.technologies.set(name, { level, progress: null, researched: true });
 		}
 	}
 
-	async handleSyncTechnologiesRequest(request: SyncTechnologiesRequest): Promise<Technology[]> {
+	async handleSyncTechnologiesRequest(request: SyncTechnologiesRequest): Promise<TechnologySync[]> {
 		function baseLevel(name: string): number {
 			let match = /-(\d+)$/.exec(name);
 			if (!match) {
@@ -144,7 +149,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 			let { name, level, progress, researched } = instanceTech;
 			let tech = this.technologies.get(name);
 			if (!tech) {
-				this.technologies.set(name, new Technology(name, level, progress, researched));
+				this.technologies.set(name, { level, progress, researched });
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
@@ -181,7 +186,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 
 		let technologies = [];
 		for (let [name, tech] of this.technologies) {
-			technologies.push(new Technology(name, tech.level, tech.progress, tech.researched));
+			technologies.push(new TechnologySync(name, tech.level, tech.progress, tech.researched));
 		}
 
 		return technologies;
