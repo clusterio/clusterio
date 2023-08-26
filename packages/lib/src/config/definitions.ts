@@ -157,6 +157,7 @@ export class ControllerConfig extends classes.Config {
 	get(name: "controller.proxy_stream_timeout"): number;
 	get(name: "controller.default_mod_pack_id"): number | null;
 	get(name: "controller.default_role_id"): number | null;
+	get(name: string): unknown;
 	get(name: string) {
 		return super.get(name);
 	}
@@ -262,6 +263,7 @@ export class HostConfig extends classes.Config {
 	get(name: "host.tls_ca"): string | null;
 	get(name: "host.public_address"): string;
 	get(name: "host.max_reconnect_delay"): number;
+	get(name: string): unknown;
 	get(name: string) { 
 		return super.get(name);
 	}
@@ -450,6 +452,7 @@ export class InstanceConfig extends classes.Config {
 	get(name: "factorio.sync_whitelist"): boolean;
 	get(name: "factorio.sync_banlist"): boolean;
 	get(name: "factorio.max_concurrent_commands"): number;
+	get(name: string): unknown;
 	get(name: string) {
 		return super.get(name);
 	}

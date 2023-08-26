@@ -1,5 +1,5 @@
 import * as lib from "@clusterio/lib";
-import { AcquireRequest, ReleaseRequest, UploadRequest, DownloadRequest } from "./messages";
+import { AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse } from "./messages";
 
 type IpcPlayerName = {
 	player_name: string
@@ -20,6 +20,14 @@ export type IpcPlayerData = { //.\module\serialize.lua:serialize.serialize_playe
 	hotbar?: string[],
 	personal_logistic_slots?: {name:string, min:number, max:number}[],
 	crafting_queue?: any,
+}
+
+type IpcAcquireResponse = {
+	player_name: string,
+	status: string,
+	generation?: number,
+	has_data?: boolean,
+	message?: string,
 }
 
 /**
@@ -64,7 +72,10 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 						return;
 					}
 					this.playersToRelease.delete(player_name);
-					await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, player_name));
+					await this.instance.sendTo(
+						"controller",
+						new ReleaseRequest(this.instance.id, player_name)
+					);
 				}
 			})().catch(
 				err => this.logger.error(`Unpexpected error releasing queued up players:\n${err.stack}`)
@@ -73,17 +84,17 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 	}
 
 	async handleAcquire(request: IpcPlayerName) {
-		let response = {
+		let response: IpcAcquireResponse = {
 			player_name: request.player_name,
 			status: "error",
 			message: "Controller is temporarily unavailable",
-			generation: undefined,
 			has_data: undefined,
+			generation: undefined,
 		};
 
 		if (this.host.connector.connected && !this.disconnecting) {
 			try {
-				let acquireResponse = await this.instance.sendTo(
+				let acquireResponse: AcquireResponse = await this.instance.sendTo(
 					"controller",
 					new AcquireRequest(this.instance.id, request.player_name),
 				);
@@ -112,7 +123,10 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 		}
 
 		try {
-			await this.instance.sendTo("controller", new ReleaseRequest(this.instance.id, request.player_name));
+			await this.instance.sendTo(
+				"controller",
+				new ReleaseRequest(this.instance.id, request.player_name)
+			);
 		} catch (err: any) {
 			if (err instanceof lib.SessionLost) {
 				this.playersToRelease.add(request.player_name);
@@ -150,15 +164,18 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 		const playerName = request.player_name;
 		this.logger.verbose(`Downloading ${playerName}`);
 
-		let response = await this.instance.sendTo("controller", new DownloadRequest(this.instance.id, playerName));
+		let response: DownloadResponse = await this.instance.sendTo(
+			"controller",
+			new DownloadRequest(this.instance.id, playerName)
+		);
 
-		if (!response.player_data) {
+		if (!response.playerData) {
 			await this.sendRcon(`/sc inventory_sync.download_inventory('${playerName}',nil,0,0)`, true);
 			return;
 		}
 
-		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
-		const chunks = chunkify(chunkSize, JSON.stringify(response.player_data));
+		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size") as number;
+		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));
 		this.logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
 		for (let i = 0; i < chunks.length; i++) {
 			// this.logger.verbose(`Sending chunk ${i+1} of ${chunks.length}`)
