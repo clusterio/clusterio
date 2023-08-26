@@ -88,7 +88,7 @@ export class FinishedEvent {
 	}
 }
 
-export class Technology {
+export class TechnologySync {
 	constructor(
 		public name: string,
 		public level: number,
@@ -107,7 +107,7 @@ export class Technology {
 		return [this.name, this.level, this.progress, this.researched];
 	}
 
-	static fromJSON(json: Static<typeof Technology.jsonSchema>): Technology {
+	static fromJSON(json: Static<typeof TechnologySync.jsonSchema>): TechnologySync {
 		return new this(json[0], json[1], json[2], json[3]);
 	}
 }
@@ -120,18 +120,18 @@ export class SyncTechnologiesRequest {
 	static plugin = "research_sync" as const;
 
 	constructor(
-		public technologies: Technology[]
+		public technologies: TechnologySync[]
 	) {
 	}
 
-	static jsonSchema = Type.Array(Technology.jsonSchema);
+	static jsonSchema = Type.Array(TechnologySync.jsonSchema);
 	toJSON() {
 		return this.technologies;
 	}
 
 	static fromJSON(json: Static<typeof SyncTechnologiesRequest.jsonSchema>): SyncTechnologiesRequest {
-		return new this(json.map(e => Technology.fromJSON(e)));
+		return new this(json.map(e => TechnologySync.fromJSON(e)));
 	}
 
-	static Response = lib.jsonArray(Technology);
+	static Response = lib.jsonArray(TechnologySync);
 }
