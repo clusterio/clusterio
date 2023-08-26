@@ -2,7 +2,8 @@
   "name": "root",
   "private": true,
   "scripts": {
-    "test": "mocha --check-leaks -R spec --recursive test \"plugins/*/test/**\"",
+    "build": "tsc --build",
+    "test": "pnpm run build && mocha --check-leaks -R spec --recursive test \"plugins/*/test/**\"",
     "fast-test": "FAST_TEST=y pnpm test",
     "cover": "nyc pnpm test",
     "fast-cover": "FAST_TEST=y nyc pnpm test",
