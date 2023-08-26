@@ -1,5 +1,8 @@
 {
 	"extends": "../../tsconfig.node.json",
+	"references": [
+		{ "path": "../lib" },
+	],
 	"include": ["controller.ts", "package.json", "src/**/*.ts"],
 	"compilerOptions": {
 		"outDir": "dist/controller",
