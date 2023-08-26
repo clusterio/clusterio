@@ -50,7 +50,7 @@ export class SaveModule {
 					if (relativePath == "module_exports.lua") {
 						this.files.set(
 							`modules/${this.info.name}.lua`,
-							Buffer.from(`return require("${savePath}")`, "utf-8")
+							Buffer.from(`return require("modules/${this.info.name}/module_exports")`, "utf-8")
 						);
 					}
 
