@@ -1,19 +1,7 @@
 {
-  "include": ["package.json", "ctl.ts", "src/**/*.ts"],
-  "compilerOptions": {
-    "lib": ["es2023"],
-    "module": "commonjs",
-    "target": "es2022",
-    "rootDir": ".",
-    "outDir": "dist",
-    "composite": true,
-    "sourceMap": true,
-    "strict": true,
-    "alwaysStrict": true,
-    "allowJs": true,
-    "checkJs": false,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  }
+	"extends": "../../tsconfig.node.json",
+	"include": ["package.json", "ctl.ts", "src/**/*.ts"],
+	"compilerOptions": {
+		"outDir": "dist",
+	},
 }
