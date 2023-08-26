@@ -28,6 +28,29 @@ describe("host/patch", function() {
 				}
 			});
 		});
+
+		describe("loadFiles()", async function() {
+			const referenceFiles = new Map([
+				["modules/test/test.lua", "-- test\n"],
+				["modules/test/module_exports.lua", "-- module_exports\n"],
+				["locale/en/test.cfg", "module-test=A Test\n"],
+				["local/en/test-locale.cfg", "module-test-locale=Test Locale\n"],
+				["modules/test.lua", "return require(\"modules/test/module_exports\")"]
+			]);
+			const testModule = new SaveModule(new lib.ModuleInfo("test", "1.0.0"));
+			await testModule.loadFiles("test/file/modules/test");
+
+			it("Should read the contents of all files in a module", function() {
+				assert.equal(testModule.files.size, referenceFiles.size);
+				for (let [relativePath, contents] of referenceFiles) {
+					if (!testModule.files.has(relativePath)) {
+						assert.fail(`Module is missing file: ${relativePath}`);
+					} else {
+						assert.equal(testModule.files.get(relativePath), contents);
+					}
+				}
+			});
+		});
 	});
 
 	describe("generateLoader()", function() {

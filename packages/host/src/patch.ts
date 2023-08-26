@@ -47,6 +47,12 @@ export class SaveModule {
 				if (entry.isFile()) {
 					let savePath = SaveModule.moduleFilePath(relativePath, this.info.name);
 					this.files.set(savePath, await fs.readFile(fsPath));
+					if (relativePath == "module_exports.lua") {
+						this.files.set(
+							`modules/${this.info.name}.lua`,
+							Buffer.from(`return require("${savePath}")`, "utf-8")
+						);
+					}
 
 				} else if (entry.isDirectory()) {
 					dirs.push([fsPath, relativePath]);
