@@ -1,0 +1,15 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "./packages/lib" },
+		{ "path": "./packages/controller" },
+		{ "path": "./packages/host" },
+		{ "path": "./packages/ctl" },
+		{ "path": "./plugins/global_chat" },
+		{ "path": "./plugins/inventory_sync" },
+		{ "path": "./plugins/player_auth" },
+		{ "path": "./plugins/research_sync" },
+		{ "path": "./plugins/statistics_exporter" },
+		{ "path": "./plugins/subspace_storage" },
+	],
+}
