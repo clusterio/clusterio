@@ -1,11 +1,11 @@
-export { default as bootstrap } from "./bootstrap.jsx";
-export { default as notify, notifyErrorHandler } from "./util/notify.jsx";
+export { default as bootstrap } from "./bootstrap";
+export { default as notify, notifyErrorHandler } from "./util/notify";
 
-export * from "./model/instance.jsx";
-export * from "./model/host.jsx";
-export * from "./model/locale.jsx";
-export * from "./model/item_metadata.jsx";
-export * from "./model/account.jsx";
+export * from "./model/instance";
+export * from "./model/host";
+export * from "./model/locale";
+export * from "./model/item_metadata";
+export * from "./model/account";
 
 
 export { default as ControlContext } from "./components/ControlContext";

@@ -1,0 +1,20 @@
+{
+	"include": [ "src/**/*.tsx" ],
+	"compilerOptions": {
+		"jsx": "react",
+		"lib": ["es2023", "dom"],
+		"module": "commonjs",
+		"target": "es2022",
+		"rootDir": "src",
+		"outDir": "dist",
+		"composite": true,
+		"sourceMap": true,
+		"strict": true,
+		"alwaysStrict": true,
+		"noImplicitAny": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"noEmitOnError": true
+	}
+}
