@@ -169,20 +169,20 @@ function TransferModal(props: ModalProps) {
 				<Form.Item
 					name="transferredName"
 					label="Transferred name"
-					//@ts-ignore no disabled prop for Form.Item ?
-					disabled={!account.hasAnyPermission("core.instance.save.rename", "core.instance.save.copy")}
 				>
-					<Input />
+					<Input
+						disabled={!account.hasAnyPermission("core.instance.save.rename", "core.instance.save.copy")}
+					/>
 				</Form.Item>
 				<Form.Item
 					name="copy"
 					valuePropName="checked"
 					label="Copy"
 					tooltip="Copy instead of moving the save to the new instance."
-					//@ts-ignore no disabled prop for Form.Item ?
-					disabled={!account.hasPermission("core.instance.save.copy")}
 				>
-					<Checkbox />
+					<Checkbox
+						disabled={!account.hasPermission("core.instance.save.copy")}
+					/>
 				</Form.Item>
 			</Form>
 		</Modal>
