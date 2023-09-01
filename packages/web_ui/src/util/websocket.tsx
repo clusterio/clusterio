@@ -54,7 +54,7 @@ export class Control extends lib.Link {
 	hostUpdateHandlers: Map<number|null, hostHandler[]> = new Map();
 	instanceUpdateHandlers: Map<number|null, instanceHandler[]> = new Map();
 	saveListUpdateHandlers: Map<number|null, saveListHandler[]> = new Map();
-	modPackUpdateHandlers: Map<number|null|undefined, modPackHandler[]> = new Map();
+	modPackUpdateHandlers: Map<number|null, modPackHandler[]> = new Map();
 	modUpdateHandlers: Map<string|null, modInfoHandler[]> = new Map();
 	userUpdateHandlers: Map<string|null, userHandler[]> = new Map();
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
@@ -322,7 +322,7 @@ export class Control extends lib.Link {
 
 		let handlers = ([] as modPackHandler[]).concat(
 			this.modPackUpdateHandlers.get(null) || [],
-			this.modPackUpdateHandlers.get(modPack.id) || [],
+			this.modPackUpdateHandlers.get(modPack.id??null) || [],
 		);
 		for (let handler of handlers) {
 			handler(modPack);
