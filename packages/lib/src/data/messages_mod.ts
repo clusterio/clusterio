@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import ModInfo from "./ModInfo";
-import { ModPack } from "./ModPack";
+import ModPack from "./ModPack";
 import { JsonString, jsonArray } from "./composites";
 
 

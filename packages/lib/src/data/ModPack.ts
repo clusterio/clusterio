@@ -53,7 +53,7 @@ type PropertyType = null | boolean | number | string | PropertyType[] | { [key: 
  *
  * Tracks mods and settings for a collection of Factorio mods.
  */
-export class ModPack {
+export default class ModPack {
 	declare ["constructor"]: typeof ModPack;
 
 	/**
