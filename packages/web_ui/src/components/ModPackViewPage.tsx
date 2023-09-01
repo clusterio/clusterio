@@ -32,12 +32,24 @@ const { Paragraph, Text } = Typography;
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
-type ModChange = {
-	type: string;
-	name?: string;
-	scope?: "startup"|"runtime-global"|"runtime-per-user";
-	value: any; //string|lib.ModRecord ?;
-};
+type ModChange =
+	{
+		type: "name" | "description" | "factorioVersion",
+		name?: never,
+		scope?: never,
+		value: string,
+	} | {
+		type: "settings.set" | "settings.delete",
+		name: string,
+		scope: "startup" | "runtime-global" | "runtime-per-user",
+		value: lib.ModSetting,
+	} | {
+		type: "mods.set" | "mods.delete",
+		name: string,
+		scope?: never,
+		value: lib.ModRecord | lib.ModInfo,
+	}
+;
 
 type ModResult = {
 	name: string;
@@ -233,8 +245,8 @@ function ModsTable(props: ModsTableProps) {
 	const [showAddMods, setShowAddMods] = useState(false);
 	const [modList] = useModList();
 
-	const deletedMods: Map<string, lib.ModRecord> = new Map();
-	const changedMods: Map<string, lib.ModRecord> = new Map();
+	const deletedMods: Map<string, lib.ModRecord|lib.ModInfo> = new Map();
+	const changedMods: Map<string, lib.ModRecord|lib.ModInfo> = new Map();
 	for (let change of props.changes) {
 		if (change.name) {
 			if (props.modPack.mods.has(change.name)) {
@@ -249,16 +261,18 @@ function ModsTable(props: ModsTableProps) {
 
 	const modListMap = new Map(modList.map(mod => [`${mod.name}_${mod.version}`, mod]));
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
-		(mod: lib.ModRecord): lib.ModInfo|lib.ModRecord => {
+		(mod: lib.ModRecord|lib.ModInfo): lib.ModInfo|lib.ModRecord => {
 			const candidate = modListMap.get(`${mod.name}_${mod.version}`);
 			if (!candidate) {
 				return {
 					...mod,
+					enabled: (mod as any).enabled ?? false,
 					error: "missing",
 				};
 			} else if (mod.sha1 && candidate.sha1 !== mod.sha1) {
 				return {
 					...mod,
+					enabled: (mod as any).enabled ?? false,
 					error: "bad_checksum",
 				};
 			}
@@ -266,7 +280,7 @@ function ModsTable(props: ModsTableProps) {
 		}
 	);
 
-	function actions(mod: lib.ModInfo|lib.ModRecord) {
+	function actions(mod: lib.ModRecord|lib.ModInfo) {
 		return <Space>
 			{!deletedMods.has(mod.name) && <Typography.Link
 				type="danger"
@@ -644,7 +658,7 @@ function applyModPackChanges(modPack: lib.ModPack, changes: ModChange[]) {
 			modifiedModPack.factorioVersion = change.value;
 		} else if (change.type === "mods.set") {
 			if (change.name) {
-				modifiedModPack.mods.set(change.name, change.value);
+				modifiedModPack.mods.set(change.name, change.value as lib.ModRecord);
 			}
 		} else if (change.type === "mods.delete") {
 			modifiedModPack.mods.delete(change.name!);
