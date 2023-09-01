@@ -403,16 +403,6 @@ function groupToMap(array: any[], fn: (...args:any) => any) {
 	return map;
 }
 
-
-function test(value:string) {
-	return {
-		some: 10,
-		test: "test",
-		of: new Set([0,1,2,3]),
-		values: new Map([["a","a"]]),
-	}
-}
-
 type SettingsTableFieldProps = {
 	name: string;
 	type: string;
