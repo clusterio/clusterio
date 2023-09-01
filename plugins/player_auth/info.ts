@@ -20,7 +20,7 @@ ControllerConfigGroup.define({
 });
 ControllerConfigGroup.finalize();
 
-const info: lib.PluginInfoTs = {
+const info: lib.PluginDeclaration = {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",

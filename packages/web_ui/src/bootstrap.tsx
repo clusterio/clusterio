@@ -11,7 +11,6 @@ import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
-
 async function loadScript(url: string) {
 	let script = document.createElement("script");
 	script.src = url;
@@ -27,7 +26,7 @@ async function loadScript(url: string) {
 	return result;
 }
 
-async function loadPluginInfos(): Promise<lib.PluginInfo[]> {
+async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 	let response = await fetch(`${window.webRoot}api/plugins`);
 	let pluginList: PluginWebApi[];
 	if (response.ok) {
@@ -68,7 +67,7 @@ async function loadPluginInfos(): Promise<lib.PluginInfo[]> {
 	return pluginInfos;
 }
 
-async function loadPlugins(pluginInfos: lib.PluginInfo[]) {
+async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[]) {
 	let plugins = new Map();
 	for (let pluginInfo of pluginInfos) {
 		if (!pluginInfo.enabled) {

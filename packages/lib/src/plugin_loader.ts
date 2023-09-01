@@ -21,9 +21,9 @@ import { logger } from "./logging";
  * @returns Array of plugin info modules.
  */
 export async function loadPluginInfos(pluginList: Map<string, string>) {
-	let plugins: libPlugin.PluginInfo[] = [];
+	let plugins: libPlugin.PluginNodeEnvInfo[] = [];
 	for (let [pluginName, pluginPath] of pluginList) {
-		let pluginInfo: libPlugin.PluginInfo;
+		let pluginInfo: libPlugin.PluginNodeEnvInfo;
 		let pluginPackage: { version: string, main?: string };
 
 		try {
@@ -56,7 +56,7 @@ function loadPluginClass(
 	entrypointName: "controllerEntrypoint"|"instanceEntrypoint"|"controlEntrypoint",
 	className: string,
 	pluginClass: any,
-	pluginInfo: libPlugin.PluginInfo
+	pluginInfo: libPlugin.PluginNodeEnvInfo
 ) {
 	let resolvedPath = path.posix.join(pluginInfo.requirePath, pluginInfo[entrypointName]!);
 	let entrypoint = require(resolvedPath);
@@ -82,7 +82,7 @@ function loadPluginClass(
  * @returns plugin class
  */
 export async function loadControllerPluginClass(
-	pluginInfo: libPlugin.PluginInfo
+	pluginInfo: libPlugin.PluginNodeEnvInfo
 ): Promise<typeof libPlugin.BaseControllerPlugin> {
 	return loadPluginClass("controllerEntrypoint", "ControllerPlugin", libPlugin.BaseControllerPlugin, pluginInfo);
 }
@@ -96,7 +96,7 @@ export async function loadControllerPluginClass(
  * @returns plugin class
  */
 export async function loadInstancePluginClass(
-	pluginInfo: libPlugin.PluginInfo
+	pluginInfo: libPlugin.PluginNodeEnvInfo
 ): Promise<typeof libPlugin.BaseInstancePlugin> {
 	return loadPluginClass("instanceEntrypoint", "InstancePlugin", libPlugin.BaseInstancePlugin, pluginInfo);
 }
@@ -110,7 +110,7 @@ export async function loadInstancePluginClass(
  * @returns plugin class
  */
 export async function loadControlPluginClass(
-	pluginInfo: libPlugin.PluginInfo
+	pluginInfo: libPlugin.PluginNodeEnvInfo
 ): Promise<typeof libPlugin.BaseControlPlugin> {
 	return loadPluginClass("controlEntrypoint", "ControlPlugin", libPlugin.BaseControlPlugin, pluginInfo);
 }

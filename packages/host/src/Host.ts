@@ -238,7 +238,7 @@ export default class Host extends lib.Link {
 	 * Certificate authority used to validate TLS connections to the controller.
 	 */
 	tlsCa?: string;
-	pluginInfos: lib.PluginInfo[];
+	pluginInfos: lib.PluginNodeEnvInfo[];
 	config: lib.HostConfig;
 
 	instanceConnections = new Map<number, InstanceConnection>();
@@ -260,7 +260,7 @@ export default class Host extends lib.Link {
 		connector: HostConnector,
 		hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
-		pluginInfos: lib.PluginInfo[]
+		pluginInfos: lib.PluginNodeEnvInfo[]
 	) {
 		super(connector);
 		this.tlsCa = tlsCa;

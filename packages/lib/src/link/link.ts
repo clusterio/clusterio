@@ -6,7 +6,7 @@ import * as libSchema from "../schema";
 import { dataClasses } from "./messages";
 import { BaseConnector, WebSocketBaseConnector } from "./connectors";
 import { strict as assert } from "assert";
-import type { PluginInfo } from "../plugin";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import type { User } from "../users";
 import type { AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent } from "../data";
 
@@ -778,7 +778,7 @@ for (let Class of dataClasses) {
 	Link.register(Class as RequestClass<unknown, unknown>);
 }
 
-export function registerPluginMessages(pluginInfos: PluginInfo[]) {
+export function registerPluginMessages(pluginInfos: PluginNodeEnvInfo[]|PluginWebpackEnvInfo[]) {
 	for (let pluginInfo of pluginInfos) {
 		for (let Class of pluginInfo.messages || []) {
 			if (Class.plugin !== pluginInfo.name) {

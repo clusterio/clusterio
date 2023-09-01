@@ -25,8 +25,8 @@ export type BasePlugin =
 ;
 
 // TODO Add proper typing for plugins
-/* Used to define the info.ts of plugins, plugin_loader transform it into PluginInfo */
-export type PluginInfoTs = {
+/* Used to define the export of info.ts from plugins */
+export type PluginDeclaration = {
 	name: string;
 	title: string;
 	description?: string;
@@ -45,10 +45,13 @@ export type PluginInfoTs = {
 	webEntrypoint?: string;
 	routes?: string[];
 }
-export type PluginInfo = PluginInfoTs & {
+export type PluginNodeEnvInfo = PluginDeclaration & {
 	requirePath: string;
 	version: string;
 	manifest: any;
+};
+
+export type PluginWebpackEnvInfo = PluginDeclaration & {
 	container: any;
 	package: any;
 	enabled?: boolean;
@@ -124,7 +127,7 @@ export class BaseInstancePlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginInfo,
+		public info: PluginNodeEnvInfo,
 		/**
 		 * Instance the plugin started for
 		 */
@@ -360,7 +363,7 @@ export class BaseControllerPlugin {
 	logger: Logger;
 
 	constructor(
-		public info: PluginInfo,
+		public info: PluginNodeEnvInfo,
 		public controller: Controller,
 		public metrics: any[],
 		logger: Logger
@@ -628,7 +631,7 @@ export class BaseControlPlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginInfo,
+		public info: PluginNodeEnvInfo,
 		logger: Logger,
 	) {
 		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
@@ -810,7 +813,7 @@ export class BaseWebPlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginInfo,
+		public info: PluginWebpackEnvInfo,
 		logger: Logger,
 	) {
 		this.package = packageData;

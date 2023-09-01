@@ -31,7 +31,7 @@ export class HostConnector extends lib.WebSocketClientConnector {
 	constructor(
 		public hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
-		public pluginInfos: lib.PluginInfo[]
+		public pluginInfos: lib.PluginNodeEnvInfo[]
 	) {
 		super(
 			hostConfig.get("host.controller_url"),

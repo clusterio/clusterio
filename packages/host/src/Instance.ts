@@ -490,7 +490,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this._saveStats().catch(err => this.logger.error(`Error saving stats:\n${err.stack}`));
 	}
 
-	async _loadPlugin(pluginInfo: lib.PluginInfo, host: Host) {
+	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
 		let pluginLoadStarted = Date.now();
 		let InstancePluginClass = await lib.loadInstancePluginClass(pluginInfo);
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
@@ -524,7 +524,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		await lib.safeOutputFile(this.path("instance-stats.json"), content);
 	}
 
-	async init(pluginInfos: lib.PluginInfo[]) {
+	async init(pluginInfos: lib.PluginNodeEnvInfo[]) {
 		this.notifyStatus("starting");
 		try {
 			await this._loadStats();
