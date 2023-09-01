@@ -76,13 +76,10 @@ export default class ControlConnection extends BaseConnection {
 			}
 		});
 
-		for (let event of ["connect", "drop", "resume", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			this.connector.on(event, () => {
 				for (let controllerPlugin of this._controller.plugins.values()) {
-					controllerPlugin.onControlConnectionEvent(
-						this,
-						event as "connect" | "drop" | "resume" | "close"
-					);
+					controllerPlugin.onControlConnectionEvent(this, event);
 				}
 			});
 		}

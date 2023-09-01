@@ -104,10 +104,10 @@ export class Control extends lib.Link {
 			this.emitAccountUpdate();
 		});
 
-		for (let event of ["connect", "drop", "resume", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			this.connector.on(event, () => {
 				for (let plugin of this.plugins.values()) {
-					plugin.onControllerConnectionEvent(event as "connect"|"drop"|"resume"|"close");
+					plugin.onControllerConnectionEvent(event);
 				}
 			});
 		}
