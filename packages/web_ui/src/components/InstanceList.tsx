@@ -2,21 +2,30 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { message, Button, Space, Table } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
+import type { SizeType } from "antd/es/config-provider/SizeContext";
+import type { ColumnsType } from "antd/es/table";
 
 import { useAccount } from "../model/account";
 import { useHostList } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
+import { InstanceDetails } from "@clusterio/lib";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-export default function InstanceList(props) {
+type InstanceListProps = {
+	instances: InstanceDetails[];
+	size?: SizeType;
+	hideAssignedHost?: boolean;
+};
+
+export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
 	let navigate = useNavigate();
 	let [hostList] = useHostList();
 
-	function hostName(hostId) {
-		if (hostId === null) {
+	function hostName(hostId?: number|null) {
+		if (hostId === null ||hostId === undefined) {
 			return "";
 		}
 		let host = hostList.find(s => s.id === hostId);
@@ -26,7 +35,7 @@ export default function InstanceList(props) {
 		return String(hostId);
 	}
 
-	function instancePublicAddress(instance) {
+	function instancePublicAddress(instance: InstanceDetails) {
 		let host = hostList.find(s => s.id === instance.assignedHost);
 		if (host && host.publicAddress) {
 			if (instance.gamePort) {
@@ -37,7 +46,7 @@ export default function InstanceList(props) {
 		return null;
 	}
 
-	let columns = [
+	let columns: ColumnsType<InstanceDetails> = [
 		{
 			title: "Name",
 			dataIndex: "name",
@@ -63,13 +72,13 @@ export default function InstanceList(props) {
 						icon={<CopyOutlined/>}
 						onClick={(e) => {
 							e.stopPropagation();
-							navigator.clipboard.writeText(publicAddress);
+							navigator.clipboard.writeText(publicAddress??"");
 							message.success("Copied public address!");
 						}}
 					/>
 				</> : "";
 			},
-			sorter: (a, b) => strcmp(hostPublicAddress(a.assignedHost), hostPublicAddress(b.assignedHost)),
+			sorter: (a, b) => strcmp(instancePublicAddress(a)||"", instancePublicAddress(b)||""),
 			responsive: ["lg"],
 		},
 		{
@@ -78,7 +87,10 @@ export default function InstanceList(props) {
 			render: instance => <InstanceStatusTag status={instance["status"]} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
 		},
-		...(account.hasAnyPermission("core.instance.start", "core.instance.stop") ? [{
+	];
+
+	if (account.hasAnyPermission("core.instance.start", "core.instance.stop")) {
+		columns.push({
 			key: "action",
 			render: instance => <StartStopInstanceButton
 				buttonProps={{ size: "small" }}
@@ -87,8 +99,8 @@ export default function InstanceList(props) {
 			responsive: ["sm"],
 			align: "right",
 			width: 100,
-		}] : []),
-	];
+		})
+	}
 
 	if (props.hideAssignedHost) {
 		columns.splice(1, 1);

@@ -6,7 +6,7 @@ import BaseConfigTree from "./BaseConfigTree";
 import ControlContext from "./ControlContext";
 
 
-export default function ControllerConfigTree(props) {
+export default function ControllerConfigTree() {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
@@ -14,14 +14,14 @@ export default function ControllerConfigTree(props) {
 		return result.serializedConfig;
 	}
 
-	async function setField(field, value) {
+	async function setField(field: string, value: any) {
 		await control.send(new lib.ControllerConfigSetFieldRequest(
 			field,
 			String(value),
 		));
 	}
 
-	async function setProp(field, prop, value) {
+	async function setProp(field: string, prop: string, value: any) {
 		if (value) {
 			try {
 				value = JSON.parse(value);

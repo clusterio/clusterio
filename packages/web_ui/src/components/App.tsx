@@ -1,3 +1,5 @@
+import type { Control } from "../util/websocket";
+
 import React, { useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 
@@ -13,7 +15,10 @@ import { Card, ConfigProvider, Spin, Typography, theme } from "antd";
 const { Paragraph } = Typography;
 
 
-function ErrorCard(props) {
+export type ErrorProps = {
+	error: Error;
+};
+function ErrorCard(props: ErrorProps) {
 	return <div className="login-container">
 		<Card>
 			<h1>An unexpected error occured</h1>
@@ -22,7 +27,11 @@ function ErrorCard(props) {
 	</div>;
 }
 
-export default function App(props) {
+
+type AppProps = {
+	control: Control;
+};
+export default function App(props: AppProps) {
 	let [connected, setConnected] = useState(false);
 	let [token, setToken] = useState(localStorage.getItem("controller_token") || null);
 	let connector = props.control.connector;
@@ -35,7 +44,11 @@ export default function App(props) {
 
 	useEffect(() => {
 		function onConnect() {
-			localStorage.setItem("controller_token", token);
+			if (token === null) {
+				localStorage.removeItem("controller_token");
+			} else {
+				localStorage.setItem("controller_token", token);
+			}
 			setConnected(true);
 		}
 
@@ -43,7 +56,7 @@ export default function App(props) {
 			setConnected(false);
 		}
 
-		function onError(err) {
+		function onError(err: any) {
 			logger.error(`Unexpected error in connector:\n${err.stack}`);
 			clearToken();
 			setConnected(false);
@@ -96,7 +109,7 @@ export default function App(props) {
 				theme={{ algorithm: theme.darkAlgorithm }}
 			>
 				<ControlContext.Provider value={props.control}>
-					<BrowserRouter basename={webRoot}>
+					<BrowserRouter basename={window.webRoot}>
 						{page}
 					</BrowserRouter>
 				</ControlContext.Provider>

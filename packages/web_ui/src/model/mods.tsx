@@ -8,7 +8,7 @@ const { logger } = lib;
 
 export function useModList() {
 	let control = useContext(ControlContext);
-	let [modList, setModList] = useState([]);
+	let [modList, setModList] = useState<lib.ModInfo[]>([]);
 
 	function updateModList() {
 		control.send(new lib.ModListRequest()).then(mods => {
@@ -21,7 +21,7 @@ export function useModList() {
 	useEffect(() => {
 		updateModList();
 
-		function updateHandler(newMod) {
+		function updateHandler(newMod: lib.ModInfo) {
 			setModList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(mod => mod.name === newMod.name && mod.version === newMod.version);

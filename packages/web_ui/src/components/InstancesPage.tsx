@@ -13,7 +13,7 @@ import { useInstanceList } from "../model/instance";
 import InstanceList from "./InstanceList";
 import { notifyErrorHandler } from "../util/notify";
 
-function CreateInstanceButton(props) {
+function CreateInstanceButton() {
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
 	let [open, setOpen] = useState(false);
@@ -72,8 +72,9 @@ export default function InstancesPage() {
 				{account.hasPermission("core.instance.start")
 					&& <Button onClick={e => instanceList.forEach(instance => {
 						if (instance.status === "stopped") {
-							control.send(
-								new lib.InstanceStartRequest(undefined), { instanceId: instance.id }
+							control.sendTo(
+								{ instanceId: instance.id },
+								new lib.InstanceStartRequest(undefined),
 							).catch(notifyErrorHandler("Error starting instance"));
 						}
 					})

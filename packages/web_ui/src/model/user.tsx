@@ -6,7 +6,7 @@ import * as lib from "@clusterio/lib";
 
 const { logger } = lib;
 
-function calculateLastSeen(user, instanceId) {
+function calculateLastSeen(user: RawUserState, instanceId?: number) {
 	let stats;
 	if (instanceId === undefined) {
 		stats = user.playerStats;
@@ -25,8 +25,8 @@ function calculateLastSeen(user, instanceId) {
 	return undefined;
 }
 
-export function formatLastSeen(user, instanceId = undefined) {
-	if (user.instances.some(id => instanceId === undefined || id === instanceId)) {
+export function formatLastSeen(user: RawUserState, instanceId?: number) {
+	if (user.instances && user.instances.some(id => instanceId === undefined || id === instanceId)) {
 		return <Tag color="green">Online</Tag>;
 	}
 	let lastSeen = calculateLastSeen(user, instanceId);
@@ -36,15 +36,15 @@ export function formatLastSeen(user, instanceId = undefined) {
 	return new Date(lastSeen).toLocaleString();
 }
 
-export function sortLastSeen(userA, userB, instanceIdA = undefined, instanceIdB = undefined) {
-	function epoch(user, instanceId) {
-		return user.instances.some(id => instanceId === undefined || id === instanceId);
+export function sortLastSeen(userA:RawUserState, userB:RawUserState, instanceIdA?: number, instanceIdB?: number) {
+	function epoch(user:RawUserState, instanceId?: number) {
+		return user.instances && user.instances.some(id => instanceId === undefined || id === instanceId);
 	}
 
 	let epochA = epoch(userA, instanceIdA);
 	let epochB = epoch(userB, instanceIdB);
 	if (epochA !== epochB) {
-		return epochA - epochB;
+		return Number(epochA) - Number(epochB);
 	}
 
 	let lastSeenA = calculateLastSeen(userA, instanceIdA) || 0;
@@ -52,9 +52,15 @@ export function sortLastSeen(userA, userB, instanceIdA = undefined, instanceIdB 
 	return lastSeenA - lastSeenB;
 }
 
-export function useUser(name) {
+export type RawUserState = Partial<lib.RawUser> & {
+	loading?: Boolean;
+	present?: Boolean;
+	missing?: Boolean;
+};
+
+export function useUser(name: string): [RawUserState, () => void] {
 	let control = useContext(ControlContext);
-	let [user, setUser] = useState({ loading: true });
+	let [user, setUser] = useState<RawUserState>({ loading: true });
 
 	function updateUser() {
 		control.send(new lib.UserGetRequest(name)).then(updatedUser => {
@@ -63,7 +69,6 @@ export function useUser(name) {
 			logger.error(`Failed to get user: ${err}`);
 			setUser({ missing: true });
 		});
-
 	}
 
 	useEffect(() => {
@@ -73,7 +78,7 @@ export function useUser(name) {
 		}
 		updateUser();
 
-		function updateHandler(newUser) {
+		function updateHandler(newUser: lib.RawUser) {
 			setUser({ ...newUser, present: true });
 		}
 
@@ -88,7 +93,7 @@ export function useUser(name) {
 
 export function useUserList() {
 	let control = useContext(ControlContext);
-	let [userList, setUserList] = useState([]);
+	let [userList, setUserList] = useState<lib.RawUser[]>([]);
 
 	function updateUserList() {
 		control.send(new lib.UserListRequest()).then(users => {
@@ -101,7 +106,7 @@ export function useUserList() {
 	useEffect(() => {
 		updateUserList();
 
-		function updateHandler(newUser) {
+		function updateHandler(newUser: lib.RawUser) {
 			setUserList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(u => u.name === newUser.name);

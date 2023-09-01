@@ -1,11 +1,13 @@
+import type * as lib from "@clusterio/lib";
+
 import React, { useEffect, useState } from "react";
 import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography } from "antd";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 
 const { Title } = Typography;
 
-function getInitialValues(config, props) {
-	let initialValues = {};
+function getInitialValues(config: lib.Config, props: BaseConfigTreeProps) {
+	let initialValues: any = {};
 	for (let [name, GroupClass] of props.ConfigClass.groups) {
 		let group = config.group(name);
 		for (let def of GroupClass.definitions.values()) {
@@ -13,7 +15,7 @@ function getInitialValues(config, props) {
 				continue;
 			}
 
-			let value = group.get(def.name);
+			let value = group.get(def.name) as any;
 			let fieldName = `${group.name}.${def.name}`;
 
 			if (def.type === "object") {
@@ -29,10 +31,18 @@ function getInitialValues(config, props) {
 	return initialValues;
 }
 
-export default function BaseConfigTree(props) {
-	let [config, setConfig] = useState(null);
+type BaseConfigTreeProps = {
+	ConfigClass: typeof lib.Config;
+	retrieveConfig: () => Promise<lib.SerializedConfig>;
+	setField: (field:string, value:any) => Promise<void>;
+	setProp: (field:string, prop:string, value:any) => Promise<void>;
+	id?: number;
+	onApply?: () => void;
+};
+export default function BaseConfigTree(props: BaseConfigTreeProps) {
+	let [config, setConfig] = useState<lib.Config|null>(null);
 	let [form] = Form.useForm();
-	let [changedFields, setChangedFields] = useState(new Set());
+	let [changedFields, setChangedFields] = useState<Set<string>>(new Set());
 	let [errorFields, setErrorFields] = useState(new Map());
 	let [applying, setApplying] = useState(false);
 
@@ -49,7 +59,7 @@ export default function BaseConfigTree(props) {
 		});
 	}, [props.id]);
 
-	function renderInput(def) {
+	function renderInput(def: lib.FieldDefinition) {
 		if (def.type === "boolean") {
 			return <Checkbox/>;
 		}
@@ -67,8 +77,8 @@ export default function BaseConfigTree(props) {
 		return <Spin/>;
 	}
 
-	let initialValues = {};
-	function onValuesChange(changedValues) {
+	let initialValues: any = {};
+	function onValuesChange(changedValues: object) {
 		let newChangedFields = new Set(changedFields);
 		let changed = false;
 		for (let [key, value] of Object.entries(changedValues)) {
@@ -93,11 +103,23 @@ export default function BaseConfigTree(props) {
 		title="A restart is required for this setting to take effect"
 	><ReloadOutlined/></Tooltip>;
 
+	
+	type ChildNode = {
+		key: string;
+		children: any[];
+		title?: React.ReactElement;
+	};
+	type TreeNode = {
+		key: string;
+		title: string;
+		children: ChildNode[];
+	};
+
 	let treeData = [];
 	let propsMap = new Map();
 	for (let [name, GroupClass] of props.ConfigClass.groups) {
 		let group = config.group(name);
-		let treeNode = {
+		let treeNode: TreeNode = {
 			key: group.name,
 			title: group.name,
 			children: [],
@@ -108,9 +130,9 @@ export default function BaseConfigTree(props) {
 				continue;
 			}
 
-			let value = group.get(def.name);
+			let value = group.get(def.name) as any;
 			let fieldName = `${group.name}.${def.name}`;
-			let childNode = {
+			let childNode: ChildNode = {
 				key: fieldName,
 				children: [],
 			};
@@ -127,7 +149,7 @@ export default function BaseConfigTree(props) {
 				for (let prop of Object.keys(value)) {
 					let propPath = `${group.name}.${def.name}.${prop}`;
 					let restart = Boolean(
-						def.restartRequiredProps && def.restartRequired ^ restartRequiredProps.has(prop)
+						def.restartRequiredProps && Number(def.restartRequired) ^ Number(restartRequiredProps.has(prop))
 					);
 					childNode.children.push({
 						key: propPath,
@@ -180,7 +202,7 @@ export default function BaseConfigTree(props) {
 								let propValue = form.getFieldValue(`${newPropPath}.value`);
 								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
 									let newConfig = new props.ConfigClass("control");
-									await newConfig.load(config.serialize());
+									await newConfig.load(config!.serialize());
 									newConfig.setProp(fieldName, propName, null);
 									setConfig(newConfig);
 								}
@@ -252,7 +274,7 @@ export default function BaseConfigTree(props) {
 									return newChanged;
 								});
 
-							} catch (err) {
+							} catch (err: any) {
 								setErrorFields(errors => {
 									let newErrors = new Map(errors);
 									newErrors.set(field, err.message);

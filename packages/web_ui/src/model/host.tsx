@@ -4,13 +4,20 @@ import ControlContext from "../components/ControlContext";
 import * as lib from "@clusterio/lib";
 
 
-export function useHost(id) {
+export type HostState = Partial<lib.HostDetails> & {
+	loading?: boolean,
+	present?: boolean,
+	missing?: boolean,
+}
+
+export function useHost(id: number): [ HostState, () => void ] {
 	let control = useContext(ControlContext);
-	let [host, setHost] = useState({ loading: true });
+	let [host, setHost] = useState<HostState>({ loading: true });
 
 	function updateHost() {
 		// XXX optimize by requesting only the host in question
-		control.send(new lib.HostListRequest()).then(hosts => {
+		control.send(new lib.HostListRequest())
+		.then((hosts: lib.HostDetails[]) => {
 			let match = hosts.find(i => i.id === id);
 			if (!match) {
 				setHost({ missing: true });
@@ -27,8 +34,8 @@ export function useHost(id) {
 		}
 		updateHost();
 
-		function updateHandler(newHost) {
-			setHost({ ...newHost, present: true });
+		function updateHandler(newHost: lib.HostDetails) {
+			setHost({ ...newHost, loading:false, missing:false, present:true });
 		}
 
 		control.onHostUpdate(id, updateHandler);
@@ -42,10 +49,11 @@ export function useHost(id) {
 
 export function useHostList() {
 	let control = useContext(ControlContext);
-	let [hostList, setHostList] = useState([]);
+	let [hostList, setHostList] = useState<lib.HostDetails[]>([]);
 
 	function updateHostList() {
-		control.send(new lib.HostListRequest()).then(hosts => {
+		control.send(new lib.HostListRequest())
+		.then((hosts: lib.HostDetails[]) => {
 			setHostList(hosts);
 		});
 	}
@@ -53,7 +61,7 @@ export function useHostList() {
 	useEffect(() => {
 		updateHostList();
 
-		function updateHandler(newHost) {
+		function updateHandler(newHost: lib.HostDetails) {
 			setHostList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(s => s.id === newHost.id);

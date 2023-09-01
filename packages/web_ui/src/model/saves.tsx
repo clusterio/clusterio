@@ -5,12 +5,12 @@ import * as lib from "@clusterio/lib";
 
 const { logger } = lib;
 
-export function useSaves(instanceId) {
+export function useSaves(instanceId?: number): lib.SaveDetails[] {
 	let control = useContext(ControlContext);
-	let [saves, setSaves] = useState([]);
+	let [saves, setSaves] = useState<lib.SaveDetails[]>([]);
 
 	function updateSaves() {
-		control.sendTo({ instanceId }, new lib.InstanceListSavesRequest()).then(updatedSaves => {
+		control.sendTo({ instanceId:instanceId! }, new lib.InstanceListSavesRequest()).then(updatedSaves => {
 			setSaves(updatedSaves);
 		}).catch(err => {
 			logger.error(`Failed to list instance saves: ${err}`);
@@ -25,13 +25,13 @@ export function useSaves(instanceId) {
 		}
 		updateSaves();
 
-		function updateHandler(data) {
+		function updateHandler(data: lib.InstanceSaveListUpdateEvent) {
 			setSaves(data.saves);
 		}
 
-		control.onSaveListUpdate(instanceId, updateHandler);
+		control.onSaveListUpdate(instanceId!, updateHandler);
 		return () => {
-			control.offSaveListUpdate(instanceId, updateHandler);
+			control.offSaveListUpdate(instanceId!, updateHandler);
 		};
 	}, [instanceId]);
 

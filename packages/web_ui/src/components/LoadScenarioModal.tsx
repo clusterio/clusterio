@@ -5,9 +5,12 @@ import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
+import { InstanceState } from "../model/instance";
 
-
-export default function LoadScenarioModal(props) {
+type LoadScenarioModalProps = {
+	instance: InstanceState;
+};
+export default function LoadScenarioModal(props: LoadScenarioModalProps) {
 	let [open, setOpen] = useState(false);
 	let [loadingScenario, setLoadingScenario] = useState(false);
 	let [form] = Form.useForm();
@@ -23,7 +26,7 @@ export default function LoadScenarioModal(props) {
 			let result;
 			try {
 				result = lib.readMapExchangeString(values.exchangeString);
-			} catch (err) {
+			} catch (err: any) {
 				form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 				return;
 			}
@@ -34,7 +37,7 @@ export default function LoadScenarioModal(props) {
 		if (values.mapGenSettings && values.mapGenSettings.trim()) {
 			try {
 				mapGenSettings = JSON.parse(values.mapGenSettings);
-			} catch (err) {
+			} catch (err: any) {
 				form.setFields([{ name: "mapGenSettings", errors: [err.message] }]);
 				return;
 			}
@@ -43,7 +46,7 @@ export default function LoadScenarioModal(props) {
 		if (values.mapSettings && values.mapSettings.trim()) {
 			try {
 				mapSettings = JSON.parse(values.mapGenSettings);
-			} catch (err) {
+			} catch (err: any) {
 				form.setFields([{ name: "mapSettings", errors: [err.message] }]);
 				return;
 			}
@@ -52,7 +55,7 @@ export default function LoadScenarioModal(props) {
 
 		setLoadingScenario(true);
 		control.sendTo(
-			{ instanceId: props.instance.id },
+			{ instanceId: props.instance.id! },
 			new lib.InstanceLoadScenarioRequest(scenario, seed, mapGenSettings, mapSettings),
 		).then(() => {
 			setOpen(false);
@@ -68,7 +71,7 @@ export default function LoadScenarioModal(props) {
 		let result;
 		try {
 			result = lib.readMapExchangeString(exchangeString);
-		} catch (err) {
+		} catch (err: any) {
 			form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 			return;
 		}

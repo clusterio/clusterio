@@ -13,9 +13,14 @@ import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
 
 
-function useRole(id) {
+export type RawRoleState = Partial<lib.RawRole> & {
+	loading?: Boolean;
+	missing?: Boolean;
+	present?: Boolean;
+};
+function useRole(id: number): [RawRoleState, () => void] {
 	let control = useContext(ControlContext);
-	let [role, setRole] = useState({ loading: true });
+	let [role, setRole] = useState<RawRoleState>({ loading: true });
 
 	function updateRole() {
 		// XXX optimize by requesting only the role in question
@@ -51,10 +56,10 @@ export default function RoleViewPage() {
 	let [edited, setEdited] = useState(false);
 
 
-	let nav = [{ name: "Roles", path: "/roles" }, { name: role["name"] || roleId }];
+	let nav = [{ name: "Roles", path: "/roles" }, { name: role.name || String(roleId) }];
 	if (role.loading) {
 		return <PageLayout nav={nav}>
-			<PageHeader title={roleId} />
+			<PageHeader title={String(roleId)} />
 			<Spin size="large" />
 		</PageLayout>;
 	}
@@ -71,7 +76,7 @@ export default function RoleViewPage() {
 		description: role["description"],
 		permissions: {
 			...Object.fromEntries([...lib.permissions.values()].map(perm => [
-				perm.name, role["permissions"].includes(perm.name),
+				perm.name, role.permissions!.includes(perm.name),
 			])),
 		},
 	};
@@ -96,7 +101,7 @@ export default function RoleViewPage() {
 			}}
 		>
 			<PageHeader
-				title={role["name"]}
+				title={role.name!}
 				extra={<>
 					{canUpdate && <Button type={edited ? "primary" : "default"} htmlType="submit">Apply</Button>}
 					{account.hasPermission("core.role.delete") && <Popconfirm

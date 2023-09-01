@@ -6,9 +6,16 @@ import ControlContext from "../components/ControlContext";
 
 const { logger } = lib;
 
-export function useModPack(id) {
+
+export type StateLoadStatus = {
+	loading?: boolean;
+	present?: boolean;
+	missing?: boolean;
+};
+
+export function useModPack(id: number) {
 	let control = useContext(ControlContext);
-	let [modPack, setModPack] = useState({ loading: true });
+	let [modPack, setModPack] = useState<lib.ModPack|StateLoadStatus>({ loading: true });
 
 	function updateModPack() {
 		control.send(new lib.ModPackGetRequest(id)).then(updatedModPack => {
@@ -37,7 +44,7 @@ export function useModPack(id) {
 
 export function useModPackList() {
 	let control = useContext(ControlContext);
-	let [modPackList, setModPackList] = useState([]);
+	let [modPackList, setModPackList] = useState<lib.ModPack[]>([]);
 
 	function updateModPackList() {
 		control.send(new lib.ModPackListRequest()).then(modPacks => {
@@ -50,7 +57,7 @@ export function useModPackList() {
 	useEffect(() => {
 		updateModPackList();
 
-		function updateHandler(newModPack) {
+		function updateHandler(newModPack: lib.ModPack) {
 			setModPackList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(u => u.id === newModPack.id);

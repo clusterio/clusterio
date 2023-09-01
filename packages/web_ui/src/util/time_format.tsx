@@ -5,11 +5,10 @@ const formatDay = new Intl.NumberFormat(undefined, { style: "unit", unit: "day",
 
 /**
  * Formats a duration of time in milliseconds to something human readable.
- * @param {number} ms - Duration to formatDuration
- * @param {object=} options - Options to control the formatting.
- * @returns {string} human readable representation of the duration.
+ * @param ms - Duration to formatDuration
+ * @returns human readable representation of the duration.
  */
-export function formatDuration(ms, options = {}) {
+export function formatDuration(ms: number): string {
 	let result = "";
 	if (ms < 0) {
 		result += "-";

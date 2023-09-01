@@ -7,8 +7,10 @@ import ControlContext from "./ControlContext";
 
 const { Paragraph } = Typography;
 
-
-function TokenAuth(props) {
+type SetTokenProps = {
+	setToken: (token: string) => void;
+};
+function TokenAuth(props: SetTokenProps) {
 	return <>
 		<Paragraph>If you have generated an authentication token from the controller, use that here.</Paragraph>
 		<Form
@@ -32,7 +34,7 @@ function TokenAuth(props) {
 	</>;
 }
 
-export default function LoginForm(props) {
+export default function LoginForm(props: SetTokenProps) {
 	let plugins = useContext(ControlContext).plugins;
 
 	let loginForms = [];

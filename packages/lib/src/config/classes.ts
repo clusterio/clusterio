@@ -1,4 +1,5 @@
 // Configuration classes
+import { Type, Static } from "@sinclair/typebox";
 import events from "events";
 
 import isDeepStrictEqual from "../is_deep_strict_equal";
@@ -317,8 +318,34 @@ export class Config extends events.EventEmitter {
 	}
 }
 
+// TODO: remove after config refactor
+export class RawConfig {
+	constructor(
+		public serializedConfig: SerializedConfig
+	) { }
+
+	static jsonSchema = Type.Object({
+		"serializedConfig": Type.Object({
+			"groups": Type.Array(
+				Type.Object({
+					"name": Type.String(),
+					"fields": Type.Record(
+						Type.String(),
+						Type.Unknown(),
+					),
+				}),
+			),
+		}),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.serializedConfig);
+	}
+}
+
+
 type FieldType = "boolean" | "string" | "number" | "object";
-interface FieldDefinition {
+export interface FieldDefinition {
 	type: FieldType;
 	name: string;
 	fullName: string;

@@ -6,19 +6,23 @@ import BaseConfigTree from "./BaseConfigTree";
 import ControlContext from "./ControlContext";
 
 
-export default function InstanceConfigTree(props) {
+type InstanceConfigTreeProps = {
+	id: number;
+};
+
+export default function InstanceConfigTree(props: InstanceConfigTreeProps) {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
 		let result = await control.send(new lib.InstanceConfigGetRequest(props.id));
-		return result.config;
+		return result.serializedConfig;
 	}
 
-	async function setField(field, value) {
+	async function setField(field: string, value: any) {
 		await control.send(new lib.InstanceConfigSetFieldRequest(props.id, field, value));
 	}
 
-	async function setProp(field, prop, value) {
+	async function setProp(field: string, prop: string, value: any) {
 		if (value) {
 			try {
 				value = JSON.parse(value);

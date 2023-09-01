@@ -1,6 +1,7 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Dropdown, Menu, Modal, Space, Spin, Typography } from "antd";
+import { Alert, Button, Descriptions, Dropdown, Menu, MenuProps, Modal, Space, Spin, Typography } from "antd";
+import type { ItemType } from 'antd/es/menu/hooks/useItems';
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -19,14 +20,17 @@ import StartStopInstanceButton from "./StartStopInstanceButton";
 import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
 import { notifyErrorHandler } from "../util/notify";
-import { useInstance } from "../model/instance";
-import { useHost } from "../model/host";
+import { InstanceState, useInstance } from "../model/instance";
+import { HostState, useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 
 const { Title } = Typography;
 
-
-function InstanceDescription(props) {
+type InstanceDescriptionProps = {
+	host: HostState;
+	instance: InstanceState;
+};
+function InstanceDescription(props: InstanceDescriptionProps) {
 	let account = useAccount();
 
 	const { host, instance } = props;
@@ -45,18 +49,18 @@ function InstanceDescription(props) {
 				hostId={instance.assignedHost}
 				buttonProps={{
 					size: "small",
-					style: { float: "Right" },
+					style: { float: "right" },
 					type: assigned ? "default" : "primary",
-					disabled: !["unknown", "unassigned", "stopped"].includes(instance.status),
+					disabled: !["unknown", "unassigned", "stopped"].includes(instance.status!),
 				}}
 				buttonContent={assigned ? "Reassign" : "Assign"}
 			/>}
 		</Descriptions.Item>
-		<Descriptions.Item label="Status"><InstanceStatusTag status={instance.status} /></Descriptions.Item>
+		<Descriptions.Item label="Status"><InstanceStatusTag status={instance.status!} /></Descriptions.Item>
 	</Descriptions>;
 }
 
-export default function InstanceViewPage(props) {
+export default function InstanceViewPage() {
 	let params = useParams();
 	let instanceId = Number(params.id);
 
@@ -93,7 +97,7 @@ export default function InstanceViewPage(props) {
 		</PageLayout>;
 	}
 
-	let instanceButtonMenuItems = [];
+	let instanceButtonMenuItems: ItemType[] = [];
 	if (account.hasPermission("core.instance.export_data")) {
 		instanceButtonMenuItems.push({
 			disabled: exportingData || instance.status !== "stopped",
@@ -110,7 +114,7 @@ export default function InstanceViewPage(props) {
 	}
 	if (account.hasPermission("core.instance.kill")) {
 		instanceButtonMenuItems.push({
-			disabled: ["unknown", "unassigned", "stopped"].includes(instance.status),
+			disabled: ["unknown", "unassigned", "stopped"].includes(instance.status!),
 			key: "kill",
 			label: "Kill process",
 		});
@@ -120,16 +124,16 @@ export default function InstanceViewPage(props) {
 			instanceButtonMenuItems.push({ type: "divider" });
 		}
 		instanceButtonMenuItems.push({
-			disabled: !["unknown", "unassigned", "stopped"].includes(instance.status),
+			disabled: !["unknown", "unassigned", "stopped"].includes(instance.status!),
 			danger: true,
 			key: "delete",
 			icon: <DeleteOutlined />,
 			label: "Delete",
 		});
 	}
-	let instanceButtonsMenuProps = {
+	let instanceButtonsMenuProps: MenuProps = {
 		items: instanceButtonMenuItems,
-		onClick: ({ key }) => {
+		onClick: ({ key }: { key:string }) => {
 			if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
@@ -188,7 +192,7 @@ export default function InstanceViewPage(props) {
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			title={instance.name}
+			title={instance.name??""}
 			extra={instanceButtons}
 		/>
 		<InstanceDescription host={host} instance={instance} />

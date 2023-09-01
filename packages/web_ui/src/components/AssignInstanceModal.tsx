@@ -1,3 +1,4 @@
+import type { BaseButtonProps } from "antd/es/button/button";
 import React, { useContext, useState } from "react";
 import { Button, Form, Modal, Select, Typography } from "antd";
 
@@ -10,7 +11,14 @@ import { useHostList } from "../model/host";
 const { Paragraph } = Typography;
 
 
-export default function AssignInstanceModal(props) {
+type AssignInstanceModalProps = {
+	id?: number;
+	hostId?: number;
+	buttonProps: BaseButtonProps & { style: React.CSSProperties };
+	buttonContent: string;
+	onFinish?: () => void;
+};
+export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 	let [open, setOpen] = useState(false);
 	let [hostList] = useHostList();
 	let [applying, setApplying] = useState(false);
@@ -30,7 +38,7 @@ export default function AssignInstanceModal(props) {
 
 		setApplying(true);
 		control.send(
-			new lib.InstanceAssignRequest(props.id, hostId)
+			new lib.InstanceAssignRequest(props.id!, hostId)
 		).then(() => {
 			setOpen(false);
 			if (props.onFinish) {

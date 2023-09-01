@@ -13,8 +13,10 @@ export const statusColors = {
 	deleted: "#262626",
 };
 
-
-export default function InstanceStatusTag(props) {
+type InstanceStatusTag = {
+	status: keyof typeof statusColors;
+};
+export default function InstanceStatusTag(props: InstanceStatusTag) {
 	return <Tag color={statusColors[props.status]}>
 		{props.status.replace("_", " ")}
 	</Tag>;

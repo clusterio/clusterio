@@ -2,21 +2,23 @@ import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
 
+import type { PluginWebApi } from "@clusterio/controller/src/routes";
+
 import notify from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
 export default function PluginsPage() {
 	let plugins = useContext(ControlContext).plugins;
 	let navigate = useNavigate();
-	let [pluginList, setPluginList] = useState([]);
+	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${webRoot}api/plugins`);
+			let response = await fetch(`${window.webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {
@@ -28,7 +30,7 @@ export default function PluginsPage() {
 	let tableContents = [];
 	for (let meta of pluginList) {
 		if (plugins.has(meta.name)) {
-			let plugin = plugins.get(meta.name);
+			let plugin = plugins.get(meta.name)!;
 			tableContents.push({
 				meta,
 				info: plugin.info,
@@ -70,7 +72,7 @@ export default function PluginsPage() {
 					title: "Loaded",
 					dataIndex: ["meta", "loaded"],
 					render: loaded => (loaded ? "Yes" : null),
-					sorter: (a, b) => a.loaded - b.loaded,
+					sorter: (a, b) => Number(a.meta.loaded) - Number(b.meta.loaded),
 					responsive: ["sm"],
 				},
 			]}

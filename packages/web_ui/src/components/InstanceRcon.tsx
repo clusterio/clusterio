@@ -9,12 +9,16 @@ import { notifyErrorHandler } from "../util/notify";
 const { Title, Paragraph } = Typography;
 
 
-export default function InstanceRcon(props) {
+type InstanceRconProps = {
+	id: number;
+	disabled: boolean;
+};
+export default function InstanceRcon(props: InstanceRconProps) {
 	let control = useContext(ControlContext);
-	let [output, setOutput] = useState(null);
+	let [output, setOutput] = useState<string|null>(null);
 	let [running, setRunning] = useState(false);
 
-	async function sendCommand(command) {
+	async function sendCommand(command: string) {
 		if (!command) {
 			setOutput(null);
 			return;

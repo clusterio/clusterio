@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
-import { Dropdown, Layout, Menu } from "antd";
+import { Dropdown, Layout, Menu, MenuProps } from "antd";
 import UserOutlined from "@ant-design/icons/UserOutlined";
 import webUiPackage from "../../package.json";
 
@@ -12,22 +12,21 @@ import { pages } from "../pages";
 
 const { Header, Sider } = Layout;
 
-
-export default function SiteLayout(props) {
+export default function SiteLayout() {
 	let navigate = useNavigate();
-	let [currentSidebarPath, setCurrentSidebarPath] = useState(null);
+	let [currentSidebarPath, setCurrentSidebarPath] = useState<string|null>(null);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
 
-	function SetSidebar(setSidebarProps) {
+	function SetSidebar(props: { path: string|null }) {
 		useEffect(() => {
-			setCurrentSidebarPath(setSidebarProps.path);
+			setCurrentSidebarPath(props.path);
 		});
 		return null;
 	}
 
-	let accountMenuProps = {
-		onClick: ({ key }) => {
+	let accountMenuProps: MenuProps = {
+		onClick: ({ key }: {key:string}) => {
 			if (key === "user") {
 				navigate(`/users/${account.name}/view`);
 			} else if (key === "logOut") {
@@ -87,7 +86,7 @@ export default function SiteLayout(props) {
 			<Dropdown
 				className="account-dropdown-header"
 				placement="bottomRight"
-				trigger="click"
+				trigger={["click"]}
 				menu={accountMenuProps}
 			>
 				<UserOutlined/>
@@ -105,7 +104,7 @@ export default function SiteLayout(props) {
 				<Menu
 					mode="inline"
 					defaultOpenKeys={[...menuGroups.keys()]}
-					selectedKeys={[currentSidebarPath]}
+					selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
 					style={{ height: "100%", borderRight: 0 }}
 					onClick={({ key }) => navigate(key)}
 					items={menuItems}

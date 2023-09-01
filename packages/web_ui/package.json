@@ -32,6 +32,7 @@
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
+    "rc-field-form": "^1.37.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.14.2",
@@ -49,6 +50,8 @@
     "access": "public"
   },
   "devDependencies": {
-    "@types/react": "^18.2.21"
+    "@types/node": "^20.4.5",
+    "@types/react": "^18.2.21",
+    "@types/react-dom": "^18.2.7"
   }
 }

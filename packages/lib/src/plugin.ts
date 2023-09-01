@@ -12,7 +12,7 @@ import type { Link } from "./link";
 import type { CommandTree } from "./command";
 import type { User } from "./users";
 import type { MessageRequest, MessageEvent } from "./data";
-
+import type { PluginConfigGroup } from "./config";
 
 /**
  * Conceptual base for controller and instance plugins.
@@ -25,7 +25,35 @@ export type BasePlugin =
 ;
 
 // TODO Add proper typing for plugins
-export type PluginInfo = any;
+/* Used to define the info.ts of plugins, plugin_loader transform it into PluginInfo */
+export type PluginInfoTs = {
+	name: string;
+	title: string;
+	description?: string;
+
+	instanceEntrypoint?: string;
+	InstanceConfigGroup?: typeof PluginConfigGroup;
+
+	controllerEntrypoint?: string;
+	ControllerConfigGroup?: typeof PluginConfigGroup;
+
+	controlEntrypoint?: string;
+	ControlConfigGroup?: typeof PluginConfigGroup;
+
+	messages?: any[];
+
+	webEntrypoint?: string;
+	routes?: string[];
+}
+export type PluginInfo = PluginInfoTs & {
+	requirePath: string;
+	version: string;
+	manifest: any;
+	container: any;
+	package: any;
+	enabled?: boolean;
+};
+
 type Controller = any;
 type Instance = any;
 type Host = any;
@@ -647,6 +675,20 @@ export interface PluginLoginForm {
 	Component: React["Component"];
 };
 
+export type AccountRole = {
+	name: string;
+	id: number;
+	permissions: string[];
+};
+
+export type UserAccount = {
+	name: string;
+	roles: AccountRole[];
+	hasPermission: (permission: string) => boolean | null;
+	hasAnyPermission: (...permissions: string[]) => boolean | null;
+	hasAllPermission: (...permissions: string[]) => boolean | null;
+	logOut: () => void;
+};
 
 /**
  * Plugin supplied pages
@@ -677,7 +719,7 @@ export interface PluginPage {
 	/**
 	 * Permission to access page. function are expected to throw an error if access is deny.
 	 */
-	permission?: string | ((user: User, message: MessageRequest|MessageEvent) => void);
+	permission?: string | ((account: UserAccount) => (boolean|null));
 };
 
 /**

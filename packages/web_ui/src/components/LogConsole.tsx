@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useRef, useState } from "react";
+import React, { useEffect, useContext, useRef, useState, ReactElement } from "react";
 import { Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -8,18 +8,27 @@ import ControlContext from "./ControlContext";
 
 const { Paragraph } = Typography;
 
+type Parsed = {
+	format: string;
+	type: string;
+	level: string;
+	time: string;
+	file: string;
+	action: string;
+	message: string;
+};
 
-function formatParsedOutput(parsed, key) {
-	let time = "";
+function formatParsedOutput(parsed: Parsed, key: number) {
+	let time: ReactElement|string = "";
 	if (parsed.format === "seconds") {
 		time = <span className="factorio-time">{parsed.time.padStart(8)} </span>;
 	} else if (parsed.format === "date") {
 		time = <span className="factorio-time">{parsed.time} </span>;
 	}
 
-	let info = "";
+	let info: ReactElement|string = "";
 	if (parsed.type === "log") {
-		let level = parsed.level;
+		let level: ReactElement|string = parsed.level;
 		if (level === "Script") {
 			level = <span className="factorio-script">{level}</span>;
 		} else if (level === "Verbose") {
@@ -41,7 +50,12 @@ function formatParsedOutput(parsed, key) {
 	return <span key={key}>{time}{info}{parsed.message}<br/></span>;
 }
 
-function formatLog(info, key) {
+type Info = {
+	level: string;
+	message: string;
+	parsed?: Parsed;
+};
+function formatLog(info: Info, key: number): ReactElement {
 	if (info.level === "server" && info.parsed) {
 		return formatParsedOutput(info.parsed, key);
 	}
@@ -49,12 +63,18 @@ function formatLog(info, key) {
 	return <span key={key}>[{level}] {info.message}<br/></span>;
 }
 
-export default function LogConsole(props) {
+type LogConsoleProps = {
+	all?: boolean;
+	controller?: boolean;
+	hosts?: number[];
+	instances?: number[];
+};
+export default function LogConsole(props: LogConsoleProps) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let anchor = useRef();
+	let anchor = useRef<any>();
 	let [pastLines, setPastLines] = useState([<span key={0}>{"Loading past entries..."}<br/></span>]);
-	let [lines, setLines] = useState([]);
+	let [lines, setLines] = useState<ReactElement[]>([]);
 
 	useEffect(() => {
 		let logFilter = {
@@ -79,7 +99,7 @@ export default function LogConsole(props) {
 				400,
 				"desc",
 			)).then(result => {
-				setPastLines(result.log.map((info, index) => formatLog(info, -index - 1)).reverse());
+				setPastLines(result.log.map((info, index) => formatLog(info as Info, -index - 1)).reverse());
 			}).catch(err => {
 				setPastLines([<span key={0}>{`Error loading log: ${err.message}`}<br/></span>]);
 			});
@@ -87,7 +107,7 @@ export default function LogConsole(props) {
 			setPastLines([]);
 		}
 
-		function logHandler(info) {
+		function logHandler(info: Info) {
 			setLines(currentLines => currentLines.concat(
 				[formatLog(info, currentLines.length)]
 			));
@@ -107,4 +127,3 @@ export default function LogConsole(props) {
 		</Paragraph>
 	</>;
 }
-

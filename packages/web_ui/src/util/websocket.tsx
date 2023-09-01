@@ -3,15 +3,21 @@ import packageJson from "../../package.json";
 
 const { logFilter, logger } = lib;
 
+type accountHandler = (account: lib.AccountDetails) => void;
+type hostHandler = (hostDetails: lib.HostDetails) => void;
+type instanceHandler = (instanceDetails: lib.InstanceDetails) => void;
+type saveListHandler = (saveListEvent: lib.InstanceSaveListUpdateEvent) => void;
+type modPackHandler = (modPack: lib.ModPack) => void;
+type modInfoHandler = (modInfo: lib.ModInfo) => void;
+type userHandler = (rawUser: lib.RawUser) => void;
+type logHandler = (info: { level:string, message:string }) => void;
+
 /**
  * Connector for control connection to controller
  * @private
  */
 export class ControlConnector extends lib.WebSocketClientConnector {
-	constructor(url, maxReconnectDelay) {
-		super(url, maxReconnectDelay);
-		this.token = null;
-	}
+	token: string | null = null;
 
 	register() {
 		if (!this.token) {
@@ -38,44 +44,32 @@ export class ControlConnector extends lib.WebSocketClientConnector {
  * @static
  */
 export class Control extends lib.Link {
-	constructor(connector, plugins) {
+	// Flag indicating the connection is in the process of logging out.
+	loggingOut: boolean = false;
+	// Name of the account this control link is connected as.
+	accountName: string | null = null;
+	// Roles of the account this control link is connected as.
+	accountRoles: lib.AccountRole[] | null = null;
+	accountUpdateHandlers: Function[] = [];
+	hostUpdateHandlers: Map<number|null, hostHandler[]> = new Map();
+	instanceUpdateHandlers: Map<number|null, instanceHandler[]> = new Map();
+	saveListUpdateHandlers: Map<number|null, saveListHandler[]> = new Map();
+	modPackUpdateHandlers: Map<number|null|undefined, modPackHandler[]> = new Map();
+	modUpdateHandlers: Map<string|null, modInfoHandler[]> = new Map();
+	userUpdateHandlers: Map<string|null, userHandler[]> = new Map();
+	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
+
+	declare connector: ControlConnector;
+
+	constructor(
+		connector: ControlConnector,
+		public plugins: Map<string, lib.BaseWebPlugin>,
+	) {
 		super(connector);
 
-		/**
-		 * Mapping of plugin names to their instance for loaded plugins.
-		 * @type {Map<string, module:lib.BaseWebPlugin>}
-		 */
-		this.plugins = plugins;
 		for (let plugin of plugins.values()) {
 			plugin.control = this;
 		}
-
-		/**
-		 * Flag indicating the connection is in the process of logging out.
-		 * @type {boolean}
-		 */
-		this.loggingOut = false;
-
-		/**
-		 * Name of the account this control link is connected as.
-		 * @type {?string}
-		 */
-		this.accountName = null;
-
-		/**
-		 * Roles of the account this control link is connected as.
-		 * @type {?Array<object>}
-		 */
-		this.accountRoles = null;
-
-		this.accountUpdateHandlers = [];
-		this.hostUpdateHandlers = new Map();
-		this.instanceUpdateHandlers = new Map();
-		this.saveListUpdateHandlers = new Map();
-		this.modPackUpdateHandlers = new Map();
-		this.modUpdateHandlers = new Map();
-		this.userUpdateHandlers = new Map();
-		this.logHandlers = new Map();
 
 		this.connector.on("connect", data => {
 			this.accountName = data.account.name;
@@ -113,7 +107,7 @@ export class Control extends lib.Link {
 		for (let event of ["connect", "drop", "resume", "close"]) {
 			this.connector.on(event, () => {
 				for (let plugin of this.plugins.values()) {
-					plugin.onControllerConnectionEvent(event);
+					plugin.onControllerConnectionEvent(event as "connect"|"drop"|"resume"|"close");
 				}
 			});
 		}
@@ -129,8 +123,8 @@ export class Control extends lib.Link {
 		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
 	}
 
-	async handleAccountUpdateEvent(event) {
-		this.accountRoles = event.roles;
+	async handleAccountUpdateEvent(event: lib.AccountUpdateEvent) {
+		this.accountRoles = event.roles??null;
 		this.emitAccountUpdate();
 	}
 
@@ -143,11 +137,11 @@ export class Control extends lib.Link {
 		}
 	}
 
-	onAccountUpdate(handler) {
+	onAccountUpdate(handler: accountHandler) {
 		this.accountUpdateHandlers.push(handler);
 	}
 
-	offAccountUpdate(handler) {
+	offAccountUpdate(handler: accountHandler) {
 		let index = this.accountUpdateHandlers.lastIndexOf(handler);
 		if (index === -1) {
 			throw new Error("Given handler is not registered for account update");
@@ -155,8 +149,8 @@ export class Control extends lib.Link {
 		this.accountUpdateHandlers.splice(index, 1);
 	}
 
-	async handleHostUpdateEvent(event) {
-		let handlers = [].concat(
+	async handleHostUpdateEvent(event: lib.HostUpdateEvent) {
+		let handlers: Function[] = ([] as Function[]).concat(
 			this.hostUpdateHandlers.get(null) || [],
 			this.hostUpdateHandlers.get(event.update.id) || [],
 		);
@@ -165,7 +159,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async onHostUpdate(id, handler) {
+	async onHostUpdate(id: number|null, handler: hostHandler) {
 		if (id !== null && !Number.isInteger(id)) {
 			throw new Error("Invalid host id");
 		}
@@ -183,7 +177,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offHostUpdate(id, handler) {
+	async offHostUpdate(id: number|null, handler: hostHandler) {
 		let handlers = this.hostUpdateHandlers.get(id);
 		if (!handlers || !handlers.length) {
 			throw new Error(`No handlers for host ${id} exists`);
@@ -208,12 +202,12 @@ export class Control extends lib.Link {
 
 		await this.send(new lib.HostSetSubscriptionsRequest(
 			this.hostUpdateHandlers.has(null),
-			[...this.hostUpdateHandlers.keys()].filter(e => e !== null),
+			[...this.hostUpdateHandlers.keys()].filter(e => e !== null) as number[],
 		));
 	}
 
-	async handleInstanceDetailsUpdateEvent(event) {
-		let handlers = [].concat(
+	async handleInstanceDetailsUpdateEvent(event: lib.InstanceDetailsUpdateEvent) {
+		let handlers = ([] as Function[]).concat(
 			this.instanceUpdateHandlers.get(null) || [],
 			this.instanceUpdateHandlers.get(event.details.id) || [],
 		);
@@ -222,7 +216,7 @@ export class Control extends lib.Link {
 		}
 	};
 
-	async onInstanceUpdate(id, handler) {
+	async onInstanceUpdate(id: number|null, handler: instanceHandler) {
 		if (id !== null && !Number.isInteger(id)) {
 			throw new Error("Invalid instance id");
 		}
@@ -240,7 +234,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offInstanceUpdate(id, handler) {
+	async offInstanceUpdate(id: number|null, handler: instanceHandler) {
 		let handlers = this.instanceUpdateHandlers.get(id);
 		if (!handlers || !handlers.length) {
 			throw new Error(`No handlers for instance ${id} exist`);
@@ -265,18 +259,18 @@ export class Control extends lib.Link {
 
 		await this.send(new lib.InstanceDetailsSetSubscriptionsRequest(
 			this.instanceUpdateHandlers.has(null),
-			[...this.instanceUpdateHandlers.keys()].filter(e => e !== null),
+			[...this.instanceUpdateHandlers.keys()].filter(e => e !== null) as number[],
 		));
 	}
 
-	async handleInstanceSaveListUpdateEvent(event) {
+	async handleInstanceSaveListUpdateEvent(event: lib.InstanceSaveListUpdateEvent) {
 		let handlers = this.saveListUpdateHandlers.get(event.instanceId);
 		for (let handler of handlers || []) {
 			handler(event);
 		}
 	};
 
-	async onSaveListUpdate(id, handler) {
+	async onSaveListUpdate(id: number, handler: saveListHandler) {
 		if (!Number.isInteger(id)) {
 			throw new Error("Invalid instance id");
 		}
@@ -294,7 +288,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offSaveListUpdate(id, handler) {
+	async offSaveListUpdate(id: number, handler: saveListHandler) {
 		let handlers = this.saveListUpdateHandlers.get(id);
 		if (!handlers) {
 			throw new Error(`No handlers for instance ${id} exists`);
@@ -319,13 +313,14 @@ export class Control extends lib.Link {
 
 		await this.send(new lib.InstanceSetSaveListSubscriptionsRequest(
 			false,
-			[...this.saveListUpdateHandlers.keys()],
+			[...this.saveListUpdateHandlers.keys()].filter(e => e !== null) as number[],
 		));
 	}
 
-	async handleModPackUpdateEvent(event) {
+	async handleModPackUpdateEvent(event: lib.ModPackUpdateEvent) {
 		let modPack = event.modPack;
-		let handlers = [].concat(
+
+		let handlers = ([] as modPackHandler[]).concat(
 			this.modPackUpdateHandlers.get(null) || [],
 			this.modPackUpdateHandlers.get(modPack.id) || [],
 		);
@@ -334,7 +329,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async onModPackUpdate(id, handler) {
+	async onModPackUpdate(id: number|null, handler: modPackHandler) {
 		if (id !== null && typeof id !== "number") {
 			throw new Error("Invalid mod pack id");
 		}
@@ -352,7 +347,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offModPackUpdate(id, handler) {
+	async offModPackUpdate(id: number|null, handler: modPackHandler) {
 		let handlers = this.modPackUpdateHandlers.get(id);
 		if (!handlers || !handlers.length) {
 			throw new Error(`No handlers for mod pack ${id} exist`);
@@ -377,13 +372,14 @@ export class Control extends lib.Link {
 
 		await this.send(new lib.ModPackSetSubscriptionsRequest(
 			this.modPackUpdateHandlers.has(null),
-			[...this.modPackUpdateHandlers.keys()].filter(k => k !== null),
+			[...this.modPackUpdateHandlers.keys()]
+				.filter(k => k !== null && k !== undefined) as number[],
 		));
 	}
 
-	async handleModUpdateEvent(event) {
+	async handleModUpdateEvent(event: lib.ModUpdateEvent) {
 		let mod = event.mod;
-		let handlers = [].concat(
+		let handlers = ([] as modInfoHandler[]).concat(
 			this.modUpdateHandlers.get(null) || [],
 			this.modUpdateHandlers.get(mod.name) || []
 		);
@@ -392,7 +388,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async onModUpdate(name, handler) {
+	async onModUpdate(name: string|null, handler: modInfoHandler) {
 		if (name !== null && typeof name !== "string") {
 			throw new Error("Invalid mod name");
 		}
@@ -410,7 +406,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offModUpdate(name, handler) {
+	async offModUpdate(name: string|null, handler: modInfoHandler) {
 		let handlers = this.modUpdateHandlers.get(name);
 		if (!handlers || !handlers.length) {
 			throw new Error(`No handlers for mod ${name} exist`);
@@ -435,12 +431,12 @@ export class Control extends lib.Link {
 
 		await this.send(new lib.ModSetSubscriptionsRequest(
 			this.modUpdateHandlers.has(null),
-			[...this.modUpdateHandlers.keys()].filter(k => k !== null),
+			[...this.modUpdateHandlers.keys()].filter(k => k !== null) as string[],
 		));
 	}
 
-	async handleUserUpdateEvent(event) {
-		let handlers = [].concat(
+	async handleUserUpdateEvent(event: lib.UserUpdateEvent) {
+		let handlers = ([] as userHandler[]).concat(
 			this.userUpdateHandlers.get(null) || [],
 			this.userUpdateHandlers.get(event.user.name) || [],
 		);
@@ -449,7 +445,7 @@ export class Control extends lib.Link {
 		}
 	};
 
-	async onUserUpdate(name, handler) {
+	async onUserUpdate(name: string|null, handler: userHandler) {
 		if (name !== null && typeof name !== "string") {
 			throw new Error("Invalid user name");
 		}
@@ -467,7 +463,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offUserUpdate(name, handler) {
+	async offUserUpdate(name: string|null, handler: userHandler) {
 		let handlers = this.userUpdateHandlers.get(name);
 		if (!handlers || !handlers.length) {
 			throw new Error(`No handlers for user ${name} exist`);
@@ -492,11 +488,11 @@ export class Control extends lib.Link {
 
 		await this.send(new lib.UserSetSubscriptionsRequest(
 			this.userUpdateHandlers.has(null),
-			[...this.userUpdateHandlers.keys()].filter(e => e !== null),
+			[...this.userUpdateHandlers.keys()].filter(e => e !== null) as string[],
 		));
 	}
 
-	async handleLogMessageEvent(event) {
+	async handleLogMessageEvent(event: lib.LogMessageEvent) {
 		let info = event.info;
 
 		for (let [filter, handlers] of this.logHandlers) {
@@ -508,7 +504,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async onLog(filter, handler) {
+	async onLog(filter: lib.LogFilter, handler: logHandler) {
 		let handlers = this.logHandlers.get(filter);
 		if (!handlers) {
 			handlers = [];
@@ -522,7 +518,7 @@ export class Control extends lib.Link {
 		}
 	}
 
-	async offLog(filter, handler) {
+	async offLog(filter: lib.LogFilter, handler: logHandler) {
 		let handlers = this.logHandlers.get(filter);
 		if (!handlers || !handlers.length) {
 			throw new Error("No handlers for the given filter exists");
@@ -547,8 +543,8 @@ export class Control extends lib.Link {
 
 		let all = false;
 		let controller = false;
-		let hostIds = [];
-		let instanceIds = [];
+		let hostIds: number[] = [];
+		let instanceIds: number[] = [];
 
 		for (let filter of this.logHandlers.keys()) {
 			if (filter.all) { all = true; }
@@ -568,9 +564,9 @@ export class Control extends lib.Link {
 		await this.send(new lib.LogSetSubscriptionsRequest(all, controller, hostIds, instanceIds, undefined));
 	}
 
-	async handleDebugWsMessageEvent(message) {
+	async handleDebugWsMessageEvent(message: lib.DebugWsMessageEvent) {
 		// eslint-disable-next-line no-console
-		console.log("WS", message.data.direction, message.data.content);
+		console.log("WS", message.direction, message.content);
 	}
 
 	async shutdown() {

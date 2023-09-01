@@ -40,7 +40,7 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-const info: lib.PluginInfo = {
+const info: lib.PluginInfoTs = {
 	name: "inventory_sync",
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",

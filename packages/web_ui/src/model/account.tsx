@@ -1,24 +1,17 @@
 import { useContext, useEffect, useState } from "react";
+import * as lib from "@clusterio/lib";
 
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "../components/ControlContext";
 
-/**
- * @typedef {Object} Account
- * @property {?string} name - Name of the currently logged in account.
- * @property {?Array<object>} roles - Roles of the corrently logged in account.
- * @property {function(string)} hasPermission -
- *     Check if the currently logged in account has the given permission.
- * @property {function()} logOut - Logs out of the web interface.
- */
 
-export function useAccount() {
+export function useAccount(): lib.UserAccount {
 	let control = useContext(ControlContext);
-	let [name, setName] = useState(control.accountName);
-	let [roles, setRoles] = useState(control.accountRoles);
+	let [name, setName] = useState<string>(control.accountName || "");
+	let [roles, setRoles] = useState<any[]>(control.accountRoles || []);
 
 	useEffect(() => {
-		function onAccountUpdate(account) {
+		function onAccountUpdate(account: lib.AccountDetails) {
 			setName(account.name);
 			setRoles(account.roles);
 		}
@@ -28,7 +21,7 @@ export function useAccount() {
 		};
 	}, [control]);
 
-	function hasPermission(permission) {
+	function hasPermission(permission: string): boolean {
 		for (let role of roles) {
 			if (role.permissions.includes("core.admin") || role.permissions.includes(permission)) {
 				return true;
@@ -40,13 +33,13 @@ export function useAccount() {
 	return {
 		name,
 		roles,
-		hasPermission(permission) {
+		hasPermission(permission: string): boolean | null {
 			if (!roles) {
 				return null;
 			}
 			return hasPermission(permission);
 		},
-		hasAnyPermission(...permissions) {
+		hasAnyPermission(...permissions: string[]): boolean | null {
 			if (!roles) {
 				return null;
 			}
@@ -57,7 +50,7 @@ export function useAccount() {
 			}
 			return false;
 		},
-		hasAllPermission(...permissions) {
+		hasAllPermission(...permissions: string[]): boolean | null {
 			if (!roles) {
 				return null;
 			}
@@ -70,7 +63,8 @@ export function useAccount() {
 		},
 		logOut() {
 			control.loggingOut = true;
-			control.shutdown(notifyErrorHandler("Error logging out"));
+			notifyErrorHandler("Error logging out");
+			control.shutdown();
 		},
 	};
 }

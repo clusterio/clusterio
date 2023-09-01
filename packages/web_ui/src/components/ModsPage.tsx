@@ -18,8 +18,7 @@ import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
-
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 function ImportModPackButton() {
 	let control = useContext(ControlContext);
@@ -94,11 +93,11 @@ function CreateModPackButton() {
 					} catch {
 						return; // Validation failed
 					}
-					const modPack = lib.ModPack.fromJSON({});
+					const modPack = lib.ModPack.fromJSON({} as any);
 					modPack.name = values.name;
 					modPack.factorioVersion = values.factorioVersion;
 					if (values.description) { modPack.description = values.description; }
-					await control.send(new lib.ModPackCreateRequest(modPack.toJSON()));
+					await control.send(new lib.ModPackCreateRequest(modPack));
 					navigate(`/mods/mod-packs/${modPack.id}/view`);
 				})().catch(notifyErrorHandler("Error creating mod pack"));
 			}}
@@ -133,17 +132,17 @@ export default function ModsPage() {
 	let [modList] = useModList();
 	let [modPackList] = useModPackList();
 
-	function actions(mod) {
+	function actions(mod: lib.ModInfo|lib.ModRecord) {
 		return <Space>
 			{account.hasPermission("core.mod.download")
 				&& <Typography.Link
 					onClick={() => {
 						control.send(
 							new lib.ModDownloadRequest(mod.name, mod.version)
-						).then(streamId => {
-							let url = new URL(webRoot, document.location);
+						).then((streamId: string) => {
+							let url = new URL(window.webRoot, document.location.origin);
 							url.pathname += `api/stream/${streamId}`;
-							document.location = url;
+							document.location = url.href;
 						}).catch(
 							notifyErrorHandler("Error downloading save")
 						);
@@ -174,9 +173,9 @@ export default function ModsPage() {
 			accept=".zip"
 			multiple
 			headers={{
-				"X-Access-Token": control.connector.token,
+				"X-Access-Token": control.connector.token||"",
 			}}
-			action={`${webRoot}api/upload-mod`}
+			action={`${window.webRoot}api/upload-mod`}
 		>
 			<Button icon={<UploadOutlined/>}>Upload</Button>
 		</Upload>;
@@ -212,7 +211,7 @@ export default function ModsPage() {
 			]}
 			dataSource={modPackList}
 			pagination={false}
-			rowKey={modPack => modPack.id}
+			rowKey={modPack => Number(modPack.id)}
 			onRow={(modPack, rowIndex) => ({
 				onClick: event => {
 					navigate(`/mods/mod-packs/${modPack.id}/view`);
@@ -261,7 +260,7 @@ export default function ModsPage() {
 				},
 			]}
 			expandable={{
-				expandedRowRender: mod => <ModDetails mod={mod} actions={actions} />,
+				expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
 				expandedRowClassName: () => "no-expanded-padding",
 			}}
 			dataSource={modList}

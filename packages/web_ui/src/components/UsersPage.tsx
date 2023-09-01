@@ -13,7 +13,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { formatLastSeen, sortLastSeen, useUserList } from "../model/user";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
 function CreateUserButton() {
@@ -75,14 +75,14 @@ export default function UsersPage() {
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
 			title="Users"
-			extra={account.hasPermission("core.user.create") && <CreateUserButton />}
+			extra={account.hasPermission("core.user.create") && <CreateUserButton /> || undefined}
 		/>
 		<Table
 			columns={[
 				{
 					title: "Name",
 					key: "name",
-					render: user => <Space>
+					render: (user: lib.RawUser) => <Space>
 						{user.name}
 						<span>
 							{user.isAdmin && <Tag color="gold">Admin</Tag>}
@@ -96,21 +96,21 @@ export default function UsersPage() {
 				{
 					title: "Roles",
 					key: "roles",
-					render: user => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>),
+					render: (user: lib.RawUser) => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>),
 				},
 				{
 					title: "Online time",
 					key: "onlineTime",
-					render: user => (user.playerStats.onlineTimeMs
+					render: (user: lib.RawUser) => (user.playerStats?.onlineTimeMs
 						? formatDuration(user.playerStats.onlineTimeMs) : null),
-					sorter: (a, b) => (a.playerStats.onlineTimeMs || 0) -
-						(b.playerStats.onlineTimeMs || 0),
+					sorter: (a, b) => (a.playerStats?.onlineTimeMs ?? 0) -
+						(b.playerStats?.onlineTimeMs ?? 0),
 					responsive: ["lg"],
 				},
 				{
 					title: "Last seen",
 					key: "lastSeen",
-					render: user => formatLastSeen(user),
+					render: (user: lib.RawUser) => formatLastSeen(user),
 					sorter: (a, b) => sortLastSeen(a, b),
 					responsive: ["lg"],
 				},

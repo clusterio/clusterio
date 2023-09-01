@@ -1,11 +1,11 @@
 {
-	"include": [ "src/**/*.tsx" ],
+	"include": [ "src/**/*.tsx", "package.json", "global.d.ts" ],
 	"compilerOptions": {
 		"jsx": "react",
-		"lib": ["es2023", "dom"],
+		"lib": ["dom", "es2023"],
 		"module": "commonjs",
 		"target": "es2022",
-		"rootDir": "src",
+		"rootDir": "./",
 		"outDir": "dist",
 		"composite": true,
 		"sourceMap": true,

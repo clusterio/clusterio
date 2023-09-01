@@ -1,4 +1,6 @@
-import React from "react";
+import React, { ReactElement } from "react";
+
+import type * as lib from "@clusterio/lib";
 
 import ControllerPage from "./components/ControllerPage";
 import HostsPage from "./components/HostsPage";
@@ -14,8 +16,7 @@ import RoleViewPage from "./components/RoleViewPage";
 import PluginsPage from "./components/PluginsPage";
 import PluginViewPage from "./components/PluginViewPage";
 
-
-export const pages = [
+export const pages: lib.PluginPage[] = [
 	{
 		path: "/controller",
 		sidebarName: "Controller",
@@ -46,7 +47,7 @@ export const pages = [
 	{
 		path: "/mods",
 		sidebarName: "Mods",
-		permission: account => account.hasAnyPermission("core.mod.list", "core.mod-pack.list"),
+		permission: (account:lib.UserAccount) => account.hasAnyPermission("core.mod.list", "core.mod-pack.list"),
 		content: <ModsPage />,
 	},
 	{

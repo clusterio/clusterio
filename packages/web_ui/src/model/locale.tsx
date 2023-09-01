@@ -3,16 +3,16 @@ import React, { useEffect, useState } from "react";
 import { useExportManifest } from "./export_manifest";
 
 
-let localeCache = null;
-export function useLocale() {
+let localeCache: Map<string, string>|null = null;
+export function useLocale(): Map<string, string> {
 	let exportManifest = useExportManifest();
-	let [locale, setLocale] = useState(localeCache || new Map());
+	let [locale, setLocale] = useState<Map<string, string>>(localeCache || new Map());
 	useEffect(() => {
 		async function load() {
-			if (!exportManifest || !exportManifest.assets || !exportManifest.assets["locale"]) {
+			if (!exportManifest?.assets?.["locale"]) {
 				return;
 			}
-			let response = await fetch(`${staticRoot}static/${exportManifest.assets["locale"]}`);
+			let response = await fetch(`${window.staticRoot}static/${exportManifest.assets["locale"]}`);
 			if (response.ok) {
 				let data = await response.json();
 				localeCache = new Map(data);

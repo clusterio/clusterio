@@ -4,13 +4,15 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 
 import * as lib from "@clusterio/lib";
+import type { PluginWebApi } from "@clusterio/controller/src/routes";
 
 import App from "./components/App";
 import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
 
-async function loadScript(url) {
+
+async function loadScript(url: string) {
 	let script = document.createElement("script");
 	script.src = url;
 	script.type = "text/javascript";
@@ -25,9 +27,9 @@ async function loadScript(url) {
 	return result;
 }
 
-async function loadPluginInfos() {
-	let response = await fetch(`${webRoot}api/plugins`);
-	let pluginList;
+async function loadPluginInfos(): Promise<lib.PluginInfo[]> {
+	let response = await fetch(`${window.webRoot}api/plugins`);
+	let pluginList: PluginWebApi[];
 	if (response.ok) {
 		pluginList = await response.json();
 
@@ -44,8 +46,8 @@ async function loadPluginInfos() {
 			continue;
 		}
 		try {
-			await loadScript(`${webRoot}${meta.web.main}`);
-			let container = window[`plugin_${meta.name}`];
+			await loadScript(`${window.webRoot}${meta.web.main}`);
+			let container: any = (window as { [key: string]: any })[`plugin_${meta.name}`];
 			if (!container) {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
 			}
@@ -56,7 +58,7 @@ async function loadPluginInfos() {
 			pluginInfo.enabled = meta.enabled;
 			pluginInfos.push(pluginInfo);
 
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Failed to load plugin info for ${meta.name}`);
 			if (err.stack) {
 				logger.error(err.stack);
@@ -66,7 +68,7 @@ async function loadPluginInfos() {
 	return pluginInfos;
 }
 
-async function loadPlugins(pluginInfos) {
+async function loadPlugins(pluginInfos: lib.PluginInfo[]) {
 	let plugins = new Map();
 	for (let pluginInfo of pluginInfos) {
 		if (!pluginInfo.enabled) {
@@ -86,7 +88,7 @@ async function loadPlugins(pluginInfos) {
 			await plugin.init();
 			plugins.set(pluginInfo.name, plugin);
 
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Failed to load plugin ${pluginInfo.name}`);
 			if (err.stack) {
 				logger.error(err.stack);
@@ -107,10 +109,10 @@ export default async function bootstrap() {
 	lib.finalizeConfigs();
 	let plugins = await loadPlugins(pluginInfos);
 
-	let wsUrl = new URL(window.webRoot, document.location);
-	let controlConnector = new ControlConnector(wsUrl, 120);
+	let wsUrl = new URL(window.webRoot, document.location.href);
+	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);
 	let control = new Control(controlConnector, plugins);
 
-	const root = createRoot(document.getElementById("root"));
+	const root = createRoot(document.getElementById("root") as HTMLDivElement);
 	root.render(<App control={control}/>);
 }

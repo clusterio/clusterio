@@ -1,21 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
 import { JsonString, StringEnum } from "./composites";
 import { levels } from "../logging";
-
-// TODO: remove after config refactor
-export class RawConfig {
-	constructor(
-		public serializedConfig: object
-	) { }
-
-	static jsonSchema = Type.Object({
-		"serializedConfig": Type.Object({}),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.serializedConfig);
-	}
-}
+import { RawConfig } from "../config";
 
 export class ControllerConfigGetRequest {
 	declare ["constructor"]: typeof ControllerConfigGetRequest;

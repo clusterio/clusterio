@@ -503,14 +503,14 @@ export class ControlConfig extends classes.Config { }
 ControlConfig.registerGroup(ControlGroup);
 
 
-function validateGroup(pluginInfo: PluginInfo, groupName: string) {
-	if (!(pluginInfo[groupName].prototype instanceof classes.PluginConfigGroup)) {
+function validateGroup(pluginInfo: PluginInfo, groupName: "ControllerConfigGroup"|"InstanceConfigGroup") {
+	if (!(pluginInfo[groupName]?.prototype instanceof classes.PluginConfigGroup)) {
 		throw new Error(
 			`Expected ${groupName} for ${pluginInfo.name} to be a subclass of PluginConfigGroup`
 		);
 	}
 
-	if (pluginInfo[groupName].groupName !== pluginInfo.name) {
+	if (pluginInfo[groupName]?.groupName !== pluginInfo.name) {
 		throw new Error(
 			`Expected ${groupName} for ${pluginInfo.name} to be named after the plugin`
 		);

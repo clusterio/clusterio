@@ -13,8 +13,7 @@ import PluginExtra from "./PluginExtra";
 
 const { Title } = Typography;
 
-
-export default function HostViewPage(props) {
+export default function HostViewPage() {
 	let params = useParams();
 	let hostId = Number(params.id);
 	let account = useAccount();
@@ -23,20 +22,20 @@ export default function HostViewPage(props) {
 
 	instanceList = instanceList.filter(instance => instance.assignedHost === hostId);
 
-	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host.name || hostId }];
+	let nav = [{ name: "Hosts", path: "/hosts" }, { name: host.name || String(hostId) }];
 	if (host.loading) {
 		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
 	}
 
 	if (host.missing) {
 		return <PageLayout nav={nav}>
-			<PageHeader title={hostId} />
+			<PageHeader title={String(hostId)} />
 			<p>Host with id {hostId} was not found on the controller.</p>
 		</PageLayout>;
 	}
 
 	return <PageLayout nav={nav}>
-		<PageHeader title={host.name || hostId} />
+		<PageHeader title={host.name || String(hostId)} />
 
 		<Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 4 }}>
 			<Descriptions.Item label="Name">{host["name"]}</Descriptions.Item>

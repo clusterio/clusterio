@@ -12,7 +12,7 @@ InstanceConfigGroup.define({
 });
 InstanceConfigGroup.finalize();
 
-const info: lib.PluginInfo = {
+const info: lib.PluginInfoTs = {
 	name: "statistics_exporter",
 	title: "Statistics Exporter",
 	description:

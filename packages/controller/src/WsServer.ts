@@ -1,7 +1,6 @@
 import type { IncomingMessage } from "http";
 import type { Duplex } from "stream";
 import type Controller from "./Controller";
-import type { WebSocketClusterio } from "./WsServerConnector";
 
 import jwt from "jsonwebtoken";
 import WebSocket, { WebSocketServer } from "ws";
@@ -55,7 +54,7 @@ export default class WsServer {
 			noServer: true,
 			path: "/api/socket",
 		});
-		this.wss.on("connection", (socket: WebSocketClusterio, req: IncomingMessage) => this.handleConnection(socket, req));
+		this.wss.on("connection", (socket: lib.WebSocketClusterio, req: IncomingMessage) => this.handleConnection(socket, req));
 	}
 
 	async stop(): Promise<void> {
@@ -98,19 +97,19 @@ export default class WsServer {
 		});
 	}
 
-	handleConnection(socket: WebSocketClusterio, req: IncomingMessage) {
+	handleConnection(socket: lib.WebSocketClusterio, req: IncomingMessage) {
 		logger.verbose(`WsServer | new connection from ${req.socket.remoteAddress}`);
 
 		// Track statistics
 		wsConnectionsCounter.inc();
-		socket.on("message", (message) => {
+		socket.on("message", (message: WebSocket.RawData) => {
 			wsMessageCounter.labels("in").inc();
 			if (!socket.clusterio_ignore_dump) {
 				this.controller.debugEvents.emit("message", { direction: "in", content: message });
 			}
 		});
 		let originalSend = socket.send;
-		socket.send = (...args) => {
+		socket.send = (...args: any[]) => {
 			wsMessageCounter.labels("out").inc();
 			if (typeof args[0] === "string" && !socket.clusterio_ignore_dump) {
 				this.controller.debugEvents.emit("message", { direction: "out", content: args[0] });
@@ -120,7 +119,7 @@ export default class WsServer {
 		};
 
 		// Start connection handshake.
-		let loadedPlugins: any = {};
+		let loadedPlugins: {[key:string]: string} = {};
 		for (let [name, plugin] of this.controller.plugins) {
 			loadedPlugins[name] = plugin.info.version;
 		}

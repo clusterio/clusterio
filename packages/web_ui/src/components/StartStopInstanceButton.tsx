@@ -5,27 +5,33 @@ import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
+import type { InstanceState } from "../model/instance";
+import { ButtonProps } from "antd/es/button";
 
-
-export default function StartStopInstanceButton(props) {
+type StartStopInstanceButtonProps = {
+	instance: InstanceState;
+	onFinish?: () => void;
+	buttonProps?: ButtonProps;
+};
+export default function StartStopInstanceButton(props: StartStopInstanceButtonProps) {
 	let control = useContext(ControlContext);
-	let [switching, setSwitching] = useState(false);
+	let [switching, setSwitching] = useState<boolean>(false);
 
-	function onClick(event) {
+	const onClick: React.MouseEventHandler<HTMLElement> = function(event) {
 		event.stopPropagation();
 		setSwitching(true);
 		let action;
-		if (props.instance["status"] === "stopped") {
+		if (props.instance.status === "stopped") {
 			action = control.sendTo(
-				{ instanceId: props.instance["id"] },
+				{ instanceId: props.instance.id! },
 				new lib.InstanceStartRequest(undefined),
 			).catch(
 				notifyErrorHandler("Error starting instance")
 			);
 
-		} else if (["starting", "running"].includes(props.instance["status"])) {
+		} else if (["starting", "running"].includes(props.instance.status!)) {
 			action = control.sendTo(
-				{ instanceId: props.instance["id"] },
+				{ instanceId: props.instance.id! },
 				new lib.InstanceStopRequest(),
 			).catch(
 				notifyErrorHandler("Error stopping instance")
@@ -48,11 +54,9 @@ export default function StartStopInstanceButton(props) {
 		{...(props.buttonProps || {})}
 		loading={switching}
 		type="primary"
-		disabled={!["starting", "running", "stopped"].includes(props.instance["status"])}
+		disabled={!["starting", "running", "stopped"].includes(props.instance.status!)}
 		onClick={onClick}
 	>
-		{props.instance["status"] === "stopped" ? "Start" : "Stop"}
+		{props.instance.status === "stopped" ? "Start" : "Stop"}
 	</Button>;
 }
-
-

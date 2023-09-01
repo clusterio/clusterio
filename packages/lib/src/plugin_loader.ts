@@ -53,12 +53,12 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 }
 
 function loadPluginClass(
-	entrypointName: string,
+	entrypointName: "controllerEntrypoint"|"instanceEntrypoint"|"controlEntrypoint",
 	className: string,
 	pluginClass: any,
 	pluginInfo: libPlugin.PluginInfo
 ) {
-	let resolvedPath = path.posix.join(pluginInfo.requirePath, pluginInfo[entrypointName]);
+	let resolvedPath = path.posix.join(pluginInfo.requirePath, pluginInfo[entrypointName]!);
 	let entrypoint = require(resolvedPath);
 	if (!entrypoint[className]) {
 		throw new libErrors.PluginError(pluginInfo.name,

@@ -19,7 +19,7 @@ import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
 import { formatLastSeen, sortLastSeen, useUser } from "../model/user";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
 // The user page has a lot of optional elements, that does not make it
@@ -27,7 +27,7 @@ const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "ba
 // eslint-disable-next-line complexity
 export default function UserViewPage() {
 	let params = useParams();
-	let userName = params.name;
+	let userName = params.name as string;
 
 	let navigate = useNavigate();
 
@@ -35,12 +35,12 @@ export default function UserViewPage() {
 	let control = useContext(ControlContext);
 	let [instanceList] = useInstanceList();
 	let [user] = useUser(userName);
-	let [roles, setRoles] = useState(null);
+	let [roles, setRoles] = useState<Map<number, lib.RawRole>>(new Map());
 	let [form] = Form.useForm();
-	let [rolesDirty, setRolesDirty] = useState(false);
-	let [banReasonDirty, setBanReasonDirty] = useState(false);
-	let [applyingRoles, setApplyingRoles] = useState(false);
-	let [rolesError, setRolesError] = useState();
+	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
+	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);
+	let [applyingRoles, setApplyingRoles] = useState<boolean>(false);
+	let [rolesError, setRolesError] = useState<string|undefined>();
 
 	useEffect(() => {
 		control.send(new lib.RoleListRequest()).then(newRoles => {
@@ -88,9 +88,9 @@ export default function UserViewPage() {
 			loading={!roles}
 			mode="multiple"
 			showArrow={true}
-			filterOption={(inputValue, option) => {
+			filterOption={(inputValue:string, option: any): boolean => {
 				let role = roles.get(option.value);
-				return role && role.name.toLowerCase().includes(inputValue.toLowerCase());
+				return role?.name.toLowerCase().includes(inputValue.toLowerCase()) ?? false;
 			}}
 		>
 			{roles && [...roles.values()].map(r => <Select.Option
@@ -100,9 +100,9 @@ export default function UserViewPage() {
 		</Select>
 	</Form.Item>;
 
-	function instanceName(id) {
+	function instanceName(id: number): string {
 		let instance = instanceList.find(i => i.id === id);
-		return instance ? instance.name : id;
+		return instance ? instance.name : String(id);
 	}
 
 	return <PageLayout nav={nav}>
@@ -181,7 +181,7 @@ export default function UserViewPage() {
 					<Col flex="auto">
 						{account.hasPermission("core.user.update_roles")
 							? roleSelector
-							: [...user.roles].map(id => <Tag key={id}>{
+							: [...user.roles!].map(id => <Tag key={id}>{
 								roles ? (roles.get(id) || { name: id }).name : id
 							}</Tag>)
 						}
@@ -198,7 +198,7 @@ export default function UserViewPage() {
 									new lib.UserUpdateRolesRequest(userName, newRoles)
 								).then(() => {
 									setRolesDirty(false);
-									setRolesError();
+									setRolesError(undefined);
 								}).catch(err => {
 									setRolesError(err.message);
 									return form.validateFields();
@@ -288,10 +288,10 @@ export default function UserViewPage() {
 		<SectionHeader title="Player stats" />
 		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
 			<Descriptions.Item label="Total online time">
-				{formatDuration(user.playerStats.onlineTimeMs || 0)}
+				{formatDuration(user.playerStats?.onlineTimeMs ?? 0)}
 			</Descriptions.Item>
 			<Descriptions.Item label="Total join count">
-				{user.playerStats.joinCount || 0}
+				{user.playerStats?.joinCount ?? 0}
 			</Descriptions.Item>
 			<Descriptions.Item label="Last seen">
 				{formatLastSeen(user) || " "}
@@ -306,7 +306,7 @@ export default function UserViewPage() {
 					key: "instance",
 					render: ([id]) => instanceName(id),
 					defaultSortOrder: "ascend",
-					sorter: (a, b) => strcmp(a[0], b[0]),
+					sorter: (a, b) => strcmp(instanceName(a[0]), instanceName(b[0])),
 				},
 				{
 					title: "Online time",
@@ -328,7 +328,7 @@ export default function UserViewPage() {
 					sorter: (a, b) => sortLastSeen(user, user, a[0], b[0]),
 				},
 			]}
-			dataSource={[...user.instanceStats.entries()]}
+			dataSource={[...(user.instanceStats || []).entries()]}
 			pagination={false}
 			rowKey={([id]) => id}
 			onRow={([id], rowIndex) => ({

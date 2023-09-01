@@ -11,8 +11,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
-
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 function CreateRoleButton() {
 	let control = useContext(ControlContext);
@@ -27,11 +26,11 @@ function CreateRoleButton() {
 			return;
 		}
 
-		let result = await control.send(
+		let idRole = await control.send(
 			new lib.RoleCreateRequest(values.roleName, values.description || "", [])
 		);
 		setOpen(false);
-		navigate(`/roles/${result.id}/view`);
+		navigate(`/roles/${idRole}/view`);
 	}
 
 	return <>
@@ -64,7 +63,7 @@ export default function RolesPage() {
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
 
-	let [roles, setRoles] = useState([]);
+	let [roles, setRoles] = useState<lib.RawRole[]>([]);
 
 	useEffect(() => {
 		control.send(new lib.RoleListRequest()).then(newRoles => {
@@ -75,7 +74,7 @@ export default function RolesPage() {
 	return <PageLayout nav={[{ name: "Roles" }]}>
 		<PageHeader
 			title="Roles"
-			extra={account.hasPermission("core.role.create") && <CreateRoleButton />}
+			extra={account.hasPermission("core.role.create") && <CreateRoleButton /> || undefined}
 		/>
 		<Table
 			columns={[

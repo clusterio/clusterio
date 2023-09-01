@@ -5,18 +5,23 @@ import * as lib from "@clusterio/lib";
 
 const { logger } = lib;
 
-export function useInstance(id) {
+export type InstanceState = Partial<lib.InstanceDetails> & {
+	loading?: boolean,
+	present?: boolean,
+	missing?: boolean,
+}
+
+export function useInstance(id: number): [InstanceState, ()=>void] {
 	let control = useContext(ControlContext);
-	let [instance, setInstance] = useState({ loading: true });
+	let [instance, setInstance] = useState<InstanceState>({ loading: true });
 
 	function updateInstance() {
 		control.send(new lib.InstanceDetailsGetRequest(id)).then(updatedInstance => {
 			setInstance({ ...updatedInstance, present: true });
-		}).catch(err => {
+		}).catch((err: any) => {
 			logger.error(`Failed to get instance: ${err}`);
 			setInstance({ missing: true });
 		});
-
 	}
 
 	useEffect(() => {
@@ -26,7 +31,7 @@ export function useInstance(id) {
 		}
 		updateInstance();
 
-		function updateHandler(newInstance) {
+		function updateHandler(newInstance: lib.InstanceDetails) {
 			setInstance({ ...newInstance, present: true });
 		}
 
@@ -41,7 +46,7 @@ export function useInstance(id) {
 
 export function useInstanceList() {
 	let control = useContext(ControlContext);
-	let [instanceList, setInstanceList] = useState([]);
+	let [instanceList, setInstanceList] = useState<lib.InstanceDetails[]>([]);
 
 	function updateInstanceList() {
 		control.send(new lib.InstanceDetailsListRequest()).then(instances => {
@@ -54,7 +59,7 @@ export function useInstanceList() {
 	useEffect(() => {
 		updateInstanceList();
 
-		function updateHandler(newInstance) {
+		function updateHandler(newInstance: lib.InstanceDetails) {
 			setInstanceList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(s => s.id === newInstance.id);

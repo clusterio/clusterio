@@ -4,7 +4,14 @@ import { Layout, Breadcrumb } from "antd";
 
 const { Content } = Layout;
 
-export default function PageLayout(props) {
+type PageLayoutProps = {
+	nav: {
+		path?: string;
+		name: string;
+	}[];
+	children?: any;
+};
+export default function PageLayout(props: PageLayoutProps) {
 	return <>
 		<Breadcrumb className="site-breadcrumb">
 			{props.nav.map((part, index) => <Breadcrumb.Item key={index}>

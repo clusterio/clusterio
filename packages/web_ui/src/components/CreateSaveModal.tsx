@@ -7,7 +7,11 @@ import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
 
 
-export default function CreateSaveModal(props) {
+type CreateSaveModalProps = {
+	instance: any;
+};
+
+export default function CreateSaveModal(props: CreateSaveModalProps) {
 	let [open, setOpen] = useState(false);
 	let [creatingSave, setCreatingSave] = useState(false);
 	let [form] = Form.useForm();
@@ -23,7 +27,7 @@ export default function CreateSaveModal(props) {
 			let result;
 			try {
 				result = lib.readMapExchangeString(values.exchangeString);
-			} catch (err) {
+			} catch (err: any) {
 				form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 				return;
 			}
@@ -34,7 +38,7 @@ export default function CreateSaveModal(props) {
 		if (values.mapGenSettings && values.mapGenSettings.trim()) {
 			try {
 				mapGenSettings = JSON.parse(values.mapGenSettings);
-			} catch (err) {
+			} catch (err: any) {
 				form.setFields([{ name: "mapGenSettings", errors: [err.message] }]);
 				return;
 			}
@@ -43,7 +47,7 @@ export default function CreateSaveModal(props) {
 		if (values.mapSettings && values.mapSettings.trim()) {
 			try {
 				mapSettings = JSON.parse(values.mapSettings);
-			} catch (err) {
+			} catch (err: any) {
 				form.setFields([{ name: "mapSettings", errors: [err.message] }]);
 				return;
 			}
@@ -69,7 +73,7 @@ export default function CreateSaveModal(props) {
 		let result;
 		try {
 			result = lib.readMapExchangeString(exchangeString);
-		} catch (err) {
+		} catch (err: any) {
 			form.setFields([{ name: "exchangeString", errors: [err.message] }]);
 			return;
 		}

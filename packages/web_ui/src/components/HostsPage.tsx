@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button, Form, InputNumber, Modal, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
+import type { PluginWebApi } from "@clusterio/controller/src/routes";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
@@ -13,19 +14,19 @@ import PluginExtra from "./PluginExtra";
 import { useHostList } from "../model/host";
 import notify, { notifyErrorHandler } from "../util/notify";
 
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
-function GenerateHostTokenButton(props) {
+function GenerateHostTokenButton() {
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
-	let [token, setToken] = useState(null);
-	let [hostId, setHostId] = useState(null);
+	let [token, setToken] = useState<string|null>(null);
+	let [hostId, setHostId] = useState<number|null>(null);
 	let [form] = Form.useForm();
-	let [pluginList, setPluginList] = useState([]);
+	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${webRoot}api/plugins`);
+			let response = await fetch(`${window.webRoot}api/plugins`);
 			if (response.ok) {
 				const plugins = await response.json();
 				setPluginList(plugins);
@@ -36,7 +37,7 @@ function GenerateHostTokenButton(props) {
 	}, []);
 
 	async function generateToken() {
-		let id = null;
+		let id = undefined;
 		let values = form.getFieldsValue();
 		if (values.hostId) {
 			id = Number.parseInt(values.hostId, 10);
@@ -49,7 +50,7 @@ function GenerateHostTokenButton(props) {
 
 		let newToken = await control.send(new lib.HostGenerateTokenRequest(id));
 		setToken(newToken);
-		setHostId(id);
+		setHostId(id??null);
 	}
 
 	// Generate a new random
@@ -60,6 +61,7 @@ function GenerateHostTokenButton(props) {
 	}, [open]);
 
 	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
+	//@ts-ignore TODO::: this doesn't filter anything, `x.split("/") <= 1` is always = true. repair or shouldn't filter ?
 	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/") <= 1).join(" ");
 	return <>
 		<Button
@@ -138,10 +140,11 @@ function GenerateHostTokenButton(props) {
 	</>;
 }
 
-function CopyButton({ text, message }) {
+function CopyButton({ text, message }: { text:string, message:string }) {
 	let [clipboardPermision, setClipboardPermission] = useState("granted");
 	useEffect(() => {
 		(async () => {
+			//@ts-ignore https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
 			let result = await navigator.permissions.query({ name: "clipboard-write" });
 			// result.state is "granted", "denied" or "prompt"
 			setClipboardPermission(result.state);
@@ -152,13 +155,20 @@ function CopyButton({ text, message }) {
 	}, []);
 
 	async function checkClipboardPermission() {
-		let result = await navigator.permissions.query({ name: "clipboard-write" });
-		// result.state is "granted", "denied" or "prompt"
-		setClipboardPermission(result.state);
-		result.onchange = function () {
+		try {
+			//@ts-ignore https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
+			let result = await navigator.permissions.query({ name: "clipboard-write" });
+			// result.state is "granted", "denied" or "prompt"
 			setClipboardPermission(result.state);
-		};
-		return result.state === "granted";
+			result.onchange = function () {
+				setClipboardPermission(result.state);
+			};
+			return result.state === "granted";
+
+		} catch (err: any) {
+			//If it fail because "clipboard-write" is not supported.
+			return err.name === "TypeError";
+		}
 	}
 
 	return <Button
@@ -184,7 +194,7 @@ export default function HostsPage() {
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
 			title="Hosts"
-			extra={account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton />}
+			extra={account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton /> || undefined}
 		/>
 		<Table
 			columns={[
@@ -208,7 +218,7 @@ export default function HostsPage() {
 				{
 					title: "Public address",
 					dataIndex: "publicAddress",
-					sorter: (a, b) => strcmp(a.publicAddress, b.publicAddress),
+					sorter: (a, b) => strcmp(a.publicAddress??"", b.publicAddress??""),
 				},
 				{
 					title: "Connected",
@@ -218,7 +228,7 @@ export default function HostsPage() {
 					>
 						{host.connected ? "Connected" : "Disconnected"}
 					</Tag>,
-					sorter: (a, b) => a.connected - b.connected,
+					sorter: (a, b) => Number(a.connected) - Number(b.connected),
 				},
 			]}
 			dataSource={hostList}

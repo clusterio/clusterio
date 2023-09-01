@@ -2,7 +2,11 @@ import { notification } from "antd";
 import { logger } from "@clusterio/lib";
 
 
-export default function notify(message, type = "info", description = undefined) {
+export default function notify(
+	message: string | Error,
+	type: "success"|"info"|"warning"|"error" = "info",
+	description?: string,
+) {
 	notification[type]({
 		message: typeof message === "string" ? message : "ERROR: See console",
 		description,
@@ -18,13 +22,13 @@ export default function notify(message, type = "info", description = undefined) 
  *
  * Shows the error occuring in a notification card.
  *
- * @param {string} message -
+ * @param message -
  *     User facing message to give context to the error.  Should say which
  *     operation failed.
- * @returns {function(err)} function showing the error passed to it.
+ * @returns function showing the error passed to it.
  */
-export function notifyErrorHandler(message) {
-	return function handler(err) {
+export function notifyErrorHandler(message: string): (err:Error) => void {
+	return function handler(err: Error) {
 		logger.error(err.stack);
 		notification.error({
 			message,

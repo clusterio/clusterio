@@ -12,7 +12,7 @@ import type { Logger } from "../logging";
 /**
  * A setting for a mod.
  */
-interface ModSetting {
+export interface ModSetting {
 	/** Value of the given mod setting. */
 	value: boolean | number | string;
 }
@@ -26,7 +26,7 @@ const ModSettingsJsonSchema = Type.Record(Type.String(), ModSettingJsonSchema);
 /**
  * A mod in a mod pack
  */
-interface ModRecord {
+export interface ModRecord {
 	/** name of the mod. */
 	name: string,
 	/** if mod is to be loaded. */
@@ -35,6 +35,8 @@ interface ModRecord {
 	version: string,
 	/** SHA1 hash of the zip file. */
 	sha1?: string,
+	/** Used inside packages\web_ui\src\components\ModPackViewPage.tsx to define an error type. */
+	error?: "missing"|"bad_checksum",
 }
 
 const ModRecordJsonSchema = Type.Object({
@@ -51,7 +53,7 @@ type PropertyType = null | boolean | number | string | PropertyType[] | { [key: 
  *
  * Tracks mods and settings for a collection of Factorio mods.
  */
-export default class ModPack {
+export class ModPack {
 	declare ["constructor"]: typeof ModPack;
 
 	/**

@@ -2,19 +2,21 @@ import React, { useEffect, useContext, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, Descriptions, Spin } from "antd";
 
+import type { PluginWebApi } from "@clusterio/controller/src/routes";
+
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
-
+import notify from "../util/notify";
 
 export default function PluginViewPage() {
 	let params = useParams();
 	let plugins = useContext(ControlContext).plugins;
-	let [pluginList, setPluginList] = useState(null);
-	let pluginName = params.name;
+	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
+	let pluginName = String(params.name);
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${webRoot}api/plugins`);
+			let response = await fetch(`${window.webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {
@@ -28,7 +30,7 @@ export default function PluginViewPage() {
 	let nav = [{ name: "Plugins", path: "/plugins" }, { name: pluginTitle }];
 	if (!pluginList) {
 		return <PageLayout nav={nav}>
-			<Descriptions borderd size="small" title={pluginTitle} />
+			<Descriptions bordered size="small" title={pluginTitle} />
 			<Spin size="large" />
 		</PageLayout>;
 	}

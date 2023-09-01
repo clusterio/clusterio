@@ -3,7 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
 	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
+	TablePaginationConfig,
 } from "antd";
+import { FieldData } from "rc-field-form/lib/interface";
+
+import type { SorterResult, FilterValue, TableCurrentDataSource } from "antd/es/table/interface";
 import ExportOutlined from "@ant-design/icons/ExportOutlined";
 import FileUnknownOutlined from "@ant-design/icons/FileUnknownOutlined";
 import FileExclamationOutlined from "@ant-design/icons/FileExclamationOutlined";
@@ -25,18 +29,36 @@ import ModDetails from "./ModDetails";
 
 const { logger } = lib;
 const { Paragraph, Text } = Typography;
-const strcmp = new Intl.Collator(undefined, { numerice: "true", sensitivity: "base" }).compare;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
-function SearchModsTable(props) {
+
+type ModChange = {
+	type: string;
+	name?: string;
+	scope?: "startup"|"runtime-global"|"runtime-per-user";
+	value: any; //string|lib.ModRecord ?;
+};
+
+type ModResult = {
+	name: string;
+	versions: lib.ModInfo[];
+};
+
+type SearchModsTableProps = {
+	modPack: lib.ModPack;
+	changes: ModChange[];
+	onChange: (change: ModChange) => void;
+};
+function SearchModsTable(props: SearchModsTableProps) {
 	const control = useContext(ControlContext);
-	const [searchText, setSearchText] = useState("");
-	const [modResultSort, setModResultSort] = useState("title");
-	const [modResultSortOrder, setModResultSortOrder] = useState("asc");
-	const [modResults, setModResults] = useState([]);
-	const [modResultPage, setModResultPage] = useState(1);
-	const [modResultPageSize, setModResultPageSize] = useState(10);
-	const [modResultCount, setModResultCount] = useState(2);
-	const [modResultSelectedVersion, setModResultSelectedVersion] = useState(new Map());
+	const [searchText, setSearchText] = useState<string>("");
+	const [modResultSort, setModResultSort] = useState<string|undefined>("title");
+	const [modResultSortOrder, setModResultSortOrder] = useState<string|undefined>("asc");
+	const [modResults, setModResults] = useState<ModResult[]>([]);
+	const [modResultPage, setModResultPage] = useState<number>(1);
+	const [modResultPageSize, setModResultPageSize] = useState<number>(10);
+	const [modResultCount, setModResultCount] = useState<number>(2);
+	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string,number>>(new Map());
 
 	const factorioVersion = props.modPack.factorioVersion.split(".").slice(0, 2).join(".");
 
@@ -57,7 +79,7 @@ function SearchModsTable(props) {
 			// of || 0 on modResultSelectedVersion.get() calls. Remove when updating React.
 			setModResults(response.results);
 			setModResultSelectedVersion(new Map(response.results.map(({ name, versions }) => [name, 0])));
-			setModResultCount(response.result_count);
+			setModResultCount(response.resultCount);
 		});
 
 		return () => {
@@ -65,20 +87,29 @@ function SearchModsTable(props) {
 		};
 	}, [searchText, factorioVersion, modResultPageSize, modResultPage, modResultSort, modResultSortOrder]);
 
-	function modResultPageChanged(page, pageSize) {
+	function modResultPageChanged(page: number, pageSize: number) {
 		setModResultPage(page);
 		setModResultPageSize(pageSize);
 	}
 
-	function modResultsTableChanged(pagination, filters, sorters, extra) {
+	function modResultsTableChanged(
+		pagination: TablePaginationConfig,
+		filters: Record<string, FilterValue | null>,
+		sorter: SorterResult<ModResult>|SorterResult<ModResult>[],
+		extra: TableCurrentDataSource<ModResult>,
+	) {
 		if (extra.action === "sort") {
-			if (sorters.order) {
+			if (sorter instanceof Array) {
+				sorter = sorter[0];
+			}
+
+			if (sorter.order) {
 				const mapping = {
 					ascend: "asc",
 					descend: "desc",
 				};
-				setModResultSort(sorters.columnKey);
-				setModResultSortOrder(mapping[sorters.order]);
+				setModResultSort(String(sorter.columnKey));
+				setModResultSortOrder(mapping[sorter.order]);
 			} else {
 				setModResultSort(undefined);
 				setModResultSortOrder(undefined);
@@ -86,9 +117,9 @@ function SearchModsTable(props) {
 		}
 	}
 
-	function actions(mod) {
+	function actions(mod: lib.ModInfo|lib.ModRecord) {
 		return <Space>
-			{(!props.modPack.mods.has(mod.name) || props.modPack.mods.get(mod.name).version !== mod.version)
+			{(!props.modPack.mods.has(mod.name) || props.modPack.mods.get(mod.name)?.version !== mod.version)
 				&& <Typography.Link
 					onClick={() => {
 						props.onChange({
@@ -106,7 +137,7 @@ function SearchModsTable(props) {
 						props.onChange({
 							type: "mods.delete",
 							name: mod.name,
-							value: { name: mod.name, version: mod.version, sha1: mod.sha1 },
+							value: { name: mod.name, enabled: false, version: mod.version, sha1: mod.sha1 },
 						});
 					}}
 				>remove</Typography.Link>
@@ -142,14 +173,14 @@ function SearchModsTable(props) {
 					{
 						title: "Title",
 						key: "title",
-						render: results => results.versions[0].title,
+						render: (result:ModResult) => result.versions[0].title,
 						defaultSortOrder: "ascend",
 						sorter: true,
 					},
 					{
 						title: "Author",
 						key: "author",
-						render: results => results.versions[0].author,
+						render: (result:ModResult) => result.versions[0].author,
 						responsive: ["lg"],
 						sorter: true,
 					},
@@ -157,7 +188,7 @@ function SearchModsTable(props) {
 						title: "Version",
 						key: "version",
 						align: "right",
-						render: result => <Select
+						render: (result:ModResult) => <Select
 							size="small"
 							bordered={false}
 							value={modResultSelectedVersion.get(result.name) || 0}
@@ -173,7 +204,7 @@ function SearchModsTable(props) {
 						title: "Action",
 						key: "action",
 						responsive: ["lg"],
-						render: result => actions(result.versions[modResultSelectedVersion.get(result.name) || 0]),
+						render: (result:ModResult) => actions(result.versions[modResultSelectedVersion.get(result.name) || 0]),
 					},
 				]}
 				expandable={{
@@ -192,25 +223,33 @@ function SearchModsTable(props) {
 	</>;
 }
 
-function ModsTable(props) {
+type ModsTableProps = {
+	modPack: lib.ModPack;
+	changes: ModChange[];
+	onChange: (change: ModChange) => void;
+	onRevert: (change: ModChange) => void;
+};
+function ModsTable(props: ModsTableProps) {
 	const [showAddMods, setShowAddMods] = useState(false);
 	const [modList] = useModList();
 
-	const deletedMods = new Map();
-	const changedMods = new Map();
+	const deletedMods: Map<string, lib.ModRecord> = new Map();
+	const changedMods: Map<string, lib.ModRecord> = new Map();
 	for (let change of props.changes) {
-		if (props.modPack.mods.has(change.name)) {
-			if (change.type === "mods.set") {
-				changedMods.set(change.name, change.value);
+		if (change.name) {
+			if (props.modPack.mods.has(change.name)) {
+				if (change.type === "mods.set") {
+					changedMods.set(change.name, change.value);
+				}
+			} else if (change.type === "mods.delete") {
+				deletedMods.set(change.name, change.value);
 			}
-		} else if (change.type === "mods.delete") {
-			deletedMods.set(change.name, change.value);
 		}
 	}
 
 	const modListMap = new Map(modList.map(mod => [`${mod.name}_${mod.version}`, mod]));
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
-		mod => {
+		(mod: lib.ModRecord): lib.ModInfo|lib.ModRecord => {
 			const candidate = modListMap.get(`${mod.name}_${mod.version}`);
 			if (!candidate) {
 				return {
@@ -227,7 +266,7 @@ function ModsTable(props) {
 		}
 	);
 
-	function actions(mod) {
+	function actions(mod: lib.ModInfo|lib.ModRecord) {
 		return <Space>
 			{!deletedMods.has(mod.name) && <Typography.Link
 				type="danger"
@@ -241,7 +280,7 @@ function ModsTable(props) {
 			>remove</Typography.Link>}
 			{(deletedMods.has(mod.name) || changedMods.has(mod.name)) && <Typography.Link
 				onClick={() => {
-					props.onRevert({
+					props.onRevert && props.onRevert({
 						type: deletedMods.has(mod.name) ? "mods.delete" : "mods.set",
 						name: mod.name,
 						value: mod,
@@ -275,16 +314,16 @@ function ModsTable(props) {
 					return { disabled: deletedMods.has(mod.name) };
 				},
 				onChange(selectedRowKeys, selectedRows) {
-					function setEnabled(modNames, enabled) {
+					function setEnabled(modNames: string[], enabled: boolean) {
 						for (let name of modNames) {
 							props.onChange({
 								type: "mods.set",
 								name,
-								value: { ...props.modPack.mods.get(name), enabled },
+								value: { ...props.modPack.mods.get(name)!, enabled },
 							});
 						}
 					}
-					const added = selectedRowKeys.filter(key => !props.modPack.mods.get(key).enabled);
+					const added = selectedRowKeys.filter(key => !props.modPack.mods.get(key as string)?.enabled) as string[];
 					const removed = [...props.modPack.mods.values()].filter(
 						mod => mod.enabled && selectedRowKeys.indexOf(mod.name) === -1
 					).map(mod => mod.name);
@@ -341,16 +380,18 @@ function ModsTable(props) {
 }
 
 // Returns true if a change record with the given fields exist
-function hasChange(changes, field) {
-	return changes.some(change => Object.entries(field).every(([key, value]) => change[key] === value));
+function hasChange(changes: ModChange[], field:Partial<ModChange>) {
+	return changes
+		.some(change => Object.entries(field)
+			.every(([key, value]) => (change as any)[key] === value));
 }
 
 // picks out the value property from settings.
-function pickValue(map) {
+function pickValue(map: Map<string, lib.ModSetting>): [string, string|number|boolean][] {
 	return [...map].map(([name, value]) => [name, value.value]);
 }
 
-function groupToMap(array, fn) {
+function groupToMap(array: any[], fn: (...args:any) => any) {
 	const map = new Map();
 	for (let index = 0; index < array.length; index++) {
 		let key = fn(array[index], index, array);
@@ -362,7 +403,25 @@ function groupToMap(array, fn) {
 	return map;
 }
 
-const SettingsTableField = memo((props) => {
+
+function test(value:string) {
+	return {
+		some: 10,
+		test: "test",
+		of: new Set([0,1,2,3]),
+		values: new Map([["a","a"]]),
+	}
+}
+
+type SettingsTableFieldProps = {
+	name: string;
+	type: string;
+	scope: string;
+	allowedValues: any;
+	locale: Map<string, any>;
+	changed: boolean;
+}
+const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const name = props.name;
 	const isBoolean = props.type === "bool-setting";
 	const isNumber = ["int-setting", "double-setting"].includes(props.type);
@@ -388,20 +447,29 @@ const SettingsTableField = memo((props) => {
 		wrapperCol={{ span: 16 }}
 		valuePropName={isBoolean ? "checked" : "value"}
 		rules={[...isNumber ? [{
-			validator(rule, value) {
+			validator(rule: any, value: any) {
 				if (Number.isNaN(Number(value))) {
 					return Promise.reject(new Error("Must be a number"));
 				}
 				return Promise.resolve();
 			},
 		}] : []]}
-		className={ props.changed && "changed" }
+		className={ props.changed && "changed" || "" }
 	>
 		{input}
 	</Form.Item>;
 });
 
-function SettingsTable(props) {
+
+type SettingsTableProps = {
+	modPack: lib.ModPack;
+	prototypes: any;
+	locale: any;
+	changes: ModChange[];
+	onChange: (change: ModChange) => void;
+	onRevert: (change: ModChange) => void;
+};
+function SettingsTable(props: SettingsTableProps) {
 	const [modList] = useModList();
 	const modsInPack = new Set([...props.modPack.mods.values()].map(mod => `${mod.name}_${mod.version}`));
 	const modTitles = new Map(modList
@@ -412,10 +480,13 @@ function SettingsTable(props) {
 	const types = ["bool-setting", "int-setting", "double-setting", "string-setting"];
 	let prototypes = Object.entries(props.prototypes)
 		.filter(([type, _]) => types.includes(type))
-		.flatMap(([_, settingPrototypes]) => Object.values(settingPrototypes))
+		.flatMap<any>(([_, settingPrototypes]: [string, any]) => Object.values(settingPrototypes))
 	;
 
-	function controls(scope, storedFields) {
+	function controls(
+		scope: "startup"|"runtime-global"|"runtime-per-user",
+		storedFields: [string, string|number|boolean][]
+	) {
 		let fields = new Map(prototypes
 			.filter(p => p.setting_type === scope)
 			.sort((a, b) => strcmp(a.mod, b.mod) || strcmp(a.order || "", b.order || "") || strcmp(a.name, b.name))
@@ -473,10 +544,10 @@ function SettingsTable(props) {
 	</>;
 }
 
-function CopyButton(props) {
+function CopyButton(props: { content: string }) {
 	let clipboard = useClipboard();
-	let [copiedVisible, setCopiedVisible] = useState(false);
-	let copiedTimeout = useRef();
+	let [copiedVisible, setCopiedVisible] = useState<boolean|undefined>(false);
+	let copiedTimeout = useRef<ReturnType<typeof setTimeout>|undefined>();
 
 	useEffect(() => () => {
 		clearTimeout(copiedTimeout.current);
@@ -493,7 +564,7 @@ function CopyButton(props) {
 				copiedTimeout.current = setTimeout(() => {
 					setCopiedVisible(false);
 				}, 3000);
-			} catch (err) {
+			} catch (err: any) {
 				logger.error(`Writing to clipboard failed:\n${err.stack}`);
 				notify("Unable to copy to clipboard", "error", "Use ordinary select and copy instead.");
 			}
@@ -501,13 +572,13 @@ function CopyButton(props) {
 	</Tooltip>;
 }
 
-function ExportButton(props) {
-	let [open, setOpen] = useState(false);
+function ExportButton(props: { modPack: lib.ModPack }) {
+	let [open, setOpen] = useState<boolean>(false);
 	function close() {
 		setOpen(false);
 	}
 
-	let exportString;
+	let exportString = "";
 	if (open) { exportString = props.modPack.toModPackString(); }
 
 	return <>
@@ -530,10 +601,10 @@ function ExportButton(props) {
 	</>;
 }
 
-function useExportedAsset(modPack, asset) {
-	let [assetData, setAssetData] = useState(asset === "locale" ? new Map() : {});
-	let assetFilename;
-	if (modPack instanceof lib.ModPack && modPack.exportManifest && modPack.exportManifest.assets[asset]) {
+function useExportedAsset(modPack: lib.ModPack, asset: "settings"|"locale"): Map<any, any> | any {
+	let [assetData, setAssetData] = useState<Map<any, any>|any>(asset === "locale" ? new Map() : {});
+	let assetFilename: string | undefined;
+	if (modPack instanceof lib.ModPack && modPack.exportManifest?.assets[asset]) {
 		assetFilename = modPack.exportManifest.assets[asset];
 	}
 	useEffect(() => {
@@ -542,7 +613,7 @@ function useExportedAsset(modPack, asset) {
 				return;
 			}
 
-			let response = await fetch(`${staticRoot}static/${assetFilename}`);
+			let response = await fetch(`${window.staticRoot}static/${assetFilename}`);
 			if (response.ok) {
 				let data = await response.json();
 				setAssetData(asset === "locale" ? new Map(data) : data);
@@ -557,7 +628,7 @@ function useExportedAsset(modPack, asset) {
 	return assetData;
 }
 
-function applyModPackChanges(modPack, changes) {
+function applyModPackChanges(modPack: lib.ModPack, changes: ModChange[]) {
 	let modifiedModPack = modPack.shallowClone();
 	for (let change of changes) {
 		// Only modify fields that change to reduce re-renders
@@ -566,6 +637,7 @@ function applyModPackChanges(modPack, changes) {
 		}
 		if (
 			["settings.set", "settings.delete"].includes(change.type)
+			&& change.scope
 			&& modifiedModPack.settings[change.scope] === modPack.settings[change.scope]
 		) {
 			if (modifiedModPack.settings === modPack.settings) {
@@ -581,13 +653,19 @@ function applyModPackChanges(modPack, changes) {
 		} else if (change.type === "factorioVersion") {
 			modifiedModPack.factorioVersion = change.value;
 		} else if (change.type === "mods.set") {
-			modifiedModPack.mods.set(change.name, change.value);
+			if (change.name) {
+				modifiedModPack.mods.set(change.name, change.value);
+			}
 		} else if (change.type === "mods.delete") {
-			modifiedModPack.mods.delete(change.name);
+			modifiedModPack.mods.delete(change.name!);
 		} else if (change.type === "settings.set") {
-			modifiedModPack.settings[change.scope].set(change.name, change.value);
+			if (change.scope && change.name) {
+				modifiedModPack.settings[change.scope].set(change.name, change.value);
+			}
 		} else if (change.type === "settings.delete") {
-			modifiedModPack.settings[change.scope].delete(change.name);
+			if (change.scope && change.name) {
+				modifiedModPack.settings[change.scope].delete(change.name);
+			}
 		} else {
 			throw new Error(`Unknown change type ${change.type}`);
 		}
@@ -603,13 +681,13 @@ export default function ModPackViewPage() {
 	let modPackId = Number(params.id);
 
 	const [form] = Form.useForm();
-	let [modPack] = useModPack(modPackId);
-	let prototypes = useExportedAsset(modPack, "settings");
-	let locale = useExportedAsset(modPack, "locale");
-	let [changes, setChanges] = useState([]);
-	let syncTimeout = useRef();
+	let [modPack] = useModPack(modPackId) as lib.ModPack[];
+	let prototypes: any = useExportedAsset(modPack, "settings");
+	let locale: Map<any, any> = useExportedAsset(modPack, "locale");
+	let [changes, setChanges] = useState<ModChange[]>([]);
+	let syncTimeout = useRef<ReturnType<typeof setTimeout>|undefined>();
 
-	let modifiedModPack;
+	let modifiedModPack: any;
 	if (!(modPack instanceof lib.ModPack)) {
 		// Loading or invalid id
 		modifiedModPack = modPack;
@@ -620,7 +698,7 @@ export default function ModPackViewPage() {
 
 	useEffect(() => () => { clearTimeout(syncTimeout.current); });
 
-	const pushChange = useCallback((change) => {
+	const pushChange = useCallback((change: ModChange) => {
 		setChanges(oldChanges => {
 			const newChanges = [...oldChanges];
 			if (
@@ -637,7 +715,7 @@ export default function ModPackViewPage() {
 		});
 	}, []);
 
-	const revertChange = useCallback((change) => {
+	const revertChange = useCallback((change: ModChange) => {
 		setChanges(oldChanges => {
 			const newChanges = [...oldChanges];
 			const index = newChanges.findLastIndex(reference => (
@@ -652,20 +730,19 @@ export default function ModPackViewPage() {
 		});
 	}, []);
 
-	function syncPack(fields) {
+	function syncPack(fields: FieldData[]) {
 		for (let field of fields) {
-			if (!field.touched || field.validating || field.errors.length) {
+			if (!field.touched || field.validating || (field.errors?.length??false)) {
 				continue;
 			}
 			if (["name", "description", "factorioVersion"].includes(field.name[0])) {
 				if (modifiedModPack[field.name[0]] !== field.value) {
 					pushChange({ type: field.name[0], value: field.value });
 				}
-
 			} else if (["startup", "runtime-global", "runtime-per-user"].includes(field.name[0])) {
-				let [scope, settingName] = field.name;
+				let [scope, settingName]: ["startup"|"runtime-global"|"runtime-per-user", string] = field.name;
 				let value = field.value;
-				if (typeof modPack.settings[scope].get(settingName).value === "number") {
+				if (typeof modPack.settings[scope].get(settingName)?.value === "number") {
 					value = Number(value);
 					if (Number.isNaN(value)) {
 						continue;
@@ -678,10 +755,10 @@ export default function ModPackViewPage() {
 		}
 	}
 
-	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack.name || modPackId }];
+	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack.name || String(modPackId) }];
 	if (modifiedModPack.loading) {
 		return <PageLayout nav={nav}>
-			<PageHeader title={modPackId} />
+			<PageHeader title={String(modPackId)} />
 			<Spin size="large" />
 		</PageLayout>;
 	}
@@ -704,11 +781,13 @@ export default function ModPackViewPage() {
 					okText="Delete"
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
-						control.send(
-							new lib.ModPackDeleteRequest(modPack.id)
-						).then(() => {
-							navigate("/mods");
-						}).catch(notifyErrorHandler("Error deleting mod pack"));
+						if (modPack.id !== undefined) {
+							control.send(
+								new lib.ModPackDeleteRequest(modPack.id)
+							).then(() => {
+								navigate("/mods");
+							}).catch(notifyErrorHandler("Error deleting mod pack"));
+						}
 					}}
 				>
 					<Button danger icon={<DeleteOutlined />}>Delete</Button>
@@ -739,7 +818,7 @@ export default function ModPackViewPage() {
 				<Descriptions.Item span={3} label="Name">
 					<Form.Item noStyle name="name">
 						<Input
-							className={hasChange(changes, { type: "name" }) && "changed"}
+							className={hasChange(changes, { type: "name" }) && "changed" || ""}
 						/>
 					</Form.Item>
 				</Descriptions.Item>
@@ -747,7 +826,7 @@ export default function ModPackViewPage() {
 					<Form.Item noStyle name="description">
 						<Input.TextArea
 							autoSize={{ minRows: 2 }}
-							className={hasChange(changes, { type: "description" }) && "changed"}
+							className={hasChange(changes, { type: "description" }) && "changed" || ""}
 						/>
 					</Form.Item>
 				</Descriptions.Item>
@@ -764,7 +843,7 @@ export default function ModPackViewPage() {
 						}]}
 					>
 						<Input
-							className={hasChange(changes, { type: "factorioVersion" }) && "changed"}
+							className={hasChange(changes, { type: "factorioVersion" }) && "changed" || ""}
 						/>
 					</Form.Item>
 				</Descriptions.Item>
@@ -812,5 +891,4 @@ export default function ModPackViewPage() {
 			</Row>
 		</div>
 	</PageLayout>;
-
 }

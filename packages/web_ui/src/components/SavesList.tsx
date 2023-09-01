@@ -12,12 +12,19 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
-import { useInstanceList } from "../model/instance";
+import { InstanceState, useInstanceList } from "../model/instance";
 import { useSaves } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
 
 
-function RenameModal(props) {
+
+type ModalProps = {
+	disabled: boolean;
+	save: lib.SaveDetails;
+	instanceId: number;
+}
+
+function RenameModal(props: ModalProps) {
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
@@ -56,7 +63,7 @@ function RenameModal(props) {
 	</>;
 }
 
-function CopyModal(props) {
+function CopyModal(props: ModalProps) {
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
@@ -95,7 +102,8 @@ function CopyModal(props) {
 	</>;
 }
 
-function TransferModal(props) {
+
+function TransferModal(props: ModalProps) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
@@ -142,7 +150,7 @@ function TransferModal(props) {
 					<Select
 						autoFocus
 						showSearch
-						filterOption={(input, option) => option.title.toLowerCase().indexOf(input.toLowerCase()) >= 0}
+						filterOption={(input, option) => (option?.title.toLowerCase().indexOf(input.toLowerCase())??-1) >= 0}
 					>
 						{instanceList.filter(
 							instance => instance["id"] !== props.instanceId
@@ -161,6 +169,7 @@ function TransferModal(props) {
 				<Form.Item
 					name="transferredName"
 					label="Transferred name"
+					//@ts-ignore no disabled prop for Form.Item ?
 					disabled={!account.hasAnyPermission("core.instance.save.rename", "core.instance.save.copy")}
 				>
 					<Input />
@@ -170,6 +179,7 @@ function TransferModal(props) {
 					valuePropName="checked"
 					label="Copy"
 					tooltip="Copy instead of moving the save to the new instance."
+					//@ts-ignore no disabled prop for Form.Item ?
 					disabled={!account.hasPermission("core.instance.save.copy")}
 				>
 					<Checkbox />
@@ -179,14 +189,22 @@ function TransferModal(props) {
 	</>;
 }
 
-export default function SavesList(props) {
+
+type File = {
+	uid: string;
+	name: string;
+	percent: number;
+	status: string;
+}
+
+export default function SavesList(props: { instance: InstanceState }) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let saves = useSaves(props.instance.id);
 	let [starting, setStarting] = useState(false);
-	let [uploadingFiles, setUploadingFiles] = useState([]);
+	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
 
-	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status);
+	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
 		size="small"
 		columns={[
@@ -228,7 +246,7 @@ export default function SavesList(props) {
 					onClick={() => {
 						setStarting(true);
 						control.sendTo(
-							{ instanceId: props.instance.id },
+							{ instanceId: props.instance.id! },
 							new lib.InstanceStartRequest(save.name),
 						).catch(
 							notifyErrorHandler("Error loading save")
@@ -238,27 +256,27 @@ export default function SavesList(props) {
 					}}
 				>Load save</Button>}
 				{account.hasPermission("core.instance.save.rename") && <RenameModal
-					disabled={hostOffline} instanceId={props.instance.id} save={save}
+					disabled={hostOffline} instanceId={props.instance.id!} save={save}
 				/>}
 				{account.hasPermission("core.instance.save.copy") && <CopyModal
-					disabled={hostOffline} instanceId={props.instance.id} save={save}
+					disabled={hostOffline} instanceId={props.instance.id!} save={save}
 				/>}
 				{account.hasPermission("core.instance.save.download") && <Button
 					disabled={hostOffline}
 					onClick={() => {
 						control.send(
-							new lib.InstanceDownloadSaveRequest(props.instance.id, save.name)
+							new lib.InstanceDownloadSaveRequest(props.instance.id!, save.name)
 						).then(streamId => {
-							let url = new URL(webRoot, document.location);
+							let url = new URL(window.webRoot, document.location.href);
 							url.pathname += `api/stream/${streamId}`;
-							document.location = url;
+							document.location.assign(url);
 						}).catch(
 							notifyErrorHandler("Error downloading save")
 						);
 					}}
 				>Download</Button>}
 				{account.hasPermission("core.instance.save.transfer") && <TransferModal
-					disabled={hostOffline} instanceId={props.instance.id} save={save}
+					disabled={hostOffline} instanceId={props.instance.id!} save={save}
 				/>}
 				{account.hasPermission("core.instance.save.delete") && <Popconfirm
 					title="Permanently delete save?"
@@ -267,7 +285,7 @@ export default function SavesList(props) {
 					okButtonProps={{ danger: true }}
 					onConfirm={() => {
 						control.send(
-							new lib.InstanceDeleteSaveRequest(props.instance.id, save.name)
+							new lib.InstanceDeleteSaveRequest(props.instance.id!, save.name)
 						).catch(notifyErrorHandler("Error deleting save"));
 					}}
 				>
@@ -277,7 +295,7 @@ export default function SavesList(props) {
 		}}
 	/>;
 
-	function onChange(changeEvent) {
+	function onChange(changeEvent: any) {
 		if (["done", "error"].includes(changeEvent.file.status)) {
 			if (changeEvent.file.status === "error") {
 				notifyErrorHandler("Error uploading file")(changeEvent.file.error);
@@ -292,7 +310,7 @@ export default function SavesList(props) {
 			return;
 		}
 
-		let file = {
+		let file: File = {
 			uid: changeEvent.file.uid,
 			name: changeEvent.file.name,
 			percent: changeEvent.file.percent,
@@ -314,13 +332,13 @@ export default function SavesList(props) {
 		name: "file",
 		accept: ".zip",
 		headers: {
-			"X-Access-Token": control.connector.token,
+			"X-Access-Token": control.connector.token || "",
 		},
 		data: {
 			instance_id: props.instance.id,
 		},
 		showUploadList: false,
-		action: `${webRoot}api/upload-save`,
+		action: `${window.webRoot}api/upload-save`,
 		onChange,
 	};
 
@@ -343,7 +361,7 @@ export default function SavesList(props) {
 				{file.name}
 				<Progress
 					percent={file.percent}
-					format={percent => `${Math.floor(percent)}%`}
+					format={percent => `${Math.floor(percent||0)}%`}
 					status={file.status === "error" ? "exception" : "normal"}
 				/>
 			</List.Item>)}
