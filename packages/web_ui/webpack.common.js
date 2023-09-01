@@ -74,7 +74,7 @@ module.exports = (env = {}) => ({
 				},
 			},
 			{
-				test: /\.tsx$/,
+				test: /\.tsx?$/,
 				exclude: /node_modules/,
 				use: {
 					loader: require.resolve("ts-loader"),
@@ -97,7 +97,7 @@ module.exports = (env = {}) => ({
 		],
 	},
 	resolve: {
-		extensions: [".js", ".json", ".jsx", ".tsx"],
+		extensions: [".js", ".ts", ".json", ".jsx", ".tsx"],
 		fallback: {
 			"crypto": false,
 

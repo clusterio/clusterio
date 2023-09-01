@@ -1,5 +1,5 @@
 {
-	"include": [ "src/**/*.tsx", "package.json", "global.d.ts" ],
+	"include": [ "src/**/*.tsx", "src/**/*.ts", "package.json", "global.d.ts" ],
 	"compilerOptions": {
 		"jsx": "react",
 		"lib": ["dom", "es2023"],
