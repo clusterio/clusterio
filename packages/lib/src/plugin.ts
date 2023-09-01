@@ -21,7 +21,6 @@ export type BasePlugin =
 	| BaseControllerPlugin
 	| BaseInstancePlugin
 	| BaseControlPlugin
-	| BaseWebPlugin
 ;
 
 // TODO Add proper typing for plugins
