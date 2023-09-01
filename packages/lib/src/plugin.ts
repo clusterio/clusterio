@@ -682,11 +682,17 @@ export type AccountRole = {
 };
 
 export type UserAccount = {
+	/** Name of the currently logged in account. */
 	name: string;
+	/** Roles of the corrently logged in account. */
 	roles: AccountRole[];
+	/** Check if the currently logged in account has the given permission. */
 	hasPermission: (permission: string) => boolean | null;
+	/** Check if the currently logged in account has any of the given permissions. */
 	hasAnyPermission: (...permissions: string[]) => boolean | null;
+	/** Check if the currently logged in account has all of given permissions. */
 	hasAllPermission: (...permissions: string[]) => boolean | null;
+	/** Logs out of the web interface. */
 	logOut: () => void;
 };
 

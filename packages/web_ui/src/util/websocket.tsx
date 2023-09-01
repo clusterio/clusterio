@@ -44,11 +44,11 @@ export class ControlConnector extends lib.WebSocketClientConnector {
  * @static
  */
 export class Control extends lib.Link {
-	// Flag indicating the connection is in the process of logging out.
+	/** Flag indicating the connection is in the process of logging out. */
 	loggingOut: boolean = false;
-	// Name of the account this control link is connected as.
+	/** Name of the account this control link is connected as. */
 	accountName: string | null = null;
-	// Roles of the account this control link is connected as.
+	/** Roles of the account this control link is connected as. */
 	accountRoles: lib.AccountRole[] | null = null;
 	accountUpdateHandlers: Function[] = [];
 	hostUpdateHandlers: Map<number|null, hostHandler[]> = new Map();
