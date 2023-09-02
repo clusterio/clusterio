@@ -12,7 +12,7 @@ import type { Link } from "./link";
 import type { CommandTree } from "./command";
 import type { User } from "./users";
 import type { MessageRequest, MessageEvent } from "./data";
-
+import type { PluginConfigGroup } from "./config";
 
 /**
  * Conceptual base for controller and instance plugins.
@@ -21,11 +21,41 @@ export type BasePlugin =
 	| BaseControllerPlugin
 	| BaseInstancePlugin
 	| BaseControlPlugin
-	| BaseWebPlugin
 ;
 
 // TODO Add proper typing for plugins
-export type PluginInfo = any;
+/* Used to define the export of info.ts from plugins */
+export type PluginDeclaration = {
+	name: string;
+	title: string;
+	description?: string;
+
+	instanceEntrypoint?: string;
+	InstanceConfigGroup?: typeof PluginConfigGroup;
+
+	controllerEntrypoint?: string;
+	ControllerConfigGroup?: typeof PluginConfigGroup;
+
+	controlEntrypoint?: string;
+	ControlConfigGroup?: typeof PluginConfigGroup;
+
+	messages?: any[];
+
+	webEntrypoint?: string;
+	routes?: string[];
+}
+export type PluginNodeEnvInfo = PluginDeclaration & {
+	requirePath: string;
+	version: string;
+	manifest: any;
+};
+
+export type PluginWebpackEnvInfo = PluginDeclaration & {
+	container: any;
+	package: any;
+	enabled?: boolean;
+};
+
 type Controller = any;
 type Instance = any;
 type Host = any;
@@ -96,7 +126,7 @@ export class BaseInstancePlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginInfo,
+		public info: PluginNodeEnvInfo,
 		/**
 		 * Instance the plugin started for
 		 */
@@ -332,7 +362,7 @@ export class BaseControllerPlugin {
 	logger: Logger;
 
 	constructor(
-		public info: PluginInfo,
+		public info: PluginNodeEnvInfo,
 		public controller: Controller,
 		public metrics: any[],
 		logger: Logger
@@ -600,7 +630,7 @@ export class BaseControlPlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginInfo,
+		public info: PluginNodeEnvInfo,
 		logger: Logger,
 	) {
 		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
@@ -647,6 +677,26 @@ export interface PluginLoginForm {
 	Component: React["Component"];
 };
 
+export type AccountRole = {
+	name: string;
+	id: number;
+	permissions: string[];
+};
+
+export type UserAccount = {
+	/** Name of the currently logged in account. */
+	name: string;
+	/** Roles of the corrently logged in account. */
+	roles: AccountRole[];
+	/** Check if the currently logged in account has the given permission. */
+	hasPermission: (permission: string) => boolean | null;
+	/** Check if the currently logged in account has any of the given permissions. */
+	hasAnyPermission: (...permissions: string[]) => boolean | null;
+	/** Check if the currently logged in account has all of given permissions. */
+	hasAllPermission: (...permissions: string[]) => boolean | null;
+	/** Logs out of the web interface. */
+	logOut: () => void;
+};
 
 /**
  * Plugin supplied pages
@@ -677,7 +727,7 @@ export interface PluginPage {
 	/**
 	 * Permission to access page. function are expected to throw an error if access is deny.
 	 */
-	permission?: string | ((user: User, message: MessageRequest|MessageEvent) => void);
+	permission?: string | ((account: UserAccount) => (boolean|null));
 };
 
 /**
@@ -762,7 +812,7 @@ export class BaseWebPlugin {
 		/**
 		 * The plugin's own info module
 		 */
-		public info: PluginInfo,
+		public info: PluginWebpackEnvInfo,
 		logger: Logger,
 	) {
 		this.package = packageData;

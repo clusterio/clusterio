@@ -194,7 +194,7 @@ interface InitializeParameters {
 	args: ControllerArgs;
 	shouldRun: boolean;
 	clusterLogger: winston.Logger;
-	pluginInfos: any[] | null;
+	pluginInfos: lib.PluginNodeEnvInfo[] | null;
 	controllerConfigPath: string | null;
 	controllerConfig: lib.ControllerConfig | null;
 }

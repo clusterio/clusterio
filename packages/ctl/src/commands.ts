@@ -325,7 +325,7 @@ instanceConfigCommands.add(new lib.Command({
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 
-		for (let group of (response.config as any).groups) {
+		for (let group of response.serializedConfig.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -425,7 +425,7 @@ instanceConfigCommands.add(new lib.Command({
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
 		let allConfigElements = await serializedConfigToString(
-			response.config,
+			response.serializedConfig,
 			lib.InstanceConfig,
 			disallowedList
 		);

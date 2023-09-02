@@ -4,7 +4,7 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "browser": "src/index.jsx",
+  "browser": "src/index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -32,12 +32,15 @@
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
+    "rc-field-form": "^1.37.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.14.2",
     "stream-browserify": "^3.0.0",
     "style-loader": "^3.3.3",
     "terser-webpack-plugin": "^5.3.9",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.1.6",
     "util": "^0.12.5",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
@@ -45,5 +48,10 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^20.4.5",
+    "@types/react": "^18.2.21",
+    "@types/react-dom": "^18.2.7"
   }
 }

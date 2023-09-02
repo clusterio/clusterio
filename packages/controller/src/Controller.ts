@@ -45,7 +45,7 @@ const logSizeGauge = new Gauge(
 export default class Controller {
 	clusterLogger: winston.Logger;
 	/** Array of plugin info objects for known plugins */
-	pluginInfos: lib.PluginInfo[];
+	pluginInfos: lib.PluginNodeEnvInfo[];
 	configPath: string;
 	/** Controller config. */
 	config: lib.ControllerConfig;

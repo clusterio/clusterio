@@ -5,6 +5,7 @@
 		{ "path": "./packages/controller" },
 		{ "path": "./packages/host" },
 		{ "path": "./packages/ctl" },
+		{ "path": "./packages/web_ui" },
 		{ "path": "./plugins/global_chat" },
 		{ "path": "./plugins/inventory_sync" },
 		{ "path": "./plugins/player_auth" },

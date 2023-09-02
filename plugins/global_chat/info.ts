@@ -1,8 +1,8 @@
-import type { PluginInfo } from "@clusterio/lib";
+import type * as lib from "@clusterio/lib";
 
 import { ChatEvent } from "./messages";
 
-const info: PluginInfo = {
+const info: lib.PluginDeclaration = {
 	name: "global_chat",
 	title: "Global Chat",
 	description: "Forwards chat between instances.",

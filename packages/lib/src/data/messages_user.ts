@@ -1,6 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
 import PlayerStats from "../PlayerStats";
 import { JsonNumber, jsonArray } from "./composites";
+import { AccountRole } from "../plugin";
 
 export class RawPermission { // TODO refactor into lib/user.Permission
 	constructor(
@@ -436,7 +437,7 @@ export class AccountUpdateEvent {
 	static dst = "control" as const;
 
 	constructor(
-		public roles?: { name: string, id: number, permissions: string[] }[],
+		public roles?: AccountRole[],
 	) { }
 
 	static jsonSchema = Type.Object({

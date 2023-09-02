@@ -5,7 +5,7 @@
  */
 export { default as ExportManifest } from "./ExportManifest";
 export { default as ModInfo } from "./ModInfo";
-export { default as ModPack } from "./ModPack";
+export { default as ModPack, ModSetting, ModRecord } from "./ModPack";
 export { default as ModuleInfo } from "./ModuleInfo";
 export * from "./composites";
 export * from "./messages_core";

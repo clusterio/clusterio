@@ -54,11 +54,11 @@ export default class HostConnection extends BaseConnection {
 			plugins: registerData.plugins,
 		});
 
-		for (let event of ["connect", "drop", "resume", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			// eslint-disable-next-line no-loop-func
 			this.connector.on(event, () => {
 				for (let plugin of this._controller.plugins.values()) {
-					plugin.onHostConnectionEvent(this, event as "connect"|"drop"|"resume"|"close");
+					plugin.onHostConnectionEvent(this, event);
 				}
 			});
 		}

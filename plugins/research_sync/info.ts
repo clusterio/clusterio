@@ -1,8 +1,8 @@
-import type { PluginInfo } from "@clusterio/lib";
+import type * as lib from "@clusterio/lib";
 
 import * as messages from "./messages";
 
-const info: PluginInfo = {
+const info: lib.PluginDeclaration = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",

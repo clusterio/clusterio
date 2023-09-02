@@ -82,6 +82,10 @@ export abstract class BaseConnector extends events.EventEmitter {
 
 type ConnectorState = "closed" | "connecting" | "connected" | "resuming";
 
+export type WebSocketClusterio = WebSocket.WebSocket & {
+	clusterio_ignore_dump?: boolean;
+};
+
 /**
  * Base connector for links
  *
@@ -91,7 +95,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	// One of closed, connecting (client only), connected and resuming.
 	_state: ConnectorState = "closed";
 	_closing = false;
-	_socket: WebSocket | null = null;
+	_socket: WebSocketClusterio | null = null;
 	_lastHeartbeat: number | null = null;
 	_heartbeatId: ReturnType<typeof setInterval> | null = null;
 	_heartbeatInterval: number | null = null;
@@ -451,12 +455,12 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		// eslint-disable-next-line node/no-process-env
 		if (process.env.APP_ENV === "browser") {
-			this._socket = new WebSocket(url);
+			this._socket = new WebSocket(url) as WebSocketClusterio;
 
 		} else {
 			let options: { ca?: string } = {};
 			if (this._tlsCa) { options.ca = this._tlsCa; }
-			this._socket = new WebSocket(url, options);
+			this._socket = new WebSocket(url, options) as WebSocketClusterio;
 		}
 
 		this._attachSocketHandlers();

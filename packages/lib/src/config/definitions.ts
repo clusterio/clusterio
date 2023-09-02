@@ -1,6 +1,6 @@
 // Core definitions for the configuration system
 import * as classes from "./classes";
-import type { PluginInfo } from "../plugin";
+import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 
 
 /**
@@ -503,14 +503,14 @@ export class ControlConfig extends classes.Config { }
 ControlConfig.registerGroup(ControlGroup);
 
 
-function validateGroup(pluginInfo: PluginInfo, groupName: string) {
-	if (!(pluginInfo[groupName].prototype instanceof classes.PluginConfigGroup)) {
+function validateGroup(pluginInfo: PluginNodeEnvInfo|PluginWebpackEnvInfo, groupName: "ControllerConfigGroup"|"InstanceConfigGroup") {
+	if (!(pluginInfo[groupName]?.prototype instanceof classes.PluginConfigGroup)) {
 		throw new Error(
 			`Expected ${groupName} for ${pluginInfo.name} to be a subclass of PluginConfigGroup`
 		);
 	}
 
-	if (pluginInfo[groupName].groupName !== pluginInfo.name) {
+	if (pluginInfo[groupName]?.groupName !== pluginInfo.name) {
 		throw new Error(
 			`Expected ${groupName} for ${pluginInfo.name} to be named after the plugin`
 		);
@@ -522,7 +522,7 @@ function validateGroup(pluginInfo: PluginInfo, groupName: string) {
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
  */
-export function registerPluginConfigGroups(pluginInfos: PluginInfo[]) {
+export function registerPluginConfigGroups(pluginInfos: PluginNodeEnvInfo[]|PluginWebpackEnvInfo[]) {
 	for (let pluginInfo of pluginInfos) {
 		if (pluginInfo.ControllerConfigGroup) {
 			validateGroup(pluginInfo, "ControllerConfigGroup");

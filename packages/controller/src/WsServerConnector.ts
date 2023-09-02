@@ -5,10 +5,6 @@ import events from "events";
 import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
-export interface WebSocketClusterio extends WebSocket {
-	clusterio_ignore_dump?: boolean;
-}
-
 
 /**
  * Connector for controller connections
@@ -18,7 +14,6 @@ export interface WebSocketClusterio extends WebSocket {
  */
 export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	_timeoutId: ReturnType<typeof setTimeout> | null = null;
-	declare _socket: WebSocketClusterio | null;
 
 	constructor(
 		dst: lib.Address,

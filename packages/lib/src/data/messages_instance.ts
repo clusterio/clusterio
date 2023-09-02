@@ -1,8 +1,11 @@
 import { Type, Static } from "@sinclair/typebox";
 import PlayerStats from "../PlayerStats";
 import { JsonString, StringEnum, jsonArray } from "./composites";
+import { RawConfig } from "../config";
 import type { User } from "../users";
 import type { MessageRequest } from "./messages_core";
+import type { SerializedConfig } from "../config";
+
 
 export type InstanceStatus =
 	"unknown" | "unassigned" | "stopped" | "starting" | "running"
@@ -134,6 +137,8 @@ export class InstanceConfigGetRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.instance.get_config" as const;
+	// TODO replace with InstanceConfig after config refactor
+	static Response = RawConfig;
 
 	constructor(
 		public instanceId: number,
@@ -146,21 +151,6 @@ export class InstanceConfigGetRequest {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.instanceId);
 	}
-
-	// TODO replace with InstanceConfig after config refactor
-	static Response = class Response {
-		constructor(
-			public config: object,
-		) { }
-
-		static jsonSchema = Type.Object({
-			"config": Type.Object({}),
-		});
-
-		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			return new this(json.config);
-		}
-	};
 }
 
 export class InstanceConfigSetFieldRequest {

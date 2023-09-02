@@ -2,6 +2,7 @@
 import { TSchema, Type, Static } from "@sinclair/typebox";
 import messageValidate from "./message_validate";
 import { StringEnum } from "./composites";
+import { AccountRole } from "../plugin";
 
 export type AddressType = "controller" | "host" | "instance" | "control" | "broadcast";
 export type AddressShorthand =
@@ -288,7 +289,7 @@ export class MessageRegisterControl extends Message {
 export class AccountDetails {
 	constructor(
 		public name: string,
-		public roles: { name: string, id: number, permissions: string[] }[],
+		public roles: AccountRole[],
 	) { }
 
 	static jsonSchema = Type.Object({
