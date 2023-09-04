@@ -1,5 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
-export class ChatEvent {
+import { Event } from "@clusterio/lib";
+
+export class ChatEvent implements Event<ChatEvent> {
 	declare ["constructor"]: typeof ChatEvent;
 	static type = "event" as const;
 	static src = ["control", "instance"] as const;

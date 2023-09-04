@@ -3,6 +3,8 @@ import type { IpcPlayerData } from "./instance";
 import { Type, Static } from "@sinclair/typebox";
 import { StringEnum } from "@clusterio/lib";
 
+import { Request } from "@clusterio/lib";
+
 const jsonPlayerData = Type.Object({
 	generation: Type.Number(),
 	name: Type.String(),
@@ -28,7 +30,7 @@ export class AcquireResponse {
 		return new this(json.status, json.generation, json.hasData, json.message);
 	}
 };
-export class AcquireRequest {
+export class AcquireRequest implements Request<AcquireRequest, AcquireResponse> {
 	declare ["constructor"]: typeof AcquireRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
@@ -52,7 +54,7 @@ export class AcquireRequest {
 	}
 }
 
-export class ReleaseRequest {
+export class ReleaseRequest implements Request<ReleaseRequest> {
 	declare ["constructor"]: typeof ReleaseRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
@@ -75,7 +77,7 @@ export class ReleaseRequest {
 	}
 }
 
-export class UploadRequest {
+export class UploadRequest implements Request<UploadRequest> {
 	declare ["constructor"]: typeof UploadRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
@@ -115,7 +117,7 @@ export class DownloadResponse {
 	}
 }
 
-export class DownloadRequest {
+export class DownloadRequest implements Request<DownloadRequest, DownloadResponse> {
 	declare ["constructor"]: typeof DownloadRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
@@ -161,7 +163,7 @@ class DatabaseStatsResponse {
 	}
 }
 
-export class DatabaseStatsRequest {
+export class DatabaseStatsRequest implements Request<DatabaseStatsRequest, DatabaseStatsResponse> {
 	declare ["constructor"]: typeof DatabaseStatsRequest;
 	static type = "request" as const;
 	static src = "control" as const;

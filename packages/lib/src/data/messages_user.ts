@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import PlayerStats from "../PlayerStats";
 import { JsonNumber, jsonArray } from "./composites";
 import { AccountRole } from "../plugin";
+import { Request, Event } from "../link";
 
 export class RawPermission { // TODO refactor into lib/user.Permission
 	constructor(
@@ -21,7 +22,7 @@ export class RawPermission { // TODO refactor into lib/user.Permission
 	}
 }
 
-export class PermissionListRequest {
+export class PermissionListRequest implements Request<PermissionListRequest, RawPermission[]> {
 	declare ["constructor"]: typeof PermissionListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -50,7 +51,7 @@ export class RawRole { // TODO refactor into lib/user.Role
 	}
 }
 
-export class RoleListRequest {
+export class RoleListRequest implements Request<RoleListRequest, RawRole[]> {
 	declare ["constructor"]: typeof RoleListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -59,7 +60,7 @@ export class RoleListRequest {
 	static Response = jsonArray(RawRole);
 }
 
-export class RoleCreateRequest {
+export class RoleCreateRequest implements Request<RoleCreateRequest, number> {
 	declare ["constructor"]: typeof RoleCreateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -85,7 +86,7 @@ export class RoleCreateRequest {
 	static Response = JsonNumber;
 }
 
-export class RoleUpdateRequest {
+export class RoleUpdateRequest implements Request<RoleUpdateRequest> {
 	declare ["constructor"]: typeof RoleUpdateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -111,7 +112,7 @@ export class RoleUpdateRequest {
 	}
 }
 
-export class RoleGrantDefaultPermissionsRequest {
+export class RoleGrantDefaultPermissionsRequest implements Request<RoleGrantDefaultPermissionsRequest>{
 	declare ["constructor"]: typeof RoleGrantDefaultPermissionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -131,7 +132,7 @@ export class RoleGrantDefaultPermissionsRequest {
 	}
 }
 
-export class RoleDeleteRequest {
+export class RoleDeleteRequest implements Request<RoleDeleteRequest> {
 	declare ["constructor"]: typeof RoleDeleteRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -220,7 +221,7 @@ export class RawUser { // TODO refactor into lib/user.User
 	}
 }
 
-export class UserGetRequest {
+export class UserGetRequest implements Request<UserGetRequest, RawUser> {
 	declare ["constructor"]: typeof UserGetRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -242,7 +243,7 @@ export class UserGetRequest {
 	static Response = RawUser;
 }
 
-export class UserListRequest {
+export class UserListRequest implements Request<UserListRequest, RawUser[]> {
 	declare ["constructor"]: typeof UserListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -251,7 +252,7 @@ export class UserListRequest {
 	static Response = jsonArray(RawUser);
 }
 
-export class UserSetSubscriptionsRequest {
+export class UserSetSubscriptionsRequest implements Request<UserSetSubscriptionsRequest> {
 	declare ["constructor"]: typeof UserSetSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -273,7 +274,7 @@ export class UserSetSubscriptionsRequest {
 	}
 }
 
-export class UserCreateRequest {
+export class UserCreateRequest implements Request<UserCreateRequest> {
 	declare ["constructor"]: typeof UserCreateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -293,7 +294,7 @@ export class UserCreateRequest {
 	}
 }
 
-export class UserRevokeTokenRequest {
+export class UserRevokeTokenRequest implements Request<UserRevokeTokenRequest> {
 	declare ["constructor"]: typeof UserRevokeTokenRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -313,7 +314,7 @@ export class UserRevokeTokenRequest {
 	}
 }
 
-export class UserUpdateRolesRequest {
+export class UserUpdateRolesRequest implements Request<UserUpdateRolesRequest> {
 	declare ["constructor"]: typeof UserUpdateRolesRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -335,7 +336,7 @@ export class UserUpdateRolesRequest {
 	}
 }
 
-export class UserSetAdminRequest {
+export class UserSetAdminRequest implements Request<UserSetAdminRequest> {
 	declare ["constructor"]: typeof UserSetAdminRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -359,7 +360,7 @@ export class UserSetAdminRequest {
 	}
 }
 
-export class UserSetWhitelistedRequest {
+export class UserSetWhitelistedRequest implements Request<UserSetWhitelistedRequest> {
 	declare ["constructor"]: typeof UserSetWhitelistedRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -383,7 +384,7 @@ export class UserSetWhitelistedRequest {
 	}
 }
 
-export class UserSetBannedRequest {
+export class UserSetBannedRequest implements Request<UserSetBannedRequest> {
 	declare ["constructor"]: typeof UserSetBannedRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -409,7 +410,7 @@ export class UserSetBannedRequest {
 	}
 }
 
-export class UserDeleteRequest {
+export class UserDeleteRequest implements Request<UserDeleteRequest> {
 	declare ["constructor"]: typeof UserDeleteRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -430,7 +431,7 @@ export class UserDeleteRequest {
 }
 
 
-export class AccountUpdateEvent {
+export class AccountUpdateEvent implements Event<AccountUpdateEvent> {
 	declare ["constructor"]: typeof AccountUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -455,7 +456,7 @@ export class AccountUpdateEvent {
 	}
 }
 
-export class UserUpdateEvent {
+export class UserUpdateEvent implements Event<UserUpdateEvent> {
 	declare ["constructor"]: typeof UserUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;

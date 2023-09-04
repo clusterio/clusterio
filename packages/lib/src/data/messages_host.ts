@@ -1,6 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { jsonArray } from "./composites";
-
+import { Request, Event } from "../link";
 
 export class HostDetails {
 	constructor(
@@ -26,7 +26,7 @@ export class HostDetails {
 	}
 }
 
-export class HostListRequest {
+export class HostListRequest implements Request<HostListRequest, HostDetails[]> {
 	declare ["constructor"]: typeof HostListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -35,7 +35,7 @@ export class HostListRequest {
 	static Response = jsonArray(HostDetails);
 }
 
-export class HostSetSubscriptionsRequest {
+export class HostSetSubscriptionsRequest implements Request<HostSetSubscriptionsRequest> {
 	declare ["constructor"]: typeof HostSetSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -58,7 +58,7 @@ export class HostSetSubscriptionsRequest {
 }
 
 
-export class HostUpdateEvent {
+export class HostUpdateEvent implements Event<HostUpdateEvent> {
 	declare ["constructor"]: typeof HostUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -77,27 +77,29 @@ export class HostUpdateEvent {
 	}
 }
 
-export class HostMetricsRequest {
+class HostMetricsResponse { // TODO: Use JSON class pattern in Prometheus
+	constructor(
+		public results: object[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		"results": Type.Array(Type.Object({})),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.results);
+	}
+}
+
+export class HostMetricsRequest implements Request<HostMetricsRequest, HostMetricsResponse> {
 	declare ["constructor"]: typeof HostMetricsRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
 	static dst = "host" as const;
-	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
-		constructor(
-			public results: object[],
-		) { }
-
-		static jsonSchema = Type.Object({
-			"results": Type.Array(Type.Object({})),
-		});
-
-		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			return new this(json.results);
-		}
-	};
+	static Response = HostMetricsResponse; 
 }
 
-export class ControllerConnectionEvent {
+export class ControllerConnectionEvent implements Event<ControllerConnectionEvent> {
 	declare ["constructor"]: typeof ControllerConnectionEvent;
 	static type = "event" as const;
 	static src = "host" as const;
@@ -116,14 +118,14 @@ export class ControllerConnectionEvent {
 	}
 }
 
-export class PrepareControllerDisconnectRequest {
+export class PrepareControllerDisconnectRequest implements Request<PrepareControllerDisconnectRequest> {
 	declare ["constructor"]: typeof PrepareControllerDisconnectRequest;
 	static type = "request" as const;
 	static src = "host" as const;
 	static dst = "instance" as const;
 }
 
-export class SyncUserListsEvent {
+export class SyncUserListsEvent implements Event<SyncUserListsEvent> {
 	declare ["constructor"]: typeof SyncUserListsEvent;
 	static type = "event" as const;
 	static src = "controller" as const;

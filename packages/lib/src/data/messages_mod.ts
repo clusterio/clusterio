@@ -2,9 +2,9 @@ import { Type, Static } from "@sinclair/typebox";
 import ModInfo from "./ModInfo";
 import ModPack from "./ModPack";
 import { JsonString, jsonArray } from "./composites";
+import { Request, Event } from "../link";
 
-
-export class ModPackGetRequest {
+export class ModPackGetRequest implements Request<ModPackGetRequest, ModPack> {
 	declare ["constructor"]: typeof ModPackGetRequest;
 	static type = "request" as const;
 	static src = ["instance", "control"] as const;
@@ -26,7 +26,7 @@ export class ModPackGetRequest {
 	static Response = ModPack;
 }
 
-export class ModPackGetDefaultRequest {
+export class ModPackGetDefaultRequest implements Request<ModPackGetDefaultRequest, ModPack> {
 	declare ["constructor"]: typeof ModPackGetDefaultRequest;
 	static type = "request" as const;
 	static src = ["instance", "control"] as const;
@@ -35,7 +35,7 @@ export class ModPackGetDefaultRequest {
 	static Response = ModPack;
 }
 
-export class ModPackListRequest {
+export class ModPackListRequest implements Request<ModPackListRequest, ModPack[]> {
 	declare ["constructor"]: typeof ModPackListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -44,7 +44,7 @@ export class ModPackListRequest {
 	static Response = jsonArray(ModPack);
 }
 
-export class ModPackCreateRequest {
+export class ModPackCreateRequest implements Request<ModPackCreateRequest> {
 	declare ["constructor"]: typeof ModPackCreateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -64,7 +64,7 @@ export class ModPackCreateRequest {
 	}
 }
 
-export class ModPackUpdateRequest {
+export class ModPackUpdateRequest implements Request<ModPackUpdateRequest> {
 	declare ["constructor"]: typeof ModPackUpdateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -84,7 +84,7 @@ export class ModPackUpdateRequest {
 	}
 }
 
-export class ModPackDeleteRequest {
+export class ModPackDeleteRequest implements Request<ModPackDeleteRequest> {
 	declare ["constructor"]: typeof ModPackDeleteRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -104,7 +104,7 @@ export class ModPackDeleteRequest {
 	}
 }
 
-export class ModPackSetSubscriptionsRequest {
+export class ModPackSetSubscriptionsRequest implements Request<ModPackSetSubscriptionsRequest> {
 	declare ["constructor"]: typeof ModPackSetSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -126,7 +126,7 @@ export class ModPackSetSubscriptionsRequest {
 	}
 }
 
-export class ModGetRequest {
+export class ModGetRequest implements Request<ModGetRequest, ModInfo> {
 	declare ["constructor"]: typeof ModGetRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -150,7 +150,7 @@ export class ModGetRequest {
 	static Response = ModInfo;
 }
 
-export class ModListRequest {
+export class ModListRequest implements Request<ModListRequest, ModInfo[]> {
 	declare ["constructor"]: typeof ModListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -159,7 +159,36 @@ export class ModListRequest {
 	static Response = jsonArray(ModInfo);
 }
 
-export class ModSearchRequest {
+
+class ModSearchResponse {
+	constructor(
+		public queryIssues: string[],
+		public pageCount: number,
+		public resultCount: number,
+		public results: { name: string, versions: ModInfo[] }[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		"queryIssues": Type.Array(Type.String()),
+		"pageCount": Type.Integer(),
+		"resultCount": Type.Integer(),
+		"results": Type.Array(
+			Type.Object({
+				"name": Type.String(),
+				"versions": Type.Array(ModInfo.jsonSchema),
+			}),
+		),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		let results = json.results.map(
+			({ name, versions }) => ({ name, versions: versions.map(mod => ModInfo.fromJSON(mod)) })
+		);
+		return new this(json.queryIssues, json.pageCount, json.resultCount, results);
+	}
+}
+
+export class ModSearchRequest implements Request<ModSearchRequest, ModSearchResponse> {
 	declare ["constructor"]: typeof ModSearchRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -188,36 +217,10 @@ export class ModSearchRequest {
 		return new this(json.query, json.factorioVersion, json.page, json.pageSize, json.sort, json.sortOrder);
 	}
 
-	static Response = class Response {
-		constructor(
-			public queryIssues: string[],
-			public pageCount: number,
-			public resultCount: number,
-			public results: { name: string, versions: ModInfo[] }[],
-		) { }
-
-		static jsonSchema = Type.Object({
-			"queryIssues": Type.Array(Type.String()),
-			"pageCount": Type.Integer(),
-			"resultCount": Type.Integer(),
-			"results": Type.Array(
-				Type.Object({
-					"name": Type.String(),
-					"versions": Type.Array(ModInfo.jsonSchema),
-				}),
-			),
-		});
-
-		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			let results = json.results.map(
-				({ name, versions }) => ({ name, versions: versions.map(mod => ModInfo.fromJSON(mod)) })
-			);
-			return new this(json.queryIssues, json.pageCount, json.resultCount, results);
-		}
-	};
+	static Response = ModSearchResponse;
 }
 
-export class ModSetSubscriptionsRequest {
+export class ModSetSubscriptionsRequest implements Request<ModSetSubscriptionsRequest> {
 	declare ["constructor"]: typeof ModSetSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -239,7 +242,7 @@ export class ModSetSubscriptionsRequest {
 	}
 }
 
-export class ModDownloadRequest {
+export class ModDownloadRequest implements Request<ModDownloadRequest, string> {
 	declare ["constructor"]: typeof ModDownloadRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -263,7 +266,7 @@ export class ModDownloadRequest {
 	static Response = JsonString;
 }
 
-export class ModDeleteRequest {
+export class ModDeleteRequest implements Request<ModDeleteRequest> {
 	declare ["constructor"]: typeof ModDeleteRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -285,7 +288,7 @@ export class ModDeleteRequest {
 	}
 }
 
-export class ModPackUpdateEvent {
+export class ModPackUpdateEvent implements Event<ModPackUpdateEvent> {
 	declare ["constructor"]: typeof ModPackUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -304,7 +307,7 @@ export class ModPackUpdateEvent {
 	}
 }
 
-export class ModUpdateEvent {
+export class ModUpdateEvent implements Event<ModUpdateEvent> {
 	declare ["constructor"]: typeof ModUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;

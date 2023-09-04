@@ -158,15 +158,15 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
-	checkPermission(
+	checkPermission<Req=unknown, Res=unknown>(
 		message: lib.MessageRequest | lib.MessageEvent,
-		entry: lib.RequestEntry | lib.EventEntry
+		entry: lib.RequestEntry<Req, Res> | lib.EventEntry<Req>,
 	) {
 		let permission;
 		if (message.type === "request") {
-			permission = (entry as lib.RequestEntry).Request.permission;
+			permission = (entry as lib.RequestEntry<Req, Res>).Request.permission;
 		} else if (message.type === "event") {
-			permission = (entry as lib.EventEntry).Event.permission;
+			permission = (entry as lib.EventEntry<Req>).Event.permission;
 		} else {
 			return;
 		}

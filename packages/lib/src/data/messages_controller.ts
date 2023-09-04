@@ -2,8 +2,9 @@ import { Type, Static } from "@sinclair/typebox";
 import { JsonString, StringEnum } from "./composites";
 import { levels } from "../logging";
 import { RawConfig } from "../config";
+import { Request, Event } from "../link";
 
-export class ControllerConfigGetRequest {
+export class ControllerConfigGetRequest implements Request<ControllerConfigGetRequest, RawConfig> {
 	declare ["constructor"]: typeof ControllerConfigGetRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -12,7 +13,7 @@ export class ControllerConfigGetRequest {
 	static Response = RawConfig;
 }
 
-export class ControllerConfigSetFieldRequest {
+export class ControllerConfigSetFieldRequest implements Request<ControllerConfigSetFieldRequest> {
 	declare ["constructor"]: typeof ControllerConfigSetFieldRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -34,7 +35,7 @@ export class ControllerConfigSetFieldRequest {
 	}
 }
 
-export class ControllerConfigSetPropRequest {
+export class ControllerConfigSetPropRequest implements Request<ControllerConfigSetPropRequest>{
 	declare ["constructor"]: typeof ControllerConfigSetPropRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -58,7 +59,7 @@ export class ControllerConfigSetPropRequest {
 	}
 }
 
-export class HostGenerateTokenRequest {
+export class HostGenerateTokenRequest implements Request<HostGenerateTokenRequest, string> {
 	declare ["constructor"]: typeof HostGenerateTokenRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -80,7 +81,7 @@ export class HostGenerateTokenRequest {
 	static Response = JsonString;
 }
 
-export class HostConfigCreateRequest {
+export class HostConfigCreateRequest implements Request<HostConfigCreateRequest, RawConfig> {
 	declare ["constructor"]: typeof HostConfigCreateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -106,7 +107,7 @@ export class HostConfigCreateRequest {
 	static Response = RawConfig;
 }
 
-export class LogSetSubscriptionsRequest {
+export class LogSetSubscriptionsRequest implements Request<LogSetSubscriptionsRequest> {
 	declare ["constructor"]: typeof LogSetSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -134,7 +135,22 @@ export class LogSetSubscriptionsRequest {
 	}
 }
 
-export class LogQueryRequest {
+
+class LogQueryResponse {
+	constructor(
+		public log: object[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		"log": Type.Array(Type.Object({})),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.log);
+	}
+}
+
+export class LogQueryRequest implements Request<LogQueryRequest, LogQueryResponse> {
 	declare ["constructor"]: typeof LogQueryRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -166,22 +182,10 @@ export class LogQueryRequest {
 			json.all, json.controller, json.hostIds, json.instanceIds, json.maxLevel, json.limit, json.order
 		);
 	}
-	static Response = class Response {
-		constructor(
-			public log: object[],
-		) { }
-
-		static jsonSchema = Type.Object({
-			"log": Type.Array(Type.Object({})),
-		});
-
-		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			return new this(json.log);
-		}
-	};
+	static Response = LogQueryResponse;
 }
 
-export class LogMessageEvent {
+export class LogMessageEvent implements Event<LogMessageEvent> {
 	declare ["constructor"]: typeof LogMessageEvent;
 	static type = "event" as const;
 	static src = ["host", "controller"] as const;
@@ -203,7 +207,7 @@ export class LogMessageEvent {
 	}
 }
 
-export class DebugDumpWsRequest {
+export class DebugDumpWsRequest implements Request<DebugDumpWsRequest> {
 	declare ["constructor"]: typeof DebugDumpWsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -211,7 +215,7 @@ export class DebugDumpWsRequest {
 	static permission = "core.debug.dump_ws" as const;
 }
 
-export class DebugWsMessageEvent {
+export class DebugWsMessageEvent implements Event<DebugWsMessageEvent> {
 	declare ["constructor"]: typeof DebugWsMessageEvent;
 	static type = "event" as const;
 	static src = "controller" as const;

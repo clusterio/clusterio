@@ -13,7 +13,7 @@ import type { RequestClass, EventClass } from "./link";
  * their proper classes.
  * @internal
  */
-export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)[] = [
+export const dataClasses: (RequestClass<unknown, any> | EventClass<unknown>)[] = [
 	core.PingRequest,
 
 	controller.ControllerConfigGetRequest,

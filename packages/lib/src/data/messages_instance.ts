@@ -4,7 +4,7 @@ import { JsonString, StringEnum, jsonArray } from "./composites";
 import { RawConfig } from "../config";
 import type { User } from "../users";
 import type { MessageRequest } from "./messages_core";
-import type { SerializedConfig } from "../config";
+import type { Event, Request } from "../link";
 
 
 export type InstanceStatus =
@@ -36,7 +36,7 @@ export class InstanceDetails {
 	}
 }
 
-export class InstanceDetailsGetRequest {
+export class InstanceDetailsGetRequest implements Request<InstanceDetailsGetRequest, InstanceDetails> {
 	declare ["constructor"]: typeof InstanceDetailsGetRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -58,7 +58,7 @@ export class InstanceDetailsGetRequest {
 	static Response = InstanceDetails;
 }
 
-export class InstanceDetailsListRequest {
+export class InstanceDetailsListRequest implements Request<InstanceDetailsListRequest, InstanceDetails[]> {
 	declare ["constructor"]: typeof InstanceDetailsListRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -67,7 +67,7 @@ export class InstanceDetailsListRequest {
 	static Response = jsonArray(InstanceDetails);
 };
 
-export class InstanceDetailsSetSubscriptionsRequest {
+export class InstanceDetailsSetSubscriptionsRequest  implements Request<InstanceDetailsSetSubscriptionsRequest> {
 	declare ["constructor"]: typeof InstanceDetailsSetSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -89,7 +89,7 @@ export class InstanceDetailsSetSubscriptionsRequest {
 	}
 };
 
-export class InstanceDetailsUpdateEvent {
+export class InstanceDetailsUpdateEvent implements Event<InstanceDetailsUpdateEvent> {
 	declare ["constructor"]: typeof InstanceDetailsUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -110,7 +110,7 @@ export class InstanceDetailsUpdateEvent {
 	}
 };
 
-export class InstanceCreateRequest {
+export class InstanceCreateRequest implements Request<InstanceCreateRequest> {
 	declare ["constructor"]: typeof InstanceCreateRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -131,7 +131,7 @@ export class InstanceCreateRequest {
 	}
 }
 
-export class InstanceConfigGetRequest {
+export class InstanceConfigGetRequest implements Request<InstanceConfigGetRequest, RawConfig> {
 	declare ["constructor"]: typeof InstanceConfigGetRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -153,7 +153,7 @@ export class InstanceConfigGetRequest {
 	}
 }
 
-export class InstanceConfigSetFieldRequest {
+export class InstanceConfigSetFieldRequest implements Request<InstanceConfigSetFieldRequest> {
 	declare ["constructor"]: typeof InstanceConfigSetFieldRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -177,7 +177,7 @@ export class InstanceConfigSetFieldRequest {
 	}
 }
 
-export class InstanceConfigSetPropRequest {
+export class InstanceConfigSetPropRequest implements Request<InstanceConfigSetPropRequest> {
 	declare ["constructor"]: typeof InstanceConfigSetPropRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -203,7 +203,7 @@ export class InstanceConfigSetPropRequest {
 	}
 }
 
-export class InstanceAssignRequest {
+export class InstanceAssignRequest implements Request<InstanceAssignRequest> {
 	declare ["constructor"]: typeof InstanceAssignRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -225,28 +225,32 @@ export class InstanceAssignRequest {
 	}
 }
 
-export class InstanceMetricsRequest {
+
+// TODO: Use JSON class pattern in Prometheus
+class InstanceMetricsResponse {
+	constructor(
+		public results: object[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		"results": Type.Array(Type.Object({})),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.results);
+	}
+}
+
+export class InstanceMetricsRequest implements Request<InstanceMetricsRequest, InstanceMetricsResponse> {
 	declare ["constructor"]: typeof InstanceMetricsRequest;
 	static type = "request" as const;
 	static src = "host" as const;
 	static dst = "instance" as const;
 
-	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
-		constructor(
-			public results: object[],
-		) { }
-
-		static jsonSchema = Type.Object({
-			"results": Type.Array(Type.Object({})),
-		});
-
-		static fromJSON(json: Static<typeof this.jsonSchema>) {
-			return new this(json.results);
-		}
-	};
+	static Response = InstanceMetricsResponse;
 }
 
-export class InstanceStartRequest {
+export class InstanceStartRequest implements Request<InstanceStartRequest> {
 	declare ["constructor"]: typeof InstanceStartRequest;
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
@@ -290,7 +294,7 @@ export class SaveDetails {
 	}
 }
 
-export class InstanceListSavesRequest {
+export class InstanceListSavesRequest implements Request<InstanceListSavesRequest, SaveDetails[]> {
 	declare ["constructor"]: typeof InstanceListSavesRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -299,7 +303,7 @@ export class InstanceListSavesRequest {
 	static Response = jsonArray(SaveDetails);
 }
 
-export class InstanceSetSaveListSubscriptionsRequest {
+export class InstanceSetSaveListSubscriptionsRequest implements Request<InstanceSetSaveListSubscriptionsRequest> {
 	declare ["constructor"]: typeof InstanceSetSaveListSubscriptionsRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -321,7 +325,7 @@ export class InstanceSetSaveListSubscriptionsRequest {
 	}
 };
 
-export class InstanceSaveListUpdateEvent {
+export class InstanceSaveListUpdateEvent implements Event<InstanceSaveListUpdateEvent> {
 	declare ["constructor"]: typeof InstanceSaveListUpdateEvent;
 	static type = "event" as const;
 	static src = ["instance", "host", "controller"] as const;
@@ -342,7 +346,7 @@ export class InstanceSaveListUpdateEvent {
 	}
 }
 
-export class InstanceCreateSaveRequest {
+export class InstanceCreateSaveRequest implements Request<InstanceCreateSaveRequest> {
 	declare ["constructor"]: typeof InstanceCreateSaveRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -368,7 +372,7 @@ export class InstanceCreateSaveRequest {
 	}
 }
 
-export class InstanceRenameSaveRequest {
+export class InstanceRenameSaveRequest implements Request<InstanceRenameSaveRequest> {
 	declare ["constructor"]: typeof InstanceRenameSaveRequest;
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
@@ -392,7 +396,7 @@ export class InstanceRenameSaveRequest {
 	}
 }
 
-export class InstanceCopySaveRequest {
+export class InstanceCopySaveRequest implements Request<InstanceCopySaveRequest> {
 	declare ["constructor"]: typeof InstanceCopySaveRequest;
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
@@ -416,7 +420,7 @@ export class InstanceCopySaveRequest {
 	}
 }
 
-export class InstanceDeleteSaveRequest {
+export class InstanceDeleteSaveRequest implements Request<InstanceDeleteSaveRequest> {
 	declare ["constructor"]: typeof InstanceDeleteSaveRequest;
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
@@ -438,7 +442,7 @@ export class InstanceDeleteSaveRequest {
 	}
 }
 
-export class InstanceDownloadSaveRequest {
+export class InstanceDownloadSaveRequest implements Request<InstanceDownloadSaveRequest, string> {
 	declare ["constructor"]: typeof InstanceDownloadSaveRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -462,7 +466,7 @@ export class InstanceDownloadSaveRequest {
 	static Response = JsonString;
 }
 
-export class InstanceTransferSaveRequest {
+export class InstanceTransferSaveRequest implements Request<InstanceTransferSaveRequest, string> {
 	declare ["constructor"]: typeof InstanceTransferSaveRequest;
 	static type = "request" as const;
 	static src = ["control", "controller"] as const;
@@ -505,7 +509,7 @@ export class InstanceTransferSaveRequest {
 }
 
 
-export class InstancePullSaveRequest {
+export class InstancePullSaveRequest implements Request<InstancePullSaveRequest, string> {
 	declare ["constructor"]: typeof InstancePullSaveRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
@@ -530,7 +534,7 @@ export class InstancePullSaveRequest {
 	static Response = JsonString;
 }
 
-export class InstancePushSaveRequest {
+export class InstancePushSaveRequest implements Request<InstancePushSaveRequest> {
 	declare ["constructor"]: typeof InstancePushSaveRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
@@ -553,7 +557,7 @@ export class InstancePushSaveRequest {
 	}
 }
 
-export class InstanceLoadScenarioRequest {
+export class InstanceLoadScenarioRequest implements Request<InstanceLoadScenarioRequest> {
 	declare ["constructor"]: typeof InstanceLoadScenarioRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -579,7 +583,7 @@ export class InstanceLoadScenarioRequest {
 	}
 }
 
-export class InstanceExportDataRequest {
+export class InstanceExportDataRequest implements Request<InstanceExportDataRequest> {
 	declare ["constructor"]: typeof InstanceExportDataRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -587,7 +591,7 @@ export class InstanceExportDataRequest {
 	static permission = "core.instance.export_data" as const;
 }
 
-export class InstanceExtractPlayersRequest {
+export class InstanceExtractPlayersRequest implements Request<InstanceExtractPlayersRequest> {
 	declare ["constructor"]: typeof InstanceExtractPlayersRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -595,7 +599,7 @@ export class InstanceExtractPlayersRequest {
 	static permission = "core.instance.extract_players" as const;
 }
 
-export class InstanceStopRequest {
+export class InstanceStopRequest implements Request<InstanceStopRequest> {
 	declare ["constructor"]: typeof InstanceStopRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -603,7 +607,7 @@ export class InstanceStopRequest {
 	static permission = "core.instance.stop" as const;
 }
 
-export class InstanceKillRequest {
+export class InstanceKillRequest implements Request<InstanceKillRequest> {
 	declare ["constructor"]: typeof InstanceKillRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -611,7 +615,7 @@ export class InstanceKillRequest {
 	static permission = "core.instance.kill" as const;
 }
 
-export class InstanceDeleteRequest {
+export class InstanceDeleteRequest implements Request<InstanceDeleteRequest> {
 	declare ["constructor"]: typeof InstanceDeleteRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -631,7 +635,7 @@ export class InstanceDeleteRequest {
 	}
 }
 
-export class InstanceDeleteInternalRequest {
+export class InstanceDeleteInternalRequest implements Request<InstanceDeleteInternalRequest> {
 	declare ["constructor"]: typeof InstanceDeleteInternalRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
@@ -650,7 +654,7 @@ export class InstanceDeleteInternalRequest {
 	}
 }
 
-export class InstanceSendRconRequest {
+export class InstanceSendRconRequest implements Request<InstanceSendRconRequest, string> {
 	declare ["constructor"]: typeof InstanceSendRconRequest;
 	static type = "request" as const;
 	static src = "control" as const;
@@ -692,7 +696,7 @@ export class RawInstanceInfo {
 	}
 }
 
-export class InstancesUpdateRequest {
+export class InstancesUpdateRequest implements Request<InstancesUpdateRequest> {
 	declare ["constructor"]: typeof InstancesUpdateRequest;
 	static type = "request" as const;
 	static src = "host" as const;
@@ -713,7 +717,7 @@ export class InstancesUpdateRequest {
 	}
 }
 
-export class InstanceAssignInternalRequest {
+export class InstanceAssignInternalRequest implements Request<InstanceAssignInternalRequest> {
 	declare ["constructor"]: typeof InstanceAssignInternalRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
@@ -735,7 +739,7 @@ export class InstanceAssignInternalRequest {
 	}
 }
 
-export class InstanceUnassignInternalRequest {
+export class InstanceUnassignInternalRequest implements Request<InstanceUnassignInternalRequest> {
 	declare ["constructor"]: typeof InstanceUnassignInternalRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
@@ -754,7 +758,7 @@ export class InstanceUnassignInternalRequest {
 	}
 }
 
-export class InstanceInitialisedEvent {
+export class InstanceInitialisedEvent implements Event<InstanceInitialisedEvent> {
 	declare ["constructor"]: typeof InstanceInitialisedEvent;
 	static type = "event" as const;
 	static src = "instance" as const;
@@ -773,7 +777,7 @@ export class InstanceInitialisedEvent {
 	}
 }
 
-export class InstanceStatusChangedEvent {
+export class InstanceStatusChangedEvent implements Event<InstanceStatusChangedEvent> {
 	declare ["constructor"]: typeof InstanceStatusChangedEvent;
 	static type = "event" as const;
 	static src = ["instance", "host"] as const;
@@ -798,7 +802,7 @@ export class InstanceStatusChangedEvent {
 	}
 }
 
-export class InstanceDetailsChangedEvent {
+export class InstanceDetailsChangedEvent implements Event<InstanceDetailsChangedEvent> {
 	declare ["constructor"]: typeof InstanceDetailsChangedEvent;
 	static type = "event" as const;
 	static src = "instance" as const;
@@ -815,7 +819,7 @@ export class InstanceDetailsChangedEvent {
 	}
 }
 
-export class InstanceBanlistUpdateEvent {
+export class InstanceBanlistUpdateEvent implements Event<InstanceBanlistUpdateEvent> {
 	declare ["constructor"]: typeof InstanceBanlistUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -838,7 +842,7 @@ export class InstanceBanlistUpdateEvent {
 	}
 }
 
-export class InstanceAdminlistUpdateEvent {
+export class InstanceAdminlistUpdateEvent implements Event<InstanceAdminlistUpdateEvent> {
 	declare ["constructor"]: typeof InstanceAdminlistUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -859,7 +863,7 @@ export class InstanceAdminlistUpdateEvent {
 	}
 }
 
-export class InstanceWhitelistUpdateEvent {
+export class InstanceWhitelistUpdateEvent implements Event<InstanceWhitelistUpdateEvent> {
 	declare ["constructor"]: typeof InstanceWhitelistUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -880,7 +884,7 @@ export class InstanceWhitelistUpdateEvent {
 	}
 }
 
-export class InstancePlayerUpdateEvent {
+export class InstancePlayerUpdateEvent implements Event<InstancePlayerUpdateEvent> {
 	declare ["constructor"]: typeof InstancePlayerUpdateEvent;
 	static type = "event" as const;
 	static src = "instance" as const;

@@ -1,4 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
+import { Request } from "@clusterio/lib";
 
 class FetchPlayerCodeResponse {
 	constructor(
@@ -17,7 +18,7 @@ class FetchPlayerCodeResponse {
 	}
 };
 
-export class FetchPlayerCodeRequest {
+export class FetchPlayerCodeRequest implements Request<FetchPlayerCodeRequest, FetchPlayerCodeResponse> {
 	declare ["constructor"]: typeof FetchPlayerCodeRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
@@ -39,7 +40,7 @@ export class FetchPlayerCodeRequest {
 	}
 }
 
-export class SetVerifyCodeRequest {
+export class SetVerifyCodeRequest implements Request<SetVerifyCodeRequest> {
 	declare ["constructor"]: typeof SetVerifyCodeRequest;
 	static type = "request" as const;
 	static src = "instance" as const;

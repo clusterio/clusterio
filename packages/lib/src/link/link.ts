@@ -10,46 +10,57 @@ import type { PluginNodeEnvInfo, PluginWebpackEnvInfo } from "../plugin";
 import type { User } from "../users";
 import type { AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent } from "../data";
 
-export interface Request<Req, Res> {
-	constructor: Partial<JSONDeserialisable<Request<Req, Res>>> & {
-		new (...args: any): Request<Req, Res>,
-		name: string,
+type None<T> = { [K in keyof T]?: never }
+
+export interface Request<Req, Res=void> {
+	["constructor"]: (
+		JSONDeserialisable<Req> | None<JSONDeserialisable<Req>>
+	) & (
+		Res extends void ?
+		{ Response?: never } :
+		{ Response: JSONDeserialisable<Res> }
+	) & {
+		new (...args: any): Req;
+		name: string;
 		type: "request";
 		src: AddressType | readonly AddressType[];
 		dst: AddressType | readonly AddressType[];
 		permission?: null | string | ((user: User, message: MessageRequest) => void);
 		plugin?: string;
-		Response?: JSONDeserialisable<Res>,
-	}
+	};
 }
-export type RequestClass<Req, Res> = Request<Req, Res>["constructor"];
+export type RequestClass<Req, Res=void> = Request<Req, Res>["constructor"];
+
 
 export interface Event<T> {
-	constructor: Partial<JSONDeserialisable<Event<T>>> & {
-		new (...args: any): Event<T>,
-		name: string,
+	["constructor"]: (
+		JSONDeserialisable<T> | None<JSONDeserialisable<T>>
+	) & {
+		new (...args: any): T;
+		name: string;
 		type: "event";
 		src: AddressType | readonly AddressType[];
 		dst: AddressType | readonly AddressType[];
 		permission?: null | string | ((user: User, message: MessageEvent) => void);
 		plugin?: string;
+		Response?: never;
 	}
 }
 export type EventClass<T> = Event<T>["constructor"];
 
-export interface RequestEntry {
-	Request: RequestClass<unknown, unknown>;
-	name: string,
+export interface RequestEntry<Req=unknown, Res=unknown> {
+	Request: RequestClass<Req, Res>;
+	name: string;
 	allowedSrcTypes: Set<number>;
 	allowedDstTypes: Set<number>;
-	requestFromJSON: (json: any) => Request<unknown, unknown>;
-	Response?: any;
-	responseFromJSON: (json: any) => any;
+	requestFromJSON: (json: unknown) => Req;
+	Response?: JSONDeserialisable<Res>;
+	responseFromJSON: (json: unknown) => Res|undefined;
 }
 
-interface PendingRequest {
+interface PendingRequest<Req=unknown, Res=unknown> {
 	promise: Promise<any>;
-	request: RequestEntry;
+	request: RequestEntry<Req, Res>;
 	resolve: (result: any) => void;
 	reject: (err: Error) => void;
 	dst: libData.Address;
@@ -60,15 +71,15 @@ interface ForwardedRequest {
 	dst: libData.Address;
 }
 
-export interface EventEntry {
-	Event: EventClass<unknown>;
-	name: string,
+export interface EventEntry<T=unknown> {
+	Event: EventClass<T>;
+	name: string;
 	allowedSrcTypes: Set<number>;
 	allowedDstTypes: Set<number>;
-	eventFromJSON: (json: any) => Event<unknown>;
+	eventFromJSON: (json: any) => T;
 }
-export type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst: libData.Address) => Promise<Res>;
-export type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
+export type RequestHandler<Req, Res=unknown> = (request: Req, src: libData.Address, dst: libData.Address) => Promise<Res>;
+export type EventHandler<T> = (event: T, src?: libData.Address, dst?: libData.Address) => Promise<void>;
 
 interface Router {
 	forwardMessage(origin: Link, message: MessageRoutable, fallback: boolean): boolean,
@@ -165,7 +176,7 @@ export class Link {
 	 * @param message - Message to process.
 	 * @throws {libErrors.InvalidMessage} if the message is invalid or not handled.
 	 */
-	_processMessage(
+	_processMessage<Req=unknown, Res=unknown>(
 		message: MessageRoutable
 	) {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
@@ -187,8 +198,8 @@ export class Link {
 			}
 		}
 
-		if (message.type === "event" && this._eventSnoopers.has((entry as EventEntry).Event)) {
-			let handler = this._eventSnoopers.get((entry as EventEntry).Event);
+		if (message.type === "event" && this._eventSnoopers.has((entry as EventEntry<Req>).Event)) {
+			let handler = this._eventSnoopers.get((entry as EventEntry<Req>).Event);
 			let event = message as libData.MessageEvent;
 			handler((entry as EventEntry).eventFromJSON(event.data), event.src, event.dst).catch((err: Error) => {
 				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
@@ -199,14 +210,14 @@ export class Link {
 			if (message.type === "response" || message.type === "responseError") {
 				this._forwardedRequests.delete(message.dst.index());
 			}
-			this._routeMessage(message, entry);
+			this._routeMessage(message, entry as RequestEntry<Req, Res>);
 			return;
 		}
 
 		if (message.type === "request") {
 			this._processRequest(
 				message as libData.MessageRequest,
-				entry as RequestEntry,
+				entry as RequestEntry<Req, Res>,
 				this._requestHandlers.get((entry as RequestEntry).Request)
 			);
 
@@ -312,7 +323,7 @@ export class Link {
 	 */
 	validatePermission(message: libData.MessageRequest | libData.MessageEvent, entry: RequestEntry | EventEntry) { }
 
-	_routeMessage(message: MessageRoutable, entry?: RequestEntry | EventEntry) {
+	_routeMessage<Req=unknown, Res=unknown>(message: MessageRoutable, entry?: RequestEntry<Req, Res> | EventEntry<Req>) {
 		if (!this.router) {
 			let err = new libErrors.InvalidMessage(
 				`Received message addressed to ${(message as libData.MessageRequest).dst} but this link `+
@@ -340,16 +351,16 @@ export class Link {
 		}
 		this._processRequest(
 			message as libData.MessageRequest,
-			entry as RequestEntry,
+			entry as RequestEntry<Req, Res>,
 			fallback,
 			(message as libData.MessageRequest).dst
 		);
 	}
 
-	_processRequest(
+	_processRequest<Req, Res>(
 		message: libData.MessageRequest,
-		entry: RequestEntry,
-		handler: RequestHandler<unknown, unknown>,
+		entry: RequestEntry<Req, Res>,
+		handler: RequestHandler<Req, Res>,
 		spoofedSrc?: libData.Address
 	) {
 		if (!handler) {
@@ -555,23 +566,18 @@ export class Link {
 		this.connector.sendEvent(event, dst);
 	}
 
-	handle<Req, Res>(Class: RequestClass<Req, Res>, handler: RequestHandler<Req, Res>): void;
-	handle<T>(Class: EventClass<T>, handler: EventHandler<T>): void;
-	handle(
-		Class: RequestClass<unknown, unknown> | EventClass<unknown>,
-		handler: RequestHandler<unknown, unknown> | EventHandler<unknown>,
-	) {
+	handle<T>(Class: { type:string; new (...args: any): T}, handler: RequestHandler<T, unknown>) {
 		if (Class.type === "request") {
-			this.handleRequest(Class, handler as RequestHandler<unknown, unknown>);
+			this.handleRequest(Class as RequestClass<T, unknown>, handler as RequestHandler<T, unknown>);
 		} else if (Class.type === "event") {
-			this.handleEvent(Class, handler as EventHandler<unknown>);
+			this.handleEvent(Class as EventClass<T>, handler as EventHandler<T>);
 		} else {
-			throw new Error(`Class ${(Class as any).name} has unrecognized type ${(Class as any).type}`);
+			throw new Error(`Class ${Class.name} has unrecognized type ${Class.type}`);
 		}
 	}
 
 	handleRequest<Req, Res>(Request: RequestClass<Req, Res>, handler: RequestHandler<Req, Res>) {
-		let entry = Link._requestsByClass.get(Request as RequestClass<unknown, unknown>);
+		let entry = Link._requestsByClass.get(Request);
 		if (!entry) {
 			throw new Error(`Unregistered Request class ${Request.name}`);
 		}
@@ -616,7 +622,7 @@ export class Link {
 
 	static register<Req, Res>(Class: RequestClass<Req, Res>): void;
 	static register<T>(Class: EventClass<T>): void;
-	static register(Class: RequestClass<unknown, unknown> | EventClass<unknown>) {
+	static register(Class: RequestClass<unknown, any> | EventClass<unknown>) {
 		if (Class.type === "request") {
 			this.registerRequest(Class);
 		} else if (Class.type === "event") {
@@ -626,7 +632,7 @@ export class Link {
 		}
 	}
 
-	static requestFromJSON<Req, Res>(Request: RequestClass<Req, Res>, name: string): (json: any) => Request<Req, Res> {
+	static requestFromJSON<Req, Res=any>(Request: RequestClass<Req, Res>, name: string): (json: any) => Req {
 		if (Request.fromJSON) {
 			if (!Request.jsonSchema) {
 				throw new Error(`Request ${name} has static fromJSON but is missing static jsonSchema`);
@@ -645,7 +651,7 @@ export class Link {
 		return () => new Request();
 	}
 
-	static responseFromJSON<T>(Response: JSONDeserialisable<T>, name: string) {
+	static responseFromJSON<T>(Response: JSONDeserialisable<T>, name: string): (json: unknown) => T {
 		if (!Response.jsonSchema) {
 			throw new Error(`Response for Request ${name} is missing static jsonSchema`);
 		}
@@ -653,8 +659,8 @@ export class Link {
 			throw new Error(`Response for Request ${name} is missing static fromJSON`);
 		}
 
-		let validate = libSchema.compile(Response.jsonSchema as any);
-		return (json: any) => {
+		let validate = libSchema.compile(Response.jsonSchema);
+		return (json: unknown) => {
 			if (!validate(json)) {
 				throw new libErrors.InvalidMessage(
 					`Response for request ${name} failed validation`, validate.errors
@@ -691,22 +697,22 @@ export class Link {
 		return allowed;
 	}
 
-	static _requestsByName = new Map<string, RequestEntry>();
-	static _requestsByClass = new Map<RequestClass<unknown, unknown>, RequestEntry>();
+	static _requestsByName = new Map<string, RequestEntry<unknown, unknown>>();
+	static _requestsByClass = new Map<RequestClass<unknown, any>, RequestEntry<unknown, unknown>>();
 
-	static registerRequest(Request: RequestClass<unknown, unknown>) {
+	static registerRequest<Req=unknown, Res=unknown>(Request: RequestClass<Req, Res>|RequestClass<Req>) {
 		const name = Request.plugin ? `${Request.plugin}:${Request.name}` : Request.name;
 		if (this._requestsByName.has(name)) {
 			throw new Error(`Request ${name} is already registered`);
 		}
 
-		let entry: RequestEntry = {
+		let entry: RequestEntry<Req, Res> = {
 			Request,
 			name,
 			requestFromJSON: this.requestFromJSON(Request, name),
 			allowedSrcTypes: this.allowedTypes(Request.src, name, "src"),
 			allowedDstTypes: this.allowedTypes(Request.dst, name, "dst"),
-			responseFromJSON: (_json: any) => undefined,
+			responseFromJSON: (json: unknown) => undefined,
 		};
 
 		if (
@@ -745,8 +751,8 @@ export class Link {
 		return (json: any) => new Event();
 	}
 
-	static _eventsByName = new Map<string, EventEntry>();
-	static _eventsByClass = new Map<EventClass<unknown>, EventEntry>();
+	static _eventsByName = new Map<string, EventEntry<unknown>>();
+	static _eventsByClass = new Map<EventClass<unknown>, EventEntry<unknown>>();
 
 	static registerEvent<T>(Event: EventClass<T>) {
 		const name = Event.plugin ? `${Event.plugin}:${Event.name}` : Event.name;
@@ -754,8 +760,8 @@ export class Link {
 			throw new Error(`Event ${name} is already registered`);
 		}
 
-		let entry: EventEntry = {
-			Event: Event as EventClass<unknown>,
+		let entry: EventEntry<T> = {
+			Event,
 			name,
 			eventFromJSON: this.eventFromJSON(Event, name),
 			allowedSrcTypes: this.allowedTypes(Event.src, name, "src"),

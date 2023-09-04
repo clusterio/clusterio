@@ -24,7 +24,7 @@ export class Item {
 }
 
 // XXX this should be a request to be reliable
-export class PlaceEvent {
+export class PlaceEvent implements lib.Event<PlaceEvent> {
 	declare ["constructor"]: typeof PlaceEvent;
 	static type = "event" as const;
 	static src = "instance" as const;
@@ -45,7 +45,7 @@ export class PlaceEvent {
 	}
 }
 
-export class RemoveRequest {
+export class RemoveRequest implements lib.Request<RemoveRequest, Item[]> {
 	declare ["constructor"]: typeof RemoveRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
@@ -68,7 +68,7 @@ export class RemoveRequest {
 	static Response = lib.jsonArray(Item);
 }
 
-export class GetStorageRequest {
+export class GetStorageRequest implements lib.Request<GetStorageRequest, Item[]> {
 	declare ["constructor"]: typeof GetStorageRequest;
 	static type = "request" as const;
 	static src = ["instance", "control"] as const;
@@ -78,9 +78,9 @@ export class GetStorageRequest {
 	static Response = lib.jsonArray(Item);
 }
 
-export class UpdateStorageEvent {
+export class UpdateStorageEvent implements lib.Event<UpdateStorageEvent> {
 	declare ["constructor"]: typeof UpdateStorageEvent;
-	static type = "request" as const;
+	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = ["instance", "control"] as const;
 	static plugin = "subspace_storage" as const;
@@ -99,7 +99,7 @@ export class UpdateStorageEvent {
 	}
 }
 
-export class SetStorageSubscriptionRequest {
+export class SetStorageSubscriptionRequest implements lib.Request<SetStorageSubscriptionRequest> {
 	declare ["constructor"]: typeof SetStorageSubscriptionRequest;
 	static type = "request" as const;
 	static src = "control" as const;

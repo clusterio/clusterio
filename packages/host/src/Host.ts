@@ -366,7 +366,7 @@ export default class Host extends lib.Link {
 	}
 
 	async handleSyncUserListsEvent(event: lib.SyncUserListsEvent) {
-		let updateList = (list: Set<string>, updatedList: Set<string>, Event: lib.EventClass<unknown>) => {
+		let updateList = <T extends lib.Event<T>>(list: Set<string>, updatedList: Set<string>, Event: lib.EventClass<T>) => {
 			let added = new Set(updatedList);
 			let removed = new Set(list);
 			list.forEach(el => added.delete(el));

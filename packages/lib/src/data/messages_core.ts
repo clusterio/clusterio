@@ -3,6 +3,7 @@ import { TSchema, Type, Static } from "@sinclair/typebox";
 import messageValidate from "./message_validate";
 import { StringEnum } from "./composites";
 import { AccountRole } from "../plugin";
+import type { Request } from "../link";
 
 export type AddressType = "controller" | "host" | "instance" | "control" | "broadcast";
 export type AddressShorthand =
@@ -173,7 +174,7 @@ export class Message {
 	}
 }
 
-export type MessageRoutable = MessageRequest | MessageResponse | MessageResponseError | MessageEvent;
+export type MessageRoutable<T=unknown> = MessageRequest<T> | MessageResponse<T> | MessageResponseError | MessageEvent<T>;
 
 export class HelloData {
 	constructor(
@@ -624,10 +625,11 @@ Message.jsonSchema = Type.Union([
 	MessageDisconnect.jsonSchema,
 ]);
 
-export class PingRequest {
+export class PingRequest implements Request<PingRequest> {
 	declare ["constructor"]: typeof PingRequest;
 	static type = "request" as const;
 	static src = ["controller", "host", "control"] as const;
 	static dst = ["controller", "host", "control"] as const;
 	static permission = null;
+	static Response = undefined;
 }

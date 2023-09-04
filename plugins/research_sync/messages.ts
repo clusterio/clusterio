@@ -1,7 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
 import * as lib from "@clusterio/lib";
 
-export class ContributionEvent {
+export class ContributionEvent implements lib.Event<ContributionEvent> {
 	declare ["constructor"]: typeof ContributionEvent;
 	static type = "event" as const;
 	static src = "instance" as const;
@@ -42,7 +42,7 @@ export class TechnologyProgress {
 	})
 }
 
-export class ProgressEvent {
+export class ProgressEvent implements lib.Event<ProgressEvent> {
 	declare ["constructor"]: typeof ProgressEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
@@ -65,7 +65,7 @@ export class ProgressEvent {
 	}
 }
 
-export class FinishedEvent {
+export class FinishedEvent implements lib.Event<FinishedEvent> {
 	declare ["constructor"]: typeof FinishedEvent;
 	static type = "event" as const;
 	static src = ["instance", "controller"] as const;
@@ -112,7 +112,7 @@ export class TechnologySync {
 	}
 }
 
-export class SyncTechnologiesRequest {
+export class SyncTechnologiesRequest implements lib.Request<SyncTechnologiesRequest, TechnologySync[]> {
 	declare ["constructor"]: typeof SyncTechnologiesRequest;
 	static type = "request" as const;
 	static src = "instance" as const;
