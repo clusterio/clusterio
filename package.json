@@ -27,6 +27,7 @@
     "@clusterio/ctl": "workspace:*",
     "@clusterio/host": "workspace:*",
     "@clusterio/lib": "workspace:*",
+    "@sinclair/typebox": "^0.30.4",
     "eslint": "^8.45.0",
     "eslint-plugin-node": "^11.1.0",
     "express": "^4.18.2",

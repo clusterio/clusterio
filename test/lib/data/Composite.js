@@ -31,29 +31,36 @@ describe("lib/data/composites", function() {
 		it("should throw an error", function() {
 			assert.throws(
 				() => jsonPrimitive("not a primitive"),
-				new Error(`Unexpected jsonPrimitive type (not a primitive) expect one of "boolean"|"number"|"string"`),
+				new Error(
+					"Unexpected jsonPrimitive type (not a primitive) expect " +
+					"\one of \"boolean\"|\"number\"|\"string\""
+				),
 			);
 		});
 	});
 
 	describe("function jsonArray", function() {
 		class TestValue {
+
 			constructor(value) {
 				this.value = value;
 			}
+
 			static jsonSchema = Type.Object({
 				"value": Type.Number(),
 			});
+
 			static fromJSON(json) {
 				return new this(json.value);
 			}
+
 		}
 
 		it("should create a TestValue[]", function() {
 			const valueArray = jsonArray(TestValue);
 			assert.deepEqual(valueArray.jsonSchema, Type.Array(TestValue.jsonSchema));
 			assert.deepEqual(
-				valueArray.fromJSON([{value:3}, {value:2}, {value:1}]),
+				valueArray.fromJSON([{value: 3}, {value: 2}, {value: 1}]),
 				[new TestValue(3), new TestValue(2), new TestValue(1)],
 			);
 		});
@@ -61,7 +68,7 @@ describe("lib/data/composites", function() {
 		it("should fail to create", function() {
 			assert.throws(
 				() => jsonArray(undefined),
-				new TypeError(`Cannot read properties of undefined (reading 'jsonSchema')`),
+				new TypeError("Cannot read properties of undefined (reading 'jsonSchema')"),
 			);
 		});
 	});
