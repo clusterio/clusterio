@@ -1,5 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector } from "./link";
+import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebSocketBaseConnector } from "./link";
 import { Address, MessageRequest } from "./data";
 import { User } from "./users";
 
@@ -117,6 +117,10 @@ export class SubscriptionController {
         this.controller.handle(SubscriptionRequest, this._handleEvent.bind(this));
     }
 
+    /**
+     * Allow clients to subscribe to an event by telling the subscription controller to accept them
+     * Has an optional subscription update handler which is called when any client updates their subscription
+     */
 	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>, channelCategoriser?: SubscriptionChannelCategoriser<T>): void;
     handle(
         Event: EventClass<unknown>,
@@ -137,6 +141,9 @@ export class SubscriptionController {
         });
     }
 
+    /**
+     * Broadcast an event to all subscribers of that event, will be filtered by channels when relevant
+     */
     broadcast<T>(event: Event<T>): void;
     broadcast(event: Event<unknown>) {
         const entry = Link._eventsByClass.get(event.constructor);
@@ -148,8 +155,10 @@ export class SubscriptionController {
             throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
         const channel = eventData.channelCategoriser ? eventData.channelCategoriser(event) : null;
-        for (let [link, subscription] of eventData.subscriptions.entries()) {
-            if (subscription.all || (channel && subscription.channels.includes(channel))) {
+        for (let [link, subscription] of eventData.subscriptions) {
+            if ((link.connector as WebSocketBaseConnector).closing) {
+                eventData.subscriptions.delete(link);
+            } else if ((subscription.all || (channel && subscription.channels.includes(channel)))) {
                 link.send(event);
             }
 		}
@@ -169,6 +178,11 @@ export class SubscriptionController {
             eventData.subscriptions.delete(link);
             return new SubscriptionResponse(eventReplay);
         } else {
+            if (!eventData.subscriptions.has(link)) {
+                link.connector.once("close", () => {
+                    eventData.subscriptions.delete(link);
+                })
+            }
             eventData.subscriptions.set(link, { all: event.allChannels, channels: event.channels });
             return new SubscriptionResponse(eventReplay);
         }
@@ -182,12 +196,11 @@ export class SubscriptionController {
 export class EventSubscriber<T> {
     _callbacks = new Array<EventSubscriberCallback<T>>()
     _channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<T>>>()
-    lastResponse?: Event<T> = undefined;
+    lastResponse: Event<T> | null = null;
     lastResponseTime = 0;
 
     constructor(
         private event: EventClass<T>,
-        private channelCategoriser?: SubscriptionChannelCategoriser<T>,
         private control?: Link
     ) {
         const entry = Link._eventsByClass.get(this.event);
@@ -213,12 +226,12 @@ export class EventSubscriber<T> {
         this.control.handle(this.event, this._handle.bind(this));
     }
 
-    subscribeAll(handler: EventSubscriberCallback<T>) {
+    subscribe(handler: EventSubscriberCallback<T>) {
         this._callbacks.push(handler);
 		this._updateSubscription();
     }
 
-    subscribe(channel: string | number, handler: EventSubscriberCallback<T>) {
+    subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<T>) {
         if (!this._channelCallbacks.get(channel)) {
             this._channelCallbacks.set(channel, []);
         }
@@ -226,7 +239,7 @@ export class EventSubscriber<T> {
 		this._updateSubscription();
     }
 
-    unsubscribeAll(handler: EventSubscriberCallback<T>) {
+    unsubscribe(handler: EventSubscriberCallback<T>) {
         let index = this._callbacks.lastIndexOf(handler);
 		if (index === -1) {
 			throw new Error("handler is not registered");
@@ -236,7 +249,7 @@ export class EventSubscriber<T> {
 		this._updateSubscription();
     }
 
-    unsubscribe(channel: string | number, handler: EventSubscriberCallback<T>) {
+    unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<T>) {
         const channelCallbacks = this._channelCallbacks.get(channel);
         if (!channelCallbacks) {
             throw new Error("handler is not registered");
