@@ -104,28 +104,6 @@ export class ModPackDeleteRequest {
 	}
 }
 
-export class ModPackSetSubscriptionsRequest {
-	declare ["constructor"]: typeof ModPackSetSubscriptionsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.mod_pack.subscribe" as const;
-
-	constructor(
-		public all: boolean,
-		public modPackIds: number[],
-	) { }
-
-	static jsonSchema = Type.Object({
-		"all": Type.Boolean(),
-		"modPackIds": Type.Array(Type.Integer()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.all, json.modPackIds);
-	}
-}
-
 export class ModGetRequest {
 	declare ["constructor"]: typeof ModGetRequest;
 	static type = "request" as const;
@@ -217,28 +195,6 @@ export class ModSearchRequest {
 	};
 }
 
-export class ModSetSubscriptionsRequest {
-	declare ["constructor"]: typeof ModSetSubscriptionsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.mod.subscribe" as const;
-
-	constructor(
-		public all: boolean,
-		public modNames: string[],
-	) { }
-
-	static jsonSchema = Type.Object({
-		"all": Type.Boolean(),
-		"modNames": Type.Array(Type.String()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.all, json.modNames);
-	}
-}
-
 export class ModDownloadRequest {
 	declare ["constructor"]: typeof ModDownloadRequest;
 	static type = "request" as const;
@@ -290,6 +246,7 @@ export class ModPackUpdateEvent {
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
+	static permission = "core.mod_pack.subscribe" as const;
 
 	constructor(
 		public modPack: ModPack,
@@ -309,6 +266,7 @@ export class ModUpdateEvent {
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
+	static permission = "core.mod.subscribe" as const;
 
 	constructor(
 		public mod: ModInfo,

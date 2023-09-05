@@ -35,9 +35,9 @@ export function useInstance(id: number): [InstanceState, ()=>void] {
 			setInstance({ ...newInstance, present: true });
 		}
 
-		control.onInstanceUpdate(id, updateHandler);
+		control.instanceUpdate.subscribeToChannel(id, updateHandler);
 		return () => {
-			control.offInstanceUpdate(id, updateHandler);
+			control.instanceUpdate.unsubscribeFromChannel(id, updateHandler);
 		};
 	}, [id]);
 
@@ -76,9 +76,9 @@ export function useInstanceList() {
 			});
 		}
 
-		control.onInstanceUpdate(null, updateHandler);
+		control.instanceUpdate.subscribe(updateHandler);
 		return () => {
-			control.offInstanceUpdate(null, updateHandler);
+			control.instanceUpdate.unsubscribe(updateHandler);
 		};
 	}, []);
 

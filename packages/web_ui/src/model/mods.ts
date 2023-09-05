@@ -38,9 +38,9 @@ export function useModList() {
 			});
 		}
 
-		control.onModUpdate(null, updateHandler);
+		control.modUpdate.subscribe(updateHandler);
 		return () => {
-			control.offModUpdate(null, updateHandler);
+			control.modUpdate.unsubscribe(updateHandler);
 		};
 	}, []);
 

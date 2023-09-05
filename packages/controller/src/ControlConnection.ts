@@ -1,5 +1,4 @@
 import type WsServerConnector from "./WsServerConnector";
-import type { HostInfo } from "./HostConnection";
 
 import events from "events";
 import fs from "fs-extra";
@@ -11,8 +10,6 @@ const { logFilter, logger } = lib;
 import BaseConnection from "./BaseConnection";
 import * as routes from "./routes";
 import Controller from "./Controller";
-import { promises } from "dns";
-import InstanceInfo from "./InstanceInfo";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -30,12 +27,6 @@ const queryLogTime = new lib.Summary(
 export default class ControlConnection extends BaseConnection {
 	private _agent: string;
 	private _version: string;
-	hostSubscriptions: { all:boolean, hostIds:number[] } = { all:false, hostIds:[] };
-	instanceSubscriptions: { all:boolean, instanceIds:number[] } = { all:false, instanceIds:[] };
-	saveListSubscriptions: { all:boolean, instanceIds:number[] } = { all:false, instanceIds:[] };
-	modPackSubscriptions: { all:boolean, modPackIds:number[] }  = { all:false, modPackIds:[] };
-	modSubscriptions: { all:boolean, modNames:string[] } = { all:false, modNames:[] };
-	userSubscriptions: { all:boolean, names:string[]} = { all:false, names:[] };
 	logTransport: lib.LinkTransport | null = null;
 	logSubscriptions: {
 		all: boolean,
@@ -88,33 +79,28 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
 		this.handle(lib.HostListRequest, this.handleHostListRequest.bind(this));
-		this.handle(lib.HostSetSubscriptionsRequest, this.handleHostSetSubscriptionsRequest.bind(this));
 		this.handle(lib.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
 		this.handle(lib.HostConfigCreateRequest, this.handleHostConfigCreateRequest.bind(this));
 		this.handle(lib.InstanceDetailsGetRequest, this.handleInstanceDetailsGetRequest.bind(this));
 		this.handle(lib.InstanceDetailsListRequest, this.handleInstanceDetailsListRequest.bind(this));
-		this.handle(lib.InstanceDetailsSetSubscriptionsRequest, this.handleInstanceDetailsSetSubscriptionsRequest.bind(this));
 		this.handle(lib.InstanceCreateRequest, this.handleInstanceCreateRequest.bind(this));
 		this.handle(lib.InstanceDeleteRequest, this.handleInstanceDeleteRequest.bind(this));
 		this.handle(lib.InstanceConfigGetRequest, this.handleInstanceConfigGetRequest.bind(this));
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
-		this.handle(lib.InstanceSetSaveListSubscriptionsRequest, this.handleInstanceSetSaveListSubscriptionsRequest.bind(this));
 		this.handle(lib.InstanceRenameSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
 		this.handle(lib.InstanceCopySaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
 		this.handle(lib.InstanceDeleteSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
 		this.handle(lib.InstanceDownloadSaveRequest, this.handleInstanceDownloadSaveRequest.bind(this));
 		this.handle(lib.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
 		this.handle(lib.ModPackListRequest, this.handleModPackListRequest.bind(this));
-		this.handle(lib.ModPackSetSubscriptionsRequest, this.handleModPackSetSubscriptionsRequest.bind(this));
 		this.handle(lib.ModPackCreateRequest, this.handleModPackCreateRequest.bind(this));
 		this.handle(lib.ModPackUpdateRequest, this.handleModPackUpdateRequest.bind(this));
 		this.handle(lib.ModPackDeleteRequest, this.handleModPackDeleteRequest.bind(this));
 		this.handle(lib.ModGetRequest, this.handleModGetRequest.bind(this));
 		this.handle(lib.ModListRequest, this.handleModListRequest.bind(this));
 		this.handle(lib.ModSearchRequest, this.handleModSearchRequest.bind(this));
-		this.handle(lib.ModSetSubscriptionsRequest, this.handleModSetSubscriptionsRequest.bind(this));
 		this.handle(lib.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
 		this.handle(lib.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
 		this.handle(lib.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
@@ -127,7 +113,6 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.RoleDeleteRequest, this.handleRoleDeleteRequest.bind(this));
 		this.handle(lib.UserGetRequest, this.handleUserGetRequest.bind(this));
 		this.handle(lib.UserListRequest, this.handleUserListRequest.bind(this));
-		this.handle(lib.UserSetSubscriptionsRequest, this.handleUserSetSubscriptionsRequest.bind(this));
 		this.handle(lib.UserCreateRequest, this.handleUserCreateRequest.bind(this));
 		this.handle(lib.UserRevokeTokenRequest, this.handleUserRevokeTokenRequest.bind(this));
 		this.handle(lib.UserUpdateRolesRequest, this.handleUserUpdateRolesRequest.bind(this));
@@ -216,22 +201,6 @@ export default class ControlConnection extends BaseConnection {
 		return list;
 	}
 
-	async handleHostSetSubscriptionsRequest(request: lib.HostSetSubscriptionsRequest) {
-		this.hostSubscriptions = { ...request };
-	}
-
-	hostUpdated(
-		host: HostInfo,
-		update: lib.HostDetails
-	) {
-		if (
-			this.hostSubscriptions.all
-			|| this.hostSubscriptions.hostIds.includes(host.id)
-		) {
-			this.send(new lib.HostUpdateEvent(update));
-		}
-	}
-
 	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
 		let hostId = message.hostId;
 		if (hostId === undefined) {
@@ -304,38 +273,6 @@ export default class ControlConnection extends BaseConnection {
 		return list;
 	}
 
-	async handleInstanceDetailsSetSubscriptionsRequest(request: lib.InstanceDetailsSetSubscriptionsRequest) {
-		this.instanceSubscriptions = { ...request };
-	}
-
-	instanceUpdated(instance: InstanceInfo) {
-		if (
-			this.instanceSubscriptions.all
-			|| this.instanceSubscriptions.instanceIds.includes(instance.id)
-		) {
-			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-			if (assigned_host === null) {
-				assigned_host = undefined;
-			}
-	
-			let game_port: number|null|undefined = instance.game_port
-			if (game_port === null) {
-				game_port = undefined;
-			}
-
-
-			this.send(new lib.InstanceDetailsUpdateEvent(
-				new lib.InstanceDetails(
-					instance.config.get("instance.name"),
-					instance.id,
-					assigned_host,
-					game_port,
-					instance.status,
-				)
-			));
-		}
-	}
-
 	// XXX should probably add a hook for host reuqests?
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
 		let instanceConfig = new lib.InstanceConfig("controller");
@@ -376,19 +313,6 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
 		await this._controller.instanceAssign(request.instanceId, request.hostId);
-	}
-
-	async handleInstanceSetSaveListSubscriptionsRequest(request: lib.InstanceSetSaveListSubscriptionsRequest) {
-		this.saveListSubscriptions = { ...request };
-	}
-
-	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
-		if (
-			this.saveListSubscriptions.all
-			|| this.saveListSubscriptions.instanceIds.includes(instanceId)
-		) {
-			this.send(new lib.InstanceSaveListUpdateEvent(instanceId, saves));
-		}
 	}
 
 	async handleInstanceDownloadSaveRequest(request: lib.InstanceDownloadSaveRequest) {
@@ -488,10 +412,6 @@ export default class ControlConnection extends BaseConnection {
 		return [...this._controller.modPacks!.values()];
 	}
 
-	async handleModPackSetSubscriptionsRequest(request: lib.ModPackSetSubscriptionsRequest) {
-		this.modPackSubscriptions = { ...request };
-	}
-
 	async handleModPackCreateRequest(request: lib.ModPackCreateRequest) {
 		let modPack = request.modPack;
 		if (modPack.id === undefined) {
@@ -522,15 +442,6 @@ export default class ControlConnection extends BaseConnection {
 		modPack.isDeleted = true;
 		this._controller.modPacks!.delete(id);
 		this._controller.modPackUpdated(modPack);
-	}
-
-	modPackUpdated(modPack: lib.ModPack) {
-		if (
-			this.modPackSubscriptions.all
-			|| this.modPackSubscriptions.modPackIds.includes(modPack.id!)
-		) {
-			this.send(new lib.ModPackUpdateEvent(modPack));
-		}
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {
@@ -636,10 +547,6 @@ export default class ControlConnection extends BaseConnection {
 		};
 	}
 
-	async handleModSetSubscriptionsRequest(request: lib.ModSetSubscriptionsRequest) {
-		this.modSubscriptions = { ...request };
-	}
-
 	async handleModDownloadRequest(request: lib.ModDownloadRequest) {
 		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
@@ -670,15 +577,6 @@ export default class ControlConnection extends BaseConnection {
 			instanceIds: request.instanceIds || [],
 		};
 		this.updateLogSubscriptions();
-	}
-
-	modUpdated(mod: lib.ModInfo) {
-		if (
-			this.modSubscriptions.all
-			|| this.modSubscriptions.modNames.includes(mod.name)
-		) {
-			this.send(new lib.ModUpdateEvent(mod));
-		}
 	}
 
 	updateLogSubscriptions() {
@@ -830,32 +728,6 @@ export default class ControlConnection extends BaseConnection {
 			));
 		}
 		return list;
-	}
-
-	async handleUserSetSubscriptionsRequest(request: lib.UserSetSubscriptionsRequest) {
-		this.userSubscriptions = { ...request };
-	}
-
-	userUpdated(user: any) {
-		if (
-			this.userSubscriptions.all
-			|| this.userSubscriptions.names.includes(user.name)
-		) {
-			this.send(new lib.UserUpdateEvent(
-				new lib.RawUser(
-					user.name,
-					[...user.roles].map(role => role.id),
-					[...user.instances],
-					user.isAdmin,
-					user.isBanned,
-					user.isWhitelisted,
-					user.banReason,
-					user.isDeleted,
-					user.playerStats,
-					user.instanceStats,
-				)
-			));
-		}
 	}
 
 	async handleUserCreateRequest(request: lib.UserCreateRequest) {

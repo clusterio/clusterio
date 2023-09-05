@@ -3,9 +3,9 @@ import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebS
 import { Address, MessageRequest } from "./data";
 import { User } from "./users";
 
-export type SubscriptionChannelCategoriser<T> = (event: Event<T>) => string | number;
+export type SubscriptionChannelCategoriser<T> = (event: T) => string | number;
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
-export type EventSubscriberCallback<T> = (event: Event<T>) => Promise<void>;
+export type EventSubscriberCallback<T> = (value: T) => void;
 
 /**
  * Response received by the subscriber after a request
@@ -192,15 +192,17 @@ export class SubscriptionController {
 /**
  * A class component to handle incoming subscription requests and offers a method to broadcast to subscribers
  * After creation, no other handler can be registered for SubscriptionRequest
+ * An optional prehandler can be given to extract data from the event to be used by the subscribed handlers
  */
-export class EventSubscriber<T> {
-    _callbacks = new Array<EventSubscriberCallback<T>>()
-    _channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<T>>>()
-    lastResponse: Event<T> | null = null;
+export class EventSubscriber<T, V=T> {
+    _callbacks = new Array<EventSubscriberCallback<V>>()
+    _channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<V>>>()
+    lastResponse: T | null = null; // Does not work with Event<T>
     lastResponseTime = 0;
 
     constructor(
         private event: EventClass<T>,
+        private prehandler?: (event: T) => V,
         private control?: Link
     ) {
         const entry = Link._eventsByClass.get(this.event);
@@ -212,26 +214,33 @@ export class EventSubscriber<T> {
         }
     }
 
-    async _handle(response: Event<T>) {
+    async _handle(response: T) {
         this.lastResponse = response;
         this.lastResponseTime = Date.now();
-        for (let callback of this._callbacks) {
-			callback(response);
-		}
+        if (this.prehandler) {
+            for (let callback of this._callbacks) {
+                callback(this.prehandler(response));
+            }
+        } else {
+            for (let callback of this._callbacks) {
+                callback(response as any); // Default behaviour is to pass the event unchanged
+            }
+        }
     }
 
     connectControl(control: Link) {
-        if (this.control === control) return;
+        if (this.control === control) return Promise.resolve();
         this.control = control;
         this.control.handle(this.event, this._handle.bind(this));
+        return this._updateSubscription();
     }
 
-    subscribe(handler: EventSubscriberCallback<T>) {
+    subscribe(handler: EventSubscriberCallback<V>) {
         this._callbacks.push(handler);
 		this._updateSubscription();
     }
 
-    subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<T>) {
+    subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
         if (!this._channelCallbacks.get(channel)) {
             this._channelCallbacks.set(channel, []);
         }
@@ -239,7 +248,7 @@ export class EventSubscriber<T> {
 		this._updateSubscription();
     }
 
-    unsubscribe(handler: EventSubscriberCallback<T>) {
+    unsubscribe(handler: EventSubscriberCallback<V>) {
         let index = this._callbacks.lastIndexOf(handler);
 		if (index === -1) {
 			throw new Error("handler is not registered");
@@ -249,7 +258,7 @@ export class EventSubscriber<T> {
 		this._updateSubscription();
     }
 
-    unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<T>) {
+    unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
         const channelCallbacks = this._channelCallbacks.get(channel);
         if (!channelCallbacks) {
             throw new Error("handler is not registered");
@@ -280,7 +289,7 @@ export class EventSubscriber<T> {
         ));
 
         if (response.eventReplay) {
-            this._handle(response.eventReplay);
+            this._handle(response.eventReplay as T);
         }
     }
 }

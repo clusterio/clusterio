@@ -25,6 +25,7 @@ export * from "./src/shared_commands";
 export * from "./src/stream";
 export * from "./src/users";
 export * from "./src/zip_ops";
+export * from "./src/subscriptions"
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as PlayerStats } from "./src/PlayerStats";

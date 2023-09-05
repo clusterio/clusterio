@@ -251,28 +251,6 @@ export class UserListRequest {
 	static Response = jsonArray(RawUser);
 }
 
-export class UserSetSubscriptionsRequest {
-	declare ["constructor"]: typeof UserSetSubscriptionsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.user.subscribe" as const;
-
-	constructor(
-		public all: boolean,
-		public names: string[],
-	) { }
-
-	static jsonSchema = Type.Object({
-		"all": Type.Boolean(),
-		"names": Type.Array(Type.String()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.all, json.names);
-	}
-}
-
 export class UserCreateRequest {
 	declare ["constructor"]: typeof UserCreateRequest;
 	static type = "request" as const;
@@ -460,6 +438,7 @@ export class UserUpdateEvent {
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
+	static permission = "core.user.subscribe" as const;
 
 	constructor(
 		public user: RawUser,

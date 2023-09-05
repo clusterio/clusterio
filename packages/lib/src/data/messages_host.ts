@@ -35,34 +35,12 @@ export class HostListRequest {
 	static Response = jsonArray(HostDetails);
 }
 
-export class HostSetSubscriptionsRequest {
-	declare ["constructor"]: typeof HostSetSubscriptionsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.host.subscribe" as const;
-
-	constructor(
-		public all: boolean,
-		public hostIds: number[],
-	) { }
-
-	static jsonSchema = Type.Object({
-		"all": Type.Boolean(),
-		"hostIds": Type.Array(Type.Integer()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.all, json.hostIds);
-	}
-}
-
-
 export class HostUpdateEvent {
 	declare ["constructor"]: typeof HostUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
+	static permission = "core.host.subscribe" as const;
 
 	constructor(
 		public update: HostDetails,

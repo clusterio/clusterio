@@ -33,9 +33,9 @@ export function useModPack(id: number) {
 		}
 		updateModPack();
 
-		control.onModPackUpdate(id, setModPack);
+		control.modPackUpdate.subscribeToChannel(id, setModPack);
 		return () => {
-			control.offModPackUpdate(id, setModPack);
+			control.modPackUpdate.unsubscribeFromChannel(id, setModPack);
 		};
 	}, [id]);
 
@@ -74,9 +74,9 @@ export function useModPackList() {
 			});
 		}
 
-		control.onModPackUpdate(null, updateHandler);
+		control.modPackUpdate.subscribe(updateHandler);
 		return () => {
-			control.offModPackUpdate(null, updateHandler);
+			control.modPackUpdate.unsubscribe(updateHandler);
 		};
 	}, []);
 

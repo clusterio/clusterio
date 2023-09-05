@@ -38,9 +38,9 @@ export function useHost(id: number): [ HostState, () => void ] {
 			setHost({ ...newHost, loading:false, missing:false, present:true });
 		}
 
-		control.onHostUpdate(id, updateHandler);
+		control.hostUpdate.subscribeToChannel(id, updateHandler);
 		return () => {
-			control.offHostUpdate(id, updateHandler);
+			control.hostUpdate.unsubscribeFromChannel(id, updateHandler);
 		};
 	}, [id]);
 
@@ -74,9 +74,9 @@ export function useHostList() {
 			});
 		}
 
-		control.onHostUpdate(null, updateHandler);
+		control.hostUpdate.subscribe(updateHandler);
 		return () => {
-			control.offHostUpdate(null, updateHandler);
+			control.hostUpdate.unsubscribe(updateHandler);
 		};
 	}, []);
 

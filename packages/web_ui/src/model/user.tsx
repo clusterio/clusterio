@@ -82,9 +82,9 @@ export function useUser(name: string): [RawUserState, () => void] {
 			setUser({ ...newUser, present: true });
 		}
 
-		control.onUserUpdate(name, updateHandler);
+		control.userUpdate.subscribeToChannel(name, updateHandler);
 		return () => {
-			control.offUserUpdate(name, updateHandler);
+			control.userUpdate.unsubscribeFromChannel(name, updateHandler);
 		};
 	}, [name]);
 
@@ -123,9 +123,9 @@ export function useUserList() {
 			});
 		}
 
-		control.onUserUpdate(null, updateHandler);
+		control.userUpdate.subscribe(updateHandler);
 		return () => {
-			control.offUserUpdate(null, updateHandler);
+			control.userUpdate.unsubscribe(updateHandler);
 		};
 	}, []);
 
