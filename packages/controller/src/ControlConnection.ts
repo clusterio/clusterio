@@ -87,6 +87,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
+		this.handle(lib.HostAccessUpdateRequest, this.handleHostAccessUpdateRequest.bind(this));
 		this.handle(lib.HostListRequest, this.handleHostListRequest.bind(this));
 		this.handle(lib.HostSetSubscriptionsRequest, this.handleHostSetSubscriptionsRequest.bind(this));
 		this.handle(lib.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
@@ -201,6 +202,28 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.config.setProp(field, prop, value, "control");
 	}
 
+	async handleHostAccessUpdateRequest(request: lib.HostAccessUpdateRequest) {
+		const host = this._controller.hosts?.get(request.hostId);
+
+		if (!host) {
+			throw new Error(`Unknown host id (${request.hostId})`);
+		}
+
+		if (request.status === "revoke") {
+			host.access_revoked_at = Date.now();
+			const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
+			if (hostConnection) {
+				await hostConnection.prepareDisconnect();
+				await hostConnection.connector.close(1000, "Access to controller revoked.");
+			}
+
+		} else {
+			host.access_revoked_at = undefined;
+		}
+
+		this._controller.hostUpdated(host as HostInfo);
+	}
+
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
 		let list = [];
 		for (let host of this._controller.hosts!.values()) {
@@ -211,6 +234,7 @@ export default class ControlConnection extends BaseConnection {
 				host.id,
 				this._controller.wsServer.hostConnections.has(host.id),
 				host.public_address,
+				host.access_revoked_at,
 			));
 		}
 		return list;

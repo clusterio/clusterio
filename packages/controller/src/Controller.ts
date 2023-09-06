@@ -573,6 +573,7 @@ export default class Controller {
 			host.id,
 			this.wsServer.hostConnections.has(host.id),
 			host.public_address === null ? undefined : host.public_address,
+			host.access_revoked_at,
 		);
 
 		for (let controlConnection of this.wsServer.controlConnections.values()) {

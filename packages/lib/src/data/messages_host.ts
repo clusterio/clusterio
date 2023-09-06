@@ -1,6 +1,5 @@
 import { Type, Static } from "@sinclair/typebox";
-import { jsonArray } from "./composites";
-
+import { jsonArray, StringEnum } from "./composites";
 
 export class HostDetails {
 	constructor(
@@ -10,6 +9,7 @@ export class HostDetails {
 		public id: number,
 		public connected: boolean,
 		public publicAddress?: string,
+		public accessRevokedAt?: number,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -19,10 +19,11 @@ export class HostDetails {
 		"id": Type.Integer(),
 		"connected": Type.Boolean(),
 		"publicAddress": Type.Optional(Type.String()),
+		"accessRevokedAt": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.agent, json.version, json.name, json.id, json.connected, json.publicAddress);
+		return new this(json.agent, json.version, json.name, json.id, json.connected, json.publicAddress, json.accessRevokedAt);
 	}
 }
 
@@ -153,5 +154,27 @@ export class SyncUserListsEvent {
 			banlist: [...this.banlist],
 			whitelist: [...this.whitelist],
 		};
+	}
+}
+
+export class HostAccessUpdateRequest {
+	declare["constructor"]: typeof HostAccessUpdateRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.host.update_access" as const;
+
+	constructor(
+		public hostId: number,
+		public status: "revoke"|"restore",
+	) { }
+
+	static jsonSchema = Type.Object({
+		"hostId": Type.Number(),
+		"status": StringEnum(["revoke","restore"]),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.hostId, json.status);
 	}
 }

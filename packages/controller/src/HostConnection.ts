@@ -15,6 +15,7 @@ export interface HostInfo {
 	version: string;
 	plugins: [number, any][];
 	public_address: string | undefined;
+	access_revoked_at?: number;
 }
 
 /**
