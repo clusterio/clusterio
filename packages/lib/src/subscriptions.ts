@@ -121,11 +121,11 @@ export class SubscriptionController {
      * Allow clients to subscribe to an event by telling the subscription controller to accept them
      * Has an optional subscription update handler which is called when any client updates their subscription
      */
-	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>, channelCategoriser?: SubscriptionChannelCategoriser<T>): void;
+	handle<T>(Event: EventClass<T>, channelCategoriser?: SubscriptionChannelCategoriser<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>,): void;
     handle(
         Event: EventClass<unknown>,
-		subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
 		channelCategoriser?: SubscriptionChannelCategoriser<unknown>,
+		subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
     ) {
         const entry = Link._eventsByClass.get(Event);
 		if (!entry) {
