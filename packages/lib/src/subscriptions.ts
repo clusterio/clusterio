@@ -213,7 +213,7 @@ export class EventSubscriber<T, V=T> {
 
     constructor(
         private event: EventClass<T> | ChannelEventClass<T>,
-        private prehandler?: (event: Event<T>) => V,
+        private prehandler?: (event: T) => V,
         control?: Link
     ) {
         const entry = Link._eventsByClass.get(this.event);
@@ -231,7 +231,7 @@ export class EventSubscriber<T, V=T> {
     async _handle(response: Event<T> | ChannelEvent<T>) {
         this.lastResponse = response;
         this.lastResponseTime = Date.now();
-        const value = this.prehandler ? this.prehandler(response) : response as any;
+        const value = this.prehandler ? this.prehandler(response as T) : response as any;
         for (let callback of this._callbacks) {
             callback(value);
         }
