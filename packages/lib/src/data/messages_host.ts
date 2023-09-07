@@ -53,6 +53,10 @@ export class HostUpdateEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(HostDetails.fromJSON(json.update));
 	}
+
+	get subscriptionChannel() {
+		return this.update.id;
+	}
 }
 
 export class HostMetricsRequest {

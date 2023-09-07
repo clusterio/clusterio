@@ -241,12 +241,12 @@ export default class Controller {
 		}
 
 		// Handle subscriptions for all internal properties
-		this.subscriptions.handle<lib.HostUpdateEvent>(lib.HostUpdateEvent, event => event.update.id);
-		this.subscriptions.handle<lib.InstanceDetailsUpdateEvent>(lib.InstanceDetailsUpdateEvent, event => event.details.id);
-		this.subscriptions.handle<lib.InstanceSaveListUpdateEvent>(lib.InstanceSaveListUpdateEvent, event => event.instanceId);
-		this.subscriptions.handle<lib.ModPackUpdateEvent>(lib.ModPackUpdateEvent, event => event.modPack.id!);
-		this.subscriptions.handle<lib.ModUpdateEvent>(lib.ModUpdateEvent);
-		this.subscriptions.handle<lib.UserUpdateEvent>(lib.UserUpdateEvent, event => event.user.name);
+		this.subscriptions.handle(lib.HostUpdateEvent);
+		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
+		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
+		this.subscriptions.handle(lib.ModPackUpdateEvent);
+		this.subscriptions.handle(lib.ModUpdateEvent);
+		this.subscriptions.handle(lib.UserUpdateEvent);
 
 		// Load plugins
 		await this.loadPlugins();

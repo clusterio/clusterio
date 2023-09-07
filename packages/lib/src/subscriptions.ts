@@ -3,9 +3,16 @@ import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebS
 import { Address, MessageRequest } from "./data";
 import { User } from "./users";
 
-export type SubscriptionChannelCategoriser<T> = (event: T) => string | number;
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (value: T) => void;
+
+export type ChannelEvent<T> = Event<T> & {
+    get subscriptionChannel(): number | string;
+}
+
+export type ChannelEventClass<T> = EventClass<T> & {
+    new(...args: any): ChannelEvent<T>
+}
 
 /**
  * Response received by the subscriber after a request
@@ -60,7 +67,6 @@ export class SubscriptionRequest {
 	static type = "request" as const;
 	static src =  ["control", "instance"] as const;
 	static dst = "controller" as const;
-	static plugin = "exp_commands" as const;
     static Response = SubscriptionResponse;
 	static permission(user: User, message: MessageRequest) {
         if (typeof message.data === "object" && message.data !== null) {
@@ -110,7 +116,6 @@ export class SubscriptionRequest {
 export class SubscriptionController {
     _events = new Map<string, {
         subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-        channelCategoriser?: SubscriptionChannelCategoriser<unknown>,
         subscriptions: Map<Link, { all: boolean, channels: Array<string | number> }>,
     }>();
 
@@ -124,10 +129,9 @@ export class SubscriptionController {
      * Allow clients to subscribe to an event by telling the subscription controller to accept them
      * Has an optional subscription update handler which is called when any client updates their subscription
      */
-	handle<T>(Event: EventClass<T>, channelCategoriser?: SubscriptionChannelCategoriser<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>,): void;
+	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>,): void;
     handle(
         Event: EventClass<unknown>,
-		channelCategoriser?: SubscriptionChannelCategoriser<unknown>,
 		subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
     ) {
         const entry = Link._eventsByClass.get(Event);
@@ -139,7 +143,6 @@ export class SubscriptionController {
 		}
         this._events.set(entry.name, {
             subscriptionUpdate: subscriptionUpdate,
-            channelCategoriser: channelCategoriser,
             subscriptions: new Map(),
         });
     }
@@ -147,8 +150,8 @@ export class SubscriptionController {
     /**
      * Broadcast an event to all subscribers of that event, will be filtered by channels when relevant
      */
-    broadcast<T>(event: Event<T>): void;
-    broadcast(event: Event<unknown>) {
+    broadcast<T>(event: Event<T> | ChannelEvent<T>): void;
+    broadcast(event: Event<unknown> | ChannelEvent<unknown>) {
         const entry = Link._eventsByClass.get(event.constructor);
         if (!entry) {
 			throw new Error(`Unregistered Event class ${event.constructor.name}`);
@@ -157,7 +160,7 @@ export class SubscriptionController {
         if (!eventData) {
             throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
-        const channel = eventData.channelCategoriser ? eventData.channelCategoriser(event) : null;
+        const channel = "subscriptionChannel" in event ? event.subscriptionChannel : null;
         for (let [link, subscription] of eventData.subscriptions) {
             if ((link.connector as WebSocketBaseConnector).closing) {
                 eventData.subscriptions.delete(link);
@@ -205,8 +208,8 @@ export class EventSubscriber<T, V=T> {
     control?: Link
 
     constructor(
-        private event: EventClass<T>,
-        private prehandler?: (event: T) => V,
+        private event: EventClass<T> | ChannelEventClass<T>,
+        private prehandler?: (event: Event<T>) => V,
         control?: Link
     ) {
         const entry = Link._eventsByClass.get(this.event);
@@ -218,16 +221,20 @@ export class EventSubscriber<T, V=T> {
         }
     }
 
-    async _handle(response: T) {
-        this.lastResponse = response;
+    async _handle(response: Event<T> | ChannelEvent<T>) {
+        this.lastResponse = response as T;
         this.lastResponseTime = Date.now();
-        if (this.prehandler) {
-            for (let callback of this._callbacks) {
-                callback(this.prehandler(response));
-            }
-        } else {
-            for (let callback of this._callbacks) {
-                callback(response as any); // Default behaviour is to pass the event unchanged
+        const value = this.prehandler ? this.prehandler(response) : response as any;
+        for (let callback of this._callbacks) {
+            callback(value);
+        }
+        const channel = "subscriptionChannel" in response ? response.subscriptionChannel : null;
+        if (channel) {
+            const callbacks = this._channelCallbacks.get(channel);
+            if (callbacks) {
+                for (let callback of callbacks) {
+                    callback(value);
+                }
             }
         }
     }
@@ -293,7 +300,7 @@ export class EventSubscriber<T, V=T> {
         ));
 
         if (response.eventReplay) {
-            this._handle(response.eventReplay as T);
+            await this._handle(response.eventReplay);
         }
     }
 }

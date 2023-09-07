@@ -451,4 +451,8 @@ export class UserUpdateEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(RawUser.fromJSON(json.user));
 	}
+
+	get subscriptionChannel() {
+		return this.user.name;
+	}
 }
