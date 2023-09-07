@@ -83,6 +83,13 @@ describe("lib/subscriptions", function() {
 			assert.deepEqual(reconstructed, response);
 		});
 
+		it("should be throw when given an unregistered event in a json", function() {
+			assert.throws(
+				() => lib.SubscriptionResponse.fromJSON([UnregisteredEvent.name, {}]),
+				new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
+			);
+		});
+
 		it("should be throw when given an unregistered event", function() {
 			assert.throws(
 				() => new lib.SubscriptionResponse(new UnregisteredEvent()),
@@ -498,13 +505,40 @@ describe("lib/subscriptions", function() {
 				channelEvent.unsubscribeFromChannel("channelOne", callback);
 				channelEvent._handle(event);
 				assert.equal(calledWith, null);
+
+				let calledWithTwo = null;
+				function callbackTwo(value) { calledWithTwo = value; }
+				channelEvent.subscribeToChannel("channelOne", callback);
+				channelEvent.subscribeToChannel("channelOne", callbackTwo);
+				channelEvent._handle(event);
+				assert.equal(calledWith, event);
+				assert.equal(calledWithTwo, event);
+
+				calledWith = null;
+				calledWithTwo = null;
+				event = new ChannelEvent();
+				channelEvent.unsubscribeFromChannel("channelOne", callback);
+				channelEvent._handle(event);
+				assert.equal(calledWith, null);
+				assert.equal(calledWithTwo, event);
 			});
 			it("should throw an error if the handler was not subscribed", function() {
-				function callback(value) { calledWith = value; }
+				function callback() {}
 				assert.throws(
 					() => channelEvent.unsubscribeFromChannel("channelOne", callback),
 					new Error("handler is not registered")
 				);
+
+				let calledWith = null;
+				function callbackTwo(value) { calledWith = value; }
+				channelEvent.subscribeToChannel("channelOne", callbackTwo);
+				assert.throws(
+					() => channelEvent.unsubscribeFromChannel("channelOne", callback),
+					new Error("handler is not registered")
+				);
+				const event = new ChannelEvent();
+				channelEvent._handle(event);
+				assert.equal(calledWith, event);
 			});
 		});
 
