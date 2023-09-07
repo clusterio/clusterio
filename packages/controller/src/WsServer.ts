@@ -241,9 +241,9 @@ ${err.stack}`
 				throw new Error("missmatched host id");
 			}
 
-			let hostInfo = this.controller.hosts!.get(data.id);
-			if (hostInfo?.access_revoked_at) {
-				throw new Error(`host access revoked at ${new Date(hostInfo.access_revoked_at)}`);
+			let host = this.controller.hosts!.get(data.id);
+			if (!tokenPayload.iat || tokenPayload.iat < (host?.token_valid_after??0)) {
+				throw new Error("invalid token");
 			}
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);

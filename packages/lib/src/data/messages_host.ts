@@ -9,7 +9,7 @@ export class HostDetails {
 		public id: number,
 		public connected: boolean,
 		public publicAddress?: string,
-		public accessRevokedAt?: number,
+		public tokenValidAfter?: number,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -19,11 +19,11 @@ export class HostDetails {
 		"id": Type.Integer(),
 		"connected": Type.Boolean(),
 		"publicAddress": Type.Optional(Type.String()),
-		"accessRevokedAt": Type.Optional(Type.Number()),
+		"tokenValidAfter": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.agent, json.version, json.name, json.id, json.connected, json.publicAddress, json.accessRevokedAt);
+		return new this(json.agent, json.version, json.name, json.id, json.connected, json.publicAddress, json.tokenValidAfter);
 	}
 }
 
@@ -157,24 +157,22 @@ export class SyncUserListsEvent {
 	}
 }
 
-export class HostAccessUpdateRequest {
-	declare["constructor"]: typeof HostAccessUpdateRequest;
+export class HostRevokeTokensRequest {
+	declare["constructor"]: typeof HostRevokeTokensRequest;
 	static type = "request" as const;
 	static src = "control" as const;
 	static dst = "controller" as const;
-	static permission = "core.host.update_access" as const;
+	static permission = "core.host.revoke_token" as const;
 
 	constructor(
 		public hostId: number,
-		public status: "revoke"|"restore",
 	) { }
 
 	static jsonSchema = Type.Object({
 		"hostId": Type.Number(),
-		"status": StringEnum(["revoke","restore"]),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.hostId, json.status);
+		return new this(json.hostId);
 	}
 }

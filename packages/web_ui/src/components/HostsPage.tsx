@@ -13,7 +13,6 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { useHostList } from "../model/host";
 import notify, { notifyErrorHandler } from "../util/notify";
-import { formatTimestamp } from "../util/time_format";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -230,18 +229,6 @@ export default function HostsPage() {
 						{host.connected ? "Connected" : "Disconnected"}
 					</Tag>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
-				},
-				{
-					title: "Access",
-					key: "accessRevokedAt",
-					render: host => (
-							host.accessRevokedAt ?
-							<Tag color="#cf1322">
-								Revoked at {formatTimestamp(host.accessRevokedAt)}
-							</Tag> :
-							"Granted"
-					),
-					sorter: (a, b) => (a.accessRevokedAt ?? 0) - (b.accessRevokedAt ?? 0),
 				}
 			]}
 			dataSource={hostList}
