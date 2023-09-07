@@ -93,40 +93,31 @@ describe("lib/subscriptions", function() {
 
 	describe("class SubscriptionRequest", function() {
 		describe("permission()", function() {
-			it("should do nothing when the event has no permission property", function() {
-				const mockUser = new MockUser();
-				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
-				lib.SubscriptionRequest.permission(mockUser, new lib.MessageRequest(
+			function newSubscriptionRequestMessage(request) {
+				return new lib.MessageRequest(
 					0,
 					addr({ controlId: 0 }),
 					addr("controller"),
 					lib.SubscriptionRequest.name,
-					JSON.stringify(request)
-				));
+					request.toJSON()
+				);
+			}
+			it("should do nothing when the event has no permission property", function() {
+				const mockUser = new MockUser();
+				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
+				lib.SubscriptionRequest.permission(mockUser, newSubscriptionRequestMessage(request));
 				assert.equal(mockUser.lastPermissionCheck, undefined);
 			});
 			it("should check user permission when the permission property is a string", function() {
 				const mockUser = new MockUser();
 				const request = new lib.SubscriptionRequest(StringPermissionEvent.name, true);
-				lib.SubscriptionRequest.permission(mockUser, new lib.MessageRequest(
-					0,
-					addr({ controlId: 0 }),
-					addr("controller"),
-					lib.SubscriptionRequest.name,
-					request.toJSON()
-				));
+				lib.SubscriptionRequest.permission(mockUser, newSubscriptionRequestMessage(request));
 				assert.equal(mockUser.lastPermissionCheck, "StringPermission");
 			});
 			it("should call the permission property when it is a function", function() {
 				const mockUser = new MockUser();
 				const request = new lib.SubscriptionRequest(FunctionPermissionEvent.name, true);
-				lib.SubscriptionRequest.permission(mockUser, new lib.MessageRequest(
-					0,
-					addr({ controlId: 0 }),
-					addr("controller"),
-					lib.SubscriptionRequest.name,
-					request.toJSON()
-				));
+				lib.SubscriptionRequest.permission(mockUser, newSubscriptionRequestMessage(request));
 				assert.equal(mockUser.lastPermissionCheck, "FunctionPermission");
 			});
 		});
@@ -176,11 +167,9 @@ describe("lib/subscriptions", function() {
 			dst: addr("controller"),
 		}];
 
-		function awaitMessages(ids) {
-			return Promise.all(ids.map(function(id) {
-				const link = mockController.wsServer.controlConnections.get(id);
-				return events.once(link.connector, "send");
-			}));
+		function onceConnectorSend(id) {
+			const link = mockController.wsServer.controlConnections.get(id);
+			return events.once(link.connector, "send");
 		}
 
 		function assertLastEvent(connectorId, Event) {
@@ -250,9 +239,8 @@ describe("lib/subscriptions", function() {
 				);
 			});
 			it("should notify all links who subscribed to all channels", async function() {
-				const messages = awaitMessages([0, 1]);
 				subscriptions.broadcast(new RegisteredEvent());
-				await messages;
+				await Promise.all([onceConnectorSend(0), onceConnectorSend(1)]);
 				assertLastEvent(0, RegisteredEvent); // RegisteredEvent: All
 				assertLastEvent(1, RegisteredEvent); // RegisteredEvent: All
 				assertNoEvent(2); // ChannelEvent: All
@@ -260,13 +248,12 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(4); // ChannelEvent: channelTwo
 			});
 			it("should not notify a link who unsubscribed from all all channels", async function() {
-				const messages = awaitMessages([1]);
 				const connectorData = connectorSetupDate[0];
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, false);
 				await subscriptions._handleRequest(request, connectorData.src, connectorData.dst);
 				mockController.wsServer.controlConnections.get(0).connector.sentMessages.pop(); // Response to request
 				subscriptions.broadcast(new RegisteredEvent());
-				await messages;
+				await onceConnectorSend(1);
 				assertNoEvent(0);
 				assertLastEvent(1, RegisteredEvent);
 				assertNoEvent(2);
@@ -274,9 +261,8 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(4);
 			});
 			it("should notify all links who subscribed the specific channel", async function() {
-				const messages = awaitMessages([2, 3]);
 				subscriptions.broadcast(new ChannelEvent());
-				await messages;
+				await Promise.all([onceConnectorSend(2), onceConnectorSend(3)]);
 				assertNoEvent(0);
 				assertNoEvent(1);
 				assertLastEvent(2, ChannelEvent);
@@ -284,13 +270,12 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(4);
 			});
 			it("should not notify a link who unsubscribed from the specific channel", async function() {
-				const messages = awaitMessages([2]);
 				const connectorData = connectorSetupDate[3];
 				const request = new lib.SubscriptionRequest(ChannelEvent.name, false, []);
 				await subscriptions._handleRequest(request, connectorData.src, connectorData.dst);
 				mockController.wsServer.controlConnections.get(3).connector.sentMessages.pop(); // Response to request
 				subscriptions.broadcast(new ChannelEvent());
-				await messages;
+				await onceConnectorSend(2);
 				assertNoEvent(0);
 				assertNoEvent(1);
 				assertLastEvent(2, ChannelEvent);
@@ -298,11 +283,10 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(4);
 			});
 			it("should not notify links which are closed or closing", async function() {
-				const messages = awaitMessages([1]);
 				const link = mockController.wsServer.controlConnections.get(0);
 				link.connector.closing = true;
 				subscriptions.broadcast(new RegisteredEvent());
-				await messages;
+				await onceConnectorSend(1);
 				assertNoEvent(0);
 				assertLastEvent(1, RegisteredEvent);
 				assertNoEvent(2);
@@ -320,35 +304,31 @@ describe("lib/subscriptions", function() {
 			it("should not accept subscriptions to unregistered events", function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				request.eventName = UnregisteredEvent.name;
-				const connectorData = connectorSetupDate[0];
 				assert.rejects(
-					subscriptions._handleRequest(request, connectorData.src, connectorData.dst),
+					subscriptions._handleRequest(request, addr({ controlId: 0 }), addr("controller")),
 					new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
 				);
 			});
 			it("should not accept subscriptions to events not handled by the class", function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				request.eventName = StringPermissionEvent.name;
-				const connectorData = connectorSetupDate[0];
 				assert.rejects(
-					subscriptions._handleRequest(request, connectorData.src, connectorData.dst),
+					subscriptions._handleRequest(request, addr({ controlId: 0 }), addr("controller")),
 					new Error(`Event ${StringPermissionEvent.eventName} is not a registered as subscribable`)
 				);
 			});
 			it("should accept a subscription to all channels", async function() {
-				const messages = awaitMessages([0]);
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
 				subscriptions.broadcast(new RegisteredEvent());
-				await messages;
+				await onceConnectorSend(0);
 				assertLastEvent(0, RegisteredEvent);
 			});
 			it("should accept a unsubscription from all channels", async function() {
-				const messages = awaitMessages([0]);
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
 				subscriptions.broadcast(new RegisteredEvent());
-				await messages;
+				await onceConnectorSend(0);
 				assertLastEvent(0, RegisteredEvent);
 
 				const link = mockController.wsServer.controlConnections.get(0);
@@ -360,19 +340,17 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(0);
 			});
 			it("should accept a subscription to a specific channel", async function() {
-				const messages = awaitMessages([0]);
 				const request = new lib.SubscriptionRequest(ChannelEvent.name, false, ["channelOne"]);
 				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
 				subscriptions.broadcast(new ChannelEvent());
-				await messages;
+				await onceConnectorSend(0);
 				assertLastEvent(0, ChannelEvent);
 			});
 			it("should accept a unsubscription from a specific channel", async function() {
-				const messages = awaitMessages([0]);
 				const request = new lib.SubscriptionRequest(ChannelEvent.name, false, ["channelOne"]);
 				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
 				subscriptions.broadcast(new ChannelEvent());
-				await messages;
+				await onceConnectorSend(0);
 				assertLastEvent(0, ChannelEvent);
 
 				const link = mockController.wsServer.controlConnections.get(0);
@@ -384,7 +362,6 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(0);
 			});
 			it("should accept a respond with an event replay when returned by the handler", async function() {
-				const messages = awaitMessages([0]);
 				subscriptions.handle(StringPermissionEvent, undefined, async function() {
 					return new StringPermissionEvent();
 				});
@@ -392,7 +369,7 @@ describe("lib/subscriptions", function() {
 				const request = new lib.SubscriptionRequest(StringPermissionEvent.name, true);
 				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
 				subscriptions.broadcast(new StringPermissionEvent());
-				await messages;
+				await onceConnectorSend(0);
 				assertLastEvent(0, StringPermissionEvent);
 
 				const link = mockController.wsServer.controlConnections.get(0);
@@ -446,10 +423,7 @@ describe("lib/subscriptions", function() {
 
 		describe("connectControl()", function() {
 			it("should handle the provided event", function() {
-				const control = new MockControl(new MockConnector(
-					addr({ controlId: 0 }),
-					addr("controller"),
-				));
+				const control = new MockControl(new MockConnector(addr({ controlId: 0 }), addr("controller")));
 				registeredEvent.connectControl(control);
 				assert.equal(control._eventHandlers.has(RegisteredEvent), true);
 			});
@@ -559,17 +533,16 @@ describe("lib/subscriptions", function() {
 			it("should call handlers when a replay event is returned", async function() {
 				let calledWith = null;
 				const event = new RegisteredEvent();
-				const message = events.once(mockControl.connector, "send");
 				const request = registeredEvent.subscribe(function(value) { calledWith = value; });
-				await message;
+				await events.once(mockControl.connector, "send");
 
-				const responseMessage = new lib.MessageResponse(
-					1,
+				mockControl.connector.emit("message", new lib.MessageResponse(
+					0,
 					mockControl.connector.dst,
 					new lib.Address(lib.Address.control, 0, mockControl._nextRequestId - 1),
 					new lib.SubscriptionResponse(event).toJSON()
-				);
-				mockControl.connector.emit("message", responseMessage);
+				));
+
 				await request;
 				assert.deepEqual(calledWith, event);
 			});
