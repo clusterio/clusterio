@@ -178,9 +178,11 @@ class MockController {
 		]);
 		this.instances = new Map();
 		this.hosts = new Map();
+		this.handles = new Map();
 	}
 
-	handle() {
+	handle(eventClass, handler) {
+		this.handles.set(eventClass, handler);
 	}
 
 	getControllerUrl() {

@@ -82,6 +82,9 @@ export class SubscriptionRequest {
         public channels: Array<string | number> = [],
         public lastRequestTime: number = 0,
     ) {
+        if (!Link._eventsByName.has(eventName)) {
+            throw new Error(`Unregistered Event class ${eventName}`);
+        }
     }
 
     static jsonSchema = Type.Tuple([
@@ -114,7 +117,7 @@ export class SubscriptionController {
     constructor(
         private controller: any, // Controller | Link
     ) {
-        this.controller.handle(SubscriptionRequest, this._handleEvent.bind(this));
+        this.controller.handle(SubscriptionRequest, this._handleRequest.bind(this));
     }
 
     /**
@@ -148,7 +151,7 @@ export class SubscriptionController {
     broadcast(event: Event<unknown>) {
         const entry = Link._eventsByClass.get(event.constructor);
         if (!entry) {
-			throw new Error(`Unregistered Event class ${Event.name}`);
+			throw new Error(`Unregistered Event class ${event.constructor.name}`);
 		}
         const eventData = this._events.get(entry.name);
         if (!eventData) {
@@ -164,7 +167,7 @@ export class SubscriptionController {
 		}
     }
 
-    async _handleEvent(event: SubscriptionRequest, src: Address, dst: Address) {
+    async _handleRequest(event: SubscriptionRequest, src: Address, dst: Address) {
         if (!Link._eventsByName.has(event.eventName)) {
             throw new Error(`Event ${event.eventName} is not a registered event`);
 		}
@@ -199,18 +202,19 @@ export class EventSubscriber<T, V=T> {
     _channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<V>>>()
     lastResponse: T | null = null; // Does not work with Event<T>
     lastResponseTime = 0;
+    control?: Link
 
     constructor(
         private event: EventClass<T>,
         private prehandler?: (event: T) => V,
-        private control?: Link
+        control?: Link
     ) {
         const entry = Link._eventsByClass.get(this.event);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${this.event.name}`);
 		}
-        if (this.control) {
-            this.control.handle(this.event, this._handle.bind(this));
+        if (control) {
+            this.connectControl(control);
         }
     }
 
@@ -237,7 +241,7 @@ export class EventSubscriber<T, V=T> {
 
     subscribe(handler: EventSubscriberCallback<V>) {
         this._callbacks.push(handler);
-		this._updateSubscription();
+		return this._updateSubscription();
     }
 
     subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
@@ -245,7 +249,7 @@ export class EventSubscriber<T, V=T> {
             this._channelCallbacks.set(channel, []);
         }
         this._channelCallbacks.get(channel)!.push(handler);
-		this._updateSubscription();
+		return this._updateSubscription();
     }
 
     unsubscribe(handler: EventSubscriberCallback<V>) {
@@ -255,7 +259,7 @@ export class EventSubscriber<T, V=T> {
 		}
 
 		this._callbacks.splice(index, 1);
-		this._updateSubscription();
+		return this._updateSubscription();
     }
 
     unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
@@ -274,7 +278,7 @@ export class EventSubscriber<T, V=T> {
         } else {
             channelCallbacks.splice(index, 1);
         }
-		this._updateSubscription();
+		return this._updateSubscription();
     }
 
     async _updateSubscription() {
