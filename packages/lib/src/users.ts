@@ -378,7 +378,7 @@ definePermission({
 definePermission({
 	name: "core.host.revoke_token",
 	title: "Revoke host token",
-	description: "Revoke access token and terminate all existing control connections.",
+	description: "Revoke access token and terminate existing connection for hosts.",
 });
 definePermission({
 	name: "core.host.create_config",
