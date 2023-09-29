@@ -229,7 +229,7 @@ export default function HostsPage() {
 						{host.connected ? "Connected" : "Disconnected"}
 					</Tag>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
-				},
+				}
 			]}
 			dataSource={hostList}
 			rowKey={host => host.id}

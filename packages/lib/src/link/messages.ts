@@ -34,6 +34,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	host.ControllerConnectionEvent,
 	host.PrepareControllerDisconnectRequest,
 	host.SyncUserListsEvent,
+	host.HostRevokeTokensRequest,
 
 	instance.InstanceDetailsGetRequest,
 	instance.InstanceDetailsListRequest,

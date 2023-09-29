@@ -240,6 +240,11 @@ ${err.stack}`
 			if ((tokenPayload.host !== undefined ? tokenPayload.host : tokenPayload.slave) !== data.id) {
 				throw new Error("missmatched host id");
 			}
+
+			let host = this.controller.hosts!.get(data.id);
+			if (!tokenPayload.iat || tokenPayload.iat < (host?.token_valid_after??0)) {
+				throw new Error("invalid token");
+			}
 		} catch (err: any) {
 			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);
 			wsRejectedConnectionsCounter.inc();

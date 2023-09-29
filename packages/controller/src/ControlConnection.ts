@@ -87,6 +87,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
+		this.handle(lib.HostRevokeTokensRequest, this.handleHostRevokeTokensRequest.bind(this));
 		this.handle(lib.HostListRequest, this.handleHostListRequest.bind(this));
 		this.handle(lib.HostSetSubscriptionsRequest, this.handleHostSetSubscriptionsRequest.bind(this));
 		this.handle(lib.HostGenerateTokenRequest, this.handleHostGenerateTokenRequest.bind(this));
@@ -201,6 +202,22 @@ export default class ControlConnection extends BaseConnection {
 		this._controller.config.setProp(field, prop, value, "control");
 	}
 
+	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
+		const host = this._controller.hosts?.get(request.hostId);
+		if (!host) {
+			throw new Error(`Unknown host id (${request.hostId})`);
+		}
+
+		host.token_valid_after = Math.floor(Date.now() / 1000);
+
+		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
+		if (hostConnection) {
+			hostConnection.connector.terminate();
+		}
+
+		this._controller.hostUpdated(host as HostInfo);
+	}
+
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
 		let list = [];
 		for (let host of this._controller.hosts!.values()) {
@@ -211,6 +228,7 @@ export default class ControlConnection extends BaseConnection {
 				host.id,
 				this._controller.wsServer.hostConnections.has(host.id),
 				host.public_address,
+				host.token_valid_after,
 			));
 		}
 		return list;

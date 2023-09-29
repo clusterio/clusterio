@@ -15,6 +15,7 @@ export interface HostInfo {
 	version: string;
 	plugins: [number, any][];
 	public_address: string | undefined;
+	token_valid_after?: number;
 }
 
 /**
@@ -45,6 +46,8 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
+		let currentHostInfo = this._controller.hosts!.get(this._id)
+
 		this._controller.hosts!.set(this._id, {
 			agent: this._agent,
 			id: this._id,
@@ -52,6 +55,7 @@ export default class HostConnection extends BaseConnection {
 			version: this._version,
 			public_address: registerData.publicAddress,
 			plugins: registerData.plugins,
+			token_valid_after: currentHostInfo?.token_valid_after,
 		});
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {

@@ -376,6 +376,11 @@ definePermission({
 	description: "Generate tokens for hosts to connect to the cluster with.",
 });
 definePermission({
+	name: "core.host.revoke_token",
+	title: "Revoke host token",
+	description: "Revoke access token and terminate existing connection for hosts.",
+});
+definePermission({
 	name: "core.host.create_config",
 	title: "Create host config",
 	description: "Create host configs via the controller.",

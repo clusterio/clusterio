@@ -30,3 +30,14 @@ export function formatDuration(ms: number): string {
 	result += formatSecond(Math.round(ms / 1e3));
 	return result;
 }
+
+export function formatTimestamp(timestamp: number): string {
+	const options = {
+		year: "numeric",
+		month: "numeric",
+		day: "numeric",
+		hour: "numeric",
+		minute: "numeric",
+	} as const;
+	return new Intl.DateTimeFormat(undefined, options).format(new Date(timestamp));
+}
