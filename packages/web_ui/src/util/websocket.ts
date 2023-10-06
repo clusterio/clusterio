@@ -59,9 +59,9 @@ export class Control extends lib.Link {
 	hostUpdate = new lib.EventSubscriber<lib.HostUpdateEvent, lib.HostDetails>(lib.HostUpdateEvent, event => event.update);
 	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdateEvent, lib.InstanceDetails>(lib.InstanceDetailsUpdateEvent, event => event.details);
 	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveListUpdateEvent>(lib.InstanceSaveListUpdateEvent);
-	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdateEvent, lib.ModPack>(lib.InstanceSaveListUpdateEvent, event => event.modPack);
-	modUpdate = new lib.EventSubscriber<lib.ModUpdateEvent, lib.ModInfo>(lib.InstanceSaveListUpdateEvent, event => event.mod);
-	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.RawUser>(lib.InstanceSaveListUpdateEvent, event => event.user);
+	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdateEvent, lib.ModPack>(lib.ModPackUpdateEvent, event => event.modPack);
+	modUpdate = new lib.EventSubscriber<lib.ModUpdateEvent, lib.ModInfo>(lib.ModUpdateEvent, event => event.mod);
+	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.RawUser>(lib.UserUpdateEvent, event => event.user);
 
 	declare connector: ControlConnector;
 

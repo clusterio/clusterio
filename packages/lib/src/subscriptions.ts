@@ -118,7 +118,7 @@ export class SubscriptionRequest {
 export class SubscriptionController {
     _events = new Map<string, {
         subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-        subscriptions: Map<Link, { all: boolean, channels: Array<string | number> }>,
+        subscriptions: Map<Link, { all: boolean, channels: Array<string | number>, onceClose: () => void }>,
     }>();
 
     constructor(
@@ -186,14 +186,18 @@ export class SubscriptionController {
         const eventReplay = eventData.subscriptionUpdate ? await eventData.subscriptionUpdate(event, src, dst) : null;
         const link: Link = this.controller.wsServer.controlConnections.get(src.id);
         if (event.allChannels === false && event.channels.length === 0) {
-            eventData.subscriptions.delete(link);
-        } else {
-            if (!eventData.subscriptions.has(link)) {
-                link.connector.once("close", () => {
-                    eventData.subscriptions.delete(link);
-                })
+            let onceClose = eventData.subscriptions.get(link)?.onceClose;
+            if (onceClose) {
+                link.connector.off("close", onceClose);
+                eventData.subscriptions.delete(link);
             }
-            eventData.subscriptions.set(link, { all: event.allChannels, channels: event.channels });
+        } else {
+            let onceClose = eventData.subscriptions.get(link)?.onceClose;
+            if (!onceClose) {
+                onceClose = () => eventData.subscriptions.delete(link);
+                link.connector.once("close", onceClose);
+            }
+            eventData.subscriptions.set(link, { all: event.allChannels, channels: event.channels, onceClose: onceClose });
         }
         return new SubscriptionResponse(eventReplay);
     }
@@ -249,51 +253,51 @@ export class EventSubscriber<T, V=T> {
     /**
      * If a control link was not connected at creation, it can be connected here (normally during onControllerConnectionEvent)
      */
-    connectControl(control: Link) {
-        if (this.control === control) return Promise.resolve();
+    async connectControl(control: Link) {
+        if (this.control === control) return;
         this.control = control;
         this.control.handle(this.event, this._handle.bind(this));
-        return this._updateSubscription();
+        await this._updateSubscription();
     }
 
     /**
      * Subscribe to receive all event notifications
      */
-    subscribe(handler: EventSubscriberCallback<V>) {
+    async subscribe(handler: EventSubscriberCallback<V>) {
         this._callbacks.push(handler);
-		return this._updateSubscription();
+		await this._updateSubscription();
     }
 
     /**
      * Subscribe to receive event notifications for the given channel
      */
-    subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
+    async subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
         if (!this._channelCallbacks.get(channel)) {
             this._channelCallbacks.set(channel, []);
         }
         this._channelCallbacks.get(channel)!.push(handler);
-		return this._updateSubscription();
+		await this._updateSubscription();
     }
 
     /**
      * Unsubscribe from receiving all event notifications, does not effect the subscriptions of other handlers
      * Will throw an error if your handler is not subscribed to all channels, does not accept anonymous functions
      */
-    unsubscribe(handler: EventSubscriberCallback<V>) {
+    async unsubscribe(handler: EventSubscriberCallback<V>) {
         let index = this._callbacks.lastIndexOf(handler);
 		if (index === -1) {
 			throw new Error("handler is not registered");
 		}
 
 		this._callbacks.splice(index, 1);
-		return this._updateSubscription();
+		await this._updateSubscription();
     }
 
     /**
      * Unsubscribe from receiving event notifications for a given channel, does not effect the subscriptions of other handlers
      * Will throw an error if your handler is not subscribed to the channel, does not accept anonymous functions
      */
-    unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
+    async unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
         const channelCallbacks = this._channelCallbacks.get(channel);
         if (!channelCallbacks) {
             throw new Error("handler is not registered");
@@ -309,7 +313,7 @@ export class EventSubscriber<T, V=T> {
         } else {
             channelCallbacks.splice(index, 1);
         }
-		return this._updateSubscription();
+		await this._updateSubscription();
     }
 
     /**
