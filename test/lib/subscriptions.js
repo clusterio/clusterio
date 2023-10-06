@@ -484,7 +484,7 @@ describe("lib/subscriptions", function() {
 			});
 			it("should throw an error if the handler was not subscribed", function() {
 				function callback(value) { calledWith = value; }
-				assert.throws(
+				assert.rejects(
 					() => registeredEvent.unsubscribe(callback),
 					new Error("handler is not registered")
 				);
@@ -524,7 +524,7 @@ describe("lib/subscriptions", function() {
 			});
 			it("should throw an error if the handler was not subscribed", function() {
 				function callback() {}
-				assert.throws(
+				assert.rejects(
 					() => channelEvent.unsubscribeFromChannel("channelOne", callback),
 					new Error("handler is not registered")
 				);
@@ -532,7 +532,7 @@ describe("lib/subscriptions", function() {
 				let calledWith = null;
 				function callbackTwo(value) { calledWith = value; }
 				channelEvent.subscribeToChannel("channelOne", callbackTwo);
-				assert.throws(
+				assert.rejects(
 					() => channelEvent.unsubscribeFromChannel("channelOne", callback),
 					new Error("handler is not registered")
 				);
