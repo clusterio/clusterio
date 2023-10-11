@@ -53,9 +53,9 @@ export function sortLastSeen(userA:RawUserState, userB:RawUserState, instanceIdA
 }
 
 export type RawUserState = Partial<lib.RawUser> & {
-	loading?: Boolean;
-	present?: Boolean;
-	missing?: Boolean;
+	loading?: boolean;
+	present?: boolean;
+	missing?: boolean;
 };
 
 export function useUser(name: string): [RawUserState, () => void] {

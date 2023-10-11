@@ -38,7 +38,7 @@ export default function ModDetails(props: ModDetailsProps) {
 				{`https://mods.factorio.com/mod/${mod.name}`}
 			</Typography.Link>
 		</Descriptions.Item>
-		
+
 		{ (mod instanceof lib.ModInfo) && <>
 			{mod.contact && <Descriptions.Item label="Contact" span={2}>{mod.contact}</Descriptions.Item>}
 			{mod.homepage && <Descriptions.Item label="Homepage" span={2}>{mod.homepage}</Descriptions.Item>}

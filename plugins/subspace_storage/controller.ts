@@ -186,7 +186,9 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 			// use fancy neural net to calculate a "fair" dole division rate.
 			if (method === "neural_dole") {
 				for (let item of request.items) {
-					let count = this.neuralDole.divider({ name: item.name, count: item.count, instanceId, instanceName });
+					let count = this.neuralDole.divider(
+						{ name: item.name, count: item.count, instanceId, instanceName }
+					);
 					if (count > 0) {
 						itemsRemoved.push(new Item(item.name, count));
 					}

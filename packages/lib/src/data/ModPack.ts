@@ -1,4 +1,3 @@
-"use strict";
 import zlib from "zlib";
 import { Type, Static } from "@sinclair/typebox";
 

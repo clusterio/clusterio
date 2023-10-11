@@ -37,7 +37,7 @@ function GenerateHostTokenButton() {
 	}, []);
 
 	async function generateToken() {
-		let id = undefined;
+		let id;
 		let values = form.getFieldsValue();
 		if (values.hostId) {
 			id = Number.parseInt(values.hostId, 10);
@@ -114,12 +114,12 @@ function GenerateHostTokenButton() {
 				<div className="codeblock">
 					<CopyButton
 						message={"Copied host setup commands to clipboard"}
-						text={`
-							mkdir clusterio
-							cd clusterio
-							`+
-							// eslint-disable-next-line max-len
-							`npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless --controller-url ${document.location.origin}/ --host-name "Host ${hostId || "?"}" --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
+						text={`\
+mkdir clusterio
+cd clusterio
+npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless \
+--controller-url ${document.location.origin}/ --host-name "Host ${hostId || "?"}" \
+--public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
 						}/>
 					<p>&gt; mkdir clusterio</p>
 					<p>&gt; cd clusterio</p>
@@ -166,7 +166,7 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 			return result.state === "granted";
 
 		} catch (err: any) {
-			//If it fail because "clipboard-write" is not supported.
+			// If it fail because "clipboard-write" is not supported.
 			return err.name === "TypeError";
 		}
 	}
@@ -229,7 +229,7 @@ export default function HostsPage() {
 						{host.connected ? "Connected" : "Disconnected"}
 					</Tag>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
-				}
+				},
 			]}
 			dataSource={hostList}
 			rowKey={host => host.id}

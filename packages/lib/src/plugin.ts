@@ -120,6 +120,7 @@ export class BaseInstancePlugin {
 		message: string,
 		expectEmpty: boolean,
 	}[] = [];
+
 	private _sendingRconMessages = false;
 
 	constructor(
@@ -653,7 +654,6 @@ export class BaseControlPlugin {
 	 */
 	async addCommands(rootCommand: CommandTree) { }
 }
-
 
 
 /**

@@ -254,7 +254,7 @@ export default class ControlConnection extends BaseConnection {
 			assigned_host = undefined;
 		}
 
-		let game_port: number|null|undefined = instance.game_port
+		let game_port: number|null|undefined = instance.game_port;
 		if (game_port === null) {
 			game_port = undefined;
 		}
@@ -275,8 +275,8 @@ export default class ControlConnection extends BaseConnection {
 			if (assigned_host === null) {
 				assigned_host = undefined;
 			}
-	
-			let game_port: number|null|undefined = instance.game_port
+
+			let game_port: number|null|undefined = instance.game_port;
 			if (game_port === null) {
 				game_port = undefined;
 			}
@@ -434,7 +434,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleModPackCreateRequest(request: lib.ModPackCreateRequest) {
 		let modPack = request.modPack;
 		if (modPack.id === undefined) {
-			throw new lib.RequestError(`Mod pack need an ID to be created`);
+			throw new lib.RequestError("Mod pack need an ID to be created");
 		}
 		if (this._controller.modPacks!.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
@@ -589,7 +589,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleLogSetSubscriptionsRequest(request: lib.LogSetSubscriptionsRequest) {
-		this.logSubscriptions = { 
+		this.logSubscriptions = {
 			all: request.all || false,
 			controller: request.controller || false,
 			hostIds: request.hostIds || [],
@@ -622,7 +622,7 @@ export default class ControlConnection extends BaseConnection {
 			controller: request.controller,
 			hostIds: request.hostIds,
 			instanceIds: request.instanceIds,
-		}
+		};
 
 		let observeDuration = queryLogTime.startTimer();
 		let { all, controller, hostIds, instanceIds } = request;

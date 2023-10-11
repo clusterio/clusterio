@@ -19,7 +19,7 @@ export class ContributionEvent {
 		"name": Type.String(),
 		"level": Type.Integer(),
 		"contribution": Type.Number(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof ContributionEvent.jsonSchema>): ContributionEvent {
 		return new this(json.name, json.level, json.contribution);
@@ -39,7 +39,7 @@ export class TechnologyProgress {
 		"name": Type.String(),
 		"level": Type.Integer(),
 		"progress": Type.Number(),
-	})
+	});
 }
 
 export class ProgressEvent {
@@ -57,8 +57,8 @@ export class ProgressEvent {
 	static jsonSchema = Type.Object({
 		"technologies": Type.Array(
 			TechnologyProgress.jsonSchema
-		)
-	})
+		),
+	});
 
 	static fromJSON(json: Static<typeof ProgressEvent.jsonSchema>): ProgressEvent {
 		return new this(json.technologies);
@@ -81,7 +81,7 @@ export class FinishedEvent {
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
 		"level": Type.Integer(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof FinishedEvent.jsonSchema>): FinishedEvent {
 		return new this(json.name, json.level);
@@ -100,9 +100,10 @@ export class TechnologySync {
 	static jsonSchema = Type.Tuple([
 		Type.String(),
 		Type.Integer(),
-		Type.Union([ Type.Number(), Type.Null() ]),
+		Type.Union([Type.Number(), Type.Null()]),
 		Type.Boolean(),
-	])
+	]);
+
 	toJSON() {
 		return [this.name, this.level, this.progress, this.researched];
 	}

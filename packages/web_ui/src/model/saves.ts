@@ -10,7 +10,7 @@ export function useSaves(instanceId?: number): lib.SaveDetails[] {
 	let [saves, setSaves] = useState<lib.SaveDetails[]>([]);
 
 	function updateSaves() {
-		control.sendTo({ instanceId:instanceId! }, new lib.InstanceListSavesRequest()).then(updatedSaves => {
+		control.sendTo({ instanceId: instanceId! }, new lib.InstanceListSavesRequest()).then(updatedSaves => {
 			setSaves(updatedSaves);
 		}).catch(err => {
 			logger.error(`Failed to list instance saves: ${err}`);

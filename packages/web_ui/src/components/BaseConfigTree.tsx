@@ -103,7 +103,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		title="A restart is required for this setting to take effect"
 	><ReloadOutlined/></Tooltip>;
 
-	
+
 	type ChildNode = {
 		key: string;
 		children: any[];

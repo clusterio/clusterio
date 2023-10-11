@@ -1,4 +1,3 @@
-"use strict";
 import winston from "winston";
 import Transport from "winston-transport";
 import { LEVEL, MESSAGE } from "triple-beam";

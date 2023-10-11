@@ -166,6 +166,7 @@ export class LogQueryRequest {
 			json.all, json.controller, json.hostIds, json.instanceIds, json.maxLevel, json.limit, json.order
 		);
 	}
+
 	static Response = class Response {
 		constructor(
 			public log: object[],

@@ -1,11 +1,10 @@
-"use strict";
 import * as core from "../data/messages_core";
 import * as controller from "../data/messages_controller";
 import * as host from "../data/messages_host";
 import * as instance from "../data/messages_instance";
 import * as mod from "../data/messages_mod";
 import * as user from "../data/messages_user";
-import * as subscriptions from "../subscriptions"
+import * as subscriptions from "../subscriptions";
 import type { RequestClass, EventClass } from "./link";
 
 /**

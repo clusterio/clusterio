@@ -4,7 +4,6 @@
  * @author Hornwitser
  * @module lib/logging_utils
  */
-"use strict";
 import fs from "fs-extra";
 import path from "path";
 import stream from "stream";

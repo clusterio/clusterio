@@ -99,7 +99,8 @@ export class NeuralDole {
 // If the server regularly can't fulfill requests, this number grows until
 // it can. Then it slowly shrinks back down.
 let _doleDivisionFactor: { [key:string]: number } = {};
-export function doleDivider({
+export function doleDivider(
+	{
 		object,
 		items,
 		logItemTransfers,

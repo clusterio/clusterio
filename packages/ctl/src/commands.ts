@@ -466,7 +466,7 @@ instanceConfigCommands.add(new lib.Command({
 		});
 		await events.once(doneEmitter, "dot_on_done");
 		try {
-			await fs.unlink(tmpFile)
+			await fs.unlink(tmpFile);
 		} catch (err) {
 			print("err: temporary file", tmpFile, "could not be deleted.");
 			print("This is not fatal, but they may build up over time if the issue persists.");

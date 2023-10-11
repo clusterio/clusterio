@@ -6,7 +6,7 @@ import { StringEnum } from "@clusterio/lib";
 const jsonPlayerData = Type.Object({
 	generation: Type.Number(),
 	name: Type.String(),
-})
+});
 
 export class AcquireResponse {
 	constructor(
@@ -45,7 +45,7 @@ export class AcquireRequest {
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Number(),
 		"playerName": Type.String(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof AcquireRequest.jsonSchema>): AcquireRequest {
 		return new this(json.instanceId, json.playerName);
@@ -68,7 +68,7 @@ export class ReleaseRequest {
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
 		"playerName": Type.String(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof ReleaseRequest.jsonSchema>) {
 		return new this(json.instanceId, json.playerName);
@@ -108,7 +108,7 @@ export class DownloadResponse {
 
 	static jsonSchema = Type.Object({
 		"playerData": Type.Optional(jsonPlayerData),
-	})
+	});
 
 	static fromJSON(json: Static<typeof DownloadResponse.jsonSchema>): DownloadResponse {
 		return new this(json.playerData as IpcPlayerData);
@@ -132,7 +132,7 @@ export class DownloadRequest {
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
 		"playerName": Type.String(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof DownloadRequest.jsonSchema>) {
 		return new this(json.instanceId, json.playerName);
@@ -153,8 +153,8 @@ class DatabaseStatsResponse {
 		"largestEntry": Type.Object({
 			"name": Type.String(),
 			"size": Type.Number(),
-		})
-	})
+		}),
+	});
 
 	static fromJSON(json: Static<typeof DatabaseStatsResponse.jsonSchema>): DatabaseStatsResponse {
 		return new this(json.databaseSize, json.databaseEntries, json.largestEntry);

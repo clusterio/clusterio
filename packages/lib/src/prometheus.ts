@@ -1188,7 +1188,7 @@ class HistogramChild {
 	protected _bucketValues: Map<string, number>;
 	protected _sumValues: Map<string, number>;
 	protected _countValues: Map<string, number>;
-	protected _key: string
+	protected _key: string;
 	protected _bucketKeys: Map<number, string>;
 
 	constructor(collector: Histogram, key: string) {
@@ -1438,6 +1438,7 @@ export class Histogram extends LabeledCollector<HistogramChild> {
 	 * Observe a given value and increment matching buckets
 	 *
 	 * Note: Only works if this is an unlabeled collector.
+	 * @param value - number to count into histogram buckets.
 	 */
 	observe(value: number) {
 		this._defaultChild!.observe(value);

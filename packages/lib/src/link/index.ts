@@ -3,5 +3,5 @@
  * @module lib/link
  * @author Hornwitser
  */
-export * from "./link"
-export * from "./connectors"
+export * from "./link";
+export * from "./connectors";

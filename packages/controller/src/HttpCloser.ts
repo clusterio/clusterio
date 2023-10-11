@@ -26,7 +26,8 @@ export default class HttpCloser {
 	private _responses: Set<http.ServerResponse>;
 
 	/**
-	 * Server to attach this closer to.
+	 * Create HttpCloser attached to a server.
+	 * @param server - Node.js HTTP(S) server to attach to.
 	 */
 	constructor(server: http.Server | https.Server) {
 		this._server = server;

@@ -54,7 +54,9 @@ export default class WsServer {
 			noServer: true,
 			path: "/api/socket",
 		});
-		this.wss.on("connection", (socket: lib.WebSocketClusterio, req: IncomingMessage) => this.handleConnection(socket, req));
+		this.wss.on("connection",
+			(socket: lib.WebSocketClusterio, req: IncomingMessage) => this.handleConnection(socket, req),
+		);
 	}
 
 	async stop(): Promise<void> {

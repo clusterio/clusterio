@@ -77,7 +77,7 @@ export default class Controller {
 
 	/** Event subscription controller */
 	subscriptions: lib.SubscriptionController;
-	
+
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
 	private _shouldStop: boolean = false;
@@ -87,7 +87,7 @@ export default class Controller {
 	_snoopedEvents = new Map();
 
 	devMiddleware: any | null = null;
-	
+
 	logDirectory: string = "";
 	clusterLogIndex: lib.LogIndex | null = null;
 	clusterLogBuildInterval: ReturnType<typeof setInterval> | null = null;
@@ -157,7 +157,7 @@ export default class Controller {
 	async _startInternal(args: ControllerArgs) {
 		this.logDirectory = args.logDirectory;
 		this.clusterLogIndex = await lib.LogIndex.load(path.join(this.logDirectory, "cluster"));
-		
+
 		this.clusterLogBuildInterval = setInterval(() => {
 			if (this.clusterLogIndex) {
 				this.clusterLogIndex.buildIndex().catch(
@@ -239,7 +239,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json")
+			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -365,7 +365,7 @@ export default class Controller {
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
 		let serialized: [number, HostInfo][];
 		try {
-			serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
@@ -425,7 +425,7 @@ export default class Controller {
 	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
 		let json;
 		try {
-			json = JSON.parse(await fs.readFile(filePath, { encoding : "utf8" }));
+			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
@@ -439,7 +439,7 @@ export default class Controller {
 		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
 	}
 
-	static async loadModInfos(modsDirectory: string): Promise<Map<string,lib.ModInfo>> {
+	static async loadModInfos(modsDirectory: string): Promise<Map<string, lib.ModInfo>> {
 		let mods = new Map();
 		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
@@ -476,7 +476,7 @@ export default class Controller {
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
 		let manifest = {};
 		try {
-			manifest = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			manifest = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
 			if (!throwOnMissing && err.code !== "ENOENT") {
 				throw err;
@@ -543,7 +543,9 @@ export default class Controller {
 
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
-		app.use("/static", express.static(path.join(__dirname, "..", "..", "..", "dist", "web", "static"), staticOptions));
+		app.use("/static",
+			express.static(path.join(__dirname, "..", "..", "..", "dist", "web", "static"), staticOptions)
+		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
 		// Add API routes
@@ -595,9 +597,10 @@ export default class Controller {
 	 * Get instance by ID for a request
 	 *
 	 * @param instanceId - ID of instance to get.
+	 * @returns Info for the given instance if it exists
 	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
-	getRequestInstance(instanceId:number):InstanceInfo {
+	getRequestInstance(instanceId:number): InstanceInfo {
 		let instance = this.instances!.get(instanceId);
 		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -773,7 +776,7 @@ export default class Controller {
 			assigned_host = undefined;
 		}
 
-		let game_port: number|null|undefined = instance.game_port
+		let game_port: number|null|undefined = instance.game_port;
 		if (game_port === null) {
 			game_port = undefined;
 		}

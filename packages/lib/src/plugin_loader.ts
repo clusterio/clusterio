@@ -89,7 +89,7 @@ export async function loadControllerPluginClass(
 
 /**
  * Load instance plugin class of a plugin
- 
+ *
  * @param pluginInfo -
  *     Plugin info object returned from {@link
  *     loadPluginInfos} to load class from.

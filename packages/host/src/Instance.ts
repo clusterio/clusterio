@@ -11,7 +11,7 @@ import * as lib from "@clusterio/lib";
 import { FactorioServer } from "./server";
 import { SaveModule, patch } from "./patch";
 import { exportData } from "./export";
-import type Host from "./Host"
+import type Host from "./Host";
 
 
 const instanceRconCommandDuration = new lib.Histogram(
@@ -99,7 +99,7 @@ export default class Instance extends lib.Link {
 	/**
 	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
 	 */
-	readonly id: number
+	readonly id: number;
 	plugins: Map<string, lib.BaseInstancePlugin>;
 	config: lib.InstanceConfig;
 	logger: lib.Logger;

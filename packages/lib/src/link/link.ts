@@ -316,7 +316,7 @@ export class Link {
 		if (!this.router) {
 			let err = new libErrors.InvalidMessage(
 				`Received message addressed to ${(message as libData.MessageRequest).dst} but this link `+
-				`does not route messages`
+				"does not route messages"
 			);
 			if (message.type === "request") {
 				this.connector.sendResponseError(
@@ -401,8 +401,8 @@ export class Link {
 					this.connector.sendResponseError(
 						new libData.ResponseError(err.message, err.code, err.stack), message.src, spoofedSrc
 					);
-				} catch (err: any) {
-					logger.error(`Unexpected error sending error response for ${message.name}:\n${err.stack}`);
+				} catch (subErr: any) {
+					logger.error(`Unexpected error sending error response for ${message.name}:\n${subErr.stack}`);
 				}
 			}
 		);
@@ -527,7 +527,7 @@ export class Link {
 		let requestId = this._nextRequestId;
 		this._nextRequestId += 1;
 		this._pendingRequests.set(
-			requestId, { request: entry, promise, resolve: resolve!, reject: reject!, dst, }
+			requestId, { request: entry, promise, resolve: resolve!, reject: reject!, dst }
 		);
 		this.connector.sendRequest(request, requestId, dst);
 		return promise;

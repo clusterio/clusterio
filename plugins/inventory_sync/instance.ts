@@ -1,10 +1,14 @@
 import * as lib from "@clusterio/lib";
-import { AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse } from "./messages";
+import {
+	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse,
+} from "./messages";
 
 type IpcPlayerName = {
 	player_name: string
 }
-export type IpcPlayerData = { //.\module\serialize.lua:serialize.serialize_player()
+
+// .\module\serialize.lua:serialize.serialize_player()
+export type IpcPlayerData = {
 	generation: number,
 	controller: string,
 	name: string,
@@ -34,6 +38,7 @@ type IpcAcquireResponse = {
  * Splits string into array of strings with max of a certain length
  * @param chunkSize - Max length of each chunk
  * @param string - String to split into chunks
+ * @returns array of substrings
  */
 function chunkify(chunkSize: number, string: string): string[] {
 	return string.match(new RegExp(`.{1,${chunkSize}}`, "g")) || [];
@@ -48,21 +53,37 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 		this.disconnecting = false;
 
 		// Handle IPC from scenario script
-		this.instance.server.on("ipc-inventory_sync_acquire", (request: IpcPlayerName) => this.handleAcquire(request)
-			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_acquire:\n${err.stack}`)));
-		this.instance.server.on("ipc-inventory_sync_release", (request: IpcPlayerName) => this.handleRelease(request)
-			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_release:\n${err.stack}`)));
-		this.instance.server.on("ipc-inventory_sync_upload", (player_data: IpcPlayerData) => this.handleUpload(player_data)
-			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_upload:\n${err.stack}`)));
-		this.instance.server.on("ipc-inventory_sync_download", (request: IpcPlayerName) => this.handleDownload(request)
-			.catch(err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)));
+		this.instance.server.on(
+			"ipc-inventory_sync_acquire",
+			(request: IpcPlayerName) => this.handleAcquire(request).catch(
+				err => this.logger.error(`Error handling ipc-inventory_sync_acquire:\n${err.stack}`)
+			),
+		);
+		this.instance.server.on(
+			"ipc-inventory_sync_release",
+			(request: IpcPlayerName) => this.handleRelease(request).catch(
+				err => this.logger.error(`Error handling ipc-inventory_sync_release:\n${err.stack}`)
+			),
+		);
+		this.instance.server.on(
+			"ipc-inventory_sync_upload",
+			(player_data: IpcPlayerData) => this.handleUpload(player_data).catch(
+				err => this.logger.error(`Error handling ipc-inventory_sync_upload:\n${err.stack}`)
+			),
+		);
+		this.instance.server.on(
+			"ipc-inventory_sync_download",
+			(request: IpcPlayerName) => this.handleDownload(request).catch(
+				err => this.logger.error(`Error handling ipc-inventory_sync_download:\n${err.stack}`)
+			),
+		);
 	}
 
 	async onPrepareControllerDisconnect() {
 		this.disconnecting = true;
 	}
 
-	
+
 	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
 		if (event === "connect") {
 			this.disconnecting = false;

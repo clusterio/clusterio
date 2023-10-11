@@ -3,7 +3,7 @@ import { Type, Static } from "@sinclair/typebox";
 import events from "events";
 
 import isDeepStrictEqual from "../is_deep_strict_equal";
-import { basicType } from"../helpers";
+import { basicType } from "../helpers";
 
 
 export type ConfigLocation = "controller" | "host" | "instance" | "control";

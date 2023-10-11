@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Descriptions, Dropdown, Menu, MenuProps, Modal, Space, Spin, Typography } from "antd";
-import type { ItemType } from 'antd/es/menu/hooks/useItems';
+import type { ItemType } from "antd/es/menu/hooks/useItems";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 

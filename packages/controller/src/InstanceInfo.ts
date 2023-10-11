@@ -14,7 +14,7 @@ import type * as lib from "@clusterio/lib";
  * - `exporting_data`: Instance is in the process of exporting game data.
  * - `deleted`: Instance has been deleted.
  */
-export type InstanceStatus = 
+export type InstanceStatus =
 		"unknown" | "unassigned" | "stopped" | "starting" | "running" |
 		"stopping" | "creating_save" | "exporting_data" | "deleted";
 

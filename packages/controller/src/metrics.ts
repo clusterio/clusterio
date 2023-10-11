@@ -12,4 +12,4 @@ endpointHitCounter.labels = util.deprecate(
 	"incrementing endpointHitCounter is no longer needed and has no effect"
 );
 
-export default endpointHitCounter
+export default endpointHitCounter;

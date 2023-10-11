@@ -60,6 +60,6 @@ const info: lib.PluginDeclaration = {
 	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
-}
+};
 
 export default info;

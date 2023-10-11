@@ -23,7 +23,15 @@ export class HostDetails {
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.agent, json.version, json.name, json.id, json.connected, json.publicAddress, json.tokenValidAfter);
+		return new this(
+			json.agent,
+			json.version,
+			json.name,
+			json.id,
+			json.connected,
+			json.publicAddress,
+			json.tokenValidAfter,
+		);
 	}
 }
 

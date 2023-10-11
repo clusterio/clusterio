@@ -2,7 +2,6 @@
  * Implementation of commands shared between controller/host/ctl.
  * @module lib/shared_commands
  */
-"use strict";
 import path from "path";
 
 import * as libConfig from "./config";

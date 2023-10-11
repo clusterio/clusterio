@@ -1,4 +1,3 @@
-"use strict";
 import assert from "assert";
 import fs from "fs-extra";
 import stream from "stream";

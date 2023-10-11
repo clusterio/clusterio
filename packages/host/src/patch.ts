@@ -18,7 +18,7 @@ export class SaveModule {
 		/** Module */
 		public info: lib.ModuleInfo,
 		/** Files and their content that will be patched into the save */
-		public files = new Map<string, Buffer>,
+		public files = new Map<string, Buffer>(),
 	) { }
 
 	static moduleFilePath(filePath: string, moduleName: string) {
@@ -47,7 +47,7 @@ export class SaveModule {
 				if (entry.isFile()) {
 					let savePath = SaveModule.moduleFilePath(relativePath, this.info.name);
 					this.files.set(savePath, await fs.readFile(fsPath));
-					if (relativePath == "module_exports.lua") {
+					if (relativePath === "module_exports.lua") {
 						this.files.set(
 							`modules/${this.info.name}.lua`,
 							Buffer.from(`return require("modules/${this.info.name}/module_exports")`, "utf-8")
@@ -96,7 +96,7 @@ export class SaveModule {
 				version: plugin.info.version,
 				dependencies: { "clusterio": "*" },
 				...JSON.parse(await fs.readFile(moduleJsonPath, "utf8")),
-			}
+			};
 		} catch (err: any) {
 			throw new Error(`Loading module/module.json in plugin ${plugin.info.name} failed: ${err.message}`);
 		}
@@ -173,7 +173,7 @@ export class PatchInfo {
 			interface PatchInfoV0 {
 				patch_number: number;
 				scenario: ScenarioInfoV0;
-				modules: { name: string, files: { path: string, load: boolean, require: boolean }[],  }[];
+				modules: { name: string, files: { path: string, load: boolean, require: boolean }[], }[];
 			}
 
 			const info = json as unknown as PatchInfoV0;
@@ -394,7 +394,7 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 	} else {
 		for (let module of patchInfo.modules) {
 			for (let file of module.files.keys()) {
-				zip.remove(root.file(file)!.name)
+				zip.remove(root.file(file)!.name);
 			}
 		}
 		patchInfo.modules = [];

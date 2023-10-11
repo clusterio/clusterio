@@ -96,7 +96,9 @@ export default function UsersPage() {
 				{
 					title: "Roles",
 					key: "roles",
-					render: (user: lib.RawUser) => user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>),
+					render: (user: lib.RawUser) => (
+						user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>)
+					),
 				},
 				{
 					title: "Online time",

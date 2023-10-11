@@ -56,12 +56,29 @@ export class Control extends lib.Link {
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
-	hostUpdate = new lib.EventSubscriber<lib.HostUpdateEvent, lib.HostDetails>(lib.HostUpdateEvent, event => event.update);
-	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdateEvent, lib.InstanceDetails>(lib.InstanceDetailsUpdateEvent, event => event.details);
-	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveListUpdateEvent>(lib.InstanceSaveListUpdateEvent);
-	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdateEvent, lib.ModPack>(lib.ModPackUpdateEvent, event => event.modPack);
-	modUpdate = new lib.EventSubscriber<lib.ModUpdateEvent, lib.ModInfo>(lib.ModUpdateEvent, event => event.mod);
-	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.RawUser>(lib.UserUpdateEvent, event => event.user);
+	hostUpdate = new lib.EventSubscriber<lib.HostUpdateEvent, lib.HostDetails>(
+		lib.HostUpdateEvent, event => event.update,
+	);
+
+	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdateEvent, lib.InstanceDetails>(
+		lib.InstanceDetailsUpdateEvent, event => event.details,
+	);
+
+	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveListUpdateEvent>(
+		lib.InstanceSaveListUpdateEvent,
+	);
+
+	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdateEvent, lib.ModPack>(
+		lib.ModPackUpdateEvent, event => event.modPack,
+	);
+
+	modUpdate = new lib.EventSubscriber<lib.ModUpdateEvent, lib.ModInfo>(
+		lib.ModUpdateEvent, event => event.mod,
+	);
+
+	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.RawUser>(
+		lib.UserUpdateEvent, event => event.user,
+	);
 
 	declare connector: ControlConnector;
 
@@ -81,7 +98,7 @@ export class Control extends lib.Link {
 			this.emitAccountUpdate();
 			this.hostUpdate.connectControl(this).catch(err => logger.error(
 				`Unexpected error updating host subscriptions:\n${err.stack}`
-			));;
+			));
 			this.instanceUpdate.connectControl(this).catch(err => logger.error(
 				`Unexpected error updating instance subscriptions:\n${err.stack}`
 			));

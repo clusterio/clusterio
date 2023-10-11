@@ -18,7 +18,7 @@ export default class UserManager {
 
 	async load(filePath: string): Promise<void> {
 		try {
-			let content = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			let content = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 			for (let serializedRole of content.roles) {
 				let role = new lib.Role(serializedRole);
 				this.roles.set(role.id, role);
@@ -65,6 +65,7 @@ export default class UserManager {
 	/**
 	 * Creates a new user and add it to the user database.
 	 * @param name - Name of the user to create.
+	 * @returns The created user.
 	 */
 	createUser(name:string): lib.User {
 		if (this.users.has(name)) {
@@ -74,7 +75,7 @@ export default class UserManager {
 		let roles = [];
 		let defaultRoleId = this._config.get("controller.default_role_id");
 		if (defaultRoleId !== null) {
-			roles.push(defaultRoleId)
+			roles.push(defaultRoleId);
 		}
 
 		let user = new lib.User({ name, roles }, this.roles);

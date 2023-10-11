@@ -277,8 +277,9 @@ export class ItemDatabase {
 
 	/**
 	 * Allow to iterate through the items.
+	 * @returns array of items.
 	 */
 	getEntries(): IterableIterator<[string, number]> {
-		return this._items.entries()
+		return this._items.entries();
 	}
 }

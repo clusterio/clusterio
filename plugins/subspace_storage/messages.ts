@@ -37,8 +37,8 @@ export class PlaceEvent {
 	}
 
 	static jsonSchema = Type.Object({
-		"items": Type.Array(Item.jsonSchema)
-	})
+		"items": Type.Array(Item.jsonSchema),
+	});
 
 	static fromJSON(json: Static<typeof PlaceEvent.jsonSchema>): PlaceEvent {
 		return new this(json.items.map(item => Item.fromJSON(item)));
@@ -58,8 +58,8 @@ export class RemoveRequest {
 	}
 
 	static jsonSchema = Type.Object({
-		"items": Type.Array(Item.jsonSchema)
-	})
+		"items": Type.Array(Item.jsonSchema),
+	});
 
 	static fromJSON(json: Static<typeof RemoveRequest.jsonSchema>): RemoveRequest {
 		return new this(json.items.map(item => Item.fromJSON(item)));
@@ -91,8 +91,8 @@ export class UpdateStorageEvent {
 	}
 
 	static jsonSchema = Type.Object({
-		"items": Type.Array(Item.jsonSchema)
-	})
+		"items": Type.Array(Item.jsonSchema),
+	});
 
 	static fromJSON(json: Static<typeof UpdateStorageEvent.jsonSchema>): UpdateStorageEvent {
 		return new this(json.items.map(item => Item.fromJSON(item)));
@@ -113,8 +113,8 @@ export class SetStorageSubscriptionRequest {
 	}
 
 	static jsonSchema = Type.Object({
-		"storage": Type.Boolean()
-	})
+		"storage": Type.Boolean(),
+	});
 
 	static fromJSON(json: Static<typeof SetStorageSubscriptionRequest.jsonSchema>): SetStorageSubscriptionRequest {
 		return new this(json.storage);
