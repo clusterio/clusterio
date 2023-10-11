@@ -201,7 +201,7 @@ export class LinkTransport extends Transport {
 		this.filter = options.filter;
 	}
 
-	log(info: any, callback: Function) {
+	log(info: any, callback: () => void) {
 		if (this.filter && !this.filter(info)) {
 			return callback();
 		}

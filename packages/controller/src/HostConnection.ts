@@ -13,7 +13,7 @@ export interface HostInfo {
 	id: number;
 	name: string;
 	version: string;
-	plugins: [number, any][];
+	plugins: Record<string, string>;
 	public_address: string | undefined;
 	token_valid_after?: number;
 }
@@ -30,10 +30,10 @@ export default class HostConnection extends BaseConnection {
 	private _id: any;
 	private _name: any;
 	private _version: any;
-	plugins: Map<string, Object>;
+	plugins: Map<string, string>;
 
 	constructor(
-		registerData: any,
+		registerData: lib.RegisterHostData,
 		connector: WsServerConnector,
 		controller: Controller,
 	) {

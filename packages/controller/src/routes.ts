@@ -61,7 +61,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		));
 	}
 
-	for await (let result of await lib.defaultRegistry.collect()) {
+	for await (let result of lib.defaultRegistry.collect()) {
 		results.push(result);
 	}
 

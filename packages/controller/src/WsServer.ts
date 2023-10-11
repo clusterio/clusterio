@@ -12,7 +12,7 @@ import ControlConnection from "./ControlConnection";
 import HostConnection, { HostInfo } from "./HostConnection";
 import WsServerConnector from "./WsServerConnector";
 
-const packageVersion = require("../package.json").version;
+import { version as packageVersion } from "../package.json";
 
 const wsMessageCounter = new lib.Counter(
 	"clusterio_controller_websocket_message_total",
@@ -111,12 +111,11 @@ export default class WsServer {
 			}
 		});
 		let originalSend = socket.send;
-		socket.send = (...args: any[]) => {
+		socket.send = (...args: [string, any]) => {
 			wsMessageCounter.labels("out").inc();
 			if (typeof args[0] === "string" && !socket.clusterio_ignore_dump) {
 				this.controller.debugEvents.emit("message", { direction: "out", content: args[0] });
 			}
-			// @ts-ignore TODO::: Issue with originalSend having multiple signatures ?
 			return originalSend.call(socket, ...args);
 		};
 

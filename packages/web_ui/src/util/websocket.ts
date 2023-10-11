@@ -52,7 +52,7 @@ export class Control extends lib.Link {
 	accountRoles: lib.AccountRole[] | null = null;
 
 	/** Updates not handled by the subscription service */
-	accountUpdateHandlers: Function[] = [];
+	accountUpdateHandlers: accountHandler[] = [];
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
@@ -146,8 +146,8 @@ export class Control extends lib.Link {
 	emitAccountUpdate() {
 		for (let handler of this.accountUpdateHandlers) {
 			handler({
-				name: this.accountName,
-				roles: this.accountRoles,
+				name: this.accountName!,
+				roles: this.accountRoles!,
 			});
 		}
 	}

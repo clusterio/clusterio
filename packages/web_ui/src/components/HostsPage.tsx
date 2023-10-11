@@ -61,8 +61,7 @@ function GenerateHostTokenButton() {
 	}, [open]);
 
 	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
-	//@ts-ignore TODO::: this doesn't filter anything, `x.split("/") <= 1` is always = true. repair or shouldn't filter ?
-	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/") <= 1).join(" ");
+	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/").length <= 1).join(" ");
 	return <>
 		<Button
 			onClick={() => { setOpen(true); }}
@@ -141,12 +140,11 @@ npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-he
 }
 
 function CopyButton({ text, message }: { text:string, message:string }) {
-	let [clipboardPermision, setClipboardPermission] = useState("granted");
+	let [clipboardPermision, setClipboardPermission] = useState<PermissionState>("granted");
 	useEffect(() => {
 		(async () => {
-			//@ts-ignore https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
+			// @ts-expect-error missing API https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
 			let result = await navigator.permissions.query({ name: "clipboard-write" });
-			// result.state is "granted", "denied" or "prompt"
 			setClipboardPermission(result.state);
 			result.onchange = function () {
 				setClipboardPermission(result.state);
@@ -156,9 +154,8 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 
 	async function checkClipboardPermission() {
 		try {
-			//@ts-ignore https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
+			// @ts-expect-error missing API https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
 			let result = await navigator.permissions.query({ name: "clipboard-write" });
-			// result.state is "granted", "denied" or "prompt"
 			setClipboardPermission(result.state);
 			result.onchange = function () {
 				setClipboardPermission(result.state);

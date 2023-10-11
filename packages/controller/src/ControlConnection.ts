@@ -29,17 +29,13 @@ export default class ControlConnection extends BaseConnection {
 	private _agent: string;
 	private _version: string;
 	logTransport: lib.LinkTransport | null = null;
-	logSubscriptions: {
-		all: boolean,
-		controller: boolean,
-		hostIds: number[],
-		instanceIds: number[],
-	} = {
+	logSubscriptions = {
 		all: false,
 		controller: false,
-		hostIds: [],
-		instanceIds: [],
+		hostIds: [] as number[],
+		instanceIds: [] as number[],
 	};
+
 	ws_dumper: ((...args: any[]) => void) | null = null;
 	declare connector: WsServerConnector;
 

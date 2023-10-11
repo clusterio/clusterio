@@ -101,10 +101,6 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	_lastReceivedSeq = undefined;
 	_sendBuffer: (libData.MessageRoutable)[] = [];
 
-	constructor(src: libData.Address, dst: libData.Address) {
-		super(src, dst);
-	}
-
 	_reset() {
 		this._state = "closed";
 		this._closing = false;

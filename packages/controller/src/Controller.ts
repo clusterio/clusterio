@@ -1,13 +1,10 @@
 import type winston from "winston";
 import type { AddressInfo } from "net";
 import type { ControllerArgs } from "../controller";
-import type { HostInfo } from "./HostConnection";
-import type { Request, Response, Application } from "express";
-
+import express, { type Request, type Response, type NextFunction, type Application } from "express";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
-import express from "express";
 import fs from "fs-extra";
 import http from "http";
 import https from "https";
@@ -20,12 +17,11 @@ const { logger, Summary, Gauge } = lib;
 
 import HttpCloser from "./HttpCloser";
 import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
-import metrics from "./metrics";
+import * as metrics from "./metrics";
 import * as routes from "./routes";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
-import yargs from "yargs";
-import HostConnection from "./HostConnection";
+import HostConnection, { type HostInfo } from "./HostConnection";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -176,7 +172,8 @@ export default class Controller {
 			const webpackConfigs = [];
 
 			if (args.dev) {
-				webpackConfigs.push(require("../../../webpack.config")({}));
+				// eslint-disable-next-line node/no-missing-require
+				webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
 			}
 			if (args.devPlugin) {
 				let devPlugins = new Map();
@@ -882,8 +879,7 @@ export default class Controller {
 					ControllerPluginClass = await lib.loadControllerPluginClass(pluginInfo);
 				}
 
-				//@ts-ignore //TODO::: metrics is lib.Counter but ControllerPluginClass expect any[], can't figure out how the metrics is used.
-				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics, logger);
+				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);
 				await controllerPlugin.init();
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
@@ -950,8 +946,8 @@ export default class Controller {
 	/**
 	 * Servers the web interface with the root path set apropriately
 	 *
-	 * @param {string} route - route the interface is served under.
-	 * @returns {function} Experess.js route handler.
+	 * @param route - route the interface is served under.
+	 * @returns Experess.js route handler.
 	 */
 	static serveWeb(route: string) {
 		// The depth is is the number of slashes in the route minus one, but due
@@ -959,7 +955,7 @@ export default class Controller {
 		// compensate if the request path contains a slash but not the route,
 		// and vice versa.
 		let routeDepth = (route.match(/\//g) || []).length - 1 - Number(route.slice(-1) === "/");
-		return function(req: Request, res: Response, next: Function) {
+		return function(req: Request, res: Response, next: NextFunction) {
 			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
 			let staticRoot = webRoot;

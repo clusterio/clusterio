@@ -36,7 +36,7 @@ export default class InstanceInfo {
 		this.status = status;
 	}
 
-	toJSON(): Object {
+	toJSON() {
 		return {
 			config: this.config.serialize(),
 			status: this.status,

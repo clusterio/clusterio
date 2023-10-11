@@ -1067,7 +1067,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
-				core: { ca: this._host.tlsCa } as {},
+				core: { ca: this._host.tlsCa } as object,
 				headers: {
 					"Content-Type": "application/zip",
 					"x-access-token": this._host.config.get("host.controller_token"),

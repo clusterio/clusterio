@@ -1,7 +1,5 @@
-import type { Request, Response } from "express";
-
 import crypto from "crypto";
-import express from "express";
+import express, { type Request, type Response } from "express";
 import util from "util";
 import jwt from "jsonwebtoken";
 

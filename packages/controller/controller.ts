@@ -32,7 +32,7 @@ const { ConsoleTransport, levels, logger } = lib;
 
 import Controller from "./src/Controller";
 import UserManager from "./src/UserManager";
-const version = require("./package.json").version;
+import { version } from "./package.json";
 
 // globals
 let controller: Controller;

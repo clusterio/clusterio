@@ -692,9 +692,9 @@ export class FactorioServer extends events.EventEmitter {
 		this._maxConcurrentCommands = value;
 		this.setMaxListeners(value + 5);
 		if (this._rconClient) {
-			// @ts-ignore
+			// @ts-expect-error sendQueue is private
 			if (this._rconClient.sendQueue) {
-				// @ts-ignore
+				// @ts-expect-error sendQueue is private
 				this._rconClient.sendQueue.maxConcurrent = value;
 			}
 			// XXX: Workaround to suppress bogus event listener warning

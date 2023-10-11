@@ -44,7 +44,7 @@ export class ConsoleTransport extends Transport {
 		this.filter = options.filter || (() => true);
 	}
 
-	log(info: any, callback: Function) {
+	log(info: any, callback: () => void) {
 		if (!this.filter(info)) {
 			return callback();
 		}
@@ -70,7 +70,7 @@ export class WebConsoleFormat {
 		public options = {}
 	) { }
 
-	transform(info: any, _options: {}) {
+	transform(info: any, _options: object) {
 		let src = " ";
 		if (info.host_id !== undefined) {
 			src += `s:${info.host_name} - `;
@@ -174,5 +174,5 @@ export type Logger = Omit<winston.Logger,
 	info: winston.LeveledLogMethod,
 	server: winston.LeveledLogMethod,
 	verbose: winston.LeveledLogMethod,
-	child(options: Object): Logger,
+	child(options: object): Logger,
 };
