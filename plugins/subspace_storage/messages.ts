@@ -80,7 +80,7 @@ export class GetStorageRequest {
 
 export class UpdateStorageEvent {
 	declare ["constructor"]: typeof UpdateStorageEvent;
-	static type = "request" as const;
+	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = ["instance", "control"] as const;
 	static plugin = "subspace_storage" as const;

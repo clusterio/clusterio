@@ -8,7 +8,7 @@ import {
 	Item,
 } from "./messages";
 
-type IpcItems = { name: string, count: number }[];
+type IpcItems = [string, number][];
 
 export class InstancePlugin extends lib.BaseInstancePlugin {
 	pendingTasks!: Set<any>;
@@ -73,7 +73,7 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 			return;
 		}
 
-		const fromIpcItems = items.map(item => new Item(item.name, item.count))
+		const fromIpcItems = items.map(item => new Item(item[0], item[1]))
 		this.instance.sendTo("controller", new PlaceEvent(fromIpcItems));
 
 		if (this.instance.config.get("subspace_storage.log_item_transfers")) {
@@ -85,7 +85,7 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 	// request items --------------------------------------------------------------
 	async requestItems(requestItems: IpcItems) {
 		// Request the items all at once
-		let fromIpcItems = requestItems.map(item => new Item(item.name, item.count))
+		let fromIpcItems = requestItems.map(item => new Item(item[0], item[1]))
 		let items = await this.instance.sendTo("controller", new RemoveRequest(fromIpcItems));
 
 		if (!items.length) {
