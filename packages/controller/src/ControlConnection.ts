@@ -1,4 +1,5 @@
 import type WsServerConnector from "./WsServerConnector";
+import type { HostInfo } from "./HostConnection";
 
 import events from "events";
 import fs from "fs-extra";
