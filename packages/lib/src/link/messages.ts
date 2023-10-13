@@ -5,6 +5,7 @@ import * as host from "../data/messages_host";
 import * as instance from "../data/messages_instance";
 import * as mod from "../data/messages_mod";
 import * as user from "../data/messages_user";
+import * as subscriptions from "../subscriptions"
 import type { RequestClass, EventClass } from "./link";
 
 /**
@@ -27,8 +28,9 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.DebugDumpWsRequest,
 	controller.DebugWsMessageEvent,
 
+	subscriptions.SubscriptionRequest,
+
 	host.HostListRequest,
-	host.HostSetSubscriptionsRequest,
 	host.HostUpdateEvent,
 	host.HostMetricsRequest,
 	host.ControllerConnectionEvent,
@@ -38,7 +40,6 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	instance.InstanceDetailsGetRequest,
 	instance.InstanceDetailsListRequest,
-	instance.InstanceDetailsSetSubscriptionsRequest,
 	instance.InstanceDetailsUpdateEvent,
 	instance.InstanceCreateRequest,
 	instance.InstanceConfigGetRequest,
@@ -48,7 +49,6 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	instance.InstanceMetricsRequest,
 	instance.InstanceStartRequest,
 	instance.InstanceListSavesRequest,
-	instance.InstanceSetSaveListSubscriptionsRequest,
 	instance.InstanceSaveListUpdateEvent,
 	instance.InstanceCreateSaveRequest,
 	instance.InstanceRenameSaveRequest,
@@ -83,11 +83,9 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	mod.ModPackCreateRequest,
 	mod.ModPackUpdateRequest,
 	mod.ModPackDeleteRequest,
-	mod.ModPackSetSubscriptionsRequest,
 	mod.ModGetRequest,
 	mod.ModListRequest,
 	mod.ModSearchRequest,
-	mod.ModSetSubscriptionsRequest,
 	mod.ModDownloadRequest,
 	mod.ModDeleteRequest,
 	mod.ModPackUpdateEvent,
@@ -101,7 +99,6 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	user.RoleDeleteRequest,
 	user.UserGetRequest,
 	user.UserListRequest,
-	user.UserSetSubscriptionsRequest,
 	user.UserCreateRequest,
 	user.UserRevokeTokenRequest,
 	user.UserUpdateRolesRequest,

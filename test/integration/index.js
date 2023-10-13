@@ -34,19 +34,22 @@ class TestControl extends lib.Link {
 				return;
 			}
 			this.send(
-				new lib.HostSetSubscriptionsRequest(true, [])
+				new lib.SubscriptionRequest(lib.HostUpdateEvent.name, true)
 			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.InstanceDetailsSetSubscriptionsRequest(true, [])
+				new lib.SubscriptionRequest(lib.InstanceDetailsUpdateEvent.name, true)
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.InstanceSetSaveListSubscriptionsRequest(true, [])
+				new lib.SubscriptionRequest(lib.InstanceSaveListUpdateEvent.name, true)
 			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.ModSetSubscriptionsRequest(true, [])
+				new lib.SubscriptionRequest(lib.ModUpdateEvent.name, true)
 			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.UserSetSubscriptionsRequest(true, [])
+				new lib.SubscriptionRequest(lib.ModPackUpdateEvent.name, true)
+			).catch(err => logger.error(`Error setting mod pack subscriptions:\n${err.stack}`));
+			this.send(
+				new lib.SubscriptionRequest(lib.UserUpdateEvent.name, true)
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
 		});
 

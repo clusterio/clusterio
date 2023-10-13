@@ -74,6 +74,9 @@ export default class Controller {
 	wsServer: WsServer;
 	debugEvents: events.EventEmitter = new events.EventEmitter();
 	private _events: events.EventEmitter = new events.EventEmitter();
+
+	/** Event subscription controller */
+	subscriptions: lib.SubscriptionController;
 	
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -106,6 +109,7 @@ export default class Controller {
 
 		this.wsServer = new WsServer(this);
 		this.userManager = new UserManager(this.config);
+		this.subscriptions = new lib.SubscriptionController(this);
 	}
 
 	async start(args: ControllerArgs) {
@@ -235,6 +239,14 @@ export default class Controller {
 			}
 			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
 		}
+
+		// Handle subscriptions for all internal properties
+		this.subscriptions.handle(lib.HostUpdateEvent);
+		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
+		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
+		this.subscriptions.handle(lib.ModPackUpdateEvent);
+		this.subscriptions.handle(lib.ModUpdateEvent);
+		this.subscriptions.handle(lib.UserUpdateEvent);
 
 		// Load plugins
 		await this.loadPlugins();
@@ -576,13 +588,7 @@ export default class Controller {
 			host.token_valid_after,
 		);
 
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.connector.closing) {
-				continue;
-			}
-
-			controlConnection.hostUpdated(host, update);
-		}
+		this.subscriptions.broadcast(new lib.HostUpdateEvent(update));
 	}
 
 	/**
@@ -762,56 +768,56 @@ export default class Controller {
 	}
 
 	instanceUpdated(instance: InstanceInfo) {
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.connector.closing) {
-				continue;
-			}
-
-			controlConnection.instanceUpdated(instance);
+		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
+		if (assigned_host === null) {
+			assigned_host = undefined;
 		}
+
+		let game_port: number|null|undefined = instance.game_port
+		if (game_port === null) {
+			game_port = undefined;
+		}
+
+		this.subscriptions.broadcast(new lib.InstanceDetailsUpdateEvent(
+			new lib.InstanceDetails(
+				instance.config.get("instance.name"),
+				instance.id,
+				assigned_host,
+				game_port,
+				instance.status,
+			)
+		));
 	}
 
 	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.connector.closing) {
-				continue;
-			}
-
-			controlConnection.saveListUpdate(instanceId, saves);
-		}
+		this.subscriptions.broadcast(new lib.InstanceSaveListUpdateEvent(instanceId, saves));
 	}
 
 	modPackUpdated(modPack: lib.ModPack) {
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.connector.closing) {
-				continue;
-			}
-			controlConnection.modPackUpdated(modPack);
-		}
-
+		this.subscriptions.broadcast(new lib.ModPackUpdateEvent(modPack));
 		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
 
 	modUpdated(mod: lib.ModInfo) {
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.connector.closing) {
-				continue;
-			}
-
-			controlConnection.modUpdated(mod);
-		}
-
+		this.subscriptions.broadcast(new lib.ModUpdateEvent(mod));
 		lib.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
 	userUpdated(user: lib.User) {
-		for (let controlConnection of this.wsServer.controlConnections.values()) {
-			if (controlConnection.connector.closing) {
-				continue;
-			}
-
-			controlConnection.userUpdated(user);
-		}
+		this.subscriptions.broadcast(new lib.UserUpdateEvent(
+			new lib.RawUser(
+				user.name,
+				[...user.roles].map(role => role.id),
+				[...user.instances],
+				user.isAdmin,
+				user.isBanned,
+				user.isWhitelisted,
+				user.banReason,
+				user.isDeleted,
+				user.playerStats,
+				user.instanceStats,
+			)
+		));
 	}
 
 	/**

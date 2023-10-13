@@ -29,9 +29,9 @@ export function useSaves(instanceId?: number): lib.SaveDetails[] {
 			setSaves(data.saves);
 		}
 
-		control.onSaveListUpdate(instanceId!, updateHandler);
+		control.saveListUpdate.subscribeToChannel(instanceId!, updateHandler);
 		return () => {
-			control.offSaveListUpdate(instanceId!, updateHandler);
+			control.saveListUpdate.unsubscribeFromChannel(instanceId!, updateHandler);
 		};
 	}, [instanceId]);
 

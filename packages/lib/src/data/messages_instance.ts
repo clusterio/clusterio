@@ -67,33 +67,12 @@ export class InstanceDetailsListRequest {
 	static Response = jsonArray(InstanceDetails);
 };
 
-export class InstanceDetailsSetSubscriptionsRequest {
-	declare ["constructor"]: typeof InstanceDetailsSetSubscriptionsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.instance.subscribe" as const;
-
-	constructor(
-		public all: boolean = false,
-		public instanceIds: number[] = [],
-	) { }
-
-	static jsonSchema = Type.Object({
-		"all": Type.Boolean(),
-		"instanceIds": Type.Array(Type.Integer()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.all, json.instanceIds);
-	}
-};
-
 export class InstanceDetailsUpdateEvent {
 	declare ["constructor"]: typeof InstanceDetailsUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
+	static permission = "core.instance.subscribe" as const;
 
 	constructor(
 		public details: InstanceDetails,
@@ -107,6 +86,10 @@ export class InstanceDetailsUpdateEvent {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(InstanceDetails.fromJSON(json));
+	}
+
+	get subscriptionChannel() {
+		return this.details.id;
 	}
 };
 
@@ -299,33 +282,12 @@ export class InstanceListSavesRequest {
 	static Response = jsonArray(SaveDetails);
 }
 
-export class InstanceSetSaveListSubscriptionsRequest {
-	declare ["constructor"]: typeof InstanceSetSaveListSubscriptionsRequest;
-	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "controller" as const;
-	static permission = "core.instance.save.list_subscribe" as const;
-
-	constructor(
-		public all: boolean = false,
-		public instanceIds: number[] = [],
-	) { }
-
-	static jsonSchema = Type.Object({
-		"all": Type.Boolean(),
-		"instanceIds": Type.Array(Type.Integer()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.all, json.instanceIds);
-	}
-};
-
 export class InstanceSaveListUpdateEvent {
 	declare ["constructor"]: typeof InstanceSaveListUpdateEvent;
 	static type = "event" as const;
 	static src = ["instance", "host", "controller"] as const;
 	static dst = ["controller", "control"] as const;
+	static permission = "core.instance.save.list_subscribe" as const;
 
 	constructor(
 		public instanceId: number,
@@ -339,6 +301,10 @@ export class InstanceSaveListUpdateEvent {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.instanceId, json.saves.map(i => SaveDetails.fromJSON(i)));
+	}
+
+	get subscriptionChannel() {
+		return this.instanceId;
 	}
 }
 

@@ -9,6 +9,7 @@ export * from "./dist/src/logging";
 export * from "./dist/src/plugin";
 export * from "./dist/src/schema";
 export * from "./dist/src/users";
+export * from "./dist/src/subscriptions";
 
 export { default as ExponentialBackoff } from "./dist/src/ExponentialBackoff";
 export { default as PlayerStats } from "./dist/src/PlayerStats";
