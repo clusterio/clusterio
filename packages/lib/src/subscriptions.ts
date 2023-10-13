@@ -131,11 +131,7 @@ export class SubscriptionController {
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
 	 * Has an optional subscription update handler which is called when any client updates their subscription
 	 */
-	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>,): void;
-	handle(
-		Event: EventClass<unknown>,
-		subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-	) {
+	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>) {
 		const entry = Link._eventsByClass.get(Event);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${Event.name}`);
@@ -152,8 +148,7 @@ export class SubscriptionController {
 	/**
 	 * Broadcast an event to all subscribers of that event, will be filtered by channel if a ChannelEvent is provided
 	 */
-	broadcast<T>(event: Event<T> | ChannelEvent<T>): void;
-	broadcast(event: Event<unknown> | ChannelEvent<unknown>) {
+	broadcast<T>(event: Event<T> | ChannelEvent<T>) {
 		const entry = Link._eventsByClass.get(event.constructor);
 		if (!entry) {
 			throw new Error(`Unregistered Event class ${event.constructor.name}`);
