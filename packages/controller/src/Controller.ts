@@ -110,6 +110,14 @@ export default class Controller {
 		this.wsServer = new WsServer(this);
 		this.userManager = new UserManager(this.config);
 		this.subscriptions = new lib.SubscriptionController(this);
+
+		// Handle subscriptions for all internal properties
+		this.subscriptions.handle(lib.HostUpdateEvent);
+		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
+		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
+		this.subscriptions.handle(lib.ModPackUpdateEvent);
+		this.subscriptions.handle(lib.ModUpdateEvent);
+		this.subscriptions.handle(lib.UserUpdateEvent);
 	}
 
 	async start(args: ControllerArgs) {
@@ -239,14 +247,6 @@ export default class Controller {
 			}
 			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
 		}
-
-		// Handle subscriptions for all internal properties
-		this.subscriptions.handle(lib.HostUpdateEvent);
-		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
-		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
-		this.subscriptions.handle(lib.ModPackUpdateEvent);
-		this.subscriptions.handle(lib.ModUpdateEvent);
-		this.subscriptions.handle(lib.UserUpdateEvent);
 
 		// Load plugins
 		await this.loadPlugins();
