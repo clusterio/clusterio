@@ -18,7 +18,7 @@ const finished = util.promisify(nodeStream.finished);
 
 
 // Merges samples from sourceResult to destinationResult
-function mergeSamples(destinationResult: any, sourceResult: any) {
+function mergeSamples(destinationResult: lib.CollectorResultSerialized, sourceResult: lib.CollectorResultSerialized) {
 	let receivedSamples = new Map(sourceResult.samples);
 	for (let [suffix, suffixSamples] of destinationResult.samples) {
 		if (receivedSamples.has(suffix)) {
@@ -36,15 +36,16 @@ function mergeSamples(destinationResult: any, sourceResult: any) {
 async function getMetrics(req: Request, res: Response, next: any) {
 	const controller: Controller = req.app.locals.controller;
 
-	let results: any[] = [];
-	let pluginResults: any[] = await lib.invokeHook(controller.plugins, "onMetrics");
+	let results: lib.CollectorResult[] = [];
+	type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
+	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics") as ResultIterator[];
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
 		}
 	}
 
-	let requests: Promise<any>[] = [];
+	let requests: Promise<InstanceType<typeof lib.HostMetricsRequest["Response"]> | null>[] = [];
 	let timeout = controller.config.get("controller.metrics_timeout") * 1000;
 	for (let [hostId, hostConnection] of controller.wsServer.hostConnections) {
 		if (!hostConnection.connected) {
@@ -65,7 +66,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		results.push(result);
 	}
 
-	let resultMap: Map<string, any> = new Map();
+	let resultMap: Map<string, lib.CollectorResultSerialized> = new Map();
 	for (let response of await Promise.all(requests)) {
 		if (!response) {
 			// TODO: Log timeout occured?
@@ -83,17 +84,10 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		}
 	}
 
-	// TODO: results seem to mix deserialized and serialized lib.CollectorResult ?
-	// mergeSamples imply samples be [string, [string, number][]]
-	// but lib.defaultRegistry.collect() imply Map<string, Map<string, number>>
 	for (let result of resultMap.values()) {
 		results.push(lib.deserializeResult(result));
 	}
 
-
-	// lib.exposition expect AsyncIterable<CollectorResult> as parameter.
-	// Should wrap results into a Generator functions ?
-	// @ts-ignore
 	let text = await lib.exposition(results);
 	res.set("Content-Type", lib.expositionContentType);
 	res.send(text);

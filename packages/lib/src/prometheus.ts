@@ -38,6 +38,8 @@
  * app.listen(9100);
  * @module lib/prometheus
  */
+import { Type, Static } from "@sinclair/typebox";
+import { StringEnum } from "./data/composites";
 
 /**
  * Result from collecting a {@link Collector}
@@ -1611,7 +1613,9 @@ function escapeHelp(help: string) {
 	;
 }
 
-async function* expositionLines(resultsIterator: AsyncIterable<CollectorResult>) {
+async function* expositionLines(
+	resultsIterator: AsyncIterable<CollectorResult> | Iterable<CollectorResult>
+) {
 	let first = true;
 	for await (let result of resultsIterator) {
 		if (first) {
@@ -1665,7 +1669,9 @@ async function* expositionLines(resultsIterator: AsyncIterable<CollectorResult>)
  *     defaultRegistry}.
  * @returns Prometheus exposition.
  */
-export async function exposition(resultsIterator = defaultRegistry.collect()) {
+export async function exposition(
+	resultsIterator: AsyncIterable<CollectorResult> | Iterable<CollectorResult> = defaultRegistry.collect()
+) {
 	let lines = "";
 	for await (let line of expositionLines(resultsIterator)) {
 		lines += line;
@@ -1677,6 +1683,24 @@ export async function exposition(resultsIterator = defaultRegistry.collect()) {
  * exposition}.
  */
 export const expositionContentType = "text/plain; version=0.0.4";
+
+export const CollectorResultSerialized = Type.Object({
+	metric: Type.Object({
+		type: StringEnum(["counter", "gauge", "histogram", "summary", "untyped"]),
+		name: Type.String(),
+		help: Type.String(),
+		labels: Type.Array(Type.String()),
+	}),
+	samples: Type.Array(
+		Type.Tuple([
+			Type.String(),
+			Type.Array(
+				Type.Tuple([Type.String(), Type.Number()])
+			),
+		]),
+	),
+});
+export type CollectorResultSerialized = Static<typeof CollectorResultSerialized>;
 
 /**
  * Serialize CollectorResult into a plain object
@@ -1702,7 +1726,7 @@ export function serializeResult(
 		metricName?: string,
 		metricHelp?: string,
 	} = {}
-) {
+): CollectorResultSerialized {
 	let {
 		addLabels,
 		metricName = result.metric.name,
@@ -1756,7 +1780,7 @@ export function serializeResult(
  * @returns deserialized result.
  */
 export function deserializeResult(
-	serializedResult: ReturnType<typeof serializeResult>
+	serializedResult: CollectorResultSerialized
 ): CollectorResult {
 	return {
 		metric: new Metric(

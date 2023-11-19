@@ -1,5 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { jsonArray, StringEnum } from "./composites";
+import { CollectorResultSerialized } from "../prometheus";
 
 export class HostDetails {
 	constructor(
@@ -75,11 +76,11 @@ export class HostMetricsRequest {
 	static dst = "host" as const;
 	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
 		constructor(
-			public results: object[],
+			public results: CollectorResultSerialized[],
 		) { }
 
 		static jsonSchema = Type.Object({
-			"results": Type.Array(Type.Object({})),
+			"results": Type.Array(CollectorResultSerialized),
 		});
 
 		static fromJSON(json: Static<typeof this.jsonSchema>) {

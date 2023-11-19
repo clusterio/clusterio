@@ -542,7 +542,7 @@ export default class Host extends lib.Link {
 	}
 
 	async handleHostMetricsRequest() {
-		let requests = [];
+		let requests: Promise<InstanceType<typeof lib.InstanceMetricsRequest["Response"]>>[] = [];
 		for (let instanceConnection of this.instanceConnections.values()) {
 			requests.push(instanceConnection.send(new lib.InstanceMetricsRequest()));
 		}

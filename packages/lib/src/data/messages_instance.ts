@@ -4,7 +4,7 @@ import { JsonString, StringEnum, jsonArray } from "./composites";
 import { RawConfig } from "../config";
 import type { User } from "../users";
 import type { MessageRequest } from "./messages_core";
-import type { SerializedConfig } from "../config";
+import { CollectorResultSerialized } from "../prometheus";
 
 
 export type InstanceStatus =
@@ -216,11 +216,11 @@ export class InstanceMetricsRequest {
 
 	static Response = class Response { // TODO: Use JSON class pattern in Prometheus
 		constructor(
-			public results: object[],
+			public results: CollectorResultSerialized[],
 		) { }
 
 		static jsonSchema = Type.Object({
-			"results": Type.Array(Type.Object({})),
+			"results": Type.Array(CollectorResultSerialized),
 		});
 
 		static fromJSON(json: Static<typeof this.jsonSchema>) {
