@@ -236,7 +236,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json");
+			let manifestPath = path.join(__dirname, "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -541,7 +541,7 @@ export default class Controller {
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
 		app.use("/static",
-			express.static(path.join(__dirname, "..", "..", "..", "dist", "web", "static"), staticOptions)
+			express.static(path.join(__dirname, "..", "..", "dist", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
@@ -967,7 +967,7 @@ export default class Controller {
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
 
-			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
+			fs.readFile(path.join(__dirname, "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))

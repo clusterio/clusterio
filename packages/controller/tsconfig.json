@@ -5,6 +5,6 @@
 	],
 	"include": ["controller.ts", "package.json", "src/**/*.ts"],
 	"compilerOptions": {
-		"outDir": "dist/controller",
+		"outDir": "dist",
 	},
 }
