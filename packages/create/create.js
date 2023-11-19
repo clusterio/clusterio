@@ -375,17 +375,26 @@ async function writeScripts(mode) {
 		if (process.platform === "win32") {
 			await safeOutputFile(
 				"run-controller.cmd",
-				"@echo off\n.\\node_modules\\.bin\\clusteriocontroller.cmd run\n"
+				`\
+@echo off.
+set "NODE_OPTIONS=--enable-source-maps %NODE_OPTIONS%"
+\\node_modules\\.bin\\clusteriocontroller.cmd run
+`
 			);
 		} else {
 			await safeOutputFile(
 				"run-controller.sh",
-				"#!/bin/sh\nexec ./node_modules/.bin/clusteriocontroller run\n",
+				`\
+#!/bin/sh
+export "NODE_OPTIONS=--enable-source-maps $NODE_OPTIONS"
+exec ./node_modules/.bin/clusteriocontroller run
+`,
 				{ mode: 0o755 },
 			);
 			await safeOutputFile(
 				"systemd/clusteriocontroller.service",
-				`[Unit]
+				`\
+[Unit]
 Description=Clusterio Controller
 
 [Service]
@@ -394,6 +403,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
+Environment=NODE_OPTIONS=--enable-source-maps
 ExecStart=${process.cwd()}/node_modules/.bin/clusteriocontroller run --log-level=warn
 
 [Install]
