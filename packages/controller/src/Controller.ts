@@ -166,7 +166,7 @@ export default class Controller {
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
 			logger.warn("Webpack development mode enabled");
-			/* eslint-disable node/global-require, node/no-unpublished-require */
+			/* eslint-disable @typescript-eslint/no-var-requires, node/no-unpublished-require */
 			const webpack = require("webpack");
 			const webpackDevMiddleware = require("webpack-dev-middleware");
 			const webpackConfigs = [];
@@ -188,7 +188,7 @@ export default class Controller {
 				}
 				this.app.locals.devPlugins = devPlugins;
 			}
-			/* eslint-enable node/global-require, node/no-unpublished-require */
+			/* eslint-enable @typescript-eslint/no-var-requires, node/no-unpublished-require */
 
 			const compiler = webpack(webpackConfigs);
 			this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });

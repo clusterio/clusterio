@@ -1,6 +1,7 @@
 // Note: Run compile_validator script after making changes to this file.
 import { TSchema, Type, Static } from "@sinclair/typebox";
-import messageValidate from "./message_validate";
+// eslint-disable-next-line node/no-missing-import
+import messageValidate from "./message_validate"; // generated file
 import { StringEnum } from "./composites";
 import { AccountRole } from "../plugin";
 

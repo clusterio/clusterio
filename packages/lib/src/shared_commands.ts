@@ -58,7 +58,7 @@ export async function handlePluginCommand(
 
 		let pluginInfo: { name: string };
 		try {
-			// eslint-disable-next-line node/global-require
+			// eslint-disable-next-line @typescript-eslint/no-var-requires
 			pluginInfo = require(pluginPath).default;
 		} catch (err: any) {
 			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);

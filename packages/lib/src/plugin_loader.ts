@@ -1,4 +1,4 @@
-/* eslint-disable node/global-require */
+/* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * Helpers for loading plugins in Node.js
  * @module lib/plugin_loader
