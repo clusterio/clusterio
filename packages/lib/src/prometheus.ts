@@ -1664,9 +1664,6 @@ async function* expositionLines(resultsIterator: AsyncIterable<CollectorResult>)
  *     exposition for.  Defaults to collecting results from {@link
  *     defaultRegistry}.
  * @returns Prometheus exposition.
- *
- * @property exposition.contentType
- * HTTP Content-Type for the exposition format that's implemented
  */
 export async function exposition(resultsIterator = defaultRegistry.collect()) {
 	let lines = "";
@@ -1675,7 +1672,11 @@ export async function exposition(resultsIterator = defaultRegistry.collect()) {
 	}
 	return lines;
 }
-exposition.contentType = "text/plain; version=0.0.4";
+/**
+ * HTTP Content-Type for the exposition format that's implemented by {@link
+ * exposition}.
+ */
+export const expositionContentType = "text/plain; version=0.0.4";
 
 /**
  * Serialize CollectorResult into a plain object

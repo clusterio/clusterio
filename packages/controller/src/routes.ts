@@ -95,7 +95,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 	// Should wrap results into a Generator functions ?
 	// @ts-ignore
 	let text = await lib.exposition(results);
-	res.set("Content-Type", lib.exposition.contentType);
+	res.set("Content-Type", lib.expositionContentType);
 	res.send(text);
 }
 
