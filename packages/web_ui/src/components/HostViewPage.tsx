@@ -41,8 +41,8 @@ export default function HostViewPage() {
 	}
 
 	let hostButtons = <Space> {
-			account.hasPermission("core.host.revoke_access") &&
-			<Popconfirm
+		account.hasPermission("core.host.revoke_access")
+			&& <Popconfirm
 				title={`Revoke tokens of ${host.name}?`}
 				placement="bottomRight"
 				okText="Revoke Tokens"
@@ -50,15 +50,15 @@ export default function HostViewPage() {
 				onConfirm={() => {
 					control.send(new lib.HostRevokeTokensRequest(host.id!))
 						.then(() => notify("Host tokens revoked"))
-						.catch(notifyErrorHandler(`Error revoking tokens for host id:${host.id}`))
+						.catch(notifyErrorHandler(`Error revoking tokens for host id:${host.id}`));
 				}}
 			>
 				<Button danger>
 					Revoke tokens
 				</Button>
 			</Popconfirm>
-		}
-	</Space>
+	}
+	</Space>;
 
 	return <PageLayout nav={nav}>
 		<PageHeader
@@ -75,9 +75,9 @@ export default function HostViewPage() {
 			<Descriptions.Item label="Agent">{host["agent"]}</Descriptions.Item>
 			<Descriptions.Item label="Version">{host["version"]}</Descriptions.Item>
 			{
-				host.tokenValidAfter &&
-				<Descriptions.Item label="Tokens valid after:">
-						{formatTimestamp(host.tokenValidAfter*1000)}
+				host.tokenValidAfter
+				&& <Descriptions.Item label="Tokens valid after:">
+					{formatTimestamp(host.tokenValidAfter*1000)}
 				</Descriptions.Item>
 			}
 		</Descriptions>

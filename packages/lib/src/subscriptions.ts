@@ -33,16 +33,15 @@ export class SubscriptionResponse {
 			Type.String(),
 			Type.Unknown(),
 		]),
-		Type.Null()
-	])
+		Type.Null(),
+	]);
 
 	toJSON() {
 		if (this.eventReplay) {
 			const entry = Link._eventsByClass.get(this.eventReplay.constructor)!;
 			return [entry.name, this.eventReplay];
-		} else {
-			return null;
 		}
+		return null;
 	}
 
 	static fromJSON(json: Static<typeof SubscriptionResponse.jsonSchema>): SubscriptionResponse {
@@ -67,7 +66,7 @@ export class SubscriptionResponse {
 export class SubscriptionRequest {
 	declare ["constructor"]: typeof SubscriptionRequest;
 	static type = "request" as const;
-	static src =  ["control", "instance"] as const;
+	static src = ["control", "instance"] as const;
 	static dst = "controller" as const;
 	static Response = SubscriptionResponse;
 	static permission(user: User, message: MessageRequest) {
@@ -100,7 +99,7 @@ export class SubscriptionRequest {
 		Type.Boolean(),
 		Type.Array(Type.Union([Type.String(), Type.Number()])),
 		Type.Number(),
-	])
+	]);
 
 	toJSON() {
 		return [this.eventName, this.allChannels, this.channels, this.lastRequestTime];
@@ -111,15 +110,17 @@ export class SubscriptionRequest {
 	}
 }
 
+type EventData = {
+	subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
+	subscriptions: Map<Link, { all: boolean, channels: Array<string | number>, onceClose: () => void }>,
+};
+
 /**
  * A class component to handle incoming subscription requests and offers a method to broadcast events to subscribers
  * After creation, no other handler can be registered for SubscriptionRequest on the controller
  */
 export class SubscriptionController {
-	_events = new Map<string, {
-		subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-		subscriptions: Map<Link, { all: boolean, channels: Array<string | number>, onceClose: () => void }>,
-	}>();
+	_events = new Map<string, EventData>();
 
 	constructor(
 		private controller: any, // Controller | Link
@@ -130,6 +131,9 @@ export class SubscriptionController {
 	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
 	 * Has an optional subscription update handler which is called when any client updates their subscription
+	 * @param Event - Event class which is sent out as updates.
+	 * @param subscriptionUpdate -
+	 *     Optional handler called when a client updates its subscriptions.
 	 */
 	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>) {
 		const entry = Link._eventsByClass.get(Event);
@@ -147,6 +151,7 @@ export class SubscriptionController {
 
 	/**
 	 * Broadcast an event to all subscribers of that event, will be filtered by channel if a ChannelEvent is provided
+	 * @param event - Event to broadcast.
 	 */
 	broadcast<T>(event: Event<T> | ChannelEvent<T>) {
 		const entry = Link._eventsByClass.get(event.constructor);
@@ -169,6 +174,11 @@ export class SubscriptionController {
 
 	/**
 	 * Handle incoming event subscription requests
+	 * @param event - incomming event.
+	 * @param src - Source address of incomming request.
+	 * @param dst - destination address of incomming request.
+	 * @returns Response to subscription request.
+	 * @internal
 	 */
 	async _handleRequest(event: SubscriptionRequest, src: Address, dst: Address) {
 		if (!Link._eventsByName.has(event.eventName)) {
@@ -192,7 +202,9 @@ export class SubscriptionController {
 				onceClose = () => eventData.subscriptions.delete(link);
 				link.connector.once("close", onceClose);
 			}
-			eventData.subscriptions.set(link, { all: event.allChannels, channels: event.channels, onceClose: onceClose });
+			eventData.subscriptions.set(
+				link, { all: event.allChannels, channels: event.channels, onceClose: onceClose },
+			);
 		}
 		return new SubscriptionResponse(eventReplay);
 	}
@@ -204,15 +216,15 @@ export class SubscriptionController {
  * Multiple handlers can be subscribed at the same time, on the same or different channels
  */
 export class EventSubscriber<T, V=T> {
-	_callbacks = new Array<EventSubscriberCallback<V>>()
-	_channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<V>>>()
+	_callbacks = new Array<EventSubscriberCallback<V>>();
+	_channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<V>>>();
 	lastResponse: Event<T> | null = null;
 	lastResponseTime = 0;
-	control?: Link
+	control?: Link;
 
 	constructor(
 		private event: EventClass<T> | ChannelEventClass<T>,
-		private prehandler?: (event: T) => V,
+		private prehandler?: (e: T) => V,
 		control?: Link
 	) {
 		const entry = Link._eventsByClass.get(this.event);
@@ -226,6 +238,8 @@ export class EventSubscriber<T, V=T> {
 
 	/**
 	 * Handle incoming events and distribute it to the correct callbacks
+	 * @param response - event from subscribed resource
+	 * @internal
 	 */
 	async _handle(response: Event<T> | ChannelEvent<T>) {
 		this.lastResponse = response;
@@ -246,10 +260,14 @@ export class EventSubscriber<T, V=T> {
 	}
 
 	/**
-	 * If a control link was not connected at creation, it can be connected here (normally during onControllerConnectionEvent)
+	 * If a control link was not connected at creation, it can be connected
+	 * here (normally during onControllerConnectionEvent)
+	 * @param control - Control link to associate with.
 	 */
 	async connectControl(control: Link) {
-		if (this.control === control) return;
+		if (this.control === control) {
+			return;
+		}
 		this.control = control;
 		this.control.handle(this.event, this._handle.bind(this));
 		await this._updateSubscription();
@@ -257,6 +275,8 @@ export class EventSubscriber<T, V=T> {
 
 	/**
 	 * Subscribe to receive all event notifications
+	 * @param handler -
+	 *     callback invoked whenever the subscribed resource changes.
 	 */
 	async subscribe(handler: EventSubscriberCallback<V>) {
 		this._callbacks.push(handler);
@@ -265,6 +285,10 @@ export class EventSubscriber<T, V=T> {
 
 	/**
 	 * Subscribe to receive event notifications for the given channel
+	 * @param channel - Channel to subscribe to.
+	 * @param handler -
+	 *     callback invoked whenever the subscribed resource changes on the
+	 *     given channel.
 	 */
 	async subscribeToChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
 		if (!this._channelCallbacks.get(channel)) {
@@ -275,8 +299,14 @@ export class EventSubscriber<T, V=T> {
 	}
 
 	/**
-	 * Unsubscribe from receiving all event notifications, does not effect the subscriptions of other handlers
-	 * Will throw an error if your handler is not subscribed to all channels, does not accept anonymous functions
+	 * Unsubscribe from receiving all event notifications, does not effect
+	 * the subscriptions of other handlers.
+	 *
+	 * @param handler - A callback previously passed to {@link subscribe}
+	 *
+	 * @throws {Error}
+	 *     If your handler is not subscribed to all channels, does not
+	 *     accept anonymous functions
 	 */
 	async unsubscribe(handler: EventSubscriberCallback<V>) {
 		let index = this._callbacks.lastIndexOf(handler);
@@ -289,8 +319,15 @@ export class EventSubscriber<T, V=T> {
 	}
 
 	/**
-	 * Unsubscribe from receiving event notifications for a given channel, does not effect the subscriptions of other handlers
-	 * Will throw an error if your handler is not subscribed to the channel, does not accept anonymous functions
+	 * Unsubscribe from receiving event notifications for a given channel,
+	 * does not effect the subscriptions of other handlers.
+	 *
+	 * @param channel - A channel previously passed to {@link subscribeToChannel}
+	 * @param handler - A callback previously passed to {@link subscribeToChannel}
+	 *
+	 * @throws {Error}
+	 *     If your handler is not subscribed to the channel or does not
+	 *     accept anonymous functions
 	 */
 	async unsubscribeFromChannel(channel: string | number, handler: EventSubscriberCallback<V>) {
 		const channelCallbacks = this._channelCallbacks.get(channel);
@@ -315,7 +352,9 @@ export class EventSubscriber<T, V=T> {
 	 * Update the subscription with the controller based on current handler counts
 	 */
 	async _updateSubscription() {
-		if (!this.control || !(this.control.connector as WebSocketClientConnector).connected) return;
+		if (!this.control || !(this.control.connector as WebSocketClientConnector).connected) {
+			return;
+		}
 		const entry = Link._eventsByClass.get(this.event)!;
 
 		const response = await this.control.send(new SubscriptionRequest(

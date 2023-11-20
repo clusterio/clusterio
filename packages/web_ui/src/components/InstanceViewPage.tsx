@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Descriptions, Dropdown, Menu, MenuProps, Modal, Space, Spin, Typography } from "antd";
-import type { ItemType } from 'antd/es/menu/hooks/useItems';
+import type { ItemType } from "antd/es/menu/hooks/useItems";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -60,42 +60,13 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 	</Descriptions>;
 }
 
-export default function InstanceViewPage() {
-	let params = useParams();
-	let instanceId = Number(params.id);
-
-	let navigate = useNavigate();
-
+function InstanceButtons(props: { instance: InstanceState }) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let [instance] = useInstance(instanceId);
-	let [host] = useHost(Number(instance.assignedHost));
-
+	let navigate = useNavigate();
 	let [exportingData, setExportingData] = useState(false);
-
-	let nav = [{ name: "Instances", path: "/instances" }, { name: instance.name || "Unknown" }];
-	if (instance.loading) {
-		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
-	}
-
-	if (instance.missing || instance.status === "deleted") {
-		return <PageLayout nav={nav}>
-			<Alert
-				message={instance.status === "deleted" ? "Instance has been deleted" : "Instance not found" }
-				showIcon
-				description={<>Instance with id {instanceId} was not found on the controller.</>}
-				type="warning"
-				action={
-					<Button
-						type="text"
-						onClick={() => { navigate("/instances"); }}
-					>
-						Go back to instances list
-					</Button>
-				}
-			/>
-		</PageLayout>;
-	}
+	let instance = props.instance;
+	let instanceId = instance.id!;
 
 	let instanceButtonMenuItems: ItemType[] = [];
 	if (account.hasPermission("core.instance.export_data")) {
@@ -174,7 +145,7 @@ export default function InstanceViewPage() {
 			}
 		},
 	};
-	let instanceButtons = <Space>
+	return <Space>
 		{
 			account.hasAnyPermission("core.instance.start", "core.instance.stop")
 			&& <StartStopInstanceButton instance={instance} />
@@ -189,11 +160,46 @@ export default function InstanceViewPage() {
 			<Button>More <DownOutlined /></Button>
 		</Dropdown>}
 	</Space>;
+}
+
+export default function InstanceViewPage() {
+	let params = useParams();
+	let instanceId = Number(params.id);
+
+	let navigate = useNavigate();
+
+	let account = useAccount();
+	let [instance] = useInstance(instanceId);
+	let [host] = useHost(Number(instance.assignedHost));
+
+	let nav = [{ name: "Instances", path: "/instances" }, { name: instance.name || "Unknown" }];
+	if (instance.loading) {
+		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
+	}
+
+	if (instance.missing || instance.status === "deleted") {
+		return <PageLayout nav={nav}>
+			<Alert
+				message={instance.status === "deleted" ? "Instance has been deleted" : "Instance not found" }
+				showIcon
+				description={<>Instance with id {instanceId} was not found on the controller.</>}
+				type="warning"
+				action={
+					<Button
+						type="text"
+						onClick={() => { navigate("/instances"); }}
+					>
+						Go back to instances list
+					</Button>
+				}
+			/>
+		</PageLayout>;
+	}
 
 	return <PageLayout nav={nav}>
 		<PageHeader
 			title={instance.name??""}
-			extra={instanceButtons}
+			extra={<InstanceButtons instance={instance}/>}
 		/>
 		<InstanceDescription host={host} instance={instance} />
 

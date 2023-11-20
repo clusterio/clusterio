@@ -37,7 +37,7 @@ function GenerateHostTokenButton() {
 	}, []);
 
 	async function generateToken() {
-		let id = undefined;
+		let id;
 		let values = form.getFieldsValue();
 		if (values.hostId) {
 			id = Number.parseInt(values.hostId, 10);
@@ -61,8 +61,7 @@ function GenerateHostTokenButton() {
 	}, [open]);
 
 	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
-	//@ts-ignore TODO::: this doesn't filter anything, `x.split("/") <= 1` is always = true. repair or shouldn't filter ?
-	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/") <= 1).join(" ");
+	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/").length <= 1).join(" ");
 	return <>
 		<Button
 			onClick={() => { setOpen(true); }}
@@ -114,12 +113,12 @@ function GenerateHostTokenButton() {
 				<div className="codeblock">
 					<CopyButton
 						message={"Copied host setup commands to clipboard"}
-						text={`
-							mkdir clusterio
-							cd clusterio
-							`+
-							// eslint-disable-next-line max-len
-							`npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless --controller-url ${document.location.origin}/ --host-name "Host ${hostId || "?"}" --public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
+						text={`\
+mkdir clusterio
+cd clusterio
+npm init "@clusterio" -- --controller-token ${token} --mode "host" --download-headless \
+--controller-url ${document.location.origin}/ --host-name "Host ${hostId || "?"}" \
+--public-address localhost ${pluginString.length ? "--plugins" : ""} ${pluginString}`
 						}/>
 					<p>&gt; mkdir clusterio</p>
 					<p>&gt; cd clusterio</p>
@@ -141,12 +140,11 @@ function GenerateHostTokenButton() {
 }
 
 function CopyButton({ text, message }: { text:string, message:string }) {
-	let [clipboardPermision, setClipboardPermission] = useState("granted");
+	let [clipboardPermision, setClipboardPermission] = useState<PermissionState>("granted");
 	useEffect(() => {
 		(async () => {
-			//@ts-ignore https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
+			// @ts-expect-error missing API https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
 			let result = await navigator.permissions.query({ name: "clipboard-write" });
-			// result.state is "granted", "denied" or "prompt"
 			setClipboardPermission(result.state);
 			result.onchange = function () {
 				setClipboardPermission(result.state);
@@ -156,9 +154,8 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 
 	async function checkClipboardPermission() {
 		try {
-			//@ts-ignore https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
+			// @ts-expect-error missing API https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/write
 			let result = await navigator.permissions.query({ name: "clipboard-write" });
-			// result.state is "granted", "denied" or "prompt"
 			setClipboardPermission(result.state);
 			result.onchange = function () {
 				setClipboardPermission(result.state);
@@ -166,7 +163,7 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 			return result.state === "granted";
 
 		} catch (err: any) {
-			//If it fail because "clipboard-write" is not supported.
+			// If it fail because "clipboard-write" is not supported.
 			return err.name === "TypeError";
 		}
 	}
@@ -229,7 +226,7 @@ export default function HostsPage() {
 						{host.connected ? "Connected" : "Disconnected"}
 					</Tag>,
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
-				}
+				},
 			]}
 			dataSource={hostList}
 			rowKey={host => host.id}

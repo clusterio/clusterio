@@ -70,7 +70,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 	const [modResultPage, setModResultPage] = useState<number>(1);
 	const [modResultPageSize, setModResultPageSize] = useState<number>(10);
 	const [modResultCount, setModResultCount] = useState<number>(2);
-	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string,number>>(new Map());
+	const [modResultSelectedVersion, setModResultSelectedVersion] = useState<Map<string, number>>(new Map());
 
 	const factorioVersion = props.modPack.factorioVersion.split(".").slice(0, 2).join(".");
 
@@ -216,7 +216,9 @@ function SearchModsTable(props: SearchModsTableProps) {
 						title: "Action",
 						key: "action",
 						responsive: ["lg"],
-						render: (result:ModResult) => actions(result.versions[modResultSelectedVersion.get(result.name) || 0]),
+						render: (result:ModResult) => (
+							actions(result.versions[modResultSelectedVersion.get(result.name) || 0])
+						),
 					},
 				]}
 				expandable={{
@@ -294,11 +296,13 @@ function ModsTable(props: ModsTableProps) {
 			>remove</Typography.Link>}
 			{(deletedMods.has(mod.name) || changedMods.has(mod.name)) && <Typography.Link
 				onClick={() => {
-					props.onRevert && props.onRevert({
-						type: deletedMods.has(mod.name) ? "mods.delete" : "mods.set",
-						name: mod.name,
-						value: mod,
-					});
+					if (props.onRevert) {
+						props.onRevert({
+							type: deletedMods.has(mod.name) ? "mods.delete" : "mods.set",
+							name: mod.name,
+							value: mod,
+						});
+					}
 				}}
 			>revert</Typography.Link>}
 		</Space>;
@@ -337,7 +341,9 @@ function ModsTable(props: ModsTableProps) {
 							});
 						}
 					}
-					const added = selectedRowKeys.filter(key => !props.modPack.mods.get(key as string)?.enabled) as string[];
+					const added = selectedRowKeys.filter(
+						key => !props.modPack.mods.get(key as string)?.enabled
+					) as string[];
 					const removed = [...props.modPack.mods.values()].filter(
 						mod => mod.enabled && selectedRowKeys.indexOf(mod.name) === -1
 					).map(mod => mod.name);

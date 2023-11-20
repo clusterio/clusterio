@@ -14,9 +14,9 @@ import { notifyErrorHandler } from "../util/notify";
 
 
 export type RawRoleState = Partial<lib.RawRole> & {
-	loading?: Boolean;
-	missing?: Boolean;
-	present?: Boolean;
+	loading?: boolean;
+	missing?: boolean;
+	present?: boolean;
 };
 function useRole(id: number): [RawRoleState, () => void] {
 	let control = useContext(ControlContext);

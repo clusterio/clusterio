@@ -17,7 +17,6 @@ import { useSaves } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
 
 
-
 type ModalProps = {
 	disabled: boolean;
 	save: lib.SaveDetails;
@@ -150,7 +149,9 @@ function TransferModal(props: ModalProps) {
 					<Select
 						autoFocus
 						showSearch
-						filterOption={(input, option) => (option?.title.toLowerCase().indexOf(input.toLowerCase())??-1) >= 0}
+						filterOption={(input, option) => (
+							(option?.title.toLowerCase().indexOf(input.toLowerCase())??-1) >= 0
+						)}
 					>
 						{instanceList.filter(
 							instance => instance["id"] !== props.instanceId

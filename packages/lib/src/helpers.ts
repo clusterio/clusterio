@@ -41,7 +41,7 @@ export async function timeout<T>(promise: Promise<T>, time: number, timeoutResul
 	try {
 		return await Promise.race([
 			promise,
-			new Promise(resolve => {
+			new Promise<T>(resolve => {
 				timer = setTimeout(() => resolve(timeoutResult), time);
 			}),
 		]);

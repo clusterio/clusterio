@@ -264,7 +264,7 @@ export class HostConfig extends classes.Config {
 	get(name: "host.public_address"): string;
 	get(name: "host.max_reconnect_delay"): number;
 	get(name: string): unknown;
-	get(name: string) { 
+	get(name: string) {
 		return super.get(name);
 	}
 }
@@ -503,7 +503,10 @@ export class ControlConfig extends classes.Config { }
 ControlConfig.registerGroup(ControlGroup);
 
 
-function validateGroup(pluginInfo: PluginNodeEnvInfo|PluginWebpackEnvInfo, groupName: "ControllerConfigGroup"|"InstanceConfigGroup") {
+function validateGroup(
+	pluginInfo: PluginNodeEnvInfo | PluginWebpackEnvInfo,
+	groupName: "ControllerConfigGroup"|"InstanceConfigGroup",
+) {
 	if (!(pluginInfo[groupName]?.prototype instanceof classes.PluginConfigGroup)) {
 		throw new Error(
 			`Expected ${groupName} for ${pluginInfo.name} to be a subclass of PluginConfigGroup`

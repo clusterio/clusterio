@@ -2,7 +2,7 @@ import * as lib from "@clusterio/lib";
 
 import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages";
 
-type ipcPlayerAuth = {
+type IpcPlayerAuth = {
 	type: "open_dialog",
 	player: string,
 } | {
@@ -17,12 +17,15 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 			throw new Error("player_auth plugin requires save patching.");
 		}
 
-		this.instance.server.on("ipc-player_auth", (ipcPlayerAuth: ipcPlayerAuth) => this.handleEvent(ipcPlayerAuth).catch(
-			err => this.logger.error(`Error handling event:\n${err.stack}`)
-		));
+		this.instance.server.on(
+			"ipc-player_auth",
+			(ipcPlayerAuth: IpcPlayerAuth) => this.handleEvent(ipcPlayerAuth).catch(
+				err => this.logger.error(`Error handling event:\n${err.stack}`)
+			)
+		);
 	}
 
-	async handleEvent(event: ipcPlayerAuth) {
+	async handleEvent(event: IpcPlayerAuth) {
 		if (event.type === "open_dialog") {
 			if (!this.host.connector.connected) {
 				await this.sendRcon(`/web-login error ${event.player} login is temporarily unavailable`);

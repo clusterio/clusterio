@@ -12,6 +12,6 @@ const info: lib.PluginDeclaration = {
 	messages: [
 		ChatEvent,
 	],
-}
+};
 
 export default info;

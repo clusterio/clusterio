@@ -10,7 +10,7 @@ class FetchPlayerCodeResponse {
 	static jsonSchema = Type.Object({
 		"playerCode": Type.String(),
 		"controllerUrl": Type.String(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof FetchPlayerCodeResponse.jsonSchema>): FetchPlayerCodeResponse {
 		return new this(json.playerCode, json.controllerUrl);
@@ -32,7 +32,7 @@ export class FetchPlayerCodeRequest {
 
 	static jsonSchema = Type.Object({
 		"player": Type.String(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof FetchPlayerCodeRequest.jsonSchema>): FetchPlayerCodeRequest {
 		return new this(json.player);
@@ -55,7 +55,7 @@ export class SetVerifyCodeRequest {
 	static jsonSchema = Type.Object({
 		"player": Type.String(),
 		"verifyCode": Type.String(),
-	})
+	});
 
 	static fromJSON(json: Static<typeof SetVerifyCodeRequest.jsonSchema>): SetVerifyCodeRequest {
 		return new this(json.player, json.verifyCode);

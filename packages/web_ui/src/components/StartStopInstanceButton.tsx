@@ -17,7 +17,7 @@ export default function StartStopInstanceButton(props: StartStopInstanceButtonPr
 	let control = useContext(ControlContext);
 	let [switching, setSwitching] = useState<boolean>(false);
 
-	const onClick: React.MouseEventHandler<HTMLElement> = function(event) {
+	function onClick(event: React.MouseEvent<HTMLElement>) {
 		event.stopPropagation();
 		setSwitching(true);
 		let action;
@@ -48,7 +48,7 @@ export default function StartStopInstanceButton(props: StartStopInstanceButtonPr
 				props.onFinish();
 			}
 		});
-	}
+	};
 
 	return <Button
 		{...(props.buttonProps || {})}

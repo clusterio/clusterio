@@ -66,6 +66,7 @@ export class HostConnector extends lib.WebSocketClientConnector {
 
 async function startHost() {
 	// argument parsing
+	// eslint-disable-next-line node/no-sync
 	const args = yargs
 		.scriptName("host")
 		.usage("$0 <command> [options]")

@@ -3,7 +3,7 @@ import { Type, Static } from "@sinclair/typebox";
 import events from "events";
 
 import isDeepStrictEqual from "../is_deep_strict_equal";
-import { basicType } from"../helpers";
+import { basicType } from "../helpers";
 
 
 export type ConfigLocation = "controller" | "host" | "instance" | "control";
@@ -748,6 +748,7 @@ export class ConfigGroup {
 	 *     config.  This can also be an async function returning the
 	 *     value to use.
 	 */
+	// eslint-disable-next-line complexity
 	static define(item: {
 		access?: ConfigLocation[],
 		type: FieldType,

@@ -1,8 +1,10 @@
 "use strict";
 module.exports = {
 	"plugins": [
+		"@typescript-eslint",
 		"node",
 	],
+	"root": true,
 	"env": {
 		"node": true,
 		"commonjs": true,
@@ -11,10 +13,24 @@ module.exports = {
 
 	"overrides": [
 		{
+			"files": ["{packages,plugins}/**/*.ts?(x)"],
+			"parser": "@typescript-eslint/parser",
+			"extends": [
+				"plugin:@typescript-eslint/recommended",
+			],
+			"rules": {
+				"@typescript-eslint/no-explicit-any": "off",
+				"@typescript-eslint/no-useless-constructor": "error",
+				"@typescript-eslint/no-unused-vars": "off",
+				"prefer-const": "off",
+			},
+		},
+		{
 			"files": ["test/**/*.js", "plugins/*/test/**/*.js"],
 			"env": {
 				"mocha": "true",
 			},
+			"parserOptions": { sourceType: "commonjs" },
 			"rules": {
 				"prefer-arrow-callback": "off",
 				"no-invalid-this": "off",
@@ -23,7 +39,7 @@ module.exports = {
 			},
 		},
 		{
-			"files": ["packages/web_ui/src/**/*.jsx", "packages/lib/browser.js", "plugins/*/web/**/*.jsx"],
+			"files": ["packages/web_ui/src/**/*.ts?(x)", "packages/lib/browser.js", "plugins/*/web/**/*.ts?(x)"],
 			"env": {
 				"browser": true,
 			},
@@ -108,7 +124,7 @@ module.exports = {
 		"curly": "error",
 		"default-case": "error",
 		"default-case-last": "error",
-		"default-param-last": "error",
+		"default-param-last": "off",
 		"dot-location": ["error", "property"],
 		"dot-notation": ["error", { "allowPattern": "^[a-z]+(_[a-z]+)*$" }],
 		"eol-last": "error",
@@ -148,7 +164,10 @@ module.exports = {
 		"max-statements-per-line": "off",
 		"multiline-comment-style": ["error", "separate-lines"],
 		"multiline-ternary": "off",
-		"new-cap": "error",
+		"new-cap": ["error", {
+			"capIsNewExceptions": ["StringEnum"],
+			"capIsNewExceptionPattern": "^Type\\.",
+		}],
 		"new-parens": "error",
 		"newline-after-var": "off",
 		"newline-before-return": "off",
@@ -159,7 +178,7 @@ module.exports = {
 		"no-bitwise": "off",
 		"no-buffer-constructor": "error",
 		"no-caller": "error",
-		"no-catch-shadow": "error",
+		"no-catch-shadow": "off",
 		"no-confusing-arrow": "error",
 		"no-console": "error",
 		"no-constant-condition": ["error", { "checkLoops": false }],
@@ -223,7 +242,7 @@ module.exports = {
 		"no-script-url": "error",
 		"no-self-compare": "error",
 		"no-sequences": "error",
-		"no-shadow": ["error", { "allow": ["yargs"] }],
+		"no-shadow": ["error", { "allow": ["Event", "Request", "yargs"] }],
 		"no-spaced-func": "error",
 		"no-tabs": ["error", { "allowIndentationTabs": true }],
 		"no-template-curly-in-string": "error",
@@ -235,12 +254,12 @@ module.exports = {
 		"no-unmodified-loop-condition": "error",
 		"no-unneeded-ternary": "error",
 		"no-unused-expressions": "error",
-		"no-use-before-define": "error",
+		"no-use-before-define": "off",
 		"no-useless-backreference": "error",
 		"no-useless-call": "error",
 		"no-useless-computed-key": "error",
 		"no-useless-concat": "error",
-		"no-useless-constructor": "error",
+		"no-useless-constructor": "off",
 		"no-useless-rename": "error",
 		"no-useless-return": "error",
 		"no-var": "error",
@@ -303,7 +322,11 @@ module.exports = {
 		"template-curly-spacing": ["error", "never"],
 		"template-tag-spacing": "error",
 		"unicode-bom": ["error", "never"],
-		"valid-jsdoc": ["error", { "requireReturn": false }],
+		"valid-jsdoc": ["error", {
+			"requireReturn": false,
+			"requireReturnType": false,
+			"requireParamType": false,
+		}],
 		"vars-on-top": "error",
 		"wrap-iife": "error",
 		"wrap-regex": "off",
@@ -313,14 +336,16 @@ module.exports = {
 		"node/callback-return": "off",
 		"node/exports-style": "off",
 		"node/file-extension-in-import": "off",
-		"node/global-require": "error",
+		"node/global-require": "off",
 		"node/handle-callback-err": "error",
 		"node/no-callback-literal": "error",
 		"node/no-deprecated-api": "error",
 		"node/no-exports-assign": "error",
-		"node/no-extraneous-import": "error",
-		"node/no-extraneous-require": "error",
-		"node/no-missing-import": "error",
+		"node/no-extraneous-import": "off",
+		"node/no-extraneous-require": "off",
+		"node/no-missing-import": ["error", {
+			"tryExtensions": [".js", ".ts"],
+		}],
 		"node/no-missing-require": "error",
 		"node/no-mixed-requires": "error",
 		"node/no-new-require": "error",
@@ -335,9 +360,9 @@ module.exports = {
 			"error",
 			{ "allowModules": ["webpack", "webpack-merge", "webpack-dev-middleware"] },
 		],
-		"node/no-unsupported-features/es-builtins": "error",
-		"node/no-unsupported-features/es-syntax": "error",
-		"node/no-unsupported-features/node-builtins": "error",
+		"node/no-unsupported-features/es-builtins": "off",
+		"node/no-unsupported-features/es-syntax": "off",
+		"node/no-unsupported-features/node-builtins": "off",
 		"node/prefer-global/buffer": "error",
 		"node/prefer-global/console": "error",
 		"node/prefer-global/process": "error",
@@ -348,6 +373,10 @@ module.exports = {
 		"node/prefer-promises/dns": "off",
 		"node/prefer-promises/fs": "off",
 		"node/process-exit-as-throw": "error",
-		"node/shebang": "error",
+		"node/shebang": ["error", {
+			"convertPath": {
+				"*.ts": ["^(.+)\\.ts$", "dist/$1.js"],
+			},
+		}],
 	},
 };

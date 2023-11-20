@@ -1,13 +1,12 @@
 // Connection adapters for Links
-"use strict";
 import { strict as assert } from "assert";
 import events from "events";
 import WebSocket from "./WebSocket";
 
 import * as libData from "../data";
-import * as libErrors  from "../errors";
-import { logger }  from "../logging";
-import ExponentialBackoff  from "../ExponentialBackoff";
+import * as libErrors from "../errors";
+import { logger } from "../logging";
+import ExponentialBackoff from "../ExponentialBackoff";
 import type { Request, Event } from "./link";
 
 
@@ -101,10 +100,6 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
 	_sendBuffer: (libData.MessageRoutable)[] = [];
-
-	constructor(src: libData.Address, dst: libData.Address) {
-		super(src, dst);
-	}
 
 	_reset() {
 		this._state = "closed";

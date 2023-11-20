@@ -1,4 +1,3 @@
-"use strict";
 import zlib from "zlib";
 
 class MapReaderState {
@@ -72,7 +71,7 @@ function readString(state: MapReaderState) {
 	return data;
 }
 
-function readOptional<T>(state: MapReaderState, readValue: (state: MapReaderState) => T) {
+function readOptional<T>(state: MapReaderState, readValue: (s: MapReaderState) => T) {
 	let load = readUInt8(state) !== 0;
 	if (!load) {
 		return null;
@@ -80,7 +79,7 @@ function readOptional<T>(state: MapReaderState, readValue: (state: MapReaderStat
 	return readValue(state);
 }
 
-function readArray<T>(state: MapReaderState, readItem: (state: MapReaderState) => T) {
+function readArray<T>(state: MapReaderState, readItem: (s: MapReaderState) => T) {
 	let size = readUInt32so(state);
 
 	let array: T[] = [];
@@ -94,8 +93,8 @@ function readArray<T>(state: MapReaderState, readItem: (state: MapReaderState) =
 
 function readDict<K, V>(
 	state: MapReaderState,
-	readKey: (state: MapReaderState) => K,
-	readValue: (state: MapReaderState) => V
+	readKey: (s: MapReaderState) => K,
+	readValue: (s: MapReaderState) => V
 ) {
 	let size = readUInt32so(state);
 

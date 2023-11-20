@@ -1,4 +1,3 @@
-"use strict";
 import fs from "fs-extra";
 import path from "path";
 import events from "events";
@@ -543,7 +542,7 @@ export default class Host extends lib.Link {
 	}
 
 	async handleHostMetricsRequest() {
-		let requests = [];
+		let requests: Promise<InstanceType<typeof lib.InstanceMetricsRequest["Response"]>>[] = [];
 		for (let instanceConnection of this.instanceConnections.values()) {
 			requests.push(instanceConnection.send(new lib.InstanceMetricsRequest()));
 		}
@@ -689,7 +688,7 @@ export default class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: this.tlsCa } as {},
+			core: { ca: this.tlsCa } as object,
 			stream: true,
 		});
 
@@ -744,7 +743,7 @@ export default class Host extends lib.Link {
 		url.pathname += `api/stream/${streamId}`;
 		phin({
 			url, method: "PUT",
-			core: { ca: this.tlsCa } as {},
+			core: { ca: this.tlsCa } as object,
 			data: content,
 		}).catch(err => {
 			logger.error(`Error pushing save to controller:\n${err.stack}`, this.instanceLogMeta(instanceId));

@@ -6,7 +6,6 @@
  * @author Hornwitser
  * @module lib/users
  */
-"use strict";
 import * as libErrors from "./errors";
 
 import PlayerStats from "./PlayerStats";
@@ -328,6 +327,7 @@ export class User {
 		}
 		return playerStats;
 	}
+
 	/**
 	 * Set of users currently online in the cluster.
 	 */

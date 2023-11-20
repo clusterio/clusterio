@@ -29,14 +29,14 @@ export function useItemMetadata() {
 				let style = document.createElement("style");
 				document.head.appendChild(style);
 				for (let [name, meta] of itemMetadataCache) {
-					style.sheet!.insertRule(
-						`.item-${CSS.escape(name)} {
-							background-image: url("${window.staticRoot}static/${exportManifest.assets["item-spritesheet"]}");
-							background-repeat: no-repeat;
-							background-position: -${meta.x}px -${meta.y}px;
-							height: ${meta.size}px;
-							width: ${meta.size}px;
-						}`
+					style.sheet!.insertRule(`\
+.item-${CSS.escape(name)} {
+	background-image: url("${window.staticRoot}static/${exportManifest.assets["item-spritesheet"]}");
+	background-repeat: no-repeat;
+	background-position: -${meta.x}px -${meta.y}px;
+	height: ${meta.size}px;
+	width: ${meta.size}px;
+}`
 					);
 				}
 				setItemMetadata(itemMetadataCache);

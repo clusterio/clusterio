@@ -99,7 +99,7 @@ export default function InstanceList(props: InstanceListProps) {
 			responsive: ["sm"],
 			align: "right",
 			width: 100,
-		})
+		});
 	}
 
 	if (props.hideAssignedHost) {

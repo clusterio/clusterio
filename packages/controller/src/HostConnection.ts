@@ -13,7 +13,7 @@ export interface HostInfo {
 	id: number;
 	name: string;
 	version: string;
-	plugins: [number, any][];
+	plugins: Record<string, string>;
 	public_address: string | undefined;
 	token_valid_after?: number;
 }
@@ -30,10 +30,10 @@ export default class HostConnection extends BaseConnection {
 	private _id: any;
 	private _name: any;
 	private _version: any;
-	plugins: Map<string, Object>;
+	plugins: Map<string, string>;
 
 	constructor(
-		registerData: any,
+		registerData: lib.RegisterHostData,
 		connector: WsServerConnector,
 		controller: Controller,
 	) {
@@ -46,7 +46,7 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
-		let currentHostInfo = this._controller.hosts!.get(this._id)
+		let currentHostInfo = this._controller.hosts!.get(this._id);
 
 		this._controller.hosts!.set(this._id, {
 			agent: this._agent,
@@ -223,7 +223,9 @@ export default class HostConnection extends BaseConnection {
 			}
 
 			instanceConfig.set("instance.assigned_host", this._id);
-			let newInstance = new InstanceInfo({ config: instanceConfig, status: instanceData.status as InstanceStatus });
+			let newInstance = new InstanceInfo(
+				{ config: instanceConfig, status: instanceData.status as InstanceStatus }
+			);
 			this._controller.instances!.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.addInstanceHooks(newInstance);
 			await this.send(

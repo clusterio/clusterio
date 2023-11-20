@@ -169,6 +169,7 @@ async function startControl() {
 	;
 
 	// Parse the args first to get the configured plugin list.
+	// eslint-disable-next-line node/no-sync
 	let args = yargs.parseSync() as CtlArguments;
 
 	// Log stream for the ctl session.

@@ -16,8 +16,9 @@ export function useHost(id: number): [ HostState, () => void ] {
 
 	function updateHost() {
 		// XXX optimize by requesting only the host in question
-		control.send(new lib.HostListRequest())
-		.then((hosts: lib.HostDetails[]) => {
+		control.send(
+			new lib.HostListRequest()
+		).then((hosts: lib.HostDetails[]) => {
 			let match = hosts.find(i => i.id === id);
 			if (!match) {
 				setHost({ missing: true });
@@ -35,7 +36,7 @@ export function useHost(id: number): [ HostState, () => void ] {
 		updateHost();
 
 		function updateHandler(newHost: lib.HostDetails) {
-			setHost({ ...newHost, loading:false, missing:false, present:true });
+			setHost({ ...newHost, loading: false, missing: false, present: true });
 		}
 
 		control.hostUpdate.subscribeToChannel(id, updateHandler);
@@ -52,8 +53,9 @@ export function useHostList() {
 	let [hostList, setHostList] = useState<lib.HostDetails[]>([]);
 
 	function updateHostList() {
-		control.send(new lib.HostListRequest())
-		.then((hosts: lib.HostDetails[]) => {
+		control.send(
+			new lib.HostListRequest()
+		).then((hosts: lib.HostDetails[]) => {
 			setHostList(hosts);
 		});
 	}

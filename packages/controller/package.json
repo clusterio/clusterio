@@ -4,13 +4,13 @@
   "author": "Hornwitser",
   "license": "MIT",
   "version": "2.0.0-alpha.13",
-  "main": "dist/controller/controller.js",
+  "main": "dist/controller.js",
   "scripts": {
     "prepare": "tsc --build && webpack-cli --env production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "bin": {
-    "clusteriocontroller": "./dist/controller/controller.js"
+    "clusteriocontroller": "./dist/controller.js"
   },
   "keywords": [
     "factorio"

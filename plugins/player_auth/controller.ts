@@ -1,7 +1,5 @@
-import type { Request, Response } from "express";
-
 import crypto from "crypto";
-import express from "express";
+import express, { type Request, type Response } from "express";
 import util from "util";
 import jwt from "jsonwebtoken";
 
@@ -56,13 +54,21 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 			res.send(servers);
 		});
 
-		this.controller.app.post("/api/player_auth/player_code", express.json(), (req: Request, res: Response, next: any) => {
-			this.handlePlayerCode(req, res).catch(next);
-		});
+		this.controller.app.post(
+			"/api/player_auth/player_code",
+			express.json(),
+			(req: Request, res: Response, next: any) => {
+				this.handlePlayerCode(req, res).catch(next);
+			}
+		);
 
-		this.controller.app.post("/api/player_auth/verify", express.json(), (req: Request, res: Response, next: any) => {
-			this.handleVerify(req, res).catch(next);
-		});
+		this.controller.app.post(
+			"/api/player_auth/verify",
+			express.json(),
+			(req: Request, res: Response, next: any) => {
+				this.handleVerify(req, res).catch(next);
+			}
+		);
 
 		this.controller.handle(FetchPlayerCodeRequest, this.handleFetchPlayerCodeRequest.bind(this));
 		this.controller.handle(SetVerifyCodeRequest, this.handleSetVerifyCodeRequest.bind(this));

@@ -32,7 +32,7 @@ const { ConsoleTransport, levels, logger } = lib;
 
 import Controller from "./src/Controller";
 import UserManager from "./src/UserManager";
-const version = require("./package.json").version;
+import { version } from "./package.json";
 
 // globals
 let controller: Controller;
@@ -83,18 +83,16 @@ void new lib.Gauge(
 	"clusterio_controller_websocket_active_connections",
 	"How many WebSocket connections are currently open to the controller",
 	{ callback: function(gauge:lib.Gauge) {
-			gauge.set(controller.wsServer.activeConnectors.size);
-		}
-	}
+		gauge.set(controller.wsServer.activeConnectors.size);
+	}}
 );
 
 void new lib.Gauge(
 	"clusterio_controller_active_hosts",
 	"How many hosts are currently connected to the controller",
 	{ callback: function(gauge:lib.Gauge) {
-			gauge.set(controller.wsServer.hostConnections.size);
-		}
-	}
+		gauge.set(controller.wsServer.hostConnections.size);
+	}}
 );
 
 void new lib.Gauge(
@@ -294,7 +292,7 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.info(`Loading available plugins from ${args.pluginList}`);
 	let pluginList = new Map();
 	try {
-		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList, { encoding: 'utf8' })));
+		pluginList = new Map(JSON.parse(await fs.readFile(args.pluginList, { encoding: "utf8" })));
 	} catch (err: any) {
 		if (err.code !== "ENOENT") {
 			throw err;
@@ -324,7 +322,7 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.info(`Loading config from ${controllerConfigPath}`);
 	const controllerConfig = new lib.ControllerConfig("controller");
 	try {
-		let fileData = await fs.readFile(controllerConfigPath, { encoding: 'utf8' })
+		let fileData = await fs.readFile(controllerConfigPath, { encoding: "utf8" });
 		await controllerConfig.load(JSON.parse(fileData));
 
 	} catch (err: any) {
@@ -363,7 +361,7 @@ async function initialize(): Promise<InitializeParameters> {
 		controllerConfigPath,
 		controllerConfig,
 		shouldRun,
-	}
+	};
 }
 
 async function startup() {
@@ -377,7 +375,7 @@ async function startup() {
 		clusterLogger,
 		pluginInfos,
 		controllerConfigPath,
-		controllerConfig
+		controllerConfig,
 	} = await initialize();
 	if (!shouldRun || !pluginInfos || !controllerConfigPath || !controllerConfig) {
 		return;

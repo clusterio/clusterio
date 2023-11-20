@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@clusterio/lib": "^2.0.0-alpha.13",
+    "@sinclair/typebox": "^0.30.4",
     "fs-extra": "^11.1.1",
     "jimp": "^0.22.8",
     "jszip": "^3.10.1",
@@ -36,7 +37,6 @@
     "access": "public"
   },
   "devDependencies": {
-    "@sinclair/typebox": "^0.30.4",
     "@types/fs-extra": "^11.0.1",
     "@types/node": "^20.4.5",
     "@types/pidusage": "^2.0.2",

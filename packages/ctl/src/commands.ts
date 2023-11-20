@@ -12,7 +12,7 @@ import type { Argv } from "yargs";
 
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Control } from "../ctl";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 const finished = util.promisify(stream.finished);
@@ -89,7 +89,7 @@ const controllerConfigCommands = new lib.CommandTree({
 
 controllerConfigCommands.add(new lib.Command({
 	definition: ["list", "List controller configuration"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let response = await control.send(new lib.ControllerConfigGetRequest());
 
 		for (let group of (response.serializedConfig as any).groups) {
@@ -212,13 +212,13 @@ const controllerPluginCommands = new lib.CommandTree({
 });
 controllerPluginCommands.add(new lib.Command({
 	definition: ["list", "List plugins on controller"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let url = new URL(control.config.get("control.controller_url") as string);
 		url.pathname += "api/plugins";
 		let response = await phin<[]>({
 			url,
 			parse: "json",
-			core: { ca: control.tlsCa } as {},
+			core: { ca: control.tlsCa } as object,
 		});
 		print(asTable(response.body));
 	},
@@ -229,7 +229,7 @@ controllerCommands.add(controllerPluginCommands);
 const hostCommands = new lib.CommandTree({ name: "host", description: "Host management" });
 hostCommands.add(new lib.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let hosts = await control.send(new lib.HostListRequest());
 		print(asTable(hosts));
 	},
@@ -288,7 +288,7 @@ const instanceCommands = new lib.CommandTree({
 });
 instanceCommands.add(new lib.Command({
 	definition: [["list", "l"], "List instances known to the controller"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let list = await control.send(new lib.InstanceDetailsListRequest());
 		print(asTable(list));
 	},
@@ -466,7 +466,7 @@ instanceConfigCommands.add(new lib.Command({
 		});
 		await events.once(doneEmitter, "dot_on_done");
 		try {
-			await fs.unlink(tmpFile)
+			await fs.unlink(tmpFile);
 		} catch (err) {
 			print("err: temporary file", tmpFile, "could not be deleted.");
 			print("This is not fatal, but they may build up over time if the issue persists.");
@@ -612,7 +612,7 @@ instanceSaveCommands.add(new lib.Command({
 				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa } as {},
+			core: { ca: control.tlsCa } as object,
 			data: content,
 			parse: "json",
 		});
@@ -687,7 +687,7 @@ instanceSaveCommands.add(new lib.Command({
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: control.tlsCa } as {},
+			core: { ca: control.tlsCa } as object,
 			stream: true,
 		});
 
@@ -898,13 +898,13 @@ modPackCommands.add(new lib.Command({
 
 modPackCommands.add(new lib.Command({
 	definition: [["list", "l"], "List mod packs in the cluster"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let modPacks = await control.send(new lib.ModPackListRequest());
 		let fields = ["id", "name", "factorioVersion"];
 		for (let entry of modPacks) {
 			for (let field of Object.keys(entry)) {
 				if (!fields.includes(field)) {
-					// @ts-ignore
+					// @ts-expect-error terrible hack
 					delete entry[field];
 				}
 			}
@@ -1176,7 +1176,7 @@ modCommands.add(new lib.Command({
 			for (let entry of mods) {
 				for (let field of Object.keys(entry)) {
 					if (!args.fields.includes(field)) {
-						// @ts-ignore
+						// @ts-expect-error terrible hack
 						delete entry[field];
 					}
 				}
@@ -1243,7 +1243,7 @@ modCommands.add(new lib.Command({
 			for (let entry of results) {
 				for (let field of Object.keys(entry)) {
 					if (!args.fields.includes(field)) {
-						// @ts-ignore
+						// @ts-expect-error terrible hack
 						delete entry[field];
 					}
 				}
@@ -1281,7 +1281,7 @@ modCommands.add(new lib.Command({
 				"X-Access-Token": control.config.get("control.controller_token"),
 				"Content-Type": "application/zip",
 			},
-			core: { ca: control.tlsCa } as {},
+			core: { ca: control.tlsCa } as object,
 			data: content,
 			parse: "json",
 		});
@@ -1317,7 +1317,7 @@ modCommands.add(new lib.Command({
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
-			core: { ca: control.tlsCa } as {},
+			core: { ca: control.tlsCa } as object,
 			stream: true,
 		});
 
@@ -1358,7 +1358,7 @@ modCommands.add(new lib.Command({
 const permissionCommands = new lib.CommandTree({ name: "permission", description: "Permission inspection" });
 permissionCommands.add(new lib.Command({
 	definition: [["list", "l"], "List permissions in the cluster"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let permissions = await control.send(new lib.PermissionListRequest());
 		print(asTable(permissions));
 	},
@@ -1368,7 +1368,7 @@ permissionCommands.add(new lib.Command({
 const roleCommands = new lib.CommandTree({ name: "role", description: "Role management" });
 roleCommands.add(new lib.Command({
 	definition: [["list", "l"], "List roles in the cluster"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		let roles = await control.send(new lib.RoleListRequest());
 		print(asTable(roles));
 	},
@@ -1716,7 +1716,7 @@ logCommands.add(new lib.Command({
 const debugCommands = new lib.CommandTree({ name: "debug", description: "Debugging utilities" });
 debugCommands.add(new lib.Command({
 	definition: ["dump-ws", "Dump WebSocket messages sent and received by controller"],
-	handler: async function(args: {}, control: Control) {
+	handler: async function(args: object, control: Control) {
 		await control.send(new lib.DebugDumpWsRequest());
 		control.keepOpen = true;
 	},

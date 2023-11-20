@@ -18,7 +18,7 @@ const finished = util.promisify(nodeStream.finished);
 
 
 // Merges samples from sourceResult to destinationResult
-function mergeSamples(destinationResult: any, sourceResult: any) {
+function mergeSamples(destinationResult: lib.CollectorResultSerialized, sourceResult: lib.CollectorResultSerialized) {
 	let receivedSamples = new Map(sourceResult.samples);
 	for (let [suffix, suffixSamples] of destinationResult.samples) {
 		if (receivedSamples.has(suffix)) {
@@ -34,17 +34,18 @@ function mergeSamples(destinationResult: any, sourceResult: any) {
 
 // Prometheus polling endpoint
 async function getMetrics(req: Request, res: Response, next: any) {
-	const controller: Controller = req.app.locals.controller
+	const controller: Controller = req.app.locals.controller;
 
-	let results: any[] = [];
-	let pluginResults: any[] = await lib.invokeHook(controller.plugins, "onMetrics");
+	let results: lib.CollectorResult[] = [];
+	type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
+	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics") as ResultIterator[];
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);
 		}
 	}
 
-	let requests: Promise<any>[] = [];
+	let requests: Promise<InstanceType<typeof lib.HostMetricsRequest["Response"]> | null>[] = [];
 	let timeout = controller.config.get("controller.metrics_timeout") * 1000;
 	for (let [hostId, hostConnection] of controller.wsServer.hostConnections) {
 		if (!hostConnection.connected) {
@@ -61,11 +62,11 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		));
 	}
 
-	for await (let result of await lib.defaultRegistry.collect()) {
+	for await (let result of lib.defaultRegistry.collect()) {
 		results.push(result);
 	}
 
-	let resultMap: Map<string, any> = new Map();
+	let resultMap: Map<string, lib.CollectorResultSerialized> = new Map();
 	for (let response of await Promise.all(requests)) {
 		if (!response) {
 			// TODO: Log timeout occured?
@@ -83,19 +84,12 @@ async function getMetrics(req: Request, res: Response, next: any) {
 		}
 	}
 
-	// TODO: results seem to mix deserialized and serialized lib.CollectorResult ?
-	// mergeSamples imply samples be [string, [string, number][]]
-	// but lib.defaultRegistry.collect() imply Map<string, Map<string, number>>
 	for (let result of resultMap.values()) {
 		results.push(lib.deserializeResult(result));
 	}
 
-
-	// lib.exposition expect AsyncIterable<CollectorResult> as parameter.
-	// Should wrap results into a Generator functions ?
-	// @ts-ignore 
 	let text = await lib.exposition(results);
-	res.set("Content-Type", lib.exposition.contentType);
+	res.set("Content-Type", lib.expositionContentType);
 	res.send(text);
 }
 
@@ -426,28 +420,29 @@ async function uploadSave(req: Request, res: Response) {
 
 	if (contentMime === "multipart/form-data") {
 		await new Promise(resolve => {
-			let instanceId:number | undefined;
-			let parser = busboy({ headers: req.headers });
-			parser.on("file", (name: string, stream: nodeStream.Readable, { filename, mimeType }: { filename: string, mimeType: string } ) => {
+			let instanceId: number | undefined;
+			function fileHandler(
+				name: string,
+				stream: nodeStream.Readable,
+				{ filename, mimeType }: { filename: string, mimeType: string }
+			) {
 				if (instanceId === undefined) {
 					requestErrors.push("instance_id must come before files uploaded");
 				}
-
 				if (!zipMimes.includes(mimeType)) {
 					requestErrors.push("invalid file Content-Type");
 				}
-
 				if (!filename.endsWith(".zip")) {
 					requestErrors.push("filename must end with .zip");
 				}
-
 				if (errors.length || requestErrors.length) {
 					stream.resume();
 					return;
 				}
-
 				tasks.push(handleFile(instanceId as number, stream, filename, mimeType));
-			});
+			}
+			let parser = busboy({ headers: req.headers });
+			parser.on("file", fileHandler);
 			parser.on("field", (name, value, info) => {
 				if (name === "instance_id") {
 					instanceId = Number.parseInt(value, 10);
@@ -593,23 +588,26 @@ async function uploadMod(req: Request, res: Response) {
 
 	if (contentMime === "multipart/form-data") {
 		await new Promise(resolve => {
-			let parser = busboy({ headers: req.headers });
-			parser.on("file", (name:string, stream: nodeStream.Readable, { filename, mimeType }: { filename: string, mimeType: string }) => {
+			function fileHandler(
+				name: string,
+				stream: nodeStream.Readable,
+				{ filename, mimeType }: { filename: string, mimeType: string }
+			) {
 				if (!zipMimes.includes(mimeType)) {
 					requestErrors.push("invalid file Content-Type");
 				}
-
 				if (!filename.endsWith(".zip")) {
 					requestErrors.push("filename must end with .zip");
 				}
-
 				if (errors.length || requestErrors.length) {
 					stream.resume();
 					return;
 				}
-
 				tasks.push(handleFile(stream, filename));
-			});
+			}
+
+			let parser = busboy({ headers: req.headers });
+			parser.on("file", fileHandler);
 			parser.on("close", resolve);
 			parser.on("error", (err: any) => {
 				logger.error(`Error parsing multipart request in upload-mod:\n${err.stack}`);

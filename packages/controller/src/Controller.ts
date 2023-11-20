@@ -1,13 +1,10 @@
 import type winston from "winston";
 import type { AddressInfo } from "net";
 import type { ControllerArgs } from "../controller";
-import type { HostInfo } from "./HostConnection";
-import type { Request, Response, Application } from "express";
-
+import express, { type Request, type Response, type NextFunction, type Application } from "express";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
-import express from "express";
 import fs from "fs-extra";
 import http from "http";
 import https from "https";
@@ -20,12 +17,11 @@ const { logger, Summary, Gauge } = lib;
 
 import HttpCloser from "./HttpCloser";
 import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
-import metrics from "./metrics";
+import * as metrics from "./metrics";
 import * as routes from "./routes";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
-import yargs from "yargs";
-import HostConnection from "./HostConnection";
+import HostConnection, { type HostInfo } from "./HostConnection";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -77,7 +73,7 @@ export default class Controller {
 
 	/** Event subscription controller */
 	subscriptions: lib.SubscriptionController;
-	
+
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
 	private _shouldStop: boolean = false;
@@ -87,7 +83,7 @@ export default class Controller {
 	_snoopedEvents = new Map();
 
 	devMiddleware: any | null = null;
-	
+
 	logDirectory: string = "";
 	clusterLogIndex: lib.LogIndex | null = null;
 	clusterLogBuildInterval: ReturnType<typeof setInterval> | null = null;
@@ -110,6 +106,14 @@ export default class Controller {
 		this.wsServer = new WsServer(this);
 		this.userManager = new UserManager(this.config);
 		this.subscriptions = new lib.SubscriptionController(this);
+
+		// Handle subscriptions for all internal properties
+		this.subscriptions.handle(lib.HostUpdateEvent);
+		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
+		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
+		this.subscriptions.handle(lib.ModPackUpdateEvent);
+		this.subscriptions.handle(lib.ModUpdateEvent);
+		this.subscriptions.handle(lib.UserUpdateEvent);
 	}
 
 	async start(args: ControllerArgs) {
@@ -149,7 +153,7 @@ export default class Controller {
 	async _startInternal(args: ControllerArgs) {
 		this.logDirectory = args.logDirectory;
 		this.clusterLogIndex = await lib.LogIndex.load(path.join(this.logDirectory, "cluster"));
-		
+
 		this.clusterLogBuildInterval = setInterval(() => {
 			if (this.clusterLogIndex) {
 				this.clusterLogIndex.buildIndex().catch(
@@ -161,33 +165,7 @@ export default class Controller {
 
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
-			logger.warn("Webpack development mode enabled");
-			/* eslint-disable node/global-require, node/no-unpublished-require */
-			const webpack = require("webpack");
-			const webpackDevMiddleware = require("webpack-dev-middleware");
-			const webpackConfigs = [];
-
-			if (args.dev) {
-				webpackConfigs.push(require("../../../webpack.config")({}));
-			}
-			if (args.devPlugin) {
-				let devPlugins = new Map();
-				for (let name of args.devPlugin) {
-					let info = this.pluginInfos.find(i => i.name === name);
-					if (!info) {
-						throw new lib.StartupError(`No plugin named ${name}`);
-					}
-					let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
-					devPlugins.set(name, webpackConfigs.length);
-					webpackConfigs.push(config);
-				}
-				this.app.locals.devPlugins = devPlugins;
-			}
-			/* eslint-enable node/global-require, node/no-unpublished-require */
-
-			const compiler = webpack(webpackConfigs);
-			this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });
-			this.app.use(this.devMiddleware);
+			this._startDevServer(args);
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
@@ -231,7 +209,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json")
+			let manifestPath = path.join(__dirname, "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -239,14 +217,6 @@ export default class Controller {
 			}
 			this.app.locals.mainBundle = manifest["main.js"] || "no_web_build";
 		}
-
-		// Handle subscriptions for all internal properties
-		this.subscriptions.handle(lib.HostUpdateEvent);
-		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
-		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
-		this.subscriptions.handle(lib.ModPackUpdateEvent);
-		this.subscriptions.handle(lib.ModUpdateEvent);
-		this.subscriptions.handle(lib.UserUpdateEvent);
 
 		// Load plugins
 		await this.loadPlugins();
@@ -284,6 +254,37 @@ export default class Controller {
 
 		logger.info("Started controller");
 		this._state = "running";
+	}
+
+	async _startDevServer(args: ControllerArgs) {
+		logger.warn("Webpack development mode enabled");
+		/* eslint-disable @typescript-eslint/no-var-requires, node/no-unpublished-require */
+		const webpack = require("webpack");
+		const webpackDevMiddleware = require("webpack-dev-middleware");
+		const webpackConfigs = [];
+
+		if (args.dev) {
+			// eslint-disable-next-line node/no-missing-require
+			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
+		}
+		if (args.devPlugin) {
+			let devPlugins = new Map();
+			for (let name of args.devPlugin) {
+				let info = this.pluginInfos.find(i => i.name === name);
+				if (!info) {
+					throw new lib.StartupError(`No plugin named ${name}`);
+				}
+				let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
+				devPlugins.set(name, webpackConfigs.length);
+				webpackConfigs.push(config);
+			}
+			this.app.locals.devPlugins = devPlugins;
+		}
+		/* eslint-enable @typescript-eslint/no-var-requires, node/no-unpublished-require */
+
+		const compiler = webpack(webpackConfigs);
+		this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });
+		this.app.use(this.devMiddleware);
 	}
 
 	/**
@@ -365,7 +366,7 @@ export default class Controller {
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
 		let serialized: [number, HostInfo][];
 		try {
-			serialized = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
@@ -425,7 +426,7 @@ export default class Controller {
 	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
 		let json;
 		try {
-			json = JSON.parse(await fs.readFile(filePath, { encoding : "utf8" }));
+			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
 			if (err.code !== "ENOENT") {
 				throw err;
@@ -439,7 +440,7 @@ export default class Controller {
 		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
 	}
 
-	static async loadModInfos(modsDirectory: string): Promise<Map<string,lib.ModInfo>> {
+	static async loadModInfos(modsDirectory: string): Promise<Map<string, lib.ModInfo>> {
 		let mods = new Map();
 		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
@@ -476,7 +477,7 @@ export default class Controller {
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
 		let manifest = {};
 		try {
-			manifest = JSON.parse(await fs.readFile(filePath, { encoding: 'utf8' }));
+			manifest = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 		} catch (err: any) {
 			if (!throwOnMissing && err.code !== "ENOENT") {
 				throw err;
@@ -543,7 +544,9 @@ export default class Controller {
 
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
-		app.use("/static", express.static(path.join(__dirname, "..", "..", "..", "dist", "web", "static"), staticOptions));
+		app.use("/static",
+			express.static(path.join(__dirname, "..", "..", "dist", "web", "static"), staticOptions)
+		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
 		// Add API routes
@@ -595,9 +598,10 @@ export default class Controller {
 	 * Get instance by ID for a request
 	 *
 	 * @param instanceId - ID of instance to get.
+	 * @returns Info for the given instance if it exists
 	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
-	getRequestInstance(instanceId:number):InstanceInfo {
+	getRequestInstance(instanceId:number): InstanceInfo {
 		let instance = this.instances!.get(instanceId);
 		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
@@ -773,7 +777,7 @@ export default class Controller {
 			assigned_host = undefined;
 		}
 
-		let game_port: number|null|undefined = instance.game_port
+		let game_port: number|null|undefined = instance.game_port;
 		if (game_port === null) {
 			game_port = undefined;
 		}
@@ -879,8 +883,7 @@ export default class Controller {
 					ControllerPluginClass = await lib.loadControllerPluginClass(pluginInfo);
 				}
 
-				//@ts-ignore //TODO::: metrics is lib.Counter but ControllerPluginClass expect any[], can't figure out how the metrics is used.
-				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics, logger);
+				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);
 				await controllerPlugin.init();
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
@@ -947,8 +950,8 @@ export default class Controller {
 	/**
 	 * Servers the web interface with the root path set apropriately
 	 *
-	 * @param {string} route - route the interface is served under.
-	 * @returns {function} Experess.js route handler.
+	 * @param route - route the interface is served under.
+	 * @returns Experess.js route handler.
 	 */
 	static serveWeb(route: string) {
 		// The depth is is the number of slashes in the route minus one, but due
@@ -956,7 +959,7 @@ export default class Controller {
 		// compensate if the request path contains a slash but not the route,
 		// and vice versa.
 		let routeDepth = (route.match(/\//g) || []).length - 1 - Number(route.slice(-1) === "/");
-		return function(req: Request, res: Response, next: Function) {
+		return function(req: Request, res: Response, next: NextFunction) {
 			let depth = routeDepth + Number(req.path.slice(-1) === "/");
 			let webRoot = "../".repeat(depth) || "./";
 			let staticRoot = webRoot;
@@ -968,7 +971,7 @@ export default class Controller {
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
 
-			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
+			fs.readFile(path.join(__dirname, "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))

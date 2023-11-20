@@ -11,7 +11,7 @@ import * as lib from "@clusterio/lib";
 import { FactorioServer } from "./server";
 import { SaveModule, patch } from "./patch";
 import { exportData } from "./export";
-import type Host from "./Host"
+import type Host from "./Host";
 
 
 const instanceRconCommandDuration = new lib.Histogram(
@@ -99,7 +99,7 @@ export default class Instance extends lib.Link {
 	/**
 	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
 	 */
-	readonly id: number
+	readonly id: number;
 	plugins: Map<string, lib.BaseInstancePlugin>;
 	config: lib.InstanceConfig;
 	logger: lib.Logger;
@@ -962,11 +962,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async handleInstanceMetricsRequest() {
-		let results = [];
+		let results: ReturnType<typeof lib.serializeResult>[] = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
-			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
+			type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
+			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics") as ResultIterator[];
 			for (let metricIterator of pluginResults) {
-				for await (let metric of metricIterator as any) {
+				for await (let metric of metricIterator) {
 					results.push(lib.serializeResult(metric));
 				}
 			}
@@ -1067,7 +1068,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			let response = await phin({
 				url, method: "PUT",
 				data: content,
-				core: { ca: this._host.tlsCa } as {},
+				core: { ca: this._host.tlsCa } as object,
 				headers: {
 					"Content-Type": "application/zip",
 					"x-access-token": this._host.config.get("host.controller_token"),

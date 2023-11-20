@@ -211,7 +211,7 @@ export class RawUser { // TODO refactor into lib/user.User
 			isDeleted: this.isDeleted,
 		};
 		if (this.playerStats) {
-			json.playerStats = this.playerStats.toJSON()
+			json.playerStats = this.playerStats.toJSON();
 		}
 		if (this.instanceStats) {
 			json.instanceStats = [...this.instanceStats].map(([k, v]) => [k, v.toJSON()]);

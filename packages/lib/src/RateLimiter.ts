@@ -27,7 +27,7 @@ export default class RateLimiter {
 	/**
 	 * Callback invoked at most `maxRate` per second on activation.
 	 */
-	action?: Function;
+	action?: () => void;
 
 	private _lastRun = 0;
 	private _runTimeout?: ReturnType<typeof setTimeout>;
@@ -43,7 +43,7 @@ export default class RateLimiter {
 	 * @param options.action -
 	 *     Callback invoked at maste `maxRate` per second on activation.
 	 */
-	constructor(options: { maxRate?: number, action?: Function } = {}) {
+	constructor(options: { maxRate?: number, action?: () => void } = {}) {
 		this.maxRate = options.maxRate || 1;
 		this.action = options.action || undefined;
 	}

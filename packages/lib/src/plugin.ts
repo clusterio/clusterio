@@ -4,15 +4,12 @@
  */
 import * as libHelpers from "./helpers";
 import type { Logger } from "./logging";
-import type { ConfigGroup } from "./config";
+import type { ConfigGroup, PluginConfigGroup } from "./config";
 import type { CollectorResult } from "./prometheus";
 import type { ParsedFactorioOutput } from "./logging_utils";
 import type { ModPack, ModInfo } from "./data";
 import type { Link } from "./link";
 import type { CommandTree } from "./command";
-import type { User } from "./users";
-import type { MessageRequest, MessageEvent } from "./data";
-import type { PluginConfigGroup } from "./config";
 
 /**
  * Conceptual base for controller and instance plugins.
@@ -120,6 +117,7 @@ export class BaseInstancePlugin {
 		message: string,
 		expectEmpty: boolean,
 	}[] = [];
+
 	private _sendingRconMessages = false;
 
 	constructor(
@@ -364,7 +362,7 @@ export class BaseControllerPlugin {
 	constructor(
 		public info: PluginNodeEnvInfo,
 		public controller: Controller,
-		public metrics: any[],
+		public metrics: any,
 		logger: Logger
 	) {
 		this.logger = logger.child({ plugin: this.info.name }) as unknown as Logger;
@@ -653,7 +651,6 @@ export class BaseControlPlugin {
 	 */
 	async addCommands(rootCommand: CommandTree) { }
 }
-
 
 
 /**

@@ -220,65 +220,61 @@ function parseOutput(line: string, source: "stdout" | "stderr"): lib.ParsedFacto
 				level: secLogMatch[1],
 				file: secLogMatch[2],
 				message: secLogMatch[5],
-			}
+			};
+		}
 
 		// The other possibility is that the content is a generic message
-		} else {
+		return {
+			source,
+			format,
+			time,
+			type: "generic",
+			message: secContent,
+		};
+	}
+
+	// The second category of output starts with a date stamp of the format
+	// "yyyy-mm-dd hh:mm:ss message"
+	const dateRegex = /^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (.*)$/;
+	let dateMatch = dateRegex.exec(line);
+	if (dateMatch) {
+		const format = "date";
+		const time = dateMatch[1];
+		let dateContent = dateMatch[2];
+
+		// A date output has two general formats.  The first is an action
+		// followed by a message and has a format of "[ACTION] message"
+		const dateActionRegex = /^\[(\w+)\] (.*)$/;
+		let dateActionMatch = dateActionRegex.exec(dateContent);
+		if (dateActionMatch) {
 			return {
 				source,
 				format,
 				time,
-				type: "generic",
-				message: secContent,
-			}
+				type: "action",
+				action: dateActionMatch[1],
+				message: dateActionMatch[2],
+			};
 		}
 
-	// The second category of output starts with a date stamp of the format
-	// "yyyy-mm-dd hh:mm:ss message"
-	} else {
-		const dateRegex = /^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (.*)$/;
-		let dateMatch = dateRegex.exec(line);
-		if (dateMatch) {
-			const format = "date";
-			const time = dateMatch[1];
-			let dateContent = dateMatch[2];
-
-			// A date output has two general formats.  The first is an action
-			// followed by a message and has a format of "[ACTION] message"
-			const dateActionRegex = /^\[(\w+)\] (.*)$/;
-			let dateActionMatch = dateActionRegex.exec(dateContent);
-			if (dateActionMatch) {
-				return {
-					source,
-					format,
-					time,
-					type: "action",
-					action: dateActionMatch[1],
-					message: dateActionMatch[2],
-				}
-
-			// The other format is a generic message
-			} else {
-				return {
-					source,
-					format,
-					time,
-					type: "generic",
-					message: dateContent,
-				}
-			}
-
-		// The last category of output is simply a generic message with no
-		// formating.
-		} else {
-			return {
-				source,
-				format: "none",
-				type: "generic",
-				message: line,
-			}
-		}
+		// The other format is a generic message
+		return {
+			source,
+			format,
+			time,
+			type: "generic",
+			message: dateContent,
+		};
 	}
+
+	// The last category of output is simply a generic message with no
+	// formating.
+	return {
+		source,
+		format: "none",
+		type: "generic",
+		message: line,
+	};
 }
 
 // https://stackoverflow.com/a/49402091
@@ -465,7 +461,7 @@ export class FactorioServer extends events.EventEmitter {
 	/** Enable Factorio.com based multiplayer bans **/
 	enableAuthserverBans: boolean;
 	/** Enable verbose logging */
-	verboseLogging: boolean
+	verboseLogging: boolean;
 	/** Timeout in ms to wait for a response to a shutdown command */
 	hangTimeout = 5000;
 
@@ -696,9 +692,9 @@ export class FactorioServer extends events.EventEmitter {
 		this._maxConcurrentCommands = value;
 		this.setMaxListeners(value + 5);
 		if (this._rconClient) {
-			// @ts-ignore
+			// @ts-expect-error sendQueue is private
 			if (this._rconClient.sendQueue) {
-				// @ts-ignore
+				// @ts-expect-error sendQueue is private
 				this._rconClient.sendQueue.maxConcurrent = value;
 			}
 			// XXX: Workaround to suppress bogus event listener warning
@@ -852,8 +848,8 @@ export class FactorioServer extends events.EventEmitter {
 				"--config", this.writePath("config.ini"),
 				"--create", this.writePath("saves", name),
 				...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
-				...(mapGenSettings !== undefined ?
-					["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
+				...(mapGenSettings !== undefined
+					? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
 				),
 				...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
 				...(this.verboseLogging ? ["--verbose"] : []),
@@ -944,8 +940,8 @@ export class FactorioServer extends events.EventEmitter {
 				"--config", this.writePath("config.ini"),
 				"--start-server-load-scenario", scenario,
 				...(seed !== undefined ? ["--map-gen-seed", String(seed)] : []),
-				...(mapGenSettings !== undefined ?
-					["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
+				...(mapGenSettings !== undefined
+					? ["--map-gen-settings", this.writePath("map-gen-settings.json")] : []
 				),
 				...(mapSettings !== undefined ? ["--map-settings", this.writePath("map-settings.json")] : []),
 				"--port", String(this.gamePort),
