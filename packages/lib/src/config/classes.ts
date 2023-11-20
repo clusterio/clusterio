@@ -748,6 +748,7 @@ export class ConfigGroup {
 	 *     config.  This can also be an async function returning the
 	 *     value to use.
 	 */
+	// eslint-disable-next-line complexity
 	static define(item: {
 		access?: ConfigLocation[],
 		type: FieldType,
