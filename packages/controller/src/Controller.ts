@@ -165,34 +165,7 @@ export default class Controller {
 
 		// Start webpack development server if enabled
 		if (args.dev || args.devPlugin) {
-			logger.warn("Webpack development mode enabled");
-			/* eslint-disable @typescript-eslint/no-var-requires, node/no-unpublished-require */
-			const webpack = require("webpack");
-			const webpackDevMiddleware = require("webpack-dev-middleware");
-			const webpackConfigs = [];
-
-			if (args.dev) {
-				// eslint-disable-next-line node/no-missing-require
-				webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
-			}
-			if (args.devPlugin) {
-				let devPlugins = new Map();
-				for (let name of args.devPlugin) {
-					let info = this.pluginInfos.find(i => i.name === name);
-					if (!info) {
-						throw new lib.StartupError(`No plugin named ${name}`);
-					}
-					let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
-					devPlugins.set(name, webpackConfigs.length);
-					webpackConfigs.push(config);
-				}
-				this.app.locals.devPlugins = devPlugins;
-			}
-			/* eslint-enable @typescript-eslint/no-var-requires, node/no-unpublished-require */
-
-			const compiler = webpack(webpackConfigs);
-			this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });
-			this.app.use(this.devMiddleware);
+			this._startDevServer(args);
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
@@ -281,6 +254,37 @@ export default class Controller {
 
 		logger.info("Started controller");
 		this._state = "running";
+	}
+
+	async _startDevServer(args: ControllerArgs) {
+		logger.warn("Webpack development mode enabled");
+		/* eslint-disable @typescript-eslint/no-var-requires, node/no-unpublished-require */
+		const webpack = require("webpack");
+		const webpackDevMiddleware = require("webpack-dev-middleware");
+		const webpackConfigs = [];
+
+		if (args.dev) {
+			// eslint-disable-next-line node/no-missing-require
+			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
+		}
+		if (args.devPlugin) {
+			let devPlugins = new Map();
+			for (let name of args.devPlugin) {
+				let info = this.pluginInfos.find(i => i.name === name);
+				if (!info) {
+					throw new lib.StartupError(`No plugin named ${name}`);
+				}
+				let config = require(path.posix.join(info.requirePath, "webpack.config"))({});
+				devPlugins.set(name, webpackConfigs.length);
+				webpackConfigs.push(config);
+			}
+			this.app.locals.devPlugins = devPlugins;
+		}
+		/* eslint-enable @typescript-eslint/no-var-requires, node/no-unpublished-require */
+
+		const compiler = webpack(webpackConfigs);
+		this.devMiddleware = webpackDevMiddleware(compiler, { serverSideRender: true });
+		this.app.use(this.devMiddleware);
 	}
 
 	/**
