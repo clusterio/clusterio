@@ -11,6 +11,11 @@
  * @returns sections parsed from the ini file.
  */
 export function parse(input: string) {
+	// Ignore BOM at the start of the file
+	if (input[0] === "\uFEFF") {
+		input = input.slice(1);
+	}
+
 	const sections: Record<string, string | Record<string, string>> = {};
 	let currentSection: Record<string, string> = sections as Record<string, string>;
 	const lines = input.split(/\r\n|\n/);
