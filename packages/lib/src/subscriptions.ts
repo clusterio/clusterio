@@ -110,15 +110,17 @@ export class SubscriptionRequest {
 	}
 }
 
+type EventData = {
+	subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
+	subscriptions: Map<Link, { all: boolean, channels: Array<string | number>, onceClose: () => void }>,
+};
+
 /**
  * A class component to handle incoming subscription requests and offers a method to broadcast events to subscribers
  * After creation, no other handler can be registered for SubscriptionRequest on the controller
  */
 export class SubscriptionController {
-	_events = new Map<string, {
-		subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-		subscriptions: Map<Link, { all: boolean, channels: Array<string | number>, onceClose: () => void }>,
-	}>();
+	_events = new Map<string, EventData>();
 
 	constructor(
 		private controller: any, // Controller | Link
