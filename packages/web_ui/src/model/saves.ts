@@ -26,12 +26,15 @@ export function useSaves(instanceId?: number): lib.SaveDetails[] {
 		updateSaves();
 
 		function updateHandler(data: lib.InstanceSaveListUpdateEvent) {
+			if (data.instanceId !== instanceId) {
+				return;
+			}
 			setSaves(data.saves);
 		}
 
-		control.saveListUpdate.subscribeToChannel(instanceId!, updateHandler);
+		control.saveListUpdate.subscribe(updateHandler);
 		return () => {
-			control.saveListUpdate.unsubscribeFromChannel(instanceId!, updateHandler);
+			control.saveListUpdate.unsubscribe(updateHandler);
 		};
 	}, [instanceId]);
 

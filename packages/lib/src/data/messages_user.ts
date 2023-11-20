@@ -319,8 +319,4 @@ export class UserUpdateEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(User.fromJSON(json.user));
 	}
-
-	get subscriptionChannel() {
-		return this.user.name;
-	}
 }

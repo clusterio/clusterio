@@ -87,10 +87,6 @@ export class InstanceDetailsUpdateEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(InstanceDetails.fromJSON(json));
 	}
-
-	get subscriptionChannel() {
-		return this.details.id;
-	}
 };
 
 export class InstanceCreateRequest {
@@ -301,10 +297,6 @@ export class InstanceSaveListUpdateEvent {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.instanceId, json.saves.map(i => SaveDetails.fromJSON(i)));
-	}
-
-	get subscriptionChannel() {
-		return this.instanceId;
 	}
 }
 

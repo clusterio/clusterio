@@ -79,12 +79,15 @@ export function useUser(name: string): [RawUserState, () => void] {
 		updateUser();
 
 		function updateHandler(newUser: lib.User) {
+			if (newUser.name !== name) {
+				return;
+			}
 			setUser({ ...newUser, present: true });
 		}
 
-		control.userUpdate.subscribeToChannel(name, updateHandler);
+		control.userUpdate.subscribe(updateHandler);
 		return () => {
-			control.userUpdate.unsubscribeFromChannel(name, updateHandler);
+			control.userUpdate.unsubscribe(updateHandler);
 		};
 	}, [name]);
 
