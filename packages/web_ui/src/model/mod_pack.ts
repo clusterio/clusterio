@@ -33,9 +33,15 @@ export function useModPack(id: number) {
 		}
 		updateModPack();
 
-		control.modPackUpdate.subscribeToChannel(id, setModPack);
+		function updateHandler(newModPack: lib.ModPack) {
+			if (newModPack.id !== id) {
+				return;
+			}
+			setModPack(newModPack);
+		}
+		control.modPackUpdate.subscribe(updateHandler);
 		return () => {
-			control.modPackUpdate.unsubscribeFromChannel(id, setModPack);
+			control.modPackUpdate.unsubscribe(updateHandler);
 		};
 	}, [id]);
 

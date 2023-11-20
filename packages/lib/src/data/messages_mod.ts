@@ -259,10 +259,6 @@ export class ModPackUpdateEvent {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(ModPack.fromJSON(json.modPack));
 	}
-
-	get subscriptionChannel() {
-		return this.modPack.id;
-	}
 }
 
 export class ModUpdateEvent {
@@ -282,9 +278,5 @@ export class ModUpdateEvent {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(ModInfo.fromJSON(json.mod));
-	}
-
-	get subscriptionChannel() {
-		return this.mod.name;
 	}
 }

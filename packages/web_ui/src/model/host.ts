@@ -36,12 +36,15 @@ export function useHost(id: number): [ HostState, () => void ] {
 		updateHost();
 
 		function updateHandler(newHost: lib.HostDetails) {
+			if (newHost.id !== id) {
+				return;
+			}
 			setHost({ ...newHost, loading: false, missing: false, present: true });
 		}
 
-		control.hostUpdate.subscribeToChannel(id, updateHandler);
+		control.hostUpdate.subscribe(updateHandler);
 		return () => {
-			control.hostUpdate.unsubscribeFromChannel(id, updateHandler);
+			control.hostUpdate.unsubscribe(updateHandler);
 		};
 	}, [id]);
 

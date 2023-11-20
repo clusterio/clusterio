@@ -32,12 +32,15 @@ export function useInstance(id: number): [InstanceState, ()=>void] {
 		updateInstance();
 
 		function updateHandler(newInstance: lib.InstanceDetails) {
+			if (newInstance.id !== id) {
+				return;
+			}
 			setInstance({ ...newInstance, present: true });
 		}
 
-		control.instanceUpdate.subscribeToChannel(id, updateHandler);
+		control.instanceUpdate.subscribe(updateHandler);
 		return () => {
-			control.instanceUpdate.unsubscribeFromChannel(id, updateHandler);
+			control.instanceUpdate.unsubscribe(updateHandler);
 		};
 	}, [id]);
 
