@@ -12,7 +12,7 @@ import type { Argv } from "yargs";
 
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
-import type { Control } from "../ctl.js";
+import type { Control } from "../ctl";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 const finished = util.promisify(stream.finished);
