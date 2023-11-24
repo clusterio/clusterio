@@ -11,8 +11,8 @@ import type { User } from "../users";
 import type { AddressType, JSONDeserialisable, MessageRoutable, MessageRequest, MessageEvent } from "../data";
 
 export interface Request<Req, Res> {
-	constructor: Partial<JSONDeserialisable<Request<Req, Res>>> & {
-		new (...args: any): Request<Req, Res>,
+	constructor: Partial<JSONDeserialisable<Req & Request<Req, Res>>> & {
+		new (...args: any): Req & Request<Req, Res>,
 		name: string,
 		type: "request";
 		src: AddressType | readonly AddressType[];
@@ -25,8 +25,8 @@ export interface Request<Req, Res> {
 export type RequestClass<Req, Res> = Request<Req, Res>["constructor"];
 
 export interface Event<T> {
-	constructor: Partial<JSONDeserialisable<Event<T>>> & {
-		new (...args: any): Event<T>,
+	constructor: Partial<JSONDeserialisable<T & Event<T>>> & {
+		new (...args: any): T & Event<T>,
 		name: string,
 		type: "event";
 		src: AddressType | readonly AddressType[];

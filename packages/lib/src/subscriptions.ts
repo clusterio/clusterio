@@ -215,7 +215,7 @@ export class SubscriptionController {
  * Channels are an optional feature which can be implemented to only get notifications of reliant updates
  * Multiple handlers can be subscribed at the same time, on the same or different channels
  */
-export class EventSubscriber<T, V=T> {
+export class EventSubscriber<T extends Event<T>, V=T> {
 	_callbacks = new Array<EventSubscriberCallback<V>>();
 	_channelCallbacks = new Map<string | number, Array<EventSubscriberCallback<V>>>();
 	lastResponse: Event<T> | null = null;
@@ -365,7 +365,7 @@ export class EventSubscriber<T, V=T> {
 		));
 
 		if (response.eventReplay) {
-			await this._handle(response.eventReplay);
+			await this._handle(response.eventReplay as any);
 		}
 	}
 }
