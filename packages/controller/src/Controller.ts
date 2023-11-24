@@ -265,7 +265,7 @@ export default class Controller {
 
 		if (args.dev) {
 			// eslint-disable-next-line node/no-missing-require
-			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
+			webpackConfigs.push(require("../../webpack.config")({})); // Path outside of build
 		}
 		if (args.devPlugin) {
 			let devPlugins = new Map();
