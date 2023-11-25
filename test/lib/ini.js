@@ -1,5 +1,6 @@
 "use strict";
 const assert = require("assert").strict;
+const fs = require("fs-extra");
 const lib = require("@clusterio/lib");
 
 describe("lib/ini", function() {
@@ -56,6 +57,12 @@ describe("lib/ini", function() {
 			assert.throws(
 				() => lib.parse("key=value\nkey=value\n"),
 				new Error("Duplicated key key on line 2")
+			);
+		});
+		it("should parse a file with BOM", async function() {
+			assert.deepEqual(
+				lib.parse(await fs.readFile("test/file/bom.cfg", "utf8")),
+				{ spam: { foo: "bar" }},
 			);
 		});
 	});

@@ -214,6 +214,9 @@ class HostRouter {
 				);
 			}
 			logger.warn(`Failed to deliver ${(message as any).name || "message"} (${message.type}): ${err.message}`);
+			if (err instanceof lib.InvalidMessage && err.errors) {
+				logger.warn(JSON.stringify(err.errors, null, 4));
+			}
 		}
 	}
 
@@ -470,7 +473,7 @@ export default class Host extends lib.Link {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		this.send(
 			new lib.InstanceStatusChangedEvent(
-				instanceId, instanceConnection ? instanceConnection.status : "stopped", undefined
+				instanceId, instanceConnection ? instanceConnection.instance.status : "stopped", undefined
 			)
 		);
 
@@ -490,7 +493,7 @@ export default class Host extends lib.Link {
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (instanceInfo) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
-			if (instanceConnection && ["starting", "running"].includes(instanceConnection.status)) {
+			if (instanceConnection && ["starting", "running"].includes(instanceConnection.instance.status)) {
 				await instanceConnection.send(new lib.InstanceStopRequest());
 			}
 
@@ -530,10 +533,10 @@ export default class Host extends lib.Link {
 		let hostAddress = new lib.Address(lib.Address.host, this.config.get("host.id"));
 		let instanceAddress = new lib.Address(lib.Address.instance, instanceId);
 		let [connectionClient, connectionServer] = lib.VirtualConnector.makePair(instanceAddress, hostAddress);
-		let instanceConnection = new InstanceConnection(connectionServer, this, instanceId);
 		let instance = new Instance(
 			this, connectionClient, instanceInfo.path, this.config.get("host.factorio_directory"), instanceInfo.config
 		);
+		let instanceConnection = new InstanceConnection(connectionServer, this, instance);
 
 		this.instanceConnections.set(instanceId, instanceConnection);
 		await instance.init(this.pluginInfos);
@@ -750,13 +753,6 @@ export default class Host extends lib.Link {
 		});
 	}
 
-	async stopInstance(instanceId: number) {
-		let instanceConnection = this.instanceConnections.get(instanceId);
-		if (instanceConnection) {
-			await instanceConnection.send(new lib.InstanceStopRequest());
-		}
-	}
-
 	async handleInstanceDeleteInternalRequest(request: lib.InstanceDeleteInternalRequest) {
 		let instanceId = request.instanceId;
 		if (this.instanceConnections.has(instanceId)) {
@@ -786,7 +782,7 @@ export default class Host extends lib.Link {
 			let instanceConnection = this.instanceConnections.get(instanceId);
 			list.push(new lib.RawInstanceInfo(
 				instanceInfo.config.serialize("controller"),
-				instanceConnection ? instanceConnection.status : "stopped",
+				instanceConnection ? instanceConnection.instance.status : "stopped",
 			));
 		}
 		await this.send(new lib.InstancesUpdateRequest(list));
@@ -828,9 +824,9 @@ export default class Host extends lib.Link {
 		}
 		this._shuttingDown = true;
 
-		for (let instanceId of this.instanceConnections.keys()) {
+		for (let instanceConnection of this.instanceConnections.values()) {
 			try {
-				await this.stopInstance(instanceId);
+				await instanceConnection.instance.stop();
 			} catch (err: any) {
 				logger.error(`Unexpected error stopping instance:\n${err.stack}`);
 			}

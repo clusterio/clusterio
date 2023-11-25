@@ -260,6 +260,7 @@ async function initialize(): Promise<InitializeParameters> {
 		levels,
 	});
 	clusterLogger.add(new DailyRotateFile({
+		format: winston.format.json(),
 		filename: "cluster-%DATE%.log",
 		utc: true,
 		dirname: path.join(args.logDirectory, "cluster"),
@@ -269,6 +270,7 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.add(new DailyRotateFile({
 		format: winston.format.json(),
 		filename: "controller-%DATE%.log",
+		utc: true,
 		dirname: path.join(args.logDirectory, "controller"),
 	}));
 	logger.add(new winston.transports.Stream({

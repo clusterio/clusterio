@@ -5,12 +5,11 @@ import type Instance from "./Instance";
 
 export default class InstanceConnection extends lib.Link {
 	plugins = new Map<string, string>();
-	status: Instance["status"] = "stopped";
 
 	constructor(
 		connector: lib.VirtualConnector,
 		public host: Host,
-		public instanceId: number
+		public instance: Instance,
 	) {
 		super(connector);
 		this.router = this.host.router;
@@ -24,9 +23,8 @@ export default class InstanceConnection extends lib.Link {
 	}
 
 	async snoopInstanceStatusChangedEvent(event: lib.InstanceStatusChangedEvent) {
-		this.status = event.status as Instance["status"];
-		if (this.status === "stopped") {
-			this.host.instanceConnections.delete(this.instanceId);
+		if (this.instance.status === "stopped") {
+			this.host.instanceConnections.delete(this.instance.id);
 		}
 	}
 }

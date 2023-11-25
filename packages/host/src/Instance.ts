@@ -592,7 +592,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * factorio_settings config entry.
 	 */
 	async writeServerSettings() {
-		let serverSettings = await this.resolveServerSettings(this.config.get("factorio.settings"));
+		const warning = "Changes to this file will be overwitten by the factorio.settings config on the instance.";
+		const serverSettings = {
+			"_comment_warning": warning,
+			...await this.resolveServerSettings(this.config.get("factorio.settings")),
+		};
 		await lib.safeOutputFile(
 			this.server.writePath("server-settings.json"),
 			JSON.stringify(serverSettings, null, 4)
