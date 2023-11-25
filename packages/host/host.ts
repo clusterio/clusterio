@@ -203,7 +203,7 @@ async function startHost() {
 	}
 
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
-	let host = new Host(hostConnector, hostConfig, tlsCa, pluginInfos);
+	let host = new Host(hostConnector, args.config, hostConfig, tlsCa, pluginInfos);
 
 	// Handle interrupts
 	let secondSigint = false;
@@ -236,6 +236,13 @@ async function startHost() {
 		logger.info("Terminal closed, shutting down");
 		host.shutdown();
 	});
+
+	try {
+		await host.loadPlugins();
+	} catch (err) {
+		await host.shutdown();
+		throw err;
+	}
 
 	hostConnector.once("connect", () => {
 		logger.add(new lib.LinkTransport({ link: host }));

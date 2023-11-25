@@ -12,11 +12,14 @@ export type PluginDeclaration = {
 	title: string;
 	description?: string;
 
-	instanceEntrypoint?: string;
-	InstanceConfigGroup?: typeof PluginConfigGroup;
-
 	controllerEntrypoint?: string;
 	ControllerConfigGroup?: typeof PluginConfigGroup;
+
+	hostEntrypoint?: string;
+	HostConfigGroup?: typeof PluginConfigGroup;
+
+	instanceEntrypoint?: string;
+	InstanceConfigGroup?: typeof PluginConfigGroup;
 
 	ctlEntrypoint?: string;
 	webEntrypoint?: string;

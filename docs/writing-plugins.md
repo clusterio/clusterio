@@ -136,8 +136,8 @@ module.exports = {
 }
 ```
 
-For the instance plugin it's exactly the same except "Controller" is replaced with "Instance", and for the clusterioctl plugin "Ctl" is used.
-The available hooks that you can override are documented in the base class [in lib/plugin.js](/packages/lib/plugin.js).
+For the instance plugin it's exactly the same except "Controller" is replaced with "Instance", for host plugins "Host" is used and for the clusterioctl plugin "Ctl" is used.
+The available hooks that you can override are documented in the base classes.
 
 It's best to avoid defining a constructor, but if you insist on defining one, forward all arguments to the base class.
 E.g.:

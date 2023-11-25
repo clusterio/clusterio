@@ -14,6 +14,7 @@ import { logger } from "@clusterio/lib";
 import type { HostConnector } from "../host";
 import Instance from "./Instance";
 import InstanceConnection from "./InstanceConnection";
+import BaseHostPlugin from "./BaseHostPlugin";
 
 const finished = util.promisify(stream.finished);
 
@@ -241,7 +242,11 @@ export default class Host extends lib.Link {
 	 */
 	tlsCa?: string;
 	pluginInfos: lib.PluginNodeEnvInfo[];
+	configPath: string;
 	config: lib.HostConfig;
+
+	/** Mapping of plugin name to loaded plugin */
+	plugins: Map<string, BaseHostPlugin> = new Map();
 
 	instanceConnections = new Map<number, InstanceConnection>();
 	discoveredInstanceInfos = new Map<number, { path: string, config: lib.InstanceConfig }>();
@@ -260,6 +265,7 @@ export default class Host extends lib.Link {
 
 	constructor(
 		connector: HostConnector,
+		hostConfigPath: string,
 		hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[]
@@ -268,7 +274,12 @@ export default class Host extends lib.Link {
 		this.tlsCa = tlsCa;
 
 		this.pluginInfos = pluginInfos;
+		this.configPath = hostConfigPath;
 		this.config = hostConfig;
+
+		this.config.on("fieldChanged", (group, field, prev) => {
+			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", group, field, prev);
+		});
 
 		this.connector.on("hello", data => {
 			this.serverVersion = data.version;
@@ -308,11 +319,14 @@ export default class Host extends lib.Link {
 			}
 		});
 
-		for (let event of ["connect", "drop", "resume", "close"]) {
+		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			this.connector.on(event, () => {
 				let message = new lib.ControllerConnectionEvent(event);
 				for (let instanceConnection of this.instanceConnections.values()) {
 					instanceConnection.send(message);
+				}
+				for (let plugin of this.plugins.values()) {
+					plugin.onControllerConnectionEvent(event);
 				}
 			});
 		}
@@ -332,6 +346,35 @@ export default class Host extends lib.Link {
 		this.handle(lib.InstancePullSaveRequest, this.handleInstancePullSaveRequest.bind(this));
 		this.handle(lib.InstancePushSaveRequest, this.handleInstancePushSaveRequest.bind(this));
 		this.handle(lib.InstanceDeleteInternalRequest, this.handleInstanceDeleteInternalRequest.bind(this));
+	}
+
+	async loadPlugins() {
+		for (let pluginInfo of this.pluginInfos) {
+			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
+				continue;
+			}
+
+			let HostPluginClass = BaseHostPlugin;
+			try {
+				if (pluginInfo.hostEntrypoint) {
+					HostPluginClass = await lib.loadPluginClass(
+						pluginInfo.name,
+						path.posix.join(pluginInfo.requirePath, pluginInfo.hostEntrypoint),
+						"HostPlugin",
+						BaseHostPlugin,
+					);
+				}
+
+				let hostPlugin = new HostPluginClass(pluginInfo, this, logger);
+				await hostPlugin.init();
+				this.plugins.set(pluginInfo.name, hostPlugin);
+
+			} catch (err: any) {
+				throw new lib.PluginError(pluginInfo.name, err);
+			}
+
+			logger.info(`Loaded plugin ${pluginInfo.name}`);
+		}
 	}
 
 	async _createNewInstanceDir(name: string) {
@@ -551,6 +594,14 @@ export default class Host extends lib.Link {
 		}
 
 		let results = [];
+		type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
+		let pluginResults = await lib.invokeHook(this.plugins, "onMetrics") as ResultIterator[];
+		for (let metricIterator of pluginResults) {
+			for await (let metric of metricIterator) {
+				results.push(metric);
+			}
+		}
+
 		for (let response of await Promise.all(requests)) {
 			results.push(...response.results);
 		}
@@ -808,6 +859,7 @@ export default class Host extends lib.Link {
 	}
 
 	async prepareDisconnect() {
+		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect");
 		for (let instanceConnection of this.instanceConnections.values()) {
 			await instanceConnection.send(new lib.PrepareControllerDisconnectRequest());
 		}
@@ -824,6 +876,8 @@ export default class Host extends lib.Link {
 		}
 		this._shuttingDown = true;
 
+		await lib.invokeHook(this.plugins, "onShutdown");
+
 		for (let instanceConnection of this.instanceConnections.values()) {
 			try {
 				await instanceConnection.instance.stop();
@@ -839,6 +893,9 @@ export default class Host extends lib.Link {
 				logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
 			}
 		}
+
+		logger.info("Saving config");
+		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
 
 		try {
 			// Clear silly interval in pidfile library.
