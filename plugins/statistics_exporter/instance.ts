@@ -1,4 +1,6 @@
 import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
+
 const { Gauge } = lib;
 
 type IpcStats = {
@@ -59,7 +61,7 @@ function setForceFlowStatistic(
 }
 
 
-export class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("statistics_exporter plugin requires save patching.");
@@ -107,7 +109,7 @@ export class InstancePlugin extends lib.BaseInstancePlugin {
 		// take a long time for the command to go through if the command
 		// stream is overloaded.  Should the timeout be exceeded the
 		// previous values for the metrics will end up being sent to controller.
-		let timeout = this.instance.config.get("statistics_exporter.command_timeout") * 1000;
+		let timeout = this.instance.config.get("statistics_exporter.command_timeout") as number * 1000;
 		await lib.timeout(this.gatherMetrics(), timeout, undefined);
 	}
 }

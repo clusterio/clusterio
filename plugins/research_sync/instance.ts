@@ -1,4 +1,5 @@
 import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
 import {
 	ContributionEvent,
 	ProgressEvent,
@@ -18,7 +19,7 @@ type IpcFinished = {
 	level: number,
 };
 
-export class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	syncStarted!: boolean;
 
 	unexpectedError(err: Error) {

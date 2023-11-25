@@ -52,65 +52,22 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 	return plugins;
 }
 
-function loadPluginClass(
-	entrypointName: "controllerEntrypoint"|"instanceEntrypoint"|"controlEntrypoint",
+export async function loadPluginClass<Class extends { new (...args: any): any }>(
+	pluginName: string,
+	requirePath: string,
 	className: string,
-	pluginClass: any,
-	pluginInfo: libPlugin.PluginNodeEnvInfo
-) {
-	let resolvedPath = path.posix.join(pluginInfo.requirePath, pluginInfo[entrypointName]!);
-	let entrypoint = require(resolvedPath);
+	pluginClass: Class,
+): Promise<Class> {
+	let entrypoint = require(requirePath);
 	if (!entrypoint[className]) {
-		throw new libErrors.PluginError(pluginInfo.name,
-			new Error(`Expected ${resolvedPath} to export a class named ${className}`)
+		throw new libErrors.PluginError(pluginName,
+			new Error(`Expected ${requirePath} to export a class named ${className}`)
 		);
 	}
 	if (!(entrypoint[className].prototype instanceof pluginClass)) {
-		throw new libErrors.PluginError(pluginInfo.name,
-			new Error(`Expected ${className} exported from ${resolvedPath} to be a subclass of ${pluginClass.name}`)
+		throw new libErrors.PluginError(pluginName,
+			new Error(`Expected ${className} exported from ${requirePath} to be a subclass of ${pluginClass.name}`)
 		);
 	}
 	return entrypoint[className];
-}
-
-/**
- * Load controller plugin class of a plugin
- *
- * @param pluginInfo -
- *     Plugin info object returned from {@link
- *     loadPluginInfos} to load class from.
- * @returns plugin class
- */
-export async function loadControllerPluginClass(
-	pluginInfo: libPlugin.PluginNodeEnvInfo
-): Promise<typeof libPlugin.BaseControllerPlugin> {
-	return loadPluginClass("controllerEntrypoint", "ControllerPlugin", libPlugin.BaseControllerPlugin, pluginInfo);
-}
-
-/**
- * Load instance plugin class of a plugin
- *
- * @param pluginInfo -
- *     Plugin info object returned from {@link
- *     loadPluginInfos} to load class from.
- * @returns plugin class
- */
-export async function loadInstancePluginClass(
-	pluginInfo: libPlugin.PluginNodeEnvInfo
-): Promise<typeof libPlugin.BaseInstancePlugin> {
-	return loadPluginClass("instanceEntrypoint", "InstancePlugin", libPlugin.BaseInstancePlugin, pluginInfo);
-}
-
-/**
- * Load control plugin class of a plugin
- *
- * @param pluginInfo -
- *     Plugin info object returned from {@link
- *     loadPluginInfos} to load class from.
- * @returns plugin class
- */
-export async function loadControlPluginClass(
-	pluginInfo: libPlugin.PluginNodeEnvInfo
-): Promise<typeof libPlugin.BaseControlPlugin> {
-	return loadPluginClass("controlEntrypoint", "ControlPlugin", libPlugin.BaseControlPlugin, pluginInfo);
 }

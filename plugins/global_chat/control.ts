@@ -1,4 +1,5 @@
-import { BaseControlPlugin, CommandTree, Command } from "@clusterio/lib";
+import { CommandTree, Command } from "@clusterio/lib";
+import { BaseCtlPlugin } from "@clusterio/ctl";
 import { ChatEvent } from "./messages";
 
 const globalChatCommands = new CommandTree({
@@ -13,7 +14,7 @@ globalChatCommands.add(new Command({
 	},
 }));
 
-export class ControlPlugin extends BaseControlPlugin {
+export class CtlPlugin extends BaseCtlPlugin {
 	async addCommands(rootCommand: CommandTree) {
 		rootCommand.add(globalChatCommands);
 	}

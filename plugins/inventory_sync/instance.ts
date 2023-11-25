@@ -1,4 +1,5 @@
 import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
 import {
 	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse,
 } from "./messages";
@@ -44,7 +45,7 @@ function chunkify(chunkSize: number, string: string): string[] {
 	return string.match(new RegExp(`.{1,${chunkSize}}`, "g")) || [];
 }
 
-export class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	playersToRelease!: Set<string>;
 	disconnecting!: boolean;
 

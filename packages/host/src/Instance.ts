@@ -12,6 +12,7 @@ import { FactorioServer } from "./server";
 import { SaveModule, patch } from "./patch";
 import { exportData } from "./export";
 import type Host from "./Host";
+import BaseInstancePlugin from "./BaseInstancePlugin";
 
 
 const instanceRconCommandDuration = new lib.Histogram(
@@ -100,7 +101,7 @@ export default class Instance extends lib.Link {
 	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
 	 */
 	readonly id: number;
-	plugins: Map<string, lib.BaseInstancePlugin>;
+	plugins: Map<string, BaseInstancePlugin>;
 	config: lib.InstanceConfig;
 	logger: lib.Logger;
 	server: FactorioServer;
@@ -492,7 +493,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
 		let pluginLoadStarted = Date.now();
-		let InstancePluginClass = await lib.loadInstancePluginClass(pluginInfo);
+		let InstancePluginClass = await lib.loadPluginClass(
+			pluginInfo.name,
+			path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint!),
+			"InstancePlugin",
+			BaseInstancePlugin,
+		);
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();

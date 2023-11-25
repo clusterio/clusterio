@@ -1,5 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
+import { BaseControllerPlugin } from "@clusterio/controller";
 import { Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
@@ -48,7 +49,7 @@ async function saveTechnologies(
 	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
 }
 
-export class ControllerPlugin extends lib.BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
 	technologies!: Map<string, Technology>;
 	progressRateLimiter!: lib.RateLimiter;
 	progressBroadcastId!: ReturnType<typeof setInterval> | null;

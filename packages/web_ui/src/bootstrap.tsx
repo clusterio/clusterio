@@ -7,6 +7,7 @@ import * as lib from "@clusterio/lib";
 import type { PluginWebApi } from "@clusterio/controller/src/routes";
 
 import App from "./components/App";
+import BaseWebPlugin from "./BaseWebPlugin";
 import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
@@ -74,7 +75,7 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[]) {
 			continue;
 		}
 		try {
-			let WebPluginClass = lib.BaseWebPlugin;
+			let WebPluginClass = BaseWebPlugin;
 			if (pluginInfo.webEntrypoint) {
 				let webModule = (await pluginInfo.container.get(pluginInfo.webEntrypoint))();
 				if (!webModule.WebPlugin) {

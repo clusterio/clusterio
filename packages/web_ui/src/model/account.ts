@@ -1,11 +1,12 @@
 import { useContext, useEffect, useState } from "react";
+import { UserAccount } from "../BaseWebPlugin";
 import * as lib from "@clusterio/lib";
 
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "../components/ControlContext";
 
 
-export function useAccount(): lib.UserAccount {
+export function useAccount(): UserAccount {
 	let control = useContext(ControlContext);
 	let [name, setName] = useState<string>(control.accountName || "");
 	let [roles, setRoles] = useState<any[]>(control.accountRoles || []);

@@ -6,6 +6,7 @@
  */
 import fs from "fs-extra";
 import yargs from "yargs";
+import path from "path";
 import { version } from "./package.json";
 import setBlocking from "set-blocking";
 import { strict as assert } from "assert";
@@ -16,6 +17,7 @@ import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import * as commands from "./src/commands";
+import BaseCtlPlugin from "./src/BaseCtlPlugin";
 
 
 /**
@@ -56,7 +58,7 @@ export class Control extends lib.Link {
 	/** Certificate authority used to validate TLS connections to the controller. */
 	tlsCa?: string;
 	/** Mapping of plugin names to their instance for loaded plugins. */
-	plugins: Map<string, lib.BaseControlPlugin>;
+	plugins: Map<string, BaseCtlPlugin>;
 	/** Keep the control connection alive after the command completes. */
 	keepOpen = false;
 
@@ -64,12 +66,12 @@ export class Control extends lib.Link {
 		connector: ControlConnector,
 		controlConfig: lib.ControlConfig,
 		tlsCa: string | undefined,
-		controlPlugins: Map<string, lib.BaseControlPlugin>
+		ctlPlugins: Map<string, BaseCtlPlugin>
 	) {
 		super(connector);
 		this.config = controlConfig;
 		this.tlsCa = tlsCa;
-		this.plugins = controlPlugins;
+		this.plugins = ctlPlugins;
 
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.DebugWsMessageEvent, this.handleDebugWsMessageEvent.bind(this));
@@ -115,18 +117,23 @@ async function loadPlugins(pluginList: Map<string, string>) {
 	lib.registerPluginConfigGroups(pluginInfos);
 	lib.finalizeConfigs();
 
-	let controlPlugins = new Map<string, lib.BaseControlPlugin>();
+	let ctlPlugins = new Map<string, BaseCtlPlugin>();
 	for (let pluginInfo of pluginInfos) {
-		if (!pluginInfo.controlEntrypoint) {
+		if (!pluginInfo.ctlEntrypoint) {
 			continue;
 		}
 
-		let ControlPluginClass = await lib.loadControlPluginClass(pluginInfo);
-		let controlPlugin = new ControlPluginClass(pluginInfo, logger);
-		controlPlugins.set(pluginInfo.name, controlPlugin);
-		await controlPlugin.init();
+		let CtlPlugin = await lib.loadPluginClass(
+			pluginInfo.name,
+			path.posix.join(pluginInfo.requirePath, pluginInfo.ctlEntrypoint),
+			"CtlPlugin",
+			BaseCtlPlugin,
+		);
+		let ctlPlugin = new CtlPlugin(pluginInfo, logger);
+		ctlPlugins.set(pluginInfo.name, ctlPlugin);
+		await ctlPlugin.init();
 	}
-	return controlPlugins;
+	return ctlPlugins;
 }
 
 interface CtlArguments {
@@ -199,10 +206,10 @@ async function startControl() {
 	}
 
 	logger.verbose("Loading Plugins");
-	let controlPlugins = await loadPlugins(pluginList);
+	let ctlPlugins = await loadPlugins(pluginList);
 
 	// Add all cluster management commands including ones from plugins
-	let rootCommands = await commands.registerCommands(controlPlugins, yargs);
+	let rootCommands = await commands.registerCommands(ctlPlugins, yargs);
 
 	// Reparse after commands have been added with help and strict checking.
 	args = yargs
@@ -264,7 +271,7 @@ async function startControl() {
 		tlsCa,
 		controlConfig.get("control.controller_token") as string,
 	);
-	let control = new Control(controlConnector, controlConfig, tlsCa, controlPlugins);
+	let control = new Control(controlConnector, controlConfig, tlsCa, ctlPlugins);
 	try {
 		await controlConnector.connect();
 	} catch (err) {
@@ -312,8 +319,7 @@ async function startControl() {
 	}
 }
 
-
-if (module === require.main) {
+export function bootstrap() {
 	// eslint-disable-next-line no-console
 	console.warn(`
 +==========================================================+
@@ -345,4 +351,8 @@ ${err.stack}`
 
 		process.exitCode = 1;
 	});
+}
+
+if (module === require.main) {
+	bootstrap();
 }

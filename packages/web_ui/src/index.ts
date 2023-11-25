@@ -1,5 +1,6 @@
 export { default as bootstrap } from "./bootstrap";
 export { default as notify, notifyErrorHandler } from "./util/notify";
+export { default as BaseWebPlugin } from "./BaseWebPlugin";
 
 export * from "./model/instance";
 export * from "./model/host";
@@ -18,9 +19,8 @@ export { default as LogConsole } from "./components/LogConsole";
 export { default as AssignInstanceModal } from "./components/AssignInstanceModal";
 export { default as InstanceList } from "./components/InstanceList";
 export { default as InstanceRcon } from "./components/InstanceRcon";
-export { default as InstanceStatusTag } from "./components/InstanceStatusTag";
+export { default as InstanceStatusTag, statusColors } from "./components/InstanceStatusTag";
 export { default as StartStopInstanceButton } from "./components/StartStopInstanceButton";
-export { statusColors } from "./components/InstanceStatusTag";
 
 export { default as PageHeader } from "./components/PageHeader";
 export { default as PageLayout } from "./components/PageLayout";

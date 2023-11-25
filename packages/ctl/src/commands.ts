@@ -13,6 +13,7 @@ import type { Argv } from "yargs";
 import * as lib from "@clusterio/lib";
 import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 import type { Control } from "../ctl";
+import type BaseCtlPlugin from "./BaseCtlPlugin";
 
 const asTable = asTableModule.configure({ delimiter: " | " });
 const finished = util.promisify(stream.finished);
@@ -1722,7 +1723,7 @@ debugCommands.add(new lib.Command({
 	},
 }));
 
-export async function registerCommands(controlPlugins: Map<string, lib.BaseControlPlugin>, yargs: Argv) {
+export async function registerCommands(ctlPlugins: Map<string, BaseCtlPlugin>, yargs: Argv) {
 	const rootCommands = new lib.CommandTree({ name: "clusterioctl", description: "Manage cluster" });
 	rootCommands.add(controllerCommands);
 	rootCommands.add(hostCommands);
@@ -1735,7 +1736,7 @@ export async function registerCommands(controlPlugins: Map<string, lib.BaseContr
 	rootCommands.add(logCommands);
 	rootCommands.add(debugCommands);
 
-	for (let controlPlugin of controlPlugins.values()) {
+	for (let controlPlugin of ctlPlugins.values()) {
 		await controlPlugin.addCommands(rootCommands);
 	}
 

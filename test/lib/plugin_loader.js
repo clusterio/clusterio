@@ -4,6 +4,7 @@ const fs = require("fs-extra");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
+const { BaseControllerPlugin } = require("@clusterio/controller");
 const { escapeRegExp } = lib;
 
 
@@ -64,7 +65,7 @@ describe("lib/plugin_loader", function() {
 			);
 		});
 	});
-	describe("loadControllerPluginClass()", function() {
+	describe("loadPluginClass()", function() {
 		let baseDir = path.join("temp", "test", "plugin");
 		let missingClass = path.join(baseDir, "missing_class_plugin");
 		let wrongParentClass = path.join(baseDir, "wrong_parent_class_plugin");
@@ -81,11 +82,12 @@ describe("lib/plugin_loader", function() {
 		it("should throw if class is missing from entrypoint", async function() {
 			const requirePath = path.resolve(missingClass);
 			await assert.rejects(
-				lib.loadControllerPluginClass({
-					name: "test",
-					controllerEntrypoint: "controller",
-					requirePath,
-				}),
+				lib.loadPluginClass(
+					"test",
+					path.posix.join(requirePath, "controller"),
+					"ControllerPlugin",
+					BaseControllerPlugin,
+				),
 				{
 					message:
 						`PluginError: Expected ${path.posix.join(requirePath, "controller")} ` +
@@ -96,11 +98,12 @@ describe("lib/plugin_loader", function() {
 		it("should throw if class is not a subclass of BaseControllerPlugin", async function() {
 			const requirePath = path.resolve(wrongParentClass);
 			await assert.rejects(
-				lib.loadControllerPluginClass({
-					name: "test",
-					controllerEntrypoint: "controller",
-					requirePath,
-				}),
+				lib.loadPluginClass(
+					"test",
+					path.posix.join(requirePath, "controller"),
+					"ControllerPlugin",
+					BaseControllerPlugin,
+				),
 				{
 					message:
 						"PluginError: Expected ControllerPlugin exported from " +

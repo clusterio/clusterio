@@ -3,6 +3,7 @@ import React, { useContext } from "react";
 import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
+import BaseWebPlugin from "../BaseWebPlugin";
 import { RawUserState } from "../model/user";
 import { HostState } from "../model/host";
 import { InstanceState } from "../model/instance";
@@ -22,7 +23,7 @@ export default function PluginExtra(props: PluginExtraProps) {
 	let components = [];
 	for (let [name, plugin] of control.plugins) {
 		if (Object.prototype.hasOwnProperty.call(plugin.componentExtra, props.component)) {
-			type ComponentExtra = {[key: string]: React.ComponentType<PluginExtraProps & {plugin:lib.BaseWebPlugin}>};
+			type ComponentExtra = {[key: string]: React.ComponentType<PluginExtraProps & {plugin:BaseWebPlugin}>};
 			let ComponentExtra = (plugin.componentExtra as ComponentExtra)[props.component];
 			components.push(<ComponentExtra key={name} plugin={plugin} {...props}/>);
 		}

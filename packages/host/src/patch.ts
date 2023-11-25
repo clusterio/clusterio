@@ -9,6 +9,8 @@ import { Type, Static } from "@sinclair/typebox";
 
 import * as lib from "@clusterio/lib";
 
+import BaseInstancePlugin from "./BaseInstancePlugin";
+
 
 /**
  * Describes a module that can be patched into a save
@@ -81,7 +83,7 @@ export class SaveModule {
 		return module;
 	}
 
-	static async fromPlugin(plugin: lib.BasePlugin) {
+	static async fromPlugin(plugin: BaseInstancePlugin) {
 		let pluginPackagePath = require.resolve(path.posix.join(plugin.info.requirePath, "package.json"));
 		let moduleDirectory = path.join(path.dirname(pluginPackagePath), "module");
 		if (!await fs.pathExists(moduleDirectory)) {

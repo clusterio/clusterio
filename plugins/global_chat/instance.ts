@@ -1,4 +1,5 @@
 import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
 import { ChatEvent } from "./messages";
 
 /**
@@ -11,7 +12,7 @@ function removeTags(content: string): string {
 	return content.replace(/(\[gps=-?\d+,-?\d+\]|\[train=\d+\])/g, "");
 }
 
-export class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	messageQueue: string[] = [];
 
 	async init() {

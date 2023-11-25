@@ -1,7 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import PlayerStats from "../PlayerStats";
 import { JsonNumber, jsonArray } from "./composites";
-import { AccountRole } from "../plugin";
 
 export class RawPermission { // TODO refactor into lib/user.Permission
 	constructor(
@@ -404,32 +403,6 @@ export class UserDeleteRequest {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.name);
-	}
-}
-
-
-export class AccountUpdateEvent {
-	declare ["constructor"]: typeof AccountUpdateEvent;
-	static type = "event" as const;
-	static src = "controller" as const;
-	static dst = "control" as const;
-
-	constructor(
-		public roles?: AccountRole[],
-	) { }
-
-	static jsonSchema = Type.Object({
-		roles: Type.Array(
-			Type.Object({
-				name: Type.String(),
-				id: Type.Integer(),
-				permissions: Type.Array(Type.String()),
-			}),
-		),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.roles);
 	}
 }
 

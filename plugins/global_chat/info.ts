@@ -7,7 +7,7 @@ const info: lib.PluginDeclaration = {
 	title: "Global Chat",
 	description: "Forwards chat between instances.",
 	instanceEntrypoint: "dist/plugin/instance",
-	controlEntrypoint: "dist/plugin/control",
+	ctlEntrypoint: "dist/plugin/control",
 
 	messages: [
 		ChatEvent,
