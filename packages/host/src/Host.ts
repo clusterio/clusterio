@@ -215,7 +215,7 @@ class HostRouter {
 			}
 			logger.warn(`Failed to deliver ${(message as any).name || "message"} (${message.type}): ${err.message}`);
 			if (err instanceof lib.InvalidMessage && err.errors) {
-				logger.warn(JSON.stringify(err.errors, null, 4));
+				logger.warn(JSON.stringify(err.errors, null, "\t"));
 			}
 		}
 	}
@@ -484,7 +484,7 @@ export default class Host extends lib.Link {
 		};
 		await lib.safeOutputFile(
 			path.join(instanceInfo.path, "instance.json"),
-			JSON.stringify(warnedOutput, null, 4)
+			JSON.stringify(warnedOutput, null, "\t")
 		);
 	}
 

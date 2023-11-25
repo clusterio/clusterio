@@ -1,46 +1,46 @@
 {
-  "name": "@clusterio/plugin-player_auth",
-  "version": "2.0.0-alpha.13",
-  "description": "Clusterio plugin authenticating logged in players to the web interface",
-  "author": "Hornwitser <github@hornwitser.no>",
-  "homepage": "https://github.com/clusterio/clusterio#readme",
-  "license": "MIT",
-  "repository": "clusterio/clusterio",
-  "main": "dist/plugin/info.js",
-  "scripts": {
-    "prepare": "tsc --build && webpack-cli --env production",
-    "test": "echo \"Error: run tests from root\" && exit 1"
-  },
-  "bugs": {
-    "url": "https://github.com/clusterio/clusterio/issues"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "peerDependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.0"
-  },
-  "dependencies": {
-    "@sinclair/typebox": "^0.30.4",
-    "express": "^4.16.2",
-    "jsonwebtoken": "^8.2.1"
-  },
-  "devDependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.13",
-    "@clusterio/web_ui": "^2.0.0-alpha.13",
-    "@types/express": "^4.17.17",
-    "@types/jsonwebtoken": "^9.0.2",
-    "@types/node": "^20.4.5",
-    "antd": "^5.7.3",
-    "phin": "^3.7.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "typescript": "^5.1.6",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4",
-    "webpack-merge": "^5.9.0"
-  },
-  "publishConfig": {
-    "access": "public"
-  }
+	"name": "@clusterio/plugin-player_auth",
+	"version": "2.0.0-alpha.13",
+	"description": "Clusterio plugin authenticating logged in players to the web interface",
+	"author": "Hornwitser <github@hornwitser.no>",
+	"homepage": "https://github.com/clusterio/clusterio#readme",
+	"license": "MIT",
+	"repository": "clusterio/clusterio",
+	"main": "dist/plugin/info.js",
+	"scripts": {
+		"prepare": "tsc --build && webpack-cli --env production",
+		"test": "echo \"Error: run tests from root\" && exit 1"
+	},
+	"bugs": {
+		"url": "https://github.com/clusterio/clusterio/issues"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"peerDependencies": {
+		"@clusterio/lib": "^2.0.0-alpha.0"
+	},
+	"dependencies": {
+		"@sinclair/typebox": "^0.30.4",
+		"express": "^4.16.2",
+		"jsonwebtoken": "^8.2.1"
+	},
+	"devDependencies": {
+		"@clusterio/lib": "^2.0.0-alpha.13",
+		"@clusterio/web_ui": "^2.0.0-alpha.13",
+		"@types/express": "^4.17.17",
+		"@types/jsonwebtoken": "^9.0.2",
+		"@types/node": "^20.4.5",
+		"antd": "^5.7.3",
+		"phin": "^3.7.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+		"typescript": "^5.1.6",
+		"webpack": "^5.88.2",
+		"webpack-cli": "^5.1.4",
+		"webpack-merge": "^5.9.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	}
 }

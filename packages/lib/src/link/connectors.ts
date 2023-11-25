@@ -159,7 +159,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		}
 		if (!libData.Message.validate(json)) {
 			logger.error(`Received malformed message: ${text}`);
-			// logger.error(JSON.stringify(libData.Message.validate.errors, null, 4));
+			// logger.error(JSON.stringify(libData.Message.validate.errors, null, "\t"));
 			this.close(4000, "Malformed message");
 			return undefined;
 		}

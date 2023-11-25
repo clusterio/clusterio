@@ -265,7 +265,7 @@ hostCommands.add(new lib.Command({
 			new lib.HostConfigCreateRequest(args.id, args.name, args.generateToken)
 		);
 
-		let content = JSON.stringify(rawConfig.serializedConfig, null, 4);
+		let content = JSON.stringify(rawConfig.serializedConfig, null, "\t");
 		if (args.output === "-") {
 			print(content);
 		} else {

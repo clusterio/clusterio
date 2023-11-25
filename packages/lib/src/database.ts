@@ -78,7 +78,7 @@ export async function loadJsonAsMap(filePath: string): Promise<Map<string, unkno
  */
 export async function saveMapAsJson(filePath: string, map: Map<string, unknown>) {
 	let obj = mapToObject(map);
-	await libFileOps.safeOutputFile(filePath, JSON.stringify(obj, null, 4));
+	await libFileOps.safeOutputFile(filePath, JSON.stringify(obj, null, "\t"));
 }
 
 /**
@@ -138,7 +138,7 @@ export async function loadJsonArrayAsMap(filePath: string): Promise<Map<unknown,
  * @throws {Error} if an error occured writing to the file.
  */
 export async function saveMapAsJsonArray(filePath: string, map: Map<unknown, { id: unknown }>) {
-	await libFileOps.safeOutputFile(filePath, JSON.stringify([...map.values()], null, 4));
+	await libFileOps.safeOutputFile(filePath, JSON.stringify([...map.values()], null, "\t"));
 }
 
 

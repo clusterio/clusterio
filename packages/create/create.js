@@ -199,7 +199,7 @@ async function migrateRename(args) {
 	async function migrateConfig(source, destination) {
 		if (await fs.pathExists(source) && !await fs.pathExists(destination)) {
 			await safeOutputFile(destination, JSON.stringify(
-				renameConfig(JSON.parse(await fs.readFile(source))), null, 4
+				renameConfig(JSON.parse(await fs.readFile(source))), null, "\t"
 			));
 			logger.info(`Migrated ${source} to ${destination}`);
 		}
@@ -211,7 +211,7 @@ async function migrateRename(args) {
 	let instancesFile = path.join("database", "instances.json");
 	if (await fs.pathExists(instancesFile)) {
 		await safeOutputFile(instancesFile, JSON.stringify(
-			JSON.parse(await fs.readFile(instancesFile)).map(renameConfig), null, 4
+			JSON.parse(await fs.readFile(instancesFile)).map(renameConfig), null, "\t"
 		));
 		logger.info(`Migrated ${instancesFile}`);
 	}
@@ -222,7 +222,7 @@ async function migrateRename(args) {
 		for (let role of users["roles"]) {
 			role["permissions"] = role["permissions"].map(rename);
 		}
-		await safeOutputFile(usersFile, JSON.stringify(users, null, 4));
+		await safeOutputFile(usersFile, JSON.stringify(users, null, "\t"));
 		logger.info(`Migrated ${usersFile}`);
 	}
 
@@ -352,7 +352,7 @@ async function installClusterio(mode, plugins) {
 			}
 		}
 		try {
-			await safeOutputFile("plugin-list.json", JSON.stringify([...pluginList], null, 4));
+			await safeOutputFile("plugin-list.json", JSON.stringify([...pluginList], null, "\t"));
 		} catch (err) {
 			throw new InstallError(`Error writing plugin-list.json: ${err.message}`);
 		}

@@ -79,8 +79,8 @@ export default function CreateSaveModal(props: CreateSaveModalProps) {
 		}
 		form.setFields([{ name: "exchangeString", errors: [], value: "" }]);
 		form.setFieldsValue({
-			mapGenSettings: JSON.stringify(result.map_gen_settings, null, 4),
-			mapSettings: JSON.stringify(result.map_settings, null, 4),
+			mapGenSettings: JSON.stringify(result.map_gen_settings, null, "\t"),
+			mapSettings: JSON.stringify(result.map_settings, null, "\t"),
 		});
 	}
 

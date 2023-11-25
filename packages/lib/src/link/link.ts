@@ -109,7 +109,7 @@ export class Link {
 				if (err instanceof libErrors.InvalidMessage) {
 					logger.error(err.message);
 					if (err.errors) {
-						logger.error(JSON.stringify(err.errors, null, 4));
+						logger.error(JSON.stringify(err.errors, null, "\t"));
 					}
 
 				} else {
@@ -364,7 +364,7 @@ export class Link {
 			response = handler(entry.requestFromJSON(message.data), message.src, message.dst);
 		} catch (err: any) {
 			if (err.errors) {
-				logger.error(JSON.stringify(err.errors, null, 4));
+				logger.error(JSON.stringify(err.errors, null, "\t"));
 			}
 			this.connector.sendResponseError(
 				new libData.ResponseError(err.message, err.code, err.stack), message.src
@@ -392,7 +392,7 @@ export class Link {
 				if (err instanceof libErrors.InvalidMessage) {
 					logger.error(err.message);
 					if (err.errors) {
-						logger.error(JSON.stringify(err.errors, null, 4));
+						logger.error(JSON.stringify(err.errors, null, "\t"));
 					}
 				} else if (!(err instanceof libErrors.RequestError)) {
 					logger.error(`Unexpected error responding to ${message.name}:\n${err.stack}`);

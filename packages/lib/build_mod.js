@@ -41,7 +41,7 @@ async function buildMod(args, info) {
 			}
 			delete info.additional_files;
 
-			zip.file(path.posix.join(modName, "info.json"), JSON.stringify(info, null, 4));
+			zip.file(path.posix.join(modName, "info.json"), JSON.stringify(info, null, "\t"));
 
 			let modPath = path.join(args.outputDir, `${modName}.zip`);
 			console.log(`Writing ${modPath}`);
@@ -62,7 +62,7 @@ async function buildMod(args, info) {
 			}
 			delete info.additional_files;
 
-			await fs.writeFile(path.join(modDir, "info.json"), JSON.stringify(info, null, 4));
+			await fs.writeFile(path.join(modDir, "info.json"), JSON.stringify(info, null, "\t"));
 		}
 	}
 }

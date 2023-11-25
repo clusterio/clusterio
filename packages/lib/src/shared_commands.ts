@@ -73,7 +73,7 @@ export async function handlePluginCommand(
 		}
 
 		pluginList.set(pluginInfo.name, pluginPath);
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
+		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
 		print(`Added ${pluginInfo.name}`);
 
 	} else if (command === "remove") {
@@ -83,7 +83,7 @@ export async function handlePluginCommand(
 			return;
 		}
 
-		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, 4));
+		await libFileOps.safeOutputFile(pluginListPath, JSON.stringify([...pluginList], null, "\t"));
 		print(`Removed ${args.name}`);
 
 	} else if (command === "list") {
@@ -162,7 +162,7 @@ export async function handleConfigCommand(
 
 		try {
 			instance.set(args.field as string, args.value);
-			await libFileOps.safeOutputFile(configPath, JSON.stringify(instance.serialize(), null, 4));
+			await libFileOps.safeOutputFile(configPath, JSON.stringify(instance.serialize(), null, "\t"));
 		} catch (err) {
 			if (err instanceof libConfig.InvalidField || err instanceof libConfig.InvalidValue) {
 				logger.error(err.message);
