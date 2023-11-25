@@ -45,7 +45,7 @@ async function saveTechnologies(
 ) {
 	let filePath = path.join(controllerConfig.get("controller.database_directory"), "technologies.json");
 	logger.verbose(`writing ${filePath}`);
-	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, 4));
+	await lib.safeOutputFile(filePath, JSON.stringify([...technologies.entries()], null, "\t"));
 }
 
 export class ControllerPlugin extends lib.BaseControllerPlugin {

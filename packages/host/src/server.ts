@@ -1194,12 +1194,12 @@ export class FactorioServer extends events.EventEmitter {
 	async _writeMapSettings(mapGenSettings?: object, mapSettings?: object) {
 		if (mapGenSettings) {
 			await lib.safeOutputFile(
-				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, 4)
+				this.writePath("map-gen-settings.json"), JSON.stringify(mapGenSettings, null, "\t")
 			);
 		}
 		if (mapSettings) {
 			await lib.safeOutputFile(
-				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, 4)
+				this.writePath("map-settings.json"), JSON.stringify(mapSettings, null, "\t")
 			);
 		}
 	}

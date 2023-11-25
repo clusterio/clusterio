@@ -321,7 +321,7 @@ export default class Controller {
 		}
 
 		logger.info("Saving config");
-		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, 4));
+		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
 
 		if (this.devMiddleware) {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
@@ -384,7 +384,7 @@ export default class Controller {
 	}
 
 	static async saveHosts(filePath: string, hosts: Map<number, HostInfo>) {
-		await lib.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify([...hosts.entries()], null, "\t"));
 	}
 
 	static async loadInstances(filePath: string): Promise<Map<number, InstanceInfo>> {
@@ -420,7 +420,7 @@ export default class Controller {
 			serialized.push(instance.config.serialize());
 		}
 
-		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
 
 	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
@@ -437,7 +437,7 @@ export default class Controller {
 	}
 
 	static async saveModPacks(filePath: string, modPacks: Map<number, lib.ModPack>) {
-		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, "\t"));
 	}
 
 	static async loadModInfos(modsDirectory: string): Promise<Map<string, lib.ModInfo>> {

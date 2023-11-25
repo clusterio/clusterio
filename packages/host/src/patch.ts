@@ -103,7 +103,7 @@ export class SaveModule {
 		if (!lib.ModuleInfo.validate(moduleJson)) {
 			throw new Error(
 				`module/module.json in plugin ${plugin.info.name} failed validation:\n` +
-				`${JSON.stringify(lib.ModuleInfo.validate.errors, null, 4)}`
+				`${JSON.stringify(lib.ModuleInfo.validate.errors, null, "\t")}`
 			);
 		}
 
@@ -124,7 +124,7 @@ export class SaveModule {
 		if (!lib.ModuleInfo.validate(moduleJson)) {
 			throw new Error(
 				`${name}/module.json failed validation:\n` +
-				`${JSON.stringify(lib.ModuleInfo.validate.errors, null, 4)}`
+				`${JSON.stringify(lib.ModuleInfo.validate.errors, null, "\t")}`
 			);
 		}
 

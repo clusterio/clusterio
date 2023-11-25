@@ -164,7 +164,7 @@ async function handleBootstrapCommand(
 			userManager.signUserToken(admin.name),
 		);
 
-		let content = JSON.stringify(controlConfig.serialize(), null, 4);
+		let content = JSON.stringify(controlConfig.serialize(), null, "\t");
 		if (args.output === "-") {
 			// eslint-disable-next-line no-console
 			console.log(content);
@@ -343,7 +343,7 @@ async function initialize(): Promise<InitializeParameters> {
 		let bytes = await asyncRandomBytes(256);
 		controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
 		await lib.safeOutputFile(
-			controllerConfigPath, JSON.stringify(controllerConfig.serialize(), null, 4)
+			controllerConfigPath, JSON.stringify(controllerConfig.serialize(), null, "\t")
 		);
 	}
 

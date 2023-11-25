@@ -59,7 +59,7 @@ export default class UserManager {
 			users: serializedUsers,
 			roles: serializedRoles,
 		};
-		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, 4));
+		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
 
 	/**

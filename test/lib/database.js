@@ -81,7 +81,7 @@ describe("lib/database", function() {
 
 			assert.equal(
 				await fs.readFile(testFile, { encoding: "utf-8" }),
-				'{\n    "c": {},\n    "d": "foo"\n}'
+				'{\n\t"c": {},\n\t"d": "foo"\n}'
 			);
 		});
 	});
@@ -155,7 +155,7 @@ describe("lib/database", function() {
 
 			assert.equal(
 				await fs.readFile(testFile, { encoding: "utf-8" }),
-				'[\n    {\n        "id": "c"\n    },\n    {\n        "id": "d"\n    }\n]'
+				'[\n\t{\n\t\t"id": "c"\n\t},\n\t{\n\t\t"id": "d"\n\t}\n]'
 			);
 		});
 	});

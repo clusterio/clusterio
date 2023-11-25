@@ -1,0 +1,11 @@
+{
+	"editor.detectIndentation": false,
+	"editor.insertSpaces": false,
+	"files.eol": "\n",
+	"files.insertFinalNewline": true,
+	"files.trimFinalNewlines": true,
+	"[markdown]": {
+		"editor.indentSize": 4,
+		"editor.insertSpaces": true,
+	},
+}

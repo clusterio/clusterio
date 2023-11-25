@@ -520,7 +520,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		let content = JSON.stringify({
 			players: [...this.playerStats],
 			player_autosave_slot: this._playerAutosaveSlot,
-		}, null, 4);
+		}, null, "\t");
 		await lib.safeOutputFile(this.path("instance-stats.json"), content);
 	}
 
@@ -599,7 +599,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		};
 		await lib.safeOutputFile(
 			this.server.writePath("server-settings.json"),
-			JSON.stringify(serverSettings, null, 4)
+			JSON.stringify(serverSettings, null, "\t")
 		);
 	}
 
@@ -687,7 +687,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		// Write mod-list.json
 		await fs.outputFile(this.path("mods", "mod-list.json"), JSON.stringify({
 			mods: [...this.activeModPack.mods.values()],
-		}, null, 2));
+		}, null, "\t"));
 
 		// Write mod-settings.dat
 		await fs.outputFile(this.path("mods", "mod-settings.dat"), this.activeModPack.toModSettingsDat());
@@ -706,7 +706,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			this.logger.verbose("Writing server-adminlist.json");
 			lib.safeOutputFile(
 				this.server.writePath("server-adminlist.json"),
-				JSON.stringify([...this._host.adminlist], null, 4)
+				JSON.stringify([...this._host.adminlist], null, "\t")
 			);
 		}
 
@@ -716,7 +716,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				this.server.writePath("server-banlist.json"),
 				JSON.stringify([...this._host.banlist].map(
 					([username, reason]) => ({ username, reason })
-				), null, 4),
+				), null, "\t"),
 			);
 		}
 
@@ -724,7 +724,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			this.logger.verbose("Writing server-whitelist.json");
 			lib.safeOutputFile(
 				this.server.writePath("server-whitelist.json"),
-				JSON.stringify([...this._host.whitelist], null, 4)
+				JSON.stringify([...this._host.whitelist], null, "\t")
 			);
 		}
 

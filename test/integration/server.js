@@ -107,7 +107,7 @@ describe("Integration of host/src/server", function() {
 				let settings = await server.exampleSettings();
 				settings.visibility = { public: false, lan: true };
 				settings.require_user_verification = false;
-				await fs.outputFile(server.writePath("server-settings.json"), JSON.stringify(settings, null, 4));
+				await fs.outputFile(server.writePath("server-settings.json"), JSON.stringify(settings, null, "\t"));
 
 				// Make sure the test does not fail due to create() failing.
 				let mapPath = server.writePath("saves", "test.zip");

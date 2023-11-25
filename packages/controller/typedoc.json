@@ -1,4 +1,4 @@
 {
-  "entryPoints": ["controller.ts"],
-  "includeVersion": true
+	"entryPoints": ["controller.ts"],
+	"includeVersion": true
 }

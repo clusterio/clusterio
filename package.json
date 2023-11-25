@@ -1,45 +1,45 @@
 {
-  "name": "root",
-  "private": true,
-  "scripts": {
-    "build": "tsc --build",
-    "test": "pnpm run build && mocha --check-leaks -R spec --recursive test \"plugins/*/test/**\"",
-    "fast-test": "FAST_TEST=y pnpm test",
-    "cover": "nyc pnpm test",
-    "fast-cover": "FAST_TEST=y nyc pnpm test",
-    "ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
-    "lint": "eslint \"*.js\" packages plugins test",
-    "lint-fix": "eslint --fix \"*.js\" packages plugins test",
-    "docs": "typedoc",
-    "bundle-dependencies": "bundle-dependencies"
-  },
-  "nyc": {
-    "exclude": [
-      "test/**",
-      "plugins/*/test/**"
-    ]
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "devDependencies": {
-    "@clusterio/controller": "workspace:*",
-    "@clusterio/ctl": "workspace:*",
-    "@clusterio/host": "workspace:*",
-    "@clusterio/lib": "workspace:*",
-    "@typescript-eslint/eslint-plugin": "^6.4.1",
-    "@typescript-eslint/parser": "^6.4.1",
-    "eslint": "^8.45.0",
-    "eslint-plugin-node": "^11.1.0",
-    "express": "^4.18.2",
-    "form-data": "^4.0.0",
-    "fs-extra": "^11.1.1",
-    "jsonwebtoken": "^9.0.1",
-    "jszip": "^3.10.0",
-    "mocha": "^10.2.0",
-    "nyc": "^15.1.0",
-    "phin": "^3.7.0",
-    "typedoc": "^0.24.8",
-    "typescript": "^5.1.6"
-  }
+	"name": "root",
+	"private": true,
+	"scripts": {
+		"build": "tsc --build",
+		"test": "pnpm run build && mocha --check-leaks -R spec --recursive test \"plugins/*/test/**\"",
+		"fast-test": "FAST_TEST=y pnpm test",
+		"cover": "nyc pnpm test",
+		"fast-cover": "FAST_TEST=y nyc pnpm test",
+		"ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
+		"lint": "eslint \"*.js\" packages plugins test",
+		"lint-fix": "eslint --fix \"*.js\" packages plugins test",
+		"docs": "typedoc",
+		"bundle-dependencies": "bundle-dependencies"
+	},
+	"nyc": {
+		"exclude": [
+			"test/**",
+			"plugins/*/test/**"
+		]
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"devDependencies": {
+		"@clusterio/controller": "workspace:*",
+		"@clusterio/ctl": "workspace:*",
+		"@clusterio/host": "workspace:*",
+		"@clusterio/lib": "workspace:*",
+		"@typescript-eslint/eslint-plugin": "^6.4.1",
+		"@typescript-eslint/parser": "^6.4.1",
+		"eslint": "^8.45.0",
+		"eslint-plugin-node": "^11.1.0",
+		"express": "^4.18.2",
+		"form-data": "^4.0.0",
+		"fs-extra": "^11.1.1",
+		"jsonwebtoken": "^9.0.1",
+		"jszip": "^3.10.0",
+		"mocha": "^10.2.0",
+		"nyc": "^15.1.0",
+		"phin": "^3.7.0",
+		"typedoc": "^0.24.8",
+		"typescript": "^5.1.6"
+	}
 }

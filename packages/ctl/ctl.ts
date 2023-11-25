@@ -324,7 +324,7 @@ I           version of clusterio.  Expect things to break. I
 	);
 	startControl().catch(err => {
 		if (err.errors) {
-			logger.fatal(JSON.stringify(err.errors, null, 4));
+			logger.fatal(JSON.stringify(err.errors, null, "\t"));
 		}
 		if (!(err instanceof lib.StartupError)) {
 			logger.fatal(`

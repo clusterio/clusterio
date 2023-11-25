@@ -1,48 +1,48 @@
 {
-  "name": "@clusterio/host",
-  "description": "Implementation of Clusterio host server",
-  "author": "Hornwitser",
-  "license": "MIT",
-  "version": "2.0.0-alpha.13",
-  "main": "dist/host.js",
-  "scripts": {
-    "prepare": "tsc --build",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "bin": {
-    "clusteriohost": "./dist/host.js"
-  },
-  "keywords": [
-    "factorio"
-  ],
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "@clusterio/lib": "^2.0.0-alpha.13",
-    "@sinclair/typebox": "^0.30.4",
-    "fs-extra": "^11.1.1",
-    "jimp": "^0.22.8",
-    "jszip": "^3.10.1",
-    "phin": "^3.7.0",
-    "pidusage": "^3.0.2",
-    "rcon-client": "^4.2.3",
-    "semver": "^7.5.4",
-    "set-blocking": "^2.0.0",
-    "winston": "^3.10.0",
-    "winston-daily-rotate-file": "^4.7.1",
-    "yargs": "^17.7.2"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "devDependencies": {
-    "@types/fs-extra": "^11.0.1",
-    "@types/node": "^20.4.5",
-    "@types/pidusage": "^2.0.2",
-    "@types/semver": "^7.5.0",
-    "@types/set-blocking": "^2.0.0",
-    "@types/yargs": "^17.0.24",
-    "typescript": "^5.1.6"
-  }
+	"name": "@clusterio/host",
+	"description": "Implementation of Clusterio host server",
+	"author": "Hornwitser",
+	"license": "MIT",
+	"version": "2.0.0-alpha.13",
+	"main": "dist/host.js",
+	"scripts": {
+		"prepare": "tsc --build",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"bin": {
+		"clusteriohost": "./dist/host.js"
+	},
+	"keywords": [
+		"factorio"
+	],
+	"engines": {
+		"node": ">=18"
+	},
+	"dependencies": {
+		"@clusterio/lib": "^2.0.0-alpha.13",
+		"@sinclair/typebox": "^0.30.4",
+		"fs-extra": "^11.1.1",
+		"jimp": "^0.22.8",
+		"jszip": "^3.10.1",
+		"phin": "^3.7.0",
+		"pidusage": "^3.0.2",
+		"rcon-client": "^4.2.3",
+		"semver": "^7.5.4",
+		"set-blocking": "^2.0.0",
+		"winston": "^3.10.0",
+		"winston-daily-rotate-file": "^4.7.1",
+		"yargs": "^17.7.2"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"devDependencies": {
+		"@types/fs-extra": "^11.0.1",
+		"@types/node": "^20.4.5",
+		"@types/pidusage": "^2.0.2",
+		"@types/semver": "^7.5.0",
+		"@types/set-blocking": "^2.0.0",
+		"@types/yargs": "^17.0.24",
+		"typescript": "^5.1.6"
+	}
 }

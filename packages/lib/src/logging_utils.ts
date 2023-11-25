@@ -306,7 +306,7 @@ export class LogIndex {
 	async save() {
 		await libFileOps.safeOutputFile(
 			path.join(this.logDirectory, "index.json"),
-			JSON.stringify(this.serialize(), null, 4)
+			JSON.stringify(this.serialize(), null, "\t")
 		);
 	}
 
