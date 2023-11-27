@@ -1,5 +1,6 @@
 import type React from "react";
-import type { AccountRole, Link, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { AccountRole, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { Control } from "./util/websocket";
 
 /**
  * Plugin supplied login form
@@ -78,11 +79,6 @@ export default class BaseWebPlugin {
 	 */
 	package: any;
 	/**
-	 * Control link to the controller, not available until the
-	 * connect event in onControllerConnectionEvent is signaled.
-	 */
-	control?: Link;
-	/**
 	 * Logger for this plugin
 	 *
 	 * Instance of winston Logger for sending log messages from this
@@ -152,6 +148,12 @@ export default class BaseWebPlugin {
 		 * The plugin's own info module
 		 */
 		public info: PluginWebpackEnvInfo,
+		/**
+		 * Control link to the controller
+		 *
+		 * Not connected at the time init is invoked.
+		 */
+		public control: Control,
 		logger: Logger,
 	) {
 		this.package = packageData;

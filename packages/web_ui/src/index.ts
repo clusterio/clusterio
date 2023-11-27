@@ -2,6 +2,7 @@
 export { default as bootstrap } from "./bootstrap";
 export { default as notify, notifyErrorHandler } from "./util/notify";
 export { default as BaseWebPlugin } from "./BaseWebPlugin";
+export * from "./util/websocket";
 
 export * from "./model/instance";
 export * from "./model/host";

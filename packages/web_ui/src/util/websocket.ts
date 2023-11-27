@@ -52,6 +52,9 @@ export class Control extends lib.Link {
 	/** Roles of the account this control link is connected as. */
 	accountRoles: lib.AccountRole[] | null = null;
 
+	/** Plugins loaded in the web interface */
+	public plugins = new Map<string, BaseWebPlugin>();
+
 	/** Updates not handled by the subscription service */
 	accountUpdateHandlers: accountHandler[] = [];
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
@@ -85,13 +88,8 @@ export class Control extends lib.Link {
 
 	constructor(
 		connector: ControlConnector,
-		public plugins: Map<string, BaseWebPlugin>,
 	) {
 		super(connector);
-
-		for (let plugin of plugins.values()) {
-			plugin.control = this;
-		}
 
 		this.connector.on("connect", data => {
 			this.accountName = data.account.name;

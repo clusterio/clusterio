@@ -67,8 +67,8 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 	return pluginInfos;
 }
 
-async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[]) {
-	let plugins = new Map();
+async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Control) {
+	let plugins = new Map<string, BaseWebPlugin>();
 	for (let pluginInfo of pluginInfos) {
 		if (!pluginInfo.enabled) {
 			continue;
@@ -83,7 +83,7 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[]) {
 				WebPluginClass = webModule.WebPlugin;
 			}
 
-			let plugin = new WebPluginClass(pluginInfo.container, pluginInfo.package, pluginInfo, logger);
+			let plugin = new WebPluginClass(pluginInfo.container, pluginInfo.package, pluginInfo, control, logger);
 			await plugin.init();
 			plugins.set(pluginInfo.name, plugin);
 
@@ -106,11 +106,11 @@ export default async function bootstrap() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.registerPluginConfigGroups(pluginInfos);
 	lib.finalizeConfigs();
-	let plugins = await loadPlugins(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);
-	let control = new Control(controlConnector, plugins);
+	let control = new Control(controlConnector);
+	control.plugins = await loadPlugins(pluginInfos, control);
 
 	const root = createRoot(document.getElementById("root") as HTMLDivElement);
 	root.render(<App control={control}/>);
