@@ -59,6 +59,13 @@ export default class Controller {
 	/** User and roles manager for the cluster */
 	userManager: UserManager;
 
+	/** True if {@link Controller.hosts} has changed since last time it was saved */
+	hostsDirty = false;
+	/** True if {@link Controller.instances} has changed since last time it was saved */
+	instancesDirty = false;
+	/** True if {@link Controller.modPacks} has changed since last time it was saved */
+	modPacksDirty = false;
+
 	httpServer: http.Server | null = null;
 	httpServerCloser: HttpCloser | null = null;
 	httpsServer: https.Server | null = null;
@@ -84,6 +91,8 @@ export default class Controller {
 	_snoopedEvents = new Map();
 
 	devMiddleware: any | null = null;
+
+	autosaveInterval?: ReturnType<typeof setInterval>;
 
 	logDirectory: string = "";
 	clusterLogIndex: lib.LogIndex | null = null;
@@ -182,6 +191,9 @@ export default class Controller {
 		this.mods = await Controller.loadModInfos(modsDirectory);
 
 		this.config.on("fieldChanged", (group, field, prev) => {
+			if (group.name === "controller" && field === "autosave_interval") {
+				this.onAutosaveIntervalChanged();
+			}
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
 		});
 		for (let instance of this.instances!.values()) {
@@ -253,6 +265,8 @@ export default class Controller {
 			logger.info(`Listening for HTTPS on port ${(this.httpsServer.address() as AddressInfo).port}`);
 		}
 
+		this.onAutosaveIntervalChanged();
+
 		logger.info("Started controller");
 		this._state = "running";
 	}
@@ -317,32 +331,17 @@ export default class Controller {
 			clearInterval(this.clusterLogBuildInterval);
 		}
 
+		if (this.autosaveInterval) {
+			clearInterval(this.autosaveInterval);
+			this.autosaveInterval = undefined;
+		}
+
 		if (this.clusterLogIndex) {
 			await this.clusterLogIndex.save();
 		}
 
-		logger.info("Saving config");
-		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
-
 		if (this.devMiddleware) {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
-		}
-
-		let databaseDirectory = this.config.get("controller.database_directory");
-		if (this.hosts) {
-			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
-		}
-
-		if (this.instances) {
-			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
-		}
-
-		if (this.modPacks) {
-			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
-		}
-
-		if (this.userManager) {
-			await this.userManager.save(path.join(databaseDirectory, "users.json"));
 		}
 
 		await lib.invokeHook(this.plugins, "onShutdown");
@@ -361,7 +360,83 @@ export default class Controller {
 		}
 		await Promise.all(stopTasks);
 
+		logger.info("Saving data");
+		await this.saveData();
 		logger.info("Goodbye");
+	}
+
+	onAutosaveIntervalChanged() {
+		if (this.autosaveInterval) {
+			clearInterval(this.autosaveInterval);
+			this.autosaveInterval = undefined;
+		}
+		const autosaveIntervalSeconds = this.config.get("controller.autosave_interval");
+		if (autosaveIntervalSeconds > 0) {
+			this.autosaveInterval = setInterval(this.saveData.bind(this), autosaveIntervalSeconds * 1000);
+		}
+	}
+
+	private _saveDataCurrentlyRunning = false;
+	private _saveDataCurrentlyWaiting: (() => void)[] = [];
+
+	/**
+	 * Save all data currently in memory to disk
+	 *
+	 * Note: If a save is currently in progress this will wait until that
+	 * completes and start another save.
+	 */
+	async saveData() {
+		if (this._saveDataCurrentlyRunning) {
+			const waitForCompletion = () => new Promise<void>(resolve => {
+				this._saveDataCurrentlyWaiting.push(resolve);
+			});
+			await waitForCompletion();
+			if (this._saveDataCurrentlyRunning) {
+				await waitForCompletion();
+				return;
+			}
+		}
+
+		this._saveDataCurrentlyRunning = true;
+		try {
+			await this._saveDataInternal();
+		} catch (err: any) {
+			logger.error(`Unexpected error during saveData:\n${err.stack}`);
+		}
+		this._saveDataCurrentlyRunning = false;
+		for (const callback of this._saveDataCurrentlyWaiting) {
+			callback();
+		}
+		this._saveDataCurrentlyWaiting.length = 0;
+	}
+
+	async _saveDataInternal() {
+		if (this.config.dirty) {
+			this.config.dirty = false;
+			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
+		}
+
+		let databaseDirectory = this.config.get("controller.database_directory");
+		if (this.hosts && this.hostsDirty) {
+			this.hostsDirty = false;
+			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
+		}
+
+		if (this.instances && this.instancesDirty) {
+			this.instancesDirty = false;
+			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
+		}
+
+		if (this.modPacks && this.modPacksDirty) {
+			this.modPacksDirty = false;
+			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
+		}
+
+		if (this.userManager && this.userManager.dirty) {
+			await this.userManager.save(path.join(databaseDirectory, "users.json"));
+		}
+
+		await lib.invokeHook(this.plugins, "onSaveData");
 	}
 
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
@@ -766,6 +841,7 @@ export default class Controller {
 				this.instanceUpdated(instance);
 			}
 
+			this.instancesDirty = true;
 			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
 		});
 
@@ -773,6 +849,7 @@ export default class Controller {
 	}
 
 	instanceUpdated(instance: InstanceInfo) {
+		this.instancesDirty = true;
 		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
 		if (assigned_host === null) {
 			assigned_host = undefined;
@@ -799,6 +876,7 @@ export default class Controller {
 	}
 
 	modPackUpdated(modPack: lib.ModPack) {
+		this.modPacksDirty = true;
 		this.subscriptions.broadcast(new lib.ModPackUpdateEvent(modPack));
 		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
@@ -809,6 +887,7 @@ export default class Controller {
 	}
 
 	userUpdated(user: lib.User) {
+		this.userManager.dirty = true;
 		this.subscriptions.broadcast(new lib.UserUpdateEvent(
 			new lib.RawUser(
 				user.name,

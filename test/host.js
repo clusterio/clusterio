@@ -20,6 +20,7 @@ describe("Host testing", function() {
 			await referenceConfig.init();
 			referenceConfig.set("instance.id", 1);
 			referenceConfig.set("instance.name", "test");
+			referenceConfig.dirty = false;
 
 			assert.deepEqual(instanceInfos, new Map([
 				[1, {

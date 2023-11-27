@@ -41,6 +41,19 @@ export default class BaseControllerPlugin {
 	async init() { }
 
 	/**
+	 * Called when the controller saves data in memory to disk
+	 *
+	 * Invoked on the configured controller.autosave_interval by the
+	 * controller and intended to be used to flush any in memory data that
+	 * has changed to disk.
+	 *
+	 * This will also be called during graceful shutdown after {@link
+	 * BaseControllerPlugin.onShutdown} have been invoked and all links have
+	 * been disconnected.
+	 */
+	async onSaveData() { }
+
+	/**
 	 * Called when the status of an instance changes
 	 *
 	 * Invoked when the controller has changed the status of an instance

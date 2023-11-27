@@ -137,7 +137,11 @@ module.exports = {
 		"func-call-spacing": "error",
 		"func-name-matching": "error",
 		"func-names": "off",
-		"func-style": ["error", "declaration"],
+		"func-style": ["error", "declaration", {
+			// Allow arrow functions as it better expresses referencing this
+			// of the containing scope, which is unweilding in plain functions.
+			"allowArrowFunctions": true,
+		}],
 		"function-call-argument-newline": "off",
 		"function-paren-newline": "off",
 		"generator-star-spacing": ["error", { "before": false, "after": true }],

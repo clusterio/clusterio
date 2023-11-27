@@ -51,6 +51,7 @@ async function saveTechnologies(
 
 export class ControllerPlugin extends BaseControllerPlugin {
 	technologies!: Map<string, Technology>;
+	technologiesDirty = true;
 	progressRateLimiter!: lib.RateLimiter;
 	progressBroadcastId!: ReturnType<typeof setInterval> | null;
 	progressToBroadcast!: Set<string>;
@@ -70,9 +71,15 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		this.controller.handle(SyncTechnologiesRequest, this.handleSyncTechnologiesRequest.bind(this));
 	}
 
+	async onSaveData() {
+		if (this.technologiesDirty) {
+			this.technologiesDirty = false;
+			await saveTechnologies(this.controller.config, this.technologies, this.logger);
+		}
+	}
+
 	async onShutdown() {
 		this.progressRateLimiter.cancel();
-		await saveTechnologies(this.controller.config, this.technologies, this.logger);
 	}
 
 	broadcastProgress() {
@@ -96,6 +103,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		if (!tech) {
 			tech = { level, progress: 0, researched: false };
 			this.technologies.set(name, tech);
+			this.technologiesDirty = true;
 
 		// Ignore contribution to already researched technologies
 		} else if (tech.level > level || tech.level === level && tech.researched) {
@@ -126,6 +134,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 			this.controller.sendTo("allInstances", new FinishedEvent(name, tech.level));
 		}
+		this.technologiesDirty = true;
 	}
 
 	async handleFinishedEvent(event: FinishedEvent) {
@@ -134,6 +143,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		if (!tech || tech.level <= level) {
 			this.progressToBroadcast.delete(name);
 			this.technologies.set(name, { level, progress: null, researched: true });
+			this.technologiesDirty = true;
 		}
 	}
 
@@ -151,6 +161,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			let tech = this.technologies.get(name);
 			if (!tech) {
 				this.technologies.set(name, { level, progress, researched });
+				this.technologiesDirty = true;
 				if (progress) {
 					this.progressToBroadcast.add(name);
 				} else if (researched || baseLevel(name) !== level) {
@@ -176,10 +187,12 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					} else {
 						this.progressToBroadcast.delete(name);
 					}
+					this.technologiesDirty = true;
 
 				} else if (tech.progress && progress && tech.progress < progress) {
 					tech.progress = progress;
 					this.progressToBroadcast.add(name);
+					this.technologiesDirty = true;
 				}
 			}
 		}

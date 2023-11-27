@@ -665,6 +665,7 @@ export default class ControlConnection extends BaseConnection {
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
 		this._controller.userManager.roles.set(id, new lib.Role({ id, ...request }));
+		this._controller.userManager.dirty = true;
 		return id;
 	}
 
@@ -699,6 +700,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		this._controller.userManager.roles.delete(id);
+		this._controller.userManager.dirty = true;
 		for (let user of this._controller.userManager.users.values()) {
 			user.roles.delete(role);
 			this._controller.userPermissionsUpdated(user);

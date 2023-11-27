@@ -57,6 +57,7 @@ export default class HostConnection extends BaseConnection {
 			plugins: registerData.plugins,
 			token_valid_after: currentHostInfo?.token_valid_after,
 		});
+		this._controller.hostsDirty = true;
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			// eslint-disable-next-line no-loop-func
