@@ -7,6 +7,7 @@ type Metadata = {
 	x: number;
 	y: number;
 	size: number;
+	localised_name?: any[];
 };
 let itemMetadataCache: Map<string, Metadata> | null = null;
 export function useItemMetadata() {

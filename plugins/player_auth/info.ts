@@ -20,7 +20,7 @@ ControllerConfigGroup.define({
 });
 ControllerConfigGroup.finalize();
 
-const info: lib.PluginDeclaration = {
+export default {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",
@@ -33,6 +33,4 @@ const info: lib.PluginDeclaration = {
 		messages.FetchPlayerCodeRequest,
 		messages.SetVerifyCodeRequest,
 	],
-};
-
-export default info;
+} satisfies lib.PluginDeclaration;

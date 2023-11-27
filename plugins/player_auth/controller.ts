@@ -46,10 +46,10 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}, 60e3).unref();
 
 		this.controller.app.get("/api/player_auth/servers", (req: Request, res: Response) => {
-			let servers = [];
+			let servers: string[] = [];
 			for (let instance of this.controller.instances!.values()) {
 				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
-					servers.push(instance.config.get("factorio.settings")["name"] || "unnamed server");
+					servers.push(instance.config.get("factorio.settings")["name"] as string || "unnamed server");
 				}
 			}
 			res.send(servers);

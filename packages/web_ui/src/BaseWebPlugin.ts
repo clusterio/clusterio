@@ -19,7 +19,7 @@ export interface PluginLoginForm {
 	 * supplied the setToken function via its props which should be called
 	 * when an authentication token is aquired via this form.
 	 */
-	Component: typeof React.Component;
+	Component: React.ComponentType<{ setToken(token: string): void }>;
 };
 
 export type UserAccount = {

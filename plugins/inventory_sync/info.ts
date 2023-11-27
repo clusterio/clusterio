@@ -40,7 +40,7 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-const info: lib.PluginDeclaration = {
+export default {
 	name: "inventory_sync",
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",
@@ -60,6 +60,4 @@ const info: lib.PluginDeclaration = {
 	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
-};
-
-export default info;
+} satisfies lib.PluginDeclaration;
