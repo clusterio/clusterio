@@ -1,3 +1,4 @@
+/// <reference path="../global.d.ts" />
 export { default as bootstrap } from "./bootstrap";
 export { default as notify, notifyErrorHandler } from "./util/notify";
 export { default as BaseWebPlugin } from "./BaseWebPlugin";

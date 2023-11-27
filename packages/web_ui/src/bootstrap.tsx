@@ -27,7 +27,7 @@ async function loadScript(url: string) {
 }
 
 async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
-	let response = await fetch(`${window.webRoot}api/plugins`);
+	let response = await fetch(`${webRoot}api/plugins`);
 	let pluginList: lib.PluginWebApi[];
 	if (response.ok) {
 		pluginList = await response.json();
@@ -45,7 +45,7 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 			continue;
 		}
 		try {
-			await loadScript(`${window.webRoot}${meta.web.main}`);
+			await loadScript(`${webRoot}${meta.web.main}`);
 			let container: any = (window as { [key: string]: any })[`plugin_${meta.name}`];
 			if (!container) {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
@@ -108,7 +108,7 @@ export default async function bootstrap() {
 	lib.finalizeConfigs();
 	let plugins = await loadPlugins(pluginInfos);
 
-	let wsUrl = new URL(window.webRoot, document.location.href);
+	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);
 	let control = new Control(controlConnector, plugins);
 

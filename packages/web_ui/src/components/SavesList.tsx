@@ -268,7 +268,7 @@ export default function SavesList(props: { instance: InstanceState }) {
 						control.send(
 							new lib.InstanceDownloadSaveRequest(props.instance.id!, save.name)
 						).then(streamId => {
-							let url = new URL(window.webRoot, document.location.href);
+							let url = new URL(webRoot, document.location.href);
 							url.pathname += `api/stream/${streamId}`;
 							document.location.assign(url);
 						}).catch(
@@ -339,7 +339,7 @@ export default function SavesList(props: { instance: InstanceState }) {
 			instance_id: props.instance.id,
 		},
 		showUploadList: false,
-		action: `${window.webRoot}api/upload-save`,
+		action: `${webRoot}api/upload-save`,
 		onChange,
 	};
 

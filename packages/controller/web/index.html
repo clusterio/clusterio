@@ -20,8 +20,8 @@
 			}
 		</style>
 		<script>
-			window.webRoot = new URL("__WEB_ROOT__", document.location).pathname;
-			window.staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
+			webRoot = new URL("__WEB_ROOT__", document.location).pathname;
+			staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
 			function scriptError() {
 				let bootstrapMsg = document.getElementById("bootstrap-msg");
 				bootstrapMsg.textContent = "Error loading main bundle, see web console for details.";

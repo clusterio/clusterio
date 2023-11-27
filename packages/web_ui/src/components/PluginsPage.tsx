@@ -18,7 +18,7 @@ export default function PluginsPage() {
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${window.webRoot}api/plugins`);
+			let response = await fetch(`${webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {

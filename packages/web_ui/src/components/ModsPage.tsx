@@ -140,7 +140,7 @@ export default function ModsPage() {
 						control.send(
 							new lib.ModDownloadRequest(mod.name, mod.version)
 						).then((streamId: string) => {
-							let url = new URL(window.webRoot, document.location.origin);
+							let url = new URL(webRoot, document.location.origin);
 							url.pathname += `api/stream/${streamId}`;
 							document.location = url.href;
 						}).catch(
@@ -175,7 +175,7 @@ export default function ModsPage() {
 			headers={{
 				"X-Access-Token": control.connector.token||"",
 			}}
-			action={`${window.webRoot}api/upload-mod`}
+			action={`${webRoot}api/upload-mod`}
 		>
 			<Button icon={<UploadOutlined/>}>Upload</Button>
 		</Upload>;

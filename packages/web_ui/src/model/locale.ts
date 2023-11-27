@@ -12,7 +12,7 @@ export function useLocale(): Map<string, string> {
 			if (!exportManifest?.assets?.["locale"]) {
 				return;
 			}
-			let response = await fetch(`${window.staticRoot}static/${exportManifest.assets["locale"]}`);
+			let response = await fetch(`${staticRoot}static/${exportManifest.assets["locale"]}`);
 			if (response.ok) {
 				let data = await response.json();
 				localeCache = new Map(data);

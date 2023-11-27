@@ -25,7 +25,7 @@ function GenerateHostTokenButton() {
 	let [pluginList, setPluginList] = useState<lib.PluginWebApi[]>([]);
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${window.webRoot}api/plugins`);
+			let response = await fetch(`${webRoot}api/plugins`);
 			if (response.ok) {
 				const plugins = await response.json();
 				setPluginList(plugins);

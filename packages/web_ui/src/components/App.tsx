@@ -109,7 +109,7 @@ export default function App(props: AppProps) {
 				theme={{ algorithm: theme.darkAlgorithm }}
 			>
 				<ControlContext.Provider value={props.control}>
-					<BrowserRouter basename={window.webRoot}>
+					<BrowserRouter basename={webRoot}>
 						{page}
 					</BrowserRouter>
 				</ControlContext.Provider>
