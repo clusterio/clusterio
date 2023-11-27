@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button, Form, InputNumber, Modal, Table, Tag, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/lib/icons/CopyOutlined";
 
-import type { PluginWebApi } from "@clusterio/controller/src/routes";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
@@ -23,7 +22,7 @@ function GenerateHostTokenButton() {
 	let [token, setToken] = useState<string|null>(null);
 	let [hostId, setHostId] = useState<number|null>(null);
 	let [form] = Form.useForm();
-	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
+	let [pluginList, setPluginList] = useState<lib.PluginWebApi[]>([]);
 	useEffect(() => {
 		(async () => {
 			let response = await fetch(`${window.webRoot}api/plugins`);

@@ -4,7 +4,6 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 
 import * as lib from "@clusterio/lib";
-import type { PluginWebApi } from "@clusterio/controller/src/routes";
 
 import App from "./components/App";
 import BaseWebPlugin from "./BaseWebPlugin";
@@ -29,7 +28,7 @@ async function loadScript(url: string) {
 
 async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 	let response = await fetch(`${window.webRoot}api/plugins`);
-	let pluginList: PluginWebApi[];
+	let pluginList: lib.PluginWebApi[];
 	if (response.ok) {
 		pluginList = await response.json();
 

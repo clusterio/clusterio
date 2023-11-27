@@ -3,6 +3,7 @@
  * @module lib
  */
 export * from "./build_mod";
+export * from "./src/api";
 export * from "./src/command";
 export * from "./src/config";
 export * from "./src/data";

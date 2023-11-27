@@ -1,3 +1,4 @@
+export * from "./dist/src/api";
 export * from "./dist/src/config";
 export * from "./dist/src/data";
 export * from "./dist/src/errors";
