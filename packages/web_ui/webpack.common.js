@@ -78,6 +78,10 @@ module.exports = (env = {}) => ({
 				exclude: /node_modules/,
 				use: {
 					loader: require.resolve("ts-loader"),
+					options: {
+						configFile: "tsconfig.web.json",
+						projectReferences: true,
+					},
 				},
 			},
 			{

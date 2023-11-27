@@ -9,7 +9,7 @@
 		"compile_validator": "node scripts/compile_validator.js"
 	},
 	"main": "dist/index.js",
-	"browser": "browser.js",
+	"browser": "browser.ts",
 	"keywords": [
 		"factorio"
 	],

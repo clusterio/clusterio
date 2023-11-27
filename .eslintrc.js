@@ -40,7 +40,11 @@ module.exports = {
 			},
 		},
 		{
-			"files": ["packages/web_ui/src/**/*.ts?(x)", "packages/lib/browser.js", "plugins/*/web/**/*.ts?(x)"],
+			"files": [
+				"packages/web_ui/src/**/*.ts?(x)",
+				"packages/lib/browser.ts",
+				"{packages,plugins}/*/web/**/*.ts?(x)",
+			],
 			"env": {
 				"browser": true,
 			},
