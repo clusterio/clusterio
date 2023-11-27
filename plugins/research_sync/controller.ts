@@ -141,6 +141,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		let { name, level } = event;
 		let tech = this.technologies.get(name);
 		if (!tech || tech.level <= level) {
+			this.controller.sendTo("allInstances", event);
 			this.progressToBroadcast.delete(name);
 			this.technologies.set(name, { level, progress: null, researched: true });
 			this.technologiesDirty = true;

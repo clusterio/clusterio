@@ -56,7 +56,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async researchFinished(tech: IpcFinished) {
-		this.instance.sendTo("allInstances", new FinishedEvent(tech.name, tech.level));
+		this.instance.sendTo("controller", new FinishedEvent(tech.name, tech.level));
 	}
 
 	async handleFinishedEvent(event: FinishedEvent) {
