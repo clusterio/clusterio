@@ -3,7 +3,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { BaseWebPlugin, PageLayout, ControlContext } from "@clusterio/web_ui";
 import { DatabaseStatsRequest, DatabaseStatsResponse } from "../messages";
 
-import "./index.css";
+import "./style.css";
 
 function InventoryPage() {
 	let control = useContext(ControlContext);

@@ -8,7 +8,7 @@ import {
 } from "@clusterio/web_ui";
 import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages";
 
-import "./index.css";
+import "./style.css";
 
 const { Paragraph } = Typography;
 

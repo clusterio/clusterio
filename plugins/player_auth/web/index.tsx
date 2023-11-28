@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
 import { Button, Form, Input, Spin, Typography } from "antd";
 
-import "./index.css";
+import "./style.css";
 
 const { Paragraph, Text } = Typography;
 
