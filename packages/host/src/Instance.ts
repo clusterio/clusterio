@@ -303,13 +303,12 @@ export default class Instance extends lib.Link {
 		stats.lastJoinAt = new Date();
 		stats.joinCount += 1;
 
-		let event = {
-			instance_id: this.id,
+		let event: lib.PlayerEvent = {
 			type: "join",
 			name,
 			stats,
 		};
-		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, undefined, stats));
+		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
 		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -324,14 +323,13 @@ export default class Instance extends lib.Link {
 		stats.onlineTimeMs += stats.lastLeaveAt.getTime() - stats.lastJoinAt!.getTime();
 		this._hadPlayersOnline = true;
 
-		let event = {
-			instance_id: this.id,
+		let event: lib.PlayerEvent = {
 			type: "leave",
 			name,
 			reason,
 			stats,
 		};
-		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, reason, stats));
+		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, stats, reason));
 		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -353,13 +351,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			}
 			stats.onlineTimeMs = onlineTimeTicks * 1000 / 60;
 
-			let event = {
-				instance_id: this.id,
+			let event: lib.PlayerEvent = {
 				type: "import",
 				name,
-				stats: stats.toJSON(),
+				stats,
 			};
-			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, undefined, stats));
+			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, stats));
 			lib.invokeHook(this.plugins, "onPlayerEvent", event);
 			count += 1;
 		}

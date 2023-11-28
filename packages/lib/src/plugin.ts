@@ -4,6 +4,7 @@
  */
 import * as libHelpers from "./helpers";
 import type { PluginConfigGroup } from "./config";
+import type PlayerStats from "./PlayerStats";
 
 // TODO Add proper typing for plugins
 /* Used to define the export of info.ts from plugins */
@@ -54,6 +55,11 @@ export interface PlayerEvent {
 	 * or "server_quit" if the server exits while the player is online.
 	 */
 	reason?: string;
+	/**
+	 * Statistics recorded for this player on the instance this event
+	 * originated from.
+	 */
+	stats: PlayerStats,
 }
 
 /**

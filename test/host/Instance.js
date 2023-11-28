@@ -65,7 +65,8 @@ describe("class Instance", function() {
 				new lib.MessageEvent(
 					1, src, addr("controller"), "InstancePlayerUpdateEvent",
 					new lib.InstancePlayerUpdateEvent(
-						"join", "player", undefined,
+						"join",
+						"player",
 						new PlayerStats({
 							join_count: 1,
 							last_join_at: stats.lastJoinAt.getTime(),
@@ -110,14 +111,16 @@ describe("class Instance", function() {
 				new lib.MessageEvent(
 					2, src, addr("controller"), "InstancePlayerUpdateEvent",
 					new lib.InstancePlayerUpdateEvent(
-						"leave", "player", "quit",
+						"leave",
+						"player",
 						new PlayerStats({
 							join_count: 1,
 							online_time_ms: stats.onlineTimeMs,
 							last_join_at: stats.lastJoinAt.getTime(),
 							last_leave_at: stats.lastLeaveAt.getTime(),
 							last_leave_reason: "quit",
-						})
+						}),
+						"quit",
 					)
 				),
 			);
@@ -160,7 +163,8 @@ describe("class Instance", function() {
 				new lib.MessageEvent(
 					2, src, addr("controller"), "InstancePlayerUpdateEvent",
 					new lib.InstancePlayerUpdateEvent(
-						"join", "foo", undefined,
+						"join",
+						"foo",
 						new PlayerStats({
 							join_count: 1,
 							last_join_at: stats.lastJoinAt.getTime(),
@@ -181,14 +185,16 @@ describe("class Instance", function() {
 				new lib.MessageEvent(
 					2, src, addr("controller"), "InstancePlayerUpdateEvent",
 					new lib.InstancePlayerUpdateEvent(
-						"leave", "player", "quit",
+						"leave",
+						"player",
 						new PlayerStats({
 							join_count: 1,
 							online_time_ms: stats.onlineTimeMs,
 							last_join_at: stats.lastJoinAt.getTime(),
 							last_leave_at: stats.lastLeaveAt.getTime(),
 							last_leave_reason: "quit",
-						})
+						}),
+						"quit",
 					)
 				)
 			);
