@@ -92,7 +92,7 @@ export default class BaseInstancePlugin {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics(): Promise<void | AsyncIterator<CollectorResult>> { }
+	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
 
 	/**
 	 * Called after the Factorio server is started

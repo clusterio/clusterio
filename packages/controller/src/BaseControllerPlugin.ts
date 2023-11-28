@@ -123,7 +123,7 @@ export default class BaseControllerPlugin {
 	 *
 	 * @returns an async iterator of prometheus metric results or undefined.
 	 */
-	async onMetrics(): Promise<void | AsyncIterator<CollectorResult>> { }
+	async onMetrics(): Promise<void | AsyncIterable<CollectorResult>> { }
 
 	/**
 	 * Called when the controller is shutting down
