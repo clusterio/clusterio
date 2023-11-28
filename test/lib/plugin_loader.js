@@ -42,7 +42,7 @@ describe("lib/plugin_loader", function() {
 		it("should load test plugin", async function() {
 			assert.deepEqual(
 				await lib.loadPluginInfos(new Map([["test", path.resolve(testPlugin)]])),
-				[{ name: "test", version: "0.0.1", requirePath: path.resolve(testPlugin) }]
+				[{ name: "test", version: "0.0.1", npmPackage: undefined, requirePath: path.resolve(testPlugin) }]
 			);
 		});
 		it("should reject on broken plugin", async function() {

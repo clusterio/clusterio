@@ -95,7 +95,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 
 function getPlugins(req: Request, res: Response) {
 	let plugins: lib.PluginWebApi[] = [];
-	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
+	for (let pluginInfo of (req.app.locals.controller as Controller).pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.controller.plugins.has(name);
 		let enabled = loaded && req.app.locals.controller.config.group(pluginInfo.name).get("load_plugin");
@@ -115,7 +115,7 @@ function getPlugins(req: Request, res: Response) {
 		if (web.main === "remoteEntry.js") {
 			web.error = "Incompatible old remoteEntry.js entrypoint.";
 		}
-		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web, requirePath: pluginInfo.requirePath });
+		plugins.push({ name, version: pluginInfo.version, enabled, loaded, web, npmPackage: pluginInfo.npmPackage });
 	}
 	res.send(plugins);
 }

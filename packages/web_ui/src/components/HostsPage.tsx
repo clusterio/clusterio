@@ -59,8 +59,7 @@ function GenerateHostTokenButton() {
 		}
 	}, [open]);
 
-	// Only install plugins that aren't filesystem paths. Npm modules have max 1 forward slash in their name.
-	const pluginString = pluginList.map(p => `"${p.requirePath}"`).filter(x => x.split("/").length <= 1).join(" ");
+	const pluginString = pluginList.filter(p => p.npmPackage).map(p => `"${p.npmPackage}"`).join(" ");
 	return <>
 		<Button
 			onClick={() => { setOpen(true); }}

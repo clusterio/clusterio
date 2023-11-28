@@ -35,6 +35,12 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 	requirePath: string;
 	version: string;
 	manifest: any;
+	/**
+	 * NPM package this plugin is published as. Not present if the package
+	 * is private or the path used to load it does not match the name of the
+	 * package.
+	 */
+	npmPackage?: string;
 };
 
 export type PluginWebpackEnvInfo = PluginDeclaration & {

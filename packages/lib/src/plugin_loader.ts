@@ -24,7 +24,7 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 	let plugins: libPlugin.PluginNodeEnvInfo[] = [];
 	for (let [pluginName, pluginPath] of pluginList) {
 		let pluginInfo: libPlugin.PluginNodeEnvInfo;
-		let pluginPackage: { version: string, main?: string };
+		let pluginPackage: { name?: string, version: string, main?: string, private?: boolean };
 
 		try {
 			pluginInfo = require(pluginPath).default;
@@ -47,6 +47,7 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 
 		pluginInfo.requirePath = pluginPath;
 		pluginInfo.version = pluginPackage.version;
+		pluginInfo.npmPackage = !pluginPackage.private && pluginPath === pluginPackage.name ? pluginPath : undefined;
 		plugins.push(pluginInfo);
 	}
 	return plugins;

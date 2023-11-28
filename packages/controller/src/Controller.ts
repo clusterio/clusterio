@@ -113,7 +113,7 @@ export default class Controller {
 
 	constructor(
 		clusterLogger: winston.Logger,
-		pluginInfos: any[],
+		pluginInfos: lib.PluginNodeEnvInfo[],
 		configPath: string,
 		config: lib.ControllerConfig,
 
