@@ -233,7 +233,7 @@ export default class HostConnection extends BaseConnection {
 					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
 				)
 			);
-			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance, null);
+			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 
 		// Push lists to make sure they are in sync.

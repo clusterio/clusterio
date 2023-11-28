@@ -37,8 +37,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 	const controller: Controller = req.app.locals.controller;
 
 	let results: lib.CollectorResult[] = [];
-	type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
-	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics") as ResultIterator[];
+	let pluginResults = await lib.invokeHook(controller.plugins, "onMetrics");
 	for (let metricIterator of pluginResults) {
 		for await (let metric of metricIterator) {
 			results.push(metric);

@@ -965,14 +965,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async handlePrepareControllerDisconnectRequest() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect");
+		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
 	}
 
 	async handleInstanceMetricsRequest() {
 		let results: ReturnType<typeof lib.serializeResult>[] = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
-			type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
-			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics") as ResultIterator[];
+			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
 					results.push(lib.serializeResult(metric));

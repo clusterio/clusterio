@@ -3,6 +3,7 @@
  * @module lib/plugin
  */
 import * as libHelpers from "./helpers";
+import type { Logger } from "./logging";
 import type { PluginConfigGroup } from "./config";
 import type PlayerStats from "./PlayerStats";
 
@@ -71,14 +72,22 @@ export interface PlayerEvent {
  * @param args - Arguments to pass on to the hook.
  * @returns Non-undefined return values from the hooks.
  */
-export async function invokeHook(plugins: Map<string, any>, hook: string, ...args: any[]) {
-	let results: unknown[] = [];
+export async function invokeHook<
+	Hook extends string,
+	R,
+	Args extends [...any],
+	Plugin extends { logger: Logger } & Record<Hook, (...hookArgs: Args) => R | Promise<R>>
+>(
+	plugins: Map<string, Plugin>,
+	hook: Hook,
+	...args: Args
+): Promise<Exclude<Awaited<ReturnType<Plugin[Hook]>>, void>[]> {
+	let results: any[] = [];
 	for (let [name, plugin] of plugins) {
 		try {
-			// Use an object to detect if the hook failed on timeout or tried to return a value looking like an error
-			const timeout = {};
-			let result = await libHelpers.timeout(
-				(plugin as any)[hook](...args),
+			const timeout = Symbol("timeout-token");
+			let result = await libHelpers.timeout<R | typeof timeout>(
+				plugin[hook](...args) as Promise<R>,
 				15000,
 				timeout
 			);

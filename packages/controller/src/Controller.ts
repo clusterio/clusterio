@@ -661,7 +661,7 @@ export default class Controller {
 
 		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
 		this.instances!.set(instanceId, instance);
-		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
+		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
 		return instance;
 	}

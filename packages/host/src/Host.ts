@@ -594,8 +594,7 @@ export default class Host extends lib.Link {
 		}
 
 		let results = [];
-		type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
-		let pluginResults = await lib.invokeHook(this.plugins, "onMetrics") as ResultIterator[];
+		let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
 		for (let metricIterator of pluginResults) {
 			for await (let metric of metricIterator) {
 				results.push(metric);
@@ -859,7 +858,7 @@ export default class Host extends lib.Link {
 	}
 
 	async prepareDisconnect() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect");
+		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
 		for (let instanceConnection of this.instanceConnections.values()) {
 			await instanceConnection.send(new lib.PrepareControllerDisconnectRequest());
 		}
