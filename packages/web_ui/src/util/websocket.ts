@@ -1,5 +1,6 @@
 import * as lib from "@clusterio/lib";
 import packageJson from "../../package.json";
+import BaseWebPlugin from "../BaseWebPlugin";
 
 const { logFilter, logger } = lib;
 
@@ -84,7 +85,7 @@ export class Control extends lib.Link {
 
 	constructor(
 		connector: ControlConnector,
-		public plugins: Map<string, lib.BaseWebPlugin>,
+		public plugins: Map<string, BaseWebPlugin>,
 	) {
 		super(connector);
 

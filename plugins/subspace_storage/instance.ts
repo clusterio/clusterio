@@ -1,4 +1,5 @@
 import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
 
 import {
 	PlaceEvent,
@@ -10,7 +11,7 @@ import {
 
 type IpcItems = [string, number][];
 
-export class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	pendingTasks!: Set<any>;
 	pingId?: ReturnType<typeof setTimeout>;
 

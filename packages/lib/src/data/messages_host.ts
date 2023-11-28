@@ -96,11 +96,11 @@ export class ControllerConnectionEvent {
 	static dst = "instance" as const;
 
 	constructor(
-		public event: string,
+		public event: "connect" | "drop" | "resume" | "close",
 	) { }
 
 	static jsonSchema = Type.Object({
-		"event": Type.String(),
+		"event": StringEnum(["connect", "drop", "resume", "close"]),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {

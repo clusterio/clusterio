@@ -3,7 +3,7 @@
 	"references": [
 		{ "path": "../lib" },
 	],
-	"include": ["controller.ts", "package.json", "src/**/*.ts"],
+	"include": ["index.ts", "controller.ts", "package.json", "src/**/*.ts"],
 	"compilerOptions": {
 		"outDir": "dist",
 	},

@@ -95,8 +95,8 @@ The following properties are recognized:
     Subclass of `PluginConfigGroup` for defining the controller configuration fields for this plugin.
     See [Plugin Configuration](#plugin-configuration)
 
-**controlEntrypoint**:
-    Path to a Node.js module relative to the plugin directory which contains the ControlPlugin class definition for this plugin.
+**ctlEntrypoint**:
+    Path to a Node.js module relative to the plugin directory which contains the CtlPlugin class definition for this plugin.
     This is an optional paramater.
     A plugin can be made that only runs on the clusterioctl side.
 
@@ -120,9 +120,9 @@ The plugin class should derive from its respective base class defined in `lib/pl
 For example, to define a ControllerPlugin class the following code can be used:
 
 ```js
-const lib = require("@clusterio/lib");
+const { BaseControllerPlugin } = require("@clusterio/controller");
 
-class ControllerPlugin extends lib.BaseControllerPlugin {
+class ControllerPlugin extends BaseControllerPlugin {
     async init() {
         this.foo = 42;
         await this.startFrobnication();
@@ -136,8 +136,8 @@ module.exports = {
 }
 ```
 
-For the instance plugin it's exactly the same except "Controller" is replaced with "Instance", and for the clusterioctl plugin "Control" is used.
-The available hooks that you can override are documented in the base class [in lib/plugin.js](/packages/lib/plugin.js).
+For the instance plugin it's exactly the same except "Controller" is replaced with "Instance", for host plugins "Host" is used and for the clusterioctl plugin "Ctl" is used.
+The available hooks that you can override are documented in the base classes.
 
 It's best to avoid defining a constructor, but if you insist on defining one, forward all arguments to the base class.
 E.g.:
@@ -602,18 +602,18 @@ It's possible to optain a reference to the plugin class with `control.plugins.ge
 
 Note that messages sent from clusterioctl needs to have `"control-controller"` as a part of the links array for it to be accepted by the controller, see [Defining Link Messages](#defining-link-messages) for how to define the messages that can be sent to the controller.
 
-To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in `addCommands` callback of the Control plugin:
+To have the command tree become part of clusterioctl it needs to be added to the rootCommand tree in `addCommands` callback of the Ctl plugin:
 
 ```js
-const lib = require("@clusterio/lib");
+const { BaseCtlPlugin } = require("@clusterio/ctl");
 
-class ControlPlugin extends lib.BaseControlPlugin {
+class CtlPlugin extends BaseCtlPlugin {
     async addCommands(rootCommand) {
         rootCommand.add(fooFrobberCommands);
     }
 }
 
 module.exports = {
-    ControlPlugin,
+    CtlPlugin,
 }
 ```

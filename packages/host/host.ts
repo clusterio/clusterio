@@ -203,7 +203,7 @@ async function startHost() {
 	}
 
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
-	let host = new Host(hostConnector, hostConfig, tlsCa, pluginInfos);
+	let host = new Host(hostConnector, args.config, hostConfig, tlsCa, pluginInfos);
 
 	// Handle interrupts
 	let secondSigint = false;
@@ -237,6 +237,13 @@ async function startHost() {
 		host.shutdown();
 	});
 
+	try {
+		await host.loadPlugins();
+	} catch (err) {
+		await host.shutdown();
+		throw err;
+	}
+
 	hostConnector.once("connect", () => {
 		logger.add(new lib.LinkTransport({ link: host }));
 	});
@@ -245,7 +252,7 @@ async function startHost() {
 	logger.info("Started host");
 }
 
-if (module === require.main) {
+export function bootstrap() {
 	// eslint-disable-next-line no-console
 	console.warn(`
 +==========================================================+
@@ -286,4 +293,8 @@ ${err.stack}`
 
 		process.exitCode = 1;
 	});
+}
+
+if (module === require.main) {
+	bootstrap();
 }

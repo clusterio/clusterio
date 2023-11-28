@@ -1,5 +1,4 @@
-import type InstanceInfo from "@clusterio/controller/src/InstanceInfo";
-import type Controller from "@clusterio/controller/src/Controller";
+import { BaseControllerPlugin, type InstanceInfo } from "@clusterio/controller";
 import type { IpcPlayerData } from "./instance";
 
 import fs from "fs-extra";
@@ -36,7 +35,7 @@ async function saveDatabase(
 	}
 }
 
-export class ControllerPlugin extends lib.BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
 	acquiredPlayers!: Map<string, { instanceId: number, expires?: number }>;
 	playerDatastore!: Map<string, IpcPlayerData>;
 	autosaveId!: ReturnType<typeof setInterval>;
@@ -48,7 +47,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 			saveDatabase(this.controller.config, this.playerDatastore, this.logger).catch(err => {
 				this.logger.error(`Unexpected error autosaving player data:\n${err.stack}`);
 			});
-		}, this.controller.config.get("inventory_sync.autosave_interval") * 1000);
+		}, this.controller.config.get("inventory_sync.autosave_interval") as number * 1000);
 
 		this.controller.handle(msg.AcquireRequest, this.handleAcquireRequest.bind(this));
 		this.controller.handle(msg.ReleaseRequest, this.handleReleaseRequest.bind(this));
@@ -68,7 +67,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		}
 
 		if (["unknown", "stopped"].includes(instance.status)) {
-			let timeout = this.controller.config.get("inventory_sync.player_lock_timeout") * 1000;
+			let timeout = this.controller.config.get("inventory_sync.player_lock_timeout") as number * 1000;
 			for (let acquisitonRecord of this.acquiredPlayers.values()) {
 				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expires) {
 					acquisitonRecord.expires = Date.now() + timeout;
@@ -90,7 +89,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		if (
 			!acquisitionRecord
 			|| acquisitionRecord.instanceId === instanceId
-			|| !this.controller.instances.has(acquisitionRecord.instanceId)
+			|| !this.controller.instances!.has(acquisitionRecord.instanceId)
 			|| acquisitionRecord.expires && acquisitionRecord.expires < Date.now()
 		) {
 			this.acquiredPlayers.set(playerName, { instanceId });
@@ -104,7 +103,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 		let { instanceId, playerName } = request;
 		if (!this.acquire(instanceId, playerName)) {
 			let acquisitionRecord = this.acquiredPlayers.get(playerName);
-			let instance = this.controller.instances.get(acquisitionRecord!.instanceId);
+			let instance = this.controller.instances!.get(acquisitionRecord!.instanceId)!;
 			return {
 				status: "busy",
 				message: instance.config.get("instance.name"),
@@ -133,7 +132,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 
 	async handleUploadRequest(request: msg.UploadRequest) {
 		let { instanceId, playerName, playerData } = request;
-		let instanceName = this.controller.instances.get(instanceId).config.get("instance.name");
+		let instanceName = this.controller.instances!.get(instanceId)!.config.get("instance.name");
 		let store = true;
 		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
@@ -167,7 +166,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 
 	async handleDownloadRequest(request: msg.DownloadRequest) {
 		let { instanceId, playerName } = request;
-		let instanceName = this.controller.instances.get(instanceId).config.get("instance.name");
+		let instanceName = this.controller.instances!.get(instanceId)!.config.get("instance.name");
 
 		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {

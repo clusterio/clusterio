@@ -12,6 +12,7 @@ import { FactorioServer } from "./server";
 import { SaveModule, patch } from "./patch";
 import { exportData } from "./export";
 import type Host from "./Host";
+import BaseInstancePlugin from "./BaseInstancePlugin";
 
 
 const instanceRconCommandDuration = new lib.Histogram(
@@ -100,7 +101,7 @@ export default class Instance extends lib.Link {
 	 * ID of this instance, equivalenet to `instance.config.get("instance.id")`.
 	 */
 	readonly id: number;
-	plugins: Map<string, lib.BaseInstancePlugin>;
+	plugins: Map<string, BaseInstancePlugin>;
 	config: lib.InstanceConfig;
 	logger: lib.Logger;
 	server: FactorioServer;
@@ -302,13 +303,12 @@ export default class Instance extends lib.Link {
 		stats.lastJoinAt = new Date();
 		stats.joinCount += 1;
 
-		let event = {
-			instance_id: this.id,
+		let event: lib.PlayerEvent = {
 			type: "join",
 			name,
 			stats,
 		};
-		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, undefined, stats));
+		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("join", name, stats));
 		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -323,14 +323,13 @@ export default class Instance extends lib.Link {
 		stats.onlineTimeMs += stats.lastLeaveAt.getTime() - stats.lastJoinAt!.getTime();
 		this._hadPlayersOnline = true;
 
-		let event = {
-			instance_id: this.id,
+		let event: lib.PlayerEvent = {
 			type: "leave",
 			name,
 			reason,
 			stats,
 		};
-		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, reason, stats));
+		this.sendTo("controller", new lib.InstancePlayerUpdateEvent("leave", name, stats, reason));
 		lib.invokeHook(this.plugins, "onPlayerEvent", event);
 	}
 
@@ -352,13 +351,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			}
 			stats.onlineTimeMs = onlineTimeTicks * 1000 / 60;
 
-			let event = {
-				instance_id: this.id,
+			let event: lib.PlayerEvent = {
 				type: "import",
 				name,
-				stats: stats.toJSON(),
+				stats,
 			};
-			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, undefined, stats));
+			this.sendTo("controller", new lib.InstancePlayerUpdateEvent("import", name, stats));
 			lib.invokeHook(this.plugins, "onPlayerEvent", event);
 			count += 1;
 		}
@@ -492,7 +490,12 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
 		let pluginLoadStarted = Date.now();
-		let InstancePluginClass = await lib.loadInstancePluginClass(pluginInfo);
+		let InstancePluginClass = await lib.loadPluginClass(
+			pluginInfo.name,
+			path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint!),
+			"InstancePlugin",
+			BaseInstancePlugin,
+		);
 		let instancePlugin = new InstancePluginClass(pluginInfo, this, host);
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
@@ -962,14 +965,13 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async handlePrepareControllerDisconnectRequest() {
-		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect");
+		await lib.invokeHook(this.plugins, "onPrepareControllerDisconnect", this);
 	}
 
 	async handleInstanceMetricsRequest() {
 		let results: ReturnType<typeof lib.serializeResult>[] = [];
 		if (!["stopped", "stopping"].includes(this._status)) {
-			type ResultIterator = AsyncIterable<lib.CollectorResult> | Iterable<lib.CollectorResult>
-			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics") as ResultIterator[];
+			let pluginResults = await lib.invokeHook(this.plugins, "onMetrics");
 			for (let metricIterator of pluginResults) {
 				for await (let metric of metricIterator) {
 					results.push(lib.serializeResult(metric));

@@ -4,6 +4,7 @@ import util from "util";
 import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";
+import { BaseControllerPlugin } from "@clusterio/controller";
 const { basicType } = lib;
 
 import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages";
@@ -27,7 +28,7 @@ async function generateCode(length: number): Promise<string> {
 
 type PlayerCode = { playerCode: string, verifyCode: string | null, expires: number };
 
-export class ControllerPlugin extends lib.BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
 	players!: Map<string, PlayerCode>;
 
 	async init() {
@@ -46,7 +47,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 
 		this.controller.app.get("/api/player_auth/servers", (req: Request, res: Response) => {
 			let servers = [];
-			for (let instance of this.controller.instances.values()) {
+			for (let instance of this.controller.instances!.values()) {
 				if (instance.status === "running" && instance.config.get("player_auth.load_plugin")) {
 					servers.push(instance.config.get("factorio.settings")["name"] || "unnamed server");
 				}
@@ -88,7 +89,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 
 		for (let entry of this.players.values()) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
-				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length"));
+				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length") as number);
 				let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 				let verifyToken = jwt.sign(
 					{
@@ -172,8 +173,8 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 	}
 
 	async handleFetchPlayerCodeRequest(request: FetchPlayerCodeRequest) {
-		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
-		let expires = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
+		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length") as number);
+		let expires = Date.now() + (this.controller.config.get("player_auth.code_timeout") as number) * 1000;
 		this.players.set(request.player, { playerCode, verifyCode: null, expires });
 		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
 	}

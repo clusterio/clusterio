@@ -1,4 +1,4 @@
-import * as lib from "@clusterio/lib";
+import { BaseInstancePlugin } from "@clusterio/host";
 
 import { FetchPlayerCodeRequest, SetVerifyCodeRequest } from "./messages";
 
@@ -11,7 +11,7 @@ type IpcPlayerAuth = {
 	verify_code: string,
 }
 
-export class InstancePlugin extends lib.BaseInstancePlugin {
+export class InstancePlugin extends BaseInstancePlugin {
 	async init() {
 		if (!this.instance.config.get("factorio.enable_save_patching")) {
 			throw new Error("player_auth plugin requires save patching.");

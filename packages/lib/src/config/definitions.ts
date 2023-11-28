@@ -505,7 +505,7 @@ ControlConfig.registerGroup(ControlGroup);
 
 function validateGroup(
 	pluginInfo: PluginNodeEnvInfo | PluginWebpackEnvInfo,
-	groupName: "ControllerConfigGroup"|"InstanceConfigGroup",
+	groupName: "ControllerConfigGroup" | "HostConfigGroup" | "InstanceConfigGroup",
 ) {
 	if (!(pluginInfo[groupName]?.prototype instanceof classes.PluginConfigGroup)) {
 		throw new Error(
@@ -525,32 +525,31 @@ function validateGroup(
  *
  * @param {Array<Object>} pluginInfos - Array of plugin info objects.
  */
-export function registerPluginConfigGroups(pluginInfos: PluginNodeEnvInfo[]|PluginWebpackEnvInfo[]) {
-	for (let pluginInfo of pluginInfos) {
-		if (pluginInfo.ControllerConfigGroup) {
-			validateGroup(pluginInfo, "ControllerConfigGroup");
-			ControllerConfig.registerGroup(pluginInfo.ControllerConfigGroup);
+export function registerPluginConfigGroups(pluginInfos: PluginNodeEnvInfo[] | PluginWebpackEnvInfo[]) {
+	function pluginConfig(
+		pluginInfo: PluginNodeEnvInfo | PluginWebpackEnvInfo,
+		group: "ControllerConfigGroup" | "HostConfigGroup" | "InstanceConfigGroup",
+		Config: typeof classes.Config,
+	) {
+		if (pluginInfo[group]) {
+			validateGroup(pluginInfo, group);
+			Config.registerGroup(pluginInfo[group]!);
 
 		} else {
-			class ControllerConfigGroup extends classes.PluginConfigGroup { }
-			ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
-			ControllerConfigGroup.groupName = pluginInfo.name;
-			ControllerConfigGroup.finalize();
-			ControllerConfig.registerGroup(ControllerConfigGroup);
+			class ConfigGroup extends classes.PluginConfigGroup { }
+			ConfigGroup.defaultAccess = ["controller", "host", "control"];
+			ConfigGroup.groupName = pluginInfo.name;
+			ConfigGroup.finalize();
+			Config.registerGroup(ConfigGroup);
 		}
-
+	}
+	for (let pluginInfo of pluginInfos) {
+		pluginConfig(pluginInfo, "ControllerConfigGroup", ControllerConfig);
+		if (pluginInfo.hostEntrypoint || pluginInfo.instanceEntrypoint) {
+			pluginConfig(pluginInfo, "HostConfigGroup", HostConfig);
+		}
 		if (pluginInfo.instanceEntrypoint) {
-			if (pluginInfo.InstanceConfigGroup) {
-				validateGroup(pluginInfo, "InstanceConfigGroup");
-				InstanceConfig.registerGroup(pluginInfo.InstanceConfigGroup);
-
-			} else {
-				class InstanceConfigGroup extends classes.PluginConfigGroup { }
-				InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
-				InstanceConfigGroup.groupName = pluginInfo.name;
-				InstanceConfigGroup.finalize();
-				InstanceConfig.registerGroup(InstanceConfigGroup);
-			}
+			pluginConfig(pluginInfo, "InstanceConfigGroup", InstanceConfig);
 		}
 	}
 }

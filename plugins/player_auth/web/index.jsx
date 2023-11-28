@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import * as lib from "@clusterio/lib";
-import { notifyErrorHandler } from "@clusterio/web_ui";
+import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
 import { Button, Form, Input, Spin, Typography } from "antd";
 
 import "./index.css";
@@ -146,7 +145,7 @@ function LoginForm(props) {
 }
 
 
-export class WebPlugin extends lib.BaseWebPlugin {
+export class WebPlugin extends BaseWebPlugin {
 	async init() {
 		this.logger.info("Player Auth init");
 		this.loginForms = [{

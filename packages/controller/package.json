@@ -4,7 +4,7 @@
 	"author": "Hornwitser",
 	"license": "MIT",
 	"version": "2.0.0-alpha.13",
-	"main": "dist/controller.js",
+	"main": "dist/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",
 		"test": "echo \"Error: no test specified\" && exit 1"

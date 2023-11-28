@@ -420,10 +420,7 @@ async function startup() {
 	await controller.start(args);
 }
 
-module.exports = {
-};
-
-if (module === require.main) {
+export function bootstrap() {
 	// eslint-disable-next-line no-console
 	console.warn(`
 +==========================================================+
@@ -459,4 +456,8 @@ ${err.stack}`
 
 		process.exitCode = 1;
 	});
+}
+
+if (module === require.main) {
+	bootstrap();
 }

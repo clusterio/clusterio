@@ -22,6 +22,7 @@ import * as routes from "./routes";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
 import HostConnection, { type HostInfo } from "./HostConnection";
+import BaseControllerPlugin from "./BaseControllerPlugin";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -64,7 +65,7 @@ export default class Controller {
 	httpsServerCloser: HttpCloser | null = null;
 
 	/** Mapping of plugin name to loaded plugin */
-	plugins: Map<string, lib.BaseControllerPlugin> = new Map();
+	plugins: Map<string, BaseControllerPlugin> = new Map();
 
 	/** WebSocket server */
 	wsServer: WsServer;
@@ -660,7 +661,7 @@ export default class Controller {
 
 		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
 		this.instances!.set(instanceId, instance);
-		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, null);
+		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
 		return instance;
 	}
@@ -877,10 +878,15 @@ export default class Controller {
 				continue;
 			}
 
-			let ControllerPluginClass = lib.BaseControllerPlugin;
+			let ControllerPluginClass = BaseControllerPlugin;
 			try {
 				if (pluginInfo.controllerEntrypoint) {
-					ControllerPluginClass = await lib.loadControllerPluginClass(pluginInfo);
+					ControllerPluginClass = await lib.loadPluginClass(
+						pluginInfo.name,
+						path.posix.join(pluginInfo.requirePath, pluginInfo.controllerEntrypoint),
+						"ControllerPlugin",
+						BaseControllerPlugin,
+					);
 				}
 
 				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);

@@ -853,10 +853,10 @@ export class InstancePlayerUpdateEvent {
 	static dst = "controller" as const;
 
 	constructor(
-		public type: string,
+		public type: "join" | "leave" | "import",
 		public name: string,
+		public stats: PlayerStats,
 		public reason?: string,
-		public stats?: PlayerStats,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -867,6 +867,6 @@ export class InstancePlayerUpdateEvent {
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.name, json.reason, PlayerStats.fromJSON(json.stats));
+		return new this(json.type, json.name, PlayerStats.fromJSON(json.stats), json.reason);
 	}
 }

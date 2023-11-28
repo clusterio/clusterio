@@ -3,7 +3,6 @@ import { TSchema, Type, Static } from "@sinclair/typebox";
 // eslint-disable-next-line node/no-missing-import
 import messageValidate from "./message_validate"; // generated file
 import { StringEnum } from "./composites";
-import { AccountRole } from "../plugin";
 
 export type AddressType = "controller" | "host" | "instance" | "control" | "broadcast";
 export type AddressShorthand =
@@ -285,6 +284,12 @@ export class MessageRegisterControl extends Message {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(RegisterControlData.fromJSON(json.data));
 	}
+};
+
+export type AccountRole = {
+	name: string;
+	id: number;
+	permissions: string[];
 };
 
 export class AccountDetails {
@@ -631,4 +636,29 @@ export class PingRequest {
 	static src = ["controller", "host", "control"] as const;
 	static dst = ["controller", "host", "control"] as const;
 	static permission = null;
+}
+
+export class AccountUpdateEvent {
+	declare ["constructor"]: typeof AccountUpdateEvent;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
+
+	constructor(
+		public roles?: AccountRole[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		roles: Type.Array(
+			Type.Object({
+				name: Type.String(),
+				id: Type.Integer(),
+				permissions: Type.Array(Type.String()),
+			}),
+		),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.roles);
+	}
 }

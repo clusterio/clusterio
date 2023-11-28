@@ -15,6 +15,7 @@ import type { RequestClass, EventClass } from "./link";
  */
 export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)[] = [
 	core.PingRequest,
+	core.AccountUpdateEvent,
 
 	controller.ControllerConfigGetRequest,
 	controller.ControllerConfigSetFieldRequest,
@@ -105,6 +106,5 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	user.UserSetWhitelistedRequest,
 	user.UserSetBannedRequest,
 	user.UserDeleteRequest,
-	user.AccountUpdateEvent,
 	user.UserUpdateEvent,
 ];

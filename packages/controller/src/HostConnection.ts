@@ -233,7 +233,7 @@ export default class HostConnection extends BaseConnection {
 					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
 				)
 			);
-			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance, null);
+			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 
 		// Push lists to make sure they are in sync.
@@ -289,11 +289,12 @@ export default class HostConnection extends BaseConnection {
 		user.recalculatePlayerStats();
 		this._controller.userUpdated(user);
 
-		let instance = this._controller.instances!.get(instanceId);
+		let instance = this._controller.instances!.get(instanceId)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.type,
 			name: event.name,
 			reason: event.reason,
+			stats: event.stats,
 		});
 	}
 }

@@ -1,4 +1,4 @@
-import type ControlConnection from "@clusterio/controller/src/ControlConnection";
+import { BaseControllerPlugin, type ControlConnection } from "@clusterio/controller";
 
 import fs from "fs-extra";
 import path from "path";
@@ -70,7 +70,7 @@ async function saveDatabase(
 	}
 }
 
-export class ControllerPlugin extends lib.BaseControllerPlugin {
+export class ControllerPlugin extends BaseControllerPlugin {
 	items!: lib.ItemDatabase;
 	itemUpdateRateLimiter!: lib.RateLimiter;
 	itemsLastUpdate!: Map<string, number>;
@@ -96,7 +96,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 			saveDatabase(this.controller.config, this.items, this.logger).catch(err => {
 				this.logger.error(`Unexpected error autosaving items:\n${err.stack}`);
 			});
-		}, this.controller.config.get("subspace_storage.autosave_interval") * 1000);
+		}, this.controller.config.get("subspace_storage.autosave_interval") as number * 1000);
 
 		this.neuralDole = new dole.NeuralDole({ items: this.items });
 		this.doleMagicId = setInterval(() => {
@@ -180,7 +180,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 			}
 
 		} else {
-			let instance = this.controller.instances.get(instanceId);
+			let instance = this.controller.instances!.get(instanceId);
 			let instanceName = instance ? instance.config.get("instance.name") : "unkonwn";
 
 			// use fancy neural net to calculate a "fair" dole division rate.
@@ -200,7 +200,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 					let count = dole.doleDivider({
 						object: { name: item.name, count: item.count, instanceId, instanceName },
 						items: this.items,
-						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers"),
+						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers") as boolean,
 						logger: this.logger,
 					});
 					if (count > 0) {
@@ -230,7 +230,7 @@ export class ControllerPlugin extends lib.BaseControllerPlugin {
 	}
 
 	async handleSetStorageSubscriptionRequest(request: SetStorageSubscriptionRequest, src: lib.Address) {
-		let link = this.controller.wsServer.controlConnections.get(src.id);
+		let link = this.controller.wsServer.controlConnections.get(src.id)!;
 		if (request.storage) {
 			this.subscribedControlLinks.add(link);
 		} else {
