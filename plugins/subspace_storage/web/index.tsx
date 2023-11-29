@@ -3,18 +3,18 @@ import { Input, Table, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
 import {
-	BaseWebPlugin, PageLayout, ControlContext,
+	BaseWebPlugin, PageLayout, Control, ControlContext,
 	notifyErrorHandler, useItemMetadata, useLocale,
 } from "@clusterio/web_ui";
-import { GetStorageRequest, SetStorageSubscriptionRequest } from "../dist/plugin/messages";
+import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages";
 
-import "./index.css";
+import "./style.css";
 
 const { Paragraph } = Typography;
 
 
-function useStorage(control) {
-	let plugin = control.plugins.get("subspace_storage");
+function useStorage(control: Control) {
+	let plugin = control.plugins.get("subspace_storage") as WebPlugin;
 	let [storage, setStorage] = useState([...plugin.storage]);
 
 	useEffect(() => {
@@ -35,14 +35,15 @@ function StoragePage() {
 	let locale = useLocale();
 	let itemMetadata = useItemMetadata();
 	let storage = useStorage(control);
-	let [filter, setFilter] = useState(null);
+	type ItemFilter = ([name, count]: [string, number]) => boolean;
+	let [filter, setFilter] = useState<null | ItemFilter>(null);
 
-	function getLocaleName(itemName) {
+	function getLocaleName(itemName: string) {
 		let localeName = itemName;
 		let meta = itemMetadata.get(itemName);
-		if (meta && meta.localized_name) {
+		if (meta && meta.localised_name) {
 			// TODO: implement the locale to name conversion.
-			localeName = locale.get(meta.localized_name[0]);
+			localeName = locale.get(meta.localised_name[0])!;
 		} else {
 			for (let section of ["item-name", "entity-name", "fluid-name", "equipment-name"]) {
 				let name = locale.get(`${section}.${itemName}`);
@@ -72,7 +73,7 @@ function StoragePage() {
 					search = search.replace(/(^| )(\w)/g, "$1\\b$2");
 					search = search.replace(/ +/g, ".*");
 					let filterExpr = new RegExp(search, "i");
-					setFilter(() => (item => {
+					setFilter(() => ((item: [string, number]) => {
 						let name = getLocaleName(item[0]);
 						return filterExpr.test(name) || filterExpr.test(item[0]);
 					}));
@@ -118,6 +119,9 @@ function StoragePage() {
 }
 
 export class WebPlugin extends BaseWebPlugin {
+	storage = new Map<string, number>();
+	callbacks: (() => void)[] = [];
+
 	async init() {
 		this.pages = [
 			{
@@ -127,29 +131,27 @@ export class WebPlugin extends BaseWebPlugin {
 				content: <StoragePage/>,
 			},
 		];
-
-		this.storage = new Map();
-		this.callbacks = [];
+		this.control.handle(UpdateStorageEvent, this.handleUpdateStorageEvent.bind(this));
 	}
 
-	onControllerConnectionEvent(event) {
+	onControllerConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
 		if (event === "connect") {
 			this.updateSubscription();
 		}
 	}
 
-	async updateStorageEventHandler(event) {
+	async handleUpdateStorageEvent(event: UpdateStorageEvent) {
 		this.updateStorage(event.items);
 	}
 
-	onUpdate(callback) {
+	onUpdate(callback: () => void) {
 		this.callbacks.push(callback);
 		if (this.callbacks.length) {
 			this.updateSubscription();
 		}
 	}
 
-	offUpdate(callback) {
+	offUpdate(callback: () => void) {
 		let index = this.callbacks.lastIndexOf(callback);
 		if (index === -1) {
 			throw new Error("callback is not registered");
@@ -161,7 +163,7 @@ export class WebPlugin extends BaseWebPlugin {
 		}
 	}
 
-	updateStorage(items) {
+	updateStorage(items: Item[]) {
 		for (let item of items) {
 			this.storage.set(item.name, item.count);
 		}
@@ -180,7 +182,7 @@ export class WebPlugin extends BaseWebPlugin {
 		).catch(notifyErrorHandler("Error subscribing to storage"));
 
 		if (this.callbacks.length) {
-			this.control.send(new GetStorageRequest()).then(
+			this.control!.send(new GetStorageRequest()).then(
 				items => {
 					this.updateStorage(items);
 				}

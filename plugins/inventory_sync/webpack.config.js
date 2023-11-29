@@ -7,7 +7,7 @@ const common = require("@clusterio/web_ui/webpack.common");
 
 module.exports = (env = {}) => merge(common(env), {
 	context: __dirname,
-	entry: "./web/index.jsx",
+	entry: "./web/index.tsx",
 	output: {
 		path: path.resolve(__dirname, "dist", "web"),
 	},
@@ -16,9 +16,9 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "inventory_sync",
 			library: { type: "var", name: "plugin_inventory_sync" },
 			exposes: {
-				"./info": "./dist/plugin/info.js",
+				"./info": "./info.ts",
 				"./package.json": "./package.json",
-				"./web": "./web/index.jsx",
+				"./web": "./web/index.tsx",
 			},
 			shared: {
 				"@clusterio/lib": { import: false },

@@ -93,20 +93,8 @@ async function getMetrics(req: Request, res: Response, next: any) {
 }
 
 
-export type PluginWebApi = {
-	name: string;
-	version: string;
-	enabled: boolean;
-	loaded: boolean;
-	web: {
-		main: string;
-		error?: string;
-	};
-	requirePath: string;
-}
-
 function getPlugins(req: Request, res: Response) {
-	let plugins: PluginWebApi[] = [];
+	let plugins: lib.PluginWebApi[] = [];
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.controller.plugins.has(name);

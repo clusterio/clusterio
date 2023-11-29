@@ -12,7 +12,7 @@ InstanceConfigGroup.define({
 });
 InstanceConfigGroup.finalize();
 
-const info: lib.PluginDeclaration = {
+export default {
 	name: "statistics_exporter",
 	title: "Statistics Exporter",
 	description:
@@ -20,6 +20,4 @@ const info: lib.PluginDeclaration = {
 		"statistics to the cluster's Prometheus endpoint.",
 	instanceEntrypoint: "dist/plugin/instance",
 	InstanceConfigGroup,
-};
-
-export default info;
+} satisfies lib.PluginDeclaration;

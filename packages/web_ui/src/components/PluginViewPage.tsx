@@ -2,7 +2,7 @@ import React, { useEffect, useContext, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Alert, Descriptions, Spin } from "antd";
 
-import type { PluginWebApi } from "@clusterio/controller/src/routes";
+import type { PluginWebApi } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
@@ -16,7 +16,7 @@ export default function PluginViewPage() {
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${window.webRoot}api/plugins`);
+			let response = await fetch(`${webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {

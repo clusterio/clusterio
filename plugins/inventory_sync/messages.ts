@@ -139,7 +139,7 @@ export class DownloadRequest {
 	}
 }
 
-class DatabaseStatsResponse {
+export class DatabaseStatsResponse {
 	constructor(
 		public databaseSize: number,
 		public databaseEntries: number,

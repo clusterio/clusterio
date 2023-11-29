@@ -1,14 +1,14 @@
 import React, { useContext, useEffect, useState } from "react";
 
 import { BaseWebPlugin, PageLayout, ControlContext } from "@clusterio/web_ui";
-import { DatabaseStatsRequest } from "../dist/plugin/messages";
+import { DatabaseStatsRequest, DatabaseStatsResponse } from "../messages";
 
-import "./index.css";
+import "./style.css";
 
 function InventoryPage() {
 	let control = useContext(ControlContext);
 
-	let [statsData, updateStatsData] = useState();
+	let [statsData, updateStatsData] = useState<DatabaseStatsResponse>();
 
 	useEffect(() => {
 		(async () => {
@@ -37,11 +37,5 @@ export class WebPlugin extends BaseWebPlugin {
 				content: <InventoryPage />,
 			},
 		];
-	}
-
-	onControllerConnectionEvent(event) {
-		if (event === "connect") {
-
-		}
 	}
 }

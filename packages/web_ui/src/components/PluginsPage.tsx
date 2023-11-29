@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
 
-import type { PluginWebApi } from "@clusterio/controller/src/routes";
+import type { PluginWebApi } from "@clusterio/lib";
 
 import notify from "../util/notify";
 import ControlContext from "./ControlContext";
@@ -18,7 +18,7 @@ export default function PluginsPage() {
 
 	useEffect(() => {
 		(async () => {
-			let response = await fetch(`${window.webRoot}api/plugins`);
+			let response = await fetch(`${webRoot}api/plugins`);
 			if (response.ok) {
 				setPluginList(await response.json());
 			} else {

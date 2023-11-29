@@ -1,5 +1,6 @@
 import type React from "react";
-import type { AccountRole, Link, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { AccountRole, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { Control } from "./util/websocket";
 
 /**
  * Plugin supplied login form
@@ -19,7 +20,7 @@ export interface PluginLoginForm {
 	 * supplied the setToken function via its props which should be called
 	 * when an authentication token is aquired via this form.
 	 */
-	Component: typeof React.Component;
+	Component: React.ComponentType<{ setToken(token: string): void }>;
 };
 
 export type UserAccount = {
@@ -77,11 +78,6 @@ export default class BaseWebPlugin {
 	 * Contents of the plugin's package.json file
 	 */
 	package: any;
-	/**
-	 * Control link to the controller, not available until the
-	 * connect event in onControllerConnectionEvent is signaled.
-	 */
-	control?: Link;
 	/**
 	 * Logger for this plugin
 	 *
@@ -152,6 +148,12 @@ export default class BaseWebPlugin {
 		 * The plugin's own info module
 		 */
 		public info: PluginWebpackEnvInfo,
+		/**
+		 * Control link to the controller
+		 *
+		 * Not connected at the time init is invoked.
+		 */
+		public control: Control,
 		logger: Logger,
 	) {
 		this.package = packageData;

@@ -22,6 +22,7 @@ module.exports = {
 				"@typescript-eslint/no-explicit-any": "off",
 				"@typescript-eslint/no-useless-constructor": "error",
 				"@typescript-eslint/no-unused-vars": "off",
+				"@typescript-eslint/triple-slash-reference": "off",
 				"prefer-const": "off",
 			},
 		},
@@ -39,7 +40,11 @@ module.exports = {
 			},
 		},
 		{
-			"files": ["packages/web_ui/src/**/*.ts?(x)", "packages/lib/browser.js", "plugins/*/web/**/*.ts?(x)"],
+			"files": [
+				"packages/web_ui/src/**/*.ts?(x)",
+				"packages/lib/browser.ts",
+				"{packages,plugins}/*/web/**/*.ts?(x)",
+			],
 			"env": {
 				"browser": true,
 			},
@@ -315,7 +320,11 @@ module.exports = {
 		"space-in-parens": ["error", "never"],
 		"space-infix-ops": "off",
 		"space-unary-ops": "error",
-		"spaced-comment": ["error", "always"],
+		"spaced-comment": ["error", "always", {
+			"line": {
+				"markers": ["/"],
+			},
+		}],
 		"strict": "error",
 		"switch-colon-spacing": "error",
 		"symbol-description": "error",

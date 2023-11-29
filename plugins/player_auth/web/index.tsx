@@ -3,17 +3,20 @@ import React, { useEffect, useState } from "react";
 import { BaseWebPlugin, notifyErrorHandler } from "@clusterio/web_ui";
 import { Button, Form, Input, Spin, Typography } from "antd";
 
-import "./index.css";
+import "./style.css";
 
 const { Paragraph, Text } = Typography;
 
+interface LoginFormProps {
+	setToken(token: string): void,
+}
 
-function LoginForm(props) {
-	let [servers, setServers] = useState(null);
-	let [playerCode, setPlayerCode] = useState(null);
-	let [playerCodeError, setPlayerCodeError] = useState(null);
-	let [verifyCode, setVerifyCode] = useState(null);
-	let [verifyToken, setVerifyToken] = useState(null);
+function LoginForm(props: LoginFormProps) {
+	let [servers, setServers] = useState<string[] | null>(null);
+	let [playerCode, setPlayerCode] = useState<string | null>(null);
+	let [playerCodeError, setPlayerCodeError] = useState<string | null>(null);
+	let [verifyCode, setVerifyCode] = useState<string | undefined>();
+	let [verifyToken, setVerifyToken] = useState<string | null>(null);
 
 	useEffect(() => {
 		(async () => {
@@ -137,7 +140,7 @@ function LoginForm(props) {
 			<li>
 				<Paragraph>Enter this code into the in-game dialog:</Paragraph>
 				<Paragraph>
-					<Input disabled={verifyCode === null} style={{ width: "10em" }} value={verifyCode} />
+					<Input disabled={verifyCode === undefined} style={{ width: "10em" }} value={verifyCode} />
 				</Paragraph>
 			</li>
 		</ol>

@@ -2,7 +2,7 @@ import type * as lib from "@clusterio/lib";
 
 import { ChatEvent } from "./messages";
 
-const info: lib.PluginDeclaration = {
+export default {
 	name: "global_chat",
 	title: "Global Chat",
 	description: "Forwards chat between instances.",
@@ -12,6 +12,4 @@ const info: lib.PluginDeclaration = {
 	messages: [
 		ChatEvent,
 	],
-};
-
-export default info;
+} satisfies lib.PluginDeclaration;
