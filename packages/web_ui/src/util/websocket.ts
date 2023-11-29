@@ -10,7 +10,7 @@ type instanceHandler = (instanceDetails: lib.InstanceDetails) => void;
 type saveListHandler = (saveListEvent: lib.InstanceSaveListUpdateEvent) => void;
 type modPackHandler = (modPack: lib.ModPack) => void;
 type modInfoHandler = (modInfo: lib.ModInfo) => void;
-type userHandler = (rawUser: lib.RawUser) => void;
+type userHandler = (rawUser: lib.User) => void;
 type logHandler = (info: { level:string, message:string }) => void;
 
 /**
@@ -80,7 +80,7 @@ export class Control extends lib.Link {
 		lib.ModUpdateEvent, event => event.mod,
 	);
 
-	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.RawUser>(
+	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.User>(
 		lib.UserUpdateEvent, event => event.user,
 	);
 

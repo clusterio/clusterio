@@ -29,5 +29,4 @@ export * from "./src/zip_ops";
 export * from "./src/subscriptions";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
-export { default as PlayerStats } from "./src/PlayerStats";
 export { default as RateLimiter } from "./src/RateLimiter";

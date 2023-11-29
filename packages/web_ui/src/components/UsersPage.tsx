@@ -82,7 +82,7 @@ export default function UsersPage() {
 				{
 					title: "Name",
 					key: "name",
-					render: (user: lib.RawUser) => <Space>
+					render: (user: lib.User) => <Space>
 						{user.name}
 						<span>
 							{user.isAdmin && <Tag color="gold">Admin</Tag>}
@@ -96,14 +96,14 @@ export default function UsersPage() {
 				{
 					title: "Roles",
 					key: "roles",
-					render: (user: lib.RawUser) => (
-						user.roles.map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>)
+					render: (user: lib.User) => (
+						[...user.roleIds].map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>)
 					),
 				},
 				{
 					title: "Online time",
 					key: "onlineTime",
-					render: (user: lib.RawUser) => (user.playerStats?.onlineTimeMs
+					render: (user: lib.User) => (user.playerStats?.onlineTimeMs
 						? formatDuration(user.playerStats.onlineTimeMs) : null),
 					sorter: (a, b) => (a.playerStats?.onlineTimeMs ?? 0) -
 						(b.playerStats?.onlineTimeMs ?? 0),
@@ -112,7 +112,7 @@ export default function UsersPage() {
 				{
 					title: "Last seen",
 					key: "lastSeen",
-					render: (user: lib.RawUser) => formatLastSeen(user),
+					render: (user: lib.User) => formatLastSeen(user),
 					sorter: (a, b) => sortLastSeen(a, b),
 					responsive: ["lg"],
 				},

@@ -253,7 +253,7 @@ export async function resolveModPack(client: Link, modPackName: string) {
 export async function retrieveRole(client: Link, roleName: string) {
 	let roles = await client.sendTo("controller", new libData.RoleListRequest());
 
-	let resolvedRole: libData.RawRole | undefined;
+	let resolvedRole: libData.Role | undefined;
 	if (/^-?\d+$/.test(roleName)) {
 		let roleId = parseInt(roleName, 10);
 		for (let role of roles) {

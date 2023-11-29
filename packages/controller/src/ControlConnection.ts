@@ -9,6 +9,7 @@ import * as lib from "@clusterio/lib";
 const { logFilter, logger } = lib;
 
 import BaseConnection from "./BaseConnection";
+import ControllerUser from "./ControllerUser";
 import * as routes from "./routes";
 import Controller from "./Controller";
 
@@ -43,7 +44,7 @@ export default class ControlConnection extends BaseConnection {
 		registerData: { agent:string, version:string },
 		connector: WsServerConnector,
 		controller: Controller,
-		public user: lib.User, // The user making this connection.
+		public user: ControllerUser, // The user making this connection.
 		public id: number
 	) {
 		super(connector, controller);
@@ -635,28 +636,11 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handlePermissionListRequest() {
-		let list = [];
-		for (let permission of lib.permissions.values()) {
-			list.push(new lib.RawPermission(
-				permission.name,
-				permission.title,
-				permission.description,
-			));
-		}
-		return list;
+		return [...lib.permissions.values()];
 	}
 
 	async handleRoleListRequest() {
-		let list = [];
-		for (let role of this._controller.userManager.roles.values()) {
-			list.push(new lib.RawRole(
-				role.id,
-				role.name,
-				role.description,
-				[...role.permissions],
-			));
-		}
-		return list;
+		return [...this._controller.userManager.roles.values()];
 	}
 
 	async handleRoleCreateRequest(request: lib.RoleCreateRequest) {
@@ -664,7 +648,7 @@ export default class ControlConnection extends BaseConnection {
 
 		// Start at 5 to leave space for future default roles
 		let id = Math.max(5, lastId+1);
-		this._controller.userManager.roles.set(id, new lib.Role({ id, ...request }));
+		this._controller.userManager.roles.set(id, lib.Role.fromJSON({ id, ...request }));
 		this._controller.userManager.dirty = true;
 		return id;
 	}
@@ -694,15 +678,11 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleRoleDeleteRequest(request: lib.RoleDeleteRequest) {
 		let id = request.id;
-		let role = this._controller.userManager.roles.get(id);
-		if (!role) {
-			throw new lib.RequestError(`Role with ID ${id} does not exist`);
-		}
 
 		this._controller.userManager.roles.delete(id);
 		this._controller.userManager.dirty = true;
 		for (let user of this._controller.userManager.users.values()) {
-			user.roles.delete(role);
+			user.roleIds.delete(id);
 			this._controller.userPermissionsUpdated(user);
 		}
 	}
@@ -714,35 +694,13 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`User ${name} does not exist`);
 		}
 
-		return new lib.RawUser(
-			user.name,
-			[...user.roles].map(role => role.id),
-			[...user.instances],
-			user.isAdmin,
-			user.isBanned,
-			user.isWhitelisted,
-			user.banReason,
-			undefined,
-			user.playerStats,
-			user.instanceStats,
-		);
+		return user;
 	}
 
 	async handleUserListRequest() {
 		let list = [];
 		for (let user of this._controller.userManager.users.values()) {
-			list.push(new lib.RawUser(
-				user.name,
-				[...user.roles].map(role => role.id),
-				[...user.instances],
-				user.isAdmin,
-				user.isBanned,
-				user.isWhitelisted,
-				undefined,
-				undefined,
-				user.playerStats,
-				undefined,
-			));
+			list.push(user);
 		}
 		return list;
 	}
@@ -776,17 +734,13 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`User '${request.name}' does not exist`);
 		}
 
-		let resolvedRoles: Set<lib.Role> = new Set();
 		for (let roleId of request.roles) {
-			let role = this._controller.userManager.roles.get(roleId);
-			if (!role) {
+			if (!this._controller.userManager.roles.has(roleId)) {
 				throw new lib.RequestError(`Role with ID ${roleId} does not exist`);
 			}
-
-			resolvedRoles.add(role);
 		}
 
-		user.roles = resolvedRoles;
+		user.roleIds = new Set(request.roles);
 		this._controller.userPermissionsUpdated(user);
 		this._controller.userUpdated(user);
 	}

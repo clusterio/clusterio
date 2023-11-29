@@ -1004,7 +1004,7 @@ describe("Integration of Clusterio", function() {
 				let tempRole = roles.find(role => role.name === "temp");
 				assert.deepEqual(
 					tempRole,
-					new lib.RawRole(5, "temp", "A temp role", ["core.control.connect"])
+					new lib.Role(5, "temp", "A temp role", new Set(["core.control.connect"]))
 				);
 			});
 		});
@@ -1015,21 +1015,21 @@ describe("Integration of Clusterio", function() {
 				await execCtl(`role edit temp ${args}`);
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
-				assert.deepEqual(newRole, new lib.RawRole(5, "new", "A new role", []));
+				assert.deepEqual(newRole, new lib.Role(5, "new", "A new role", new Set()));
 			});
 			it("should add permissions with --add-perms", async function() {
 				let args = "--name new --add-perms core.host.list core.instance.list";
 				await execCtl(`role edit new ${args}`);
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
-				assert.deepEqual(newRole.permissions, ["core.host.list", "core.instance.list"]);
+				assert.deepEqual(newRole.permissions, new Set(["core.host.list", "core.instance.list"]));
 			});
 			it("should remove permissions with --remove-perms", async function() {
 				let args = "--name new --remove-perms core.host.list";
 				await execCtl(`role edit new ${args}`);
 				let roles = await getControl().send(new lib.RoleListRequest());
 				let newRole = roles.find(role => role.name === "new");
-				assert.deepEqual(newRole.permissions, ["core.instance.list"]);
+				assert.deepEqual(newRole.permissions, new Set(["core.instance.list"]));
 			});
 			it("should grant default permissions with --grant-default", async function() {
 				await execCtl("role edit new --grant-default");
@@ -1096,7 +1096,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl('user set-roles temp "Cluster Admin"');
 				let users = await getControl().send(new lib.UserListRequest());
 				let tempUser = users.find(user => user.name === "temp");
-				assert.deepEqual(tempUser.roles, [0]);
+				assert.deepEqual(tempUser.roleIds, new Set([0]));
 				assert.equal(getControl().userUpdates.length, 1);
 			});
 

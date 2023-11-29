@@ -2,7 +2,7 @@ import type Controller from "./Controller";
 import type WsServerConnector from "./WsServerConnector";
 
 import * as lib from "@clusterio/lib";
-const { logger, PlayerStats } = lib;
+const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
 import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
@@ -270,7 +270,6 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleInstancePlayerUpdateEvent(event: lib.InstancePlayerUpdateEvent, src: lib.Address) {
-
 		let instanceId = src.id;
 		let user = this._controller.userManager.users.get(event.name);
 		if (!user) {
@@ -278,9 +277,9 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		if (event.type === "join") {
-			user.notifyJoin(instanceId);
+			this._controller.userManager.notifyJoin(user, instanceId);
 		} else if (event.type === "leave") {
-			user.notifyLeave(instanceId);
+			this._controller.userManager.notifyLeave(user, instanceId);
 		}
 
 		if (event.stats) {
