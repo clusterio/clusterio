@@ -126,7 +126,8 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
  *
  * Same as fs-extra.outputFile except the data is written to a temporary
  * file that's renamed over the target file.  The name of the temporary file
- * is the same as the target file with the suffix `.tmp` added.
+ * is the same as the target file with the suffix `.tmp` added before the
+ * extension.
  *
  * If the operation fails it may leave behind the temporary file.  This
  * should not be too much of an issue as the next time the same file is
@@ -137,11 +138,11 @@ export async function getTempFile(prefix = "tmp.", suffix = "", tmpdir = "./") {
  * @param options - see fs.writeFile, `flag` must not be set.
  */
 export async function safeOutputFile(file: string, data: string | Buffer, options: fs.WriteFileOptions ={}) {
-	let directory = path.dirname(file);
-	if (!await fs.pathExists(directory)) {
-		await fs.mkdirs(directory);
+	let { dir, name, ext } = path.parse(file);
+	if (dir && !await fs.pathExists(dir)) {
+		await fs.mkdirs(dir);
 	}
-	let temporary = `${file}.tmp`;
+	let temporary = `${dir}${name}.tmp${ext}`;
 	let fd = await fs.open(temporary, "w");
 	try {
 		await fs.writeFile(fd, data, options);
