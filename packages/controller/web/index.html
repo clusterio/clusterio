@@ -17,22 +17,33 @@
 				margin: auto;
 				margin-top: 1em;
 				width: fit-content;
+				white-space: pre;
 			}
 		</style>
-		<script>
-			webRoot = new URL("__WEB_ROOT__", document.location).pathname;
-			staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
-			function scriptError() {
-				let bootstrapMsg = document.getElementById("bootstrap-msg");
-				bootstrapMsg.textContent = "Error loading main bundle, see web console for details.";
-			}
-		</script>
 	</head>
 	<body>
 		<noscript>You need to enable JavaScript to run this app.</noscript>
 		<div id="root">
 			<div id="bootstrap-msg">Loading web interface...</div>
 		</div>
-		<script src="__STATIC_ROOT____MAIN_BUNDLE__" defer onerror="scriptError()"></script>
+		<script id="script-bundle" src="__STATIC_ROOT____MAIN_BUNDLE__" defer></script>
+		<script>
+			webRoot = new URL("__WEB_ROOT__", document.location).pathname;
+			staticRoot = new URL("__STATIC_ROOT__", document.location).pathname;
+			function scriptError(err) {
+				console.error(err);
+				let bootstrapMsg = document.getElementById("bootstrap-msg");
+				if (bootstrapMsg) {
+					let errorMsg = err;
+					if (err?.message) {
+						errorMsg = `${err?.constructor?.name ?? "Error"}: ${err.message}`;
+					}
+					bootstrapMsg.textContent = `${errorMsg}\nSee web console for details.`;
+				}
+			}
+			const bundleScript = document.getElementById("script-bundle");
+			bundleScript.addEventListener("error", () => scriptError("Main bundle failed to load."));
+			window.addEventListener("error", event => scriptError(event.error));
+		</script>
 	</body>
 </html>
