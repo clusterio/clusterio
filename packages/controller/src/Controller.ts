@@ -656,7 +656,7 @@ export default class Controller {
 			host.name,
 			host.id,
 			this.wsServer.hostConnections.has(host.id),
-			host.public_address === null ? undefined : host.public_address,
+			host.public_address,
 			host.token_valid_after,
 		);
 
@@ -778,7 +778,7 @@ export default class Controller {
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
 		this.instancesDirty = true;
-		if (hostId !== null && newHostConnection) {
+		if (hostId !== undefined && newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);

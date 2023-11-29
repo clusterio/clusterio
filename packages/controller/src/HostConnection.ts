@@ -284,9 +284,7 @@ export default class HostConnection extends BaseConnection {
 			this._controller.userManager.notifyLeave(user, instanceId);
 		}
 
-		if (event.stats) {
-			user.instanceStats.set(instanceId, event.stats);
-		}
+		user.instanceStats.set(instanceId, event.stats);
 
 		user.recalculatePlayerStats();
 		this._controller.userUpdated(user);

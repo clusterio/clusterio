@@ -10,12 +10,9 @@ class Permission extends EventEmitter {
 			status => {
 				this.status = status;
 				this.emit("change", this.status.state);
-
-				if (status.addEventListener) {
-					status.addEventListener("change", () => {
-						this.emit("change", this.status.state);
-					});
-				}
+				status.addEventListener("change", () => {
+					this.emit("change", this.status.state);
+				});
 			},
 			// Pretend the clipboard will work if this query fails.
 			() => {

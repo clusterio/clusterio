@@ -189,7 +189,7 @@ export default function HostsPage() {
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
 			title="Hosts"
-			extra={account.hasPermission("core.host.generate_token") && <GenerateHostTokenButton /> || undefined}
+			extra={account.hasPermission("core.host.generate_token") ? <GenerateHostTokenButton /> : undefined}
 		/>
 		<Table
 			columns={[

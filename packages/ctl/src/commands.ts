@@ -109,7 +109,7 @@ controllerConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args: { field: string, value: string, stdin?: boolean }, control: Control) {
+	handler: async function(args: { field: string, value?: string, stdin?: boolean }, control: Control) {
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		} else if (args.value === undefined) {
@@ -128,7 +128,7 @@ controllerConfigCommands.add(new lib.Command({
 			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
 		});
 	}],
-	handler: async function(args: { field: string, prop: string, value: string, stdin?: boolean }, control: Control) {
+	handler: async function(args: { field: string, prop: string, value?: string, stdin?: boolean }, control: Control) {
 		if (args.stdin) {
 			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
 		}
@@ -139,7 +139,7 @@ controllerConfigCommands.add(new lib.Command({
 			}
 		} catch (err: any) {
 			// See note for the instance version of set-prop
-			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
+			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value!)) {
 				throw new lib.CommandError(`In parsing value '${args.value}': ${err.message}`);
 			}
 			value = args.value;
@@ -354,7 +354,7 @@ instanceConfigCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(
-		args: { instance: string, field: string, value: string, stdin?: boolean },
+		args: { instance: string, field: string, value?: string, stdin?: boolean },
 		control: Control,
 	) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
@@ -378,7 +378,7 @@ instanceConfigCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(
-		args: { instance: string, field: string, prop: string, value: string, stdin?: boolean },
+		args: { instance: string, field: string, prop: string, value?: string, stdin?: boolean },
 		control: Control
 	) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
@@ -407,7 +407,7 @@ instanceConfigCommands.add(new lib.Command({
 			// bash             : '""That'\''s a \" quote""'
 			// bash + npx       : '""That'\''s a \" quote""'
 			// bash + npx -s sh : "'\"\"That'\\''s a \\\" quote\"\"'"
-			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value)) {
+			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value!)) {
 				throw new lib.CommandError(`In parsing value '${args.value}': ${err.message}`);
 			}
 			value = args.value;

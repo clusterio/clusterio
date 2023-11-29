@@ -296,13 +296,11 @@ function ModsTable(props: ModsTableProps) {
 			>remove</Typography.Link>}
 			{(deletedMods.has(mod.name) || changedMods.has(mod.name)) && <Typography.Link
 				onClick={() => {
-					if (props.onRevert) {
-						props.onRevert({
-							type: deletedMods.has(mod.name) ? "mods.delete" : "mods.set",
-							name: mod.name,
-							value: mod,
-						});
-					}
+					props.onRevert({
+						type: deletedMods.has(mod.name) ? "mods.delete" : "mods.set",
+						name: mod.name,
+						value: mod,
+					});
 				}}
 			>revert</Typography.Link>}
 		</Space>;
@@ -464,7 +462,7 @@ const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 				return Promise.resolve();
 			},
 		}] : []]}
-		className={ props.changed && "changed" || "" }
+		className={props.changed ? "changed" : ""}
 	>
 		{input}
 	</Form.Item>;
@@ -669,11 +667,11 @@ function applyModPackChanges(modPack: lib.ModPack, changes: ModChange[]) {
 		} else if (change.type === "mods.delete") {
 			modifiedModPack.mods.delete(change.name!);
 		} else if (change.type === "settings.set") {
-			if (change.scope && change.name) {
+			if (change.name) {
 				modifiedModPack.settings[change.scope].set(change.name, change.value);
 			}
 		} else if (change.type === "settings.delete") {
-			if (change.scope && change.name) {
+			if (change.name) {
 				modifiedModPack.settings[change.scope].delete(change.name);
 			}
 		} else {
@@ -828,7 +826,7 @@ export default function ModPackViewPage() {
 				<Descriptions.Item span={3} label="Name">
 					<Form.Item noStyle name="name">
 						<Input
-							className={hasChange(changes, { type: "name" }) && "changed" || ""}
+							className={hasChange(changes, { type: "name" }) ? "changed" : ""}
 						/>
 					</Form.Item>
 				</Descriptions.Item>
@@ -836,7 +834,7 @@ export default function ModPackViewPage() {
 					<Form.Item noStyle name="description">
 						<Input.TextArea
 							autoSize={{ minRows: 2 }}
-							className={hasChange(changes, { type: "description" }) && "changed" || ""}
+							className={hasChange(changes, { type: "description" }) ? "changed" : ""}
 						/>
 					</Form.Item>
 				</Descriptions.Item>
@@ -853,7 +851,7 @@ export default function ModPackViewPage() {
 						}]}
 					>
 						<Input
-							className={hasChange(changes, { type: "factorioVersion" }) && "changed" || ""}
+							className={hasChange(changes, { type: "factorioVersion" }) ? "changed" : ""}
 						/>
 					</Form.Item>
 				</Descriptions.Item>

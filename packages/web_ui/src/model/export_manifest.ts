@@ -4,7 +4,7 @@ import * as lib from "@clusterio/lib";
 import ControlContext from "../components/ControlContext";
 
 let exportManifestCache: lib.ExportManifest|null = null;
-let emptyCache: any = {};
+let emptyCache = { assets: {} };
 export function useExportManifest(): lib.ExportManifest|null {
 	const control = useContext(ControlContext);
 	let [exportManifest, setExportManifest] = useState<lib.ExportManifest|null>(exportManifestCache || emptyCache);

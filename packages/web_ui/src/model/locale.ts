@@ -9,7 +9,7 @@ export function useLocale(): Map<string, string> {
 	let [locale, setLocale] = useState<Map<string, string>>(localeCache || new Map());
 	useEffect(() => {
 		async function load() {
-			if (!exportManifest?.assets?.["locale"]) {
+			if (!exportManifest?.assets["locale"]) {
 				return;
 			}
 			let response = await fetch(`${staticRoot}static/${exportManifest.assets["locale"]}`);
@@ -27,4 +27,3 @@ export function useLocale(): Map<string, string> {
 
 	return locale;
 }
-

@@ -150,7 +150,7 @@ export async function createReverseReadStream(path: string, options?: ReadStream
 			buffer: Buffer,
 			offset: number,
 			length: number,
-			position: number,
+			position: number | null | undefined,
 			callback: () => void,
 		) {
 			assert(fd === fileFd);

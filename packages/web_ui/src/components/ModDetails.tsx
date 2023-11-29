@@ -8,7 +8,7 @@ const { useBreakpoint } = Grid;
 
 type ModDetailsProps<T> = {
 	mod: T;
-	actions: (mod: T) => React.JSX.Element;
+	actions?: (mod: T) => React.JSX.Element;
 };
 export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props: ModDetailsProps<T>) {
 	let screens = useBreakpoint();

@@ -74,7 +74,7 @@ export default function RolesPage() {
 	return <PageLayout nav={[{ name: "Roles" }]}>
 		<PageHeader
 			title="Roles"
-			extra={account.hasPermission("core.role.create") && <CreateRoleButton /> || undefined}
+			extra={account.hasPermission("core.role.create") ? <CreateRoleButton /> : undefined}
 		/>
 		<Table
 			columns={[

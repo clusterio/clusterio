@@ -34,7 +34,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 	let account = useAccount();
 
 	const { host, instance } = props;
-	let assigned = instance.assignedHost !== null;
+	let assigned = instance.assignedHost !== undefined;
 	return <Descriptions
 		bordered
 		size="small"

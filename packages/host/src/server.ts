@@ -713,7 +713,7 @@ export class FactorioServer extends events.EventEmitter {
 	async init() {
 		this._check(["new"]);
 		[this._dataDir, this._version] = await findVersion(this._factorioDir, this._targetVersion);
-		this.rconPassword = this.rconPassword ?? await generatePassword(10);
+		this.rconPassword = this.rconPassword as string | undefined ?? await generatePassword(10);
 		this._state = "init";
 	}
 

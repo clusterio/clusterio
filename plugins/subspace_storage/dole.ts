@@ -134,7 +134,7 @@ export function doleDivider(
 	// Update existing items if item name already exists
 	if (itemCount > object.count) {
 		// If successful, increase dole
-		_doleDivisionFactor[object.name] = Math.max((_doleDivisionFactor[object.name] || 0) || 1, 1) - 1;
+		_doleDivisionFactor[object.name] = Math.max(_doleDivisionFactor[object.name] || 1, 1) - 1;
 		items.removeItem(object.name, object.count);
 
 		prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
@@ -143,7 +143,7 @@ export function doleDivider(
 
 	// if we didn't have enough, attempt giving out a smaller amount next time
 	_doleDivisionFactor[object.name] = Math.min(
-		maxDoleDivision, Math.max((_doleDivisionFactor[object.name] || 0) || 1, 1) * 2
+		maxDoleDivision, Math.max(_doleDivisionFactor[object.name] || 1, 1) * 2
 	);
 	prometheusDoleFactorGauge.labels(object.name).set(_doleDivisionFactor[object.name] || 0);
 	return 0;

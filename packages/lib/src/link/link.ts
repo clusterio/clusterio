@@ -89,10 +89,10 @@ export class Link {
 	router?: Router = undefined;
 	validateSent = true;
 
-	_requestHandlers = new Map();
-	_requestFallbacks = new Map();
-	_eventHandlers = new Map();
-	_eventSnoopers = new Map();
+	_requestHandlers = new Map<RequestClass<unknown, unknown>, RequestHandler<unknown, unknown>>();
+	_requestFallbacks = new Map<RequestClass<unknown, unknown>, RequestHandler<unknown, unknown>>();
+	_eventHandlers = new Map<EventClass<unknown>, EventHandler<unknown>>();
+	_eventSnoopers = new Map<EventClass<unknown>, EventHandler<unknown>>();
 	_pendingRequests = new Map<number, PendingRequest>();
 	_forwardedRequests = new Map<string, ForwardedRequest>();
 	_nextRequestId = 1;
@@ -189,7 +189,7 @@ export class Link {
 		}
 
 		if (message.type === "event" && this._eventSnoopers.has((entry as EventEntry).Event)) {
-			let handler = this._eventSnoopers.get((entry as EventEntry).Event);
+			let handler = this._eventSnoopers.get((entry as EventEntry).Event)!;
 			let event = message as libData.MessageEvent;
 			handler((entry as EventEntry).eventFromJSON(event.data), event.src, event.dst).catch((err: Error) => {
 				logger.error(`Unexpected error snooping ${event.name}:\n${err.stack}`);
@@ -350,7 +350,7 @@ export class Link {
 	_processRequest(
 		message: libData.MessageRequest,
 		entry: RequestEntry,
-		handler: RequestHandler<unknown, unknown>,
+		handler?: RequestHandler<unknown, unknown>,
 		spoofedSrc?: libData.Address
 	) {
 		if (!handler) {
@@ -579,7 +579,7 @@ export class Link {
 		if (this._requestHandlers.has(Request)) {
 			throw new Error(`Request ${entry.name} is already registered`);
 		}
-		this._requestHandlers.set(Request, handler);
+		this._requestHandlers.set(Request, handler as RequestHandler<unknown, unknown>);
 	}
 
 	fallbackRequest<Req, Res>(Request: RequestClass<Req, Res>, handler: RequestHandler<Req, Res>) {
@@ -590,7 +590,7 @@ export class Link {
 		if (this._requestFallbacks.has(Request)) {
 			throw new Error(`Request ${entry.name} is already fallbacked`);
 		}
-		this._requestFallbacks.set(Request, handler);
+		this._requestFallbacks.set(Request, handler as RequestHandler<unknown, unknown>);
 	}
 
 	handleEvent<T>(Event: EventClass<T>, handler: EventHandler<T>) {
@@ -601,7 +601,7 @@ export class Link {
 		if (this._eventHandlers.has(Event)) {
 			throw new Error(`Event ${entry.name} is already registered`);
 		}
-		this._eventHandlers.set(Event, handler);
+		this._eventHandlers.set(Event, handler as EventHandler<unknown>);
 	}
 
 	snoopEvent<T>(Event: EventClass<T>, handler: EventHandler<T>) {
@@ -612,7 +612,7 @@ export class Link {
 		if (this._eventSnoopers.has(Event)) {
 			throw new Error(`Event ${entry.name} is already snooped`);
 		}
-		this._eventSnoopers.set(Event, handler);
+		this._eventSnoopers.set(Event, handler as EventHandler<unknown>);
 	}
 
 	static register<Req, Res>(Class: RequestClass<Req, Res>): void;
@@ -646,7 +646,7 @@ export class Link {
 		return () => new Request();
 	}
 
-	static responseFromJSON<T>(Response: JSONDeserialisable<T>, name: string) {
+	static responseFromJSON<T>(Response: Partial<JSONDeserialisable<T>>, name: string) {
 		if (!Response.jsonSchema) {
 			throw new Error(`Response for Request ${name} is missing static jsonSchema`);
 		}
@@ -661,12 +661,12 @@ export class Link {
 					`Response for request ${name} failed validation`, validate.errors
 				);
 			}
-			return Response.fromJSON(json);
+			return Response.fromJSON!(json);
 		};
 	}
 
 	static allowedTypes(
-		types: libData.AddressType | readonly libData.AddressType[],
+		types: libData.AddressType | readonly libData.AddressType[] | undefined,
 		name: string,
 		side: "src" | "dst"
 	) {
