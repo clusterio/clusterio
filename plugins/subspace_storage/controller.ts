@@ -176,7 +176,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 
 		} else {
-			let instance = this.controller.instances!.get(instanceId);
+			let instance = this.controller.instances.get(instanceId);
 			let instanceName = instance ? instance.config.get("instance.name") : "unkonwn";
 
 			// use fancy neural net to calculate a "fair" dole division rate.

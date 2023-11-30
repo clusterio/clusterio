@@ -185,7 +185,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
-		const host = this._controller.hosts?.get(request.hostId);
+		const host = this._controller.hosts.get(request.hostId);
 		if (!host) {
 			throw new Error(`Unknown host id (${request.hostId})`);
 		}
@@ -202,7 +202,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
 		let list = [];
-		for (let host of this._controller.hosts!.values()) {
+		for (let host of this._controller.hosts.values()) {
 			list.push(new lib.HostDetails(
 				host.agent,
 				host.version,
@@ -266,7 +266,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceDetailsListRequest() {
 		let list = [];
-		for (let instance of this._controller.instances!.values()) {
+		for (let instance of this._controller.instances.values()) {
 			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
 			if (assigned_host === null) {
 				assigned_host = undefined;
@@ -424,7 +424,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleModPackListRequest() {
-		return [...this._controller.modPacks!.values()];
+		return [...this._controller.modPacks.values()];
 	}
 
 	async handleModPackCreateRequest(request: lib.ModPackCreateRequest) {
@@ -432,37 +432,37 @@ export default class ControlConnection extends BaseConnection {
 		if (modPack.id === undefined) {
 			throw new lib.RequestError("Mod pack need an ID to be created");
 		}
-		if (this._controller.modPacks!.has(modPack.id)) {
+		if (this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
-		this._controller.modPacks!.set(modPack.id, modPack);
+		this._controller.modPacks.set(modPack.id, modPack);
 		this._controller.modPackUpdated(modPack);
 	}
 
 	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
 		let modPack = request.modPack;
-		if (modPack.id === undefined || !this._controller.modPacks!.has(modPack.id)) {
+		if (modPack.id === undefined || !this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
-		this._controller.modPacks!.set(modPack.id, modPack);
+		this._controller.modPacks.set(modPack.id, modPack);
 		this._controller.modPackUpdated(modPack);
 	}
 
 	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
 		let { id } = request;
-		let modPack = this._controller.modPacks!.get(id);
+		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
 		modPack.isDeleted = true;
-		this._controller.modPacks!.delete(id);
+		this._controller.modPacks.delete(id);
 		this._controller.modPackUpdated(modPack);
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {
 		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
-		let mod = this._controller.mods!.get(filename);
+		let mod = this._controller.mods.get(filename);
 		if (!mod) {
 			throw new lib.RequestError(`Mod ${filename} does not exist`);
 		}
@@ -470,7 +470,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleModListRequest() {
-		return [...this._controller.mods!.values()];
+		return [...this._controller.mods.values()];
 	}
 
 	static termsMatchesMod(terms: lib.ParsedTerm[], mod: lib.ModInfo) {
@@ -510,7 +510,7 @@ export default class ControlConnection extends BaseConnection {
 
 		type ModVersions = { name: string, versions: lib.ModInfo[] };
 		let results: Map<string, ModVersions> = new Map();
-		for (let mod of this._controller.mods!.values()) {
+		for (let mod of this._controller.mods.values()) {
 			if (
 				mod.factorioVersion !== factorioVersion
 				|| !ControlConnection.termsMatchesMod(query.terms, mod)
@@ -565,7 +565,7 @@ export default class ControlConnection extends BaseConnection {
 	async handleModDownloadRequest(request: lib.ModDownloadRequest) {
 		let { name, version } = request;
 		let filename = `${name}_${version}.zip`;
-		let mod = this._controller.mods!.get(filename);
+		let mod = this._controller.mods.get(filename);
 		if (!mod) {
 			throw new lib.RequestError(`Mod ${filename} does not exist`);
 		}

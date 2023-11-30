@@ -84,7 +84,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		if (
 			!acquisitionRecord
 			|| acquisitionRecord.instanceId === instanceId
-			|| !this.controller.instances!.has(acquisitionRecord.instanceId)
+			|| !this.controller.instances.has(acquisitionRecord.instanceId)
 			|| acquisitionRecord.expires && acquisitionRecord.expires < Date.now()
 		) {
 			this.acquiredPlayers.set(playerName, { instanceId });
@@ -98,7 +98,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		let { instanceId, playerName } = request;
 		if (!this.acquire(instanceId, playerName)) {
 			let acquisitionRecord = this.acquiredPlayers.get(playerName);
-			let instance = this.controller.instances!.get(acquisitionRecord!.instanceId)!;
+			let instance = this.controller.instances.get(acquisitionRecord!.instanceId)!;
 			return {
 				status: "busy",
 				message: instance.config.get("instance.name"),
@@ -127,7 +127,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async handleUploadRequest(request: msg.UploadRequest) {
 		let { instanceId, playerName, playerData } = request;
-		let instanceName = this.controller.instances!.get(instanceId)!.config.get("instance.name");
+		let instanceName = this.controller.instances.get(instanceId)!.config.get("instance.name");
 		let store = true;
 		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
@@ -162,7 +162,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async handleDownloadRequest(request: msg.DownloadRequest) {
 		let { instanceId, playerName } = request;
-		let instanceName = this.controller.instances!.get(instanceId)!.config.get("instance.name");
+		let instanceName = this.controller.instances.get(instanceId)!.config.get("instance.name");
 
 		let acquisitionRecord = this.acquiredPlayers.get(playerName);
 		if (!acquisitionRecord) {
