@@ -376,9 +376,6 @@ export default class Controller {
 		}
 	}
 
-	private _saveDataCurrentlyRunning = false;
-	private _saveDataCurrentlyWaiting: (() => void)[] = [];
-
 	/**
 	 * Save all data currently in memory to disk
 	 *
@@ -386,31 +383,18 @@ export default class Controller {
 	 * completes and start another save.
 	 */
 	async saveData() {
-		if (this._saveDataCurrentlyRunning) {
-			const waitForCompletion = () => new Promise<void>(resolve => {
-				this._saveDataCurrentlyWaiting.push(resolve);
-			});
-			await waitForCompletion();
-			if (this._saveDataCurrentlyRunning) {
-				await waitForCompletion();
-				return;
-			}
-		}
+		await this._saveDataAsyncSerial.invoke();
+	}
 
-		this._saveDataCurrentlyRunning = true;
+	private _saveDataAsyncSerial = new lib.AsyncSerialMergingCallback(async () => {
 		try {
 			await this._saveDataInternal();
 		} catch (err: any) {
 			logger.error(`Unexpected error during saveData:\n${err.stack}`);
 		}
-		this._saveDataCurrentlyRunning = false;
-		for (const callback of this._saveDataCurrentlyWaiting) {
-			callback();
-		}
-		this._saveDataCurrentlyWaiting.length = 0;
-	}
+	});
 
-	async _saveDataInternal() {
+	private async _saveDataInternal() {
 		if (this.config.dirty) {
 			this.config.dirty = false;
 			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
