@@ -77,7 +77,7 @@ export default class HostConnection extends BaseConnection {
 
 				let prev = instance.status;
 				instance.status = "unknown";
-				this._controller.instanceUpdated(instance);
+				this._controller.instanceDetailsUpdated(instance);
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 		});
@@ -181,7 +181,7 @@ export default class HostConnection extends BaseConnection {
 		instance.status = request.status as lib.InstanceStatus;
 		instance.game_port = request.gamePort || null;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		this._controller.instanceUpdated(instance);
+		this._controller.instanceDetailsUpdated(instance);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -215,7 +215,7 @@ export default class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status as InstanceStatus;
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					this._controller.instanceUpdated(controllerInstance);
+					this._controller.instanceDetailsUpdated(controllerInstance);
 					await lib.invokeHook(
 						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
 					);
@@ -228,12 +228,14 @@ export default class HostConnection extends BaseConnection {
 				{ config: instanceConfig, status: instanceData.status as InstanceStatus }
 			);
 			this._controller.instances!.set(instanceConfig.get("instance.id"), newInstance);
+			this._controller.instancesDirty = true;
 			this._controller.addInstanceHooks(newInstance);
 			await this.send(
 				new lib.InstanceAssignInternalRequest(
 					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
 				)
 			);
+			this._controller.instanceDetailsUpdated(newInstance);
 			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 

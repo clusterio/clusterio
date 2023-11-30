@@ -720,8 +720,10 @@ export default class Controller {
 
 		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
 		this.instances!.set(instanceId, instance);
+		this.instancesDirty = true;
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
+		this.instanceDetailsUpdated(instance);
 		return instance;
 	}
 
@@ -766,13 +768,14 @@ export default class Controller {
 
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
+		this.instancesDirty = true;
 		if (hostId !== null && newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);
 		} else {
 			instance.status = "unassigned";
-			this.instanceUpdated(instance);
+			this.instanceDetailsUpdated(instance);
 		}
 	}
 
@@ -791,10 +794,11 @@ export default class Controller {
 			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
 		}
 		this.instances!.delete(instanceId);
+		this.instancesDirty = true;
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		this.instanceUpdated(instance);
+		this.instanceDetailsUpdated(instance);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -822,18 +826,15 @@ export default class Controller {
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
 			if (group.name === "instance" && field === "name") {
-				this.instanceUpdated(instance);
+				this.instanceDetailsUpdated(instance);
 			}
 
 			this.instancesDirty = true;
 			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
 		});
-
-		this.instanceUpdated(instance);
 	}
 
-	instanceUpdated(instance: InstanceInfo) {
-		this.instancesDirty = true;
+	instanceDetailsUpdated(instance: InstanceInfo) {
 		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
 		if (assigned_host === null) {
 			assigned_host = undefined;
