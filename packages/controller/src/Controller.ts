@@ -449,7 +449,7 @@ export default class Controller {
 				continue;
 			}
 
-			if (entry.name.toLowerCase().endsWith("tmp.zip")) {
+			if (entry.name.toLowerCase().endsWith(".tmp.zip")) {
 				continue;
 			}
 
