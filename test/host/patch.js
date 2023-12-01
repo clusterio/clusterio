@@ -15,11 +15,11 @@ describe("host/patch", function() {
 				const mappings = [
 					["locale/en/foo.cfg", "locale/en/test-foo.cfg"],
 					["locale/en/foo.txt", "locale/en/test-foo.txt"],
-					["locale/en/foo.txt.tmp", "locale/en/test-foo.txt.tmp"],
+					["locale/en/foo.tmp.txt", "locale/en/test-foo.tmp.txt"],
 					["locale/en/foo", "locale/en/test-foo"],
 					["locale/en.cfg", "locale/en/test.cfg"],
 					["locale/en.txt", "locale/en/test.txt"],
-					["locale/en.txt.tmp", "locale/en/test.txt.tmp"],
+					["locale/en.tmp.txt", "locale/en/test.tmp.txt"],
 					["locale/en", "locale/en/test"],
 					["locale/en/bar/foo.cfg", "locale/en/test-bar/foo.cfg"],
 				];

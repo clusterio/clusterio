@@ -137,7 +137,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 		if (typeof tokenPayload === "string") {
 			throw new Error("unexpected JsonWebToken type");
 		}
-		let host = (req.app.locals.controller as Controller).hosts!.get(tokenPayload.host);
+		let host = (req.app.locals.controller as Controller).hosts.get(tokenPayload.host);
 		if (!host) {
 			throw new Error("invalid host");
 		}

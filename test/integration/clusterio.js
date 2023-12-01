@@ -27,6 +27,34 @@ async function checkInstanceStatus(id, status) {
 	assert.equal(instances.get(44).status, status, "incorrect instance status");
 }
 
+async function startAltHost() {
+	let config = "alt-host-config.json";
+	let configPath = path.join("temp", "test", config);
+	await fs.remove(configPath);
+	await fs.remove(path.join("temp", "test", "alt-instances"));
+	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
+	await exec(`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
+	await exec(`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`);
+	return await spawn("alt-host:", `node ../../packages/host run --config ${config}`, /Started host/);
+}
+
+async function stopAltHost(hostProcess) {
+	if (hostProcess && hostProcess.exitCode === null) {
+		hostProcess.kill("SIGINT");
+		await events.once(hostProcess, "exit");
+	}
+}
+
+async function runWithAltHost(callback) {
+	let hostProcess;
+	try {
+		hostProcess = await startAltHost();
+		return await callback();
+	} finally {
+		await stopAltHost(hostProcess);
+	}
+}
+
 async function uploadSave(instanceId, name, content) {
 	return await phin({
 		url: `https://localhost:4443/api/upload-save?instance_id=${instanceId}&filename=${name}`,
@@ -116,32 +144,11 @@ describe("Integration of Clusterio", function() {
 
 				slowTest(this);
 				getControl().hostUpdates = [];
-				let config = "alt-host-config.json";
-				let configPath = path.join("temp", "test", config);
-				await fs.remove(configPath);
-				await fs.remove(path.join("temp", "test", "alt-instances"));
-				await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
-				await exec(
-					`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`
-				);
-				await exec(
-					`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`
-				);
 
-				let hostProcess;
-				try {
-					hostProcess = await spawn(
-						"alt-host:", `node ../../packages/host run --config ${config}`, /Started host/
-					);
-					// Add instance to test the unknown status afterwards
+				await runWithAltHost(async () => {
 					await execCtl("instance create alt-test --id 99");
 					await execCtl("instance assign alt-test 5");
-				} finally {
-					if (hostProcess) {
-						hostProcess.kill("SIGINT");
-						await events.once(hostProcess, "exit");
-					}
-				}
+				});
 
 				let sawUpdate = false;
 				let sawConnected = false;
@@ -225,6 +232,33 @@ describe("Integration of Clusterio", function() {
 			});
 			it("runs without an id", async function() {
 				await execCtl("host generate-token");
+			});
+		});
+		describe("host revoke-token", async function() {
+			it("should disconnect existing host", async function() {
+				// On windows there's currently no way to automate graceful shutdown of the host
+				// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
+				if (process.platform === "win32") {
+					this.skip();
+				}
+
+				slowTest(this);
+				let sawDisconnected;
+				await runWithAltHost(async () => {
+					getControl().hostUpdates = [];
+					await execCtl("host revoke-token 5");
+					for (let update of getControl().hostUpdates) {
+						if (update.name !== "alt-host") {
+							continue;
+						}
+
+						if (!update.connected) {
+							sawDisconnected = true;
+						}
+					}
+				});
+
+				assert(sawDisconnected, "No host update with status disconnected was sent after revoking token");
 			});
 		});
 		describe("instance list", function() {
@@ -648,10 +682,10 @@ describe("Integration of Clusterio", function() {
 			});
 			for (let remote of [false, true]) {
 				let pri = 44;
-				let sec = remote ? 99 : 66;
+				let sec = remote ? 88 : 66;
 				let priSaves = path.join("temp", "test", "instances", "test", "saves");
 				let secSaves = remote
-					? path.join("temp", "test", "alt-instances", "alt-test", "saves")
+					? path.join("temp", "test", "alt-instances", "save-test", "saves")
 					: path.join("temp", "test", "instances", "spam", "saves")
 				;
 				describe(remote ? "remote" : "local", function() {
@@ -664,17 +698,13 @@ describe("Integration of Clusterio", function() {
 								this.skip();
 							}
 							slowTest(this);
-							// Reuse from the clusteriohost test
-							let config = "alt-host-config.json";
-							hostProcess = await spawn(
-								"alt-host:", `node ../../packages/host run --config ${config}`, /Started host/
-							);
+
+							hostProcess = await startAltHost();
+							await execCtl("instance create save-test --id 88");
+							await execCtl("instance assign save-test 5");
 						});
 						after(async function() {
-							if (hostProcess) {
-								hostProcess.kill("SIGINT");
-								await events.once(hostProcess, "exit");
-							}
+							await stopAltHost(hostProcess);
 						});
 					}
 					it("should transfers a save", async function() {

@@ -88,15 +88,29 @@ describe("lib/file_ops", function() {
 		it("should write new target file", async function() {
 			let target = path.join(baseDir, "safe", "simple.txt");
 			await lib.safeOutputFile(target, "a text file", "utf8");
-			assert(!await fs.pathExists(`${target}.tmp`), "temporary was left behind");
+			assert(!await fs.pathExists(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "a text file");
 		});
 		it("should overwrite existing target file", async function() {
 			let target = path.join(baseDir, "safe", "exists.txt");
 			await fs.outputFile(target, "previous", "utf8");
 			await lib.safeOutputFile(target, "current", "utf8");
-			assert(!await fs.pathExists(`${target}.tmp`), "temporary was left behind");
+			assert(!await fs.pathExists(target.replace(".txt", ".tmp.txt")), "temporary was left behind");
 			assert.equal(await fs.readFile(target, "utf8"), "current");
+		});
+		it("should handle creating file in current working directory", async function() {
+			let target = "temporary-file-made-to-test-cwd.txt";
+			try {
+				await lib.safeOutputFile(target, "a text file", "utf8");
+			} finally {
+				try {
+					await fs.unlink(target);
+				} catch (err) {
+					if (err.code !== "ENOENT") {
+						throw err;
+					}
+				}
+			}
 		});
 	});
 

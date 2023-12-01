@@ -86,7 +86,8 @@ class InstallError extends Error { }
 
 
 async function safeOutputFile(file, data, options={}) {
-	let temporary = `${file}.tmp`;
+	let { dir, name, ext } = path.parse(file);
+	let temporary = `${dir}${name}.tmp${ext}`;
 	await fs.outputFile(temporary, data, options);
 	await fs.rename(temporary, file);
 }

@@ -56,6 +56,19 @@ function inventory_sync.serialize_player(player, player_record)
 		return
 	end
 
+	-- mod-compat: Exit Space Exploration satelite view to restore the real character
+	if remote.interfaces["space-exploration"] then
+		local status, result = pcall(function()
+			if remote.call("space-exploration", "remote_view_is_active", { player = player }) then
+				remote.call("space-exploration", "remote_view_stop", { player = player })
+			end
+		end)
+		if not status then
+			log("ERROR: Exiting remote view failed for " .. player.name .. ": " .. result)
+			player.print("ERROR: Exiting remote view failed: " .. result)
+		end
+	end
+
 	local serialized_player = serialize.serialize_player(player)
 	serialized_player.generation = player_record.generation
 

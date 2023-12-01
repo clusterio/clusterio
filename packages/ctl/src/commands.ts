@@ -248,6 +248,16 @@ hostCommands.add(new lib.Command({
 }));
 
 hostCommands.add(new lib.Command({
+	definition: ["revoke-token <host>", "Revoke all tokens for a host", (yargs) => {
+		yargs.positional("host", { describe: "Host to revoke tokens for", type: "string" });
+	}],
+	handler: async function(args: { host: string }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		await control.send(new lib.HostRevokeTokensRequest(hostId));
+	},
+}));
+
+hostCommands.add(new lib.Command({
 	definition: ["create-config", "Create host config", (yargs) => {
 		yargs.option("id", { type: "number", nargs: 1, describe: "Host id" });
 		yargs.option("name", { type: "string", nargs: 1, describe: "Host name" });
