@@ -10,6 +10,7 @@ import * as lib from "@clusterio/lib";
 export default class UserManager {
 	roles: Map<number, lib.Role> = new Map();
 	users: Map<string, lib.User> = new Map();
+	dirty = false;
 
 	constructor(
 		private _config: lib.ControllerConfig
@@ -41,10 +42,6 @@ export default class UserManager {
 	}
 
 	async save(filePath:string): Promise<void> {
-		if (this.roles.size === 0 || this.users.size === 0) {
-			return;
-		}
-
 		let serializedRoles = [];
 		for (let role of this.roles.values()) {
 			serializedRoles.push(role.serialize());
@@ -59,6 +56,7 @@ export default class UserManager {
 			users: serializedUsers,
 			roles: serializedRoles,
 		};
+		this.dirty = false;
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
 
@@ -80,6 +78,7 @@ export default class UserManager {
 
 		let user = new lib.User({ name, roles }, this.roles);
 		this.users.set(name, user);
+		this.dirty = true;
 		return user;
 	}
 

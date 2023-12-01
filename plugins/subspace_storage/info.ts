@@ -5,13 +5,6 @@ class ControllerConfigGroup extends lib.PluginConfigGroup {}
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "subspace_storage";
 ControllerConfigGroup.define({
-	name: "autosave_interval",
-	title: "Autosave Interval",
-	description: "Interval the storage is autosaved at in seconds.",
-	type: "number",
-	initial_value: 60,
-});
-ControllerConfigGroup.define({
 	name: "division_method",
 	title: "Division Method",
 	description: "Method for dividing resource requests between instances.",

@@ -46,9 +46,9 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
-		let currentHostInfo = this._controller.hosts!.get(this._id);
+		let currentHostInfo = this._controller.hosts.get(this._id);
 
-		this._controller.hosts!.set(this._id, {
+		this._controller.hosts.set(this._id, {
 			agent: this._agent,
 			id: this._id,
 			name: this._name,
@@ -57,6 +57,7 @@ export default class HostConnection extends BaseConnection {
 			plugins: registerData.plugins,
 			token_valid_after: currentHostInfo?.token_valid_after,
 		});
+		this._controller.hostsDirty = true;
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			// eslint-disable-next-line no-loop-func
@@ -69,14 +70,14 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
-			for (let instance of this._controller.instances!.values()) {
+			for (let instance of this._controller.instances.values()) {
 				if (instance.config.get("instance.assigned_host") !== this._id) {
 					continue;
 				}
 
 				let prev = instance.status;
 				instance.status = "unknown";
-				this._controller.instanceUpdated(instance);
+				this._controller.instanceDetailsUpdated(instance);
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 		});
@@ -104,7 +105,7 @@ export default class HostConnection extends BaseConnection {
 				break;
 
 			case lib.Address.instance:
-				let instance = this._controller.instances!.get(message.src.id);
+				let instance = this._controller.instances.get(message.src.id);
 				if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
 					throw new lib.InvalidMessage(
 						`Received message with invalid src ${message.src} from ${origin}`
@@ -156,7 +157,7 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {
-		let instance = this._controller.instances!.get(request.instanceId);
+		let instance = this._controller.instances.get(request.instanceId);
 
 		// It's possible to get updates from an instance that does not exist
 		// or is not assigned to the host it originated from if it was
@@ -180,13 +181,13 @@ export default class HostConnection extends BaseConnection {
 		instance.status = request.status as lib.InstanceStatus;
 		instance.game_port = request.gamePort || null;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		this._controller.instanceUpdated(instance);
+		this._controller.instanceDetailsUpdated(instance);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
 		// Push updated instance configs
-		for (let instance of this._controller.instances!.values()) {
+		for (let instance of this._controller.instances.values()) {
 			if (instance.config.get("instance.assigned_host") === this._id) {
 				await this.send(
 					new lib.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
@@ -199,7 +200,7 @@ export default class HostConnection extends BaseConnection {
 			let instanceConfig = new lib.InstanceConfig("controller");
 			await instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
 
-			let controllerInstance = this._controller.instances!.get(instanceConfig.get("instance.id"));
+			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
 				// Check if this instance is assigned somewhere else.
 				if (controllerInstance.config.get("instance.assigned_host") !== this._id) {
@@ -214,7 +215,7 @@ export default class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status as InstanceStatus;
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					this._controller.instanceUpdated(controllerInstance);
+					this._controller.instanceDetailsUpdated(controllerInstance);
 					await lib.invokeHook(
 						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
 					);
@@ -226,13 +227,15 @@ export default class HostConnection extends BaseConnection {
 			let newInstance = new InstanceInfo(
 				{ config: instanceConfig, status: instanceData.status as InstanceStatus }
 			);
-			this._controller.instances!.set(instanceConfig.get("instance.id"), newInstance);
+			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
+			this._controller.instancesDirty = true;
 			this._controller.addInstanceHooks(newInstance);
 			await this.send(
 				new lib.InstanceAssignInternalRequest(
 					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
 				)
 			);
+			this._controller.instanceDetailsUpdated(newInstance);
 			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 
@@ -289,7 +292,7 @@ export default class HostConnection extends BaseConnection {
 		user.recalculatePlayerStats();
 		this._controller.userUpdated(user);
 
-		let instance = this._controller.instances!.get(instanceId)!;
+		let instance = this._controller.instances.get(instanceId)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
 			type: event.type,
 			name: event.name,

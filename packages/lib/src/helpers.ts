@@ -51,6 +51,62 @@ export async function timeout<T>(promise: Promise<T>, time: number, timeoutResul
 	}
 }
 
+/**
+ * Helper to serialise and merge waiting calls to an async callback.
+ *
+ * Provides a convenient interface to serialise the calls made to an async
+ * callback such that no overlapping invocations of the callback is made.
+ * If the callback is already running when another invocation is requested
+ * the request will be queued until the callback returns and then an the
+ * callback called again.
+ *
+ * If multiple calls are made while the callback is running then these will
+ * be merged into one call of the callback.
+ */
+export class AsyncSerialMergingCallback {
+	private _currentlyRunning = false;
+	private _currentlyWaiting: (() => void)[] = [];
+
+	/**
+	 * @param callback - Async function to serialise access to
+	 */
+	constructor(
+		public callback: () => Promise<void>,
+	) { }
+
+	/**
+	 * Invoke the assosiated callback.
+	 *
+	 * If the callback is currently running then this will wait until the
+	 * existing invocation finishes and then invoke it again. If called
+	 * multiple times while an invocation is running the calls will be
+	 * merged into one call.
+	 */
+	async invoke() {
+		if (this._currentlyRunning) {
+			const waitForCompletion = () => new Promise<void>(resolve => {
+				this._currentlyWaiting.push(resolve);
+			});
+			await waitForCompletion();
+			if (this._currentlyRunning) {
+				await waitForCompletion();
+				return;
+			}
+		}
+
+		this._currentlyRunning = true;
+		try {
+			await this.callback();
+		} finally {
+			this._currentlyRunning = false;
+			for (const waiter of this._currentlyWaiting) {
+				waiter();
+			}
+			this._currentlyWaiting.length = 0;
+		}
+	}
+}
+
 
 /**
  * Read stream to the end and return its content

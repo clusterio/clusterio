@@ -75,9 +75,9 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	itemUpdateRateLimiter!: lib.RateLimiter;
 	itemsLastUpdate!: Map<string, number>;
 	subscribedControlLinks!: Set<ControlConnection>;
-	autosaveId!: ReturnType<typeof setInterval>;
 	doleMagicId!: ReturnType<typeof setInterval>;
 	neuralDole!: dole.NeuralDole;
+	storageDirty = false;
 
 	async init() {
 		this.items = await loadDatabase(this.controller.config, this.logger);
@@ -92,11 +92,6 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			},
 		});
 		this.itemsLastUpdate = new Map(this.items.getEntries());
-		this.autosaveId = setInterval(() => {
-			saveDatabase(this.controller.config, this.items, this.logger).catch(err => {
-				this.logger.error(`Unexpected error autosaving items:\n${err.stack}`);
-			});
-		}, this.controller.config.get("subspace_storage.autosave_interval") as number * 1000);
 
 		this.neuralDole = new dole.NeuralDole({ items: this.items });
 		this.doleMagicId = setInterval(() => {
@@ -117,6 +112,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	updateStorage() {
 		this.itemUpdateRateLimiter.activate();
+		this.storageDirty = true;
 	}
 
 	broadcastStorage() {
@@ -180,7 +176,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}
 
 		} else {
-			let instance = this.controller.instances!.get(instanceId);
+			let instance = this.controller.instances.get(instanceId);
 			let instanceName = instance ? instance.config.get("instance.name") : "unkonwn";
 
 			// use fancy neural net to calculate a "fair" dole division rate.
@@ -254,8 +250,13 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async onShutdown() {
 		this.itemUpdateRateLimiter.cancel();
-		clearInterval(this.autosaveId);
 		clearInterval(this.doleMagicId);
-		await saveDatabase(this.controller.config, this.items, this.logger);
+	}
+
+	async onSaveData() {
+		if (this.storageDirty) {
+			this.storageDirty = false;
+			await saveDatabase(this.controller.config, this.items, this.logger);
+		}
 	}
 }

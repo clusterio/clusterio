@@ -383,7 +383,13 @@ async function startup() {
 		return;
 	}
 
-	controller = new Controller(clusterLogger, pluginInfos, controllerConfigPath, controllerConfig);
+	controller = new Controller(
+		clusterLogger,
+		pluginInfos,
+		controllerConfigPath,
+		controllerConfig,
+		...await Controller.bootstrap(controllerConfig)
+	);
 
 	let secondSigint = false;
 	process.on("SIGINT", () => {

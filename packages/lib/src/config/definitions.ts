@@ -32,6 +32,13 @@ ControllerGroup.define({
 	initial_value: "database",
 });
 ControllerGroup.define({
+	name: "autosave_interval",
+	title: "Autosave Interval",
+	description: "Interval in seconds to autosave data in memory to disk.",
+	type: "number",
+	initial_value: 60,
+});
+ControllerGroup.define({
 	name: "http_port",
 	title: "HTTP Port",
 	description: "Port to listen for HTTP connections on, set to null to not listen for HTTP connections.",
@@ -157,6 +164,7 @@ export class ControllerConfig extends classes.Config {
 	get(name: "controller.proxy_stream_timeout"): number;
 	get(name: "controller.default_mod_pack_id"): number | null;
 	get(name: "controller.default_role_id"): number | null;
+	get(name: "controller.autosave_interval"): number;
 	get(name: string): unknown;
 	get(name: string) {
 		return super.get(name);

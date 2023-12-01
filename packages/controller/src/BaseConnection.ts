@@ -50,7 +50,7 @@ export default class BaseConnection extends lib.Link {
 
 	async handleModPackGetRequest(request: lib.ModPackGetRequest): Promise<lib.ModPack> {
 		let { id } = request;
-		let modPack = this._controller.modPacks!.get(id);
+		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
@@ -62,7 +62,7 @@ export default class BaseConnection extends lib.Link {
 		if (id === null) {
 			throw new lib.RequestError("Default mod pack not set on controller");
 		}
-		let modPack = this._controller.modPacks!.get(id);
+		let modPack = this._controller.modPacks.get(id);
 		if (!modPack) {
 			throw new lib.RequestError(`Default mod pack configured (${id}) does not exist`);
 		}

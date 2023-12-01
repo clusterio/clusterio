@@ -48,16 +48,12 @@ export default class Controller {
 	config: lib.ControllerConfig;
 	app: Application;
 
-	/** Mapping of host id to host info */
-	hosts: Map<number, HostInfo> | null = null;
-	/** Mapping of instance id to instance info */
-	instances: Map<number, InstanceInfo> | null = null;
-	/** Mapping of mod pack id to mod pack */
-	modPacks: Map<number, lib.ModPack> | null = null;
-	/** Mapping of mod names to mod infos */
-	mods: Map<string, lib.ModInfo> | null = null;
-	/** User and roles manager for the cluster */
-	userManager: UserManager;
+	/** True if {@link Controller.hosts} has changed since last time it was saved */
+	hostsDirty = false;
+	/** True if {@link Controller.instances} has changed since last time it was saved */
+	instancesDirty = false;
+	/** True if {@link Controller.modPacks} has changed since last time it was saved */
+	modPacksDirty = false;
 
 	httpServer: http.Server | null = null;
 	httpServerCloser: HttpCloser | null = null;
@@ -85,15 +81,51 @@ export default class Controller {
 
 	devMiddleware: any | null = null;
 
+	autosaveInterval?: ReturnType<typeof setInterval>;
+
 	logDirectory: string = "";
 	clusterLogIndex: lib.LogIndex | null = null;
 	clusterLogBuildInterval: ReturnType<typeof setInterval> | null = null;
+
+	static async bootstrap(config: lib.ControllerConfig) {
+		let databaseDirectory = config.get("controller.database_directory");
+		await fs.ensureDir(databaseDirectory);
+
+		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
+		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
+		const modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
+		const userManager = new UserManager(config);
+		await userManager.load(path.join(databaseDirectory, "users.json"));
+
+		let modsDirectory = config.get("controller.mods_directory");
+		await fs.ensureDir(modsDirectory);
+		const mods = await Controller.loadModInfos(modsDirectory);
+
+		return [
+			hosts,
+			instances,
+			modPacks,
+			mods,
+			userManager,
+		] as const;
+	}
 
 	constructor(
 		clusterLogger: winston.Logger,
 		pluginInfos: any[],
 		configPath: string,
-		config: lib.ControllerConfig
+		config: lib.ControllerConfig,
+
+		/** Mapping of host id to host info */
+		public hosts = new Map<number, HostInfo>(),
+		/** Mapping of instance id to instance info */
+		public instances = new Map<number, InstanceInfo>(),
+		/** Mapping of mod pack id to mod pack */
+		public modPacks = new Map<number, lib.ModPack>(),
+		/** Mapping of mod names to mod infos */
+		public mods = new Map<string, lib.ModInfo>(),
+		/** User and roles manager for the cluster */
+		public userManager = new UserManager(config),
 	) {
 		this.clusterLogger = clusterLogger;
 		this.pluginInfos = pluginInfos;
@@ -105,7 +137,6 @@ export default class Controller {
 		this.app.locals.streams = new Map();
 
 		this.wsServer = new WsServer(this);
-		this.userManager = new UserManager(this.config);
 		this.subscriptions = new lib.SubscriptionController(this);
 
 		// Handle subscriptions for all internal properties
@@ -169,22 +200,13 @@ export default class Controller {
 			this._startDevServer(args);
 		}
 
-		let databaseDirectory = this.config.get("controller.database_directory");
-		await fs.ensureDir(databaseDirectory);
-
-		this.hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
-		this.instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
-		this.modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
-		await this.userManager.load(path.join(databaseDirectory, "users.json"));
-
-		let modsDirectory = this.config.get("controller.mods_directory");
-		await fs.ensureDir(modsDirectory);
-		this.mods = await Controller.loadModInfos(modsDirectory);
-
 		this.config.on("fieldChanged", (group, field, prev) => {
+			if (group.name === "controller" && field === "autosave_interval") {
+				this.onAutosaveIntervalChanged();
+			}
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
 		});
-		for (let instance of this.instances!.values()) {
+		for (let instance of this.instances.values()) {
 			this.addInstanceHooks(instance);
 		}
 
@@ -253,6 +275,8 @@ export default class Controller {
 			logger.info(`Listening for HTTPS on port ${(this.httpsServer.address() as AddressInfo).port}`);
 		}
 
+		this.onAutosaveIntervalChanged();
+
 		logger.info("Started controller");
 		this._state = "running";
 	}
@@ -317,39 +341,22 @@ export default class Controller {
 			clearInterval(this.clusterLogBuildInterval);
 		}
 
+		if (this.autosaveInterval) {
+			clearInterval(this.autosaveInterval);
+			this.autosaveInterval = undefined;
+		}
+
 		if (this.clusterLogIndex) {
 			await this.clusterLogIndex.save();
 		}
-
-		logger.info("Saving config");
-		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
 
 		if (this.devMiddleware) {
 			await new Promise((resolve, reject) => { this.devMiddleware.close(resolve); });
 		}
 
-		let databaseDirectory = this.config.get("controller.database_directory");
-		if (this.hosts) {
-			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
-		}
-
-		if (this.instances) {
-			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
-		}
-
-		if (this.modPacks) {
-			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
-		}
-
-		if (this.userManager) {
-			await this.userManager.save(path.join(databaseDirectory, "users.json"));
-		}
-
 		await lib.invokeHook(this.plugins, "onShutdown");
 
-		if (this.wsServer) {
-			await this.wsServer.stop();
-		}
+		await this.wsServer.stop();
 
 		let stopTasks = [];
 		logger.info("Stopping HTTP(S) server");
@@ -361,7 +368,67 @@ export default class Controller {
 		}
 		await Promise.all(stopTasks);
 
+		logger.info("Saving data");
+		await this.saveData();
 		logger.info("Goodbye");
+	}
+
+	onAutosaveIntervalChanged() {
+		if (this.autosaveInterval) {
+			clearInterval(this.autosaveInterval);
+			this.autosaveInterval = undefined;
+		}
+		const autosaveIntervalSeconds = this.config.get("controller.autosave_interval");
+		if (autosaveIntervalSeconds > 0) {
+			this.autosaveInterval = setInterval(this.saveData.bind(this), autosaveIntervalSeconds * 1000);
+		}
+	}
+
+	/**
+	 * Save all data currently in memory to disk
+	 *
+	 * Note: If a save is currently in progress this will wait until that
+	 * completes and start another save.
+	 */
+	async saveData() {
+		await this._saveDataAsyncSerial.invoke();
+	}
+
+	private _saveDataAsyncSerial = new lib.AsyncSerialMergingCallback(async () => {
+		try {
+			await this._saveDataInternal();
+		} catch (err: any) {
+			logger.error(`Unexpected error during saveData:\n${err.stack}`);
+		}
+	});
+
+	private async _saveDataInternal() {
+		if (this.config.dirty) {
+			this.config.dirty = false;
+			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
+		}
+
+		let databaseDirectory = this.config.get("controller.database_directory");
+		if (this.hostsDirty) {
+			this.hostsDirty = false;
+			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
+		}
+
+		if (this.instancesDirty) {
+			this.instancesDirty = false;
+			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
+		}
+
+		if (this.modPacksDirty) {
+			this.modPacksDirty = false;
+			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
+		}
+
+		if (this.userManager.dirty) {
+			await this.userManager.save(path.join(databaseDirectory, "users.json"));
+		}
+
+		await lib.invokeHook(this.plugins, "onSaveData");
 	}
 
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
@@ -489,14 +556,14 @@ export default class Controller {
 
 	async deleteMod(name: string, version: string): Promise<void> {
 		let filename = `${name}_${version}.zip`;
-		let mod = this.mods!.get(filename);
+		let mod = this.mods.get(filename);
 		if (!mod) {
 			throw new Error(`Mod ${filename} does not exist`);
 		}
 
 		let modsDirectory = this.config.get("controller.mods_directory");
 		await fs.unlink(path.join(modsDirectory, filename));
-		this.mods!.delete(filename);
+		this.mods.delete(filename);
 		mod.isDeleted = true;
 		this.modUpdated(mod);
 	}
@@ -603,7 +670,7 @@ export default class Controller {
 	 * @throws {module:lib.RequestError} if the instance does not exist.
 	 */
 	getRequestInstance(instanceId:number): InstanceInfo {
-		let instance = this.instances!.get(instanceId);
+		let instance = this.instances.get(instanceId);
 		if (!instance) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
@@ -629,7 +696,7 @@ export default class Controller {
 	 */
 	async instanceCreate(instanceConfig: lib.InstanceConfig): Promise<InstanceInfo> {
 		let instanceId = instanceConfig.get("instance.id");
-		if (this.instances!.has(instanceId)) {
+		if (this.instances.has(instanceId)) {
 			throw new lib.RequestError(`Instance with ID ${instanceId} already exists`);
 		}
 
@@ -660,9 +727,11 @@ export default class Controller {
 		instanceConfig.set("factorio.settings", settings);
 
 		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
-		this.instances!.set(instanceId, instance);
+		this.instances.set(instanceId, instance);
+		this.instancesDirty = true;
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
+		this.instanceDetailsUpdated(instance);
 		return instance;
 	}
 
@@ -707,13 +776,14 @@ export default class Controller {
 
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
+		this.instancesDirty = true;
 		if (hostId !== null && newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);
 		} else {
 			instance.status = "unassigned";
-			this.instanceUpdated(instance);
+			this.instanceDetailsUpdated(instance);
 		}
 	}
 
@@ -731,11 +801,12 @@ export default class Controller {
 		if (hostId !== null) {
 			await this.sendTo({ hostId }, new lib.InstanceDeleteInternalRequest(instanceId));
 		}
-		this.instances!.delete(instanceId);
+		this.instances.delete(instanceId);
+		this.instancesDirty = true;
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		this.instanceUpdated(instance);
+		this.instanceDetailsUpdated(instance);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -763,16 +834,15 @@ export default class Controller {
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
 			if (group.name === "instance" && field === "name") {
-				this.instanceUpdated(instance);
+				this.instanceDetailsUpdated(instance);
 			}
 
+			this.instancesDirty = true;
 			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
 		});
-
-		this.instanceUpdated(instance);
 	}
 
-	instanceUpdated(instance: InstanceInfo) {
+	instanceDetailsUpdated(instance: InstanceInfo) {
 		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
 		if (assigned_host === null) {
 			assigned_host = undefined;
@@ -799,6 +869,7 @@ export default class Controller {
 	}
 
 	modPackUpdated(modPack: lib.ModPack) {
+		this.modPacksDirty = true;
 		this.subscriptions.broadcast(new lib.ModPackUpdateEvent(modPack));
 		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
@@ -809,6 +880,7 @@ export default class Controller {
 	}
 
 	userUpdated(user: lib.User) {
+		this.userManager.dirty = true;
 		this.subscriptions.broadcast(new lib.UserUpdateEvent(
 			new lib.RawUser(
 				user.name,
@@ -1109,7 +1181,7 @@ export default class Controller {
 			connection = this.wsServer.controlConnections.get(dst.id);
 
 		} else if (dst.type === lib.Address.instance) {
-			let instance = this.instances!.get(dst.id);
+			let instance = this.instances.get(dst.id);
 			if (!instance) {
 				return;
 			}

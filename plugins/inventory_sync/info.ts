@@ -5,13 +5,6 @@ class ControllerConfigGroup extends lib.PluginConfigGroup { }
 ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
 ControllerConfigGroup.groupName = "inventory_sync";
 ControllerConfigGroup.define({
-	name: "autosave_interval",
-	title: "Autosave Interval",
-	description: "Interval the player data is autosaved at in seconds.",
-	type: "number",
-	initial_value: 600, // 10 minutes
-});
-ControllerConfigGroup.define({
 	name: "player_lock_timeout",
 	title: "Player Lock Timeout",
 	description:

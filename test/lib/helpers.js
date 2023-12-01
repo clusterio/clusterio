@@ -44,6 +44,66 @@ describe("lib/helpers", function() {
 		});
 	});
 
+	describe("class AsyncSerialMergingCallback", function() {
+		let started;
+		let ended;
+		let merger;
+		beforeEach(function() {
+			started = 0;
+			ended = 0;
+			merger = new lib.AsyncSerialMergingCallback(
+				() => new Promise(resolve => {
+					started += 1;
+					process.nextTick(() => {
+						ended += 1;
+						resolve();
+					});
+				})
+			);
+		});
+		it("should await the callback when invoked", async function() {
+			await merger.invoke();
+			assert.equal(started, 1, "incorrect started count");
+			assert.equal(ended, 1, "incorrect ended count");
+		});
+		it("should immediately call the callback", async function() {
+			let promise = merger.invoke();
+			assert.equal(started, 1, "incorrect started count");
+			assert.equal(ended, 0, "incorrect ended count");
+			await promise;
+			assert.equal(started, 1, "incorrect started count");
+			assert.equal(ended, 1, "incorrect ended count");
+		});
+		it("should call the callback twice if invoked in twice in paralell", async function() {
+			await Promise.all([
+				merger.invoke(),
+				merger.invoke(),
+			]);
+			assert.equal(started, 2, "incorrect started count");
+			assert.equal(ended, 2, "incorrect ended count");
+		});
+		it("should call the callback twice if invoked many times in paralell", async function() {
+			await Promise.all([
+				merger.invoke(),
+				merger.invoke(),
+				merger.invoke(),
+				merger.invoke(),
+			]);
+			assert.equal(started, 2, "incorrect started count");
+			assert.equal(ended, 2, "incorrect ended count");
+		});
+		it("should serialise calls", async function() {
+			let events = [];
+			await Promise.all([
+				merger.invoke().then(() => { events.push(1); }),
+				merger.invoke().then(() => { events.push(2); }),
+				merger.invoke().then(() => { events.push(3); }),
+				merger.invoke().then(() => { events.push(4); }),
+			]);
+			assert.deepEqual(events, [1, 2, 3, 4]);
+		});
+	});
+
 	function parse(input, attributes) {
 		const result = lib.parseSearchString(input, attributes);
 		if (!result.issues.length) {

@@ -85,6 +85,9 @@ export class Config extends events.EventEmitter {
 	_groups = new Map<string, ConfigGroup>();
 	_unknownGroups = new Map<string, SerializedGroup>();
 
+	/** Set to true when a field in the config is changed. */
+	dirty = false;
+
 	/**
 	 * Create a new instance of the given config
 	 *
@@ -566,6 +569,7 @@ export class ConfigGroup {
 		let prev = this._fields.get(name);
 		this._fields.set(name, value);
 		if (this.config && !isDeepStrictEqual(value, prev)) {
+			this.config.dirty = true;
 			this.config.emit("fieldChanged", this, name, prev);
 		}
 	}
@@ -604,6 +608,7 @@ export class ConfigGroup {
 		}
 		this._fields.set(name, updated);
 		if (this.config && !isDeepStrictEqual(updated, prev)) {
+			this.config.dirty = true;
 			this.config.emit("fieldChanged", this, name, prev);
 		}
 	}
@@ -663,6 +668,7 @@ export class ConfigGroup {
 			let prev = this._fields.get(name);
 			this._fields.set(name, value);
 			if (notify && this.config && !isDeepStrictEqual(value, prev)) {
+				this.config.dirty = true;
 				this.config.emit("fieldChanged", this, name, prev);
 			}
 		}
