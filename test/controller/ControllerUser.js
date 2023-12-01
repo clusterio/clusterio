@@ -1,13 +1,14 @@
 "use strict";
 const assert = require("assert").strict;
 const { ControllerUser } = require("@clusterio/controller");
+const lib = require("@clusterio/lib");
 
 describe("controller/src/ControllerUser", function() {
 	describe("class ControllerUser", function() {
 		class MockUserManager {
 			roles = new Map([
 				[1, new lib.Role(1, "a", "a role", new Set(["core.admin"]))],
-				[2, new lib.Role(2, "b", "b role", new Set(["test"]))],
+				[2, new lib.Role(2, "b", "b role", new Set(["user-test"]))],
 			]);
 		}
 		const userManager = new MockUserManager();
@@ -15,7 +16,7 @@ describe("controller/src/ControllerUser", function() {
 		it("should round trip serialize", function() {
 			function test_roundtrip(serialized) {
 				let user = ControllerUser.fromJSON(serialized, userManager);
-				let user_serialized = user.toJSON();
+				let user_serialized = user.toJSON(true);
 				assert.deepEqual(user_serialized, serialized);
 				let user_deserialized = ControllerUser.fromJSON(user_serialized, userManager);
 				assert.deepEqual(user_deserialized, user);
@@ -29,6 +30,7 @@ describe("controller/src/ControllerUser", function() {
 		});
 		describe(".checkPermission()", function() {
 			it("should correctly resolve permissions", function() {
+				lib.definePermission({ name: "user-test", title: "Test", description: "User Test" });
 				let a = ControllerUser.fromJSON({ name: "admin", roles: [1] }, userManager);
 				let b = ControllerUser.fromJSON({ name: "user", roles: [2] }, userManager);
 				let c = ControllerUser.fromJSON({ name: "null", roles: [] }, userManager);
@@ -37,9 +39,9 @@ describe("controller/src/ControllerUser", function() {
 				assert.throws(() => b.checkPermission("core.control.connect"), new Error("Permission denied"));
 				assert.throws(() => c.checkPermission("core.control.connect"), new Error("Permission denied"));
 
-				a.checkPermission("test");
-				b.checkPermission("test");
-				assert.throws(() => c.checkPermission("test"), new Error("Permission denied"));
+				a.checkPermission("user-test");
+				b.checkPermission("user-test");
+				assert.throws(() => c.checkPermission("user-test"), new Error("Permission denied"));
 
 				assert.throws(() => a.checkPermission("invalid"), new Error("permission invalid does not exist"));
 			});

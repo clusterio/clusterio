@@ -26,7 +26,7 @@ export default class ControllerUser extends User implements IControllerUser {
 		);
 		const playerStats = User._calculatePlayerStats(instanceStats);
 		return new this(
-			userManager!,
+			userManager,
 			json.token_valid_after,
 			json.name,
 			roleIds,
@@ -46,10 +46,12 @@ export default class ControllerUser extends User implements IControllerUser {
 			return super.toJSON();
 		}
 
-		return {
-			...super.toJSON(),
-			token_valid_after: this.tokenValidAfter || undefined,
-		};
+		const json: Static<typeof ControllerUser.jsonSchema> = super.toJSON();
+		if (this.tokenValidAfter) {
+			json.token_valid_after = this.tokenValidAfter;
+		}
+
+		return json;
 	}
 
 	get roles(): ReadonlySet<Readonly<Role>> {
