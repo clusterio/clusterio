@@ -679,11 +679,15 @@ export default class ControlConnection extends BaseConnection {
 	async handleRoleDeleteRequest(request: lib.RoleDeleteRequest) {
 		let id = request.id;
 
-		this._controller.userManager.roles.delete(id);
+		if (!this._controller.userManager.roles.delete(id)) {
+			throw new lib.RequestError(`Role with ID ${id} does not exist`);
+		}
 		this._controller.userManager.dirty = true;
+
 		for (let user of this._controller.userManager.users.values()) {
-			user.roleIds.delete(id);
-			this._controller.userPermissionsUpdated(user);
+			if (user.roleIds.delete(id)) {
+				this._controller.userPermissionsUpdated(user);
+			}
 		}
 	}
 
@@ -698,11 +702,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleUserListRequest(): Promise<lib.User[]> {
-		let list = [];
-		for (let user of this._controller.userManager.users.values()) {
-			list.push(user);
-		}
-		return list;
+		return [...this._controller.userManager.users.values()];
 	}
 
 	async handleUserCreateRequest(request: lib.UserCreateRequest) {

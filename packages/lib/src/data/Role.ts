@@ -1,5 +1,5 @@
 import { Static, Type } from "@sinclair/typebox";
-import { permissions as globalPermissions } from "../users";
+import { permissions as globalPermissions } from "../permissions";
 
 /**
  * Represents a collection of granted permissions

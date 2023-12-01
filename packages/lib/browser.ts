@@ -7,9 +7,9 @@ export * from "./src/helpers";
 export * from "./src/ini";
 export * from "./src/link";
 export * from "./src/logging";
+export * from "./src/permissions";
 export * from "./src/plugin";
 export * from "./src/schema";
-export * from "./src/users";
 export * from "./src/subscriptions";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
