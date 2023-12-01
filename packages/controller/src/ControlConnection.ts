@@ -687,7 +687,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 	}
 
-	async handleUserGetRequest(request: lib.UserGetRequest) {
+	async handleUserGetRequest(request: lib.UserGetRequest): Promise<lib.User> {
 		let name = request.name;
 		let user = this._controller.userManager.users.get(name);
 		if (!user) {
@@ -697,7 +697,7 @@ export default class ControlConnection extends BaseConnection {
 		return user;
 	}
 
-	async handleUserListRequest() {
+	async handleUserListRequest(): Promise<lib.User[]> {
 		let list = [];
 		for (let user of this._controller.userManager.users.values()) {
 			list.push(user);
