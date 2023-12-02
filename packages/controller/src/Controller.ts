@@ -36,6 +36,8 @@ const logSizeGauge = new Gauge(
 	"Size of all log files currently stored on the controller."
 );
 
+type InstanceId = { instanceId: number };
+
 /**
  * Manages all controller related operations
  * @alias module:controller/src/Controller
@@ -1207,17 +1209,19 @@ export default class Controller {
 		}
 	}
 
-	async sendToHostByInstanceId(requestOrEvent: any) {
+	async sendToHostByInstanceId<Req extends InstanceId, Res>(request: Req & lib.Request<Req, Res>): Promise<Res>;
+	sendToHostByInstanceId<T extends InstanceId>(event: T & lib.Event<T>): void;
+	async sendToHostByInstanceId(requestOrEvent: lib.Request<unknown, unknown> | lib.Event<unknown>) {
 		if (requestOrEvent.constructor.type === "request") {
-			return this.sendRequestToHostByInstanceId(requestOrEvent);
+			return this.sendRequestToHostByInstanceId(requestOrEvent as any);
 		}
 		if (requestOrEvent.constructor.type === "event") {
-			return this.sendEventToHostByInstanceId(requestOrEvent);
+			return this.sendEventToHostByInstanceId(requestOrEvent as any);
 		}
-		throw Error(`Unknown type ${requestOrEvent.constructor.type}.`);
+		throw Error(`Unknown type ${(requestOrEvent.constructor as any).type}.`);
 	}
 
-	async sendRequestToHostByInstanceId(request: any) {
+	async sendRequestToHostByInstanceId<Req extends InstanceId, Res>(request: Req & lib.Request<Req, Res>) {
 		let instance = this.getRequestInstance(request.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {
@@ -1230,7 +1234,7 @@ export default class Controller {
 		return await connection.send(request);
 	}
 
-	sendEventToHostByInstanceId(event: any) {
+	sendEventToHostByInstanceId<T extends { instanceId: number }>(event: T & lib.Event<T>) {
 		let instance = this.getRequestInstance(event.instanceId);
 		let hostId = instance.config.get("instance.assigned_host");
 		if (hostId === null) {

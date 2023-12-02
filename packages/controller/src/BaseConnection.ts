@@ -13,7 +13,7 @@ import ControllerRouter from "./ControllerRouter";
  * @alias module:controller/src/BaseConnection
  */
 export default class BaseConnection extends lib.Link {
-	declare connector: lib.WebSocketBaseConnector;
+	declare ["connector"]: WsServerConnector;
 
 	constructor(
 		connector: lib.WebSocketBaseConnector,

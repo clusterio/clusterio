@@ -88,9 +88,9 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
-		this.handle(lib.InstanceRenameSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
-		this.handle(lib.InstanceCopySaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
-		this.handle(lib.InstanceDeleteSaveRequest, this._controller.sendToHostByInstanceId.bind(this._controller));
+		this.handle(lib.InstanceRenameSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
+		this.handle(lib.InstanceCopySaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
+		this.handle(lib.InstanceDeleteSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
 		this.handle(lib.InstanceDownloadSaveRequest, this.handleInstanceDownloadSaveRequest.bind(this));
 		this.handle(lib.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
 		this.handle(lib.ModPackListRequest, this.handleModPackListRequest.bind(this));
@@ -576,7 +576,7 @@ export default class ControlConnection extends BaseConnection {
 		stream.filename = mod.filename;
 		stream.source = fs.createReadStream(modPath);
 		stream.mime = "application/zip";
-		stream.size = mod.size;
+		stream.size = String(mod.size);
 
 		return stream.id;
 	}
