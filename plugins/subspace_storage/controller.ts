@@ -57,7 +57,7 @@ async function loadDatabase(
 
 async function saveDatabase(
 	controllerConfig: lib.ControllerConfig,
-	items: lib.ItemDatabase,
+	items: lib.ItemDatabase | undefined,
 	logger: lib.Logger,
 ) {
 	if (items && items.size < 50000) {

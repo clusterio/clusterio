@@ -74,7 +74,7 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 				the instance.  Note that reassigning an instance from
 				one host to another will not move the server save over.
 			</Paragraph>
-			<Form form={form} initialValues={{ host: props.hostId === null ? "null" : props.hostId }}>
+			<Form form={form} initialValues={{ host: props.hostId ?? "null" }}>
 				<Form.Item name="host" label="Host">
 					<Select>
 						<Select.Option value={"null"}>

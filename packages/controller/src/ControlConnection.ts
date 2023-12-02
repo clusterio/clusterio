@@ -230,10 +230,10 @@ export default class ControlConnection extends BaseConnection {
 		await hostConfig.init();
 
 		hostConfig.set("host.controller_url", this._controller.getControllerUrl());
-		if (request.id !== null) {
+		if (request.id !== undefined) {
 			hostConfig.set("host.id", request.id);
 		}
-		if (request.name !== null) {
+		if (request.name !== undefined) {
 			hostConfig.set("host.name", request.name);
 		}
 		if (request.generateToken) {

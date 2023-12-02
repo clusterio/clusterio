@@ -75,7 +75,7 @@ export default function UsersPage() {
 	return <PageLayout nav={[{ name: "Users" }]}>
 		<PageHeader
 			title="Users"
-			extra={account.hasPermission("core.user.create") && <CreateUserButton /> || undefined}
+			extra={account.hasPermission("core.user.create") ? <CreateUserButton /> : undefined}
 		/>
 		<Table
 			columns={[

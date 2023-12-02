@@ -69,7 +69,7 @@ export class FinishedEvent {
 	declare ["constructor"]: typeof FinishedEvent;
 	static type = "event" as const;
 	static src = ["instance", "controller"] as const;
-	static dst = "instance" as const;
+	static dst = ["instance", "controller"] as const;
 	static plugin = "research_sync" as const;
 
 	constructor(

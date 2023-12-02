@@ -19,9 +19,7 @@ export default class ExportManifest {
 		 * - locale: JSON of flattened Map entries of en locale strings from the game.
 		 */
 		public assets: Record<string, string>
-	) {
-		if (assets) { this.assets = assets; }
-	}
+	) { }
 
 	static jsonSchema = Type.Object({
 		"assets": Type.Record(Type.String(), Type.String()),

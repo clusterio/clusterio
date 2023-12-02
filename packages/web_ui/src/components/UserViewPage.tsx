@@ -93,7 +93,7 @@ export default function UserViewPage() {
 				return role?.name.toLowerCase().includes(inputValue.toLowerCase()) ?? false;
 			}}
 		>
-			{roles && [...roles.values()].map(r => <Select.Option
+			{[...roles.values()].map(r => <Select.Option
 				key={r.id}
 				value={r.id}
 			>{r.name}</Select.Option>)}
@@ -182,7 +182,7 @@ export default function UserViewPage() {
 						{account.hasPermission("core.user.update_roles")
 							? roleSelector
 							: [...user.roleIds!].map(id => <Tag key={id}>{
-								roles ? (roles.get(id) || { name: id }).name : id
+								roles?.get(id)?.name ?? id
 							}</Tag>)
 						}
 					</Col>

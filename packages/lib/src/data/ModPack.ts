@@ -281,7 +281,7 @@ export default class ModPack {
 		function propertyTreeBytes(element: PropertyType) {
 			let type: number;
 			let dataBytes: Buffer;
-			if (typeof element === null) {
+			if (element === null) {
 				type = 1;
 				dataBytes = Buffer.alloc(0);
 			} else if (typeof element === "boolean") {

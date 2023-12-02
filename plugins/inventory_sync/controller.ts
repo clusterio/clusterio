@@ -24,7 +24,7 @@ async function loadDatabase(config: lib.ControllerConfig, logger: lib.Logger) {
 
 async function saveDatabase(
 	controllerConfig: lib.ControllerConfig,
-	playerDatastore: Map<string, IpcPlayerData>,
+	playerDatastore: Map<string, IpcPlayerData> | undefined,
 	logger: lib.Logger,
 ) {
 	if (playerDatastore) {

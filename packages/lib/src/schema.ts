@@ -21,7 +21,7 @@ export function compile<T>(schema: JSONSchemaType<T>) {
 		return ajv.compile<T>(schema);
 	}
 
-	let doValidate: ValidateFunction<T>;
+	let doValidate: ValidateFunction<T> | undefined;
 	const validate = <ValidateFunction<T>> function (data) {
 		if (!doValidate) {
 			doValidate = ajv.compile(schema);

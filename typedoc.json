@@ -1,6 +1,12 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
-	"entryPoints": ["packages/lib/"],
+	"entryPoints": [
+		"packages/lib/",
+		"packages/controller/",
+		"packages/host/",
+		"packages/ctl/",
+		"packages/web_ui/",
+	],
 	"entryPointStrategy": "packages",
 	"cleanOutputDir": false,
 	"out": "docs/api"

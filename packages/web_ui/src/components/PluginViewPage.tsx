@@ -11,7 +11,7 @@ import notify from "../util/notify";
 export default function PluginViewPage() {
 	let params = useParams();
 	let plugins = useContext(ControlContext).plugins;
-	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
+	let [pluginList, setPluginList] = useState<PluginWebApi[]>();
 	let pluginName = String(params.name);
 
 	useEffect(() => {
