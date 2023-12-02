@@ -1438,19 +1438,19 @@ roleCommands.add(new lib.Command({
 			role.description = args.description;
 		}
 		if (args.addPerms) {
-			role.permissions = role.permissions.concat(args.addPerms);
+			for (const perm of args.addPerms) {
+				role.permissions.add(perm);
+			}
 		}
 		if (args.removePerms) {
-			let perms = new Set(role.permissions);
 			for (let perm of args.removePerms) {
-				perms.delete(perm);
+				role.permissions.delete(perm);
 			}
-			role.permissions = [...perms];
 		}
 		if (args.setPerms !== undefined) {
-			role.permissions = args.setPerms;
+			role.permissions = new Set(args.setPerms);
 		}
-		await control.send(new lib.RoleUpdateRequest(role.id, role.name, role.description, role.permissions));
+		await control.send(new lib.RoleUpdateRequest(role.id, role.name, role.description, [...role.permissions]));
 
 		if (args.grantDefault) {
 			await control.send(new lib.RoleGrantDefaultPermissionsRequest(role.id));
@@ -1480,8 +1480,10 @@ userCommands.add(new lib.Command({
 	handler: async function(args: { name: string, instanceStats: boolean }, control: Control) {
 		let user = await control.send(new lib.UserGetRequest(args.name));
 		Object.assign(user, user.playerStats);
+		// @ts-expect-error Terrible hack
 		delete user.playerStats;
 		let instanceStats = user.instanceStats;
+		// @ts-expect-error Terrible hack
 		delete user.instanceStats;
 		print(asTable(Object.entries(user).map(([property, value]) => ({ property, value }))));
 
@@ -1516,13 +1518,20 @@ userCommands.add(new lib.Command({
 			if (args.stats) {
 				Object.assign(user, user.playerStats);
 			}
+			// @ts-expect-error Terrible hack
 			delete user.playerStats;
+			// @ts-expect-error Terrible hack
 			delete user.isDeleted;
+			// @ts-expect-error Terrible hack
 			delete user.banReason;
+			// @ts-expect-error Terrible hack
 			delete user.instanceStats;
 			if (!args.attributes) {
+				// @ts-expect-error Terrible hack
 				delete user.isAdmin;
+				// @ts-expect-error Terrible hack
 				delete user.isWhitelisted;
+				// @ts-expect-error Terrible hack
 				delete user.isBanned;
 			}
 		}

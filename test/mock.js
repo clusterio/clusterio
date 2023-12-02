@@ -6,6 +6,7 @@ const express = require("express");
 const lib = require("@clusterio/lib");
 
 const UserManager = require("@clusterio/controller/dist/src/UserManager").default;
+const ControllerUser = require("@clusterio/controller/dist/src/ControllerUser").default;
 
 const addr = lib.Address.fromShorthand;
 
@@ -167,14 +168,14 @@ class MockController {
 
 		this.userManager = new UserManager(this.config);
 		this.userManager.roles = new Map([
-			[0, new lib.Role({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
-			[1, new lib.Role({ id: 1, name: "Player", description: "player", permissions: [] })],
+			[0, lib.Role.fromJSON({ id: 0, name: "Admin", description: "admin", permissions: ["core.admin"] })],
+			[1, lib.Role.fromJSON({ id: 1, name: "Player", description: "player", permissions: [] })],
 		]);
 		this.userManager.roles.get(1).grantDefaultPermissions();
 
 		this.userManager.users = new Map([
-			["test", new lib.User({ name: "test", roles: [0, 1] }, this.userManager.roles)],
-			["player", new lib.User({ name: "player", roles: [1] }, this.userManager.roles)],
+			["test", ControllerUser.fromJSON({ name: "test", roles: [0, 1] }, this.userManager)],
+			["player", ControllerUser.fromJSON({ name: "player", roles: [1] }, this.userManager)],
 		]);
 		this.instances = new Map();
 		this.hosts = new Map();

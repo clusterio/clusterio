@@ -6,22 +6,9 @@
  * @author Hornwitser
  * @module lib/users
  */
-import * as libErrors from "./errors";
-
-import PlayerStats from "./PlayerStats";
+import { Permission, Role } from "./data";
 
 
-/**
- * Represents a permission that can be granted
- */
-export class Permission {
-	constructor(
-		public name: string,
-		public title: string,
-		public description: string,
-		public grantByDefault: boolean,
-	) { }
-}
 export const permissions = new Map<string, Permission>();
 
 /**
@@ -70,40 +57,6 @@ export function definePermission({
 	permissions.set(name, new Permission(name, title, description, grantByDefault));
 }
 
-/**
- * Represents a collection of granted permissions
- */
-export class Role {
-	id: number;
-	name: string;
-	description: string;
-	permissions: Set<string>;
-
-	constructor(serializedRole: ReturnType<Role["serialize"]>) {
-		this.id = serializedRole.id;
-		this.name = serializedRole.name;
-		this.description = serializedRole.description;
-		this.permissions = new Set(serializedRole.permissions);
-	}
-
-	serialize() {
-		return {
-			id: this.id,
-			name: this.name,
-			description: this.description,
-			permissions: [...this.permissions],
-		};
-	}
-
-	grantDefaultPermissions() {
-		for (let permission of permissions.values()) {
-			if (permission.grantByDefault) {
-				this.permissions.add(permission.name);
-			}
-		}
-	}
-}
-
 
 /**
  * Ensure the default admin role has full access
@@ -116,7 +69,7 @@ export class Role {
 export function ensureDefaultAdminRole(roles: Map<number, Role>) {
 	let admin = roles.get(0);
 	if (!admin) {
-		admin = new Role({
+		admin = Role.fromJSON({
 			id: 0,
 			name: "Cluster Admin",
 			description: "Cluster wide administrator.",
@@ -140,7 +93,7 @@ export function ensureDefaultAdminRole(roles: Map<number, Role>) {
 export function ensureDefaultPlayerRole(roles: Map<number, Role>) {
 	let player = roles.get(1);
 	if (!player) {
-		player = new Role({
+		player = Role.fromJSON({
 			id: 1,
 			name: "Player",
 			description: "Default player role.",
@@ -151,188 +104,6 @@ export function ensureDefaultPlayerRole(roles: Map<number, Role>) {
 	player.grantDefaultPermissions();
 }
 
-
-/**
- * Represeents a user in the cluster
- *
- * Holds data about a Factorio user in the cluster.
- */
-export class User {
-	/** Factorio user name.  */
-	name: string;
-	/** Instances this user is online on.  */
-	instances: Set<number>;
-	/** Unix time in seconds the user token must be issued after to be valid.  */
-	tokenValidAfter: number;
-	/** True if the user is promoted to admin on the Factorio instances.  */
-	isAdmin: boolean;
-	/** True if the user is whitelisted on the Factorio instances.  */
-	isWhitelisted: boolean;
-	/** True if the user is banned from Factorio instances.  */
-	isBanned: boolean;
-	/** Reason for being banned.  Ignored if isBanned is false.  */
-	banReason: string;
-	/** Roles this user has */
-	roles: Set<Role>;
-	/** Per instance statistics for the player this user account is tied to.  */
-	instanceStats: Map<number, PlayerStats>;
-	/** Combined statistics for the player this user account is tied to.  */
-	playerStats: PlayerStats;
-	/** True if this user object has been removed from the cluster.  */
-	isDeleted: boolean;
-
-	constructor(
-		serializedUser: ReturnType<User["serialize"]>,
-		loadedRoles: Map<number, Role>
-	) {
-		this.name = serializedUser.name;
-		this.instances = new Set();
-		this.tokenValidAfter = serializedUser.token_valid_after || 0;
-		this.isAdmin = Boolean(serializedUser.is_admin);
-		this.isWhitelisted = Boolean(serializedUser.is_whitelisted);
-		this.isBanned = Boolean(serializedUser.is_banned);
-		this.banReason = serializedUser.ban_reason || "";
-		this.roles = new Set();
-		if (serializedUser.roles) {
-			for (let roleId of serializedUser.roles) {
-				let role = loadedRoles.get(roleId);
-				if (role) {
-					this.roles.add(role);
-				}
-			}
-		}
-		this.instanceStats = new Map(
-			(serializedUser.instance_stats ? serializedUser.instance_stats : []).map(
-				([id, stats]) => [id, new PlayerStats(stats)]
-			)
-		);
-		this.playerStats = this._calculatePlayerStats();
-		this.isDeleted = false;
-	}
-
-	serialize() {
-		let serialized: {
-			name: string,
-			roles?: number[],
-			token_valid_after?: number,
-			is_admin?: boolean,
-			is_whitelisted?: boolean,
-			is_banned?: boolean,
-			ban_reason?: string,
-			instance_stats?: [number, object][],
-		} = {
-			name: this.name,
-		};
-
-		if (this.roles.size) {
-			serialized.roles = [...this.roles].map(role => role.id);
-		}
-
-		if (this.tokenValidAfter) {
-			serialized.token_valid_after = this.tokenValidAfter;
-		}
-
-		if (this.isAdmin) {
-			serialized.is_admin = true;
-		}
-
-		if (this.isWhitelisted) {
-			serialized.is_whitelisted = true;
-		}
-
-		if (this.isBanned) {
-			serialized.is_banned = true;
-		}
-
-		if (this.banReason) {
-			serialized.ban_reason = this.banReason;
-		}
-
-		if (this.instanceStats.size) {
-			serialized.instance_stats = [...this.instanceStats].map(([id, stats]) => [id, stats.toJSON()]);
-		}
-
-		return serialized;
-	}
-
-	/**
-	 * Invalidate current tokens for the user
-	 *
-	 * Sets the tokenValidAfter property to the current time, which causes
-	 * all currently issued tokens for the user to become invalid.
-	 */
-	invalidateToken() {
-		this.tokenValidAfter = Math.floor(Date.now() / 1000);
-	}
-
-	/**
-	 * Check if a given permission is granted
-	 *
-	 * Checks the roles the user is member of for one that grants the given
-	 * permission.  If the permission is not granted for the user a
-	 * "Permission denied" error is thrown.
-	 *
-	 * @param permission - The permission to check for.
-	 * @throws {Error} If the given permission does not exist.
-	 * @throws {libErrors.PermissionError} if the user does noh have the given permission.
-	 */
-	checkPermission(permission: string) {
-		if (!permissions.has(permission)) {
-			throw new Error(`permission ${permission} does not exist`);
-		}
-
-		for (let role of this.roles) {
-			if (role.permissions.has("core.admin") || role.permissions.has(permission)) {
-				return;
-			}
-		}
-
-		throw new libErrors.PermissionError("Permission denied");
-	}
-
-	notifyJoin(instance_id: number) {
-		this.instances.add(instance_id);
-		User.onlineUsers.add(this);
-	}
-
-	notifyLeave(instance_id: number) {
-		this.instances.delete(instance_id);
-		if (!this.instances.size) {
-			User.onlineUsers.delete(this);
-		}
-	}
-
-	recalculatePlayerStats() {
-		this.playerStats = this._calculatePlayerStats();
-	}
-
-	_calculatePlayerStats() {
-		let playerStats = new PlayerStats();
-		for (let instanceStats of this.instanceStats.values()) {
-			if (
-				instanceStats.lastJoinAt
-				&& (!playerStats.lastJoinAt || instanceStats.lastJoinAt > playerStats.lastJoinAt)
-			) {
-				playerStats.lastJoinAt = instanceStats.lastJoinAt;
-			}
-			if (
-				instanceStats.lastLeaveAt
-				&& (!playerStats.lastLeaveAt || instanceStats.lastLeaveAt > playerStats.lastLeaveAt)
-			) {
-				playerStats.lastLeaveAt = instanceStats.lastLeaveAt;
-				playerStats.lastLeaveReason = instanceStats.lastLeaveReason;
-			}
-			playerStats.joinCount += instanceStats.joinCount;
-			playerStats.onlineTimeMs += instanceStats.onlineTimeMs;
-		}
-		return playerStats;
-	}
-
-	/**
-	 * Set of users currently online in the cluster.
-	 */
-	static onlineUsers = new Set<User>();
-}
 
 // Definitions for the built in permissions used in Clusterio.
 // description should answer "this permission allows you to ___"

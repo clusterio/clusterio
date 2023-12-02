@@ -26,7 +26,7 @@ function calculateLastSeen(user: RawUserState, instanceId?: number) {
 }
 
 export function formatLastSeen(user: RawUserState, instanceId?: number) {
-	if (user.instances && user.instances.some(id => instanceId === undefined || id === instanceId)) {
+	if (user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId)) {
 		return <Tag color="green">Online</Tag>;
 	}
 	let lastSeen = calculateLastSeen(user, instanceId);
@@ -38,7 +38,7 @@ export function formatLastSeen(user: RawUserState, instanceId?: number) {
 
 export function sortLastSeen(userA:RawUserState, userB:RawUserState, instanceIdA?: number, instanceIdB?: number) {
 	function epoch(user:RawUserState, instanceId?: number) {
-		return user.instances && user.instances.some(id => instanceId === undefined || id === instanceId);
+		return user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId);
 	}
 
 	let epochA = epoch(userA, instanceIdA);
@@ -52,7 +52,7 @@ export function sortLastSeen(userA:RawUserState, userB:RawUserState, instanceIdA
 	return lastSeenA - lastSeenB;
 }
 
-export type RawUserState = Partial<lib.RawUser> & {
+export type RawUserState = Partial<lib.User> & {
 	loading?: boolean;
 	present?: boolean;
 	missing?: boolean;
@@ -78,7 +78,7 @@ export function useUser(name: string): [RawUserState, () => void] {
 		}
 		updateUser();
 
-		function updateHandler(newUser: lib.RawUser) {
+		function updateHandler(newUser: lib.User) {
 			setUser({ ...newUser, present: true });
 		}
 
@@ -93,7 +93,7 @@ export function useUser(name: string): [RawUserState, () => void] {
 
 export function useUserList() {
 	let control = useContext(ControlContext);
-	let [userList, setUserList] = useState<lib.RawUser[]>([]);
+	let [userList, setUserList] = useState<lib.User[]>([]);
 
 	function updateUserList() {
 		control.send(new lib.UserListRequest()).then(users => {
@@ -106,7 +106,7 @@ export function useUserList() {
 	useEffect(() => {
 		updateUserList();
 
-		function updateHandler(newUser: lib.RawUser) {
+		function updateHandler(newUser: lib.User) {
 			setUserList(oldList => {
 				let newList = oldList.concat();
 				let index = newList.findIndex(u => u.name === newUser.name);

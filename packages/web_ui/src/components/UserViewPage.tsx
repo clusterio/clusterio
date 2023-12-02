@@ -35,7 +35,7 @@ export default function UserViewPage() {
 	let control = useContext(ControlContext);
 	let [instanceList] = useInstanceList();
 	let [user] = useUser(userName);
-	let [roles, setRoles] = useState<Map<number, lib.RawRole>>(new Map());
+	let [roles, setRoles] = useState<Map<number, lib.Role>>(new Map());
 	let [form] = Form.useForm();
 	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
 	let [banReasonDirty, setBanReasonDirty] = useState<boolean>(false);
@@ -78,7 +78,7 @@ export default function UserViewPage() {
 	let roleSelector = <Form.Item
 		noStyle
 		name="roles"
-		initialValue={user.roles}
+		initialValue={user.roleIds}
 		rules={[
 			{ validator: () => (rolesError ? Promise.reject(rolesError) : Promise.resolve()) },
 		]}
@@ -181,7 +181,7 @@ export default function UserViewPage() {
 					<Col flex="auto">
 						{account.hasPermission("core.user.update_roles")
 							? roleSelector
-							: [...user.roles!].map(id => <Tag key={id}>{
+							: [...user.roleIds!].map(id => <Tag key={id}>{
 								roles ? (roles.get(id) || { name: id }).name : id
 							}</Tag>)
 						}

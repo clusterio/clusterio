@@ -1,24 +1,8 @@
 import { Type, Static } from "@sinclair/typebox";
-import PlayerStats from "../PlayerStats";
+import Permission from "./Permission";
+import Role from "./Role";
+import User from "./User";
 import { JsonNumber, jsonArray } from "./composites";
-
-export class RawPermission { // TODO refactor into lib/user.Permission
-	constructor(
-		public name: string,
-		public title: string,
-		public description: string,
-	) { }
-
-	static jsonSchema = Type.Object({
-		name: Type.String(),
-		title: Type.String(),
-		description: Type.String(),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.title, json.description);
-	}
-}
 
 export class PermissionListRequest {
 	declare ["constructor"]: typeof PermissionListRequest;
@@ -26,27 +10,7 @@ export class PermissionListRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.permission.list" as const;
-	static Response = jsonArray(RawPermission);
-}
-
-export class RawRole { // TODO refactor into lib/user.Role
-	constructor(
-		public id: number,
-		public name: string,
-		public description: string,
-		public permissions: string[],
-	) { }
-
-	static jsonSchema = Type.Object({
-		id: Type.Integer(),
-		name: Type.String(),
-		description: Type.String(),
-		permissions: Type.Array(Type.String()),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.id, json.name, json.description, json.permissions);
-	}
+	static Response = jsonArray(Permission);
 }
 
 export class RoleListRequest {
@@ -55,7 +19,7 @@ export class RoleListRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.role.list" as const;
-	static Response = jsonArray(RawRole);
+	static Response = jsonArray(Role);
 }
 
 export class RoleCreateRequest {
@@ -150,75 +114,6 @@ export class RoleDeleteRequest {
 	}
 }
 
-export class RawUser { // TODO refactor into lib/user.User
-	constructor(
-		public name: string,
-		public roles: number[],
-		public instances: number[],
-		public isAdmin?: boolean,
-		public isBanned?: boolean,
-		public isWhitelisted?: boolean,
-		public banReason?: string,
-		public isDeleted?: boolean,
-		public playerStats?: PlayerStats,
-		public instanceStats?: Map<number, PlayerStats>,
-	) { }
-
-	static jsonSchema = Type.Object({
-		name: Type.String(),
-		roles: Type.Array(Type.Integer()),
-		instances: Type.Array(Type.Integer()),
-		isAdmin: Type.Optional(Type.Boolean()),
-		isBanned: Type.Optional(Type.Boolean()),
-		isWhitelisted: Type.Optional(Type.Boolean()),
-		banReason: Type.Optional(Type.String()),
-		isDeleted: Type.Optional(Type.Boolean()),
-		playerStats: Type.Optional(PlayerStats.jsonSchema),
-		instanceStats: Type.Optional(
-			Type.Array(
-				Type.Tuple([Type.Integer(), PlayerStats.jsonSchema]),
-			)
-		),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		let playerStats: PlayerStats | undefined;
-		if (json.playerStats) {
-			playerStats = PlayerStats.fromJSON(json.playerStats);
-		}
-		let instanceStats: Map<number, PlayerStats> | undefined;
-		if (json.instanceStats) {
-			instanceStats = new Map(
-				json.instanceStats.map(([id, stats]) => [id, PlayerStats.fromJSON(stats)])
-			);
-		}
-		return new this(
-			json.name, json.roles, json.instances, json.isAdmin, json.isBanned, json.isWhitelisted, json.banReason,
-			json.isDeleted, playerStats, instanceStats
-		);
-	}
-
-	toJSON() {
-		const json: Static<typeof RawUser.jsonSchema> = {
-			name: this.name,
-			roles: this.roles,
-			instances: this.instances,
-			isAdmin: this.isAdmin,
-			isBanned: this.isBanned,
-			isWhitelisted: this.isWhitelisted,
-			banReason: this.banReason,
-			isDeleted: this.isDeleted,
-		};
-		if (this.playerStats) {
-			json.playerStats = this.playerStats.toJSON();
-		}
-		if (this.instanceStats) {
-			json.instanceStats = [...this.instanceStats].map(([k, v]) => [k, v.toJSON()]);
-		}
-		return json;
-	}
-}
-
 export class UserGetRequest {
 	declare ["constructor"]: typeof UserGetRequest;
 	static type = "request" as const;
@@ -238,7 +133,7 @@ export class UserGetRequest {
 		return new this(json.name);
 	}
 
-	static Response = RawUser;
+	static Response = User;
 }
 
 export class UserListRequest {
@@ -247,7 +142,7 @@ export class UserListRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.user.list" as const;
-	static Response = jsonArray(RawUser);
+	static Response = jsonArray(User);
 }
 
 export class UserCreateRequest {
@@ -414,15 +309,15 @@ export class UserUpdateEvent {
 	static permission = "core.user.subscribe" as const;
 
 	constructor(
-		public user: RawUser,
+		public user: User,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"user": RawUser.jsonSchema,
+		"user": User.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(RawUser.fromJSON(json.user));
+		return new this(User.fromJSON(json.user));
 	}
 
 	get subscriptionChannel() {

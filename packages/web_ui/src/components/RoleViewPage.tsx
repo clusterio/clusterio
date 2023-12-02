@@ -13,7 +13,7 @@ import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
 
 
-export type RawRoleState = Partial<lib.RawRole> & {
+export type RawRoleState = Partial<lib.Role> & {
 	loading?: boolean;
 	missing?: boolean;
 	present?: boolean;
@@ -76,7 +76,7 @@ export default function RoleViewPage() {
 		description: role["description"],
 		permissions: {
 			...Object.fromEntries([...lib.permissions.values()].map(perm => [
-				perm.name, role.permissions!.includes(perm.name),
+				perm.name, [...role.permissions!].includes(perm.name),
 			])),
 		},
 	};

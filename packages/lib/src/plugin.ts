@@ -5,7 +5,7 @@
 import * as libHelpers from "./helpers";
 import type { Logger } from "./logging";
 import type { PluginConfigGroup } from "./config";
-import type PlayerStats from "./PlayerStats";
+import type { PlayerStats } from "./data";
 
 // TODO Add proper typing for plugins
 /* Used to define the export of info.ts from plugins */

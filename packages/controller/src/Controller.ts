@@ -19,6 +19,7 @@ import HttpCloser from "./HttpCloser";
 import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
+import ControllerUser from "./ControllerUser";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
 import HostConnection, { type HostInfo } from "./HostConnection";
@@ -879,22 +880,9 @@ export default class Controller {
 		lib.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
-	userUpdated(user: lib.User) {
+	userUpdated(user: ControllerUser) {
 		this.userManager.dirty = true;
-		this.subscriptions.broadcast(new lib.UserUpdateEvent(
-			new lib.RawUser(
-				user.name,
-				[...user.roles].map(role => role.id),
-				[...user.instances],
-				user.isAdmin,
-				user.isBanned,
-				user.isWhitelisted,
-				user.banReason,
-				user.isDeleted,
-				user.playerStats,
-				user.instanceStats,
-			)
-		));
+		this.subscriptions.broadcast(new lib.UserUpdateEvent(user));
 	}
 
 	/**
@@ -902,7 +890,7 @@ export default class Controller {
 	 * permissions for this user may have changed.
 	 * @param user - User permisions updated for.
 	 */
-	userPermissionsUpdated(user: lib.User) {
+	userPermissionsUpdated(user: ControllerUser) {
 		for (let controlConnection of this.wsServer.controlConnections.values()) {
 			if (controlConnection.user === user) {
 				controlConnection.send(

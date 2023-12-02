@@ -1,7 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebSocketBaseConnector } from "./link";
-import { Address, MessageRequest } from "./data";
-import { User } from "./users";
+import { Address, MessageRequest, IControllerUser } from "./data";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (value: T) => void;
@@ -69,7 +68,7 @@ export class SubscriptionRequest {
 	static src = ["control", "instance"] as const;
 	static dst = "controller" as const;
 	static Response = SubscriptionResponse;
-	static permission(user: User, message: MessageRequest) {
+	static permission(user: IControllerUser, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
 			const data = message.data as Static<typeof SubscriptionRequest.jsonSchema>;
 			const entry = Link._eventsByName.get(data[0]);

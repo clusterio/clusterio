@@ -63,7 +63,7 @@ export default function RolesPage() {
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
 
-	let [roles, setRoles] = useState<lib.RawRole[]>([]);
+	let [roles, setRoles] = useState<lib.Role[]>([]);
 
 	useEffect(() => {
 		control.send(new lib.RoleListRequest()).then(newRoles => {

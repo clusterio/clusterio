@@ -8,7 +8,7 @@ const addr = lib.Address.fromShorthand;
 
 
 describe("lib/command", function() {
-	let testRole = lib.RawRole.fromJSON({ id: 28, name: "Test Role", description: "Test", permissions: [] });
+	let testRole = lib.Role.fromJSON({ id: 28, name: "Test Role", description: "Test", permissions: [] });
 
 	let [controlConnector, controllerConnector] = lib.VirtualConnector.makePair(
 		addr({ controlId: 1}), addr("controller")
@@ -21,7 +21,7 @@ describe("lib/command", function() {
 	testController.handle(
 		lib.InstanceDetailsListRequest, () => [new lib.InstanceDetails("Test Instance", 57, 4, undefined, "stopped")]
 	);
-	testController.handle(lib.RoleListRequest, () => [testRole]);
+	testController.handle(lib.RoleListRequest, () => [testRole.toJSON()]);
 
 	describe("resolveHost", function() {
 		it("should pass an integer like string back", async function() {

@@ -3,14 +3,21 @@ import jwt from "jsonwebtoken";
 
 import * as lib from "@clusterio/lib";
 
+import ControllerUser from "./ControllerUser";
+
 /**
  * Manages users and roles
  * @alias module:controller/src/UserManager
  */
 export default class UserManager {
 	roles: Map<number, lib.Role> = new Map();
-	users: Map<string, lib.User> = new Map();
+	users: Map<string, ControllerUser> = new Map();
 	dirty = false;
+
+	/**
+	 * Set of users currently online in the cluster.
+	 */
+	onlineUsers = new Set<ControllerUser>();
 
 	constructor(
 		private _config: lib.ControllerConfig
@@ -21,12 +28,12 @@ export default class UserManager {
 		try {
 			let content = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 			for (let serializedRole of content.roles) {
-				let role = new lib.Role(serializedRole);
+				let role = lib.Role.fromJSON(serializedRole);
 				this.roles.set(role.id, role);
 			}
 
 			for (let serializedUser of content.users) {
-				let user = new lib.User(serializedUser, this.roles);
+				let user = ControllerUser.fromJSON(serializedUser, this);
 				this.users.set(user.name, user);
 			}
 
@@ -44,12 +51,12 @@ export default class UserManager {
 	async save(filePath:string): Promise<void> {
 		let serializedRoles = [];
 		for (let role of this.roles.values()) {
-			serializedRoles.push(role.serialize());
+			serializedRoles.push(role.toJSON());
 		}
 
 		let serializedUsers = [];
 		for (let user of this.users.values()) {
-			serializedUsers.push(user.serialize());
+			serializedUsers.push(user.toJSON(true));
 		}
 
 		let serialized = {
@@ -65,18 +72,18 @@ export default class UserManager {
 	 * @param name - Name of the user to create.
 	 * @returns The created user.
 	 */
-	createUser(name:string): lib.User {
+	createUser(name:string): ControllerUser {
 		if (this.users.has(name)) {
 			throw new Error(`User '${name}' already exists`);
 		}
 
-		let roles = [];
+		let roles = new Set<number>();
 		let defaultRoleId = this._config.get("controller.default_role_id");
-		if (defaultRoleId !== null) {
-			roles.push(defaultRoleId);
+		if (defaultRoleId !== null && this.roles.has(defaultRoleId)) {
+			roles.add(defaultRoleId);
 		}
 
-		let user = new lib.User({ name, roles }, this.roles);
+		let user = new ControllerUser(this, 0, name, roles);
 		this.users.set(name, user);
 		this.dirty = true;
 		return user;
@@ -93,5 +100,17 @@ export default class UserManager {
 			{ aud: "user", user: name },
 			Buffer.from(this._config.get("controller.auth_secret"), "base64")
 		);
+	}
+
+	notifyJoin(user: ControllerUser, instance_id: number) {
+		user.instances.add(instance_id);
+		this.onlineUsers.add(user);
+	}
+
+	notifyLeave(user: ControllerUser, instance_id: number) {
+		user.instances.delete(instance_id);
+		if (!user.instances.size) {
+			this.onlineUsers.delete(user);
+		}
 	}
 }
