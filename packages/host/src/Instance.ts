@@ -646,9 +646,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// TODO validate factorioVersion
 
-		if (!this._host.config.get("host.mods_directory_is_shared")) {
-			throw new Error("Fetching mods is not implemented");
-		}
+		const mods = await this._host.fetchMods(modPack.mods.values());
 
 		await fs.ensureDir(this.path("mods"));
 
@@ -668,8 +666,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Add mods from mod the pack
 		const modsDir = this._host.config.get("host.mods_directory");
-		for (let mod of this.activeModPack.mods.values()) {
-			const modFile = `${mod.name}_${mod.version}.zip`;
+		for (let mod of mods) {
+			const modFile = mod.filename;
 			const target = path.join(modsDir, modFile);
 			const link = this.path("mods", modFile);
 

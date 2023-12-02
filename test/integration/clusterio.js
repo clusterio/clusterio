@@ -32,9 +32,12 @@ async function startAltHost() {
 	let configPath = path.join("temp", "test", config);
 	await fs.remove(configPath);
 	await fs.remove(path.join("temp", "test", "alt-instances"));
+	await fs.remove(path.join("temp", "test", "alt-mods"));
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
 	await exec(`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
 	await exec(`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`);
+	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ../../factorio`);
+	await exec(`node ../../packages/host --config ${config} config set host.mods_directory alt-mods`);
 	return await spawn("alt-host:", `node ../../packages/host run --config ${config}`, /Started host/);
 }
 
@@ -174,6 +177,23 @@ describe("Integration of Clusterio", function() {
 				let result = await getControl().send(new lib.HostListRequest());
 				let hosts = new Map(result.map(instance => [instance.id, instance]));
 				assert(hosts.has(5), "Host list was not updated");
+			});
+		});
+		it("should download mods from controller", async function() {
+			// On windows there's currently no way to automate graceful shutdown of the host
+			// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
+			if (process.platform === "win32") {
+				this.skip();
+			}
+
+			slowTest(this);
+			await runWithAltHost(async () => {
+				const clusterioLib = path.join("temp", "test", "alt-mods", "clusterio_lib_0.1.2.zip");
+				assert(!await fs.pathExists(clusterioLib), "mod was downloaded before the test");
+				await execCtl("instance create alt-mod --id 98");
+				await execCtl("instance assign alt-mod 5");
+				await execCtl("instance save create alt-mod");
+				assert(await fs.pathExists(clusterioLib), "mod was not downloaded by the test");
 			});
 		});
 	});

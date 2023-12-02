@@ -21,6 +21,7 @@ ControllerGroup.define({
 	name: "mods_directory",
 	title: "Mods Directory",
 	description: "Path to directory where mods shared with the cluster are stored.",
+	restartRequired: true,
 	type: "string",
 	initial_value: "mods",
 });
@@ -202,15 +203,9 @@ HostGroup.define({
 	name: "mods_directory",
 	title: "Mods Directory",
 	description: "Path to directory where mods for instances are cached.",
+	restartRequired: true,
 	type: "string",
 	initial_value: "mods",
-});
-HostGroup.define({
-	name: "mods_directory_is_shared",
-	title: "Mods Directory is Shared",
-	description: "True if the mods directory is shared with the controller.",
-	type: "boolean",
-	initial_value: true,
 });
 HostGroup.define({
 	name: "instances_directory",
@@ -264,7 +259,6 @@ export class HostConfig extends classes.Config {
 	get(name: "host.id"): number;
 	get(name: "host.factorio_directory"): string;
 	get(name: "host.mods_directory"): string;
-	get(name: "host.mods_directory_is_shared"): boolean;
 	get(name: "host.instances_directory"): string;
 	get(name: "host.controller_url"): string;
 	get(name: "host.controller_token"): string;
