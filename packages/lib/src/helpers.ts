@@ -107,6 +107,54 @@ export class AsyncSerialMergingCallback {
 	}
 }
 
+/**
+ * Helper to serialise calls to an async callback.
+ *
+ * Provides a convenient interface to serialise the calls made to an async
+ * callback such that no overlapping invocations of the callback is made,
+ * and successive calls are served on a first in first out basis.  If the
+ * callback is already running when another invocation is requested the
+ * request will be queued until the callback returns and then the callback
+ * called again.
+ */
+export class AsyncSerialCallback<
+	Callback extends (...args: Parameters<Callback>) => Promise<Awaited<ReturnType<Callback>>>,
+> {
+	private _currentlyRunning = false;
+	private _currentlyWaiting: (() => void)[] = [];
+
+	/**
+	 * @param callback - Async function to serialise access to
+	 */
+	constructor(
+		public callback: Callback,
+	) { }
+
+	/**
+	 * Invoke the assosiated callback.
+	 *
+	 * If the callback is currently running then this will wait until the
+	 * existing invocation finishes and then invoke it again. If called
+	 * multiple times while an invocation is running the calls will be
+	 * merged into one call.
+	 */
+	async invoke(...args: Parameters<Callback>) {
+		if (this._currentlyRunning) {
+			await new Promise<void>(resolve => {
+				this._currentlyWaiting.push(resolve);
+			});
+		}
+
+		this._currentlyRunning = true;
+		try {
+			return await this.callback(...args);
+		} finally {
+			this._currentlyRunning = false;
+			this._currentlyWaiting.shift()?.();
+		}
+	}
+}
+
 
 /**
  * Read stream to the end and return its content
