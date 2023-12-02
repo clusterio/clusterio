@@ -90,7 +90,17 @@ export default class ModInfo {
 	 * Expected name of zip file containing this mod.
 	 */
 	get filename() {
-		return `${this.name}_${this.version}.zip`;
+		return ModInfo.filename(this.name, this.version);
+	}
+
+	/**
+	 * Expected name of zip file containing mod with given name and version.
+	 * @param name - Mod's name
+	 * @param version - Mod's version
+	 * @returns string containing {name}_{version}.zip
+	 */
+	static filename(name: string, version: string) {
+		return `${name}_${version}.zip`;
 	}
 
 	/**

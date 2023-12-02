@@ -114,15 +114,17 @@ export class ModGetRequest {
 	constructor(
 		public name: string,
 		public version: string,
+		public sha1?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
 		"version": Type.String(),
+		"sha1": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.version);
+		return new this(json.name, json.version, json.sha1);
 	}
 
 	static Response = ModInfo;
@@ -198,22 +200,24 @@ export class ModSearchRequest {
 export class ModDownloadRequest {
 	declare ["constructor"]: typeof ModDownloadRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["host", "control"] as const;
 	static dst = "controller" as const;
 	static permission = "core.mod.download" as const;
 
 	constructor(
 		public name: string,
 		public version: string,
+		public sha1?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"name": Type.String(),
 		"version": Type.String(),
+		"sha1": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.version);
+		return new this(json.name, json.version, json.sha1);
 	}
 
 	static Response = JsonString;

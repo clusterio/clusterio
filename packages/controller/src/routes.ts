@@ -561,8 +561,7 @@ async function uploadMod(req: Request, res: Response) {
 			const modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
 			checkModName(modInfo.filename);
 			await fs.rename(path.join(modsDirectory, tempFilename), path.join(modsDirectory, modInfo.filename));
-			req.app.locals.controller.mods.set(modInfo.filename, modInfo);
-			req.app.locals.controller.modUpdated(modInfo);
+			req.app.locals.controller.modStore.addMod(modInfo);
 			mods.push(modInfo.toJSON());
 
 		} catch (err: any) {

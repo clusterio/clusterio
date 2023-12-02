@@ -102,13 +102,13 @@ export default class Controller {
 
 		let modsDirectory = config.get("controller.mods_directory");
 		await fs.ensureDir(modsDirectory);
-		const mods = await Controller.loadModInfos(modsDirectory);
+		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
 
 		return [
 			hosts,
 			instances,
 			modPacks,
-			mods,
+			modStore,
 			userManager,
 		] as const;
 	}
@@ -125,8 +125,8 @@ export default class Controller {
 		public instances = new Map<number, InstanceInfo>(),
 		/** Mapping of mod pack id to mod pack */
 		public modPacks = new Map<number, lib.ModPack>(),
-		/** Mapping of mod names to mod infos */
-		public mods = new Map<string, lib.ModInfo>(),
+		/** Mods stored on the controller */
+		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
 		/** User and roles manager for the cluster */
 		public userManager = new UserManager(config),
 	) {
@@ -141,6 +141,10 @@ export default class Controller {
 
 		this.wsServer = new WsServer(this);
 		this.subscriptions = new lib.SubscriptionController(this);
+
+		this.modStore.on("change", mod => {
+			this.modUpdated(mod);
+		});
 
 		// Handle subscriptions for all internal properties
 		this.subscriptions.handle(lib.HostUpdateEvent);
@@ -511,40 +515,6 @@ export default class Controller {
 		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, "\t"));
 	}
 
-	static async loadModInfos(modsDirectory: string): Promise<Map<string, lib.ModInfo>> {
-		let mods = new Map();
-		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
-			if (entry.isDirectory()) {
-				logger.warn(`Ignoring ${entry.name}${path.sep} in mods directory.`);
-				continue;
-			}
-
-			if (entry.name.toLowerCase().endsWith(".tmp.zip")) {
-				continue;
-			}
-
-			logger.info(`Loading info for Mod ${entry.name}`);
-			let modInfo;
-			try {
-				modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, entry.name));
-			} catch (err: any) {
-				logger.error(`Error loading mod ${entry.name}: ${err.message}`);
-				continue;
-			}
-
-			if (modInfo.filename !== entry.name) {
-				logger.error(
-					`Mod ${entry.name}'s filename does not match the expected ` +
-					`name ${modInfo.filename}, it will be ignored.`
-				);
-				continue;
-			}
-
-			mods.set(modInfo.filename, modInfo);
-		}
-		return mods;
-	}
-
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
 		let manifest = {};
 		try {
@@ -555,20 +525,6 @@ export default class Controller {
 			}
 		}
 		return manifest;
-	}
-
-	async deleteMod(name: string, version: string): Promise<void> {
-		let filename = `${name}_${version}.zip`;
-		let mod = this.mods.get(filename);
-		if (!mod) {
-			throw new Error(`Mod ${filename} does not exist`);
-		}
-
-		let modsDirectory = this.config.get("controller.mods_directory");
-		await fs.unlink(path.join(modsDirectory, filename));
-		this.mods.delete(filename);
-		mod.isDeleted = true;
-		this.modUpdated(mod);
 	}
 
 	/**

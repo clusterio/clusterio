@@ -1,9 +1,13 @@
+import path from "path";
+import fs from "fs-extra";
+
 import type Controller from "./Controller";
 import type WsServerConnector from "./WsServerConnector";
 
 import * as lib from "@clusterio/lib";
 const { logger } = lib;
 import ControllerRouter from "./ControllerRouter";
+import * as routes from "./routes";
 
 
 /**
@@ -28,6 +32,7 @@ export default class BaseConnection extends lib.Link {
 
 		this.handle(lib.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
 		this.handle(lib.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
+		this.handle(lib.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
 	}
 
 	async disconnect(code: number, reason: string) {
@@ -67,5 +72,30 @@ export default class BaseConnection extends lib.Link {
 			throw new lib.RequestError(`Default mod pack configured (${id}) does not exist`);
 		}
 		return modPack;
+	}
+
+	getMod(mod: { name: string, version: string, sha1?: string }) {
+		let filename = lib.ModInfo.filename(mod.name, mod.version);
+		let modInfo = this._controller.modStore.files.get(filename);
+		if (!modInfo) {
+			throw new lib.RequestError(`Mod ${filename} does not exist on controller`);
+		}
+		if (mod.sha1 && mod.sha1 !== modInfo.sha1) {
+			throw new lib.RequestError(`Mod ${filename} checksum does not match controller's checksum`);
+		}
+		return modInfo;
+	}
+
+	async handleModDownloadRequest(request: lib.ModDownloadRequest) {
+		let mod = this.getMod(request);
+		let modPath = path.join(this._controller.config.get("controller.mods_directory"), mod.filename);
+
+		let stream = await routes.createProxyStream(this._controller.app);
+		stream.filename = mod.filename;
+		stream.source = fs.createReadStream(modPath);
+		stream.mime = "application/zip";
+		stream.size = String(mod.size);
+
+		return stream.id;
 	}
 }

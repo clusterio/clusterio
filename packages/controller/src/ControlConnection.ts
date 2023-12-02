@@ -2,8 +2,6 @@ import type WsServerConnector from "./WsServerConnector";
 import type { HostInfo } from "./HostConnection";
 
 import events from "events";
-import fs from "fs-extra";
-import path from "path";
 
 import * as lib from "@clusterio/lib";
 const { logFilter, logger } = lib;
@@ -100,7 +98,6 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.ModGetRequest, this.handleModGetRequest.bind(this));
 		this.handle(lib.ModListRequest, this.handleModListRequest.bind(this));
 		this.handle(lib.ModSearchRequest, this.handleModSearchRequest.bind(this));
-		this.handle(lib.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
 		this.handle(lib.ModDeleteRequest, this.handleModDeleteRequest.bind(this));
 		this.handle(lib.LogSetSubscriptionsRequest, this.handleLogSetSubscriptionsRequest.bind(this));
 		this.handle(lib.LogQueryRequest, this.handleLogQueryRequest.bind(this));
@@ -461,17 +458,11 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {
-		let { name, version } = request;
-		let filename = `${name}_${version}.zip`;
-		let mod = this._controller.mods.get(filename);
-		if (!mod) {
-			throw new lib.RequestError(`Mod ${filename} does not exist`);
-		}
-		return mod;
+		return this.getMod(request);
 	}
 
 	async handleModListRequest() {
-		return [...this._controller.mods.values()];
+		return [...this._controller.modStore.mods()];
 	}
 
 	static termsMatchesMod(terms: lib.ParsedTerm[], mod: lib.ModInfo) {
@@ -511,7 +502,7 @@ export default class ControlConnection extends BaseConnection {
 
 		type ModVersions = { name: string, versions: lib.ModInfo[] };
 		let results: Map<string, ModVersions> = new Map();
-		for (let mod of this._controller.mods.values()) {
+		for (let mod of this._controller.modStore.mods()) {
 			if (
 				mod.factorioVersion !== factorioVersion
 				|| !ControlConnection.termsMatchesMod(query.terms, mod)
@@ -563,26 +554,8 @@ export default class ControlConnection extends BaseConnection {
 		};
 	}
 
-	async handleModDownloadRequest(request: lib.ModDownloadRequest) {
-		let { name, version } = request;
-		let filename = `${name}_${version}.zip`;
-		let mod = this._controller.mods.get(filename);
-		if (!mod) {
-			throw new lib.RequestError(`Mod ${filename} does not exist`);
-		}
-		let modPath = path.join(this._controller.config.get("controller.mods_directory"), mod.filename);
-
-		let stream = await routes.createProxyStream(this._controller.app);
-		stream.filename = mod.filename;
-		stream.source = fs.createReadStream(modPath);
-		stream.mime = "application/zip";
-		stream.size = String(mod.size);
-
-		return stream.id;
-	}
-
 	async handleModDeleteRequest(request: lib.ModDeleteRequest) {
-		await this._controller.deleteMod(request.name, request.version);
+		await this._controller.modStore.deleteMod(request.name, request.version);
 	}
 
 	async handleLogSetSubscriptionsRequest(request: lib.LogSetSubscriptionsRequest) {
