@@ -934,6 +934,21 @@ describe("Integration of Clusterio", function() {
 					"mod not present in mods directory"
 				);
 			});
+			it("rejects path traversing mods", async function() {
+				await libBuildMod.build({
+					build: true,
+					pack: true,
+					sourceDir: path.join("test", "file", "path_traversing_mod"),
+					outputDir: path.join("temp", "test"),
+					modName: "path_traversing_mod_1.0.0",
+				});
+				await fs.remove(path.join("temp", "test", "bad_path_mod_1.0.0.zip"));
+				await assert.rejects(execCtl("mod upload path_traversing_mod_1.0.0.zip"));
+				assert(
+					!await fs.pathExists(path.join("temp", "test", "bad_path_mod_1.0.0.zip")),
+					"mod executed a path traversal attack",
+				);
+			});
 		});
 
 		describe("mod show", function() {
