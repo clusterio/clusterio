@@ -203,7 +203,14 @@ async function startHost() {
 	}
 
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
-	let host = new Host(hostConnector, args.config, hostConfig, tlsCa, pluginInfos);
+	let host = new Host(
+		hostConnector,
+		args.config,
+		hostConfig,
+		tlsCa,
+		pluginInfos,
+		...await Host.bootstrap(hostConfig)
+	);
 
 	// Handle interrupts
 	let secondSigint = false;

@@ -25,7 +25,6 @@ export interface HostInfo {
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	declare connector: WsServerConnector;
 	private _agent: any;
 	private _id: any;
 	private _name: any;

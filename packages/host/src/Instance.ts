@@ -634,6 +634,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 * Windows hard links are used instead due to symlinks being privileged.
 	 */
 	async syncMods() {
+		this.logger.info("Syncing mods");
 		const modPackId = this.config.get("factorio.mod_pack");
 		let modPack;
 		if (modPackId === null) {
@@ -645,9 +646,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// TODO validate factorioVersion
 
-		if (!this._host.config.get("host.mods_directory_is_shared")) {
-			throw new Error("Fetching mods is not implemented");
-		}
+		const mods = await this._host.fetchMods(modPack.mods.values());
 
 		await fs.ensureDir(this.path("mods"));
 
@@ -667,8 +666,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Add mods from mod the pack
 		const modsDir = this._host.config.get("host.mods_directory");
-		for (let mod of this.activeModPack.mods.values()) {
-			const modFile = `${mod.name}_${mod.version}.zip`;
+		for (let mod of mods) {
+			const modFile = mod.filename;
 			const target = path.join(modsDir, modFile);
 			const link = this.path("mods", modFile);
 
@@ -994,7 +993,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		try {
 			await this.prepare();
 			saveName = await this.prepareSave(saveName);
-		} catch (err) {
+		} catch (err: any) {
+			this.logger.error(`Error preparing instance: ${err.message}`);
 			this.notifyExit();
 			await this.sendSaveListUpdate();
 			throw err;
@@ -1002,7 +1002,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		try {
 			await this.start(saveName);
-		} catch (err) {
+		} catch (err: any) {
+			this.logger.error(`Error starting ${saveName}: ${err.message}`);
 			await this.stop();
 			throw err;
 		}
@@ -1016,7 +1017,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		try {
 			await this.prepare();
-		} catch (err) {
+		} catch (err: any) {
+			this.logger.error(`Error preparing instance: ${err.message}`);
 			this.notifyExit();
 			await this.sendSaveListUpdate();
 			throw err;
@@ -1025,7 +1027,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		let { scenario, seed, mapGenSettings, mapSettings } = request;
 		try {
 			await this.startScenario(scenario, seed, mapGenSettings, mapSettings);
-		} catch (err) {
+		} catch (err: any) {
+			this.logger.error(`Error starting scenario ${scenario}: ${err.message}`);
 			await this.stop();
 			throw err;
 		}
@@ -1040,11 +1043,10 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		try {
 			this.logger.verbose("Writing server-settings.json");
 			await this.writeServerSettings();
-
-			this.logger.verbose("Creating save .....");
 			await this.syncMods();
 
-		} catch (err) {
+		} catch (err: any) {
+			this.logger.error(`Error preparing instance: ${err.message}`);
 			this.notifyExit();
 			await this.sendSaveListUpdate();
 			throw err;
@@ -1052,7 +1054,14 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		this.server.on("exit", () => this.notifyExit());
 		let { name, seed, mapGenSettings, mapSettings } = request;
-		await this.server.create(name, seed, mapGenSettings, mapSettings);
+
+		try {
+			this.logger.info("Creating save");
+			await this.server.create(name, seed, mapGenSettings, mapSettings);
+		} catch (err: any) {
+			this.logger.error(`Error creating save ${name}: ${err.message}`);
+			throw err;
+		}
 		await this.sendSaveListUpdate();
 		this.logger.info("Successfully created save");
 	}

@@ -12,10 +12,10 @@ const yargs = require("yargs");
 const finished = util.promisify(stream.finished);
 
 
-async function buildMod(args, info) {
+async function buildMod(args, info, modName) {
 	if (args.build) {
 		await fs.ensureDir(args.outputDir);
-		let modName = `${info.name}_${info.version}`;
+		modName = args.modName ?? `${info.name}_${info.version}`;
 
 		if (args.pack) {
 			let zip = new JSZip();

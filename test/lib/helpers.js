@@ -104,6 +104,94 @@ describe("lib/helpers", function() {
 		});
 	});
 
+	describe("class AsyncSerialCallback", function() {
+		let started;
+		let ended;
+		let serialiser;
+		beforeEach(function() {
+			started = 0;
+			ended = 0;
+			serialiser = new lib.AsyncSerialCallback(
+				(input) => new Promise((resolve, reject) => {
+					started += 1;
+					process.nextTick(() => {
+						ended += 1;
+						if (input !== 99) {
+							resolve(input);
+						} else {
+							reject(new Error("99"));
+						}
+					});
+				})
+			);
+		});
+		it("should await the callback when invoked", async function() {
+			await serialiser.invoke();
+			assert.equal(started, 1, "incorrect started count");
+			assert.equal(ended, 1, "incorrect ended count");
+		});
+		it("should return the result of the callback", async function() {
+			const id = await serialiser.invoke(42);
+			assert.equal(id, 42, "returned result not passed");
+		});
+		it("should immediately call the callback", async function() {
+			let promise = serialiser.invoke();
+			assert.equal(started, 1, "incorrect started count");
+			assert.equal(ended, 0, "incorrect ended count");
+			await promise;
+			assert.equal(started, 1, "incorrect started count");
+			assert.equal(ended, 1, "incorrect ended count");
+		});
+		it("should call the callback twice if invoked in twice in paralell", async function() {
+			await Promise.all([
+				serialiser.invoke(),
+				serialiser.invoke(),
+			]);
+			assert.equal(started, 2, "incorrect started count");
+			assert.equal(ended, 2, "incorrect ended count");
+		});
+		it("should call the callback many if invoked many times in paralell", async function() {
+			await Promise.all([
+				serialiser.invoke(),
+				serialiser.invoke(),
+				serialiser.invoke(),
+				serialiser.invoke(),
+			]);
+			assert.equal(started, 4, "incorrect started count");
+			assert.equal(ended, 4, "incorrect ended count");
+		});
+		it("should serialise calls", async function() {
+			let events = [];
+			let calls = await Promise.all([
+				serialiser.invoke(11).then((res) => { events.push(1); return res; }),
+				serialiser.invoke(12).then((res) => { events.push(2); return res; }),
+				serialiser.invoke(13).then((res) => { events.push(3); return res; }),
+				serialiser.invoke(14).then((res) => { events.push(4); return res; }),
+			]);
+			assert.deepEqual(events, [1, 2, 3, 4]);
+			assert.deepEqual(calls, [11, 12, 13, 14]);
+		});
+		it("should forward rejections", async function() {
+			await assert.rejects(serialiser.invoke(99), new Error("99"));
+		});
+		it("should handle queued rejections", async function() {
+			let events = [];
+			let calls = await Promise.allSettled([
+				serialiser.invoke(11).then((res) => { events.push(1); return res; }),
+				serialiser.invoke(99).then((res) => { events.push(2); return res; }),
+				serialiser.invoke(13).then((res) => { events.push(3); return res; }),
+				serialiser.invoke(14).then((res) => { events.push(4); return res; }),
+			]);
+			assert.deepEqual(events, [1, 3, 4]);
+			assert.deepEqual(calls, [
+				{ status: "fulfilled", value: 11 },
+				{ status: "rejected", reason: new Error("99") },
+				{ status: "fulfilled", value: 13 },
+				{ status: "fulfilled", value: 14 },
+			]);
+		});
+	});
+
 	function parse(input, attributes) {
 		const result = lib.parseSearchString(input, attributes);
 		if (!result.issues.length) {

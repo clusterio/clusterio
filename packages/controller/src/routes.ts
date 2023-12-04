@@ -16,6 +16,17 @@ const { logger } = lib;
 
 const finished = util.promisify(nodeStream.finished);
 
+declare global {
+	// eslint-disable-next-line @typescript-eslint/no-namespace
+	namespace Express {
+		export interface Locals {
+			controller: Controller,
+			mainBundle: string,
+			devPlugins: Map<string, number>,
+			streams: Map<string, ProxyStream>
+		}
+	}
+}
 
 // Merges samples from sourceResult to destinationResult
 function mergeSamples(destinationResult: lib.CollectorResultSerialized, sourceResult: lib.CollectorResultSerialized) {
@@ -95,14 +106,14 @@ async function getMetrics(req: Request, res: Response, next: any) {
 
 function getPlugins(req: Request, res: Response) {
 	let plugins: lib.PluginWebApi[] = [];
-	for (let pluginInfo of (req.app.locals.controller as Controller).pluginInfos) {
+	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.controller.plugins.has(name);
-		let enabled = loaded && req.app.locals.controller.config.group(pluginInfo.name).get("load_plugin");
+		let enabled = loaded && req.app.locals.controller.config.group(pluginInfo.name).get("load_plugin") as boolean;
 		let web: { main:any, error:string|undefined } = { main: undefined, error: undefined};
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
-			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)];
+			let stats = res.locals.webpack.devMiddleware.stats.stats[devPlugins.get(name)!];
 			web.main = stats.toJson().assetsByChunkName[name];
 		} else if (pluginInfo.manifest) {
 			web.main = pluginInfo.manifest[`${pluginInfo.name}.js`];
@@ -137,7 +148,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 		if (typeof tokenPayload === "string") {
 			throw new Error("unexpected JsonWebToken type");
 		}
-		let host = (req.app.locals.controller as Controller).hosts.get(tokenPayload.host);
+		let host = req.app.locals.controller.hosts.get(tokenPayload.host);
 		if (!host) {
 			throw new Error("invalid host");
 		}
@@ -251,12 +262,12 @@ async function uploadExport(req: Request, res: Response) {
 }
 
 
-interface ProxyStream {
+export interface ProxyStream {
 	id: string;
 	source: nodeStream.Readable | null;
 	flowing: boolean;
-	size: number | null;
-	mime: string | null;
+	size?: string;
+	mime?: string;
 	filename: string | null;
 	events: events.EventEmitter;
 	timeout: ReturnType<typeof setTimeout>;
@@ -269,8 +280,8 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 		id,
 		source: null,
 		flowing: false,
-		size: null,
-		mime: null,
+		size: undefined,
+		mime: undefined,
 		filename: null,
 		events: new events.EventEmitter(),
 		timeout: setTimeout(() => {
@@ -289,7 +300,7 @@ export async function createProxyStream(app: Application): Promise<ProxyStream> 
 }
 
 async function putStream(req: Request, res: Response) {
-	let stream = req.app.locals.streams.get(req.params.id);
+	const stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.source) {
 		res.sendStatus(404);
 		return;
@@ -309,35 +320,35 @@ async function putStream(req: Request, res: Response) {
 	});
 }
 
+function startStream(res: Response, stream: ProxyStream) {
+	res.append("Content-Type", stream.mime);
+	if (stream.size) {
+		res.append("Content-Length", stream.size);
+	}
+	if (stream.filename) {
+		res.append("Content-Disposition", `attachment; filename="${stream.filename}"`);
+	} else {
+		res.append("Content-Disposition", "attachment");
+	}
+	stream.source!.pipe(res);
+	stream.flowing = true;
+	res.on("close", () => {
+		stream.events.emit("close");
+	});
+	clearTimeout(stream.timeout);
+}
+
 async function getStream(req: Request, res: Response) {
-	let stream = req.app.locals.streams.get(req.params.id);
+	const stream = req.app.locals.streams.get(req.params.id);
 	if (!stream || stream.flowing) {
 		res.sendStatus(404);
 		return;
 	}
 
-	function startStream() {
-		res.append("Content-Type", stream.mime);
-		if (stream.size) {
-			res.append("Content-Length", stream.size);
-		}
-		if (stream.filename) {
-			res.append("Content-Disposition", `attachment; filename="${stream.filename}"`);
-		} else {
-			res.append("Content-Disposition", "attachment");
-		}
-		stream.source.pipe(res);
-		stream.flowing = true;
-		res.on("close", () => {
-			stream.events.emit("close");
-		});
-		clearTimeout(stream.timeout);
-	}
-
 	if (stream.source) {
-		startStream();
+		startStream(res, stream);
 	} else {
-		stream.events.on("source", startStream);
+		stream.events.on("source", () => startStream(res, stream));
 		stream.events.on("timeout", () => {
 			res.sendStatus(500);
 		});
@@ -377,7 +388,7 @@ async function uploadSave(req: Request, res: Response) {
 		let proxyStream = await createProxyStream(req.app);
 		proxyStream.source = stream;
 		proxyStream.mime = streamMime;
-		let timeout = new Promise((_, reject) => {
+		let timeout = new Promise<never>((_, reject) => {
 			proxyStream.events.on("timeout", () => {
 				stream.resume();
 				reject(new Error("Timed out establishing stream to host"));
@@ -548,9 +559,9 @@ async function uploadMod(req: Request, res: Response) {
 			await finished(writeStream);
 
 			const modInfo = await lib.ModInfo.fromModFile(path.join(modsDirectory, tempFilename));
+			checkModName(modInfo.filename);
 			await fs.rename(path.join(modsDirectory, tempFilename), path.join(modsDirectory, modInfo.filename));
-			req.app.locals.controller.mods.set(modInfo.filename, modInfo);
-			req.app.locals.controller.modUpdated(modInfo);
+			req.app.locals.controller.modStore.addMod(modInfo);
 			mods.push(modInfo.toJSON());
 
 		} catch (err: any) {

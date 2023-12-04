@@ -1,0 +1,9 @@
+{
+    "name": "../bad_path_mod",
+    "version": "1.0.0",
+    "title": "Path Traversing Mod",
+    "author": "Me",
+    "description": "A mod who's name traverses the filesystem",
+    "factorio_version": "1.1",
+    "dependencies": []
+}

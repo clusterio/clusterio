@@ -29,4 +29,5 @@ export * from "./src/zip_ops";
 export * from "./src/subscriptions";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
+export { default as ModStore } from "./src/ModStore";
 export { default as RateLimiter } from "./src/RateLimiter";

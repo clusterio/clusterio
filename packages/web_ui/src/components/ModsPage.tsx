@@ -132,7 +132,7 @@ export default function ModsPage() {
 	let [modList] = useModList();
 	let [modPackList] = useModPackList();
 
-	function actions(mod: lib.ModInfo|lib.ModRecord) {
+	function actions(mod: lib.ModInfo) {
 		return <Space>
 			{account.hasPermission("core.mod.download")
 				&& <Typography.Link
@@ -151,7 +151,7 @@ export default function ModsPage() {
 			}
 			{account.hasPermission("core.mod.delete")
 				&& <Popconfirm
-					title={`Delete ${mod.name}_${mod.version}.zip?`}
+					title={`Delete ${mod.filename}?`}
 					onConfirm={event => {
 						control.send(
 							new lib.ModDeleteRequest(mod.name, mod.version)

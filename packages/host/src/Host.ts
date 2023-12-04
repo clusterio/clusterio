@@ -263,12 +263,21 @@ export default class Host extends lib.Link {
 	_disconnecting = false;
 	_shuttingDown = false;
 
+	static async bootstrap(hostConfig: lib.HostConfig) {
+		const modsDirectory = hostConfig.get("host.mods_directory");
+		await fs.ensureDir(modsDirectory);
+		return [
+			await lib.ModStore.fromDirectory(modsDirectory),
+		] as const;
+	}
+
 	constructor(
 		connector: HostConnector,
 		hostConfigPath: string,
 		hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
-		pluginInfos: lib.PluginNodeEnvInfo[]
+		pluginInfos: lib.PluginNodeEnvInfo[],
+		public modStore: lib.ModStore,
 	) {
 		super(connector);
 		this.tlsCa = tlsCa;
@@ -476,6 +485,77 @@ export default class Host extends lib.Link {
 		} else {
 			this.whitelist.delete(name);
 		}
+	}
+
+	async downloadMod(mod: lib.ModRecord) {
+		let streamId = await this.send(new lib.ModDownloadRequest(mod.name, mod.version, mod.sha1));
+
+		let url = new URL(this.config.get("host.controller_url"));
+		url.pathname += `api/stream/${streamId}`;
+		let response = await phin({
+			url, method: "GET",
+			core: { ca: this.tlsCa } as object,
+			stream: true,
+		});
+
+		const file = lib.ModInfo.filename(mod.name, mod.version);
+		const filePath = path.join(this.modStore.modsDirectory, file);
+		const tempFilePath = filePath.replace(/(\.zip)?$/, ".tmp.zip");
+		const writeStream = fs.createWriteStream(tempFilePath, { flags: "w" });
+		await events.once(writeStream, "open");
+		response.pipe(writeStream);
+		await finished(writeStream);
+		await fs.rename(tempFilePath, filePath);
+
+		const modInfo = await this.modStore.loadFile(file);
+		if (mod.sha1 && mod.sha1 !== modInfo.sha1) {
+			throw new Error(`Checksum mismatch downloading ${file} from controller`);
+		}
+		logger.info(`Downloaded ${file} from controller`);
+		return modInfo;
+	}
+
+	private _fetchModQueue = new lib.AsyncSerialCallback(this._fetchModInternal.bind(this));
+
+	async fetchMod(mod: lib.ModRecord) {
+		return await this._fetchModQueue.invoke(mod);
+	}
+
+	private async _fetchModInternal(mod: lib.ModRecord) {
+		// The mod may have already been downloaded in a previous call
+		let modInfo = this.modStore.getMod(mod.name, mod.version);
+		if (modInfo && (!mod.sha1 || mod.sha1 === modInfo.sha1)) {
+			return modInfo;
+		}
+
+		// The mods folder may be shared with the controller and thus
+		// already have this mod, try loading it.
+		try {
+			modInfo = await this.modStore.loadMod(mod.name, mod.version);
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+		}
+		if (modInfo && (!mod.sha1 || mod.sha1 === modInfo.sha1)) {
+			return modInfo;
+		}
+
+		// Fetch the mod from the controller.
+		return await this.downloadMod(mod);
+	}
+
+	async fetchMods(mods: Iterable<lib.ModRecord>) {
+		const modInfos: Promise<lib.ModInfo>[] = [];
+		for (const mod of mods) {
+			// XXX These mods ship with Factorio, but the list of mods may
+			// change and should not be hardcoded here.
+			if (["core", "base"].includes(mod.name)) {
+				continue;
+			}
+			modInfos.push(this.fetchMod(mod));
+		}
+		return await Promise.all(modInfos);
 	}
 
 	async handleInstanceAssignInternalRequest(request: lib.InstanceAssignInternalRequest) {

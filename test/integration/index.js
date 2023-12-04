@@ -18,6 +18,8 @@ require("../../plugins/research_sync/dist/plugin/info");
 require("../../plugins/statistics_exporter/dist/plugin/info");
 require("../../plugins/subspace_storage/dist/plugin/info");
 
+const subspaceStorageVersion = "1.99.8";
+const subspaceStorageGitHubTag = "1.99.6"; // Tag subspaceStorageVersion was released under on GitHub
 
 class TestControl extends lib.Link {
 	constructor(connector, subscribe = true) {
@@ -131,6 +133,7 @@ let control;
 let url = "https://localhost:4443/";
 let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 let instancesDir = path.join("temp", "test", "instances");
+let modsDir = path.join("temp", "test", "mods");
 let databaseDir = path.join("temp", "test", "database");
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
 let controllerConfigPath = path.join("temp", "test", "config-controller.json");
@@ -186,8 +189,9 @@ before(async function() {
 		format: new lib.TerminalFormat(),
 	}));
 
-	await fs.remove(databaseDir);
 	await fs.remove(instancesDir);
+	await fs.remove(modsDir);
+	await fs.remove(databaseDir);
 
 	await fs.remove(pluginListPath);
 	await fs.remove(controllerConfigPath);
@@ -195,6 +199,32 @@ before(async function() {
 	await fs.remove(controlConfigPath);
 
 	await fs.ensureDir(path.join("temp", "test"));
+
+	await fs.ensureDir(modsDir);
+	await lib.build({
+		build: true,
+		pack: true,
+		sourceDir: "packages/host/lua/clusterio_lib",
+		outputDir: modsDir,
+	});
+	const ssv = subspaceStorageVersion;
+	const ssTag = subspaceStorageGitHubTag;
+	const ssZip = `subspace_storage_${ssv}.zip`;
+	if (!await fs.pathExists(`mods/${ssZip}`)) {
+		console.log(`Downloading ${ssZip}`);
+		const ssUrl = `https://github.com/clusterio/subspace_storage/releases/download/${ssTag}/${ssZip}`;
+		let response = await phin({
+			url: ssUrl,
+			method: "GET",
+			stream: false, // phin leaks open sockets when stream and followRedirects is combined
+			followRedirects: true,
+		});
+		if (response.statusCode !== 200) {
+			throw new Error(`${ssUrl} returned ${response.statusCode} ${response.statusMessage}`);
+		}
+		await fs.outputFile(`mods/${ssZip}`, response.body);
+	}
+	await fs.copyFile(`mods/${ssZip}`, `${modsDir}/${ssZip}`);
 
 	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
 	await exec("node ../../packages/controller config set controller.http_port 8880");
@@ -233,7 +263,7 @@ before(async function() {
 	testPack.name = "subspace_storage-pack";
 	testPack.factorioVersion = "1.1.0";
 	testPack.mods.set("clusterio_lib", { name: "clusterio_lib", enabled: true, version: "0.1.2" });
-	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: "1.99.8" });
+	testPack.mods.set("subspace_storage", { name: "subspace_storage", enabled: true, version: subspaceStorageVersion });
 	await control.sendTo("controller", new lib.ModPackCreateRequest(testPack));
 	await control.sendTo(
 		"controller",
@@ -279,6 +309,7 @@ module.exports = {
 	url,
 	controlToken,
 	instancesDir,
+	modsDir,
 	databaseDir,
 	controllerConfigPath,
 	hostConfigPath,
