@@ -18,6 +18,8 @@ export class InstanceDetails {
 		public assignedHost: number | undefined,
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt = 0,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -29,10 +31,22 @@ export class InstanceDetails {
 			"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 			"creating_save", "exporting_data", "deleted",
 		]),
+		"updatedAt": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.id, json.assignedHost, json.gamePort, json.status);
+		return new this(
+			json.name,
+			json.id,
+			json.assignedHost,
+			json.gamePort,
+			json.status,
+			json.updatedAt,
+		);
+	}
+
+	get isDeleted() {
+		return this.status === "deleted";
 	}
 }
 
@@ -288,15 +302,21 @@ export class InstanceSaveListUpdateEvent {
 	constructor(
 		public instanceId: number,
 		public saves: SaveDetails[],
+		public updatedAt = Date.now(),
 	) { }
+
+	get isDeleted() {
+		return false;
+	}
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
 		"saves": Type.Array(SaveDetails.jsonSchema),
+		"updatedAt": Type.Number(),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.instanceId, json.saves.map(i => SaveDetails.fromJSON(i)));
+		return new this(json.instanceId, json.saves.map(i => SaveDetails.fromJSON(i)), json.updatedAt);
 	}
 }
 

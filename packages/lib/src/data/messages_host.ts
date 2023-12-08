@@ -11,6 +11,9 @@ export class HostDetails {
 		public connected: boolean,
 		public publicAddress?: string,
 		public tokenValidAfter?: number,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt = 0,
+		public isDeleted = false,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -21,6 +24,8 @@ export class HostDetails {
 		"connected": Type.Boolean(),
 		"publicAddress": Type.Optional(Type.String()),
 		"tokenValidAfter": Type.Optional(Type.Number()),
+		"updatedAt": Type.Optional(Type.Number()),
+		"isDeleted": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -32,6 +37,8 @@ export class HostDetails {
 			json.connected,
 			json.publicAddress,
 			json.tokenValidAfter,
+			json.updatedAt,
+			json.isDeleted,
 		);
 	}
 }

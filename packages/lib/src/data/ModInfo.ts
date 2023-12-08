@@ -113,6 +113,9 @@ export default class ModInfo {
 	 */
 	sha1?: string;
 
+	/** Millisecond Unix timestamp this entry was last updated at */
+	updatedAt = 0;
+
 	/**
 	 * True if this mod has been deleted
 	 */
@@ -137,6 +140,7 @@ export default class ModInfo {
 		...this.infoJsonSchema.properties,
 		"size": Type.Optional(Type.Integer()),
 		"sha1": Type.Optional(Type.String()),
+		"updated_at": Type.Optional(Type.Number()),
 		"is_deleted": Type.Optional(Type.Boolean()),
 	});
 
@@ -159,6 +163,7 @@ export default class ModInfo {
 		// Additional data
 		if (json.size) { modInfo.size = json.size; }
 		if (json.sha1) { modInfo.sha1 = json.sha1; }
+		if (json.updated_at) { modInfo.updatedAt = json.updated_at; }
 		if (json.is_deleted) { modInfo.isDeleted = json.is_deleted; }
 
 		return modInfo;
@@ -180,6 +185,7 @@ export default class ModInfo {
 		}
 		if (this.size) { json.size = this.size; }
 		if (this.sha1) { json.sha1 = this.sha1; }
+		if (this.updatedAt) { json.updated_at = this.updatedAt; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
@@ -209,11 +215,13 @@ export default class ModInfo {
 			throw new Error(`Mod's version (${modInfo.version}) is invalid`);
 		}
 
+		const stat = await fs.stat(modPath);
 		return this.fromJSON({
 			...modInfo,
 
-			size: (await fs.stat(modPath)).size,
+			size: stat.size,
 			sha1: await libHash.hashFile(modPath),
+			updated_at: stat.mtimeMs,
 			is_deleted: false,
 		});
 	}

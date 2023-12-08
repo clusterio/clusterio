@@ -735,7 +735,7 @@ export default class Controller {
 
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
-		this.instancesDirty = true;
+		// "fieldChanged" event handler will set this.instancesDirty
 		if (hostId !== undefined && newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
@@ -819,6 +819,7 @@ export default class Controller {
 				assigned_host,
 				game_port,
 				instance.status,
+				Date.now(),
 			)
 		));
 	}
@@ -828,17 +829,20 @@ export default class Controller {
 	}
 
 	modPackUpdated(modPack: lib.ModPack) {
+		modPack.updatedAt = Date.now();
 		this.modPacksDirty = true;
 		this.subscriptions.broadcast(new lib.ModPackUpdateEvent(modPack));
 		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
 	}
 
 	modUpdated(mod: lib.ModInfo) {
+		// ModStore sets updatedAt for mods
 		this.subscriptions.broadcast(new lib.ModUpdateEvent(mod));
 		lib.invokeHook(this.plugins, "onModUpdated", mod);
 	}
 
 	userUpdated(user: ControllerUser) {
+		user.updatedAt = Date.now();
 		this.userManager.dirty = true;
 		this.subscriptions.broadcast(new lib.UserUpdateEvent(user));
 	}
