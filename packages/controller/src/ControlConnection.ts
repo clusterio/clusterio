@@ -228,49 +228,11 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {
-		let instance = this._controller.getRequestInstance(request.instanceId);
-
-		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-		if (assigned_host === null) {
-			assigned_host = undefined;
-		}
-
-		let game_port: number|null|undefined = instance.game_port;
-		if (game_port === null) {
-			game_port = undefined;
-		}
-
-		return new lib.InstanceDetails(
-			instance.config.get("instance.name"),
-			instance.id,
-			assigned_host,
-			game_port,
-			instance.status,
-		);
+		return this._controller.getRequestInstance(request.instanceId).toInstanceDetails();
 	}
 
 	async handleInstanceDetailsListRequest() {
-		let list = [];
-		for (let instance of this._controller.instances.values()) {
-			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-			if (assigned_host === null) {
-				assigned_host = undefined;
-			}
-
-			let game_port: number|null|undefined = instance.game_port;
-			if (game_port === null) {
-				game_port = undefined;
-			}
-
-			list.push(new lib.InstanceDetails(
-				instance.config.get("instance.name"),
-				instance.id,
-				assigned_host,
-				game_port,
-				instance.status,
-			));
-		}
-		return list;
+		return [...this._controller.instances.values()].map(instance => instance.toInstanceDetails());
 	}
 
 	// XXX should probably add a hook for host reuqests?

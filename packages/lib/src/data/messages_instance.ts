@@ -7,10 +7,34 @@ import type { MessageRequest } from "./messages_core";
 import { CollectorResultSerialized } from "../prometheus";
 
 
-export type InstanceStatus =
-	"unknown" | "unassigned" | "stopped" | "starting" | "running"
-	| "stopping" | "creating_save" | "exporting_data" | "deleted"
-;
+export const InstanceStatus = StringEnum([
+	"unknown",
+	"unassigned",
+	"stopped",
+	"starting",
+	"running",
+	"stopping",
+	"creating_save",
+	"exporting_data",
+	"deleted",
+]);
+
+/**
+ * Current status of the instance. One of:
+ * - `unknown`: Instance is assigned to a host but this host is currently
+ *   not connected to the contreller.
+ * - `unassigned`: Instance is not assigned to a a host and exists only on
+ *   the controller.
+ * - `stopped`: Instance is stopped.
+ * - `starting`: Instance is in the process of starting up.
+ * - `running`: Instance is running normally.
+ * - `stopping`: Instance is in the process of stopping.
+ * - `creating_save`: Instance is in the process of creating a save.
+ * - `exporting_data`: Instance is in the process of exporting game data.
+ * - `deleted`: Instance has been deleted.
+ */
+export type InstanceStatus = Static<typeof InstanceStatus>;
+
 export class InstanceDetails {
 	constructor(
 		public name: string,
@@ -653,7 +677,8 @@ export class RawInstanceInfo {
 
 	constructor(
 		public config: object,
-		public status: string,
+		public status: InstanceStatus,
+		public gamePort: undefined | number,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -661,10 +686,11 @@ export class RawInstanceInfo {
 		"status": StringEnum([
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
+		"gamePort": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.config, json.status);
+		return new this(json.config, json.status, json.gamePort);
 	}
 }
 
@@ -757,7 +783,7 @@ export class InstanceStatusChangedEvent {
 
 	constructor(
 		public instanceId: number,
-		public status: string,
+		public status: InstanceStatus,
 		public gamePort?: number,
 	) { }
 

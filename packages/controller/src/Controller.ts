@@ -17,7 +17,7 @@ import * as lib from "@clusterio/lib";
 const { logger, Summary, Gauge } = lib;
 
 import HttpCloser from "./HttpCloser";
-import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
+import InstanceInfo from "./InstanceInfo";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
 import ControllerUser from "./ControllerUser";
@@ -478,16 +478,22 @@ export default class Controller {
 
 		let instances = new Map();
 		try {
-			let serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
-			for (let serializedConfig of serialized) {
+			let serialized = JSON.parse(
+				await fs.readFile(filePath, { encoding: "utf8" })
+			) as Static<typeof InstanceInfo.jsonSchema>[];
+			for (let json of serialized) {
+				if (!json.config) { // migrate: from pre Alpha 14 format.
+					json = { config: json, status: "running" }; // Use running to force updatedAt
+				}
 				let instanceConfig = new lib.InstanceConfig("controller");
-				await instanceConfig.load(serializedConfig);
-				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
-				let instance = new InstanceInfo({
-					config: instanceConfig,
-					status: status as InstanceStatus,
-				});
-				instances.set(instanceConfig.get("instance.id"), instance);
+				await instanceConfig.load(json.config as lib.SerializedConfig);
+				let instance = InstanceInfo.fromJSON(json, instanceConfig);
+				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
+				if (instance.status !== status) {
+					instance.status = status;
+					instance.updatedAt = Date.now();
+				}
+				instances.set(instance.id, instance);
 			}
 
 		} catch (err: any) {
@@ -501,11 +507,7 @@ export default class Controller {
 	}
 
 	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
-		let serialized = [];
-		for (const instance of instances.values()) {
-			serialized.push(instance.config.serialize());
-		}
-
+		let serialized = [...instances.values()].map(instance => instance.toJSON());
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
 
@@ -692,7 +694,7 @@ export default class Controller {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
+		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, Date.now());
 		this.instances.set(instanceId, instance);
 		this.instancesDirty = true;
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
@@ -772,6 +774,7 @@ export default class Controller {
 
 		let prev = instance.status;
 		instance.status = "deleted";
+		instance.updatedAt = Date.now();
 		this.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
@@ -799,6 +802,7 @@ export default class Controller {
 
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
+			instance.updatedAt = Date.now();
 			if (group.name === "instance" && field === "name") {
 				this.instanceDetailsUpdated([instance]);
 			}
@@ -809,29 +813,7 @@ export default class Controller {
 	}
 
 	instanceDetailsUpdated(instances: InstanceInfo[]) {
-		const now = Date.now();
-		const updates: lib.InstanceDetails[] = [];
-		for (const instance of instances) {
-			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-			if (assigned_host === null) {
-				assigned_host = undefined;
-			}
-
-			let game_port: number|null|undefined = instance.game_port;
-			if (game_port === null) {
-				game_port = undefined;
-			}
-
-			updates.push(new lib.InstanceDetails(
-				instance.config.get("instance.name"),
-				instance.id,
-				assigned_host,
-				game_port,
-				instance.status,
-				now,
-			));
-		}
-
+		const updates = instances.map(instance => instance.toInstanceDetails());
 		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}
 

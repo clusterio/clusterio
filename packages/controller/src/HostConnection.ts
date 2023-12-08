@@ -5,7 +5,7 @@ import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
-import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
+import InstanceInfo from "./InstanceInfo";
 import HostInfo from "./HostInfo";
 
 
@@ -176,8 +176,9 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		let prev = instance.status;
-		instance.status = request.status as lib.InstanceStatus;
-		instance.game_port = request.gamePort || null;
+		instance.status = request.status;
+		instance.gamePort = request.gamePort;
+		instance.updatedAt = Date.now();
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		this._controller.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
@@ -212,7 +213,9 @@ export default class HostConnection extends BaseConnection {
 				// Already have this instance, update state instead
 				if (controllerInstance.status !== instanceData.status) {
 					let prev = controllerInstance.status;
-					controllerInstance.status = instanceData.status as InstanceStatus;
+					controllerInstance.status = instanceData.status;
+					controllerInstance.gamePort = instanceData.gamePort;
+					controllerInstance.updatedAt = Date.now();
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
 					instanceUpdates.push(controllerInstance);
 					await lib.invokeHook(
@@ -224,7 +227,10 @@ export default class HostConnection extends BaseConnection {
 
 			instanceConfig.set("instance.assigned_host", this._id);
 			let newInstance = new InstanceInfo(
-				{ config: instanceConfig, status: instanceData.status as InstanceStatus }
+				instanceConfig,
+				instanceData.status,
+				instanceData.gamePort,
+				Date.now(),
 			);
 			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.instancesDirty = true;

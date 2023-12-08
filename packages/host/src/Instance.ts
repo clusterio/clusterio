@@ -446,7 +446,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			new lib.InstanceStatusChangedEvent(
 				this.id,
 				status,
-				this.server.gamePort || this.config.get("factorio.game_port") || undefined,
+				status !== "stopped" ? this.server.gamePort : undefined,
 			),
 		);
 	}

@@ -913,6 +913,7 @@ export default class Host extends lib.Link {
 			list.push(new lib.RawInstanceInfo(
 				instanceInfo.config.serialize("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
+				instanceConnection ? instanceConnection.instance.server.gamePort : undefined,
 			));
 		}
 		await this.send(new lib.InstancesUpdateRequest(list));
