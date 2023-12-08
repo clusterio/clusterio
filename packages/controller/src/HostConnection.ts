@@ -6,17 +6,8 @@ const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
 import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
+import HostInfo from "./HostInfo";
 
-
-export interface HostInfo {
-	agent: string;
-	id: number;
-	name: string;
-	version: string;
-	plugins: Record<string, string>;
-	public_address: string | undefined;
-	token_valid_after?: number;
-}
 
 /**
  * Represents the connection to a host
@@ -25,10 +16,10 @@ export interface HostInfo {
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	private _agent: any;
-	private _id: any;
-	private _name: any;
-	private _version: any;
+	private _agent: string;
+	private _id: number;
+	private _name: string;
+	private _version: string;
 	plugins: Map<string, string>;
 
 	constructor(
@@ -45,18 +36,21 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
-		let currentHostInfo = this._controller.hosts.get(this._id);
-
-		this._controller.hosts.set(this._id, {
-			agent: this._agent,
-			id: this._id,
-			name: this._name,
-			version: this._version,
-			public_address: registerData.publicAddress,
-			plugins: registerData.plugins,
-			token_valid_after: currentHostInfo?.token_valid_after,
-		});
-		this._controller.hostsDirty = true;
+		const previousHostInfo = this._controller.hosts.get(this._id);
+		const currentHostInfo = new HostInfo(
+			this._agent,
+			this._id,
+			this._name,
+			this._version,
+			this.plugins,
+			true,
+			registerData.publicAddress ?? "",
+			previousHostInfo?.tokenValidAfter,
+			Date.now(),
+			false,
+		);
+		this._controller.hosts.set(this._id, currentHostInfo);
+		this._controller.hostsUpdated([currentHostInfo]);
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			// eslint-disable-next-line no-loop-func
@@ -81,6 +75,9 @@ export default class HostConnection extends BaseConnection {
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 			this._controller.instanceDetailsUpdated(instances);
+
+			currentHostInfo.connected = false;
+			this._controller.hostsUpdated([currentHostInfo]);
 		});
 
 		this.handle(lib.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));

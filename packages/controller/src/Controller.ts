@@ -2,6 +2,7 @@ import type winston from "winston";
 import type { AddressInfo } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
+import type { Static } from "@sinclair/typebox";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
@@ -22,7 +23,8 @@ import * as routes from "./routes";
 import ControllerUser from "./ControllerUser";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
-import HostConnection, { type HostInfo } from "./HostConnection";
+import HostConnection from "./HostConnection";
+import HostInfo from "./HostInfo";
 import BaseControllerPlugin from "./BaseControllerPlugin";
 
 const endpointDurationSummary = new Summary(
@@ -439,7 +441,7 @@ export default class Controller {
 	}
 
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
-		let serialized: [number, HostInfo][];
+		let serialized: [number, Static<typeof HostInfo.jsonSchema>][];
 		try {
 			serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 
@@ -450,12 +452,21 @@ export default class Controller {
 			return new Map();
 		}
 
-		// TODO: Remove after release.
+		// TODO: migrate remove after release.
 		if (serialized.length && !(serialized[0] instanceof Array)) {
 			return new Map(); // Discard old format.
 		}
 
-		return new Map(serialized);
+		const hosts = new Map();
+		for (let [id, json] of serialized) {
+			const host = HostInfo.fromJSON(json);
+			if (host.connected) {
+				host.connected = false;
+				host.updatedAt = Date.now();
+			}
+			hosts.set(id, host);
+		}
+		return hosts;
 	}
 
 	static async saveHosts(filePath: string, hosts: Map<number, HostInfo>) {
@@ -608,16 +619,12 @@ export default class Controller {
 	}
 
 	hostsUpdated(hosts: HostInfo[]) {
-		let updates = hosts.map(host => new lib.HostDetails(
-			host.agent,
-			host.version,
-			host.name,
-			host.id,
-			this.wsServer.hostConnections.has(host.id),
-			host.public_address,
-			host.token_valid_after,
-		));
-
+		const now = Date.now();
+		for (const host of hosts) {
+			host.updatedAt = now;
+		}
+		this.hostsDirty = true;
+		let updates = hosts.map(host => host.toHostDetails());
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
 	}
 

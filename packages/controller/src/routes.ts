@@ -152,7 +152,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 		if (!host) {
 			throw new Error("invalid host");
 		}
-		if (!tokenPayload.iat || tokenPayload.iat < (host.token_valid_after??0)) {
+		if (!tokenPayload.iat || tokenPayload.iat < (host.tokenValidAfter ?? 0)) {
 			throw new Error("invalid token");
 		}
 	} catch (err) {

@@ -1,5 +1,4 @@
 import type WsServerConnector from "./WsServerConnector";
-import type { HostInfo } from "./HostConnection";
 
 import events from "events";
 
@@ -188,7 +187,7 @@ export default class ControlConnection extends BaseConnection {
 			throw new Error(`Unknown host id (${request.hostId})`);
 		}
 
-		host.token_valid_after = Math.floor(Date.now() / 1000);
+		host.tokenValidAfter = Math.floor(Date.now() / 1000);
 
 		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
 		if (hostConnection) {
@@ -199,19 +198,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
-		let list = [];
-		for (let host of this._controller.hosts.values()) {
-			list.push(new lib.HostDetails(
-				host.agent,
-				host.version,
-				host.name,
-				host.id,
-				this._controller.wsServer.hostConnections.has(host.id),
-				host.public_address,
-				host.token_valid_after,
-			));
-		}
-		return list;
+		return [...this._controller.hosts.values()].map(host => host.toHostDetails());
 	}
 
 	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
