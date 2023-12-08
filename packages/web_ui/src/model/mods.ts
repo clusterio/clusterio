@@ -21,18 +21,20 @@ export function useModList() {
 	useEffect(() => {
 		updateModList();
 
-		function updateHandler(newMod: lib.ModInfo) {
+		function updateHandler(newMods: lib.ModInfo[]) {
 			setModList(oldList => {
 				let newList = oldList.concat();
-				let index = newList.findIndex(mod => mod.name === newMod.name && mod.version === newMod.version);
-				if (!newMod.isDeleted) {
-					if (index !== -1) {
-						newList[index] = newMod;
-					} else {
-						newList.push(newMod);
+				for (const newMod of newMods) {
+					let index = newList.findIndex(mod => mod.name === newMod.name && mod.version === newMod.version);
+					if (!newMod.isDeleted) {
+						if (index !== -1) {
+							newList[index] = newMod;
+						} else {
+							newList.push(newMod);
+						}
+					} else if (index !== -1) {
+						newList.splice(index, 1);
 					}
-				} else if (index !== -1) {
-					newList.splice(index, 1);
 				}
 				return newList;
 			});

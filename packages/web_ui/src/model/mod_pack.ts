@@ -33,11 +33,11 @@ export function useModPack(id: number) {
 		}
 		updateModPack();
 
-		function updateHandler(newModPack: lib.ModPack) {
-			if (newModPack.id !== id) {
-				return;
+		function updateHandler(modPacks: lib.ModPack[]) {
+			const newModPack = modPacks.find(m => m.id === id);
+			if (newModPack) {
+				setModPack(newModPack);
 			}
-			setModPack(newModPack);
 		}
 		control.modPackUpdate.subscribe(updateHandler);
 		return () => {
@@ -63,18 +63,20 @@ export function useModPackList() {
 	useEffect(() => {
 		updateModPackList();
 
-		function updateHandler(newModPack: lib.ModPack) {
+		function updateHandler(newModPacks: lib.ModPack[]) {
 			setModPackList(oldList => {
 				let newList = oldList.concat();
-				let index = newList.findIndex(u => u.id === newModPack.id);
-				if (!newModPack.isDeleted) {
-					if (index !== -1) {
-						newList[index] = newModPack;
-					} else {
-						newList.push(newModPack);
+				for (const newModPack of newModPacks) {
+					let index = newList.findIndex(u => u.id === newModPack.id);
+					if (!newModPack.isDeleted) {
+						if (index !== -1) {
+							newList[index] = newModPack;
+						} else {
+							newList.push(newModPack);
+						}
+					} else if (index !== -1) {
+						newList.splice(index, 1);
 					}
-				} else if (index !== -1) {
-					newList.splice(index, 1);
 				}
 				return newList;
 			});

@@ -31,11 +31,11 @@ export function useInstance(id: number): [InstanceState, ()=>void] {
 		}
 		updateInstance();
 
-		function updateHandler(newInstance: lib.InstanceDetails) {
-			if (newInstance.id !== id) {
-				return;
+		function updateHandler(newInstances: lib.InstanceDetails[]) {
+			const newInstance = newInstances.find(i => i.id === id);
+			if (newInstance) {
+				setInstance({ ...newInstance, present: true });
 			}
-			setInstance({ ...newInstance, present: true });
 		}
 
 		control.instanceUpdate.subscribe(updateHandler);
@@ -62,18 +62,20 @@ export function useInstanceList() {
 	useEffect(() => {
 		updateInstanceList();
 
-		function updateHandler(newInstance: lib.InstanceDetails) {
+		function updateHandler(newInstances: lib.InstanceDetails[]) {
 			setInstanceList(oldList => {
 				let newList = oldList.concat();
-				let index = newList.findIndex(s => s.id === newInstance.id);
-				if (newInstance.status !== "deleted") {
-					if (index !== -1) {
-						newList[index] = newInstance;
-					} else {
-						newList.push(newInstance);
+				for (const newInstance of newInstances) {
+					let index = newList.findIndex(s => s.id === newInstance.id);
+					if (newInstance.status !== "deleted") {
+						if (index !== -1) {
+							newList[index] = newInstance;
+						} else {
+							newList.push(newInstance);
+						}
+					} else if (index !== -1) {
+						newList.splice(index, 1);
 					}
-				} else if (index !== -1) {
-					newList.splice(index, 1);
 				}
 				return newList;
 			});

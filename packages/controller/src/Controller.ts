@@ -143,16 +143,16 @@ export default class Controller {
 		this.subscriptions = new lib.SubscriptionController(this);
 
 		this.modStore.on("change", mod => {
-			this.modUpdated(mod);
+			this.modsUpdated([mod]);
 		});
 
 		// Handle subscriptions for all internal properties
-		this.subscriptions.handle(lib.HostUpdateEvent);
-		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
+		this.subscriptions.handle(lib.HostUpdatesEvent);
+		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent);
 		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
-		this.subscriptions.handle(lib.ModPackUpdateEvent);
-		this.subscriptions.handle(lib.ModUpdateEvent);
-		this.subscriptions.handle(lib.UserUpdateEvent);
+		this.subscriptions.handle(lib.ModPackUpdatesEvent);
+		this.subscriptions.handle(lib.ModUpdatesEvent);
+		this.subscriptions.handle(lib.UserUpdatesEvent);
 	}
 
 	async start(args: ControllerArgs) {
@@ -607,8 +607,8 @@ export default class Controller {
 		);
 	}
 
-	hostUpdated(host: HostInfo) {
-		let update = new lib.HostDetails(
+	hostsUpdated(hosts: HostInfo[]) {
+		let updates = hosts.map(host => new lib.HostDetails(
 			host.agent,
 			host.version,
 			host.name,
@@ -616,9 +616,9 @@ export default class Controller {
 			this.wsServer.hostConnections.has(host.id),
 			host.public_address,
 			host.token_valid_after,
-		);
+		));
 
-		this.subscriptions.broadcast(new lib.HostUpdateEvent(update));
+		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
 	}
 
 	/**
@@ -690,7 +690,7 @@ export default class Controller {
 		this.instancesDirty = true;
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
-		this.instanceDetailsUpdated(instance);
+		this.instanceDetailsUpdated([instance]);
 		return instance;
 	}
 
@@ -742,7 +742,7 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
-			this.instanceDetailsUpdated(instance);
+			this.instanceDetailsUpdated([instance]);
 		}
 	}
 
@@ -765,7 +765,7 @@ export default class Controller {
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		this.instanceDetailsUpdated(instance);
+		this.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -793,7 +793,7 @@ export default class Controller {
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
 			if (group.name === "instance" && field === "name") {
-				this.instanceDetailsUpdated(instance);
+				this.instanceDetailsUpdated([instance]);
 			}
 
 			this.instancesDirty = true;
@@ -801,50 +801,60 @@ export default class Controller {
 		});
 	}
 
-	instanceDetailsUpdated(instance: InstanceInfo) {
-		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-		if (assigned_host === null) {
-			assigned_host = undefined;
-		}
+	instanceDetailsUpdated(instances: InstanceInfo[]) {
+		const now = Date.now();
+		const updates: lib.InstanceDetails[] = [];
+		for (const instance of instances) {
+			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
+			if (assigned_host === null) {
+				assigned_host = undefined;
+			}
 
-		let game_port: number|null|undefined = instance.game_port;
-		if (game_port === null) {
-			game_port = undefined;
-		}
+			let game_port: number|null|undefined = instance.game_port;
+			if (game_port === null) {
+				game_port = undefined;
+			}
 
-		this.subscriptions.broadcast(new lib.InstanceDetailsUpdateEvent(
-			new lib.InstanceDetails(
+			updates.push(new lib.InstanceDetails(
 				instance.config.get("instance.name"),
 				instance.id,
 				assigned_host,
 				game_port,
 				instance.status,
-				Date.now(),
-			)
-		));
+				now,
+			));
+		}
+
+		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}
 
 	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
 		this.subscriptions.broadcast(new lib.InstanceSaveListUpdateEvent(instanceId, saves));
 	}
 
-	modPackUpdated(modPack: lib.ModPack) {
-		modPack.updatedAt = Date.now();
+	modPacksUpdated(modPacks: lib.ModPack[]) {
+		const now = Date.now();
+		for (const modPack of modPacks) {
+			modPack.updatedAt = now;
+		}
 		this.modPacksDirty = true;
-		this.subscriptions.broadcast(new lib.ModPackUpdateEvent(modPack));
-		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
+		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
+		lib.invokeHook(this.plugins, "onModPacksUpdated", modPacks);
 	}
 
-	modUpdated(mod: lib.ModInfo) {
+	modsUpdated(mods: lib.ModInfo[]) {
 		// ModStore sets updatedAt for mods
-		this.subscriptions.broadcast(new lib.ModUpdateEvent(mod));
-		lib.invokeHook(this.plugins, "onModUpdated", mod);
+		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
+		lib.invokeHook(this.plugins, "onModsUpdated", mods);
 	}
 
-	userUpdated(user: ControllerUser) {
-		user.updatedAt = Date.now();
+	usersUpdated(users: ControllerUser[]) {
+		const now = Date.now();
+		for (const user of users) {
+			user.updatedAt = now;
+		}
 		this.userManager.dirty = true;
-		this.subscriptions.broadcast(new lib.UserUpdateEvent(user));
+		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
 	}
 
 	/**

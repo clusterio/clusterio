@@ -229,29 +229,29 @@ export default class BaseControllerPlugin {
 	async onPrepareHostDisconnect(connection: HostConnection) { }
 
 	/**
-	 * Called when a mod pack is updated
+	 * Called when one or more mod packs are updated
 	 *
-	 * Invoked when a mod pack has been added, updated or deleted in the
-	 * cluster.
+	 * Invoked when one or more mod pack have been added, updated or deleted
+	 * in the cluster.
 	 *
-	 * If the mod pack has been deleted its `.isDeleted` property will be
+	 * If a mod pack has been deleted its `.isDeleted` property will be
 	 * true.
 	 *
-	 * @param modPack - Mod pack that updated.
+	 * @param modPacks - Mod packs that updated.
 	 */
-	async onModPackUpdated(modPack: ModPack) { }
+	async onModPacksUpdated(modPacks: ModPack[]) { }
 
 	/**
-	 * Called when a mod stored on the controller is updated
+	 * Called when one or more mod stored on the controller are updated
 	 *
-	 * Invoked when a mod has been added, updated or deleted from the pool
-	 * of shared mods stored on the cluster.
+	 * Invoked when one or more mods have been added, updated or deleted
+	 * from the pool of shared mods stored on the cluster.
 	 *
 	 * If a mod has been deleted its `.isDeleted` property will be true.
 	 *
-	 * @param mod - Mod that updated.
+	 * @param mods - Mods that updated.
 	 */
-	async onModUpdated(mod: ModInfo) { }
+	async onModsUpdated(mods: ModInfo[]) { }
 
 	/**
 	 * Called when a player joins or leaves an instance

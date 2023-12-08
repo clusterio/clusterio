@@ -256,7 +256,7 @@ async function uploadExport(req: Request, res: Response) {
 
 	modPack.exportManifest = new lib.ExportManifest(assets);
 	modPack.fillDefaultSettings(settingPrototypes, logger);
-	res.app.locals.controller.modPackUpdated(modPack);
+	res.app.locals.controller.modPacksUpdated([modPack]);
 
 	res.sendStatus(200);
 }

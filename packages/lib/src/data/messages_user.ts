@@ -301,22 +301,22 @@ export class UserDeleteRequest {
 	}
 }
 
-export class UserUpdateEvent {
-	declare ["constructor"]: typeof UserUpdateEvent;
+export class UserUpdatesEvent {
+	declare ["constructor"]: typeof UserUpdatesEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
 	static permission = "core.user.subscribe" as const;
 
 	constructor(
-		public user: User,
+		public updates: User[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"user": User.jsonSchema,
+		"updates": Type.Array(User.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(User.fromJSON(json.user));
+		return new this(json.updates.map(update => User.fromJSON(update)));
 	}
 }

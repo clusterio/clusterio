@@ -35,11 +35,11 @@ export function useHost(id: number): [ HostState, () => void ] {
 		}
 		updateHost();
 
-		function updateHandler(newHost: lib.HostDetails) {
-			if (newHost.id !== id) {
-				return;
+		function updateHandler(newHosts: lib.HostDetails[]) {
+			const newHost = newHosts.find(h => h.id === id);
+			if (newHost) {
+				setHost({ ...newHost, loading: false, missing: false, present: true });
 			}
-			setHost({ ...newHost, loading: false, missing: false, present: true });
 		}
 
 		control.hostUpdate.subscribe(updateHandler);
@@ -66,14 +66,16 @@ export function useHostList() {
 	useEffect(() => {
 		updateHostList();
 
-		function updateHandler(newHost: lib.HostDetails) {
+		function updateHandler(newHosts: lib.HostDetails[]) {
 			setHostList(oldList => {
 				let newList = oldList.concat();
-				let index = newList.findIndex(s => s.id === newHost.id);
-				if (index !== -1) {
-					newList[index] = newHost;
-				} else {
-					newList.push(newHost);
+				for (const newHost of newHosts) {
+					let index = newList.findIndex(s => s.id === newHost.id);
+					if (index !== -1) {
+						newList[index] = newHost;
+					} else {
+						newList.push(newHost);
+					}
 				}
 				return newList;
 			});

@@ -60,28 +60,28 @@ export class Control extends lib.Link {
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
-	hostUpdate = new lib.EventSubscriber<lib.HostUpdateEvent, lib.HostDetails>(
-		lib.HostUpdateEvent, event => event.update,
+	hostUpdate = new lib.EventSubscriber<lib.HostUpdatesEvent, lib.HostDetails[]>(
+		lib.HostUpdatesEvent, event => event.updates,
 	);
 
-	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdateEvent, lib.InstanceDetails>(
-		lib.InstanceDetailsUpdateEvent, event => event.details,
+	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdatesEvent, lib.InstanceDetails[]>(
+		lib.InstanceDetailsUpdatesEvent, event => event.updates,
 	);
 
 	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveListUpdateEvent>(
 		lib.InstanceSaveListUpdateEvent,
 	);
 
-	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdateEvent, lib.ModPack>(
-		lib.ModPackUpdateEvent, event => event.modPack,
+	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdatesEvent, lib.ModPack[]>(
+		lib.ModPackUpdatesEvent, event => event.updates,
 	);
 
-	modUpdate = new lib.EventSubscriber<lib.ModUpdateEvent, lib.ModInfo>(
-		lib.ModUpdateEvent, event => event.mod,
+	modUpdate = new lib.EventSubscriber<lib.ModUpdatesEvent, lib.ModInfo[]>(
+		lib.ModUpdatesEvent, event => event.updates,
 	);
 
-	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.User>(
-		lib.UserUpdateEvent, event => event.user,
+	userUpdate = new lib.EventSubscriber<lib.UserUpdatesEvent, lib.User[]>(
+		lib.UserUpdatesEvent, event => event.updates,
 	);
 
 	declare connector: ControlConnector;

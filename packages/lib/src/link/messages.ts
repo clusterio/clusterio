@@ -31,7 +31,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	subscriptions.SubscriptionRequest,
 
 	host.HostListRequest,
-	host.HostUpdateEvent,
+	host.HostUpdatesEvent,
 	host.HostMetricsRequest,
 	host.ControllerConnectionEvent,
 	host.PrepareControllerDisconnectRequest,
@@ -40,7 +40,7 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	instance.InstanceDetailsGetRequest,
 	instance.InstanceDetailsListRequest,
-	instance.InstanceDetailsUpdateEvent,
+	instance.InstanceDetailsUpdatesEvent,
 	instance.InstanceCreateRequest,
 	instance.InstanceConfigGetRequest,
 	instance.InstanceConfigSetFieldRequest,
@@ -88,8 +88,8 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	mod.ModSearchRequest,
 	mod.ModDownloadRequest,
 	mod.ModDeleteRequest,
-	mod.ModPackUpdateEvent,
-	mod.ModUpdateEvent,
+	mod.ModPackUpdatesEvent,
+	mod.ModUpdatesEvent,
 
 	user.PermissionListRequest,
 	user.RoleListRequest,
@@ -106,5 +106,5 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	user.UserSetWhitelistedRequest,
 	user.UserSetBannedRequest,
 	user.UserDeleteRequest,
-	user.UserUpdateEvent,
+	user.UserUpdatesEvent,
 ];

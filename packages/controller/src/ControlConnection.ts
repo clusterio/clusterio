@@ -195,7 +195,7 @@ export default class ControlConnection extends BaseConnection {
 			hostConnection.connector.terminate();
 		}
 
-		this._controller.hostUpdated(host as HostInfo);
+		this._controller.hostsUpdated([host]);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
@@ -434,7 +434,7 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
-		this._controller.modPackUpdated(modPack);
+		this._controller.modPacksUpdated([modPack]);
 	}
 
 	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
@@ -443,7 +443,7 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
-		this._controller.modPackUpdated(modPack);
+		this._controller.modPacksUpdated([modPack]);
 	}
 
 	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
@@ -454,7 +454,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 		modPack.isDeleted = true;
 		this._controller.modPacks.delete(id);
-		this._controller.modPackUpdated(modPack);
+		this._controller.modPacksUpdated([modPack]);
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {
@@ -680,7 +680,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserCreateRequest(request: lib.UserCreateRequest) {
 		let user = this._controller.userManager.createUser(request.name);
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserRevokeTokenRequest(request: lib.UserRevokeTokenRequest) {
@@ -698,7 +698,7 @@ export default class ControlConnection extends BaseConnection {
 				controlConnection.connector.terminate();
 			}
 		}
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserUpdateRolesRequest(request: lib.UserUpdateRolesRequest) {
@@ -715,7 +715,7 @@ export default class ControlConnection extends BaseConnection {
 
 		user.roleIds = new Set(request.roles);
 		this._controller.userPermissionsUpdated(user);
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserSetAdminRequest(request: lib.UserSetAdminRequest) {
@@ -731,7 +731,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		user.isAdmin = admin;
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 		this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, admin));
 	}
 
@@ -749,7 +749,7 @@ export default class ControlConnection extends BaseConnection {
 
 		user.isBanned = banned;
 		user.banReason = reason;
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 		this._controller.sendTo("allInstances", new lib.InstanceBanlistUpdateEvent(name, banned, reason));
 	}
 
@@ -766,7 +766,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		user.isWhitelisted = whitelisted;
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 		this._controller.sendTo("allInstances", new lib.InstanceWhitelistUpdateEvent(name, whitelisted));
 	}
 
@@ -779,7 +779,7 @@ export default class ControlConnection extends BaseConnection {
 
 		user.isDeleted = true;
 		this._controller.userManager.users.delete(name);
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));

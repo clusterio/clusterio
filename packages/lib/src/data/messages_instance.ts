@@ -81,25 +81,23 @@ export class InstanceDetailsListRequest {
 	static Response = jsonArray(InstanceDetails);
 };
 
-export class InstanceDetailsUpdateEvent {
-	declare ["constructor"]: typeof InstanceDetailsUpdateEvent;
+export class InstanceDetailsUpdatesEvent {
+	declare ["constructor"]: typeof InstanceDetailsUpdatesEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
 	static permission = "core.instance.subscribe" as const;
 
 	constructor(
-		public details: InstanceDetails,
+		public updates: InstanceDetails[],
 	) { }
 
-	static jsonSchema = InstanceDetails.jsonSchema;
-
-	toJSON() {
-		return this.details;
-	}
+	static jsonSchema = Type.Object({
+		"updates": Type.Array(InstanceDetails.jsonSchema),
+	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(InstanceDetails.fromJSON(json));
+		return new this(json.updates.map(update => InstanceDetails.fromJSON(update)));
 	}
 };
 

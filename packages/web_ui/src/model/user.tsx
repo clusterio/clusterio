@@ -78,11 +78,11 @@ export function useUser(name: string): [RawUserState, () => void] {
 		}
 		updateUser();
 
-		function updateHandler(newUser: lib.User) {
-			if (newUser.name !== name) {
-				return;
+		function updateHandler(newUsers: lib.User[]) {
+			const newUser = newUsers.find(u => u.name === name);
+			if (newUser) {
+				setUser({ ...newUser, present: true });
 			}
-			setUser({ ...newUser, present: true });
 		}
 
 		control.userUpdate.subscribe(updateHandler);
@@ -109,18 +109,20 @@ export function useUserList() {
 	useEffect(() => {
 		updateUserList();
 
-		function updateHandler(newUser: lib.User) {
+		function updateHandler(newUsers: lib.User[]) {
 			setUserList(oldList => {
 				let newList = oldList.concat();
-				let index = newList.findIndex(u => u.name === newUser.name);
-				if (!newUser.isDeleted) {
-					if (index !== -1) {
-						newList[index] = newUser;
-					} else {
-						newList.push(newUser);
+				for (const newUser of newUsers) {
+					let index = newList.findIndex(u => u.name === newUser.name);
+					if (!newUser.isDeleted) {
+						if (index !== -1) {
+							newList[index] = newUser;
+						} else {
+							newList.push(newUser);
+						}
+					} else if (index !== -1) {
+						newList.splice(index, 1);
 					}
-				} else if (index !== -1) {
-					newList.splice(index, 1);
 				}
 				return newList;
 			});

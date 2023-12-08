@@ -245,42 +245,42 @@ export class ModDeleteRequest {
 	}
 }
 
-export class ModPackUpdateEvent {
-	declare ["constructor"]: typeof ModPackUpdateEvent;
+export class ModPackUpdatesEvent {
+	declare ["constructor"]: typeof ModPackUpdatesEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
 	static permission = "core.mod_pack.subscribe" as const;
 
 	constructor(
-		public modPack: ModPack,
+		public updates: ModPack[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"modPack": ModPack.jsonSchema,
+		"updates": Type.Array(ModPack.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(ModPack.fromJSON(json.modPack));
+		return new this(json.updates.map(update => ModPack.fromJSON(update)));
 	}
 }
 
-export class ModUpdateEvent {
-	declare ["constructor"]: typeof ModUpdateEvent;
+export class ModUpdatesEvent {
+	declare ["constructor"]: typeof ModUpdatesEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
 	static permission = "core.mod.subscribe" as const;
 
 	constructor(
-		public mod: ModInfo,
+		public updates: ModInfo[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"mod": ModInfo.jsonSchema,
+		"updates": Type.Array(ModInfo.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(ModInfo.fromJSON(json.mod));
+		return new this(json.updates.map(update => ModInfo.fromJSON(update)));
 	}
 }

@@ -69,16 +69,18 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
+			const instances: InstanceInfo[] = [];
 			for (let instance of this._controller.instances.values()) {
 				if (instance.config.get("instance.assigned_host") !== this._id) {
 					continue;
 				}
 
+				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
-				this._controller.instanceDetailsUpdated(instance);
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
+			this._controller.instanceDetailsUpdated(instances);
 		});
 
 		this.handle(lib.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
@@ -180,7 +182,7 @@ export default class HostConnection extends BaseConnection {
 		instance.status = request.status as lib.InstanceStatus;
 		instance.game_port = request.gamePort || null;
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		this._controller.instanceDetailsUpdated(instance);
+		this._controller.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -195,6 +197,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		// Assign instances the host has but controller does not
+		const instanceUpdates: InstanceInfo[] = [];
 		for (let instanceData of request.instances) {
 			let instanceConfig = new lib.InstanceConfig("controller");
 			await instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
@@ -214,7 +217,7 @@ export default class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status as InstanceStatus;
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					this._controller.instanceDetailsUpdated(controllerInstance);
+					instanceUpdates.push(controllerInstance);
 					await lib.invokeHook(
 						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
 					);
@@ -234,8 +237,12 @@ export default class HostConnection extends BaseConnection {
 					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
 				)
 			);
-			this._controller.instanceDetailsUpdated(newInstance);
+			instanceUpdates.push(newInstance);
 			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
+		}
+
+		if (instanceUpdates.length) {
+			this._controller.instanceDetailsUpdated(instanceUpdates);
 		}
 
 		// Push lists to make sure they are in sync.
@@ -286,7 +293,7 @@ export default class HostConnection extends BaseConnection {
 		user.instanceStats.set(instanceId, event.stats);
 
 		user.recalculatePlayerStats();
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 
 		let instance = this._controller.instances.get(instanceId)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {
