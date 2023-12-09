@@ -1,7 +1,7 @@
 {
 	"extends": "../../tsconfig.web.json",
 	"references": [
-		{ "path": "../lib" },
+		{ "path": "../lib/tsconfig.web.json" },
 	],
 	"include": [ "src/**/*.tsx", "src/**/*.ts", "package.json", "global.d.ts" ],
 	"compilerOptions": {

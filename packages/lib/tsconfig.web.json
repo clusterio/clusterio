@@ -1,0 +1,30 @@
+{
+	"extends": "../../tsconfig.web.json",
+	"include": [
+		"browser.ts",
+		"package.json",
+		"./src/api.ts",
+		"./src/config/*.ts",
+		"./src/data/*.ts",
+		"./src/errors.ts",
+		"./src/factorio/exchange_string.ts",
+		"./src/helpers.ts",
+		"./src/hash.ts",
+		"./src/ini.ts",
+		"./src/link/*.ts",
+		"./src/logging.ts",
+		"./src/permissions.ts",
+		"./src/prometheus.ts",
+		"./src/plugin.ts",
+		"./src/schema.ts",
+		"./src/subscriptions.ts",
+		"./src/zip_ops.ts",
+		"./src/ExponentialBackoff.ts",
+		"./src/RateLimiter.ts",
+		"./src/TypedEventEmitter.ts",
+	],
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "dist/web/build",
+	}
+}
