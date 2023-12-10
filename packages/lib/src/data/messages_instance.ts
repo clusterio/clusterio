@@ -283,62 +283,100 @@ export class InstanceStartRequest {
 
 export class SaveDetails {
 	constructor(
-		public type: string,
+		public instanceId: number,
+		public type: "file" | "directory" | "special",
 		public name: string,
 		public size: number,
 		public mtimeMs: number,
 		public loaded: boolean,
 		public loadByDefault: boolean,
+		public isDeleted: boolean,
 	) { }
 
 	static jsonSchema = Type.Object({
+		"instanceId": Type.Integer(),
 		"type": StringEnum(["file", "directory", "special"]),
 		"name": Type.String(),
 		"size": Type.Integer(),
 		"mtimeMs": Type.Number(),
 		"loaded": Type.Boolean(),
 		"loadByDefault": Type.Boolean(),
+		"isDeleted": Type.Boolean(),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.type, json.name, json.size, json.mtimeMs, json.loaded, json.loadByDefault);
+		return new this(
+			json.instanceId,
+			json.type,
+			json.name,
+			json.size,
+			json.mtimeMs,
+			json.loaded,
+			json.loadByDefault,
+			json.isDeleted,
+		);
+	}
+
+	/** Concatenation of instance id and name forming a unique string for this save */
+	get id() {
+		return `${this.instanceId}/${this.name}`;
+	}
+
+	get updatedAt() {
+		return this.mtimeMs;
+	}
+
+	/**
+	 * Compare this save with another save.
+	 * @param other - save to compare with.
+	 * @returns true if this save is identical to the provided save
+	 */
+	equals(other: SaveDetails) {
+		return (
+			this.instanceId === other.instanceId
+			&& this.type === other.type
+			&& this.name === other.name
+			&& this.size === other.size
+			&& this.mtimeMs === other.mtimeMs
+			&& this.loaded === other.loaded
+			&& this.loadByDefault === other.loadByDefault
+			&& this.isDeleted === other.isDeleted
+		);
 	}
 }
 
-export class InstanceListSavesRequest {
-	declare ["constructor"]: typeof InstanceListSavesRequest;
+export class InstanceSaveDetailsListRequest {
+	declare ["constructor"]: typeof InstanceSaveDetailsListRequest;
 	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "instance" as const;
+	static src = ["control", "host"] as const;
+	static dst = ["controller", "instance"] as const;
 	static permission = "core.instance.save.list" as const;
 	static Response = jsonArray(SaveDetails);
 }
 
-export class InstanceSaveListUpdateEvent {
-	declare ["constructor"]: typeof InstanceSaveListUpdateEvent;
+export class InstanceSaveDetailsUpdatesEvent {
+	declare ["constructor"]: typeof InstanceSaveDetailsUpdatesEvent;
 	static type = "event" as const;
 	static src = ["instance", "host", "controller"] as const;
 	static dst = ["controller", "control"] as const;
-	static permission = "core.instance.save.list_subscribe" as const;
+	static permission = "core.instance.save.list.subscribe" as const;
 
 	constructor(
-		public instanceId: number,
-		public saves: SaveDetails[],
-		public updatedAt = Date.now(),
+		public updates: SaveDetails[],
+		/**
+		 * Present if this update was sent by a host and updates contains all
+		 * saves of the given instance.
+		 */
+		public instanceId?: number,
 	) { }
 
-	get isDeleted() {
-		return false;
-	}
-
 	static jsonSchema = Type.Object({
-		"instanceId": Type.Integer(),
-		"saves": Type.Array(SaveDetails.jsonSchema),
-		"updatedAt": Type.Number(),
+		"updates": Type.Array(SaveDetails.jsonSchema),
+		"instanceId": Type.Optional(Type.Integer()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.instanceId, json.saves.map(i => SaveDetails.fromJSON(i)), json.updatedAt);
+		return new this(json.updates.map(i => SaveDetails.fromJSON(i)), json.instanceId);
 	}
 }
 

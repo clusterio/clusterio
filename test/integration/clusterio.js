@@ -315,16 +315,16 @@ describe("Integration of Clusterio", function() {
 		describe("instance save create", function() {
 			it("creates a save", async function() {
 				slowTest(this);
-				getControl().saveListUpdates = [];
+				getControl().saveUpdates = [];
 				await execCtl("instance save create test");
 				await checkInstanceStatus(44, "stopped");
 			});
 		});
 
-		describe("saveListUpdateEventHandler()", function() {
+		describe("InstanceSaveDetailsUpdatesEvent", function() {
 			it("should have triggered for the created save", function() {
 				slowTest(this);
-				assert.equal(getControl().saveListUpdates.slice(-1)[0].saves[0].name, "world.zip");
+				assert.equal(getControl().saveUpdates.slice(-1)[0].updates[0].name, "world.zip");
 			});
 		});
 
@@ -391,7 +391,7 @@ describe("Integration of Clusterio", function() {
 				let savesDir = path.join("temp", "test", "instances", "test", "saves");
 				await fs.copy(path.join(savesDir, "world.zip"), path.join(savesDir, "_autosave1.zip"));
 				await execCtl("instance start test");
-				let saves = await getControl().sendTo({ instanceId: 44 }, new lib.InstanceListSavesRequest());
+				let saves = await getControl().sendTo({ instanceId: 44 }, new lib.InstanceSaveDetailsListRequest());
 				let running = saves.find(s => s.loaded);
 				assert(running.name !== "_autosave1.zip");
 			});
@@ -407,19 +407,19 @@ describe("Integration of Clusterio", function() {
 				assert(log.some(info => /technobabble/.test(info.message)), "Command was not sent");
 			});
 
-			it("should trigger saveListUpdate on save", async function() {
+			it("should trigger InstanceSaveDetailsUpdatesEvent on save", async function() {
 				slowTest(this);
-				getControl().saveListUpdates = [];
+				getControl().saveUpdates = [];
 				await execCtl("instance send-rcon test /server-save");
 				let received = false;
 				for (let x = 0; x < 10; x++) {
-					if (getControl().saveListUpdates.length) {
+					if (getControl().saveUpdates.length) {
 						received = true;
 						break;
 					}
 					await wait(100);
 				}
-				assert(received, "saveListUpdate not sent");
+				assert(received, "InstanceSaveDetailsUpdatesEvent not sent");
 			});
 		});
 
@@ -827,10 +827,16 @@ describe("Integration of Clusterio", function() {
 		describe("instance delete", function() {
 			it("deletes the instance", async function() {
 				slowTest(this);
+				getControl().saveUpdates = [];
 				await execCtl("instance delete test");
 				assert(!await fs.exists(path.join(instancesDir, "test")), "Instance files was not deleted");
 				let instances = await getInstances();
 				assert(!instances.has(44), "instance was not deleted from controller");
+
+				const saveUpdates = getControl().saveUpdates;
+				assert.equal(saveUpdates.length, 1, "Expected one update sent on saves");
+				assert(saveUpdates[0].updates.length > 0, "Expected saves update to contain at least one save updated");
+				assert(saveUpdates[0].updates.every(update => update.isDeleted), "Expected all saves to be deleted");
 			});
 		});
 

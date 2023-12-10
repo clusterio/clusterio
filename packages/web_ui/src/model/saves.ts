@@ -10,8 +10,8 @@ export function useSaves(instanceId?: number): lib.SaveDetails[] {
 	let [saves, setSaves] = useState<lib.SaveDetails[]>([]);
 
 	function updateSaves() {
-		control.sendTo({ instanceId: instanceId! }, new lib.InstanceListSavesRequest()).then(updatedSaves => {
-			setSaves(updatedSaves);
+		control.sendTo("controller", new lib.InstanceSaveDetailsListRequest()).then(updatedSaves => {
+			setSaves(updatedSaves.filter(save => save.instanceId === instanceId));
 		}).catch(err => {
 			logger.error(`Failed to list instance saves: ${err}`);
 			setSaves([]);
@@ -25,11 +25,26 @@ export function useSaves(instanceId?: number): lib.SaveDetails[] {
 		}
 		updateSaves();
 
-		function updateHandler(data: lib.InstanceSaveListUpdateEvent) {
-			if (data.instanceId !== instanceId) {
-				return;
-			}
-			setSaves(data.saves);
+		function updateHandler(updates: lib.SaveDetails[]) {
+			setSaves(oldList => {
+				let newList = oldList.concat();
+				for (const newSave of updates) {
+					if (newSave.instanceId !== instanceId) {
+						continue;
+					}
+					let index = newList.findIndex(s => s.id === newSave.id);
+					if (!newSave.isDeleted) {
+						if (index !== -1) {
+							newList[index] = newSave;
+						} else {
+							newList.push(newSave);
+						}
+					} else if (index !== -1) {
+						newList.splice(index, 1);
+					}
+				}
+				return newList;
+			});
 		}
 
 		control.saveListUpdate.subscribe(updateHandler);

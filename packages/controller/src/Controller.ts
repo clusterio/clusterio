@@ -57,6 +57,8 @@ export default class Controller {
 	hostsDirty = false;
 	/** True if {@link Controller.instances} has changed since last time it was saved */
 	instancesDirty = false;
+	/** True if {@link Controller.saves} has changed since last time it was saved */
+	savesDirty = false;
 	/** True if {@link Controller.modPacks} has changed since last time it was saved */
 	modPacksDirty = false;
 
@@ -98,6 +100,7 @@ export default class Controller {
 
 		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
+		const saves = await Controller.loadSaves(path.join(databaseDirectory, "saves.json"));
 		const modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		const userManager = new UserManager(config);
 		await userManager.load(path.join(databaseDirectory, "users.json"));
@@ -109,6 +112,7 @@ export default class Controller {
 		return [
 			hosts,
 			instances,
+			saves,
 			modPacks,
 			modStore,
 			userManager,
@@ -125,6 +129,8 @@ export default class Controller {
 		public hosts = new Map<number, HostInfo>(),
 		/** Mapping of instance id to instance info */
 		public instances = new Map<number, InstanceInfo>(),
+		/** Mapping of save id to save details */
+		public saves = new Map<string, lib.SaveDetails>(),
 		/** Mapping of mod pack id to mod pack */
 		public modPacks = new Map<number, lib.ModPack>(),
 		/** Mods stored on the controller */
@@ -151,7 +157,7 @@ export default class Controller {
 		// Handle subscriptions for all internal properties
 		this.subscriptions.handle(lib.HostUpdatesEvent);
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent);
-		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
+		this.subscriptions.handle(lib.InstanceSaveDetailsUpdatesEvent);
 		this.subscriptions.handle(lib.ModPackUpdatesEvent);
 		this.subscriptions.handle(lib.ModUpdatesEvent);
 		this.subscriptions.handle(lib.UserUpdatesEvent);
@@ -428,6 +434,11 @@ export default class Controller {
 			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
+		if (this.savesDirty) {
+			this.savesDirty = false;
+			await Controller.saveSaves(path.join(databaseDirectory, "saves.json"), this.saves);
+		}
+
 		if (this.modPacksDirty) {
 			this.modPacksDirty = false;
 			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
@@ -510,6 +521,24 @@ export default class Controller {
 		let serialized = [...instances.values()].map(instance => instance.toJSON());
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
+
+	static async loadSaves(filePath: string): Promise<Map<string, lib.SaveDetails>> {
+		let json: Static<typeof lib.SaveDetails.jsonSchema>[];
+		try {
+			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+			return new Map();
+		}
+		return new Map(json.map(s => lib.SaveDetails.fromJSON(s)).map(s => [s.id, s]));
+	}
+
+	static async saveSaves(filePath: string, saves: Map<string, lib.SaveDetails>) {
+		await lib.safeOutputFile(filePath, JSON.stringify([...saves.values()], null, "\t"));
+	}
+
 
 	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
 		let json;
@@ -704,6 +733,25 @@ export default class Controller {
 	}
 
 	/**
+	 * Removes all saves currently stored for the given instance, if any
+	 * @param instanceId - Id of Instance to clear saves for.
+	 * @internal
+	 */
+	clearSavesOfInstance(instanceId: number) {
+		const updates = [];
+		for (const [id, save] of this.saves) {
+			if (save.instanceId === instanceId) {
+				save.isDeleted = true;
+				updates.push(save);
+				this.saves.delete(id);
+			}
+		}
+		if (updates.length) {
+			this.savesUpdated(updates);
+		}
+	}
+
+	/**
 	 * Change assigned host of an instance
 	 *
 	 * Unassigns instance from existing host if already assigned to one and
@@ -742,6 +790,9 @@ export default class Controller {
 			}
 		}
 
+		// Remove saves recorded from currently assigned host if any
+		this.clearSavesOfInstance(instanceId);
+
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
 		// "fieldChanged" event handler will set this.instancesDirty
@@ -771,6 +822,8 @@ export default class Controller {
 		}
 		this.instances.delete(instanceId);
 		this.instancesDirty = true;
+
+		this.clearSavesOfInstance(instanceId);
 
 		let prev = instance.status;
 		instance.status = "deleted";
@@ -817,8 +870,9 @@ export default class Controller {
 		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}
 
-	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
-		this.subscriptions.broadcast(new lib.InstanceSaveListUpdateEvent(instanceId, saves));
+	savesUpdated(saves: lib.SaveDetails[]) {
+		this.savesDirty = true;
+		this.subscriptions.broadcast(new lib.InstanceSaveDetailsUpdatesEvent(saves));
 	}
 
 	modPacksUpdated(modPacks: lib.ModPack[]) {

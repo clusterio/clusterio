@@ -26,7 +26,7 @@ class TestControl extends lib.Link {
 		super(connector);
 		this.hostUpdates = [];
 		this.instanceUpdates = [];
-		this.saveListUpdates = [];
+		this.saveUpdates = [];
 		this.modUpdates = [];
 		this.modPackUpdates = [];
 		this.userUpdates = [];
@@ -42,8 +42,8 @@ class TestControl extends lib.Link {
 				new lib.SubscriptionRequest(lib.InstanceDetailsUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.SubscriptionRequest(lib.InstanceSaveListUpdateEvent.name, true)
-			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
+				new lib.SubscriptionRequest(lib.InstanceSaveDetailsUpdatesEvent.name, true)
+			).catch(err => logger.error(`Error setting save subscriptions:\n${err.stack}`));
 			this.send(
 				new lib.SubscriptionRequest(lib.ModUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
@@ -58,7 +58,7 @@ class TestControl extends lib.Link {
 		this.handle(lib.AccountUpdateEvent);
 		this.handle(lib.HostUpdatesEvent, this.handleHostUpdatesEvent.bind(this));
 		this.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsUpdatesEvent.bind(this));
-		this.handle(lib.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.ModUpdatesEvent, this.handleModUpdatesEvent.bind(this));
 		this.handle(lib.ModPackUpdatesEvent, this.handleModPackUpdatesEvent.bind(this));
 		this.handle(lib.UserUpdatesEvent, this.handleUserUpdatesEvent.bind(this));
@@ -72,8 +72,8 @@ class TestControl extends lib.Link {
 		this.instanceUpdates.push(...event.updates);
 	}
 
-	async handleInstanceSaveListUpdateEvent(event) {
-		this.saveListUpdates.push(event);
+	async handleInstanceSaveDetailsUpdatesEvent(event) {
+		this.saveUpdates.push(event);
 	}
 
 	async handleModUpdatesEvent(event) {

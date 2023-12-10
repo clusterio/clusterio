@@ -7,7 +7,7 @@ const { logFilter, logger } = lib;
 type accountHandler = (account: lib.AccountDetails) => void;
 type hostHandler = (hostDetails: lib.HostDetails) => void;
 type instanceHandler = (instanceDetails: lib.InstanceDetails) => void;
-type saveListHandler = (saveListEvent: lib.InstanceSaveListUpdateEvent) => void;
+type saveListHandler = (saveListEvent: lib.SaveDetails) => void;
 type modPackHandler = (modPack: lib.ModPack) => void;
 type modInfoHandler = (modInfo: lib.ModInfo) => void;
 type userHandler = (rawUser: lib.User) => void;
@@ -68,8 +68,8 @@ export class Control extends lib.Link {
 		lib.InstanceDetailsUpdatesEvent, event => event.updates,
 	);
 
-	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveListUpdateEvent>(
-		lib.InstanceSaveListUpdateEvent,
+	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveDetailsUpdatesEvent, lib.SaveDetails[]>(
+		lib.InstanceSaveDetailsUpdatesEvent, event => event.updates,
 	);
 
 	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdatesEvent, lib.ModPack[]>(

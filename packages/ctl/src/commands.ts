@@ -532,7 +532,8 @@ instanceSaveCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let saves = await control.sendTo({ instanceId }, new lib.InstanceListSavesRequest());
+		let saves = await control.sendTo("controller", new lib.InstanceSaveDetailsListRequest());
+		saves = saves.filter(save => save.instanceId === instanceId);
 		print(asTable(saves.map(
 			({ mtimeMs, ...rest }) => ({ ...rest, mtime: new Date(mtimeMs).toLocaleString() })
 		)));

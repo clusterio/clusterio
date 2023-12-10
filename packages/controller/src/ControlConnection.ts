@@ -85,6 +85,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
+		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceRenameSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
 		this.handle(lib.InstanceCopySaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
 		this.handle(lib.InstanceDeleteSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
@@ -275,6 +276,10 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
 		await this._controller.instanceAssign(request.instanceId, request.hostId);
+	}
+
+	async handleInstanceSaveDetailsListRequest() {
+		return [...this._controller.saves.values()];
 	}
 
 	async handleInstanceDownloadSaveRequest(request: lib.InstanceDownloadSaveRequest) {

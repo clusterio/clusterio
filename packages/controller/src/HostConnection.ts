@@ -82,7 +82,7 @@ export default class HostConnection extends BaseConnection {
 
 		this.handle(lib.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
 		this.handle(lib.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
-		this.handle(lib.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
 	}
@@ -268,8 +268,31 @@ export default class HostConnection extends BaseConnection {
 		await this.send(new lib.SyncUserListsEvent(adminlist, banlist, whitelist));
 	}
 
-	async handleInstanceSaveListUpdateEvent(event: lib.InstanceSaveListUpdateEvent) {
-		this._controller.saveListUpdate(event.instanceId, event.saves);
+	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
+		const updates: lib.SaveDetails[] = [];
+		for (const save of event.updates) {
+			const existingSave = this._controller.saves.get(save.id);
+			if (existingSave && save.equals(existingSave)) {
+				continue;
+			}
+			this._controller.saves.set(save.id, save);
+			updates.push(save);
+		}
+		if (event.instanceId !== undefined) {
+			const updatedSaves = new Set(event.updates.map(s => s.id));
+			for (const [id, save] of this._controller.saves) {
+				if (save.instanceId === event.instanceId && !updatedSaves.has(id)) {
+					save.isDeleted = true;
+					updates.push(save);
+					this._controller.saves.delete(id);
+				}
+			}
+		}
+		// Hosts eagerly send updates, which means we may get an update
+		// where nothing actualy changed.
+		if (updates.length) {
+			this._controller.savesUpdated(updates);
+		}
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
