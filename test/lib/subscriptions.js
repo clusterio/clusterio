@@ -46,46 +46,6 @@ describe("lib/subscriptions", function() {
 		}
 	}
 
-	describe("class SubscriptionResponse", function() {
-		it("should be round trip json serialisable without an event replay", function() {
-			const response = new lib.SubscriptionResponse();
-			const json = JSON.stringify(response);
-			assert.equal(typeof json, "string");
-			const reconstructed = lib.SubscriptionResponse.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, response);
-		});
-
-		it("should be round trip json serialisable with an event replay", function() {
-			const response = new lib.SubscriptionResponse(new RegisteredEvent());
-			const json = JSON.stringify(response);
-			assert.equal(typeof json, "string");
-			const reconstructed = lib.SubscriptionResponse.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, response);
-		});
-
-		it("should be round trip json serialisable with an undefined event replay", function() {
-			const response = new lib.SubscriptionResponse(undefined);
-			const json = JSON.stringify(response);
-			assert.equal(typeof json, "string");
-			const reconstructed = lib.SubscriptionResponse.fromJSON(JSON.parse(json));
-			assert.deepEqual(reconstructed, response);
-		});
-
-		it("should be throw when given an unregistered event in a json", function() {
-			assert.throws(
-				() => lib.SubscriptionResponse.fromJSON([UnregisteredEvent.name, {}]),
-				new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
-			);
-		});
-
-		it("should be throw when given an unregistered event", function() {
-			assert.throws(
-				() => new lib.SubscriptionResponse(new UnregisteredEvent()),
-				new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
-			);
-		});
-	});
-
 	describe("class SubscriptionRequest", function() {
 		describe("permission()", function() {
 			function newSubscriptionRequestMessage(request) {
@@ -439,22 +399,6 @@ describe("lib/subscriptions", function() {
 				registeredEvent.unsubscribe(callback);
 				await events.once(mockControl.connector, "send");
 				assertLastRequest(expected);
-			});
-			it("should call handlers when a replay event is returned", async function() {
-				let calledWith = null;
-				const event = new RegisteredEvent();
-				const request = registeredEvent.subscribe(function(value) { calledWith = value; });
-				await events.once(mockControl.connector, "send");
-
-				mockControl.connector.emit("message", new lib.MessageResponse(
-					0,
-					mockControl.connector.dst,
-					new lib.Address(lib.Address.control, 0, mockControl._nextRequestId - 1),
-					new lib.SubscriptionResponse(event).toJSON()
-				));
-
-				await request;
-				assert.deepEqual(calledWith, event);
 			});
 		});
 	});

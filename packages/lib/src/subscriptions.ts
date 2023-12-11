@@ -6,50 +6,6 @@ export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, 
 export type EventSubscriberCallback<T> = (value: T) => void;
 
 /**
- * Response received by the subscriber after a request
- * It can contain an eventReplay value if the event sender implements a subscription handler
- * This replay will be send to the handlers as if an update had just occurred
- */
-export class SubscriptionResponse {
-	constructor(
-		public readonly eventReplay: Event<unknown> | null = null,
-	) {
-		if (eventReplay && !Link._eventsByClass.has(eventReplay.constructor)) {
-			throw new Error(`Unregistered Event class ${eventReplay.constructor.name}`);
-		}
-	}
-
-	static jsonSchema = Type.Union([
-		Type.Tuple([
-			Type.String(),
-			Type.Unknown(),
-		]),
-		Type.Null(),
-	]);
-
-	toJSON() {
-		if (this.eventReplay) {
-			const entry = Link._eventsByClass.get(this.eventReplay.constructor)!;
-			return [entry.name, this.eventReplay];
-		}
-		return null;
-	}
-
-	static fromJSON(json: Static<typeof SubscriptionResponse.jsonSchema>): SubscriptionResponse {
-		if (json) {
-			const entry = Link._eventsByName.get(json[0]);
-			if (!entry) {
-				throw new Error(`Unregistered Event class ${json[0]}`);
-			} else {
-				return new SubscriptionResponse(entry.eventFromJSON(json[1]));
-			}
-		} else {
-			return new SubscriptionResponse();
-		}
-	}
-}
-
-/**
  * A subscription request sent by a subscriber, this updates what events the subscriber will be sent
  * The permission for this request copies the permission from the event being subscribed to
  * subscribe: false will unsubscribe the subscriber from all notifications
@@ -59,7 +15,6 @@ export class SubscriptionRequest {
 	static type = "request" as const;
 	static src = ["control", "instance"] as const;
 	static dst = "controller" as const;
-	static Response = SubscriptionResponse;
 	static permission(user: IControllerUser, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
 			const data = message.data as Static<typeof SubscriptionRequest.jsonSchema>;
@@ -171,7 +126,6 @@ export class SubscriptionController {
 	 * @param event - incomming event.
 	 * @param src - Source address of incomming request.
 	 * @param dst - destination address of incomming request.
-	 * @returns Response to subscription request.
 	 */
 	async handleRequest(link: Link, event: SubscriptionRequest, src: Address, dst: Address) {
 		if (!Link._eventsByName.has(event.eventName)) {
@@ -181,16 +135,17 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
-		let eventReplay: Event<unknown> | null = null;
 		if (event.subscribe === false) {
 			eventData.subscriptions.delete(link);
 		} else {
 			eventData.subscriptions.add(link);
 			if (eventData.subscriptionUpdate) {
-				eventReplay = await eventData.subscriptionUpdate(event, src, dst);
+				const eventReplay = await eventData.subscriptionUpdate(event, src, dst);
+				if (eventReplay) {
+					link.send(eventReplay);
+				}
 			}
 		}
-		return new SubscriptionResponse(eventReplay);
 	}
 }
 
@@ -285,14 +240,10 @@ export class EventSubscriber<T extends Event<T>, V=T> {
 		}
 		const entry = Link._eventsByClass.get(this.event)!;
 
-		const response = await this.control.send(new SubscriptionRequest(
+		await this.control.send(new SubscriptionRequest(
 			entry.name,
 			this._callbacks.length > 0,
 			this.lastResponseTime
 		));
-
-		if (response.eventReplay) {
-			await this._handle(response.eventReplay as any);
-		}
 	}
 }

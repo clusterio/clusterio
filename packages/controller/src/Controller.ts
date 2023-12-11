@@ -664,7 +664,7 @@ export default class Controller {
 		const hosts = [...this.hosts.values()].filter(
 			host => host.updatedAt > request.lastRequestTime,
 		).map(host => host.toHostDetails());
-		return new lib.HostUpdatesEvent(hosts);
+		return hosts.length ? new lib.HostUpdatesEvent(hosts) : null;
 	}
 
 	/**
@@ -882,7 +882,7 @@ export default class Controller {
 		const instances = [...this.instances.values()].filter(
 			instance => instance.updatedAt > request.lastRequestTime,
 		).map(instance => instance.toInstanceDetails());
-		return new lib.InstanceDetailsUpdatesEvent(instances);
+		return instances.length ? new lib.InstanceDetailsUpdatesEvent(instances) : null;
 	}
 
 	savesUpdated(saves: lib.SaveDetails[]) {
@@ -892,7 +892,7 @@ export default class Controller {
 
 	async handleInstanceSaveDetailsSubscription(request: lib.SubscriptionRequest) {
 		const saves = [...this.saves.values()].filter(save => save.updatedAt > request.lastRequestTime);
-		return new lib.InstanceSaveDetailsUpdatesEvent(saves);
+		return saves.length ? new lib.InstanceSaveDetailsUpdatesEvent(saves) : null;
 	}
 
 
@@ -910,7 +910,7 @@ export default class Controller {
 		const modPacks = [...this.modPacks.values()].filter(
 			modPack => modPack.updatedAt > request.lastRequestTime,
 		);
-		return new lib.ModPackUpdatesEvent(modPacks);
+		return modPacks.length ? new lib.ModPackUpdatesEvent(modPacks) : null;
 	}
 
 	modsUpdated(mods: lib.ModInfo[]) {
@@ -923,7 +923,7 @@ export default class Controller {
 		const mods = [...this.modStore.files.values()].filter(
 			mod => mod.updatedAt > request.lastRequestTime,
 		);
-		return new lib.ModUpdatesEvent(mods);
+		return mods.length ? new lib.ModUpdatesEvent(mods) : null;
 	}
 
 	usersUpdated(users: ControllerUser[]) {
@@ -939,7 +939,7 @@ export default class Controller {
 		const users = [...this.userManager.users.values()].filter(
 			user => user.updatedAt > request.lastRequestTime,
 		);
-		return new lib.UserUpdatesEvent(users);
+		return users.length ? new lib.UserUpdatesEvent(users) : null;
 	}
 
 	/**
