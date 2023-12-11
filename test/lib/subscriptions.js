@@ -63,8 +63,8 @@ describe("lib/subscriptions", function() {
 			assert.deepEqual(reconstructed, response);
 		});
 
-		it("should be round trip json serialisable with a null event replay", function() {
-			const response = new lib.SubscriptionResponse(null);
+		it("should be round trip json serialisable with an undefined event replay", function() {
+			const response = new lib.SubscriptionResponse(undefined);
 			const json = JSON.stringify(response);
 			assert.equal(typeof json, "string");
 			const reconstructed = lib.SubscriptionResponse.fromJSON(JSON.parse(json));
@@ -396,13 +396,13 @@ describe("lib/subscriptions", function() {
 
 		describe("_updateSubscription()", function() {
 			it("should correctly request a subscription", async function() {
-				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, true);
+				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, true, -1);
 				registeredEvent.subscribe(() => true);
 				await events.once(mockControl.connector, "send");
 				assertLastRequest(expected);
 			});
-			it("should correctly request a no subscriptions", async function() {
-				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, false);
+			it("should correctly request no subscriptions", async function() {
+				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, false, -1);
 				function callback() {}
 				registeredEvent.subscribe(callback);
 				await events.once(mockControl.connector, "send");

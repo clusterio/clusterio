@@ -208,7 +208,7 @@ export class SubscriptionController {
 export class EventSubscriber<T extends Event<T>, V=T> {
 	_callbacks = new Array<EventSubscriberCallback<V>>();
 	lastResponse: Event<T> | null = null;
-	lastResponseTime = 0;
+	lastResponseTime = -1;
 	control?: Link;
 
 	constructor(
