@@ -1,5 +1,6 @@
 import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebSocketBaseConnector } from "./link";
+import { logger } from "./logging";
 import { Address, MessageRequest, IControllerUser } from "./data";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
@@ -157,20 +158,16 @@ export class EventSubscriber<T extends Event<T>, V=T> {
 	_callbacks = new Array<EventSubscriberCallback<V>>();
 	lastResponse: Event<T> | null = null;
 	lastResponseTime = -1;
-	control?: Link;
 
 	constructor(
-		private event: EventClass<T>,
+		private Event: EventClass<T>,
+		public control: Link,
 		private prehandler?: (e: T) => V,
-		control?: Link
 	) {
-		const entry = Link._eventsByClass.get(this.event);
-		if (!entry) {
-			throw new Error(`Unregistered Event class ${this.event.name}`);
-		}
-		if (control) {
-			this.connectControl(control);
-		}
+		control.handle(Event, this._handle.bind(this));
+		control.connector.on("connect", () => {
+			this._updateSubscription();
+		});
 	}
 
 	/**
@@ -185,20 +182,6 @@ export class EventSubscriber<T extends Event<T>, V=T> {
 		for (let callback of this._callbacks) {
 			callback(value);
 		}
-	}
-
-	/**
-	 * If a control link was not connected at creation, it can be connected
-	 * here (normally during onControllerConnectionEvent)
-	 * @param control - Control link to associate with.
-	 */
-	async connectControl(control: Link) {
-		if (this.control === control) {
-			return;
-		}
-		this.control = control;
-		this.control.handle(this.event, this._handle.bind(this));
-		await this._updateSubscription();
 	}
 
 	/**
@@ -235,15 +218,21 @@ export class EventSubscriber<T extends Event<T>, V=T> {
 	 * Update the subscription with the controller based on current handler counts
 	 */
 	async _updateSubscription() {
-		if (!this.control || !(this.control.connector as WebSocketClientConnector).connected) {
+		if (!(this.control.connector as WebSocketClientConnector).connected) {
 			return;
 		}
-		const entry = Link._eventsByClass.get(this.event)!;
+		const entry = Link._eventsByClass.get(this.Event)!;
 
-		await this.control.send(new SubscriptionRequest(
-			entry.name,
-			this._callbacks.length > 0,
-			this.lastResponseTime
-		));
+		try {
+			await this.control.send(new SubscriptionRequest(
+				entry.name,
+				this._callbacks.length > 0,
+				this.lastResponseTime
+			));
+		} catch (err: any) {
+			logger.error(
+				`Unexpected error updating ${entry.name} subscription:\n${err.stack}`
+			);
+		}
 	}
 }

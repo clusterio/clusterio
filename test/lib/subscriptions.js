@@ -303,7 +303,7 @@ describe("lib/subscriptions", function() {
 				addr({ controlId: 0 }),
 				addr("controller"),
 			));
-			registeredEvent = new lib.EventSubscriber(RegisteredEvent, undefined, mockControl);
+			registeredEvent = new lib.EventSubscriber(RegisteredEvent, mockControl);
 		});
 
 		function assertLastRequest(request) {
@@ -317,33 +317,20 @@ describe("lib/subscriptions", function() {
 		describe("constructor()", function() {
 			it("should not accept unregistered events", function() {
 				assert.throws(
-					() => new lib.EventSubscriber(UnregisteredEvent),
+					() => new lib.EventSubscriber(UnregisteredEvent, mockControl),
 					new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
 				);
 			});
-			it("should handle the provided event, if a control link is provided", function() {
+			it("should handle the provided event", function() {
 				assert.equal(mockControl._eventHandlers.has(RegisteredEvent), true);
 			});
 			it("should call and use the return of a pre-handler, if provided", function() {
 				let calledWith = null;
 				function prehandler() { return "PreHandlerReturn"; }
-				const eventSubscriber = new lib.EventSubscriber(StringPermissionEvent, prehandler, mockControl);
+				const eventSubscriber = new lib.EventSubscriber(StringPermissionEvent, mockControl, prehandler);
 				eventSubscriber.subscribe(function(value) { calledWith = value; });
 				eventSubscriber._handle(new StringPermissionEvent());
 				assert.equal(calledWith, "PreHandlerReturn");
-			});
-		});
-
-		describe("connectControl()", function() {
-			it("should handle the provided event", function() {
-				const control = new MockControl(new MockConnector(addr({ controlId: 0 }), addr("controller")));
-				registeredEvent.connectControl(control);
-				assert.equal(control._eventHandlers.has(RegisteredEvent), true);
-			});
-			it("should do nothing if the control is already connected", function() {
-				assert.equal(mockControl._eventHandlers.has(RegisteredEvent), true);
-				registeredEvent.connectControl(mockControl);
-				assert.equal(mockControl._eventHandlers.has(RegisteredEvent), true);
 			});
 		});
 

@@ -61,27 +61,27 @@ export class Control extends lib.Link {
 
 	/** Updates handled by the subscription service */
 	hostUpdate = new lib.EventSubscriber<lib.HostUpdatesEvent, lib.HostDetails[]>(
-		lib.HostUpdatesEvent, event => event.updates,
+		lib.HostUpdatesEvent, this, event => event.updates,
 	);
 
 	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdatesEvent, lib.InstanceDetails[]>(
-		lib.InstanceDetailsUpdatesEvent, event => event.updates,
+		lib.InstanceDetailsUpdatesEvent, this, event => event.updates,
 	);
 
 	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveDetailsUpdatesEvent, lib.SaveDetails[]>(
-		lib.InstanceSaveDetailsUpdatesEvent, event => event.updates,
+		lib.InstanceSaveDetailsUpdatesEvent, this, event => event.updates,
 	);
 
 	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdatesEvent, lib.ModPack[]>(
-		lib.ModPackUpdatesEvent, event => event.updates,
+		lib.ModPackUpdatesEvent, this, event => event.updates,
 	);
 
 	modUpdate = new lib.EventSubscriber<lib.ModUpdatesEvent, lib.ModInfo[]>(
-		lib.ModUpdatesEvent, event => event.updates,
+		lib.ModUpdatesEvent, this, event => event.updates,
 	);
 
 	userUpdate = new lib.EventSubscriber<lib.UserUpdatesEvent, lib.User[]>(
-		lib.UserUpdatesEvent, event => event.updates,
+		lib.UserUpdatesEvent, this, event => event.updates,
 	);
 
 	declare connector: ControlConnector;
@@ -95,24 +95,6 @@ export class Control extends lib.Link {
 			this.accountName = data.account.name;
 			this.accountRoles = data.account.roles;
 			this.emitAccountUpdate();
-			this.hostUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating host subscriptions:\n${err.stack}`
-			));
-			this.instanceUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating instance subscriptions:\n${err.stack}`
-			));
-			this.saveListUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating save list subscriptions:\n${err.stack}`
-			));
-			this.modPackUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating mod pack subscriptions:\n${err.stack}`
-			));
-			this.modUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating mod subscriptions:\n${err.stack}`
-			));
-			this.userUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating user subscriptions:\n${err.stack}`
-			));
 			this.updateLogSubscriptions().catch(err => logger.error(
 				`Unexpected error updating log subscriptions:\n${err.stack}`
 			));
