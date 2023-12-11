@@ -155,12 +155,14 @@ export default class Controller {
 		});
 
 		// Handle subscriptions for all internal properties
-		this.subscriptions.handle(lib.HostUpdatesEvent);
-		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent);
-		this.subscriptions.handle(lib.InstanceSaveDetailsUpdatesEvent);
-		this.subscriptions.handle(lib.ModPackUpdatesEvent);
-		this.subscriptions.handle(lib.ModUpdatesEvent);
-		this.subscriptions.handle(lib.UserUpdatesEvent);
+		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
+		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
+		this.subscriptions.handle(
+			lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsSubscription.bind(this)
+		);
+		this.subscriptions.handle(lib.ModPackUpdatesEvent, this.handleModPackSubscription.bind(this));
+		this.subscriptions.handle(lib.ModUpdatesEvent, this.handleModSubscription.bind(this));
+		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 	}
 
 	async start(args: ControllerArgs) {
@@ -659,6 +661,13 @@ export default class Controller {
 		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
 	}
 
+	async handleHostSubscription(request: lib.SubscriptionRequest) {
+		const hosts = [...this.hosts.values()].filter(
+			host => host.updatedAt > request.lastRequestTime,
+		).map(host => host.toHostDetails());
+		return new lib.HostUpdatesEvent(hosts);
+	}
+
 	/**
 	 * Get instance by ID for a request
 	 *
@@ -870,10 +879,23 @@ export default class Controller {
 		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}
 
+	async handleInstanceDetailsSubscription(request: lib.SubscriptionRequest) {
+		const instances = [...this.instances.values()].filter(
+			instance => instance.updatedAt > request.lastRequestTime,
+		).map(instance => instance.toInstanceDetails());
+		return new lib.InstanceDetailsUpdatesEvent(instances);
+	}
+
 	savesUpdated(saves: lib.SaveDetails[]) {
 		this.savesDirty = true;
 		this.subscriptions.broadcast(new lib.InstanceSaveDetailsUpdatesEvent(saves));
 	}
+
+	async handleInstanceSaveDetailsSubscription(request: lib.SubscriptionRequest) {
+		const saves = [...this.saves.values()].filter(save => save.updatedAt > request.lastRequestTime);
+		return new lib.InstanceSaveDetailsUpdatesEvent(saves);
+	}
+
 
 	modPacksUpdated(modPacks: lib.ModPack[]) {
 		const now = Date.now();
@@ -885,10 +907,24 @@ export default class Controller {
 		lib.invokeHook(this.plugins, "onModPacksUpdated", modPacks);
 	}
 
+	async handleModPackSubscription(request: lib.SubscriptionRequest) {
+		const modPacks = [...this.modPacks.values()].filter(
+			modPack => modPack.updatedAt > request.lastRequestTime,
+		);
+		return new lib.ModPackUpdatesEvent(modPacks);
+	}
+
 	modsUpdated(mods: lib.ModInfo[]) {
 		// ModStore sets updatedAt for mods
 		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
 		lib.invokeHook(this.plugins, "onModsUpdated", mods);
+	}
+
+	async handleModSubscription(request: lib.SubscriptionRequest) {
+		const mods = [...this.modStore.files.values()].filter(
+			mod => mod.updatedAt > request.lastRequestTime,
+		);
+		return new lib.ModUpdatesEvent(mods);
 	}
 
 	usersUpdated(users: ControllerUser[]) {
@@ -898,6 +934,13 @@ export default class Controller {
 		}
 		this.userManager.dirty = true;
 		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
+	}
+
+	async handleUserSubscription(request: lib.SubscriptionRequest) {
+		const users = [...this.userManager.users.values()].filter(
+			user => user.updatedAt > request.lastRequestTime,
+		);
+		return new lib.UserUpdatesEvent(users);
 	}
 
 	/**
