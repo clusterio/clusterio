@@ -243,6 +243,24 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
+		describe("unsubscribe()", function() {
+			beforeEach(function() {
+				subscriptions.handle(RegisteredEvent);
+				for (let connectorData of connectorSetupDate) {
+					subscriptions._handleRequest(connectorData.request, connectorData.src, connectorData.dst);
+				}
+			});
+
+			it("should remove an active subscription", async function() {
+				const link = mockController.wsServer.controlConnections.get(0);
+				subscriptions.unsubscribe(link);
+				subscriptions.broadcast(new RegisteredEvent());
+				await onceConnectorSend(1);
+				assertNoEvent(0);
+				assertLastEvent(1, RegisteredEvent);
+			});
+		});
+
 		describe("_handleRequest()", function() {
 			beforeEach(function() {
 				subscriptions.handle(RegisteredEvent);

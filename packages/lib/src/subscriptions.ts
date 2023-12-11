@@ -101,7 +101,7 @@ export class SubscriptionRequest {
 
 type EventData = {
 	subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-	subscriptions: Map<Link, { all: boolean, onceClose: () => void }>,
+	subscriptions: Set<Link>,
 };
 
 /**
@@ -134,7 +134,7 @@ export class SubscriptionController {
 		}
 		this._events.set(entry.name, {
 			subscriptionUpdate: subscriptionUpdate,
-			subscriptions: new Map(),
+			subscriptions: new Set(),
 		});
 	}
 
@@ -151,12 +151,23 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
-		for (let [link, subscription] of eventData.subscriptions) {
+		for (let link of eventData.subscriptions) {
 			if ((link.connector as WebSocketBaseConnector).closing) {
 				eventData.subscriptions.delete(link);
-			} else if (subscription.all) {
+			} else {
 				link.send(event);
 			}
+		}
+	}
+
+	/**
+	 * Unsubscribe from all events of a given link.
+	 * Used when a link is closed to stop all active subscriptions.
+	 * @param link - Link to stop sending events to.
+	 */
+	unsubscribe(link: Link) {
+		for (let eventData of this._events.values()) {
+			eventData.subscriptions.delete(link);
 		}
 	}
 
@@ -179,23 +190,12 @@ export class SubscriptionController {
 		let eventReplay: Event<unknown> | null = null;
 		const link: Link = this.controller.wsServer.controlConnections.get(src.id);
 		if (event.subscribe === false) {
-			let onceClose = eventData.subscriptions.get(link)?.onceClose;
-			if (onceClose) {
-				link.connector.off("close", onceClose);
-				eventData.subscriptions.delete(link);
-			}
+			eventData.subscriptions.delete(link);
 		} else {
+			eventData.subscriptions.add(link);
 			if (eventData.subscriptionUpdate) {
 				eventReplay = await eventData.subscriptionUpdate(event, src, dst);
 			}
-			let onceClose = eventData.subscriptions.get(link)?.onceClose;
-			if (!onceClose) {
-				onceClose = () => eventData.subscriptions.delete(link);
-				link.connector.once("close", onceClose);
-			}
-			eventData.subscriptions.set(
-				link, { all: event.subscribe, onceClose: onceClose },
-			);
 		}
 		return new SubscriptionResponse(eventReplay);
 	}

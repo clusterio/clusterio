@@ -33,6 +33,10 @@ export default class BaseConnection extends lib.Link {
 		this.handle(lib.ModPackGetRequest, this.handleModPackGetRequest.bind(this));
 		this.handle(lib.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
 		this.handle(lib.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
+
+		this.connector.on("close", () => {
+			this._controller.subscriptions.unsubscribe(this);
+		});
 	}
 
 	async disconnect(code: number, reason: string) {
