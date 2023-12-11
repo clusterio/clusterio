@@ -119,10 +119,10 @@ export class SubscriptionController {
 
 	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
-	 * Has an optional subscription update handler which is called when any client updates their subscription
+	 * Has an optional subscription update handler which is called when a client subscribes
 	 * @param Event - Event class which is sent out as updates.
 	 * @param subscriptionUpdate -
-	 *     Optional handler called when a client updates its subscriptions.
+	 *     Optional handler called when a client subscribes.
 	 */
 	handle<T>(Event: EventClass<T>, subscriptionUpdate?: SubscriptionRequestHandler<T>) {
 		const entry = Link._eventsByClass.get(Event);
@@ -176,7 +176,7 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
-		const eventReplay = eventData.subscriptionUpdate ? await eventData.subscriptionUpdate(event, src, dst) : null;
+		let eventReplay: Event<unknown> | null = null;
 		const link: Link = this.controller.wsServer.controlConnections.get(src.id);
 		if (event.subscribe === false) {
 			let onceClose = eventData.subscriptions.get(link)?.onceClose;
@@ -185,6 +185,9 @@ export class SubscriptionController {
 				eventData.subscriptions.delete(link);
 			}
 		} else {
+			if (eventData.subscriptionUpdate) {
+				eventReplay = await eventData.subscriptionUpdate(event, src, dst);
+			}
 			let onceClose = eventData.subscriptions.get(link)?.onceClose;
 			if (!onceClose) {
 				onceClose = () => eventData.subscriptions.delete(link);
