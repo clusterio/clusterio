@@ -147,20 +147,22 @@ describe("lib/subscriptions", function() {
 			dst: addr("controller"),
 		}];
 
+		function getLink(id) {
+			return mockController.wsServer.controlConnections.get(id);
+		}
 		function onceConnectorSend(id) {
-			const link = mockController.wsServer.controlConnections.get(id);
-			return events.once(link.connector, "send");
+			return events.once(getLink(id).connector, "send");
 		}
 
 		function assertLastEvent(connectorId, Event) {
-			const link = mockController.wsServer.controlConnections.get(connectorId);
+			const link = getLink(connectorId);
 			const lastMessage = link.connector.sentMessages.at(-1);
 			const name = Event.plugin ? `${Event.plugin}:${Event.name}` : Event.name;
 			assert.equal(lastMessage.name, name);
 		}
 
 		function assertNoEvent(connectorId) {
-			const link = mockController.wsServer.controlConnections.get(connectorId);
+			const link = getLink(connectorId);
 			assert.equal(link.connector.sentMessages.length, 0);
 		}
 
@@ -172,10 +174,6 @@ describe("lib/subscriptions", function() {
 				})),
 			};
 			subscriptions = new lib.SubscriptionController(mockController);
-		});
-
-		it("should handle the SubscriptionRequest event", function() {
-			assert.equal(mockController.handles.has(lib.SubscriptionRequest), true);
 		});
 
 		describe("handle()", function() {
@@ -201,7 +199,9 @@ describe("lib/subscriptions", function() {
 			beforeEach(function() {
 				subscriptions.handle(RegisteredEvent);
 				for (let connectorData of connectorSetupDate) {
-					subscriptions._handleRequest(connectorData.request, connectorData.src, connectorData.dst);
+					subscriptions.handleRequest(
+						getLink(connectorData.id), connectorData.request, connectorData.src, connectorData.dst
+					);
 				}
 			});
 
@@ -226,15 +226,17 @@ describe("lib/subscriptions", function() {
 			it("should not notify a link who unsubscribed", async function() {
 				const connectorData = connectorSetupDate[0];
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, false);
-				await subscriptions._handleRequest(request, connectorData.src, connectorData.dst);
-				mockController.wsServer.controlConnections.get(0).connector.sentMessages.pop(); // Response to request
+				await subscriptions.handleRequest(
+					getLink(connectorData.id), request, connectorData.src, connectorData.dst,
+				);
+				getLink(0).connector.sentMessages.pop(); // Response to request
 				subscriptions.broadcast(new RegisteredEvent());
 				await onceConnectorSend(1);
 				assertNoEvent(0);
 				assertLastEvent(1, RegisteredEvent);
 			});
 			it("should not notify links which are closed or closing", async function() {
-				const link = mockController.wsServer.controlConnections.get(0);
+				const link = getLink(0);
 				link.connector.closing = true;
 				subscriptions.broadcast(new RegisteredEvent());
 				await onceConnectorSend(1);
@@ -247,12 +249,14 @@ describe("lib/subscriptions", function() {
 			beforeEach(function() {
 				subscriptions.handle(RegisteredEvent);
 				for (let connectorData of connectorSetupDate) {
-					subscriptions._handleRequest(connectorData.request, connectorData.src, connectorData.dst);
+					subscriptions.handleRequest(
+						getLink(connectorData.id), connectorData.request, connectorData.src, connectorData.dst
+					);
 				}
 			});
 
 			it("should remove an active subscription", async function() {
-				const link = mockController.wsServer.controlConnections.get(0);
+				const link = getLink(0);
 				subscriptions.unsubscribe(link);
 				subscriptions.broadcast(new RegisteredEvent());
 				await onceConnectorSend(1);
@@ -261,7 +265,7 @@ describe("lib/subscriptions", function() {
 			});
 		});
 
-		describe("_handleRequest()", function() {
+		describe("handleRequest()", function() {
 			beforeEach(function() {
 				subscriptions.handle(RegisteredEvent);
 			});
@@ -270,7 +274,7 @@ describe("lib/subscriptions", function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				request.eventName = UnregisteredEvent.name;
 				assert.rejects(
-					subscriptions._handleRequest(request, addr({ controlId: 0 }), addr("controller")),
+					subscriptions.handleRequest(getLink(0), request, addr({ controlId: 0 }), addr("controller")),
 					new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
 				);
 			});
@@ -278,29 +282,35 @@ describe("lib/subscriptions", function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				request.eventName = StringPermissionEvent.name;
 				assert.rejects(
-					subscriptions._handleRequest(request, addr({ controlId: 0 }), addr("controller")),
+					subscriptions.handleRequest(getLink(0), request, addr({ controlId: 0 }), addr("controller")),
 					new Error(`Event ${StringPermissionEvent.eventName} is not a registered as subscribable`)
 				);
 			});
 			it("should accept a subscription", async function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
-				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
+				await subscriptions.handleRequest(
+					getLink(0), request, connectorSetupDate[0].src, connectorSetupDate[0].dst
+				);
 				subscriptions.broadcast(new RegisteredEvent());
 				await onceConnectorSend(0);
 				assertLastEvent(0, RegisteredEvent);
 			});
 			it("should accept a unsubscription", async function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
-				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
+				await subscriptions.handleRequest(
+					getLink(0), request, connectorSetupDate[0].src, connectorSetupDate[0].dst
+				);
 				subscriptions.broadcast(new RegisteredEvent());
 				await onceConnectorSend(0);
 				assertLastEvent(0, RegisteredEvent);
 
-				const link = mockController.wsServer.controlConnections.get(0);
+				const link = getLink(0);
 				link.connector.sentMessages.pop();
 
 				const unsubRequest = new lib.SubscriptionRequest(RegisteredEvent.name, false);
-				await subscriptions._handleRequest(unsubRequest, connectorSetupDate[0].src, connectorSetupDate[0].dst);
+				await subscriptions.handleRequest(
+					getLink(0), unsubRequest, connectorSetupDate[0].src, connectorSetupDate[0].dst
+				);
 				subscriptions.broadcast(new RegisteredEvent());
 				assertNoEvent(0);
 			});
@@ -310,12 +320,14 @@ describe("lib/subscriptions", function() {
 				});
 
 				const request = new lib.SubscriptionRequest(StringPermissionEvent.name, true);
-				await subscriptions._handleRequest(request, connectorSetupDate[0].src, connectorSetupDate[0].dst);
+				await subscriptions.handleRequest(
+					getLink(0), request, connectorSetupDate[0].src, connectorSetupDate[0].dst
+				);
 				subscriptions.broadcast(new StringPermissionEvent());
 				await onceConnectorSend(0);
 				assertLastEvent(0, StringPermissionEvent);
 
-				const link = mockController.wsServer.controlConnections.get(0);
+				const link = getLink(0);
 				const lastMessage = link.connector.sentMessages.pop();
 				const eventEntry = lib.Link._eventsByClass.get(StringPermissionEvent);
 				const response = eventEntry.eventFromJSON(lastMessage.data);

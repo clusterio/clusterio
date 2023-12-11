@@ -76,7 +76,7 @@ export default class Controller {
 	private _events: events.EventEmitter = new events.EventEmitter();
 
 	/** Event subscription controller */
-	subscriptions: lib.SubscriptionController;
+	subscriptions = new lib.SubscriptionController();
 
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -148,7 +148,6 @@ export default class Controller {
 		this.app.locals.streams = new Map();
 
 		this.wsServer = new WsServer(this);
-		this.subscriptions = new lib.SubscriptionController(this);
 
 		this.modStore.on("change", mod => {
 			this.modsUpdated([mod]);

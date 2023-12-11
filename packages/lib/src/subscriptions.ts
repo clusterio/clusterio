@@ -111,12 +111,6 @@ type EventData = {
 export class SubscriptionController {
 	_events = new Map<string, EventData>();
 
-	constructor(
-		private controller: any, // Controller | Link
-	) {
-		this.controller.handle(SubscriptionRequest, this._handleRequest.bind(this));
-	}
-
 	/**
 	 * Allow clients to subscribe to an event by telling the subscription controller to accept them
 	 * Has an optional subscription update handler which is called when a client subscribes
@@ -172,14 +166,14 @@ export class SubscriptionController {
 	}
 
 	/**
-	 * Handle incoming event subscription requests
+	 * Handle incoming subscription requests on a link
+	 * @param link - Link message was received on
 	 * @param event - incomming event.
 	 * @param src - Source address of incomming request.
 	 * @param dst - destination address of incomming request.
 	 * @returns Response to subscription request.
-	 * @internal
 	 */
-	async _handleRequest(event: SubscriptionRequest, src: Address, dst: Address) {
+	async handleRequest(link: Link, event: SubscriptionRequest, src: Address, dst: Address) {
 		if (!Link._eventsByName.has(event.eventName)) {
 			throw new Error(`Event ${event.eventName} is not a registered event`);
 		}
@@ -188,7 +182,6 @@ export class SubscriptionController {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
 		let eventReplay: Event<unknown> | null = null;
-		const link: Link = this.controller.wsServer.controlConnections.get(src.id);
 		if (event.subscribe === false) {
 			eventData.subscriptions.delete(link);
 		} else {

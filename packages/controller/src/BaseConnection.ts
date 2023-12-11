@@ -34,6 +34,7 @@ export default class BaseConnection extends lib.Link {
 		this.handle(lib.ModPackGetDefaultRequest, this.handleModPackGetDefaultRequest.bind(this));
 		this.handle(lib.ModDownloadRequest, this.handleModDownloadRequest.bind(this));
 
+		this.handle(lib.SubscriptionRequest, this.handleSubscriptionRequest.bind(this));
 		this.connector.on("close", () => {
 			this._controller.subscriptions.unsubscribe(this);
 		});
@@ -101,5 +102,9 @@ export default class BaseConnection extends lib.Link {
 		stream.size = String(mod.size);
 
 		return stream.id;
+	}
+
+	async handleSubscriptionRequest(request: lib.SubscriptionRequest, src: lib.Address, dst: lib.Address) {
+		return await this._controller.subscriptions.handleRequest(this, request, src, dst);
 	}
 }
