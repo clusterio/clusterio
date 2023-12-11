@@ -261,7 +261,7 @@ function ModsTable(props: ModsTableProps) {
 		}
 	}
 
-	const modListMap = new Map(modList.map(mod => [`${mod.name}_${mod.version}`, mod]));
+	const modListMap = new Map(modList.map(mod => [mod.id, mod]));
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
 		(mod: lib.ModRecord|lib.ModInfo): lib.ModInfo|lib.ModRecord => {
 			const candidate = modListMap.get(`${mod.name}_${mod.version}`);
@@ -481,8 +481,8 @@ function SettingsTable(props: SettingsTableProps) {
 	const [modList] = useModList();
 	const modsInPack = new Set([...props.modPack.mods.values()].map(mod => `${mod.name}_${mod.version}`));
 	const modTitles = new Map(modList
-		.filter(mod => modsInPack.has(`${mod.name}_${mod.version}`))
-		.map(mod => [`${mod.name}`, mod.title])
+		.filter(mod => modsInPack.has(mod.id))
+		.map(mod => [mod.name, mod.title])
 	);
 
 	const types = ["bool-setting", "int-setting", "double-setting", "string-setting"];

@@ -265,7 +265,7 @@ export default function ModsPage() {
 			}}
 			dataSource={modList}
 			pagination={false}
-			rowKey={mod => `${mod.name}_${mod.version}`}
+			rowKey={mod => mod.id}
 		/>
 		<PluginExtra component="ModsPage" />
 	</PageLayout>;

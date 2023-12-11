@@ -17,6 +17,14 @@ import { integerModVersion, integerFactorioVersion, modVersionRegExp } from "./v
  */
 export default class ModInfo {
 	/**
+	 * String containing {mod.name}_{mod.version}, uniquely identifies this
+	 * mod.
+	 */
+	get id() {
+		return `${this.name}_${this.version}`;
+	}
+
+	/**
 	 * Internal name of this mod.
 	 * This is the name of the zip file as well as the name that appears in
 	 * info.json.

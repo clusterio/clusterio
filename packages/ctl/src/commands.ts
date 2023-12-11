@@ -867,7 +867,7 @@ modPackCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { modPack: string }, control: Control) {
 		let mods = new Map(
-			(await control.send(new lib.ModListRequest())).map(m => [`${m.name}_${m.version}`, m])
+			(await control.send(new lib.ModListRequest())).map(m => [m.id, m])
 		);
 		let modPack = await control.send(
 			new lib.ModPackGetRequest(await lib.resolveModPack(control, args.modPack))
