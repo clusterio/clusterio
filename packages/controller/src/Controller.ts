@@ -498,7 +498,7 @@ export default class Controller {
 					json = { config: json, status: "running" }; // Use running to force updatedAt
 				}
 				let instanceConfig = new lib.InstanceConfig("controller");
-				await instanceConfig.load(json.config as lib.SerializedConfig);
+				instanceConfig.load(json.config as lib.SerializedConfig);
 				let instance = InstanceInfo.fromJSON(json, instanceConfig);
 				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				if (instance.status !== status) {
@@ -690,7 +690,7 @@ export default class Controller {
 	 *
 	 * @example
 	 * let instanceConfig = new lib.InstanceConfig("controller");
-	 * await instanceConfig.init();
+	 * instanceConfig.init();
 	 * instanceConfig.set("instance.name", "My instance");
 	 * let instance = await controller.instanceAssign(instanceConfig);
 	 * await controller.instanceAssign(instance.id, hostId);
@@ -1007,7 +1007,7 @@ export default class Controller {
 				}
 
 				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);
-				await controllerPlugin.init();
+				controllerPlugin.init();
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
 			} catch (err: any) {

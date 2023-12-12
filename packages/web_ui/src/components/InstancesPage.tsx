@@ -27,7 +27,7 @@ function CreateInstanceButton() {
 		}
 
 		let instanceConfig = new lib.InstanceConfig("control");
-		await instanceConfig.init();
+		instanceConfig.init();
 		instanceConfig.set("instance.name", values.instanceName);
 		let serializedConfig = instanceConfig.serialize("controller");
 		await control.send(new lib.InstanceCreateRequest(serializedConfig));

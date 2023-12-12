@@ -198,7 +198,7 @@ export default class HostConnection extends BaseConnection {
 		const instanceUpdates: InstanceInfo[] = [];
 		for (let instanceData of request.instances) {
 			let instanceConfig = new lib.InstanceConfig("controller");
-			await instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
+			instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
 
 			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {

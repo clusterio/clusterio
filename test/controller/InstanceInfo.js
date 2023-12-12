@@ -7,7 +7,7 @@ const lib = require("@clusterio/lib");
 
 describe("controller/InstanceInfo", function() {
 	describe("class InstanceInfo", function() {
-		it("should round trip serialize", async function() {
+		it("should round trip serialize", function() {
 			const validate = lib.compile(InstanceInfo.jsonSchema);
 			function check(info) {
 				const json = JSON.parse(JSON.stringify(info));
@@ -21,7 +21,7 @@ describe("controller/InstanceInfo", function() {
 				lib.InstanceConfig.finalize();
 			}
 			const config = new lib.InstanceConfig("controller");
-			await config.init();
+			config.init();
 
 			check(InstanceInfo.fromJSON({ config, status: "stopped" }, config));
 			check(InstanceInfo.fromJSON({ config, status: "running" }, config));

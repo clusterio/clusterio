@@ -156,7 +156,7 @@ async function handleBootstrapCommand(
 			return;
 		}
 		let controlConfig = new lib.ControlConfig("control");
-		await controlConfig.init();
+		controlConfig.init();
 
 		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
 		controlConfig.set(
@@ -325,12 +325,12 @@ async function initialize(): Promise<InitializeParameters> {
 	const controllerConfig = new lib.ControllerConfig("controller");
 	try {
 		let fileData = await fs.readFile(controllerConfigPath, { encoding: "utf8" });
-		await controllerConfig.load(JSON.parse(fileData));
+		controllerConfig.load(JSON.parse(fileData));
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			await controllerConfig.init();
+			controllerConfig.init();
 
 		} else {
 			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);

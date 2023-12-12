@@ -47,7 +47,7 @@ async function discoverInstances(instancesDir: string) {
 			let configPath = path.join(instancesDir, entry.name, "instance.json");
 
 			try {
-				await instanceConfig.load(JSON.parse(await fs.readFile(configPath, "utf8")));
+				instanceConfig.load(JSON.parse(await fs.readFile(configPath, "utf8")));
 
 			} catch (err: any) {
 				if (err.code === "ENOENT") {
@@ -574,7 +574,7 @@ export default class Host extends lib.Link {
 
 			} else {
 				let instanceConfig = new lib.InstanceConfig("host");
-				await instanceConfig.load(config as any, "controller");
+				instanceConfig.load(config as any, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 

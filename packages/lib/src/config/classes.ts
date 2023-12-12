@@ -108,11 +108,11 @@ export class Config extends events.EventEmitter {
 		}
 	}
 
-	async init() {
+	init() {
 		for (let [name, GroupClass] of (this.constructor as typeof Config)._groups) {
 			if (!this._groups.has(name)) {
 				let group = new GroupClass(this);
-				await group.init();
+				group.init();
 				this._groups.set(name, group);
 			}
 		}
@@ -135,7 +135,7 @@ export class Config extends events.EventEmitter {
 	 * @param serializedConfig - Serialized config to load.
 	 * @param location - Location used for access control.
 	 */
-	async load(
+	load(
 		serializedConfig: SerializedConfig,
 		location = this.location
 	) {
@@ -148,11 +148,11 @@ export class Config extends events.EventEmitter {
 			}
 
 			let group = new GroupClass(this);
-			await group.load(serializedGroup, location);
+			group.load(serializedGroup, location);
 			this._groups.set(group.name, group);
 		}
 
-		await this.init();
+		this.init();
 	}
 
 	/**
@@ -428,7 +428,7 @@ export class ConfigGroup {
 	 * Computes and assigns the initial values for all fields of the
 	 * config group.
 	 */
-	async init() {
+	init() {
 		for (let [name, def] of (this.constructor as typeof ConfigGroup)._definitions) {
 			if (this._fields.has(name)) {
 				continue;
@@ -439,7 +439,7 @@ export class ConfigGroup {
 
 			let value = null;
 			if (typeof def.initial_value === "function") {
-				value = await def.initial_value();
+				value = def.initial_value();
 
 			} else if (def.initial_value !== undefined) {
 				value = def.initial_value;
@@ -460,9 +460,9 @@ export class ConfigGroup {
 	 *     Result from a previous call to .serialize().
 	 * @param location - Location used for access control.
 	 */
-	async load(serializedGroup: SerializedGroup, location = this.config.location) {
+	load(serializedGroup: SerializedGroup, location = this.config.location) {
 		this.update(serializedGroup, false, location);
-		await this.init();
+		this.init();
 	}
 
 	/**

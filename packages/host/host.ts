@@ -148,12 +148,12 @@ async function startHost() {
 	logger.info(`Loading config from ${args.config}`);
 	let hostConfig = new lib.HostConfig("host");
 	try {
-		await hostConfig.load(JSON.parse(await fs.readFile(args.config, "utf8")));
+		hostConfig.load(JSON.parse(await fs.readFile(args.config, "utf8")));
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			await hostConfig.init();
+			hostConfig.init();
 
 		} else {
 			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);

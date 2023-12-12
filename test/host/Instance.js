@@ -19,9 +19,9 @@ describe("class Instance", function() {
 	let dst = addr({ hostId: 1 });
 	let instance;
 	let connector;
-	beforeEach(async function() {
+	beforeEach(function() {
 		let instanceConfig = new lib.InstanceConfig("host");
-		await instanceConfig.init();
+		instanceConfig.init();
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);

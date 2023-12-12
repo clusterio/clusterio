@@ -49,7 +49,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	async function updateConfig() {
 		let serializedConfig = await props.retrieveConfig();
 		let newConfig = new props.ConfigClass("control");
-		await newConfig.load(serializedConfig);
+		newConfig.load(serializedConfig);
 		setConfig(newConfig);
 		return newConfig;
 	}

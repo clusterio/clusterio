@@ -315,7 +315,7 @@ instanceCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { name: string, id?: number }, control: Control) {
 		let instanceConfig = new lib.InstanceConfig("control");
-		await instanceConfig.init();
+		instanceConfig.init();
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}

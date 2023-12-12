@@ -212,7 +212,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleHostConfigCreateRequest(request: lib.HostConfigCreateRequest) {
 		let hostConfig = new lib.HostConfig("control");
-		await hostConfig.init();
+		hostConfig.init();
 
 		hostConfig.set("host.controller_url", this._controller.getControllerUrl());
 		if (request.id !== undefined) {
@@ -239,7 +239,7 @@ export default class ControlConnection extends BaseConnection {
 	// XXX should probably add a hook for host reuqests?
 	async handleInstanceCreateRequest(request: lib.InstanceCreateRequest) {
 		let instanceConfig = new lib.InstanceConfig("controller");
-		await instanceConfig.load(request.config as lib.SerializedConfig);
+		instanceConfig.load(request.config as lib.SerializedConfig);
 		await this._controller.instanceCreate(instanceConfig);
 	}
 
