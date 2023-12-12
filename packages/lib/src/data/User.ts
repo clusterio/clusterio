@@ -143,6 +143,11 @@ export default class User {
 		}
 		return playerStats;
 	}
+
+	/** Name of the user, used by event subscriptions */
+	get id() {
+		return this.name;
+	}
 }
 
 export interface IControllerUser extends User {

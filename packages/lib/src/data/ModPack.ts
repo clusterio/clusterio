@@ -58,7 +58,7 @@ export default class ModPack {
 	/**
 	 * Id of this mod pack
 	 */
-	id?: number;
+	id: number = Math.random() * 2**31 | 0;
 
 	/**
 	 * Name of this mod pack.

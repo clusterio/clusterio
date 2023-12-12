@@ -19,6 +19,9 @@ describe("lib/subscriptions", function() {
 		static src = ["controller", "control"];
 		static dst = ["controller", "control"];
 		static permission = null;
+		constructor(updates = []) {
+			this.updates = updates;
+		}
 	}
 	lib.Link.register(RegisteredEvent);
 
@@ -275,7 +278,7 @@ describe("lib/subscriptions", function() {
 				assertNoEvent(0);
 			});
 			it("should accept a respond with an event replay when returned by the handler", async function() {
-				subscriptions.handle(StringPermissionEvent, undefined, async function() {
+				subscriptions.handle(StringPermissionEvent, async function() {
 					return new StringPermissionEvent();
 				});
 
@@ -283,7 +286,6 @@ describe("lib/subscriptions", function() {
 				await subscriptions.handleRequest(
 					getLink(0), request, connectorSetupDate[0].src, connectorSetupDate[0].dst
 				);
-				subscriptions.broadcast(new StringPermissionEvent());
 				await onceConnectorSend(0);
 				assertLastEvent(0, StringPermissionEvent);
 
@@ -292,6 +294,18 @@ describe("lib/subscriptions", function() {
 				const eventEntry = lib.Link._eventsByClass.get(StringPermissionEvent);
 				const response = eventEntry.eventFromJSON(lastMessage.data);
 				assert.deepEqual(response, new StringPermissionEvent());
+			});
+			it("should accept a respond with null when returned by the handler", async function() {
+				subscriptions.handle(StringPermissionEvent, async function() {
+					return null;
+				});
+
+				const request = new lib.SubscriptionRequest(StringPermissionEvent.name, true);
+				await subscriptions.handleRequest(
+					getLink(0), request, connectorSetupDate[0].src, connectorSetupDate[0].dst
+				);
+				await new Promise(resolve => setImmediate(resolve));
+				assertNoEvent(0);
 			});
 		});
 	});
@@ -314,6 +328,10 @@ describe("lib/subscriptions", function() {
 			assert.deepEqual(lastMessage.data, request);
 		}
 
+		function assertNoMessageSent() {
+			assert.equal(mockControl.connector.sentMessages.length, 0, "messages were sent");
+		}
+
 		describe("constructor()", function() {
 			it("should not accept unregistered events", function() {
 				assert.throws(
@@ -324,54 +342,75 @@ describe("lib/subscriptions", function() {
 			it("should handle the provided event", function() {
 				assert.equal(mockControl._eventHandlers.has(RegisteredEvent), true);
 			});
-			it("should call and use the return of a pre-handler, if provided", function() {
-				let calledWith = null;
-				function prehandler() { return "PreHandlerReturn"; }
-				const eventSubscriber = new lib.EventSubscriber(StringPermissionEvent, mockControl, prehandler);
-				eventSubscriber.subscribe(function(value) { calledWith = value; });
-				eventSubscriber._handle(new StringPermissionEvent());
-				assert.equal(calledWith, "PreHandlerReturn");
-			});
 		});
 
 		describe("subscribe()", function() {
-			it("should allow subscriptions to an event", function() {
+			it("should allow subscriptions to an event", async function() {
 				let calledWith = null;
 				let calledWithTwo = null;
-				const event = new RegisteredEvent();
-				registeredEvent.subscribe(function(value) { calledWith = value; });
-				registeredEvent.subscribe(function(value) { calledWithTwo = value; });
-				registeredEvent._handle(event);
-				assert.deepEqual(calledWith, event);
-				assert.deepEqual(calledWithTwo, event);
+				const item = { id: 1, updatedAt: 1, isDeleted: false };
+				const event = new RegisteredEvent([item]);
+				registeredEvent.subscribe(function(updates, synced) { calledWith = [updates, synced]; });
+				registeredEvent.subscribe(function(updates, synced) { calledWithTwo = [updates, synced]; });
+				await registeredEvent._handle(event);
+				assert.deepEqual(calledWith, [[item], false]);
+				assert.deepEqual(calledWithTwo, [[item], false]);
+			});
+			it("should allow unsubscribing from an event", async function() {
+				let called = false;
+				let event = new RegisteredEvent();
+				function callback() { called = true; }
+				const unsubscribe = registeredEvent.subscribe(callback);
+				await registeredEvent._handle(event);
+				assert.deepEqual(called, true);
+
+				called = false;
+				event = new RegisteredEvent();
+				unsubscribe();
+				// Wait for unsubscribe to happen.
+				await new Promise(resolve => setImmediate(resolve));
+				await registeredEvent._handle(event);
+				assert.equal(called, false);
+			});
+			it("should not throw error on incorrectly unsubscribing multiple times", async function() {
+				const unsubscribe = registeredEvent.subscribe(() => {});
+				unsubscribe();
+				unsubscribe();
+				// Wait for unsubscribe to happen.
+				await new Promise(resolve => setImmediate(resolve));
 			});
 		});
 
-		describe("unsubscribe()", function() {
-			it("should allow unsubscribing from an event", function() {
-				let calledWith = null;
-				let event = new RegisteredEvent();
-				function callback(value) { calledWith = value; }
-				registeredEvent.subscribe(callback);
-				registeredEvent._handle(event);
-				assert.deepEqual(calledWith, event);
-
-				calledWith = null;
-				event = new RegisteredEvent();
-				registeredEvent.unsubscribe(callback);
-				registeredEvent._handle(event);
-				assert.equal(calledWith, null);
-			});
-			it("should throw an error if the handler was not subscribed", function() {
-				function callback(value) { calledWith = value; }
-				assert.rejects(
-					() => registeredEvent.unsubscribe(callback),
-					new Error("handler is not registered")
-				);
+		describe("getSnapshot()", function() {
+			it("should give an immutable copy of the tracked values", async function() {
+				const update1 = [{ id: 1, updatedAt: 1, isDeleted: false }];
+				const update2 = [{ id: 1, updatedAt: 2, isDeleted: false }, { id: 2, updatedAt: 3, isDeleted: false }];
+				const update3 = [{ id: 1, updatedAt: 4, isDeleted: true }];
+				const snap0 = registeredEvent.getSnapshot();
+				assert.deepEqual(snap0, [new Map(), false]);
+				await registeredEvent._handle(new RegisteredEvent(update1));
+				const snap1 = registeredEvent.getSnapshot();
+				assert.deepEqual(snap1, [new Map([[1, update1[0]]]), false]);
+				await registeredEvent._handle(new RegisteredEvent(update2));
+				const snap2 = registeredEvent.getSnapshot();
+				assert.deepEqual(snap2, [new Map([[1, update2[0]], [2, update2[1]]]), false]);
+				await registeredEvent._handle(new RegisteredEvent(update3));
+				const snap3 = registeredEvent.getSnapshot();
+				assert.deepEqual(snap3, [new Map([[2, update2[1]]]), false]);
+				// validate previous snapshots were not modified
+				assert.deepEqual(snap2, [new Map([[1, update2[0]], [2, update2[1]]]), false]);
+				assert.deepEqual(snap1, [new Map([[1, update1[0]]]), false]);
+				assert.deepEqual(snap0, [new Map(), false]);
 			});
 		});
 
 		describe("_updateSubscription()", function() {
+			it("should do nothing if not connected", async function() {
+				registeredEvent.control.connector.connected = false;
+				registeredEvent.subscribe(() => true);
+				await new Promise(resolve => setImmediate(resolve));
+				assertNoMessageSent();
+			});
 			it("should correctly request a subscription", async function() {
 				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, true, -1);
 				registeredEvent.subscribe(() => true);
@@ -381,11 +420,43 @@ describe("lib/subscriptions", function() {
 			it("should correctly request no subscriptions", async function() {
 				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, false, -1);
 				function callback() {}
-				registeredEvent.subscribe(callback);
+				const unsubscribe = registeredEvent.subscribe(callback);
 				await events.once(mockControl.connector, "send");
-				registeredEvent.unsubscribe(callback);
+				unsubscribe();
 				await events.once(mockControl.connector, "send");
 				assertLastRequest(expected);
+			});
+			it("should set synced and invoke callbacks when request is responded to", async function() {
+				let calledWith;
+				registeredEvent.subscribe((values, synced) => { calledWith = [values, synced]; });
+				const [msg] = await events.once(mockControl.connector, "send");
+				assert(!registeredEvent.synced, "synced was set before response");
+				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src));
+				await new Promise(resolve => setImmediate(resolve));
+				assert(calledWith !== undefined, "callback not called");
+				assert.deepEqual(calledWith, [[], true]);
+				assert(registeredEvent.synced, "synced was not set");
+			});
+			it("should be called con connector connect event", async function() {
+				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, true, -1);
+				registeredEvent._callbacks.push(() => {});
+				registeredEvent.control.connector.emit("connect");
+				await events.once(mockControl.connector, "send");
+				assertLastRequest(expected);
+			});
+			it("should revert synced and invoke callbacks on connector close event", async function() {
+				let calledWith;
+				registeredEvent.subscribe((values, synced) => { calledWith = [values, synced]; });
+				const [msg] = await events.once(mockControl.connector, "send");
+				mockControl.connector.emit("message", new lib.MessageResponse(0, msg.dst, msg.src));
+				await new Promise(resolve => setImmediate(resolve));
+
+				assert(registeredEvent.synced, "synced was not set before close");
+				calledWith = undefined;
+				registeredEvent.control.connector.emit("close");
+				assert(calledWith !== undefined, "callback not called");
+				assert.deepEqual(calledWith, [[], false]);
+				assert(!registeredEvent.synced, "synced was not reset");
 			});
 		});
 	});

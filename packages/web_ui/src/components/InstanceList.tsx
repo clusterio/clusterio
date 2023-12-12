@@ -6,7 +6,7 @@ import type { SizeType } from "antd/es/config-provider/SizeContext";
 import type { ColumnsType } from "antd/es/table";
 
 import { useAccount } from "../model/account";
-import { useHostList } from "../model/host";
+import { useHosts } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
 import { InstanceDetails } from "@clusterio/lib";
@@ -14,7 +14,7 @@ import { InstanceDetails } from "@clusterio/lib";
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 type InstanceListProps = {
-	instances: InstanceDetails[];
+	instances: ReadonlyMap<number, Readonly<InstanceDetails>>;
 	size?: SizeType;
 	hideAssignedHost?: boolean;
 };
@@ -22,28 +22,27 @@ type InstanceListProps = {
 export default function InstanceList(props: InstanceListProps) {
 	let account = useAccount();
 	let navigate = useNavigate();
-	let [hostList] = useHostList();
+	let [hosts] = useHosts();
 
-	function hostName(hostId?: number|null) {
-		if (hostId === null ||hostId === undefined) {
+	function hostName(hostId?: number) {
+		if (hostId === undefined) {
 			return "";
 		}
-		let host = hostList.find(s => s.id === hostId);
-		if (host) {
-			return host.name;
-		}
-		return String(hostId);
+		return hosts.get(hostId)?.name ?? String(hostId);
 	}
 
 	function instancePublicAddress(instance: InstanceDetails) {
-		let host = hostList.find(s => s.id === instance.assignedHost);
-		if (host && host.publicAddress) {
-			if (instance.gamePort) {
-				return `${host.publicAddress}:${instance.gamePort}`;
-			}
+		if (instance.assignedHost === undefined) {
+			return "";
+		}
+		let host = hosts.get(instance.assignedHost);
+		if (!host || !host.publicAddress) {
+			return "";
+		}
+		if (instance.gamePort === undefined) {
 			return host.publicAddress;
 		}
-		return null;
+		return `${host.publicAddress}:${instance.gamePort}`;
 	}
 
 	let columns: ColumnsType<InstanceDetails> = [
@@ -78,7 +77,7 @@ export default function InstanceList(props: InstanceListProps) {
 					/>
 				</> : "";
 			},
-			sorter: (a, b) => strcmp(instancePublicAddress(a)||"", instancePublicAddress(b)||""),
+			sorter: (a, b) => strcmp(instancePublicAddress(a), instancePublicAddress(b)),
 			responsive: ["lg"],
 		},
 		{
@@ -109,7 +108,7 @@ export default function InstanceList(props: InstanceListProps) {
 	return <Table
 		size={props.size || "large"}
 		columns={columns}
-		dataSource={props.instances}
+		dataSource={[...props.instances.values()]}
 		rowKey={instance => instance["id"]}
 		pagination={false}
 		onRow={(record, rowIndex) => ({

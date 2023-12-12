@@ -60,29 +60,12 @@ export class Control extends lib.Link {
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
-	hostUpdate = new lib.EventSubscriber<lib.HostUpdatesEvent, lib.HostDetails[]>(
-		lib.HostUpdatesEvent, this, event => event.updates,
-	);
-
-	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdatesEvent, lib.InstanceDetails[]>(
-		lib.InstanceDetailsUpdatesEvent, this, event => event.updates,
-	);
-
-	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveDetailsUpdatesEvent, lib.SaveDetails[]>(
-		lib.InstanceSaveDetailsUpdatesEvent, this, event => event.updates,
-	);
-
-	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdatesEvent, lib.ModPack[]>(
-		lib.ModPackUpdatesEvent, this, event => event.updates,
-	);
-
-	modUpdate = new lib.EventSubscriber<lib.ModUpdatesEvent, lib.ModInfo[]>(
-		lib.ModUpdatesEvent, this, event => event.updates,
-	);
-
-	userUpdate = new lib.EventSubscriber<lib.UserUpdatesEvent, lib.User[]>(
-		lib.UserUpdatesEvent, this, event => event.updates,
-	);
+	hosts = new lib.EventSubscriber(lib.HostUpdatesEvent, this);
+	instances = new lib.EventSubscriber(lib.InstanceDetailsUpdatesEvent, this);
+	saves = new lib.EventSubscriber(lib.InstanceSaveDetailsUpdatesEvent, this);
+	modPacks = new lib.EventSubscriber(lib.ModPackUpdatesEvent, this);
+	mods = new lib.EventSubscriber(lib.ModUpdatesEvent, this);
+	users = new lib.EventSubscriber(lib.UserUpdatesEvent, this);
 
 	declare connector: ControlConnector;
 

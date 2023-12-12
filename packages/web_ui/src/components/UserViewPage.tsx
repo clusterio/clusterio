@@ -9,7 +9,7 @@ import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
-import { useInstanceList } from "../model/instance";
+import { useInstances } from "../model/instance";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
@@ -33,8 +33,8 @@ export default function UserViewPage() {
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let [instanceList] = useInstanceList();
-	let [user] = useUser(userName);
+	let [instances] = useInstances();
+	const [user, synced] = useUser(userName);
 	let [roles, setRoles] = useState<Map<number, lib.Role>>(new Map());
 	let [form] = Form.useForm();
 	let [rolesDirty, setRolesDirty] = useState<boolean>(false);
@@ -54,6 +54,7 @@ export default function UserViewPage() {
 		if (
 			account.hasPermission("core.user.set_banned")
 			&& !banReasonDirty
+			&& user
 			&& user.banReason !== form.getFieldValue("banReason")
 		) {
 			form.setFieldsValue({ "banReason": user.banReason });
@@ -61,14 +62,14 @@ export default function UserViewPage() {
 	}, [account, form, user, banReasonDirty]);
 
 	let nav = [{ name: "Users", path: "/users" }, { name: userName }];
-	if (user.loading) {
-		return <PageLayout nav={nav}>
-			<PageHeader title={userName} />
-			<Spin size="large" />
-		</PageLayout>;
-	}
+	if (!user) {
+		if (!synced) {
+			return <PageLayout nav={nav}>
+				<PageHeader title={userName} />
+				<Spin size="large" />
+			</PageLayout>;
+		}
 
-	if (user.missing) {
 		return <PageLayout nav={nav}>
 			<PageHeader title="User not found" />
 			<p>User with name {userName} was not found on the controller.</p>
@@ -78,7 +79,7 @@ export default function UserViewPage() {
 	let roleSelector = <Form.Item
 		noStyle
 		name="roles"
-		initialValue={user.roleIds}
+		initialValue={[...user.roleIds]}
 		rules={[
 			{ validator: () => (rolesError ? Promise.reject(rolesError) : Promise.resolve()) },
 		]}
@@ -100,9 +101,8 @@ export default function UserViewPage() {
 		</Select>
 	</Form.Item>;
 
-	function instanceName(id: number): string {
-		let instance = instanceList.find(i => i.id === id);
-		return instance ? instance.name : String(id);
+	function instanceName(id: number) {
+		return instances.get(id)?.name ?? String(id);
 	}
 
 	return <PageLayout nav={nav}>

@@ -350,8 +350,9 @@ module.exports = {
 		"node/exports-style": "off",
 		"node/file-extension-in-import": "off",
 		"node/global-require": "off",
-		"node/handle-callback-err": "error",
-		"node/no-callback-literal": "error",
+		// Node.js callback passing style of (err, value) is not used in this project
+		"node/handle-callback-err": "off",
+		"node/no-callback-literal": "off",
 		"node/no-deprecated-api": "error",
 		"node/no-exports-assign": "error",
 		"node/no-extraneous-import": "off",

@@ -4,7 +4,7 @@ import { logger } from "./logging";
 import { Address, MessageRequest, IControllerUser } from "./data";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
-export type EventSubscriberCallback<T> = (value: T) => void;
+export type EventSubscriberCallback<T> = (updates: T[], synced: boolean) => void
 
 /**
  * A subscription request sent by a subscriber, this updates what events the subscriber will be sent
@@ -150,68 +150,118 @@ export class SubscriptionController {
 	}
 }
 
+export interface SubscribableValue {
+	id: number | string,
+	updatedAt: number,
+	isDeleted: boolean,
+}
+
+export interface EventSubscribable<T, V extends SubscribableValue> extends Event<T> {
+	updates: V[],
+}
+
 /**
- * A class component to allow subscribing and unsubscribing to/from an event
+ * Component for subscribing to and tracking updates of a remote resource
  * Multiple handlers can be subscribed at the same time
  */
-export class EventSubscriber<T extends Event<T>, V=T> {
+export class EventSubscriber<
+	T extends EventSubscribable<T, V>,
+	K extends string | number = T["updates"][number]["id"],
+	V extends SubscribableValue = T["updates"][number],
+> {
 	_callbacks = new Array<EventSubscriberCallback<V>>();
-	lastResponse: Event<T> | null = null;
+	/** Values of the subscribed resource */
+	values = new Map<K, V>();
+	/** True if this subscriber is currently synced with the source */
+	synced = false;
+	_snapshot?: readonly [ReadonlyMap<K, Readonly<V>>, boolean];
+	_snapshotLastUpdated = 0;
 	lastResponseTime = -1;
 
 	constructor(
 		private Event: EventClass<T>,
 		public control: Link,
-		private prehandler?: (e: T) => V,
 	) {
 		control.handle(Event, this._handle.bind(this));
 		control.connector.on("connect", () => {
 			this._updateSubscription();
 		});
+		control.connector.on("close", () => {
+			if (this.synced) {
+				this.synced = false;
+				for (let callback of this._callbacks) {
+					callback([], this.synced);
+				}
+			}
+		});
 	}
 
 	/**
 	 * Handle incoming events and distribute it to the correct callbacks
-	 * @param response - event from subscribed resource
+	 * @param event - event from subscribed resource
 	 * @internal
 	 */
-	async _handle(response: Event<T>) {
-		this.lastResponse = response;
-		this.lastResponseTime = Date.now();
-		const value = this.prehandler ? this.prehandler(response as T) : response as any;
+	async _handle(event: EventSubscribable<T, V>) {
+		for (const value of event.updates) {
+			this.lastResponseTime = Math.max(this.lastResponseTime, value.updatedAt);
+			if (value.isDeleted) {
+				this.values.delete(value.id as K);
+			} else {
+				this.values.set(value.id as K, value);
+			}
+		}
 		for (let callback of this._callbacks) {
-			callback(value);
+			callback(event.updates, this.synced);
 		}
 	}
 
 	/**
 	 * Subscribe to receive all event notifications
 	 * @param handler -
-	 *     callback invoked whenever the subscribed resource changes.
+	 *     callback invoked whenever the subscribed resource changes or the
+	 *     synced property changes, in which case the updates will be empty.
+	 * @returns function that will unsubscribe from notifications
 	 */
-	async subscribe(handler: EventSubscriberCallback<V>) {
+	subscribe(handler: EventSubscriberCallback<V>) {
 		this._callbacks.push(handler);
-		await this._updateSubscription();
+		if (this._callbacks.length === 1) {
+			this._updateSubscription();
+		}
+		return () => {
+			// During a page transition the components currently rendered
+			// are unmounted and then the components for the new page is
+			// mounted.  This means that if a resource is used by both pages
+			// it is first unsubscribed by the unmounted component causing
+			// the callbacks count to go to zero and a subscription update
+			// to be sent, and then subscribed by the mounted component
+			// causing another subscription update to be sent.
+
+			// By delaying the unsubscription here the subscription happens
+			// before the unsubscription, thus preventing the redundant
+			// updates from being sent out.
+			setImmediate(() => {
+				let index = this._callbacks.lastIndexOf(handler);
+				if (index === -1) {
+					return;
+				}
+				this._callbacks.splice(index, 1);
+				if (this._callbacks.length === 0) {
+					this._updateSubscription();
+				}
+			});
+		};
 	}
 
 	/**
-	 * Unsubscribe from receiving all event notifications, does not effect
-	 * the subscriptions of other handlers.
-	 *
-	 * @param handler - A callback previously passed to {@link subscribe}
-	 *
-	 * @throws {Error}
-	 *     If your handler is not subscribed, does not accept anonymous
-	 *     functions
+	 * Obtain a snapshot of the current state of the tracked resource
+	 * @returns tuple of values map snapshot and synced property.
 	 */
-	async unsubscribe(handler: EventSubscriberCallback<V>) {
-		let index = this._callbacks.lastIndexOf(handler);
-		if (index === -1) {
-			throw new Error("handler is not registered");
+	getSnapshot() {
+		if (this._snapshotLastUpdated !== this.lastResponseTime) {
+			this._snapshotLastUpdated = this.lastResponseTime;
+			this._snapshot = [new Map(this.values), this.synced];
 		}
-
-		this._callbacks.splice(index, 1);
-		await this._updateSubscription();
+		return this._snapshot!;
 	}
 
 	/**
@@ -229,6 +279,11 @@ export class EventSubscriber<T extends Event<T>, V=T> {
 				this._callbacks.length > 0,
 				this.lastResponseTime
 			));
+			this.synced = this._callbacks.length > 0;
+			this._snapshotLastUpdated = 0;
+			for (let callback of this._callbacks) {
+				callback([], this.synced);
+			}
 		} catch (err: any) {
 			logger.error(
 				`Unexpected error updating ${entry.name} subscription:\n${err.stack}`

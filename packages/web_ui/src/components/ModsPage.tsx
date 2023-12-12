@@ -8,8 +8,8 @@ import UploadOutlined from "@ant-design/icons/UploadOutlined";
 import * as lib from "@clusterio/lib";
 
 import { useAccount } from "../model/account";
-import { useModList } from "../model/mods";
-import { useModPackList } from "../model/mod_pack";
+import { useMods } from "../model/mods";
+import { useModPacks } from "../model/mod_pack";
 import { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
@@ -129,8 +129,8 @@ export default function ModsPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
-	let [modList] = useModList();
-	let [modPackList] = useModPackList();
+	let [mods] = useMods();
+	let [modPacks] = useModPacks();
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -209,7 +209,7 @@ export default function ModsPage() {
 					render: modPack => modPack.mods.size,
 				},
 			]}
-			dataSource={modPackList}
+			dataSource={[...modPacks.values()]}
 			pagination={false}
 			rowKey={modPack => Number(modPack.id)}
 			onRow={(modPack, rowIndex) => ({
@@ -263,7 +263,7 @@ export default function ModsPage() {
 				expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
 				expandedRowClassName: () => "no-expanded-padding",
 			}}
-			dataSource={modList}
+			dataSource={[...mods.values()]}
 			pagination={false}
 			rowKey={mod => mod.id}
 		/>

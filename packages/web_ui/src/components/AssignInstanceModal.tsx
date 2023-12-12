@@ -6,7 +6,7 @@ import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
-import { useHostList } from "../model/host";
+import { useHosts } from "../model/host";
 
 const { Paragraph } = Typography;
 
@@ -20,7 +20,7 @@ type AssignInstanceModalProps = {
 };
 export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 	let [open, setOpen] = useState(false);
-	let [hostList] = useHostList();
+	let [hosts] = useHosts();
 	let [applying, setApplying] = useState(false);
 	let [form] = Form.useForm();
 	let control = useContext(ControlContext);
@@ -80,7 +80,7 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 						<Select.Option value={"null"}>
 							<Typography.Text italic>Unassigned</Typography.Text>
 						</Select.Option>
-						{hostList.map((host) => <Select.Option
+						{[...hosts.values()].map((host) => <Select.Option
 							key={host["id"]}
 							value={host["id"]}
 							disabled={!host["connected"]}

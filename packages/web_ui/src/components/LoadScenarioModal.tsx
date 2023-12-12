@@ -5,10 +5,9 @@ import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
-import { InstanceState } from "../model/instance";
 
 type LoadScenarioModalProps = {
-	instance: InstanceState;
+	instance: lib.InstanceDetails;
 };
 export default function LoadScenarioModal(props: LoadScenarioModalProps) {
 	let [open, setOpen] = useState(false);
@@ -55,7 +54,7 @@ export default function LoadScenarioModal(props: LoadScenarioModalProps) {
 
 		setLoadingScenario(true);
 		control.sendTo(
-			{ instanceId: props.instance.id! },
+			{ instanceId: props.instance.id },
 			new lib.InstanceLoadScenarioRequest(scenario, seed, mapGenSettings, mapSettings),
 		).then(() => {
 			setOpen(false);

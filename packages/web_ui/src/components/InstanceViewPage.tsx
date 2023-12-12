@@ -20,15 +20,15 @@ import StartStopInstanceButton from "./StartStopInstanceButton";
 import LoadScenarioModal from "./LoadScenarioModal";
 import SavesList from "./SavesList";
 import { notifyErrorHandler } from "../util/notify";
-import { InstanceState, useInstance } from "../model/instance";
-import { HostState, useHost } from "../model/host";
+import { useInstance } from "../model/instance";
+import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 
 const { Title } = Typography;
 
 type InstanceDescriptionProps = {
-	host: HostState;
-	instance: InstanceState;
+	host?: Readonly<lib.HostDetails>;
+	instance: Readonly<lib.InstanceDetails>;
 };
 function InstanceDescription(props: InstanceDescriptionProps) {
 	let account = useAccount();
@@ -42,7 +42,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Host">
 			{!assigned
 				? <em>Unassigned</em>
-				: host.name || instance.assignedHost
+				: host?.name ?? instance.assignedHost
 			}
 			{account.hasPermission("core.instance.assign") && <AssignInstanceModal
 				id={instance.id}
@@ -60,7 +60,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 	</Descriptions>;
 }
 
-function InstanceButtons(props: { instance: InstanceState }) {
+function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
@@ -169,18 +169,18 @@ export default function InstanceViewPage() {
 	let navigate = useNavigate();
 
 	let account = useAccount();
-	let [instance] = useInstance(instanceId);
-	let [host] = useHost(Number(instance.assignedHost));
+	let [instance, synced] = useInstance(instanceId);
+	let [host] = useHost(instance?.assignedHost);
 
-	let nav = [{ name: "Instances", path: "/instances" }, { name: instance.name || "Unknown" }];
-	if (instance.loading) {
-		return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
-	}
+	let nav = [{ name: "Instances", path: "/instances" }, { name: instance?.name ?? String(instanceId) }];
+	if (!instance) {
+		if (!synced) {
+			return <PageLayout nav={nav}><Spin size="large" /></PageLayout>;
+		}
 
-	if (instance.missing || instance.status === "deleted") {
 		return <PageLayout nav={nav}>
 			<Alert
-				message={instance.status === "deleted" ? "Instance has been deleted" : "Instance not found" }
+				message={"Instance not found" }
 				showIcon
 				description={<>Instance with id {instanceId} was not found on the controller.</>}
 				type="warning"
