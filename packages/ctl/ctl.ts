@@ -219,14 +219,15 @@ async function startControl() {
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
-	let controlConfig = new lib.ControlConfig("control");
+	let controlConfig;
 	try {
-		controlConfig.load(JSON.parse(await fs.readFile(args.config, "utf8")));
+		const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
+		controlConfig = lib.ControlConfig.fromJSON(jsonConfig, "control");
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Config not found, initializing new config");
-			controlConfig.init();
+			controlConfig = new lib.ControlConfig("control");
 
 		} else {
 			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);

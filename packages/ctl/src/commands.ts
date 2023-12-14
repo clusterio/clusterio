@@ -56,8 +56,8 @@ async function configToKeyVal(data: string) {
 	return final;
 }
 
-async function serializedConfigToString(
-	serializedConfig: any,
+function serializedConfigToString(
+	serializedConfig: lib.SerializedConfig,
 	configGroup: typeof lib.Config,
 	disallowedList: Record<string, unknown>,
 ) {
@@ -91,9 +91,9 @@ const controllerConfigCommands = new lib.CommandTree({
 controllerConfigCommands.add(new lib.Command({
 	definition: ["list", "List controller configuration"],
 	handler: async function(args: object, control: Control) {
-		let response = await control.send(new lib.ControllerConfigGetRequest());
+		let config = await control.send(new lib.ControllerConfigGetRequest());
 
-		for (let group of (response.serializedConfig as any).groups) {
+		for (let group of config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -156,15 +156,15 @@ controllerConfigCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(args: { editor: string }, control: Control) {
-		let response = await control.send(new lib.ControllerConfigGetRequest());
+		let config = await control.send(new lib.ControllerConfigGetRequest());
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let allConfigElements = await serializedConfigToString(
-			response.serializedConfig, lib.ControllerConfig, {}
+		let allConfigElements = serializedConfigToString(
+			config, lib.ControllerConfig, {}
 		);
 		await fs.writeFile(tmpFile, allConfigElements);
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
@@ -272,11 +272,11 @@ hostCommands.add(new lib.Command({
 		args: { id?: number, name?: string, generateToken: boolean, output: string },
 		control: Control
 	) {
-		let rawConfig = await control.send(
+		let config = await control.send(
 			new lib.HostConfigCreateRequest(args.id, args.name, args.generateToken)
 		);
 
-		let content = JSON.stringify(rawConfig.serializedConfig, null, "\t");
+		let content = JSON.stringify(config, null, "\t");
 		if (args.output === "-") {
 			print(content);
 		} else {
@@ -315,12 +315,11 @@ instanceCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { name: string, id?: number }, control: Control) {
 		let instanceConfig = new lib.InstanceConfig("control");
-		instanceConfig.init();
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		let serializedConfig = instanceConfig.serialize("controller");
+		const serializedConfig = instanceConfig.toRemote("controller");
 		await control.send(new lib.InstanceCreateRequest(serializedConfig));
 	},
 }));
@@ -334,9 +333,9 @@ instanceConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
+		let config = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 
-		for (let group of response.serializedConfig.groups) {
+		for (let group of config.groups) {
 			for (let [name, value] of Object.entries(group.fields)) {
 				print(`${group.name}.${name} ${JSON.stringify(value)}`);
 			}
@@ -427,7 +426,7 @@ instanceConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { instance: string, editor: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
+		let config = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
@@ -435,8 +434,8 @@ instanceConfigCommands.add(new lib.Command({
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
-		let allConfigElements = await serializedConfigToString(
-			response.serializedConfig,
+		let allConfigElements = serializedConfigToString(
+			config,
 			lib.InstanceConfig,
 			disallowedList
 		);

@@ -27,9 +27,8 @@ function CreateInstanceButton() {
 		}
 
 		let instanceConfig = new lib.InstanceConfig("control");
-		instanceConfig.init();
 		instanceConfig.set("instance.name", values.instanceName);
-		let serializedConfig = instanceConfig.serialize("controller");
+		const serializedConfig = instanceConfig.toRemote("controller");
 		await control.send(new lib.InstanceCreateRequest(serializedConfig));
 		setOpen(false);
 		navigate(`/instances/${instanceConfig.get("instance.id")}/view`);

@@ -10,8 +10,7 @@ export default function ControllerConfigTree() {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
-		let result = await control.send(new lib.ControllerConfigGetRequest());
-		return result.serializedConfig;
+		return await control.send(new lib.ControllerConfigGetRequest());
 	}
 
 	async function setField(field: string, value: any) {

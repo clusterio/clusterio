@@ -206,7 +206,7 @@ describe("Integration of Clusterio", function() {
 			it("should not leak auth_secret", async function() {
 				let result = await getControl().send(new lib.ControllerConfigGetRequest());
 				let done = false;
-				for (let group of result.serializedConfig.groups) {
+				for (let group of result.groups) {
 					if (group.name === "controller") {
 						assert.equal(Object.prototype.hasOwnProperty.call(group.fields, "auth_secret"), false);
 						done = true;
@@ -221,7 +221,7 @@ describe("Integration of Clusterio", function() {
 				await execCtl('controller config set controller.name "Test Cluster"');
 				let result = await getControl().send(new lib.ControllerConfigGetRequest());
 				let done = false;
-				for (let group of result.serializedConfig.groups) {
+				for (let group of result.groups) {
 					if (group.name === "controller") {
 						assert.equal(group.fields.name, "Test Cluster");
 						done = true;

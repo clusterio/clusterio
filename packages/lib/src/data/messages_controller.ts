@@ -1,7 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
-import { JsonString, StringEnum } from "./composites";
+import { JsonString, StringEnum, plainJson } from "./composites";
 import { levels } from "../logging";
-import { RawConfig } from "../config";
+import { ControllerConfig, HostConfig } from "../config";
 
 export class ControllerConfigGetRequest {
 	declare ["constructor"]: typeof ControllerConfigGetRequest;
@@ -9,7 +9,7 @@ export class ControllerConfigGetRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.controller.get_config" as const;
-	static Response = RawConfig;
+	static Response = plainJson(ControllerConfig.jsonSchema);
 }
 
 export class ControllerConfigSetFieldRequest {
@@ -103,7 +103,7 @@ export class HostConfigCreateRequest {
 		return new this(json.id, json.name, json.generateToken);
 	}
 
-	static Response = RawConfig;
+	static Response = plainJson(HostConfig.jsonSchema);
 }
 
 export class LogSetSubscriptionsRequest {

@@ -4,9 +4,12 @@ import events from "events";
 
 import isDeepStrictEqual from "../is_deep_strict_equal";
 import { basicType } from "../helpers";
+import * as libSchema from "../schema";
+import { StringEnum } from "../data";
 
 
-export type ConfigLocation = "controller" | "host" | "instance" | "control";
+const ConfigLocation = StringEnum(["controller", "host", "instance", "control"]);
+export type ConfigLocation = Static<typeof ConfigLocation>;
 
 /**
  * Invalid Access exception
@@ -59,8 +62,18 @@ function splitOn(separator: string, string: string) {
 	return [string.slice(0, index), string.slice(index + separator.length)];
 }
 
-export type SerializedConfig = ReturnType<Config["serialize"]>;
-type SerializedGroup = ReturnType<ConfigGroup["serialize"]>;
+
+const ConfigGroupSchema = Type.Object({
+	"name": Type.String(),
+	"fields": Type.Record(Type.String(), Type.Unknown()),
+});
+type SerializedGroup = Static<typeof ConfigGroupSchema>;
+
+const ConfigSchema = Type.Object({
+	"groups": Type.Array(ConfigGroupSchema),
+});
+export type SerializedConfig = Static<typeof ConfigSchema>
+
 
 /**
  * Collection of config groups
@@ -80,10 +93,10 @@ export class Config extends events.EventEmitter {
 	declare static _finalized: boolean;
 	declare static _initialized: boolean;
 	declare static _groups: Map<string, typeof ConfigGroup>;
+	declare ["constructor"]: typeof Config;
 
-	_initialized = false;
 	_groups = new Map<string, ConfigGroup>();
-	_unknownGroups = new Map<string, SerializedGroup>();
+	_unknownGroups = new Map<string, Static<typeof ConfigGroup.jsonSchema>>();
 
 	/** Set to true when a field in the config is changed. */
 	dirty = false;
@@ -93,66 +106,64 @@ export class Config extends events.EventEmitter {
 	 *
 	 * @param location -
 	 *     Location to evaluate access for this instance from
+	 * @param groups -
+	 *     Serialized representation of groups to load.
 	 */
 	constructor(
 		public location: ConfigLocation,
+		groups: Static<typeof Config.jsonSchema>["groups"] = [],
 	) {
-		super();
-
-		if (!(this.constructor as typeof Config)._finalized) {
-			throw new Error(`Cannot instantiate incomplete Config class ${this.constructor.name}`);
-		}
-
 		if (typeof location !== "string") {
 			throw new Error("location must be a string");
 		}
-	}
+		super();
 
-	init() {
-		for (let [name, GroupClass] of (this.constructor as typeof Config)._groups) {
-			if (!this._groups.has(name)) {
-				let group = new GroupClass(this);
-				group.init();
-				this._groups.set(name, group);
-			}
-		}
-		this._initialized = true;
-	}
-
-	_validate(serializedConfig: SerializedConfig) {
-		if (basicType(serializedConfig) !== "object") {
-			throw new Error(`Expected object, not ${basicType(serializedConfig)} for config`);
+		if (!this.constructor._finalized) {
+			throw new Error(`Cannot instantiate incomplete Config class ${this.constructor.name}`);
 		}
 
-		if (basicType(serializedConfig.groups) !== "array") {
-			throw new Error(`Expected groups to be an array, not ${basicType(serializedConfig.groups)}`);
-		}
-	}
-
-	/**
-	 * Load config from a serialized object
-	 *
-	 * @param serializedConfig - Serialized config to load.
-	 * @param location - Location used for access control.
-	 */
-	load(
-		serializedConfig: SerializedConfig,
-		location = this.location
-	) {
-		this._validate(serializedConfig);
-		for (let serializedGroup of serializedConfig.groups) {
-			let GroupClass = (this.constructor as typeof Config)._groups.get(serializedGroup.name);
+		for (let serializedGroup of groups) {
+			let GroupClass = this.constructor._groups.get(serializedGroup.name);
 			if (!GroupClass) {
 				this._unknownGroups.set(serializedGroup.name, serializedGroup);
 				continue;
 			}
 
-			let group = new GroupClass(this);
-			group.load(serializedGroup, location);
+			let group = GroupClass.fromJSON(serializedGroup, this);
 			this._groups.set(group.name, group);
 		}
 
-		this.init();
+		for (let [name, GroupClass] of this.constructor._groups) {
+			if (!this._groups.has(name)) {
+				this._groups.set(name, new GroupClass(this));
+			}
+		}
+	}
+
+	static jsonSchema = ConfigSchema;
+
+	static validate = libSchema.compile(this.jsonSchema as any);
+
+	/**
+	 * Create config from a serialized object
+	 *
+	 * @param json - Serialized config to load.
+	 * @param location - Location used for access control.
+	 * @returns Instance of this config
+	 */
+	static fromJSON(
+		json: Static<typeof this.jsonSchema>,
+		location: ConfigLocation,
+	) {
+		const valid = Config.validate(json);
+		if (!valid) {
+			throw new Error("Invalid config");
+		}
+		return new this(location, json.groups);
+	}
+
+	toJSON() {
+		return this.toRemote(this.location);
 	}
 
 	/**
@@ -161,10 +172,10 @@ export class Config extends events.EventEmitter {
 	 * @param location - Location used for access control.
 	 * @returns JSON serializable representation of the config.
 	 */
-	serialize(location = this.location) {
-		let groups: SerializedGroup[] = [...this._unknownGroups.values()];
+	toRemote(location: ConfigLocation): Static<typeof Config.jsonSchema> {
+		let groups: Static<typeof ConfigGroup.jsonSchema>[] = [...this._unknownGroups.values()];
 		for (let group of this._groups.values()) {
-			groups.push(group.serialize(location));
+			groups.push(group.toRemote(location));
 		}
 
 		return { groups };
@@ -176,16 +187,19 @@ export class Config extends events.EventEmitter {
 	 * Updates all groups in the config with groups in the serialized
 	 * config passed.
 	 *
-	 * @param serializedConfig - Output from .serialize().
+	 * @param serializedConfig - Output from .toRemote().
 	 * @param notify - Invoke fieldChanged events if true.
 	 * @param location - Location used for access control.
 	 */
 	update(
-		serializedConfig: SerializedConfig,
+		serializedConfig: Static<typeof Config.jsonSchema>,
 		notify: boolean,
 		location = this.location
 	) {
-		this._validate(serializedConfig);
+		const valid = Config.validate(serializedConfig);
+		if (!valid) {
+			throw new Error("Invalid config");
+		}
 		for (let serializedGroup of serializedConfig.groups) {
 			let group = this._groups.get(serializedGroup.name);
 			if (group) {
@@ -252,9 +266,6 @@ export class Config extends events.EventEmitter {
 	 * @returns config group.
 	 */
 	group(name: string) {
-		if (!this._initialized) {
-			throw new Error(`${this.constructor.name} instance is uninitialized`);
-		}
 		let group = this._groups.get(name);
 		if (!group) {
 			throw new InvalidField(`No config group named '${name}'`);
@@ -321,32 +332,6 @@ export class Config extends events.EventEmitter {
 	}
 }
 
-// TODO: remove after config refactor
-export class RawConfig {
-	constructor(
-		public serializedConfig: SerializedConfig
-	) { }
-
-	static jsonSchema = Type.Object({
-		"serializedConfig": Type.Object({
-			"groups": Type.Array(
-				Type.Object({
-					"name": Type.String(),
-					"fields": Type.Record(
-						Type.String(),
-						Type.Unknown(),
-					),
-				}),
-			),
-		}),
-	});
-
-	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.serializedConfig);
-	}
-}
-
-
 type FieldType = "boolean" | "string" | "number" | "object";
 export interface FieldDefinition {
 	type: FieldType;
@@ -376,6 +361,7 @@ export class ConfigGroup {
 	declare static _definitions: Map<string, FieldDefinition>;
 	declare static groupName: string;
 	declare static defaultAccess: ConfigLocation[];
+	declare ["constructor"]: typeof ConfigGroup;
 
 	_fields = new Map<string, unknown>();
 	_unknownFields = new Map<string, unknown>();
@@ -384,17 +370,40 @@ export class ConfigGroup {
 	/**
 	 * Creates a new config group.
 	 *
-	 * After the creation of the new config group you have to call
-	 * either .init() or .load() on it in order to fully initialize it.
-	 *
 	 * @param config -
 	 *     Parent config for this group instance.
+	 * @param serializedGroup -
+	 *     Serialized representation of group to load.
 	 */
 	constructor(
-		public config: Config
+		public config: Config,
+		serializedGroup?: Static<typeof ConfigGroup.jsonSchema>,
 	) {
-		if (!(this.constructor as typeof ConfigGroup)._finalized) {
+		if (!this.constructor._finalized) {
 			throw new Error(`Cannot instantiate incomplete ConfigGroup class ${this.constructor.name}`);
+		}
+
+		if (serializedGroup) {
+			this.update(serializedGroup, false, config.location);
+		}
+
+		for (let [name, def] of this.constructor._definitions) {
+			if (this._fields.has(name)) {
+				continue;
+			}
+			if (!def.access.includes(this.config.location)) {
+				continue;
+			}
+
+			let value = null;
+			if (typeof def.initial_value === "function") {
+				value = def.initial_value();
+
+			} else if (def.initial_value !== undefined) {
+				value = def.initial_value;
+			}
+
+			this._fields.set(name, value);
 		}
 	}
 
@@ -422,32 +431,7 @@ export class ConfigGroup {
 		return true;
 	}
 
-	/**
-	 * Initialize new config group
-	 *
-	 * Computes and assigns the initial values for all fields of the
-	 * config group.
-	 */
-	init() {
-		for (let [name, def] of (this.constructor as typeof ConfigGroup)._definitions) {
-			if (this._fields.has(name)) {
-				continue;
-			}
-			if (!def.access.includes(this.config.location)) {
-				continue;
-			}
-
-			let value = null;
-			if (typeof def.initial_value === "function") {
-				value = def.initial_value();
-
-			} else if (def.initial_value !== undefined) {
-				value = def.initial_value;
-			}
-
-			this._fields.set(name, value);
-		}
-	}
+	static jsonSchema = ConfigGroupSchema;
 
 	/**
 	 * Load from serialized group
@@ -456,13 +440,13 @@ export class ConfigGroup {
 	 * group and then initializes any possible missing fields from it to
 	 * their default values.
 	 *
-	 * @param serializedGroup -
-	 *     Result from a previous call to .serialize().
-	 * @param location - Location used for access control.
+	 * @param json -
+	 *     Result from a previous call to .toJSON().
+	 * @param config - Parent config for this group instance.
+	 * @returns Instance of this group.
 	 */
-	load(serializedGroup: SerializedGroup, location = this.config.location) {
-		this.update(serializedGroup, false, location);
-		this.init();
+	static fromJSON(json: Static<typeof this.jsonSchema>, config: Config) {
+		return new this(config, json);
 	}
 
 	/**
@@ -471,7 +455,7 @@ export class ConfigGroup {
 	 * Shortcut for `group.constructor.groupName`
 	 */
 	get name() {
-		return (this.constructor as typeof ConfigGroup).groupName;
+		return this.constructor.groupName;
 	}
 
 	/**
@@ -482,7 +466,7 @@ export class ConfigGroup {
 	 * @returns true if field is accessible
 	 */
 	canAccess(name: string, location = this.config.location) {
-		let def = (this.constructor as typeof ConfigGroup)._definitions.get(name);
+		let def = this.constructor._definitions.get(name);
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
@@ -497,7 +481,7 @@ export class ConfigGroup {
 	 * @returns Value stored for the field.
 	 */
 	get(name: string, location = this.config.location) {
-		let def = (this.constructor as typeof ConfigGroup)._definitions.get(name);
+		let def = this.constructor._definitions.get(name);
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
@@ -519,7 +503,7 @@ export class ConfigGroup {
 	 * @throws {InvalidValue} if value is not allowed for the field.
 	 */
 	set(name: string, value: unknown, location = this.config.location) {
-		let def = (this.constructor as typeof ConfigGroup)._definitions.get(name);
+		let def = this.constructor._definitions.get(name);
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
@@ -588,7 +572,7 @@ export class ConfigGroup {
 	 * @throws {InvalidValue} if field is not an object.
 	 */
 	setProp(name: string, prop: string, value: unknown, location = this.config.location) {
-		let def = (this.constructor as typeof ConfigGroup)._definitions.get(name);
+		let def = this.constructor._definitions.get(name);
 		if (!def) {
 			throw new InvalidField(`No field named '${name}'`);
 		}
@@ -620,12 +604,12 @@ export class ConfigGroup {
 	 * has a valid value in the passed serialized group with that value.
 	 *
 	 * @param serializedGroup -
-	 *     Result from a previous call to .serialize().
+	 *     Result from a previous call to .toRemote().
 	 * @param notify - Invoke fieldChanged events if true.
 	 * @param location - Location used for access control.
 	 */
 	update(
-		serializedGroup: SerializedGroup,
+		serializedGroup: Static<typeof ConfigGroup.jsonSchema>,
 		notify: boolean,
 		location = this.config.location
 	) {
@@ -642,7 +626,7 @@ export class ConfigGroup {
 		}
 
 		for (let [name, value] of Object.entries(serializedGroup.fields)) {
-			let def = (this.constructor as typeof ConfigGroup)._definitions.get(name);
+			let def = this.constructor._definitions.get(name);
 			if (!def) {
 				this._unknownFields.set(name, value);
 				continue;
@@ -674,16 +658,20 @@ export class ConfigGroup {
 		}
 	}
 
+	toJSON() {
+		return this.toRemote(this.config.location);
+	}
+
 	/**
 	 * Serialize the config to a plain JavaScript object
 	 *
 	 * @param location - Location used for access control.
 	 * @returns JSON serializable representation of the group.
 	 */
-	serialize(location: ConfigLocation = this.config.location) {
+	toRemote(location: ConfigLocation): Static<typeof ConfigGroup.jsonSchema> {
 		let fields: Record<string, unknown> = {};
 		for (let [name, value] of this._fields) {
-			let def = (this.constructor as typeof ConfigGroup)._definitions.get(name)!;
+			let def = this.constructor._definitions.get(name)!;
 			if (!this._checkAccess(def, location, false)) {
 				continue;
 			}

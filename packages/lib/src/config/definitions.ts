@@ -149,6 +149,7 @@ ControllerGroup.finalize();
  * @extends classes.Config
  */
 export class ControllerConfig extends classes.Config {
+	declare static fromJSON: (json: classes.SerializedConfig, location: classes.ConfigLocation) => ControllerConfig;
 	get(name: "controller.name"): string;
 	get(name: "controller.mods_directory"): string;
 	get(name: "controller.database_directory"): string;
@@ -255,6 +256,7 @@ HostGroup.finalize();
  * @extends classes.Config
  */
 export class HostConfig extends classes.Config {
+	declare static fromJSON: (json: classes.SerializedConfig, location: classes.ConfigLocation) => HostConfig;
 	get(name: "host.name"): string;
 	get(name: "host.id"): number;
 	get(name: "host.factorio_directory"): string;
@@ -433,6 +435,8 @@ FactorioGroup.finalize();
  * @extends classes.Config
  */
 export class InstanceConfig extends classes.Config {
+	declare static fromJSON: (json: classes.SerializedConfig, location: classes.ConfigLocation) => InstanceConfig;
+
 	get(name: "instance.name"): string;
 	get(name: "instance.id"): number;
 	get(name: "instance.assigned_host"): number | null;

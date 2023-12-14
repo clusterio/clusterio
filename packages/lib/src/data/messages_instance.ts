@@ -1,7 +1,7 @@
 import { Type, Static } from "@sinclair/typebox";
 import PlayerStats from "./PlayerStats";
-import { JsonString, StringEnum, jsonArray } from "./composites";
-import { RawConfig } from "../config";
+import { JsonString, StringEnum, jsonArray, plainJson } from "./composites";
+import { InstanceConfig } from "../config";
 import type { IControllerUser } from "./User";
 import type { MessageRequest } from "./messages_core";
 import { CollectorResultSerialized } from "../prometheus";
@@ -133,15 +133,14 @@ export class InstanceCreateRequest {
 	static permission = "core.instance.create" as const;
 
 	constructor(
-		public config: object,
+		public config: Static<typeof InstanceConfig.jsonSchema>,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"config": Type.Object({}),
+		"config": InstanceConfig.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		// TODO deserialise config here after config refactor
 		return new this(json.config);
 	}
 }
@@ -152,8 +151,7 @@ export class InstanceConfigGetRequest {
 	static src = "control" as const;
 	static dst = "controller" as const;
 	static permission = "core.instance.get_config" as const;
-	// TODO replace with InstanceConfig after config refactor
-	static Response = RawConfig;
+	static Response = plainJson(InstanceConfig.jsonSchema);
 
 	constructor(
 		public instanceId: number,
@@ -716,15 +714,14 @@ export class InstanceSendRconRequest {
 
 // TODO remove this after config refactor
 export class RawInstanceInfo {
-
 	constructor(
-		public config: object,
+		public config: Static<typeof InstanceConfig.jsonSchema>,
 		public status: InstanceStatus,
 		public gamePort: undefined | number,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"config": Type.Object({}),
+		"config": InstanceConfig.jsonSchema,
 		"status": StringEnum([
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
@@ -765,16 +762,15 @@ export class InstanceAssignInternalRequest {
 
 	constructor(
 		public instanceId: number,
-		public config: object,
+		public config: Static<typeof InstanceConfig.jsonSchema>,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"instanceId": Type.Integer(),
-		"config": Type.Object({}),
+		"config": InstanceConfig.jsonSchema,
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		// TODO deserialise config here after config refactor
 		return new this(json.instanceId, json.config);
 	}
 }

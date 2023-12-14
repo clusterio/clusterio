@@ -21,7 +21,6 @@ describe("class Instance", function() {
 	let connector;
 	beforeEach(function() {
 		let instanceConfig = new lib.InstanceConfig("host");
-		instanceConfig.init();
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);

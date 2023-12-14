@@ -421,7 +421,7 @@ export default class Controller {
 	private async _saveDataInternal() {
 		if (this.config.dirty) {
 			this.config.dirty = false;
-			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
+			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
@@ -495,11 +495,9 @@ export default class Controller {
 			) as Static<typeof InstanceInfo.jsonSchema>[];
 			for (let json of serialized) {
 				if (!json.config) { // migrate: from pre Alpha 14 format.
-					json = { config: json, status: "running" }; // Use running to force updatedAt
+					json = { config: json as any, status: "running" }; // Use running to force updatedAt
 				}
-				let instanceConfig = new lib.InstanceConfig("controller");
-				instanceConfig.load(json.config as lib.SerializedConfig);
-				let instance = InstanceInfo.fromJSON(json, instanceConfig);
+				const instance = InstanceInfo.fromJSON(json, "controller");
 				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				if (instance.status !== status) {
 					instance.status = status;
@@ -519,7 +517,7 @@ export default class Controller {
 	}
 
 	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
-		let serialized = [...instances.values()].map(instance => instance.toJSON());
+		let serialized = [...instances.values()];
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
 
@@ -690,7 +688,6 @@ export default class Controller {
 	 *
 	 * @example
 	 * let instanceConfig = new lib.InstanceConfig("controller");
-	 * instanceConfig.init();
 	 * instanceConfig.set("instance.name", "My instance");
 	 * let instance = await controller.instanceAssign(instanceConfig);
 	 * await controller.instanceAssign(instance.id, hostId);
@@ -806,7 +803,7 @@ export default class Controller {
 		// "fieldChanged" event handler will set this.instancesDirty
 		if (hostId !== undefined && newHostConnection) {
 			await newHostConnection.send(
-				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
+				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host"))
 			);
 		} else {
 			instance.status = "unassigned";
@@ -855,7 +852,7 @@ export default class Controller {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await connection.send(
-					new lib.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
+					new lib.InstanceAssignInternalRequest(instance.id, instance.config.toRemote("host"))
 				);
 			}
 		}

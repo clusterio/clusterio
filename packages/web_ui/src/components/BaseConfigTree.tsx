@@ -48,8 +48,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 
 	async function updateConfig() {
 		let serializedConfig = await props.retrieveConfig();
-		let newConfig = new props.ConfigClass("control");
-		newConfig.load(serializedConfig);
+		const newConfig = props.ConfigClass.fromJSON(serializedConfig, "control");
 		setConfig(newConfig);
 		return newConfig;
 	}
@@ -197,12 +196,11 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 						</Form.Item>
 						<Button
 							size="small"
-							onClick={async () => {
+							onClick={() => {
 								let propName = form.getFieldValue(`${newPropPath}.name`);
 								let propValue = form.getFieldValue(`${newPropPath}.value`);
 								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
-									let newConfig = new props.ConfigClass("control");
-									await newConfig.load(config!.serialize());
+									let newConfig = props.ConfigClass.fromJSON(config!.toJSON(), "control");
 									newConfig.setProp(fieldName, propName, null);
 									setConfig(newConfig);
 								}

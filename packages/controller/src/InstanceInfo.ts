@@ -18,28 +18,19 @@ export default class InstanceInfo {
 	}
 
 	static jsonSchema = Type.Object({
-		"config": Type.Object({}),
+		"config": lib.InstanceConfig.jsonSchema,
 		"status": lib.InstanceStatus,
 		"gamePort": Type.Optional(Type.Number()),
 		"updatedAt": Type.Optional(Type.Number()),
 	});
 
-	static fromJSON(json: Static<typeof this.jsonSchema>, config: lib.InstanceConfig) {
+	static fromJSON(json: Static<typeof this.jsonSchema>, location: lib.ConfigLocation) {
 		return new this(
-			config,
+			lib.InstanceConfig.fromJSON(json.config, location),
 			json.status,
 			json.gamePort,
 			json.updatedAt,
 		);
-	}
-
-	toJSON(): Static<typeof InstanceInfo.jsonSchema> {
-		return {
-			config: this.config.serialize(),
-			status: this.status,
-			gamePort: this.gamePort,
-			updatedAt: this.updatedAt,
-		};
 	}
 
 	toInstanceDetails() {

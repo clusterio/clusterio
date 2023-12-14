@@ -17,7 +17,6 @@ describe("Host testing", function() {
 			let instanceInfos = await _discoverInstances(instancePath);
 
 			let referenceConfig = new lib.InstanceConfig("host");
-			referenceConfig.init();
 			referenceConfig.set("instance.id", 1);
 			referenceConfig.set("instance.name", "test");
 			referenceConfig.dirty = false;
