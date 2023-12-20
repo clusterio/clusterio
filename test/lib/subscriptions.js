@@ -192,7 +192,6 @@ describe("lib/subscriptions", function() {
 				await subscriptions.handleRequest(
 					getLink(connectorData.id), request, connectorData.src, connectorData.dst,
 				);
-				getLink(0).connector.sentMessages.pop(); // Response to request
 				subscriptions.broadcast(new RegisteredEvent());
 				await onceConnectorSend(1);
 				assertNoEvent(0);
