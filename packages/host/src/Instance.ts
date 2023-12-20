@@ -108,7 +108,7 @@ export default class Instance extends lib.Link {
 	/**
 	 * Mod pack currently running on this instance
 	 */
-	activeModPack = new lib.ModPack();
+	activeModPack!: lib.ModPack; // This is set in syncMods
 	/**
 	 * Per player statistics recorded by this instance.
 	 */
