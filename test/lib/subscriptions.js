@@ -88,7 +88,7 @@ describe("lib/subscriptions", function() {
 			assert.deepEqual(reconstructed, request);
 		});
 
-		it("should be throw when given an unregistered event", function() {
+		it("should throw when given an unregistered event", function() {
 			assert.throws(
 				() => new lib.SubscriptionRequest(UnregisteredEvent.name, true),
 				new Error(`Unregistered Event class ${UnregisteredEvent.name}`)
@@ -258,7 +258,7 @@ describe("lib/subscriptions", function() {
 				await onceConnectorSend(0);
 				assertLastEvent(0, RegisteredEvent);
 			});
-			it("should accept a unsubscription", async function() {
+			it("should accept an unsubscription", async function() {
 				const request = new lib.SubscriptionRequest(RegisteredEvent.name, true);
 				await subscriptions.handleRequest(
 					getLink(0), request, connectorSetupDate[0].src, connectorSetupDate[0].dst
@@ -277,7 +277,7 @@ describe("lib/subscriptions", function() {
 				subscriptions.broadcast(new RegisteredEvent());
 				assertNoEvent(0);
 			});
-			it("should accept a respond with an event replay when returned by the handler", async function() {
+			it("should accept a response with an event replay when returned by the handler", async function() {
 				subscriptions.handle(StringPermissionEvent, async function() {
 					return new StringPermissionEvent();
 				});
@@ -295,7 +295,7 @@ describe("lib/subscriptions", function() {
 				const response = eventEntry.eventFromJSON(lastMessage.data);
 				assert.deepEqual(response, new StringPermissionEvent());
 			});
-			it("should accept a respond with null when returned by the handler", async function() {
+			it("should accept a response with null when returned by the handler", async function() {
 				subscriptions.handle(StringPermissionEvent, async function() {
 					return null;
 				});
@@ -437,7 +437,7 @@ describe("lib/subscriptions", function() {
 				assert.deepEqual(calledWith, [[], true]);
 				assert(registeredEvent.synced, "synced was not set");
 			});
-			it("should be called con connector connect event", async function() {
+			it("should be called on connector connect event", async function() {
 				const expected = new lib.SubscriptionRequest(RegisteredEvent.name, true, -1);
 				registeredEvent._callbacks.push(() => {});
 				registeredEvent.control.connector.emit("connect");
