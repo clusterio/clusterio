@@ -290,6 +290,8 @@ export class SaveDetails {
 		public mtimeMs: number,
 		public loaded: boolean,
 		public loadByDefault: boolean,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt: number,
 		public isDeleted: boolean,
 	) { }
 
@@ -301,6 +303,7 @@ export class SaveDetails {
 		"mtimeMs": Type.Number(),
 		"loaded": Type.Boolean(),
 		"loadByDefault": Type.Boolean(),
+		"updatedAt": Type.Number(),
 		"isDeleted": Type.Boolean(),
 	});
 
@@ -313,6 +316,7 @@ export class SaveDetails {
 			json.mtimeMs,
 			json.loaded,
 			json.loadByDefault,
+			json.updatedAt,
 			json.isDeleted,
 		);
 	}
@@ -322,16 +326,16 @@ export class SaveDetails {
 		return `${this.instanceId}/${this.name}`;
 	}
 
-	get updatedAt() {
-		return this.mtimeMs;
-	}
-
 	/**
 	 * Compare this save with another save.
 	 * @param other - save to compare with.
 	 * @returns true if this save is identical to the provided save
 	 */
 	equals(other: SaveDetails) {
+		// Note that updatedAt is not included in the equality check because
+		// instances send the whole list of saves with updatedAt set to zero
+		// to the controller whenever any save changes and this equals check
+		// is used to filter whether a save was updated.
 		return (
 			this.instanceId === other.instanceId
 			&& this.type === other.type

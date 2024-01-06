@@ -269,12 +269,14 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
+		const now = Date.now();
 		const updates: lib.SaveDetails[] = [];
 		for (const save of event.updates) {
 			const existingSave = this._controller.saves.get(save.id);
 			if (existingSave && save.equals(existingSave)) {
 				continue;
 			}
+			save.updatedAt = now;
 			this._controller.saves.set(save.id, save);
 			updates.push(save);
 		}
@@ -283,6 +285,7 @@ export default class HostConnection extends BaseConnection {
 			for (const [id, save] of this._controller.saves) {
 				if (save.instanceId === event.instanceId && !updatedSaves.has(id)) {
 					save.isDeleted = true;
+					save.updatedAt = now;
 					updates.push(save);
 					this._controller.saves.delete(id);
 				}

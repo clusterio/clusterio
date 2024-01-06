@@ -402,6 +402,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				stat.mtimeMs,
 				name === loadedSave,
 				name === defaultSave,
+				0, // Set by controller
 				false,
 			));
 		}
