@@ -92,7 +92,7 @@ function StoragePage() {
 						if (aName > bName) { return 1; }
 						return 0;
 					},
-					render: item => {
+					render: (_, item) => {
 						let localeName = getLocaleName(item[0]);
 						let hasMeta = itemMetadata.get(item[0]);
 
@@ -108,7 +108,7 @@ function StoragePage() {
 					align: "right",
 					defaultSortOrder: "descend",
 					sorter: (a, b) => a[1] - b[1],
-					render: item => numberFormat.format(item[1]),
+					render: (_, item) => numberFormat.format(item[1]),
 				},
 			]}
 			dataSource={filter ? storage.filter(filter) : storage}

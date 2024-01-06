@@ -55,14 +55,14 @@ export default function InstanceList(props: InstanceListProps) {
 		{
 			title: "Assigned Host",
 			key: "assignedHost",
-			render: instance => hostName(instance.assignedHost),
+			render: (_, instance) => hostName(instance.assignedHost),
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
 			responsive: ["sm"],
 		},
 		{
 			title: "Public address",
 			key: "publicAddress",
-			render: instance => {
+			render: (_, instance) => {
 				let publicAddress = instancePublicAddress(instance);
 				return publicAddress ? <>
 					{publicAddress}
@@ -83,7 +83,7 @@ export default function InstanceList(props: InstanceListProps) {
 		{
 			title: "Status",
 			key: "status",
-			render: instance => <InstanceStatusTag status={instance["status"]} />,
+			render: (_, instance) => <InstanceStatusTag status={instance["status"]} />,
 			sorter: (a, b) => strcmp(a["status"], b["status"]),
 		},
 	];
@@ -91,7 +91,7 @@ export default function InstanceList(props: InstanceListProps) {
 	if (account.hasAnyPermission("core.instance.start", "core.instance.stop")) {
 		columns.push({
 			key: "action",
-			render: instance => <StartStopInstanceButton
+			render: (_, instance) => <StartStopInstanceButton
 				buttonProps={{ size: "small" }}
 				instance={instance}
 			/>,

@@ -211,10 +211,10 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		columns={[
 			{
 				title: "Name",
-				render: save => <>
+				render: (_, save) => <>
 					{save.name}
 					{save.loaded && <Tooltip title="Currently loaded save"><CaretLeftOutlined/></Tooltip>}
-					{save.default && <Tooltip title="Save loaded by default"><LeftOutlined/></Tooltip>}
+					{save.loadByDefault && <Tooltip title="Save loaded by default"><LeftOutlined/></Tooltip>}
 				</>,
 				sorter: (a, b) => a.name.localeCompare(b.name),
 			},
@@ -222,14 +222,14 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				title: "Size",
 				key: "size",
 				responsive: ["sm"],
-				render: save => lib.formatBytes(save.size),
+				render: (_, save) => lib.formatBytes(save.size),
 				align: "right",
 				sorter: (a, b) => a.size - b.size,
 			},
 			{
 				title: "Last Modified",
 				key: "mtimeMs",
-				render: save => new Date(save.mtimeMs).toLocaleString(),
+				render: (_, save) => new Date(save.mtimeMs).toLocaleString(),
 				sorter: (a, b) => a.mtimeMs - b.mtimeMs,
 				defaultSortOrder: "descend",
 			},

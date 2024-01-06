@@ -185,14 +185,14 @@ function SearchModsTable(props: SearchModsTableProps) {
 					{
 						title: "Title",
 						key: "title",
-						render: (result:ModResult) => result.versions[0].title,
+						render: (_, result) => result.versions[0].title,
 						defaultSortOrder: "ascend",
 						sorter: true,
 					},
 					{
 						title: "Author",
 						key: "author",
-						render: (result:ModResult) => result.versions[0].author,
+						render: (_, result) => result.versions[0].author,
 						responsive: ["lg"],
 						sorter: true,
 					},
@@ -200,7 +200,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 						title: "Version",
 						key: "version",
 						align: "right",
-						render: (result:ModResult) => <Select
+						render: (_, result) => <Select
 							size="small"
 							bordered={false}
 							value={modResultSelectedVersion.get(result.name) || 0}
@@ -216,7 +216,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 						title: "Action",
 						key: "action",
 						responsive: ["lg"],
-						render: (result:ModResult) => (
+						render: (_, result) => (
 							actions(result.versions[modResultSelectedVersion.get(result.name) || 0])
 						),
 					},
@@ -352,7 +352,7 @@ function ModsTable(props: ModsTableProps) {
 				{
 					title: "Name",
 					key: "name",
-					render: mod => <>
+					render: (_, mod: any) => <>
 						{mod.error === "missing" && <Tooltip title="Mod is missing from storage.">
 							<FileUnknownOutlined style={{ color: "#a61d24" }} />{" "}
 						</Tooltip>}
