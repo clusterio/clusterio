@@ -12,8 +12,8 @@ import { useAccount } from "../model/account";
 import ControlContext from "./ControlContext";
 import CreateSaveModal from "./CreateSaveModal";
 import SectionHeader from "./SectionHeader";
-import { InstanceState, useInstanceList } from "../model/instance";
-import { useSaves } from "../model/saves";
+import { useInstances } from "../model/instance";
+import { useSavesOfInstance } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
 
 
@@ -107,7 +107,7 @@ function TransferModal(props: ModalProps) {
 	let control = useContext(ControlContext);
 	let [open, setOpen] = useState(false);
 	let [form] = Form.useForm();
-	let [instanceList] = useInstanceList();
+	let [instances] = useInstances();
 
 	return <>
 		<Button disabled={props.disabled} onClick={() => setOpen(true)}>Transfer</Button>
@@ -153,17 +153,17 @@ function TransferModal(props: ModalProps) {
 							(option?.title.toLowerCase().indexOf(input.toLowerCase())??-1) >= 0
 						)}
 					>
-						{instanceList.filter(
+						{[...instances.values()].filter(
 							instance => instance["id"] !== props.instanceId
 						).map((instance) => <Select.Option
-							key={instance["id"]}
-							value={instance["id"]}
-							title={instance["name"]}
-							disabled={["unassigned", "unknown"].includes(instance["status"])}
+							key={instance.id}
+							value={instance.id}
+							title={instance.name}
+							disabled={["unassigned", "unknown"].includes(instance.status)}
 						>
-							{instance["name"]}
-							{instance["status"] === "unassigned" && " (unassigned)"}
-							{instance["status"] === "unknown" && " (offline)"}
+							{instance.name}
+							{instance.status === "unassigned" && " (unassigned)"}
+							{instance.status === "unknown" && " (offline)"}
 						</Select.Option>)}
 					</Select>
 				</Form.Item>
@@ -198,10 +198,10 @@ type File = {
 	status: string;
 }
 
-export default function SavesList(props: { instance: InstanceState }) {
+export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let saves = useSaves(props.instance.id);
+	let [saves] = useSavesOfInstance(props.instance.id);
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
 
@@ -234,7 +234,7 @@ export default function SavesList(props: { instance: InstanceState }) {
 				defaultSortOrder: "descend",
 			},
 		]}
-		dataSource={saves}
+		dataSource={[...saves.values()]}
 		rowKey={save => save.name}
 		pagination={false}
 		expandable={{

@@ -9,7 +9,7 @@ import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { useInstanceList } from "../model/instance";
+import { useInstances } from "../model/instance";
 import InstanceList from "./InstanceList";
 import { notifyErrorHandler } from "../util/notify";
 
@@ -62,7 +62,7 @@ function CreateInstanceButton() {
 export default function InstancesPage() {
 	let control = useContext(ControlContext);
 	let account = useAccount();
-	let [instanceList] = useInstanceList();
+	let [instances] = useInstances();
 
 	return <PageLayout nav={[{ name: "Instances" }]}>
 		<PageHeader
@@ -70,7 +70,7 @@ export default function InstancesPage() {
 			extra={<>
 				{account.hasPermission("core.instance.create") && <CreateInstanceButton />}
 				{account.hasPermission("core.instance.start")
-					&& <Button onClick={e => instanceList.forEach(instance => {
+					&& <Button onClick={e => instances.forEach(instance => {
 						if (instance.status === "stopped") {
 							control.sendTo(
 								{ instanceId: instance.id },
@@ -82,7 +82,7 @@ export default function InstancesPage() {
 						Start all
 					</Button>}
 				{account.hasPermission("core.instance.stop")
-					&& <Button onClick={e => instanceList.forEach(instance => {
+					&& <Button onClick={e => instances.forEach(instance => {
 						if (["starting", "running"].includes(instance.status)) {
 							control.sendTo(
 								{ instanceId: instance.id },
@@ -96,7 +96,7 @@ export default function InstancesPage() {
 			</>}
 		/>
 
-		<InstanceList instances={instanceList} />
+		<InstanceList instances={instances} />
 		<PluginExtra component="InstancesPage" />
 	</PageLayout>;
 }

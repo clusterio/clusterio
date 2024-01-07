@@ -1,5 +1,4 @@
 import type WsServerConnector from "./WsServerConnector";
-import type { HostInfo } from "./HostConnection";
 
 import events from "events";
 
@@ -86,6 +85,7 @@ export default class ControlConnection extends BaseConnection {
 		this.handle(lib.InstanceConfigSetFieldRequest, this.handleInstanceConfigSetFieldRequest.bind(this));
 		this.handle(lib.InstanceConfigSetPropRequest, this.handleInstanceConfigSetPropRequest.bind(this));
 		this.handle(lib.InstanceAssignRequest, this.handleInstanceAssignRequest.bind(this));
+		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceRenameSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
 		this.handle(lib.InstanceCopySaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
 		this.handle(lib.InstanceDeleteSaveRequest, controller.sendRequestToHostByInstanceId.bind(controller));
@@ -188,30 +188,18 @@ export default class ControlConnection extends BaseConnection {
 			throw new Error(`Unknown host id (${request.hostId})`);
 		}
 
-		host.token_valid_after = Math.floor(Date.now() / 1000);
+		host.tokenValidAfter = Math.floor(Date.now() / 1000);
 
 		const hostConnection = this._controller.wsServer.hostConnections.get(request.hostId);
 		if (hostConnection) {
 			hostConnection.connector.terminate();
 		}
 
-		this._controller.hostUpdated(host as HostInfo);
+		this._controller.hostsUpdated([host]);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
-		let list = [];
-		for (let host of this._controller.hosts.values()) {
-			list.push(new lib.HostDetails(
-				host.agent,
-				host.version,
-				host.name,
-				host.id,
-				this._controller.wsServer.hostConnections.has(host.id),
-				host.public_address,
-				host.token_valid_after,
-			));
-		}
-		return list;
+		return [...this._controller.hosts.values()].map(host => host.toHostDetails());
 	}
 
 	async handleHostGenerateTokenRequest(message: lib.HostGenerateTokenRequest) {
@@ -241,49 +229,11 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleInstanceDetailsGetRequest(request: lib.InstanceDetailsGetRequest) {
-		let instance = this._controller.getRequestInstance(request.instanceId);
-
-		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-		if (assigned_host === null) {
-			assigned_host = undefined;
-		}
-
-		let game_port: number|null|undefined = instance.game_port;
-		if (game_port === null) {
-			game_port = undefined;
-		}
-
-		return new lib.InstanceDetails(
-			instance.config.get("instance.name"),
-			instance.id,
-			assigned_host,
-			game_port,
-			instance.status,
-		);
+		return this._controller.getRequestInstance(request.instanceId).toInstanceDetails();
 	}
 
 	async handleInstanceDetailsListRequest() {
-		let list = [];
-		for (let instance of this._controller.instances.values()) {
-			let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-			if (assigned_host === null) {
-				assigned_host = undefined;
-			}
-
-			let game_port: number|null|undefined = instance.game_port;
-			if (game_port === null) {
-				game_port = undefined;
-			}
-
-			list.push(new lib.InstanceDetails(
-				instance.config.get("instance.name"),
-				instance.id,
-				assigned_host,
-				game_port,
-				instance.status,
-			));
-		}
-		return list;
+		return [...this._controller.instances.values()].map(instance => instance.toInstanceDetails());
 	}
 
 	// XXX should probably add a hook for host reuqests?
@@ -326,6 +276,10 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleInstanceAssignRequest(request: lib.InstanceAssignRequest) {
 		await this._controller.instanceAssign(request.instanceId, request.hostId);
+	}
+
+	async handleInstanceSaveDetailsListRequest() {
+		return [...this._controller.saves.values()];
 	}
 
 	async handleInstanceDownloadSaveRequest(request: lib.InstanceDownloadSaveRequest) {
@@ -434,7 +388,7 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
-		this._controller.modPackUpdated(modPack);
+		this._controller.modPacksUpdated([modPack]);
 	}
 
 	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
@@ -443,7 +397,7 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
 		this._controller.modPacks.set(modPack.id, modPack);
-		this._controller.modPackUpdated(modPack);
+		this._controller.modPacksUpdated([modPack]);
 	}
 
 	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
@@ -454,7 +408,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 		modPack.isDeleted = true;
 		this._controller.modPacks.delete(id);
-		this._controller.modPackUpdated(modPack);
+		this._controller.modPacksUpdated([modPack]);
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {
@@ -680,7 +634,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleUserCreateRequest(request: lib.UserCreateRequest) {
 		let user = this._controller.userManager.createUser(request.name);
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserRevokeTokenRequest(request: lib.UserRevokeTokenRequest) {
@@ -698,7 +652,7 @@ export default class ControlConnection extends BaseConnection {
 				controlConnection.connector.terminate();
 			}
 		}
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserUpdateRolesRequest(request: lib.UserUpdateRolesRequest) {
@@ -715,7 +669,7 @@ export default class ControlConnection extends BaseConnection {
 
 		user.roleIds = new Set(request.roles);
 		this._controller.userPermissionsUpdated(user);
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 	}
 
 	async handleUserSetAdminRequest(request: lib.UserSetAdminRequest) {
@@ -731,7 +685,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		user.isAdmin = admin;
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 		this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, admin));
 	}
 
@@ -749,7 +703,7 @@ export default class ControlConnection extends BaseConnection {
 
 		user.isBanned = banned;
 		user.banReason = reason;
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 		this._controller.sendTo("allInstances", new lib.InstanceBanlistUpdateEvent(name, banned, reason));
 	}
 
@@ -766,7 +720,7 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		user.isWhitelisted = whitelisted;
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 		this._controller.sendTo("allInstances", new lib.InstanceWhitelistUpdateEvent(name, whitelisted));
 	}
 
@@ -779,7 +733,7 @@ export default class ControlConnection extends BaseConnection {
 
 		user.isDeleted = true;
 		this._controller.userManager.users.delete(name);
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 
 		if (user.isAdmin) {
 			this._controller.sendTo("allInstances", new lib.InstanceAdminlistUpdateEvent(name, false));

@@ -13,27 +13,19 @@ import PluginExtra from "./PluginExtra";
 import { notifyErrorHandler } from "../util/notify";
 
 
-export type RawRoleState = Partial<lib.Role> & {
-	loading?: boolean;
-	missing?: boolean;
-	present?: boolean;
-};
-function useRole(id: number): [RawRoleState, () => void] {
+function useRole(id: number): [Readonly<lib.Role> | undefined, boolean, () => void] {
 	let control = useContext(ControlContext);
-	let [role, setRole] = useState<RawRoleState>({ loading: true });
+	let [role, setRole] = useState<lib.Role>();
+	let [synced, setSynced] = useState(false);
 
 	function updateRole() {
 		// XXX optimize by requesting only the role in question
 		control.send(new lib.RoleListRequest()).then(roles => {
 			let match = roles.find(u => u.id === id);
-			if (!match) {
-				setRole({ missing: true });
-			} else {
-				setRole({
-					...match,
-					present: true,
-				});
+			if (match) {
+				setRole(match);
 			}
+			setSynced(true);
 		});
 	}
 
@@ -41,7 +33,7 @@ function useRole(id: number): [RawRoleState, () => void] {
 		updateRole();
 	}, [id]);
 
-	return [role, updateRole];
+	return [role, synced, updateRole];
 }
 
 export default function RoleViewPage() {
@@ -52,19 +44,19 @@ export default function RoleViewPage() {
 
 	let account = useAccount();
 	let control = useContext(ControlContext);
-	let [role, updateRole] = useRole(roleId);
+	const [role, synced, updateRole] = useRole(roleId);
 	let [edited, setEdited] = useState(false);
 
 
-	let nav = [{ name: "Roles", path: "/roles" }, { name: role.name || String(roleId) }];
-	if (role.loading) {
-		return <PageLayout nav={nav}>
-			<PageHeader title={String(roleId)} />
-			<Spin size="large" />
-		</PageLayout>;
-	}
+	let nav = [{ name: "Roles", path: "/roles" }, { name: role?.name ?? String(roleId) }];
+	if (!role) {
+		if (!synced) {
+			return <PageLayout nav={nav}>
+				<PageHeader title={String(roleId)} />
+				<Spin size="large" />
+			</PageLayout>;
+		}
 
-	if (role.missing) {
 		return <PageLayout nav={nav}>
 			<PageHeader title="Role not found" />
 			<p>Role with id {roleId} was not found on the controller.</p>
@@ -76,7 +68,7 @@ export default function RoleViewPage() {
 		description: role["description"],
 		permissions: {
 			...Object.fromEntries([...lib.permissions.values()].map(perm => [
-				perm.name, [...role.permissions!].includes(perm.name),
+				perm.name, [...role.permissions].includes(perm.name),
 			])),
 		},
 	};
@@ -101,7 +93,7 @@ export default function RoleViewPage() {
 			}}
 		>
 			<PageHeader
-				title={role.name!}
+				title={role.name}
 				extra={<>
 					{canUpdate && <Button type={edited ? "primary" : "default"} htmlType="submit">Apply</Button>}
 					{account.hasPermission("core.role.delete") && <Popconfirm

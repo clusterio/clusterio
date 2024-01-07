@@ -10,7 +10,7 @@ import ControlContext from "./ControlContext";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { useHostList } from "../model/host";
+import { useHosts } from "../model/host";
 import notify, { notifyErrorHandler } from "../util/notify";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
@@ -184,7 +184,7 @@ function CopyButton({ text, message }: { text:string, message:string }) {
 export default function HostsPage() {
 	let account = useAccount();
 	let navigate = useNavigate();
-	let [hostList] = useHostList();
+	let [hosts] = useHosts();
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
@@ -226,7 +226,7 @@ export default function HostsPage() {
 					sorter: (a, b) => Number(a.connected) - Number(b.connected),
 				},
 			]}
-			dataSource={hostList}
+			dataSource={[...hosts.values()]}
 			rowKey={host => host.id}
 			pagination={false}
 			onRow={(record, rowIndex) => ({

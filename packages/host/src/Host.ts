@@ -347,7 +347,9 @@ export default class Host extends lib.Link {
 		this.handle(lib.InstanceAssignInternalRequest, this.handleInstanceAssignInternalRequest.bind(this));
 		this.handle(lib.InstanceUnassignInternalRequest, this.handleInstanceUnassignInternalRequest.bind(this));
 		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
-		this.fallbackRequest(lib.InstanceListSavesRequest, this.fallbackInstanceListSavesRequest.bind(this));
+		this.fallbackRequest(
+			lib.InstanceSaveDetailsListRequest, this.fallbackInstanceSaveDetailsListRequest.bind(this),
+		);
 		this.handle(lib.InstanceRenameSaveRequest, this.handleInstanceRenameSaveRequest.bind(this));
 		this.handle(lib.InstanceCopySaveRequest, this.handleInstanceCopySaveRequest.bind(this));
 		this.handle(lib.InstanceTransferSaveRequest, this.handleInstanceTransferSaveRequest.bind(this));
@@ -600,6 +602,9 @@ export default class Host extends lib.Link {
 			)
 		);
 
+		// Send the new list of saves for this assigned instance to the controller.
+		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
+
 		// save a copy of the instance config
 		let warnedOutput = {
 			_warning: "Changes to this file will be overwritten by the controller's copy.",
@@ -700,9 +705,13 @@ export default class Host extends lib.Link {
 		return { results };
 	}
 
-	async fallbackInstanceListSavesRequest(request: lib.InstanceListSavesRequest, src: lib.Address, dst: lib.Address) {
+	async fallbackInstanceSaveDetailsListRequest(
+		request: lib.InstanceSaveDetailsListRequest,
+		src: lib.Address,
+		dst: lib.Address
+	) {
 		let instanceInfo = this.getRequestInstanceInfo(dst.id);
-		return await Instance.listSaves(path.join(instanceInfo.path, "saves"), null);
+		return await Instance.listSaves(dst.id, path.join(instanceInfo.path, "saves"), null);
 	}
 
 	async handleInstanceRenameSaveRequest(request: lib.InstanceRenameSaveRequest) {
@@ -788,12 +797,12 @@ export default class Host extends lib.Link {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		let saveList: lib.SaveDetails[];
 		if (instanceConnection) {
-			saveList = await instanceConnection.send(new lib.InstanceListSavesRequest());
+			saveList = await instanceConnection.send(new lib.InstanceSaveDetailsListRequest());
 		} else {
-			saveList = await Instance.listSaves(savesDir, null);
+			saveList = await Instance.listSaves(instanceId, savesDir, null);
 		}
 
-		this.send(new lib.InstanceSaveListUpdateEvent(instanceId, saveList));
+		this.send(new lib.InstanceSaveDetailsUpdatesEvent(saveList, instanceId));
 	}
 
 	async handleInstanceDeleteSaveRequest(request: lib.InstanceDeleteSaveRequest) {
@@ -913,6 +922,7 @@ export default class Host extends lib.Link {
 			list.push(new lib.RawInstanceInfo(
 				instanceInfo.config.serialize("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
+				instanceConnection ? instanceConnection.instance.server.gamePort : undefined,
 			));
 		}
 		await this.send(new lib.InstancesUpdateRequest(list));

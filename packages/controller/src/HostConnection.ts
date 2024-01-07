@@ -5,18 +5,9 @@ import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
 import BaseConnection from "./BaseConnection";
-import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
+import InstanceInfo from "./InstanceInfo";
+import HostInfo from "./HostInfo";
 
-
-export interface HostInfo {
-	agent: string;
-	id: number;
-	name: string;
-	version: string;
-	plugins: Record<string, string>;
-	public_address: string | undefined;
-	token_valid_after?: number;
-}
 
 /**
  * Represents the connection to a host
@@ -25,10 +16,10 @@ export interface HostInfo {
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	private _agent: any;
-	private _id: any;
-	private _name: any;
-	private _version: any;
+	private _agent: string;
+	private _id: number;
+	private _name: string;
+	private _version: string;
 	plugins: Map<string, string>;
 
 	constructor(
@@ -45,18 +36,21 @@ export default class HostConnection extends BaseConnection {
 		this.plugins = new Map(Object.entries(registerData.plugins));
 		this._checkPluginVersions();
 
-		let currentHostInfo = this._controller.hosts.get(this._id);
-
-		this._controller.hosts.set(this._id, {
-			agent: this._agent,
-			id: this._id,
-			name: this._name,
-			version: this._version,
-			public_address: registerData.publicAddress,
-			plugins: registerData.plugins,
-			token_valid_after: currentHostInfo?.token_valid_after,
-		});
-		this._controller.hostsDirty = true;
+		const previousHostInfo = this._controller.hosts.get(this._id);
+		const currentHostInfo = new HostInfo(
+			this._agent,
+			this._id,
+			this._name,
+			this._version,
+			this.plugins,
+			true,
+			registerData.publicAddress ?? "",
+			previousHostInfo?.tokenValidAfter,
+			Date.now(),
+			false,
+		);
+		this._controller.hosts.set(this._id, currentHostInfo);
+		this._controller.hostsUpdated([currentHostInfo]);
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			// eslint-disable-next-line no-loop-func
@@ -69,21 +63,26 @@ export default class HostConnection extends BaseConnection {
 
 		this.connector.on("close", () => {
 			// Update status to unknown for instances on this host.
+			const instances: InstanceInfo[] = [];
 			for (let instance of this._controller.instances.values()) {
 				if (instance.config.get("instance.assigned_host") !== this._id) {
 					continue;
 				}
 
+				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
-				this._controller.instanceDetailsUpdated(instance);
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
+			this._controller.instanceDetailsUpdated(instances);
+
+			currentHostInfo.connected = false;
+			this._controller.hostsUpdated([currentHostInfo]);
 		});
 
 		this.handle(lib.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
 		this.handle(lib.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
-		this.handle(lib.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
+		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
 		this.handle(lib.LogMessageEvent, this.handleLogMessageEvent.bind(this));
 		this.handle(lib.InstancePlayerUpdateEvent, this.handleInstancePlayerUpdateEvent.bind(this));
 	}
@@ -177,10 +176,11 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		let prev = instance.status;
-		instance.status = request.status as lib.InstanceStatus;
-		instance.game_port = request.gamePort || null;
+		instance.status = request.status;
+		instance.gamePort = request.gamePort;
+		instance.updatedAt = Date.now();
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		this._controller.instanceDetailsUpdated(instance);
+		this._controller.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -195,6 +195,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		// Assign instances the host has but controller does not
+		const instanceUpdates: InstanceInfo[] = [];
 		for (let instanceData of request.instances) {
 			let instanceConfig = new lib.InstanceConfig("controller");
 			await instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
@@ -212,9 +213,11 @@ export default class HostConnection extends BaseConnection {
 				// Already have this instance, update state instead
 				if (controllerInstance.status !== instanceData.status) {
 					let prev = controllerInstance.status;
-					controllerInstance.status = instanceData.status as InstanceStatus;
+					controllerInstance.status = instanceData.status;
+					controllerInstance.gamePort = instanceData.gamePort;
+					controllerInstance.updatedAt = Date.now();
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
-					this._controller.instanceDetailsUpdated(controllerInstance);
+					instanceUpdates.push(controllerInstance);
 					await lib.invokeHook(
 						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
 					);
@@ -224,7 +227,10 @@ export default class HostConnection extends BaseConnection {
 
 			instanceConfig.set("instance.assigned_host", this._id);
 			let newInstance = new InstanceInfo(
-				{ config: instanceConfig, status: instanceData.status as InstanceStatus }
+				instanceConfig,
+				instanceData.status,
+				instanceData.gamePort,
+				Date.now(),
 			);
 			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
 			this._controller.instancesDirty = true;
@@ -234,8 +240,12 @@ export default class HostConnection extends BaseConnection {
 					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
 				)
 			);
-			this._controller.instanceDetailsUpdated(newInstance);
+			instanceUpdates.push(newInstance);
 			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
+		}
+
+		if (instanceUpdates.length) {
+			this._controller.instanceDetailsUpdated(instanceUpdates);
 		}
 
 		// Push lists to make sure they are in sync.
@@ -258,8 +268,34 @@ export default class HostConnection extends BaseConnection {
 		await this.send(new lib.SyncUserListsEvent(adminlist, banlist, whitelist));
 	}
 
-	async handleInstanceSaveListUpdateEvent(event: lib.InstanceSaveListUpdateEvent) {
-		this._controller.saveListUpdate(event.instanceId, event.saves);
+	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
+		const now = Date.now();
+		const updates: lib.SaveDetails[] = [];
+		for (const save of event.updates) {
+			const existingSave = this._controller.saves.get(save.id);
+			if (existingSave && save.equals(existingSave)) {
+				continue;
+			}
+			save.updatedAt = now;
+			this._controller.saves.set(save.id, save);
+			updates.push(save);
+		}
+		if (event.instanceId !== undefined) {
+			const updatedSaves = new Set(event.updates.map(s => s.id));
+			for (const [id, save] of this._controller.saves) {
+				if (save.instanceId === event.instanceId && !updatedSaves.has(id)) {
+					save.isDeleted = true;
+					save.updatedAt = now;
+					updates.push(save);
+					this._controller.saves.delete(id);
+				}
+			}
+		}
+		// Hosts eagerly send updates, which means we may get an update
+		// where nothing actualy changed.
+		if (updates.length) {
+			this._controller.savesUpdated(updates);
+		}
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
@@ -286,7 +322,7 @@ export default class HostConnection extends BaseConnection {
 		user.instanceStats.set(instanceId, event.stats);
 
 		user.recalculatePlayerStats();
-		this._controller.userUpdated(user);
+		this._controller.usersUpdated([user]);
 
 		let instance = this._controller.instances.get(instanceId)!;
 		await lib.invokeHook(this._controller.plugins, "onPlayerEvent", instance, {

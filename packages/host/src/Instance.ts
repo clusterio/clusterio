@@ -108,7 +108,7 @@ export default class Instance extends lib.Link {
 	/**
 	 * Mod pack currently running on this instance
 	 */
-	activeModPack = new lib.ModPack();
+	activeModPack!: lib.ModPack; // This is set in syncMods
 	/**
 	 * Per player statistics recorded by this instance.
 	 */
@@ -228,7 +228,7 @@ export default class Instance extends lib.Link {
 		this.handle(lib.InstanceMetricsRequest, this.handleInstanceMetricsRequest.bind(this));
 		this.handle(lib.InstanceStartRequest, this.handleInstanceStartRequest.bind(this));
 		this.handle(lib.InstanceLoadScenarioRequest, this.handleInstanceLoadScenarioRequest.bind(this));
-		this.handle(lib.InstanceListSavesRequest, this.handleInstanceListSavesRequest.bind(this));
+		this.handle(lib.InstanceSaveDetailsListRequest, this.handleInstanceSaveDetailsListRequest.bind(this));
 		this.handle(lib.InstanceCreateSaveRequest, this.handleInstanceCreateSaveRequest.bind(this));
 		this.handle(lib.InstanceExportDataRequest, this.handleInstanceExportDataRequest.bind(this));
 		this.handle(lib.InstanceStopRequest, this.handleInstanceStopRequest.bind(this));
@@ -374,7 +374,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	static async listSaves(savesDir: string, loadedSave: string | null) {
+	static async listSaves(instanceId: number, savesDir: string, loadedSave: string | null) {
 		let defaultSave = null;
 		if (loadedSave === null) {
 			defaultSave = await lib.getNewestFile(
@@ -395,12 +395,15 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			}
 
 			list.push(new lib.SaveDetails(
+				instanceId,
 				type,
 				name,
 				stat.size,
 				stat.mtimeMs,
 				name === loadedSave,
 				name === defaultSave,
+				0, // Set by controller
+				false,
 			));
 		}
 
@@ -410,9 +413,9 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	async sendSaveListUpdate() {
 		this.sendTo(
 			"controller",
-			new lib.InstanceSaveListUpdateEvent(
+			new lib.InstanceSaveDetailsUpdatesEvent(
+				await Instance.listSaves(this.id, this.path("saves"), this._loadedSave),
 				this.id,
-				await Instance.listSaves(this.path("saves"), this._loadedSave),
 			),
 		);
 	}
@@ -446,7 +449,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			new lib.InstanceStatusChangedEvent(
 				this.id,
 				status,
-				this.server.gamePort || this.config.get("factorio.game_port") || undefined,
+				status !== "stopped" ? this.server.gamePort : undefined,
 			),
 		);
 	}
@@ -1034,8 +1037,8 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		}
 	}
 
-	async handleInstanceListSavesRequest() {
-		return await Instance.listSaves(this.path("saves"), this._loadedSave);
+	async handleInstanceSaveDetailsListRequest() {
+		return await Instance.listSaves(this.id, this.path("saves"), this._loadedSave);
 	}
 
 	async handleInstanceCreateSaveRequest(request: lib.InstanceCreateSaveRequest) {

@@ -7,10 +7,34 @@ import type { MessageRequest } from "./messages_core";
 import { CollectorResultSerialized } from "../prometheus";
 
 
-export type InstanceStatus =
-	"unknown" | "unassigned" | "stopped" | "starting" | "running"
-	| "stopping" | "creating_save" | "exporting_data" | "deleted"
-;
+export const InstanceStatus = StringEnum([
+	"unknown",
+	"unassigned",
+	"stopped",
+	"starting",
+	"running",
+	"stopping",
+	"creating_save",
+	"exporting_data",
+	"deleted",
+]);
+
+/**
+ * Current status of the instance. One of:
+ * - `unknown`: Instance is assigned to a host but this host is currently
+ *   not connected to the contreller.
+ * - `unassigned`: Instance is not assigned to a a host and exists only on
+ *   the controller.
+ * - `stopped`: Instance is stopped.
+ * - `starting`: Instance is in the process of starting up.
+ * - `running`: Instance is running normally.
+ * - `stopping`: Instance is in the process of stopping.
+ * - `creating_save`: Instance is in the process of creating a save.
+ * - `exporting_data`: Instance is in the process of exporting game data.
+ * - `deleted`: Instance has been deleted.
+ */
+export type InstanceStatus = Static<typeof InstanceStatus>;
+
 export class InstanceDetails {
 	constructor(
 		public name: string,
@@ -18,6 +42,8 @@ export class InstanceDetails {
 		public assignedHost: number | undefined,
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt = 0,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -29,10 +55,22 @@ export class InstanceDetails {
 			"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 			"creating_save", "exporting_data", "deleted",
 		]),
+		"updatedAt": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.name, json.id, json.assignedHost, json.gamePort, json.status);
+		return new this(
+			json.name,
+			json.id,
+			json.assignedHost,
+			json.gamePort,
+			json.status,
+			json.updatedAt,
+		);
+	}
+
+	get isDeleted() {
+		return this.status === "deleted";
 	}
 }
 
@@ -67,29 +105,23 @@ export class InstanceDetailsListRequest {
 	static Response = jsonArray(InstanceDetails);
 };
 
-export class InstanceDetailsUpdateEvent {
-	declare ["constructor"]: typeof InstanceDetailsUpdateEvent;
+export class InstanceDetailsUpdatesEvent {
+	declare ["constructor"]: typeof InstanceDetailsUpdatesEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
 	static permission = "core.instance.subscribe" as const;
 
 	constructor(
-		public details: InstanceDetails,
+		public updates: InstanceDetails[],
 	) { }
 
-	static jsonSchema = InstanceDetails.jsonSchema;
-
-	toJSON() {
-		return this.details;
-	}
+	static jsonSchema = Type.Object({
+		"updates": Type.Array(InstanceDetails.jsonSchema),
+	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(InstanceDetails.fromJSON(json));
-	}
-
-	get subscriptionChannel() {
-		return this.details.id;
+		return new this(json.updates.map(update => InstanceDetails.fromJSON(update)));
 	}
 };
 
@@ -251,60 +283,104 @@ export class InstanceStartRequest {
 
 export class SaveDetails {
 	constructor(
-		public type: string,
+		public instanceId: number,
+		public type: "file" | "directory" | "special",
 		public name: string,
 		public size: number,
 		public mtimeMs: number,
 		public loaded: boolean,
 		public loadByDefault: boolean,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt: number,
+		public isDeleted: boolean,
 	) { }
 
 	static jsonSchema = Type.Object({
+		"instanceId": Type.Integer(),
 		"type": StringEnum(["file", "directory", "special"]),
 		"name": Type.String(),
 		"size": Type.Integer(),
 		"mtimeMs": Type.Number(),
 		"loaded": Type.Boolean(),
 		"loadByDefault": Type.Boolean(),
+		"updatedAt": Type.Number(),
+		"isDeleted": Type.Boolean(),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.type, json.name, json.size, json.mtimeMs, json.loaded, json.loadByDefault);
+		return new this(
+			json.instanceId,
+			json.type,
+			json.name,
+			json.size,
+			json.mtimeMs,
+			json.loaded,
+			json.loadByDefault,
+			json.updatedAt,
+			json.isDeleted,
+		);
+	}
+
+	/** Concatenation of instance id and name forming a unique string for this save */
+	get id() {
+		return `${this.instanceId}/${this.name}`;
+	}
+
+	/**
+	 * Compare this save with another save.
+	 * @param other - save to compare with.
+	 * @returns true if this save is identical to the provided save
+	 */
+	equals(other: SaveDetails) {
+		// Note that updatedAt is not included in the equality check because
+		// instances send the whole list of saves with updatedAt set to zero
+		// to the controller whenever any save changes and this equals check
+		// is used to filter whether a save was updated.
+		return (
+			this.instanceId === other.instanceId
+			&& this.type === other.type
+			&& this.name === other.name
+			&& this.size === other.size
+			&& this.mtimeMs === other.mtimeMs
+			&& this.loaded === other.loaded
+			&& this.loadByDefault === other.loadByDefault
+			&& this.isDeleted === other.isDeleted
+		);
 	}
 }
 
-export class InstanceListSavesRequest {
-	declare ["constructor"]: typeof InstanceListSavesRequest;
+export class InstanceSaveDetailsListRequest {
+	declare ["constructor"]: typeof InstanceSaveDetailsListRequest;
 	static type = "request" as const;
-	static src = "control" as const;
-	static dst = "instance" as const;
+	static src = ["control", "host"] as const;
+	static dst = ["controller", "instance"] as const;
 	static permission = "core.instance.save.list" as const;
 	static Response = jsonArray(SaveDetails);
 }
 
-export class InstanceSaveListUpdateEvent {
-	declare ["constructor"]: typeof InstanceSaveListUpdateEvent;
+export class InstanceSaveDetailsUpdatesEvent {
+	declare ["constructor"]: typeof InstanceSaveDetailsUpdatesEvent;
 	static type = "event" as const;
 	static src = ["instance", "host", "controller"] as const;
 	static dst = ["controller", "control"] as const;
-	static permission = "core.instance.save.list_subscribe" as const;
+	static permission = "core.instance.save.list.subscribe" as const;
 
 	constructor(
-		public instanceId: number,
-		public saves: SaveDetails[],
+		public updates: SaveDetails[],
+		/**
+		 * Present if this update was sent by a host and updates contains all
+		 * saves of the given instance.
+		 */
+		public instanceId?: number,
 	) { }
 
 	static jsonSchema = Type.Object({
-		"instanceId": Type.Integer(),
-		"saves": Type.Array(SaveDetails.jsonSchema),
+		"updates": Type.Array(SaveDetails.jsonSchema),
+		"instanceId": Type.Optional(Type.Integer()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.instanceId, json.saves.map(i => SaveDetails.fromJSON(i)));
-	}
-
-	get subscriptionChannel() {
-		return this.instanceId;
+		return new this(json.updates.map(i => SaveDetails.fromJSON(i)), json.instanceId);
 	}
 }
 
@@ -643,7 +719,8 @@ export class RawInstanceInfo {
 
 	constructor(
 		public config: object,
-		public status: string,
+		public status: InstanceStatus,
+		public gamePort: undefined | number,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -651,10 +728,11 @@ export class RawInstanceInfo {
 		"status": StringEnum([
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
+		"gamePort": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.config, json.status);
+		return new this(json.config, json.status, json.gamePort);
 	}
 }
 
@@ -747,7 +825,7 @@ export class InstanceStatusChangedEvent {
 
 	constructor(
 		public instanceId: number,
-		public status: string,
+		public status: InstanceStatus,
 		public gamePort?: number,
 	) { }
 

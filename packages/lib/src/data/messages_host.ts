@@ -11,6 +11,9 @@ export class HostDetails {
 		public connected: boolean,
 		public publicAddress?: string,
 		public tokenValidAfter?: number,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt = 0,
+		public isDeleted = false,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -21,6 +24,8 @@ export class HostDetails {
 		"connected": Type.Boolean(),
 		"publicAddress": Type.Optional(Type.String()),
 		"tokenValidAfter": Type.Optional(Type.Number()),
+		"updatedAt": Type.Optional(Type.Number()),
+		"isDeleted": Type.Optional(Type.Boolean()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -32,6 +37,8 @@ export class HostDetails {
 			json.connected,
 			json.publicAddress,
 			json.tokenValidAfter,
+			json.updatedAt,
+			json.isDeleted,
 		);
 	}
 }
@@ -45,27 +52,23 @@ export class HostListRequest {
 	static Response = jsonArray(HostDetails);
 }
 
-export class HostUpdateEvent {
-	declare ["constructor"]: typeof HostUpdateEvent;
+export class HostUpdatesEvent {
+	declare ["constructor"]: typeof HostUpdatesEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
 	static permission = "core.host.subscribe" as const;
 
 	constructor(
-		public update: HostDetails,
+		public updates: HostDetails[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"update": HostDetails.jsonSchema,
+		"updates": Type.Array(HostDetails.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(HostDetails.fromJSON(json.update));
-	}
-
-	get subscriptionChannel() {
-		return this.update.id;
+		return new this(json.updates.map(update => HostDetails.fromJSON(update)));
 	}
 }
 

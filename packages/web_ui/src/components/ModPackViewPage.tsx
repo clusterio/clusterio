@@ -19,7 +19,7 @@ import * as lib from "@clusterio/lib";
 import ControlContext from "./ControlContext";
 import { useAccount } from "../model/account";
 import { useModPack } from "../model/mod_pack";
-import { useModList } from "../model/mods";
+import { useMods } from "../model/mods";
 import { useClipboard } from "../util/clipboard";
 import notify, { notifyErrorHandler } from "../util/notify";
 import PageHeader from "./PageHeader";
@@ -245,7 +245,7 @@ type ModsTableProps = {
 };
 function ModsTable(props: ModsTableProps) {
 	const [showAddMods, setShowAddMods] = useState(false);
-	const [modList] = useModList();
+	const [modsMap] = useMods();
 
 	const deletedMods: Map<string, lib.ModRecord|lib.ModInfo> = new Map();
 	const changedMods: Map<string, lib.ModRecord|lib.ModInfo> = new Map();
@@ -261,10 +261,9 @@ function ModsTable(props: ModsTableProps) {
 		}
 	}
 
-	const modListMap = new Map(modList.map(mod => [`${mod.name}_${mod.version}`, mod]));
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
 		(mod: lib.ModRecord|lib.ModInfo): lib.ModInfo|lib.ModRecord => {
-			const candidate = modListMap.get(`${mod.name}_${mod.version}`);
+			const candidate = modsMap.get(`${mod.name}_${mod.version}`);
 			if (!candidate) {
 				return {
 					...mod,
@@ -478,11 +477,11 @@ type SettingsTableProps = {
 	onRevert: (change: ModChange) => void;
 };
 function SettingsTable(props: SettingsTableProps) {
-	const [modList] = useModList();
+	const [mods] = useMods();
 	const modsInPack = new Set([...props.modPack.mods.values()].map(mod => `${mod.name}_${mod.version}`));
-	const modTitles = new Map(modList
-		.filter(mod => modsInPack.has(`${mod.name}_${mod.version}`))
-		.map(mod => [`${mod.name}`, mod.title])
+	const modTitles = new Map([...mods.values()]
+		.filter(mod => modsInPack.has(mod.id))
+		.map(mod => [mod.name, mod.title])
 	);
 
 	const types = ["bool-setting", "int-setting", "double-setting", "string-setting"];
@@ -609,7 +608,7 @@ function ExportButton(props: { modPack: lib.ModPack }) {
 	</>;
 }
 
-function useExportedAsset(modPack: lib.ModPack, asset: "settings"|"locale"): Map<any, any> | any {
+function useExportedAsset(modPack: lib.ModPack | undefined, asset: "settings"|"locale"): Map<any, any> | any {
 	let [assetData, setAssetData] = useState<Map<any, any>|any>(asset === "locale" ? new Map() : {});
 	let assetFilename: string | undefined;
 	if (modPack instanceof lib.ModPack && modPack.exportManifest?.assets[asset]) {
@@ -689,20 +688,13 @@ export default function ModPackViewPage() {
 	let modPackId = Number(params.id);
 
 	const [form] = Form.useForm();
-	let [modPack] = useModPack(modPackId) as lib.ModPack[];
+	const [modPack, synced] = useModPack(modPackId);
 	let prototypes: any = useExportedAsset(modPack, "settings");
 	let locale: Map<any, any> = useExportedAsset(modPack, "locale");
 	let [changes, setChanges] = useState<ModChange[]>([]);
 	let syncTimeout = useRef<ReturnType<typeof setTimeout>|undefined>();
 
-	let modifiedModPack: any;
-	if (!(modPack instanceof lib.ModPack)) {
-		// Loading or invalid id
-		modifiedModPack = modPack;
-
-	} else {
-		modifiedModPack = applyModPackChanges(modPack, changes);
-	}
+	const modifiedModPack = modPack ? applyModPackChanges(modPack, changes) : undefined;
 
 	useEffect(() => () => { clearTimeout(syncTimeout.current); });
 
@@ -744,34 +736,35 @@ export default function ModPackViewPage() {
 				continue;
 			}
 			if (["name", "description", "factorioVersion"].includes(field.name[0])) {
-				if (modifiedModPack[field.name[0]] !== field.value) {
-					pushChange({ type: field.name[0], value: field.value });
+				const name = field.name[0] as "name" | "description" | "factorioVersion";
+				if (modifiedModPack![name] !== field.value) {
+					pushChange({ type: name, value: field.value });
 				}
 			} else if (["startup", "runtime-global", "runtime-per-user"].includes(field.name[0])) {
 				let [scope, settingName]: ["startup"|"runtime-global"|"runtime-per-user", string] = field.name;
 				let value = field.value;
-				if (typeof modPack.settings[scope].get(settingName)?.value === "number") {
+				if (typeof modPack!.settings[scope].get(settingName)?.value === "number") {
 					value = Number(value);
 					if (Number.isNaN(value)) {
 						continue;
 					}
 				}
-				if (modifiedModPack.settings[scope].get(settingName).value !== value) {
+				if (modifiedModPack!.settings[scope].get(settingName)!.value !== value) {
 					pushChange({ type: "settings.set", scope, name: settingName, value: { value }});
 				}
 			}
 		}
 	}
 
-	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack.name || String(modPackId) }];
-	if (modifiedModPack.loading) {
-		return <PageLayout nav={nav}>
-			<PageHeader title={String(modPackId)} />
-			<Spin size="large" />
-		</PageLayout>;
-	}
+	let nav = [{ name: "Mods", path: "/mods" }, { name: "Mod Packs" }, { name: modPack?.name ?? String(modPackId) }];
+	if (!modifiedModPack || !modPack) {
+		if (!synced) {
+			return <PageLayout nav={nav}>
+				<PageHeader title={String(modPackId)} />
+				<Spin size="large" />
+			</PageLayout>;
+		}
 
-	if (modifiedModPack.missing) {
 		return <PageLayout nav={nav}>
 			<PageHeader title="Mod Pack Not Found" />
 			<p>Mod pack with id {modPackId} was not found on the controller.</p>

@@ -1,22 +1,5 @@
-import type * as lib from "@clusterio/lib";
-
-/**
- * Current status of the instance. One of:
- * - `unknown`: Instance is assigned to a host but this host is currently
- *   not connected to the contreller.
- * - `unassigned`: Instance is not assigned to a a host and exists only on
- *   the controller.
- * - `stopped`: Instance is stopped.
- * - `starting`: Instance is in the process of starting up.
- * - `running`: Instance is running normally.
- * - `stopping`: Instance is in the process of stopping.
- * - `creating_save`: Instance is in the process of creating a save.
- * - `exporting_data`: Instance is in the process of exporting game data.
- * - `deleted`: Instance has been deleted.
- */
-export type InstanceStatus =
-		"unknown" | "unassigned" | "stopped" | "starting" | "running" |
-		"stopping" | "creating_save" | "exporting_data" | "deleted";
+import * as lib from "@clusterio/lib";
+import { Static, Type } from "@sinclair/typebox";
 
 
 /**
@@ -24,23 +7,54 @@ export type InstanceStatus =
  * @alias module:controller/src/InstanceInfo
  */
 export default class InstanceInfo {
-	config: lib.InstanceConfig;
-	status: InstanceStatus;
-	game_port: number | null = null;
-
 	constructor(
-		{ config, status }:
-		{ config: lib.InstanceConfig, status: InstanceStatus }
+		public config: lib.InstanceConfig,
+		public status: lib.InstanceStatus,
+		public gamePort?: number,
+		public updatedAt = 0,
 	) {
 		this.config = config;
 		this.status = status;
 	}
 
-	toJSON() {
+	static jsonSchema = Type.Object({
+		"config": Type.Object({}),
+		"status": lib.InstanceStatus,
+		"gamePort": Type.Optional(Type.Number()),
+		"updatedAt": Type.Optional(Type.Number()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>, config: lib.InstanceConfig) {
+		return new this(
+			config,
+			json.status,
+			json.gamePort,
+			json.updatedAt,
+		);
+	}
+
+	toJSON(): Static<typeof InstanceInfo.jsonSchema> {
 		return {
 			config: this.config.serialize(),
 			status: this.status,
+			gamePort: this.gamePort,
+			updatedAt: this.updatedAt,
 		};
+	}
+
+	toInstanceDetails() {
+		return new lib.InstanceDetails(
+			this.config.get("instance.name"),
+			this.id,
+			this.config.get("instance.assigned_host") ?? undefined,
+			this.gamePort,
+			this.status,
+			this.updatedAt,
+		);
+	}
+
+	get isDeleted() {
+		return this.status === "deleted";
 	}
 
 	/** Shorthand for `instance.config.get("instance.id")` */

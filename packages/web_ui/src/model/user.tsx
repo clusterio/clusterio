@@ -1,31 +1,29 @@
-import React, { useEffect, useContext, useState } from "react";
+import React, { useCallback, useContext, useSyncExternalStore } from "react";
 import { Tag } from "antd";
 import ControlContext from "../components/ControlContext";
 
 import * as lib from "@clusterio/lib";
 
-const { logger } = lib;
-
-function calculateLastSeen(user: RawUserState, instanceId?: number) {
+function calculateLastSeen(user: lib.User, instanceId?: number) {
 	let stats;
 	if (instanceId === undefined) {
 		stats = user.playerStats;
 	} else {
-		stats = (user.instanceStats || new Map()).get(instanceId);
+		stats = user.instanceStats.get(instanceId);
 		if (!stats) {
 			return undefined;
 		}
 	}
-	if (stats.lastLeaveAt > stats.lastJoinAt) {
-		return stats.lastLeaveAt;
+	if ((stats.lastLeaveAt?.getTime() ?? 0) > (stats.lastJoinAt?.getTime() ?? 0)) {
+		return stats.lastLeaveAt?.getTime();
 	}
 	if (stats.lastJoinAt) {
-		return stats.lastLeaveAt;
+		return stats.lastLeaveAt?.getTime();
 	}
 	return undefined;
 }
 
-export function formatLastSeen(user: RawUserState, instanceId?: number) {
+export function formatLastSeen(user: lib.User, instanceId?: number) {
 	if (user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId)) {
 		return <Tag color="green">Online</Tag>;
 	}
@@ -36,8 +34,8 @@ export function formatLastSeen(user: RawUserState, instanceId?: number) {
 	return new Date(lastSeen).toLocaleString();
 }
 
-export function sortLastSeen(userA:RawUserState, userB:RawUserState, instanceIdA?: number, instanceIdB?: number) {
-	function epoch(user:RawUserState, instanceId?: number) {
+export function sortLastSeen(userA: lib.User, userB: lib.User, instanceIdA?: number, instanceIdB?: number) {
+	function epoch(user: lib.User, instanceId?: number) {
 		return user.instances && [...user.instances].some(id => instanceId === undefined || id === instanceId);
 	}
 
@@ -52,82 +50,13 @@ export function sortLastSeen(userA:RawUserState, userB:RawUserState, instanceIdA
 	return lastSeenA - lastSeenB;
 }
 
-export type RawUserState = Partial<lib.User> & {
-	loading?: boolean;
-	present?: boolean;
-	missing?: boolean;
-};
-
-export function useUser(name: string): [RawUserState, () => void] {
-	let control = useContext(ControlContext);
-	let [user, setUser] = useState<RawUserState>({ loading: true });
-
-	function updateUser() {
-		control.send(new lib.UserGetRequest(name)).then(updatedUser => {
-			setUser({ ...updatedUser, present: true });
-		}).catch(err => {
-			logger.error(`Failed to get user: ${err}`);
-			setUser({ missing: true });
-		});
-	}
-
-	useEffect(() => {
-		if (typeof name !== "string") {
-			setUser({ missing: true });
-			return undefined;
-		}
-		updateUser();
-
-		function updateHandler(newUser: lib.User) {
-			setUser({ ...newUser, present: true });
-		}
-
-		control.userUpdate.subscribeToChannel(name, updateHandler);
-		return () => {
-			control.userUpdate.unsubscribeFromChannel(name, updateHandler);
-		};
-	}, [name]);
-
-	return [user, updateUser];
+export function useUser(name?: string) {
+	const [users, synced] = useUsers();
+	return [name !== undefined ? users.get(name) : undefined, synced] as const;
 }
 
-export function useUserList() {
-	let control = useContext(ControlContext);
-	let [userList, setUserList] = useState<lib.User[]>([]);
-
-	function updateUserList() {
-		control.send(new lib.UserListRequest()).then(users => {
-			setUserList(users);
-		}).catch(err => {
-			logger.error(`Failed to list users:\n${err}`);
-		});
-	}
-
-	useEffect(() => {
-		updateUserList();
-
-		function updateHandler(newUser: lib.User) {
-			setUserList(oldList => {
-				let newList = oldList.concat();
-				let index = newList.findIndex(u => u.name === newUser.name);
-				if (!newUser.isDeleted) {
-					if (index !== -1) {
-						newList[index] = newUser;
-					} else {
-						newList.push(newUser);
-					}
-				} else if (index !== -1) {
-					newList.splice(index, 1);
-				}
-				return newList;
-			});
-		}
-
-		control.userUpdate.subscribe(updateHandler);
-		return () => {
-			control.userUpdate.unsubscribe(updateHandler);
-		};
-	}, []);
-
-	return [userList];
+export function useUsers() {
+	const control = useContext(ControlContext);
+	const subscribe = useCallback((callback: () => void) => control.users.subscribe(callback), [control]);
+	return useSyncExternalStore(subscribe, () => control.users.getSnapshot());
 }

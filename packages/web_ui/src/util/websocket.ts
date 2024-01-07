@@ -7,7 +7,7 @@ const { logFilter, logger } = lib;
 type accountHandler = (account: lib.AccountDetails) => void;
 type hostHandler = (hostDetails: lib.HostDetails) => void;
 type instanceHandler = (instanceDetails: lib.InstanceDetails) => void;
-type saveListHandler = (saveListEvent: lib.InstanceSaveListUpdateEvent) => void;
+type saveListHandler = (saveListEvent: lib.SaveDetails) => void;
 type modPackHandler = (modPack: lib.ModPack) => void;
 type modInfoHandler = (modInfo: lib.ModInfo) => void;
 type userHandler = (rawUser: lib.User) => void;
@@ -60,29 +60,12 @@ export class Control extends lib.Link {
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
-	hostUpdate = new lib.EventSubscriber<lib.HostUpdateEvent, lib.HostDetails>(
-		lib.HostUpdateEvent, event => event.update,
-	);
-
-	instanceUpdate = new lib.EventSubscriber<lib.InstanceDetailsUpdateEvent, lib.InstanceDetails>(
-		lib.InstanceDetailsUpdateEvent, event => event.details,
-	);
-
-	saveListUpdate = new lib.EventSubscriber<lib.InstanceSaveListUpdateEvent>(
-		lib.InstanceSaveListUpdateEvent,
-	);
-
-	modPackUpdate = new lib.EventSubscriber<lib.ModPackUpdateEvent, lib.ModPack>(
-		lib.ModPackUpdateEvent, event => event.modPack,
-	);
-
-	modUpdate = new lib.EventSubscriber<lib.ModUpdateEvent, lib.ModInfo>(
-		lib.ModUpdateEvent, event => event.mod,
-	);
-
-	userUpdate = new lib.EventSubscriber<lib.UserUpdateEvent, lib.User>(
-		lib.UserUpdateEvent, event => event.user,
-	);
+	hosts = new lib.EventSubscriber(lib.HostUpdatesEvent, this);
+	instances = new lib.EventSubscriber(lib.InstanceDetailsUpdatesEvent, this);
+	saves = new lib.EventSubscriber(lib.InstanceSaveDetailsUpdatesEvent, this);
+	modPacks = new lib.EventSubscriber(lib.ModPackUpdatesEvent, this);
+	mods = new lib.EventSubscriber(lib.ModUpdatesEvent, this);
+	users = new lib.EventSubscriber(lib.UserUpdatesEvent, this);
 
 	declare connector: ControlConnector;
 
@@ -95,24 +78,6 @@ export class Control extends lib.Link {
 			this.accountName = data.account.name;
 			this.accountRoles = data.account.roles;
 			this.emitAccountUpdate();
-			this.hostUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating host subscriptions:\n${err.stack}`
-			));
-			this.instanceUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating instance subscriptions:\n${err.stack}`
-			));
-			this.saveListUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating save list subscriptions:\n${err.stack}`
-			));
-			this.modPackUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating mod pack subscriptions:\n${err.stack}`
-			));
-			this.modUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating mod subscriptions:\n${err.stack}`
-			));
-			this.userUpdate.connectControl(this).catch(err => logger.error(
-				`Unexpected error updating user subscriptions:\n${err.stack}`
-			));
 			this.updateLogSubscriptions().catch(err => logger.error(
 				`Unexpected error updating log subscriptions:\n${err.stack}`
 			));

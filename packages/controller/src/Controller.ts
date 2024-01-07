@@ -2,6 +2,7 @@ import type winston from "winston";
 import type { AddressInfo } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
+import type { Static } from "@sinclair/typebox";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
@@ -16,13 +17,14 @@ import * as lib from "@clusterio/lib";
 const { logger, Summary, Gauge } = lib;
 
 import HttpCloser from "./HttpCloser";
-import InstanceInfo, { InstanceStatus } from "./InstanceInfo";
+import InstanceInfo from "./InstanceInfo";
 import * as metrics from "./metrics";
 import * as routes from "./routes";
 import ControllerUser from "./ControllerUser";
 import UserManager from "./UserManager";
 import WsServer from "./WsServer";
-import HostConnection, { type HostInfo } from "./HostConnection";
+import HostConnection from "./HostConnection";
+import HostInfo from "./HostInfo";
 import BaseControllerPlugin from "./BaseControllerPlugin";
 
 const endpointDurationSummary = new Summary(
@@ -55,6 +57,8 @@ export default class Controller {
 	hostsDirty = false;
 	/** True if {@link Controller.instances} has changed since last time it was saved */
 	instancesDirty = false;
+	/** True if {@link Controller.saves} has changed since last time it was saved */
+	savesDirty = false;
 	/** True if {@link Controller.modPacks} has changed since last time it was saved */
 	modPacksDirty = false;
 
@@ -72,7 +76,7 @@ export default class Controller {
 	private _events: events.EventEmitter = new events.EventEmitter();
 
 	/** Event subscription controller */
-	subscriptions: lib.SubscriptionController;
+	subscriptions = new lib.SubscriptionController();
 
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
@@ -96,6 +100,7 @@ export default class Controller {
 
 		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
+		const saves = await Controller.loadSaves(path.join(databaseDirectory, "saves.json"));
 		const modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
 		const userManager = new UserManager(config);
 		await userManager.load(path.join(databaseDirectory, "users.json"));
@@ -107,6 +112,7 @@ export default class Controller {
 		return [
 			hosts,
 			instances,
+			saves,
 			modPacks,
 			modStore,
 			userManager,
@@ -123,6 +129,8 @@ export default class Controller {
 		public hosts = new Map<number, HostInfo>(),
 		/** Mapping of instance id to instance info */
 		public instances = new Map<number, InstanceInfo>(),
+		/** Mapping of save id to save details */
+		public saves = new Map<string, lib.SaveDetails>(),
 		/** Mapping of mod pack id to mod pack */
 		public modPacks = new Map<number, lib.ModPack>(),
 		/** Mods stored on the controller */
@@ -140,19 +148,20 @@ export default class Controller {
 		this.app.locals.streams = new Map();
 
 		this.wsServer = new WsServer(this);
-		this.subscriptions = new lib.SubscriptionController(this);
 
 		this.modStore.on("change", mod => {
-			this.modUpdated(mod);
+			this.modsUpdated([mod]);
 		});
 
 		// Handle subscriptions for all internal properties
-		this.subscriptions.handle(lib.HostUpdateEvent);
-		this.subscriptions.handle(lib.InstanceDetailsUpdateEvent);
-		this.subscriptions.handle(lib.InstanceSaveListUpdateEvent);
-		this.subscriptions.handle(lib.ModPackUpdateEvent);
-		this.subscriptions.handle(lib.ModUpdateEvent);
-		this.subscriptions.handle(lib.UserUpdateEvent);
+		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
+		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
+		this.subscriptions.handle(
+			lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsSubscription.bind(this)
+		);
+		this.subscriptions.handle(lib.ModPackUpdatesEvent, this.handleModPackSubscription.bind(this));
+		this.subscriptions.handle(lib.ModUpdatesEvent, this.handleModSubscription.bind(this));
+		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 	}
 
 	async start(args: ControllerArgs) {
@@ -426,6 +435,11 @@ export default class Controller {
 			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
+		if (this.savesDirty) {
+			this.savesDirty = false;
+			await Controller.saveSaves(path.join(databaseDirectory, "saves.json"), this.saves);
+		}
+
 		if (this.modPacksDirty) {
 			this.modPacksDirty = false;
 			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
@@ -439,7 +453,7 @@ export default class Controller {
 	}
 
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
-		let serialized: [number, HostInfo][];
+		let serialized: [number, Static<typeof HostInfo.jsonSchema>][];
 		try {
 			serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 
@@ -450,12 +464,21 @@ export default class Controller {
 			return new Map();
 		}
 
-		// TODO: Remove after release.
+		// TODO: migrate remove after release.
 		if (serialized.length && !(serialized[0] instanceof Array)) {
 			return new Map(); // Discard old format.
 		}
 
-		return new Map(serialized);
+		const hosts = new Map();
+		for (let [id, json] of serialized) {
+			const host = HostInfo.fromJSON(json);
+			if (host.connected) {
+				host.connected = false;
+				host.updatedAt = Date.now();
+			}
+			hosts.set(id, host);
+		}
+		return hosts;
 	}
 
 	static async saveHosts(filePath: string, hosts: Map<number, HostInfo>) {
@@ -467,16 +490,22 @@ export default class Controller {
 
 		let instances = new Map();
 		try {
-			let serialized = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
-			for (let serializedConfig of serialized) {
+			let serialized = JSON.parse(
+				await fs.readFile(filePath, { encoding: "utf8" })
+			) as Static<typeof InstanceInfo.jsonSchema>[];
+			for (let json of serialized) {
+				if (!json.config) { // migrate: from pre Alpha 14 format.
+					json = { config: json, status: "running" }; // Use running to force updatedAt
+				}
 				let instanceConfig = new lib.InstanceConfig("controller");
-				await instanceConfig.load(serializedConfig);
-				let status = instanceConfig.get("instance.assigned_host") === null ? "unassigned" : "unknown";
-				let instance = new InstanceInfo({
-					config: instanceConfig,
-					status: status as InstanceStatus,
-				});
-				instances.set(instanceConfig.get("instance.id"), instance);
+				await instanceConfig.load(json.config as lib.SerializedConfig);
+				let instance = InstanceInfo.fromJSON(json, instanceConfig);
+				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
+				if (instance.status !== status) {
+					instance.status = status;
+					instance.updatedAt = Date.now();
+				}
+				instances.set(instance.id, instance);
 			}
 
 		} catch (err: any) {
@@ -490,13 +519,27 @@ export default class Controller {
 	}
 
 	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
-		let serialized = [];
-		for (const instance of instances.values()) {
-			serialized.push(instance.config.serialize());
-		}
-
+		let serialized = [...instances.values()].map(instance => instance.toJSON());
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
+
+	static async loadSaves(filePath: string): Promise<Map<string, lib.SaveDetails>> {
+		let json: Static<typeof lib.SaveDetails.jsonSchema>[];
+		try {
+			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+			return new Map();
+		}
+		return new Map(json.map(s => lib.SaveDetails.fromJSON(s)).map(s => [s.id, s]));
+	}
+
+	static async saveSaves(filePath: string, saves: Map<string, lib.SaveDetails>) {
+		await lib.safeOutputFile(filePath, JSON.stringify([...saves.values()], null, "\t"));
+	}
+
 
 	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
 		let json;
@@ -607,18 +650,21 @@ export default class Controller {
 		);
 	}
 
-	hostUpdated(host: HostInfo) {
-		let update = new lib.HostDetails(
-			host.agent,
-			host.version,
-			host.name,
-			host.id,
-			this.wsServer.hostConnections.has(host.id),
-			host.public_address,
-			host.token_valid_after,
-		);
+	hostsUpdated(hosts: HostInfo[]) {
+		const now = Date.now();
+		for (const host of hosts) {
+			host.updatedAt = now;
+		}
+		this.hostsDirty = true;
+		let updates = hosts.map(host => host.toHostDetails());
+		this.subscriptions.broadcast(new lib.HostUpdatesEvent(updates));
+	}
 
-		this.subscriptions.broadcast(new lib.HostUpdateEvent(update));
+	async handleHostSubscription(request: lib.SubscriptionRequest) {
+		const hosts = [...this.hosts.values()].filter(
+			host => host.updatedAt > request.lastRequestTime,
+		).map(host => host.toHostDetails());
+		return hosts.length ? new lib.HostUpdatesEvent(hosts) : null;
 	}
 
 	/**
@@ -685,13 +731,32 @@ export default class Controller {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		let instance = new InstanceInfo({ config: instanceConfig, status: "unassigned" });
+		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, Date.now());
 		this.instances.set(instanceId, instance);
 		this.instancesDirty = true;
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
-		this.instanceDetailsUpdated(instance);
+		this.instanceDetailsUpdated([instance]);
 		return instance;
+	}
+
+	/**
+	 * Removes all saves currently stored for the given instance, if any
+	 * @param instanceId - Id of Instance to clear saves for.
+	 * @internal
+	 */
+	clearSavesOfInstance(instanceId: number) {
+		const updates = [];
+		for (const [id, save] of this.saves) {
+			if (save.instanceId === instanceId) {
+				save.isDeleted = true;
+				updates.push(save);
+				this.saves.delete(id);
+			}
+		}
+		if (updates.length) {
+			this.savesUpdated(updates);
+		}
 	}
 
 	/**
@@ -733,16 +798,19 @@ export default class Controller {
 			}
 		}
 
+		// Remove saves recorded from currently assigned host if any
+		this.clearSavesOfInstance(instanceId);
+
 		// Assign to target
 		instance.config.set("instance.assigned_host", hostId);
-		this.instancesDirty = true;
+		// "fieldChanged" event handler will set this.instancesDirty
 		if (hostId !== undefined && newHostConnection) {
 			await newHostConnection.send(
 				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
 			);
 		} else {
 			instance.status = "unassigned";
-			this.instanceDetailsUpdated(instance);
+			this.instanceDetailsUpdated([instance]);
 		}
 	}
 
@@ -763,9 +831,12 @@ export default class Controller {
 		this.instances.delete(instanceId);
 		this.instancesDirty = true;
 
+		this.clearSavesOfInstance(instanceId);
+
 		let prev = instance.status;
 		instance.status = "deleted";
-		this.instanceDetailsUpdated(instance);
+		instance.updatedAt = Date.now();
+		this.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -792,8 +863,9 @@ export default class Controller {
 
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
+			instance.updatedAt = Date.now();
 			if (group.name === "instance" && field === "name") {
-				this.instanceDetailsUpdated(instance);
+				this.instanceDetailsUpdated([instance]);
 			}
 
 			this.instancesDirty = true;
@@ -801,46 +873,73 @@ export default class Controller {
 		});
 	}
 
-	instanceDetailsUpdated(instance: InstanceInfo) {
-		let assigned_host: number|null|undefined = instance.config.get("instance.assigned_host");
-		if (assigned_host === null) {
-			assigned_host = undefined;
-		}
-
-		let game_port: number|null|undefined = instance.game_port;
-		if (game_port === null) {
-			game_port = undefined;
-		}
-
-		this.subscriptions.broadcast(new lib.InstanceDetailsUpdateEvent(
-			new lib.InstanceDetails(
-				instance.config.get("instance.name"),
-				instance.id,
-				assigned_host,
-				game_port,
-				instance.status,
-			)
-		));
+	instanceDetailsUpdated(instances: InstanceInfo[]) {
+		const updates = instances.map(instance => instance.toInstanceDetails());
+		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}
 
-	saveListUpdate(instanceId: number, saves: lib.SaveDetails[]) {
-		this.subscriptions.broadcast(new lib.InstanceSaveListUpdateEvent(instanceId, saves));
+	async handleInstanceDetailsSubscription(request: lib.SubscriptionRequest) {
+		const instances = [...this.instances.values()].filter(
+			instance => instance.updatedAt > request.lastRequestTime,
+		).map(instance => instance.toInstanceDetails());
+		return instances.length ? new lib.InstanceDetailsUpdatesEvent(instances) : null;
 	}
 
-	modPackUpdated(modPack: lib.ModPack) {
+	savesUpdated(saves: lib.SaveDetails[]) {
+		this.savesDirty = true;
+		this.subscriptions.broadcast(new lib.InstanceSaveDetailsUpdatesEvent(saves));
+	}
+
+	async handleInstanceSaveDetailsSubscription(request: lib.SubscriptionRequest) {
+		const saves = [...this.saves.values()].filter(save => save.updatedAt > request.lastRequestTime);
+		return saves.length ? new lib.InstanceSaveDetailsUpdatesEvent(saves) : null;
+	}
+
+
+	modPacksUpdated(modPacks: lib.ModPack[]) {
+		const now = Date.now();
+		for (const modPack of modPacks) {
+			modPack.updatedAt = now;
+		}
 		this.modPacksDirty = true;
-		this.subscriptions.broadcast(new lib.ModPackUpdateEvent(modPack));
-		lib.invokeHook(this.plugins, "onModPackUpdated", modPack);
+		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
+		lib.invokeHook(this.plugins, "onModPacksUpdated", modPacks);
 	}
 
-	modUpdated(mod: lib.ModInfo) {
-		this.subscriptions.broadcast(new lib.ModUpdateEvent(mod));
-		lib.invokeHook(this.plugins, "onModUpdated", mod);
+	async handleModPackSubscription(request: lib.SubscriptionRequest) {
+		const modPacks = [...this.modPacks.values()].filter(
+			modPack => modPack.updatedAt > request.lastRequestTime,
+		);
+		return modPacks.length ? new lib.ModPackUpdatesEvent(modPacks) : null;
 	}
 
-	userUpdated(user: ControllerUser) {
+	modsUpdated(mods: lib.ModInfo[]) {
+		// ModStore sets updatedAt for mods
+		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
+		lib.invokeHook(this.plugins, "onModsUpdated", mods);
+	}
+
+	async handleModSubscription(request: lib.SubscriptionRequest) {
+		const mods = [...this.modStore.files.values()].filter(
+			mod => mod.updatedAt > request.lastRequestTime,
+		);
+		return mods.length ? new lib.ModUpdatesEvent(mods) : null;
+	}
+
+	usersUpdated(users: ControllerUser[]) {
+		const now = Date.now();
+		for (const user of users) {
+			user.updatedAt = now;
+		}
 		this.userManager.dirty = true;
-		this.subscriptions.broadcast(new lib.UserUpdateEvent(user));
+		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
+	}
+
+	async handleUserSubscription(request: lib.SubscriptionRequest) {
+		const users = [...this.userManager.users.values()].filter(
+			user => user.updatedAt > request.lastRequestTime,
+		);
+		return users.length ? new lib.UserUpdatesEvent(users) : null;
 	}
 
 	/**

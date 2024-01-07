@@ -35,6 +35,7 @@ export default class ControllerUser extends User implements IControllerUser {
 			json.is_banned,
 			json.is_whitelisted,
 			json.ban_reason,
+			json.updated_at,
 			json.is_deleted,
 			playerStats,
 			instanceStats,

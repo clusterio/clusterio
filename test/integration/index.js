@@ -26,7 +26,7 @@ class TestControl extends lib.Link {
 		super(connector);
 		this.hostUpdates = [];
 		this.instanceUpdates = [];
-		this.saveListUpdates = [];
+		this.saveUpdates = [];
 		this.modUpdates = [];
 		this.modPackUpdates = [];
 		this.userUpdates = [];
@@ -36,56 +36,56 @@ class TestControl extends lib.Link {
 				return;
 			}
 			this.send(
-				new lib.SubscriptionRequest(lib.HostUpdateEvent.name, true)
+				new lib.SubscriptionRequest(lib.HostUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting host subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.SubscriptionRequest(lib.InstanceDetailsUpdateEvent.name, true)
+				new lib.SubscriptionRequest(lib.InstanceDetailsUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting instance subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.SubscriptionRequest(lib.InstanceSaveListUpdateEvent.name, true)
-			).catch(err => logger.error(`Error setting save list subscriptions:\n${err.stack}`));
+				new lib.SubscriptionRequest(lib.InstanceSaveDetailsUpdatesEvent.name, true)
+			).catch(err => logger.error(`Error setting save subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.SubscriptionRequest(lib.ModUpdateEvent.name, true)
+				new lib.SubscriptionRequest(lib.ModUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting mod subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.SubscriptionRequest(lib.ModPackUpdateEvent.name, true)
+				new lib.SubscriptionRequest(lib.ModPackUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting mod pack subscriptions:\n${err.stack}`));
 			this.send(
-				new lib.SubscriptionRequest(lib.UserUpdateEvent.name, true)
+				new lib.SubscriptionRequest(lib.UserUpdatesEvent.name, true)
 			).catch(err => logger.error(`Error setting user subscriptions:\n${err.stack}`));
 		});
 
 		this.handle(lib.AccountUpdateEvent);
-		this.handle(lib.HostUpdateEvent, this.handleHostUpdateEvent.bind(this));
-		this.handle(lib.InstanceDetailsUpdateEvent, this.handleInstanceDetailsUpdateEvent.bind(this));
-		this.handle(lib.InstanceSaveListUpdateEvent, this.handleInstanceSaveListUpdateEvent.bind(this));
-		this.handle(lib.ModUpdateEvent, this.handleModUpdateEvent.bind(this));
-		this.handle(lib.ModPackUpdateEvent, this.handleModPackUpdateEvent.bind(this));
-		this.handle(lib.UserUpdateEvent, this.handleUserUpdateEvent.bind(this));
+		this.handle(lib.HostUpdatesEvent, this.handleHostUpdatesEvent.bind(this));
+		this.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsUpdatesEvent.bind(this));
+		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
+		this.handle(lib.ModUpdatesEvent, this.handleModUpdatesEvent.bind(this));
+		this.handle(lib.ModPackUpdatesEvent, this.handleModPackUpdatesEvent.bind(this));
+		this.handle(lib.UserUpdatesEvent, this.handleUserUpdatesEvent.bind(this));
 	}
 
-	async handleHostUpdateEvent(event) {
-		this.hostUpdates.push(event.update);
+	async handleHostUpdatesEvent(event) {
+		this.hostUpdates.push(...event.updates);
 	}
 
-	async handleInstanceDetailsUpdateEvent(event) {
-		this.instanceUpdates.push(event.details);
+	async handleInstanceDetailsUpdatesEvent(event) {
+		this.instanceUpdates.push(...event.updates);
 	}
 
-	async handleInstanceSaveListUpdateEvent(event) {
-		this.saveListUpdates.push(event);
+	async handleInstanceSaveDetailsUpdatesEvent(event) {
+		this.saveUpdates.push(event);
 	}
 
-	async handleModUpdateEvent(event) {
-		this.modUpdates.push(event.mod);
+	async handleModUpdatesEvent(event) {
+		this.modUpdates.push(...event.updates);
 	}
 
-	async handleModPackUpdateEvent(event) {
-		this.modPackUpdates.push(event.modPack);
+	async handleModPackUpdatesEvent(event) {
+		this.modPackUpdates.push(...event.updates);
 	}
 
-	async handleUserUpdateEvent(event) {
-		this.userUpdates.push(event.user);
+	async handleUserUpdatesEvent(event) {
+		this.userUpdates.push(...event.updates);
 	}
 }
 

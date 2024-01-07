@@ -11,7 +11,7 @@ import { formatDuration } from "../util/time_format";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { formatLastSeen, sortLastSeen, useUserList } from "../model/user";
+import { formatLastSeen, sortLastSeen, useUsers } from "../model/user";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -60,7 +60,7 @@ export default function UsersPage() {
 	let account = useAccount();
 	let control = useContext(ControlContext);
 	let navigate = useNavigate();
-	let [userList] = useUserList();
+	let [users] = useUsers();
 
 	let [roles, setRoles] = useState(new Map());
 
@@ -117,7 +117,7 @@ export default function UsersPage() {
 					responsive: ["lg"],
 				},
 			]}
-			dataSource={userList}
+			dataSource={[...users.values()]}
 			pagination={false}
 			rowKey={user => user.name}
 			onRow={(user, rowIndex) => ({

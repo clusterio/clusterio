@@ -5,11 +5,10 @@ import * as lib from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import { notifyErrorHandler } from "../util/notify";
-import type { InstanceState } from "../model/instance";
 import { ButtonProps } from "antd/es/button";
 
 type StartStopInstanceButtonProps = {
-	instance: InstanceState;
+	instance: lib.InstanceDetails;
 	onFinish?: () => void;
 	buttonProps?: ButtonProps;
 };
@@ -23,15 +22,15 @@ export default function StartStopInstanceButton(props: StartStopInstanceButtonPr
 		let action;
 		if (props.instance.status === "stopped") {
 			action = control.sendTo(
-				{ instanceId: props.instance.id! },
+				{ instanceId: props.instance.id },
 				new lib.InstanceStartRequest(undefined),
 			).catch(
 				notifyErrorHandler("Error starting instance")
 			);
 
-		} else if (["starting", "running"].includes(props.instance.status!)) {
+		} else if (["starting", "running"].includes(props.instance.status)) {
 			action = control.sendTo(
-				{ instanceId: props.instance.id! },
+				{ instanceId: props.instance.id },
 				new lib.InstanceStopRequest(),
 			).catch(
 				notifyErrorHandler("Error stopping instance")
@@ -54,7 +53,7 @@ export default function StartStopInstanceButton(props: StartStopInstanceButtonPr
 		{...(props.buttonProps || {})}
 		loading={switching}
 		type="primary"
-		disabled={!["starting", "running", "stopped"].includes(props.instance.status!)}
+		disabled={!["starting", "running", "stopped"].includes(props.instance.status)}
 		onClick={onClick}
 	>
 		{props.instance.status === "stopped" ? "Start" : "Stop"}

@@ -152,7 +152,7 @@ function validateHostToken(req: Request, res: Response, next: any) {
 		if (!host) {
 			throw new Error("invalid host");
 		}
-		if (!tokenPayload.iat || tokenPayload.iat < (host.token_valid_after??0)) {
+		if (!tokenPayload.iat || tokenPayload.iat < (host.tokenValidAfter ?? 0)) {
 			throw new Error("invalid token");
 		}
 	} catch (err) {
@@ -256,7 +256,7 @@ async function uploadExport(req: Request, res: Response) {
 
 	modPack.exportManifest = new lib.ExportManifest(assets);
 	modPack.fillDefaultSettings(settingPrototypes, logger);
-	res.app.locals.controller.modPackUpdated(modPack);
+	res.app.locals.controller.modPacksUpdated([modPack]);
 
 	res.sendStatus(200);
 }

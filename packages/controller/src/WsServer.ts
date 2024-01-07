@@ -9,7 +9,7 @@ import * as lib from "@clusterio/lib";
 const { logger } = lib;
 
 import ControlConnection from "./ControlConnection";
-import HostConnection, { HostInfo } from "./HostConnection";
+import HostConnection from "./HostConnection";
 import WsServerConnector from "./WsServerConnector";
 
 import { version as packageVersion } from "../package.json";
@@ -243,7 +243,7 @@ ${err.stack}`
 			}
 
 			let host = this.controller.hosts.get(data.id);
-			if (!tokenPayload.iat || tokenPayload.iat < (host?.token_valid_after??0)) {
+			if (!tokenPayload.iat || tokenPayload.iat < (host?.tokenValidAfter ?? 0)) {
 				throw new Error("invalid token");
 			}
 		} catch (err: any) {
@@ -274,13 +274,11 @@ ${err.stack}`
 		connector.on("close", () => {
 			if (this.hostConnections.get(data.id) === connection) {
 				this.hostConnections.delete(data.id);
-				this.controller.hostUpdated(this.controller.hosts.get(data.id) as HostInfo);
 			} else {
 				logger.warn("Unlisted HostConnection closed");
 			}
 		});
 		this.hostConnections.set(data.id, connection);
-		this.controller.hostUpdated(this.controller.hosts.get(data.id) as HostInfo);
 		let src = new lib.Address(lib.Address.host, data.id);
 		connector.ready(socket, src, sessionToken, undefined);
 	}

@@ -23,6 +23,8 @@ export default class User {
 		public isWhitelisted = false,
 		/** Reason for being banned.  Ignored if isBanned is false.  */
 		public banReason = "",
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt = 0,
 		/** True if this user object has been removed from the cluster.  */
 		public isDeleted = false,
 		/** Combined statistics for the player this user account is tied to.  */
@@ -40,6 +42,7 @@ export default class User {
 		is_banned: Type.Optional(Type.Boolean()),
 		is_whitelisted: Type.Optional(Type.Boolean()),
 		ban_reason: Type.Optional(Type.String()),
+		updated_at: Type.Optional(Type.Number()),
 		is_deleted: Type.Optional(Type.Boolean()),
 		instance_stats: Type.Optional(
 			Type.Array(
@@ -64,6 +67,7 @@ export default class User {
 			json.is_banned,
 			json.is_whitelisted,
 			json.ban_reason,
+			json.updated_at,
 			json.is_deleted,
 			playerStats,
 			instanceStats,
@@ -97,6 +101,10 @@ export default class User {
 
 		if (this.banReason) {
 			json.ban_reason = this.banReason;
+		}
+
+		if (this.updatedAt) {
+			json.updated_at = this.updatedAt;
 		}
 
 		if (this.isDeleted) {
@@ -134,6 +142,11 @@ export default class User {
 			playerStats.onlineTimeMs += instanceStats.onlineTimeMs;
 		}
 		return playerStats;
+	}
+
+	/** Name of the user, used by event subscriptions */
+	get id() {
+		return this.name;
 	}
 }
 
