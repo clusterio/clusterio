@@ -1,5 +1,5 @@
 import { BaseControllerPlugin, type InstanceInfo } from "@clusterio/controller";
-import type { IpcPlayerData } from "./instance";
+import type { IpcPlayerData } from "./messages";
 
 import fs from "fs-extra";
 import path from "path";

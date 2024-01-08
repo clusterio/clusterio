@@ -1,30 +1,11 @@
 import * as lib from "@clusterio/lib";
 import { BaseInstancePlugin } from "@clusterio/host";
 import {
-	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse,
+	AcquireRequest, AcquireResponse, ReleaseRequest, UploadRequest, DownloadRequest, DownloadResponse, IpcPlayerData,
 } from "./messages";
 
 type IpcPlayerName = {
 	player_name: string
-}
-
-// .\module\serialize.lua:serialize.serialize_player()
-export type IpcPlayerData = {
-	generation: number,
-	controller: string,
-	name: string,
-	color: number[],
-	chat_color: number[],
-	tag: string,
-	force: string,
-	cheat_mode: boolean,
-	flashlight: boolean,
-	ticks_to_respawn?: number,
-	character?: any,
-	inventories?: any,
-	hotbar?: string[],
-	personal_logistic_slots?: {name:string, min:number, max:number}[],
-	crafting_queue?: any,
 }
 
 type IpcAcquireResponse = {
