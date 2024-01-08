@@ -128,17 +128,14 @@ export function configCommand(yargs: any) {
  */
 export async function handleConfigCommand(
 	args: Record<string, unknown>,
-	instance: libConfig.Config,
+	instance: libConfig.Config<any>,
 	configPath: string
 ) {
 	let command = (args._ as string[])[1];
 
 	if (command === "list") {
-		for (let GroupClass of (instance.constructor as typeof libConfig.Config).groups.values()) {
-			for (let def of GroupClass.definitions.values()) {
-				let value = instance.get(def.fullName);
-				print(`${def.fullName} ${JSON.stringify(value)}`);
-			}
+		for (const name of Object.keys(instance.constructor.fieldDefinitions)) {
+			print(`${name} ${JSON.stringify(instance.get(name))}`);
 		}
 
 	} else if (command === "show") {

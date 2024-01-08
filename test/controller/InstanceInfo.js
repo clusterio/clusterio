@@ -17,9 +17,6 @@ describe("controller/InstanceInfo", function() {
 				assert.deepEqual(InstanceInfo.fromJSON(json, "controller"), info);
 			}
 
-			if (!lib.InstanceConfig._finalized) {
-				lib.InstanceConfig.finalize();
-			}
 			const config = new lib.InstanceConfig("controller").toJSON();
 
 			check(InstanceInfo.fromJSON({ config, status: "stopped" }, "controller"));

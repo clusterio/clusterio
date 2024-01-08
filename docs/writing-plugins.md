@@ -82,8 +82,8 @@ The following properties are recognized:
     This is an optional paramater.
     A plugin may have code only for instances but it must still be loaded on the controller in order for it to be possible to load it on an instance.
 
-**InstanceConfigGroup**:
-    Subclass of `PluginConfigGroup` for defining the per instance configuration fields for this plugin.
+**instanceConfigFields**:
+    Object mapping instance configuration fields to `FieldDefinitions`for this plugin.
     See [Plugin Configuration](#plugin-configuration)
 
 **controllerEntrypoint**:
@@ -92,7 +92,7 @@ The following properties are recognized:
     A plugin can be made that only runs on the controller.
 
 **ControllerConfigGroup**:
-    Subclass of `PluginConfigGroup` for defining the controller configuration fields for this plugin.
+    Object mapping controller configuration fields to `FieldDefinitions`for this plugin.
     See [Plugin Configuration](#plugin-configuration)
 
 **ctlEntrypoint**:
@@ -202,32 +202,35 @@ For plugin hooks expections thrown are automatically catched and logged, but for
 ## Plugin Configuration
 
 Clusterio provides a configuration system that handles storing, distributing, editing and validating config fields for you.
-You can take advantage of it by subclassing `PluginConfigGroup`, setting `defaultAccess` to where config entries can be accessed from, setting the `groupName` to your plugin name, defining fields on it, finalizing it, and passing it as either `ControllerConfigGroup` or `InstanceConfigGroup` in the `info.js` export.
+You can take advantage of it by declaring config fields under either `controllerConfigFields` or `instanceConfigFields` in the `info.js` export.
 For example in info.js:
 
-```js
-const lib = require("@clusterio/lib");
+```ts
+import type * as lib from "@clusterio/lib";
 
-class ControllerConfigGroup extends lib.PluginConfigGroup { }
-ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
-ControllerConfigGroup.groupName = "foo_frobber";
-ControllerConfigGroup.define({
-    name: "level",
-    description: "Level of frobnication done",
-    type: "number",
-    initial_value: 2,
-});
-ControllerConfigGroup.finalize();
+declare module "@clusterio/lib" {
+    // Extend the interface defining available fields so that instance.config.get(...)
+    // will have our own options.
+    export interface ControllerConfigFields {
+        "foo_frobber.level": number, // If optional is true then this should have | null in addition.
+    }
+}
 
-module.exports = {
+export default {
     ...
-    ControllerConfigGroup: ControllerConfigGroup,
-};
+    controllerConfigFields: {
+        "foo_frobber.level": {
+            description: "Level of frobnication done",
+            type: "number",
+            initialValue: 2,
+        },
+    }
+} satisfies lib.PluginDeclaration;
 ```
 
 Code inside the `ControllerPlugin` class will then be able to access the level config field through the `Config` object at `this.controller.config`, for example in the ControllerPluginClass:
 
-```js
+```ts
 async init() {
     let level = this.controller.config.get("foo_frobber.level");
     this.logger.info(`I got a frobnication level of ${level}`);

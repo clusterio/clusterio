@@ -114,8 +114,7 @@ export class Control extends lib.Link {
 async function loadPlugins(pluginList: Map<string, string>) {
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
-	lib.registerPluginConfigGroups(pluginInfos);
-	lib.finalizeConfigs();
+	lib.addPluginConfigFields(pluginInfos);
 
 	let ctlPlugins = new Map<string, BaseCtlPlugin>();
 	for (let pluginInfo of pluginInfos) {
@@ -261,16 +260,16 @@ async function startControl() {
 	}
 
 	let tlsCa: string | undefined;
-	let tlsCaPath = controlConfig.get("control.tls_ca") as string | null;
+	let tlsCaPath = controlConfig.get("control.tls_ca");
 	if (tlsCaPath) {
 		tlsCa = await fs.readFile(tlsCaPath, "utf8");
 	}
 
 	let controlConnector = new ControlConnector(
-		controlConfig.get("control.controller_url") as string,
-		controlConfig.get("control.max_reconnect_delay") as number,
+		controlConfig.get("control.controller_url")!,
+		controlConfig.get("control.max_reconnect_delay"),
 		tlsCa,
-		controlConfig.get("control.controller_token") as string,
+		controlConfig.get("control.controller_token")!,
 	);
 	let control = new Control(controlConnector, controlConfig, tlsCa, ctlPlugins);
 	try {

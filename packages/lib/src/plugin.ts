@@ -4,7 +4,7 @@
  */
 import * as libHelpers from "./helpers";
 import type { Logger } from "./logging";
-import type { PluginConfigGroup } from "./config";
+import type { FieldDefinition } from "./config";
 import type { PlayerStats } from "./data";
 
 // TODO Add proper typing for plugins
@@ -15,17 +15,17 @@ export type PluginDeclaration = {
 	description?: string;
 
 	controllerEntrypoint?: string;
-	ControllerConfigGroup?: typeof PluginConfigGroup;
+	controllerConfigFields?: Record<string, FieldDefinition>;
 
 	hostEntrypoint?: string;
-	HostConfigGroup?: typeof PluginConfigGroup;
+	hostConfigFields?: Record<string, FieldDefinition>;
 
 	instanceEntrypoint?: string;
-	InstanceConfigGroup?: typeof PluginConfigGroup;
+	instanceConfigFields?: Record<string, FieldDefinition>;
 
 	ctlEntrypoint?: string;
 	webEntrypoint?: string;
-	ControlConfigGroup?: typeof PluginConfigGroup;
+	controlConfigFields?: Record<string, FieldDefinition>;
 
 	messages?: any[];
 	routes?: string[];

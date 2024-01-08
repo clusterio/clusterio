@@ -109,7 +109,9 @@ function getPlugins(req: Request, res: Response) {
 	for (let pluginInfo of req.app.locals.controller.pluginInfos) {
 		let name = pluginInfo.name;
 		let loaded = req.app.locals.controller.plugins.has(name);
-		let enabled = loaded && req.app.locals.controller.config.group(pluginInfo.name).get("load_plugin") as boolean;
+		let enabled = loaded && req.app.locals.controller.config.get(
+			`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields,
+		) as unknown as boolean;
 		let web: { main:any, error:string|undefined } = { main: undefined, error: undefined};
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {

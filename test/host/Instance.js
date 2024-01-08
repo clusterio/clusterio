@@ -11,10 +11,6 @@ const addr = lib.Address.fromShorthand;
 
 
 describe("class Instance", function() {
-	before(function() {
-		lib.InstanceConfig.finalize();
-	});
-
 	let src;
 	let dst = addr({ hostId: 1 });
 	let instance;

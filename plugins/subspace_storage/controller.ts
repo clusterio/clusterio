@@ -196,7 +196,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 					let count = dole.doleDivider({
 						object: { name: item.name, count: item.count, instanceId, instanceName },
 						items: this.items,
-						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers") as boolean,
+						logItemTransfers: this.controller.config.get("subspace_storage.log_item_transfers"),
 						logger: this.logger,
 					});
 					if (count > 0) {

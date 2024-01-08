@@ -89,7 +89,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 		for (let entry of this.players.values()) {
 			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
-				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length") as number);
+				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length"));
 				let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 				let verifyToken = jwt.sign(
 					{
@@ -173,8 +173,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 	}
 
 	async handleFetchPlayerCodeRequest(request: FetchPlayerCodeRequest) {
-		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length") as number);
-		let expires = Date.now() + (this.controller.config.get("player_auth.code_timeout") as number) * 1000;
+		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
+		let expires = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
 		this.players.set(request.player, { playerCode, verifyCode: null, expires });
 		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
 	}

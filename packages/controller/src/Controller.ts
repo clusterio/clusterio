@@ -216,11 +216,11 @@ export default class Controller {
 			this._startDevServer(args);
 		}
 
-		this.config.on("fieldChanged", (group, field, prev) => {
-			if (group.name === "controller" && field === "autosave_interval") {
+		this.config.on("fieldChanged", (field, curr, prev) => {
+			if (field === "controller.autosave_interval") {
 				this.onAutosaveIntervalChanged();
 			}
-			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
+			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
 		});
 		for (let instance of this.instances.values()) {
 			this.addInstanceHooks(instance);
@@ -799,7 +799,7 @@ export default class Controller {
 		this.clearSavesOfInstance(instanceId);
 
 		// Assign to target
-		instance.config.set("instance.assigned_host", hostId);
+		instance.config.set("instance.assigned_host", hostId ?? null);
 		// "fieldChanged" event handler will set this.instancesDirty
 		if (hostId !== undefined && newHostConnection) {
 			await newHostConnection.send(
@@ -859,14 +859,14 @@ export default class Controller {
 	}
 
 	addInstanceHooks(instance: InstanceInfo) {
-		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
+		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
 			instance.updatedAt = Date.now();
-			if (group.name === "instance" && field === "name") {
+			if (field === "instance.name") {
 				this.instanceDetailsUpdated([instance]);
 			}
 
 			this.instancesDirty = true;
-			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
+			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, field, curr, prev);
 		});
 	}
 
@@ -988,7 +988,7 @@ export default class Controller {
 				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
 			}
 
-			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields)) {
 				continue;
 			}
 

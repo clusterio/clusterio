@@ -104,8 +104,7 @@ export default async function bootstrap() {
 	}));
 	let pluginInfos = await loadPluginInfos();
 	lib.registerPluginMessages(pluginInfos);
-	lib.registerPluginConfigGroups(pluginInfos);
-	lib.finalizeConfigs();
+	lib.addPluginConfigFields(pluginInfos);
 
 	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);

@@ -174,12 +174,12 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleControllerConfigSetFieldRequest(request: lib.ControllerConfigSetFieldRequest) {
-		this._controller.config.set(request.field, request.value, "control");
+		this._controller.config.set(request.field as keyof lib.ControllerConfigFields, request.value, "control");
 	}
 
 	async handleControllerConfigSetPropRequest(request: lib.ControllerConfigSetPropRequest) {
 		let { field, prop, value } = request;
-		this._controller.config.setProp(field, prop, value, "control");
+		this._controller.config.setProp(field as keyof lib.ControllerConfigFields, prop, value, "control");
 	}
 
 	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
@@ -261,14 +261,14 @@ export default class ControlConnection extends BaseConnection {
 			throw new lib.RequestError("Setting instance.id is not supported");
 		}
 
-		instance.config.set(request.field, request.value, "control");
+		instance.config.set(request.field as keyof lib.InstanceConfigFields, request.value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
 
 	async handleInstanceConfigSetPropRequest(request: lib.InstanceConfigSetPropRequest) {
 		let instance = this._controller.getRequestInstance(request.instanceId);
 		let { field, prop, value } = request;
-		instance.config.setProp(field, prop, value, "control");
+		instance.config.setProp(field as keyof lib.InstanceConfigFields, prop, value, "control");
 		await this._controller.instanceConfigUpdated(instance);
 	}
 

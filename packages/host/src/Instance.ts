@@ -121,7 +121,7 @@ export default class Instance extends lib.Link {
 
 	_host: Host;
 	_dir: string;
-	_configFieldChanged: (group: lib.ConfigGroup, field: string, prev: unknown) => void;
+	_configFieldChanged: (field: string, curr: unknown, prev: unknown) => void;
 	_status: "stopped" | "starting" | "running" | "stopping" | "creating_save" | "exporting_data" = "stopped";
 	_loadedSave: string | null = null;
 	_playerCheckInterval: ReturnType<typeof setInterval> | undefined;
@@ -150,16 +150,16 @@ export default class Instance extends lib.Link {
 			instance_name: this.name,
 		});
 
-		this._configFieldChanged = (group: lib.ConfigGroup, field: string, prev: unknown) => {
-			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", group, field, prev);
+		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
+			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", field, curr, prev);
 
-			if (group.name === "factorio" && field === "settings") {
-				this.updateFactorioSettings(group.get(field) as any, prev as any).finally(hook);
-			} else if (group.name === "factorio" && field === "enable_whitelist") {
-				this.updateFactorioWhitelist(group.get(field) as any).finally(hook);
+			if (field === "factorio.settings") {
+				this.updateFactorioSettings(curr as any, prev as any).finally(hook);
+			} else if (field === "factorio.enable_whitelist") {
+				this.updateFactorioWhitelist(curr as any).finally(hook);
 			} else {
-				if (group.name === "factorio" && field === "max_concurrent_commands") {
-					this.server.maxConcurrentCommands = group.get(field) as number;
+				if (field === "factorio.max_concurrent_commands") {
+					this.server.maxConcurrentCommands = curr as number;
 				}
 				hook();
 			}
@@ -546,7 +546,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			if (
 				!pluginInfo.instanceEntrypoint
 				|| !this._host.serverPlugins.has(pluginInfo.name)
-				|| !this.config.group(pluginInfo.name).get("load_plugin")
+				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.InstanceConfigFields)
 			) {
 				continue;
 			}

@@ -177,7 +177,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 			return;
 		}
 
-		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size") as number;
+		const chunkSize = this.instance.config.get("inventory_sync.rcon_chunk_size");
 		const chunks = chunkify(chunkSize, JSON.stringify(response.playerData));
 		this.logger.verbose(`Sending inventory for ${playerName} in ${chunks.length} chunks`);
 		for (let i = 0; i < chunks.length; i++) {

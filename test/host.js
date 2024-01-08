@@ -7,10 +7,6 @@ const Host = require("@clusterio/host/dist/src/Host").default;
 const { _discoverInstances } = require("@clusterio/host/dist/src/Host");
 
 describe("Host testing", function() {
-	before(function() {
-		lib.InstanceConfig.finalize();
-	});
-
 	describe("discoverInstances()", function() {
 		it("should discover test instance", async function() {
 			let instancePath = path.join("test", "file", "instances");

@@ -287,8 +287,8 @@ export default class Host extends lib.Link {
 		this.configPath = hostConfigPath;
 		this.config = hostConfig;
 
-		this.config.on("fieldChanged", (group, field, prev) => {
-			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", group, field, prev);
+		this.config.on("fieldChanged", (name, curr, prev) => {
+			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", name, curr, prev);
 		});
 
 		this.connector.on("hello", data => {
@@ -362,7 +362,7 @@ export default class Host extends lib.Link {
 
 	async loadPlugins() {
 		for (let pluginInfo of this.pluginInfos) {
-			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)) {
 				continue;
 			}
 

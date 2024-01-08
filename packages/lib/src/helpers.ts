@@ -177,6 +177,25 @@ export async function readStream(stream: NodeJS.ReadableStream & { isTTY?: boole
 	return Buffer.concat(chunks);
 }
 
+/**
+ * Split the given string on the first instance of separator
+ *
+ * Splits `string` on the first instance of `separator` and returns an
+ * array consisting of the string up to the separator and the string
+ * after the separator.  Returns an array with the string and an empty
+ * string if the separator is not present.
+ *
+ * @param separator - Separator to split string by.
+ * @param string - String to split
+ * @returns string split on separator.
+ */
+export function splitOn(separator: string, string: string) {
+	let index = string.indexOf(separator);
+	if (index === -1) {
+		return [string, ""];
+	}
+	return [string.slice(0, index), string.slice(index + separator.length)];
+}
 
 /**
  * Escapes text for inclusion in a RegExp
