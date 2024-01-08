@@ -14,3 +14,4 @@ export * from "./src/subscriptions";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as RateLimiter } from "./src/RateLimiter";
+export { default as TypedEventEmitter } from "./src/TypedEventEmitter";
