@@ -5,7 +5,7 @@ import TypedEventEmitter from "../TypedEventEmitter";
 import isDeepStrictEqual from "../is_deep_strict_equal";
 import { basicType } from "../helpers";
 import * as libSchema from "../schema";
-import { StringEnum } from "../data";
+import { StringEnum } from "../data/composites";
 
 const ConfigLocation = StringEnum(["controller", "host", "instance", "control"]);
 export type ConfigLocation = Static<typeof ConfigLocation>;
