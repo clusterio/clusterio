@@ -300,4 +300,57 @@ describe("lib/helpers", function() {
 			);
 		});
 	});
+	describe("parseRanges()", function() {
+		function range(input, min=1, max=10) {
+			return [...lib.parseRanges(input, min, max)];
+		}
+		function expectedRange(start, end) {
+			const items = new Set();
+			for (let i = start; i <= end; i++) {
+				items.add(i);
+			}
+			return [...items];
+		}
+		it("should parse numbers separated by spaces and or commas", function() {
+			assert.deepEqual(range("1"), [1]);
+			assert.deepEqual(range(" 1"), [1]);
+			assert.deepEqual(range("1 "), [1]);
+			assert.deepEqual(range(" 1 "), [1]);
+			assert.deepEqual(range("1 2"), [1, 2]);
+			assert.deepEqual(range("1, 2"), [1, 2]);
+			assert.deepEqual(range("1 , 2"), [1, 2]);
+			assert.deepEqual(range(" 1 2 "), [1, 2]);
+		});
+		it("should parse ranges", function() {
+			assert.deepEqual(range("1-4"), [1, 2, 3, 4]);
+			assert.deepEqual(range(" 1-4 "), [1, 2, 3, 4]);
+			assert.deepEqual(range(" 1 - 4 "), [1, 2, 3, 4]);
+			assert.deepEqual(range("1- 4"), [1, 2, 3, 4]);
+			assert.deepEqual(range("1 -4"), [1, 2, 3, 4]);
+			assert.deepEqual(range(" 1, 2-4"), [1, 2, 3, 4]);
+			assert.deepEqual(range("4-1"), [1, 2, 3, 4]);
+		});
+		it("should ignore duplicates in ranges", function() {
+			assert.deepEqual(range("1, 2, 2, 2"), [1, 2]);
+			assert.deepEqual(range("1-4, 3, 4"), [1, 2, 3, 4]);
+			assert.deepEqual(range("3, 1-4"), [3, 1, 2, 4]);
+		});
+		it("should throw on bad input", function() {
+			assert.throws(() => range("1-"), new Error('Expected digit but got end of input while parsing "1-"'));
+			assert.throws(() => range("a1-4"), new Error('Expected digit but got \'a\' at pos 0 while parsing "a1-4"'));
+			assert.throws(() => range("1a-4"), new Error('Expected digit but got \'a\' at pos 1 while parsing "1a-4"'));
+			assert.throws(() => range("1-a4"), new Error('Expected digit but got \'a\' at pos 2 while parsing "1-a4"'));
+			assert.throws(() => range("1-4a"), new Error('Expected digit but got \'a\' at pos 3 while parsing "1-4a"'));
+		});
+		it("should throw if out of range", function() {
+			assert.throws(() => range("0"), new Error("value 0 is below the minimum value 1"));
+			assert.throws(() => range("110"), new Error("value 110 is above the maximum value 10"));
+			assert.throws(() => range("1-999"), new Error("end of range 1-999 is above the maximum value 10"));
+			assert.throws(() => range("0-1"), new Error("start of range 0-1 is below the minimum value 1"));
+		});
+		it("should handle 16-bit ranges", function() {
+			assert.deepEqual(range("1-65535", 1, 2**16 - 1), expectedRange(1, 2**16 - 1));
+			assert.deepEqual(range("20000-20002", 1, 2**16 - 1), [20000, 20001, 20002]);
+		});
+	});
 });

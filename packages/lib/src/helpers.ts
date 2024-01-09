@@ -230,6 +230,14 @@ export function formatBytes(bytes: number) {
 	return (power > 0 ? (bytes / factor ** power).toFixed(2) : bytes) + units[power];
 }
 
+function skipWhitespace(pos: number, input: string) {
+	// whitespace = 1*" "
+	while (pos < input.length && input.charAt(pos) === " ") {
+		pos += 1;
+	}
+	return pos;
+}
+
 function parseSearchIdentifier(pos: number, input: string): [number, string] {
 	// character = ? all characters excluding space : " ?
 	// identifier = 1*character
@@ -393,7 +401,6 @@ export function parseSearchString(
 	input: string,
 	attributes: Record<string, string> = {}
 ): ParsedSearch {
-	// whitespace = 1*" "
 	// search = [ term, *( [ whitespace ], term ) ]
 	input = input.trim();
 	let parsed = {
@@ -407,13 +414,109 @@ export function parseSearchString(
 		if (term) {
 			parsed.terms.push(term);
 		}
-		while (pos < input.length && input.charAt(pos) === " ") {
-			pos += 1;
-		}
+		pos = skipWhitespace(pos, input);
 	}
 	// istanbul ignore if (should not be possible)
 	if (pos !== input.length) {
 		throw new Error(`parse search ended at ${pos} which is not the end of the input (${input.length})`);
+	}
+	return parsed;
+}
+
+function isDigit(pos: number, input: string) {
+	const code = input.charCodeAt(pos);
+	return "0".charCodeAt(0) <= code && code <= "9".charCodeAt(0);
+}
+
+function parseNumber(pos: number, input: string): [number, number] {
+	// number = 1*('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9')
+	let startPos = pos;
+	let endPos = pos;
+	while (pos < input.length && isDigit(pos, input)) {
+		pos += 1;
+		endPos += 1;
+	}
+	return [pos, Number.parseInt(input.slice(startPos, endPos), 10)];
+}
+
+function parseRange(pos: number, input: string, min: number, max: number): [number, Set<number>] {
+	// range = number, [ whitespace ], [ '-', [ whitespace ], number ]
+	const range = new Set<number>();
+	if (!isDigit(pos, input)) {
+		throw new Error(`Expected digit but got '${input[pos]}' at pos ${pos} while parsing "${input}"`);
+	}
+	let start: number;
+	([pos, start] = parseNumber(pos, input));
+	pos = skipWhitespace(pos, input);
+	if (pos < input.length && input[pos] === "-") {
+		pos += 1; // Skip dash
+		pos = skipWhitespace(pos, input);
+		if (pos === input.length) {
+			throw new Error(`Expected digit but got end of input while parsing "${input}"`);
+		}
+		if (!isDigit(pos, input)) {
+			throw new Error(`Expected digit but got '${input[pos]}' at pos ${pos} while parsing "${input}"`);
+		}
+		let end: number;
+		([pos, end] = parseNumber(pos, input));
+
+		if (start > end) {
+			([start, end] = [end, start]);
+		}
+		if (start < min) {
+			throw new Error(`start of range ${start}-${end} is below the minimum value ${min}`);
+		}
+		if (end > max) {
+			throw new Error(`end of range ${start}-${end} is above the maximum value ${max}`);
+		}
+		for (let i = start; i <= end; i++) {
+			range.add(i);
+		}
+	} else { // Single value range
+		if (start < min) {
+			throw new Error(`value ${start} is below the minimum value ${min}`);
+		}
+		if (start > max) {
+			throw new Error(`value ${start} is above the maximum value ${max}`);
+		}
+		range.add(start);
+	}
+	return [pos, range];
+}
+
+/**
+ * Parse a comma separated range expression
+ *
+ * Parses the given input as a series of comma sepparated number ranges
+ * where each range can consist of either a whole number or a whole number
+ * of where the range starts, a dash and then a whole number of where the
+ * range ends inclusively.
+ *
+ * @param input - Range expression to parse
+ * @param min - Minimum accepted input value.
+ * @param max - Maximum accepted input value.
+ * @returns Set of all numbers in the parsed range.
+ */
+export function parseRanges(
+	input: string,
+	min: number,
+	max: number,
+) {
+	// ranges = [ range, *( [ whitespace ],  [ ',', [ whitespace ] ], range ) ]
+	input = input.trim();
+	const parsed = new Set<number>();
+	let pos = 0;
+	while (pos < input.length) {
+		let range: Set<number>;
+		([pos, range] = parseRange(pos, input, min, max));
+		for (const i of range) {
+			parsed.add(i);
+		}
+		pos = skipWhitespace(pos, input);
+		if (pos < input.length && input[pos] === ",") {
+			pos += 1;
+			pos = skipWhitespace(pos, input);
+		}
 	}
 	return parsed;
 }
