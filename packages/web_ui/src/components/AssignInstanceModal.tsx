@@ -26,14 +26,14 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 	let control = useContext(ControlContext);
 
 	function handleAssign() {
-		let hostId = form.getFieldValue("host");
+		let hostId: number | string | undefined = form.getFieldValue("host");
 		if (hostId === undefined) {
 			setOpen(false);
 			return;
 		}
 
-		if (hostId === "null") {
-			hostId = null;
+		if (typeof hostId === "string") {
+			hostId = undefined;
 		}
 
 		setApplying(true);
