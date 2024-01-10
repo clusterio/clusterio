@@ -83,7 +83,7 @@ export interface FieldDefinition {
 	optional?: boolean;
 	/**
 	 * Value this config field should take in a newly initialized config.
-	 * This can also be an async function returning the value to use.
+	 * This can also be an function returning the value to use.
 	 */
 	initialValue?: unknown | (() => unknown);
 	/**
