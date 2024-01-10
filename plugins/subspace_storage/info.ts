@@ -1,37 +1,15 @@
 import * as lib from "@clusterio/lib";
 import * as messages from "./messages";
 
-class ControllerConfigGroup extends lib.PluginConfigGroup {}
-ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
-ControllerConfigGroup.groupName = "subspace_storage";
-ControllerConfigGroup.define({
-	name: "division_method",
-	title: "Division Method",
-	description: "Method for dividing resource requests between instances.",
-	type: "string",
-	enum: ["simple", "dole", "neural_dole"],
-	initial_value: "simple",
-});
-ControllerConfigGroup.define({
-	name: "log_item_transfers",
-	title: "Log Item Transfers",
-	description: "Spam controller console with item transfers done.",
-	type: "boolean",
-	initial_value: false,
-});
-ControllerConfigGroup.finalize();
-
-class InstanceConfigGroup extends lib.PluginConfigGroup {}
-InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
-InstanceConfigGroup.groupName = "subspace_storage";
-InstanceConfigGroup.define({
-	name: "log_item_transfers",
-	title: "Log Item Transfers",
-	description: "Spam host console with item transfers done.",
-	type: "boolean",
-	initial_value: false,
-});
-InstanceConfigGroup.finalize();
+declare module "@clusterio/lib" {
+	export interface ControllerConfigFields {
+		"subspace_storage.division_method": "simple" | "dole" | "neural_dole";
+		"subspace_storage.log_item_transfers": boolean;
+	}
+	export interface InstanceConfigFields {
+		"subspace_storage.log_item_transfers": boolean;
+	}
+}
 
 lib.definePermission({
 	name: "subspace_storage.storage.view",
@@ -45,10 +23,31 @@ export default {
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
 	instanceEntrypoint: "dist/plugin/instance",
-	InstanceConfigGroup,
+	instanceConfigFields: {
+		"subspace_storage.log_item_transfers": {
+			title: "Log Item Transfers",
+			description: "Spam host console with item transfers done.",
+			type: "boolean",
+			initialValue: false,
+		},
+	},
 
 	controllerEntrypoint: "dist/plugin/controller",
-	ControllerConfigGroup,
+	controllerConfigFields: {
+		"subspace_storage.division_method": {
+			title: "Division Method",
+			description: "Method for dividing resource requests between instances.",
+			type: "string",
+			enum: ["simple", "dole", "neural_dole"],
+			initialValue: "simple",
+		},
+		"subspace_storage.log_item_transfers": {
+			title: "Log Item Transfers",
+			description: "Spam controller console with item transfers done.",
+			type: "boolean",
+			initialValue: false,
+		},
+	},
 
 	messages: [
 		messages.PlaceEvent,

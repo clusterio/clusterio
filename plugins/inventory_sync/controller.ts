@@ -1,5 +1,5 @@
 import { BaseControllerPlugin, type InstanceInfo } from "@clusterio/controller";
-import type { IpcPlayerData } from "./instance";
+import type { IpcPlayerData } from "./messages";
 
 import fs from "fs-extra";
 import path from "path";
@@ -62,7 +62,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		if (["unknown", "stopped"].includes(instance.status)) {
-			let timeout = this.controller.config.get("inventory_sync.player_lock_timeout") as number * 1000;
+			let timeout = this.controller.config.get("inventory_sync.player_lock_timeout") * 1000;
 			for (let acquisitonRecord of this.acquiredPlayers.values()) {
 				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expires) {
 					acquisitonRecord.expires = Date.now() + timeout;

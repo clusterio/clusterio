@@ -1,4 +1,4 @@
-import type * as lib from "@clusterio/lib";
+import * as lib from "@clusterio/lib";
 
 import React, { useEffect, useState } from "react";
 import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography } from "antd";
@@ -6,41 +6,35 @@ import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 
 const { Title } = Typography;
 
-function getInitialValues(config: lib.Config, props: BaseConfigTreeProps) {
+function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	let initialValues: any = {};
-	for (let [name, GroupClass] of props.ConfigClass.groups) {
-		let group = config.group(name);
-		for (let def of GroupClass.definitions.values()) {
-			if (!group.canAccess(def.name)) {
-				continue;
-			}
+	for (let [name, def] of Object.entries(config.constructor.fieldDefinitions)) {
+		if (!config.canAccess(name)) {
+			continue;
+		}
 
-			let value = group.get(def.name) as any;
-			let fieldName = `${group.name}.${def.name}`;
-
-			if (def.type === "object") {
-				for (let prop of Object.keys(value)) {
-					let propPath = `${group.name}.${def.name}.${prop}`;
-					initialValues[propPath] = JSON.stringify(value[prop]);
-				}
-			} else {
-				initialValues[fieldName] = value;
+		let value = config.get(name) as any;
+		if (def.type === "object") {
+			for (let prop of Object.keys(value)) {
+				initialValues[`${name}.${prop}`] = JSON.stringify(value[prop]);
 			}
+		} else {
+			initialValues[name] = value;
 		}
 	}
 	return initialValues;
 }
 
 type BaseConfigTreeProps = {
-	ConfigClass: typeof lib.Config;
-	retrieveConfig: () => Promise<lib.SerializedConfig>;
+	ConfigClass: typeof lib.ControllerConfig | typeof lib.InstanceConfig;
+	retrieveConfig: () => Promise<lib.ConfigSchema>;
 	setField: (field:string, value:any) => Promise<void>;
 	setProp: (field:string, prop:string, value:any) => Promise<void>;
 	id?: number;
 	onApply?: () => void;
 };
 export default function BaseConfigTree(props: BaseConfigTreeProps) {
-	let [config, setConfig] = useState<lib.Config|null>(null);
+	let [config, setConfig] = useState<lib.Config<any>|null>(null);
 	let [form] = Form.useForm();
 	let [changedFields, setChangedFields] = useState<Set<string>>(new Set());
 	let [errorFields, setErrorFields] = useState(new Map());
@@ -48,8 +42,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 
 	async function updateConfig() {
 		let serializedConfig = await props.retrieveConfig();
-		let newConfig = new props.ConfigClass("control");
-		await newConfig.load(serializedConfig);
+		const newConfig = props.ConfigClass.fromJSON(serializedConfig, "control");
 		setConfig(newConfig);
 		return newConfig;
 	}
@@ -117,21 +110,30 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 
 	let treeData = [];
 	let propsMap = new Map();
-	for (let [name, GroupClass] of props.ConfigClass.groups) {
-		let group = config.group(name);
+	const groups = new Map<string, { [name: string]: lib.FieldDefinition }>();
+	for (let [fieldName, def] of Object.entries(props.ConfigClass.fieldDefinitions)) {
+		const [groupName, field] = lib.splitOn(".", fieldName);
+		let group = groups.get(groupName);
+		if (!group) {
+			group = {};
+			groups.set(groupName, group);
+		}
+		group[field] = def;
+	}
+	for (let [groupName, groupDefs] of groups) {
 		let treeNode: TreeNode = {
-			key: group.name,
-			title: group.name,
+			key: groupName,
+			title: groupName,
 			children: [],
 		};
 
-		for (let def of GroupClass.definitions.values()) {
-			if (!group.canAccess(def.name)) {
+		for (let [field, def] of Object.entries(groupDefs)) {
+			if (!config.canAccess(`${groupName}.${field}`)) {
 				continue;
 			}
 
-			let value = group.get(def.name) as any;
-			let fieldName = `${group.name}.${def.name}`;
+			let fieldName = `${groupName}.${field}`;
+			let value = config.get(fieldName) as any;
 			let childNode: ChildNode = {
 				key: fieldName,
 				children: [],
@@ -141,13 +143,13 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 				let restartRequiredProps = new Set(def.restartRequiredProps || []);
 				childNode.title = <Form.Item
 					label={<>
-						{def.title || def.name}
+						{def.title || field}
 						{!def.restartRequiredProps && def.restartRequired && restartTip}
 					</>}
 					tooltip={def.description}
 				/>;
 				for (let prop of Object.keys(value)) {
-					let propPath = `${group.name}.${def.name}.${prop}`;
+					let propPath = `${groupName}.${field}.${prop}`;
 					let restart = Boolean(
 						def.restartRequiredProps && Number(def.restartRequired) ^ Number(restartRequiredProps.has(prop))
 					);
@@ -179,7 +181,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 					propsMap.set(propPath, [fieldName, prop]);
 				}
 
-				let newPropPath = `${group.name}.${def.name}:add`;
+				let newPropPath = `${groupName}.${field}:add`;
 				childNode.children.push({
 					key: newPropPath,
 					title: <Space>
@@ -197,17 +199,16 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 						</Form.Item>
 						<Button
 							size="small"
-							onClick={async () => {
+							onClick={() => {
 								let propName = form.getFieldValue(`${newPropPath}.name`);
 								let propValue = form.getFieldValue(`${newPropPath}.value`);
 								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
-									let newConfig = new props.ConfigClass("control");
-									await newConfig.load(config!.serialize());
-									newConfig.setProp(fieldName, propName, null);
+									let newConfig = props.ConfigClass.fromJSON(config!.toJSON(), "control");
+									(newConfig as lib.Config<any>).setProp(fieldName, propName, null);
 									setConfig(newConfig);
 								}
 
-								let propPath = `${group.name}.${def.name}.${propName}`;
+								let propPath = `${groupName}.${field}.${propName}`;
 								form.setFieldsValue({
 									[`${newPropPath}.name`]: "",
 									[`${newPropPath}.value`]: "",
@@ -226,7 +227,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 				childNode.title = <Form.Item
 					name={fieldName}
 					label={<>
-						{def.title || def.name}
+						{def.title || field}
 						{def.restartRequired && restartTip}
 					</>}
 					validateStatus={errorFields.has(fieldName) ? "error" : undefined}

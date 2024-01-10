@@ -1,30 +1,14 @@
 import * as lib from "@clusterio/lib";
 import * as messages from "./messages";
 
-class ControllerConfigGroup extends lib.PluginConfigGroup { }
-ControllerConfigGroup.defaultAccess = ["controller", "host", "control"];
-ControllerConfigGroup.groupName = "inventory_sync";
-ControllerConfigGroup.define({
-	name: "player_lock_timeout",
-	title: "Player Lock Timeout",
-	description:
-		"Time in seconds before the lock on a player inventory expires after an instance stops or is disconnected",
-	type: "number",
-	initial_value: 60,
-});
-ControllerConfigGroup.finalize();
-
-class InstanceConfigGroup extends lib.PluginConfigGroup { }
-InstanceConfigGroup.defaultAccess = ["controller", "host", "control"];
-InstanceConfigGroup.groupName = "inventory_sync";
-InstanceConfigGroup.define({
-	name: "rcon_chunk_size",
-	title: "Rcon inventory chunk size",
-	description: "Divide inventories into multiple chunks before sending with rcon to prevent blocking the pipe",
-	type: "number",
-	initial_value: 1000,
-});
-InstanceConfigGroup.finalize();
+declare module "@clusterio/lib" {
+	export interface InstanceConfigFields {
+		"inventory_sync.rcon_chunk_size": number;
+	}
+	export interface ControllerConfigFields {
+		"inventory_sync.player_lock_timeout": number;
+	}
+}
 
 lib.definePermission({
 	name: "inventory_sync.inventory.view",
@@ -39,10 +23,27 @@ export default {
 	description: "Synchronizes players inventories between instances",
 
 	instanceEntrypoint: "dist/plugin/instance",
-	InstanceConfigGroup,
+	instanceConfigFields: {
+		"inventory_sync.rcon_chunk_size": {
+			title: "Rcon inventory chunk size",
+			description:
+				"Divide inventories into chunks of this size before sending with rcon to prevent blocking the pipe",
+			type: "number",
+			initialValue: 1000,
+		},
+	},
 
 	controllerEntrypoint: "dist/plugin/controller",
-	ControllerConfigGroup,
+	controllerConfigFields: {
+		"inventory_sync.player_lock_timeout": {
+			title: "Player Lock Timeout",
+			description:
+				"Time in seconds before the lock on a player inventory expires after an instance stops " +
+				"or is disconnected",
+			type: "number",
+			initialValue: 60,
+		},
+	},
 
 	messages: [
 		messages.AcquireRequest,

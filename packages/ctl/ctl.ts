@@ -114,8 +114,7 @@ export class Control extends lib.Link {
 async function loadPlugins(pluginList: Map<string, string>) {
 	let pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
-	lib.registerPluginConfigGroups(pluginInfos);
-	lib.finalizeConfigs();
+	lib.addPluginConfigFields(pluginInfos);
 
 	let ctlPlugins = new Map<string, BaseCtlPlugin>();
 	for (let pluginInfo of pluginInfos) {
@@ -219,14 +218,15 @@ async function startControl() {
 	;
 
 	logger.verbose(`Loading config from ${args.config}`);
-	let controlConfig = new lib.ControlConfig("control");
+	let controlConfig;
 	try {
-		await controlConfig.load(JSON.parse(await fs.readFile(args.config, "utf8")));
+		const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
+		controlConfig = lib.ControlConfig.fromJSON(jsonConfig, "control");
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.verbose("Config not found, initializing new config");
-			await controlConfig.init();
+			controlConfig = new lib.ControlConfig("control");
 
 		} else {
 			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
@@ -260,16 +260,16 @@ async function startControl() {
 	}
 
 	let tlsCa: string | undefined;
-	let tlsCaPath = controlConfig.get("control.tls_ca") as string | null;
+	let tlsCaPath = controlConfig.get("control.tls_ca");
 	if (tlsCaPath) {
 		tlsCa = await fs.readFile(tlsCaPath, "utf8");
 	}
 
 	let controlConnector = new ControlConnector(
-		controlConfig.get("control.controller_url") as string,
-		controlConfig.get("control.max_reconnect_delay") as number,
+		controlConfig.get("control.controller_url")!,
+		controlConfig.get("control.max_reconnect_delay"),
 		tlsCa,
-		controlConfig.get("control.controller_token") as string,
+		controlConfig.get("control.controller_token")!,
 	);
 	let control = new Control(controlConnector, controlConfig, tlsCa, ctlPlugins);
 	try {

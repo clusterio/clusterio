@@ -56,29 +56,27 @@ async function configToKeyVal(data: string) {
 	return final;
 }
 
-async function serializedConfigToString(
-	serializedConfig: any,
-	configGroup: typeof lib.Config,
+function serializedConfigToString(
+	serializedConfig: lib.ConfigSchema,
+	configGroup: typeof lib.ControllerConfig | typeof lib.InstanceConfig,
 	disallowedList: Record<string, unknown>,
 ) {
 	let allConfigElements = "";
-	for (let group of serializedConfig.groups) {
-		for (let [name, value] of Object.entries(group.fields)) {
-			if (`${group.name}.${name}` in disallowedList) {
-				continue;
-			}
-			let desc = "";
-			try {
-				desc += configGroup.groups.get(group.name)!._definitions.get(name)!.description;
-			} catch (err) {
-				desc += "No description found";
-			}
-			// split onto two lines for readability and es-lint
-			if (String(value) === "null") {
-				value = "";
-			}
-			allConfigElements += `${group.name}.${name} = ${value}\n\n`;
+	for (let [name, value] of Object.entries(serializedConfig)) {
+		if (name in disallowedList) {
+			continue;
 		}
+		let desc = "";
+		try {
+			desc += (configGroup.fieldDefinitions as any)[name]!.description;
+		} catch (err) {
+			desc += "No description found";
+		}
+		// split onto two lines for readability and es-lint
+		if (String(value) === "null") {
+			value = "";
+		}
+		allConfigElements += `${name} = ${value}\n\n`;
 	}
 	return allConfigElements;
 }
@@ -91,12 +89,10 @@ const controllerConfigCommands = new lib.CommandTree({
 controllerConfigCommands.add(new lib.Command({
 	definition: ["list", "List controller configuration"],
 	handler: async function(args: object, control: Control) {
-		let response = await control.send(new lib.ControllerConfigGetRequest());
+		let config = await control.send(new lib.ControllerConfigGetRequest());
 
-		for (let group of (response.serializedConfig as any).groups) {
-			for (let [name, value] of Object.entries(group.fields)) {
-				print(`${group.name}.${name} ${JSON.stringify(value)}`);
-			}
+		for (let [name, value] of Object.entries(config)) {
+			print(`${name} ${JSON.stringify(value)}`);
 		}
 	},
 }));
@@ -115,7 +111,7 @@ controllerConfigCommands.add(new lib.Command({
 		} else if (args.value === undefined) {
 			args.value = "";
 		}
-		await control.send(new lib.ControllerConfigSetFieldRequest(args.field as string, args.value as string));
+		await control.send(new lib.ControllerConfigSetFieldRequest(args.field, args.value));
 	},
 }));
 
@@ -156,15 +152,15 @@ controllerConfigCommands.add(new lib.Command({
 		});
 	}],
 	handler: async function(args: { editor: string }, control: Control) {
-		let response = await control.send(new lib.ControllerConfigGetRequest());
+		let config = await control.send(new lib.ControllerConfigGetRequest());
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
 			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
-		let allConfigElements = await serializedConfigToString(
-			response.serializedConfig, lib.ControllerConfig, {}
+		let allConfigElements = serializedConfigToString(
+			config, lib.ControllerConfig, {}
 		);
 		await fs.writeFile(tmpFile, allConfigElements);
 		let editorSpawn = child_process.spawn(editor, [tmpFile], {
@@ -214,7 +210,7 @@ const controllerPluginCommands = new lib.CommandTree({
 controllerPluginCommands.add(new lib.Command({
 	definition: ["list", "List plugins on controller"],
 	handler: async function(args: object, control: Control) {
-		let url = new URL(control.config.get("control.controller_url") as string);
+		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += "api/plugins";
 		let response = await phin<[]>({
 			url,
@@ -272,11 +268,11 @@ hostCommands.add(new lib.Command({
 		args: { id?: number, name?: string, generateToken: boolean, output: string },
 		control: Control
 	) {
-		let rawConfig = await control.send(
+		let config = await control.send(
 			new lib.HostConfigCreateRequest(args.id, args.name, args.generateToken)
 		);
 
-		let content = JSON.stringify(rawConfig.serializedConfig, null, "\t");
+		let content = JSON.stringify(config, null, "\t");
 		if (args.output === "-") {
 			print(content);
 		} else {
@@ -315,12 +311,11 @@ instanceCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { name: string, id?: number }, control: Control) {
 		let instanceConfig = new lib.InstanceConfig("control");
-		await instanceConfig.init();
 		if (args.id !== undefined) {
 			instanceConfig.set("instance.id", args.id);
 		}
 		instanceConfig.set("instance.name", args.name);
-		let serializedConfig = instanceConfig.serialize("controller");
+		const serializedConfig = instanceConfig.toRemote("controller");
 		await control.send(new lib.InstanceCreateRequest(serializedConfig));
 	},
 }));
@@ -334,12 +329,10 @@ instanceConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { instance: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
+		let config = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 
-		for (let group of response.serializedConfig.groups) {
-			for (let [name, value] of Object.entries(group.fields)) {
-				print(`${group.name}.${name} ${JSON.stringify(value)}`);
-			}
+		for (let [name, value] of Object.entries(config)) {
+			print(`${name} ${JSON.stringify(value)}`);
 		}
 	},
 }));
@@ -427,7 +420,7 @@ instanceConfigCommands.add(new lib.Command({
 	}],
 	handler: async function(args: { instance: string, editor: string }, control: Control) {
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let response = await control.send(new lib.InstanceConfigGetRequest(instanceId));
+		let config = await control.send(new lib.InstanceConfigGetRequest(instanceId));
 		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
 		let editor = await getEditor(args.editor);
 		if (editor === undefined) {
@@ -435,8 +428,8 @@ instanceConfigCommands.add(new lib.Command({
 							  Try "ctl controller config edit <editor of choice>"`);
 		}
 		let disallowedList = {"instance.id": 0, "instance.assigned_host": 0, "factorio.settings": 0};
-		let allConfigElements = await serializedConfigToString(
-			response.serializedConfig,
+		let allConfigElements = serializedConfigToString(
+			config,
 			lib.InstanceConfig,
 			disallowedList
 		);
@@ -613,7 +606,7 @@ instanceSaveCommands.add(new lib.Command({
 		let content = await fs.readFile(args.filepath);
 
 		let instanceId = await lib.resolveInstance(control, args.instance);
-		let url = new URL(control.config.get("control.controller_url") as string);
+		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += "api/upload-save";
 		url.searchParams.append("instance_id", String(instanceId));
 		url.searchParams.append("filename", filename);
@@ -695,7 +688,7 @@ instanceSaveCommands.add(new lib.Command({
 		let instanceId = await lib.resolveInstance(control, args.instance);
 		let streamId = await control.send(new lib.InstanceDownloadSaveRequest(instanceId, args.save));
 
-		let url = new URL(control.config.get("control.controller_url") as string);
+		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",
@@ -1281,7 +1274,7 @@ modCommands.add(new lib.Command({
 		// phin doesn't support streaming requests :(
 		let content = await fs.readFile(args.file);
 
-		let url = new URL(control.config.get("control.controller_url") as string);
+		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += "api/upload-mod";
 		url.searchParams.append("filename", filename);
 
@@ -1325,7 +1318,7 @@ modCommands.add(new lib.Command({
 	handler: async function(args: { name: string, modVersion: string }, control: Control) {
 		let streamId = await control.send(new lib.ModDownloadRequest(args.name, args.modVersion));
 
-		let url = new URL(control.config.get("control.controller_url") as string);
+		let url = new URL(control.config.get("control.controller_url")!);
 		url.pathname += `api/stream/${streamId}`;
 		let response = await phin({
 			url, method: "GET",

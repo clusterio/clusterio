@@ -14,8 +14,7 @@ export default function InstanceConfigTree(props: InstanceConfigTreeProps) {
 	let control = useContext(ControlContext);
 
 	async function retrieveConfig() {
-		let result = await control.send(new lib.InstanceConfigGetRequest(props.id));
-		return result.serializedConfig;
+		return await control.send(new lib.InstanceConfigGetRequest(props.id));
 	}
 
 	async function setField(field: string, value: any) {

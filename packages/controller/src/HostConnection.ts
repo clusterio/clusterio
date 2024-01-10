@@ -189,7 +189,7 @@ export default class HostConnection extends BaseConnection {
 		for (let instance of this._controller.instances.values()) {
 			if (instance.config.get("instance.assigned_host") === this._id) {
 				await this.send(
-					new lib.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
+					new lib.InstanceAssignInternalRequest(instance.id, instance.config.toRemote("host"))
 				);
 			}
 		}
@@ -197,8 +197,8 @@ export default class HostConnection extends BaseConnection {
 		// Assign instances the host has but controller does not
 		const instanceUpdates: InstanceInfo[] = [];
 		for (let instanceData of request.instances) {
-			let instanceConfig = new lib.InstanceConfig("controller");
-			await instanceConfig.load(instanceData.config as lib.SerializedConfig, "host");
+			const instanceConfig = new lib.InstanceConfig("controller");
+			instanceConfig.update(instanceData.config, false, "host");
 
 			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
@@ -237,7 +237,7 @@ export default class HostConnection extends BaseConnection {
 			this._controller.addInstanceHooks(newInstance);
 			await this.send(
 				new lib.InstanceAssignInternalRequest(
-					instanceConfig.get("instance.id"), instanceConfig.serialize("host")
+					instanceConfig.get("instance.id"), instanceConfig.toRemote("host")
 				)
 			);
 			instanceUpdates.push(newInstance);

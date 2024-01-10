@@ -47,7 +47,8 @@ async function discoverInstances(instancesDir: string) {
 			let configPath = path.join(instancesDir, entry.name, "instance.json");
 
 			try {
-				await instanceConfig.load(JSON.parse(await fs.readFile(configPath, "utf8")));
+				const jsonConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
+				instanceConfig = lib.InstanceConfig.fromJSON(jsonConfig, "host");
 
 			} catch (err: any) {
 				if (err.code === "ENOENT") {
@@ -286,8 +287,8 @@ export default class Host extends lib.Link {
 		this.configPath = hostConfigPath;
 		this.config = hostConfig;
 
-		this.config.on("fieldChanged", (group, field, prev) => {
-			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", group, field, prev);
+		this.config.on("fieldChanged", (name, curr, prev) => {
+			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", name, curr, prev);
 		});
 
 		this.connector.on("hello", data => {
@@ -361,7 +362,7 @@ export default class Host extends lib.Link {
 
 	async loadPlugins() {
 		for (let pluginInfo of this.pluginInfos) {
-			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)) {
 				continue;
 			}
 
@@ -564,17 +565,17 @@ export default class Host extends lib.Link {
 		let { instanceId, config } = request;
 		let instanceInfo = this.instanceInfos.get(instanceId);
 		if (instanceInfo) {
-			instanceInfo.config.update(config as any, true, "controller");
+			instanceInfo.config.update(config, true, "controller");
 			logger.verbose(`Updated config for ${instanceInfo.path}`, this.instanceLogMeta(instanceId, instanceInfo));
 
 		} else {
 			instanceInfo = this.discoveredInstanceInfos.get(instanceId);
 			if (instanceInfo) {
-				instanceInfo.config.update(config as any, true, "controller");
+				instanceInfo.config.update(config, true, "controller");
 
 			} else {
 				let instanceConfig = new lib.InstanceConfig("host");
-				await instanceConfig.load(config as any, "controller");
+				instanceConfig.update(config, false, "controller");
 
 				let instanceDir = await this._createNewInstanceDir(instanceConfig.get("instance.name"));
 
@@ -608,7 +609,7 @@ export default class Host extends lib.Link {
 		// save a copy of the instance config
 		let warnedOutput = {
 			_warning: "Changes to this file will be overwritten by the controller's copy.",
-			...instanceInfo.config.serialize(),
+			...instanceInfo.config.toJSON(),
 		};
 		await lib.safeOutputFile(
 			path.join(instanceInfo.path, "instance.json"),
@@ -919,8 +920,8 @@ export default class Host extends lib.Link {
 		let list = [];
 		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
-			list.push(new lib.RawInstanceInfo(
-				instanceInfo.config.serialize("controller"),
+			list.push(new lib.HostInstanceUpdate(
+				instanceInfo.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : undefined,
 			));
@@ -984,7 +985,7 @@ export default class Host extends lib.Link {
 		}
 
 		logger.info("Saving config");
-		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
+		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
 
 		try {
 			// Clear silly interval in pidfile library.

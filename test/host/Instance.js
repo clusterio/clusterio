@@ -11,17 +11,12 @@ const addr = lib.Address.fromShorthand;
 
 
 describe("class Instance", function() {
-	before(function() {
-		lib.InstanceConfig.finalize();
-	});
-
 	let src;
 	let dst = addr({ hostId: 1 });
 	let instance;
 	let connector;
-	beforeEach(async function() {
+	beforeEach(function() {
 		let instanceConfig = new lib.InstanceConfig("host");
-		await instanceConfig.init();
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);

@@ -1,5 +1,5 @@
 import type {
-	ConfigGroup, CollectorResult, Logger, ParsedFactorioOutput, PlayerEvent, PluginNodeEnvInfo,
+	CollectorResult, Logger, ParsedFactorioOutput, PlayerEvent, PluginNodeEnvInfo,
 } from "@clusterio/lib";
 import type Host from "./Host";
 
@@ -46,12 +46,11 @@ export default class BaseHostPlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed on this host.
 	 *
-	 * @param group -
-	 *     The group who's field got changed.
 	 * @param field - Name of the field that changed.
+	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onHostConfigFieldChanged(group: ConfigGroup, field: string, prev: unknown) { }
+	async onHostConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
 
 	/**
 	 * Called before collecting Prometheus metrics

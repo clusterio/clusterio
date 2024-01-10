@@ -216,11 +216,11 @@ export default class Controller {
 			this._startDevServer(args);
 		}
 
-		this.config.on("fieldChanged", (group, field, prev) => {
-			if (group.name === "controller" && field === "autosave_interval") {
+		this.config.on("fieldChanged", (field, curr, prev) => {
+			if (field === "controller.autosave_interval") {
 				this.onAutosaveIntervalChanged();
 			}
-			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", group, field, prev);
+			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
 		});
 		for (let instance of this.instances.values()) {
 			this.addInstanceHooks(instance);
@@ -421,7 +421,7 @@ export default class Controller {
 	private async _saveDataInternal() {
 		if (this.config.dirty) {
 			this.config.dirty = false;
-			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config.serialize(), null, "\t"));
+			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
@@ -495,11 +495,9 @@ export default class Controller {
 			) as Static<typeof InstanceInfo.jsonSchema>[];
 			for (let json of serialized) {
 				if (!json.config) { // migrate: from pre Alpha 14 format.
-					json = { config: json, status: "running" }; // Use running to force updatedAt
+					json = { config: json as any, status: "running" }; // Use running to force updatedAt
 				}
-				let instanceConfig = new lib.InstanceConfig("controller");
-				await instanceConfig.load(json.config as lib.SerializedConfig);
-				let instance = InstanceInfo.fromJSON(json, instanceConfig);
+				const instance = InstanceInfo.fromJSON(json, "controller");
 				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				if (instance.status !== status) {
 					instance.status = status;
@@ -519,7 +517,7 @@ export default class Controller {
 	}
 
 	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
-		let serialized = [...instances.values()].map(instance => instance.toJSON());
+		let serialized = [...instances.values()];
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
 	}
 
@@ -690,7 +688,6 @@ export default class Controller {
 	 *
 	 * @example
 	 * let instanceConfig = new lib.InstanceConfig("controller");
-	 * await instanceConfig.init();
 	 * instanceConfig.set("instance.name", "My instance");
 	 * let instance = await controller.instanceAssign(instanceConfig);
 	 * await controller.instanceAssign(instance.id, hostId);
@@ -802,11 +799,11 @@ export default class Controller {
 		this.clearSavesOfInstance(instanceId);
 
 		// Assign to target
-		instance.config.set("instance.assigned_host", hostId);
+		instance.config.set("instance.assigned_host", hostId ?? null);
 		// "fieldChanged" event handler will set this.instancesDirty
 		if (hostId !== undefined && newHostConnection) {
 			await newHostConnection.send(
-				new lib.InstanceAssignInternalRequest(instanceId, instance.config.serialize("host"))
+				new lib.InstanceAssignInternalRequest(instanceId, instance.config.toRemote("host"))
 			);
 		} else {
 			instance.status = "unassigned";
@@ -855,21 +852,21 @@ export default class Controller {
 			let connection = this.wsServer.hostConnections.get(hostId);
 			if (connection) {
 				await connection.send(
-					new lib.InstanceAssignInternalRequest(instance.id, instance.config.serialize("host"))
+					new lib.InstanceAssignInternalRequest(instance.id, instance.config.toRemote("host"))
 				);
 			}
 		}
 	}
 
 	addInstanceHooks(instance: InstanceInfo) {
-		instance.config.on("fieldChanged", (group: lib.ConfigGroup, field: string, prev: any) => {
+		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
 			instance.updatedAt = Date.now();
-			if (group.name === "instance" && field === "name") {
+			if (field === "instance.name") {
 				this.instanceDetailsUpdated([instance]);
 			}
 
 			this.instancesDirty = true;
-			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, group, field, prev);
+			lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", instance, field, curr, prev);
 		});
 	}
 
@@ -991,7 +988,7 @@ export default class Controller {
 				logger.warn(`Unable to load dist/web/manifest.json for plugin ${pluginInfo.name}`);
 			}
 
-			if (!this.config.group(pluginInfo.name).get("load_plugin")) {
+			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields)) {
 				continue;
 			}
 

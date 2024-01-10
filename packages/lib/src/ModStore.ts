@@ -2,17 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import { logger } from "./logging";
 import { ModInfo } from "./data";
-import EventEmitter from "events";
-
-abstract class TypedEventEmitter<
-	Keys extends string,
-	Events extends Record<Keys, (...args: [...any]) => void>,
-> extends EventEmitter {
-	declare ["on"]: <E extends Keys>(event: E, listener: Events[E]) => this;
-	declare ["off"]: <E extends Keys>(event: E, listener: Events[E]) => this;
-	declare ["once"]: <E extends Keys>(event: E, listener: Events[E]) => this;
-	declare ["emit"]: <E extends Keys>(event: E, ...args: Parameters<Events[E]>) => boolean;
-}
+import TypedEventEmitter from "./TypedEventEmitter";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */

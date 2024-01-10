@@ -1,5 +1,5 @@
 import type {
-	CollectorResult, ConfigGroup, Event, InstanceStatus, Logger,
+	CollectorResult, Event, InstanceStatus, Logger,
 	ModPack, ModInfo, PlayerEvent, PluginNodeEnvInfo,
 } from "@clusterio/lib";
 import type Controller from "./Controller";
@@ -99,12 +99,11 @@ export default class BaseControllerPlugin {
 	 * Invoked after the value of the config field given by `field` has
 	 * changed on the controller.
 	 *
-	 * @param group -
-	 *     The group who's field got changed.
 	 * @param field - Name of the field that changed.
+	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onControllerConfigFieldChanged(group: ConfigGroup, field: string, prev: unknown) { }
+	async onControllerConfigFieldChanged(field: string, curr: unknown, prev: unknown) { }
 
 	/**
 	 * Called when the value of an instance config field changed.
@@ -114,12 +113,11 @@ export default class BaseControllerPlugin {
 	 *
 	 * @param instance -
 	 *     The instance the config changed on.
-	 * @param group -
-	 *     The group who's field got changed.
 	 * @param field - Name of the field that changed.
+	 * @param curr - The current value of the field.
 	 * @param prev - The previous value of the field.
 	 */
-	async onInstanceConfigFieldChanged(instance: InstanceInfo, group: ConfigGroup, field: string, prev: unknown) { }
+	async onInstanceConfigFieldChanged(instance: InstanceInfo, field: string, curr: unknown, prev: unknown) { }
 
 	/**
 	 * Called before collecting Prometheus metrics

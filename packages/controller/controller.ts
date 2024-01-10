@@ -156,7 +156,6 @@ async function handleBootstrapCommand(
 			return;
 		}
 		let controlConfig = new lib.ControlConfig("control");
-		await controlConfig.init();
 
 		controlConfig.set("control.controller_url", Controller.calculateControllerUrl(controllerConfig));
 		controlConfig.set(
@@ -164,7 +163,7 @@ async function handleBootstrapCommand(
 			userManager.signUserToken(admin.name),
 		);
 
-		let content = JSON.stringify(controlConfig.serialize(), null, "\t");
+		let content = JSON.stringify(controlConfig, null, "\t");
 		if (args.output === "-") {
 			// eslint-disable-next-line no-console
 			console.log(content);
@@ -317,20 +316,19 @@ async function initialize(): Promise<InitializeParameters> {
 	logger.info("Loading Plugin info");
 	const pluginInfos = await lib.loadPluginInfos(pluginList);
 	lib.registerPluginMessages(pluginInfos);
-	lib.registerPluginConfigGroups(pluginInfos);
-	lib.finalizeConfigs();
+	lib.addPluginConfigFields(pluginInfos);
 
 	const controllerConfigPath = args.config;
 	logger.info(`Loading config from ${controllerConfigPath}`);
-	const controllerConfig = new lib.ControllerConfig("controller");
+	let controllerConfig = new lib.ControllerConfig("controller");
 	try {
-		let fileData = await fs.readFile(controllerConfigPath, { encoding: "utf8" });
-		await controllerConfig.load(JSON.parse(fileData));
+		let jsonConfig = JSON.parse(await fs.readFile(controllerConfigPath, { encoding: "utf8" }));
+		controllerConfig = lib.ControllerConfig.fromJSON(jsonConfig, "controller");
 
 	} catch (err: any) {
 		if (err.code === "ENOENT") {
 			logger.info("Config not found, initializing new config");
-			await controllerConfig.init();
+			controllerConfig = new lib.ControllerConfig("controller");
 
 		} else {
 			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
@@ -343,7 +341,7 @@ async function initialize(): Promise<InitializeParameters> {
 		let bytes = await asyncRandomBytes(256);
 		controllerConfig.set("controller.auth_secret", bytes.toString("base64"));
 		await lib.safeOutputFile(
-			controllerConfigPath, JSON.stringify(controllerConfig.serialize(), null, "\t")
+			controllerConfigPath, JSON.stringify(controllerConfig, null, "\t")
 		);
 	}
 

@@ -1,4 +1,4 @@
-import { Type } from "@sinclair/typebox";
+import { Static, TSchema, Type } from "@sinclair/typebox";
 
 export function StringEnum<T extends string[]>(values: [...T]) {
 	return Type.Unsafe<T[number]>({ type: "string", enum: values });
@@ -32,3 +32,12 @@ export function jsonPrimitive<T, U>(type: U) {
 export const JsonBoolean = jsonPrimitive<boolean, "boolean">("boolean");
 export const JsonNumber = jsonPrimitive<number, "number">("number");
 export const JsonString = jsonPrimitive<string, "string">("string");
+
+export function plainJson<T extends TSchema>(schema: T) {
+	return {
+		jsonSchema: schema,
+		fromJSON(json: Static<T>) {
+			return json;
+		},
+	};
+}
