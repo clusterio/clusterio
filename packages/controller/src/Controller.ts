@@ -1004,7 +1004,7 @@ export default class Controller {
 				}
 
 				let controllerPlugin = new ControllerPluginClass(pluginInfo, this, metrics as any, logger);
-				controllerPlugin.init();
+				await controllerPlugin.init();
 				this.plugins.set(pluginInfo.name, controllerPlugin);
 
 			} catch (err: any) {
