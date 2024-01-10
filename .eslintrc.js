@@ -288,6 +288,7 @@ module.exports = {
 				":": "before",
 				"||": "before",
 				"&&": "before",
+				"??": "before",
 			},
 		}],
 		"padded-blocks": "off",
