@@ -112,6 +112,9 @@ function getPlugins(req: Request, res: Response) {
 		let enabled = loaded && req.app.locals.controller.config.get(
 			`${pluginInfo.name}.load_plugin` as keyof lib.ControllerConfigFields,
 		) as unknown as boolean;
+		// Note: Cast through unknown is needed because load_plugin is
+		// defined at runtime and no other fields in the controller config
+		// currently have the boolean type.
 		let web: { main:any, error:string|undefined } = { main: undefined, error: undefined};
 		let devPlugins = req.app.locals.devPlugins;
 		if (devPlugins && devPlugins.has(name)) {
