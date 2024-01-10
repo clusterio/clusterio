@@ -920,7 +920,7 @@ export default class Host extends lib.Link {
 		let list = [];
 		for (let [instanceId, instanceInfo] of this.discoveredInstanceInfos) {
 			let instanceConnection = this.instanceConnections.get(instanceId);
-			list.push(new lib.RawInstanceInfo(
+			list.push(new lib.HostInstanceUpdate(
 				instanceInfo.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : undefined,

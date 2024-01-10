@@ -712,8 +712,7 @@ export class InstanceSendRconRequest {
 	static Response = JsonString;
 }
 
-// TODO remove this after config refactor
-export class RawInstanceInfo {
+export class HostInstanceUpdate {
 	constructor(
 		public config: Static<typeof InstanceConfig.jsonSchema>,
 		public status: InstanceStatus,
@@ -740,17 +739,17 @@ export class InstancesUpdateRequest {
 	static dst = "controller" as const;
 
 	constructor(
-		public instances: RawInstanceInfo[],
+		public instances: HostInstanceUpdate[],
 	) { }
 
-	static jsonSchema = Type.Array(RawInstanceInfo.jsonSchema);
+	static jsonSchema = Type.Array(HostInstanceUpdate.jsonSchema);
 
 	toJSON() {
 		return this.instances;
 	}
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.map(i => RawInstanceInfo.fromJSON(i)));
+		return new this(json.map(i => HostInstanceUpdate.fromJSON(i)));
 	}
 }
 
