@@ -169,7 +169,7 @@ export default class Instance extends lib.Link {
 		let serverOptions = {
 			logger: this.logger,
 			version: this.config.get("factorio.version"),
-			gamePort: this.config.get("factorio.game_port") ?? undefined,
+			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
 			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
 			rconPassword: this.config.get("factorio.rcon_password") ?? undefined,
 			enableWhitelist: this.config.get("factorio.enable_whitelist"),
@@ -449,7 +449,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			new lib.InstanceStatusChangedEvent(
 				this.id,
 				status,
-				status !== "stopped" ? this.server.gamePort : undefined,
+				this.server.gamePort,
 			),
 		);
 	}

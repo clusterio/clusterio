@@ -20,7 +20,7 @@ describe("class Instance", function() {
 		instanceConfig.set("instance.name", "foo");
 		src = addr({ instanceId: instanceConfig.get("instance.id") });
 		connector = new MockConnector(src, dst);
-		instance = new Instance({}, connector, "dir", "factorioDir", instanceConfig);
+		instance = new Instance({ assignGamePort: () => 1 }, connector, "dir", "factorioDir", instanceConfig);
 		instance.server = new MockServer();
 	});
 

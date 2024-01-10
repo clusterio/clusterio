@@ -599,7 +599,9 @@ export default class Host extends lib.Link {
 		let instanceConnection = this.instanceConnections.get(instanceId);
 		this.send(
 			new lib.InstanceStatusChangedEvent(
-				instanceId, instanceConnection ? instanceConnection.instance.status : "stopped", undefined
+				instanceId,
+				instanceConnection ? instanceConnection.instance.status : "stopped",
+				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 			)
 		);
 
@@ -607,6 +609,10 @@ export default class Host extends lib.Link {
 		await this.sendSaveListUpdate(instanceId, path.join(instanceInfo.path, "saves"));
 
 		// save a copy of the instance config
+		await this.saveInstanceConfig(instanceInfo);
+	}
+
+	async saveInstanceConfig(instanceInfo: { path: string, config: lib.InstanceConfig }) {
 		let warnedOutput = {
 			_warning: "Changes to this file will be overwritten by the controller's copy.",
 			...instanceInfo.config.toJSON(),
@@ -645,6 +651,50 @@ export default class Host extends lib.Link {
 			throw new lib.RequestError(`Instance with ID ${instanceId} does not exist`);
 		}
 		return instanceInfo;
+	}
+
+	/**
+	 * Retrieved assigned port of the given instance
+	 * @param instanceId - ID of the instance to get the assigned game port of:
+	 * @returns Assigned game port or undefined if it does not exist.
+	 */
+	gamePort(instanceId: number) {
+		const instance = this.discoveredInstanceInfos.get(instanceId);
+		if (!instance) {
+			return undefined;
+		}
+		return (
+			instance.config.get("factorio.game_port")
+			?? instance.config.get("factorio.host_assigned_game_port")
+			?? undefined
+		);
+	}
+
+	assignGamePort(instanceId: number) {
+		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2**16 - 1);
+		for (const [id, instance] of this.instanceInfos) {
+			if (id === instanceId) {
+				continue;
+			}
+			const port = (
+				instance.config.get("factorio.game_port")
+				?? instance.config.get("factorio.host_assigned_game_port")
+			);
+			if (port !== null) {
+				availablePorts.delete(port);
+			}
+		}
+		const instanceToAssign = this.instanceInfos.get(instanceId)!;
+		const assignedPort = instanceToAssign.config.get("factorio.host_assigned_game_port");
+		if (assignedPort !== null && availablePorts.has(assignedPort)) {
+			return assignedPort;
+		}
+		if (!availablePorts.size) {
+			throw new lib.RequestError("No available port left to assign from host.factorio_port_range");
+		}
+		const [newPort] = availablePorts;
+		instanceToAssign.config.set("factorio.host_assigned_game_port", newPort);
+		return newPort;
 	}
 
 	/**
@@ -923,7 +973,7 @@ export default class Host extends lib.Link {
 			list.push(new lib.HostInstanceUpdate(
 				instanceInfo.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
-				instanceConnection ? instanceConnection.instance.server.gamePort : undefined,
+				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
 			));
 		}
 		await this.send(new lib.InstancesUpdateRequest(list));
@@ -986,6 +1036,10 @@ export default class Host extends lib.Link {
 
 		logger.info("Saving config");
 		await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
+		for (const instanceInfo of this.instanceInfos.values()) {
+			// Save in case host_assigned_game_port changed in the config.
+			await this.saveInstanceConfig(instanceInfo);
+		}
 
 		try {
 			// Clear silly interval in pidfile library.

@@ -158,6 +158,7 @@ export interface HostConfigFields {
 	"host.controller_token": string;
 	"host.tls_ca": string | null;
 	"host.public_address": string;
+	"host.factorio_port_range": string;
 	"host.max_reconnect_delay": number;
 }
 
@@ -220,6 +221,14 @@ export class HostConfig extends classes.Config<HostConfigFields> {
 			type: "string",
 			initialValue: "localhost",
 		},
+		"host.factorio_port_range": {
+			title: "Factorio port range",
+			description:
+				"Range of UDP ports to use for game connections. Supports both comma separated values and " +
+				"ranges separated with a dash.",
+			type: "string",
+			initialValue: "34100-34199",
+		},
 		"host.max_reconnect_delay": {
 			title: "Max Reconnect Delay",
 			description: "Maximum delay to wait before attempting to reconnect WebSocket",
@@ -237,6 +246,7 @@ export interface InstanceConfigFields {
 
 	"factorio.version": string;
 	"factorio.game_port": number | null;
+	"factorio.host_assigned_game_port": number | null;
 	"factorio.rcon_port": number | null;
 	"factorio.rcon_password": string | null;
 	"factorio.player_online_autosave_slots": number;
@@ -286,8 +296,13 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			initialValue: "latest",
 		},
 		"factorio.game_port": {
-			description: "UDP port to run game on, uses a random port if null",
+			description: "UDP port to run game on, uses a port in host.factorio_port_range if null",
 			restartRequired: true,
+			type: "number",
+			optional: true,
+		},
+		"factorio.host_assigned_game_port": {
+			access: ["host"],
 			type: "number",
 			optional: true,
 		},
