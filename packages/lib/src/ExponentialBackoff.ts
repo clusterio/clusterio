@@ -77,5 +77,3 @@ export default class ExponentialBackoff {
 		return Math.random() * this.base * 2 ** this._exp * 1000;
 	}
 }
-
-module.exports = ExponentialBackoff;

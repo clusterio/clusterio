@@ -304,27 +304,27 @@ export default function UserViewPage() {
 				{
 					title: "Instance",
 					key: "instance",
-					render: ([id]) => instanceName(id),
+					render: (_, [id]) => instanceName(id),
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(instanceName(a[0]), instanceName(b[0])),
 				},
 				{
 					title: "Online time",
 					key: "onlineTime",
-					render: ([, stats]) => formatDuration(stats.onlineTimeMs || 0),
+					render: (_, [, stats]) => formatDuration(stats.onlineTimeMs || 0),
 					sorter: (a, b) => (a[1].onlineTimeMs || 0) - (b[1].onlineTimeMs || 0),
 				},
 				{
 					title: "Join count",
 					key: "joinCoint",
-					render: ([, stats]) => stats.joinCount || 0,
+					render: (_, [, stats]) => stats.joinCount || 0,
 					sorter: (a, b) => (a[1].joinCount || 0) - (b[1].joinCount || 0),
 					responsive: ["sm"],
 				},
 				{
 					title: "Last seen",
 					key: "lastSeen",
-					render: ([id]) => formatLastSeen(user, id),
+					render: (_, [id]) => formatLastSeen(user, id),
 					sorter: (a, b) => sortLastSeen(user, user, a[0], b[0]),
 				},
 			]}

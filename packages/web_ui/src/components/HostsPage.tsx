@@ -218,7 +218,7 @@ export default function HostsPage() {
 				{
 					title: "Connected",
 					key: "connected",
-					render: host => <Tag
+					render: (_, host) => <Tag
 						color={host.connected ? "#389e0d" : "#cf1322"}
 					>
 						{host.connected ? "Connected" : "Disconnected"}

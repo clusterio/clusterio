@@ -13,11 +13,15 @@ type PageLayoutProps = {
 };
 export default function PageLayout(props: PageLayoutProps) {
 	return <>
-		<Breadcrumb className="site-breadcrumb">
-			{props.nav.map((part, index) => <Breadcrumb.Item key={index}>
-				{part.path ? <Link to={part.path}>{part.name}</Link> : part.name}
-			</Breadcrumb.Item>)}
-		</Breadcrumb>
+		<Breadcrumb
+			className="site-breadcrumb"
+			itemRender={(route, params, routes, paths) => (
+				route.href ? <Link to={route.href}>{route.title}</Link> : route.title
+			)}
+			items={props.nav.map(
+				(part, index) => ({ href: part.path, title: part.name }))
+			}
+		/>
 		<Content className="site-layout-content" >
 			{props.children}
 		</Content>

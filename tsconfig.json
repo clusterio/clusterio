@@ -2,6 +2,7 @@
 	"files": [],
 	"references": [
 		{ "path": "./packages/lib" },
+		{ "path": "./packages/lib/tsconfig.web.json" },
 		{ "path": "./packages/controller" },
 		{ "path": "./packages/controller/tsconfig.web.json" },
 		{ "path": "./packages/host" },

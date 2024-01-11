@@ -206,7 +206,7 @@ export default function ModsPage() {
 				{
 					title: "Mods",
 					key: "roles",
-					render: modPack => modPack.mods.size,
+					render: (_, modPack) => modPack.mods.size,
 				},
 			]}
 			dataSource={[...modPacks.values()]}
@@ -233,7 +233,7 @@ export default function ModsPage() {
 					title: "Version",
 					key: "version",
 					align: "right",
-					render: mod => <>
+					render: (_, mod) => <>
 						{`${mod.version} `}
 						<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
 					</>,
@@ -248,7 +248,7 @@ export default function ModsPage() {
 					title: "Size",
 					key: "size",
 					responsive: ["lg"],
-					render: mod => lib.formatBytes(mod.size),
+					render: (_, mod) => lib.formatBytes(mod.size),
 					align: "right",
 					sorter: (a, b) => a.size - b.size,
 				},
@@ -256,7 +256,7 @@ export default function ModsPage() {
 					title: "Action",
 					key: "action",
 					responsive: ["lg"],
-					render: mod => actions(mod),
+					render: (_, mod) => actions(mod),
 				},
 			]}
 			expandable={{

@@ -50,14 +50,14 @@ export default function PluginsPage() {
 				{
 					title: "Name",
 					key: "name",
-					render: plugin => (plugin.info ? plugin.info.title : plugin.meta.name),
+					render: (_, plugin) => (plugin.info ? plugin.info.title : plugin.meta.name),
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.info ? a.info.title : a.meta.name, b.info ? b.info.title : b.meta.name),
 				},
 				{
 					title: "Version",
 					key: "version",
-					render: plugin => {
+					render: (_, plugin) => {
 						if (!plugin.package) {
 							return "Error loading module";
 						}
