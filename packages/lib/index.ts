@@ -25,6 +25,7 @@ export * from "./src/prometheus";
 export * from "./src/schema";
 export * from "./src/shared_commands";
 export * from "./src/stream";
+export * from "./src/system_collectors";
 export * from "./src/zip_ops";
 export * from "./src/subscriptions";
 

@@ -748,6 +748,12 @@ export default class Host extends lib.Link {
 					metricName: result.metric.name.replace("process_", "clusterio_host_"),
 				}));
 
+			} else if (result.metric.name.startsWith("system_")) {
+				results.push(lib.serializeResult(result, {
+					addLabels: { "host_id": String(this.config.get("host.id")) },
+					metricName: result.metric.name.replace("system_", "clusterio_host_system_"),
+				}));
+
 			} else {
 				results.push(lib.serializeResult(result));
 			}
