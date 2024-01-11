@@ -39,7 +39,7 @@ function mergeSamples(destinationResult: lib.CollectorResultSerialized, sourceRe
 	}
 
 	for (let entry of receivedSamples) {
-		sourceResult.samples.push(entry);
+		destinationResult.samples.push(entry);
 	}
 }
 
