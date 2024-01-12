@@ -25,6 +25,8 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	controller.LogSetSubscriptionsRequest,
 	controller.LogQueryRequest,
 	controller.LogMessageEvent,
+	controller.SystemMetricsRequest,
+	controller.SystemMetricsUpdateEvent,
 	controller.DebugDumpWsRequest,
 	controller.DebugWsMessageEvent,
 

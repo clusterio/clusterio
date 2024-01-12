@@ -204,6 +204,108 @@ export class LogMessageEvent {
 	}
 }
 
+export class SystemMetrics {
+	constructor(
+		/**
+		 * Id of the host these metrics originate from, or the string
+		 * "controller" if these metrics are for the controller.
+		 */
+		public id: number | "controller",
+		public coreRatios: number[],
+		public memoryCapacity: number,
+		public memoryAvailable: number,
+		public diskCapacity: number,
+		public diskAvailable: number,
+		/** Millisecond Unix timestamp this entry was last updated at */
+		public updatedAt: number,
+		public isDeleted: boolean,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"id": Type.Union([Type.Number(), Type.Literal("controller")]),
+		"coreRatios": Type.Array(Type.Number()),
+		"memoryCapacity": Type.Number(),
+		"memoryAvailable": Type.Number(),
+		"diskCapacity": Type.Number(),
+		"diskAvailable": Type.Number(),
+		"updatedAt": Type.Number(),
+		"isDeleted": Type.Boolean(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(
+			json.id,
+			json.coreRatios,
+			json.memoryCapacity,
+			json.memoryAvailable,
+			json.diskCapacity,
+			json.diskAvailable,
+			json.updatedAt,
+			json.isDeleted,
+		);
+	}
+
+	get cpuCapacity() {
+		return this.coreRatios.length;
+	}
+
+	get cpuUsed() {
+		return this.coreRatios.reduce((a, b) => a + b, 0);
+	}
+
+	get cpuAvailable() {
+		return this.cpuCapacity - this.cpuUsed;
+	}
+
+	get cpuRatio() {
+		return this.cpuUsed / this.cpuCapacity;
+	}
+
+	get memoryUsed() {
+		return this.memoryCapacity - this.memoryAvailable;
+	}
+
+	get memoryRatio() {
+		return (this.memoryCapacity - this.memoryAvailable) / this.memoryCapacity;
+	}
+
+	get diskUsed() {
+		return this.diskCapacity - this.diskAvailable;
+	}
+
+	get diskRatio() {
+		return (this.diskCapacity - this.diskAvailable) / this.diskCapacity;
+	}
+}
+
+export class SystemMetricsRequest {
+	declare ["constructor"]: typeof SystemMetricsRequest;
+	static type = "request" as const;
+	static src = "controller" as const;
+	static dst = "host" as const;
+	static Response = SystemMetrics;
+}
+
+export class SystemMetricsUpdateEvent {
+	declare ["constructor"]: typeof SystemMetricsUpdateEvent;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
+	static permission = "core.system_metrics.subscribe" as const;
+
+	constructor(
+		public updates: SystemMetrics[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		"updates": Type.Array(SystemMetrics.jsonSchema),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.updates.map(update => SystemMetrics.fromJSON(update)));
+	}
+}
+
 export class DebugDumpWsRequest {
 	declare ["constructor"]: typeof DebugDumpWsRequest;
 	static type = "request" as const;

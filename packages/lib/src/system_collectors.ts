@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import os from "os";
 import util from "util";
 import { Gauge } from "./prometheus";
+import { SystemMetrics } from "./data";
 
 function cpuModel() {
 	const model = os.cpus()[0].model;
@@ -119,3 +120,45 @@ export const systemDiskAvailableBytes = new Gauge(
 		},
 	},
 );
+
+function minZip<T>(a: T[], b: T[]): [T, T][] {
+	const length = Math.min(a.length, b.length);
+	const result = [];
+	result.length = length;
+	for (let i = 0; i < length; i++) {
+		result[i] = [a[i], b[i]] as [T, T];
+	}
+	return result;
+}
+
+let previousTotalCpuMs: number[] = [];
+let previousIdleCpuMs: number[] = [];
+export async function gatherSystemMetrics(id: SystemMetrics["id"]) {
+	const cpus = os.cpus();
+	const currentTotalCpuMs = cpus.map(({ times }) => times.user + times.idle + times.irq + times.nice + times.sys);
+	const currentIdleCpuMs = cpus.map(({ times }) => times.idle);
+	const deltaTotalCpuMs = minZip(previousTotalCpuMs, currentTotalCpuMs).map(([prev, curr]) => curr - prev);
+	const deltaIdleCpuMs = minZip(previousIdleCpuMs, currentIdleCpuMs).map(([prev, curr]) => curr - prev);
+	const cpuUsage = minZip(deltaTotalCpuMs, deltaIdleCpuMs).map(([total, idle]) => (total - idle) / total);
+	previousTotalCpuMs = currentTotalCpuMs;
+	previousIdleCpuMs = currentIdleCpuMs;
+	let diskCapacity = 0;
+	let diskAvailable = 0;
+	if (fs.statfs) { // TODO: remove this check once minimum supported Node.js >= v18.15.0.
+		const statFsAsync = util.promisify(fs.statfs);
+		const stats = await statFsAsync(".");
+		diskCapacity = stats.blocks * stats.bsize;
+		diskAvailable = stats.bavail * stats.bsize;
+	}
+
+	return new SystemMetrics(
+		id,
+		cpuUsage,
+		os.totalmem(),
+		os.freemem(),
+		diskCapacity,
+		diskAvailable,
+		Date.now(),
+		false,
+	);
+}

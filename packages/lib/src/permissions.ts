@@ -130,6 +130,13 @@ definePermission({
 	description: "Modify the controller config or entries of the controller config.",
 });
 definePermission({
+	name: "core.system_metrics.subscribe",
+	title: "Subscribe to system metrics updates",
+	description:
+		"Subscribe to be notified when the system metrics detailing cpu, memory and disk usage for the " +
+		"controller and hosts are updated.",
+});
+definePermission({
 	name: "core.host.list",
 	title: "List hosts",
 	description: "Get the full list of hosts in the cluster.",
