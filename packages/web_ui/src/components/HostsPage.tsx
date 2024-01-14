@@ -252,12 +252,6 @@ export default function HostsPage() {
 					hidden: !showNumbers,
 				},
 				{
-					title: "Agent",
-					dataIndex: "agent",
-					sorter: (a, b) => strcmp(a.agent, b.agent),
-					responsive: ["lg"],
-				},
-				{
 					title: "Version",
 					dataIndex: "version",
 					sorter: (a, b) => strcmp(a.version, b.version),

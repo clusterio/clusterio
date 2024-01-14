@@ -211,7 +211,6 @@ export class MessageHello extends Message {
 export class RegisterHostData {
 	constructor(
 		public token: string,
-		public agent: string,
 		public version: string,
 		public name: string,
 		public id: number,
@@ -221,7 +220,6 @@ export class RegisterHostData {
 
 	static jsonSchema = Type.Object({
 		"token": Type.String(),
-		"agent": Type.String(),
 		"version": Type.String(),
 		"name": Type.String(),
 		"id": Type.Integer(),
@@ -230,7 +228,7 @@ export class RegisterHostData {
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.token, json.agent, json.version, json.name, json.id, json.publicAddress, json.plugins);
+		return new this(json.token, json.version, json.name, json.id, json.publicAddress, json.plugins);
 	}
 }
 
@@ -254,18 +252,16 @@ export class MessageRegisterHost extends Message {
 export class RegisterControlData {
 	constructor(
 		public token: string,
-		public agent: string,
 		public version: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"token": Type.String(),
-		"agent": Type.String(),
 		"version": Type.String(),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.token, json.agent, json.version);
+		return new this(json.token, json.version);
 	}
 }
 

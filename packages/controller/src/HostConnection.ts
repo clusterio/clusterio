@@ -16,7 +16,6 @@ import HostInfo from "./HostInfo";
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	private _agent: string;
 	private _id: number;
 	private _name: string;
 	private _version: string;
@@ -29,7 +28,6 @@ export default class HostConnection extends BaseConnection {
 	) {
 		super(connector, controller);
 
-		this._agent = registerData.agent;
 		this._id = registerData.id;
 		this._name = registerData.name;
 		this._version = registerData.version;
@@ -38,7 +36,6 @@ export default class HostConnection extends BaseConnection {
 
 		const previousHostInfo = this._controller.hosts.get(this._id);
 		const currentHostInfo = new HostInfo(
-			this._agent,
 			this._id,
 			this._name,
 			this._version,

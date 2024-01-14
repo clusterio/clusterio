@@ -4,7 +4,6 @@ import { CollectorResultSerialized } from "../prometheus";
 
 export class HostDetails {
 	constructor(
-		public agent: string,
 		public version: string,
 		public name: string,
 		public id: number,
@@ -17,7 +16,6 @@ export class HostDetails {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"agent": Type.String(),
 		"version": Type.String(),
 		"name": Type.String(),
 		"id": Type.Integer(),
@@ -30,7 +28,6 @@ export class HostDetails {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
-			json.agent,
 			json.version,
 			json.name,
 			json.id,

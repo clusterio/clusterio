@@ -83,7 +83,6 @@ export default function HostViewPage() {
 			<Descriptions.Item label="Memory"><MetricMemoryUsed metrics={metrics} /></Descriptions.Item>
 			<Descriptions.Item label="Disk Usage"><MetricDiskRatio metrics={metrics} /></Descriptions.Item>
 			<Descriptions.Item label="Disk"><MetricDiskUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Agent">{host["agent"]}</Descriptions.Item>
 			<Descriptions.Item label="Version">{host["version"]}</Descriptions.Item>
 			{
 				host.tokenValidAfter

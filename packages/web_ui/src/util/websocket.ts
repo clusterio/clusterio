@@ -30,7 +30,6 @@ export class ControlConnector extends lib.WebSocketClientConnector {
 			new lib.MessageRegisterControl(
 				new lib.RegisterControlData(
 					this.token,
-					"Clusterio Web UI",
 					packageJson.version,
 				)
 			)

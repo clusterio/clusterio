@@ -38,7 +38,6 @@ class ControlConnector extends lib.WebSocketClientConnector {
 			new lib.MessageRegisterControl(
 				new lib.RegisterControlData(
 					this._token,
-					"clusterioctl",
 					version,
 				)
 			)
