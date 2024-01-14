@@ -129,15 +129,17 @@ export function configCommand(yargs: any) {
  * Handle the actions that are made available by configCommand.
  *
  * @param args - yargs args object.
- * @param instance - Config instance.
+ * @param instanceLoader - Function that loads the config instance.
  * @param configPath - Path to configuration file.
  */
 export async function handleConfigCommand(
 	args: Record<string, unknown>,
-	instance: libConfig.Config<any>,
+	instanceLoader: () => Promise<libConfig.Config<any>>,
 	configPath: string
 ) {
 	let command = (args._ as string[])[1];
+
+	let instance = await instanceLoader();
 
 	if (command === "list") {
 		for (const name of Object.keys(instance.constructor.fieldDefinitions)) {

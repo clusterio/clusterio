@@ -216,20 +216,23 @@ async function startControl() {
 		.parse() as CtlArguments
 	;
 
-	logger.verbose(`Loading config from ${args.config}`);
-	let controlConfig;
-	try {
-		const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
-		controlConfig = lib.ControlConfig.fromJSON(jsonConfig, "control");
+	let controlConfigLoader = async () => {
+		logger.verbose(`Loading config from ${args.config}`);
+		let controlConfig;
+		try {
+			const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
+			controlConfig = lib.ControlConfig.fromJSON(jsonConfig, "control");
 
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.verbose("Config not found, initializing new config");
-			controlConfig = new lib.ControlConfig("control");
+		} catch (err: any) {
+			if (err.code === "ENOENT") {
+				logger.verbose("Config not found, initializing new config");
+				controlConfig = new lib.ControlConfig("control");
 
-		} else {
-			throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
+			} else {
+				throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
+			}
 		}
+		return controlConfig;
 	}
 
 	if (args._.length === 0) {
@@ -239,9 +242,10 @@ async function startControl() {
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await lib.handleConfigCommand(args, controlConfig, args.config);
+		await lib.handleConfigCommand(args, controlConfigLoader, args.config);
 		return;
 	}
+	let controlConfig = await controlConfigLoader();
 
 	// Determine which command is being executed.
 	let commandPath = [...args._] as string[];
