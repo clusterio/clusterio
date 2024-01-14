@@ -176,8 +176,7 @@ async function startHost() {
 
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				logger.info("Config not found, initializing new config");
-				hostConfig = new lib.HostConfig("host");
+				throw new lib.StartupError(`Host config "${args.config}" not found.`);
 			} else {
 				throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
 			}
@@ -186,7 +185,7 @@ async function startHost() {
 	}
 
 	if (command === "config") {
-		await lib.handleConfigCommand(args, hostConfigLoader, args.config);
+		await lib.handleConfigCommand(args, hostConfigLoader, args.config, () => new lib.HostConfig("host"));
 		return;
 	}
 	let hostConfig = await hostConfigLoader();

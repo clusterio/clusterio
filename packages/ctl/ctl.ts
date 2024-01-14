@@ -225,9 +225,7 @@ async function startControl() {
 
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				logger.verbose("Config not found, initializing new config");
-				controlConfig = new lib.ControlConfig("control");
-
+				throw new lib.StartupError(`Control config "${args.config}" not found.`);
 			} else {
 				throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
 			}
@@ -242,7 +240,7 @@ async function startControl() {
 
 	// Handle the control-config command before trying to connect.
 	if (args._[0] === "control-config") {
-		await lib.handleConfigCommand(args, controlConfigLoader, args.config);
+		await lib.handleConfigCommand(args, controlConfigLoader, args.config, () => new lib.ControlConfig("control"));
 		return;
 	}
 	let controlConfig = await controlConfigLoader();

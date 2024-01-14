@@ -350,9 +350,7 @@ async function initialize(): Promise<InitializeParameters> {
 
 		} catch (err: any) {
 			if (err.code === "ENOENT") {
-				logger.info("Config not found, initializing new config");
-				controllerConfig = new lib.ControllerConfig("controller");
-	
+				throw new lib.StartupError(`Controller config "${controllerConfigPath}" not found.`);
 			} else {
 				throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
 			}
@@ -362,7 +360,7 @@ async function initialize(): Promise<InitializeParameters> {
 	
 	if (command === "config") {
 		await lib.handleConfigCommand(
-			args, controllerConfigLoader, controllerConfigPath
+			args, controllerConfigLoader, controllerConfigPath, () => new lib.ControllerConfig("controller")
 		);
 	}
 	let controllerConfig = await controllerConfigLoader();

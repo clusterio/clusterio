@@ -3,6 +3,7 @@
  * @module lib/shared_commands
  */
 import path from "path";
+import fs from "fs-extra";
 
 import * as libConfig from "./config";
 import * as libFileOps from "./file_ops";
@@ -117,6 +118,7 @@ export function configCommand(yargs: any) {
 		})
 		.command("show <field>", "Show value of the given config field")
 		.command("list", "List all configuration fields and their values")
+		.command("create", "Create the default config")
 		.demandCommand(1, "You need to specify a command to run")
 		.help()
 		.strict()
@@ -135,10 +137,19 @@ export function configCommand(yargs: any) {
 export async function handleConfigCommand(
 	args: Record<string, unknown>,
 	instanceLoader: () => Promise<libConfig.Config<any>>,
-	configPath: string
+	configPath: string,
+	emptyConfigSupplier: () => libConfig.Config<any>
 ) {
 	let command = (args._ as string[])[1];
 
+	if (command == "create") {
+		if (await fs.exists(configPath)) {
+			logger.error(`Config "${configPath}" already exists`)
+			return;
+		}
+		await libFileOps.safeOutputFile(configPath, JSON.stringify(emptyConfigSupplier(), null, "\t"));
+		return;
+	}
 	let instance = await instanceLoader();
 
 	if (command === "list") {
