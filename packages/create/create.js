@@ -113,21 +113,21 @@ async function execFile(cmd, args) {
 
 async function execController(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "controller"), ...args]);
+		return await execFile("node", [path.join(__dirname, "..", "controller"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusteriocontroller${scriptExt}`), args);
 }
 
 async function execHost(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "host"), ...args]);
+		return await execFile("node", [path.join(__dirname, "..", "host"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusteriohost${scriptExt}`), args);
 }
 
 async function execCtl(args) {
 	if (dev) {
-		return await execFile("node", [path.join("packages", "ctl"), ...args]);
+		return await execFile("node", [path.join(__dirname, "..", "ctl"), ...args]);
 	}
 	return await execFile(path.join("node_modules", ".bin", `clusterioctl${scriptExt}`), args);
 }
