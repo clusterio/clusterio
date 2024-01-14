@@ -32,8 +32,8 @@ export function MetricMemoryUsed(props: { metrics?: lib.SystemMetrics }) {
 	if (!props.metrics) {
 		return "N/A";
 	}
-	const used = lib.formatBytes(props.metrics.memoryUsed);
-	const capacity = lib.formatBytes(props.metrics.memoryCapacity);
+	const used = lib.formatBytes(props.metrics.memoryUsed, "binary");
+	const capacity = lib.formatBytes(props.metrics.memoryCapacity, "binary");
 	return `${used} / ${capacity}`;
 }
 
