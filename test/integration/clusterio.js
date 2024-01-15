@@ -230,6 +230,29 @@ describe("Integration of Clusterio", function() {
 				await execCtl("host list");
 			});
 		});
+		describe("host config", function() {
+			it("changes host config", async function() {
+				await execCtl("host config set 4 host.name My-Host");
+				const result = await execCtl("host config list 4");
+				assert(/My-Host/.test(result.stdout), "New host name not in config output");
+			});
+			it("should not allow setting host.controller_token", async function() {
+				await assert.rejects(
+					execCtl("host config set 4 host.controller_token xyz"),
+					/Field 'host\.controller_token' is not accessible/,
+				);
+			});
+			it("should not allow setting host.id", async function() {
+				await assert.rejects(
+					execCtl("host config set 4 host.id 200"),
+					/Setting 'host\.id' while host is running is not supported/,
+				);
+			});
+			it("should not leak host.controller_token", async function() {
+				let result = await getControl().sendTo({ hostId: 4 }, new lib.HostConfigGetRequest());
+				assert.equal(Object.prototype.hasOwnProperty.call(result, "host.controller_token"), false);
+			});
+		});
 		describe("host generate-token", function() {
 			it("runs", async function() {
 				await execCtl("host generate-token --id 42");

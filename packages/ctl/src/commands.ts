@@ -58,7 +58,7 @@ async function configToKeyVal(data: string) {
 
 function serializedConfigToString(
 	serializedConfig: lib.ConfigSchema,
-	configGroup: typeof lib.ControllerConfig | typeof lib.InstanceConfig,
+	configGroup: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig,
 	disallowedList: Record<string, unknown>,
 ) {
 	let allConfigElements = "";
@@ -288,6 +288,149 @@ hostCommands.add(new lib.Command({
 		}
 	},
 }));
+
+const hostConfigCommands = new lib.CommandTree({
+	name: "config", alias: ["c"], description: "Host config management",
+});
+hostConfigCommands.add(new lib.Command({
+	definition: ["list <host>", "List configuration for a host", (yargs) => {
+		yargs.positional("host", { describe: "Host to list config for", type: "string" });
+	}],
+	handler: async function(args: { host: string }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		let config = await control.sendTo({ hostId }, new lib.HostConfigGetRequest());
+
+		for (let [name, value] of Object.entries(config)) {
+			print(`${name} ${JSON.stringify(value)}`);
+		}
+	},
+}));
+
+hostConfigCommands.add(new lib.Command({
+	definition: ["set <host> <field> [value]", "Set field in host config", (yargs) => {
+		yargs.positional("host", { describe: "Host to set config on", type: "string" });
+		yargs.positional("field", { describe: "Field to set", type: "string" });
+		yargs.positional("value", { describe: "Value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
+	}],
+	handler: async function(
+		args: { host: string, field: string, value?: string, stdin?: boolean },
+		control: Control,
+	) {
+		let hostId = await lib.resolveHost(control, args.host);
+		if (args.stdin) {
+			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		} else if (args.value === undefined) {
+			args.value = "";
+		}
+		await control.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(args.field, args.value));
+	},
+}));
+
+hostConfigCommands.add(new lib.Command({
+	definition: ["set-prop <host> <field> <prop> [value]", "Set property of field in host config", (yargs) => {
+		yargs.positional("host", { describe: "Host to set config on", type: "string" });
+		yargs.positional("field", { describe: "Field to set", type: "string" });
+		yargs.positional("prop", { describe: "Property to set", type: "string" });
+		yargs.positional("value", { describe: "JSON parsed value to set", type: "string" });
+		yargs.options({
+			"stdin": { describe: "read value from stdin", nargs: 0, type: "boolean" },
+		});
+	}],
+	handler: async function(
+		args: { host: string, field: string, prop: string, value?: string, stdin?: boolean },
+		control: Control
+	) {
+		let hostId = await lib.resolveHost(control, args.host);
+		if (args.stdin) {
+			args.value = (await lib.readStream(process.stdin)).toString().replace(/\r?\n$/, "");
+		}
+		let value;
+		try {
+			if (args.value !== undefined) {
+				value = JSON.parse(args.value);
+			}
+		} catch (err: any) {
+			// See note for the instance version of set-prop
+			if (args.stdin || /^(\[.*]|{.*}|".*")$/.test(args.value!)) {
+				throw new lib.CommandError(`In parsing value '${args.value}': ${err.message}`);
+			}
+			value = args.value;
+		}
+		await control.sendTo({ hostId }, new lib.HostConfigSetPropRequest(args.field, args.prop, value));
+	},
+}));
+
+hostConfigCommands.add(new lib.Command({
+	definition: ["edit <host> [editor]", "Edit host configuration", (yargs) => {
+		yargs.positional("host", { describe: "Host to set config on", type: "string" });
+		yargs.positional("editor", {
+			describe: "Editor to use",
+			type: "string",
+			default: "",
+		});
+	}],
+	handler: async function(args: { host: string, editor: string }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		let config = await control.sendTo({ hostId }, new lib.HostConfigGetRequest());
+		let tmpFile = await lib.getTempFile("ctl-", "-tmp", os.tmpdir());
+		let editor = await getEditor(args.editor);
+		if (editor === undefined) {
+			throw new lib.CommandError(`No editor avalible. Checked CLI input, EDITOR and VISUAL env vars
+							  Try "ctl controller config edit <editor of choice>"`);
+		}
+		let disallowedList = {"host.id": 0};
+		let allConfigElements = serializedConfigToString(
+			config,
+			lib.HostConfig,
+			disallowedList
+		);
+		await fs.writeFile(tmpFile, allConfigElements);
+		let editorSpawn = child_process.spawn(editor, [tmpFile], {
+			stdio: "inherit",
+			detached: false,
+		});
+		editorSpawn.on("data", (data) => {
+			process.stdout.pipe(data);
+		});
+		let doneEmitter = new events.EventEmitter();
+		editorSpawn.on("exit", async (exit) => {
+			const data = await fs.readFile(tmpFile, "utf8");
+			const final = await configToKeyVal(data);
+			for (let index in final) {
+				if (index in final) {
+					try {
+						await control.sendTo({ hostId }, new lib.HostConfigSetFieldRequest(
+							index,
+							final[index],
+						));
+					} catch (err) {
+						// eslint-disable-next-line
+						print(`\n\n\nAttempt to set ${index} to ${final[index] || String(null)} failed; set back to previous value.`);
+						// If the string is empty, it's better to just print "" instead of nothing
+						print("This message shouldn't normally appear; if the below message does not indicate it");
+						print("was a user mistake, please report it to the clustorio devs.");
+						// added this because it could be a missed entry in disallowedList
+						// i've added all the vanilla clustorio configs, but there may be
+						// some modded ones that need to be added.
+						print(err);
+					}
+				}
+			}
+			doneEmitter.emit("dot_on_done");
+		});
+		await events.once(doneEmitter, "dot_on_done");
+		try {
+			await fs.unlink(tmpFile);
+		} catch (err) {
+			print("err: temporary file", tmpFile, "could not be deleted.");
+			print("This is not fatal, but they may build up over time if the issue persists.");
+		}
+	},
+}));
+hostCommands.add(hostConfigCommands);
 
 
 const instanceCommands = new lib.CommandTree({

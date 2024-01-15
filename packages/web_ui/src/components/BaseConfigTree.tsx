@@ -26,12 +26,13 @@ function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 }
 
 type BaseConfigTreeProps = {
-	ConfigClass: typeof lib.ControllerConfig | typeof lib.InstanceConfig;
+	ConfigClass: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig;
 	retrieveConfig: () => Promise<lib.ConfigSchema>;
 	setField: (field:string, value:any) => Promise<void>;
 	setProp: (field:string, prop:string, value:any) => Promise<void>;
 	id?: number;
 	onApply?: () => void;
+	available?: boolean;
 };
 export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [config, setConfig] = useState<lib.Config<any>|null>(null);
@@ -39,6 +40,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [changedFields, setChangedFields] = useState<Set<string>>(new Set());
 	let [errorFields, setErrorFields] = useState(new Map());
 	let [applying, setApplying] = useState(false);
+	const available = props.available ?? true;
 
 	async function updateConfig() {
 		let serializedConfig = await props.retrieveConfig();
@@ -47,10 +49,12 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		return newConfig;
 	}
 	useEffect(() => {
-		updateConfig().then(updatedConfig => {
-			form.setFieldsValue(getInitialValues(updatedConfig, props));
-		});
-	}, [props.id]);
+		if (available) {
+			updateConfig().then(updatedConfig => {
+				form.setFieldsValue(getInitialValues(updatedConfig, props));
+			});
+		}
+	}, [props.id, available]);
 
 	function renderInput(def: lib.FieldDefinition) {
 		if (def.type === "boolean") {
@@ -66,8 +70,22 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		return `Unknown type ${def.type}`;
 	}
 
+	if (!available) {
+		return <>
+			<Title level={5} style={{ marginTop: 16 }}>Config</Title>
+			<Card size="small" className="config-container">
+				Config is currently unavailable.
+			</Card>
+		</>;
+	}
+
 	if (config === null) {
-		return <Spin/>;
+		return <>
+			<Title level={5} style={{ marginTop: 16 }}>Config</Title>
+			<Card size="small" className="config-container">
+				<Spin size="large" />;
+			</Card>
+		</>;
 	}
 
 	let initialValues: any = {};

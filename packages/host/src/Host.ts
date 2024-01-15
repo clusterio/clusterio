@@ -341,6 +341,9 @@ export default class Host extends lib.Link {
 			});
 		}
 
+		this.handle(lib.HostConfigGetRequest, this.handleHostConfigGetRequest.bind(this));
+		this.handle(lib.HostConfigSetFieldRequest, this.handleHostConfigSetFieldRequest.bind(this));
+		this.handle(lib.HostConfigSetPropRequest, this.handleHostConfigSetPropRequest.bind(this));
 		this.handle(lib.SyncUserListsEvent, this.handleSyncUserListsEvent.bind(this));
 		this.snoopEvent(lib.InstanceAdminlistUpdateEvent, this.handleAdminlistUpdateEvent.bind(this));
 		this.snoopEvent(lib.InstanceBanlistUpdateEvent, this.handleBanlistUpdateEvent.bind(this));
@@ -421,6 +424,25 @@ export default class Host extends lib.Link {
 			}
 			instanceConnection.send(event);
 		}
+	}
+
+	async handleHostConfigGetRequest() {
+		return this.config.toRemote("control");
+	}
+
+	async handleHostConfigSetFieldRequest(request: lib.HostConfigSetFieldRequest) {
+		if (request.field === "host.id") {
+			// Changing host.id at runtime is not worth the effort to
+			// support and will break a lot of things if it is allowed.
+			throw new lib.RequestError("Setting 'host.id' while host is running is not supported");
+		}
+
+		this.config.set(request.field as keyof lib.HostConfigFields, request.value, "control");
+	}
+
+	async handleHostConfigSetPropRequest(request: lib.HostConfigSetPropRequest) {
+		let { field, prop, value } = request;
+		this.config.setProp(field as keyof lib.HostConfigFields, prop, value, "control");
 	}
 
 	async handleSyncUserListsEvent(event: lib.SyncUserListsEvent) {

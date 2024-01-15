@@ -32,6 +32,9 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	subscriptions.SubscriptionRequest,
 
+	host.HostConfigGetRequest,
+	host.HostConfigSetFieldRequest,
+	host.HostConfigSetPropRequest,
 	host.HostListRequest,
 	host.HostUpdatesEvent,
 	host.HostMetricsRequest,
