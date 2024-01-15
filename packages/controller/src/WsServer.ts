@@ -107,7 +107,7 @@ export default class WsServer {
 		socket.on("message", (message: WebSocket.RawData) => {
 			wsMessageCounter.labels("in").inc();
 			if (!socket.clusterio_ignore_dump) {
-				this.controller.debugEvents.emit("message", { direction: "in", content: message });
+				this.controller.debugEvents.emit("message", { direction: "in", content: message.toString("utf8") });
 			}
 		});
 		let originalSend = socket.send;

@@ -347,6 +347,7 @@ export default class Host extends lib.Link {
 		this.snoopEvent(lib.InstanceWhitelistUpdateEvent, this.handleWhitelistUpdateEvent.bind(this));
 		this.handle(lib.InstanceAssignInternalRequest, this.handleInstanceAssignInternalRequest.bind(this));
 		this.handle(lib.InstanceUnassignInternalRequest, this.handleInstanceUnassignInternalRequest.bind(this));
+		this.handle(lib.SystemMetricsRequest, this.handleSystemMetricsRequest.bind(this));
 		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
 		this.fallbackRequest(
 			lib.InstanceSaveDetailsListRequest, this.fallbackInstanceSaveDetailsListRequest.bind(this),
@@ -723,6 +724,10 @@ export default class Host extends lib.Link {
 		return instanceConnection;
 	}
 
+	async handleSystemMetricsRequest() {
+		return lib.gatherSystemMetrics(this.config.get("host.id"));
+	}
+
 	async handleHostMetricsRequest() {
 		let requests: Promise<InstanceType<typeof lib.InstanceMetricsRequest["Response"]>>[] = [];
 		for (let instanceConnection of this.instanceConnections.values()) {
@@ -746,6 +751,12 @@ export default class Host extends lib.Link {
 				results.push(lib.serializeResult(result, {
 					addLabels: { "host_id": String(this.config.get("host.id")) },
 					metricName: result.metric.name.replace("process_", "clusterio_host_"),
+				}));
+
+			} else if (result.metric.name.startsWith("system_")) {
+				results.push(lib.serializeResult(result, {
+					addLabels: { "host_id": String(this.config.get("host.id")) },
+					metricName: result.metric.name.replace("system_", "clusterio_host_system_"),
 				}));
 
 			} else {

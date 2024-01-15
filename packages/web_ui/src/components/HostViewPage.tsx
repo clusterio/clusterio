@@ -13,7 +13,12 @@ import { useHost } from "../model/host";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
+import {
+	MetricCpuRatio, MetricCpuUsed, MetricMemoryRatio, MetricMemoryUsed,
+	MetricDiskUsed, MetricDiskRatio,
+} from "./system_metrics";
 import { formatTimestamp } from "../util/time_format";
+import { useSystemMetrics } from "../model/system_metrics";
 
 const { Title } = Typography;
 
@@ -23,6 +28,8 @@ export default function HostViewPage() {
 	let control = useContext(ControlContext);
 	let account = useAccount();
 	let [instances] = useInstances();
+	const [systemMetrics] = useSystemMetrics();
+	const metrics = systemMetrics.get(hostId);
 	const [host, synced] = useHost(hostId);
 	const hostInstances = new Map([...instances].filter(([_id, instance]) => instance.assignedHost === hostId));
 
@@ -63,20 +70,27 @@ export default function HostViewPage() {
 			title={host.name || String(hostId)}
 			extra={hostButtons}
 		/>
-		<Descriptions bordered size="small" column={{ xs: 1, sm: 2, xl: 4 }}>
+		<Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}>
 			<Descriptions.Item label="Name">{host["name"]}</Descriptions.Item>
 			<Descriptions.Item label="Connected">
 				<Tag color={host["connected"] ? "#389e0d" : "#cf1322"}>
 					{host["connected"] ? "Connected" : "Disconnected"}
 				</Tag>
 			</Descriptions.Item>
+			<Descriptions.Item label="CPU Usage"><MetricCpuRatio metrics={metrics} /></Descriptions.Item>
+			<Descriptions.Item label="Cores"><MetricCpuUsed metrics={metrics} /></Descriptions.Item>
+			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio metrics={metrics} /></Descriptions.Item>
+			<Descriptions.Item label="Memory"><MetricMemoryUsed metrics={metrics} /></Descriptions.Item>
+			<Descriptions.Item label="Disk Usage"><MetricDiskRatio metrics={metrics} /></Descriptions.Item>
+			<Descriptions.Item label="Disk"><MetricDiskUsed metrics={metrics} /></Descriptions.Item>
 			<Descriptions.Item label="Agent">{host["agent"]}</Descriptions.Item>
 			<Descriptions.Item label="Version">{host["version"]}</Descriptions.Item>
 			{
 				host.tokenValidAfter
-				&& <Descriptions.Item label="Tokens valid after:">
-					{formatTimestamp(host.tokenValidAfter*1000)}
-				</Descriptions.Item>
+					? <Descriptions.Item label="Tokens valid after:">
+						{formatTimestamp(host.tokenValidAfter*1000)}
+					</Descriptions.Item>
+					: null
 			}
 		</Descriptions>
 		{account.hasPermission("core.instance.list") && <>

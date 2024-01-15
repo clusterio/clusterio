@@ -60,6 +60,7 @@ export class Control extends lib.Link {
 	logHandlers: Map<lib.LogFilter, logHandler[]> = new Map();
 
 	/** Updates handled by the subscription service */
+	systemMetrics = new lib.EventSubscriber(lib.SystemMetricsUpdateEvent, this);
 	hosts = new lib.EventSubscriber(lib.HostUpdatesEvent, this);
 	instances = new lib.EventSubscriber(lib.InstanceDetailsUpdatesEvent, this);
 	saves = new lib.EventSubscriber(lib.InstanceSaveDetailsUpdatesEvent, this);

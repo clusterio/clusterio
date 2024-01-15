@@ -192,6 +192,50 @@ describe("lib/helpers", function() {
 		});
 	});
 
+	describe("formatBytes()", function() {
+		it("should format whole number of base unit bytes", function() {
+			assert.equal(lib.formatBytes(100), "100\u{A0}Bytes");
+			assert.equal(lib.formatBytes(100e3), "100\u{A0}kB");
+			assert.equal(lib.formatBytes(100e6), "100\u{A0}MB");
+			assert.equal(lib.formatBytes(100e9), "100\u{A0}GB");
+			assert.equal(lib.formatBytes(100e12), "100\u{A0}TB");
+			assert.equal(lib.formatBytes(100, false), "100\u{A0}Bytes");
+			assert.equal(lib.formatBytes(100 * 2**10, false), "100\u{A0}kiB");
+			assert.equal(lib.formatBytes(100 * 2**20, false), "100\u{A0}MiB");
+			assert.equal(lib.formatBytes(100 * 2**30, false), "100\u{A0}GiB");
+			assert.equal(lib.formatBytes(100 * 2**40, false), "100\u{A0}TiB");
+		});
+		it("should format with 3 significant digits fractional number of base unit bytes", function() {
+			// 1 digits base and 2 digit fraction
+			assert.equal(lib.formatBytes(1.234e3), "1.23\u{A0}kB");
+			assert.equal(lib.formatBytes(1.234e6), "1.23\u{A0}MB");
+			assert.equal(lib.formatBytes(1.234e9), "1.23\u{A0}GB");
+			assert.equal(lib.formatBytes(1.234e12), "1.23\u{A0}TB");
+			assert.equal(lib.formatBytes(1.234 * 2**10, "binary"), "1.23\u{A0}kiB");
+			assert.equal(lib.formatBytes(1.234 * 2**20, "binary"), "1.23\u{A0}MiB");
+			assert.equal(lib.formatBytes(1.234 * 2**30, "binary"), "1.23\u{A0}GiB");
+			assert.equal(lib.formatBytes(1.234 * 2**40, "binary"), "1.23\u{A0}TiB");
+			// 2 digits base and 1 digit fraction
+			assert.equal(lib.formatBytes(12.34e3), "12.3\u{A0}kB");
+			assert.equal(lib.formatBytes(12.34e6), "12.3\u{A0}MB");
+			assert.equal(lib.formatBytes(12.34e9), "12.3\u{A0}GB");
+			assert.equal(lib.formatBytes(12.34e12), "12.3\u{A0}TB");
+			assert.equal(lib.formatBytes(12.34 * 2**10, "binary"), "12.3\u{A0}kiB");
+			assert.equal(lib.formatBytes(12.34 * 2**20, "binary"), "12.3\u{A0}MiB");
+			assert.equal(lib.formatBytes(12.34 * 2**30, "binary"), "12.3\u{A0}GiB");
+			assert.equal(lib.formatBytes(12.34 * 2**40, "binary"), "12.3\u{A0}TiB");
+			// 3 digits base and no fraction
+			assert.equal(lib.formatBytes(123.4e3), "123\u{A0}kB");
+			assert.equal(lib.formatBytes(123.4e6), "123\u{A0}MB");
+			assert.equal(lib.formatBytes(123.4e9), "123\u{A0}GB");
+			assert.equal(lib.formatBytes(123.4e12), "123\u{A0}TB");
+			assert.equal(lib.formatBytes(123.4 * 2**10, "binary"), "123\u{A0}kiB");
+			assert.equal(lib.formatBytes(123.4 * 2**20, "binary"), "123\u{A0}MiB");
+			assert.equal(lib.formatBytes(123.4 * 2**30, "binary"), "123\u{A0}GiB");
+			assert.equal(lib.formatBytes(123.4 * 2**40, "binary"), "123\u{A0}TiB");
+		});
+	});
+
 	function parse(input, attributes) {
 		const result = lib.parseSearchString(input, attributes);
 		if (!result.issues.length) {

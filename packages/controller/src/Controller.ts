@@ -53,6 +53,8 @@ export default class Controller {
 	config: lib.ControllerConfig;
 	app: Application;
 
+	/** True if (@link Controller.systemMetrics} has changed since last time it was saved */
+	systemMetricsDirty = false;
 	/** True if {@link Controller.hosts} has changed since last time it was saved */
 	hostsDirty = false;
 	/** True if {@link Controller.instances} has changed since last time it was saved */
@@ -89,6 +91,7 @@ export default class Controller {
 	devMiddleware: any | null = null;
 
 	autosaveInterval?: ReturnType<typeof setInterval>;
+	systemMetricsInterval?: ReturnType<typeof setInterval>;
 
 	logDirectory: string = "";
 	clusterLogIndex: lib.LogIndex | null = null;
@@ -98,6 +101,7 @@ export default class Controller {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
+		const systemMetrics = await Controller.loadSystemMetrics(path.join(databaseDirectory, "metrics.json"));
 		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
 		const saves = await Controller.loadSaves(path.join(databaseDirectory, "saves.json"));
@@ -110,6 +114,7 @@ export default class Controller {
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
 
 		return [
+			systemMetrics,
 			hosts,
 			instances,
 			saves,
@@ -125,6 +130,7 @@ export default class Controller {
 		configPath: string,
 		config: lib.ControllerConfig,
 
+		public systemMetrics = new Map<lib.SystemMetrics["id"], lib.SystemMetrics>(),
 		/** Mapping of host id to host info */
 		public hosts = new Map<number, HostInfo>(),
 		/** Mapping of instance id to instance info */
@@ -154,6 +160,7 @@ export default class Controller {
 		});
 
 		// Handle subscriptions for all internal properties
+		this.subscriptions.handle(lib.SystemMetricsUpdateEvent, this.handleSystemMetricsSubscription.bind(this));
 		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
 		this.subscriptions.handle(
@@ -219,6 +226,8 @@ export default class Controller {
 		this.config.on("fieldChanged", (field, curr, prev) => {
 			if (field === "controller.autosave_interval") {
 				this.onAutosaveIntervalChanged();
+			} else if (field === "controller.system_metrics_interval") {
+				this.onSystemMetricsIntervalChanged();
 			}
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
 		});
@@ -292,6 +301,7 @@ export default class Controller {
 		}
 
 		this.onAutosaveIntervalChanged();
+		this.onSystemMetricsIntervalChanged();
 
 		logger.info("Started controller");
 		this._state = "running";
@@ -357,6 +367,11 @@ export default class Controller {
 			clearInterval(this.clusterLogBuildInterval);
 		}
 
+		if (this.systemMetricsInterval) {
+			clearInterval(this.systemMetricsInterval);
+			this.systemMetricsInterval = undefined;
+		}
+
 		if (this.autosaveInterval) {
 			clearInterval(this.autosaveInterval);
 			this.autosaveInterval = undefined;
@@ -387,6 +402,41 @@ export default class Controller {
 		logger.info("Saving data");
 		await this.saveData();
 		logger.info("Goodbye");
+	}
+
+	onSystemMetricsIntervalChanged() {
+		if (this.systemMetricsInterval) {
+			clearInterval(this.systemMetricsInterval);
+			this.systemMetricsInterval = undefined;
+		}
+		const systemMetricsIntervalSeconds = this.config.get("controller.system_metrics_interval");
+		if (systemMetricsIntervalSeconds > 0) {
+			this.systemMetricsInterval = setInterval(
+				this.updateSystemMetrics.bind(this),
+				systemMetricsIntervalSeconds * 1000
+			);
+		}
+	}
+
+	async updateSystemMetrics() {
+		try {
+			const requests: Promise<lib.SystemMetrics>[] = [];
+			for (let hostConnection of this.wsServer.hostConnections.values()) {
+				if (!hostConnection.connected) {
+					continue;
+				}
+				requests.push(hostConnection.send(new lib.SystemMetricsRequest()));
+			}
+			requests.push(lib.gatherSystemMetrics("controller"));
+			const newMetrics = await Promise.all(requests);
+			for (const metric of newMetrics) {
+				this.systemMetrics.set(metric.id, metric);
+			}
+			this.systemMetricsDirty = true;
+			this.subscriptions.broadcast(new lib.SystemMetricsUpdateEvent(newMetrics));
+		} catch (err: any) {
+			logger.error(`Unexpected error updating system metrics:\n${err.stack ?? err.message}`);
+		}
 	}
 
 	onAutosaveIntervalChanged() {
@@ -425,6 +475,11 @@ export default class Controller {
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
+		if (this.systemMetricsDirty) {
+			this.systemMetricsDirty = false;
+			await Controller.saveSystemMetrics(path.join(databaseDirectory, "metrics.json"), this.systemMetrics);
+		}
+
 		if (this.hostsDirty) {
 			this.hostsDirty = false;
 			await Controller.saveHosts(path.join(databaseDirectory, "hosts.json"), this.hosts);
@@ -450,6 +505,25 @@ export default class Controller {
 		}
 
 		await lib.invokeHook(this.plugins, "onSaveData");
+	}
+
+	static async loadSystemMetrics(filePath: string): Promise<Map<lib.SystemMetrics["id"], lib.SystemMetrics>> {
+		let json: Static<typeof lib.SystemMetrics.jsonSchema>[];
+		try {
+			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
+
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				throw err;
+			}
+			return new Map();
+		}
+
+		return new Map(json.map(m => lib.SystemMetrics.fromJSON(m)).map(m => [m.id, m]));
+	}
+
+	static async saveSystemMetrics(filePath: string, systemMetrics: Map<lib.SystemMetrics["id"], lib.SystemMetrics>) {
+		await lib.safeOutputFile(filePath, JSON.stringify([...systemMetrics.values()], null, "\t"));
 	}
 
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
@@ -633,6 +707,13 @@ export default class Controller {
 			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web", "static");
 			app.use("/static", express.static(webPath, staticOptions));
 		}
+	}
+
+	async handleSystemMetricsSubscription(request: lib.SubscriptionRequest) {
+		const systemMetrics = [...this.systemMetrics.values()].filter(
+			metric => metric.updatedAt > request.lastRequestTime,
+		);
+		return systemMetrics.length ? new lib.SystemMetricsUpdateEvent(systemMetrics) : null;
 	}
 
 	/**

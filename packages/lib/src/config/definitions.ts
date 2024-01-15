@@ -17,6 +17,7 @@ export interface ControllerConfigFields {
 	"controller.heartbeat_interval": number;
 	"controller.session_timeout": number;
 	"controller.metrics_timeout": number;
+	"controller.system_metrics_interval": number;
 	"controller.proxy_stream_timeout": number;
 	"controller.default_mod_pack_id": number | null;
 	"controller.default_role_id": number | null;
@@ -125,6 +126,12 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			description: "Timeout in seconds for metrics gathering from hosts.",
 			type: "number",
 			initialValue: 8,
+		},
+		"controller.system_metrics_interval": {
+			title: "System Metrics Interval",
+			description: "Interval in seconds to collect and update system metrics for the Web UI",
+			type: "number",
+			initialValue: 10,
 		},
 		"controller.proxy_stream_timeout": {
 			title: "Proxy Stream Timeout",

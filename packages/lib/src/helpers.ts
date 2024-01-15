@@ -217,17 +217,26 @@ export function escapeRegExp(text: string) {
  *
  * Shortens a large number of bytes using the kB/MB/GB/TB prefixes.
  * @param bytes - Count of bytes to format.
+ * @param prefixes - Whethere to use SI powers (1000) or the binary powers (1024).
  * @returns formatted text.
  */
-export function formatBytes(bytes: number) {
+export function formatBytes(bytes: number, prefixes: "si" | "binary" = "si") {
 	if (bytes === 0) {
 		return "0\u{A0}Bytes"; // No-break space
 	}
 
-	let units = ["\u{A0}Bytes", "\u{A0}kB", "\u{A0}MB", "\u{A0}GB", "\u{A0}TB"];
-	let factor = 1000;
-	let power = Math.min(Math.floor(Math.log(bytes) / Math.log(factor)), units.length);
-	return (power > 0 ? (bytes / factor ** power).toFixed(2) : bytes) + units[power];
+	let base, units;
+	if (prefixes === "si") {
+		base = 1000;
+		units = ["\u{A0}Bytes", "\u{A0}kB", "\u{A0}MB", "\u{A0}GB", "\u{A0}TB"];
+	} else {
+		base = 1024;
+		units = ["\u{A0}Bytes", "\u{A0}kiB", "\u{A0}MiB", "\u{A0}GiB", "\u{A0}TiB"];
+	}
+	const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(base)), units.length);
+	const significant = bytes / base ** exponent;
+	const fractionDigits = Number(significant < 99.95) + Number(significant < 9.995);
+	return significant.toFixed(fractionDigits) + units[exponent];
 }
 
 function skipWhitespace(pos: number, input: string) {
