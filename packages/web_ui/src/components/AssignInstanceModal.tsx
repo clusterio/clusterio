@@ -9,6 +9,7 @@ import { notifyErrorHandler } from "../util/notify";
 import { useHosts } from "../model/host";
 
 const { Paragraph } = Typography;
+const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
 
 type AssignInstanceModalProps = {
@@ -80,7 +81,7 @@ export default function AssignInstanceModal(props: AssignInstanceModalProps) {
 						<Select.Option value={"null"}>
 							<Typography.Text italic>Unassigned</Typography.Text>
 						</Select.Option>
-						{[...hosts.values()].map((host) => <Select.Option
+						{[...hosts.values()].sort((a, b) => strcmp(a.name, b.name)).map((host) => <Select.Option
 							key={host["id"]}
 							value={host["id"]}
 							disabled={!host["connected"]}
