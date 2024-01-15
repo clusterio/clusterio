@@ -804,6 +804,7 @@ export default class Controller {
 			"auto_pause": false,
 			"only_admins_can_pause_the_game": true,
 			"autosave_only_on_server": true,
+			"non_blocking_saving": false,
 
 			...instanceConfig.get("factorio.settings"),
 		};
