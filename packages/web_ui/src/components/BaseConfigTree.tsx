@@ -1,7 +1,9 @@
 import * as lib from "@clusterio/lib";
 
 import React, { useEffect, useState } from "react";
-import { Button, Card, Checkbox, Form, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography } from "antd";
+import {
+	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography,
+} from "antd";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 
 const { Title } = Typography;
@@ -25,6 +27,20 @@ function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	return initialValues;
 }
 
+function renderInput(def: lib.FieldDefinition) {
+	if (def.type === "boolean") {
+		return <Checkbox/>;
+	}
+	if (def.type === "string") {
+		return <Input/>;
+	}
+	if (def.type === "number") {
+		return <InputNumber/>;
+	}
+
+	return `Unknown type ${def.type}`;
+}
+
 type BaseConfigTreeProps = {
 	ConfigClass: typeof lib.ControllerConfig | typeof lib.HostConfig | typeof lib.InstanceConfig;
 	retrieveConfig: () => Promise<lib.ConfigSchema>;
@@ -38,7 +54,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [config, setConfig] = useState<lib.Config<any>|null>(null);
 	let [form] = Form.useForm();
 	let [changedFields, setChangedFields] = useState<Set<string>>(new Set());
-	let [errorFields, setErrorFields] = useState(new Map());
+	let [errorFields, setErrorFields] = useState(new Map<string, string>());
 	let [applying, setApplying] = useState(false);
 	const available = props.available ?? true;
 
@@ -55,20 +71,6 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 			});
 		}
 	}, [props.id, available]);
-
-	function renderInput(def: lib.FieldDefinition) {
-		if (def.type === "boolean") {
-			return <Checkbox/>;
-		}
-		if (def.type === "string") {
-			return <Input/>;
-		}
-		if (def.type === "number") {
-			return <InputNumber/>;
-		}
-
-		return `Unknown type ${def.type}`;
-	}
 
 	if (!available) {
 		return <>
@@ -109,11 +111,108 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		}
 	}
 
+	const [propsMap, treeData] = computeTreeData(
+		form,
+		initialValues,
+		errorFields,
+		config,
+		setConfig,
+		props.ConfigClass,
+		onValuesChange,
+	);
+
+	return <>
+		<Title level={5} style={{ marginTop: 16 }}>
+			Config
+			<Space style={{ float: "right" }}>
+				<Button
+					type="primary"
+					size="small"
+					loading={applying}
+					onClick={async () => {
+						setApplying(true);
+						for (let field of changedFields) {
+							let value = form.getFieldValue(field);
+							let request;
+							if (propsMap.has(field)) {
+								let [fieldName, prop] = propsMap.get(field);
+								request = props.setProp(fieldName, prop, value);
+
+							} else {
+								request = props.setField(field, value === null ? "" : String(value));
+							}
+
+							try {
+								await request;
+								setChangedFields(changed => {
+									let newChanged = new Set(changed);
+									newChanged.delete(field);
+									return newChanged;
+								});
+
+							} catch (err: any) {
+								setErrorFields(errors => {
+									let newErrors = new Map(errors);
+									newErrors.set(field, err.message);
+									return newErrors;
+								});
+							}
+						}
+
+						await updateConfig();
+						setApplying(false);
+
+						if (props.onApply) {
+							props.onApply();
+						}
+					}}
+					disabled={changedFields.size === 0}
+				>
+					Apply
+				</Button>
+				<Button
+					size="small"
+					onClick={() => {
+						form.resetFields();
+						setChangedFields(new Set());
+						setErrorFields(new Map());
+					}}
+				>
+					Revert
+				</Button>
+			</Space>
+		</Title>
+		<Card size="small" className="config-container">
+			<Form
+				size="small"
+				form={form}
+				initialValues={initialValues}
+				onValuesChange={onValuesChange}
+			>
+				<Tree
+					treeData={treeData}
+					selectable={false}
+					defaultExpandAll={true}
+					filterTreeNode={(node) => changedFields.has(node.key)}
+				/>
+			</Form>
+		</Card>
+	</>;
+}
+
+function computeTreeData(
+	form: FormInstance<any>,
+	initialValues: any,
+	errorFields: Map<string, string>,
+	config: lib.Config<any>,
+	setConfig: (newConfig: lib.Config<any>) => void,
+	ConfigClass: BaseConfigTreeProps["ConfigClass"],
+	onValuesChange: (changedValues: object) => void,
+) {
 	let restartTip = <Tooltip
 		className="ant-form-item-tooltip"
 		title="A restart is required for this setting to take effect"
 	><ReloadOutlined/></Tooltip>;
-
 
 	type ChildNode = {
 		key: string;
@@ -129,7 +228,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let treeData = [];
 	let propsMap = new Map();
 	const groups = new Map<string, { [name: string]: lib.FieldDefinition }>();
-	for (let [fieldName, def] of Object.entries(props.ConfigClass.fieldDefinitions)) {
+	for (let [fieldName, def] of Object.entries(ConfigClass.fieldDefinitions)) {
 		const [groupName, field] = lib.splitOn(".", fieldName);
 		let group = groups.get(groupName);
 		if (!group) {
@@ -221,7 +320,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 								let propName = form.getFieldValue(`${newPropPath}.name`);
 								let propValue = form.getFieldValue(`${newPropPath}.value`);
 								if (!Object.prototype.hasOwnProperty.call(value, propName)) {
-									let newConfig = props.ConfigClass.fromJSON(config!.toJSON(), "control");
+									let newConfig = ConfigClass.fromJSON(config!.toJSON(), "control");
 									(newConfig as lib.Config<any>).setProp(fieldName, propName, null);
 									setConfig(newConfig);
 								}
@@ -264,81 +363,5 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 		treeData.push(treeNode);
 	}
 
-	return <>
-		<Title level={5} style={{ marginTop: 16 }}>
-			Config
-			<Space style={{ float: "right" }}>
-				<Button
-					type="primary"
-					size="small"
-					loading={applying}
-					onClick={async () => {
-						setApplying(true);
-						for (let field of changedFields) {
-							let value = form.getFieldValue(field);
-							let request;
-							if (propsMap.has(field)) {
-								let [fieldName, prop] = propsMap.get(field);
-								request = props.setProp(fieldName, prop, value);
-
-							} else {
-								request = props.setField(field, value === null ? "" : String(value));
-							}
-
-							try {
-								await request;
-								setChangedFields(changed => {
-									let newChanged = new Set(changed);
-									newChanged.delete(field);
-									return newChanged;
-								});
-
-							} catch (err: any) {
-								setErrorFields(errors => {
-									let newErrors = new Map(errors);
-									newErrors.set(field, err.message);
-									return newErrors;
-								});
-							}
-						}
-
-						await updateConfig();
-						setApplying(false);
-
-						if (props.onApply) {
-							props.onApply();
-						}
-					}}
-					disabled={changedFields.size === 0}
-				>
-					Apply
-				</Button>
-				<Button
-					size="small"
-					onClick={() => {
-						form.resetFields();
-						setChangedFields(new Set());
-						setErrorFields(new Map());
-					}}
-				>
-					Revert
-				</Button>
-			</Space>
-		</Title>
-		<Card size="small" className="config-container">
-			<Form
-				size="small"
-				form={form}
-				initialValues={initialValues}
-				onValuesChange={onValuesChange}
-			>
-				<Tree
-					treeData={treeData}
-					selectable={false}
-					defaultExpandAll={true}
-					filterTreeNode={(node) => changedFields.has(node.key)}
-				/>
-			</Form>
-		</Card>
-	</>;
+	return [propsMap, treeData] as [typeof propsMap, typeof treeData];
 }
