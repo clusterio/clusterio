@@ -261,11 +261,11 @@ ${err.stack}`
 		}
 
 		logger.info(
-			`WsServer | registered host ${data.name} (${data.id}) using version ${data.version}`
+			`WsServer | registered host ${data.id} using version ${data.version}`
 		);
 		if (data.version !== packageVersion) {
 			logger.warn(
-				`Host ${data.name} (${data.id}) connected using version ${data.version} which does not match the ` +
+				`Host ${data.id} connected using version ${data.version} which does not match the ` +
 				`version of the controller is currently running (${packageVersion}). It may not work as expected.`
 			);
 		}

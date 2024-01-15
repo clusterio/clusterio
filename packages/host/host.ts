@@ -52,9 +52,7 @@ export class HostConnector extends lib.WebSocketClientConnector {
 				new lib.RegisterHostData(
 					this.hostConfig.get("host.controller_token"),
 					version,
-					this.hostConfig.get("host.name"),
 					this.hostConfig.get("host.id"),
-					this.hostConfig.get("host.public_address"),
 					plugins,
 				)
 			)

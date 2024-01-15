@@ -288,6 +288,9 @@ export default class Host extends lib.Link {
 		this.config = hostConfig;
 
 		this.config.on("fieldChanged", (name, curr, prev) => {
+			if (name === "host.name" || name === "host.public_address") {
+				this.sendHostUpdate();
+			}
 			lib.invokeHook(this.plugins, "onHostConfigFieldChanged", name, curr, prev);
 		});
 
@@ -301,6 +304,7 @@ export default class Host extends lib.Link {
 				return;
 			}
 
+			this.sendHostUpdate();
 			this.updateInstances().catch((err) => {
 				if (err instanceof lib.SessionLost) {
 					return undefined;
@@ -990,6 +994,17 @@ export default class Host extends lib.Link {
 		this.discoveredInstanceInfos.delete(instanceId);
 		this.instanceInfos.delete(instanceId);
 		await fs.remove(instanceInfo.path);
+	}
+
+	sendHostUpdate() {
+		this.send(
+			new lib.HostInfoUpdateEvent(
+				new lib.HostInfoUpdate(
+					this.config.get("host.name"),
+					this.config.get("host.public_address"),
+				),
+			),
+		);
 	}
 
 	/**

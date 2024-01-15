@@ -108,7 +108,6 @@ Host handshake for establishing a new connection session.
 
 - `token: string` - Authentication token.
 - `version: string` - The protocol version of the host, e.g. "2.0.0".
-- `name: string` - Name of the host.
 - `id: integer` - ID of the host.
 - `plugins: Object<string, string>` -
     Object mapping plugin names to plugin version for plugins that are available on the host.
@@ -242,7 +241,6 @@ Host registering a new connection session.
     "data": {
         "token": "xyzabc123",
         "version": "2.0.0",
-        "name": "Foo",
         "id": 123
     }
 }

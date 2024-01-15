@@ -105,6 +105,44 @@ export class HostListRequest {
 	static Response = jsonArray(HostDetails);
 }
 
+export class HostInfoUpdate {
+	constructor(
+		public name: string,
+		public publicAddress: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"publicAddress": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(
+			json.name,
+			json.publicAddress,
+		);
+	}
+}
+
+export class HostInfoUpdateEvent {
+	declare ["constructor"]: typeof HostInfoUpdateEvent;
+	static type = "event" as const;
+	static src = "host" as const;
+	static dst = "controller" as const;
+
+	constructor(
+		public update: HostInfoUpdate,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"update": HostInfoUpdate.jsonSchema,
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(HostInfoUpdate.fromJSON(json.update));
+	}
+}
+
 export class HostUpdatesEvent {
 	declare ["constructor"]: typeof HostUpdatesEvent;
 	static type = "event" as const;
