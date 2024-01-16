@@ -2,7 +2,7 @@ import fs from "fs-extra";
 import os from "os";
 import util from "util";
 import { Gauge } from "./prometheus";
-import { SystemMetrics } from "./data";
+import { SystemInfo } from "./data";
 
 function cpuModel() {
 	const model = os.cpus()[0].model;
@@ -133,7 +133,7 @@ function minZip<T>(a: T[], b: T[]): [T, T][] {
 
 let previousTotalCpuMs: number[] = [];
 let previousIdleCpuMs: number[] = [];
-export async function gatherSystemMetrics(id: SystemMetrics["id"]) {
+export async function gatherSystemInfo(id: SystemInfo["id"]) {
 	const cpus = os.cpus();
 	const currentTotalCpuMs = cpus.map(({ times }) => times.user + times.idle + times.irq + times.nice + times.sys);
 	const currentIdleCpuMs = cpus.map(({ times }) => times.idle);
@@ -151,7 +151,7 @@ export async function gatherSystemMetrics(id: SystemMetrics["id"]) {
 		diskAvailable = stats.bavail * stats.bsize;
 	}
 
-	return new SystemMetrics(
+	return new SystemInfo(
 		id,
 		cpuUsage,
 		os.totalmem(),

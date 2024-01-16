@@ -3,53 +3,53 @@ import React from "react";
 import * as lib from "@clusterio/lib";
 import { Progress } from "antd";
 
-export function MetricCpuRatio(props: { metrics?: lib.SystemMetrics }) {
-	if (!props.metrics) {
+export function MetricCpuRatio(props: { system?: lib.SystemInfo }) {
+	if (!props.system) {
 		return "N/A";
 	}
-	const ratio = props.metrics.cpuRatio;
+	const ratio = props.system.cpuRatio;
 	return <Progress status="normal" percent={Math.ceil(ratio * 100)}/>;
 }
 
-export function MetricCpuUsed(props: { metrics?: lib.SystemMetrics }) {
-	if (!props.metrics) {
+export function MetricCpuUsed(props: { system?: lib.SystemInfo }) {
+	if (!props.system) {
 		return "N/A";
 	}
-	const used = props.metrics.cpuUsed.toLocaleString(undefined, { maximumFractionDigits: 1 });
-	const capacity = props.metrics.cpuCapacity;
+	const used = props.system.cpuUsed.toLocaleString(undefined, { maximumFractionDigits: 1 });
+	const capacity = props.system.cpuCapacity;
 	return `${used} / ${capacity}`;
 }
 
-export function MetricMemoryRatio(props: { metrics?: lib.SystemMetrics }) {
-	if (!props.metrics) {
+export function MetricMemoryRatio(props: { system?: lib.SystemInfo }) {
+	if (!props.system) {
 		return "N/A";
 	}
-	const ratio = props.metrics.memoryRatio;
+	const ratio = props.system.memoryRatio;
 	return <Progress status="normal" percent={Math.ceil(ratio * 100)}/>;
 }
 
-export function MetricMemoryUsed(props: { metrics?: lib.SystemMetrics }) {
-	if (!props.metrics) {
+export function MetricMemoryUsed(props: { system?: lib.SystemInfo }) {
+	if (!props.system) {
 		return "N/A";
 	}
-	const used = lib.formatBytes(props.metrics.memoryUsed, "binary");
-	const capacity = lib.formatBytes(props.metrics.memoryCapacity, "binary");
+	const used = lib.formatBytes(props.system.memoryUsed, "binary");
+	const capacity = lib.formatBytes(props.system.memoryCapacity, "binary");
 	return `${used} / ${capacity}`;
 }
 
-export function MetricDiskRatio(props: { metrics?: lib.SystemMetrics }) {
-	if (!props.metrics) {
+export function MetricDiskRatio(props: { system?: lib.SystemInfo }) {
+	if (!props.system) {
 		return "N/A";
 	}
-	const ratio = props.metrics.diskRatio;
+	const ratio = props.system.diskRatio;
 	return <Progress status="normal" percent={Math.ceil(ratio * 100)}/>;
 }
 
-export function MetricDiskUsed(props: { metrics?: lib.SystemMetrics }) {
-	if (!props.metrics) {
+export function MetricDiskUsed(props: { system?: lib.SystemInfo }) {
+	if (!props.system) {
 		return "N/A";
 	}
-	const used = lib.formatBytes(props.metrics.diskUsed);
-	const capacity = lib.formatBytes(props.metrics.diskCapacity);
+	const used = lib.formatBytes(props.system.diskUsed);
+	const capacity = lib.formatBytes(props.system.diskCapacity);
 	return `${used} / ${capacity}`;
 }

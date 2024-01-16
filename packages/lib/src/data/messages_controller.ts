@@ -204,7 +204,7 @@ export class LogMessageEvent {
 	}
 }
 
-export class SystemMetrics {
+export class SystemInfo {
 	constructor(
 		/**
 		 * Id of the host these metrics originate from, or the string
@@ -278,31 +278,31 @@ export class SystemMetrics {
 	}
 }
 
-export class SystemMetricsRequest {
-	declare ["constructor"]: typeof SystemMetricsRequest;
+export class SystemInfoRequest {
+	declare ["constructor"]: typeof SystemInfoRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
 	static dst = "host" as const;
-	static Response = SystemMetrics;
+	static Response = SystemInfo;
 }
 
-export class SystemMetricsUpdateEvent {
-	declare ["constructor"]: typeof SystemMetricsUpdateEvent;
+export class SystemInfoUpdateEvent {
+	declare ["constructor"]: typeof SystemInfoUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
-	static permission = "core.system_metrics.subscribe" as const;
+	static permission = "core.system.subscribe" as const;
 
 	constructor(
-		public updates: SystemMetrics[],
+		public updates: SystemInfo[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"updates": Type.Array(SystemMetrics.jsonSchema),
+		"updates": Type.Array(SystemInfo.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.updates.map(update => SystemMetrics.fromJSON(update)));
+		return new this(json.updates.map(update => SystemInfo.fromJSON(update)));
 	}
 }
 

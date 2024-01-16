@@ -19,7 +19,7 @@ import {
 	MetricDiskUsed, MetricDiskRatio,
 } from "./system_metrics";
 import { formatTimestamp } from "../util/time_format";
-import { useSystemMetrics } from "../model/system_metrics";
+import { useSystems } from "../model/system";
 
 const { Title } = Typography;
 
@@ -29,8 +29,8 @@ export default function HostViewPage() {
 	let control = useContext(ControlContext);
 	let account = useAccount();
 	let [instances] = useInstances();
-	const [systemMetrics] = useSystemMetrics();
-	const metrics = systemMetrics.get(hostId);
+	const [systems] = useSystems();
+	const system = systems.get(hostId);
 	const [host, synced] = useHost(hostId);
 	const hostInstances = new Map([...instances].filter(([_id, instance]) => instance.assignedHost === hostId));
 
@@ -78,13 +78,13 @@ export default function HostViewPage() {
 					{host["connected"] ? "Connected" : "Disconnected"}
 				</Tag>
 			</Descriptions.Item>
-			<Descriptions.Item label="CPU Usage"><MetricCpuRatio metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Cores"><MetricCpuUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Memory"><MetricMemoryUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Disk Usage"><MetricDiskRatio metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Disk"><MetricDiskUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Version">{host["version"]}</Descriptions.Item>
+			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Memory"><MetricMemoryUsed system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Disk Usage"><MetricDiskRatio system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Disk"><MetricDiskUsed system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Public Address">{host.publicAddress}</Descriptions.Item>
 			{
 				host.tokenValidAfter
 					? <Descriptions.Item label="Tokens valid after:">

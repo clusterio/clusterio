@@ -53,8 +53,8 @@ export default class Controller {
 	config: lib.ControllerConfig;
 	app: Application;
 
-	/** True if (@link Controller.systemMetrics} has changed since last time it was saved */
-	systemMetricsDirty = false;
+	/** True if (@link Controller.systems} has changed since last time it was saved */
+	systemsDirty = false;
 	/** True if {@link Controller.hosts} has changed since last time it was saved */
 	hostsDirty = false;
 	/** True if {@link Controller.instances} has changed since last time it was saved */
@@ -102,7 +102,7 @@ export default class Controller {
 		let databaseDirectory = config.get("controller.database_directory");
 		await fs.ensureDir(databaseDirectory);
 
-		const systemMetrics = await Controller.loadSystemMetrics(path.join(databaseDirectory, "metrics.json"));
+		const systems = await Controller.loadSystems(path.join(databaseDirectory, "systems.json"));
 		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
 		const saves = await Controller.loadSaves(path.join(databaseDirectory, "saves.json"));
@@ -115,7 +115,7 @@ export default class Controller {
 		const modStore = await lib.ModStore.fromDirectory(modsDirectory);
 
 		return [
-			systemMetrics,
+			systems,
 			hosts,
 			instances,
 			saves,
@@ -131,7 +131,7 @@ export default class Controller {
 		configPath: string,
 		config: lib.ControllerConfig,
 
-		public systemMetrics = new Map<lib.SystemMetrics["id"], lib.SystemMetrics>(),
+		public systems = new Map<lib.SystemInfo["id"], lib.SystemInfo>(),
 		/** Mapping of host id to host info */
 		public hosts = new Map<number, HostInfo>(),
 		/** Mapping of instance id to instance info */
@@ -162,7 +162,7 @@ export default class Controller {
 		});
 
 		// Handle subscriptions for all internal properties
-		this.subscriptions.handle(lib.SystemMetricsUpdateEvent, this.handleSystemMetricsSubscription.bind(this));
+		this.subscriptions.handle(lib.SystemInfoUpdateEvent, this.handleSystemInfoSubscription.bind(this));
 		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
 		this.subscriptions.handle(
@@ -444,30 +444,30 @@ export default class Controller {
 		const systemMetricsIntervalSeconds = this.config.get("controller.system_metrics_interval");
 		if (systemMetricsIntervalSeconds > 0) {
 			this.systemMetricsInterval = setInterval(
-				this.updateSystemMetrics.bind(this),
+				this.updateSystems.bind(this),
 				systemMetricsIntervalSeconds * 1000
 			);
 		}
 	}
 
-	async updateSystemMetrics() {
+	async updateSystems() {
 		try {
-			const requests: Promise<lib.SystemMetrics>[] = [];
+			const requests: Promise<lib.SystemInfo>[] = [];
 			for (let hostConnection of this.wsServer.hostConnections.values()) {
 				if (!hostConnection.connected) {
 					continue;
 				}
-				requests.push(hostConnection.send(new lib.SystemMetricsRequest()));
+				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
-			requests.push(lib.gatherSystemMetrics("controller"));
+			requests.push(lib.gatherSystemInfo("controller"));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
-				this.systemMetrics.set(metric.id, metric);
+				this.systems.set(metric.id, metric);
 			}
-			this.systemMetricsDirty = true;
-			this.subscriptions.broadcast(new lib.SystemMetricsUpdateEvent(newMetrics));
+			this.systemsDirty = true;
+			this.subscriptions.broadcast(new lib.SystemInfoUpdateEvent(newMetrics));
 		} catch (err: any) {
-			logger.error(`Unexpected error updating system metrics:\n${err.stack ?? err.message}`);
+			logger.error(`Unexpected error updating system infos:\n${err.stack ?? err.message}`);
 		}
 	}
 
@@ -507,9 +507,9 @@ export default class Controller {
 		}
 
 		let databaseDirectory = this.config.get("controller.database_directory");
-		if (this.systemMetricsDirty) {
-			this.systemMetricsDirty = false;
-			await Controller.saveSystemMetrics(path.join(databaseDirectory, "metrics.json"), this.systemMetrics);
+		if (this.systemsDirty) {
+			this.systemsDirty = false;
+			await Controller.saveSystems(path.join(databaseDirectory, "systems.json"), this.systems);
 		}
 
 		if (this.hostsDirty) {
@@ -539,8 +539,8 @@ export default class Controller {
 		await lib.invokeHook(this.plugins, "onSaveData");
 	}
 
-	static async loadSystemMetrics(filePath: string): Promise<Map<lib.SystemMetrics["id"], lib.SystemMetrics>> {
-		let json: Static<typeof lib.SystemMetrics.jsonSchema>[];
+	static async loadSystems(filePath: string): Promise<Map<lib.SystemInfo["id"], lib.SystemInfo>> {
+		let json: Static<typeof lib.SystemInfo.jsonSchema>[];
 		try {
 			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
 
@@ -551,11 +551,11 @@ export default class Controller {
 			return new Map();
 		}
 
-		return new Map(json.map(m => lib.SystemMetrics.fromJSON(m)).map(m => [m.id, m]));
+		return new Map(json.map(m => lib.SystemInfo.fromJSON(m)).map(m => [m.id, m]));
 	}
 
-	static async saveSystemMetrics(filePath: string, systemMetrics: Map<lib.SystemMetrics["id"], lib.SystemMetrics>) {
-		await lib.safeOutputFile(filePath, JSON.stringify([...systemMetrics.values()], null, "\t"));
+	static async saveSystems(filePath: string, systems: Map<lib.SystemInfo["id"], lib.SystemInfo>) {
+		await lib.safeOutputFile(filePath, JSON.stringify([...systems.values()], null, "\t"));
 	}
 
 	static async loadHosts(filePath: string): Promise<Map<number, HostInfo>> {
@@ -741,11 +741,11 @@ export default class Controller {
 		}
 	}
 
-	async handleSystemMetricsSubscription(request: lib.SubscriptionRequest) {
-		const systemMetrics = [...this.systemMetrics.values()].filter(
+	async handleSystemInfoSubscription(request: lib.SubscriptionRequest) {
+		const systems = [...this.systems.values()].filter(
 			metric => metric.updatedAt > request.lastRequestTime,
 		);
-		return systemMetrics.length ? new lib.SystemMetricsUpdateEvent(systemMetrics) : null;
+		return systems.length ? new lib.SystemInfoUpdateEvent(systems) : null;
 	}
 
 	/**

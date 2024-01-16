@@ -15,7 +15,7 @@ import {
 	MetricDiskUsed, MetricDiskRatio,
 } from "./system_metrics";
 import { useHosts } from "../model/host";
-import { useSystemMetrics } from "../model/system_metrics";
+import { useSystems } from "../model/system";
 import notify, { notifyErrorHandler } from "../util/notify";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
@@ -189,7 +189,7 @@ export default function HostsPage() {
 	let account = useAccount();
 	let navigate = useNavigate();
 	let [hosts] = useHosts();
-	const [metrics] = useSystemMetrics();
+	const [systems] = useSystems();
 	const [showRatios, setShowRatios] = useState(true);
 	const [showNumbers, setShowNumbers] = useState(false);
 
@@ -209,46 +209,46 @@ export default function HostsPage() {
 				},
 				{
 					title: "CPU%",
-					sorter: (a, b) => (metrics.get(a.id)?.cpuRatio ?? 0) - (metrics.get(b.id)?.cpuRatio ?? 0),
-					render: (_, host) => <MetricCpuRatio metrics={metrics.get(host.id)} />,
+					sorter: (a, b) => (systems.get(a.id)?.cpuRatio ?? 0) - (systems.get(b.id)?.cpuRatio ?? 0),
+					render: (_, host) => <MetricCpuRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
 				{
 					title: "Cores",
 					sorter: (a, b) => (
-						(metrics.get(a.id)?.cpuUsed ?? 0) - (metrics.get(b.id)?.cpuUsed ?? 0)
+						(systems.get(a.id)?.cpuUsed ?? 0) - (systems.get(b.id)?.cpuUsed ?? 0)
 					),
-					render: (_, host) => <MetricCpuUsed metrics={metrics.get(host.id)} />,
+					render: (_, host) => <MetricCpuUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
 				{
 					title: "Mem%",
 					sorter: (a, b) => (
-						(metrics.get(a.id)?.memoryRatio ?? 0) - (metrics.get(b.id)?.memoryRatio ?? 0)
+						(systems.get(a.id)?.memoryRatio ?? 0) - (systems.get(b.id)?.memoryRatio ?? 0)
 					),
-					render: (_, host) => <MetricMemoryRatio metrics={metrics.get(host.id)} />,
+					render: (_, host) => <MetricMemoryRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
 				{
 					title: "Memory",
 					sorter: (a, b) => (
-						(metrics.get(a.id)?.memoryUsed ?? 0) - (metrics.get(b.id)?.memoryUsed ?? 0)
+						(systems.get(a.id)?.memoryUsed ?? 0) - (systems.get(b.id)?.memoryUsed ?? 0)
 					),
-					render: (_, host) => <MetricMemoryUsed metrics={metrics.get(host.id)} />,
+					render: (_, host) => <MetricMemoryUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
 				{
 					title: "Disk%",
-					sorter: (a, b) => (metrics.get(a.id)?.diskAvailable ?? 0) - (metrics.get(b.id)?.diskAvailable ?? 0),
-					render: (_, host) => <MetricDiskRatio metrics={metrics.get(host.id)} />,
+					sorter: (a, b) => (systems.get(a.id)?.diskAvailable ?? 0) - (systems.get(b.id)?.diskAvailable ?? 0),
+					render: (_, host) => <MetricDiskRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
 				{
 					title: "Disk",
 					sorter: (a, b) => (
-						(metrics.get(a.id)?.diskUsed ?? 0) - (metrics.get(b.id)?.diskUsed ?? 0)
+						(systems.get(a.id)?.diskUsed ?? 0) - (systems.get(b.id)?.diskUsed ?? 0)
 					),
-					render: (_, host) => <MetricDiskUsed metrics={metrics.get(host.id)} />,
+					render: (_, host) => <MetricDiskUsed system={systems.get(host.id)} />,
 					hidden: !showNumbers,
 				},
 				{
