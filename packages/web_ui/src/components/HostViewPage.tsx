@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import * as lib from "@clusterio/lib";
 import notify, { notifyErrorHandler } from "../util/notify";
 import ControlContext from "./ControlContext";
+import HostConfigTree from "./HostConfigTree";
 import InstanceList from "./InstanceList";
 import LogConsole from "./LogConsole";
 import { useAccount } from "../model/account";
@@ -83,7 +84,6 @@ export default function HostViewPage() {
 			<Descriptions.Item label="Memory"><MetricMemoryUsed metrics={metrics} /></Descriptions.Item>
 			<Descriptions.Item label="Disk Usage"><MetricDiskRatio metrics={metrics} /></Descriptions.Item>
 			<Descriptions.Item label="Disk"><MetricDiskUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Agent">{host["agent"]}</Descriptions.Item>
 			<Descriptions.Item label="Version">{host["version"]}</Descriptions.Item>
 			{
 				host.tokenValidAfter
@@ -101,6 +101,7 @@ export default function HostViewPage() {
 			<Title level={5} style={{ marginTop: 16 }}>Console</Title>
 			<LogConsole hosts={[hostId]} />
 		</>}
+		{account.hasPermission("core.host.get_config") && <HostConfigTree id={hostId} available={host.connected} />}
 		<PluginExtra component="HostViewPage" host={host} />
 	</PageLayout>;
 }

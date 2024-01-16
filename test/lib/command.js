@@ -16,7 +16,7 @@ describe("lib/command", function() {
 	let testControl = new mock.MockControl(controlConnector);
 	let testController = new lib.Link(controllerConnector);
 	testController.handle(
-		lib.HostListRequest, () => [new lib.HostDetails("test", "0.1", "Test Host", 11, false)]
+		lib.HostListRequest, () => [new lib.HostDetails("0.1", "Test Host", 11, false)]
 	);
 	testController.handle(
 		lib.InstanceDetailsListRequest, () => [new lib.InstanceDetails("Test Instance", 57, 4, undefined, "stopped")]

@@ -107,9 +107,7 @@ Sent by the controller when the WebSocket connection has been opened.
 Host handshake for establishing a new connection session.
 
 - `token: string` - Authentication token.
-- `agent: string` - Human readable string of the software connecting.
 - `version: string` - The protocol version of the host, e.g. "2.0.0".
-- `name: string` - Name of the host.
 - `id: integer` - ID of the host.
 - `plugins: Object<string, string>` -
     Object mapping plugin names to plugin version for plugins that are available on the host.
@@ -119,7 +117,6 @@ Host handshake for establishing a new connection session.
 Control handshake for enstablishing a new connection session.
 
 - `token: string` - Authentication token.
-- `agent: string` - Human readable string of the software connecting.
 - `version: string` - The protocol version of the control, e.g. "2.0.0".
 
 #### `resume`
@@ -243,9 +240,7 @@ Host registering a new connection session.
     "type": "register_host",
     "data": {
         "token": "xyzabc123",
-        "agent": "Clusterio Host",
         "version": "2.0.0",
-        "name": "Foo",
         "id": 123
     }
 }

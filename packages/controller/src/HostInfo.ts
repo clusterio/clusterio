@@ -6,8 +6,6 @@ import { HostDetails } from "@clusterio/lib";
  */
 export default class HostInfo {
 	constructor(
-		/** Agent this host last connected with */
-		public agent: string,
 		/** Id of this host */
 		public id: number,
 		/** Version this host last connected with */
@@ -29,7 +27,6 @@ export default class HostInfo {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"agent": Type.String(),
 		"id": Type.Number(),
 		"name": Type.String(),
 		"version": Type.String(),
@@ -43,7 +40,6 @@ export default class HostInfo {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
-			json.agent,
 			json.id,
 			json.name,
 			json.version,
@@ -58,7 +54,6 @@ export default class HostInfo {
 
 	toJSON(): Static<typeof HostInfo.jsonSchema> {
 		return {
-			agent: this.agent,
 			id: this.id,
 			name: this.name,
 			version: this.version,
@@ -73,7 +68,6 @@ export default class HostInfo {
 
 	toHostDetails() {
 		return new HostDetails(
-			this.agent,
 			this.version,
 			this.name,
 			this.id,

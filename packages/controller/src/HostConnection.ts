@@ -16,10 +16,7 @@ import HostInfo from "./HostInfo";
  * @alias module:controller/src/HostConnection
  */
 export default class HostConnection extends BaseConnection {
-	private _agent: string;
-	private _id: number;
-	private _name: string;
-	private _version: string;
+	private info: HostInfo;
 	plugins: Map<string, string>;
 
 	constructor(
@@ -29,28 +26,24 @@ export default class HostConnection extends BaseConnection {
 	) {
 		super(connector, controller);
 
-		this._agent = registerData.agent;
-		this._id = registerData.id;
-		this._name = registerData.name;
-		this._version = registerData.version;
 		this.plugins = new Map(Object.entries(registerData.plugins));
-		this._checkPluginVersions();
 
-		const previousHostInfo = this._controller.hosts.get(this._id);
-		const currentHostInfo = new HostInfo(
-			this._agent,
-			this._id,
-			this._name,
-			this._version,
+		const previousHostInfo = this._controller.hosts.get(registerData.id);
+		this.info = new HostInfo(
+			registerData.id,
+			previousHostInfo?.name ?? "",
+			registerData.version,
 			this.plugins,
 			true,
-			registerData.publicAddress ?? "",
+			previousHostInfo?.publicAddress,
 			previousHostInfo?.tokenValidAfter,
-			Date.now(),
+			0,
 			false,
 		);
-		this._controller.hosts.set(this._id, currentHostInfo);
-		this._controller.hostsUpdated([currentHostInfo]);
+		this._controller.hosts.set(this.id, this.info);
+		this._controller.hostsUpdated([this.info]);
+
+		this._checkPluginVersions();
 
 		for (let event of ["connect", "drop", "resume", "close"] as const) {
 			// eslint-disable-next-line no-loop-func
@@ -65,7 +58,7 @@ export default class HostConnection extends BaseConnection {
 			// Update status to unknown for instances on this host.
 			const instances: InstanceInfo[] = [];
 			for (let instance of this._controller.instances.values()) {
-				if (instance.config.get("instance.assigned_host") !== this._id) {
+				if (instance.config.get("instance.assigned_host") !== this.id) {
 					continue;
 				}
 
@@ -76,10 +69,11 @@ export default class HostConnection extends BaseConnection {
 			}
 			this._controller.instanceDetailsUpdated(instances);
 
-			currentHostInfo.connected = false;
-			this._controller.hostsUpdated([currentHostInfo]);
+			this.info.connected = false;
+			this._controller.hostsUpdated([this.info]);
 		});
 
+		this.handle(lib.HostInfoUpdateEvent, this.handleHostInfoUpdateEvent.bind(this));
 		this.handle(lib.InstanceStatusChangedEvent, this.handleInstanceStatusChangedEvent.bind(this));
 		this.handle(lib.InstancesUpdateRequest, this.handleInstancesUpdateRequest.bind(this));
 		this.handle(lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsUpdatesEvent.bind(this));
@@ -104,7 +98,7 @@ export default class HostConnection extends BaseConnection {
 
 			case lib.Address.instance:
 				let instance = this._controller.instances.get(message.src.id);
-				if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
+				if (!instance || instance.config.get("instance.assigned_host") !== this.id) {
 					throw new lib.InvalidMessage(
 						`Received message with invalid src ${message.src} from ${origin}`
 					);
@@ -121,21 +115,24 @@ export default class HostConnection extends BaseConnection {
 		for (let [name, version] of this.plugins) {
 			let info = pluginInfos.get(name);
 			if (!info) {
-				logger.warn(`Host ${this._name} has plugin ${name} ${version} which the controller does not have`);
+				logger.warn(
+					`Host ${this.info.name} (${this.id}) has plugin ${name} ${version} which the ` +
+					"controller does not have",
+				);
 				continue;
 			}
 
 			if (info.version !== version) {
 				logger.warn(
-					`Host ${this._name} has plugin ${name} ${version} which does not match the version of this ` +
-					`plugin on the controller (${info.version})`
+					`Host ${this.info.name} (${this.id}) has plugin ${name} ${version} which does not match ` +
+					`the version of this plugin on the controller (${info.version})`
 				);
 			}
 		}
 
 		for (let [name, info] of pluginInfos) {
 			if (!this.plugins.has(name)) {
-				logger.warn(`Host ${this._name} is missing plugin ${name} ${info.version}`);
+				logger.warn(`Host ${this.info.name} (${this.id}) is missing plugin ${name} ${info.version}`);
 			}
 		}
 	}
@@ -151,7 +148,13 @@ export default class HostConnection extends BaseConnection {
 	 * @returns {number} host ID.
 	 */
 	get id() {
-		return this._id;
+		return this.info.id;
+	}
+
+	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {
+		this.info.name = event.update.name;
+		this.info.publicAddress = event.update.publicAddress;
+		this._controller.hostsUpdated([this.info]);
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {
@@ -161,7 +164,7 @@ export default class HostConnection extends BaseConnection {
 		// or is not assigned to the host it originated from if it was
 		// reassigned or deleted while the connection to the host it was
 		// originally on was down at the time.
-		if (!instance || instance.config.get("instance.assigned_host") !== this._id) {
+		if (!instance || instance.config.get("instance.assigned_host") !== this.id) {
 			logger.warn(`Got bogus update for instance id ${request.instanceId}`);
 			return;
 		}
@@ -187,7 +190,7 @@ export default class HostConnection extends BaseConnection {
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
 		// Push updated instance configs
 		for (let instance of this._controller.instances.values()) {
-			if (instance.config.get("instance.assigned_host") === this._id) {
+			if (instance.config.get("instance.assigned_host") === this.id) {
 				await this.send(
 					new lib.InstanceAssignInternalRequest(instance.id, instance.config.toRemote("host"))
 				);
@@ -203,7 +206,7 @@ export default class HostConnection extends BaseConnection {
 			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
 				// Check if this instance is assigned somewhere else.
-				if (controllerInstance.config.get("instance.assigned_host") !== this._id) {
+				if (controllerInstance.config.get("instance.assigned_host") !== this.id) {
 					await this.send(
 						new lib.InstanceUnassignInternalRequest(instanceConfig.get("instance.id"))
 					);
@@ -225,7 +228,7 @@ export default class HostConnection extends BaseConnection {
 				continue;
 			}
 
-			instanceConfig.set("instance.assigned_host", this._id);
+			instanceConfig.set("instance.assigned_host", this.id);
 			let newInstance = new InstanceInfo(
 				instanceConfig,
 				instanceData.status,
@@ -301,8 +304,8 @@ export default class HostConnection extends BaseConnection {
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {
 		this._controller.clusterLogger.log({
 			...event.info,
-			host_id: this._id,
-			host_name: this._name,
+			host_id: this.id,
+			host_name: this.info.name,
 		});
 	}
 

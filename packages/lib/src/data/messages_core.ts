@@ -211,26 +211,20 @@ export class MessageHello extends Message {
 export class RegisterHostData {
 	constructor(
 		public token: string,
-		public agent: string,
 		public version: string,
-		public name: string,
 		public id: number,
-		public publicAddress: string | undefined,
 		public plugins: Record<string, string>,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"token": Type.String(),
-		"agent": Type.String(),
 		"version": Type.String(),
-		"name": Type.String(),
 		"id": Type.Integer(),
-		"publicAddress": Type.Optional(Type.String()),
 		"plugins": Type.Record(Type.String(), Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.token, json.agent, json.version, json.name, json.id, json.publicAddress, json.plugins);
+		return new this(json.token, json.version, json.id, json.plugins);
 	}
 }
 
@@ -254,18 +248,16 @@ export class MessageRegisterHost extends Message {
 export class RegisterControlData {
 	constructor(
 		public token: string,
-		public agent: string,
 		public version: string,
 	) { }
 
 	static jsonSchema = Type.Object({
 		"token": Type.String(),
-		"agent": Type.String(),
 		"version": Type.String(),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.token, json.agent, json.version);
+		return new this(json.token, json.version);
 	}
 }
 

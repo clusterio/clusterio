@@ -1,10 +1,65 @@
 import { Type, Static } from "@sinclair/typebox";
-import { jsonArray, StringEnum } from "./composites";
+import { jsonArray, plainJson, StringEnum } from "./composites";
 import { CollectorResultSerialized } from "../prometheus";
+import { HostConfig } from "../config/definitions";
+
+export class HostConfigGetRequest {
+	declare ["constructor"]: typeof HostConfigGetRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.get_config" as const;
+	static Response = plainJson(HostConfig.jsonSchema);
+}
+
+export class HostConfigSetFieldRequest {
+	declare ["constructor"]: typeof HostConfigSetFieldRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.update_config" as const;
+
+	constructor(
+		public field: string,
+		public value: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"field": Type.String(),
+		"value": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.field, json.value);
+	}
+}
+
+export class HostConfigSetPropRequest {
+	declare ["constructor"]: typeof HostConfigSetPropRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.update_config" as const;
+
+	constructor(
+		public field: string,
+		public prop: string,
+		public value?: unknown,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"field": Type.String(),
+		"prop": Type.String(),
+		"value": Type.Optional(Type.Unknown()),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.field, json.prop, json.value);
+	}
+}
 
 export class HostDetails {
 	constructor(
-		public agent: string,
 		public version: string,
 		public name: string,
 		public id: number,
@@ -17,7 +72,6 @@ export class HostDetails {
 	) { }
 
 	static jsonSchema = Type.Object({
-		"agent": Type.String(),
 		"version": Type.String(),
 		"name": Type.String(),
 		"id": Type.Integer(),
@@ -30,7 +84,6 @@ export class HostDetails {
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
-			json.agent,
 			json.version,
 			json.name,
 			json.id,
@@ -50,6 +103,44 @@ export class HostListRequest {
 	static dst = "controller" as const;
 	static permission = "core.host.list" as const;
 	static Response = jsonArray(HostDetails);
+}
+
+export class HostInfoUpdate {
+	constructor(
+		public name: string,
+		public publicAddress: string,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"name": Type.String(),
+		"publicAddress": Type.String(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(
+			json.name,
+			json.publicAddress,
+		);
+	}
+}
+
+export class HostInfoUpdateEvent {
+	declare ["constructor"]: typeof HostInfoUpdateEvent;
+	static type = "event" as const;
+	static src = "host" as const;
+	static dst = "controller" as const;
+
+	constructor(
+		public update: HostInfoUpdate,
+	) { }
+
+	static jsonSchema = Type.Object({
+		"update": HostInfoUpdate.jsonSchema,
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(HostInfoUpdate.fromJSON(json.update));
+	}
 }
 
 export class HostUpdatesEvent {

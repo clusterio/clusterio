@@ -137,6 +137,16 @@ definePermission({
 		"controller and hosts are updated.",
 });
 definePermission({
+	name: "core.host.get_config",
+	title: "Get host configs",
+	description: "Get the config of hosts.",
+});
+definePermission({
+	name: "core.host.update_config",
+	title: "Modify host configs",
+	description: "Modify the host config or entries of the host config.",
+});
+definePermission({
 	name: "core.host.list",
 	title: "List hosts",
 	description: "Get the full list of hosts in the cluster.",
