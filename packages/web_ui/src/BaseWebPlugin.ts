@@ -1,5 +1,5 @@
 import type React from "react";
-import type { AccountRole, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
+import type { AccountRole, FieldDefinition, Logger, PluginWebpackEnvInfo } from "@clusterio/lib";
 import type { Control } from "./util/websocket";
 
 /**
@@ -21,7 +21,14 @@ export interface PluginLoginForm {
 	 * when an authentication token is aquired via this form.
 	 */
 	Component: React.ComponentType<{ setToken(token: string): void }>;
-};
+}
+
+export interface InputComponentProps {
+	fieldDefinition: FieldDefinition,
+	value: null | boolean | number | string,
+	onChange: (value: null | boolean | number | string) => void,
+}
+export type InputComponent = React.ComponentType<InputComponentProps>;
 
 export type UserAccount = {
 	/** Name of the currently logged in account. */
@@ -94,6 +101,11 @@ export default class BaseWebPlugin {
 	 * List of pages provided by this plugin
 	 */
 	pages: PluginPage[] = [];
+	/**
+	 * Additional Config inputComponent types available to render config
+	 * entries with.
+	 */
+	inputComponents: Record<string, InputComponent> = {};
 	/**
 	 * Extra react component to add to core components
 	 *

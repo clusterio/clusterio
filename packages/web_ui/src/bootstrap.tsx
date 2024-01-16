@@ -6,7 +6,8 @@ import { createRoot } from "react-dom/client";
 import * as lib from "@clusterio/lib";
 
 import App from "./components/App";
-import BaseWebPlugin from "./BaseWebPlugin";
+import BaseWebPlugin, { InputComponent } from "./BaseWebPlugin";
+import InputModPack from "./components/InputModPack";
 import { Control, ControlConnector } from "./util/websocket";
 
 const { ConsoleTransport, WebConsoleFormat, logger } = lib;
@@ -97,6 +98,21 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 	return plugins;
 }
 
+function inputComponentsFromPlugins(plugins: Map<string, BaseWebPlugin>) {
+	const inputComponents: Record<string, InputComponent> = {
+		"mod_pack": InputModPack,
+	};
+	for (let [pluginName, plugin] of plugins) {
+		for (const [name, Component] of Object.entries(plugin.inputComponents)) {
+			if (Object.prototype.hasOwnProperty.call(inputComponents, name)) {
+				lib.logger.warn(`Plugin ${pluginName} is redefining config inputComponent ${name}`);
+			}
+			inputComponents[name] = Component;
+		}
+	}
+	return inputComponents;
+}
+
 export default async function bootstrap() {
 	logger.add(new ConsoleTransport({
 		level: "verbose",
@@ -110,6 +126,7 @@ export default async function bootstrap() {
 	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);
 	let control = new Control(controlConnector);
 	control.plugins = await loadPlugins(pluginInfos, control);
+	control.inputComponents = inputComponentsFromPlugins(control.plugins);
 
 	const root = createRoot(document.getElementById("root") as HTMLDivElement);
 	root.render(<App control={control}/>);

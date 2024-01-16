@@ -1,6 +1,6 @@
 import * as lib from "@clusterio/lib";
 import packageJson from "../../package.json";
-import BaseWebPlugin from "../BaseWebPlugin";
+import BaseWebPlugin, { type InputComponent } from "../BaseWebPlugin";
 
 const { logFilter, logger } = lib;
 
@@ -53,6 +53,7 @@ export class Control extends lib.Link {
 
 	/** Plugins loaded in the web interface */
 	public plugins = new Map<string, BaseWebPlugin>();
+	public inputComponents: Record<string, InputComponent> = {};
 
 	/** Updates not handled by the subscription service */
 	accountUpdateHandlers: accountHandler[] = [];

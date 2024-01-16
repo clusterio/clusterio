@@ -1,12 +1,17 @@
-import * as lib from "@clusterio/lib";
-
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
 	Button, Card, Checkbox, Form, FormInstance, Input, InputNumber, Space, Spin, Tooltip, Tree, Typography,
 } from "antd";
 import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
 
+import * as lib from "@clusterio/lib";
+
+import ControlContext from "./ControlContext";
+import { InputComponent, InputComponentProps } from "../BaseWebPlugin";
+import type { Control } from "../util/websocket";
+
 const { Title } = Typography;
+
 
 function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	let initialValues: any = {};
@@ -27,7 +32,13 @@ function getInitialValues(config: lib.Config<any>, props: BaseConfigTreeProps) {
 	return initialValues;
 }
 
-function renderInput(def: lib.FieldDefinition) {
+function renderInput(inputComponents: Record<string, InputComponent>, def: lib.FieldDefinition) {
+	if (def.inputComponent && Object.prototype.hasOwnProperty.call(inputComponents, def.inputComponent)) {
+		// Field.Item will provide the value and onChange props to the component.
+		type InputPartial = React.ComponentClass<Omit<InputComponentProps, "value" | "onChange">>;
+		const CustomInput = inputComponents[def.inputComponent] as unknown as InputPartial;
+		return <CustomInput fieldDefinition={def} />;
+	}
 	if (def.type === "boolean") {
 		return <Checkbox/>;
 	}
@@ -57,6 +68,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	let [errorFields, setErrorFields] = useState(new Map<string, string>());
 	let [applying, setApplying] = useState(false);
 	const available = props.available ?? true;
+	const control = useContext(ControlContext);
 
 	async function updateConfig() {
 		let serializedConfig = await props.retrieveConfig();
@@ -112,6 +124,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 	}
 
 	const [propsMap, treeData] = computeTreeData(
+		control,
 		form,
 		initialValues,
 		errorFields,
@@ -201,6 +214,7 @@ export default function BaseConfigTree(props: BaseConfigTreeProps) {
 }
 
 function computeTreeData(
+	control: Control,
 	form: FormInstance<any>,
 	initialValues: any,
 	errorFields: Map<string, string>,
@@ -352,7 +366,7 @@ function computeTreeData(
 					tooltip={def.description}
 					valuePropName={def.type === "boolean" ? "checked" : "value"}
 				>
-					{renderInput(def)}
+					{renderInput(control.inputComponents, def)}
 				</Form.Item>;
 				initialValues[fieldName] = value;
 			}

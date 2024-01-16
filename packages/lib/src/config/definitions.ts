@@ -142,6 +142,7 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 		"controller.default_mod_pack_id": {
 			title: "Default Mod Pack",
 			description: "Mod pack used by default for instances.",
+			inputComponent: "mod_pack",
 			type: "number",
 			optional: true,
 		},
@@ -257,7 +258,7 @@ export interface InstanceConfigFields {
 	"factorio.rcon_port": number | null;
 	"factorio.rcon_password": string | null;
 	"factorio.player_online_autosave_slots": number;
-	"factorio.mod_pack": number | null;
+	"factorio.mod_pack_id": number | null;
 	"factorio.enable_save_patching": boolean;
 	"factorio.enable_whitelist": boolean;
 	"factorio.enable_authserver_bans": boolean;
@@ -332,8 +333,11 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			type: "number",
 			initialValue: 5,
 		},
-		"factorio.mod_pack": {
-			description: "Mod pack to use on this server",
+		"factorio.mod_pack_id": {
+			title: "Mod Pack",
+			description:
+				"Mod pack to use on this server, if not set the default configured on the controller will be used",
+			inputComponent: "mod_pack",
 			restartRequired: true,
 			type: "number",
 			optional: true,

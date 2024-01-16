@@ -638,7 +638,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	 */
 	async syncMods() {
 		this.logger.info("Syncing mods");
-		const modPackId = this.config.get("factorio.mod_pack");
+		const modPackId = this.config.get("factorio.mod_pack_id");
 		let modPack;
 		if (modPackId === null) {
 			modPack = await this.sendTo("controller", new lib.ModPackGetDefaultRequest());
