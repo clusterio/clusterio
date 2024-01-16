@@ -17,6 +17,8 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 	core.PingRequest,
 	core.AccountUpdateEvent,
 
+	controller.ControllerStopRequest,
+	controller.ControllerRestartRequest,
 	controller.ControllerConfigGetRequest,
 	controller.ControllerConfigSetFieldRequest,
 	controller.ControllerConfigSetPropRequest,
@@ -32,6 +34,8 @@ export const dataClasses: (RequestClass<unknown, unknown> | EventClass<unknown>)
 
 	subscriptions.SubscriptionRequest,
 
+	host.HostStopRequest,
+	host.HostRestartRequest,
 	host.HostConfigGetRequest,
 	host.HostConfigSetFieldRequest,
 	host.HostConfigSetPropRequest,

@@ -82,6 +82,20 @@ function serializedConfigToString(
 }
 
 const controllerCommands = new lib.CommandTree({ name: "controller", description: "Controller management" });
+controllerCommands.add(new lib.Command({
+	definition: ["stop", "Stop controller"],
+	handler: async function(_args: object, control: Control) {
+		await control.send(new lib.ControllerStopRequest());
+	},
+}));
+
+controllerCommands.add(new lib.Command({
+	definition: ["restart", "Restart controller"],
+	handler: async function(_args: object, control: Control) {
+		await control.send(new lib.ControllerRestartRequest());
+	},
+}));
+
 const controllerConfigCommands = new lib.CommandTree({
 	name: "config", alias: ["c"], description: "controller config management",
 });
@@ -224,6 +238,26 @@ controllerCommands.add(controllerPluginCommands);
 
 
 const hostCommands = new lib.CommandTree({ name: "host", description: "Host management" });
+hostCommands.add(new lib.Command({
+	definition: ["stop <host>", "Stop the given host", (yargs) => {
+		yargs.positional("host", { describe: "Host to stop", type: "string" });
+	}],
+	handler: async function(args: { host: string }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		await control.sendTo({ hostId }, new lib.HostStopRequest());
+	},
+}));
+
+hostCommands.add(new lib.Command({
+	definition: ["restart <host>", "Restart the given host", (yargs) => {
+		yargs.positional("host", { describe: "Host to restart", type: "string" });
+	}],
+	handler: async function(args: { host: string }, control: Control) {
+		let hostId = await lib.resolveHost(control, args.host);
+		await control.sendTo({ hostId }, new lib.HostRestartRequest());
+	},
+}));
+
 hostCommands.add(new lib.Command({
 	definition: [["list", "l"], "List hosts connected to the controller"],
 	handler: async function(args: object, control: Control) {

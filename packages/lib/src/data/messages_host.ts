@@ -3,6 +3,22 @@ import { jsonArray, plainJson, StringEnum } from "./composites";
 import { CollectorResultSerialized } from "../prometheus";
 import { HostConfig } from "../config/definitions";
 
+export class HostStopRequest {
+	declare ["constructor"]: typeof HostStopRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.stop" as const;
+}
+
+export class HostRestartRequest {
+	declare ["constructor"]: typeof HostRestartRequest;
+	static type = "request" as const;
+	static src = ["control", "controller"] as const;
+	static dst = "host" as const;
+	static permission = "core.host.restart" as const;
+}
+
 export class HostConfigGetRequest {
 	declare ["constructor"]: typeof HostConfigGetRequest;
 	static type = "request" as const;

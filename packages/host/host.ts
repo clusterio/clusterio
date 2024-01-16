@@ -94,7 +94,12 @@ async function startHost() {
 		})
 		.command("plugin", "Manage available plugins", lib.pluginCommand)
 		.command("config", "Manage Host config", lib.configCommand)
-		.command("run", "Run host")
+		.command("run", "Run host", yargs => {
+			yargs.option("can-restart", {
+				type: "boolean", nargs: 0, default: false,
+				describe: "Indicate that a process monitor will restart this host on failure",
+			});
+		})
 		.demandCommand(1, "You need to specify a command to run")
 		.strict()
 		.parseSync()
@@ -206,6 +211,7 @@ async function startHost() {
 		hostConfig,
 		tlsCa,
 		pluginInfos,
+		Boolean(args.canRestart),
 		...await Host.bootstrap(hostConfig)
 	);
 
@@ -295,7 +301,11 @@ ${err.stack}`
 			);
 		}
 
-		process.exitCode = 1;
+		if (err instanceof lib.AuthenticationFailed) {
+			process.exitCode = 8;
+		} else {
+			process.exitCode = 1;
+		}
 	});
 }
 

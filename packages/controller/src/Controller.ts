@@ -84,6 +84,12 @@ export default class Controller {
 	// Possible states are new, starting, running, stopping, stopped
 	private _state: string = "new";
 	private _shouldStop: boolean = false;
+	/**
+	 * Set to true before calling stop to have the controller restart
+	 * instead of stopping. This only works if {@link Controller.canRestart}
+	 * is true.
+	 */
+	public shouldRestart: boolean = false;
 	_fallbackedRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
 	_registeredRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
 	_registeredEvents = new Map();
@@ -131,6 +137,11 @@ export default class Controller {
 		configPath: string,
 		config: lib.ControllerConfig,
 
+		/**
+		 * If true indicates that there is a process monitor present that
+		 * will restart the controller on non-zero exit codes.
+		 */
+		public canRestart: boolean = false,
 		public systems = new Map<lib.SystemInfo["id"], lib.SystemInfo>(),
 		/** Mapping of host id to host info */
 		public hosts = new Map<number, HostInfo>(),
@@ -365,7 +376,12 @@ export default class Controller {
 	async _stopInternal() {
 		// This function should never throw.
 		this._state = "stopping";
-		logger.info("Stopping controller");
+		if (this.shouldRestart) {
+			logger.info("Restarting controller");
+			process.exitCode = 1;
+		} else {
+			logger.info("Stopping controller");
+		}
 
 		if (this.clusterLogBuildInterval) {
 			clearInterval(this.clusterLogBuildInterval);
@@ -459,7 +475,7 @@ export default class Controller {
 				}
 				requests.push(hostConnection.send(new lib.SystemInfoRequest()));
 			}
-			requests.push(lib.gatherSystemInfo("controller"));
+			requests.push(lib.gatherSystemInfo("controller", this.canRestart));
 			const newMetrics = await Promise.all(requests);
 			for (const metric of newMetrics) {
 				this.systems.set(metric.id, metric);
