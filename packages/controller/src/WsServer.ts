@@ -59,6 +59,20 @@ export default class WsServer {
 		);
 	}
 
+	remoteAddr(req: IncomingMessage) {
+		const remote = req.socket.remoteAddress ?? "";
+		if (
+			remote && req.headers["x-forwarded-for"]
+			&& (
+				(req.socket.remoteFamily === "IPv4" && this.controller.trustedProxies.check(remote, "ipv4"))
+				|| (req.socket.remoteFamily === "IPv6" && this.controller.trustedProxies.check(remote, "ipv6"))
+			)
+		) {
+			return (req.headers["x-forwarded-for"] as string).split(",").slice(-1)[0].trim();
+		}
+		return remote;
+	}
+
 	async stop(): Promise<void> {
 		this.stopAcceptingNewSessions = true;
 
@@ -100,7 +114,7 @@ export default class WsServer {
 	}
 
 	handleConnection(socket: lib.WebSocketClusterio, req: IncomingMessage) {
-		logger.verbose(`WsServer | new connection from ${req.socket.remoteAddress}`);
+		logger.verbose(`WsServer | new connection from ${this.remoteAddr(req)}`);
 
 		// Track statistics
 		wsConnectionsCounter.inc();
@@ -136,7 +150,7 @@ export default class WsServer {
 		this.pendingSockets.add(socket);
 
 		let timeoutId = setTimeout(() => {
-			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after timing out on handshake`);
+			logger.verbose(`WsServer | closing ${this.remoteAddr(req)} after timing out on handshake`);
 			wsRejectedConnectionsCounter.inc();
 			socket.terminate();
 			this.pendingSockets.delete(socket);
@@ -168,7 +182,7 @@ ${err.stack}`
 			lib.Message.validate(json);
 			message = lib.Message.fromJSON(json);
 		} catch (err: any) {
-			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after receiving invalid message`);
+			logger.verbose(`WsServer | closing ${this.remoteAddr(req)} after receiving invalid message`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(1002, `Invalid message: ${err.message}`);
 			return;
@@ -180,14 +194,14 @@ ${err.stack}`
 		}
 
 		if (message.type !== "registerHost" && message.type !== "registerControl") {
-			logger.verbose(`WsServer | closing ${req.socket.remoteAddress} after receiving invalid handshake`);
+			logger.verbose(`WsServer | closing ${this.remoteAddr(req)} after receiving invalid handshake`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(1002, "Bad handshake");
 			return;
 		}
 
 		if (this.stopAcceptingNewSessions) {
-			logger.verbose(`WsServer | closing ${req.socket.remoteAddress}, server is shutting down`);
+			logger.verbose(`WsServer | closing ${this.remoteAddr(req)}, server is shutting down`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(1001, "Shutting down");
 			return;
@@ -247,7 +261,7 @@ ${err.stack}`
 				throw new Error("invalid token");
 			}
 		} catch (err: any) {
-			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);
+			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(4003, `Authentication failed: ${err.message}`);
 			return;
@@ -306,7 +320,7 @@ ${err.stack}`
 			user.checkPermission("core.control.connect");
 
 		} catch (err: any) {
-			logger.verbose(`WsServer | authentication failed for ${req.socket.remoteAddress}`);
+			logger.verbose(`WsServer | authentication failed for ${this.remoteAddr(req)}`);
 			wsRejectedConnectionsCounter.inc();
 			socket.close(4003, `Authentication failed: ${err.message}`);
 			return;
@@ -316,7 +330,7 @@ ${err.stack}`
 		this.nextControlId += 1;
 		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.control, id));
 
-		logger.verbose(`WsServer | registered control ${id} from ${req.socket.remoteAddress}`);
+		logger.verbose(`WsServer | registered control ${id} from ${this.remoteAddr(req)}`);
 		let connection = new ControlConnection(data, connector, this.controller, user, id);
 		connector.on("close", () => {
 			this.controlConnections.delete(id);
