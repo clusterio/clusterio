@@ -211,6 +211,11 @@ export class SystemInfo {
 		 * "controller" if these metrics are for the controller.
 		 */
 		public id: number | "controller",
+		public hostname: string,
+		public node: string,
+		public kernel: string,
+		public machine: string,
+		public cpuModel: string,
 		public coreRatios: number[],
 		public memoryCapacity: number,
 		public memoryAvailable: number,
@@ -223,6 +228,11 @@ export class SystemInfo {
 
 	static jsonSchema = Type.Object({
 		"id": Type.Union([Type.Number(), Type.Literal("controller")]),
+		"hostname": Type.String(),
+		"node": Type.String(),
+		"kernel": Type.String(),
+		"machine": Type.String(),
+		"cpuModel": Type.String(),
 		"coreRatios": Type.Array(Type.Number()),
 		"memoryCapacity": Type.Number(),
 		"memoryAvailable": Type.Number(),
@@ -235,6 +245,11 @@ export class SystemInfo {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
 			json.id,
+			json.hostname,
+			json.node,
+			json.kernel,
+			json.machine,
+			json.cpuModel,
 			json.coreRatios,
 			json.memoryCapacity,
 			json.memoryAvailable,

@@ -192,6 +192,7 @@ export default function HostsPage() {
 	const [systems] = useSystems();
 	const [showRatios, setShowRatios] = useState(true);
 	const [showNumbers, setShowNumbers] = useState(false);
+	const [showCpuModel, setShowCpuModel] = useState(false);
 
 	return <PageLayout nav={[{ name: "Hosts" }]}>
 		<PageHeader
@@ -206,6 +207,13 @@ export default function HostsPage() {
 					dataIndex: "name",
 					defaultSortOrder: "ascend",
 					sorter: (a, b) => strcmp(a.name, b.name),
+				},
+				{
+					title: "CPU Model",
+					dataIndex: "cpuModel",
+					sorter: (a, b) => strcmp(systems.get(a.id)?.cpuModel ?? "", systems.get(b.id)?.cpuModel ?? ""),
+					render: (_, host) => systems.get(host.id)?.cpuModel,
+					hidden: !showCpuModel,
 				},
 				{
 					title: "CPU%",
@@ -289,6 +297,10 @@ export default function HostsPage() {
 			<label style={{ width: "14em", display: "flex", justifyContent: "space-between", marginRight: 16 }}>
 				Show metric numbers:
 				<Switch checked={showNumbers} onChange={checked => { setShowNumbers(checked); }} />
+			</label>
+			<label style={{ width: "14em", display: "flex", justifyContent: "space-between", marginRight: 16 }}>
+				Show CPU model:
+				<Switch checked={showCpuModel} onChange={checked => { setShowCpuModel(checked); }} />
 			</label>
 		</Flex>
 		<PluginExtra component="HostsPage" />

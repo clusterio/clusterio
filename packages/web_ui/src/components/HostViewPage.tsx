@@ -78,6 +78,12 @@ export default function HostViewPage() {
 					{host["connected"] ? "Connected" : "Disconnected"}
 				</Tag>
 			</Descriptions.Item>
+			<Descriptions.Item label="Version">{host.version}</Descriptions.Item>
+			<Descriptions.Item label="Node.js">{system?.node}</Descriptions.Item>
+			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
+			<Descriptions.Item label="Machine">{system?.machine}</Descriptions.Item>
+			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
 			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio system={system} /></Descriptions.Item>

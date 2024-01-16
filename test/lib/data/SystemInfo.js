@@ -8,7 +8,21 @@ const { SystemInfo } = lib;
 describe("lib/data/ModPack", function() {
 	describe("class SystemInfo", function() {
 		it("correctly calculates derived metrics", function() {
-			const system = new SystemInfo("controller", [0.5, 0.25, 0, 1], 1024, 768, 2048, 512, 0, false);
+			const system = new SystemInfo(
+				"controller",
+				"server",
+				"v18.0.0",
+				"Linux",
+				"x86_64",
+				"x86 CPU",
+				[0.5, 0.25, 0, 1],
+				1024,
+				768,
+				2048,
+				512,
+				0,
+				false
+			);
 			assert.equal(system.cpuCapacity, 4);
 			assert.equal(system.cpuUsed, 1.75);
 			assert.equal(system.cpuAvailable, 2.25);

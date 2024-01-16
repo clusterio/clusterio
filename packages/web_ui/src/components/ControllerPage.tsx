@@ -11,6 +11,7 @@ import { useAccount } from "../model/account";
 import { useSystems } from "../model/system";
 import ControllerConfigTree from "./ControllerConfigTree";
 import PageLayout from "./PageLayout";
+import webUiPackage from "../../package.json";
 
 const { Title } = Typography;
 
@@ -23,6 +24,12 @@ export default function ControllerPage() {
 	return <PageLayout nav={[{ name: "Controller" }]}>
 		<h2>Controller</h2>
 		<Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}>
+			<Descriptions.Item label="Version">{webUiPackage.version}</Descriptions.Item>
+			<Descriptions.Item label="Node.js">{system?.node}</Descriptions.Item>
+			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
+			<Descriptions.Item label="Machine">{system?.machine}</Descriptions.Item>
+			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
 			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio system={system} /></Descriptions.Item>
