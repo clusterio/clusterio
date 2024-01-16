@@ -83,6 +83,7 @@ export default function HostViewPage() {
 			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
 			<Descriptions.Item label="Machine">{system?.machine}</Descriptions.Item>
 			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="Connected From" span={2}>{host.remoteAddress}</Descriptions.Item>
 			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
 			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
 			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>

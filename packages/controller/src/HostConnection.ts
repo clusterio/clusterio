@@ -23,6 +23,7 @@ export default class HostConnection extends BaseConnection {
 		registerData: lib.RegisterHostData,
 		connector: WsServerConnector,
 		controller: Controller,
+		remoteAddress: string,
 	) {
 		super(connector, controller);
 
@@ -35,6 +36,7 @@ export default class HostConnection extends BaseConnection {
 			registerData.version,
 			this.plugins,
 			true,
+			remoteAddress,
 			previousHostInfo?.publicAddress,
 			previousHostInfo?.tokenValidAfter,
 			0,
