@@ -5,7 +5,7 @@ const lib = require("@clusterio/lib");
 const { SystemInfo } = lib;
 
 
-describe("lib/data/ModPack", function() {
+describe("lib/data/SystemInfo", function() {
 	describe("class SystemInfo", function() {
 		it("correctly calculates derived metrics", function() {
 			const system = new SystemInfo(
