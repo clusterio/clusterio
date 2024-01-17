@@ -232,7 +232,7 @@ async function startControl() {
 			}
 		}
 		return controlConfig;
-	}
+	};
 
 	if (args._.length === 0) {
 		yargs.showHelp();

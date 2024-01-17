@@ -159,7 +159,7 @@ async function startHost() {
 			}
 		}
 		return hostConfig;
-	}
+	};
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfigLoader, args.config, () => new lib.HostConfig("host"));
