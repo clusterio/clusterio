@@ -1,5 +1,5 @@
 import type winston from "winston";
-import type { AddressInfo } from "net";
+import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
@@ -74,6 +74,7 @@ export default class Controller {
 
 	/** WebSocket server */
 	wsServer: WsServer;
+	trustedProxies: BlockList;
 	debugEvents: events.EventEmitter = new events.EventEmitter();
 	private _events: events.EventEmitter = new events.EventEmitter();
 
@@ -153,6 +154,7 @@ export default class Controller {
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 
+		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
 
 		this.modStore.on("change", mod => {
@@ -228,6 +230,8 @@ export default class Controller {
 				this.onAutosaveIntervalChanged();
 			} else if (field === "controller.system_metrics_interval") {
 				this.onSystemMetricsIntervalChanged();
+			} else if (field === "controller.trusted_proxies") {
+				this.trustedProxies = this.parseTrustedProxies();
 			}
 			lib.invokeHook(this.plugins, "onControllerConfigFieldChanged", field, curr, prev);
 		});
@@ -402,6 +406,34 @@ export default class Controller {
 		logger.info("Saving data");
 		await this.saveData();
 		logger.info("Goodbye");
+	}
+
+	parseTrustedProxies() {
+		const trustedProxies = new BlockList();
+		const proxiesString = this.config.get("controller.trusted_proxies");
+		if (proxiesString) {
+			const proxies = proxiesString.split(",").map(s => s.trim());
+			for (const proxy of proxies) {
+				const [ip, prefix] = proxy.split("/");
+				// eslint-disable-next-line no-nested-ternary
+				const type = isIPv4(ip) ? "ipv4" : isIPv6(ip) ? "ipv6" : undefined;
+				if (!type) {
+					logger.error(`Invalid proxy '${proxy}': not an IP address`);
+					continue;
+				}
+				try {
+					if (prefix) {
+						trustedProxies.addSubnet(ip, Number.parseInt(prefix, 10), type);
+					} else {
+						trustedProxies.addAddress(ip, type);
+					}
+				} catch (err: any) {
+					logger.error(`Invalid proxy '${proxy}': ${err.message}`);
+				}
+			}
+		}
+
+		return trustedProxies;
 	}
 
 	onSystemMetricsIntervalChanged() {

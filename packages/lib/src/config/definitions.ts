@@ -10,6 +10,7 @@ export interface ControllerConfigFields {
 	"controller.http_port": number | null;
 	"controller.https_port": number | null;
 	"controller.bind_address": string | null;
+	"controller.trusted_proxies": string | null;
 	"controller.external_address": string | null;
 	"controller.tls_certificate": string | null;
 	"controller.tls_private_key": string | null;
@@ -75,6 +76,13 @@ export class ControllerConfig extends classes.Config<ControllerConfigFields> {
 			title: "Bind Address",
 			description: "IP address to bind the HTTP and HTTPS ports on.",
 			restartRequired: true,
+			type: "string",
+			optional: true,
+		},
+		"controller.trusted_proxies": {
+			title: "Trusted Proxies",
+			description:
+				"Comma separated list of IP addresses and/or CIDR blocks to trust the X-Forwarded-For header on",
 			type: "string",
 			optional: true,
 		},
