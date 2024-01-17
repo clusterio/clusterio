@@ -8,27 +8,34 @@ import {
 	MetricDiskUsed, MetricDiskRatio,
 } from "./system_metrics";
 import { useAccount } from "../model/account";
-import { useSystemMetrics } from "../model/system_metrics";
+import { useSystems } from "../model/system";
 import ControllerConfigTree from "./ControllerConfigTree";
 import PageLayout from "./PageLayout";
+import webUiPackage from "../../package.json";
 
 const { Title } = Typography;
 
 
 export default function ControllerPage() {
 	let account = useAccount();
-	const [systemMetrics] = useSystemMetrics();
-	const metrics = systemMetrics.get("controller");
+	const [systems] = useSystems();
+	const system = systems.get("controller");
 
 	return <PageLayout nav={[{ name: "Controller" }]}>
 		<h2>Controller</h2>
 		<Descriptions bordered size="small" column={{ xs: 1, md: 2, lg: 2, xl: 2, xxl: 2 }}>
-			<Descriptions.Item label="CPU Usage"><MetricCpuRatio metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Cores"><MetricCpuUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Memory"><MetricMemoryUsed metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Disk Usage"><MetricDiskRatio metrics={metrics} /></Descriptions.Item>
-			<Descriptions.Item label="Disk"><MetricDiskUsed metrics={metrics} /></Descriptions.Item>
+			<Descriptions.Item label="Version">{webUiPackage.version}</Descriptions.Item>
+			<Descriptions.Item label="Node.js">{system?.node}</Descriptions.Item>
+			<Descriptions.Item label="OS Kernel">{system?.kernel}</Descriptions.Item>
+			<Descriptions.Item label="Machine">{system?.machine}</Descriptions.Item>
+			<Descriptions.Item label="Hostname" span={2}>{system?.hostname}</Descriptions.Item>
+			<Descriptions.Item label="CPU Model" span={2}>{system?.cpuModel}</Descriptions.Item>
+			<Descriptions.Item label="CPU Usage"><MetricCpuRatio system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Cores"><MetricCpuUsed system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Memory Usage"><MetricMemoryRatio system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Memory"><MetricMemoryUsed system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Disk Usage"><MetricDiskRatio system={system} /></Descriptions.Item>
+			<Descriptions.Item label="Disk"><MetricDiskUsed system={system} /></Descriptions.Item>
 		</Descriptions>
 		{account.hasPermission("core.log.follow") && <>
 			<Title level={5} style={{ marginTop: 16 }}>Console</Title>

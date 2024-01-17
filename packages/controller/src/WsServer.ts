@@ -284,7 +284,7 @@ ${err.stack}`
 			);
 		}
 
-		connection = new HostConnection(data, connector, this.controller);
+		connection = new HostConnection(data, connector, this.controller, this.remoteAddr(req));
 		connector.on("close", () => {
 			if (this.hostConnections.get(data.id) === connection) {
 				this.hostConnections.delete(data.id);

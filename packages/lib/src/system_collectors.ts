@@ -2,9 +2,9 @@ import fs from "fs-extra";
 import os from "os";
 import util from "util";
 import { Gauge } from "./prometheus";
-import { SystemMetrics } from "./data";
+import { SystemInfo } from "./data";
 
-function cpuModel() {
+function filterCpuModel() {
 	const model = os.cpus()[0].model;
 	// Remove irelevant clutter
 	return model
@@ -16,6 +16,7 @@ function cpuModel() {
 		.trim() // AMD CPUs may have trailing spaces in the model.
 	;
 }
+const cpuModel = filterCpuModel();
 
 export const systemInfo = new Gauge(
 	"system_info",
@@ -27,7 +28,7 @@ export const systemInfo = new Gauge(
 systemInfo.labels({
 	"kernel": os.type(),
 	"machine": os.machine(),
-	"cpu_model": cpuModel(),
+	"cpu_model": cpuModel,
 	"hostname": os.hostname(),
 	"node": process.version,
 }).set(1);
@@ -133,7 +134,7 @@ function minZip<T>(a: T[], b: T[]): [T, T][] {
 
 let previousTotalCpuMs: number[] = [];
 let previousIdleCpuMs: number[] = [];
-export async function gatherSystemMetrics(id: SystemMetrics["id"]) {
+export async function gatherSystemInfo(id: SystemInfo["id"]) {
 	const cpus = os.cpus();
 	const currentTotalCpuMs = cpus.map(({ times }) => times.user + times.idle + times.irq + times.nice + times.sys);
 	const currentIdleCpuMs = cpus.map(({ times }) => times.idle);
@@ -151,8 +152,13 @@ export async function gatherSystemMetrics(id: SystemMetrics["id"]) {
 		diskAvailable = stats.bavail * stats.bsize;
 	}
 
-	return new SystemMetrics(
+	return new SystemInfo(
 		id,
+		os.hostname(),
+		process.version,
+		os.type(),
+		os.machine(),
+		cpuModel,
 		cpuUsage,
 		os.totalmem(),
 		os.freemem(),

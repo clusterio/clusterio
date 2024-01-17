@@ -204,13 +204,18 @@ export class LogMessageEvent {
 	}
 }
 
-export class SystemMetrics {
+export class SystemInfo {
 	constructor(
 		/**
 		 * Id of the host these metrics originate from, or the string
 		 * "controller" if these metrics are for the controller.
 		 */
 		public id: number | "controller",
+		public hostname: string,
+		public node: string,
+		public kernel: string,
+		public machine: string,
+		public cpuModel: string,
 		public coreRatios: number[],
 		public memoryCapacity: number,
 		public memoryAvailable: number,
@@ -223,6 +228,11 @@ export class SystemMetrics {
 
 	static jsonSchema = Type.Object({
 		"id": Type.Union([Type.Number(), Type.Literal("controller")]),
+		"hostname": Type.String(),
+		"node": Type.String(),
+		"kernel": Type.String(),
+		"machine": Type.String(),
+		"cpuModel": Type.String(),
 		"coreRatios": Type.Array(Type.Number()),
 		"memoryCapacity": Type.Number(),
 		"memoryAvailable": Type.Number(),
@@ -235,6 +245,11 @@ export class SystemMetrics {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
 			json.id,
+			json.hostname,
+			json.node,
+			json.kernel,
+			json.machine,
+			json.cpuModel,
 			json.coreRatios,
 			json.memoryCapacity,
 			json.memoryAvailable,
@@ -278,31 +293,31 @@ export class SystemMetrics {
 	}
 }
 
-export class SystemMetricsRequest {
-	declare ["constructor"]: typeof SystemMetricsRequest;
+export class SystemInfoRequest {
+	declare ["constructor"]: typeof SystemInfoRequest;
 	static type = "request" as const;
 	static src = "controller" as const;
 	static dst = "host" as const;
-	static Response = SystemMetrics;
+	static Response = SystemInfo;
 }
 
-export class SystemMetricsUpdateEvent {
-	declare ["constructor"]: typeof SystemMetricsUpdateEvent;
+export class SystemInfoUpdateEvent {
+	declare ["constructor"]: typeof SystemInfoUpdateEvent;
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
-	static permission = "core.system_metrics.subscribe" as const;
+	static permission = "core.system.subscribe" as const;
 
 	constructor(
-		public updates: SystemMetrics[],
+		public updates: SystemInfo[],
 	) { }
 
 	static jsonSchema = Type.Object({
-		"updates": Type.Array(SystemMetrics.jsonSchema),
+		"updates": Type.Array(SystemInfo.jsonSchema),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.updates.map(update => SystemMetrics.fromJSON(update)));
+		return new this(json.updates.map(update => SystemInfo.fromJSON(update)));
 	}
 }
 

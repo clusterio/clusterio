@@ -354,7 +354,7 @@ export default class Host extends lib.Link {
 		this.snoopEvent(lib.InstanceWhitelistUpdateEvent, this.handleWhitelistUpdateEvent.bind(this));
 		this.handle(lib.InstanceAssignInternalRequest, this.handleInstanceAssignInternalRequest.bind(this));
 		this.handle(lib.InstanceUnassignInternalRequest, this.handleInstanceUnassignInternalRequest.bind(this));
-		this.handle(lib.SystemMetricsRequest, this.handleSystemMetricsRequest.bind(this));
+		this.handle(lib.SystemInfoRequest, this.handleSystemInfoRequest.bind(this));
 		this.handle(lib.HostMetricsRequest, this.handleHostMetricsRequest.bind(this));
 		this.fallbackRequest(
 			lib.InstanceSaveDetailsListRequest, this.fallbackInstanceSaveDetailsListRequest.bind(this),
@@ -750,8 +750,8 @@ export default class Host extends lib.Link {
 		return instanceConnection;
 	}
 
-	async handleSystemMetricsRequest() {
-		return lib.gatherSystemMetrics(this.config.get("host.id"));
+	async handleSystemInfoRequest() {
+		return lib.gatherSystemInfo(this.config.get("host.id"));
 	}
 
 	async handleHostMetricsRequest() {

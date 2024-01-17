@@ -16,9 +16,11 @@ export default class HostInfo {
 		public plugins: Map<string, string>,
 		/** True if this host is currently connected to controller */
 		public connected: boolean = false,
+		/** IP this host last connected from */
+		public remoteAddress: string = "",
 		/** Value of host.public_address configured for this host */
 		public publicAddress: string = "",
-		/** Unix timestamp in seconds host token must be issued afterto be valid */
+		/** Unix timestamp in seconds host token must be issued after to be valid */
 		public tokenValidAfter: number = 0,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAt: number = 0,
@@ -32,6 +34,7 @@ export default class HostInfo {
 		"version": Type.String(),
 		"plugins": Type.Record(Type.String(), Type.String()),
 		"connected": Type.Boolean(),
+		"remote_address": Type.String(),
 		"public_address": Type.String(),
 		"token_valid_after": Type.Number(),
 		"updated_at": Type.Number(),
@@ -45,6 +48,7 @@ export default class HostInfo {
 			json.version,
 			new Map(Object.entries(json.plugins)),
 			json.connected,
+			json.remote_address,
 			json.public_address,
 			json.token_valid_after,
 			json.updated_at,
@@ -59,6 +63,7 @@ export default class HostInfo {
 			version: this.version,
 			plugins: Object.fromEntries(this.plugins),
 			connected: this.connected,
+			remote_address: this.remoteAddress,
 			public_address: this.publicAddress,
 			token_valid_after: this.tokenValidAfter,
 			updated_at: this.updatedAt,
@@ -72,6 +77,7 @@ export default class HostInfo {
 			this.name,
 			this.id,
 			this.connected,
+			this.remoteAddress,
 			this.publicAddress,
 			this.tokenValidAfter,
 			this.updatedAt,
