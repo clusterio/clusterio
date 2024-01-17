@@ -301,6 +301,9 @@ export default class Instance extends lib.Link {
 			this.playerStats.set(name, stats);
 		}
 		stats.lastJoinAt = new Date();
+		if (!stats.firstJoinAt) {
+			stats.firstJoinAt = stats.lastJoinAt;
+		}
 		stats.joinCount += 1;
 
 		let event: lib.PlayerEvent = {

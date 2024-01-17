@@ -4,23 +4,38 @@ import ControlContext from "../components/ControlContext";
 
 import * as lib from "@clusterio/lib";
 
-function calculateLastSeen(user: lib.User, instanceId?: number) {
-	let stats;
+function getInstanceStats(user: lib.User, instanceId?: number) {
 	if (instanceId === undefined) {
-		stats = user.playerStats;
-	} else {
-		stats = user.instanceStats.get(instanceId);
-		if (!stats) {
-			return undefined;
-		}
+		return user.playerStats;
 	}
-	if ((stats.lastLeaveAt?.getTime() ?? 0) > (stats.lastJoinAt?.getTime() ?? 0)) {
-		return stats.lastLeaveAt?.getTime();
+	return user.instanceStats.get(instanceId);
+}
+
+function calculateFirstSeen(user: lib.User, instanceId?: number) {
+	const stats = getInstanceStats(user, instanceId);
+	return stats?.firstJoinAt?.getTime();
+}
+
+function calculateLastSeen(user: lib.User, instanceId?: number) {
+	const stats = getInstanceStats(user, instanceId);
+	if (!stats) {
+		return undefined;
+	}
+	if (stats.lastLeaveAt && stats.lastLeaveAt.getTime() > (stats.lastJoinAt?.getTime() ?? 0)) {
+		return stats.lastLeaveAt.getTime();
 	}
 	if (stats.lastJoinAt) {
-		return stats.lastLeaveAt?.getTime();
+		return stats.lastJoinAt.getTime();
 	}
 	return undefined;
+}
+
+export function formatFirstSeen(user: lib.User, instanceId?: number) {
+	const firstSeen = calculateFirstSeen(user, instanceId);
+	if (firstSeen === undefined) {
+		return undefined;
+	}
+	return new Date(firstSeen).toLocaleString();
 }
 
 export function formatLastSeen(user: lib.User, instanceId?: number) {
@@ -32,6 +47,12 @@ export function formatLastSeen(user: lib.User, instanceId?: number) {
 		return undefined;
 	}
 	return new Date(lastSeen).toLocaleString();
+}
+
+export function sortFirstSeen(userA: lib.User, userB: lib.User, instanceIdA?: number, instanceIdB?: number) {
+	const firstSeenA = calculateFirstSeen(userA, instanceIdA) || 0;
+	const firstSeenB = calculateFirstSeen(userB, instanceIdB) || 0;
+	return firstSeenA - firstSeenB;
 }
 
 export function sortLastSeen(userA: lib.User, userB: lib.User, instanceIdA?: number, instanceIdB?: number) {

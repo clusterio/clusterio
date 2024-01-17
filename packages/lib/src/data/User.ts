@@ -126,6 +126,12 @@ export default class User {
 		let playerStats = new PlayerStats();
 		for (let instanceStats of instanceStatsMap.values()) {
 			if (
+				instanceStats.firstJoinAt
+				&& (!playerStats.firstJoinAt || instanceStats.firstJoinAt < playerStats.firstJoinAt)
+			) {
+				playerStats.firstJoinAt = instanceStats.firstJoinAt;
+			}
+			if (
 				instanceStats.lastJoinAt
 				&& (!playerStats.lastJoinAt || instanceStats.lastJoinAt > playerStats.lastJoinAt)
 			) {

@@ -35,12 +35,14 @@ describe("lib/data/User", function() {
 				[2, {
 					join_count: 1,
 					online_time_ms: 0,
+					first_join_at: new Date("2020-05T12:00Z").getTime(),
 					last_join_at: new Date("2020-05T12:02Z").getTime(),
 				}],
 			]});
 
 			assert.equal(user.playerStats.onlineTimeMs, 60e3);
 			assert.equal(user.playerStats.joinCount, 2);
+			assert.deepEqual(user.playerStats.firstJoinAt, new Date("2020-05T12:00Z"));
 			assert.deepEqual(user.playerStats.lastJoinAt, new Date("2020-05T12:02Z"));
 			assert.deepEqual(user.playerStats.lastLeaveAt, new Date("2020-05T12:01Z"));
 			assert.equal(user.playerStats.lastLeaveReason, "quit");
@@ -50,6 +52,7 @@ describe("lib/data/User", function() {
 				lib.PlayerStats.fromJSON({
 					join_count: 2,
 					online_time_ms: 120e3,
+					first_join_at: new Date("2020-05T11:00Z").getTime(),
 					last_join_at: new Date("2020-05T13:00Z").getTime(),
 					last_leave_at: new Date("2020-05T13:02Z").getTime(),
 					last_leave_reason: "afk",
@@ -59,6 +62,7 @@ describe("lib/data/User", function() {
 			user.recalculatePlayerStats();
 			assert.equal(user.playerStats.onlineTimeMs, 180e3);
 			assert.equal(user.playerStats.joinCount, 4);
+			assert.deepEqual(user.playerStats.firstJoinAt, new Date("2020-05T11:00Z"));
 			assert.deepEqual(user.playerStats.lastJoinAt, new Date("2020-05T13:00Z"));
 			assert.deepEqual(user.playerStats.lastLeaveAt, new Date("2020-05T13:02Z"));
 			assert.equal(user.playerStats.lastLeaveReason, "afk");

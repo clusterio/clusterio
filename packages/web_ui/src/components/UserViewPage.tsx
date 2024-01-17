@@ -17,7 +17,7 @@ import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import notify, { notifyErrorHandler } from "../util/notify";
 import { formatDuration } from "../util/time_format";
-import { formatLastSeen, sortLastSeen, useUser } from "../model/user";
+import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUser } from "../model/user";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -286,12 +286,15 @@ export default function UserViewPage() {
 			}
 		</Form>
 		<SectionHeader title="Player stats" />
-		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3 }}>
+		<Descriptions size="small" bordered column={{ xs: 1, sm: 2, md: 2, lg: 2, xl: 2, xxl: 2 }}>
 			<Descriptions.Item label="Total online time">
 				{formatDuration(user.playerStats?.onlineTimeMs ?? 0)}
 			</Descriptions.Item>
 			<Descriptions.Item label="Total join count">
 				{user.playerStats?.joinCount ?? 0}
+			</Descriptions.Item>
+			<Descriptions.Item label="First seen">
+				{formatFirstSeen(user) || " "}
 			</Descriptions.Item>
 			<Descriptions.Item label="Last seen">
 				{formatLastSeen(user) || " "}
@@ -320,6 +323,12 @@ export default function UserViewPage() {
 					render: (_, [, stats]) => stats.joinCount || 0,
 					sorter: (a, b) => (a[1].joinCount || 0) - (b[1].joinCount || 0),
 					responsive: ["sm"],
+				},
+				{
+					title: "First seen",
+					key: "firstSeen",
+					render: (_, [id]) => formatFirstSeen(user, id),
+					sorter: (a, b) => sortFirstSeen(user, user, a[0], b[0]),
 				},
 				{
 					title: "Last seen",
