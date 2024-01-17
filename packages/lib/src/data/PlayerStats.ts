@@ -15,6 +15,11 @@ export default class PlayerStats {
 	onlineTimeMs = 0;
 
 	/**
+	 * Timestapm the player was first seen joining.
+	 */
+	firstJoinAt?: Date;
+
+	/**
 	 * Timestamp the player was last seen joining.
 	 */
 	lastJoinAt?: Date;
@@ -32,6 +37,7 @@ export default class PlayerStats {
 	static jsonSchema = Type.Object({
 		"join_count": Type.Optional(Type.Integer()),
 		"online_time_ms": Type.Optional(Type.Number()),
+		"first_join_at": Type.Optional(Type.Number()),
 		"last_join_at": Type.Optional(Type.Number()),
 		"last_leave_at": Type.Optional(Type.Number()),
 		"last_leave_reason": Type.Optional(Type.String()),
@@ -41,11 +47,17 @@ export default class PlayerStats {
 		if (json["join_count"]) {
 			this.joinCount = json["join_count"];
 		}
+		if (json["first_join_at"]) {
+			this.firstJoinAt = new Date(json["first_join_at"]);
+		}
 		if (json["online_time_ms"]) {
 			this.onlineTimeMs = json["online_time_ms"];
 		}
 		if (json["last_join_at"]) {
 			this.lastJoinAt = new Date(json["last_join_at"]);
+			if (!this.firstJoinAt) { // migrate: pre-alpha 14 did not have this field.
+				this.firstJoinAt = this.lastJoinAt;
+			}
 		}
 		if (json["last_leave_at"]) {
 			this.lastLeaveAt = new Date(json["last_leave_at"]);
@@ -64,6 +76,9 @@ export default class PlayerStats {
 		}
 		if (this.onlineTimeMs) {
 			json["online_time_ms"] = this.onlineTimeMs;
+		}
+		if (this.firstJoinAt) {
+			json["first_join_at"] = this.firstJoinAt.getTime();
 		}
 		if (this.lastJoinAt) {
 			json["last_join_at"] = this.lastJoinAt.getTime();

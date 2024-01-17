@@ -11,7 +11,7 @@ import { formatDuration } from "../util/time_format";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
-import { formatLastSeen, sortLastSeen, useUsers } from "../model/user";
+import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUsers } from "../model/user";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -108,6 +108,12 @@ export default function UsersPage() {
 					sorter: (a, b) => (a.playerStats?.onlineTimeMs ?? 0) -
 						(b.playerStats?.onlineTimeMs ?? 0),
 					responsive: ["lg"],
+				},
+				{
+					title: "First seen",
+					key: "firstSeen",
+					render: (_, user) => formatFirstSeen(user),
+					sorter: (a, b) => sortFirstSeen(a, b),
 				},
 				{
 					title: "Last seen",
