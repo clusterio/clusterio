@@ -78,6 +78,11 @@ export interface FieldDefinition {
 	 */
 	description?: string;
 	/**
+	 * Web UI component to use for rending this input. Can be extended by
+	 * @{link "@clusterio/web_ui".BaseWebPlugin.inputComponents}
+	 */
+	inputComponent?: string;
+	/**
 	 * True if this field can be set to null.  Defaults to false.
 	 */
 	optional?: boolean;
