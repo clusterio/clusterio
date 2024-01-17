@@ -356,8 +356,8 @@ async function initialize(): Promise<InitializeParameters> {
 			}
 		}
 		return controllerConfig;
-	}
-	
+	};
+
 	if (command === "config") {
 		await lib.handleConfigCommand(
 			args, controllerConfigLoader, controllerConfigPath, () => new lib.ControllerConfig("controller")

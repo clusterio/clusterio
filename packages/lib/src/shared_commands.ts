@@ -133,6 +133,8 @@ export function configCommand(yargs: any) {
  * @param args - yargs args object.
  * @param instanceLoader - Function that loads the config instance.
  * @param configPath - Path to configuration file.
+ * @param emptyConfigSupplier - Function supplying a default config for
+ *   the create command.
  */
 export async function handleConfigCommand(
 	args: Record<string, unknown>,
@@ -142,9 +144,9 @@ export async function handleConfigCommand(
 ) {
 	let command = (args._ as string[])[1];
 
-	if (command == "create") {
+	if (command === "create") {
 		if (await fs.exists(configPath)) {
-			logger.error(`Config "${configPath}" already exists`)
+			logger.error(`Config "${configPath}" already exists`);
 			return;
 		}
 		await libFileOps.safeOutputFile(configPath, JSON.stringify(emptyConfigSupplier(), null, "\t"));
