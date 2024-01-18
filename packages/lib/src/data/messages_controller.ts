@@ -3,6 +3,22 @@ import { JsonString, StringEnum, plainJson } from "./composites";
 import { levels } from "../logging";
 import { ControllerConfig, HostConfig } from "../config";
 
+export class ControllerStopRequest {
+	declare ["constructor"]: typeof ControllerStopRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.stop" as const;
+}
+
+export class ControllerRestartRequest {
+	declare ["constructor"]: typeof ControllerRestartRequest;
+	static type = "request" as const;
+	static src = "control" as const;
+	static dst = "controller" as const;
+	static permission = "core.controller.restart" as const;
+}
+
 export class ControllerConfigGetRequest {
 	declare ["constructor"]: typeof ControllerConfigGetRequest;
 	static type = "request" as const;
@@ -221,6 +237,7 @@ export class SystemInfo {
 		public memoryAvailable: number,
 		public diskCapacity: number,
 		public diskAvailable: number,
+		public canRestart: boolean,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAt: number,
 		public isDeleted: boolean,
@@ -238,6 +255,7 @@ export class SystemInfo {
 		"memoryAvailable": Type.Number(),
 		"diskCapacity": Type.Number(),
 		"diskAvailable": Type.Number(),
+		"canRestart": Type.Boolean(),
 		"updatedAt": Type.Number(),
 		"isDeleted": Type.Boolean(),
 	});
@@ -255,6 +273,7 @@ export class SystemInfo {
 			json.memoryAvailable,
 			json.diskCapacity,
 			json.diskAvailable,
+			json.canRestart,
 			json.updatedAt,
 			json.isDeleted,
 		);

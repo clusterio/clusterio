@@ -46,8 +46,9 @@ export default function HostViewPage() {
 		</PageLayout>;
 	}
 
-	let hostButtons = <Space> {
-		account.hasPermission("core.host.revoke_access")
+	let hostButtons = <Space>
+		{
+			account.hasPermission("core.host.revoke_access")
 			&& <Popconfirm
 				title={`Revoke tokens of ${host.name}?`}
 				placement="bottomRight"
@@ -63,7 +64,42 @@ export default function HostViewPage() {
 					Revoke tokens
 				</Button>
 			</Popconfirm>
-	}
+		}
+		{
+			account.hasPermission("core.host.stop")
+			&& <Popconfirm
+				title={<>
+					Stopping this host will leave it inaccessible until someone with
+					access to the system it runs on manually starts it again.<br />
+					Are you sure you want to stop the host?
+				</>}
+				placement="bottomRight"
+				okText="Stop"
+				okButtonProps={{ danger: true }}
+				onConfirm={() => {
+					control.sendTo(
+						{ hostId },
+						new lib.HostStopRequest()
+					).catch(notifyErrorHandler("Error stopping host"));
+				}}
+			>
+				<Button danger>Stop</Button>
+			</Popconfirm>
+		}
+		{
+			account.hasPermission("core.host.restart")
+			&& <Button
+				disabled={system?.canRestart === false}
+				onClick={() => {
+					control.sendTo(
+						{ hostId },
+						new lib.HostRestartRequest()
+					).catch(notifyErrorHandler("Error restarting host"));
+				}}
+			>
+				Restart
+			</Button>
+		}
 	</Space>;
 
 	return <PageLayout nav={nav}>

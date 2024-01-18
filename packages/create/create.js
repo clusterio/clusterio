@@ -87,7 +87,7 @@ class InstallError extends Error { }
 
 async function safeOutputFile(file, data, options={}) {
 	let { dir, name, ext } = path.parse(file);
-	let temporary = `${dir}${name}.tmp${ext}`;
+	let temporary = path.join(dir, `${name}.tmp${ext}`);
 	await fs.outputFile(temporary, data, options);
 	await fs.rename(temporary, file);
 }
@@ -377,18 +377,25 @@ async function writeScripts(mode) {
 			await safeOutputFile(
 				"run-controller.cmd",
 				`\
-@echo off.
+@echo off
 set "NODE_OPTIONS=--enable-source-maps %NODE_OPTIONS%"
-\\node_modules\\.bin\\clusteriocontroller.cmd run
+:restart
+call .\\node_modules\\.bin\\clusteriocontroller.cmd run --can-restart
+if %errorlevel% equ 0 exit /b
+if %errorlevel% equ 8 exit /b
+goto restart
 `
 			);
 		} else {
 			await safeOutputFile(
 				"run-controller.sh",
 				`\
-#!/bin/sh
+#!/bin/bash
 export "NODE_OPTIONS=--enable-source-maps $NODE_OPTIONS"
-exec ./node_modules/.bin/clusteriocontroller run
+while true; do
+	./node_modules/.bin/clusteriocontroller run --can-restart
+	if [[ $? -eq 0 || $? -eq 8 ]]; then exit $?; fi
+done
 `,
 				{ mode: 0o755 },
 			);
@@ -405,11 +412,14 @@ WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
 Environment=NODE_OPTIONS=--enable-source-maps
-ExecStart=${process.cwd()}/node_modules/.bin/clusteriocontroller run --log-level=warn
+ExecStart=${process.cwd()}/node_modules/.bin/clusteriocontroller run --log-level=warn --can-restart
+Restart=on-failure
+RestartPreventExitStatus=8
 
 [Install]
 WantedBy=multi-user.target
-`);
+`
+			);
 		}
 	}
 
@@ -417,17 +427,33 @@ WantedBy=multi-user.target
 		if (process.platform === "win32") {
 			await safeOutputFile(
 				"run-host.cmd",
-				"@echo off\n.\\node_modules\\.bin\\clusteriohost.cmd run\n"
+				`\
+@echo off
+set "NODE_OPTIONS=--enable-source-maps %NODE_OPTIONS%"
+:restart
+call .\\node_modules\\.bin\\clusteriohost.cmd run --can-restart
+if %errorlevel% equ 0 exit /b
+if %errorlevel% equ 8 exit /b
+goto restart
+`
 			);
 		} else {
 			await safeOutputFile(
 				"run-host.sh",
-				"#!/bin/sh\nexec ./node_modules/.bin/clusteriohost run\n",
+				`\
+#!/bin/bash
+export "NODE_OPTIONS=--enable-source-maps $NODE_OPTIONS"
+while true; do
+	./node_modules/.bin/clusteriohost run --can-restart
+	if [[ $? -eq 0 || $? -eq 8 ]]; then exit $?; fi
+done
+`,
 				{ mode: 0o755 },
 			);
 			await safeOutputFile(
 				"systemd/clusteriohost.service",
-				`[Unit]
+				`\
+[Unit]
 Description=Clusterio Host
 
 [Service]
@@ -436,11 +462,14 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
-ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn
+ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn --can-restart
+Restart=on-failure
+RestartPreventExitStatus=8
 
 [Install]
 WantedBy=multi-user.target
-`);
+`
+			);
 		}
 	}
 }

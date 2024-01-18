@@ -20,6 +20,7 @@ describe("lib/data/SystemInfo", function() {
 				768,
 				2048,
 				512,
+				false,
 				0,
 				false
 			);

@@ -134,7 +134,7 @@ function minZip<T>(a: T[], b: T[]): [T, T][] {
 
 let previousTotalCpuMs: number[] = [];
 let previousIdleCpuMs: number[] = [];
-export async function gatherSystemInfo(id: SystemInfo["id"]) {
+export async function gatherSystemInfo(id: SystemInfo["id"], canRestart: boolean) {
 	const cpus = os.cpus();
 	const currentTotalCpuMs = cpus.map(({ times }) => times.user + times.idle + times.irq + times.nice + times.sys);
 	const currentIdleCpuMs = cpus.map(({ times }) => times.idle);
@@ -164,6 +164,7 @@ export async function gatherSystemInfo(id: SystemInfo["id"]) {
 		os.freemem(),
 		diskCapacity,
 		diskAvailable,
+		canRestart,
 		Date.now(),
 		false,
 	);

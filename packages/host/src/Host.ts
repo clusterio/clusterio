@@ -278,7 +278,12 @@ export default class Host extends lib.Link {
 		hostConfig: lib.HostConfig,
 		tlsCa: string | undefined,
 		pluginInfos: lib.PluginNodeEnvInfo[],
-		public modStore: lib.ModStore,
+		/**
+		 * If true indicates that there is a process monitor present that
+		 * will restart this host on a non-zero exit codes.
+		 */
+		public canRestart = false,
+		public modStore = new lib.ModStore(hostConfig.get("host.mods_directory"), new Map()),
 	) {
 		super(connector);
 		this.tlsCa = tlsCa;
@@ -345,6 +350,8 @@ export default class Host extends lib.Link {
 			});
 		}
 
+		this.handle(lib.HostStopRequest, this.handleHostStopRequest.bind(this));
+		this.handle(lib.HostRestartRequest, this.handleHostRestartRequest.bind(this));
 		this.handle(lib.HostConfigGetRequest, this.handleHostConfigGetRequest.bind(this));
 		this.handle(lib.HostConfigSetFieldRequest, this.handleHostConfigSetFieldRequest.bind(this));
 		this.handle(lib.HostConfigSetPropRequest, this.handleHostConfigSetPropRequest.bind(this));
@@ -428,6 +435,18 @@ export default class Host extends lib.Link {
 			}
 			instanceConnection.send(event);
 		}
+	}
+
+	async handleHostStopRequest() {
+		this.shutdown();
+	}
+
+	async handleHostRestartRequest() {
+		if (!this.canRestart) {
+			throw new lib.RequestError("Cannot restart, host does not have a process monitor to restart it.");
+		}
+		process.exitCode = 1;
+		this.shutdown();
 	}
 
 	async handleHostConfigGetRequest() {
@@ -751,7 +770,7 @@ export default class Host extends lib.Link {
 	}
 
 	async handleSystemInfoRequest() {
-		return lib.gatherSystemInfo(this.config.get("host.id"));
+		return lib.gatherSystemInfo(this.config.get("host.id"), this.canRestart);
 	}
 
 	async handleHostMetricsRequest() {

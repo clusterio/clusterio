@@ -120,6 +120,18 @@ definePermission({
 });
 
 definePermission({
+	name: "core.controller.stop",
+	title: "Stop controller",
+	description:
+		"Stop the Node.js controller process making the cluster inoperable until someone with access to the system " +
+		"it runs on manually starts it again.",
+});
+definePermission({
+	name: "core.controller.restart",
+	title: "Restart controller",
+	description: "Restart the Node.js controller process if the system is set up for restarting.",
+});
+definePermission({
 	name: "core.controller.get_config",
 	title: "Get controller config",
 	description: "Get the config of controller.",
@@ -135,6 +147,18 @@ definePermission({
 	description:
 		"Subscribe to be notified when the system info detailing system specific information along with metrics " +
 		"such as cpu, memory and disk usage for the controller and hosts are updated.",
+});
+definePermission({
+	name: "core.host.stop",
+	title: "Stop Hosts",
+	description:
+		"Stop Node.js host processes making the host inaccessible until someone with access to the system " +
+		"it runs on manually starts it again.",
+});
+definePermission({
+	name: "core.host.restart",
+	title: "Restart Hosts",
+	description: "Restart Node.js host processes if the system they run on are set up for restarting.",
 });
 definePermission({
 	name: "core.host.get_config",

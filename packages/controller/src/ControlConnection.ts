@@ -68,6 +68,8 @@ export default class ControlConnection extends BaseConnection {
 			});
 		}
 
+		this.handle(lib.ControllerStopRequest, this.handleControllerStopRequest.bind(this));
+		this.handle(lib.ControllerRestartRequest, this.handleControllerRestartRequest.bind(this));
 		this.handle(lib.ControllerConfigGetRequest, this.handleControllerConfigGetRequest.bind(this));
 		this.handle(lib.ControllerConfigSetFieldRequest, this.handleControllerConfigSetFieldRequest.bind(this));
 		this.handle(lib.ControllerConfigSetPropRequest, this.handleControllerConfigSetPropRequest.bind(this));
@@ -165,6 +167,18 @@ export default class ControlConnection extends BaseConnection {
 		}
 
 		throw new Error("Should be unreachable");
+	}
+
+	async handleControllerStopRequest() {
+		this._controller.stop();
+	}
+
+	async handleControllerRestartRequest() {
+		if (!this._controller.canRestart) {
+			throw new lib.RequestError("Cannot restart, controller does not have a process monitor to restart it.");
+		}
+		this._controller.shouldRestart = true;
+		this._controller.stop();
 	}
 
 	async handleControllerConfigGetRequest() {

@@ -244,6 +244,10 @@ async function initialize(): Promise<InitializeParameters> {
 				.demandCommand(1, "You need to specify a command to run");
 		})
 		.command("run", "Run controller", yargs => {
+			yargs.option("can-restart", {
+				type: "boolean", nargs: 0, default: false,
+				describe: "Indicate that a process monitor will restart the controller on failure",
+			});
 			yargs.option("dev", { hidden: true, type: "boolean", nargs: 0 });
 			yargs.option("dev-plugin", { hidden: true, type: "array" });
 		})
@@ -386,6 +390,7 @@ async function startup() {
 		pluginInfos,
 		controllerConfigPath,
 		controllerConfig,
+		Boolean(args.canRestart),
 		...await Controller.bootstrap(controllerConfig)
 	);
 
