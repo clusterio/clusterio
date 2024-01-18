@@ -11,7 +11,7 @@ import type Host from "./Host";
  * the host when it brings up an instance with the plugin enabled in the
  * config.  To be discovered the class must be exported under the name
  * `InstancePlugin` in the module specified by the `instanceEntrypoint` in
- * the plugin's info.js file.
+ * the plugin's `plugin` export.
  *
  * Instances may be started and stopped many times, and many instances may
  * be running at the same time, each of which will have their own instance

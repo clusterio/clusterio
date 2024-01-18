@@ -2,7 +2,7 @@ import type * as lib from "@clusterio/lib";
 
 import * as messages from "./messages";
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",
@@ -15,4 +15,4 @@ export default {
 		messages.FinishedEvent,
 		messages.SyncTechnologiesRequest,
 	],
-} satisfies lib.PluginDeclaration;
+};

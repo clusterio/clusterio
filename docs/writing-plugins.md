@@ -25,7 +25,7 @@ The plugin classes have pre-defined hooks that are called during various stages 
 The basic file structure of a plugin is the following.
 
     plugin_name/
-      +- info.js
+      +- index.js
       +- package.json
       +- controller.js
       +- instance.js
@@ -44,14 +44,12 @@ A possible workflow for developing plugins is to place the plugin in a sub-direc
 To add it to `plugin-list.json` so that it gets loaded use the `plugin add <path>` sub-command to either clusteriocontroller, clusteriohost or clusterioctl.
 Note that it's important that the path starts with ./ or ../ (use .\ or ..\ on Windows).
 
-For a plugin the most important file is the `info.js` file.
-Without it the plugin will not recognized by Clusterio.
-Here's an example of it:
+For a plugin to be recognised by Clusterio it needs to export an entry named `plugin` from its main entrypoint.
+By default the main entrypoint is the `index.js` file, but this may be changed by setting the `"main"` entry to a different file in `package.json`.
+Here's an example of `index.js`:
 
 ```js
-const lib = require("@clusterio/lib"); // For messages
-
-module.exports = {
+module.exports.plugin = {
     name: "foo_frobber",
     title: "Foo Frobber",
     description: "Does advanced frobnication",
@@ -202,8 +200,8 @@ For plugin hooks expections thrown are automatically catched and logged, but for
 ## Plugin Configuration
 
 Clusterio provides a configuration system that handles storing, distributing, editing and validating config fields for you.
-You can take advantage of it by declaring config fields under either `controllerConfigFields` or `instanceConfigFields` in the `info.js` export.
-For example in info.js:
+You can take advantage of it by declaring config fields under either `controllerConfigFields` or `instanceConfigFields` in the `plugin` export.
+For example in index.js:
 
 ```ts
 import type * as lib from "@clusterio/lib";
@@ -330,9 +328,9 @@ The requests are similar to HTTP requests, except both parties of a link may ini
 
 ### Defining Events
 
-Events are defined as properties of the messages object exported by `info.js` that map to instances of the `Event` class from `lib/link`.
+Events are defined as properties of the messages object exported on `plugin` that map to instances of the `Event` class from `lib/link`.
 The name of the property correspond to the handler invoked on the plugin class.
-The Event constructor takes an object of properties that define the event, for example the following could be defined in `info.js`:
+The Event constructor takes an object of properties that define the event, for example the following could be defined in `plugin`:
 
 ```js
 messages: {
@@ -404,10 +402,10 @@ Use a request if you need a confirmation that the message was received.
 
 ### Definining Requests
 
-Requests are defined as properties of the messages object exported by `info.js` that map to instances of the `Request` class from `lib/link`.
+Requests are defined as properties of the messages object exported by `plugin` that map to instances of the `Request` class from `lib/link`.
 The name of the property corresponds to the handler invoked on the plugin class.
 The Request constructor takes an object of properties that define the event.
-For example, the following could be defined in `info.js`:
+For example, the following could be defined in `plugin`:
 
 ```js
 messages: {
@@ -484,7 +482,7 @@ Same as the requestProperties only for the response sent back by the target.
 
 Link messages are sent by calling the `.send()` method on the Event/Request instance with the link you want to send it over and the data to send.
 For `InstancePlugin` code the link to the host is the `instance` itself, which is accessible through the `.instance` property of the `InstancePlugin`.
-The `.info` property of the plugin class exposes the data exported from the plugin's `info.js` module.
+The `.info` property of the plugin class exposes the data exported from the plugin's `plugin` export.
 In other words:
 
 ```js

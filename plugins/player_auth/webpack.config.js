@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "player_auth",
 			library: { type: "var", name: "plugin_player_auth" },
 			exposes: {
-				"./info": "./info.ts",
+				"./": "./index.ts",
 				"./package.json": "./package.json",
 				"./web": "./web/index.tsx",
 			},

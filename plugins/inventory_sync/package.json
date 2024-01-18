@@ -6,7 +6,7 @@
 	"homepage": "https://github.com/clusterio/factorioClusterio#readme",
 	"license": "MIT",
 	"repository": "clusterio/factorioClusterio",
-	"main": "dist/plugin/info.js",
+	"main": "dist/plugin/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",
 		"test": "echo \"Error: run tests from root\" && exit 1"
