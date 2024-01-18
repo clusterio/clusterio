@@ -3,6 +3,7 @@ import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
+import * as expressWinston from "express-winston";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
@@ -164,6 +165,10 @@ export default class Controller {
 		this.app = express();
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
+		this.app.use(expressWinston.logger({
+			winstonInstance: this.clusterLogger,
+			level: "http",
+		}));
 
 		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
@@ -283,6 +288,9 @@ export default class Controller {
 
 		// Load plugins
 		await this.loadPlugins();
+		this.app.use(expressWinston.errorLogger({
+			winstonInstance: this.clusterLogger,
+		}));
 
 		this.wsServer = new WsServer(this);
 
