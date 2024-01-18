@@ -18,18 +18,18 @@ describe("lib/plugin_loader", function() {
 		before(async function() {
 			async function writePlugin(pluginPath, infoName) {
 				await fs.outputFile(
-					path.join(pluginPath, "info.js"),
-					`module.exports.default = { name: "${infoName}" };`
+					path.join(pluginPath, "index.js"),
+					`module.exports.plugin = { name: "${infoName}" };`
 				);
 				await fs.outputFile(
 					path.join(pluginPath, "package.json"),
-					'{ "version": "0.0.1", "main":"info.js" }'
+					'{ "version": "0.0.1" }'
 				);
 			}
 
 			await writePlugin(testPlugin, "test");
 			await writePlugin(brokenPlugin, "broken");
-			await fs.outputFile(path.join(brokenPlugin, "info.js"), "Syntax Error");
+			await fs.outputFile(path.join(brokenPlugin, "index.js"), "Syntax Error");
 			await writePlugin(invalidPlugin, "wrong");
 		});
 
@@ -49,7 +49,7 @@ describe("lib/plugin_loader", function() {
 			let brokenMessage;
 			try {
 				// eslint-disable-next-line node/global-require
-				require(path.resolve(brokenPlugin, "info.js"));
+				require(path.resolve(brokenPlugin));
 			} catch (err) {
 				brokenMessage = err.message;
 			}

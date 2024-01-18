@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "subspace_storage",
 			library: { type: "var", name: "plugin_subspace_storage" },
 			exposes: {
-				"./info": "./info.ts",
+				"./": "./index.ts",
 				"./package.json": "./package.json",
 				"./web": "./web/index.tsx",
 			},

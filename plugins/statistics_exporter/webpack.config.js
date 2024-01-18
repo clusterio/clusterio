@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "statistics_exporter",
 			library: { type: "var", name: "plugin_statistics_exporter" },
 			exposes: {
-				"./info": "./info.ts",
+				"./": "./index.ts",
 				"./package.json": "./package.json",
 			},
 			shared: {

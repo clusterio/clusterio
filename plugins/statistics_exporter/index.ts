@@ -6,7 +6,7 @@ declare module "@clusterio/lib" {
 	}
 }
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "statistics_exporter",
 	title: "Statistics Exporter",
 	description:
@@ -22,4 +22,4 @@ export default {
 			initialValue: 1,
 		},
 	},
-} satisfies lib.PluginDeclaration;
+};

@@ -13,8 +13,8 @@ import type HostConnection from "./HostConnection";
  * Controller plugins are subclasses of this class which get instantiated by
  * the controller on startup when the plugin is enabled in the config.
  * To be discovered the class must be exported under the name `ControllerPlugin`
- * in the module specified by the `controllerEntrypoint` in the plugin's info.js
- * file.
+ * in the module specified by the `controllerEntrypoint` in the plugin's
+ * `plugin` export.
  */
 export default class BaseControllerPlugin {
 	/**

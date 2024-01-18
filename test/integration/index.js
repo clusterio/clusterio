@@ -12,11 +12,11 @@ const lib = require("@clusterio/lib");
 const { LineSplitter, ConsoleTransport, logger } = lib;
 
 // Make sure permissions from plugins are loaded
-require("../../plugins/global_chat/dist/plugin/info");
-require("../../plugins/player_auth/dist/plugin/info");
-require("../../plugins/research_sync/dist/plugin/info");
-require("../../plugins/statistics_exporter/dist/plugin/info");
-require("../../plugins/subspace_storage/dist/plugin/info");
+require("../../plugins/global_chat/dist/plugin/index");
+require("../../plugins/player_auth/dist/plugin/index");
+require("../../plugins/research_sync/dist/plugin/index");
+require("../../plugins/statistics_exporter/dist/plugin/index");
+require("../../plugins/subspace_storage/dist/plugin/index");
 
 const subspaceStorageVersion = "1.99.8";
 const subspaceStorageGitHubTag = "1.99.6"; // Tag subspaceStorageVersion was released under on GitHub

@@ -59,9 +59,15 @@ export async function handlePluginCommand(
 		let pluginInfo: { name: string };
 		try {
 			// eslint-disable-next-line @typescript-eslint/no-var-requires
-			pluginInfo = require(pluginPath).default;
+			pluginInfo = require(pluginPath).plugin;
 		} catch (err: any) {
 			logger.error(`Unable to import plugin info from ${args.path}:\n${err.stack}`);
+			process.exitCode = 1;
+			return;
+		}
+
+		if (typeof pluginInfo !== "object") {
+			logger.error("Plugin does not correctly export a 'plugin' object");
 			process.exitCode = 1;
 			return;
 		}

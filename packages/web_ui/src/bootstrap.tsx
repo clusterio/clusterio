@@ -52,7 +52,7 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
 			}
 			await container.init(__webpack_share_scopes__.default);
-			let pluginInfo = (await container.get("./info"))().default;
+			let pluginInfo = (await container.get("./"))().plugin;
 			pluginInfo.container = container;
 			pluginInfo.package = (await container.get("./package.json"))();
 			pluginInfo.enabled = meta.enabled;

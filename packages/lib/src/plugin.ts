@@ -7,8 +7,7 @@ import type { Logger } from "./logging";
 import type { FieldDefinition } from "./config";
 import type { PlayerStats } from "./data";
 
-// TODO Add proper typing for plugins
-/* Used to define the export of info.ts from plugins */
+/** Used to define the plugin export in plugins */
 export type PluginDeclaration = {
 	name: string;
 	title: string;

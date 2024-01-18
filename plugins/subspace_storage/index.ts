@@ -18,7 +18,7 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
@@ -58,4 +58,4 @@ export default {
 	],
 	webEntrypoint: "./web",
 	routes: ["/storage"],
-} satisfies lib.PluginDeclaration;
+};
