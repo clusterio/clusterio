@@ -8,8 +8,8 @@ export const levels = Object.freeze({
 	warn: 2,
 	audit: 3,
 	info: 4,
-	server: 5,
-	http: 6,
+	http: 5,
+	server: 6,
 	verbose: 7,
 });
 
@@ -19,8 +19,8 @@ export const colors = {
 	warn: "bold brightYellow",
 	audit: "bold brightGreen",
 	info: "bold brightBlue",
+	http: "bold",
 	server: "bold",
-	http: "bold grey",
 	verbose: "bold grey",
 } as const;
 winston.addColors(colors);
@@ -174,8 +174,8 @@ export type Logger = Omit<winston.Logger,
 	warn: winston.LeveledLogMethod,
 	audit: winston.LeveledLogMethod,
 	info: winston.LeveledLogMethod,
-	server: winston.LeveledLogMethod,
 	http: winston.LeveledLogMethod,
+	server: winston.LeveledLogMethod,
 	verbose: winston.LeveledLogMethod,
 	child(options: object): Logger,
 };
