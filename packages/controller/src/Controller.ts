@@ -3,6 +3,7 @@ import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
+import finalhandler from "finalhandler";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
@@ -173,7 +174,7 @@ export default class Controller {
 				const durationMs = (Number(endNs - startNs) / 1e6);
 				logger.log({
 					level: "http",
-					message: `HTTP ${req.httpVersion} ${req.method} ${req.originalUrl}` +
+					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
 						` (Status ${res.statusCode} in ${durationMs}ms)`,
 					meta: {
 						method: req.method,
@@ -324,7 +325,9 @@ export default class Controller {
 				},
 			});
 
-			next();
+			// Create and call the final handler, this is the same method used by express
+			// This is used instead of next(err) to stop express from logging the error to the console
+			finalhandler(req, res, { env: this.app.get("env") })(err);
 		});
 
 		this.wsServer = new WsServer(this);
