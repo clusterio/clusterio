@@ -3,7 +3,7 @@ const assert = require("assert").strict;
 
 const mock = require("../../../test/mock");
 const instance = require("../dist/plugin/instance");
-const info = require("../dist/plugin/info").default;
+const info = require("../dist/plugin/index").plugin;
 
 
 describe("statistics_exporter plugin", function() {
