@@ -8,7 +8,7 @@ export default class HostInfo {
 	constructor(
 		/** Id of this host */
 		public id: number,
-		/** Version this host last connected with */
+		/** Name of this host */
 		public name: string,
 		/** Version this host last connected with */
 		public version: string,
