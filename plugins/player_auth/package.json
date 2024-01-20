@@ -23,7 +23,7 @@
 	"dependencies": {
 		"@sinclair/typebox": "^0.30.4",
 		"express": "^4.16.2",
-		"jsonwebtoken": "^8.2.1"
+		"jsonwebtoken": "^9.0.1"
 	},
 	"devDependencies": {
 		"@clusterio/lib": "^2.0.0-alpha.13",
