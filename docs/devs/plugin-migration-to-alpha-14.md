@@ -28,7 +28,7 @@ const libLuaTools = require("@clusterio/lib/lua_tools");
 const libErrors = require("@clusterio/lib/errors");
 
 // Using imports
-new libLink.RequestError(...)
+new libErrors.RequestError(...)
 libLuaTools.escapeString(...)
 ```
 
@@ -80,7 +80,7 @@ Previously the info of a plugin would be loaded by requiring `./plugin_dir/info`
 To solve this you can either add `"main": "info.js",` to package.json or rename `info.js` to `index.js` (the rest of this guide assumes the entrypoint was renamed to `index.js`).
 The motivation behind this change was to allow TypeScript to output its build to a sub-folder of the plugin, if you're using TypeScript you'll likely have the entrypoint be located in `dist/index.js` instead.
 
-The expected place the declaration of the plugin is exported also changed from `module.exports` to `module.exports.plugin`:
+The expected place where the declaration of a plugin is exported has also changed from `module.exports` to `module.exports.plugin`:
 
 **Alpha 13**
 ```js
@@ -181,7 +181,7 @@ const plugin = {
             title: "Option",
             description: "A config option.",
             type: "string",
-            initial_value: "string",
+            initial_value: "foo",
             optional: true,
         },
     },
@@ -211,7 +211,7 @@ export const plugin: lib.PluginDeclaration = {
             title: "Option",
             description: "A config option.",
             type: "string",
-            initialValue: "string",
+            initialValue: "foo",
             optional: true,
         },
     },
@@ -242,7 +242,7 @@ async onControllerConfigFieldChanged(field, curr, prev) {
 ```
 
 **Alpha 14 (TS)**
-```js
+```ts
 async onControllerConfigFieldChanged(field: string, curr: unknown, prev: unknown) {
     if (field === "plugin_name.option") {
         // Do stuff with curr and or prev
@@ -496,7 +496,7 @@ There's two methods for sending messages `.send` and `.sendTo` where `.send` is 
 ```js
 // from instance plugin
 this.info.messages.forwarded.send(this.instance, {
-    string_value: "string",
+    string_value: "foo",
     number_value: 123,
 });
 
@@ -504,7 +504,7 @@ this.info.messages.forwarded.send(this.instance, {
 const instance_id = ...
 const response = await this.forwardRequestToInstance(this.info.messages.simple, {
     instance_id,
-    string_value: "string",
+    string_value: "foo",
 });
 const value = response.number_value;
 ```
@@ -514,10 +514,10 @@ const value = response.number_value;
 const { ForwardedEvent } = require("./info.js");
 
 // from instance plugin
-this.instance.sendTo("controller", new ForwardedEvent("string", 123));
+this.instance.sendTo("controller", new ForwardedEvent("foo", 123));
 
 // from controller plugin
 const instanceId = ...
-const value = await this.controller.sendTo({ instanceId }, new SimpleRequest("string"));
+const value = await this.controller.sendTo({ instanceId }, new SimpleRequest("foo"));
 // if using TypeScript then the type of value will be inferred as number here
 ```
