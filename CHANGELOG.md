@@ -221,6 +221,10 @@ See the [migration guide](/docs/migrating-from-2.0.0-alpha.13.md) for how to upd
 - Removed automatic creation of self-signed TLS certificate.
 - Node.js versions below 12 are no longer supported.
 
+### Contributors
+
+Many thanks to the following for contributing code in this release:
+[@Hornwitser](https://github.com/Hornwitser) [@Luciole0x](https://github.com/Luciole0x) [@Cooldude2606](https://github.com/Cooldude2606) [@Danielv123](https://github.com/Danielv123) [@Reavershark](https://github.com/Reavershark) [@Laar](https://github.com/Laar) [@rstrom1763](https://github.com/rstrom1763)
 
 ## Version 1.2.4
 
