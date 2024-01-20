@@ -300,8 +300,8 @@ describe("player_auth", function() {
 					let result = await controllerPlugin.handleFetchPlayerCodeRequest(
 						new FetchPlayerCodeRequest("test")
 					);
-					assert(typeof result.player_code === "string", "no code returned");
-					assert(result.player_code.length === 10, "incorrect code length returned");
+					assert(typeof result.playerCode === "string", "no code returned");
+					assert(result.playerCode.length === 10, "incorrect code length returned");
 					let expiresMs = controllerPlugin.players.get("test").expiresMs;
 					let msFromExpected = Math.abs(expiresMs - Date.now() - 1000);
 					assert(msFromExpected < 100, `expiry time expected outside window (${msFromExpected}ms)`);
@@ -332,14 +332,14 @@ describe("player_auth", function() {
 			describe("integration", function() {
 				it("should verify a full login flow", async function() {
 					let app = controllerPlugin.controller.app;
-					let { player_code } = await controllerPlugin.handleFetchPlayerCodeRequest(
+					let { playerCode } = await controllerPlugin.handleFetchPlayerCodeRequest(
 						new FetchPlayerCodeRequest("test")
 					);
 
 					let playerCodeResult = await phin({
 						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
-						data: { player_code },
+						data: { player_code: playerCode },
 						parse: "json",
 					});
 
@@ -351,7 +351,7 @@ describe("player_auth", function() {
 					let verifyResult = await phin({
 						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
-						data: { player_code, verify_code, verify_token },
+						data: { player_code: playerCode, verify_code, verify_token },
 						parse: "json",
 					});
 					assert.equal(verifyResult.body.verified, true);

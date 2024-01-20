@@ -176,7 +176,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
 		let expiresMs = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
 		this.players.set(request.player, { playerCode, verifyCode: null, expiresMs });
-		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
+		return { playerCode, controllerUrl: this.controller.getControllerUrl() };
 	}
 
 	async handleSetVerifyCodeRequest(request: SetVerifyCodeRequest) {
