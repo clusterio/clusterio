@@ -34,14 +34,14 @@ See the [migration guide](/docs/migrating-from-2.0.0-alpha.13.md) for how to upd
 
 ### Changes
 
-- Fixed filenames with extentions that are invalid on Windows such as "con.zip" not being trated as invalid.
+- Fixed filenames with extensions that are invalid on Windows such as "con.zip" not being treated as invalid.
 - Fixed generate host token modal not using a random id when the optional id field is unset.
 - Exported Factorio data is now tied to mod packs instead of being per cluster.
 - Fixed export failing if a mod uses a different root folder mod_version in its zip file.
 - Fixed sorting of user last seen column in the Web UI.
 - The list users permission is now granted by default to players.
 - Fixed incorrect handling of hosts and instance with an id of 0 causing them to not update properly.
-- Fixed unable to unassiged instances in the Web UI.
+- Fixed unable to unassign instances in the Web UI.
 - Fixed host crashing if the Factorio server is not marked executable.
 - Fixed errors logged from instance not being attributed to the instance in certain situations.
 - Hosts no longer print messages from instances into their console.
@@ -53,10 +53,10 @@ See the [migration guide](/docs/migrating-from-2.0.0-alpha.13.md) for how to upd
 - Log errors linking mods on Windows instead of preventing startup.
 - Added locale support for modules patched into to the game save.
 - Added support for defining a module_exports.lua file for modules patched into the game save.
-- Fixed controller logs being split on server's local time day boundnary instead of UTC day boundnary.
+- Fixed controller logs being split on server's local time day boundary instead of UTC day boundary.
 - Fixed Unicode BOM in mod locale files breaking instance data export.
 - Added a warning to the server-setting.json that is automatically written to instance folders stating changes will be overwritten.
-- Changed save patching to use a `.tmp.zip` extention for the temporary file created instead of `zip.tmp`.
+- Changed save patching to use a `.tmp.zip` extension for the temporary file created instead of `zip.tmp`.
 - Fixed Inventory Sync wiping the player's inventory when logging out while in the Space Exploration remote view mode.
 - Fixed the public /api/plugins endponit leaking filesystem paths on the controller.
 - Refactored list subscriptions in the Web UI to cache and only fetch updated entries when navigating to previously seen list.
