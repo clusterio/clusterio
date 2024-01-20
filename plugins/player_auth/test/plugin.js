@@ -123,8 +123,8 @@ describe("player_auth", function() {
 					}
 				});
 				it("should return invalid player_code if the code is expired", async function() {
-					let expires = Date.now() - 1000;
-					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
+					let expiresMs = Date.now() - 1000;
+					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: null, expiresMs });
 					let result = await phin({
 						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
@@ -134,8 +134,8 @@ describe("player_auth", function() {
 					assert.deepEqual(result.body, { error: true, message: "invalid player_code" });
 				});
 				it("should return a verify code and token if code is valid", async function() {
-					let expires = Date.now() + 1000;
-					controllerPlugin.players.set("valid", { playerCode: "valid", verifyCode: null, expires });
+					let expiresMs = Date.now() + 1000;
+					controllerPlugin.players.set("valid", { playerCode: "valid", verifyCode: null, expiresMs });
 					let result = await phin({
 						url: `${controllerUrl}/api/player_auth/player_code`,
 						method: "POST",
@@ -214,8 +214,8 @@ describe("player_auth", function() {
 					await verify({ aud: "not_player_auth" });
 				});
 				it("should return invalid player_code if the code is expired", async function() {
-					let expires = Date.now() - 1000;
-					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: "verify", expires });
+					let expiresMs = Date.now() - 1000;
+					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: "verify", expiresMs });
 					let result = await phin({
 						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
@@ -233,8 +233,11 @@ describe("player_auth", function() {
 					assert.deepEqual(result.body, { error: true, message: "invalid player_code" });
 				});
 				it("should return verified false if verify code has not yet been set", async function() {
-					let expires = Date.now() + 1000;
-					controllerPlugin.players.set("unverified", { playerCode: "unverified", verifyCode: null, expires });
+					let expiresMs = Date.now() + 1000;
+					controllerPlugin.players.set(
+						"unverified",
+						{ playerCode: "unverified", verifyCode: null, expiresMs },
+					);
 					let result = await phin({
 						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
@@ -252,8 +255,8 @@ describe("player_auth", function() {
 					assert.deepEqual(result.body, { verified: false });
 				});
 				it("should return error if user is missing", async function() {
-					let expires = Date.now() + 1000;
-					controllerPlugin.players.set("missing", { playerCode: "missing", verifyCode: "verify", expires });
+					let expiresMs = Date.now() + 1000;
+					controllerPlugin.players.set("missing", { playerCode: "missing", verifyCode: "verify", expiresMs });
 					let result = await phin({
 						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
@@ -271,8 +274,8 @@ describe("player_auth", function() {
 					assert.deepEqual(result.body, { error: true, message: "invalid user" });
 				});
 				it("should return verified true with token if valid verification", async function() {
-					let expires = Date.now() + 1000;
-					controllerPlugin.players.set("player", { playerCode: "player", verifyCode: "verify", expires });
+					let expiresMs = Date.now() + 1000;
+					controllerPlugin.players.set("player", { playerCode: "player", verifyCode: "verify", expiresMs });
 					let result = await phin({
 						url: `${controllerUrl}/api/player_auth/verify`,
 						method: "POST",
@@ -299,8 +302,8 @@ describe("player_auth", function() {
 					);
 					assert(typeof result.player_code === "string", "no code returned");
 					assert(result.player_code.length === 10, "incorrect code length returned");
-					let expires = controllerPlugin.players.get("test").expires;
-					let msFromExpected = Math.abs(expires - Date.now() - 1000);
+					let expiresMs = controllerPlugin.players.get("test").expiresMs;
+					let msFromExpected = Math.abs(expiresMs - Date.now() - 1000);
 					assert(msFromExpected < 100, `expiry time expected outside window (${msFromExpected}ms)`);
 				});
 			});
@@ -315,8 +318,8 @@ describe("player_auth", function() {
 					);
 				});
 				it("should throw if player code has expired", async function() {
-					let expires = Date.now() - 1000;
-					controllerPlugin.players.set("expired", { playerCode: "expried", verifyCode: null, expires });
+					let expiresMs = Date.now() - 1000;
+					controllerPlugin.players.set("expired", { playerCode: "expired", verifyCode: null, expiresMs });
 					await assert.rejects(
 						controllerPlugin.handleSetVerifyCodeRequest(
 							new SetVerifyCodeRequest("expired", "expired")

@@ -56,7 +56,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 	}
 
 	let requests: Promise<InstanceType<typeof lib.HostMetricsRequest["Response"]> | null>[] = [];
-	let timeout = controller.config.get("controller.metrics_timeout") * 1000;
+	let timeoutMs = controller.config.get("controller.metrics_timeout") * 1000;
 	for (let [hostId, hostConnection] of controller.wsServer.hostConnections) {
 		if (!hostConnection.connected) {
 			continue;
@@ -68,7 +68,7 @@ async function getMetrics(req: Request, res: Response, next: any) {
 				}
 				return null;
 			}),
-			timeout, null
+			timeoutMs, null
 		));
 	}
 

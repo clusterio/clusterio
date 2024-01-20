@@ -102,7 +102,7 @@ export default class ModPack {
 	exportManifest?: ExportManifest;
 
 	/** Millisecond Unix timestamp this entry was last updated at */
-	updatedAt = 0;
+	updatedAtMs = 0;
 
 	/**
 	 * True if this mod pack has been deleted from the list of mod packs.
@@ -118,7 +118,7 @@ export default class ModPack {
 		clone.mods = this.mods;
 		clone.settings = this.settings;
 		clone.exportManifest = this.exportManifest;
-		clone.updatedAt = this.updatedAt;
+		clone.updatedAtMs = this.updatedAtMs;
 		clone.isDeleted = this.isDeleted;
 		return clone;
 	}
@@ -135,7 +135,7 @@ export default class ModPack {
 			"runtime-per-user": ModSettingsJsonSchema,
 		}),
 		"export_manifest": Type.Optional(ExportManifest.jsonSchema),
-		"updated_at": Type.Optional(Type.Number()),
+		"updated_at_ms": Type.Optional(Type.Number()),
 		"is_deleted": Type.Optional(Type.Boolean()),
 	});
 
@@ -161,7 +161,7 @@ export default class ModPack {
 			};
 		}
 		if (json.export_manifest) { modPack.exportManifest = ExportManifest.fromJSON(json.export_manifest); }
-		if (json.updated_at) { modPack.updatedAt = json.updated_at; }
+		if (json.updated_at_ms) { modPack.updatedAtMs = json.updated_at_ms; }
 		if (json.is_deleted) { modPack.isDeleted = json.is_deleted; }
 
 		if (!modPack.mods.has("base")) {
@@ -185,7 +185,7 @@ export default class ModPack {
 			},
 		};
 		if (this.exportManifest) { json.export_manifest = this.exportManifest; }
-		if (this.updatedAt) { json.updated_at = this.updatedAt; }
+		if (this.updatedAtMs) { json.updated_at_ms = this.updatedAtMs; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
@@ -194,7 +194,7 @@ export default class ModPack {
 		const json = this.toJSON();
 		delete json.id;
 		delete json.export_manifest;
-		delete json.updated_at;
+		delete json.updated_at_ms;
 		delete json.is_deleted;
 
 		// eslint-disable-next-line node/no-sync

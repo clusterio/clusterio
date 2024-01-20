@@ -30,7 +30,7 @@ export default class ExponentialBackoff {
 	reset: number;
 
 	private _exp = 0;
-	private _lastInvocationTime = Date.now();
+	private _lastInvocationTimeMs = Date.now();
 
 	/**
 	 * Construct ExponentialBackoff helper
@@ -65,9 +65,9 @@ export default class ExponentialBackoff {
 	 * @returns time in milliseconds to wait.
 	 */
 	delay() {
-		let invocationTime = Date.now();
-		let interval = (invocationTime - this._lastInvocationTime) / 1000;
-		this._lastInvocationTime = invocationTime;
+		let invocationTimeMs = Date.now();
+		let interval = (invocationTimeMs - this._lastInvocationTimeMs) / 1000;
+		this._lastInvocationTimeMs = invocationTimeMs;
 
 		if (interval > this.reset) {
 			this._exp = 0;

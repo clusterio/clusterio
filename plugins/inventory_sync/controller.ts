@@ -36,7 +36,7 @@ async function saveDatabase(
 }
 
 export class ControllerPlugin extends BaseControllerPlugin {
-	acquiredPlayers!: Map<string, { instanceId: number, expires?: number }>;
+	acquiredPlayers!: Map<string, { instanceId: number, expiresMs?: number }>;
 	playerDatastore!: Map<string, IpcPlayerData>;
 	playerDatastoreDirty = false;
 
@@ -62,18 +62,18 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		if (["unknown", "stopped"].includes(instance.status)) {
-			let timeout = this.controller.config.get("inventory_sync.player_lock_timeout") * 1000;
+			let timeoutMs = this.controller.config.get("inventory_sync.player_lock_timeout") * 1000;
 			for (let acquisitonRecord of this.acquiredPlayers.values()) {
-				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expires) {
-					acquisitonRecord.expires = Date.now() + timeout;
+				if (acquisitonRecord.instanceId === instanceId && !acquisitonRecord.expiresMs) {
+					acquisitonRecord.expiresMs = Date.now() + timeoutMs;
 				}
 			}
 		}
 
 		if (instance.status === "running") {
 			for (let acquisitonRecord of this.acquiredPlayers.values()) {
-				if (acquisitonRecord.instanceId === instanceId && acquisitonRecord.expires) {
-					delete acquisitonRecord.expires;
+				if (acquisitonRecord.instanceId === instanceId && acquisitonRecord.expiresMs) {
+					delete acquisitonRecord.expiresMs;
 				}
 			}
 		}
@@ -85,7 +85,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			!acquisitionRecord
 			|| acquisitionRecord.instanceId === instanceId
 			|| !this.controller.instances.has(acquisitionRecord.instanceId)
-			|| acquisitionRecord.expires && acquisitionRecord.expires < Date.now()
+			|| acquisitionRecord.expiresMs && acquisitionRecord.expiresMs < Date.now()
 		) {
 			this.acquiredPlayers.set(playerName, { instanceId });
 			return true;

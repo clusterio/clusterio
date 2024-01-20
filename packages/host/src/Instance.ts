@@ -495,7 +495,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
-		let pluginLoadStarted = Date.now();
+		let pluginLoadStartedMs = Date.now();
 		let InstancePluginClass = await lib.loadPluginClass(
 			pluginInfo.name,
 			path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint!),
@@ -506,7 +506,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
 
-		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 	}
 
 	async _loadStats() {

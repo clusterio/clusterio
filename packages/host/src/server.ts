@@ -427,7 +427,7 @@ export interface FactorioServerOptions {
 	 */
 	maxConcurrentCommands?: number
 	/** Timeout in ms to wait for a response to a shutdown command. */
-	hangTimeout?: number,
+	hangTimeoutMs?: number,
 }
 
 /**
@@ -463,7 +463,7 @@ export class FactorioServer extends events.EventEmitter {
 	/** Enable verbose logging */
 	verboseLogging: boolean;
 	/** Timeout in ms to wait for a response to a shutdown command */
-	hangTimeout = 5000;
+	hangTimeoutMs = 5000;
 
 	_factorioDir: string;
 	_writeDir: string;
@@ -519,7 +519,7 @@ export class FactorioServer extends events.EventEmitter {
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
 		/** Timeout in ms to wait for a response to a shutdown command */
-		this.hangTimeout = options.hangTimeout ?? 5000;
+		this.hangTimeoutMs = options.hangTimeoutMs ?? 5000;
 
 		if (options.stripPaths) {
 			let charSet = new Set(path.resolve(this.writePath("temp")));
@@ -1012,7 +1012,7 @@ export class FactorioServer extends events.EventEmitter {
 				}
 				this._server!.kill("SIGKILL");
 			}
-		}, this.hangTimeout);
+		}, this.hangTimeoutMs);
 
 		// It's possible the server decides to exit on its own, in which
 		// case the stop operation has to be cancelled.

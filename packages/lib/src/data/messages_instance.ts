@@ -43,7 +43,7 @@ export class InstanceDetails {
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
 		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAt = 0,
+		public updatedAtMs = 0,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -55,7 +55,7 @@ export class InstanceDetails {
 			"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 			"creating_save", "exporting_data", "deleted",
 		]),
-		"updatedAt": Type.Optional(Type.Number()),
+		"updatedAtMs": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -65,7 +65,7 @@ export class InstanceDetails {
 			json.assignedHost,
 			json.gamePort,
 			json.status,
-			json.updatedAt,
+			json.updatedAtMs,
 		);
 	}
 
@@ -289,7 +289,7 @@ export class SaveDetails {
 		public loaded: boolean,
 		public loadByDefault: boolean,
 		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAt: number,
+		public updatedAtMs: number,
 		public isDeleted: boolean,
 	) { }
 
@@ -301,7 +301,7 @@ export class SaveDetails {
 		"mtimeMs": Type.Number(),
 		"loaded": Type.Boolean(),
 		"loadByDefault": Type.Boolean(),
-		"updatedAt": Type.Number(),
+		"updatedAtMs": Type.Number(),
 		"isDeleted": Type.Boolean(),
 	});
 
@@ -314,7 +314,7 @@ export class SaveDetails {
 			json.mtimeMs,
 			json.loaded,
 			json.loadByDefault,
-			json.updatedAt,
+			json.updatedAtMs,
 			json.isDeleted,
 		);
 	}
@@ -330,8 +330,8 @@ export class SaveDetails {
 	 * @returns true if this save is identical to the provided save
 	 */
 	equals(other: SaveDetails) {
-		// Note that updatedAt is not included in the equality check because
-		// instances send the whole list of saves with updatedAt set to zero
+		// Note that updatedAtMs is not included in the equality check because
+		// instances send the whole list of saves with updatedAtMs set to zero
 		// to the controller whenever any save changes and this equals check
 		// is used to filter whether a save was updated.
 		return (

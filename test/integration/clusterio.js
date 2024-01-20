@@ -113,7 +113,7 @@ describe("Integration of Clusterio", function() {
 				let controlB = new TestControl(connectorB);
 				connectorB._sessionToken = connectorA._sessionToken;
 				connectorB._sessionTimeout = connectorA._sessionTimeout;
-				connectorB._startedResuming = Date.now();
+				connectorB._startedResumingMs = Date.now();
 				connectorB._state = "resuming";
 				connectorB._doConnect();
 				await events.once(connectorB, "resume");
@@ -898,7 +898,7 @@ describe("Integration of Clusterio", function() {
 				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
 				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
 				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
-				reference.updatedAt = modPack.updatedAt;
+				reference.updatedAtMs = modPack.updatedAtMs;
 				assert.deepEqual(modPack, reference);
 			});
 		});
@@ -1003,7 +1003,7 @@ describe("Integration of Clusterio", function() {
 					"dependencies:\n" +
 					`size: ${stat.size}\n` +
 					`sha1: ${hash}\n` +
-					`updatedAt: ${stat.mtimeMs}\n` +
+					`updatedAtMs: ${stat.mtimeMs}\n` +
 					"isDeleted: false\n",
 				);
 			});

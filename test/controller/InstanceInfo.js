@@ -22,7 +22,7 @@ describe("controller/InstanceInfo", function() {
 			check(InstanceInfo.fromJSON({ config, status: "stopped" }, "controller"));
 			check(InstanceInfo.fromJSON({ config, status: "running" }, "controller"));
 			check(InstanceInfo.fromJSON({ config, status: "running", gamePort: 34197 }, "controller"));
-			check(InstanceInfo.fromJSON({ config, status: "running", updatedAt: Date.now() }, "controller"));
+			check(InstanceInfo.fromJSON({ config, status: "running", updatedAtMs: Date.now() }, "controller"));
 
 			// All at once
 			check(InstanceInfo.fromJSON({

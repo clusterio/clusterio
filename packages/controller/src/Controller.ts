@@ -596,7 +596,7 @@ export default class Controller {
 			const host = HostInfo.fromJSON(json);
 			if (host.connected) {
 				host.connected = false;
-				host.updatedAt = Date.now();
+				host.updatedAtMs = Date.now();
 			}
 			hosts.set(id, host);
 		}
@@ -617,13 +617,13 @@ export default class Controller {
 			) as Static<typeof InstanceInfo.jsonSchema>[];
 			for (let json of serialized) {
 				if (!json.config) { // migrate: from pre Alpha 14 format.
-					json = { config: json as any, status: "running" }; // Use running to force updatedAt
+					json = { config: json as any, status: "running" }; // Use running to force updatedAtMs
 				}
 				const instance = InstanceInfo.fromJSON(json, "controller");
 				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				if (instance.status !== status) {
 					instance.status = status;
-					instance.updatedAt = Date.now();
+					instance.updatedAtMs = Date.now();
 				}
 				instances.set(instance.id, instance);
 			}
@@ -719,14 +719,14 @@ export default class Controller {
 
 	static addAppRoutes(app: Application, pluginInfos: any[]) {
 		app.use((req: Request, res: Response, next) => {
-			let start = process.hrtime.bigint();
+			let startNs = process.hrtime.bigint();
 			stream.finished(res, () => {
 				let routePath = "static";
 				if (req.route && req.route.path) {
 					routePath = req.route.path;
 				}
-				let end = process.hrtime.bigint();
-				endpointDurationSummary.labels(routePath).observe(Number(end - start) / 1e9);
+				let endNs = process.hrtime.bigint();
+				endpointDurationSummary.labels(routePath).observe(Number(endNs - startNs) / 1e9);
 			});
 			next();
 		});
@@ -759,7 +759,7 @@ export default class Controller {
 
 	async handleSystemInfoSubscription(request: lib.SubscriptionRequest) {
 		const systems = [...this.systems.values()].filter(
-			metric => metric.updatedAt > request.lastRequestTime,
+			metric => metric.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return systems.length ? new lib.SystemInfoUpdateEvent(systems) : null;
 	}
@@ -780,7 +780,7 @@ export default class Controller {
 	hostsUpdated(hosts: HostInfo[]) {
 		const now = Date.now();
 		for (const host of hosts) {
-			host.updatedAt = now;
+			host.updatedAtMs = now;
 		}
 		this.hostsDirty = true;
 		let updates = hosts.map(host => host.toHostDetails());
@@ -789,7 +789,7 @@ export default class Controller {
 
 	async handleHostSubscription(request: lib.SubscriptionRequest) {
 		const hosts = [...this.hosts.values()].filter(
-			host => host.updatedAt > request.lastRequestTime,
+			host => host.updatedAtMs > request.lastRequestTimeMs,
 		).map(host => host.toHostDetails());
 		return hosts.length ? new lib.HostUpdatesEvent(hosts) : null;
 	}
@@ -937,7 +937,7 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
-			instance.updatedAt = Date.now();
+			instance.updatedAtMs = Date.now();
 			this.instanceDetailsUpdated([instance]);
 		}
 	}
@@ -963,7 +963,7 @@ export default class Controller {
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		instance.updatedAt = Date.now();
+		instance.updatedAtMs = Date.now();
 		this.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
@@ -991,7 +991,7 @@ export default class Controller {
 
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
-			instance.updatedAt = Date.now();
+			instance.updatedAtMs = Date.now();
 			if (field === "instance.name") {
 				this.instanceDetailsUpdated([instance]);
 			}
@@ -1008,7 +1008,7 @@ export default class Controller {
 
 	async handleInstanceDetailsSubscription(request: lib.SubscriptionRequest) {
 		const instances = [...this.instances.values()].filter(
-			instance => instance.updatedAt > request.lastRequestTime,
+			instance => instance.updatedAtMs > request.lastRequestTimeMs,
 		).map(instance => instance.toInstanceDetails());
 		return instances.length ? new lib.InstanceDetailsUpdatesEvent(instances) : null;
 	}
@@ -1019,7 +1019,7 @@ export default class Controller {
 	}
 
 	async handleInstanceSaveDetailsSubscription(request: lib.SubscriptionRequest) {
-		const saves = [...this.saves.values()].filter(save => save.updatedAt > request.lastRequestTime);
+		const saves = [...this.saves.values()].filter(save => save.updatedAtMs > request.lastRequestTimeMs);
 		return saves.length ? new lib.InstanceSaveDetailsUpdatesEvent(saves) : null;
 	}
 
@@ -1027,7 +1027,7 @@ export default class Controller {
 	modPacksUpdated(modPacks: lib.ModPack[]) {
 		const now = Date.now();
 		for (const modPack of modPacks) {
-			modPack.updatedAt = now;
+			modPack.updatedAtMs = now;
 		}
 		this.modPacksDirty = true;
 		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
@@ -1036,20 +1036,20 @@ export default class Controller {
 
 	async handleModPackSubscription(request: lib.SubscriptionRequest) {
 		const modPacks = [...this.modPacks.values()].filter(
-			modPack => modPack.updatedAt > request.lastRequestTime,
+			modPack => modPack.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return modPacks.length ? new lib.ModPackUpdatesEvent(modPacks) : null;
 	}
 
 	modsUpdated(mods: lib.ModInfo[]) {
-		// ModStore sets updatedAt for mods
+		// ModStore sets updatedAtMs for mods
 		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
 		lib.invokeHook(this.plugins, "onModsUpdated", mods);
 	}
 
 	async handleModSubscription(request: lib.SubscriptionRequest) {
 		const mods = [...this.modStore.files.values()].filter(
-			mod => mod.updatedAt > request.lastRequestTime,
+			mod => mod.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return mods.length ? new lib.ModUpdatesEvent(mods) : null;
 	}
@@ -1057,7 +1057,7 @@ export default class Controller {
 	usersUpdated(users: ControllerUser[]) {
 		const now = Date.now();
 		for (const user of users) {
-			user.updatedAt = now;
+			user.updatedAtMs = now;
 		}
 		this.userManager.dirty = true;
 		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
@@ -1065,7 +1065,7 @@ export default class Controller {
 
 	async handleUserSubscription(request: lib.SubscriptionRequest) {
 		const users = [...this.userManager.users.values()].filter(
-			user => user.updatedAt > request.lastRequestTime,
+			user => user.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return users.length ? new lib.UserUpdatesEvent(users) : null;
 	}

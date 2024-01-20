@@ -740,10 +740,10 @@ class GaugeChild extends ValueCollectorChild {
 	 *     seconds from when the timer was started
 	 */
 	startTimer() {
-		let start = process.hrtime.bigint();
+		let startNs = process.hrtime.bigint();
 		return () => {
-			let end = process.hrtime.bigint();
-			this.set(Number(end - start) / 1e9);
+			let endNs = process.hrtime.bigint();
+			this.set(Number(endNs - startNs) / 1e9);
 		};
 	}
 }
@@ -979,10 +979,10 @@ class SummaryChild {
 	 *     when the timer was started into the metric.
 	 */
 	startTimer() {
-		let start = process.hrtime.bigint();
+		let startNs = process.hrtime.bigint();
 		return () => {
-			let end = process.hrtime.bigint();
-			this.observe(Number(end - start) / 1e9);
+			let endNs = process.hrtime.bigint();
+			this.observe(Number(endNs - startNs) / 1e9);
 		};
 	}
 }
@@ -1260,10 +1260,10 @@ class HistogramChild {
 	 *     when the timer was started into the metric.
 	 */
 	startTimer() {
-		let start = process.hrtime.bigint();
+		let startNs = process.hrtime.bigint();
 		return () => {
-			let end = process.hrtime.bigint();
-			this.observe(Number(end - start) / 1e9);
+			let endNs = process.hrtime.bigint();
+			this.observe(Number(endNs - startNs) / 1e9);
 		};
 	}
 }
