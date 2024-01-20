@@ -305,9 +305,27 @@ async function migrateRename(args) {
 		await execFile(`npm${scriptExt}`, ["update"]);
 	}
 
+	const hasRunMaster = await fs.pathExists("run-master.sh") || await fs.pathExists("run-master.cmd");
+	const hasRunSlave = await fs.pathExists("run-slave.sh") || await fs.pathExists("run-slave.cmd");
+	if (hasRunMaster || hasRunSlave) {
+		logger.info("Writing run scripts");
+		let mode = "standalone";
+		if (!hasRunSlave) { mode = "controller"; }
+		if (!hasRunMaster) { mode = "host"; }
+		await writeScripts(mode);
+	}
+
 	logger.info(
 		"Migration complete, you may now delete the following left over files and directories (if present):" +
-		"\n- config-master.json\n- config-slave.json\n- logs/master\n- logs/slave\n- logs/cluster-prerename"
+		"\n- config-master.json" +
+		"\n- config-slave.json" +
+		"\n- logs/master" +
+		"\n- logs/slave" +
+		"\n- logs/cluster-prerename" +
+		"\n- systemd/clusteriomaster.service" +
+		"\n- systemd/clusterioslave.service" +
+		"\n- run-master.sh / run-master.cmd" +
+		"\n- run-slave.sh / run-slave.cmd"
 	);
 }
 
