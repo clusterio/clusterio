@@ -25,8 +25,8 @@ See the [migration guide](/docs/migrating-from-2.0.0-alpha.13.md) for how to upd
 - Added autosaving of data held in memory on the controller such as configs, instances, users, mods to prevent large data loss on crashing.
 - Added `system_info` metric with kernel, instruction set, CPU Model, hostname and Node.js version of the controller.
 - Added `clusterio_host_system_info` metric with kernel, instruction set, CPU Model, hostname and Node.js version of hosts.
-- Added `system_cpu_seconds_total`, `system_cpu_idle_seconds_total`, `system_memory_capasity_bytes`, `system_memory_available_bytes`, `system_disk_capasity_bytes`, `system_disk_available_bytes` metrics for CPU, memory and disk usage on the controller.
-- Added `clusterio_host_system_cpu_seconds_total`, `clusterio_host_system_cpu_idle_seconds_total`, `clusterio_host_system_memory_capasity_bytes`, `clusterio_host_system_memory_available_bytes`, `clusterio_host_system_disk_capasity_bytes`, `clusterio_host_system_disk_available_bytes` metrics for CPU, memory and disk usage on hosts.
+- Added `system_cpu_seconds_total`, `system_cpu_idle_seconds_total`, `system_memory_capacity_bytes`, `system_memory_available_bytes`, `system_disk_capacity_bytes`, `system_disk_available_bytes` metrics for CPU, memory and disk usage on the controller.
+- Added `clusterio_host_system_cpu_seconds_total`, `clusterio_host_system_cpu_idle_seconds_total`, `clusterio_host_system_memory_capacity_bytes`, `clusterio_host_system_memory_available_bytes`, `clusterio_host_system_disk_capacity_bytes`, `clusterio_host_system_disk_available_bytes` metrics for CPU, memory and disk usage on hosts.
 - Added support for reading the client's IP address from the `X-Forwarded-For` header when the source address is in the `controller.trusted_proxies` config option.
 - Added field showing the IP address a host is connecting from.
 - Added per player statistic tracking when they were first seen joining a particular server.

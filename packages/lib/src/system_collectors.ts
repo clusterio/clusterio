@@ -67,8 +67,8 @@ export const systemCpuIdleSecondsTotal = new Gauge(
 	},
 );
 
-export const systemMemoryCapasityBytes = new Gauge(
-	"system_memory_capasity_bytes",
+export const systemMemoryCapacityBytes = new Gauge(
+	"system_memory_capacity_bytes",
 	"Total system memory installed",
 	{
 		callback: function(collector) {
@@ -87,8 +87,8 @@ export const systemMemoryAvailableBytes = new Gauge(
 	},
 );
 
-export const systemDiskCapasityBytes = new Gauge(
-	"system_disk_capasity_bytes",
+export const systemDiskCapacityBytes = new Gauge(
+	"system_disk_capacity_bytes",
 	"Size of the filesystem of the current working directory Node.js runs on",
 	{
 		callback: async function(collector) {
