@@ -9,6 +9,7 @@ import * as libConfig from "./config";
 import * as libFileOps from "./file_ops";
 import { logger } from "./logging";
 import * as libHelpers from "./helpers";
+import { StartupError } from "./errors";
 
 
 function print(...content: any[]) {
@@ -187,6 +188,26 @@ export async function handleConfigCommand(
 			} else {
 				throw err;
 			}
+		}
+	}
+}
+
+/**
+ * Load a config from file.
+ * @param configPath The file path to the config
+ * @param jsonCtor Constructor like function taking json input to create a config.
+ * @returns The created config, or StartupError on failure.
+ */
+export async function loadConfig<CType>(configPath: string, jsonCtor: (json: any) => CType) : Promise<CType> {
+	logger.info(`Loading config from ${configPath}`);
+	try {
+		let jsonConfig = JSON.parse(await fs.readFile(configPath, { encoding: "utf8"}));
+		return jsonCtor(jsonConfig);
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			throw new StartupError(`Config "${configPath}" not found.`);
+		} else {
+			throw new StartupError(`Failed to load ${configPath}: ${err.message}`);
 		}
 	}
 }

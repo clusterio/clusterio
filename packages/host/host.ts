@@ -167,22 +167,10 @@ async function startHost() {
 	lib.registerPluginMessages(pluginInfos);
 	lib.addPluginConfigFields(pluginInfos);
 
-	let hostConfigLoader = async () => {
-		logger.info(`Loading config from ${args.config}`);
-		let hostConfig;
-		try {
-			const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
-			hostConfig = lib.HostConfig.fromJSON(jsonConfig, "host");
-
-		} catch (err: any) {
-			if (err.code === "ENOENT") {
-				throw new lib.StartupError(`Host config "${args.config}" not found.`);
-			} else {
-				throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
-			}
-		}
-		return hostConfig;
-	};
+	let hostConfigLoader = () => lib.loadConfig(
+		args.config,
+		(json) => lib.HostConfig.fromJSON(json, "host")
+	);
 
 	if (command === "config") {
 		await lib.handleConfigCommand(args, hostConfigLoader, args.config, () => new lib.HostConfig("host"));

@@ -216,22 +216,10 @@ async function startControl() {
 		.parse() as CtlArguments
 	;
 
-	let controlConfigLoader = async () => {
-		logger.verbose(`Loading config from ${args.config}`);
-		let controlConfig;
-		try {
-			const jsonConfig = JSON.parse(await fs.readFile(args.config, "utf8"));
-			controlConfig = lib.ControlConfig.fromJSON(jsonConfig, "control");
-
-		} catch (err: any) {
-			if (err.code === "ENOENT") {
-				throw new lib.StartupError(`Control config "${args.config}" not found.`);
-			} else {
-				throw new lib.StartupError(`Failed to load ${args.config}: ${err.message}`);
-			}
-		}
-		return controlConfig;
-	};
+	let controlConfigLoader = async () => lib.loadConfig(
+		args.config,
+		(json) => lib.ControlConfig.fromJSON(json, "control")
+	);
 
 	if (args._.length === 0) {
 		yargs.showHelp();

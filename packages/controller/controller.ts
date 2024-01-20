@@ -341,23 +341,10 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.addPluginConfigFields(pluginInfos);
 
 	const controllerConfigPath = args.config;
-	let controllerConfigLoader = async () => {
-		logger.info(`Loading config from ${controllerConfigPath}`);
-		let controllerConfig = new lib.ControllerConfig("controller");
-		try {
-			let jsonConfig = JSON.parse(await fs.readFile(controllerConfigPath, { encoding: "utf8" }));
-			controllerConfig = lib.ControllerConfig.fromJSON(jsonConfig, "controller");
-
-		} catch (err: any) {
-			if (err.code === "ENOENT") {
-				throw new lib.StartupError(`Controller config "${controllerConfigPath}" not found.`);
-			} else {
-				throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
-			}
-		}
-		return controllerConfig;
-	};
-
+	let controllerConfigLoader = () => lib.loadConfig(
+		controllerConfigPath,
+		(json) => lib.ControllerConfig.fromJSON(json, "controller")
+	);
 	if (command === "config") {
 		await lib.handleConfigCommand(
 			args, controllerConfigLoader, controllerConfigPath, () => new lib.ControllerConfig("controller")
