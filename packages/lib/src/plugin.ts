@@ -43,9 +43,10 @@ export type PluginNodeEnvInfo = PluginDeclaration & {
 };
 
 export type PluginWebpackEnvInfo = PluginDeclaration & {
-	container: any;
-	package: any;
+	container?: any;
+	package?: any;
 	enabled?: boolean;
+	error?: string;
 };
 
 /**

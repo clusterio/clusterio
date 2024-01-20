@@ -10,7 +10,7 @@ import notify from "../util/notify";
 
 export default function PluginViewPage() {
 	let params = useParams();
-	let plugins = useContext(ControlContext).plugins;
+	const control = useContext(ControlContext);
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>();
 	let pluginName = String(params.name);
 
@@ -25,8 +25,9 @@ export default function PluginViewPage() {
 		})();
 	}, []);
 
-	let plugin = plugins.get(pluginName);
-	let pluginTitle = plugin ? plugin.info.title : pluginName;
+	const plugin = control.plugins.get(pluginName);
+	const pluginInfo = control.pluginInfos.get(pluginName);
+	const pluginTitle = pluginInfo ? pluginInfo.title : pluginName;
 	let nav = [{ name: "Plugins", path: "/plugins" }, { name: pluginTitle }];
 	if (!pluginList) {
 		return <PageLayout nav={nav}>
@@ -43,33 +44,42 @@ export default function PluginViewPage() {
 		</PageLayout>;
 	}
 
+	const pluginError = pluginMeta.web.error ?? pluginInfo?.error;
 	if (!plugin) {
 		return <PageLayout nav={nav}>
 			<Descriptions bordered size="small" title={pluginTitle}>
 				<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
-				<Descriptions.Item label="Loaded">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
+				<Descriptions.Item label="Loaded in Web UI" span={2}>No</Descriptions.Item>
+				<Descriptions.Item label="Loaded on controller">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
+				<Descriptions.Item label="Enabled on controller" span={2}>
+					{pluginMeta.enabled ? "Yes" : "No"}
+				</Descriptions.Item>
 			</Descriptions>
-			<Alert
+			{pluginError && <Alert
 				style={{
 					marginTop: "1em",
 				}}
-				message={pluginMeta.web.error || "Error loading web module"}
+				message={pluginError}
 				description={
 					"The web interface was unable to load the webpack module for this plugin. This is "+
 					"usually due to an incorrect or missing webpack build for the plugin. Due to the "+
-					"module not being loaded, the configs and web controls defined by this plugin will "+
+					"module not being loaded, the configs and web controls defined by this plugin may "+
 					"not be available in the web interface."
 				}
 				type="error"
 				showIcon
-			/>
+			/>}
 		</PageLayout>;
 	}
 
 	return <PageLayout nav={nav}>
 		<Descriptions bordered size="small" title={pluginTitle}>
 			<Descriptions.Item label="Version">{pluginMeta.version}</Descriptions.Item>
-			<Descriptions.Item label="Loaded" span={2}>{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
+			<Descriptions.Item label="Loaded in Web UI" span={2}>Yes</Descriptions.Item>
+			<Descriptions.Item label="Loaded on controller">{pluginMeta.loaded ? "Yes" : "No"}</Descriptions.Item>
+			<Descriptions.Item label="Enabled on controller" span={2}>
+				{pluginMeta.enabled ? "Yes" : "No"}
+			</Descriptions.Item>
 			<Descriptions.Item label="Description" span={3}>{plugin.info.description}</Descriptions.Item>
 			{plugin.package.homepage ? <Descriptions.Item label="Homepage" span={3}>
 				<a href={plugin.package.homepage}>{plugin.package.homepage}</a>
