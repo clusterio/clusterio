@@ -95,7 +95,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	_state: ConnectorState = "closed";
 	_closing = false;
 	_socket: WebSocketClusterio | null = null;
-	_lastHeartbeat: number | null = null;
+	_lastHeartbeatMs: number | null = null;
 	_heartbeatId: ReturnType<typeof setInterval> | null = null;
 	_heartbeatInterval: number | null = null;
 	_lastReceivedSeq = undefined;
@@ -105,7 +105,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		this._state = "closed";
 		this._closing = false;
 		assert(this._socket === null);
-		this._lastHeartbeat = null;
+		this._lastHeartbeatMs = null;
 		assert(this._heartbeatId === null);
 		this._heartbeatInterval = null;
 		this._lastReceivedSeq = undefined;
@@ -117,7 +117,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		this._state = "connecting";
 		assert(this._closing === false);
 		assert(this._socket);
-		this._lastHeartbeat = null;
+		this._lastHeartbeatMs = null;
 		assert(this._heartbeatId === null);
 		this._heartbeatInterval = null;
 		this._lastReceivedSeq = undefined;
@@ -192,7 +192,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 
 	_doHeartbeat() {
 		this._check("connected");
-		if (Date.now() - this._lastHeartbeat! > 2000 * this._heartbeatInterval!) {
+		if (Date.now() - this._lastHeartbeatMs! > 2000 * this._heartbeatInterval!) {
 			logger.verbose("Connector | closing after heartbeat timed out");
 			// eslint-disable-next-line node/no-process-env
 			if (process.env.APP_ENV === "browser") {
@@ -207,7 +207,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	}
 
 	_processHeartbeat(message: libData.MessageHeartbeat) {
-		this._lastHeartbeat = Date.now();
+		this._lastHeartbeatMs = Date.now();
 		this._dropSendBufferSeq(message.seq);
 	}
 
@@ -218,7 +218,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		if (this._heartbeatId) {
 			throw new Error("heartbeat is already running");
 		}
-		this._lastHeartbeat = Date.now();
+		this._lastHeartbeatMs = Date.now();
 		this._heartbeatId = setInterval(() => {
 			this._doHeartbeat();
 		}, this._heartbeatInterval! * 1000);
@@ -327,7 +327,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 	_reconnectId?: ReturnType<typeof setTimeout>;
 	_sessionToken: string | null = null;
 	_sessionTimeout: number | null = null;
-	_startedResuming: number | null = null;
+	_startedResumingMs: number | null = null;
 	_backoff: ExponentialBackoff;
 
 	constructor(
@@ -350,7 +350,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		this._reconnectId = undefined;
 		this._sessionToken = null;
 		this._sessionTimeout = null;
-		this._startedResuming = null;
+		this._startedResumingMs = null;
 		super._reset();
 		this.src = undefined as any;
 	}
@@ -359,7 +359,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		assert(this._reconnectId === undefined);
 		this._sessionToken = null;
 		this._sessionTimeout = null;
-		this._startedResuming = null;
+		this._startedResumingMs = null;
 		super._invalidate();
 		this.src = undefined as any;
 	}
@@ -473,10 +473,10 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			logger.error("Unexpected double call to reconnect");
 		}
 
-		let delay = this._backoff.delay();
+		let delayMs = this._backoff.delay();
 		if (
 			this._state === "resuming"
-			&& this._startedResuming! + this._sessionTimeout! * 1000 < Date.now() + delay
+			&& this._startedResumingMs! + this._sessionTimeout! * 1000 < Date.now() + delayMs
 		) {
 			logger.error("Connector | Session timed out trying to resume");
 			this._reset();
@@ -489,12 +489,12 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			}
 		}
 		logger.verbose(
-			`Connector | waiting ${(Math.round(delay / 10) / 100)} seconds for reconnect`
+			`Connector | waiting ${(Math.round(delayMs / 10) / 100)} seconds for reconnect`
 		);
 		this._reconnectId = setTimeout(() => {
 			this._reconnectId = undefined;
 			this._doConnect();
-		}, delay);
+		}, delayMs);
 	}
 
 	_attachSocketHandlers() {
@@ -516,7 +516,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 				} else {
 					this._state = "resuming";
-					this._startedResuming = Date.now();
+					this._startedResumingMs = Date.now();
 					this.reconnect();
 					this.emit("drop");
 				}
@@ -625,7 +625,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			for (let bufferedMessage of this._sendBuffer) {
 				this._sendInternal(bufferedMessage);
 			}
-			this._startedResuming = null;
+			this._startedResumingMs = null;
 			this.emit("resume");
 
 		} else if (type === "invalidate") {

@@ -56,7 +56,7 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 		await fs.unlink(path.join(this.modsDirectory, file));
 		this.files.delete(file);
 		modInfo.isDeleted = true;
-		modInfo.updatedAt = Date.now();
+		modInfo.updatedAtMs = Date.now();
 		this.emit("change", modInfo);
 	}
 

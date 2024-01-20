@@ -92,7 +92,7 @@ describe("lib/data/ModInfo", function() {
 					dependencies: [],
 					filename: "empty_mod_1.0.0.zip",
 					size: stat.size,
-					updated_at: stat.mtimeMs,
+					updated_at_ms: stat.mtimeMs,
 					sha1: hash,
 				})
 			);

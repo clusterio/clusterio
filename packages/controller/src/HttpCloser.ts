@@ -67,10 +67,10 @@ export default class HttpCloser {
 	 * If there's requests in progress that still haven't been completed
 	 * after the timeout value passed they will be aborted.
 	 *
-	 * @param timeout -
+	 * @param timeoutMs -
 	 *     Time in ms to wait for connections to close.
 	 */
-	async close(timeout:number = 5000): Promise<void> {
+	async close(timeoutMs: number = 5000): Promise<void> {
 		let activeSockets = new Set();
 		for (let response of this._responses) {
 			if (!response.headersSent) {
@@ -97,7 +97,7 @@ export default class HttpCloser {
 					// Node.js, see nodejs/node#27428.
 					socket.destroy();
 				}
-			}, timeout);
+			}, timeoutMs);
 			this._server.close(err => {
 				clearTimeout(timer);
 				if (err) {

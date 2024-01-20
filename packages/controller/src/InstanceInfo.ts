@@ -11,7 +11,7 @@ export default class InstanceInfo {
 		public config: lib.InstanceConfig,
 		public status: lib.InstanceStatus,
 		public gamePort?: number,
-		public updatedAt = 0,
+		public updatedAtMs = 0,
 	) {
 		this.config = config;
 		this.status = status;
@@ -21,7 +21,7 @@ export default class InstanceInfo {
 		"config": lib.InstanceConfig.jsonSchema,
 		"status": lib.InstanceStatus,
 		"gamePort": Type.Optional(Type.Number()),
-		"updatedAt": Type.Optional(Type.Number()),
+		"updatedAtMs": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>, location: lib.ConfigLocation) {
@@ -29,7 +29,7 @@ export default class InstanceInfo {
 			lib.InstanceConfig.fromJSON(json.config, location),
 			json.status,
 			json.gamePort,
-			json.updatedAt,
+			json.updatedAtMs,
 		);
 	}
 
@@ -40,7 +40,7 @@ export default class InstanceInfo {
 			this.config.get("instance.assigned_host") ?? undefined,
 			this.gamePort,
 			this.status,
-			this.updatedAt,
+			this.updatedAtMs,
 		);
 	}
 

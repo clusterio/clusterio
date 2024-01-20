@@ -21,10 +21,10 @@ describe("lib/helpers", function() {
 		it("should wait the approximate amount of time given", async function() {
 			let startNs = hrtime();
 			await lib.wait(100);
-			let duration = Number(hrtime() - startNs) / 1e6;
+			let durationMs = Number(hrtime() - startNs) / 1e6;
 
 			// On windows the time waited is normally up to 15 ms late with outliers in the 20ms range.
-			assert(duration > 90 && duration < 130, `duration (${duration}ms) not within (90-130)`);
+			assert(durationMs > 90 && durationMs < 130, `duration (${durationMs}ms) not within (90-130)`);
 		});
 	});
 

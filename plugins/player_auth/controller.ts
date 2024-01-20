@@ -26,7 +26,7 @@ async function generateCode(length: number): Promise<string> {
 }
 
 
-type PlayerCode = { playerCode: string, verifyCode: string | null, expires: number };
+type PlayerCode = { playerCode: string, verifyCode: string | null, expiresMs: number };
 
 export class ControllerPlugin extends BaseControllerPlugin {
 	players!: Map<string, PlayerCode>;
@@ -39,7 +39,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		setInterval(() => {
 			let now = Date.now();
 			for (let [player, entry] of this.players) {
-				if (entry.expires < now) {
+				if (entry.expiresMs < now) {
 					this.players.delete(player);
 				}
 			}
@@ -88,13 +88,13 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		for (let entry of this.players.values()) {
-			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
+			if (entry.playerCode === playerCode && entry.expiresMs > Date.now()) {
 				let verifyCode = await generateCode(this.controller.config.get("player_auth.code_length"));
 				let secret = Buffer.from(this.controller.config.get("controller.auth_secret"), "base64");
 				let verifyToken = jwt.sign(
 					{
 						aud: "player_auth.verify_code",
-						exp: Math.floor(entry.expires / 1000),
+						exp: Math.floor(entry.expiresMs / 1000),
 						verify_code: verifyCode,
 						player_code: playerCode,
 					},
@@ -150,7 +150,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		}
 
 		for (let [player, entry] of this.players) {
-			if (entry.playerCode === playerCode && entry.expires > Date.now()) {
+			if (entry.playerCode === playerCode && entry.expiresMs > Date.now()) {
 				if (entry.verifyCode === verifyCode) {
 					let user = this.controller.userManager.users.get(player);
 					if (!user) {
@@ -174,8 +174,8 @@ export class ControllerPlugin extends BaseControllerPlugin {
 
 	async handleFetchPlayerCodeRequest(request: FetchPlayerCodeRequest) {
 		let playerCode = await generateCode(this.controller.config.get("player_auth.code_length"));
-		let expires = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
-		this.players.set(request.player, { playerCode, verifyCode: null, expires });
+		let expiresMs = Date.now() + this.controller.config.get("player_auth.code_timeout") * 1000;
+		this.players.set(request.player, { playerCode, verifyCode: null, expiresMs });
 		return { player_code: playerCode, controller_url: this.controller.getControllerUrl() };
 	}
 
@@ -183,7 +183,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 		let { player, verifyCode } = request;
 
 		let entry = this.players.get(player);
-		if (!entry || entry.expires < Date.now()) {
+		if (!entry || entry.expiresMs < Date.now()) {
 			throw new lib.RequestError("invalid player");
 		}
 

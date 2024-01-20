@@ -28,15 +28,15 @@ describe("lib/data/User", function() {
 				[1, {
 					join_count: 1,
 					online_time_ms: 60e3,
-					last_join_at: new Date("2020-05T12:00Z").getTime(),
-					last_leave_at: new Date("2020-05T12:01Z").getTime(),
+					last_join_at_ms: new Date("2020-05T12:00Z").getTime(),
+					last_leave_at_ms: new Date("2020-05T12:01Z").getTime(),
 					last_leave_reason: "quit",
 				}],
 				[2, {
 					join_count: 1,
 					online_time_ms: 0,
-					first_join_at: new Date("2020-05T12:00Z").getTime(),
-					last_join_at: new Date("2020-05T12:02Z").getTime(),
+					first_join_at_ms: new Date("2020-05T12:00Z").getTime(),
+					last_join_at_ms: new Date("2020-05T12:02Z").getTime(),
 				}],
 			]});
 
@@ -52,9 +52,9 @@ describe("lib/data/User", function() {
 				lib.PlayerStats.fromJSON({
 					join_count: 2,
 					online_time_ms: 120e3,
-					first_join_at: new Date("2020-05T11:00Z").getTime(),
-					last_join_at: new Date("2020-05T13:00Z").getTime(),
-					last_leave_at: new Date("2020-05T13:02Z").getTime(),
+					first_join_at_ms: new Date("2020-05T11:00Z").getTime(),
+					last_join_at_ms: new Date("2020-05T13:00Z").getTime(),
+					last_leave_at_ms: new Date("2020-05T13:02Z").getTime(),
 					last_leave_reason: "afk",
 				}),
 			);

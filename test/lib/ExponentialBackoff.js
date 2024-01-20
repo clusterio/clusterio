@@ -36,7 +36,7 @@ describe("lib/ExponentialBackoff", function() {
 			for (let max of [0.1, 0.5, 1, 2, 50, 100, 1000, 100000]) {
 				let backoff = new ExponentialBackoff({ base: 1, max });
 				for (let j = 0; j < 100; j++) {
-					let value = backoff.delay() / 1000; // Divide by 100 for ms to s conversion
+					let value = backoff.delay() / 1000; // Divide by 1000 for ms to s conversion
 					assert(value <= max, `delay returned a value greater than max: ${value} > ${max}`);
 				}
 			}
@@ -46,10 +46,10 @@ describe("lib/ExponentialBackoff", function() {
 			let backoff = new ExponentialBackoff({ reset: 100 });
 			backoff.delay();
 			assert.equal(backoff._exp, 1);
-			backoff._lastInvocationTime = Date.now() - 99 * 1000;
+			backoff._lastInvocationTimeMs = Date.now() - 99 * 1000;
 			backoff.delay();
 			assert.equal(backoff._exp, 2);
-			backoff._lastInvocationTime = Date.now() - 101 * 1000;
+			backoff._lastInvocationTimeMs = Date.now() - 101 * 1000;
 			backoff.delay();
 			assert.equal(backoff._exp, 1);
 		});

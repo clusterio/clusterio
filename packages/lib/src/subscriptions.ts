@@ -33,7 +33,7 @@ export class SubscriptionRequest {
 	constructor(
 		public eventName: string,
 		public subscribe: boolean,
-		public lastRequestTime: number = 0,
+		public lastRequestTimeMs: number = 0,
 	) {
 		if (!Link._eventsByName.has(eventName)) {
 			throw new Error(`Unregistered Event class ${eventName}`);
@@ -47,7 +47,7 @@ export class SubscriptionRequest {
 	]);
 
 	toJSON() {
-		return [this.eventName, this.subscribe, this.lastRequestTime];
+		return [this.eventName, this.subscribe, this.lastRequestTimeMs];
 	}
 
 	static fromJSON(json: Static<typeof SubscriptionRequest.jsonSchema>): SubscriptionRequest {
@@ -152,7 +152,7 @@ export class SubscriptionController {
 
 export interface SubscribableValue {
 	id: number | string,
-	updatedAt: number,
+	updatedAtMs: number,
 	isDeleted: boolean,
 }
 
@@ -175,8 +175,8 @@ export class EventSubscriber<
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
 	_snapshot?: readonly [ReadonlyMap<K, Readonly<V>>, boolean];
-	_snapshotLastUpdated = 0;
-	lastResponseTime = -1;
+	_snapshotLastUpdatedMs = 0;
+	lastResponseTimeMs = -1;
 
 	constructor(
 		private Event: EventClass<T>,
@@ -203,7 +203,7 @@ export class EventSubscriber<
 	 */
 	async _handle(event: EventSubscribable<T, V>) {
 		for (const value of event.updates) {
-			this.lastResponseTime = Math.max(this.lastResponseTime, value.updatedAt);
+			this.lastResponseTimeMs = Math.max(this.lastResponseTimeMs, value.updatedAtMs);
 			if (value.isDeleted) {
 				this.values.delete(value.id as K);
 			} else {
@@ -257,8 +257,8 @@ export class EventSubscriber<
 	 * @returns tuple of values map snapshot and synced property.
 	 */
 	getSnapshot() {
-		if (this._snapshotLastUpdated !== this.lastResponseTime) {
-			this._snapshotLastUpdated = this.lastResponseTime;
+		if (this._snapshotLastUpdatedMs !== this.lastResponseTimeMs) {
+			this._snapshotLastUpdatedMs = this.lastResponseTimeMs;
 			this._snapshot = [new Map(this.values), this.synced];
 		}
 		return this._snapshot!;
@@ -277,10 +277,10 @@ export class EventSubscriber<
 			await this.control.send(new SubscriptionRequest(
 				entry.name,
 				this._callbacks.length > 0,
-				this.lastResponseTime
+				this.lastResponseTimeMs
 			));
 			this.synced = this._callbacks.length > 0;
-			this._snapshotLastUpdated = 0;
+			this._snapshotLastUpdatedMs = 0;
 			for (let callback of this._callbacks) {
 				callback([], this.synced);
 			}
