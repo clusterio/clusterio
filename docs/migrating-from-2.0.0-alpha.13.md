@@ -17,6 +17,8 @@ Mod Pack strings looks something like this:
 
 If you have multiple mod configuration create a mod pack string for each and note them down.
 
+Double check that you are on a supported version of Node.js by running `node --version`, the version should be v18 or later, if not you will need to update Node.js before continuing.
+
 
 ## Migrate installations
 
@@ -24,7 +26,7 @@ If you have multiple mod configuration create a mod pack string for each and not
 
 Shutdown all slaves and the master server and then migrate each installations by running the following command:
 
-    npm exec @clusterio/create --migrate-rename --log-level=verbose
+    npm exec @clusterio/create -y -- --migrate-rename --log-level=verbose
 
 This will convert the existing installation's usage of the master and slave names in packages, configs, database and logs to the new controller and host terms and update the installed packages.
 
