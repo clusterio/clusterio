@@ -281,6 +281,14 @@ async function migrateRename(args) {
 		await migrateLogsDir(path.join("logs", "cluster-prerename"), path.join("logs", "cluster"));
 	}
 
+	if (
+		await fs.pathExists("sharedMods")
+		&& !await fs.pathExists("mods")
+	) {
+		logger.info("Moving sharedMods/ to mods/");
+		await fs.rename("sharedMods", "mods");
+	}
+
 	if (!args.dev) {
 		let pkg = JSON.parse(await fs.readFile("package.json"));
 		if (pkg.dependencies) {
