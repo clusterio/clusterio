@@ -57,6 +57,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		this.connector.on("close", () => {
+			const now = Date.now();
 			// Update status to unknown for instances on this host.
 			const instances: InstanceInfo[] = [];
 			for (let instance of this._controller.instances.values()) {
@@ -67,6 +68,7 @@ export default class HostConnection extends BaseConnection {
 				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
+				instance.updatedAt = now;
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 			this._controller.instanceDetailsUpdated(instances);

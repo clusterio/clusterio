@@ -19,10 +19,10 @@ export type AddressShorthand =
 export class Address {
 	/** Controller address */
 	static controller = 0;
-	/** Instance address */
-	static instance = 1;
 	/** Host address */
-	static host = 2;
+	static host = 1;
+	/** Instance address */
+	static instance = 2;
 	/** Control address */
 	static control = 3;
 	/** Broadcast */

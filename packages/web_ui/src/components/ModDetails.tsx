@@ -14,7 +14,11 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 	let screens = useBreakpoint();
 	const mod: Partial<lib.ModInfo> & Partial<lib.ModRecord> = props.mod;
 
-	return <Descriptions className="borderless" bordered size="small" column={{ xs: 1, sm: 1, md: 1, lg: 2 }}>
+	return <Descriptions
+		className="borderless"
+		bordered size="small"
+		column={{ xs: 1, sm: 1, md: 1, lg: 2, xl: 2, xxl: 2 }}
+	>
 		{mod.error && <Descriptions.Item
 			label={<><ExclamationCircleOutlined/> Error</>}
 			span={2}
@@ -29,10 +33,14 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 			&& <Descriptions.Item label="Action">{props.actions(props.mod)}</Descriptions.Item>
 		}
 
-		{mod.title && <Descriptions.Item label="Title">{mod.title}</Descriptions.Item>}
-		{mod.version && <Descriptions.Item label="Version" span={mod.title ? 1 : 2}>{mod.version}</Descriptions.Item>}
-		{mod.description && <Descriptions.Item label="Description" span={2}>{mod.description}</Descriptions.Item> }
-		{mod.author && <Descriptions.Item label="Author" span={2}>{mod.author}</Descriptions.Item>}
+		{Boolean(mod.title) && <Descriptions.Item label="Title">{mod.title}</Descriptions.Item>}
+		{Boolean(mod.version)
+			&& <Descriptions.Item label="Version" span={mod.title ? 1 : 2}>{mod.version}</Descriptions.Item>
+		}
+		{Boolean(mod.description)
+			&& <Descriptions.Item label="Description" span={2}>{mod.description}</Descriptions.Item>
+		}
+		{Boolean(mod.author) && <Descriptions.Item label="Author" span={2}>{mod.author}</Descriptions.Item>}
 
 		<Descriptions.Item label="Mod&nbsp;Portal" span={2}>
 			<Typography.Link href={`https://mods.factorio.com/mod/${mod.name}`}>
@@ -40,17 +48,17 @@ export default function ModDetails<T extends lib.ModInfo | lib.ModRecord>(props:
 			</Typography.Link>
 		</Descriptions.Item>
 
-		{mod.contact && <Descriptions.Item label="Contact" span={2}>{mod.contact}</Descriptions.Item>}
-		{mod.homepage && <Descriptions.Item label="Homepage" span={2}>{mod.homepage}</Descriptions.Item>}
+		{Boolean(mod.contact) && <Descriptions.Item label="Contact" span={2}>{mod.contact}</Descriptions.Item>}
+		{Boolean(mod.homepage) && <Descriptions.Item label="Homepage" span={2}>{mod.homepage}</Descriptions.Item>}
 		<Descriptions.Item label="Internal&nbsp;Name" span={mod.factorioVersion ? 1 : 2}>{mod.name}</Descriptions.Item>
-		{mod.factorioVersion
+		{Boolean(mod.factorioVersion)
 			&& <Descriptions.Item label="Factorio&nbsp;Version">{mod.factorioVersion}</Descriptions.Item>
 		}
-		{mod.filename && <Descriptions.Item label="Filename">{mod.filename}</Descriptions.Item>}
+		{Boolean(mod.filename) && <Descriptions.Item label="Filename">{mod.filename}</Descriptions.Item>}
 		{mod.size !== undefined
 			&& <Descriptions.Item label="Size">{lib.formatBytes(mod.size)}</Descriptions.Item>
 		}
-		{mod.sha1 && <Descriptions.Item label="SHA1" span={2}>{mod.sha1}</Descriptions.Item>}
+		{Boolean(mod.sha1) && <Descriptions.Item label="SHA1" span={2}>{mod.sha1}</Descriptions.Item>}
 		{mod.dependencies && mod.dependencies.length
 			&& <Descriptions.Item label="Dependencies" span={2}>
 				{mod.dependencies

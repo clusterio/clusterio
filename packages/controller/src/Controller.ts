@@ -937,6 +937,7 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
+			instance.updatedAt = Date.now();
 			this.instanceDetailsUpdated([instance]);
 		}
 	}
