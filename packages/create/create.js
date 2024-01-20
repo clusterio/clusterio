@@ -374,7 +374,7 @@ async function installClusterio(mode, plugins) {
 		for (let plugin of plugins) {
 			if (!pluginList.has(plugin)) {
 				// eslint-disable-next-line node/global-require
-				let pluginInfo = require(require.resolve(path.posix.join(plugin, "info"), { paths: [process.cwd()] }));
+				let pluginInfo = require(require.resolve(plugin, { paths: [process.cwd()] })).plugin;
 				pluginList.set(pluginInfo.name, plugin);
 			}
 		}
