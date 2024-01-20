@@ -39,6 +39,7 @@ If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
 * [Running Clusterio](#running-clusterio)
 * [Setting up remote hosts](#setting-up-remote-hosts)
 * [Setting up clusterioctl](#setting-up-clusterioctl)
+* [Known issues](#known-issues)
 * [Common problems](#Common-problems)
 
 
@@ -263,6 +264,13 @@ The installer will ask for a controller URL and an authentication token, these a
 If you want to use a different user for the command line interface, you can generate an authentication token for an existing user with
 
     npx clusteriocontroller bootstrap generate-user-token <username>
+
+
+## Known Issues
+
+- The `instance.auto_start` option is currently is broken and will not work, turn it off and do not use it for now.
+- When the `server_select` plugin is installed you may see `[error] Unhandled event server_select:UpdateInstancesEvent` logged when starting an instance.
+  This should be ignored as it does not indicate an error occured.
 
 
 ## Common problems
