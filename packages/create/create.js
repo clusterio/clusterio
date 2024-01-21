@@ -488,6 +488,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
+Environment=NODE_OPTIONS=--enable-source-maps
 ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn --can-restart
 Restart=on-failure
 RestartPreventExitStatus=8
@@ -611,7 +612,7 @@ async function inquirerMissingArgs(args) {
 				},
 			], answers);
 
-			if (answers.downloadHeadless) {
+			if (!answers.factorioDir && answers.downloadHeadless) {
 				answers.factorioDir = "factorio";
 			}
 		}
@@ -759,7 +760,7 @@ async function main() {
 					"Can be set to false using --no-download-headless.",
 				type: "boolean",
 			})
-			.conflicts("factorio-dir", "download-headless");
+		;
 	}
 
 	args = args.argv;
@@ -779,6 +780,9 @@ async function main() {
 
 	let answers = await inquirerMissingArgs(args);
 	if (answers.downloadHeadless) {
+		if (answers.factorioDir !== "factorio") {
+			throw new InstallError("--download-headless option requires --factorio-dir to be set to factorio");
+		}
 		await downloadLinuxServer();
 	}
 

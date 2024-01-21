@@ -6,6 +6,13 @@
 
 - Added support for `color-settings` Mod settings (#568)[https://github.com/clusterio/clusterio/issues/568].
 
+### Changes
+
+- Fixed generated systemd file for clusteriohost not enabling source maps.
+- Fixed ctl not exporting types used for adding commands to ctl plugins.
+- Fixed controller only plugins throwing an error about missing a config field on startup out when added to hosts.
+- Fixed installer incorrectly claiming the options --factorio-dir and --no-download-headless conflicts with each other.
+
 
 ## Version 2.0.0-alpha.14
 

@@ -377,7 +377,10 @@ export default class Host extends lib.Link {
 
 	async loadPlugins() {
 		for (let pluginInfo of this.pluginInfos) {
-			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)) {
+			if (
+				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
+				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)
+			) {
 				continue;
 			}
 
