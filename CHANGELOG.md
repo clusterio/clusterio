@@ -9,6 +9,7 @@
 ### Changes
 
 - Fixed generated systemd file for clusteriohost not enabling source maps.
+- Fixed ctl not exporting types used for adding commands to ctl plugins.
 
 
 ## Version 2.0.0-alpha.14
