@@ -274,6 +274,11 @@ If you want to use a different user for the command line interface, you can gene
 - After migrating from Alpha 13 to Alpha 14 running an instance data export fails with the error `Upload failed: 401 Unauthorized` due to the host token being issued to a slave.
   To workaround this find the id of the host in the host config and generate a new host token with the same id.
   Stop the host and replace the value of the `host.controller_token` field in `config-host.json` with the new host token before starting it up again.
+- After migrating from Alpha 13 to Alpha 14 you get kicked out from the web interface due to the master to controller rename.
+  If you don't have the authentication token readily available you can manually migrate the token by opening the Inspect/Developer Tools on the page and running the following piece of JavaScript in the Console:
+  ```
+  localStorage.controller_token = localStorage.master_token
+  ```
 
 
 ## Common problems
