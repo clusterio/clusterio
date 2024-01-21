@@ -1097,7 +1097,13 @@ modPackCommands.add(new lib.Command({
 
 function setModPackSettings(
 	modPack: lib.ModPack,
-	args: { boolSetting?: string[], intSetting?: string[], doubleSetting?: string[], stringSetting?: string[] },
+	args: {
+		boolSetting?: string[],
+		intSetting?: string[],
+		doubleSetting?: string[],
+		stringSetting?: string[],
+		colorSetting?: string[],
+	},
 ) {
 	function doSettings(settings: string[], cast: (value: string) => (string | number | boolean)) {
 		for (let i = 0; i + 2 < settings.length; i += 3) {
@@ -1134,6 +1140,13 @@ function setModPackSettings(
 		return number;
 	});
 	doSettings(args.stringSetting || [], value => value);
+	doSettings(args.colorSetting || [], value => {
+		let color = JSON.parse(value);
+		if (typeof color !== "object" || color === null) {
+			throw new lib.CommandError("color value must be a JSON object with r, g, b properties");
+		}
+		return color;
+	});
 }
 
 function setModPackMods(modPack: lib.ModPack, mods: string[] | undefined) {
@@ -1173,6 +1186,7 @@ modPackCommands.add(new lib.Command({
 			"int-setting": { describe: "Set int setting", array: true, nargs: 3, type: "string" },
 			"double-setting": { describe: "Set double setting", array: true, nargs: 3, type: "string" },
 			"string-setting": { describe: "Set string setting", array: true, nargs: 3, type: "string" },
+			"color-setting": { describe: "Set color setting", array: true, nargs: 3, type: "string" },
 		});
 	}],
 	handler: async function(
@@ -1186,6 +1200,7 @@ modPackCommands.add(new lib.Command({
 			intSetting?: string[],
 			doubleSetting?: string[],
 			stringSetting?: string[],
+			colorSetting?: string[],
 		},
 		control: Control,
 	) {
@@ -1244,6 +1259,7 @@ modPackCommands.add(new lib.Command({
 			"int-setting": { describe: "Set int setting", array: true, nargs: 3, type: "string" },
 			"double-setting": { describe: "Set double setting", array: true, nargs: 3, type: "string" },
 			"string-setting": { describe: "Set string setting", array: true, nargs: 3, type: "string" },
+			"color-setting": { describe: "Set color setting", array: true, nargs: 3, type: "string" },
 			"remove-setting": { describe: "Remove a setting", array: true, nargs: 2, type: "string" },
 		});
 	}],
@@ -1261,6 +1277,7 @@ modPackCommands.add(new lib.Command({
 			intSetting?: string[],
 			doubleSetting?: string[],
 			stringSetting?: string[],
+			colorSetting?: string[],
 			removeSetting?: string[],
 		},
 		control: Control,
