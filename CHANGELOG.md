@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 2.0.0-alpha.15
+
+### Features
+
+- Added support for `color-settings` Mod settings (#568)[https://github.com/clusterio/clusterio/issues/568].
+
+
 ## Version 2.0.0-alpha.14
 
 This release does not retain backwards compatibility with 2.0.0-alpha.13 meaning all parts of the cluster needs to updated at the same time.
