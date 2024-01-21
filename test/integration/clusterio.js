@@ -81,6 +81,10 @@ async function getUsers() {
 	return new Map(users.map(user => [user.name, user]));
 }
 
+function jsonArg(value) {
+	return `"${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}"`;
+}
+
 describe("Integration of Clusterio", function() {
 	describe("clusteriocontroller", function() {
 		describe("bootstrap generate-user-token", function() {
@@ -502,8 +506,7 @@ describe("Integration of Clusterio", function() {
 				];
 
 				for (let [prop, value] of testConfigs) {
-					value = `"${JSON.stringify(value).replace(/"/g, process.platform === "win32" ? '""' : '\\"')}"`;
-					let args = `test factorio.settings ${prop} ${value}`;
+					let args = `test factorio.settings ${prop} ${jsonArg(value)}`;
 					await execCtl(`instance config set-prop ${args}`);
 				}
 
@@ -876,6 +879,7 @@ describe("Integration of Clusterio", function() {
 				assert(modPacks.some(modPack => modPack.name === "empty-pack"), "created pack is not in the list");
 			});
 			it("should allow setting all fields", async function() {
+				const color = { r: 1, g: 0, b: 1, a: 0 };
 				await execCtl(
 					"mod-pack create full-pack 0.17.59 " +
 					"--description Description " +
@@ -883,7 +887,8 @@ describe("Integration of Clusterio", function() {
 					"--bool-setting startup MyBool true " +
 					"--int-setting runtime-global MyInt 1235 " +
 					"--double-setting runtime-global MyDouble 12.25 " +
-					"--string-setting runtime-per-user MyString a-string"
+					"--string-setting runtime-per-user MyString a-string " +
+					`--color-setting runtime-per-user MyColor ${jsonArg(color)}`
 				);
 				let modPacks = await getControl().send(new lib.ModPackListRequest());
 				let modPack = modPacks.find(entry => entry.name === "full-pack");
@@ -898,6 +903,7 @@ describe("Integration of Clusterio", function() {
 				reference.settings["runtime-global"].set("MyInt", { value: 1235 });
 				reference.settings["runtime-global"].set("MyDouble", { value: 12.25 });
 				reference.settings["runtime-per-user"].set("MyString", { value: "a-string" });
+				reference.settings["runtime-per-user"].set("MyColor", { value: color });
 				reference.updatedAtMs = modPack.updatedAtMs;
 				assert.deepEqual(modPack, reference);
 			});

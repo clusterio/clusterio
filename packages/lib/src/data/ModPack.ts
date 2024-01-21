@@ -8,16 +8,24 @@ import { integerFactorioVersion } from "./version";
 import type { Logger } from "../logging";
 
 
+export const ModSettingColor = Type.Object({
+	r: Type.Number(),
+	g: Type.Number(),
+	b: Type.Number(),
+	a: Type.Number(),
+});
+export type ModSettingColor = Static<typeof ModSettingColor>;
+
 /**
  * A setting for a mod.
  */
 export interface ModSetting {
 	/** Value of the given mod setting. */
-	value: boolean | number | string;
+	value: boolean | number | string | ModSettingColor;
 }
 
 const ModSettingJsonSchema = Type.Object({
-	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String()]),
+	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String(), ModSettingColor]),
 });
 
 const ModSettingsJsonSchema = Type.Record(Type.String(), ModSettingJsonSchema);
@@ -335,7 +343,7 @@ export default class ModPack {
 	 * @param logger - Logger used to report warnings on.
 	 */
 	fillDefaultSettings(settingPrototypes: Record<string, object>, logger: Logger) {
-		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting"];
+		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting", "color-setting"];
 		let prototypes = Object.entries(settingPrototypes)
 			.filter(([type, _]) => knownTypes.includes(type))
 			.flatMap(([_, settings]) => Object.values(settings))
