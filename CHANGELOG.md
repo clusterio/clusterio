@@ -10,6 +10,7 @@
 
 - Fixed generated systemd file for clusteriohost not enabling source maps.
 - Fixed ctl not exporting types used for adding commands to ctl plugins.
+- Fixed controller only plugins throwing an error about missing a config field on startup out when added to hosts.
 
 
 ## Version 2.0.0-alpha.14
