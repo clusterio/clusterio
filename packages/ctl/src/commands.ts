@@ -1143,7 +1143,7 @@ function setModPackSettings(
 	doSettings(args.colorSetting || [], value => {
 		let color = JSON.parse(value);
 		if (typeof color !== "object" || color === null) {
-			throw new lib.CommandError("color value must be a JSON object with r, g, b properties");
+			throw new lib.CommandError("color value must be a JSON object with r, g, b, a properties");
 		}
 		return color;
 	});
