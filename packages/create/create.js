@@ -501,10 +501,15 @@ WantedBy=multi-user.target
 	}
 }
 
+async function copyPluginTemplate(templates) {
+	logger.info(`Please wait, coping template for ${templates.join(", ")}`);
+}
+
 // eslint-disable-next-line complexity
 async function inquirerMissingArgs(args) {
 	let answers = {};
 	if (args.mode) { answers.mode = args.mode; }
+	if (args["plugin-template"]) { answers.mode = "plugin-template"; }
 	answers = await inquirer.prompt([
 		{
 			type: "list",
@@ -517,6 +522,7 @@ async function inquirerMissingArgs(args) {
 				{ name: "Host only", value: "host" },
 				{ name: "Ctl only", value: "ctl" },
 				{ name: "Plugins only", value: "plugins" },
+				{ name: "Plugin template", value: "plugin-template" },
 			],
 		},
 	], answers);
@@ -644,6 +650,28 @@ async function inquirerMissingArgs(args) {
 		}
 	}
 
+	if (answers.mode === "plugin-template") {
+		if (args["plugin-template"]) {
+			answers.pluginTemplate = args["plugin-template"];
+		}
+		answers.plugins = [];
+		answers = await inquirer.prompt([
+			{
+				type: "checkbox",
+				name: "pluginTemplate",
+				message: "Plugin templates to use",
+				choices: [
+					{ name: "Controller", value: "controller" },
+					{ name: "Host", value: "host" },
+					{ name: "Instance", value: "instance" },
+					{ name: "Lua Module", value: "module" },
+					{ name: "Command Line", value: "ctl" },
+					{ name: "Web UI", value: "web" },
+				],
+			},
+		], answers);
+	}
+
 	if (dev) {
 		answers.plugins = [];
 	} else if (args.plugins) {
@@ -720,7 +748,7 @@ async function main() {
 		})
 		.option("mode", {
 			nargs: 1, describe: "Operating mode to install",
-			choices: ["standalone", "controller", "host", "ctl", "plugins"],
+			choices: ["standalone", "controller", "host", "ctl", "plugins", "plugin-template"],
 		})
 		.option("migrate-rename", {
 			nargs: 0, describe: "Migrate from before slave/master rename", default: false, type: "boolean",
@@ -745,6 +773,9 @@ async function main() {
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
+		})
+		.option("plugin-template", {
+			array: true, describe: "Plugin template to use [plugin-template]", type: "string",
 		})
 		.strict()
 	;
@@ -779,14 +810,19 @@ async function main() {
 	}
 
 	let answers = await inquirerMissingArgs(args);
+	logger.verbose(JSON.stringify(answers));
+
+	if (answers.pluginTemplate) {
+		await copyPluginTemplate(answers.pluginTemplate);
+		return;
+	}
+
 	if (answers.downloadHeadless) {
 		if (answers.factorioDir !== "factorio") {
 			throw new InstallError("--download-headless option requires --factorio-dir to be set to factorio");
 		}
 		await downloadLinuxServer();
 	}
-
-	logger.verbose(JSON.stringify(answers));
 
 	if (!dev) {
 		await installClusterio(answers.mode, answers.plugins);
