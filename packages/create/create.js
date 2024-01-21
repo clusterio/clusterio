@@ -488,6 +488,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
+Environment=NODE_OPTIONS=--enable-source-maps
 ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn --can-restart
 Restart=on-failure
 RestartPreventExitStatus=8

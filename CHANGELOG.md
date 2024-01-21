@@ -6,6 +6,10 @@
 
 - Added support for `color-settings` Mod settings (#568)[https://github.com/clusterio/clusterio/issues/568].
 
+### Changes
+
+- Fixed generated systemd file for clusteriohost not enabling source maps.
+
 
 ## Version 2.0.0-alpha.14
 
