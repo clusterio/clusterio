@@ -533,7 +533,7 @@ async function copyPluginTemplate(pluginName, templates) {
 	let templatePath = "./templates/plugin-ts";
 	if (noTypescript) {
 		templatePath = "./templates/plugin-js";
-		logger.error("Javascript only is not currently supported");
+		logger.error("Javascript only templates are not currently supported");
 		return;
 	}
 

@@ -8,7 +8,4 @@
 		"editor.indentSize": 4,
 		"editor.insertSpaces": true,
 	},
-	"cSpell.words": [
-		"npmignore"
-	],
 }
