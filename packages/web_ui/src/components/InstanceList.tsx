@@ -9,7 +9,7 @@ import { useAccount } from "../model/account";
 import { useHosts } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
-import { InstanceDetails } from "@clusterio/lib";
+import { InstanceDetails, integerFactorioVersion } from "@clusterio/lib";
 import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
@@ -44,6 +44,13 @@ export default function InstanceList(props: InstanceListProps) {
 			return host.publicAddress;
 		}
 		return `${host.publicAddress}:${instance.gamePort}`;
+	}
+
+	function integerFactorioVersionOrDefault(instance: InstanceDetails) {
+		if (instance.factorioVersion === undefined) {
+			return -1;
+		}
+		return integerFactorioVersion(instance.factorioVersion);
 	}
 
 	let columns: ColumnsType<InstanceDetails> = [
@@ -85,6 +92,12 @@ export default function InstanceList(props: InstanceListProps) {
 			},
 			sorter: (a, b) => strcmp(instancePublicAddress(a), instancePublicAddress(b)),
 			responsive: ["lg"],
+		},
+		{
+			title: "Factorio Version",
+			key: "version",
+			render: (_, instance) => instance.factorioVersion ?? "unknown",
+			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b)
 		},
 		{
 			title: "Status",

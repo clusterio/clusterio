@@ -667,6 +667,7 @@ export default class Host extends lib.Link {
 				instanceId,
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
+				instanceConnection ? instanceConnection.instance.server.version ?? undefined : undefined,
 			)
 		);
 
@@ -1060,6 +1061,7 @@ export default class Host extends lib.Link {
 				instanceInfo.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
+				instanceConnection ? instanceConnection.instance.server.version ?? undefined : undefined,
 			));
 		}
 		await this.send(new lib.InstancesUpdateRequest(list));
