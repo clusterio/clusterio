@@ -141,6 +141,13 @@ export class Link {
 		});
 	}
 
+	/**
+	 * Count of requests currently waiting for a response on this link
+	 */
+	get pendingRequestCount() {
+		return this._pendingRequests.size + this._forwardedRequests.size;
+	}
+
 	_clearPendingRequests(err: Error & { code?: string }) {
 		for (let pending of this._pendingRequests.values()) {
 			pending.reject(err);

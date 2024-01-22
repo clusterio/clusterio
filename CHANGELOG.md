@@ -4,7 +4,8 @@
 
 ### Features
 
-- Added support for `color-settings` Mod settings (#568)[https://github.com/clusterio/clusterio/issues/568].
+- Added support for `color-settings` Mod settings [#568](https://github.com/clusterio/clusterio/issues/568).
+- Added `clusterio_controller_pending_requests` and `clusterio_host_pending_requests` metrics.
 
 ### Changes
 
