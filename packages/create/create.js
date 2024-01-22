@@ -501,8 +501,99 @@ WantedBy=multi-user.target
 	}
 }
 
+async function copyPluginTemplateFile(src, dst, props) {
+	logger.verbose(`Writing ${dst} from template ${src}`);
+	if (await fs.exists(dst)) {
+		logger.warn(`Could not create file ${dst} because it already exists`);
+		return;
+	}
+
+	const templateData = await fs.readFile(src, "utf8");
+	const outputData = templateData.replace(/\/\/ ([a-z_]*) \/\//g, (_, value) => {
+		if (!props.hasOwnProperty(value)) {
+			logger.warn(`Unknown property string (${value}) found in template file ${src}`);
+			return value;
+		}
+
+		return props[value];
+	});
+
+	await fs.outputFile(dst, outputData);
+}
+
 async function copyPluginTemplate(templates) {
-	logger.info(`Please wait, coping template for ${templates.join(", ")}`);
+	logger.info(`Please wait, coping templates for ${templates.join(", ")}`);
+	const noTypescript = templates.includes("js");
+	const entryPoints = [];
+	const files = new Map();
+
+	let templatePath = "./templates/plugin-ts";
+	if (noTypescript) {
+		templatePath = "./templates/plugin-js";
+		logger.error("Javascript only is not currently supported");
+		return;
+	}
+
+	templatePath = path.resolve(__dirname, templatePath);
+
+	// Files includes in all templates (package.json has its own logic)
+	files.set(".gitignore", path.join(templatePath, ".gitignore"));
+	files.set(".npmignore", path.join(templatePath, ".npmignore"));
+	files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
+	files.set("messages.ts", path.join(templatePath, "messages.ts"));
+	files.set("index.ts", path.join(templatePath, "index.ts"));
+
+	if (templates.includes("controller")) {
+		entryPoints.push("webEntrypoint: \"./web\",");
+		entryPoints.push("controllerEntrypoint: \"dist/plugin/controller\",");
+		files.set("controller.ts", path.join(templatePath, "controller.ts"));
+		files.set("webpack.config.js", path.join(templatePath, "webpack.config.js"));
+		files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
+		files.set("web/index.tsx", path.join(templatePath,
+			templates.includes("web") ? "web/plugin.tsx" : "web/no_plugin.tsx"
+		));
+	} else if (templates.includes("web")) {
+		entryPoints.push("webEntrypoint: \"./web\",");
+		files.set("web/index.tsx", path.join(templatePath, "web/plugin.tsx"));
+		files.set("webpack.config.js", path.join(templatePath, "webpack.config.js"));
+		files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
+	}
+
+	if (templates.includes("host")) {
+		entryPoints.push("hostEntrypoint: \"dist/plugin/host\",");
+		files.set("host.ts", path.join(templatePath, "host.ts"));
+	}
+
+	if (templates.includes("instance")) {
+		entryPoints.push("instanceEntrypoint: \"dist/plugin/instance\",");
+		files.set("instance.ts", path.join(templatePath, "instance.ts"));
+	}
+
+	if (templates.includes("module")) {
+		files.set("module/module.json", path.join(templatePath, "module/module.json"));
+		files.set("module/control.lua", path.join(templatePath, "module/control.lua"));
+		files.set("module/module_exports.lua", path.join(templatePath, "module/module_exports.lua"));
+	}
+
+	if (templates.includes("ctl")) {
+		files.set("ctl.ts", path.join(templatePath, "ctl.ts"));
+	}
+
+	// Props that will be replaced in the template files, found with "// prop_name //"
+	const props = {
+		plugin_name: "TBC",
+		entry_points: entryPoints.join("\n\t"),
+	};
+
+	const writes = [];
+	for (let [dst, src] of files) {
+		writes.push(copyPluginTemplateFile(src, dst, props));
+	}
+
+	// TODO package.json
+
+	await Promise.all(writes);
+	logger.info("Successfully wrote all template files");
 }
 
 // eslint-disable-next-line complexity
@@ -667,6 +758,7 @@ async function inquirerMissingArgs(args) {
 					{ name: "Lua Module", value: "module" },
 					{ name: "Command Line", value: "ctl" },
 					{ name: "Web UI", value: "web" },
+					{ name: "No Typescript", value: "js" },
 				],
 			},
 		], answers);

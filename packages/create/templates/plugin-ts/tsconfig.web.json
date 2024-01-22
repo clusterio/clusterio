@@ -1,0 +1,11 @@
+{
+	"extends": "../../tsconfig.web.json",
+	"references": [
+		{ "path": "../../packages/lib/tsconfig.web.json" },
+		{ "path": "../../packages/web_ui/tsconfig.web.json" },
+	],
+	"include": [ "web/**/*.tsx", "web/**/*.ts", "messages.ts", "package.json" ],
+	"compilerOptions": {
+		"outDir": "dist/web/build",
+	}
+}
