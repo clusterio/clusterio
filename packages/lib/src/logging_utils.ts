@@ -163,7 +163,7 @@ export class TerminalFormat {
 			src += `i:${info.instance_name} `;
 
 		} else if (info.host_name) {
-			src += `s:${info.host_name} `;
+			src += `h:${info.host_name} `;
 		}
 		if (info.plugin) {
 			src += `${info.plugin}: `;
