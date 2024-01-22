@@ -37,6 +37,24 @@ import { version } from "./package.json";
 // globals
 let controller: Controller;
 
+void new lib.Gauge(
+	"clusterio_controller_pending_requests",
+	"Count of pending link requests currently waiting in memory on the controller.",
+	{
+		callback: (gauge) => {
+			let count = 0;
+			if (controller) {
+				for (const host of controller.wsServer.hostConnections.values()) {
+					count += host.pendingRequestCount;
+				}
+				for (const control of controller.wsServer.controlConnections.values()) {
+					count += control.pendingRequestCount;
+				}
+			}
+			gauge.set(count);
+		},
+	}
+);
 
 void new lib.Gauge(
 	"clusterio_controller_host_mapping",

@@ -16,6 +16,7 @@ describe("lib/link/link", function() {
 
 	describe("class Link", function() {
 		let testConnector;
+		/** @type {lib.Link} */
 		let testLink;
 		let src = addr({ controlId: 1 });
 		let dst = addr("controller");
@@ -281,6 +282,7 @@ describe("lib/link/link", function() {
 				let srcReq = new lib.Address(lib.Address.control, 1, 1);
 				testConnector.emit("message", new lib.MessageResponse(1, dst, srcReq));
 				await request;
+				assert.deepEqual(testLink._pendingRequests, new Map());
 			});
 			it("should send request and reject with error when error response is received", async function() {
 				let message = events.once(testConnector, "send");
@@ -297,6 +299,7 @@ describe("lib/link/link", function() {
 					request,
 					{ message: "Error" }
 				);
+				assert.deepEqual(testLink._pendingRequests, new Map());
 			});
 			it("should send request and resolve with data when response is received", async function() {
 				let message = events.once(testConnector, "send");
@@ -305,6 +308,7 @@ describe("lib/link/link", function() {
 				let srcReq = new lib.Address(lib.Address.control, 1, 1);
 				testConnector.emit("message", new lib.MessageResponse(1, dst, srcReq, 44));
 				assert.deepEqual(await request, new NumberRequest.Response(44));
+				assert.deepEqual(testLink._pendingRequests, new Map());
 			});
 			it("should send event to the other side of the link", async function() {
 				let message = events.once(testConnector, "send");

@@ -4,7 +4,8 @@
 
 ### Features
 
-- Added support for `color-settings` Mod settings (#568)[https://github.com/clusterio/clusterio/issues/568].
+- Added support for `color-settings` Mod settings [#568](https://github.com/clusterio/clusterio/issues/568).
+- Added `clusterio_controller_pending_requests` and `clusterio_host_pending_requests` metrics.
 
 ### Changes
 
@@ -12,6 +13,8 @@
 - Fixed ctl not exporting types used for adding commands to ctl plugins.
 - Fixed controller only plugins throwing an error about missing a config field on startup out when added to hosts.
 - Fixed installer incorrectly claiming the options --factorio-dir and --no-download-headless conflicts with each other.
+- Fixed a memory leak on every request sent over the WebSocket.
+- Fixed assertion error on closing or invalidating a link with messages forwarded from a virtual link.
 
 
 ## Version 2.0.0-alpha.14

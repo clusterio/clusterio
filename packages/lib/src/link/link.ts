@@ -141,17 +141,30 @@ export class Link {
 		});
 	}
 
+	/**
+	 * Count of requests currently waiting for a response on this link
+	 */
+	get pendingRequestCount() {
+		return this._pendingRequests.size + this._forwardedRequests.size;
+	}
+
 	_clearPendingRequests(err: Error & { code?: string }) {
 		for (let pending of this._pendingRequests.values()) {
 			pending.reject(err);
 		}
 		for (let pending of this._forwardedRequests.values()) {
-			assert(pending.origin.connector instanceof WebSocketBaseConnector);
-			if (pending.origin.connector.hasSession) {
-				pending.origin.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code), pending.src, pending.dst
-				);
+			// Drop response if the origin is a WebSocket and the session
+			// has expired.  The other end of the link will have sent an
+			// error response to the request in this case.
+			if (
+				pending.origin.connector instanceof WebSocketBaseConnector
+				&& !pending.origin.connector.hasSession
+			) {
+				continue;
 			}
+			pending.origin.connector.sendResponseError(
+				new libData.ResponseError(err.message, err.code), pending.src, pending.dst
+			);
 		}
 		this._pendingRequests.clear();
 		this._forwardedRequests.clear();
@@ -421,6 +434,7 @@ export class Link {
 			throw new libErrors.InvalidMessage(`Received reply from ${message.src} for message sent to ${pending.dst}`);
 		}
 
+		this._pendingRequests.delete(message.dst.requestId!);
 		try {
 			pending.resolve(pending.request.responseFromJSON(message.data));
 		} catch (err: any) {
@@ -437,6 +451,7 @@ export class Link {
 			);
 		}
 
+		this._pendingRequests.delete(message.dst.requestId!);
 		pending.reject(new libErrors.RequestError(message.data.message, message.data.code, message.data.stack));
 	}
 
