@@ -153,12 +153,18 @@ export class Link {
 			pending.reject(err);
 		}
 		for (let pending of this._forwardedRequests.values()) {
-			assert(pending.origin.connector instanceof WebSocketBaseConnector);
-			if (pending.origin.connector.hasSession) {
-				pending.origin.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code), pending.src, pending.dst
-				);
+			// Drop response if the origin is a WebSocket and the session
+			// has expired.  The other end of the link will have sent an
+			// error response to the request in this case.
+			if (
+				pending.origin.connector instanceof WebSocketBaseConnector
+				&& !pending.origin.connector.hasSession
+			) {
+				continue;
 			}
+			pending.origin.connector.sendResponseError(
+				new libData.ResponseError(err.message, err.code), pending.src, pending.dst
+			);
 		}
 		this._pendingRequests.clear();
 		this._forwardedRequests.clear();
