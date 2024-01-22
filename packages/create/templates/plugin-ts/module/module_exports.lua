@@ -1,3 +1,2 @@
-local Control = require("./control")
 
-return Control
+return require("./control")

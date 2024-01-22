@@ -521,7 +521,7 @@ async function copyPluginTemplateFile(src, dst, props) {
 	await fs.outputFile(dst, outputData);
 }
 
-async function copyPluginTemplate(templates) {
+async function copyPluginTemplate(pluginName, templates) {
 	logger.info(`Please wait, coping templates for ${templates.join(", ")}`);
 	const noTypescript = templates.includes("js");
 	const entryPoints = [];
@@ -581,7 +581,7 @@ async function copyPluginTemplate(templates) {
 
 	// Props that will be replaced in the template files, found with "// prop_name //"
 	const props = {
-		plugin_name: "TBC",
+		plugin_name: pluginName,
 		entry_points: entryPoints.join("\n\t"),
 	};
 
@@ -745,6 +745,9 @@ async function inquirerMissingArgs(args) {
 		if (args["plugin-template"]) {
 			answers.pluginTemplate = args["plugin-template"];
 		}
+		if (args["plugin-name"]) {
+			answers.pluginName = args["plugin-name"];
+		}
 		answers.plugins = [];
 		answers = await inquirer.prompt([
 			{
@@ -760,6 +763,13 @@ async function inquirerMissingArgs(args) {
 					{ name: "Web UI", value: "web" },
 					{ name: "No Typescript", value: "js" },
 				],
+			},
+		], answers);
+		answers = await inquirer.prompt([
+			{
+				type: "input",
+				name: "pluginName",
+				message: "Name of your new plugin",
 			},
 		], answers);
 	}
@@ -869,6 +879,9 @@ async function main() {
 		.option("plugin-template", {
 			array: true, describe: "Plugin template to use [plugin-template]", type: "string",
 		})
+		.option("plugin-name", {
+			nargs: 1, describe: "Name of your new plugin [plugin-template]", type: "string",
+		})
 		.strict()
 	;
 
@@ -905,7 +918,7 @@ async function main() {
 	logger.verbose(JSON.stringify(answers));
 
 	if (answers.pluginTemplate) {
-		await copyPluginTemplate(answers.pluginTemplate);
+		await copyPluginTemplate(answers.pluginName, answers.pluginTemplate);
 		return;
 	}
 
