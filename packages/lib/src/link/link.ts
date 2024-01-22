@@ -428,6 +428,7 @@ export class Link {
 			throw new libErrors.InvalidMessage(`Received reply from ${message.src} for message sent to ${pending.dst}`);
 		}
 
+		this._pendingRequests.delete(message.dst.requestId!);
 		try {
 			pending.resolve(pending.request.responseFromJSON(message.data));
 		} catch (err: any) {
@@ -444,6 +445,7 @@ export class Link {
 			);
 		}
 
+		this._pendingRequests.delete(message.dst.requestId!);
 		pending.reject(new libErrors.RequestError(message.data.message, message.data.code, message.data.stack));
 	}
 

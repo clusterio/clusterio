@@ -13,6 +13,7 @@
 - Fixed ctl not exporting types used for adding commands to ctl plugins.
 - Fixed controller only plugins throwing an error about missing a config field on startup out when added to hosts.
 - Fixed installer incorrectly claiming the options --factorio-dir and --no-download-headless conflicts with each other.
+- Fixed a memory leak on every request sent over the WebSocket.
 
 
 ## Version 2.0.0-alpha.14
