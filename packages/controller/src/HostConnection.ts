@@ -226,7 +226,9 @@ export default class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status;
 					controllerInstance.gamePort = instanceData.gamePort;
-					controllerInstance.factorioVersion = instanceData.factorioVersion ?? controllerInstance.factorioVersion;
+					if (instanceData.factorioVersion) {
+						controllerInstance.factorioVersion = instanceData.factorioVersion;
+					}
 					controllerInstance.updatedAtMs = Date.now();
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
 					instanceUpdates.push(controllerInstance);

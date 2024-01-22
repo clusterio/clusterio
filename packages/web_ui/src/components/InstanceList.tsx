@@ -97,7 +97,7 @@ export default function InstanceList(props: InstanceListProps) {
 			title: "Factorio Version",
 			key: "version",
 			render: (_, instance) => instance.factorioVersion ?? "unknown",
-			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b)
+			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b),
 		},
 		{
 			title: "Status",
