@@ -93,6 +93,16 @@ module.exports = {
 				"node/shebang": "off",
 			},
 		},
+		{
+			"files": [
+				"packages/create/templates/**/*.ts?(x)",
+				"packages/create/templates/**/*.js?(x)",
+			],
+			"rules": {
+				"node/no-missing-require": "off",
+				"node/no-missing-import": "off",
+			},
+		},
 	],
 
 	"rules": {

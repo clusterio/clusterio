@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 // import { } from "antd";
 
 import {
-	BaseWebPlugin, PageLayout, Control, ControlContext, notifyErrorHandler
+	BaseWebPlugin, PageLayout, Control, ControlContext, notifyErrorHandler,
 } from "@clusterio/web_ui";
 
 import * as lib from "@clusterio/lib";
