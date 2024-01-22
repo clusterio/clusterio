@@ -524,7 +524,10 @@ async function copyPluginTemplateFile(src, dst, props) {
 async function copyPluginTemplate(pluginName, templates) {
 	logger.info(`Please wait, coping templates for ${templates.join(", ")}`);
 	const noTypescript = templates.includes("js");
-	const entryPoints = [];
+	const devDependencies = new Map();
+	const dependencies = new Map();
+	const entryPoints = new Map();
+	const prepare = [];
 	const files = new Map();
 
 	let templatePath = "./templates/plugin-ts";
@@ -536,36 +539,46 @@ async function copyPluginTemplate(pluginName, templates) {
 
 	templatePath = path.resolve(__dirname, templatePath);
 
-	// Files includes in all templates (package.json has its own logic)
+	// Files includes in all templates
 	files.set(".gitignore", path.join(templatePath, ".gitignore"));
 	files.set(".npmignore", path.join(templatePath, ".npmignore"));
+	files.set("package.json", path.join(templatePath, "package.json"));
 	files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
 	files.set("messages.ts", path.join(templatePath, "messages.ts"));
 	files.set("index.ts", path.join(templatePath, "index.ts"));
+	devDependencies.set("@types/node", "^20.4.5");
+	devDependencies.set("@types/node", "^20.4.5");
+	devDependencies.set("typescript", "^5.1.6");
+	dependencies.set("@sinclair/typebox", "^0.30.4");
+	prepare.push("tsc --build");
 
-	if (templates.includes("controller")) {
-		entryPoints.push("webEntrypoint: \"./web\",");
-		entryPoints.push("controllerEntrypoint: \"dist/plugin/controller\",");
-		files.set("controller.ts", path.join(templatePath, "controller.ts"));
+	if (templates.includes("controller") || templates.includes("web")) {
+		devDependencies.set("@clusterio/web_ui", "^2.0.0-alpha.14");
+		devDependencies.set("@types/react", "^18.2.21");
+		devDependencies.set("webpack", "^5.88.2");
+		devDependencies.set("webpack-cli", "^5.1.4");
+		devDependencies.set("webpack-merge", "^5.9.0");
+		entryPoints.set("webEntrypoint", "./web");
+		prepare.push("webpack-cli --env production");
 		files.set("webpack.config.js", path.join(templatePath, "webpack.config.js"));
 		files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
 		files.set("web/index.tsx", path.join(templatePath,
 			templates.includes("web") ? "web/plugin.tsx" : "web/no_plugin.tsx"
 		));
-	} else if (templates.includes("web")) {
-		entryPoints.push("webEntrypoint: \"./web\",");
-		files.set("web/index.tsx", path.join(templatePath, "web/plugin.tsx"));
-		files.set("webpack.config.js", path.join(templatePath, "webpack.config.js"));
-		files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
+	}
+
+	if (templates.includes("controller")) {
+		entryPoints.set("controllerEntrypoint", "dist/plugin/controller");
+		files.set("controller.ts", path.join(templatePath, "controller.ts"));
 	}
 
 	if (templates.includes("host")) {
-		entryPoints.push("hostEntrypoint: \"dist/plugin/host\",");
+		entryPoints.set("hostEntrypoint", "dist/plugin/host");
 		files.set("host.ts", path.join(templatePath, "host.ts"));
 	}
 
 	if (templates.includes("instance")) {
-		entryPoints.push("instanceEntrypoint: \"dist/plugin/instance\",");
+		entryPoints.set("instanceEntrypoint", "dist/plugin/instance");
 		files.set("instance.ts", path.join(templatePath, "instance.ts"));
 	}
 
@@ -582,15 +595,23 @@ async function copyPluginTemplate(pluginName, templates) {
 	// Props that will be replaced in the template files, found with "// prop_name //"
 	const props = {
 		plugin_name: pluginName,
-		entry_points: entryPoints.join("\n\t"),
+		prepare: prepare
+			.join(" && "),
+		entry_points: [...entryPoints.entries()]
+			.map((entry) => `${entry[0]}: "${entry[1]}",`)
+			.join("\n\t"),
+		dependencies: [...dependencies.entries()]
+			.map((entry) => `"${entry[0]}": "${entry[1]}"`)
+			.join(",\n\t\t"),
+		dev_dependencies: [...devDependencies.entries()]
+			.map((entry) => `"${entry[0]}": "${entry[1]}",`)
+			.join("\n\t\t"),
 	};
 
 	const writes = [];
 	for (let [dst, src] of files) {
 		writes.push(copyPluginTemplateFile(src, dst, props));
 	}
-
-	// TODO package.json
 
 	await Promise.all(writes);
 	logger.info("Successfully wrote all template files");
