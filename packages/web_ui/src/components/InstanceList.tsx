@@ -98,6 +98,7 @@ export default function InstanceList(props: InstanceListProps) {
 			key: "version",
 			render: (_, instance) => instance.factorioVersion ?? "unknown",
 			sorter: (a, b) => integerFactorioVersionOrDefault(a) - integerFactorioVersionOrDefault(b),
+			responsive: ["xl"],
 		},
 		{
 			title: "Status",
