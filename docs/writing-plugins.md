@@ -41,6 +41,7 @@ The usual guides for creating such packages apply.
 At minimum the `package.json` file must contain a version entry.
 
 A possible workflow for developing plugins is to place the plugin in a sub-directory of where clusterio has been installed, and rely on Node.js searching up the folder heirarchy for it to find `@clusterio/lib`.
+After creating a directory for your plugin, the boilerplate can be generated automaticlly from a set of tempaltes using `npm exec @clusterio/create -y -- --plugin-template` after which you will be asked which areas your plugin will interact with and your plugin's name.
 To add it to `plugin-list.json` so that it gets loaded use the `plugin add <path>` sub-command to either clusteriocontroller, clusteriohost or clusterioctl.
 Note that it's important that the path starts with ./ or ../ (use .\ or ..\ on Windows).
 

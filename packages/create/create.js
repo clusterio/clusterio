@@ -780,7 +780,7 @@ async function inquirerMissingArgs(args) {
 	}
 
 	if (answers.mode === "plugin-template") {
-		if (args["plugin-template"]) {
+		if (args["plugin-template"] && args["plugin-template"].length > 0) {
 			answers.pluginTemplate = args["plugin-template"];
 		}
 		if (args["plugin-name"]) {
