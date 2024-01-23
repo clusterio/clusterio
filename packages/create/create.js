@@ -509,77 +509,89 @@ async function copyPluginTemplateFile(src, dst, props) {
 	}
 
 	const templateData = await fs.readFile(src, "utf8");
-	const outputData = templateData.replace(/\/\/ ([a-z_]*) \/\//g, (_, value) => {
-		if (!props.hasOwnProperty(value)) {
-			logger.warn(`Unknown property string (${value}) found in template file ${src}`);
-			return value;
-		}
+	const outputData = templateData
+		.replace(/\/\/ \[([a-z_]*)\] \/\/(.*?)\/\/ \[\] \/\//gs, (_, prop, content) => {
+			// Find and replace // [prop] //content// [] //
+			if (!props.hasOwnProperty(prop)) {
+				logger.warn(`Unknown property clause (${prop}) found in template file ${src}`);
+				return content;
+			}
 
-		return props[value];
-	});
+			return Boolean(props[prop]) ? content : "";
+		})
+		.replace(/\/\/ ([a-z_]*) \/\//g, (_, prop) => {
+			// Find and replace // prop //
+			if (!props.hasOwnProperty(prop)) {
+				logger.warn(`Unknown property string (${prop}) found in template file ${src}`);
+				return prop;
+			}
+
+			return props[prop];
+		});
 
 	await fs.outputFile(dst, outputData);
 }
 
 async function copyPluginTemplate(pluginName, templates) {
 	logger.info(`Please wait, coping templates for ${templates.join(", ")}`);
-	const noTypescript = templates.includes("js");
 	const devDependencies = new Map();
-	const dependencies = new Map();
 	const entryPoints = new Map();
-	const prepare = [];
 	const files = new Map();
+	const prepare = [];
 
-	let templatePath = "./templates/plugin-ts";
-	if (noTypescript) {
-		templatePath = "./templates/plugin-js";
-		logger.error("Javascript only templates are not currently supported");
-		return;
-	}
+	const javascriptOnly = templates.includes("js");
+	const webpack = templates.includes("controller") || templates.includes("web");
 
-	templatePath = path.resolve(__dirname, templatePath);
+	// Get the file extension and path to the templates
+	const ext = javascriptOnly ? "js" : "ts";
+	const templatePath = path.resolve(__dirname, javascriptOnly ? "./templates/plugin-js" : "./templates/plugin-ts");
 
-	// Files includes in all templates
+	// Files included in all templates
 	files.set(".gitignore", path.join(templatePath, ".gitignore"));
 	files.set(".npmignore", path.join(templatePath, ".npmignore"));
 	files.set("package.json", path.join(templatePath, "package.json"));
-	files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
-	files.set("messages.ts", path.join(templatePath, "messages.ts"));
-	files.set("index.ts", path.join(templatePath, "index.ts"));
-	devDependencies.set("@types/node", "^20.4.5");
-	devDependencies.set("@types/node", "^20.4.5");
-	devDependencies.set("typescript", "^5.1.6");
-	dependencies.set("@sinclair/typebox", "^0.30.4");
-	prepare.push("tsc --build");
+	files.set(`messages.${ext}`, path.join(templatePath, `messages.${ext}`));
+	files.set(`index.${ext}`, path.join(templatePath, `index.${ext}`));
 
-	if (templates.includes("controller") || templates.includes("web")) {
-		devDependencies.set("@clusterio/web_ui", "^2.0.0-alpha.14");
-		devDependencies.set("@types/react", "^18.2.21");
+	// Files and dependencies to support typescript
+	if (!javascriptOnly) {
+		if (webpack) {
+			devDependencies.set("@types/react", "^18.2.21");
+			files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
+		}
+		devDependencies.set("@types/node", "^20.4.5");
+		devDependencies.set("typescript", "^5.1.6");
+		files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
+		prepare.push("tsc --build");
+	}
+
+	// Files and dependences to support webpack
+	if (webpack) {
 		devDependencies.set("webpack", "^5.88.2");
 		devDependencies.set("webpack-cli", "^5.1.4");
 		devDependencies.set("webpack-merge", "^5.9.0");
+		devDependencies.set("@clusterio/web_ui", "^2.0.0-alpha.14");
 		entryPoints.set("webEntrypoint", "./web");
 		prepare.push("webpack-cli --env production");
 		files.set("webpack.config.js", path.join(templatePath, "webpack.config.js"));
-		files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
-		files.set("web/index.tsx", path.join(templatePath,
-			templates.includes("web") ? "web/plugin.tsx" : "web/no_plugin.tsx"
+		files.set(`web/index.${ext}x`, path.join(templatePath,
+			templates.includes("web") ? `web/plugin.${ext}x` : `web/no_plugin.${ext}x`
 		));
 	}
 
 	if (templates.includes("controller")) {
 		entryPoints.set("controllerEntrypoint", "dist/plugin/controller");
-		files.set("controller.ts", path.join(templatePath, "controller.ts"));
+		files.set(`controller.${ext}`, path.join(templatePath, `controller.${ext}`));
 	}
 
 	if (templates.includes("host")) {
 		entryPoints.set("hostEntrypoint", "dist/plugin/host");
-		files.set("host.ts", path.join(templatePath, "host.ts"));
+		files.set(`host.${ext}`, path.join(templatePath, `host.${ext}`));
 	}
 
 	if (templates.includes("instance")) {
 		entryPoints.set("instanceEntrypoint", "dist/plugin/instance");
-		files.set("instance.ts", path.join(templatePath, "instance.ts"));
+		files.set(`instance.${ext}`, path.join(templatePath, `instance.${ext}`));
 	}
 
 	if (templates.includes("module")) {
@@ -589,25 +601,30 @@ async function copyPluginTemplate(pluginName, templates) {
 	}
 
 	if (templates.includes("ctl")) {
-		files.set("ctl.ts", path.join(templatePath, "ctl.ts"));
+		entryPoints.set("ctlEntrypoint", "dist/plugin/ctl");
+		files.set(`ctl.${ext}`, path.join(templatePath, `ctl.${ext}`));
 	}
 
-	// Props that will be replaced in the template files, found with "// prop_name //"
+	// Properties that will control the replacements in the templates
 	const props = {
+		controller: templates.includes("controller"),
+		host: templates.includes("host"),
+		instance: templates.includes("instance"),
+		module: templates.includes("module"),
+		ctl: templates.includes("ctl"),
+		web: templates.includes("web"),
 		plugin_name: pluginName,
 		prepare: prepare
 			.join(" && "),
 		entry_points: [...entryPoints.entries()]
 			.map((entry) => `${entry[0]}: "${entry[1]}",`)
 			.join("\n\t"),
-		dependencies: [...dependencies.entries()]
-			.map((entry) => `"${entry[0]}": "${entry[1]}"`)
-			.join(",\n\t\t"),
 		dev_dependencies: [...devDependencies.entries()]
 			.map((entry) => `"${entry[0]}": "${entry[1]}",`)
 			.join("\n\t\t"),
 	};
 
+	// Write all the template files
 	const writes = [];
 	for (let [dst, src] of files) {
 		writes.push(copyPluginTemplateFile(src, dst, props));

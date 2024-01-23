@@ -7,7 +7,7 @@ const common = require("@clusterio/web_ui/webpack.common");
 
 module.exports = (env = {}) => merge(common(env), {
 	context: __dirname,
-	entry: "./web/index.tsx",
+	entry: "./web/index.jsx",
 	output: {
 		path: path.resolve(__dirname, "dist", "web"),
 	},
@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "// plugin_name //",
 			library: { type: "var", name: "plugin_// plugin_name //" },
 			exposes: {
-				"./": "./index.ts",
+				"./": "./info.js",
 				"./package.json": "./package.json",
 			},
 			shared: {

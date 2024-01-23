@@ -1,0 +1,12 @@
+{
+	"name": "// plugin_name //",
+	"load": [
+		"control.lua"
+	],
+	"require": [
+
+	],
+	"dependencies": [
+
+	]
+}

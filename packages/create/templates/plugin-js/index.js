@@ -1,6 +1,7 @@
-import * as lib from "@clusterio/lib";
+"use strict";
+const lib = require("@clusterio/lib");
 
-import { PluginExampleEvent, PluginExampleRequest } from "./messages";
+const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
 
 lib.definePermission({
 	name: "// plugin_name //.example.permission.event",
@@ -20,19 +21,7 @@ lib.definePermission({
 	description: "My plugin's example page permission that I forgot to remove",
 });// [] //
 
-declare module "@clusterio/lib" {// [controller] //
-	export interface ControllerConfigFields {
-		"// plugin_name //.myControllerField": string;
-	}// [] //// [host] //
-	export interface HostConfigFields {
-		"// plugin_name //.myHostField": string;
-	}// [] //// [instance] //
-	export interface InstanceConfigFields {
-		"// plugin_name //.myInstanceField": string;
-	}// [] //
-}
-
-export const plugin: lib.PluginDeclaration = {
+const plugin = {
 	name: "// plugin_name //",
 	title: "// plugin_name //",
 	description: "I didn't update my description",
@@ -67,4 +56,10 @@ export const plugin: lib.PluginDeclaration = {
 		PluginExampleEvent,
 		PluginExampleRequest,
 	],
+};
+
+module.exports = {
+	plugin,
+	PluginExampleEvent,
+	PluginExampleRequest,
 };

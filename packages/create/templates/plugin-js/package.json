@@ -2,7 +2,7 @@
 	"name": "// plugin_name //",
 	"version": "0.1.0",
 	"description": "",
-	"main": "dist/plugin/index.js",
+	"main": "index.js",
 	"scripts": {
 		"prepare": "// prepare //"
 	},

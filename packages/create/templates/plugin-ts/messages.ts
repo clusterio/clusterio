@@ -5,7 +5,7 @@ export class PluginExampleEvent {
 	declare ["constructor"]: typeof PluginExampleEvent;
 	static type = "event" as const;
 	static src = ["host", "control"] as const;
-	static dst = ["controller", "host"] as const;
+	static dst = ["controller", "host", "instance"] as const;
 	static plugin = "// plugin_name //" as const;
 	static permission = "// plugin_name //.example.permission.event";
 
@@ -29,7 +29,7 @@ export class PluginExampleRequest {
 	declare ["constructor"]: typeof PluginExampleRequest;
 	static type = "request" as const;
 	static src = ["host", "control"] as const;
-	static dst = ["controller", "host"] as const;
+	static dst = ["controller", "host", "instance"] as const;
 	static plugin = "// plugin_name //" as const;
 	static permission = "// plugin_name //.example.permission.request";
 
