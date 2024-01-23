@@ -16,6 +16,18 @@ let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
 const finished = util.promisify(stream.finished);
 
+// I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
+// See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
+// One option is to not call rl.close: SBoudrias/Inquirer.js#767
+// But this comes with its own issues: SBoudrias/Inquirer.js#899
+// The solution below was adapted from aws-amplify/amplify-cli#12347
+if (process.platform === "win32") {
+	const _inquirer_close = inquirer.ui.Prompt.prototype.close;
+	inquirer.ui.Prompt.prototype.close = function() {
+		this.rl.terminal = false;
+		_inquirer_close.call(this);
+	};
+}
 
 const availablePlugins = [
 	{ name: "Global Chat", value: "@clusterio/plugin-global_chat" },
