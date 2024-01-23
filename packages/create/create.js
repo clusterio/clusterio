@@ -802,12 +802,11 @@ async function inquirerMissingArgs(args) {
 					{ name: "No Typescript", value: "js" },
 				],
 			},
-		], answers);
-		answers = await inquirer.prompt([
 			{
 				type: "input",
 				name: "pluginName",
 				message: "Name of your new plugin",
+				default: path.basename(path.resolve()),
 			},
 		], answers);
 	}
