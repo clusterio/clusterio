@@ -46,4 +46,4 @@ class WebPlugin extends BaseWebPlugin {
 
 module.exports = {
 	WebPlugin,
-}
+};

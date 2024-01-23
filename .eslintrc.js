@@ -43,6 +43,7 @@ module.exports = {
 			"files": [
 				"packages/web_ui/src/**/*.ts?(x)",
 				"packages/lib/browser.ts",
+				"packages/create/templates/*/web/**/*.{t,j}s?(x)",
 				"{packages,plugins}/*/web/**/*.ts?(x)",
 			],
 			"env": {
@@ -95,12 +96,12 @@ module.exports = {
 		},
 		{
 			"files": [
-				"packages/create/templates/**/*.ts?(x)",
-				"packages/create/templates/**/*.js?(x)",
+				"packages/create/templates/**/*.{t,j}s?(x)",
 			],
 			"rules": {
 				"node/no-missing-require": "off",
 				"node/no-missing-import": "off",
+				"comma-spacing": "off",
 			},
 		},
 	],

@@ -1,6 +1,6 @@
 "use strict";
 const lib = require("@clusterio/lib");
-const { BaseControllerPlugin } =  require("@clusterio/controller");
+const { BaseControllerPlugin } = require("@clusterio/controller");
 const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
 
 class ControllerPlugin extends BaseControllerPlugin {
