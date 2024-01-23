@@ -1056,7 +1056,7 @@ export default class Host extends lib.Link {
 				if (instanceInfo.config.get("instance.auto_start")) {
 					try {
 						let instanceConnection = await this._connectInstance(instanceId);
-						await instanceConnection.send(new lib.InstanceStartRequest());
+						await instanceConnection.instance.handleInstanceStartRequest(new lib.InstanceStartRequest());
 					} catch (err: any) {
 						logger.error(
 							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`,

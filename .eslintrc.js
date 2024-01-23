@@ -35,6 +35,7 @@ module.exports = {
 			"rules": {
 				"prefer-arrow-callback": "off",
 				"no-invalid-this": "off",
+				"valid-jsdoc": "off",
 				"node/no-unpublished-import": "off",
 				"node/no-unpublished-require": "off",
 			},

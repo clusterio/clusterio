@@ -268,7 +268,6 @@ If you want to use a different user for the command line interface, you can gene
 
 ## Known Issues
 
-- The `instance.auto_start` option is currently is broken and will not work, turn it off and do not use it for now.
 - When the `server_select` plugin is installed you may see `[error] Unhandled event server_select:UpdateInstancesEvent` logged when starting an instance.
   This should be ignored as it does not indicate an error occured.
 - After migrating from Alpha 13 to Alpha 14 running an instance data export fails with the error `Upload failed: 401 Unauthorized` due to the host token being issued to a slave.
