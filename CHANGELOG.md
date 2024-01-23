@@ -15,6 +15,7 @@
 - Fixed installer incorrectly claiming the options --factorio-dir and --no-download-headless conflicts with each other.
 - Fixed a memory leak on every request sent over the WebSocket.
 - Fixed assertion error on closing or invalidating a link with messages forwarded from a virtual link.
+- Fixed host hanging if stopped while an instance is in the process of creating a save during startup.
 
 
 ## Version 2.0.0-alpha.14

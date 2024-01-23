@@ -955,6 +955,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			await lib.invokeHook(this.plugins, "onStop");
 			await this.server.stop();
 			await this.sendSaveListUpdate();
+		} else if (
+			this.server._state === "stopping"
+			|| this.server._state === "create"
+		) {
+			await this.server.kill();
 		}
 	}
 
