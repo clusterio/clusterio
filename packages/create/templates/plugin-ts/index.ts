@@ -29,16 +29,19 @@ declare module "@clusterio/lib" {// [controller] //
 	}// [] //// [instance] //
 	export interface InstanceConfigFields {
 		"// plugin_name //.myInstanceField": string;
+	}// [] //// [ctl] //
+	export interface ControlConfigFields {
+		"// plugin_name //.myControlField": string;
 	}// [] //
 }
 
 export const plugin: lib.PluginDeclaration = {
 	name: "// plugin_name //",
 	title: "// plugin_name //",
-	description: "I didn't update my description",
+	description: "I didn't update my description",// [entry_points] //
 	// entry_points //
-	// [controller] //
-	controlConfigFields: {
+	// [] //// [controller] //
+	controllerConfigFields: {
 		"// plugin_name //.myControllerField": {
 			title: "My Controller Field",
 			description: "This should be removed",
@@ -57,6 +60,14 @@ export const plugin: lib.PluginDeclaration = {
 	instanceConfigFields: {
 		"// plugin_name //.myInstanceField": {
 			title: "My Instance Field",
+			description: "This should be removed",
+			type: "string",
+			initialValue: "Remove Me",
+		},
+	},// [] //// [ctl] //
+	controlConfigFields: {
+		"// plugin_name //.myControlField": {
+			title: "My Control Field",
 			description: "This should be removed",
 			type: "string",
 			initialValue: "Remove Me",

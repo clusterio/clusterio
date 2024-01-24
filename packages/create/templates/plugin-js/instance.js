@@ -6,7 +6,8 @@ const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
 class InstancePlugin extends BaseInstancePlugin {
 	async init() {
 		this.instance.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
-		this.instance.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));
+		this.instance.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));// [module] //
+		this.instance.server.handle("ipc-// plugin_name //-plugin_example_ipc", this.handlePluginExampleIPC.bind(this));// [] //
 	}
 
 	async onInstanceConfigFieldChanged(field, curr, prev) {
@@ -26,7 +27,8 @@ class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async handlePluginExampleEvent(event) {
-		this.logger.info(JSON.stringify(event));
+		this.logger.info(JSON.stringify(event));// [module] //
+		this.sendRcon("/sc ipc_// plugin_name //.foo()");// [] //
 	}
 
 	async handlePluginExampleRequest(request) {
@@ -35,7 +37,11 @@ class InstancePlugin extends BaseInstancePlugin {
 			myResponseString: request.myString,
 			myResponseNumbers: request.myNumberArray,
 		};
-	}
+	}// [module] //
+
+	async handlePluginExampleIPC(event) {
+		this.logger.info(JSON.stringify(event));
+	}// [] //
 }
 
 module.exports = {
