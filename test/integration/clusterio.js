@@ -557,6 +557,15 @@ describe("Integration of Clusterio", function() {
 				slowTest(this);
 				await checkInstanceStatus(44, "running");
 			});
+			it("should allow creating and removing props", async function() {
+				slowTest(this);
+				await execCtl("instance config set-prop test factorio.settings new_property new-string-value");
+				let config = await getControl().send(new lib.InstanceConfigGetRequest(44));
+				assert.equal(config["factorio.settings"]["new_property"], "new-string-value");
+				await execCtl("instance config set-prop test factorio.settings new_property");
+				config = await getControl().send(new lib.InstanceConfigGetRequest(44));
+				assert.equal(config["factorio.settings"]["new_property"], undefined);
+			});
 		});
 
 		describe("user set-admin/whitelisted/banned", function() {
