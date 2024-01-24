@@ -24,6 +24,8 @@ export default function HostConfigTree(props: { id: number, available: boolean }
 			} catch (err) {
 				return;
 			}
+		} else {
+			value = undefined;
 		}
 		await control.sendTo({ hostId: props.id }, new lib.HostConfigSetPropRequest(field, prop, value));
 	}
