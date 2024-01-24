@@ -72,7 +72,12 @@ export type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst:
 export type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
 
 interface Router {
-	forwardMessage(origin: Link, message: MessageRoutable, fallback: boolean): boolean,
+	forwardMessage(
+		origin: Link,
+		message: MessageRoutable,
+		entry: RequestEntry | EventEntry | undefined,
+		fallback: boolean,
+	): boolean,
 }
 
 // Some definitions for the terminology used here:
@@ -343,7 +348,7 @@ export class Link {
 		let fallback =
 			message.type === "request" ? this._requestFallbacks.get((entry as RequestEntry).Request) : undefined
 		;
-		if (this.router.forwardMessage(this, message, Boolean(fallback))) {
+		if (this.router.forwardMessage(this, message, entry, Boolean(fallback))) {
 			return;
 		}
 		if (!fallback) {

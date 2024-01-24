@@ -26,6 +26,7 @@ import WsServer from "./WsServer";
 import HostConnection from "./HostConnection";
 import HostInfo from "./HostInfo";
 import BaseControllerPlugin from "./BaseControllerPlugin";
+import ControllerRouter from "./ControllerRouter";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -74,6 +75,7 @@ export default class Controller {
 
 	/** WebSocket server */
 	wsServer: WsServer;
+	router = new ControllerRouter(this);
 	trustedProxies: BlockList;
 	debugEvents: events.EventEmitter = new events.EventEmitter();
 	private _events: events.EventEmitter = new events.EventEmitter();
@@ -1374,7 +1376,11 @@ export default class Controller {
 				}
 
 			} else if (dst.id === lib.Address.instance || dst.id === lib.Address.host) {
+				const plugin = event.constructor.plugin;
 				for (let hostConnection of this.wsServer.hostConnections.values()) {
+					if (plugin && !hostConnection.plugins.has(plugin)) {
+						continue;
+					}
 					hostConnection.sendEvent(event, dst);
 				}
 

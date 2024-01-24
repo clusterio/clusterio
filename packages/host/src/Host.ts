@@ -82,7 +82,7 @@ const instanceStartingMessages = new Set([
 	lib.InstanceExportDataRequest.name,
 ]);
 
-class HostRouter {
+export class HostRouter {
 	constructor(
 		public host: Host
 	) { }
@@ -93,16 +93,22 @@ class HostRouter {
 	 * @param origin -
 	 *    Link the message originated from.
 	 * @param message - Message to process.
+	 * @param entry - message entry if message is a request or an event.
 	 * @param hasFallback - is fallback available
 	 * @returns true if the message was handled, false if fallback
 	 *     is requested
 	 */
-	forwardMessage(origin: lib.Link, message: lib.MessageRoutable, hasFallback: boolean) {
+	forwardMessage(
+		origin: lib.Link,
+		message: lib.MessageRoutable,
+		entry: lib.RequestEntry | lib.EventEntry | undefined,
+		hasFallback: boolean,
+	) {
 		let dst = message.dst;
 		let nextHop: lib.Link | undefined;
 		let msg: string | undefined;
 		if (dst.type === lib.Address.broadcast) {
-			this.broadcastMessage(origin, message);
+			this.broadcastMessage(origin, message, entry as lib.EventEntry);
 			return true;
 		} else if (
 			dst.type === lib.Address.controller
@@ -153,27 +159,36 @@ class HostRouter {
 		return true;
 	}
 
-	broadcastMessage(origin: lib.Link, message: lib.MessageRoutable) {
+	broadcastMessage(
+		origin: lib.Link,
+		message: lib.MessageRoutable,
+		entry: lib.EventEntry,
+	) {
 		let dst = message.dst;
 		if (message.type !== "event") {
 			this.warnUnrouted(message, `Unexpected broadcast of ${message.type}`);
-		} else if (dst.id === lib.Address.host || dst.id === lib.Address.instance) {
+			return;
+		}
+		const plugin = entry.Event.plugin;
+		if (dst.id === lib.Address.instance) {
 			for (let instanceConnection of this.host.instanceConnections.values()) {
-				if (instanceConnection !== origin) {
+				if (instanceConnection !== origin && (!plugin || instanceConnection.plugins.has(plugin))) {
 					instanceConnection.connector.send(message);
 				}
 			}
-			if (this.host !== origin) {
+			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
 				this.host.connector.send(message);
 			}
 		} else if (dst.id === lib.Address.control) {
 			if (this.host !== origin) {
-				this.host.connector.send(message);
+				if (!plugin || this.host.serverPlugins.has(plugin)) {
+					this.host.connector.send(message);
+				}
 			} else {
-				logger.warn(`Received control broadcast of ${(message as lib.MessageEvent).name} from master.`);
+				logger.warn(`Received control broadcast of ${(message as lib.MessageEvent).name} from controller.`);
 			}
 		} else {
-			this.warnUnrouted(message, `Unexpected broacdast target ${dst.id}`);
+			this.warnUnrouted(message, `Unexpected broadcast target ${dst.id}`);
 		}
 	}
 

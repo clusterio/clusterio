@@ -7,8 +7,6 @@ import ControlConnection from "./ControlConnection";
 const { logger } = lib;
 
 export default class ControllerRouter {
-	pendingRequests: Map<any, any> = new Map();
-
 	constructor(
 		public controller: Controller
 	) {}
@@ -16,12 +14,14 @@ export default class ControllerRouter {
 	/**
 	 * @param origin - Source link of the message.
 	 * @param message - Link the message originated from.
+	 * @param entry - message entry if message is a request or an event.
 	 * @param hasFallback - true if fallback handling is available.
 	 * @returns true if the message was handled
 	 */
 	forwardMessage(
 		origin: ControlConnection | HostConnection,
 		message: lib.MessageRoutable,
+		entry: lib.RequestEntry | lib.EventEntry | undefined,
 		hasFallback: boolean
 	): boolean {
 		if (!["request", "response", "responseError", "event"].includes(message.type)) {
@@ -32,7 +32,7 @@ export default class ControllerRouter {
 		let nextHop: ControlConnection | HostConnection | undefined;
 		let msg: string = "";
 		if (dst.type === lib.Address.broadcast) {
-			this.broadcastMessage(origin, message);
+			this.broadcastMessage(origin, message, entry as lib.EventEntry);
 			return true;
 		} else if (dst.type === lib.Address.host) {
 			nextHop = this.controller.wsServer.hostConnections.get(dst.id);
@@ -96,13 +96,17 @@ export default class ControllerRouter {
 	broadcastMessage(
 		origin: lib.Link,
 		message: lib.MessageRoutable,
+		entry: lib.EventEntry,
 	) {
 		let dst = message.dst;
 		if (message.type !== "event") {
 			this.warnUnrouted(message, `Unexpected broadcast of ${message.type}`);
-		} else if (dst.id === lib.Address.host || dst.id === lib.Address.instance) {
+			return;
+		}
+		const plugin = entry.Event.plugin;
+		if (dst.id === lib.Address.host || dst.id === lib.Address.instance) {
 			for (let hostConnection of this.controller.wsServer.hostConnections.values()) {
-				if (hostConnection !== origin) {
+				if (hostConnection !== origin && (!plugin || hostConnection.plugins.has(plugin))) {
 					hostConnection.connector.send(message);
 				}
 			}
@@ -126,5 +130,3 @@ export default class ControllerRouter {
 		logger.warn(msg ? `${baseMsg}: ${msg}.` : `${baseMsg}.`);
 	}
 }
-
-module.exports = ControllerRouter;

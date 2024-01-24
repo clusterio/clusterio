@@ -6,7 +6,6 @@ import type WsServerConnector from "./WsServerConnector";
 
 import * as lib from "@clusterio/lib";
 const { logger } = lib;
-import ControllerRouter from "./ControllerRouter";
 import * as routes from "./routes";
 
 
@@ -24,7 +23,7 @@ export default class BaseConnection extends lib.Link {
 		public _controller: Controller
 	) {
 		super(connector);
-		this.router = new ControllerRouter(this._controller);
+		this.router = _controller.router;
 		for (let [Request, handler] of this._controller._registeredRequests) { this.handle(Request, handler); }
 		for (let [Request, handler] of this._controller._fallbackedRequests) { this.fallbackRequest(Request, handler); }
 		for (let [Event, handler] of this._controller._registeredEvents) { this.handle(Event, handler); }
