@@ -164,6 +164,9 @@ describe("Integration of link routing", function() {
 	 * @param {Address} dst
 	 */
 	function send(link, dst, message) {
+		// This logic exists becasue .sendTo doesn't forward all kinds of
+		// messages to the correct location from all places.  Idealy this
+		// would not be neccessary and .sendTo would do the right thing.
 		if (link instanceof Host) {
 			const instance = link.instanceConnections.get(dst.id);
 			if (instance) {
@@ -208,6 +211,9 @@ describe("Integration of link routing", function() {
 	 * @param {"allHosts" | "allInstances" | "allControls"} dst
 	 */
 	function bcast(link, dst, message) {
+		// This logic exists becasue .sendTo doesn't forward all kinds of
+		// messages to the correct location from all places.  Idealy this
+		// would not be neccessary and .sendTo would do the right thing.
 		if (link instanceof Host) {
 			const plugin = message.constructor.plugin;
 			if (dst === "allInstances") {
