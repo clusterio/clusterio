@@ -18,6 +18,7 @@
 - Fixed host hanging if stopped while an instance is in the process of creating a save during startup.
 - Fixed `instance.auto_start` option.
 - Fixed host log spammed with errors when plugins broadcast messages to instances with the plugin disabled.
+- Fixed properties of object config fields not being possible to remove.
 
 
 ## Version 2.0.0-alpha.14

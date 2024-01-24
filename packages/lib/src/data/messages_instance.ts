@@ -208,7 +208,7 @@ export class InstanceConfigSetPropRequest {
 		"instanceId": Type.Integer(),
 		"field": Type.String(),
 		"prop": Type.String(),
-		"value": Type.Unknown(),
+		"value": Type.Optional(Type.Unknown()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
