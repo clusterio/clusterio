@@ -27,6 +27,8 @@ export default function ControllerConfigTree() {
 			} catch (err) {
 				return;
 			}
+		} else {
+			value = undefined;
 		}
 		await control.send(new lib.ControllerConfigSetPropRequest(field, prop, value));
 	}
