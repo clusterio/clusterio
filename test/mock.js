@@ -80,6 +80,10 @@ class MockConnector extends lib.BaseConnector {
 		this.sentMessages.push(message);
 		setImmediate(() => this.emit("send", message));
 	}
+
+	sendDisconnectReady() {
+		this.send(new lib.MessageDisconnect("ready"));
+	}
 }
 
 class MockServer extends events.EventEmitter {
