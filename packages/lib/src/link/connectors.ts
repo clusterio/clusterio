@@ -33,7 +33,30 @@ export abstract class BaseConnector extends events.EventEmitter {
 		this._seq = 1;
 	}
 
-	abstract send(message: libData.Message): void;
+	protected abstract send(message: libData.MessageRoutable): void;
+
+	forward(message: libData.MessageRoutable) {
+		const seq = this._seq;
+		this._seq += 1;
+		// The message type currently can't be inferred like a tagged union
+		// TODO fix typing of message so it can be deduced from .type
+		if (message.type === "request") {
+			const request = message as libData.MessageRequest;
+			this.send(new libData.MessageRequest(seq, request.src, request.dst, request.name, request.data));
+		} else if (message.type === "response") {
+			const response = message as libData.MessageResponse;
+			this.send(new libData.MessageResponse(seq, response.src, response.dst, response.data));
+		} else if (message.type === "responseError") {
+			const error = message as libData.MessageResponseError;
+			this.send(new libData.MessageResponseError(seq, error.src, error.dst, error.data));
+		} else if (message.type === "event") {
+			const event = message as libData.MessageEvent;
+			this.send(new libData.MessageEvent(seq, event.src, event.dst, event.name, event.data));
+		} else {
+			throw new Error(`Cannot forward message type ${(message as any).type}`);
+		}
+		return seq;
+	}
 
 	sendRequest<Req, Res>(
 		request: Request<Req, Res>,
@@ -242,7 +265,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 *
 	 * @param message - Message to send.
 	 */
-	send(message: libData.MessageRoutable) {
+	protected send(message: libData.MessageRoutable) {
 		if (!["connected", "resuming"].includes(this._state)) {
 			throw new libErrors.SessionLost("No session");
 		}
@@ -293,6 +316,13 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		}
 
 		await this.close(1000, "Disconnect");
+	}
+
+	/**
+	 * Notify other end that the link is ready to disconnect
+	 */
+	sendDisconnectReady() {
+		this._sendInternal(new libData.MessageDisconnect("ready"));
 	}
 
 	/**

@@ -132,7 +132,8 @@ export class Link {
 				}
 			).finally(
 				() => {
-					this.connector.send(new libData.MessageDisconnect("ready"));
+					// Only WebSocket connectors issue disconnection events.
+					(this.connector as WebSocketBaseConnector).sendDisconnectReady();
 				},
 			);
 		});
@@ -561,7 +562,7 @@ export class Link {
 			dst: message.dst,
 		};
 		this._forwardedRequests.set(message.src.index(), pending);
-		this.connector.send(message);
+		this.connector.forward(message);
 	}
 
 	sendEvent<T>(event: Event<T>, dst: libData.Address) {

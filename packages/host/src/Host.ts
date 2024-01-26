@@ -173,16 +173,16 @@ export class HostRouter {
 		if (dst.id === lib.Address.instance) {
 			for (let instanceConnection of this.host.instanceConnections.values()) {
 				if (instanceConnection !== origin && (!plugin || instanceConnection.plugins.has(plugin))) {
-					instanceConnection.connector.send(message);
+					instanceConnection.connector.forward(message);
 				}
 			}
 			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
-				this.host.connector.send(message);
+				this.host.connector.forward(message);
 			}
 		} else if (dst.id === lib.Address.control) {
 			if (this.host !== origin) {
 				if (!plugin || this.host.serverPlugins.has(plugin)) {
-					this.host.connector.send(message);
+					this.host.connector.forward(message);
 				}
 			} else {
 				logger.warn(`Received control broadcast of ${(message as lib.MessageEvent).name} from controller.`);
@@ -208,7 +208,7 @@ export class HostRouter {
 		}
 
 		this.host._connectInstance(dst.id).then(instanceConnection => {
-			instanceConnection.connector.send(message);
+			instanceConnection.connector.forward(message);
 		}).catch(err => {
 			logger.error(`Error starting instance:\n${err.stack}`, this.host.instanceLogMeta(dst.id));
 			origin.connector.sendResponseError(
@@ -222,7 +222,7 @@ export class HostRouter {
 			if (message.type === "request") {
 				nextHop.forwardRequest(message as lib.MessageRequest, origin);
 			} else {
-				nextHop.connector.send(message);
+				nextHop.connector.forward(message);
 			}
 		} catch (err: any) {
 			if (message.type === "request") {

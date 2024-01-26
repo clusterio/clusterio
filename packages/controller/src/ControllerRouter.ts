@@ -84,7 +84,7 @@ export default class ControllerRouter {
 			if (message.type === "request") {
 				nextHop.forwardRequest(message as lib.MessageRequest, origin);
 			} else {
-				nextHop.connector.send(message);
+				nextHop.connector.forward(message);
 			}
 		} else {
 			this.warnUnrouted(message, msg);
@@ -107,13 +107,13 @@ export default class ControllerRouter {
 		if (dst.id === lib.Address.host || dst.id === lib.Address.instance) {
 			for (let hostConnection of this.controller.wsServer.hostConnections.values()) {
 				if (hostConnection !== origin && (!plugin || hostConnection.plugins.has(plugin))) {
-					hostConnection.connector.send(message);
+					hostConnection.connector.forward(message);
 				}
 			}
 		} else if (dst.id === lib.Address.control) {
 			for (let controlConnection of this.controller.wsServer.controlConnections.values()) {
 				if (controlConnection !== origin) {
-					controlConnection.connector.send(message);
+					controlConnection.connector.forward(message);
 				}
 			}
 		} else {

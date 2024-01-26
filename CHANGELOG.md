@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 2.0.0-alpha.16
+
+## Changes
+
+- Fixed message sequences not being renumbered when forwarded between links causing reconnects to send duplicated messages.
+
+
 ## Version 2.0.0-alpha.15
 
 ### Features
