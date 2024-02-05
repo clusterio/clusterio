@@ -19,12 +19,20 @@ export default class Role {
 		permissions: Type.Array(Type.String()),
 	});
 
+	static remapPermission(permission: string) {
+		// migrate: core.instance.save.list.subscribe was renamed in alpha 17
+		if (permission === "core.instance.save.list.subscribe") {
+			return "core.instance.save.subscribe";
+		}
+		return permission;
+	}
+
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(
 			json.id,
 			json.name,
 			json.description,
-			new Set(json.permissions),
+			new Set(json.permissions.map(this.remapPermission)),
 		);
 	}
 
