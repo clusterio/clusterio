@@ -941,9 +941,9 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
-			instance.updatedAtMs = Date.now();
-			this.instanceDetailsUpdated([instance]);
 		}
+		instance.updatedAtMs = Date.now();
+		this.instanceDetailsUpdated([instance]);
 	}
 
 	/**
