@@ -7,6 +7,7 @@
 - Fixed an unhandled error in Subspace Storage crashing the host.
 - Fixed an unhandled rejection in disconnect logic crashing the host.
 - Fixed instance screen in Web UI not updating when an instance was reassigned.
+- Fixed an error thrown in the rendering of one page in the Web UI causing all pages to become inaccessible.
 
 
 ## Version 2.0.0-alpha.16
