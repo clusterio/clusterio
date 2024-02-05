@@ -88,7 +88,6 @@ export default function UserViewPage() {
 			onChange={() => setRolesDirty(true)}
 			loading={!roles}
 			mode="multiple"
-			showArrow={true}
 			filterOption={(inputValue:string, option: any): boolean => {
 				let role = roles.get(option.value);
 				return role?.name.toLowerCase().includes(inputValue.toLowerCase()) ?? false;
