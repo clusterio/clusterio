@@ -104,16 +104,16 @@ export default function App(props: AppProps) {
 	}
 
 	return (
-		<ErrorBoundary Component={ErrorCard}>
-			<ConfigProvider
-				theme={{ algorithm: theme.darkAlgorithm }}
-			>
+		<ConfigProvider
+			theme={{ algorithm: theme.darkAlgorithm }}
+		>
+			<ErrorBoundary Component={ErrorCard}>
 				<ControlContext.Provider value={props.control}>
 					<BrowserRouter basename={webRoot}>
 						{page}
 					</BrowserRouter>
 				</ControlContext.Provider>
-			</ConfigProvider>
-		</ErrorBoundary>
+			</ErrorBoundary>
+		</ConfigProvider>
 	);
 }
