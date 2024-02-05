@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 2.0.0-alpha.17
+
+## Changes
+
+- Fixed an unhandled error in Subspace Storage crashing the host.
+
+
 ## Version 2.0.0-alpha.16
 
 ## Changes
