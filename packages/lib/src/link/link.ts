@@ -126,16 +126,15 @@ export class Link {
 		});
 
 		connector.on("disconnectPrepare", () => {
-			this.prepareDisconnect().catch(
-				err => {
-					logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
+			this.prepareDisconnect().finally(() => {
+				// Only WebSocket connectors issue disconnection events.
+				const webSocketConnector = this.connector as WebSocketBaseConnector;
+				if (webSocketConnector.hasSession) {
+					webSocketConnector.sendDisconnectReady();
 				}
-			).finally(
-				() => {
-					// Only WebSocket connectors issue disconnection events.
-					(this.connector as WebSocketBaseConnector).sendDisconnectReady();
-				},
-			);
+			}).catch(err => {
+				logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
+			});
 		});
 
 		connector.on("invalidate", () => {
