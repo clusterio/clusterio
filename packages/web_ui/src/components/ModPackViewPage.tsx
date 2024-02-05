@@ -801,7 +801,7 @@ export default function ModPackViewPage() {
 			title={modPack.name}
 			extra={<Space>
 				<ExportButton modPack={modifiedModPack}/>
-				{account.hasPermission("core.mod-pack.delete") && <Popconfirm
+				{account.hasPermission("core.mod_pack.delete") && <Popconfirm
 					title="Delete mod pack and all of its settings?"
 					placement="bottomRight"
 					okText="Delete"

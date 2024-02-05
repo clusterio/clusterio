@@ -47,7 +47,7 @@ export const pages: PluginPage[] = [
 	{
 		path: "/mods",
 		sidebarName: "Mods",
-		permission: (account: UserAccount) => account.hasAnyPermission("core.mod.list", "core.mod-pack.list"),
+		permission: (account: UserAccount) => account.hasAnyPermission("core.mod.list", "core.mod_pack.list"),
 		content: <ModsPage />,
 	},
 	{
