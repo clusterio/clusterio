@@ -73,6 +73,7 @@ class MockConnector extends lib.BaseConnector {
 		super(src, dst);
 
 		this.connected = true;
+		this.hasSession = true;
 		this.sentMessages = [];
 	}
 

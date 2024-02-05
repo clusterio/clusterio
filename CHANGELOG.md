@@ -5,6 +5,7 @@
 ## Changes
 
 - Fixed an unhandled error in Subspace Storage crashing the host.
+- Fixed an unhandled rejection in disconnect logic crashing the host.
 
 
 ## Version 2.0.0-alpha.16
