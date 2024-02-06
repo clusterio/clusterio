@@ -361,7 +361,7 @@ export class InstanceSaveDetailsUpdatesEvent {
 	static type = "event" as const;
 	static src = ["instance", "host", "controller"] as const;
 	static dst = ["controller", "control"] as const;
-	static permission = "core.instance.save.list.subscribe" as const;
+	static permission = "core.instance.save.subscribe" as const;
 
 	constructor(
 		public updates: SaveDetails[],

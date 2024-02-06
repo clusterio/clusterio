@@ -204,7 +204,7 @@ export default function InstanceViewPage() {
 		<InstanceDescription host={host} instance={instance} />
 
 		{
-			account.hasAllPermission("core.instance.save.list", "core.instance.save.list_subscribe")
+			account.hasAllPermission("core.instance.save.list", "core.instance.save.subscribe")
 			&& <SavesList instance={instance} />
 		}
 		{

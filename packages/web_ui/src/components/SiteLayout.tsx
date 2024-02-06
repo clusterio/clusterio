@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { Dropdown, Layout, Menu, MenuProps } from "antd";
 import UserOutlined from "@ant-design/icons/UserOutlined";
@@ -115,12 +115,12 @@ export default function SiteLayout() {
 					{combinedPages.map(({path, sidebarPath, content}) => <Route
 						path={path}
 						key={path}
-						element={<>
+						element={<Fragment key={path}>
 							<SetSidebar path={sidebarPath ? sidebarPath : path} />
 							<ErrorBoundary Component={ErrorPage}>
 								{content}
 							</ErrorBoundary>
-						</>}
+						</Fragment>}
 					/>)}
 					<Route element={<SetSidebar path={null} />} />
 				</Routes>

@@ -876,9 +876,11 @@ export default class Controller {
 	 */
 	clearSavesOfInstance(instanceId: number) {
 		const updates = [];
+		const now = Date.now();
 		for (const [id, save] of this.saves) {
 			if (save.instanceId === instanceId) {
 				save.isDeleted = true;
+				save.updatedAtMs = now;
 				updates.push(save);
 				this.saves.delete(id);
 			}
@@ -939,9 +941,9 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
-			instance.updatedAtMs = Date.now();
-			this.instanceDetailsUpdated([instance]);
 		}
+		instance.updatedAtMs = Date.now();
+		this.instanceDetailsUpdated([instance]);
 	}
 
 	/**

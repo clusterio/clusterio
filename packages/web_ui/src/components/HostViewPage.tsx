@@ -48,7 +48,7 @@ export default function HostViewPage() {
 
 	let hostButtons = <Space>
 		{
-			account.hasPermission("core.host.revoke_access")
+			account.hasPermission("core.host.revoke_token")
 			&& <Popconfirm
 				title={`Revoke tokens of ${host.name}?`}
 				placement="bottomRight"

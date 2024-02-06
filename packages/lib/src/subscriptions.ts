@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebSocketBaseConnector } from "./link";
 import { logger } from "./logging";
 import { Address, MessageRequest, IControllerUser } from "./data";
+import isDeepStrictEqual from "./is_deep_strict_equal";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (updates: T[], synced: boolean) => void
@@ -204,6 +205,14 @@ export class EventSubscriber<
 	async _handle(event: EventSubscribable<T, V>) {
 		for (const value of event.updates) {
 			this.lastResponseTimeMs = Math.max(this.lastResponseTimeMs, value.updatedAtMs);
+			// Warn about updates which changes content but don't update updatedAtMs
+			const existing = this.values.get(value.id as K);
+			if (existing && existing.updatedAtMs === value.updatedAtMs && !isDeepStrictEqual(existing, value)) {
+				logger.warn(
+					`${this.Event.name} contains update for value with id ${value.id} that has an identical ` +
+					"updatedAtMs timestamp but differing content"
+				);
+			}
 			if (value.isDeleted) {
 				this.values.delete(value.id as K);
 			} else {

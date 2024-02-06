@@ -6,6 +6,11 @@
 
 - Fixed an unhandled error in Subspace Storage crashing the host.
 - Fixed an unhandled rejection in disconnect logic crashing the host.
+- Fixed instance screen in Web UI not updating when an instance was reassigned.
+- Fixed an error thrown in the rendering of one page in the Web UI causing all pages to become inaccessible.
+- Fixed Web UI not showing instance saves when the permission to list and subscribe the saves is granted but the user is not a cluster admin.
+- Similarly fixed Web UI not showing the mod pack create, delete, list and host revoke token actions if the user is not a cluster admin.
+- Fixed Research Sync applying progress of a previous techology level to the level on the controller when it's the active research during instance startup.
 
 
 ## Version 2.0.0-alpha.16
