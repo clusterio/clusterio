@@ -385,7 +385,7 @@ export class InstanceSaveDetailsUpdatesEvent {
 export class InstanceCreateSaveRequest {
 	declare ["constructor"]: typeof InstanceCreateSaveRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.save.create" as const;
 
@@ -596,7 +596,7 @@ export class InstancePushSaveRequest {
 export class InstanceLoadScenarioRequest {
 	declare ["constructor"]: typeof InstanceLoadScenarioRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.load_scenario" as const;
 
@@ -622,7 +622,7 @@ export class InstanceLoadScenarioRequest {
 export class InstanceExportDataRequest {
 	declare ["constructor"]: typeof InstanceExportDataRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.export_data" as const;
 }
@@ -630,7 +630,7 @@ export class InstanceExportDataRequest {
 export class InstanceExtractPlayersRequest {
 	declare ["constructor"]: typeof InstanceExtractPlayersRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.extract_players" as const;
 }
@@ -638,7 +638,7 @@ export class InstanceExtractPlayersRequest {
 export class InstanceStopRequest {
 	declare ["constructor"]: typeof InstanceStopRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.stop" as const;
 }
@@ -646,7 +646,7 @@ export class InstanceStopRequest {
 export class InstanceKillRequest {
 	declare ["constructor"]: typeof InstanceKillRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.kill" as const;
 }
@@ -693,7 +693,7 @@ export class InstanceDeleteInternalRequest {
 export class InstanceSendRconRequest {
 	declare ["constructor"]: typeof InstanceSendRconRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.send_rcon" as const;
 
