@@ -202,7 +202,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 						align: "right",
 						render: (_, result) => <Select
 							size="small"
-							bordered={false}
+							variant="borderless"
 							value={modResultSelectedVersion.get(result.name) || 0}
 							onChange={index => {
 								const newVersions = new Map(modResultSelectedVersion);
