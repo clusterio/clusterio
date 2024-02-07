@@ -6,8 +6,8 @@ export const plugin: lib.PluginDeclaration = {
 	name: "research_sync",
 	title: "Research Sync",
 	description: "Synchronises technology research progress between instances.",
-	instanceEntrypoint: "dist/plugin/instance",
-	controllerEntrypoint: "dist/plugin/controller",
+	instanceEntrypoint: "dist/node/instance",
+	controllerEntrypoint: "dist/node/controller",
 
 	messages: [
 		messages.ContributionEvent,

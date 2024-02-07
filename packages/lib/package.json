@@ -8,7 +8,7 @@
 		"prepare": "tsc --build && pnpm run compile_validator",
 		"compile_validator": "node scripts/compile_validator.js"
 	},
-	"main": "dist/index.js",
+	"main": "dist/node/index.js",
 	"browser": "browser.ts",
 	"keywords": [
 		"factorio"

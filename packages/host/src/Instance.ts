@@ -800,7 +800,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
-		let modulesDirectory = path.join(__dirname, "..", "..", "modules");
+		let modulesDirectory = path.join(__dirname, "..", "..", "..", "modules");
 		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {

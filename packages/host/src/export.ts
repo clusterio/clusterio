@@ -5,7 +5,7 @@ import Jimp from "jimp";
 import JSZip from "jszip";
 
 import * as lib from "@clusterio/lib";
-import * as libBuildMod from "@clusterio/lib/dist/build_mod";
+import * as libBuildMod from "@clusterio/lib/dist/node/build_mod";
 import type { FactorioServer } from "./server";
 
 interface Prototype {
@@ -62,7 +62,7 @@ async function generateExportMod(server: FactorioServer) {
 		clean: false,
 		build: true,
 		pack: true,
-		sourceDir: path.join(__dirname, "..", "..", "lua", "export"),
+		sourceDir: path.join(__dirname, "..", "..", "..", "lua", "export"),
 		outputDir: server.writePath("mods"),
 		bumpPatch: false,
 		factorioVersion: server.version.replace(/\.\d+$/, ""),

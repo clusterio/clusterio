@@ -5,6 +5,6 @@
 	],
 	"include": ["index.ts", "package.json", "ctl.ts", "src/**/*.ts"],
 	"compilerOptions": {
-		"outDir": "dist",
+		"outDir": "dist/node",
 	},
 }

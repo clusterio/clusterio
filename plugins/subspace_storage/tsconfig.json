@@ -6,6 +6,6 @@
 	"include": ["./**/*.ts"],
 	"exclude": ["test/*", "./dist/*"],
 	"compilerOptions": {
-		"outDir": "dist/plugin",
+		"outDir": "dist/node",
 	},
 }
