@@ -1,5 +1,5 @@
 {
-	"extends": "../../tsconfig.web.json",
+	"extends": "../../tsconfig.browser.json",
 	"include": [
 		"browser.ts",
 		"package.json",

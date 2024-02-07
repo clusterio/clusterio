@@ -79,7 +79,7 @@ module.exports = (env = {}) => ({
 				use: {
 					loader: require.resolve("ts-loader"),
 					options: {
-						configFile: "tsconfig.web.json",
+						configFile: "tsconfig.browser.json",
 						projectReferences: true,
 					},
 				},
