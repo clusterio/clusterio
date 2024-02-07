@@ -5,6 +5,6 @@
 	],
 	"include": [ "src/**/*.tsx", "src/**/*.ts", "package.json", "global.d.ts" ],
 	"compilerOptions": {
-		"outDir": "dist",
+		"outDir": "dist/browser",
 	}
 }

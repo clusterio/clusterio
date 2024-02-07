@@ -6,6 +6,6 @@
 	],
 	"include": [ "web/**/*.tsx", "web/**/*.ts", "package.json" ],
 	"compilerOptions": {
-		"outDir": "dist/web/build",
+		"outDir": "dist/browser",
 	}
 }
