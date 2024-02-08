@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Descriptions, Dropdown, Menu, MenuProps, Modal, Space, Spin, Typography } from "antd";
 import type { ItemType } from "antd/es/menu/hooks/useItems";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
@@ -42,7 +42,9 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Host">
 			{!assigned
 				? <em>Unassigned</em>
-				: host?.name ?? instance.assignedHost
+				: <Link to={`/hosts/${host?.id ?? instance.assignedHost}/view`}>
+					<Typography.Link>{host?.name ?? instance.assignedHost}</Typography.Link>
+				</Link>
 			}
 			{account.hasPermission("core.instance.assign") && <AssignInstanceModal
 				id={instance.id}
@@ -104,7 +106,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	}
 	let instanceButtonsMenuProps: MenuProps = {
 		items: instanceButtonMenuItems,
-		onClick: ({ key }: { key:string }) => {
+		onClick: ({ key }: { key: string }) => {
 			if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
@@ -157,8 +159,8 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			"core.instance.kill",
 			"core.instance.delete",
 		) && <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
-			<Button>More <DownOutlined /></Button>
-		</Dropdown>}
+				<Button>More <DownOutlined /></Button>
+			</Dropdown>}
 	</Space>;
 }
 
@@ -180,7 +182,7 @@ export default function InstanceViewPage() {
 
 		return <PageLayout nav={nav}>
 			<Alert
-				message={"Instance not found" }
+				message={"Instance not found"}
 				showIcon
 				description={<>Instance with id {instanceId} was not found on the controller.</>}
 				type="warning"
@@ -198,8 +200,8 @@ export default function InstanceViewPage() {
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			title={instance.name??""}
-			extra={<InstanceButtons instance={instance}/>}
+			title={instance.name ?? ""}
+			extra={<InstanceButtons instance={instance} />}
 		/>
 		<InstanceDescription host={host} instance={instance} />
 
