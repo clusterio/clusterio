@@ -12,8 +12,6 @@ The plugin classes have pre-defined hooks that are called during various stages 
 - [Plugin Configuration](#plugin-configuration)
 - [Communicating with Factorio](#communicating-with-factorio)
 - [Defining Link Messages](#defining-link-messages)
-    - [Defining Events](#defining-events)
-    - [Defining Requests](#defining-requests)
 - [Sending Link Messages](#sending-link-messages)
     - [Handling connection events](#handling-connection-events)
 - [Collecting Statistics](#collecting-statistics)
@@ -325,175 +323,134 @@ Events are simple one-way notifications that invoke a handler on the target it's
 Requests are pairs of request and response messages where the request is sent to the target and the response is the reply back from the target.
 The requests are similar to HTTP requests, except both parties of a link may initiate one.
 
-
-### Defining Events
-
-Events are defined as properties of the messages object exported on `plugin` that map to instances of the `Event` class from `lib/link`.
-The name of the property correspond to the handler invoked on the plugin class.
-The Event constructor takes an object of properties that define the event, for example the following could be defined in `plugin`:
-
-```js
-messages: {
-    startFrobnication: new lib.Event({
-        type: "foo_frobber:start_frobnication",
-        links: ["controller-host", "host-instance"],
-        forwardTo: "instance",
-        eventRequired: ["frobnication_type"],
-        eventProperties: {
-            "frobnication_type": { type: "string" },
-            "urgent": { type: "boolean" },
-        },
-    }),
-},
-```
-
-This specifies an event that can be sent from the controller to a host, and from a host to an instance.
-It also specifies that the event must contain the property `frobnication_type`, with a string value in the data payload and that it may optionally contain a boolean `urgent` property.
-It will also be forwarded by hosts to a specific instance.
-
-The following properties are recognized by the Event constructor:
-
-#### type
-
-The message type sent over the wire.
-This must start with the name of the plugin followed by colon and and be unique for the plugin.
-The type of the message sent over the socket will have the suffix `_event` appended to it.
-
-#### links
-
-An array of strings describing which links this event can be sent over.
-Direction matters, `"controller-host"` means the event can be sent from the controller to the host, but can't be sent back the other way, unless `"host-controller"` is also present in the links array.
-
-The available endpoints are `controller`, `host`, `instance`, and `control`.
-Controller talks with host and control, and host talks to instance.
-The full chain must be specified as the individual links in order for a message to travers multiple hops, (i.e., for a message to go from controller to instance it must have both `"controller-host"` and `"host-instance"` in the links array).
-See `forwardTo` and `broadcastTo` for ways to forward an event to the next link in a chain.
-
-#### forwardTo
-
-Target to forward an event to.
-Can either be `"controller"`, to indicate a host should forward it to the controller, or `"instance"`, to indicate it should be forwarded to the instances specified by the `instance_id` event property.
-This works by using a default handler for the event at the links that forward it.
-
-#### broadcastTo
-
-Target to broadcast this message towards.
-A value of "instance" means the event will be broadcast to all instances downstream of the target it's sent to, but not back from where it came from.
-Currently, only "instance" is supported.
-This means that sending the event to a host from an instance will cause it to be broadcast to all instances of that host except for the instance it came from.
-
-#### eventRequired
-
-By default all properties defined in `eventProperties` are required to be present in the payload for the event.
-This can be overriden by specifying an array of properties which are required here.
-This is equivalent to using the `required` keyword in JSON schema.
-
-#### eventProperties
-
-Object with properties mapping to a JSON schema of that property that specifies what's valid to send in the event.
-This is equivalent to using the `properties` keyword in JSON schema, except that the properties specified are by default required and additional properties are not allowed.
-See [this guide][guide] for an introduction to writing JSON schemas.
-
-The forwardTo and broadcastTo can be combined such that specifying `"controller"` as the forwardTo value and `"instance"` as the broadcastTo value will cause the event to be broadcast to all instances in the cluster.
-For this to work, you will need to specify `instance-host`, `host-controller`, `controller-host`, and `host-instance` as the links.
-
-Keep in mind when forwarding events that if the target an event is being forwarded to is not online, the event will be dropped.
-Use a request if you need a confirmation that the message was received.
-
-### Definining Requests
-
-Requests are defined as properties of the messages object exported by `plugin` that map to instances of the `Request` class from `lib/link`.
-The name of the property corresponds to the handler invoked on the plugin class.
-The Request constructor takes an object of properties that define the event.
+Messages are defined as properties of the `plugin.messages` array exported by `index.js`.
 For example, the following could be defined in `plugin`:
 
 ```js
-messages: {
-    reportFrobnication: new lib.Request({
-        type: "foo_frobber:report_frobnication",
-        links: ["controller-host", "host-instance"],
-        forwardTo: "instance",
-        requestRequired: ["verbosity"],
-        requestProperties: {
-            "verbosity": { type: "integer" },
-            "special": { type: "boolean" },
-        },
-        responseProperties: {
-            "report": {
-                type: "array",
-                items: { type: "string" },
+messages: [
+    class Frobnicate {
+        static plugin = "foo_frobber"; // Plugin name
+        static type = "request";
+        static src = "controller";
+        static dst = "instance";
+        static jsonSchema = {
+            type: "object",
+            properties: {
+                "verbosity": { type: "integer" },
+                "special": { type: "boolean" },
             },
-        },
-    }),
-},
+            required: ["verbosity"],
+            additionalProperties: false,
+        };
+        constructor(json) {
+            this.verbosity = json.verbosity;
+            this.special = json.special;
+        }
+        static fromJSON(json) {
+            return new Frobnicate(json);
+        }
+        toJSON() {
+            return {
+                verbosity: this.verbosity,
+                special: this.special,
+            };
+        }
+        static Response = {
+            jsonSchema: {
+                type: "object",
+                properties: {
+                    "report": {
+                        type: "array",
+                        items: { type: "string" },
+                    },
+                },
+            },
+            fromJSON(json) {
+                return json
+            }
+        }
+    }
+]
 ```
 
-This specifies a request that can be sent from the controller to a host, and from a host to an instance.
-The request data must contain the property `verbosity` with an integer number as the value, as well as the `instance_id` property (implied by `forwardTo: "instance"`) and it may also contain a boolean `special` property.
-It also defines that the response sent must contain a `report` property mapping to an array of strings.
-When received by a host, it will also be forwarded to the instance specified by `instance_id`.
+This specifies a request that can be sent from the controller to an instance, being routed through the correct host behind the scenes.
+The request data must contain the property `verbosity` with an integer number as the value, and it may also contain a boolean `special` property.
+It also defines that the response sent may contain a `report` property mapping to an array of strings.
 
-The following properties are recognized by the Request constructor:
+The following properties are recognized as part of a message class:
+
+#### plugin
+
+Must contain the name of the plugin this message is defined by.
+This property is not used in core messages.
 
 #### type
 
 The message type sent over the wire.
-This must start with the name of the plugin followed by colon and and be unique for the plugin.
-The type of the message sent over the socket will have the suffix `_request` appended to it for the request and `_response` appended to it for the response.
+This can be either `request` or `event`. The primary difference is whether they allow for a response.
 
-#### links
+#### src
 
-An array of strings describing which links this request can be sent over.
-Direction matters; `"controller-host"` means the request can be sent from the controller to the host and the host can reply to the controller, but the host can't send a request to the controller unless `"host-controller"` is also present in the links array.
+The allowed source of the message.
+The source can be specified as `controller`, `host`, `instance`, or `control`.
+This property also accepts an array of strings to allow multiple sources.
+Messages sent from a different source will be rejected.
 
-The available endpoints are `controller`, `host`, `instance`, and `control`.
-Controller talks with host and control, and host talks to instance.
-The full chain must be specified as the individual links in order for a message to travers multiple hops, (i.e., for a message to go from controller to instance it must have both `"controller-host"` and `"host-instance"` in the links array).
-See `forwardTo` for ways to forward a request to the next link in a chain.
+#### dst
 
-#### forwardTo
+The allowed destination of the message.
+The destination can be specified as `controller`, `host`, `instance`, or `control`.
+This property also accepts an array of strings to allow multiple destinations.
+Messages sent to a different destination will be rejected.
 
-Target to forward the request to.
-Can either be `"controller"` to indicate a host should forward it to the controller when receiving it from an instance, or `"instance"` to indicate it should be forwarded to the instances specified by the `instance_id` request property.
-This works by using a default handler for the request by the links that forward it.
+#### jsonSchema
 
-#### requestRequired
+A JSON schema that specifies what's valid to send in the message.
 
-By default all properties defined in `requestProperties` are required to be present in the payload for the request.
-This can be overriden by specifying an array of properties which are required here.
-This is equivalent to using the `required` keyword in JSON schema.
+#### toJSON
 
-#### requestProperties
+Optional function to serialize the class to a JSON object, bypassing the default serialization provided by `JSON.stringify()`
 
-Object with properties mapping to a JSON schema of that property that specifies what's valid to send in the request.
-This is equivalent to using the `properties` keyword in JSON schema, except that the properties specified are by default required and additional properties are not allowed.
-See [this guide][guide] for an introduction to writing JSON schemas
+#### fromJSON
 
-#### responseRequired
+Required function to restore the class from a JSON object.
+This function is called when the message reaches its destination and is expected to return an instance of the class.
 
-Same as the requestRequired only for the response sent back by the target.
+#### Response
 
-#### responseProperties
-
-Same as the requestProperties only for the response sent back by the target.
-
+Optional class that specifies the response to the request.
+Required properties are `jsonSchema` and `fromJSON`.
 
 ## Sending Link Messages
 
-Link messages are sent by calling the `.send()` method on the Event/Request instance with the link you want to send it over and the data to send.
-For `InstancePlugin` code the link to the host is the `instance` itself, which is accessible through the `.instance` property of the `InstancePlugin`.
-The `.info` property of the plugin class exposes the data exported from the plugin's `plugin` export.
-In other words:
+Link messages are sent by calling the `.sendTo()` method on a connection object with the destination and the data you want to send, where the data is an instance of one of the defined message classes in plugin.messages.
+For example:
 
 ```js
 // In an InstancePlugin class
 async frobnicate() {
-    this.info.messages.exampleEvent.send(this.instance, { foo: "bar" });
+    const response = await this.instance.sendTo("controller", new messages.Frobnicate({ 
+        verbosity: 2,
+        special: false,
+    }));
+    console.log(response); // { report: [...] }
 }
 ```
 
-For the Request class the send method is async and returns the response data received from the target it was sent to, or throws an error if the request failed.
+For classes with `static type = "request"` the send method is async and returns a promise that resolves to the response data received from the target it was sent to, or rejects with an error if the request failed.
+The destination specification can either be the ID of a particular control, host or instance, or one of the keywords used to send to multiple targets at once.
 
+Example destinations:
+
+```js
+sendTo("controller", message);
+sendTo("allHosts", message);
+sendTo("allControls", message);
+sendTo("allInstances", message);
+sendTo({ hostId: 123 }, message);
+sendTo({ instanceId: 123 }, message);
+sendTo({ controlId: 123 }, message);
+```
 
 ### Handling connection events
 
@@ -508,7 +465,7 @@ For example the sending of an event from an `InstancePlugin` class can be stoppe
 
 ```js
 if (this.host.connected) {
-    this.info.messages.frobnicate.send(this.instance, { foo: "bar" });
+    this.instance.sendTo("controller", new messages.Frobnicate({ foo: "bar" }));
 }
 ```
 
