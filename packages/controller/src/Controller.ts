@@ -964,6 +964,7 @@ export default class Controller {
 		this.instancesDirty = true;
 
 		this.clearSavesOfInstance(instanceId);
+		this.userManager.clearStatsOfInstance(instanceId);
 
 		let prev = instance.status;
 		instance.status = "deleted";
