@@ -66,31 +66,46 @@ module.exports = (env = {}) => ({
 				],
 			},
 			{
-				test: /\.js$/,
-				resolve: {
-					// XXX Required due to bug in babel-runtime
-					// see: https://github.com/babel/babel/issues/12058
-					fullySpecified: false,
-				},
-			},
-			{
 				test: /\.tsx?$/,
 				exclude: /node_modules/,
 				use: {
-					loader: require.resolve("ts-loader"),
+					loader: require.resolve("swc-loader"),
 					options: {
-						configFile: "tsconfig.browser.json",
-						projectReferences: true,
+						sourceMaps: true,
+						jsc: {
+							parser: {
+								syntax: "typescript",
+								tsx: true,
+							},
+							target: "es2022",
+							transform: {
+								react: {
+									runtime: "automatic",
+								},
+							},
+						},
 					},
 				},
 			},
 			{
-				test: /\.jsx$/,
+				test: /\.jsx?$/,
 				exclude: /node_modules/,
 				use: {
-					loader: require.resolve("babel-loader"),
+					loader: require.resolve("swc-loader"),
 					options: {
-						presets: [require.resolve("@babel/preset-react")],
+						sourceMaps: true,
+						jsc: {
+							parser: {
+								syntax: "ecmascript",
+								jsx: true,
+							},
+							target: "es2022",
+							transform: {
+								react: {
+									runtime: "automatic",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -123,10 +138,10 @@ module.exports = (env = {}) => ({
 		moduleIds: "deterministic",
 		minimizer: [
 			new TerserPlugin({
+				minify: TerserPlugin.swcMinify,
 				terserOptions: {
 					compress: {
 						keep_classnames: true,
-						passes: 2,
 					},
 					mangle: {
 						keep_classnames: true,
