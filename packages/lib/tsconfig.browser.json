@@ -12,6 +12,7 @@
 		"./src/hash.ts",
 		"./src/ini.ts",
 		"./src/link/*.ts",
+		"./src/lua_tools.ts",
 		"./src/logging.ts",
 		"./src/permissions.ts",
 		"./src/prometheus.ts",

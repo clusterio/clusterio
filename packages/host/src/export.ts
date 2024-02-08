@@ -18,11 +18,10 @@ interface SimpleIconSpecification {
 	icon_size: number;
 	icon_mipmaps?: number;
 }
-type Color = { r: number, g: number, b: number, a: number };
 interface IconLayer {
 	icon: string;
 	icon_size: number;
-	tint?: Color,
+	tint?: lib.FactorioColor,
 	shift?: [number, number],
 	scale?: number,
 	icon_mipmaps?: number,
@@ -202,15 +201,9 @@ async function loadLayeredIcon(
 
 		iconLayer = iconLayer.clone();
 
-		let tint: Color;
+		let tint: lib.Color;
 		if (layer.tint) {
-			let divisor = (layer.tint.r > 1 || layer.tint.g > 1 || layer.tint.b > 1) ? 255 : 1;
-			tint = {
-				r: (layer.tint.r || 0) / divisor,
-				g: (layer.tint.g || 0) / divisor,
-				b: (layer.tint.b || 0) / divisor,
-				a: layer.tint.a || 1,
-			};
+			tint = lib.normalizeColor(layer.tint);
 		} else {
 			tint = { r: 1, b: 1, g: 1, a: 1 };
 		}

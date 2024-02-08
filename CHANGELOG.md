@@ -11,6 +11,7 @@
 - Fixed Web UI not showing instance saves when the permission to list and subscribe the saves is granted but the user is not a cluster admin.
 - Similarly fixed Web UI not showing the mod pack create, delete, list and host revoke token actions if the user is not a cluster admin.
 - Fixed Research Sync applying progress of a previous techology level to the level on the controller when it's the active research during instance startup.
+- Fixed data export with a mod using shorthand notation for the default value of a color-setting causing the ModPack data to be set to invalid data.
 
 
 ## Version 2.0.0-alpha.16
