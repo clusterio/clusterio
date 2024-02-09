@@ -159,8 +159,8 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			"core.instance.kill",
 			"core.instance.delete",
 		) && <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
-				<Button>More <DownOutlined /></Button>
-			</Dropdown>}
+			<Button>More <DownOutlined /></Button>
+		</Dropdown>}
 	</Space>;
 }
 
