@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Button, Descriptions, Dropdown, Menu, MenuProps, Modal, Space, Spin, Typography } from "antd";
 import type { ItemType } from "antd/es/menu/hooks/useItems";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
@@ -23,6 +23,7 @@ import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
+import Link from "./Link";
 
 const { Title } = Typography;
 
@@ -43,7 +44,7 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 			{!assigned
 				? <em>Unassigned</em>
 				: <Link to={`/hosts/${host?.id ?? instance.assignedHost}/view`}>
-					<Typography.Link>{host?.name ?? instance.assignedHost}</Typography.Link>
+					{host?.name ?? instance.assignedHost}
 				</Link>
 			}
 			{account.hasPermission("core.instance.assign") && <AssignInstanceModal
@@ -158,9 +159,10 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			"core.instance.extract_players",
 			"core.instance.kill",
 			"core.instance.delete",
-		) && <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
-			<Button>More <DownOutlined /></Button>
-		</Dropdown>}
+		)
+			&& <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
+				<Button>More <DownOutlined /></Button>
+			</Dropdown>}
 	</Space>;
 }
 

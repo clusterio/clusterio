@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Space, Table, Tag } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -12,6 +12,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUsers } from "../model/user";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { message, Button, Space, Table, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
@@ -10,6 +10,7 @@ import { useHosts } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
 import { InstanceDetails } from "@clusterio/lib";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -59,9 +60,7 @@ export default function InstanceList(props: InstanceListProps) {
 				to={`/hosts/${instance.assignedHost}/view`}
 				onClick={e => e.stopPropagation()}
 			>
-				<Typography.Link>
-					{hostName(instance.assignedHost)}
-				</Typography.Link>
+				{hostName(instance.assignedHost)}
 			</Link>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
 			responsive: ["sm"],
