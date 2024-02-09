@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Space, Table, Tag } from "antd";
 
 import * as lib from "@clusterio/lib";
@@ -49,7 +49,7 @@ function CreateUserButton() {
 		>
 			<Form form={form}>
 				<Form.Item name="userName" label="Name">
-					<Input/>
+					<Input />
 				</Form.Item>
 			</Form>
 		</Modal>
@@ -97,7 +97,9 @@ export default function UsersPage() {
 					title: "Roles",
 					key: "roles",
 					render: (_, user) => (
-						[...user.roleIds].map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>)
+						[...user.roleIds].map(id => <Link to={`/roles/${id}/view`} onClick={e => e.stopPropagation()}>
+							<Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>
+						</Link>)
 					),
 				},
 				{
