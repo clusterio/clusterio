@@ -78,7 +78,7 @@ import { BaseInstancePlugin } from "@clusterio/host";
 
 Previously the info of a plugin would be loaded by requiring `./plugin_dir/info`, this has been changed to require `./plugin_dir` which in turn means that `info.js` is no longer the default entrypoint.
 To solve this you can either add `"main": "info.js",` to package.json or rename `info.js` to `index.js` (the rest of this guide assumes the entrypoint was renamed to `index.js`).
-The motivation behind this change was to allow TypeScript to output its build to a sub-folder of the plugin, if you're using TypeScript you'll likely have the entrypoint be located in `dist/index.js` instead.
+The motivation behind this change was to allow TypeScript to output its build to a sub-folder of the plugin, if you're using TypeScript you'll likely have the entrypoint be located in `dist/node/index.js` instead.
 
 The expected place where the declaration of a plugin is exported has also changed from `module.exports` to `module.exports.plugin`:
 

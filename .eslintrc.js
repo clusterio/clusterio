@@ -391,7 +391,7 @@ module.exports = {
 		"node/process-exit-as-throw": "error",
 		"node/shebang": ["error", {
 			"convertPath": {
-				"*.ts": ["^(.+)\\.ts$", "dist/$1.js"],
+				"*.ts": ["^(.+)\\.ts$", "dist/node/$1.js"],
 			},
 		}],
 	},

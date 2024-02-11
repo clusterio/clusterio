@@ -2,7 +2,7 @@
 // required here in order to track coverage for them.
 
 "use strict";
-require("../dist/plugin/instance");
-require("../dist/plugin/controller");
-require("../dist/plugin/dole");
-require("../dist/plugin/dole_nn_base");
+require("../dist/node/instance");
+require("../dist/node/controller");
+require("../dist/node/dole");
+require("../dist/node/dole_nn_base");

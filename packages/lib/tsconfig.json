@@ -1,8 +1,7 @@
 {
-	"extends": "../../tsconfig.node.json",
-	"include": ["index.ts", "browser.ts", "build_mod.js", "src/**/*.ts", "src/**/*.js"],
-	"compilerOptions": {
-		"outDir": "dist",
-		"allowJs": true,
-	},
+	"files": [],
+	"references": [
+		{ "path": "./tsconfig.node.json" },
+		{ "path": "./tsconfig.browser.json" },
+	],
 }

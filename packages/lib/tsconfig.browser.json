@@ -1,5 +1,5 @@
 {
-	"extends": "../../tsconfig.web.json",
+	"extends": "../../tsconfig.browser.json",
 	"include": [
 		"browser.ts",
 		"package.json",
@@ -25,6 +25,6 @@
 	],
 	"compilerOptions": {
 		"rootDir": ".",
-		"outDir": "dist/web/build",
+		"outDir": "dist/browser",
 	}
 }

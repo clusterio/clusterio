@@ -4,13 +4,13 @@
 	"author": "Hornwitser",
 	"license": "MIT",
 	"version": "2.0.0-alpha.16",
-	"main": "dist/index.js",
+	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
-		"clusteriocontroller": "./dist/controller.js"
+		"clusteriocontroller": "./dist/node/controller.js"
 	},
 	"keywords": [
 		"factorio"
@@ -36,6 +36,7 @@
 	},
 	"devDependencies": {
 		"@clusterio/web_ui": "^2.0.0-alpha.16",
+		"@swc/core": "^1.4.0",
 		"@types/busboy": "^1.5.0",
 		"@types/compression": "^1.7.2",
 		"@types/express": "^4.17.17",

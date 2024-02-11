@@ -5,7 +5,7 @@ const JSZip = require("jszip");
 const path = require("path");
 
 const lib = require("@clusterio/lib");
-const patch = require("@clusterio/host/dist/src/patch");
+const patch = require("@clusterio/host/dist/node/src/patch");
 
 
 describe("host/patch", function() {

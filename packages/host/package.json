@@ -4,13 +4,13 @@
 	"author": "Hornwitser",
 	"license": "MIT",
 	"version": "2.0.0-alpha.16",
-	"main": "dist/index.js",
+	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
-		"clusteriohost": "./dist/host.js"
+		"clusteriohost": "./dist/node/host.js"
 	},
 	"keywords": [
 		"factorio"
