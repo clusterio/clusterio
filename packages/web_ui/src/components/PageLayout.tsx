@@ -1,6 +1,6 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import { Layout, Breadcrumb } from "antd";
+import Link from "./Link";
 
 const { Content } = Layout;
 
