@@ -2,6 +2,7 @@ import zlib from "zlib";
 import { Type, Static } from "@sinclair/typebox";
 
 import * as libSchema from "../schema";
+import * as libLuaTools from "../lua_tools";
 
 import ExportManifest from "./ExportManifest";
 import { integerFactorioVersion } from "./version";
@@ -363,7 +364,11 @@ export default class ModPack {
 				continue;
 			}
 
-			this.settings[settingType].set(prototype.name, { value: prototype.default_value });
+			let value = prototype.default_value;
+			if (prototype.type === "color-setting") {
+				value = libLuaTools.normalizeColor(value);
+			}
+			this.settings[settingType].set(prototype.name, { value });
 		}
 	}
 }

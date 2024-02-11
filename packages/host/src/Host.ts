@@ -600,8 +600,9 @@ export default class Host extends lib.Link {
 		try {
 			modInfo = await this.modStore.loadMod(mod.name, mod.version);
 		} catch (err: any) {
+			// A broken zip file may have been left in the mods folder
 			if (err.code !== "ENOENT") {
-				throw err;
+				logger.error(`Error loading mod ${mod.name} ${mod.version}: ${err.message}`);
 			}
 		}
 		if (modInfo && (!mod.sha1 || mod.sha1 === modInfo.sha1)) {
