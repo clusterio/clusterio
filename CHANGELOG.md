@@ -21,6 +21,10 @@
 - Fixed mods setting the item prototype icons property to an object mapping instead of an array breaking the data export.
 - Fixed a bad mod in the host's mods folder causing instance start to fail instead of the host re-downloading the mod.
 
+### Breaking Changes
+
+- Renamed the permission `core.instance.save.list.subscribe` to `core.instance.save.subscribe`.
+
 
 ## Version 2.0.0-alpha.16
 
