@@ -182,8 +182,17 @@ body {
 	white-space: pre-wrap;
 }
 
+.save-list-dragger .ant-upload.ant-upload-drag {
+	border: none;
+	background: none;
+}
+
 .save-list-dragger .ant-upload.ant-upload-btn {
 	padding: 0;
+}
+
+.save-list-table .ant-table-pagination.ant-pagination {
+	margin-bottom: 0;
 }
 
 .rcon-result code {
