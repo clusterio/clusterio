@@ -3,7 +3,7 @@
 	"description": "Clusterio command line management tool",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.16",
+	"version": "2.0.0-alpha.17",
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.16",
+		"@clusterio/lib": "^2.0.0-alpha.17",
 		"as-table": "^1.0.55",
 		"fs-extra": "^11.1.1",
 		"phin": "^3.7.0",

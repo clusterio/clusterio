@@ -3,7 +3,7 @@
 	"description": "Implementation of Clusterio controller",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.16",
+	"version": "2.0.0-alpha.17",
 	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",
@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.16",
+		"@clusterio/lib": "^2.0.0-alpha.17",
 		"@sinclair/typebox": "^0.30.4",
 		"busboy": "^1.6.0",
 		"compression": "^1.7.4",
@@ -35,7 +35,7 @@
 		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
-		"@clusterio/web_ui": "^2.0.0-alpha.16",
+		"@clusterio/web_ui": "^2.0.0-alpha.17",
 		"@swc/core": "^1.4.0",
 		"@types/busboy": "^1.5.0",
 		"@types/compression": "^1.7.2",
