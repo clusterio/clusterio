@@ -270,6 +270,8 @@ If you want to use a different user for the command line interface, you can gene
 
 - When the `server_select` plugin is installed you may see `[error] Unhandled event server_select:UpdateInstancesEvent` logged when starting an instance.
   This should be ignored as it does not indicate an error occured.
+- After updating Factorio you may get the error `Error: Expected empty response but got "Cannot execute command. Error: [string "clusterio_private.update_instance(..."]:1: attempt to index global 'clusterio_private' (a nil value)?` on instance start.
+  This is due to Factorio applying a migration replacing the patched content of the save with the original scenario, attempting to start the instance again should resolve the issue.
 - After migrating from Alpha 13 to Alpha 14 running an instance data export fails with the error `Upload failed: 401 Unauthorized` due to the host token being issued to a slave.
   To workaround this find the id of the host in the host config and generate a new host token with the same id.
   Stop the host and replace the value of the `host.controller_token` field in `config-host.json` with the new host token before starting it up again.
