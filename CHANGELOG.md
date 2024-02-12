@@ -25,6 +25,11 @@
 
 - Renamed the permission `core.instance.save.list.subscribe` to `core.instance.save.subscribe`.
 
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
+[@Hornwitser](https://github.com/Hornwitser)
+
 
 ## Version 2.0.0-alpha.16
 
