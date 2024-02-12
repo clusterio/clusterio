@@ -4,6 +4,7 @@
 
 ### Features
 
+- Made the host an instance is assigned to link to the host page for that host in the Web UI [#587](https://github.com/clusterio/clusterio/pull/587).
 - Added pagination to the saves list.
 
 ### Changes
