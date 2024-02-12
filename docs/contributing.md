@@ -319,6 +319,6 @@ You will need commit access to the repository as well publish access to the @clu
 4.  Publish the packages.
 
     ```sh
-    # Warning: Double check your current working directory is the repository before running this
-    pnpm -r --filter='!./external_plugins/**' publish
+    rm -r ./{plugins,packages}/*/dist
+    pnpm -r --filter='./{plugins,packages}/*' publish
     ```
