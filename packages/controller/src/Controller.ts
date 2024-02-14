@@ -166,31 +166,6 @@ export default class Controller {
 		this.app.locals.controller = this;
 		this.app.locals.streams = new Map();
 
-		// Log all requests made to express
-		this.app.use((req, res, next) => {
-			const startNs = process.hrtime.bigint();
-			res.once("finish", () => {
-				const endNs = process.hrtime.bigint();
-				const durationMs = (Number(endNs - startNs) / 1e6);
-				logger.log({
-					level: "http",
-					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
-						` (Status ${res.statusCode} in ${durationMs}ms)`,
-					meta: {
-						method: req.method,
-						url: req.originalUrl,
-						statusCode: res.statusCode,
-						responseTime: durationMs,
-						httpVersion: req.httpVersion,
-						headers: req.headers,
-						query: req.query,
-					},
-				});
-			});
-
-			next();
-		});
-
 		this.trustedProxies = this.parseTrustedProxies();
 		this.wsServer = new WsServer(this);
 
@@ -765,14 +740,29 @@ export default class Controller {
 
 	static addAppRoutes(app: Application, pluginInfos: any[]) {
 		app.use((req: Request, res: Response, next) => {
-			let start = process.hrtime.bigint();
+			const startNs = process.hrtime.bigint();
 			stream.finished(res, () => {
 				let routePath = "static";
 				if (req.route && req.route.path) {
 					routePath = req.route.path;
 				}
-				let end = process.hrtime.bigint();
-				endpointDurationSummary.labels(routePath).observe(Number(end - start) / 1e9);
+				const endNs = process.hrtime.bigint();
+				const durationMs = (Number(endNs - startNs) / 1e6);
+				endpointDurationSummary.labels(routePath).observe(durationMs / 1e3);
+				logger.log({
+					level: "http",
+					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
+						` (Status ${res.statusCode} in ${durationMs}ms)`,
+					meta: {
+						method: req.method,
+						url: req.originalUrl,
+						statusCode: res.statusCode,
+						responseTime: durationMs,
+						httpVersion: req.httpVersion,
+						headers: req.headers,
+						query: req.query,
+					},
+				});
 			});
 			next();
 		});
