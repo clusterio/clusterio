@@ -19,10 +19,10 @@ export type AddressShorthand =
 export class Address {
 	/** Controller address */
 	static controller = 0;
-	/** Instance address */
-	static instance = 1;
 	/** Host address */
-	static host = 2;
+	static host = 1;
+	/** Instance address */
+	static instance = 2;
 	/** Control address */
 	static control = 3;
 	/** Broadcast */
@@ -87,7 +87,7 @@ export class Address {
 	}
 
 	toString() {
-		const typeMap = ["controller", "instance", "host", "control"];
+		const typeMap = ["controller", "host", "instance", "control"];
 		const type = typeMap[this.type] || this.type;
 		if (this.type === Address.broadcast) {
 			return `[Address ${type}:${typeMap[this.id] || this.id}]`;

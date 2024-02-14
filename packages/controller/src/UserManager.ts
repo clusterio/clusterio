@@ -113,4 +113,13 @@ export default class UserManager {
 			this.onlineUsers.delete(user);
 		}
 	}
+
+	clearStatsOfInstance(instanceId: number) {
+		for (const user of this.users.values()) {
+			this.notifyLeave(user, instanceId);
+			user.instanceStats.delete(instanceId);
+			user.recalculatePlayerStats();
+		}
+		this.dirty = true;
+	}
 }

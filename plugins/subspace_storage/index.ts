@@ -18,11 +18,11 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "subspace_storage",
 	title: "Subspace Storage",
 	description: "Provides shared storage across instances for the Subspace Storage mod",
-	instanceEntrypoint: "dist/plugin/instance",
+	instanceEntrypoint: "dist/node/instance",
 	instanceConfigFields: {
 		"subspace_storage.log_item_transfers": {
 			title: "Log Item Transfers",
@@ -32,7 +32,7 @@ export default {
 		},
 	},
 
-	controllerEntrypoint: "dist/plugin/controller",
+	controllerEntrypoint: "dist/node/controller",
 	controllerConfigFields: {
 		"subspace_storage.division_method": {
 			title: "Division Method",
@@ -58,4 +58,4 @@ export default {
 	],
 	webEntrypoint: "./web",
 	routes: ["/storage"],
-} satisfies lib.PluginDeclaration;
+};

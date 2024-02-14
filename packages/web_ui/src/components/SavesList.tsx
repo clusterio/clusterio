@@ -207,6 +207,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
+		className="save-list-table"
 		size="small"
 		columns={[
 			{
@@ -236,7 +237,6 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		]}
 		dataSource={[...saves.values()]}
 		rowKey={save => save.name}
-		pagination={false}
 		expandable={{
 			columnWidth: 33,
 			expandRowByClick: true,

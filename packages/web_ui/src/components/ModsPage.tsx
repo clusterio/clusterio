@@ -186,8 +186,8 @@ export default function ModsPage() {
 		<SectionHeader
 			title="Mod Packs"
 			extra={<Space>
-				{account.hasPermission("core.mod-pack.create") && <ImportModPackButton />}
-				{account.hasPermission("core.mod-pack.create") && <CreateModPackButton />}
+				{account.hasPermission("core.mod_pack.create") && <ImportModPackButton />}
+				{account.hasPermission("core.mod_pack.create") && <CreateModPackButton />}
 			</Space>}
 		/>
 		<Table

@@ -1,7 +1,7 @@
 import React, { Fragment, memo, useCallback, useEffect, useContext, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-	Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
+	Button, Card, ColorPicker, Checkbox, Col, ConfigProvider, Descriptions, Form, Input, Pagination,
 	Popconfirm, Row, Table, Tag, Typography, Select, Skeleton, Space, Spin, Switch, Modal, Tooltip,
 	TablePaginationConfig,
 } from "antd";
@@ -202,7 +202,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 						align: "right",
 						render: (_, result) => <Select
 							size="small"
-							bordered={false}
+							variant="borderless"
 							value={modResultSelectedVersion.get(result.name) || 0}
 							onChange={index => {
 								const newVersions = new Map(modResultSelectedVersion);
@@ -404,7 +404,7 @@ function hasChange(changes: ModChange[], field:Partial<ModChange>) {
 }
 
 // picks out the value property from settings.
-function pickValue(map: Map<string, lib.ModSetting>): [string, string|number|boolean][] {
+function pickValue(map: Map<string, lib.ModSetting>): [string, lib.ModSetting["value"]][] {
 	return [...map].map(([name, value]) => [name, value.value]);
 }
 
@@ -420,6 +420,25 @@ function groupToMap(array: any[], fn: (...args:any) => any) {
 	return map;
 }
 
+function InputColor(props: {
+	value: lib.ModSettingColor,
+	onChange: (value: lib.ModSettingColor) => void,
+}) {
+	const value = props.value;
+	return <ColorPicker
+		defaultFormat="rgb"
+		defaultValue={`rgba(${value.r * 255}, ${value.g * 255}, ${value.b * 255}, ${value.a}`}
+		onChangeComplete={(color) => {
+			const rgb = color.toRgb();
+			props.onChange({
+				r: rgb.r / 255,
+				g: rgb.g / 255,
+				b: rgb.b / 255,
+				a: rgb.a,
+			});
+		}}
+	/>;
+}
 type SettingsTableFieldProps = {
 	name: string;
 	type: string;
@@ -431,11 +450,15 @@ type SettingsTableFieldProps = {
 const SettingsTableField = memo((props: SettingsTableFieldProps) => {
 	const name = props.name;
 	const isBoolean = props.type === "bool-setting";
+	const isColor = props.type === "color-setting";
 	const isNumber = ["int-setting", "double-setting"].includes(props.type);
 	const isSelect = Boolean(props.allowedValues);
 	let input;
 	if (isBoolean) {
 		input = <Checkbox />;
+	} else if (isColor) {
+		const PartialInputColor = InputColor as () => React.JSX.Element;
+		input = <PartialInputColor />;
 	} else if (isSelect) {
 		const options = Object.values(props.allowedValues).map(value => ({
 			value,
@@ -484,7 +507,7 @@ function SettingsTable(props: SettingsTableProps) {
 		.map(mod => [mod.name, mod.title])
 	);
 
-	const types = ["bool-setting", "int-setting", "double-setting", "string-setting"];
+	const types = ["bool-setting", "int-setting", "double-setting", "string-setting", "color-setting"];
 	let prototypes = Object.entries(props.prototypes)
 		.filter(([type, _]) => types.includes(type))
 		.flatMap<any>(([_, settingPrototypes]: [string, any]) => Object.values(settingPrototypes))
@@ -492,7 +515,7 @@ function SettingsTable(props: SettingsTableProps) {
 
 	function controls(
 		scope: "startup"|"runtime-global"|"runtime-per-user",
-		storedFields: [string, string|number|boolean][]
+		storedFields: [string, lib.ModSetting["value"]][]
 	) {
 		let fields = new Map(prototypes
 			.filter(p => p.setting_type === scope)
@@ -508,6 +531,8 @@ function SettingsTable(props: SettingsTableProps) {
 					type = "double-setting";
 				} else if (typeof value === "string") {
 					type = "string-setting";
+				} else if (typeof value === "object" && "r" in value) {
+					type = "color-setting";
 				} else {
 					throw Error(`Unhandled setting type ${typeof value}`);
 				}
@@ -776,7 +801,7 @@ export default function ModPackViewPage() {
 			title={modPack.name}
 			extra={<Space>
 				<ExportButton modPack={modifiedModPack}/>
-				{account.hasPermission("core.mod-pack.delete") && <Popconfirm
+				{account.hasPermission("core.mod_pack.delete") && <Popconfirm
 					title="Delete mod pack and all of its settings?"
 					placement="bottomRight"
 					okText="Delete"

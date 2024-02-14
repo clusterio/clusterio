@@ -1,6 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table } from "antd";
+import CloseCircleFilled from "@ant-design/icons/CloseCircleFilled";
+import InfoCircleFilled from "@ant-design/icons/InfoCircleFilled";
 
 import type { PluginWebApi } from "@clusterio/lib";
 
@@ -12,7 +14,7 @@ const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 
 
 export default function PluginsPage() {
-	let plugins = useContext(ControlContext).plugins;
+	const control = useContext(ControlContext);
 	let navigate = useNavigate();
 	let [pluginList, setPluginList] = useState<PluginWebApi[]>([]);
 
@@ -29,8 +31,8 @@ export default function PluginsPage() {
 
 	let tableContents = [];
 	for (let meta of pluginList) {
-		if (plugins.has(meta.name)) {
-			let plugin = plugins.get(meta.name)!;
+		if (control.plugins.has(meta.name)) {
+			let plugin = control.plugins.get(meta.name)!;
 			tableContents.push({
 				meta,
 				info: plugin.info,
@@ -39,6 +41,7 @@ export default function PluginsPage() {
 		} else {
 			tableContents.push({
 				meta,
+				info: control.pluginInfos.get(meta.name),
 			});
 		}
 	}
@@ -58,8 +61,11 @@ export default function PluginsPage() {
 					title: "Version",
 					key: "version",
 					render: (_, plugin) => {
+						if (!plugin.meta.enabled) {
+							return <><InfoCircleFilled style={{ color: "#1668dc" }} /> Disabled on controller</>;
+						}
 						if (!plugin.package) {
-							return "Error loading module";
+							return <><CloseCircleFilled style={{ color: "#dc4446" }} /> Error loading module</>;
 						}
 						if (plugin.package.version !== plugin.meta.version) {
 							return "Version missmatched";
@@ -70,9 +76,8 @@ export default function PluginsPage() {
 				},
 				{
 					title: "Loaded",
-					dataIndex: ["meta", "loaded"],
-					render: loaded => (loaded ? "Yes" : null),
-					sorter: (a, b) => Number(a.meta.loaded) - Number(b.meta.loaded),
+					render: (_, plugin) => (plugin.package ? "Yes" : null),
+					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
 					responsive: ["sm"],
 				},
 			]}

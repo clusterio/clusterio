@@ -27,6 +27,7 @@ import WsServer from "./WsServer";
 import HostConnection from "./HostConnection";
 import HostInfo from "./HostInfo";
 import BaseControllerPlugin from "./BaseControllerPlugin";
+import ControllerRouter from "./ControllerRouter";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -75,6 +76,7 @@ export default class Controller {
 
 	/** WebSocket server */
 	wsServer: WsServer;
+	router = new ControllerRouter(this);
 	trustedProxies: BlockList;
 	debugEvents: events.EventEmitter = new events.EventEmitter();
 	private _events: events.EventEmitter = new events.EventEmitter();
@@ -273,7 +275,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "web", "manifest.json");
+			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -352,7 +354,7 @@ export default class Controller {
 
 		if (args.dev) {
 			// eslint-disable-next-line node/no-missing-require
-			webpackConfigs.push(require("../../webpack.config")({})); // Path outside of build
+			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
 		}
 		if (args.devPlugin) {
 			let devPlugins = new Map();
@@ -617,7 +619,7 @@ export default class Controller {
 			const host = HostInfo.fromJSON(json);
 			if (host.connected) {
 				host.connected = false;
-				host.updatedAt = Date.now();
+				host.updatedAtMs = Date.now();
 			}
 			hosts.set(id, host);
 		}
@@ -638,13 +640,13 @@ export default class Controller {
 			) as Static<typeof InstanceInfo.jsonSchema>[];
 			for (let json of serialized) {
 				if (!json.config) { // migrate: from pre Alpha 14 format.
-					json = { config: json as any, status: "running" }; // Use running to force updatedAt
+					json = { config: json as any, status: "running" }; // Use running to force updatedAtMs
 				}
 				const instance = InstanceInfo.fromJSON(json, "controller");
 				const status = instance.config.get("instance.assigned_host") === null ? "unassigned" : "unknown";
 				if (instance.status !== status) {
 					instance.status = status;
-					instance.updatedAt = Date.now();
+					instance.updatedAtMs = Date.now();
 				}
 				instances.set(instance.id, instance);
 			}
@@ -771,7 +773,7 @@ export default class Controller {
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
 		app.use("/static",
-			express.static(path.join(__dirname, "..", "..", "dist", "web", "static"), staticOptions)
+			express.static(path.join(__dirname, "..", "..", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
@@ -795,7 +797,7 @@ export default class Controller {
 
 	async handleSystemInfoSubscription(request: lib.SubscriptionRequest) {
 		const systems = [...this.systems.values()].filter(
-			metric => metric.updatedAt > request.lastRequestTime,
+			metric => metric.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return systems.length ? new lib.SystemInfoUpdateEvent(systems) : null;
 	}
@@ -816,7 +818,7 @@ export default class Controller {
 	hostsUpdated(hosts: HostInfo[]) {
 		const now = Date.now();
 		for (const host of hosts) {
-			host.updatedAt = now;
+			host.updatedAtMs = now;
 		}
 		this.hostsDirty = true;
 		let updates = hosts.map(host => host.toHostDetails());
@@ -825,7 +827,7 @@ export default class Controller {
 
 	async handleHostSubscription(request: lib.SubscriptionRequest) {
 		const hosts = [...this.hosts.values()].filter(
-			host => host.updatedAt > request.lastRequestTime,
+			host => host.updatedAtMs > request.lastRequestTimeMs,
 		).map(host => host.toHostDetails());
 		return hosts.length ? new lib.HostUpdatesEvent(hosts) : null;
 	}
@@ -910,9 +912,11 @@ export default class Controller {
 	 */
 	clearSavesOfInstance(instanceId: number) {
 		const updates = [];
+		const now = Date.now();
 		for (const [id, save] of this.saves) {
 			if (save.instanceId === instanceId) {
 				save.isDeleted = true;
+				save.updatedAtMs = now;
 				updates.push(save);
 				this.saves.delete(id);
 			}
@@ -973,8 +977,9 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
-			this.instanceDetailsUpdated([instance]);
 		}
+		instance.updatedAtMs = Date.now();
+		this.instanceDetailsUpdated([instance]);
 	}
 
 	/**
@@ -995,10 +1000,11 @@ export default class Controller {
 		this.instancesDirty = true;
 
 		this.clearSavesOfInstance(instanceId);
+		this.userManager.clearStatsOfInstance(instanceId);
 
 		let prev = instance.status;
 		instance.status = "deleted";
-		instance.updatedAt = Date.now();
+		instance.updatedAtMs = Date.now();
 		this.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance, prev);
 	}
@@ -1026,7 +1032,7 @@ export default class Controller {
 
 	addInstanceHooks(instance: InstanceInfo) {
 		instance.config.on("fieldChanged", (field: string, curr: any, prev: any) => {
-			instance.updatedAt = Date.now();
+			instance.updatedAtMs = Date.now();
 			if (field === "instance.name") {
 				this.instanceDetailsUpdated([instance]);
 			}
@@ -1043,7 +1049,7 @@ export default class Controller {
 
 	async handleInstanceDetailsSubscription(request: lib.SubscriptionRequest) {
 		const instances = [...this.instances.values()].filter(
-			instance => instance.updatedAt > request.lastRequestTime,
+			instance => instance.updatedAtMs > request.lastRequestTimeMs,
 		).map(instance => instance.toInstanceDetails());
 		return instances.length ? new lib.InstanceDetailsUpdatesEvent(instances) : null;
 	}
@@ -1054,7 +1060,7 @@ export default class Controller {
 	}
 
 	async handleInstanceSaveDetailsSubscription(request: lib.SubscriptionRequest) {
-		const saves = [...this.saves.values()].filter(save => save.updatedAt > request.lastRequestTime);
+		const saves = [...this.saves.values()].filter(save => save.updatedAtMs > request.lastRequestTimeMs);
 		return saves.length ? new lib.InstanceSaveDetailsUpdatesEvent(saves) : null;
 	}
 
@@ -1062,7 +1068,7 @@ export default class Controller {
 	modPacksUpdated(modPacks: lib.ModPack[]) {
 		const now = Date.now();
 		for (const modPack of modPacks) {
-			modPack.updatedAt = now;
+			modPack.updatedAtMs = now;
 		}
 		this.modPacksDirty = true;
 		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
@@ -1071,20 +1077,20 @@ export default class Controller {
 
 	async handleModPackSubscription(request: lib.SubscriptionRequest) {
 		const modPacks = [...this.modPacks.values()].filter(
-			modPack => modPack.updatedAt > request.lastRequestTime,
+			modPack => modPack.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return modPacks.length ? new lib.ModPackUpdatesEvent(modPacks) : null;
 	}
 
 	modsUpdated(mods: lib.ModInfo[]) {
-		// ModStore sets updatedAt for mods
+		// ModStore sets updatedAtMs for mods
 		this.subscriptions.broadcast(new lib.ModUpdatesEvent(mods));
 		lib.invokeHook(this.plugins, "onModsUpdated", mods);
 	}
 
 	async handleModSubscription(request: lib.SubscriptionRequest) {
 		const mods = [...this.modStore.files.values()].filter(
-			mod => mod.updatedAt > request.lastRequestTime,
+			mod => mod.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return mods.length ? new lib.ModUpdatesEvent(mods) : null;
 	}
@@ -1092,7 +1098,7 @@ export default class Controller {
 	usersUpdated(users: ControllerUser[]) {
 		const now = Date.now();
 		for (const user of users) {
-			user.updatedAt = now;
+			user.updatedAtMs = now;
 		}
 		this.userManager.dirty = true;
 		this.subscriptions.broadcast(new lib.UserUpdatesEvent(users));
@@ -1100,7 +1106,7 @@ export default class Controller {
 
 	async handleUserSubscription(request: lib.SubscriptionRequest) {
 		const users = [...this.userManager.users.values()].filter(
-			user => user.updatedAt > request.lastRequestTime,
+			user => user.updatedAtMs > request.lastRequestTimeMs,
 		);
 		return users.length ? new lib.UserUpdatesEvent(users) : null;
 	}
@@ -1257,7 +1263,7 @@ export default class Controller {
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
 
-			fs.readFile(path.join(__dirname, "..", "..", "web", "index.html"), "utf8").then((content) => {
+			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))
@@ -1409,7 +1415,11 @@ export default class Controller {
 				}
 
 			} else if (dst.id === lib.Address.instance || dst.id === lib.Address.host) {
+				const plugin = event.constructor.plugin;
 				for (let hostConnection of this.wsServer.hostConnections.values()) {
+					if (plugin && !hostConnection.plugins.has(plugin)) {
+						continue;
+					}
 					hostConnection.sendEvent(event, dst);
 				}
 

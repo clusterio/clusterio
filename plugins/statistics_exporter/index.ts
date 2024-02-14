@@ -6,13 +6,13 @@ declare module "@clusterio/lib" {
 	}
 }
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "statistics_exporter",
 	title: "Statistics Exporter",
 	description:
 		"Provides in-game item/fluid production, builds, kills, and pollution "+
 		"statistics to the cluster's Prometheus endpoint.",
-	instanceEntrypoint: "dist/plugin/instance",
+	instanceEntrypoint: "dist/node/instance",
 	instanceConfigFields: {
 		"statistics_exporter.command_timeout": {
 			title: "Command Timeout",
@@ -22,4 +22,4 @@ export default {
 			initialValue: 1,
 		},
 	},
-} satisfies lib.PluginDeclaration;
+};

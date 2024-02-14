@@ -2,22 +2,31 @@ import zlib from "zlib";
 import { Type, Static } from "@sinclair/typebox";
 
 import * as libSchema from "../schema";
+import * as libLuaTools from "../lua_tools";
 
 import ExportManifest from "./ExportManifest";
 import { integerFactorioVersion } from "./version";
 import type { Logger } from "../logging";
 
 
+export const ModSettingColor = Type.Object({
+	r: Type.Number(),
+	g: Type.Number(),
+	b: Type.Number(),
+	a: Type.Number(),
+});
+export type ModSettingColor = Static<typeof ModSettingColor>;
+
 /**
  * A setting for a mod.
  */
 export interface ModSetting {
 	/** Value of the given mod setting. */
-	value: boolean | number | string;
+	value: boolean | number | string | ModSettingColor;
 }
 
 const ModSettingJsonSchema = Type.Object({
-	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String()]),
+	"value": Type.Union([Type.Boolean(), Type.Number(), Type.String(), ModSettingColor]),
 });
 
 const ModSettingsJsonSchema = Type.Record(Type.String(), ModSettingJsonSchema);
@@ -102,7 +111,7 @@ export default class ModPack {
 	exportManifest?: ExportManifest;
 
 	/** Millisecond Unix timestamp this entry was last updated at */
-	updatedAt = 0;
+	updatedAtMs = 0;
 
 	/**
 	 * True if this mod pack has been deleted from the list of mod packs.
@@ -118,7 +127,7 @@ export default class ModPack {
 		clone.mods = this.mods;
 		clone.settings = this.settings;
 		clone.exportManifest = this.exportManifest;
-		clone.updatedAt = this.updatedAt;
+		clone.updatedAtMs = this.updatedAtMs;
 		clone.isDeleted = this.isDeleted;
 		return clone;
 	}
@@ -135,7 +144,7 @@ export default class ModPack {
 			"runtime-per-user": ModSettingsJsonSchema,
 		}),
 		"export_manifest": Type.Optional(ExportManifest.jsonSchema),
-		"updated_at": Type.Optional(Type.Number()),
+		"updated_at_ms": Type.Optional(Type.Number()),
 		"is_deleted": Type.Optional(Type.Boolean()),
 	});
 
@@ -161,7 +170,7 @@ export default class ModPack {
 			};
 		}
 		if (json.export_manifest) { modPack.exportManifest = ExportManifest.fromJSON(json.export_manifest); }
-		if (json.updated_at) { modPack.updatedAt = json.updated_at; }
+		if (json.updated_at_ms) { modPack.updatedAtMs = json.updated_at_ms; }
 		if (json.is_deleted) { modPack.isDeleted = json.is_deleted; }
 
 		if (!modPack.mods.has("base")) {
@@ -185,7 +194,7 @@ export default class ModPack {
 			},
 		};
 		if (this.exportManifest) { json.export_manifest = this.exportManifest; }
-		if (this.updatedAt) { json.updated_at = this.updatedAt; }
+		if (this.updatedAtMs) { json.updated_at_ms = this.updatedAtMs; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
 		return json;
 	}
@@ -194,7 +203,7 @@ export default class ModPack {
 		const json = this.toJSON();
 		delete json.id;
 		delete json.export_manifest;
-		delete json.updated_at;
+		delete json.updated_at_ms;
 		delete json.is_deleted;
 
 		// eslint-disable-next-line node/no-sync
@@ -335,7 +344,7 @@ export default class ModPack {
 	 * @param logger - Logger used to report warnings on.
 	 */
 	fillDefaultSettings(settingPrototypes: Record<string, object>, logger: Logger) {
-		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting"];
+		const knownTypes = ["bool-setting", "int-setting", "double-setting", "string-setting", "color-setting"];
 		let prototypes = Object.entries(settingPrototypes)
 			.filter(([type, _]) => knownTypes.includes(type))
 			.flatMap(([_, settings]) => Object.values(settings))
@@ -355,7 +364,11 @@ export default class ModPack {
 				continue;
 			}
 
-			this.settings[settingType].set(prototype.name, { value: prototype.default_value });
+			let value = prototype.default_value;
+			if (prototype.type === "color-setting") {
+				value = libLuaTools.normalizeColor(value);
+			}
+			this.settings[settingType].set(prototype.name, { value });
 		}
 	}
 }

@@ -57,6 +57,7 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		this.connector.on("close", () => {
+			const now = Date.now();
 			// Update status to unknown for instances on this host.
 			const instances: InstanceInfo[] = [];
 			for (let instance of this._controller.instances.values()) {
@@ -67,6 +68,7 @@ export default class HostConnection extends BaseConnection {
 				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
+				instance.updatedAtMs = now;
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
 			this._controller.instanceDetailsUpdated(instances);
@@ -176,14 +178,17 @@ export default class HostConnection extends BaseConnection {
 		// changed.  Hosts also send status updates on assignInstance which
 		// for hacky reason is also used to push config changes and
 		// restablish status after a connection loss.
-		if (instance.status === request.status) {
+		if (
+			instance.status === request.status
+			&& instance.gamePort === request.gamePort
+		) {
 			return;
 		}
 
 		let prev = instance.status;
 		instance.status = request.status;
 		instance.gamePort = request.gamePort;
-		instance.updatedAt = Date.now();
+		instance.updatedAtMs = Date.now();
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		this._controller.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
@@ -220,7 +225,7 @@ export default class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status;
 					controllerInstance.gamePort = instanceData.gamePort;
-					controllerInstance.updatedAt = Date.now();
+					controllerInstance.updatedAtMs = Date.now();
 					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
 					instanceUpdates.push(controllerInstance);
 					await lib.invokeHook(
@@ -281,7 +286,7 @@ export default class HostConnection extends BaseConnection {
 			if (existingSave && save.equals(existingSave)) {
 				continue;
 			}
-			save.updatedAt = now;
+			save.updatedAtMs = now;
 			this._controller.saves.set(save.id, save);
 			updates.push(save);
 		}
@@ -290,7 +295,7 @@ export default class HostConnection extends BaseConnection {
 			for (const [id, save] of this._controller.saves) {
 				if (save.instanceId === event.instanceId && !updatedSaves.has(id)) {
 					save.isDeleted = true;
-					save.updatedAt = now;
+					save.updatedAtMs = now;
 					updates.push(save);
 					this._controller.saves.delete(id);
 				}

@@ -6,6 +6,7 @@ export * from "./src/factorio/exchange_string";
 export * from "./src/helpers";
 export * from "./src/ini";
 export * from "./src/link";
+export * from "./src/lua_tools";
 export * from "./src/logging";
 export * from "./src/permissions";
 export * from "./src/plugin";

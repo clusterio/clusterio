@@ -1,12 +1,12 @@
 {
 	"name": "@clusterio/plugin-subspace_storage",
-	"version": "2.0.0-alpha.13",
+	"version": "2.0.0-alpha.17",
 	"description": "Clusterio plugin for sharing storage between Factorio servers",
 	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"license": "MIT",
 	"repository": "clusterio/clusterio",
-	"main": "dist/plugin/info.js",
+	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",
 		"test": "echo \"Error: run tests from root\" && exit 1"
@@ -25,8 +25,8 @@
 		"fs-extra": "^8.1.0"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.13",
-		"@clusterio/web_ui": "^2.0.0-alpha.13",
+		"@clusterio/lib": "^2.0.0-alpha.17",
+		"@clusterio/web_ui": "^2.0.0-alpha.17",
 		"@types/express": "^4.17.17",
 		"@types/fs-extra": "^11.0.1",
 		"@types/node": "^20.4.5",

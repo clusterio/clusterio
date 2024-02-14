@@ -4,7 +4,7 @@ const path = require("path");
 
 const lib = require("@clusterio/lib");
 const { PlayerStats, wait } = lib;
-const Instance = require("@clusterio/host/dist/src/Instance").default;
+const Instance = require("@clusterio/host/dist/node/src/Instance").default;
 const { MockConnector, MockServer } = require("../mock");
 
 const addr = lib.Address.fromShorthand;
@@ -64,7 +64,7 @@ describe("class Instance", function() {
 						"player",
 						new PlayerStats({
 							join_count: 1,
-							last_join_at: stats.lastJoinAt.getTime(),
+							last_join_at_ms: stats.lastJoinAt.getTime(),
 						})
 					)
 				),
@@ -111,8 +111,8 @@ describe("class Instance", function() {
 						new PlayerStats({
 							join_count: 1,
 							online_time_ms: stats.onlineTimeMs,
-							last_join_at: stats.lastJoinAt.getTime(),
-							last_leave_at: stats.lastLeaveAt.getTime(),
+							last_join_at_ms: stats.lastJoinAt.getTime(),
+							last_leave_at_ms: stats.lastLeaveAt.getTime(),
 							last_leave_reason: "quit",
 						}),
 						"quit",
@@ -162,7 +162,7 @@ describe("class Instance", function() {
 						"foo",
 						new PlayerStats({
 							join_count: 1,
-							last_join_at: stats.lastJoinAt.getTime(),
+							last_join_at_ms: stats.lastJoinAt.getTime(),
 						})
 					)
 				)
@@ -185,8 +185,8 @@ describe("class Instance", function() {
 						new PlayerStats({
 							join_count: 1,
 							online_time_ms: stats.onlineTimeMs,
-							last_join_at: stats.lastJoinAt.getTime(),
-							last_leave_at: stats.lastLeaveAt.getTime(),
+							last_join_at_ms: stats.lastJoinAt.getTime(),
+							last_leave_at_ms: stats.lastLeaveAt.getTime(),
 							last_leave_reason: "quit",
 						}),
 						"quit",

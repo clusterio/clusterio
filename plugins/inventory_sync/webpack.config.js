@@ -16,7 +16,7 @@ module.exports = (env = {}) => merge(common(env), {
 			name: "inventory_sync",
 			library: { type: "var", name: "plugin_inventory_sync" },
 			exposes: {
-				"./info": "./info.ts",
+				"./": "./index.ts",
 				"./package.json": "./package.json",
 				"./web": "./web/index.tsx",
 			},

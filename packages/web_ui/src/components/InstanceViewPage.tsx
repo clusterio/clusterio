@@ -23,6 +23,7 @@ import { notifyErrorHandler } from "../util/notify";
 import { useInstance } from "../model/instance";
 import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
+import Link from "./Link";
 
 const { Title } = Typography;
 
@@ -42,7 +43,9 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 		<Descriptions.Item label="Host">
 			{!assigned
 				? <em>Unassigned</em>
-				: host?.name ?? instance.assignedHost
+				: <Link to={`/hosts/${host?.id ?? instance.assignedHost}/view`}>
+					{host?.name ?? instance.assignedHost}
+				</Link>
 			}
 			{account.hasPermission("core.instance.assign") && <AssignInstanceModal
 				id={instance.id}
@@ -104,7 +107,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	}
 	let instanceButtonsMenuProps: MenuProps = {
 		items: instanceButtonMenuItems,
-		onClick: ({ key }: { key:string }) => {
+		onClick: ({ key }: { key: string }) => {
 			if (key === "export") {
 				setExportingData(true);
 				control.sendTo(
@@ -156,9 +159,10 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 			"core.instance.extract_players",
 			"core.instance.kill",
 			"core.instance.delete",
-		) && <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
-			<Button>More <DownOutlined /></Button>
-		</Dropdown>}
+		)
+			&& <Dropdown placement="bottomRight" trigger={["click"]} menu={instanceButtonsMenuProps}>
+				<Button>More <DownOutlined /></Button>
+			</Dropdown>}
 	</Space>;
 }
 
@@ -180,7 +184,7 @@ export default function InstanceViewPage() {
 
 		return <PageLayout nav={nav}>
 			<Alert
-				message={"Instance not found" }
+				message={"Instance not found"}
 				showIcon
 				description={<>Instance with id {instanceId} was not found on the controller.</>}
 				type="warning"
@@ -198,13 +202,13 @@ export default function InstanceViewPage() {
 
 	return <PageLayout nav={nav}>
 		<PageHeader
-			title={instance.name??""}
-			extra={<InstanceButtons instance={instance}/>}
+			title={instance.name ?? ""}
+			extra={<InstanceButtons instance={instance} />}
 		/>
 		<InstanceDescription host={host} instance={instance} />
 
 		{
-			account.hasAllPermission("core.instance.save.list", "core.instance.save.list_subscribe")
+			account.hasAllPermission("core.instance.save.list", "core.instance.save.subscribe")
 			&& <SavesList instance={instance} />
 		}
 		{

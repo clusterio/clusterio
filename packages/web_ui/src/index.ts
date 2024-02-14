@@ -28,3 +28,5 @@ export { default as PageHeader } from "./components/PageHeader";
 export { default as PageLayout } from "./components/PageLayout";
 export { default as SavesList } from "./components/SavesList";
 export { default as SectionHeader } from "./components/SectionHeader";
+
+export { default as Link } from "./components/Link";

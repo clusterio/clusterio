@@ -2,6 +2,7 @@ import { Type, Static } from "@sinclair/typebox";
 import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebSocketBaseConnector } from "./link";
 import { logger } from "./logging";
 import { Address, MessageRequest, IControllerUser } from "./data";
+import isDeepStrictEqual from "./is_deep_strict_equal";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
 export type EventSubscriberCallback<T> = (updates: T[], synced: boolean) => void
@@ -33,7 +34,7 @@ export class SubscriptionRequest {
 	constructor(
 		public eventName: string,
 		public subscribe: boolean,
-		public lastRequestTime: number = 0,
+		public lastRequestTimeMs: number = 0,
 	) {
 		if (!Link._eventsByName.has(eventName)) {
 			throw new Error(`Unregistered Event class ${eventName}`);
@@ -47,7 +48,7 @@ export class SubscriptionRequest {
 	]);
 
 	toJSON() {
-		return [this.eventName, this.subscribe, this.lastRequestTime];
+		return [this.eventName, this.subscribe, this.lastRequestTimeMs];
 	}
 
 	static fromJSON(json: Static<typeof SubscriptionRequest.jsonSchema>): SubscriptionRequest {
@@ -152,7 +153,7 @@ export class SubscriptionController {
 
 export interface SubscribableValue {
 	id: number | string,
-	updatedAt: number,
+	updatedAtMs: number,
 	isDeleted: boolean,
 }
 
@@ -175,8 +176,8 @@ export class EventSubscriber<
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
 	_snapshot?: readonly [ReadonlyMap<K, Readonly<V>>, boolean];
-	_snapshotLastUpdated = 0;
-	lastResponseTime = -1;
+	_snapshotLastUpdatedMs = 0;
+	lastResponseTimeMs = -1;
 
 	constructor(
 		private Event: EventClass<T>,
@@ -203,7 +204,15 @@ export class EventSubscriber<
 	 */
 	async _handle(event: EventSubscribable<T, V>) {
 		for (const value of event.updates) {
-			this.lastResponseTime = Math.max(this.lastResponseTime, value.updatedAt);
+			this.lastResponseTimeMs = Math.max(this.lastResponseTimeMs, value.updatedAtMs);
+			// Warn about updates which changes content but don't update updatedAtMs
+			const existing = this.values.get(value.id as K);
+			if (existing && existing.updatedAtMs === value.updatedAtMs && !isDeepStrictEqual(existing, value)) {
+				logger.warn(
+					`${this.Event.name} contains update for value with id ${value.id} that has an identical ` +
+					"updatedAtMs timestamp but differing content"
+				);
+			}
 			if (value.isDeleted) {
 				this.values.delete(value.id as K);
 			} else {
@@ -257,8 +266,8 @@ export class EventSubscriber<
 	 * @returns tuple of values map snapshot and synced property.
 	 */
 	getSnapshot() {
-		if (this._snapshotLastUpdated !== this.lastResponseTime) {
-			this._snapshotLastUpdated = this.lastResponseTime;
+		if (this._snapshotLastUpdatedMs !== this.lastResponseTimeMs) {
+			this._snapshotLastUpdatedMs = this.lastResponseTimeMs;
 			this._snapshot = [new Map(this.values), this.synced];
 		}
 		return this._snapshot!;
@@ -277,10 +286,10 @@ export class EventSubscriber<
 			await this.control.send(new SubscriptionRequest(
 				entry.name,
 				this._callbacks.length > 0,
-				this.lastResponseTime
+				this.lastResponseTimeMs
 			));
 			this.synced = this._callbacks.length > 0;
-			this._snapshotLastUpdated = 0;
+			this._snapshotLastUpdatedMs = 0;
 			for (let callback of this._callbacks) {
 				callback([], this.synced);
 			}

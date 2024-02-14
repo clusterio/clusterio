@@ -84,7 +84,7 @@ export class HostDetails {
 		public publicAddress: string = "",
 		public tokenValidAfter: number = 0,
 		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAt = 0,
+		public updatedAtMs = 0,
 		public isDeleted = false,
 	) { }
 
@@ -96,7 +96,7 @@ export class HostDetails {
 		"remoteAddress": Type.Optional(Type.String()),
 		"publicAddress": Type.Optional(Type.String()),
 		"tokenValidAfter": Type.Optional(Type.Number()),
-		"updatedAt": Type.Optional(Type.Number()),
+		"updatedAtMs": Type.Optional(Type.Number()),
 		"isDeleted": Type.Optional(Type.Boolean()),
 	});
 
@@ -109,7 +109,7 @@ export class HostDetails {
 			json.remoteAddress,
 			json.publicAddress,
 			json.tokenValidAfter,
-			json.updatedAt,
+			json.updatedAtMs,
 			json.isDeleted,
 		);
 	}

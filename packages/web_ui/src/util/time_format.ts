@@ -31,7 +31,7 @@ export function formatDuration(ms: number): string {
 	return result;
 }
 
-export function formatTimestamp(timestamp: number): string {
+export function formatTimestamp(timestampMs: number): string {
 	const options = {
 		year: "numeric",
 		month: "numeric",
@@ -39,5 +39,5 @@ export function formatTimestamp(timestamp: number): string {
 		hour: "numeric",
 		minute: "numeric",
 	} as const;
-	return new Intl.DateTimeFormat(undefined, options).format(new Date(timestamp));
+	return new Intl.DateTimeFormat(undefined, options).format(new Date(timestampMs));
 }

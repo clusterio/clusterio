@@ -75,7 +75,7 @@ export class WebConsoleFormat {
 	transform(info: any, _options: object) {
 		let src = " ";
 		if (info.host_id !== undefined) {
-			src += `s:${info.host_name} - `;
+			src += `h:${info.host_name} - `;
 		}
 		if (info.instance_id !== undefined) {
 			src += `i:${info.instance_name}`;

@@ -27,10 +27,16 @@ export async function loadPluginInfos(pluginList: Map<string, string>) {
 		let pluginPackage: { name?: string, version: string, main?: string, private?: boolean };
 
 		try {
-			pluginInfo = require(pluginPath).default;
+			pluginInfo = require(pluginPath).plugin;
 			pluginPackage = require(path.posix.join(pluginPath, "package.json"));
 		} catch (err: any) {
 			throw new libErrors.PluginError(pluginName, err);
+		}
+
+		if (typeof pluginInfo !== "object") {
+			throw new libErrors.EnvironmentError(
+				`Expected plugin at ${pluginPath} to export an object named 'plugin' but got ${typeof pluginInfo}`,
+			);
 		}
 
 		if (pluginInfo.name !== pluginName) {

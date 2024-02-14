@@ -427,7 +427,7 @@ export interface FactorioServerOptions {
 	 */
 	maxConcurrentCommands?: number
 	/** Timeout in ms to wait for a response to a shutdown command. */
-	hangTimeout?: number,
+	hangTimeoutMs?: number,
 }
 
 /**
@@ -463,7 +463,7 @@ export class FactorioServer extends events.EventEmitter {
 	/** Enable verbose logging */
 	verboseLogging: boolean;
 	/** Timeout in ms to wait for a response to a shutdown command */
-	hangTimeout = 5000;
+	hangTimeoutMs = 5000;
 
 	_factorioDir: string;
 	_writeDir: string;
@@ -519,7 +519,7 @@ export class FactorioServer extends events.EventEmitter {
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
 		/** Timeout in ms to wait for a response to a shutdown command */
-		this.hangTimeout = options.hangTimeout ?? 5000;
+		this.hangTimeoutMs = options.hangTimeoutMs ?? 5000;
 
 		if (options.stripPaths) {
 			let charSet = new Set(path.resolve(this.writePath("temp")));
@@ -865,7 +865,9 @@ export class FactorioServer extends events.EventEmitter {
 
 		try {
 			let [code, signal] = await events.once(this._server, "exit");
-			void signal;
+			if (signal) {
+				throw new Error(`Factorio exited with signal ${signal}`);
+			}
 			if (code !== 0) {
 				throw new Error(`Factorio exited with status ${code}`);
 			}
@@ -1012,7 +1014,7 @@ export class FactorioServer extends events.EventEmitter {
 				}
 				this._server!.kill("SIGKILL");
 			}
-		}, this.hangTimeout);
+		}, this.hangTimeoutMs);
 
 		// It's possible the server decides to exit on its own, in which
 		// case the stop operation has to be cancelled.
@@ -1092,7 +1094,7 @@ export class FactorioServer extends events.EventEmitter {
 	 *     process.
 	 */
 	async kill(unexpected = false) {
-		this._check(["running", "stopping"]);
+		this._check(["running", "stopping", "create"]);
 		this._killed = true;
 		if (!unexpected) {
 			this._state = "stopping";

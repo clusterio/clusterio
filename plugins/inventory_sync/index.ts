@@ -17,12 +17,12 @@ lib.definePermission({
 	grantByDefault: true,
 });
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "inventory_sync",
 	title: "Inventory sync",
 	description: "Synchronizes players inventories between instances",
 
-	instanceEntrypoint: "dist/plugin/instance",
+	instanceEntrypoint: "dist/node/instance",
 	instanceConfigFields: {
 		"inventory_sync.rcon_chunk_size": {
 			title: "Rcon inventory chunk size",
@@ -33,7 +33,7 @@ export default {
 		},
 	},
 
-	controllerEntrypoint: "dist/plugin/controller",
+	controllerEntrypoint: "dist/node/controller",
 	controllerConfigFields: {
 		"inventory_sync.player_lock_timeout": {
 			title: "Player Lock Timeout",
@@ -54,4 +54,4 @@ export default {
 	],
 	webEntrypoint: "./web",
 	routes: ["/inventory"],
-} satisfies lib.PluginDeclaration;
+};

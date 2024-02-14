@@ -35,6 +35,7 @@ module.exports = {
 			"rules": {
 				"prefer-arrow-callback": "off",
 				"no-invalid-this": "off",
+				"valid-jsdoc": "off",
 				"node/no-unpublished-import": "off",
 				"node/no-unpublished-require": "off",
 			},
@@ -319,7 +320,7 @@ module.exports = {
 		"semi-style": "off",
 		"sort-imports": "off",
 		"sort-keys": "off",
-		"sort-vars": "error",
+		"sort-vars": "off",
 		"space-before-blocks": "error",
 		"space-before-function-paren": "off",
 		"space-in-parens": ["error", "never"],
@@ -390,7 +391,7 @@ module.exports = {
 		"node/process-exit-as-throw": "error",
 		"node/shebang": ["error", {
 			"convertPath": {
-				"*.ts": ["^(.+)\\.ts$", "dist/$1.js"],
+				"*.ts": ["^(.+)\\.ts$", "dist/node/$1.js"],
 			},
 		}],
 	},

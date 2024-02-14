@@ -38,7 +38,7 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 		pluginList = [];
 	}
 
-	let pluginInfos = [];
+	let pluginInfos: lib.PluginWebpackEnvInfo[] = [];
 	await __webpack_init_sharing__("default");
 	for (let meta of pluginList) {
 		if (meta.web.error) {
@@ -52,13 +52,19 @@ async function loadPluginInfos(): Promise<lib.PluginWebpackEnvInfo[]> {
 				throw new Error(`Plugin did not expose its container via plugin_${meta.name}`);
 			}
 			await container.init(__webpack_share_scopes__.default);
-			let pluginInfo = (await container.get("./info"))().default;
+			let pluginInfo = (await container.get("./"))().plugin;
 			pluginInfo.container = container;
 			pluginInfo.package = (await container.get("./package.json"))();
 			pluginInfo.enabled = meta.enabled;
 			pluginInfos.push(pluginInfo);
 
 		} catch (err: any) {
+			pluginInfos.push({
+				name: meta.name,
+				title: meta.name,
+				enabled: false,
+				error: err.message,
+			});
 			logger.error(`Failed to load plugin info for ${meta.name}`);
 			if (err.stack) {
 				logger.error(err.stack);
@@ -79,7 +85,8 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 			if (pluginInfo.webEntrypoint) {
 				let webModule = (await pluginInfo.container.get(pluginInfo.webEntrypoint))();
 				if (!webModule.WebPlugin) {
-					throw new Error("Plugin webEntrypoint does not export WebPlugin class");
+					pluginInfo.error = "Plugin webEntrypoint does not export WebPlugin class";
+					throw new Error(pluginInfo.error);
 				}
 				WebPluginClass = webModule.WebPlugin;
 			}
@@ -89,6 +96,7 @@ async function loadPlugins(pluginInfos: lib.PluginWebpackEnvInfo[], control: Con
 			plugins.set(pluginInfo.name, plugin);
 
 		} catch (err: any) {
+			pluginInfo.error = `Error loading plugin: ${err.message}`;
 			logger.error(`Failed to load plugin ${pluginInfo.name}`);
 			if (err.stack) {
 				logger.error(err.stack);
@@ -124,7 +132,7 @@ export default async function bootstrap() {
 
 	let wsUrl = new URL(webRoot, document.location.href);
 	let controlConnector = new ControlConnector(wsUrl.href, 120, undefined);
-	let control = new Control(controlConnector);
+	let control = new Control(controlConnector, new Map(pluginInfos.map(p => [p.name, p])));
 	control.plugins = await loadPlugins(pluginInfos, control);
 	control.inputComponents = inputComponentsFromPlugins(control.plugins);
 

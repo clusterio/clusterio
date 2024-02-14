@@ -1,11 +1,7 @@
 {
-	"extends": "../../tsconfig.node.json",
+	"files": [],
 	"references": [
-		{ "path": "../../packages/lib" },
+		{ "path": "./tsconfig.node.json" },
+		{ "path": "./tsconfig.browser.json" },
 	],
-	"include": ["./**/*.ts"],
-	"exclude": ["test/*", "./dist/*"],
-	"compilerOptions": {
-		"outDir": "dist/plugin",
-	},
 }

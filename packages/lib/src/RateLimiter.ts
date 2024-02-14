@@ -29,7 +29,7 @@ export default class RateLimiter {
 	 */
 	action?: () => void;
 
-	private _lastRun = 0;
+	private _lastRunMs = 0;
 	private _runTimeout?: ReturnType<typeof setTimeout>;
 
 	/**
@@ -60,15 +60,15 @@ export default class RateLimiter {
 	 */
 	activate() {
 		let now = Date.now();
-		if (now < this._lastRun + 1000 / this.maxRate) {
+		if (now < this._lastRunMs + 1000 / this.maxRate) {
 			if (!this._runTimeout && this.action) {
 				this._runTimeout = setTimeout(() => {
 					this._runTimeout = undefined;
-					this._lastRun = Date.now();
+					this._lastRunMs = Date.now();
 					if (this.action) {
 						this.action();
 					}
-				}, this._lastRun + 1000 / this.maxRate - now);
+				}, this._lastRunMs + 1000 / this.maxRate - now);
 			}
 			return false;
 		}
@@ -79,7 +79,7 @@ export default class RateLimiter {
 			this._runTimeout = undefined;
 		}
 
-		this._lastRun = now;
+		this._lastRunMs = now;
 		if (this.action) {
 			this.action();
 		}

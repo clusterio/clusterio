@@ -4,7 +4,7 @@ const fs = require("fs-extra");
 const JSZip = require("jszip");
 const path = require("path");
 
-const { patch, SaveModule } = require("@clusterio/host/dist/src/patch");
+const { patch, SaveModule } = require("@clusterio/host/dist/node/src/patch");
 const lib = require("@clusterio/lib");
 
 const { slowTest } = require("./index");

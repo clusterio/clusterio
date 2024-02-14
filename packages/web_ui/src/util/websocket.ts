@@ -72,6 +72,7 @@ export class Control extends lib.Link {
 
 	constructor(
 		connector: ControlConnector,
+		public pluginInfos = new Map<string, lib.PluginWebpackEnvInfo>(),
 	) {
 		super(connector);
 

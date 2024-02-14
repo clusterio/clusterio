@@ -347,7 +347,7 @@ describe("lib/subscriptions", function() {
 			it("should allow subscriptions to an event", async function() {
 				let calledWith = null;
 				let calledWithTwo = null;
-				const item = { id: 1, updatedAt: 1, isDeleted: false };
+				const item = { id: 1, updatedAtMs: 1, isDeleted: false };
 				const event = new RegisteredEvent([item]);
 				registeredEvent.subscribe(function(updates, synced) { calledWith = [updates, synced]; });
 				registeredEvent.subscribe(function(updates, synced) { calledWithTwo = [updates, synced]; });
@@ -382,9 +382,12 @@ describe("lib/subscriptions", function() {
 
 		describe("getSnapshot()", function() {
 			it("should give an immutable copy of the tracked values", async function() {
-				const update1 = [{ id: 1, updatedAt: 1, isDeleted: false }];
-				const update2 = [{ id: 1, updatedAt: 2, isDeleted: false }, { id: 2, updatedAt: 3, isDeleted: false }];
-				const update3 = [{ id: 1, updatedAt: 4, isDeleted: true }];
+				const update1 = [{ id: 1, updatedAtMs: 1, isDeleted: false }];
+				const update2 = [
+					{ id: 1, updatedAtMs: 2, isDeleted: false },
+					{ id: 2, updatedAtMs: 3, isDeleted: false },
+				];
+				const update3 = [{ id: 1, updatedAtMs: 4, isDeleted: true }];
 				const snap0 = registeredEvent.getSnapshot();
 				assert.deepEqual(snap0, [new Map(), false]);
 				await registeredEvent._handle(new RegisteredEvent(update1));

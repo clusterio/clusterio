@@ -5,7 +5,7 @@
  */
 export { default as ExportManifest } from "./ExportManifest";
 export { default as ModInfo } from "./ModInfo";
-export { default as ModPack, ModSetting, ModRecord } from "./ModPack";
+export { default as ModPack, ModSetting, ModSettingColor, ModRecord } from "./ModPack";
 export { default as ModuleInfo } from "./ModuleInfo";
 export { default as Permission } from "./Permission";
 export { default as PlayerStats } from "./PlayerStats";

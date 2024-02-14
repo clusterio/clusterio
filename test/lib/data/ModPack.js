@@ -39,6 +39,7 @@ describe("lib/data/ModPack", function() {
 				},
 				"runtime-per-user": {
 					"string-setting": { "value": "a string" },
+					"color-setting": { "value": { "r": 1, "g": 1, "b": 0, "a": 1 } },
 				},
 			}}));
 			check(ModPack.fromJSON({ export_manifest: { assets: { setting: "settings.json" }}}));
@@ -60,6 +61,7 @@ describe("lib/data/ModPack", function() {
 					},
 					"runtime-per-user": {
 						"string-setting": { "value": "a string" },
+						"color-setting": { "value": { "r": 1, "g": 1, "b": 0, "a": 1 } },
 					},
 				},
 				export_manifest: { assets: { setting: "settings.json" }},
@@ -101,6 +103,14 @@ describe("lib/data/ModPack", function() {
 						default_value: "a string",
 					},
 				},
+				"color-setting": {
+					"color": {
+						name: "color",
+						type: "color-setting",
+						setting_type: "runtime-per-user",
+						default_value: { "r": 1, "g": 1, "b": 1, "a": 1 },
+					},
+				},
 			};
 			const mockLogger = { warn: () => {} };
 			it("should fill in defaults for settings", function() {
@@ -115,6 +125,7 @@ describe("lib/data/ModPack", function() {
 					},
 					"runtime-per-user": {
 						"string": { "value": "a string" },
+						"color": { "value": { "r": 1, "g": 1, "b": 1, "a": 1 } },
 					},
 				});
 			});
@@ -128,6 +139,7 @@ describe("lib/data/ModPack", function() {
 					},
 					"runtime-per-user": {
 						"string": { "value": "spam" },
+						"color": { "value": { "r": 0, "g": 0.5, "b": 1, "a": 1 } },
 					},
 				}});
 				pack.fillDefaultSettings(prototypes, mockLogger);
@@ -140,6 +152,7 @@ describe("lib/data/ModPack", function() {
 					},
 					"runtime-per-user": {
 						"string": { "value": "spam" },
+						"color": { "value": { "r": 0, "g": 0.5, "b": 1, "a": 1 } },
 					},
 				});
 			});
@@ -204,6 +217,7 @@ describe("lib/data/ModPack", function() {
 					},
 					"runtime-per-user": {
 						"string-setting": { "value": "a string" },
+						"color-setting": { "value": { "r": 1, "g": 0.5, "b": 0, "a": 1 } },
 					},
 				}});
 
@@ -248,7 +262,7 @@ describe("lib/data/ModPack", function() {
 
 							...istr("runtime-per-user"), // name
 							Uint8Array.from([5, 0]), // dictionary
-							new Uint8Array(Uint32Array.from([1]).buffer), // items
+							new Uint8Array(Uint32Array.from([2]).buffer), // items
 
 								...istr("string-setting"), // name
 								Uint8Array.from([5, 0]), // dictinary
@@ -257,6 +271,30 @@ describe("lib/data/ModPack", function() {
 									...istr("value"), // name
 									Uint8Array.from([3, 0, 0, "a string".length]), // string
 									Buffer.from("a string"),
+
+								...istr("color-setting"), // name
+								Uint8Array.from([5, 0]), // dictinary
+								new Uint8Array(Uint32Array.from([1]).buffer), // items
+
+									...istr("value"), // name
+									Uint8Array.from([5, 0]), // dictinary
+									new Uint8Array(Uint32Array.from([4]).buffer), // items
+
+										...istr("r"), // name
+										Uint8Array.from([2, 0]), // number
+										new Uint8Array(Float64Array.from([1]).buffer),
+
+										...istr("g"), // name
+										Uint8Array.from([2, 0]), // number
+										new Uint8Array(Float64Array.from([0.5]).buffer),
+
+										...istr("b"), // name
+										Uint8Array.from([2, 0]), // number
+										new Uint8Array(Float64Array.from([0]).buffer),
+
+										...istr("a"), // name
+										Uint8Array.from([2, 0]), // number
+										new Uint8Array(Float64Array.from([1]).buffer),
 					])
 				);
 				/* eslint-enable indent */

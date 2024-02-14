@@ -82,7 +82,7 @@ const instanceStartingMessages = new Set([
 	lib.InstanceExportDataRequest.name,
 ]);
 
-class HostRouter {
+export class HostRouter {
 	constructor(
 		public host: Host
 	) { }
@@ -93,16 +93,22 @@ class HostRouter {
 	 * @param origin -
 	 *    Link the message originated from.
 	 * @param message - Message to process.
+	 * @param entry - message entry if message is a request or an event.
 	 * @param hasFallback - is fallback available
 	 * @returns true if the message was handled, false if fallback
 	 *     is requested
 	 */
-	forwardMessage(origin: lib.Link, message: lib.MessageRoutable, hasFallback: boolean) {
+	forwardMessage(
+		origin: lib.Link,
+		message: lib.MessageRoutable,
+		entry: lib.RequestEntry | lib.EventEntry | undefined,
+		hasFallback: boolean,
+	) {
 		let dst = message.dst;
 		let nextHop: lib.Link | undefined;
 		let msg: string | undefined;
 		if (dst.type === lib.Address.broadcast) {
-			this.broadcastMessage(origin, message);
+			this.broadcastMessage(origin, message, entry as lib.EventEntry);
 			return true;
 		} else if (
 			dst.type === lib.Address.controller
@@ -153,27 +159,36 @@ class HostRouter {
 		return true;
 	}
 
-	broadcastMessage(origin: lib.Link, message: lib.MessageRoutable) {
+	broadcastMessage(
+		origin: lib.Link,
+		message: lib.MessageRoutable,
+		entry: lib.EventEntry,
+	) {
 		let dst = message.dst;
 		if (message.type !== "event") {
 			this.warnUnrouted(message, `Unexpected broadcast of ${message.type}`);
-		} else if (dst.id === lib.Address.host || dst.id === lib.Address.instance) {
+			return;
+		}
+		const plugin = entry.Event.plugin;
+		if (dst.id === lib.Address.instance) {
 			for (let instanceConnection of this.host.instanceConnections.values()) {
-				if (instanceConnection !== origin) {
-					instanceConnection.connector.send(message);
+				if (instanceConnection !== origin && (!plugin || instanceConnection.plugins.has(plugin))) {
+					instanceConnection.connector.forward(message);
 				}
 			}
-			if (this.host !== origin) {
-				this.host.connector.send(message);
+			if (this.host !== origin && (!plugin || this.host.serverPlugins.has(plugin))) {
+				this.host.connector.forward(message);
 			}
 		} else if (dst.id === lib.Address.control) {
 			if (this.host !== origin) {
-				this.host.connector.send(message);
+				if (!plugin || this.host.serverPlugins.has(plugin)) {
+					this.host.connector.forward(message);
+				}
 			} else {
-				logger.warn(`Received control broadcast of ${(message as lib.MessageEvent).name} from master.`);
+				logger.warn(`Received control broadcast of ${(message as lib.MessageEvent).name} from controller.`);
 			}
 		} else {
-			this.warnUnrouted(message, `Unexpected broacdast target ${dst.id}`);
+			this.warnUnrouted(message, `Unexpected broadcast target ${dst.id}`);
 		}
 	}
 
@@ -193,7 +208,7 @@ class HostRouter {
 		}
 
 		this.host._connectInstance(dst.id).then(instanceConnection => {
-			instanceConnection.connector.send(message);
+			instanceConnection.connector.forward(message);
 		}).catch(err => {
 			logger.error(`Error starting instance:\n${err.stack}`, this.host.instanceLogMeta(dst.id));
 			origin.connector.sendResponseError(
@@ -207,7 +222,7 @@ class HostRouter {
 			if (message.type === "request") {
 				nextHop.forwardRequest(message as lib.MessageRequest, origin);
 			} else {
-				nextHop.connector.send(message);
+				nextHop.connector.forward(message);
 			}
 		} catch (err: any) {
 			if (message.type === "request") {
@@ -377,7 +392,10 @@ export default class Host extends lib.Link {
 
 	async loadPlugins() {
 		for (let pluginInfo of this.pluginInfos) {
-			if (!this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)) {
+			if (
+				!pluginInfo.hostEntrypoint && !pluginInfo.instanceEntrypoint
+				|| !this.config.get(`${pluginInfo.name}.load_plugin` as keyof lib.HostConfigFields)
+			) {
 				continue;
 			}
 
@@ -582,8 +600,9 @@ export default class Host extends lib.Link {
 		try {
 			modInfo = await this.modStore.loadMod(mod.name, mod.version);
 		} catch (err: any) {
+			// A broken zip file may have been left in the mods folder
 			if (err.code !== "ENOENT") {
-				throw err;
+				logger.error(`Error loading mod ${mod.name} ${mod.version}: ${err.message}`);
 			}
 		}
 		if (modInfo && (!mod.sha1 || mod.sha1 === modInfo.sha1)) {
@@ -1053,7 +1072,7 @@ export default class Host extends lib.Link {
 				if (instanceInfo.config.get("instance.auto_start")) {
 					try {
 						let instanceConnection = await this._connectInstance(instanceId);
-						await instanceConnection.send(new lib.InstanceStartRequest());
+						await instanceConnection.instance.handleInstanceStartRequest(new lib.InstanceStartRequest());
 					} catch (err: any) {
 						logger.error(
 							`Error during auto startup for ${instanceInfo.config.get("instance.name")}:\n${err.stack}`,

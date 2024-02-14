@@ -1,12 +1,12 @@
 {
 	"name": "@clusterio/plugin-global_chat",
-	"version": "2.0.0-alpha.13",
+	"version": "2.0.0-alpha.17",
 	"description": "Clusterio plugin forwarding between Factorio servers",
 	"author": "Hornwitser <github@hornwitser.no>",
 	"homepage": "https://github.com/clusterio/clusterio#readme",
 	"license": "MIT",
 	"repository": "clusterio/clusterio",
-	"main": "dist/plugin/info.js",
+	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build && webpack-cli --env production",
 		"test": "echo \"Error: run tests from root\" && exit 1"
@@ -21,8 +21,8 @@
 		"@clusterio/lib": "^2.0.0-alpha.0"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.13",
-		"@clusterio/web_ui": "^2.0.0-alpha.13",
+		"@clusterio/lib": "^2.0.0-alpha.17",
+		"@clusterio/web_ui": "^2.0.0-alpha.17",
 		"@types/node": "^20.4.5",
 		"@types/react": "^18.2.21",
 		"typescript": "^5.1.6",

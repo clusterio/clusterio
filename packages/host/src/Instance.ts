@@ -495,7 +495,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	}
 
 	async _loadPlugin(pluginInfo: lib.PluginNodeEnvInfo, host: Host) {
-		let pluginLoadStarted = Date.now();
+		let pluginLoadStartedMs = Date.now();
 		let InstancePluginClass = await lib.loadPluginClass(
 			pluginInfo.name,
 			path.posix.join(pluginInfo.requirePath, pluginInfo.instanceEntrypoint!),
@@ -506,7 +506,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 		this.plugins.set(pluginInfo.name, instancePlugin);
 		await instancePlugin.init();
 
-		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStarted}ms`);
+		this.logger.info(`Loaded plugin ${pluginInfo.name} in ${Date.now() - pluginLoadStartedMs}ms`);
 	}
 
 	async _loadStats() {
@@ -800,7 +800,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 
 		// Find stand alone modules to load
 		// XXX for now only the included clusterio module is loaded
-		let modulesDirectory = path.join(__dirname, "..", "..", "modules");
+		let modulesDirectory = path.join(__dirname, "..", "..", "..", "modules");
 		for (let entry of await fs.readdir(modulesDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
 				if (modules.has(entry.name)) {
@@ -955,6 +955,11 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 			await lib.invokeHook(this.plugins, "onStop");
 			await this.server.stop();
 			await this.sendSaveListUpdate();
+		} else if (
+			this.server._state === "stopping"
+			|| this.server._state === "create"
+		) {
+			await this.server.kill();
 		}
 	}
 

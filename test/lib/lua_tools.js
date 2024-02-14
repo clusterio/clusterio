@@ -5,6 +5,25 @@ const lib = require("@clusterio/lib");
 
 
 describe("lib/lua_tools", function() {
+	describe("normalizeColor()", function() {
+		it("should normalise colours according to the documentation", function() {
+			const nc = lib.normalizeColor;
+			assert.deepEqual(nc({ r: 1, g: 0.2, b: 0.4, a: 0.8 }), { r: 1, g: 0.2, b: 0.4, a: 0.8 });
+			assert.deepEqual(nc({ r: 1, g: 0.2, b: 0.4 }), { r: 1, g: 0.2, b: 0.4, a: 1 });
+			assert.deepEqual(nc({ r: 1, b: 0.4 }), { r: 1, g: 0, b: 0.4, a: 1 });
+			assert.deepEqual(nc({ a: 0.4 }), { r: 0, g: 0, b: 0, a: 0.4 });
+			assert.deepEqual(nc({}), { r: 0, g: 0, b: 0, a: 1 });
+			assert.deepEqual(nc([1, 0.2, 0.4, 0.8]), { r: 1, g: 0.2, b: 0.4, a: 0.8 });
+			assert.deepEqual(nc([1, 0.2, 0.4]), { r: 1, g: 0.2, b: 0.4, a: 1 });
+			assert.deepEqual(nc({ r: 255, g: 51, b: 102, a: 204 }), { r: 1, g: 0.2, b: 0.4, a: 0.8 });
+			assert.deepEqual(nc({ r: 255, g: 51, b: 102 }), { r: 1, g: 0.2, b: 0.4, a: 1 });
+			assert.deepEqual(nc({ r: 255, b: 102 }), { r: 1, g: 0, b: 0.4, a: 1 });
+			assert.deepEqual(nc({ a: 102 }), { r: 0, g: 0, b: 0, a: 0.4 });
+			assert.deepEqual(nc({}), { r: 0, g: 0, b: 0, a: 1 });
+			assert.deepEqual(nc([255, 51, 102, 204]), { r: 1, g: 0.2, b: 0.4, a: 0.8 });
+			assert.deepEqual(nc([255, 51, 102]), { r: 1, g: 0.2, b: 0.4, a: 1 });
+		});
+	});
 	describe("escapeString()", function() {
 		it("should escape backslashes", function() {
 			assert.equal(lib.escapeString("\\a"), "\\\\a");

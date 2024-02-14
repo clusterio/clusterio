@@ -39,6 +39,7 @@ If you are starting a new cluster, it's highly recommended to use the 2.0 alpha.
 * [Running Clusterio](#running-clusterio)
 * [Setting up remote hosts](#setting-up-remote-hosts)
 * [Setting up clusterioctl](#setting-up-clusterioctl)
+* [Known issues](#known-issues)
 * [Common problems](#Common-problems)
 
 
@@ -263,6 +264,24 @@ The installer will ask for a controller URL and an authentication token, these a
 If you want to use a different user for the command line interface, you can generate an authentication token for an existing user with
 
     npx clusteriocontroller bootstrap generate-user-token <username>
+
+
+## Known Issues
+
+- When the `server_select` plugin is installed you may see `[error] Unhandled event server_select:UpdateInstancesEvent` logged when starting an instance.
+  This should be ignored as it does not indicate an error occured.
+- After updating Factorio you may get the error `Error: Expected empty response but got "Cannot execute command. Error: [string "clusterio_private.update_instance(..."]:1: attempt to index global 'clusterio_private' (a nil value)?` on instance start.
+  This is due to Factorio applying a migration replacing the patched content of the save with the original scenario, attempting to start the instance again should resolve the issue.
+- In the mod pack view of the web interface the "base" mod is displayed with an error complaining about the mod being missing from the controller storage.
+  This is due to the "base" mod currently not being connectly handled as a built-in mod to Factorio in the web interface, this error message should be ignored.
+- After migrating from Alpha 13 to Alpha 14 running an instance data export fails with the error `Upload failed: 401 Unauthorized` due to the host token being issued to a slave.
+  To workaround this find the id of the host in the host config and generate a new host token with the same id.
+  Stop the host and replace the value of the `host.controller_token` field in `config-host.json` with the new host token before starting it up again.
+- After migrating from Alpha 13 to Alpha 14 you get kicked out from the web interface due to the master to controller rename.
+  If you don't have the authentication token readily available you can manually migrate the token by opening the Inspect/Developer Tools on the page and running the following piece of JavaScript in the Console:
+  ```
+  localStorage.controller_token = localStorage.master_token
+  ```
 
 
 ## Common problems

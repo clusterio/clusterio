@@ -22,10 +22,10 @@ export function basicType(value: unknown) {
 /**
  * Asynchronously wait for the given duration
  *
- * @param duration - Time to wait for in milliseconds.
+ * @param durationMs - Time to wait for in milliseconds.
  */
-export async function wait(duration: number) {
-	await new Promise(resolve => { setTimeout(resolve, duration); });
+export async function wait(durationMs: number) {
+	await new Promise(resolve => { setTimeout(resolve, durationMs); });
 }
 
 
@@ -33,16 +33,16 @@ export async function wait(duration: number) {
  * Resolve a promise with a timeout.
  *
  * @param {Promise} promise - Promise to wait for.
- * @param {number} time - Maximum time im milliseconds to wait for.
+ * @param {number} limitMs - Maximum time im milliseconds to wait for.
  * @param {*=} timeoutResult - Value to return if the operation timed out.
  */
-export async function timeout<T>(promise: Promise<T>, time: number, timeoutResult: T) {
+export async function timeout<T>(promise: Promise<T>, limitMs: number, timeoutResult: T) {
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
 		return await Promise.race([
 			promise,
 			new Promise<T>(resolve => {
-				timer = setTimeout(() => resolve(timeoutResult), time);
+				timer = setTimeout(() => resolve(timeoutResult), limitMs);
 			}),
 		]);
 

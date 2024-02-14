@@ -281,6 +281,14 @@ async function migrateRename(args) {
 		await migrateLogsDir(path.join("logs", "cluster-prerename"), path.join("logs", "cluster"));
 	}
 
+	if (
+		await fs.pathExists("sharedMods")
+		&& !await fs.pathExists("mods")
+	) {
+		logger.info("Moving sharedMods/ to mods/");
+		await fs.rename("sharedMods", "mods");
+	}
+
 	if (!args.dev) {
 		let pkg = JSON.parse(await fs.readFile("package.json"));
 		if (pkg.dependencies) {
@@ -297,9 +305,27 @@ async function migrateRename(args) {
 		await execFile(`npm${scriptExt}`, ["update"]);
 	}
 
+	const hasRunMaster = await fs.pathExists("run-master.sh") || await fs.pathExists("run-master.cmd");
+	const hasRunSlave = await fs.pathExists("run-slave.sh") || await fs.pathExists("run-slave.cmd");
+	if (hasRunMaster || hasRunSlave) {
+		logger.info("Writing run scripts");
+		let mode = "standalone";
+		if (!hasRunSlave) { mode = "controller"; }
+		if (!hasRunMaster) { mode = "host"; }
+		await writeScripts(mode);
+	}
+
 	logger.info(
 		"Migration complete, you may now delete the following left over files and directories (if present):" +
-		"\n- config-master.json\n- config-slave.json\n- logs/master\n- logs/slave\n- logs/cluster-prerename"
+		"\n- config-master.json" +
+		"\n- config-slave.json" +
+		"\n- logs/master" +
+		"\n- logs/slave" +
+		"\n- logs/cluster-prerename" +
+		"\n- systemd/clusteriomaster.service" +
+		"\n- systemd/clusterioslave.service" +
+		"\n- run-master.sh / run-master.cmd" +
+		"\n- run-slave.sh / run-slave.cmd"
 	);
 }
 
@@ -348,7 +374,7 @@ async function installClusterio(mode, plugins) {
 		for (let plugin of plugins) {
 			if (!pluginList.has(plugin)) {
 				// eslint-disable-next-line node/global-require
-				let pluginInfo = require(require.resolve(path.posix.join(plugin, "info"), { paths: [process.cwd()] }));
+				let pluginInfo = require(require.resolve(plugin, { paths: [process.cwd()] })).plugin;
 				pluginList.set(pluginInfo.name, plugin);
 			}
 		}
@@ -462,6 +488,7 @@ Group=${await groupIdToName(os.userInfo().gid)}
 WorkingDirectory=${process.cwd()}
 KillMode=mixed
 KillSignal=SIGINT
+Environment=NODE_OPTIONS=--enable-source-maps
 ExecStart=${process.cwd()}/node_modules/.bin/clusteriohost run --log-level=warn --can-restart
 Restart=on-failure
 RestartPreventExitStatus=8
@@ -585,7 +612,7 @@ async function inquirerMissingArgs(args) {
 				},
 			], answers);
 
-			if (answers.downloadHeadless) {
+			if (!answers.factorioDir && answers.downloadHeadless) {
 				answers.factorioDir = "factorio";
 			}
 		}
@@ -733,7 +760,7 @@ async function main() {
 					"Can be set to false using --no-download-headless.",
 				type: "boolean",
 			})
-			.conflicts("factorio-dir", "download-headless");
+		;
 	}
 
 	args = args.argv;
@@ -753,6 +780,9 @@ async function main() {
 
 	let answers = await inquirerMissingArgs(args);
 	if (answers.downloadHeadless) {
+		if (answers.factorioDir !== "factorio") {
+			throw new InstallError("--download-headless option requires --factorio-dir to be set to factorio");
+		}
 		await downloadLinuxServer();
 	}
 

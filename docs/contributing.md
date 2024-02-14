@@ -19,6 +19,7 @@ Though we have some conventions and workflows that we kindly ask you to follow.
 - [Supported Node.js and Factorio Version](#supported-node.js-and-factorio-version)
 - [Code Style](#code-style)
     - [Naming Style](#naming-style)
+    - [Units](#units)
     - [Indenting](#indenting)
     - [Line Length](#line-length)
     - [Markdown](#markdown)
@@ -79,6 +80,9 @@ Note that to use `clusterioctl` you will have to create a control config first:
     node packages/controller bootstrap create-ctl-config [admin-user]
 
 Once you've set up the cluster you can use `node packages/controller run` to run the controller and `node packages/host run` to run the host which connects to the controller.
+
+When editing TypeScript files ran by Node.js you need to run `pnpm build` to compile the files to JavaScript before restarting the controller/host/ctl for changes take effect.
+To have TypeScript watch for changes and rebuild immediadly you may run `pnpm watch` instead.
 
 For web development on the controller there are also the following flags:
 
@@ -202,7 +206,7 @@ But there are at least a few things that have been agreed upon.
 JavaScript variables in general uses camelCase.
 The exception is for classes/constructors which use PascalCase and variables destructured from over the wire objects.
 
-Fields in configs and messages sent over links uses lowercase_underscore.
+Fields in configs uses lowercase_underscore.
 
 JavaScript files are named using lowercase_underscore for files that export multiple items.
 Files containing and exporting a single class should be named the same as the class in PascalCase.
@@ -216,6 +220,16 @@ E.g.:
 Note that no sub-modules of the lib package is imported directly from the outside of it with the exception of `build_mod`.
 
 For lua code lowercase_underscore is used for everything.
+
+### Units
+
+When naming variables whos unit is not a base SI unit like seconds or metres the unit used should be suffixed in the variable name:
+E.g.:
+
+    const startTimeMs = date.now();
+    const endNs = process.hrtime();
+
+This makes it easier to spot different unit bases are being mixed in the code.
 
 
 ### Strings
@@ -305,6 +319,6 @@ You will need commit access to the repository as well publish access to the @clu
 4.  Publish the packages.
 
     ```sh
-    # Warning: Double check your current working directory is the repository before running this
-    pnpm -r --filter='!./external_plugins/**' publish
+    rm -r ./{plugins,packages}/*/dist
+    pnpm -r --filter='./{plugins,packages}/*' publish
     ```

@@ -6,7 +6,7 @@ import type { CommandTree, Logger, PluginNodeEnvInfo } from "@clusterio/lib";
  * Ctl plugins are subclasses of this class which get instantiated by
  * clusterioctl in order to extend its functionallity.  To be discovered the
  * class must be exported under the name `CtlPlugin` in the module
- * specified by the `ctlEntrypoint` in the plugin's info.js file.
+ * specified by the `ctlEntrypoint` in the plugin's `plugin` export.
  */
 export default class BaseCtlPlugin {
 	/**

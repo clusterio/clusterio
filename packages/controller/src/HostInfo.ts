@@ -8,7 +8,7 @@ export default class HostInfo {
 	constructor(
 		/** Id of this host */
 		public id: number,
-		/** Version this host last connected with */
+		/** Name of this host */
 		public name: string,
 		/** Version this host last connected with */
 		public version: string,
@@ -23,7 +23,7 @@ export default class HostInfo {
 		/** Unix timestamp in seconds host token must be issued after to be valid */
 		public tokenValidAfter: number = 0,
 		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAt: number = 0,
+		public updatedAtMs: number = 0,
 		/** True if this host has been deleted */
 		public isDeleted: boolean = false,
 	) { }
@@ -37,7 +37,7 @@ export default class HostInfo {
 		"remote_address": Type.String(),
 		"public_address": Type.String(),
 		"token_valid_after": Type.Number(),
-		"updated_at": Type.Number(),
+		"updated_at_ms": Type.Number(),
 		"is_deleted": Type.Boolean(),
 	});
 
@@ -51,7 +51,7 @@ export default class HostInfo {
 			json.remote_address,
 			json.public_address,
 			json.token_valid_after,
-			json.updated_at,
+			json.updated_at_ms,
 			json.is_deleted,
 		);
 	}
@@ -66,7 +66,7 @@ export default class HostInfo {
 			remote_address: this.remoteAddress,
 			public_address: this.publicAddress,
 			token_valid_after: this.tokenValidAfter,
-			updated_at: this.updatedAt,
+			updated_at_ms: this.updatedAtMs,
 			is_deleted: this.isDeleted,
 		};
 	}
@@ -80,7 +80,7 @@ export default class HostInfo {
 			this.remoteAddress,
 			this.publicAddress,
 			this.tokenValidAfter,
-			this.updatedAt,
+			this.updatedAtMs,
 			this.isDeleted,
 		);
 	}

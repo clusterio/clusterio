@@ -239,11 +239,11 @@ definePermission({
 definePermission({
 	name: "core.instance.save.list",
 	title: "List saves",
-	description: "List the saves currently on the instance.",
+	description: "List the saves currently on instances.",
 });
 definePermission({
-	name: "core.instance.save.list.subscribe",
-	title: "Subscribe to save list updatess",
+	name: "core.instance.save.subscribe",
+	title: "Subscribe to save updates",
 	description: "Subscribe to be notifed on updates to the list of saves of instances.",
 });
 definePermission({

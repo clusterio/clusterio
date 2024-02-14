@@ -43,7 +43,7 @@ export class InstanceDetails {
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
 		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAt = 0,
+		public updatedAtMs = 0,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -55,7 +55,7 @@ export class InstanceDetails {
 			"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 			"creating_save", "exporting_data", "deleted",
 		]),
-		"updatedAt": Type.Optional(Type.Number()),
+		"updatedAtMs": Type.Optional(Type.Number()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -65,7 +65,7 @@ export class InstanceDetails {
 			json.assignedHost,
 			json.gamePort,
 			json.status,
-			json.updatedAt,
+			json.updatedAtMs,
 		);
 	}
 
@@ -208,7 +208,7 @@ export class InstanceConfigSetPropRequest {
 		"instanceId": Type.Integer(),
 		"field": Type.String(),
 		"prop": Type.String(),
-		"value": Type.Unknown(),
+		"value": Type.Optional(Type.Unknown()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
@@ -289,7 +289,7 @@ export class SaveDetails {
 		public loaded: boolean,
 		public loadByDefault: boolean,
 		/** Millisecond Unix timestamp this entry was last updated at */
-		public updatedAt: number,
+		public updatedAtMs: number,
 		public isDeleted: boolean,
 	) { }
 
@@ -301,7 +301,7 @@ export class SaveDetails {
 		"mtimeMs": Type.Number(),
 		"loaded": Type.Boolean(),
 		"loadByDefault": Type.Boolean(),
-		"updatedAt": Type.Number(),
+		"updatedAtMs": Type.Number(),
 		"isDeleted": Type.Boolean(),
 	});
 
@@ -314,7 +314,7 @@ export class SaveDetails {
 			json.mtimeMs,
 			json.loaded,
 			json.loadByDefault,
-			json.updatedAt,
+			json.updatedAtMs,
 			json.isDeleted,
 		);
 	}
@@ -330,8 +330,8 @@ export class SaveDetails {
 	 * @returns true if this save is identical to the provided save
 	 */
 	equals(other: SaveDetails) {
-		// Note that updatedAt is not included in the equality check because
-		// instances send the whole list of saves with updatedAt set to zero
+		// Note that updatedAtMs is not included in the equality check because
+		// instances send the whole list of saves with updatedAtMs set to zero
 		// to the controller whenever any save changes and this equals check
 		// is used to filter whether a save was updated.
 		return (
@@ -361,7 +361,7 @@ export class InstanceSaveDetailsUpdatesEvent {
 	static type = "event" as const;
 	static src = ["instance", "host", "controller"] as const;
 	static dst = ["controller", "control"] as const;
-	static permission = "core.instance.save.list.subscribe" as const;
+	static permission = "core.instance.save.subscribe" as const;
 
 	constructor(
 		public updates: SaveDetails[],
@@ -385,7 +385,7 @@ export class InstanceSaveDetailsUpdatesEvent {
 export class InstanceCreateSaveRequest {
 	declare ["constructor"]: typeof InstanceCreateSaveRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.save.create" as const;
 
@@ -596,7 +596,7 @@ export class InstancePushSaveRequest {
 export class InstanceLoadScenarioRequest {
 	declare ["constructor"]: typeof InstanceLoadScenarioRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.load_scenario" as const;
 
@@ -622,7 +622,7 @@ export class InstanceLoadScenarioRequest {
 export class InstanceExportDataRequest {
 	declare ["constructor"]: typeof InstanceExportDataRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.export_data" as const;
 }
@@ -630,7 +630,7 @@ export class InstanceExportDataRequest {
 export class InstanceExtractPlayersRequest {
 	declare ["constructor"]: typeof InstanceExtractPlayersRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.extract_players" as const;
 }
@@ -638,7 +638,7 @@ export class InstanceExtractPlayersRequest {
 export class InstanceStopRequest {
 	declare ["constructor"]: typeof InstanceStopRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.stop" as const;
 }
@@ -646,7 +646,7 @@ export class InstanceStopRequest {
 export class InstanceKillRequest {
 	declare ["constructor"]: typeof InstanceKillRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.kill" as const;
 }
@@ -693,7 +693,7 @@ export class InstanceDeleteInternalRequest {
 export class InstanceSendRconRequest {
 	declare ["constructor"]: typeof InstanceSendRconRequest;
 	static type = "request" as const;
-	static src = "control" as const;
+	static src = ["control", "controller"] as const;
 	static dst = "instance" as const;
 	static permission = "core.instance.send_rcon" as const;
 

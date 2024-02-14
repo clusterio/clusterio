@@ -11,12 +11,12 @@ declare module "@clusterio/lib" {
 	}
 }
 
-export default {
+export const plugin: lib.PluginDeclaration = {
 	name: "player_auth",
 	title: "Player Auth",
 	description: "Provides authentication to the cluster via logging into a Factorio server.",
-	controllerEntrypoint: "dist/plugin/controller",
-	instanceEntrypoint: "dist/plugin/instance",
+	controllerEntrypoint: "dist/node/controller",
+	instanceEntrypoint: "dist/node/instance",
 	webEntrypoint: "./web",
 	controllerConfigFields: {
 		"player_auth.code_length": {
@@ -37,4 +37,4 @@ export default {
 		messages.FetchPlayerCodeRequest,
 		messages.SetVerifyCodeRequest,
 	],
-} satisfies lib.PluginDeclaration;
+};
