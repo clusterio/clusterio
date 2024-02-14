@@ -323,7 +323,7 @@ Events are simple one-way notifications that invoke a handler on the target it's
 Requests are pairs of request and response messages where the request is sent to the target and the response is the reply back from the target.
 The requests are similar to HTTP requests, except both parties of a link may initiate one.
 
-Messages are defined as properties of the `plugin.messages` array exported by `index.js`.
+Messages are defined as items of the `plugin.messages` array exported by `index.js`.
 For example, the following could be defined in `plugin`:
 
 ```js
@@ -379,46 +379,49 @@ It also defines that the response sent may contain a `report` property mapping t
 
 The following properties are recognized as part of a message class:
 
-#### plugin
+#### static plugin
 
 Must contain the name of the plugin this message is defined by.
 This property is not used in core messages.
 
-#### type
+#### static type
 
-The message type sent over the wire.
-This can be either `request` or `event`. The primary difference is whether they allow for a response.
+A string describing the message type sent over the wire.
+This can be either `"request"` or `"event"`.
+The primary difference is whether they allow for a response.
 
-#### src
+#### static src
 
-The allowed source of the message.
-The source can be specified as `controller`, `host`, `instance`, or `control`.
-This property also accepts an array of strings to allow multiple sources.
+A string or an array of strings describing where this message is allowed to originate from.
+The available endpoints are `"controller"`, `"host"`, `"instance"`, or `"control"`.
 Messages sent from a different source will be rejected.
 
-#### dst
+#### static dst
 
-The allowed destination of the message.
-The destination can be specified as `controller`, `host`, `instance`, or `control`.
-This property also accepts an array of strings to allow multiple destinations.
+A string or array of strings describing where this message may be addressed to.
+The available endpoints are `"controller"`, `"host"`, `"instance"`, or `"control"`.
+If the target is multiple hops away it the message will be forwarded towards its destination by the intermediaries.
+For example a message sent from a control connection an instance will be forwarded by the controller to the relevant host and from the host to the correct instance.
 Messages sent to a different destination will be rejected.
 
-#### jsonSchema
+#### static jsonSchema
 
 A JSON schema that specifies what's valid to send in the message.
 
 #### toJSON
 
-Optional function to serialize the class to a JSON object, bypassing the default serialization provided by `JSON.stringify()`
+Optional method to serialize an instance of the class to a JSON object, see the [documentation for `JSON.stringify()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#description) for the semantics of this method.
+This should return an object that's valid according to `jsonSchema` and accepted by `fromJSON`, and may be omitted if the default serialisation by `JSON.stringify()` already does this.
 
-#### fromJSON
+#### static fromJSON
 
 Required function to restore the class from a JSON object.
-This function is called when the message reaches its destination and is expected to return an instance of the class.
+This function is called when the message reaches its destination and is expected to return an identical instance of the class.
+I.e. the result of `fromJSON(JSON.parse(JSON.stringify(instance)))` should be a complete copy of the message.
 
-#### Response
+#### static Response
 
-Optional class that specifies the response to the request.
+Optional [JSON sterilisable class](/docs/devs/json-serialisable-classes.md) that specifies the response to the request.
 Required properties are `jsonSchema` and `fromJSON`.
 
 ## Sending Link Messages
