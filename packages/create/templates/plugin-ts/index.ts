@@ -1,6 +1,5 @@
 import * as lib from "@clusterio/lib";
-
-import { PluginExampleEvent, PluginExampleRequest } from "./messages";
+import * as Messages from "./messages";
 
 lib.definePermission({
 	name: "// plugin_name //.example.permission.event",
@@ -12,7 +11,13 @@ lib.definePermission({
 	name: "// plugin_name //.example.permission.request",
 	title: "Example permission request",
 	description: "My plugin's example permission that I forgot to remove",
-});// [web] //
+});// [subscribable] //
+
+lib.definePermission({
+	name: "// plugin_name //.example.permission.subscribe",
+	title: "Example permission subscribe",
+	description: "My plugin's example permission that I forgot to remove",
+});// [] //// [web] //
 
 lib.definePermission({
 	name: "// plugin_name //.page.view",
@@ -40,7 +45,7 @@ export const plugin: lib.PluginDeclaration = {
 	title: "// plugin_name //",
 	description: "I didn't update my description",// [entry_points] //
 	// entry_points //
-	// [] //// [controller] //
+// [] //// [controller] //
 	controllerConfigFields: {
 		"// plugin_name //.myControllerField": {
 			title: "My Controller Field",
@@ -75,7 +80,8 @@ export const plugin: lib.PluginDeclaration = {
 	},// [] //
 
 	messages: [
-		PluginExampleEvent,
-		PluginExampleRequest,
+		Messages.PluginExampleEvent,
+		Messages.PluginExampleRequest,// [subscribable] //
+		Messages.ExampleSubscribableUpdate,// [] //
 	],
 };

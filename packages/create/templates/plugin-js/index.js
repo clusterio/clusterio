@@ -1,7 +1,6 @@
 "use strict";
 const lib = require("@clusterio/lib");
-
-const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
+const messages = require("./messages");
 
 lib.definePermission({
 	name: "// plugin_name //.example.permission.event",
@@ -13,7 +12,13 @@ lib.definePermission({
 	name: "// plugin_name //.example.permission.request",
 	title: "Example permission request",
 	description: "My plugin's example permission that I forgot to remove",
-});// [web] //
+});// [subscribable] //
+
+lib.definePermission({
+	name: "// plugin_name //.example.permission.subscribe",
+	title: "Example permission subscribe",
+	description: "My plugin's example permission that I forgot to remove",
+});// [] //// [web] //
 
 lib.definePermission({
 	name: "// plugin_name //.page.view",
@@ -26,7 +31,7 @@ const plugin = {
 	title: "// plugin_name //",
 	description: "I didn't update my description",// [entry_points] //
 	// entry_points //
-	// [] //// [controller] //
+// [] //// [controller] //
 	controllerConfigFields: {
 		"// plugin_name //.myControllerField": {
 			title: "My Controller Field",
@@ -61,8 +66,9 @@ const plugin = {
 	},// [] //
 
 	messages: [
-		PluginExampleEvent,
-		PluginExampleRequest,
+		messages.PluginExampleEvent,
+		messages.PluginExampleRequest,// [subscribable] //
+		messages.ExampleSubscribableUpdate,// [] //
 	],
 };
 

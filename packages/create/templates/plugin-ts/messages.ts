@@ -52,4 +52,44 @@ export class PluginExampleRequest {
 		"myResponseString": Type.String(),
 		"myResponseNumbers": Type.Array(Type.Number()),
 	}));
+}// [subscribable] //
+
+export class ExampleSubscribableValue {
+	constructor(
+		public id: string,
+		public updatedAtMs: number,
+		public isDeleted: boolean,
+	) {
+	}
+
+	static jsonSchema = Type.Object({
+		id: Type.String(),
+		updatedAtMs: Type.Number(),
+		isDeleted: Type.Boolean(),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.id, json.updatedAtMs, json.isDeleted);
+	}
 }
+
+export class ExampleSubscribableUpdate {
+	declare ["constructor"]: typeof ExampleSubscribableUpdate;
+	static type = "event" as const;
+	static src = "controller" as const;
+	static dst = "control" as const;
+	static plugin = "// plugin_name //" as const;
+	static permission = "// plugin_name //.example.permission.subscribe";
+
+	constructor(
+		public updates: ExampleSubscribableValue[],
+	) { }
+
+	static jsonSchema = Type.Object({
+		"updates": Type.Array(ExampleSubscribableValue.jsonSchema),
+	});
+
+	static fromJSON(json: Static<typeof this.jsonSchema>) {
+		return new this(json.updates.map(update => ExampleSubscribableValue.fromJSON(update)));
+	}
+}// [] //// [] //

@@ -522,15 +522,18 @@ async function copyPluginTemplateFile(src, dst, props) {
 
 	const templateData = await fs.readFile(src, "utf8");
 	const outputData = templateData
-		.replace(/\/\/ \[([a-z_]*)\] \/\/(.*?)\/\/ \[\] \/\//gs, (_, prop, content) => {
+		// matches: // [prop] // anything // [] // or /*/ [prop] /*/ anything /*/ [] /*/
+		.replace(/\/\*?\/ \[([a-z_]*)\] \/\*?\/(.*?)\/\*?\/ \[\] \/\*?\//gs, (_, prop, content) => {
 			// Find and replace // [prop] //content// [] //
 			if (!props.hasOwnProperty(prop)) {
 				logger.warn(`Unknown property clause (${prop}) found in template file ${src}`);
 				return content;
 			}
 
+			// Would be nice to support + (and) | (or) for prop clauses
 			return Boolean(props[prop]) ? content : "";
 		})
+		// matches: // prop //
 		.replace(/\/\/ ([a-z_]*) \/\//g, (_, prop) => {
 			// Find and replace // prop //
 			if (!props.hasOwnProperty(prop)) {
@@ -607,6 +610,7 @@ async function copyPluginTemplate(pluginName, templates) {
 	}
 
 	if (templates.includes("module")) {
+		files.set(".luacheckrc", path.join(templatePath, ".luacheckrc"));
 		files.set("module/module.json", path.join(templatePath, "module/module.json"));
 		files.set("module/control.lua", path.join(templatePath, "module/control.lua"));
 		files.set("module/module_exports.lua", path.join(templatePath, "module/module_exports.lua"));
@@ -620,6 +624,7 @@ async function copyPluginTemplate(pluginName, templates) {
 	// Properties that will control the replacements in the templates
 	const props = {
 		controller: templates.includes("controller"),
+		subscribable: templates.includes("controller") && templates.includes("web"),
 		host: templates.includes("host"),
 		instance: templates.includes("instance"),
 		module: templates.includes("module"),

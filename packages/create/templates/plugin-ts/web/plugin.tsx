@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState,/*/ [subscribable] /*/ useCallback, useSyncExternalStore,/*/ [] /*/ } from "react";
 // import { } from "antd";
 
 import {
@@ -6,17 +6,22 @@ import {
 } from "@clusterio/web_ui";
 
 import * as lib from "@clusterio/lib";
-import { PluginExampleEvent, PluginExampleRequest } from "../messages";
+import { PluginExampleEvent, PluginExampleRequest,/*/ [subscribable] /*/ ExampleSubscribableUpdate,/*/ [] /*/ } from "../messages";
 
 function MyTemplatePage() {
-	let control = useContext(ControlContext);
+	const control = useContext(ControlContext);// [subscribable] //
+	const plugin = control.plugins.get("// plugin_name //") as WebPlugin;
+	const [subscribableData, synced] = plugin.useSubscribableData();// [] //
 
 	return <PageLayout nav={[{ name: "// plugin_name //" }]}>
-		<h2>// plugin_name //</h2>
+		<h2>// plugin_name //</h2>// [subscribable] //
+		Synced: {String(synced)} Data: {JSON.stringify([...subscribableData.values()])}// [] //
 	</PageLayout>;
 }
 
-export class WebPlugin extends BaseWebPlugin {
+export class WebPlugin extends BaseWebPlugin {// [subscribable] //
+	subscribableData = new lib.EventSubscriber(ExampleSubscribableUpdate, this.control);
+	// [] //
 	async init() {
 		this.pages = [
 			{
@@ -29,7 +34,13 @@ export class WebPlugin extends BaseWebPlugin {
 
 		this.control.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
 		this.control.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));
-	}
+	}// [subscribable] //
+
+	useSubscribableData() {
+		const control = useContext(ControlContext);
+		const subscribe = useCallback((callback: () => void) => this.subscribableData.subscribe(callback), [control]);
+		return useSyncExternalStore(subscribe, () => this.subscribableData.getSnapshot());
+	}// [] //
 
 	async handlePluginExampleEvent(event: PluginExampleEvent) {
 		this.logger.info(JSON.stringify(event));

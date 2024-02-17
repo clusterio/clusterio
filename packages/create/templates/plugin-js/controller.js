@@ -1,12 +1,17 @@
 "use strict";
 const lib = require("@clusterio/lib");
 const { BaseControllerPlugin } = require("@clusterio/controller");
-const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
+const { PluginExampleEvent, PluginExampleRequest,/*/ [subscribable] /*/ ExampleSubscribableUpdate, ExampleSubscribableValue/*/ [] /*/ } = require("./messages");
 
-class ControllerPlugin extends BaseControllerPlugin {
+class ControllerPlugin extends BaseControllerPlugin {// [subscribable] //
+	exampleDatabase;
+	storageDirty = false;
+	// [] //
 	async init() {
 		this.controller.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
-		this.controller.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));
+		this.controller.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));// [subscribable] //
+		this.controller.subscriptions.handle(ExampleSubscribableUpdate, this.handleExampleSubscription.bind(this));
+		this.exampleDatabase = new Map(); // If needed, replace with loading from database file // [] //
 	}
 
 	async onControllerConfigFieldChanged(field, curr, prev) {
@@ -39,7 +44,14 @@ class ControllerPlugin extends BaseControllerPlugin {
 			myResponseString: request.myString,
 			myResponseNumbers: request.myNumberArray,
 		};
-	}
+	}// [subscribable] //
+
+	async handleExampleSubscription(request) {
+		const values = [...this.exampleDatabase.values()].filter(
+			value => value.updatedAtMs > request.lastRequestTimeMs,
+		);
+		return values.length ? new ExampleSubscribableUpdate(values) : null;
+	}// [] //
 }
 
 module.exports = {
