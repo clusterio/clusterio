@@ -1,4 +1,4 @@
-const { useContext, useEffect, useState,/*/ [subscribable] /*/ useCallback, useSyncExternalStore,/*/ [] /*/ } = require("react");
+const { useContext, useEffect, useState/*/ [subscribable] /*/, useCallback, useSyncExternalStore/*/ [] /*/ } = require("react");
 // const { } = require("antd");
 
 const {
@@ -6,7 +6,7 @@ const {
 } = require("@clusterio/web_ui");
 
 const lib = require("@clusterio/lib");
-const { PluginExampleEvent, PluginExampleRequest,/*/ [subscribable] /*/ ExampleSubscribableUpdate,/*/ [] /*/ } = require("../messages");
+const { PluginExampleEvent, PluginExampleRequest/*/ [subscribable] /*/, ExampleSubscribableUpdate/*/ [] /*/ } = require("../messages");
 
 function MyTemplatePage() {
 	let control = useContext(ControlContext);// [subscribable] //

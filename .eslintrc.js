@@ -101,7 +101,10 @@ module.exports = {
 			"rules": {
 				"node/no-missing-require": "off",
 				"node/no-missing-import": "off",
+				"spaced-comment": "off",
 				"comma-spacing": "off",
+				"max-len": "off",
+				"indent": "off",
 			},
 		},
 	],

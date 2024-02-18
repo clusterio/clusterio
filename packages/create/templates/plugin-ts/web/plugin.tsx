@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState,/*/ [subscribable] /*/ useCallback, useSyncExternalStore,/*/ [] /*/ } from "react";
+import React, { useContext, useEffect, useState/*/ [subscribable] /*/, useCallback, useSyncExternalStore/*/ [] /*/ } from "react";
 // import { } from "antd";
 
 import {
@@ -6,7 +6,7 @@ import {
 } from "@clusterio/web_ui";
 
 import * as lib from "@clusterio/lib";
-import { PluginExampleEvent, PluginExampleRequest,/*/ [subscribable] /*/ ExampleSubscribableUpdate,/*/ [] /*/ } from "../messages";
+import { PluginExampleEvent, PluginExampleRequest/*/ [subscribable] /*/, ExampleSubscribableUpdate/*/ [] /*/ } from "../messages";
 
 function MyTemplatePage() {
 	const control = useContext(ControlContext);// [subscribable] //
