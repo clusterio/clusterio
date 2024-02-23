@@ -29,6 +29,10 @@ Many thanks to the following for contributing to this release:
 
 - Added logging of HTTP requests and errors on the controller [#556](https://github.com/clusterio/clusterio/pull/556).
 
+### Changes
+
+- Fixed Inventory Sync reporting a negative database size [¤598](https://github.com/clusterio/clusterio/pull/598).
+
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)
 
