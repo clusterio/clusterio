@@ -3,6 +3,7 @@ import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
+import finalhandler from "finalhandler";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
@@ -285,6 +286,26 @@ export default class Controller {
 
 		// Load plugins
 		await this.loadPlugins();
+
+		// Log all express errors from middleware or routes (app.use is missing the type overload)
+		this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction): void => {
+			logger.log({
+				level: "error",
+				message: "Error while handling HTTP" +
+					`${req.httpVersion} ${req.method} ${req.originalUrl}:\n${err.stack}`,
+				meta: {
+					method: req.method,
+					url: req.originalUrl,
+					httpVersion: req.httpVersion,
+					headers: req.headers,
+					query: req.query,
+				},
+			});
+
+			// Create and call the final handler, this is the same method used by express
+			// This is used instead of next(err) to stop express from logging the error to the console
+			finalhandler(req, res, { env: this.app.get("env") })(err);
+		});
 
 		this.wsServer = new WsServer(this);
 
@@ -721,14 +742,29 @@ export default class Controller {
 
 	static addAppRoutes(app: Application, pluginInfos: any[]) {
 		app.use((req: Request, res: Response, next) => {
-			let startNs = process.hrtime.bigint();
+			const startNs = process.hrtime.bigint();
 			stream.finished(res, () => {
 				let routePath = "static";
 				if (req.route && req.route.path) {
 					routePath = req.route.path;
 				}
-				let endNs = process.hrtime.bigint();
-				endpointDurationSummary.labels(routePath).observe(Number(endNs - startNs) / 1e9);
+				const endNs = process.hrtime.bigint();
+				const durationMs = (Number(endNs - startNs) / 1e6);
+				endpointDurationSummary.labels(routePath).observe(durationMs / 1e3);
+				logger.log({
+					level: "http",
+					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
+						` (Status ${res.statusCode} in ${durationMs}ms)`,
+					meta: {
+						method: req.method,
+						url: req.originalUrl,
+						statusCode: res.statusCode,
+						responseTime: durationMs,
+						httpVersion: req.httpVersion,
+						headers: req.headers,
+						query: req.query,
+					},
+				});
 			});
 			next();
 		});

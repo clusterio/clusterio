@@ -8,8 +8,9 @@ export const levels = Object.freeze({
 	warn: 2,
 	audit: 3,
 	info: 4,
-	server: 5,
-	verbose: 6,
+	http: 5,
+	server: 6,
+	verbose: 7,
 });
 
 export const colors = {
@@ -18,6 +19,7 @@ export const colors = {
 	warn: "bold brightYellow",
 	audit: "bold brightGreen",
 	info: "bold brightBlue",
+	http: "bold",
 	server: "bold",
 	verbose: "bold grey",
 } as const;
@@ -163,7 +165,7 @@ export const logger = winston.createLogger({
 // Who in their right mind thought that log levels should be hard coded
 // into the type when you can define custom levels you want to support?
 export type Logger = Omit<winston.Logger,
-	"error" | "warn" | "help" | "data" | "info" | "debug" | "prompt" | "http" | "verbose" | "input" | "silly" |
+	"error" | "warn" | "help" | "data" | "info" | "debug" | "prompt" | "verbose" | "input" | "silly" |
 	"emerg" | "alert" | "crit" | "warning" | "notice" |
 	"child"
 > & {
@@ -172,6 +174,7 @@ export type Logger = Omit<winston.Logger,
 	warn: winston.LeveledLogMethod,
 	audit: winston.LeveledLogMethod,
 	info: winston.LeveledLogMethod,
+	http: winston.LeveledLogMethod,
 	server: winston.LeveledLogMethod,
 	verbose: winston.LeveledLogMethod,
 	child(options: object): Logger,
