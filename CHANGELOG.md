@@ -23,6 +23,16 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.18
+
+### Features
+
+- Added logging of HTTP requests and errors on the controller [#556](https://github.com/clusterio/clusterio/pull/556).
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+
+
 ## Version 2.0.0-alpha.17
 
 ### Features
