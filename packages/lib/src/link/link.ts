@@ -107,6 +107,9 @@ export class Link {
 	) {
 		this.handle(libData.PingRequest, async () => {});
 
+		// Prevent warnings about possible memory leak due to large number of event listeners
+		connector.setMaxListeners(20);
+
 		// Process messages received by the connector
 		connector.on("message", payload => {
 			try {
