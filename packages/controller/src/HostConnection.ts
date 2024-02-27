@@ -192,6 +192,15 @@ export default class HostConnection extends BaseConnection {
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
 		this._controller.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
+
+		// Update UserManager if a server was stopped while a user was online
+		if (request.status === "stopping") {
+			for (let [name, user] of this._controller.userManager.users) {
+				if (user.instances.has(instance.id)) {
+					this._controller.userManager.notifyLeave(user, instance.id);
+				}
+			}
+		}
 	}
 
 	async handleInstancesUpdateRequest(request: lib.InstancesUpdateRequest) {
