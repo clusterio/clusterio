@@ -40,7 +40,7 @@ const plugin = {
 	controllerConfigFields: {
 		"__plugin_name__.myControllerField": {
 			title: "My Controller Field",
-			description: "This should be removed",
+			description: "This should be removed from index.js",
 			type: "string",
 			initialValue: "Remove Me",
 		},
@@ -52,7 +52,7 @@ const plugin = {
 	hostConfigFields: {
 		"__plugin_name__.myHostField": {
 			title: "My Host Field",
-			description: "This should be removed",
+			description: "This should be removed from index.js",
 			type: "string",
 			initialValue: "Remove Me",
 		},
@@ -64,7 +64,7 @@ const plugin = {
 	instanceConfigFields: {
 		"__plugin_name__.myInstanceField": {
 			title: "My Instance Field",
-			description: "This should be removed",
+			description: "This should be removed from index.js",
 			type: "string",
 			initialValue: "Remove Me",
 		},
@@ -76,7 +76,7 @@ const plugin = {
 	controlConfigFields: {
 		"__plugin_name__.myControlField": {
 			title: "My Control Field",
-			description: "This should be removed",
+			description: "This should be removed from index.js",
 			type: "string",
 			initialValue: "Remove Me",
 		},
