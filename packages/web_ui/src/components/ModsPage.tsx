@@ -17,6 +17,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
+import { InboxOutlined } from "@ant-design/icons";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -131,6 +132,7 @@ export default function ModsPage() {
 	let navigate = useNavigate();
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
+	const [isDroppingFile, setIsDroppingFile] = useState(false);
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -173,11 +175,26 @@ export default function ModsPage() {
 			accept=".zip"
 			multiple
 			headers={{
-				"X-Access-Token": control.connector.token||"",
+				"X-Access-Token": control.connector.token || "",
 			}}
 			action={`${webRoot}api/upload-mod`}
 		>
-			<Button icon={<UploadOutlined/>}>Upload</Button>
+			<Button
+				onDragEnter={e => setIsDroppingFile(true)}
+				onDragLeave={e => {
+					// Only process if we are leaving the dropzone for an element that is not a child of the button
+					if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
+						return;
+					}
+					setIsDroppingFile(false);
+				}}
+				onDrop={e => setIsDroppingFile(false)}
+				style={{
+					// Distinct border when dropping file
+					border: isDroppingFile ? "dashed 2px rgb(22, 119, 255)" : undefined,
+				}}
+				icon={isDroppingFile ? <InboxOutlined /> : <UploadOutlined />}
+			>Upload</Button>
 		</Upload>;
 	}
 
