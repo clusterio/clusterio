@@ -4,20 +4,20 @@ import * as Messages from "./messages";
 lib.definePermission({
 	name: "__plugin_name__.example.permission.event",
 	title: "Example permission event",
-	description: "My plugin's example permission that I forgot to remove",
+	description: "Example Description. Event. Change me in index.ts",
 });
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.request",
 	title: "Example permission request",
-	description: "My plugin's example permission that I forgot to remove",
+	description: "Example Description. Request. Change me in index.ts",
 });
 //%if controller & web // Subscribing requires web content and the controller
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.subscribe",
 	title: "Example permission subscribe",
-	description: "My plugin's example permission that I forgot to remove",
+	description: "Example Description. Subscribe. Change me in index.ts",
 });
 //%endif
 //%if web
@@ -25,7 +25,7 @@ lib.definePermission({
 lib.definePermission({
 	name: "__plugin_name__.page.view",
 	title: "Example page view permission",
-	description: "My plugin's example page permission that I forgot to remove",
+	description: "Example Description. View. Change me in index.ts",
 });
 //%endif
 
@@ -55,7 +55,7 @@ declare module "@clusterio/lib" {
 export const plugin: lib.PluginDeclaration = {
 	name: "__plugin_name__",
 	title: "__plugin_name__",
-	description: "I didn't update my description",
+	description: "Example Description. Plugin. Change me in index.ts",
 //%if controller
 
 	controllerEntrypoint: "./dist/node/controller",

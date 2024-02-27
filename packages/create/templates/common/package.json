@@ -1,7 +1,7 @@
 {
 	"name": "__plugin_name__",
 	"version": "0.1.0",
-	"description": "",
+	"description": "Example Description. Package. Change me in package.json",
 //%if typescript
 	"main": "dist/node/index.js",
 //%endif

@@ -5,20 +5,20 @@ const Messages = require("./messages");
 lib.definePermission({
 	name: "__plugin_name__.example.permission.event",
 	title: "Example permission event",
-	description: "My plugin's example permission that I forgot to remove",
+	description: "Example Description. Event. Change me in index.js",
 });
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.request",
 	title: "Example permission request",
-	description: "My plugin's example permission that I forgot to remove",
+	description: "Example Description. Request. Change me in index.js",
 });
 //%if controller & web // Subscribing requires web content and the controller
 
 lib.definePermission({
 	name: "__plugin_name__.example.permission.subscribe",
 	title: "Example permission subscribe",
-	description: "My plugin's example permission that I forgot to remove",
+	description: "Example Description. Subscribe. Change me in index.js",
 });
 //%endif
 //%if web
@@ -26,14 +26,14 @@ lib.definePermission({
 lib.definePermission({
 	name: "__plugin_name__.page.view",
 	title: "Example page view permission",
-	description: "My plugin's example page permission that I forgot to remove",
+	description: "Example Description. View. Change me in index.js",
 });
 //%endif
 
 const plugin = {
 	name: "// plugin_name //",
 	title: "// plugin_name //",
-	description: "I didn't update my description",
+	description: "Example Description. Plugin. Change me in index.js",
 //%if controller
 
 	controllerEntrypoint: "./dist/node/controller",
