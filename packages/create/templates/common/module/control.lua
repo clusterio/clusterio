@@ -10,12 +10,12 @@ local MyModule = {
 -- setupGlobalData should either be removed or called during clusterio_api.events.on_server_startup
 local globalData = {}
 local function setupGlobalData()
-	if global["// plugin_name //"] == nil then
-		global["// plugin_name //"] = {
+	if global["__plugin_name__"] == nil then
+		global["__plugin_name__"] = {
 			-- starting values go here
 		}
 	end
-	globalData = global["// plugin_name //"]
+	globalData = global["__plugin_name__"]
 end
 
 --- Public methods should be available though your top level module table
@@ -36,10 +36,12 @@ end
 
 --- Factorio events are accessible through defines.events, you can have one handler per event per module
 MyModule.events[defines.events.on_player_crafted_item] = function(event)
-	game.print(game.table_to_json(event))// [instance] //
-	clusterio_api.send_json("// plugin_name //-plugin_example_ipc", {
+	game.print(game.table_to_json(event))
+//%if instance
+	clusterio_api.send_json("__plugin_name__-plugin_example_ipc", {
 		tick = game.tick, player_name = game.get_player(event.player_index).name
-	})// [] //
+	})
+//%endif
 end
 
 --- Nth tick is a special case that requires its own table, the index represents the time period between calls in ticks

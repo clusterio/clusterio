@@ -6,8 +6,8 @@ class PluginExampleEvent {
 	static type = "event";
 	static src = ["host", "control"];
 	static dst = ["controller", "host", "instance"];
-	static plugin = "// plugin_name //";
-	static permission = "// plugin_name //.example.permission.event";
+	static plugin = "__plugin_name__";
+	static permission = "__plugin_name__.example.permission.event";
 
 	constructor(myString, myNumberArray) {
 		this.myString = myString;
@@ -28,8 +28,8 @@ class PluginExampleRequest {
 	static type = "request";
 	static src = ["host", "control"];
 	static dst = ["controller", "host", "instance"];
-	static plugin = "// plugin_name //";
-	static permission = "// plugin_name //.example.permission.request";
+	static plugin = "__plugin_name__";
+	static permission = "__plugin_name__.example.permission.request";
 
 	constructor(myString, myNumberArray) {
 		this.myString = myString;
@@ -49,7 +49,8 @@ class PluginExampleRequest {
 		"myResponseString": Type.String(),
 		"myResponseNumbers": Type.Array(Type.Number()),
 	}));
-}// [subscribable] //
+}
+//%if controller & web // Subscribing requires web content and the controller
 
 class ExampleSubscribableValue {
 	constructor(id, updatedAtMs, isDeleted) {
@@ -73,8 +74,8 @@ class ExampleSubscribableUpdate {
 	static type = "event";
 	static src = "controller";
 	static dst = "control";
-	static plugin = "// plugin_name //";
-	static permission = "// plugin_name //.example.permission.subscribe";
+	static plugin = "__plugin_name__";
+	static permission = "__plugin_name__.example.permission.subscribe";
 
 	constructor(updates) {
 		this.updates = updates;
@@ -87,11 +88,14 @@ class ExampleSubscribableUpdate {
 	static fromJSON(json) {
 		return new this(json.updates.map(update => ExampleSubscribableValue.fromJSON(update)));
 	}
-}// [] //
+}
+//%endif
 
 module.exports = {
 	PluginExampleEvent,
-	PluginExampleRequest,// [subscribable] //
+	PluginExampleRequest,
+//%if controller & web // Subscribing requires web content and the controller
 	ExampleSubscribableValue,
-	ExampleSubscribableUpdate,// [] //
+	ExampleSubscribableUpdate,
+//%endif
 };

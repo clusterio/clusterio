@@ -1,46 +1,68 @@
-import React, { useContext, useEffect, useState/*/ [subscribable] /*/, useCallback, useSyncExternalStore/*/ [] /*/ } from "react";
-// import { } from "antd";
+import React, {
+	useContext, useEffect, useState,
+//%if controller & web // Subscribing requires web content and the controller
+	useCallback, useSyncExternalStore,
+//%endif
+} from "react";
+
+// import {
+//
+// } from "antd";
 
 import {
 	BaseWebPlugin, PageLayout, Control, ControlContext, notifyErrorHandler,
 } from "@clusterio/web_ui";
 
+import {
+	PluginExampleEvent, PluginExampleRequest,
+//%if controller & web // Subscribing requires web content and the controller
+	ExampleSubscribableUpdate,
+//%endif
+} from "../messages";
+
 import * as lib from "@clusterio/lib";
-import { PluginExampleEvent, PluginExampleRequest/*/ [subscribable] /*/, ExampleSubscribableUpdate/*/ [] /*/ } from "../messages";
 
 function MyTemplatePage() {
-	const control = useContext(ControlContext);// [subscribable] //
-	const plugin = control.plugins.get("// plugin_name //") as WebPlugin;
-	const [subscribableData, synced] = plugin.useSubscribableData();// [] //
+	const control = useContext(ControlContext);
+//%if controller & web // Subscribing requires web content and the controller
+	const plugin = control.plugins.get("__plugin_name__") as WebPlugin;
+	const [subscribableData, synced] = plugin.useSubscribableData();
+//%endif
 
-	return <PageLayout nav={[{ name: "// plugin_name //" }]}>
-		<h2>// plugin_name //</h2>// [subscribable] //
-		Synced: {String(synced)} Data: {JSON.stringify([...subscribableData.values()])}// [] //
+	return <PageLayout nav={[{ name: "__plugin_name__" }]}>
+		<h2>__plugin_name__</h2>
+//%if controller & web // Subscribing requires web content and the controller
+		Synced: {String(synced)} Data: {JSON.stringify([...subscribableData.values()])}
+//%endif
 	</PageLayout>;
 }
 
-export class WebPlugin extends BaseWebPlugin {// [subscribable] //
+export class WebPlugin extends BaseWebPlugin {
+//%if controller & web // Subscribing requires web content and the controller
 	subscribableData = new lib.EventSubscriber(ExampleSubscribableUpdate, this.control);
-	// [] //
+
+//%endif
 	async init() {
 		this.pages = [
 			{
-				path: "/// plugin_name //",
-				sidebarName: "// plugin_name //",
-				permission: "// plugin_name //.page.view",
+				path: "/__plugin_name__",
+				sidebarName: "__plugin_name__",
+				permission: "__plugin_name__.page.view",
 				content: <MyTemplatePage/>,
 			},
 		];
 
 		this.control.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
 		this.control.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));
-	}// [subscribable] //
+	}
+//%if controller & web // Subscribing requires web content and the controller
 
 	useSubscribableData() {
 		const control = useContext(ControlContext);
 		const subscribe = useCallback((callback: () => void) => this.subscribableData.subscribe(callback), [control]);
 		return useSyncExternalStore(subscribe, () => this.subscribableData.getSnapshot());
-	}// [] //
+	}
+//%endif
 
 	async handlePluginExampleEvent(event: PluginExampleEvent) {
 		this.logger.info(JSON.stringify(event));

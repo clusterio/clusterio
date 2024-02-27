@@ -6,8 +6,8 @@ export class PluginExampleEvent {
 	static type = "event" as const;
 	static src = ["host", "control"] as const;
 	static dst = ["controller", "host", "instance"] as const;
-	static plugin = "// plugin_name //" as const;
-	static permission = "// plugin_name //.example.permission.event";
+	static plugin = "__plugin_name__" as const;
+	static permission = "__plugin_name__.example.permission.event";
 
 	constructor(
 		public myString: string,
@@ -30,8 +30,8 @@ export class PluginExampleRequest {
 	static type = "request" as const;
 	static src = ["host", "control"] as const;
 	static dst = ["controller", "host", "instance"] as const;
-	static plugin = "// plugin_name //" as const;
-	static permission = "// plugin_name //.example.permission.request";
+	static plugin = "__plugin_name__" as const;
+	static permission = "__plugin_name__.example.permission.request";
 
 	constructor(
 		public myString: string,
@@ -52,7 +52,8 @@ export class PluginExampleRequest {
 		"myResponseString": Type.String(),
 		"myResponseNumbers": Type.Array(Type.Number()),
 	}));
-}// [subscribable] //
+}
+//%if controller & web // Subscribing requires web content and the controller
 
 export class ExampleSubscribableValue {
 	constructor(
@@ -78,8 +79,8 @@ export class ExampleSubscribableUpdate {
 	static type = "event" as const;
 	static src = "controller" as const;
 	static dst = "control" as const;
-	static plugin = "// plugin_name //" as const;
-	static permission = "// plugin_name //.example.permission.subscribe";
+	static plugin = "__plugin_name__" as const;
+	static permission = "__plugin_name__.example.permission.subscribe";
 
 	constructor(
 		public updates: ExampleSubscribableValue[],
@@ -92,4 +93,5 @@ export class ExampleSubscribableUpdate {
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
 		return new this(json.updates.map(update => ExampleSubscribableValue.fromJSON(update)));
 	}
-}// [] //// [] //
+}
+//%endif

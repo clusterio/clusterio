@@ -12,6 +12,7 @@ const util = require("util");
 const yargs = require("yargs");
 
 const { levels, logger, setLogLevel } = require("./logging");
+const { copyPluginTemplates } = require("./template");
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
 const finished = util.promisify(stream.finished);
@@ -513,144 +514,6 @@ WantedBy=multi-user.target
 	}
 }
 
-async function copyPluginTemplateFile(src, dst, props) {
-	logger.verbose(`Writing ${dst} from template ${src}`);
-	if (await fs.exists(dst)) {
-		logger.warn(`Could not create file ${dst} because it already exists`);
-		return;
-	}
-
-	const templateData = await fs.readFile(src, "utf8");
-	const outputData = templateData
-		// matches: // [prop] // anything // [] // or /*/ [prop] /*/ anything /*/ [] /*/
-		.replace(/\/\*?\/ \[([a-z_]*)\] \/\*?\/(.*?)\/\*?\/ \[\] \/\*?\//gs, (_, prop, content) => {
-			// Find and replace // [prop] //content// [] //
-			if (!props.hasOwnProperty(prop)) {
-				logger.warn(`Unknown property clause (${prop}) found in template file ${src}`);
-				return content;
-			}
-
-			// Would be nice to support + (and) | (or) for prop clauses
-			return Boolean(props[prop]) ? content : "";
-		})
-		// matches: // prop //
-		.replace(/\/\/ ([a-z_]*) \/\//g, (_, prop) => {
-			// Find and replace // prop //
-			if (!props.hasOwnProperty(prop)) {
-				logger.warn(`Unknown property string (${prop}) found in template file ${src}`);
-				return prop;
-			}
-
-			return props[prop];
-		});
-
-	await fs.outputFile(dst, outputData);
-}
-
-async function copyPluginTemplate(pluginName, templates) {
-	logger.info(`Please wait, coping templates for ${templates.join(", ")}`);
-	const devDependencies = new Map();
-	const entryPoints = new Map();
-	const files = new Map();
-	const prepare = [];
-
-	const javascriptOnly = templates.includes("js");
-	const webpack = templates.includes("controller") || templates.includes("web");
-
-	// Get the file extension and path to the templates
-	const ext = javascriptOnly ? "js" : "ts";
-	const templatePath = path.resolve(__dirname, javascriptOnly ? "./templates/plugin-js" : "./templates/plugin-ts");
-
-	// Files included in all templates
-	files.set(".gitignore", path.join(templatePath, ".gitignore"));
-	files.set(".npmignore", path.join(templatePath, ".npmignore"));
-	files.set("package.json", path.join(templatePath, "package.json"));
-	files.set(`messages.${ext}`, path.join(templatePath, `messages.${ext}`));
-	files.set(`index.${ext}`, path.join(templatePath, `index.${ext}`));
-
-	// Files and dependencies to support typescript
-	if (!javascriptOnly) {
-		if (webpack) {
-			devDependencies.set("@types/react", "^18.2.21");
-			files.set("tsconfig.web.json", path.join(templatePath, "tsconfig.web.json"));
-		}
-		devDependencies.set("@types/node", "^20.4.5");
-		devDependencies.set("typescript", "^5.1.6");
-		files.set("tsconfig.json", path.join(templatePath, "tsconfig.json"));
-		prepare.push("tsc --build");
-	}
-
-	// Files and dependences to support webpack
-	if (webpack) {
-		devDependencies.set("webpack", "^5.88.2");
-		devDependencies.set("webpack-cli", "^5.1.4");
-		devDependencies.set("webpack-merge", "^5.9.0");
-		devDependencies.set("@clusterio/web_ui", "^2.0.0-alpha.14");
-		entryPoints.set("webEntrypoint", "./web");
-		prepare.push("webpack-cli --env production");
-		files.set("webpack.config.js", path.join(templatePath, "webpack.config.js"));
-		files.set(`web/index.${ext}x`, path.join(templatePath,
-			templates.includes("web") ? `web/plugin.${ext}x` : `web/no_plugin.${ext}x`
-		));
-	}
-
-	if (templates.includes("controller")) {
-		entryPoints.set("controllerEntrypoint", "dist/plugin/controller");
-		files.set(`controller.${ext}`, path.join(templatePath, `controller.${ext}`));
-	}
-
-	if (templates.includes("host")) {
-		entryPoints.set("hostEntrypoint", "dist/plugin/host");
-		files.set(`host.${ext}`, path.join(templatePath, `host.${ext}`));
-	}
-
-	if (templates.includes("instance")) {
-		entryPoints.set("instanceEntrypoint", "dist/plugin/instance");
-		files.set(`instance.${ext}`, path.join(templatePath, `instance.${ext}`));
-	}
-
-	if (templates.includes("module")) {
-		files.set(".luacheckrc", path.join(templatePath, ".luacheckrc"));
-		files.set("module/module.json", path.join(templatePath, "module/module.json"));
-		files.set("module/control.lua", path.join(templatePath, "module/control.lua"));
-		files.set("module/module_exports.lua", path.join(templatePath, "module/module_exports.lua"));
-	}
-
-	if (templates.includes("ctl")) {
-		entryPoints.set("ctlEntrypoint", "dist/plugin/ctl");
-		files.set(`ctl.${ext}`, path.join(templatePath, `ctl.${ext}`));
-	}
-
-	// Properties that will control the replacements in the templates
-	const props = {
-		controller: templates.includes("controller"),
-		subscribable: templates.includes("controller") && templates.includes("web"),
-		host: templates.includes("host"),
-		instance: templates.includes("instance"),
-		module: templates.includes("module"),
-		ctl: templates.includes("ctl"),
-		web: templates.includes("web"),
-		plugin_name: pluginName,
-		prepare: prepare
-			.join(" && "),
-		entry_points: [...entryPoints.entries()]
-			.map((entry) => `${entry[0]}: "${entry[1]}",`)
-			.join("\n\t"),
-		dev_dependencies: [...devDependencies.entries()]
-			.map((entry) => `"${entry[0]}": "${entry[1]}",`)
-			.join("\n\t\t"),
-	};
-
-	// Write all the template files
-	const writes = [];
-	for (let [dst, src] of files) {
-		writes.push(copyPluginTemplateFile(src, dst, props));
-	}
-
-	await Promise.all(writes);
-	logger.info("Successfully wrote all template files");
-}
-
 // eslint-disable-next-line complexity
 async function inquirerMissingArgs(args) {
 	let answers = {};
@@ -972,7 +835,7 @@ async function main() {
 	logger.verbose(JSON.stringify(answers));
 
 	if (answers.pluginTemplate) {
-		await copyPluginTemplate(answers.pluginName, answers.pluginTemplate);
+		await copyPluginTemplates(answers.pluginName, answers.pluginTemplate);
 		return;
 	}
 

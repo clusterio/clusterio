@@ -1,0 +1,14 @@
+{
+	"name": "__plugin_name__",
+	"load": [
+		"control.lua"
+	],
+	"require": [
+//%if instance
+		"module_exports.lua"
+//%endif
+	],
+	"dependencies": {
+		"clusterio": "*"
+	}
+}

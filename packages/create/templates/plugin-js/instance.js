@@ -6,8 +6,10 @@ const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
 class InstancePlugin extends BaseInstancePlugin {
 	async init() {
 		this.instance.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
-		this.instance.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));// [module] //
-		this.instance.server.handle("ipc-// plugin_name //-plugin_example_ipc", this.handlePluginExampleIPC.bind(this));// [] //
+		this.instance.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));
+//%if module
+		this.instance.server.handle("ipc-__plugin_name__-plugin_example_ipc", this.handlePluginExampleIPC.bind(this));
+//%endif
 	}
 
 	async onInstanceConfigFieldChanged(field, curr, prev) {
@@ -27,8 +29,10 @@ class InstancePlugin extends BaseInstancePlugin {
 	}
 
 	async handlePluginExampleEvent(event) {
-		this.logger.info(JSON.stringify(event));// [module] //
-		this.sendRcon("/sc ipc_// plugin_name //.foo()");// [] //
+		this.logger.info(JSON.stringify(event));
+//%if module
+		this.sendRcon("/sc ipc___plugin_name__.foo()");
+//%endif
 	}
 
 	async handlePluginExampleRequest(request) {
@@ -37,11 +41,13 @@ class InstancePlugin extends BaseInstancePlugin {
 			myResponseString: request.myString,
 			myResponseNumbers: request.myNumberArray,
 		};
-	}// [module] //
+	}
+//%if module
 
 	async handlePluginExampleIPC(event) {
 		this.logger.info(JSON.stringify(event));
-	}// [] //
+	}
+//%endif
 }
 
 module.exports = {

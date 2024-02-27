@@ -2,86 +2,119 @@ import * as lib from "@clusterio/lib";
 import * as Messages from "./messages";
 
 lib.definePermission({
-	name: "// plugin_name //.example.permission.event",
+	name: "__plugin_name__.example.permission.event",
 	title: "Example permission event",
 	description: "My plugin's example permission that I forgot to remove",
 });
 
 lib.definePermission({
-	name: "// plugin_name //.example.permission.request",
+	name: "__plugin_name__.example.permission.request",
 	title: "Example permission request",
 	description: "My plugin's example permission that I forgot to remove",
-});// [subscribable] //
+});
+//%if controller & web // Subscribing requires web content and the controller
 
 lib.definePermission({
-	name: "// plugin_name //.example.permission.subscribe",
+	name: "__plugin_name__.example.permission.subscribe",
 	title: "Example permission subscribe",
 	description: "My plugin's example permission that I forgot to remove",
-});// [] //// [web] //
+});
+//%endif
+//%if web
 
 lib.definePermission({
-	name: "// plugin_name //.page.view",
+	name: "__plugin_name__.page.view",
 	title: "Example page view permission",
 	description: "My plugin's example page permission that I forgot to remove",
-});// [] //
+});
+//%endif
 
-declare module "@clusterio/lib" {// [controller] //
+declare module "@clusterio/lib" {
+//%if controller
 	export interface ControllerConfigFields {
-		"// plugin_name //.myControllerField": string;
-	}// [] //// [host] //
+		"__plugin_name__.myControllerField": string;
+	}
+//%endif
+//%if host
 	export interface HostConfigFields {
-		"// plugin_name //.myHostField": string;
-	}// [] //// [instance] //
+		"__plugin_name__.myHostField": string;
+	}
+//%endif
+//%if instance
 	export interface InstanceConfigFields {
-		"// plugin_name //.myInstanceField": string;
-	}// [] //// [ctl] //
+		"__plugin_name__.myInstanceField": string;
+	}
+//%endif
+//%if ctl
 	export interface ControlConfigFields {
-		"// plugin_name //.myControlField": string;
-	}// [] //
+		"__plugin_name__.myControlField": string;
+	}
+//%endif
 }
 
 export const plugin: lib.PluginDeclaration = {
-	name: "// plugin_name //",
-	title: "// plugin_name //",
-	description: "I didn't update my description",// [entry_points] //
-	// entry_points //
-// [] //// [controller] //
+	name: "__plugin_name__",
+	title: "__plugin_name__",
+	description: "I didn't update my description",
+//%if controller
+
+	controllerEntrypoint: "./dist/node/controller",
 	controllerConfigFields: {
-		"// plugin_name //.myControllerField": {
+		"__plugin_name__.myControllerField": {
 			title: "My Controller Field",
 			description: "This should be removed",
 			type: "string",
 			initialValue: "Remove Me",
 		},
-	},// [] //// [host] //
+	},
+//%endif
+//%if host
+
+	hostEntrypoint: "./dist/node/host",
 	hostConfigFields: {
-		"// plugin_name //.myHostField": {
+		"__plugin_name__.myHostField": {
 			title: "My Host Field",
 			description: "This should be removed",
 			type: "string",
 			initialValue: "Remove Me",
 		},
-	},// [] //// [instance] //
+	},
+//%endif
+//%if instance
+
+	instanceEntrypoint: "./dist/node/instance",
 	instanceConfigFields: {
-		"// plugin_name //.myInstanceField": {
+		"__plugin_name__.myInstanceField": {
 			title: "My Instance Field",
 			description: "This should be removed",
 			type: "string",
 			initialValue: "Remove Me",
 		},
-	},// [] //// [ctl] //
+	},
+//%endif
+//%if ctl
+
+	ctlEntrypoint: "./dist/node/ctl",
 	controlConfigFields: {
-		"// plugin_name //.myControlField": {
+		"__plugin_name__.myControlField": {
 			title: "My Control Field",
 			description: "This should be removed",
 			type: "string",
 			initialValue: "Remove Me",
 		},
-	},// [] //
+	},
+//%endif
 
 	messages: [
 		Messages.PluginExampleEvent,
-		Messages.PluginExampleRequest,// [subscribable] //
-		Messages.ExampleSubscribableUpdate,// [] //
+		Messages.PluginExampleRequest,
+//%if controller & web // Subscribing requires web content and the controller
+		Messages.ExampleSubscribableUpdate,
+//%endif
 	],
+//%if controller | web // The controller always includes web entry even if there is no content
+
+	webEntrypoint: "./web",
+	routes: [],
+//%endif
 };

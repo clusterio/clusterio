@@ -5,7 +5,7 @@ import { PluginExampleEvent, PluginExampleRequest } from "./messages";
 /* eslint-disable no-console */
 
 const pluginCommands = new CommandTree({
-	name: "// plugin_name //", description: "The default description I forgot to change",
+	name: "__plugin_name__", description: "The default description I forgot to change",
 });
 
 pluginCommands.add(new Command({
