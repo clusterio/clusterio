@@ -17,6 +17,7 @@ const {
 } = require("./index");
 
 
+/** @returns {Promise<Map<number, lib.InstanceDetails>>} */
 async function getInstances() {
 	let instances = await getControl().send(new lib.InstanceDetailsListRequest());
 	return new Map(instances.map(instance => [instance.id, instance]));
@@ -25,6 +26,10 @@ async function getInstances() {
 async function checkInstanceStatus(id, status) {
 	let instances = await getInstances();
 	assert.equal(instances.get(44).status, status, "incorrect instance status");
+}
+
+async function spawnAltHost(config = "alt-host-config.json") {
+	return await spawn("alt-host:", `node ../../packages/host run --config ${config}`, /Started host/);
 }
 
 async function startAltHost() {
@@ -38,7 +43,7 @@ async function startAltHost() {
 	await exec(`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`);
 	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ../../factorio`);
 	await exec(`node ../../packages/host --config ${config} config set host.mods_directory alt-mods`);
-	return await spawn("alt-host:", `node ../../packages/host run --config ${config}`, /Started host/);
+	return await spawnAltHost(config);
 }
 
 async function stopAltHost(hostProcess) {
@@ -199,6 +204,38 @@ describe("Integration of Clusterio", function() {
 				await execCtl("instance save create alt-mod");
 				assert(await fs.pathExists(clusterioLib), "mod was not downloaded by the test");
 			});
+		});
+		it("should auto start instances with auto_start enabled", async function() {
+			slowTest(this);
+
+			let hostProcess;
+			try {
+				hostProcess = await startAltHost();
+				await execCtl("instance create alt-start --id 97");
+				await execCtl("instance assign alt-start 5");
+				await execCtl("instance config set alt-start instance.auto_start true");
+				await stopAltHost(hostProcess);
+				hostProcess = await spawnAltHost();
+				// Stop the host immediatly to test the handling of stopping
+				// instances while automatically started and a save is being created
+				await stopAltHost(hostProcess);
+				hostProcess = await spawnAltHost();
+				let status;
+				// Wait for instance status to become running.
+				for (let i = 0; i < 100; i++) {
+					const instances = await getInstances();
+					status = instances.get(97)?.status ?? "not_present";
+					if (status === "running") {
+						break;
+					}
+					await wait(100); // Try again 10 times per second.
+				}
+				assert.equal(status, "running");
+				await execCtl("instance stop alt-start");
+				await execCtl("instance delete alt-start");
+			} finally {
+				await stopAltHost(hostProcess);
+			}
 		});
 	});
 
@@ -519,6 +556,15 @@ describe("Integration of Clusterio", function() {
 			it("should not change the instance status", async function() {
 				slowTest(this);
 				await checkInstanceStatus(44, "running");
+			});
+			it("should allow creating and removing props", async function() {
+				slowTest(this);
+				await execCtl("instance config set-prop test factorio.settings new_property new-string-value");
+				let config = await getControl().send(new lib.InstanceConfigGetRequest(44));
+				assert.equal(config["factorio.settings"]["new_property"], "new-string-value");
+				await execCtl("instance config set-prop test factorio.settings new_property");
+				config = await getControl().send(new lib.InstanceConfigGetRequest(44));
+				assert.equal(config["factorio.settings"]["new_property"], undefined);
 			});
 		});
 

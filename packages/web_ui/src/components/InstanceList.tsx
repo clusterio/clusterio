@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { message, Button, Space, Table } from "antd";
+import { message, Button, Space, Table, Typography } from "antd";
 import CopyOutlined from "@ant-design/icons/CopyOutlined";
 import type { SizeType } from "antd/es/config-provider/SizeContext";
 import type { ColumnsType } from "antd/es/table";
@@ -10,6 +10,7 @@ import { useHosts } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import StartStopInstanceButton from "./StartStopInstanceButton";
 import { InstanceDetails } from "@clusterio/lib";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -55,7 +56,12 @@ export default function InstanceList(props: InstanceListProps) {
 		{
 			title: "Assigned Host",
 			key: "assignedHost",
-			render: (_, instance) => hostName(instance.assignedHost),
+			render: (_, instance) => <Link
+				to={`/hosts/${instance.assignedHost}/view`}
+				onClick={e => e.stopPropagation()}
+			>
+				{hostName(instance.assignedHost)}
+			</Link>,
 			sorter: (a, b) => strcmp(hostName(a.assignedHost), hostName(b.assignedHost)),
 			responsive: ["sm"],
 		},
@@ -68,10 +74,10 @@ export default function InstanceList(props: InstanceListProps) {
 					{publicAddress}
 					<Button
 						type="text"
-						icon={<CopyOutlined/>}
+						icon={<CopyOutlined />}
 						onClick={(e) => {
 							e.stopPropagation();
-							navigator.clipboard.writeText(publicAddress??"");
+							navigator.clipboard.writeText(publicAddress ?? "");
 							message.success("Copied public address!");
 						}}
 					/>

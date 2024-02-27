@@ -1,5 +1,5 @@
 {
-	"extends": "../../tsconfig.web.json",
+	"extends": "../../tsconfig.browser.json",
 	"include": [
 		"browser.ts",
 		"package.json",
@@ -12,6 +12,7 @@
 		"./src/hash.ts",
 		"./src/ini.ts",
 		"./src/link/*.ts",
+		"./src/lua_tools.ts",
 		"./src/logging.ts",
 		"./src/permissions.ts",
 		"./src/prometheus.ts",
@@ -25,6 +26,6 @@
 	],
 	"compilerOptions": {
 		"rootDir": ".",
-		"outDir": "dist/web/build",
+		"outDir": "dist/browser",
 	}
 }

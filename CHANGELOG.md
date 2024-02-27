@@ -1,10 +1,86 @@
 # Changelog
 
+<!-- Template for entries. Add sections that apply as changes are made.
+## Version 2.0.0-alpha.xx
+
+### Major Features
+
+- Major additions and/or major improvements to managing clusters.
+
+### Features
+
+- New features added.
+
+### Changes
+
+- Bugfixes and small changes to existing behaviour.
+
+### Breaking Changes
+
+- Changes which break backwards compatibility with older hosts or plugins code.
+
+Many thanks to the following for contributing to this release:  
+[@username](https://github.com/username)
+-->
+
+## Version 2.0.0-alpha.18
+
+### Features
+
+- Added logging of HTTP requests and errors on the controller [#556](https://github.com/clusterio/clusterio/pull/556).
+
+### Changes
+
+- Fixed Inventory Sync reporting a negative database size [¤598](https://github.com/clusterio/clusterio/pull/598).
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+
+
+## Version 2.0.0-alpha.17
+
+### Features
+
+- Made the host an instance is assigned to link to the host page for that host in the Web UI [#587](https://github.com/clusterio/clusterio/pull/587).
+- Added pagination to the saves list.
+
+### Changes
+
+- Fixed an unhandled error in Subspace Storage crashing the host.
+- Fixed an unhandled rejection in disconnect logic crashing the host.
+- Fixed instance screen in Web UI not updating when an instance was reassigned.
+- Fixed an error thrown in the rendering of one page in the Web UI causing all pages to become inaccessible.
+- Fixed Web UI not showing instance saves when the permission to list and subscribe the saves is granted but the user is not a cluster admin.
+- Similarly fixed Web UI not showing the mod pack create, delete, list and host revoke token actions if the user is not a cluster admin.
+- Fixed Research Sync applying progress of a previous techology level to the level on the controller when it's the active research during instance startup.
+- Fixed data export with a mod using shorthand notation for the default value of a color-setting causing the ModPack data to be set to invalid data.
+- Fixed per user per instance player stats not being deleted when the instance it's for is deleted.
+- Fixed mods setting the item prototype icons property to an object mapping instead of an array breaking the data export.
+- Fixed a bad mod in the host's mods folder causing instance start to fail instead of the host re-downloading the mod.
+
+### Breaking Changes
+
+- Renamed the permission `core.instance.save.list.subscribe` to `core.instance.save.subscribe`.
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
+[@Hornwitser](https://github.com/Hornwitser)
+
+
+## Version 2.0.0-alpha.16
+
+### Changes
+
+- Fixed message sequences not being renumbered when forwarded between links causing reconnects to send duplicated messages.
+
+
 ## Version 2.0.0-alpha.15
 
 ### Features
 
-- Added support for `color-settings` Mod settings (#568)[https://github.com/clusterio/clusterio/issues/568].
+- Added support for `color-settings` Mod settings [#568](https://github.com/clusterio/clusterio/issues/568).
+- Added `clusterio_controller_pending_requests` and `clusterio_host_pending_requests` metrics.
 
 ### Changes
 
@@ -12,6 +88,12 @@
 - Fixed ctl not exporting types used for adding commands to ctl plugins.
 - Fixed controller only plugins throwing an error about missing a config field on startup out when added to hosts.
 - Fixed installer incorrectly claiming the options --factorio-dir and --no-download-headless conflicts with each other.
+- Fixed a memory leak on every request sent over the WebSocket.
+- Fixed assertion error on closing or invalidating a link with messages forwarded from a virtual link.
+- Fixed host hanging if stopped while an instance is in the process of creating a save during startup.
+- Fixed `instance.auto_start` option.
+- Fixed host log spammed with errors when plugins broadcast messages to instances with the plugin disabled.
+- Fixed properties of object config fields not being possible to remove.
 
 
 ## Version 2.0.0-alpha.14

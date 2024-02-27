@@ -28,6 +28,8 @@ export default function InstanceConfigTree(props: InstanceConfigTreeProps) {
 			} catch (err) {
 				return;
 			}
+		} else {
+			value = undefined;
 		}
 		await control.send(new lib.InstanceConfigSetPropRequest(props.id, field, prop, value));
 	}

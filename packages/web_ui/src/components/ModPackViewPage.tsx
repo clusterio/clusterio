@@ -202,7 +202,7 @@ function SearchModsTable(props: SearchModsTableProps) {
 						align: "right",
 						render: (_, result) => <Select
 							size="small"
-							bordered={false}
+							variant="borderless"
 							value={modResultSelectedVersion.get(result.name) || 0}
 							onChange={index => {
 								const newVersions = new Map(modResultSelectedVersion);
@@ -801,7 +801,7 @@ export default function ModPackViewPage() {
 			title={modPack.name}
 			extra={<Space>
 				<ExportButton modPack={modifiedModPack}/>
-				{account.hasPermission("core.mod-pack.delete") && <Popconfirm
+				{account.hasPermission("core.mod_pack.delete") && <Popconfirm
 					title="Delete mod pack and all of its settings?"
 					placement="bottomRight"
 					okText="Delete"

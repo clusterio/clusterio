@@ -3,6 +3,7 @@ import { BlockList, type AddressInfo, isIPv4, isIPv6 } from "net";
 import type { ControllerArgs } from "../controller";
 import express, { type Request, type Response, type NextFunction, type Application } from "express";
 import type { Static } from "@sinclair/typebox";
+import finalhandler from "finalhandler";
 
 import compression from "compression";
 import events, { EventEmitter } from "events";
@@ -26,6 +27,7 @@ import WsServer from "./WsServer";
 import HostConnection from "./HostConnection";
 import HostInfo from "./HostInfo";
 import BaseControllerPlugin from "./BaseControllerPlugin";
+import ControllerRouter from "./ControllerRouter";
 
 const endpointDurationSummary = new Summary(
 	"clusterio_controller_http_endpoint_duration_seconds",
@@ -74,6 +76,7 @@ export default class Controller {
 
 	/** WebSocket server */
 	wsServer: WsServer;
+	router = new ControllerRouter(this);
 	trustedProxies: BlockList;
 	debugEvents: events.EventEmitter = new events.EventEmitter();
 	private _events: events.EventEmitter = new events.EventEmitter();
@@ -272,7 +275,7 @@ export default class Controller {
 		Controller.addAppRoutes(this.app, this.pluginInfos);
 
 		if (!args.dev) {
-			let manifestPath = path.join(__dirname, "..", "web", "manifest.json");
+			let manifestPath = path.join(__dirname, "..", "..", "web", "manifest.json");
 
 			let manifest = await Controller.loadJsonObject(manifestPath);
 			if (!manifest["main.js"]) {
@@ -283,6 +286,26 @@ export default class Controller {
 
 		// Load plugins
 		await this.loadPlugins();
+
+		// Log all express errors from middleware or routes (app.use is missing the type overload)
+		this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction): void => {
+			logger.log({
+				level: "error",
+				message: "Error while handling HTTP" +
+					`${req.httpVersion} ${req.method} ${req.originalUrl}:\n${err.stack}`,
+				meta: {
+					method: req.method,
+					url: req.originalUrl,
+					httpVersion: req.httpVersion,
+					headers: req.headers,
+					query: req.query,
+				},
+			});
+
+			// Create and call the final handler, this is the same method used by express
+			// This is used instead of next(err) to stop express from logging the error to the console
+			finalhandler(req, res, { env: this.app.get("env") })(err);
+		});
 
 		this.wsServer = new WsServer(this);
 
@@ -331,7 +354,7 @@ export default class Controller {
 
 		if (args.dev) {
 			// eslint-disable-next-line node/no-missing-require
-			webpackConfigs.push(require("../../webpack.config")({})); // Path outside of build
+			webpackConfigs.push(require("../../../webpack.config")({})); // Path outside of build
 		}
 		if (args.devPlugin) {
 			let devPlugins = new Map();
@@ -719,14 +742,29 @@ export default class Controller {
 
 	static addAppRoutes(app: Application, pluginInfos: any[]) {
 		app.use((req: Request, res: Response, next) => {
-			let startNs = process.hrtime.bigint();
+			const startNs = process.hrtime.bigint();
 			stream.finished(res, () => {
 				let routePath = "static";
 				if (req.route && req.route.path) {
 					routePath = req.route.path;
 				}
-				let endNs = process.hrtime.bigint();
-				endpointDurationSummary.labels(routePath).observe(Number(endNs - startNs) / 1e9);
+				const endNs = process.hrtime.bigint();
+				const durationMs = (Number(endNs - startNs) / 1e6);
+				endpointDurationSummary.labels(routePath).observe(durationMs / 1e3);
+				logger.log({
+					level: "http",
+					message: `HTTP${req.httpVersion} ${req.method} ${req.originalUrl}` +
+						` (Status ${res.statusCode} in ${durationMs}ms)`,
+					meta: {
+						method: req.method,
+						url: req.originalUrl,
+						statusCode: res.statusCode,
+						responseTime: durationMs,
+						httpVersion: req.httpVersion,
+						headers: req.headers,
+						query: req.query,
+					},
+				});
 			});
 			next();
 		});
@@ -735,7 +773,7 @@ export default class Controller {
 		// Set folder to serve static content from (the website)
 		const staticOptions = { immutable: true, maxAge: 1000 * 86400 * 365 };
 		app.use("/static",
-			express.static(path.join(__dirname, "..", "..", "dist", "web", "static"), staticOptions)
+			express.static(path.join(__dirname, "..", "..", "web", "static"), staticOptions)
 		);
 		app.use("/static", express.static("static", staticOptions)); // Used for data export files
 
@@ -874,9 +912,11 @@ export default class Controller {
 	 */
 	clearSavesOfInstance(instanceId: number) {
 		const updates = [];
+		const now = Date.now();
 		for (const [id, save] of this.saves) {
 			if (save.instanceId === instanceId) {
 				save.isDeleted = true;
+				save.updatedAtMs = now;
 				updates.push(save);
 				this.saves.delete(id);
 			}
@@ -937,9 +977,9 @@ export default class Controller {
 			);
 		} else {
 			instance.status = "unassigned";
-			instance.updatedAtMs = Date.now();
-			this.instanceDetailsUpdated([instance]);
 		}
+		instance.updatedAtMs = Date.now();
+		this.instanceDetailsUpdated([instance]);
 	}
 
 	/**
@@ -960,6 +1000,7 @@ export default class Controller {
 		this.instancesDirty = true;
 
 		this.clearSavesOfInstance(instanceId);
+		this.userManager.clearStatsOfInstance(instanceId);
 
 		let prev = instance.status;
 		instance.status = "deleted";
@@ -1222,7 +1263,7 @@ export default class Controller {
 				mainBundle = stats.toJson().assetsByChunkName["main"];
 			}
 
-			fs.readFile(path.join(__dirname, "..", "..", "web", "index.html"), "utf8").then((content) => {
+			fs.readFile(path.join(__dirname, "..", "..", "..", "web", "index.html"), "utf8").then((content) => {
 				res.type("text/html");
 				res.send(content
 					.replace(/__CLUSTER_NAME__/g, res.app.locals.controller.config.get("controller.name"))
@@ -1374,7 +1415,11 @@ export default class Controller {
 				}
 
 			} else if (dst.id === lib.Address.instance || dst.id === lib.Address.host) {
+				const plugin = event.constructor.plugin;
 				for (let hostConnection of this.wsServer.hostConnections.values()) {
+					if (plugin && !hostConnection.plugins.has(plugin)) {
+						continue;
+					}
 					hostConnection.sendEvent(event, dst);
 				}
 

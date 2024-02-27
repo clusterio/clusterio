@@ -1,14 +1,14 @@
 {
 	"name": "@clusterio/lib",
 	"description": "Shared library for Clusterio",
-	"version": "2.0.0-alpha.14",
+	"version": "2.0.0-alpha.17",
 	"repository": "https://github.com/clusterio/clusterio",
 	"license": "MIT",
 	"scripts": {
 		"prepare": "tsc --build && pnpm run compile_validator",
 		"compile_validator": "node scripts/compile_validator.js"
 	},
-	"main": "dist/index.js",
+	"main": "dist/node/index.js",
 	"browser": "browser.ts",
 	"keywords": [
 		"factorio"

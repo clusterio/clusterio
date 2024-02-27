@@ -3,6 +3,7 @@
 	"private": true,
 	"scripts": {
 		"build": "tsc --build",
+		"watch": "tsc --build --watch",
 		"test": "pnpm run build && mocha --check-leaks -R spec --recursive test \"plugins/*/test/**\"",
 		"fast-test": "FAST_TEST=y pnpm test",
 		"cover": "nyc pnpm test",
@@ -27,6 +28,7 @@
 		"@clusterio/ctl": "workspace:*",
 		"@clusterio/host": "workspace:*",
 		"@clusterio/lib": "workspace:*",
+		"@swc/core": "^1.4.0",
 		"@typescript-eslint/eslint-plugin": "^6.4.1",
 		"@typescript-eslint/parser": "^6.4.1",
 		"eslint": "^8.45.0",

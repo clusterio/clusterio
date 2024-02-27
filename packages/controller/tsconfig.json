@@ -1,10 +1,7 @@
 {
-	"extends": "../../tsconfig.node.json",
+	"files": [],
 	"references": [
-		{ "path": "../lib" },
+		{ "path": "./tsconfig.node.json" },
+		{ "path": "./tsconfig.browser.json" },
 	],
-	"include": ["index.ts", "controller.ts", "package.json", "src/**/*.ts"],
-	"compilerOptions": {
-		"outDir": "dist",
-	},
 }

@@ -72,7 +72,12 @@ export type RequestHandler<Req, Res> = (request: Req, src: libData.Address, dst:
 export type EventHandler<T> = (event: T, src: libData.Address, dst: libData.Address) => Promise<void>;
 
 interface Router {
-	forwardMessage(origin: Link, message: MessageRoutable, fallback: boolean): boolean,
+	forwardMessage(
+		origin: Link,
+		message: MessageRoutable,
+		entry: RequestEntry | EventEntry | undefined,
+		fallback: boolean,
+	): boolean,
 }
 
 // Some definitions for the terminology used here:
@@ -102,6 +107,9 @@ export class Link {
 	) {
 		this.handle(libData.PingRequest, async () => {});
 
+		// Prevent warnings about possible memory leak due to large number of event listeners
+		connector.setMaxListeners(20);
+
 		// Process messages received by the connector
 		connector.on("message", payload => {
 			try {
@@ -121,15 +129,15 @@ export class Link {
 		});
 
 		connector.on("disconnectPrepare", () => {
-			this.prepareDisconnect().catch(
-				err => {
-					logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
+			this.prepareDisconnect().finally(() => {
+				// Only WebSocket connectors issue disconnection events.
+				const webSocketConnector = this.connector as WebSocketBaseConnector;
+				if (webSocketConnector.hasSession) {
+					webSocketConnector.sendDisconnectReady();
 				}
-			).finally(
-				() => {
-					this.connector.send(new libData.MessageDisconnect("ready"));
-				},
-			);
+			}).catch(err => {
+				logger.error(`Unexpected error preparing disconnect:\n${err.stack}`);
+			});
 		});
 
 		connector.on("invalidate", () => {
@@ -141,17 +149,30 @@ export class Link {
 		});
 	}
 
+	/**
+	 * Count of requests currently waiting for a response on this link
+	 */
+	get pendingRequestCount() {
+		return this._pendingRequests.size + this._forwardedRequests.size;
+	}
+
 	_clearPendingRequests(err: Error & { code?: string }) {
 		for (let pending of this._pendingRequests.values()) {
 			pending.reject(err);
 		}
 		for (let pending of this._forwardedRequests.values()) {
-			assert(pending.origin.connector instanceof WebSocketBaseConnector);
-			if (pending.origin.connector.hasSession) {
-				pending.origin.connector.sendResponseError(
-					new libData.ResponseError(err.message, err.code), pending.src, pending.dst
-				);
+			// Drop response if the origin is a WebSocket and the session
+			// has expired.  The other end of the link will have sent an
+			// error response to the request in this case.
+			if (
+				pending.origin.connector instanceof WebSocketBaseConnector
+				&& !pending.origin.connector.hasSession
+			) {
+				continue;
 			}
+			pending.origin.connector.sendResponseError(
+				new libData.ResponseError(err.message, err.code), pending.src, pending.dst
+			);
 		}
 		this._pendingRequests.clear();
 		this._forwardedRequests.clear();
@@ -330,7 +351,7 @@ export class Link {
 		let fallback =
 			message.type === "request" ? this._requestFallbacks.get((entry as RequestEntry).Request) : undefined
 		;
-		if (this.router.forwardMessage(this, message, Boolean(fallback))) {
+		if (this.router.forwardMessage(this, message, entry, Boolean(fallback))) {
 			return;
 		}
 		if (!fallback) {
@@ -421,6 +442,7 @@ export class Link {
 			throw new libErrors.InvalidMessage(`Received reply from ${message.src} for message sent to ${pending.dst}`);
 		}
 
+		this._pendingRequests.delete(message.dst.requestId!);
 		try {
 			pending.resolve(pending.request.responseFromJSON(message.data));
 		} catch (err: any) {
@@ -437,6 +459,7 @@ export class Link {
 			);
 		}
 
+		this._pendingRequests.delete(message.dst.requestId!);
 		pending.reject(new libErrors.RequestError(message.data.message, message.data.code, message.data.stack));
 	}
 
@@ -541,7 +564,7 @@ export class Link {
 			dst: message.dst,
 		};
 		this._forwardedRequests.set(message.src.index(), pending);
-		this.connector.send(message);
+		this.connector.forward(message);
 	}
 
 	sendEvent<T>(event: Event<T>, dst: libData.Address) {

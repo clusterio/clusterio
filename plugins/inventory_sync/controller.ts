@@ -190,7 +190,7 @@ export class ControllerPlugin extends BaseControllerPlugin {
 			}))
 			.sort((a, b) => b.length - a.length);
 		return new msg.DatabaseStatsRequest.Response(
-			playerDatastore.map(x => x.length).reduce((a, b) => b - a, 0),
+			playerDatastore.map(x => x.length).reduce((acc, val) => acc + val, 0),
 			playerDatastore.length,
 			{
 				name: playerDatastore[0] && playerDatastore[0].name || "-",

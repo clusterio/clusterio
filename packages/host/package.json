@@ -3,14 +3,14 @@
 	"description": "Implementation of Clusterio host server",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.14",
-	"main": "dist/index.js",
+	"version": "2.0.0-alpha.17",
+	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
-		"clusteriohost": "./dist/host.js"
+		"clusteriohost": "./dist/node/host.js"
 	},
 	"keywords": [
 		"factorio"
@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.14",
+		"@clusterio/lib": "^2.0.0-alpha.17",
 		"@sinclair/typebox": "^0.30.4",
 		"fs-extra": "^11.1.1",
 		"jimp": "^0.22.8",

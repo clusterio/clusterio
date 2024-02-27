@@ -4,7 +4,7 @@ const events = require("events");
 const fs = require("fs-extra");
 const path = require("path");
 
-const hostServer = require("@clusterio/host/dist/src/server");
+const hostServer = require("@clusterio/host/dist/node/src/server");
 const lib = require("@clusterio/lib");
 const { wait } = lib;
 const { testLines } = require("../lib/factorio/lines");

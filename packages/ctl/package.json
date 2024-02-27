@@ -3,14 +3,14 @@
 	"description": "Clusterio command line management tool",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.14",
-	"main": "dist/index.js",
+	"version": "2.0.0-alpha.17",
+	"main": "dist/node/index.js",
 	"scripts": {
 		"prepare": "tsc --build",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
-		"clusterioctl": "./dist/ctl.js"
+		"clusterioctl": "./dist/node/ctl.js"
 	},
 	"keywords": [
 		"factorio"
@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.14",
+		"@clusterio/lib": "^2.0.0-alpha.17",
 		"as-table": "^1.0.55",
 		"fs-extra": "^11.1.1",
 		"phin": "^3.7.0",

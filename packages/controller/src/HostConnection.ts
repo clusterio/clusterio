@@ -178,7 +178,10 @@ export default class HostConnection extends BaseConnection {
 		// changed.  Hosts also send status updates on assignInstance which
 		// for hacky reason is also used to push config changes and
 		// restablish status after a connection loss.
-		if (instance.status === request.status) {
+		if (
+			instance.status === request.status
+			&& instance.gamePort === request.gamePort
+		) {
 			return;
 		}
 

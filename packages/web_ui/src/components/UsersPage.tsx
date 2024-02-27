@@ -12,6 +12,7 @@ import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import { formatFirstSeen, formatLastSeen, sortFirstSeen, sortLastSeen, useUsers } from "../model/user";
+import Link from "./Link";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -49,7 +50,7 @@ function CreateUserButton() {
 		>
 			<Form form={form}>
 				<Form.Item name="userName" label="Name">
-					<Input/>
+					<Input />
 				</Form.Item>
 			</Form>
 		</Modal>
@@ -97,7 +98,9 @@ export default function UsersPage() {
 					title: "Roles",
 					key: "roles",
 					render: (_, user) => (
-						[...user.roleIds].map(id => <Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>)
+						[...user.roleIds].map(id => <Link to={`/roles/${id}/view`} onClick={e => e.stopPropagation()}>
+							<Tag key={id}>{(roles.get(id) || { name: id }).name}</Tag>
+						</Link>)
 					),
 				},
 				{

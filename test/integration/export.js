@@ -2,8 +2,8 @@
 const assert = require("assert").strict;
 const path = require("path");
 
-const { _exportLocale } = require("@clusterio/host/dist/src/export");
-const { FactorioServer } = require("@clusterio/host/dist/src/server");
+const { _exportLocale } = require("@clusterio/host/dist/node/src/export");
+const { FactorioServer } = require("@clusterio/host/dist/node/src/server");
 
 
 describe("Integration of lib/factorio/export", function() {

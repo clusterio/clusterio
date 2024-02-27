@@ -116,7 +116,6 @@ export class InstancePlugin extends BaseInstancePlugin {
 		let itemsJson = lib.escapeString(JSON.stringify(items));
 		let task = this.sendRcon(`/sc __subspace_storage__ UpdateInvData("${itemsJson}")`, true);
 		this.pendingTasks.add(task);
-		task.finally(() => { this.pendingTasks.delete(task); });
-		await task;
+		await task.finally(() => { this.pendingTasks.delete(task); });
 	}
 }

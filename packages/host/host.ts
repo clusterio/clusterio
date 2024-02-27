@@ -26,6 +26,27 @@ import { ConsoleTransport, levels, logger } from "@clusterio/lib";
 
 import Host from "./src/Host";
 
+let host: Host | undefined;
+
+void new lib.Gauge(
+	"clusterio_host_pending_requests",
+	"Count of pending link requests currently waiting in memory on the host.",
+	{
+		labels: ["host_id"],
+		callback: (gauge) => {
+			if (!host) {
+				return;
+			}
+
+			let count = host.pendingRequestCount;
+			for (const connection of host.instanceConnections.values()) {
+				count += connection.pendingRequestCount;
+				count += connection.instance.pendingRequestCount;
+			}
+			gauge.labels(String(host.config.get("host.id"))).set(count);
+		},
+	}
+);
 
 export class HostConnector extends lib.WebSocketClientConnector {
 	constructor(
@@ -205,7 +226,7 @@ async function startHost() {
 	}
 
 	let hostConnector = new HostConnector(hostConfig, tlsCa, pluginInfos);
-	let host = new Host(
+	host = new Host(
 		hostConnector,
 		args.config,
 		hostConfig,
@@ -227,7 +248,7 @@ async function startHost() {
 
 		secondSigint = true;
 		logger.info("Caught interrupt signal, shutting down");
-		host.shutdown();
+		host!.shutdown();
 	});
 	let secondSigterm = false;
 	process.on("SIGTERM", () => {
@@ -240,11 +261,11 @@ async function startHost() {
 
 		secondSigterm = true;
 		logger.info("Caught termination signal, shutting down");
-		host.shutdown();
+		host!.shutdown();
 	});
 	process.on("SIGHUP", () => {
 		logger.info("Terminal closed, shutting down");
-		host.shutdown();
+		host!.shutdown();
 	});
 
 	try {
@@ -255,7 +276,7 @@ async function startHost() {
 	}
 
 	hostConnector.once("connect", () => {
-		logger.add(new lib.LinkTransport({ link: host }));
+		logger.add(new lib.LinkTransport({ link: host! }));
 	});
 
 	await hostConnector.connect();

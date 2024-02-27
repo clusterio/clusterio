@@ -872,7 +872,9 @@ export class FactorioServer extends events.EventEmitter {
 
 		try {
 			let [code, signal] = await events.once(this._server, "exit");
-			void signal;
+			if (signal) {
+				throw new Error(`Factorio exited with signal ${signal}`);
+			}
 			if (code !== 0) {
 				throw new Error(`Factorio exited with status ${code}`);
 			}
@@ -1099,7 +1101,7 @@ export class FactorioServer extends events.EventEmitter {
 	 *     process.
 	 */
 	async kill(unexpected = false) {
-		this._check(["running", "stopping"]);
+		this._check(["running", "stopping", "create"]);
 		this._killed = true;
 		if (!unexpected) {
 			this._state = "stopping";

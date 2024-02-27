@@ -459,7 +459,7 @@ export class Config<
 	setProp<Field extends keyof Fields & string>(
 		name: Field,
 		prop: string,
-		value: unknown,
+		value?: unknown,
 		location = this.location,
 	) {
 		let def = this.constructor.fieldDefinitions[name];

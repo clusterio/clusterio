@@ -3,8 +3,8 @@ const assert = require("assert").strict;
 const path = require("path");
 
 const lib = require("@clusterio/lib");
-const Host = require("@clusterio/host/dist/src/Host").default;
-const { _discoverInstances } = require("@clusterio/host/dist/src/Host");
+const Host = require("@clusterio/host/dist/node/src/Host").default;
+const { _discoverInstances } = require("@clusterio/host/dist/node/src/Host");
 
 describe("Host testing", function() {
 	describe("discoverInstances()", function() {

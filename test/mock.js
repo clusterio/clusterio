@@ -5,8 +5,8 @@ const express = require("express");
 
 const lib = require("@clusterio/lib");
 
-const UserManager = require("@clusterio/controller/dist/src/UserManager").default;
-const ControllerUser = require("@clusterio/controller/dist/src/ControllerUser").default;
+const UserManager = require("@clusterio/controller/dist/node/src/UserManager").default;
+const ControllerUser = require("@clusterio/controller/dist/node/src/ControllerUser").default;
 
 const addr = lib.Address.fromShorthand;
 
@@ -73,12 +73,17 @@ class MockConnector extends lib.BaseConnector {
 		super(src, dst);
 
 		this.connected = true;
+		this.hasSession = true;
 		this.sentMessages = [];
 	}
 
 	send(message) {
 		this.sentMessages.push(message);
 		setImmediate(() => this.emit("send", message));
+	}
+
+	sendDisconnectReady() {
+		this.send(new lib.MessageDisconnect("ready"));
 	}
 }
 

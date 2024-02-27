@@ -87,7 +87,7 @@ export class Address {
 	}
 
 	toString() {
-		const typeMap = ["controller", "instance", "host", "control"];
+		const typeMap = ["controller", "host", "instance", "control"];
 		const type = typeMap[this.type] || this.type;
 		if (this.type === Address.broadcast) {
 			return `[Address ${type}:${typeMap[this.id] || this.id}]`;

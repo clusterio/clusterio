@@ -81,6 +81,9 @@ Note that to use `clusterioctl` you will have to create a control config first:
 
 Once you've set up the cluster you can use `node packages/controller run` to run the controller and `node packages/host run` to run the host which connects to the controller.
 
+When editing TypeScript files ran by Node.js you need to run `pnpm build` to compile the files to JavaScript before restarting the controller/host/ctl for changes take effect.
+To have TypeScript watch for changes and rebuild immediadly you may run `pnpm watch` instead.
+
 For web development on the controller there are also the following flags:
 
 `--dev` - Recompile the `web_ui` package on the fly providing live reloading of it.
@@ -316,6 +319,6 @@ You will need commit access to the repository as well publish access to the @clu
 4.  Publish the packages.
 
     ```sh
-    # Warning: Double check your current working directory is the repository before running this
-    pnpm -r --filter='!./external_plugins/**' publish
+    rm -r ./{plugins,packages}/*/dist
+    pnpm -r --filter='./{plugins,packages}/*' publish
     ```
