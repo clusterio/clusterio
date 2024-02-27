@@ -15,6 +15,7 @@ import SectionHeader from "./SectionHeader";
 import { useInstances } from "../model/instance";
 import { useSavesOfInstance } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
+import { InboxOutlined } from "@ant-design/icons";
 
 
 type ModalProps = {
@@ -150,7 +151,7 @@ function TransferModal(props: ModalProps) {
 						autoFocus
 						showSearch
 						filterOption={(input, option) => (
-							(option?.title.toLowerCase().indexOf(input.toLowerCase())??-1) >= 0
+							(option?.title.toLowerCase().indexOf(input.toLowerCase()) ?? -1) >= 0
 						)}
 					>
 						{[...instances.values()].filter(
@@ -204,6 +205,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let [saves] = useSavesOfInstance(props.instance.id);
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
+	const [isDroppingFile, setIsDroppingFile] = useState<boolean>(false);
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
@@ -214,8 +216,8 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				title: "Name",
 				render: (_, save) => <>
 					{save.name}
-					{save.loaded && <Tooltip title="Currently loaded save"><CaretLeftOutlined/></Tooltip>}
-					{save.loadByDefault && <Tooltip title="Save loaded by default"><LeftOutlined/></Tooltip>}
+					{save.loaded && <Tooltip title="Currently loaded save"><CaretLeftOutlined /></Tooltip>}
+					{save.loadByDefault && <Tooltip title="Save loaded by default"><LeftOutlined /></Tooltip>}
 				</>,
 				sorter: (a, b) => a.name.localeCompare(b.name),
 			},
@@ -240,7 +242,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		expandable={{
 			columnWidth: 33,
 			expandRowByClick: true,
-			expandedRowRender: save => <Space wrap style={{marginBottom: 0}}>
+			expandedRowRender: save => <Space wrap style={{ marginBottom: 0 }}>
 				{account.hasPermission("core.instance.start") && <Button
 					loading={starting}
 					disabled={props.instance.status !== "stopped"}
@@ -353,7 +355,62 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		{
 			account.hasPermission("core.instance.save.upload")
 				? <Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
-					{saveTable}
+					<div
+						style={{
+							position: "relative",
+							zIndex: "1010",
+						}}
+						onDragEnter={e => {
+							setIsDroppingFile(true);
+						}}
+						onDragLeave={e => {
+							if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
+								return;
+							}
+							setIsDroppingFile(false);
+						}}
+						onDrop={e => setIsDroppingFile(false)}
+					>
+						<div
+							style={{
+								position: "absolute",
+								top: "0",
+								left: "0",
+								width: "100%",
+								height: "100%",
+								zIndex: "90",
+								backgroundColor: "#88888844",
+								borderRadius: "20px",
+								border: "dashed 2px rgb(22, 119, 255)",
+								display: isDroppingFile ? "block" : "none",
+							}}
+						>
+							<div
+								id="dropzone-icon"
+								style={{
+									fontSize: "72px",
+									color: "rgb(22, 119, 255)",
+									display: "flex",
+									zIndex: "100",
+									alignItems: "center",
+									justifyContent: "center",
+									flexDirection: "column",
+									height: "100%",
+								}}
+							>
+								<InboxOutlined />
+								<p style={{
+									fontSize: "24px",
+									display: "block",
+									textAlign: "center",
+									marginTop: "8px",
+								}}>
+									Drop to upload
+								</p>
+							</div>
+						</div>
+						{saveTable}
+					</div>
 				</Upload.Dragger>
 				: saveTable
 		}
@@ -362,7 +419,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				{file.name}
 				<Progress
 					percent={file.percent}
-					format={percent => `${Math.floor(percent||0)}%`}
+					format={percent => `${Math.floor(percent || 0)}%`}
 					status={file.status === "error" ? "exception" : "normal"}
 				/>
 			</List.Item>)}
