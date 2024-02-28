@@ -6,12 +6,6 @@ const path = require("path");
 async function copyTemplateFile(src, dst, properties) {
 	logger.verbose(`Writing ${dst} from template ${src}`);
 
-	// Check if the file already exists to prevent regex calculations
-	if (await fs.exists(dst)) {
-		logger.warn(`Could not create file ${dst} because it already exists`);
-		return;
-	}
-
 	// Closure, get the property value or throw
 	function getProperty(property) {
 		if (!properties.hasOwnProperty(property)) {
@@ -21,7 +15,7 @@ async function copyTemplateFile(src, dst, properties) {
 		return properties[property];
 	}
 
-	// Get the boolean conjunction of a set of properties
+	// Closure, Get the boolean conjunction of a set of properties
 	function propertyConjunction(props) {
 		for (const property of props) {
 			if (property.startsWith("!")) {
@@ -43,8 +37,8 @@ async function copyTemplateFile(src, dst, properties) {
 		// match preprocessor comments: //%//
 		.replace(/^\/\/%\/\/.*\n/gm, "")
 		// match preprocessor insert: __property__
-		.replace(/__([a-zA-Z][a-zA-Z_]*?[a-zA-Z]?)__/gm, (_, property) => getProperty(property))
-		// match preprocessor conditionals: //%if <condition> [// comment]\n <content> \n //%endif [comment]\n
+		.replace(/__([a-zA-Z][a-zA-Z0-9_]*?[a-zA-Z0-9]?)__/gm, (_, property) => getProperty(property))
+		// match preprocessor conditionals: //%if <CONDITION> [// COMMENT]\n <CONTENT> \n//%endif [COMMENT]\n
 		.replace(/^\/\/%if ([^\n\/]*)(?:\/\/.*?)?\n((?:.|\n)*?)\/\/%endif.*\n/gm, (_, condition, content) => {
 			let include = false;
 			const conjunctions = condition.split("|");
@@ -65,7 +59,16 @@ async function copyTemplateFile(src, dst, properties) {
 			return include ? content : "";
 		});
 
-	await fs.outputFile(dst, outputData);
+	// Attempt to write the output file, warn if it already exists
+	try {
+		await fs.outputFile(dst, outputData);
+	} catch (err) {
+		if (err.code === "EEXIST") {
+			logger.warn(`Could not create file ${dst} because it already exists`);
+		} else {
+			throw err;
+		}
+	}
 }
 
 async function copyPluginTemplates(pluginName, templates) {
