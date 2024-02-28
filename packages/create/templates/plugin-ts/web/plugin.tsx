@@ -47,7 +47,14 @@ export class WebPlugin extends BaseWebPlugin {
 			{
 				path: "/__plugin_name__",
 				sidebarName: "__plugin_name__",
-				permission: "__plugin_name__.page.view",
+				// This permission is client side only, so it must match the permission string of a resource request to be secure
+				// An undefined value means that the page will always be visible
+//%if controller & web // Subscribing requires web content and the controller
+				permission: "__plugin_name__.example.permission.subscribe",
+//%endif
+//%if !controller | !web
+				permission: undefined, // "__plugin_name__.example.permission.request",
+//%endif
 				content: <MyTemplatePage/>,
 			},
 		];
