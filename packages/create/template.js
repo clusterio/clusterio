@@ -61,7 +61,7 @@ async function copyTemplateFile(src, dst, properties) {
 
 	// Attempt to write the output file, warn if it already exists
 	try {
-		await fs.outputFile(dst, outputData);
+		await fs.outputFile(dst, outputData, { flag: "wx" });
 	} catch (err) {
 		if (err.code === "EEXIST") {
 			logger.warn(`Could not create file ${dst} because it already exists`);
