@@ -185,6 +185,8 @@ body {
 .save-list-dragger .ant-upload.ant-upload-drag {
 	border: none;
 	background: none;
+	height: auto;
+	cursor: inherit;
 }
 
 .save-list-dragger .ant-upload.ant-upload-btn {

@@ -17,6 +17,7 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
+import { InboxOutlined } from "@ant-design/icons";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -55,11 +56,13 @@ function ImportModPackButton() {
 					name="string"
 					rules={[
 						{ required: true },
-						{ async validator(rule, value) {
-							if (value) {
-								lib.ModPack.fromModPackString(value);
-							}
-						}},
+						{
+							async validator(rule, value) {
+								if (value) {
+									lib.ModPack.fromModPackString(value);
+								}
+							},
+						},
 					]}
 				>
 					<Input.TextArea autoSize={{ minRows: 6, maxRows: 6 }} />
@@ -131,6 +134,7 @@ export default function ModsPage() {
 	let navigate = useNavigate();
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
+	const [isDroppingFile, setIsDroppingFile] = useState(false);
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -173,11 +177,26 @@ export default function ModsPage() {
 			accept=".zip"
 			multiple
 			headers={{
-				"X-Access-Token": control.connector.token||"",
+				"X-Access-Token": control.connector.token || "",
 			}}
 			action={`${webRoot}api/upload-mod`}
 		>
-			<Button icon={<UploadOutlined/>}>Upload</Button>
+			<Button
+				onDragEnter={e => setIsDroppingFile(true)}
+				onDragLeave={e => {
+					// Only process if we are leaving the dropzone for an element that is not a child of the button
+					if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
+						return;
+					}
+					setIsDroppingFile(false);
+				}}
+				onDrop={e => setIsDroppingFile(false)}
+				style={{
+					// Distinct border when dropping file
+					border: isDroppingFile ? "dashed 2px rgb(22, 119, 255)" : undefined,
+				}}
+				icon={isDroppingFile ? <InboxOutlined /> : <UploadOutlined />}
+			>Upload</Button>
 		</Upload>;
 	}
 
@@ -219,54 +238,118 @@ export default function ModsPage() {
 			})}
 		/>
 		<SectionHeader title="Stored Mods" extra={uploadButton} />
-		<Table
-			columns={[
-				{
-					title: "Name",
-					dataIndex: "title",
-					defaultSortOrder: "ascend",
-					sorter: (a, b) => (
-						strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
-					),
-				},
-				{
-					title: "Version",
-					key: "version",
-					align: "right",
-					render: (_, mod) => <>
-						{`${mod.version} `}
-						<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
-					</>,
-				},
-				{
-					title: "Filename",
-					dataIndex: "filename",
-					responsive: ["xl"],
-					sorter: (a, b) => strcmp(a.filename, b.filename),
-				},
-				{
-					title: "Size",
-					key: "size",
-					responsive: ["lg"],
-					render: (_, mod) => lib.formatBytes(mod.size),
-					align: "right",
-					sorter: (a, b) => a.size - b.size,
-				},
-				{
-					title: "Action",
-					key: "action",
-					responsive: ["lg"],
-					render: (_, mod) => actions(mod),
-				},
-			]}
-			expandable={{
-				expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
-				expandedRowClassName: () => "no-expanded-padding",
+
+		<Upload.Dragger
+			className="save-list-dragger"
+			openFileDialogOnClick={false}
+			name="file"
+			accept=".zip"
+			multiple
+			headers={{
+				"X-Access-Token": control.connector.token || "",
 			}}
-			dataSource={[...mods.values()]}
-			pagination={false}
-			rowKey={mod => mod.id}
-		/>
+			action={`${webRoot}api/upload-mod`}
+			showUploadList={false}
+		>
+			<div
+				style={{
+					position: "relative",
+					zIndex: "1010",
+				}}
+				onDragEnter={e => {
+					setIsDroppingFile(true);
+				}}
+				onDragLeave={e => {
+					if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
+						return;
+					}
+					setIsDroppingFile(false);
+				}}
+				onDrop={e => setIsDroppingFile(false)}
+			>
+				<div
+					style={{
+						position: "absolute",
+						top: "0",
+						left: "0",
+						width: "100%",
+						height: "100%",
+						zIndex: "90",
+						backgroundColor: "#88888844",
+						borderRadius: "20px",
+						border: "dashed 2px rgb(22, 119, 255)",
+						display: isDroppingFile ? "block" : "none",
+					}}
+				>
+					<div
+						id="dropzone-icon"
+						style={{
+							fontSize: "72px",
+							color: "rgb(22, 119, 255)",
+							display: "flex",
+							zIndex: "100",
+							alignItems: "center",
+							justifyContent: "center",
+							flexDirection: "column",
+							height: "100%",
+						}}
+					>
+						<InboxOutlined />
+						<p style={{ fontSize: "24px", display: "block", textAlign: "center", marginTop: "8px" }}>
+							Drop to upload
+						</p>
+					</div>
+				</div>
+				<Table
+					columns={[
+						{
+							title: "Name",
+							dataIndex: "title",
+							defaultSortOrder: "ascend",
+							sorter: (a, b) => (
+								strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
+							),
+						},
+						{
+							title: "Version",
+							key: "version",
+							align: "right",
+							render: (_, mod) => <>
+								{`${mod.version} `}
+								<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
+							</>,
+						},
+						{
+							title: "Filename",
+							dataIndex: "filename",
+							responsive: ["xl"],
+							sorter: (a, b) => strcmp(a.filename, b.filename),
+						},
+						{
+							title: "Size",
+							key: "size",
+							responsive: ["lg"],
+							render: (_, mod) => lib.formatBytes(mod.size),
+							align: "right",
+							sorter: (a, b) => a.size - b.size,
+						},
+						{
+							title: "Action",
+							key: "action",
+							responsive: ["lg"],
+							render: (_, mod) => actions(mod),
+						},
+					]}
+					expandable={{
+						expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
+						expandedRowClassName: () => "no-expanded-padding",
+					}}
+					dataSource={[...mods.values()]}
+					pagination={false}
+					rowKey={mod => mod.id}
+				/>
+			</div>
+		</Upload.Dragger>
 		<PluginExtra component="ModsPage" />
 	</PageLayout>;
 }
