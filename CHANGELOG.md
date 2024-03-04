@@ -32,6 +32,7 @@ Many thanks to the following for contributing to this release:
 ### Changes
 
 - Fixed Inventory Sync reporting a negative database size [¤598](https://github.com/clusterio/clusterio/pull/598).
+- Fixed plugin events being invoked while a host connection was in an invalid state.
 
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)
