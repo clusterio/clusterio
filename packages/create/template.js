@@ -131,6 +131,9 @@ async function copyPluginTemplates(pluginName, templates) {
 		files.set("module/module.json", path.join(commonPath, "module/module.json"));
 		files.set("module/control.lua", path.join(commonPath, "module/control.lua"));
 		files.set("module/module_exports.lua", path.join(commonPath, "module/module_exports.lua"));
+		if (templates.includes("instance")) {
+			files.set("module/globals.lua", path.join(commonPath, "module/globals.lua"));
+		}
 	}
 
 	// Files for the control tool

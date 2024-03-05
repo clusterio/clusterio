@@ -31,7 +31,7 @@ class InstancePlugin extends BaseInstancePlugin {
 	async handlePluginExampleEvent(event) {
 		this.logger.info(JSON.stringify(event));
 //%if module
-		this.sendRcon("/sc ipc___plugin_name__.foo()");
+		this.sendRcon("/sc __plugin_name__.foo()");
 //%endif
 	}
 

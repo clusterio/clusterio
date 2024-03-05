@@ -5,7 +5,7 @@
 	],
 	"require": [
 //%if instance
-		"module_exports.lua"
+		"globals.lua"
 //%endif
 	],
 	"dependencies": {

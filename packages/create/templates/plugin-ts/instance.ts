@@ -33,7 +33,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 	async onPlayerEvent(event: lib.PlayerEvent) {
 		this.logger.info(`onPlayerEvent::onPlayerEvent ${JSON.stringify(event)}`);
 //%if module
-		this.sendRcon("/sc ipc___plugin_name__.foo()");
+		this.sendRcon("/sc __plugin_name__.foo()");
 //%endif
 	}
 

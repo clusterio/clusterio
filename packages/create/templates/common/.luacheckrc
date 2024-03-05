@@ -70,14 +70,6 @@ do -- Assume Factorio Control Stage as Default
     }
 end
 
-do -- RedMew and ExpGaming overrides
-    globals = {
-        'math', 'table', 'package',
-        'print', 'require', 'unpack', 'inspect', 'loadstring', 'ServerCommands', 'Debug',
-        '_C', '_DEBUG', '_CHEATS', '_DUMP_ENV', '_LIFECYCLE', '_STAGE',
-    }
-end
-
 do -- Set default prototype files
     files['**/data.lua'].std = STD_DATA
     files['**/data-updates.lua'].std = STD_DATA
