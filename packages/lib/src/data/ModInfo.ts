@@ -117,6 +117,11 @@ export default class ModInfo {
 	size = 0;
 
 	/**
+	 * Last modification time of the file.
+	 */
+	mtimeMs = 0;
+
+	/**
 	 * SHA1 hash of this mod
 	 */
 	sha1?: string;
@@ -147,6 +152,7 @@ export default class ModInfo {
 	static jsonSchema = Type.Object({
 		...this.infoJsonSchema.properties,
 		"size": Type.Optional(Type.Integer()),
+		"mtime_ms": Type.Optional(Type.Number()),
 		"sha1": Type.Optional(Type.String()),
 		"updated_at_ms": Type.Optional(Type.Number()),
 		"is_deleted": Type.Optional(Type.Boolean()),
@@ -170,6 +176,7 @@ export default class ModInfo {
 
 		// Additional data
 		if (json.size) { modInfo.size = json.size; }
+		if (json.mtime_ms) { modInfo.mtimeMs = json.mtime_ms; }
 		if (json.sha1) { modInfo.sha1 = json.sha1; }
 		if (json.updated_at_ms) { modInfo.updatedAtMs = json.updated_at_ms; }
 		if (json.is_deleted) { modInfo.isDeleted = json.is_deleted; }
@@ -192,6 +199,7 @@ export default class ModInfo {
 			json.dependencies = this.dependencies;
 		}
 		if (this.size) { json.size = this.size; }
+		if (this.mtimeMs) { json.mtime_ms = this.mtimeMs; }
 		if (this.sha1) { json.sha1 = this.sha1; }
 		if (this.updatedAtMs) { json.updated_at_ms = this.updatedAtMs; }
 		if (this.isDeleted) { json.is_deleted = this.isDeleted; }
@@ -229,6 +237,7 @@ export default class ModInfo {
 
 			size: stat.size,
 			sha1: await libHash.hashFile(modPath),
+			mtime_ms: stat.mtimeMs,
 			updated_at_ms: stat.mtimeMs,
 			is_deleted: false,
 		});
