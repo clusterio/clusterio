@@ -33,6 +33,7 @@ describe("lib/data/ModInfo", function() {
 			check(ModInfo.fromJSON({ dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"] }));
 			check(ModInfo.fromJSON({ filename: "MyMod_1.0.0.zip" }));
 			check(ModInfo.fromJSON({ size: 1024 }));
+			check(ModInfo.fromJSON({ mtime_ms: new Date(2024, 0, 1).getTime() }));
 			check(ModInfo.fromJSON({ sha1: "verified-as-MyMod" }));
 			check(ModInfo.fromJSON({ is_deleted: true }));
 
@@ -49,6 +50,7 @@ describe("lib/data/ModInfo", function() {
 				dependencies: ["UltraMod", "SuperLib >= 1.00", "! bad-mod"],
 				filename: "MyMod_1.0.0.zip",
 				size: 1024,
+				mtime_ms: new Date(2024, 0, 1).getTime(),
 				sha1: "verified-as-MyMod",
 				is_deleted: true,
 			}));
@@ -92,6 +94,7 @@ describe("lib/data/ModInfo", function() {
 					dependencies: [],
 					filename: "empty_mod_1.0.0.zip",
 					size: stat.size,
+					mtime_ms: stat.mtimeMs,
 					updated_at_ms: stat.mtimeMs,
 					sha1: hash,
 				})
