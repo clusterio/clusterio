@@ -1,8 +1,10 @@
 import fs from "fs-extra";
 import path from "path";
+import { Static } from "@sinclair/typebox";
 import { logger } from "./logging";
 import { ModInfo } from "./data";
 import TypedEventEmitter from "./TypedEventEmitter";
+import { safeOutputFile } from "./file_ops";
 
 export interface ModStoreEvents {
 	/** A stored mod was created, updated or deleted */
@@ -74,6 +76,21 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 	}
 
 	static async fromDirectory(modsDirectory: string) {
+		type ModInfoCache = Static<typeof ModInfo.jsonSchema>[];
+		const cacheFilename = path.join(modsDirectory, "mod-info-cache.json");
+		let cache = new Map<string, ModInfo>();
+		try {
+			const content = await fs.readFile(cacheFilename, "utf8");
+			cache = new Map((JSON.parse(content) as ModInfoCache).map(item => {
+				const mod = ModInfo.fromJSON(item);
+				return [mod.filename, mod];
+			}));
+		} catch (err: any) {
+			if (err.code !== "ENOENT") {
+				logger.warn(`Error loading ${cacheFilename}:\n${err.stack}`);
+			}
+		}
+
 		const files = new Map<string, ModInfo>();
 		for (let entry of await fs.readdir(modsDirectory, { withFileTypes: true })) {
 			if (entry.isDirectory()) {
@@ -81,8 +98,21 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 				continue;
 			}
 
+			if (!entry.name.toLowerCase().endsWith(".zip")) {
+				continue;
+			}
+
 			if (entry.name.toLowerCase().endsWith(".tmp.zip")) {
 				continue;
+			}
+
+			const cachedModInfo = cache.get(entry.name);
+			if (cachedModInfo) {
+				const stat = await fs.stat(path.join(modsDirectory, entry.name));
+				if (cachedModInfo.mtimeMs === stat.mtimeMs) {
+					files.set(cachedModInfo.filename, cachedModInfo);
+					continue;
+				}
 			}
 
 			logger.info(`Loading info for Mod ${entry.name}`);
@@ -94,6 +124,12 @@ export default class ModStore extends TypedEventEmitter<keyof ModStoreEvents, Mo
 				continue;
 			}
 			files.set(modInfo.filename, modInfo);
+		}
+
+		if (files.size) {
+			logger.info(`Loaded info for ${files.size} mods`);
+			const content: ModInfoCache = [...files.values()].map(mod => mod.toJSON());
+			await safeOutputFile(cacheFilename, JSON.stringify(content));
 		}
 
 		return new this(modsDirectory, files);
