@@ -301,6 +301,20 @@ local clusterio_api = require("modules/clusterio/api")
 clusterio_api.send_json("my_plugin_foo", { data = 123 })
 ```
 
+For convience a helper function is exposed on server specifically for handling IPC events.
+
+```js
+async init() {
+    this.instance.server.handle("my_plugin_foo", this.handleFoo.bind(this));
+}
+
+async handleFoo(content) {
+    // Do stuff with content
+}
+```
+
+**Note:** This only handles IPC events, all other events must use `on`. You should not include the `ipc-` prefix when using this method. Error logging is handled for you, if you want custom error handling use `on`.
+
 It's recommended to either use the plugin name as the channel name or to prefix the channel name with the name of the plugin if you need multiple channels.
 It's also important to catch any errors that might occur as they will otherwise be propogated to the instance code and kill the server.
 

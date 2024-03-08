@@ -14,7 +14,7 @@ export class InstancePlugin extends BaseInstancePlugin {
 		this.instance.handle(PluginExampleEvent, this.handlePluginExampleEvent.bind(this));
 		this.instance.handle(PluginExampleRequest, this.handlePluginExampleRequest.bind(this));
 //%if module
-		this.instance.server.handle("ipc-__plugin_name__-plugin_example_ipc", this.handlePluginExampleIPC.bind(this));
+		this.instance.server.handle("__plugin_name__-plugin_example_ipc", this.handlePluginExampleIPC.bind(this));
 //%endif
 	}
 

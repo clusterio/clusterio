@@ -90,7 +90,14 @@ const plugin = {
 		Messages.ExampleSubscribableUpdate,
 //%endif
 	],
-//%if controller | web // The controller always includes web entry even if there is no content
+//%if web // Web content template has an example route which is the plugin name
+
+	webEntrypoint: "./web",
+	routes: [
+		"/__plugin_name__",
+	],
+//%endif
+//%if controller & !web // The controller always includes web entry even if there is no content
 
 	webEntrypoint: "./web",
 	routes: [],
