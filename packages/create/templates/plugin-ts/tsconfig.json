@@ -1,0 +1,9 @@
+{
+	"files": [],
+	"references": [
+//%if web
+		{ "path": "./tsconfig.browser.json" },
+//%endif
+		{ "path": "./tsconfig.node.json" }
+	]
+}

@@ -39,6 +39,7 @@ The usual guides for creating such packages apply.
 At minimum the `package.json` file must contain a version entry.
 
 A possible workflow for developing plugins is to place the plugin in a sub-directory of where clusterio has been installed, and rely on Node.js searching up the folder heirarchy for it to find `@clusterio/lib`.
+After creating a directory for your plugin, the boilerplate can be generated automaticlly from a set of tempaltes using `npm exec @clusterio/create -y -- --plugin-template` after which you will be asked which areas your plugin will interact with and your plugin's name.
 To add it to `plugin-list.json` so that it gets loaded use the `plugin add <path>` sub-command to either clusteriocontroller, clusteriohost or clusterioctl.
 Note that it's important that the path starts with ./ or ../ (use .\ or ..\ on Windows).
 
@@ -299,6 +300,20 @@ local clusterio_api = require("modules/clusterio/api")
 -- inside some event handler
 clusterio_api.send_json("my_plugin_foo", { data = 123 })
 ```
+
+For convience a helper function is exposed on server specifically for handling IPC events.
+
+```js
+async init() {
+    this.instance.server.handle("my_plugin_foo", this.handleFoo.bind(this));
+}
+
+async handleFoo(content) {
+    // Do stuff with content
+}
+```
+
+**Note:** This only handles IPC events, all other events must use `on`. You should not include the `ipc-` prefix when using this method. Error logging is handled for you, if you want custom error handling use `on`.
 
 It's recommended to either use the plugin name as the channel name or to prefix the channel name with the name of the plugin if you need multiple channels.
 It's also important to catch any errors that might occur as they will otherwise be propogated to the instance code and kill the server.

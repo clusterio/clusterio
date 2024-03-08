@@ -12,10 +12,23 @@ const util = require("util");
 const yargs = require("yargs");
 
 const { levels, logger, setLogLevel } = require("./logging");
+const { copyPluginTemplates } = require("./template");
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
 const finished = util.promisify(stream.finished);
 
+// I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
+// See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
+// One option is to not call rl.close: SBoudrias/Inquirer.js#767
+// But this comes with its own issues: SBoudrias/Inquirer.js#899
+// The solution below was adapted from aws-amplify/amplify-cli#12347
+if (process.platform === "win32") {
+	const _inquirer_close = inquirer.ui.Prompt.prototype.close;
+	inquirer.ui.Prompt.prototype.close = function() {
+		this.rl.terminal = false;
+		_inquirer_close.call(this);
+	};
+}
 
 const availablePlugins = [
 	{ name: "Global Chat", value: "@clusterio/plugin-global_chat" },
@@ -505,6 +518,7 @@ WantedBy=multi-user.target
 async function inquirerMissingArgs(args) {
 	let answers = {};
 	if (args.mode) { answers.mode = args.mode; }
+	if (args["plugin-template"]) { answers.mode = "plugin-template"; }
 	answers = await inquirer.prompt([
 		{
 			type: "list",
@@ -517,6 +531,7 @@ async function inquirerMissingArgs(args) {
 				{ name: "Host only", value: "host" },
 				{ name: "Ctl only", value: "ctl" },
 				{ name: "Plugins only", value: "plugins" },
+				{ name: "Plugin template", value: "plugin-template" },
 			],
 		},
 	], answers);
@@ -644,6 +659,38 @@ async function inquirerMissingArgs(args) {
 		}
 	}
 
+	if (answers.mode === "plugin-template") {
+		if (args["plugin-template"] && args["plugin-template"].length > 0) {
+			answers.pluginTemplate = args["plugin-template"];
+		}
+		if (args["plugin-name"]) {
+			answers.pluginName = args["plugin-name"];
+		}
+		answers.plugins = [];
+		answers = await inquirer.prompt([
+			{
+				type: "checkbox",
+				name: "pluginTemplate",
+				message: "Plugin templates to use",
+				choices: [
+					{ name: "Controller", value: "controller" },
+					{ name: "Host", value: "host" },
+					{ name: "Instance", value: "instance" },
+					{ name: "Lua Module", value: "module" },
+					{ name: "Command Line", value: "ctl" },
+					{ name: "Web UI", value: "web" },
+					{ name: "No Typescript", value: "js" },
+				],
+			},
+			{
+				type: "input",
+				name: "pluginName",
+				message: "Name of your new plugin",
+				default: path.basename(path.resolve()),
+			},
+		], answers);
+	}
+
 	if (dev) {
 		answers.plugins = [];
 	} else if (args.plugins) {
@@ -720,7 +767,7 @@ async function main() {
 		})
 		.option("mode", {
 			nargs: 1, describe: "Operating mode to install",
-			choices: ["standalone", "controller", "host", "ctl", "plugins"],
+			choices: ["standalone", "controller", "host", "ctl", "plugins", "plugin-template"],
 		})
 		.option("migrate-rename", {
 			nargs: 0, describe: "Migrate from before slave/master rename", default: false, type: "boolean",
@@ -745,6 +792,12 @@ async function main() {
 		})
 		.option("plugins", {
 			array: true, describe: "Plugins to install", type: "string",
+		})
+		.option("plugin-template", {
+			array: true, describe: "Plugin template to use [plugin-template]", type: "string",
+		})
+		.option("plugin-name", {
+			nargs: 1, describe: "Name of your new plugin [plugin-template]", type: "string",
 		})
 		.strict()
 	;
@@ -779,14 +832,19 @@ async function main() {
 	}
 
 	let answers = await inquirerMissingArgs(args);
+	logger.verbose(JSON.stringify(answers));
+
+	if (answers.pluginTemplate) {
+		await copyPluginTemplates(answers.pluginName, answers.pluginTemplate);
+		return;
+	}
+
 	if (answers.downloadHeadless) {
 		if (answers.factorioDir !== "factorio") {
 			throw new InstallError("--download-headless option requires --factorio-dir to be set to factorio");
 		}
 		await downloadLinuxServer();
 	}
-
-	logger.verbose(JSON.stringify(answers));
 
 	if (!dev) {
 		await installClusterio(answers.mode, answers.plugins);
