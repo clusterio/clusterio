@@ -37,7 +37,7 @@ function MyTemplatePage() {
 	</PageLayout>;
 }
 
-class WebPlugin extends BaseWebPlugin {
+export class WebPlugin extends BaseWebPlugin {
 //%if controller & web // Subscribing requires web content and the controller
 	subscribableData = new lib.EventSubscriber(ExampleSubscribableUpdate, this.control);
 
@@ -76,7 +76,3 @@ class WebPlugin extends BaseWebPlugin {
 		};
 	}
 }
-
-module.exports = {
-	WebPlugin,
-};

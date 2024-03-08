@@ -31,12 +31,12 @@ lib.definePermission({
 //%endif
 
 const plugin = {
-	name: "// plugin_name //",
-	title: "// plugin_name //",
+	name: "__plugin_name__",
+	title: "__plugin_name__",
 	description: "Example Description. Plugin. Change me in index.js",
 //%if controller
 
-	controllerEntrypoint: "./dist/node/controller",
+	controllerEntrypoint: "./controller",
 	controllerConfigFields: {
 		"__plugin_name__.myControllerField": {
 			title: "My Controller Field",
@@ -48,7 +48,7 @@ const plugin = {
 //%endif
 //%if host
 
-	hostEntrypoint: "./dist/node/host",
+	hostEntrypoint: "./host",
 	hostConfigFields: {
 		"__plugin_name__.myHostField": {
 			title: "My Host Field",
@@ -60,7 +60,7 @@ const plugin = {
 //%endif
 //%if instance
 
-	instanceEntrypoint: "./dist/node/instance",
+	instanceEntrypoint: "./instance",
 	instanceConfigFields: {
 		"__plugin_name__.myInstanceField": {
 			title: "My Instance Field",
@@ -72,7 +72,7 @@ const plugin = {
 //%endif
 //%if ctl
 
-	ctlEntrypoint: "./dist/node/ctl",
+	ctlEntrypoint: "./ctl",
 	controlConfigFields: {
 		"__plugin_name__.myControlField": {
 			title: "My Control Field",

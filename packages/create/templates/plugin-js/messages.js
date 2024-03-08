@@ -19,7 +19,7 @@ class PluginExampleEvent {
 		"myNumberArray": Type.Array(Type.Number()),
 	});
 
-	static fromJson(json) {
+	static fromJSON(json) {
 		return new PluginExampleEvent(json.myString, json.myNumberArray);
 	}
 }
@@ -41,8 +41,8 @@ class PluginExampleRequest {
 		"myNumberArray": Type.Array(Type.Number()),
 	});
 
-	static fromJson(json) {
-		return new PluginExampleEvent(json.myString, json.myNumberArray);
+	static fromJSON(json) {
+		return new PluginExampleRequest(json.myString, json.myNumberArray);
 	}
 
 	static Response = plainJson(Type.Object({

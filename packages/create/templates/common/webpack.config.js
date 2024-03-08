@@ -14,7 +14,7 @@ module.exports = (env = {}) => merge(common(env), {
 	plugins: [
 		new webpack.container.ModuleFederationPlugin({
 			name: "__plugin_name__",
-			library: { type: "var", name: "plugin___plugin_name__" },
+			library: { type: "window", name: "plugin___plugin_name__" },
 			exposes: {
 				"./": "./index.__ext__",
 				"./package.json": "./package.json",
