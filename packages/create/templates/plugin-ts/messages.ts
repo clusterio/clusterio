@@ -20,7 +20,7 @@ export class PluginExampleEvent {
 		"myNumberArray": Type.Array(Type.Number()),
 	});
 
-	static fromJson(json: Static<typeof PluginExampleEvent.jsonSchema>) {
+	static fromJSON(json: Static<typeof PluginExampleEvent.jsonSchema>) {
 		return new PluginExampleEvent(json.myString, json.myNumberArray);
 	}
 }
@@ -44,8 +44,8 @@ export class PluginExampleRequest {
 		"myNumberArray": Type.Array(Type.Number()),
 	});
 
-	static fromJson(json: Static<typeof PluginExampleEvent.jsonSchema>) {
-		return new PluginExampleEvent(json.myString, json.myNumberArray);
+	static fromJSON(json: Static<typeof PluginExampleRequest.jsonSchema>) {
+		return new PluginExampleRequest(json.myString, json.myNumberArray);
 	}
 
 	static Response = plainJson(Type.Object({
