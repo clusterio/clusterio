@@ -284,7 +284,9 @@ ${err.stack}`
 			);
 		}
 
-		connection = new HostConnection(data, connector, this.controller, this.remoteAddr(req));
+		// Handle close before HostConnection does. This avoids a host
+		// connection event happening between the connection breaking and
+		// it being removed from the host connections list.
 		connector.on("close", () => {
 			if (this.hostConnections.get(data.id) === connection) {
 				this.hostConnections.delete(data.id);
@@ -292,6 +294,8 @@ ${err.stack}`
 				logger.warn("Unlisted HostConnection closed");
 			}
 		});
+
+		connection = new HostConnection(data, connector, this.controller, this.remoteAddr(req));
 		this.hostConnections.set(data.id, connection);
 		let src = new lib.Address(lib.Address.host, data.id);
 		connector.ready(socket, src, sessionToken, undefined);
@@ -331,10 +335,10 @@ ${err.stack}`
 		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.control, id));
 
 		logger.verbose(`WsServer | registered control ${id} from ${this.remoteAddr(req)}`);
-		let connection = new ControlConnection(data, connector, this.controller, user, id);
 		connector.on("close", () => {
 			this.controlConnections.delete(id);
 		});
+		let connection = new ControlConnection(data, connector, this.controller, user, id);
 		this.controlConnections.set(id, connection);
 		let account = new lib.AccountDetails(
 			user.name,
