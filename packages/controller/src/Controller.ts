@@ -896,7 +896,7 @@ export default class Controller {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, Date.now());
+		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, undefined, Date.now());
 		this.instances.set(instanceId, instance);
 		this.instancesDirty = true;
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);

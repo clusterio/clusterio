@@ -59,6 +59,9 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 				buttonContent={assigned ? "Reassign" : "Assign"}
 			/>}
 		</Descriptions.Item>
+		<Descriptions.Item label="Version">
+			{instance.factorioVersion ?? "unknown"}
+		</Descriptions.Item>
 		<Descriptions.Item label="Status"><InstanceStatusTag status={instance.status!} /></Descriptions.Item>
 	</Descriptions>;
 }
