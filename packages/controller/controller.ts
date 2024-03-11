@@ -341,21 +341,16 @@ async function initialize(): Promise<InitializeParameters> {
 	lib.addPluginConfigFields(pluginInfos);
 
 	const controllerConfigPath = args.config;
-	logger.info(`Loading config from ${controllerConfigPath}`);
-	let controllerConfig = new lib.ControllerConfig("controller");
-	try {
-		let jsonConfig = JSON.parse(await fs.readFile(controllerConfigPath, { encoding: "utf8" }));
-		controllerConfig = lib.ControllerConfig.fromJSON(jsonConfig, "controller");
-
-	} catch (err: any) {
-		if (err.code === "ENOENT") {
-			logger.info("Config not found, initializing new config");
-			controllerConfig = new lib.ControllerConfig("controller");
-
-		} else {
-			throw new lib.StartupError(`Failed to load ${controllerConfigPath}: ${err.message}`);
-		}
+	let controllerConfigLoader = () => lib.loadConfig(
+		controllerConfigPath,
+		(json) => lib.ControllerConfig.fromJSON(json, "controller")
+	);
+	if (command === "config") {
+		await lib.handleConfigCommand(
+			args, controllerConfigLoader, controllerConfigPath, () => new lib.ControllerConfig("controller")
+		);
 	}
+	let controllerConfig = await controllerConfigLoader();
 
 	if (!controllerConfig.get("controller.auth_secret")) {
 		logger.info("Generating new controller authentication secret");
@@ -367,12 +362,7 @@ async function initialize(): Promise<InitializeParameters> {
 		);
 	}
 
-	if (command === "config") {
-		await lib.handleConfigCommand(
-			args, controllerConfig, controllerConfigPath
-		);
-
-	} else if (command === "bootstrap") {
+	if (command === "bootstrap") {
 		await handleBootstrapCommand(args, controllerConfig);
 	}
 
