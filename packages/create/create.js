@@ -108,7 +108,7 @@ async function safeOutputFile(file, data, options={}) {
 async function execFile(cmd, args) {
 	logger.verbose(`executing ${cmd} ${args.join(" ")}`);
 	return new Promise((resolve, reject) => {
-		let child = child_process.execFile(cmd, args, (err, stdout, stderr) => {
+		let child = child_process.execFile(cmd, args, { shell: true }, (err, stdout, stderr) => {
 			if (err) {
 				reject(err);
 			} else {
