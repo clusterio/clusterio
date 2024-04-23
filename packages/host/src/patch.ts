@@ -78,7 +78,14 @@ export class SaveModule {
 	static async fromSave(json: Static<typeof SaveModule.jsonSchema>, root: JSZip) {
 		const module = new this(lib.ModuleInfo.fromJSON(json));
 		module.files = new Map(
-			await Promise.all(json.files.map(async f => [f, await root.file(f)!.async("nodebuffer")] as const))
+			await Promise.all(json.files.map(async filename => {
+				const file = root.file(filename);
+				if (file === null) {
+					lib.logger.warn(`Missing file ${filename} in save`);
+					return [filename, Buffer.alloc(0)] as const;
+				}
+				return [filename, await file.async("nodebuffer")] as const;
+			}))
 		);
 		return module;
 	}
@@ -395,8 +402,11 @@ export async function patch(savePath: string, modules: SaveModule[]) {
 		}
 	} else {
 		for (let module of patchInfo.modules) {
-			for (let file of module.files.keys()) {
-				zip.remove(root.file(file)!.name);
+			for (let filepath of module.files.keys()) {
+				const file = root.file(filepath);
+				if (file !== null) {
+					zip.remove(file.name);
+				}
 			}
 		}
 		patchInfo.modules = [];
