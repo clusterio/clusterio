@@ -29,6 +29,7 @@ Many thanks to the following for contributing to this release:
 
 - Added logging of HTTP requests and errors on the controller [#556](https://github.com/clusterio/clusterio/pull/556).
 - Added caching of data parsed from mods to speed up startup time [#606](https://github.com/clusterio/clusterio/pull/606).
+- Added command to installer to generate the code for making a new plugin [#570](https://github.com/clusterio/clusterio/pull/570).
 
 ### Changes
 
