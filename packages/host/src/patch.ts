@@ -77,16 +77,16 @@ export class SaveModule {
 
 	static async fromSave(json: Static<typeof SaveModule.jsonSchema>, root: JSZip) {
 		const module = new this(lib.ModuleInfo.fromJSON(json));
-		module.files = new Map(
-			await Promise.all(json.files.map(async filename => {
-				const file = root.file(filename);
+		module.files = new Map(await Promise.all(json.files
+			.map(filename => ({filename, file: root.file(filename)}))
+			.filter(({filename, file}) => {
 				if (file === null) {
 					lib.logger.warn(`Missing file ${filename} in save`);
-					return [filename, Buffer.alloc(0)] as const;
 				}
-				return [filename, await file.async("nodebuffer")] as const;
-			}))
-		);
+				return file !== null;
+			})
+			.map(async ({filename, file}) => [filename, await file!.async("nodebuffer")] as const)
+		));
 		return module;
 	}
 
