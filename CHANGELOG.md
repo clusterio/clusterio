@@ -28,6 +28,7 @@ Many thanks to the following for contributing to this release:
 ### Features
 
 - Added logging of HTTP requests and errors on the controller [#556](https://github.com/clusterio/clusterio/pull/556).
+- Added caching of data parsed from mods to speed up startup time [#606](https://github.com/clusterio/clusterio/pull/606).
 
 ### Changes
 
@@ -38,6 +39,7 @@ Many thanks to the following for contributing to this release:
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)
 [@Danielv123](https://github.com/Danielv123)
+[@Hornwitser](https://github.com/Hornwitser)
 
 
 ## Version 2.0.0-alpha.17
