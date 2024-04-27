@@ -31,11 +31,13 @@ Many thanks to the following for contributing to this release:
 
 ### Changes
 
-- Fixed Inventory Sync reporting a negative database size [¤598](https://github.com/clusterio/clusterio/pull/598).
+- Fixed Inventory Sync reporting a negative database size [#598](https://github.com/clusterio/clusterio/pull/598).
 - Fixed plugin events being invoked while a host connection was in an invalid state.
+- Suppresed bogus warning about event listener leak in the browser's console [#600](https://github.com/clusterio/clusterio/pull/600).
 
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
 
 
 ## Version 2.0.0-alpha.17
