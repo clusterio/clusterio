@@ -424,7 +424,15 @@ function InputColor(props: {
 	value: lib.ModSettingColor,
 	onChange: (value: lib.ModSettingColor) => void,
 }) {
-	const value = props.value;
+	// In certain edge cases it's possible a value for this mod setting does not exist
+	// or is of the wrong type. Fallback to black if this is the case.
+	function isColor(input: unknown) {
+		if (typeof input !== "object" || input === null) {
+			return false;
+		}
+		return "r" in input && "g" in input && "b" in input && "a" in input;
+	}
+	const value = isColor(props.value) ? props.value : { r: 0, g: 0, b: 0, a: 1 };
 	return <ColorPicker
 		defaultFormat="rgb"
 		defaultValue={`rgba(${value.r * 255}, ${value.g * 255}, ${value.b * 255}, ${value.a}`}
@@ -774,7 +782,7 @@ export default function ModPackViewPage() {
 						continue;
 					}
 				}
-				if (modifiedModPack!.settings[scope].get(settingName)!.value !== value) {
+				if (modifiedModPack!.settings[scope].get(settingName)?.value !== value) {
 					pushChange({ type: "settings.set", scope, name: settingName, value: { value }});
 				}
 			}
