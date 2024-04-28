@@ -374,9 +374,6 @@ export default class ModPack {
 				value = typeof value === "object" ? prototype.default_value : String(value ?? "");
 			}
 			if (type === "color-setting") {
-				if (typeof value !== "object") {
-					value = prototype.default_value;
-				}
 				value = libLuaTools.normalizeColor(value as object);
 			}
 			this.settings[settingType].set(prototype.name, { value });
