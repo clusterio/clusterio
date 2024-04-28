@@ -37,6 +37,7 @@ Many thanks to the following for contributing to this release:
 - Fixed plugin events being invoked while a host connection was in an invalid state.
 - Suppresed bogus warning about event listener leak in the browser's console [#600](https://github.com/clusterio/clusterio/pull/600).
 - Fixed installer breaking on Windows after Node.js released a security fix [#614](https://github.com/clusterio/clusterio/pull/614).
+- During a data export the mod settings in mod packs will now be corrected to the type of the settings prototype if the type is incorrect.
 
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)

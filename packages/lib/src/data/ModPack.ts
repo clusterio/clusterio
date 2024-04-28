@@ -334,10 +334,11 @@ export default class ModPack {
 	}
 
 	/**
-	 * Fill in missing settings with their default values
+	 * Fill in missing and incorrect settings with their default values
 	 *
-	 * Uses the provided setting prototypes to add any missing mod settings
-	 * in the mod pack with the default value from the prototype.
+	 * Uses the provided setting prototypes to correct any missing and or
+	 * incorrect mod settings in the mod pack with the default value from
+	 * the prototype.
 	 *
 	 * @param settingPrototypes -
 	 *     Setting prototypes exported from the game.
@@ -360,13 +361,23 @@ export default class ModPack {
 				logger.warn(`Ignoring ${prototype.name} with missing default_value`);
 				continue;
 			}
-			if (this.settings[settingType].get(prototype.name)) {
-				continue;
+			let value = this.settings[settingType].get(prototype.name)?.value ?? prototype.default_value;
+			const type = prototype.type;
+			if (
+				type === "bool-setting" && typeof value !== "boolean"
+				|| type === "color-setting" && typeof value !== "object"
+				|| (type === "int-setting" || type === "double-setting") && typeof value !== "number"
+			) {
+				value = prototype.default_value;
 			}
-
-			let value = prototype.default_value;
-			if (prototype.type === "color-setting") {
-				value = libLuaTools.normalizeColor(value);
+			if (type === "string-setting" && typeof value !== "string") {
+				value = typeof value === "object" ? prototype.default_value : String(value ?? "");
+			}
+			if (type === "color-setting") {
+				if (typeof value !== "object") {
+					value = prototype.default_value;
+				}
+				value = libLuaTools.normalizeColor(value as object);
 			}
 			this.settings[settingType].set(prototype.name, { value });
 		}
