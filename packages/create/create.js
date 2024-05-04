@@ -551,6 +551,25 @@ async function inquirerMissingArgs(args) {
 				},
 			},
 		], answers);
+
+		if (args.httpPort) { answers.httpPort = args.httpPort; }
+		answers = await inquirer.prompt([
+			{
+				type: "input",
+				name: "httpPort",
+				message: "HTTP port to listen on",
+				default: 8080,
+				validate: input => {
+					if (!input) {
+						return "May not be empty";
+					}
+					if (!Number.isInteger(Number(input))) {
+						return "Must be a number";
+					}
+					return true;
+				},
+			},
+		], answers);
 	}
 
 	if (answers.mode === "host") {
@@ -775,6 +794,9 @@ async function main() {
 		.option("admin", {
 			nargs: 1, describe: "Admin account name [standalone/controller]", type: "string",
 		})
+		.option("http-port", {
+			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
+		})
 		.option("host-name", {
 			nargs: 1, describe: "Host name [host]", type: "string",
 		})
@@ -854,6 +876,7 @@ async function main() {
 	if (["standalone", "controller"].includes(answers.mode)) {
 		logger.info("Setting up controller");
 		await execController(["bootstrap", "create-admin", answers.admin]);
+		await execController(["config", "set", "controller.http_port", answers.httpPort]);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
@@ -868,6 +891,8 @@ async function main() {
 		result = await execController(["bootstrap", "generate-host-token", hostId]);
 		let hostToken = result.stdout.split("\n").slice(-2)[0];
 
+		// Default to localhost on correct port for host in standalone mode
+		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}`]);
 		await execHost(["config", "set", "host.controller_token", hostToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);
