@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload } from "antd";
 import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
-import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -17,7 +16,8 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
-import { InboxOutlined } from "@ant-design/icons";
+import { Dropzone } from "./Dropzone";
+import UploadButton from "./UploadButton";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -134,7 +134,6 @@ export default function ModsPage() {
 	let navigate = useNavigate();
 	let [mods] = useMods();
 	let [modPacks] = useModPacks();
-	const [isDroppingFile, setIsDroppingFile] = useState(false);
 
 	function actions(mod: lib.ModInfo) {
 		return <Space>
@@ -176,27 +175,13 @@ export default function ModsPage() {
 			name="file"
 			accept=".zip"
 			multiple
+			showUploadList={false}
 			headers={{
 				"X-Access-Token": control.connector.token || "",
 			}}
 			action={`${webRoot}api/upload-mod`}
 		>
-			<Button
-				onDragEnter={e => setIsDroppingFile(true)}
-				onDragLeave={e => {
-					// Only process if we are leaving the dropzone for an element that is not a child of the button
-					if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
-						return;
-					}
-					setIsDroppingFile(false);
-				}}
-				onDrop={e => setIsDroppingFile(false)}
-				style={{
-					// Distinct border when dropping file
-					border: isDroppingFile ? "dashed 2px rgb(22, 119, 255)" : undefined,
-				}}
-				icon={isDroppingFile ? <InboxOutlined /> : <UploadOutlined />}
-			>Upload</Button>
+			<UploadButton />
 		</Upload>;
 	}
 
@@ -256,50 +241,8 @@ export default function ModsPage() {
 					position: "relative",
 					zIndex: "1010",
 				}}
-				onDragEnter={e => {
-					setIsDroppingFile(true);
-				}}
-				onDragLeave={e => {
-					if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
-						return;
-					}
-					setIsDroppingFile(false);
-				}}
-				onDrop={e => setIsDroppingFile(false)}
 			>
-				<div
-					style={{
-						position: "absolute",
-						top: "0",
-						left: "0",
-						width: "100%",
-						height: "100%",
-						zIndex: "90",
-						backgroundColor: "#88888844",
-						borderRadius: "20px",
-						border: "dashed 2px rgb(22, 119, 255)",
-						display: isDroppingFile ? "block" : "none",
-					}}
-				>
-					<div
-						id="dropzone-icon"
-						style={{
-							fontSize: "72px",
-							color: "rgb(22, 119, 255)",
-							display: "flex",
-							zIndex: "100",
-							alignItems: "center",
-							justifyContent: "center",
-							flexDirection: "column",
-							height: "100%",
-						}}
-					>
-						<InboxOutlined />
-						<p style={{ fontSize: "24px", display: "block", textAlign: "center", marginTop: "8px" }}>
-							Drop to upload
-						</p>
-					</div>
-				</div>
+				<Dropzone />
 				<Table
 					columns={[
 						{

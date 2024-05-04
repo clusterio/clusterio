@@ -15,7 +15,8 @@ import SectionHeader from "./SectionHeader";
 import { useInstances } from "../model/instance";
 import { useSavesOfInstance } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
-import { InboxOutlined } from "@ant-design/icons";
+import { Dropzone } from "./Dropzone";
+import UploadButton from "./UploadButton";
 
 
 type ModalProps = {
@@ -205,7 +206,6 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	let [saves] = useSavesOfInstance(props.instance.id);
 	let [starting, setStarting] = useState(false);
 	let [uploadingFiles, setUploadingFiles] = useState<File[]>([]);
-	const [isDroppingFile, setIsDroppingFile] = useState<boolean>(false);
 
 	let hostOffline = ["unassigned", "unknown"].includes(props.instance.status!);
 	const saveTable = <Table
@@ -348,7 +348,9 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	return <div>
 		<SectionHeader title="Saves" extra={<Space>
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
-				<Button disabled={hostOffline}>Upload save</Button>
+				<UploadButton disabled={hostOffline}>
+					Upload save
+				</UploadButton>
 			</Upload>}
 			{account.hasPermission("core.instance.save.create") && <CreateSaveModal instance={props.instance} />}
 		</Space>} />
@@ -360,55 +362,8 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 							position: "relative",
 							zIndex: "1010",
 						}}
-						onDragEnter={e => {
-							setIsDroppingFile(true);
-						}}
-						onDragLeave={e => {
-							if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) {
-								return;
-							}
-							setIsDroppingFile(false);
-						}}
-						onDrop={e => setIsDroppingFile(false)}
 					>
-						<div
-							style={{
-								position: "absolute",
-								top: "0",
-								left: "0",
-								width: "100%",
-								height: "100%",
-								zIndex: "90",
-								backgroundColor: "#88888844",
-								borderRadius: "20px",
-								border: "dashed 2px rgb(22, 119, 255)",
-								display: isDroppingFile ? "block" : "none",
-							}}
-						>
-							<div
-								id="dropzone-icon"
-								style={{
-									fontSize: "72px",
-									color: "rgb(22, 119, 255)",
-									display: "flex",
-									zIndex: "100",
-									alignItems: "center",
-									justifyContent: "center",
-									flexDirection: "column",
-									height: "100%",
-								}}
-							>
-								<InboxOutlined />
-								<p style={{
-									fontSize: "24px",
-									display: "block",
-									textAlign: "center",
-									marginTop: "8px",
-								}}>
-									Drop to upload
-								</p>
-							</div>
-						</div>
+						<Dropzone />
 						{saveTable}
 					</div>
 				</Upload.Dragger>
