@@ -44,6 +44,7 @@ module.exports = {
 			"files": [
 				"packages/web_ui/src/**/*.ts?(x)",
 				"packages/lib/browser.ts",
+				"packages/create/templates/*/web/**/*.{t,j}s?(x)",
 				"{packages,plugins}/*/web/**/*.ts?(x)",
 			],
 			"env": {
@@ -92,6 +93,19 @@ module.exports = {
 				"node/prefer-promises/fs": "off",
 				"node/process-exit-as-throw": "off",
 				"node/shebang": "off",
+			},
+		},
+		{
+			"files": [
+				"packages/create/templates/**/*.{t,j}s?(x)",
+			],
+			"rules": {
+				"node/no-missing-require": "off",
+				"node/no-missing-import": "off",
+				"spaced-comment": "off",
+				"comma-spacing": "off",
+				"max-len": "off",
+				"indent": "off",
 			},
 		},
 	],

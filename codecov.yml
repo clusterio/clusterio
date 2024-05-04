@@ -1,0 +1,6 @@
+coverage:
+  status:
+    project:
+      default:
+        if_ci_failed: success
+        informational: true

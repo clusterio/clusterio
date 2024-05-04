@@ -1054,6 +1054,7 @@ describe("Integration of Clusterio", function() {
 					"factorioVersion: 1.1\n" +
 					"dependencies:\n" +
 					`size: ${stat.size}\n` +
+					`mtimeMs: ${stat.mtimeMs}\n` +
 					`sha1: ${hash}\n` +
 					`updatedAtMs: ${stat.mtimeMs}\n` +
 					"isDeleted: false\n",

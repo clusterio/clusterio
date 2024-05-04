@@ -1,0 +1,53 @@
+{
+	"name": "__plugin_name__",
+	"version": "0.1.0",
+	"description": "Example Description. Package. Change me in package.json",
+//%if typescript
+	"main": "dist/node/index.js",
+//%endif
+//%if !typescript
+	"main": "index.js",
+//%endif
+	"scripts": {
+		"prepare": "__prepare__"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"peerDependencies": {
+		"@clusterio/lib": "^2.0.0-alpha.17"
+	},
+	"devDependencies": {
+//%// Typescript and type declarations
+//%if typescript
+		"typescript": "^5.1.6",
+		"@types/node": "^20.4.5",
+//%endif
+//%if typescript & web
+		"@types/react": "^18.2.21",
+//%endif
+//%// Everything else
+//%if web
+		"antd": "^5.13.0",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+//%endif
+//%if web | controller // The controller uses webpack even when there is no plugin code
+		"webpack": "^5.88.2",
+		"webpack-cli": "^5.1.4",
+		"webpack-merge": "^5.9.0",
+		"@clusterio/web_ui": "^2.0.0-alpha.17",
+//%endif
+		"@clusterio/lib": "^2.0.0-alpha.17"
+	},
+	"dependencies": {
+		"@sinclair/typebox": "^0.30.4"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"keywords": [
+		"clusterio",
+		"factorio"
+	]
+}
