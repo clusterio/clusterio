@@ -28,14 +28,22 @@ Many thanks to the following for contributing to this release:
 ### Features
 
 - Added logging of HTTP requests and errors on the controller [#556](https://github.com/clusterio/clusterio/pull/556).
+- Added caching of data parsed from mods to speed up startup time [#606](https://github.com/clusterio/clusterio/pull/606).
+- Added command to installer to generate the code for making a new plugin [#570](https://github.com/clusterio/clusterio/pull/570).
 
 ### Changes
 
-- Fixed Inventory Sync reporting a negative database size [¤598](https://github.com/clusterio/clusterio/pull/598).
+- Fixed Inventory Sync reporting a negative database size [#598](https://github.com/clusterio/clusterio/pull/598).
 - Fixed plugin events being invoked while a host connection was in an invalid state.
+- Suppresed bogus warning about event listener leak in the browser's console [#600](https://github.com/clusterio/clusterio/pull/600).
+- Fixed installer breaking on Windows after Node.js released a security fix [#614](https://github.com/clusterio/clusterio/pull/614).
+- During a data export the mod settings in mod packs will now be corrected to the type of the settings prototype if the type is incorrect.
+- Fixed missing color setting causing the Mod Pack view in the Web UI to show an error [#609](https://github.com/clusterio/clusterio/issues/609).
 
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
+[@Hornwitser](https://github.com/Hornwitser)
 
 
 ## Version 2.0.0-alpha.17

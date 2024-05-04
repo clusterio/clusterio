@@ -179,6 +179,84 @@ describe("lib/data/ModPack", function() {
 					"runtime-per-user": {},
 				});
 			});
+			it("should coerce values of the incorrect type into the correct type", function() {
+				const boolDefault = true;
+				const intDefault = 123;
+				const doubleDefault = 1234.5;
+				const stringDefault = "default";
+				const colorDefault = { r: 1, g: 0, b: 1, a: 1};
+				const settingDefaultValues = {
+					"bool-setting": boolDefault,
+					"int-setting": intDefault,
+					"double-setting": doubleDefault,
+					"string-setting": stringDefault,
+					"color-setting": colorDefault,
+				};
+				const possibleValues = ["bool", "int", "double", "string", "color"];
+				const settingPrototypes = {
+					"bool-setting": {},
+					"int-setting": {},
+					"double-setting": {},
+					"string-setting": {},
+					"color-setting": {},
+				};
+				for (const [type, default_value] of Object.entries(settingDefaultValues)) {
+					for (const value of possibleValues) {
+						const settingName = `${type}-with-${value}-value`;
+						settingPrototypes[type][settingName] = {
+							type,
+							name: settingName,
+							setting_type: "startup",
+							default_value,
+						};
+					}
+				};
+
+				const pack = new ModPack();
+				const settingValues = {
+					"bool": false,
+					"int": 1,
+					"double": 2.5,
+					"string": "str",
+					"color": { r: 0, g: 1, b: 0, a: 1 },
+				};
+				for (const type of Object.keys(settingDefaultValues)) {
+					for (const [valueType, value] of Object.entries(settingValues)) {
+						pack.settings.startup.set(`${type}-with-${valueType}-value`, { value });
+					}
+				}
+				pack.fillDefaultSettings(settingPrototypes);
+				assert.deepEqual(
+					pack.settings["startup"],
+					new Map([
+						["bool-setting-with-bool-value", false],
+						["bool-setting-with-int-value", boolDefault],
+						["bool-setting-with-double-value", boolDefault],
+						["bool-setting-with-string-value", boolDefault],
+						["bool-setting-with-color-value", boolDefault],
+						["int-setting-with-bool-value", intDefault],
+						["int-setting-with-int-value", 1],
+						["int-setting-with-double-value", 2.5],
+						["int-setting-with-string-value", intDefault],
+						["int-setting-with-color-value", intDefault],
+						["double-setting-with-bool-value", doubleDefault],
+						["double-setting-with-int-value", 1],
+						["double-setting-with-double-value", 2.5],
+						["double-setting-with-string-value", doubleDefault],
+						["double-setting-with-color-value", doubleDefault],
+						["string-setting-with-bool-value", "false"],
+						["string-setting-with-int-value", "1"],
+						["string-setting-with-double-value", "2.5"],
+						["string-setting-with-string-value", "str"],
+						["string-setting-with-color-value", stringDefault],
+						["color-setting-with-bool-value", colorDefault],
+						["color-setting-with-int-value", colorDefault],
+						["color-setting-with-double-value", colorDefault],
+						["color-setting-with-string-value", colorDefault],
+						["color-setting-with-color-value", { r: 0, g: 1, b: 0, a: 1}],
+					].map(([k, v]) => [k, { value: v }])),
+				);
+			});
 		});
 
 		describe(".fromModPackString()", function() {

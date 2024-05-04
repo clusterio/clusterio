@@ -3,7 +3,7 @@
 	"description": "Clusterio web interface implementation",
 	"author": "Hornwitser",
 	"license": "MIT",
-	"version": "2.0.0-alpha.17",
+	"version": "2.0.0-alpha.18",
 	"browser": "src/index.ts",
 	"main": "dist/browser/src/index.js",
 	"scripts": {
@@ -17,7 +17,7 @@
 	},
 	"dependencies": {
 		"@ant-design/icons": "^5.1.4",
-		"@clusterio/lib": "^2.0.0-alpha.17",
+		"@clusterio/lib": "^2.0.0-alpha.18",
 		"@swc/core": "^1.4.0",
 		"antd": "^5.13.0",
 		"assert": "^2.0.0",
