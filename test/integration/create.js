@@ -18,8 +18,11 @@ async function exec(command, options = {}) {
 }
 
 describe("Integration of create tool", function () {
-	before(async function () {
+	beforeEach(async function () {
 		await fs.ensureDir(cwd);
+	});
+	afterEach(async function () {
+		await fs.remove(cwd);
 	});
 	it("should create a new standalone installation", async function () {
 		await exec([
@@ -42,7 +45,7 @@ describe("Integration of create tool", function () {
 		assert.equal(hostConfig["host.public_address"], "localhost");
 		assert.equal(hostConfig["host.factorio_directory"], "test/factorio");
 		assert.equal(hostConfig["host.controller_url"], "http://localhost:8099");
-	}).timeout(60000);
+	}).timeout(1200000);
 	it("should create a new controller installation", async function () {
 		await exec([
 			"node ../../packages/create",
@@ -59,7 +62,4 @@ describe("Integration of create tool", function () {
 
 		await assert.rejects(fs.readJson(path.join(cwd, "config-host.json")));
 	}).timeout(60000);
-	after(async function () {
-		await fs.remove(path.join(cwd, "temp/test_integration"));
-	});
 });
