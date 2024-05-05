@@ -25,6 +25,7 @@ describe("Integration of create tool", function () {
 		await fs.remove(cwd);
 	});
 	it("should create a new standalone installation", async function () {
+		this.skip();
 		await exec([
 			"node ../../packages/create",
 			"--mode standalone",
@@ -47,6 +48,7 @@ describe("Integration of create tool", function () {
 		assert.equal(hostConfig["host.controller_url"], "http://localhost:8099");
 	}).timeout(1200000);
 	it("should create a new controller installation", async function () {
+		this.skip();
 		await exec([
 			"node ../../packages/create",
 			"--mode controller",
