@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.18",
+		"@clusterio/lib": "workspace:*",
 		"@sinclair/typebox": "^0.30.4",
 		"fs-extra": "^11.1.1",
 		"jimp": "^0.22.8",

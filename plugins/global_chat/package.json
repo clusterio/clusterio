@@ -18,11 +18,11 @@
 		"node": ">=18"
 	},
 	"peerDependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.0"
+		"@clusterio/lib": "workspace:*"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.18",
-		"@clusterio/web_ui": "^2.0.0-alpha.18",
+		"@clusterio/lib": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
 		"@types/node": "^20.4.5",
 		"@types/react": "^18.2.21",
 		"typescript": "^5.1.6",
