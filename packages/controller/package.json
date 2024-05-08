@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.18",
+		"@clusterio/lib": "workspace:*",
 		"@sinclair/typebox": "^0.30.4",
 		"busboy": "^1.6.0",
 		"compression": "^1.7.4",
@@ -36,7 +36,7 @@
 		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
-		"@clusterio/web_ui": "^2.0.0-alpha.18",
+		"@clusterio/web_ui": "workspace:*",
 		"@swc/core": "^1.4.0",
 		"@types/busboy": "^1.5.0",
 		"@types/compression": "^1.7.2",

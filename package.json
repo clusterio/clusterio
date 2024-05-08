@@ -27,6 +27,7 @@
 		"@clusterio/controller": "workspace:*",
 		"@clusterio/ctl": "workspace:*",
 		"@clusterio/host": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
 		"@clusterio/lib": "workspace:*",
 		"@swc/core": "^1.4.0",
 		"@typescript-eslint/eslint-plugin": "^6.4.1",
