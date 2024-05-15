@@ -23,6 +23,20 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.19
+
+### Features
+
+- Added instance version display [#573](https://github.com/clusterio/clusterio/pull/573)
+
+### Breaking changes
+
+- @clusterio/controller export InstanceInfo has added factorioVersion parameter
+
+Many thanks to the following for contributing to this release:
+[@CCpersonguy](https://github.com/CCpersonguy)
+[@Danielv123](https://github.com/Danielv123)
+
 ## Version 2.0.0-alpha.18
 
 ### Features
