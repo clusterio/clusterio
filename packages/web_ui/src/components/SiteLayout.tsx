@@ -13,6 +13,22 @@ import { DraggingContext } from "../model/is_dragging";
 
 const { Header, Sider } = Layout;
 
+function isDropzone(element: HTMLElement | null): boolean {
+	if (!element) {
+		return false;
+	}
+	const checkDepth = 5;
+	let depth = 0;
+	while (element && depth < checkDepth) {
+		if (element.classList.contains("dropzone")) {
+			return true;
+		}
+		element = element.parentElement;
+		depth += 1;
+	}
+	return false;
+}
+
 export default function SiteLayout() {
 	let navigate = useNavigate();
 	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
@@ -86,9 +102,24 @@ export default function SiteLayout() {
 		onDragEnter={() => setDraggingProxy(1)}
 		onDragLeave={() => setDraggingProxy(-1)}
 		// Reset dragging state when dropped
-		onDrop={() => setDragging(0)}
+		onDrop={(e) => {
+			setDragging(0);
+			// Prevent dropping outside of dropzone
+			if (!isDropzone(e.target as HTMLElement)) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}}
 		// Allow entire document to be a drag target
-		onDragOver={(e) => e.preventDefault()}
+		onDragOver={(e) => {
+			e.preventDefault();
+			// Change cursor
+			if (isDropzone(e.target as HTMLElement)) {
+				e.dataTransfer.dropEffect = "copy";
+			} else {
+				e.dataTransfer.dropEffect = "none";
+			}
+		}}
 	>
 		<DraggingContext.Provider value={dragging > 0}>
 			<Header className="header">

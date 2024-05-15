@@ -7,6 +7,7 @@ import { DraggingContext } from "../model/is_dragging";
 export default function UploadButton(props: React.ComponentProps<typeof Button>) {
 	const isDroppingFile = useContext(DraggingContext);
 	return <Button
+		className="dropzone"
 		{...props}
 		style={{
 			...props.style,

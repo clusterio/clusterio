@@ -7,6 +7,7 @@ export function Dropzone() {
 	const isDroppingFile = useContext(DraggingContext);
 
 	return <div
+		className="dropzone" // Don't remove this class, linked to SiteLayout.tsx
 		style={{
 			position: "absolute",
 			top: "0",
@@ -21,7 +22,7 @@ export function Dropzone() {
 		}}
 	>
 		<div
-			id="dropzone-icon"
+			className="dropzone-icon"
 			style={{
 				fontSize: "72px",
 				color: "rgb(22, 119, 255)",
