@@ -209,7 +209,9 @@ See the [readme for @clusterio/controller](/packages/controller/README.md) for m
 
 ## Managing Factorio mods
 
-Mods in clusterio are managed as parts of modpacks. There is currently no mod portal integration. To create a modpack, navigate to the mods section of the web UI and upload your mods. You can then create a modpack from the uploaded mods. Once you have a modpack, you can assign it to an instance when creating or editing it. You can also set a default modpack for new instances in the controller settings.
+Mods in clusterio are managed as parts of modpacks. There is currently no mod portal integration, so you first need to navigate to the mods section of the web UI and upload your mods. You can then create a modpack from the uploaded mods by navigating to the mods page, hitting `create`. Once you have a modpack, you can assign it to an instance under Instance config -> Factorio -> Mod pack. You can also set a default modpack for new instances in the controller settings.
+
+![Select mod pack for instance](docs/assets/config_select_mod_pack.png)
 
 Mod settings can be managed under the modpack configuration page in the web UI. For mod settings to show, you first need to run an export. This is done by creating an instance with the modpack assigned, opening the instance page and pressing More -> Export data.
 
