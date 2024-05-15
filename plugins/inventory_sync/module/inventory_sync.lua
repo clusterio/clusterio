@@ -357,8 +357,14 @@ end
 
 -- Download inventory from controller
 inventory_sync.events[defines.events.on_player_joined_game] = function(event)
-	-- Send acquire request even if an active download is currently in plogress
 	local player = game.get_player(event.player_index)
+
+	-- It's possible Factorio doesn't invoke the on_player_created event when loading a save in single player
+	if not global.inventory_sync.players[player.name] then
+		create_player(player, false)
+	end
+
+	-- Send acquire request even if an active download is currently in plogress
 	inventory_sync.acquire(player, false)
 
 	-- Clear active upload if it existsi
