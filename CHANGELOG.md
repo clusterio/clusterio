@@ -23,6 +23,20 @@ Many thanks to the following for contributing to this release:
 [@username](https://github.com/username)
 -->
 
+## Version 2.0.0-alpha.19
+
+### Changes
+
+- Fixed IPC errors reporting undefined when no stack trace was present [#624](https://github.com/clusterio/clusterio/pull/624).
+- Fixed loopback routing for instances reporting the wrong error message [#625](https://github.com/clusterio/clusterio/pull/625).
+
+### Breaking Changes
+
+- Previously silent errors for controller.sendEvent now throw exceptions [#625](https://github.com/clusterio/clusterio/pull/625).
+
+Many thanks to the following for contributing to this release:  
+[@Cooldude2606](https://github.com/Cooldude2606)
+
 ## Version 2.0.0-alpha.18
 
 ### Features
