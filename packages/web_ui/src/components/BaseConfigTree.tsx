@@ -270,7 +270,7 @@ function computeTreeData(
 				children: [],
 			};
 
-			if (def.type === "object") {
+			if (def.type === "object" && !Object.keys(control.inputComponents).includes(def.inputComponent!)) {
 				let restartRequiredProps = new Set(def.restartRequiredProps || []);
 				childNode.title = <Form.Item
 					label={<>
