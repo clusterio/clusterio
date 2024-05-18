@@ -424,18 +424,10 @@ describe("Integration of link routing", function() {
 	});
 
 	describe("event should not be routable on loopback", function() {
-		it("should not loopback on controller", async function() {
-			// Sending an event never returns a promise, so it throws rather than rejects like a request
-			assert.throws(
-				() => send(get("controller"), addr("controller"), new TestEvent()),
-				new Error("controller as dst is not supported.")
-			);
-		});
-
-		for (const srcName of ["hostA", "instanceA1", "controlA"]) {
+		for (const srcName of ["controller", "hostA", "instanceA1", "controlA"]) {
 			it(`should not loopback on ${srcName}`, async function() {
 				const src = get(srcName);
-				const dstAddr = src.connector.src;
+				const dstAddr = src instanceof Controller ? addr("controller") : src.connector.src;
 				assert.throws(
 					() => send(src, dstAddr, new TestEvent()),
 					new Error(`Message would return back to sender ${dstAddr}.`)
@@ -445,18 +437,11 @@ describe("Integration of link routing", function() {
 	});
 
 	describe("request should not be routable on loopback", function() {
-		it("should not loopback on controller", async function() {
-			await assert.rejects(
-				() => send(get("controller"), addr("controller"), new TestRequest()),
-				new Error("controller as dst is not supported.")
-			);
-		});
-
-		for (const srcName of ["hostA", "instanceA1", "controlA"]) {
+		for (const srcName of ["controller", "hostA", "instanceA1", "controlA"]) {
 			it(`should not loopback on ${srcName}`, async function() {
 				const src = get(srcName);
-				const dstAddr = src.connector.src;
-				await assert.rejects(
+				const dstAddr = src instanceof Controller ? addr("controller") : src.connector.src;
+				assert.throws(
 					() => send(src, dstAddr, new TestRequest()),
 					new Error(`Message would return back to sender ${dstAddr}.`)
 				);

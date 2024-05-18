@@ -1351,10 +1351,10 @@ export default class Controller {
 		throw Error(`Unknown type ${requestOrEvent.constructor.type}.`);
 	}
 
-	async sendRequest(request: any, dst: lib.Address) {
+	sendRequest(request: any, dst: lib.Address) {
 		let connection;
 		if (dst.type === lib.Address.controller) {
-			throw new Error("controller as dst is not supported.");
+			throw new Error(`Message would return back to sender ${dst}.`);
 
 		} else if (dst.type === lib.Address.control) {
 			connection = this.wsServer.controlConnections.get(dst.id);
@@ -1389,24 +1389,33 @@ export default class Controller {
 	sendEvent<T>(event: lib.Event<T>, dst: lib.Address) {
 		let connection;
 		if (dst.type === lib.Address.controller) {
-			throw new Error("controller as dst is not supported.");
+			throw new Error(`Message would return back to sender ${dst}.`);
 
 		} else if (dst.type === lib.Address.control) {
 			connection = this.wsServer.controlConnections.get(dst.id);
+			if (!connection) {
+				throw new Error("Target control connection does not exist.");
+			}
 
 		} else if (dst.type === lib.Address.instance) {
 			let instance = this.instances.get(dst.id);
 			if (!instance) {
-				return;
+				throw new Error(`Instance with ID ${dst.id} does not exist`);
 			}
 			let hostId = instance.config.get("instance.assigned_host");
 			if (hostId === null) {
-				return;
+				throw new Error("Instance is not assigned to a host");
 			}
 			connection = this.wsServer.hostConnections.get(hostId);
+			if (!connection) {
+				throw new Error("Host containing instance is not connected");
+			}
 
 		} else if (dst.type === lib.Address.host) {
 			connection = this.wsServer.hostConnections.get(dst.id);
+			if (!connection) {
+				throw new Error("Host is not connected");
+			}
 
 		} else if (dst.type === lib.Address.broadcast) {
 			if (dst.id === lib.Address.control) {
@@ -1424,7 +1433,7 @@ export default class Controller {
 				}
 
 			} else {
-				throw new Error(`Unexpected broacdast target ${dst.id}`);
+				throw new Error(`Unexpected broadcast target ${dst.id}`);
 			}
 			return;
 
@@ -1432,9 +1441,7 @@ export default class Controller {
 			throw new Error(`Unknown address type ${dst.type}`);
 		}
 
-		if (connection) {
-			connection.sendEvent(event, dst);
-		}
+		connection.sendEvent(event, dst);
 	}
 
 	async sendToHostByInstanceId<Req extends InstanceId, Res>(request: Req & lib.Request<Req, Res>): Promise<Res>;
