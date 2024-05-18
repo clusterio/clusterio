@@ -667,6 +667,9 @@ export default class Host extends lib.Link {
 				instanceId,
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
+				instanceConnection
+					? instanceConnection.instance.server.version
+					: instanceInfo.config.get("factorio.version"),
 			)
 		);
 
@@ -736,7 +739,7 @@ export default class Host extends lib.Link {
 	}
 
 	assignGamePort(instanceId: number) {
-		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2**16 - 1);
+		const availablePorts = lib.parseRanges(this.config.get("host.factorio_port_range"), 1, 2 ** 16 - 1);
 		for (const [id, instance] of this.instanceInfos) {
 			if (id === instanceId) {
 				continue;
@@ -1060,6 +1063,7 @@ export default class Host extends lib.Link {
 				instanceInfo.config.toRemote("controller"),
 				instanceConnection ? instanceConnection.instance.status : "stopped",
 				instanceConnection ? instanceConnection.instance.server.gamePort : this.gamePort(instanceId),
+				instanceConnection ? instanceConnection.instance.server.version : undefined,
 			));
 		}
 		await this.send(new lib.InstancesUpdateRequest(list));
