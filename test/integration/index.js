@@ -189,6 +189,12 @@ before(async function() {
 		format: new lib.TerminalFormat(),
 	}));
 
+	// If fast test is enabled then output that it is
+	// eslint-disable-next-line node/no-process-env
+	if (process.env.FAST_TEST) {
+		console.log("FAST_TEST is present in env, slow tests will be skipped.");
+	}
+
 	await fs.remove(instancesDir);
 	await fs.remove(modsDir);
 	await fs.remove(databaseDir);

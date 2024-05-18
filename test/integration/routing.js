@@ -5,6 +5,9 @@ const lib = require("@clusterio/lib");
 const { Host, Instance, InstanceConnection } = require("@clusterio/host");
 const { ControlConnection, Controller, HostConnection, InstanceInfo } = require("@clusterio/controller");
 
+// Although there are no imports, the file has side-effects such as "before" which can effect tests
+require("./index");
+
 const addr = lib.Address.fromShorthand;
 
 class Control extends lib.Link { }
@@ -416,6 +419,47 @@ describe("Integration of link routing", function() {
 						dstAssert();
 					}
 				}
+			});
+		}
+	});
+
+	describe("event should not be routable on loopback", function() {
+		it("should not loopback on controller", async function() {
+			// Sending an event never returns a promise, so it throws rather than rejects like a request
+			assert.throws(
+				() => send(get("controller"), addr("controller"), new TestEvent()),
+				new Error("controller as dst is not supported.")
+			);
+		});
+
+		for (const srcName of ["hostA", "instanceA1", "controlA"]) {
+			it(`should not loopback on ${srcName}`, async function() {
+				const src = get(srcName);
+				const dstAddr = src.connector.src;
+				assert.throws(
+					() => send(src, dstAddr, new TestEvent()),
+					new Error(`Message would return back to sender ${dstAddr}.`)
+				);
+			});
+		}
+	});
+
+	describe("request should not be routable on loopback", function() {
+		it("should not loopback on controller", async function() {
+			await assert.rejects(
+				() => send(get("controller"), addr("controller"), new TestRequest()),
+				new Error("controller as dst is not supported.")
+			);
+		});
+
+		for (const srcName of ["hostA", "instanceA1", "controlA"]) {
+			it(`should not loopback on ${srcName}`, async function() {
+				const src = get(srcName);
+				const dstAddr = src.connector.src;
+				await assert.rejects(
+					() => send(src, dstAddr, new TestRequest()),
+					new Error(`Message would return back to sender ${dstAddr}.`)
+				);
 			});
 		}
 	});
