@@ -363,7 +363,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 							zIndex: "1010",
 						}}
 					>
-						<Dropzone />
+						<Dropzone disabled={hostOffline} />
 						{saveTable}
 					</div>
 				</Upload.Dragger>

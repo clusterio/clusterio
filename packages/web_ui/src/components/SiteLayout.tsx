@@ -13,7 +13,7 @@ import { DraggingContext } from "../model/is_dragging";
 
 const { Header, Sider } = Layout;
 
-function isDropzone(element: HTMLElement | null): boolean {
+function isActiveDropzone(element: HTMLElement | null): boolean {
 	if (!element) {
 		return false;
 	}
@@ -21,7 +21,7 @@ function isDropzone(element: HTMLElement | null): boolean {
 	let depth = 0;
 	while (element && depth < checkDepth) {
 		if (element.classList.contains("dropzone")) {
-			return true;
+			return element.classList.contains("enabled");
 		}
 		element = element.parentElement;
 		depth += 1;
@@ -105,7 +105,7 @@ export default function SiteLayout() {
 		onDrop={(e) => {
 			setDragging(0);
 			// Prevent dropping outside of dropzone
-			if (!isDropzone(e.target as HTMLElement)) {
+			if (!isActiveDropzone(e.target as HTMLElement)) {
 				e.preventDefault();
 				e.stopPropagation();
 			}
@@ -114,7 +114,7 @@ export default function SiteLayout() {
 		onDragOver={(e) => {
 			e.preventDefault();
 			// Change cursor
-			if (isDropzone(e.target as HTMLElement)) {
+			if (isActiveDropzone(e.target as HTMLElement)) {
 				e.dataTransfer.dropEffect = "copy";
 			} else {
 				e.dataTransfer.dropEffect = "none";
