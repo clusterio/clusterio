@@ -564,8 +564,8 @@ export class FactorioServer extends events.EventEmitter {
 
 	// TODO at the moment this is just a helper function, it has the potential for schema checking
 	handle<Event>(eventName: string, handler: (event: Event) => Promise<void>) {
-		this.on(`ipc-${eventName}`, (event) => handler(event).catch(err => {
-			this._logger.error(`Error handling ipc event:\n${err.stack}`);
+		this.on(`ipc-${eventName}`, (event) => handler(event).catch((err: Error) => {
+			this._logger.error(`Error handling ipc event:\n${err.stack ?? err.message}`);
 		}));
 	}
 
