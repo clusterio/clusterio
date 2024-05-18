@@ -15,6 +15,8 @@ import SectionHeader from "./SectionHeader";
 import { useInstances } from "../model/instance";
 import { useSavesOfInstance } from "../model/saves";
 import { notifyErrorHandler } from "../util/notify";
+import { Dropzone } from "./Dropzone";
+import UploadButton from "./UploadButton";
 
 
 type ModalProps = {
@@ -150,7 +152,7 @@ function TransferModal(props: ModalProps) {
 						autoFocus
 						showSearch
 						filterOption={(input, option) => (
-							(option?.title!.toLowerCase().indexOf(input.toLowerCase())??-1) >= 0
+							(option?.title!.toLowerCase().indexOf(input.toLowerCase()) ?? -1) >= 0
 						)}
 					>
 						{[...instances.values()].filter(
@@ -214,8 +216,8 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				title: "Name",
 				render: (_, save) => <>
 					{save.name}
-					{save.loaded && <Tooltip title="Currently loaded save"><CaretLeftOutlined/></Tooltip>}
-					{save.loadByDefault && <Tooltip title="Save loaded by default"><LeftOutlined/></Tooltip>}
+					{save.loaded && <Tooltip title="Currently loaded save"><CaretLeftOutlined /></Tooltip>}
+					{save.loadByDefault && <Tooltip title="Save loaded by default"><LeftOutlined /></Tooltip>}
 				</>,
 				sorter: (a, b) => a.name.localeCompare(b.name),
 			},
@@ -240,7 +242,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		expandable={{
 			columnWidth: 33,
 			expandRowByClick: true,
-			expandedRowRender: save => <Space wrap style={{marginBottom: 0}}>
+			expandedRowRender: save => <Space wrap style={{ marginBottom: 0 }}>
 				{account.hasPermission("core.instance.start") && <Button
 					loading={starting}
 					disabled={props.instance.status !== "stopped"}
@@ -346,14 +348,24 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 	return <div>
 		<SectionHeader title="Saves" extra={<Space>
 			{account.hasPermission("core.instance.save.upload") && <Upload {...uploadProps} >
-				<Button disabled={hostOffline}>Upload save</Button>
+				<UploadButton disabled={hostOffline}>
+					Upload save
+				</UploadButton>
 			</Upload>}
 			{account.hasPermission("core.instance.save.create") && <CreateSaveModal instance={props.instance} />}
 		</Space>} />
 		{
 			account.hasPermission("core.instance.save.upload")
 				? <Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
-					{saveTable}
+					<div
+						style={{
+							position: "relative",
+							zIndex: "1010",
+						}}
+					>
+						<Dropzone disabled={hostOffline} />
+						{saveTable}
+					</div>
 				</Upload.Dragger>
 				: saveTable
 		}
@@ -362,7 +374,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 				{file.name}
 				<Progress
 					percent={file.percent}
-					format={percent => `${Math.floor(percent||0)}%`}
+					format={percent => `${Math.floor(percent || 0)}%`}
 					status={file.status === "error" ? "exception" : "normal"}
 				/>
 			</List.Item>)}
