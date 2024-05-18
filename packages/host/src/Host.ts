@@ -140,7 +140,7 @@ export class HostRouter {
 						return false;
 					}
 					origin.connector.sendResponseError(
-						new lib.ResponseError("Instance is not running."), message.src
+						new lib.ResponseError(msg || "Instance is not running."), message.src
 					);
 				}
 				return true;
