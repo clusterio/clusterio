@@ -412,7 +412,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
 		let { id } = request;
-		let modPack = this._controller.modPacks.get(id);
+		let modPack = this._controller.modPacks.getCopy(id);
 		if (!modPack) {
 			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}

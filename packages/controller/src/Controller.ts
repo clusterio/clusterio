@@ -115,7 +115,11 @@ export default class Controller {
 		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
 		const saves = await Controller.loadSaves(path.join(databaseDirectory, "saves.json"));
-		const modPacks = await Controller.loadModPacks(path.join(databaseDirectory, "mod-packs.json"));
+
+		const modPacks = new lib.Datastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "mod-packs.json"), lib.ModPack
+		).bootstrap());
+
 		const userManager = new UserManager(config);
 		await userManager.load(path.join(databaseDirectory, "users.json"));
 
@@ -153,7 +157,7 @@ export default class Controller {
 		/** Mapping of save id to save details */
 		public saves = new Map<string, lib.SaveDetails>(),
 		/** Mapping of mod pack id to mod pack */
-		public modPacks = new Map<number, lib.ModPack>(),
+		public modPacks = new lib.Datastore<lib.ModPack["id"], lib.ModPack>(),
 		/** Mods stored on the controller */
 		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
 		/** User and roles manager for the cluster */
@@ -566,10 +570,7 @@ export default class Controller {
 			await Controller.saveSaves(path.join(databaseDirectory, "saves.json"), this.saves);
 		}
 
-		if (this.modPacksDirty) {
-			this.modPacksDirty = false;
-			await Controller.saveModPacks(path.join(databaseDirectory, "mod-packs.json"), this.modPacks);
-		}
+		await this.modPacks.save();
 
 		if (this.userManager.dirty) {
 			await this.userManager.save(path.join(databaseDirectory, "users.json"));
@@ -681,24 +682,6 @@ export default class Controller {
 
 	static async saveSaves(filePath: string, saves: Map<string, lib.SaveDetails>) {
 		await lib.safeOutputFile(filePath, JSON.stringify([...saves.values()], null, "\t"));
-	}
-
-
-	static async loadModPacks(filePath: string): Promise<Map<number, lib.ModPack>> {
-		let json;
-		try {
-			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
-		} catch (err: any) {
-			if (err.code !== "ENOENT") {
-				throw err;
-			}
-			return new Map();
-		}
-		return new Map(json.map((e: any) => [e.id, lib.ModPack.fromJSON(e)]));
-	}
-
-	static async saveModPacks(filePath: string, modPacks: Map<number, lib.ModPack>) {
-		await lib.safeOutputFile(filePath, JSON.stringify([...modPacks.values()], null, "\t"));
 	}
 
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {

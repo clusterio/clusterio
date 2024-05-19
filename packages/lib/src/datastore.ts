@@ -189,6 +189,11 @@ export class Datastore<
 			this.data.set(k, v);
 		}
 	}
+
+	// Delete a value in the datastore
+	delete(key: K) {
+		this.data.delete(key);
+	}
 }
 
 // A special implementation of the datastore to work directly with subscribable values
@@ -211,5 +216,10 @@ export class SubscribableDatastore<
 			value.updatedAtMs = nowMs;
 			this.data.set(value.id, value);
 		}
+	}
+
+	// Delete a value in the datastore
+	delete(value: V) {
+		this.data.delete(value.id);
 	}
 }
