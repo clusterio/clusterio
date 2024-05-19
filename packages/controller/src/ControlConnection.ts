@@ -397,8 +397,7 @@ export default class ControlConnection extends BaseConnection {
 		if (this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} already exist`);
 		}
-		this._controller.modPacks.set(modPack.id, modPack);
-		this._controller.modPacksUpdated([modPack]);
+		this._controller.modPacks.set(modPack);
 	}
 
 	async handleModPackUpdateRequest(request: lib.ModPackUpdateRequest) {
@@ -406,8 +405,7 @@ export default class ControlConnection extends BaseConnection {
 		if (modPack.id === undefined || !this._controller.modPacks.has(modPack.id)) {
 			throw new lib.RequestError(`Mod pack with ID ${modPack.id} does not exist`);
 		}
-		this._controller.modPacks.set(modPack.id, modPack);
-		this._controller.modPacksUpdated([modPack]);
+		this._controller.modPacks.set(modPack);
 	}
 
 	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
@@ -416,9 +414,7 @@ export default class ControlConnection extends BaseConnection {
 		if (!modPack) {
 			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
-		modPack.isDeleted = true;
-		this._controller.modPacks.delete(id);
-		this._controller.modPacksUpdated([modPack]);
+		this._controller.modPacks.delete(modPack);
 	}
 
 	async handleModGetRequest(request: lib.ModGetRequest) {

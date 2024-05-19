@@ -3,6 +3,7 @@ import fs from "fs-extra";
 import { safeOutputFile } from "./file_ops";
 import { SubscribableValue } from "./subscriptions";
 import { JSONDeserialisable } from "./data/composites";
+import { EventEmitter } from "stream";
 
 type DatastoreKey = string | number;
 type DatastoreValue = string | number | boolean | object;
@@ -119,7 +120,10 @@ export class JsonIdDatastoreProvider<
 		const serialized = this.migrations(rawJson);
 
 		// Convert to data class objects
-		return new Map(serialized.map((e) => [e.id, this.dataClass.fromJSON(e)]));
+		return new Map(serialized.map((e) => {
+			const v = this.dataClass.fromJSON(e);
+			return [v.id, v];
+		}));
 	}
 }
 
@@ -127,13 +131,15 @@ export class JsonIdDatastoreProvider<
 export abstract class BaseDatastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
-> {
+> extends EventEmitter {
 	protected dirty = false;
 
 	constructor(
 		protected provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
 		protected data = new Map<K, V>(),
-	) {}
+	) {
+		super();
+	}
 
 	// Save the datastore to the provider
 	async save() {
@@ -161,8 +167,9 @@ export abstract class BaseDatastore<
 
 	// Get a copy of a value from the datastore
 	getCopy(key: K) {
-		const v = this.data.get(key);
-		return v === undefined ? v : deepCopy(v);
+		// const v = this.data.get(key);
+		// return v === undefined ? v : deepCopy(v);
+		return this.data.get(key);
 	}
 
 	// Returns all values in the datastore
@@ -180,19 +187,34 @@ export class Datastore<
 	set(key: K, value: V) {
 		this.data.set(key, value);
 		this.dirty = true;
+		this.emit("update", [key, value]);
 	}
 
 	// Set many values at once from an array of key value pairs
-	setMany(pairs: [[K, V]]) {
+	setMany(pairs: [K, V][]) {
 		this.dirty ||= pairs.length > 0;
 		for (const [k, v] of pairs) {
 			this.data.set(k, v);
 		}
+		this.emit("update", pairs);
 	}
 
 	// Delete a value in the datastore
 	delete(key: K) {
+		const value = this.data.get(key);
 		this.data.delete(key);
+		this.dirty = true;
+		this.emit("update", [key, value, true]);
+	}
+
+	// Delete many values at once from an array of keys
+	deleteMany(keys: K[]) {
+		this.dirty ||= keys.length > 0;
+		for (const key of keys) {
+			const value = this.data.get(key);
+			this.data.delete(key);
+		}
+		this.emit("update", keys);
 	}
 }
 
@@ -206,6 +228,7 @@ export class SubscribableDatastore<
 		value.updatedAtMs = Date.now();
 		this.data.set(value.id, value);
 		this.dirty = true;
+		this.emit("update", [value]);
 	}
 
 	// Set many values at once from an array of key value pairs
@@ -216,10 +239,25 @@ export class SubscribableDatastore<
 			value.updatedAtMs = nowMs;
 			this.data.set(value.id, value);
 		}
+		this.emit("update", values);
 	}
 
 	// Delete a value in the datastore
 	delete(value: V) {
 		this.data.delete(value.id);
+		value.isDeleted = true;
+		value.updatedAtMs = Date.now();
+		this.emit("update", [value]);
+	}
+
+	// Delete many values at once from an array of values
+	deleteMany(values: V[]) {
+		this.dirty ||= values.length > 0;
+		for (const value of values) {
+			value.isDeleted = true;
+			value.updatedAtMs = Date.now();
+			this.data.delete(value.id);
+		}
+		this.emit("update", values);
 	}
 }

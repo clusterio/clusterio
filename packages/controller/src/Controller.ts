@@ -61,10 +61,6 @@ export default class Controller {
 	hostsDirty = false;
 	/** True if {@link Controller.instances} has changed since last time it was saved */
 	instancesDirty = false;
-	/** True if {@link Controller.saves} has changed since last time it was saved */
-	savesDirty = false;
-	/** True if {@link Controller.modPacks} has changed since last time it was saved */
-	modPacksDirty = false;
 
 	httpServer: http.Server | null = null;
 	httpServerCloser: HttpCloser | null = null;
@@ -114,9 +110,12 @@ export default class Controller {
 		const systems = await Controller.loadSystems(path.join(databaseDirectory, "systems.json"));
 		const hosts = await Controller.loadHosts(path.join(databaseDirectory, "hosts.json"));
 		const instances = await Controller.loadInstances(path.join(databaseDirectory, "instances.json"));
-		const saves = await Controller.loadSaves(path.join(databaseDirectory, "saves.json"));
 
-		const modPacks = new lib.Datastore(...await new lib.JsonIdDatastoreProvider(
+		const saves = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
+			path.join(databaseDirectory, "saves.json"), lib.SaveDetails
+		).bootstrap());
+
+		const modPacks = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "mod-packs.json"), lib.ModPack
 		).bootstrap());
 
@@ -155,9 +154,9 @@ export default class Controller {
 		/** Mapping of instance id to instance info */
 		public instances = new Map<number, InstanceInfo>(),
 		/** Mapping of save id to save details */
-		public saves = new Map<string, lib.SaveDetails>(),
+		public saves = new lib.SubscribableDatastore<lib.SaveDetails>(),
 		/** Mapping of mod pack id to mod pack */
-		public modPacks = new lib.Datastore<lib.ModPack["id"], lib.ModPack>(),
+		public modPacks = new lib.SubscribableDatastore<lib.ModPack>(),
 		/** Mods stored on the controller */
 		public modStore = new lib.ModStore(config.get("controller.mods_directory"), new Map()),
 		/** User and roles manager for the cluster */
@@ -183,10 +182,15 @@ export default class Controller {
 		this.subscriptions.handle(lib.SystemInfoUpdateEvent, this.handleSystemInfoSubscription.bind(this));
 		this.subscriptions.handle(lib.HostUpdatesEvent, this.handleHostSubscription.bind(this));
 		this.subscriptions.handle(lib.InstanceDetailsUpdatesEvent, this.handleInstanceDetailsSubscription.bind(this));
+
 		this.subscriptions.handle(
 			lib.InstanceSaveDetailsUpdatesEvent, this.handleInstanceSaveDetailsSubscription.bind(this)
 		);
+		this.saves.on("update", this.savesUpdated.bind(this));
+
 		this.subscriptions.handle(lib.ModPackUpdatesEvent, this.handleModPackSubscription.bind(this));
+		this.modPacks.on("update", this.modPacksUpdated.bind(this));
+
 		this.subscriptions.handle(lib.ModUpdatesEvent, this.handleModSubscription.bind(this));
 		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 	}
@@ -565,11 +569,7 @@ export default class Controller {
 			await Controller.saveInstances(path.join(databaseDirectory, "instances.json"), this.instances);
 		}
 
-		if (this.savesDirty) {
-			this.savesDirty = false;
-			await Controller.saveSaves(path.join(databaseDirectory, "saves.json"), this.saves);
-		}
-
+		await this.saves.save();
 		await this.modPacks.save();
 
 		if (this.userManager.dirty) {
@@ -665,23 +665,6 @@ export default class Controller {
 	static async saveInstances(filePath: string, instances: Map<number, InstanceInfo>) {
 		let serialized = [...instances.values()];
 		await lib.safeOutputFile(filePath, JSON.stringify(serialized, null, "\t"));
-	}
-
-	static async loadSaves(filePath: string): Promise<Map<string, lib.SaveDetails>> {
-		let json: Static<typeof lib.SaveDetails.jsonSchema>[];
-		try {
-			json = JSON.parse(await fs.readFile(filePath, { encoding: "utf8" }));
-		} catch (err: any) {
-			if (err.code !== "ENOENT") {
-				throw err;
-			}
-			return new Map();
-		}
-		return new Map(json.map(s => lib.SaveDetails.fromJSON(s)).map(s => [s.id, s]));
-	}
-
-	static async saveSaves(filePath: string, saves: Map<string, lib.SaveDetails>) {
-		await lib.safeOutputFile(filePath, JSON.stringify([...saves.values()], null, "\t"));
 	}
 
 	static async loadJsonObject(filePath: string, throwOnMissing: boolean = false): Promise<any> {
@@ -894,19 +877,7 @@ export default class Controller {
 	 * @internal
 	 */
 	clearSavesOfInstance(instanceId: number) {
-		const updates = [];
-		const now = Date.now();
-		for (const [id, save] of this.saves) {
-			if (save.instanceId === instanceId) {
-				save.isDeleted = true;
-				save.updatedAtMs = now;
-				updates.push(save);
-				this.saves.delete(id);
-			}
-		}
-		if (updates.length) {
-			this.savesUpdated(updates);
-		}
+		this.saves.deleteMany([...this.saves.values()].filter(save => save.instanceId === instanceId));
 	}
 
 	/**
@@ -1038,7 +1009,6 @@ export default class Controller {
 	}
 
 	savesUpdated(saves: lib.SaveDetails[]) {
-		this.savesDirty = true;
 		this.subscriptions.broadcast(new lib.InstanceSaveDetailsUpdatesEvent(saves));
 	}
 
@@ -1049,11 +1019,6 @@ export default class Controller {
 
 
 	modPacksUpdated(modPacks: lib.ModPack[]) {
-		const now = Date.now();
-		for (const modPack of modPacks) {
-			modPack.updatedAtMs = now;
-		}
-		this.modPacksDirty = true;
 		this.subscriptions.broadcast(new lib.ModPackUpdatesEvent(modPacks));
 		lib.invokeHook(this.plugins, "onModPacksUpdated", modPacks);
 	}

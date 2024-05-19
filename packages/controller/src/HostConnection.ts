@@ -279,32 +279,30 @@ export default class HostConnection extends BaseConnection {
 	}
 
 	async handleInstanceSaveDetailsUpdatesEvent(event: lib.InstanceSaveDetailsUpdatesEvent) {
-		const now = Date.now();
 		const updates: lib.SaveDetails[] = [];
+		const deletes: lib.SaveDetails[] = [];
 		for (const save of event.updates) {
 			const existingSave = this._controller.saves.get(save.id);
 			if (existingSave && save.equals(existingSave)) {
 				continue;
 			}
-			save.updatedAtMs = now;
-			this._controller.saves.set(save.id, save);
 			updates.push(save);
 		}
 		if (event.instanceId !== undefined) {
 			const updatedSaves = new Set(event.updates.map(s => s.id));
-			for (const [id, save] of this._controller.saves) {
-				if (save.instanceId === event.instanceId && !updatedSaves.has(id)) {
-					save.isDeleted = true;
-					save.updatedAtMs = now;
-					updates.push(save);
-					this._controller.saves.delete(id);
+			for (const save of this._controller.saves.values()) {
+				if (save.instanceId === event.instanceId && !updatedSaves.has(save.id)) {
+					deletes.push(save);
 				}
 			}
 		}
 		// Hosts eagerly send updates, which means we may get an update
 		// where nothing actualy changed.
 		if (updates.length) {
-			this._controller.savesUpdated(updates);
+			this._controller.saves.setMany(updates);
+		}
+		if (deletes.length) {
+			this._controller.saves.deleteMany(deletes);
 		}
 	}
 
