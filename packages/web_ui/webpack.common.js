@@ -1,8 +1,11 @@
+/* eslint-disable node/no-unpublished-require */
+/* eslint-disable node/no-process-env */
 "use strict";
 const webpack = require("webpack");
 const { CleanWebpackPlugin } = require("clean-webpack-plugin");
 const { WebpackManifestPlugin } = require("webpack-manifest-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
+const { codecovWebpackPlugin } = require("@codecov/webpack-plugin");
 
 module.exports = (env = {}) => ({
 	mode: env.production ? "production" : "development",
@@ -37,6 +40,11 @@ module.exports = (env = {}) => ({
 				resource.request = resource.request.replace(/@ant-design\/icons/, "$&/es/icons");
 			}
 		),
+		codecovWebpackPlugin({
+			enableBundleAnalysis: process.env.CODECOV_TOKEN !== undefined,
+			bundleName: "packages_web_ui",
+			uploadToken: process.env.CODECOV_TOKEN,
+		}),
 	],
 	module: {
 		rules: [

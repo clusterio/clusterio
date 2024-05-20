@@ -50,6 +50,7 @@
 		"access": "public"
 	},
 	"devDependencies": {
+		"@codecov/webpack-plugin": "0.0.1-beta.6",
 		"@types/node": "^20.4.5",
 		"@types/react": "^18.2.21",
 		"@types/react-dom": "^18.2.7"
