@@ -182,8 +182,8 @@ class MockController {
 			["test", ControllerUser.fromJSON({ name: "test", roles: [0, 1] }, this.userManager)],
 			["player", ControllerUser.fromJSON({ name: "player", roles: [1] }, this.userManager)],
 		]);
-		this.instances = new Map();
-		this.hosts = new Map();
+		this.instances = new lib.Datastore();
+		this.hosts = new lib.Datastore();
 		this.handles = new Map();
 	}
 

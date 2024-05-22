@@ -2,22 +2,10 @@ import fs from "fs-extra";
 
 import { safeOutputFile } from "./file_ops";
 import { SubscribableValue } from "./subscriptions";
-import { JSONDeserialisable } from "./data/composites";
 import { EventEmitter } from "stream";
 
 type DatastoreKey = string | number;
 type DatastoreValue = string | number | boolean | object;
-
-// Deep copy required to support the read only property of datastore values
-function deepCopy<V extends DatastoreValue>(value: V): V {
-	if (value instanceof Object) {
-		return Object.fromEntries(
-			Object.entries(value).map(([k, v]) => [k, deepCopy(v)])
-		) as V;
-	}
-
-	return value;
-}
 
 // Abstract class which can provide saving and loading capabilities to a datastore
 export abstract class DatastoreProvider<
@@ -50,11 +38,13 @@ export class MemoryDatastoreProvider<
 export class JsonDatastoreProvider<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
+	J, // Intermediate type returned from migrations
 > extends DatastoreProvider<K, V> {
 	constructor(
 		private filePath: string,
-		private dataClass: JSONDeserialisable<V>,
-		private migrations: (rawJson: unknown) => Array<[K, unknown]> = v => v as any,
+		private fromJson: (json: J) => V,
+		private migrations: (rawJson: Record<DatastoreKey, unknown>) => Record<DatastoreKey, J> = v => v as any,
+		private finalise: (obj: V) => V = v => v,
 	) {
 		super();
 	}
@@ -81,7 +71,7 @@ export class JsonDatastoreProvider<
 		const serialized = this.migrations(rawJson);
 
 		// Convert to data class objects
-		return new Map(serialized.map((k, v) => [k, this.dataClass.fromJSON(v)]));
+		return new Map(Object.entries(serialized).map(([k, v]) => [k, this.finalise(this.fromJson(v))]));
 	}
 }
 
@@ -89,11 +79,13 @@ export class JsonDatastoreProvider<
 export class JsonIdDatastoreProvider<
 	K extends DatastoreKey,
 	V extends DatastoreValue & { id: K },
+	J, // Intermediate type returned from migrations
 > extends DatastoreProvider<K, V> {
 	constructor(
 		private filePath: string,
-		private dataClass: JSONDeserialisable<V>,
-		private migrations: (rawJson: unknown) => Array<{ id: K }> = v => v as any,
+		private fromJson: (json: J) => V,
+		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as any,
+		private finalise: (obj: V) => V = v => v,
 	) {
 		super();
 	}
@@ -121,7 +113,7 @@ export class JsonIdDatastoreProvider<
 
 		// Convert to data class objects
 		return new Map(serialized.map((e) => {
-			const v = this.dataClass.fromJSON(e);
+			const v = this.finalise(this.fromJson(e));
 			return [v.id, v];
 		}));
 	}
@@ -132,10 +124,10 @@ export abstract class BaseDatastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > extends EventEmitter {
-	protected dirty = false;
+	private dirty = false;
 
 	constructor(
-		protected provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
+		private provider: DatastoreProvider<K, V> = new MemoryDatastoreProvider(),
 		protected data = new Map<K, V>(),
 	) {
 		super();
@@ -155,6 +147,14 @@ export abstract class BaseDatastore<
 		this.dirty = false;
 	}
 
+	// Set the dirty flag and call update handlers
+	protected touch(updates: any[]) {
+		if (updates.length) {
+			this.dirty = true;
+			this.emit("update", updates);
+		}
+	}
+
 	// Returns true if the datastore has the value, false otherwise
 	has(key: K) {
 		return this.data.has(key);
@@ -165,16 +165,19 @@ export abstract class BaseDatastore<
 		return this.data.get(key) as Readonly<V> ?? undefined;
 	}
 
-	// Get a copy of a value from the datastore
-	getCopy(key: K) {
-		// const v = this.data.get(key);
-		// return v === undefined ? v : deepCopy(v);
+	// Get a mutable reference to a value in the datastore, call set after use
+	getMutable(key: K) {
 		return this.data.get(key);
 	}
 
 	// Returns all values in the datastore
 	values() {
 		return this.data.values() as IterableIterator<Readonly<V>>;
+	}
+
+	// Returns all values in the datastore as mutable references, call setMany after use
+	valuesMutable() {
+		return this.data.values();
 	}
 }
 
@@ -186,35 +189,33 @@ export class Datastore<
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(key: K, value: V) {
 		this.data.set(key, value);
-		this.dirty = true;
-		this.emit("update", [key, value]);
+		this.touch([[key, value]]);
 	}
 
 	// Set many values at once from an array of key value pairs
 	setMany(pairs: [K, V][]) {
-		this.dirty ||= pairs.length > 0;
 		for (const [k, v] of pairs) {
 			this.data.set(k, v);
 		}
-		this.emit("update", pairs);
+		this.touch(pairs);
 	}
 
 	// Delete a value in the datastore
 	delete(key: K) {
 		const value = this.data.get(key);
 		this.data.delete(key);
-		this.dirty = true;
-		this.emit("update", [key, value, true]);
+		this.touch([[key, value!, true]]);
 	}
 
 	// Delete many values at once from an array of keys
 	deleteMany(keys: K[]) {
-		this.dirty ||= keys.length > 0;
+		const updates = [] as [K, V, true][];
 		for (const key of keys) {
 			const value = this.data.get(key);
+			updates.push([key, value!, true]);
 			this.data.delete(key);
 		}
-		this.emit("update", keys);
+		this.touch(updates);
 	}
 }
 
@@ -225,39 +226,36 @@ export class SubscribableDatastore<
 > extends BaseDatastore<V["id"], V> {
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(value: V) {
-		value.updatedAtMs = Date.now();
 		this.data.set(value.id, value);
-		this.dirty = true;
-		this.emit("update", [value]);
+		this.touch([value]);
 	}
 
 	// Set many values at once from an array of key value pairs
 	setMany(values: V[]) {
 		const nowMs = Date.now();
-		this.dirty ||= values.length > 0;
 		for (const value of values) {
 			value.updatedAtMs = nowMs;
 			this.data.set(value.id, value);
 		}
-		this.emit("update", values);
+		this.touch(values);
 	}
 
 	// Delete a value in the datastore
 	delete(value: V) {
 		this.data.delete(value.id);
-		value.isDeleted = true;
 		value.updatedAtMs = Date.now();
-		this.emit("update", [value]);
+		value.isDeleted = true;
+		this.touch([value]);
 	}
 
 	// Delete many values at once from an array of values
 	deleteMany(values: V[]) {
-		this.dirty ||= values.length > 0;
+		const nowMs = Date.now();
 		for (const value of values) {
 			value.isDeleted = true;
-			value.updatedAtMs = Date.now();
+			value.updatedAtMs = nowMs;
 			this.data.delete(value.id);
 		}
-		this.emit("update", values);
+		this.touch(values);
 	}
 }

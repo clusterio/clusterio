@@ -218,7 +218,7 @@ async function uploadExport(req: Request, res: Response) {
 		res.sendStatus(400);
 		return;
 	}
-	let modPack = res.app.locals.controller.modPacks.getCopy(modPackId);
+	let modPack = res.app.locals.controller.modPacks.getMutable(modPackId);
 	if (!modPack) {
 		res.sendStatus(400);
 		return;

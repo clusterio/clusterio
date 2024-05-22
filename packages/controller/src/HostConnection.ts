@@ -42,8 +42,7 @@ export default class HostConnection extends BaseConnection {
 			0,
 			false,
 		);
-		this._controller.hosts.set(this.id, this.info);
-		this._controller.hostsUpdated([this.info]);
+		this._controller.hosts.set(this.info);
 
 		this._checkPluginVersions();
 
@@ -57,10 +56,9 @@ export default class HostConnection extends BaseConnection {
 		}
 
 		this.connector.on("close", () => {
-			const now = Date.now();
 			// Update status to unknown for instances on this host.
 			const instances: InstanceInfo[] = [];
-			for (let instance of this._controller.instances.values()) {
+			for (let instance of this._controller.instances.valuesMutable()) {
 				if (instance.config.get("instance.assigned_host") !== this.id) {
 					continue;
 				}
@@ -68,13 +66,12 @@ export default class HostConnection extends BaseConnection {
 				instances.push(instance);
 				let prev = instance.status;
 				instance.status = "unknown";
-				instance.updatedAtMs = now;
 				lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 			}
-			this._controller.instanceDetailsUpdated(instances);
+			this._controller.instances.setMany(instances);
 
 			this.info.connected = false;
-			this._controller.hostsUpdated([this.info]);
+			this._controller.hosts.set(this.info);
 		});
 
 		this.handle(lib.HostInfoUpdateEvent, this.handleHostInfoUpdateEvent.bind(this));
@@ -158,11 +155,11 @@ export default class HostConnection extends BaseConnection {
 	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {
 		this.info.name = event.update.name;
 		this.info.publicAddress = event.update.publicAddress;
-		this._controller.hostsUpdated([this.info]);
+		this._controller.hosts.set(this.info);
 	}
 
 	async handleInstanceStatusChangedEvent(request: lib.InstanceStatusChangedEvent) {
-		let instance = this._controller.instances.get(request.instanceId);
+		let instance = this._controller.instances.getMutable(request.instanceId);
 
 		// It's possible to get updates from an instance that does not exist
 		// or is not assigned to the host it originated from if it was
@@ -188,9 +185,8 @@ export default class HostConnection extends BaseConnection {
 		let prev = instance.status;
 		instance.status = request.status;
 		instance.gamePort = request.gamePort;
-		instance.updatedAtMs = Date.now();
+		this._controller.instances.set(instance);
 		logger.verbose(`Instance ${instance.config.get("instance.name")} State: ${instance.status}`);
-		this._controller.instanceDetailsUpdated([instance]);
 		await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", instance, prev);
 	}
 
@@ -210,7 +206,7 @@ export default class HostConnection extends BaseConnection {
 			const instanceConfig = new lib.InstanceConfig("controller");
 			instanceConfig.update(instanceData.config, false, "host");
 
-			let controllerInstance = this._controller.instances.get(instanceConfig.get("instance.id"));
+			let controllerInstance = this._controller.instances.getMutable(instanceConfig.get("instance.id"));
 			if (controllerInstance) {
 				// Check if this instance is assigned somewhere else.
 				if (controllerInstance.config.get("instance.assigned_host") !== this.id) {
@@ -225,9 +221,8 @@ export default class HostConnection extends BaseConnection {
 					let prev = controllerInstance.status;
 					controllerInstance.status = instanceData.status;
 					controllerInstance.gamePort = instanceData.gamePort;
-					controllerInstance.updatedAtMs = Date.now();
-					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
 					instanceUpdates.push(controllerInstance);
+					logger.verbose(`Instance ${instanceConfig.get("instance.name")} State: ${instanceData.status}`);
 					await lib.invokeHook(
 						this._controller.plugins, "onInstanceStatusChanged", controllerInstance, prev
 					);
@@ -242,21 +237,17 @@ export default class HostConnection extends BaseConnection {
 				instanceData.gamePort,
 				Date.now(),
 			);
-			this._controller.instances.set(instanceConfig.get("instance.id"), newInstance);
-			this._controller.instancesDirty = true;
+			instanceUpdates.push(newInstance);
 			this._controller.addInstanceHooks(newInstance);
 			await this.send(
 				new lib.InstanceAssignInternalRequest(
 					instanceConfig.get("instance.id"), instanceConfig.toRemote("host")
 				)
 			);
-			instanceUpdates.push(newInstance);
 			await lib.invokeHook(this._controller.plugins, "onInstanceStatusChanged", newInstance);
 		}
 
-		if (instanceUpdates.length) {
-			this._controller.instanceDetailsUpdated(instanceUpdates);
-		}
+		this._controller.instances.setMany(instanceUpdates);
 
 		// Push lists to make sure they are in sync.
 		let adminlist: Set<string> = new Set();

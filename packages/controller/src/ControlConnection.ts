@@ -195,7 +195,7 @@ export default class ControlConnection extends BaseConnection {
 	}
 
 	async handleHostRevokeTokensRequest(request: lib.HostRevokeTokensRequest) {
-		const host = this._controller.hosts.get(request.hostId);
+		const host = this._controller.hosts.getMutable(request.hostId);
 		if (!host) {
 			throw new Error(`Unknown host id (${request.hostId})`);
 		}
@@ -207,7 +207,7 @@ export default class ControlConnection extends BaseConnection {
 			hostConnection.connector.terminate();
 		}
 
-		this._controller.hostsUpdated([host]);
+		this._controller.hosts.set(host);
 	}
 
 	async handleHostListRequest(): Promise<lib.HostDetails[]> {
@@ -410,7 +410,7 @@ export default class ControlConnection extends BaseConnection {
 
 	async handleModPackDeleteRequest(request: lib.ModPackDeleteRequest) {
 		let { id } = request;
-		let modPack = this._controller.modPacks.getCopy(id);
+		let modPack = this._controller.modPacks.getMutable(id);
 		if (!modPack) {
 			throw new lib.RequestError(`Mod pack with ID ${id} does not exist`);
 		}
