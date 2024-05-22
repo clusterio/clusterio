@@ -6,7 +6,7 @@ Clusterio uses a field based configuration system to manage settings for the con
 Plugins can add their own config fields for the controller and instances configs.
 The fields are defined early in the startup, and fields for disabled plugins will still be created.
 
-The built-in config fields are defined in [packages/lib/config/definitions.js](/packages/lib/config/definitions.js) while plugins can add their own config field definitions to the `controllerConfigFields` and `instanceConfigFields` properties of the `plugin` export.
+The built-in config fields are defined in [packages/lib/src/config/definitions.ts](/packages/lib/src/config/definitions.ts) while plugins can add their own config field definitions to the `controllerConfigFields` and `instanceConfigFields` properties of the `plugin` export.
 A `<plugin_name>.load_plugin` field is automatically created for each plugin and it's used to enable/disable the loading plugins on startup.
 
 
