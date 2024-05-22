@@ -3,6 +3,8 @@ import fs from "fs-extra";
 import { safeOutputFile } from "./file_ops";
 import { SubscribableValue } from "./subscriptions";
 import { EventEmitter } from "stream";
+import { ControllerConfig } from "./config";
+import path from "path";
 
 type DatastoreKey = string | number;
 type DatastoreValue = string | number | boolean | object;
@@ -133,6 +135,11 @@ export abstract class BaseDatastore<
 		super();
 	}
 
+	// Get the file path based on the controller config
+	static getFilePath(config: ControllerConfig, file: string) {
+		return path.resolve(config.get("controller.database_directory"), file);
+	}
+
 	// Save the datastore to the provider
 	async save() {
 		if (this.dirty) {
@@ -220,7 +227,6 @@ export class Datastore<
 }
 
 // A special implementation of the datastore to work directly with subscribable values
-// TODO broadcast value changes to subscribers
 export class SubscribableDatastore<
 	V extends SubscribableValue,
 > extends BaseDatastore<V["id"], V> {

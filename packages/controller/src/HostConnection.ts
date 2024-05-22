@@ -288,13 +288,9 @@ export default class HostConnection extends BaseConnection {
 			}
 		}
 		// Hosts eagerly send updates, which means we may get an update
-		// where nothing actualy changed.
-		if (updates.length) {
-			this._controller.saves.setMany(updates);
-		}
-		if (deletes.length) {
-			this._controller.saves.deleteMany(deletes);
-		}
+		// where nothing actually changed.
+		this._controller.saves.setMany(updates);
+		this._controller.saves.deleteMany(deletes);
 	}
 
 	async handleLogMessageEvent(event: lib.LogMessageEvent) {

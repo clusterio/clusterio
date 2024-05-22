@@ -198,6 +198,7 @@ export default class Controller {
 		this.subscriptions.handle(lib.UserUpdatesEvent, this.handleUserSubscription.bind(this));
 
 		// Handle updates for datastores
+		this.systems.on("update", this.systemsUpdated.bind(this));
 		this.hosts.on("update", this.hostsUpdated.bind(this));
 		this.instances.on("update", this.instanceDetailsUpdated.bind(this));
 		this.saves.on("update", this.savesUpdated.bind(this));
@@ -520,7 +521,6 @@ export default class Controller {
 			for (const metric of newMetrics) {
 				this.systems.set(metric);
 			}
-			this.subscriptions.broadcast(new lib.SystemInfoUpdateEvent(newMetrics));
 		} catch (err: any) {
 			logger.error(`Unexpected error updating system infos:\n${err.stack ?? err.message}`);
 		}
@@ -561,16 +561,16 @@ export default class Controller {
 			await lib.safeOutputFile(this.configPath, JSON.stringify(this.config, null, "\t"));
 		}
 
-		let databaseDirectory = this.config.get("controller.database_directory");
-
-		await this.systems.save();
-		await this.hosts.save();
-		await this.instances.save();
-		await this.saves.save();
-		await this.modPacks.save();
+		await Promise.all([
+			this.systems.save(),
+			this.hosts.save(),
+			this.instances.save(),
+			this.saves.save(),
+			this.modPacks.save(),
+		]);
 
 		if (this.userManager.dirty) {
-			await this.userManager.save(path.join(databaseDirectory, "users.json"));
+			await this.userManager.save(path.join(this.config.get("controller.database_directory"), "users.json"));
 		}
 
 		await lib.invokeHook(this.plugins, "onSaveData");
@@ -706,6 +706,10 @@ export default class Controller {
 			let webPath = path.join(path.dirname(pluginPackagePath), "dist", "web", "static");
 			app.use("/static", express.static(webPath, staticOptions));
 		}
+	}
+
+	systemsUpdated(systems: lib.SystemInfo[]) {
+		this.subscriptions.broadcast(new lib.SystemInfoUpdateEvent(systems));
 	}
 
 	async handleSystemInfoSubscription(request: lib.SubscriptionRequest) {
