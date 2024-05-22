@@ -28,11 +28,18 @@ export class MemoryDatastoreProvider<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > extends DatastoreProvider<K, V> {
+	constructor(
+		private value: Map<K, V> = new Map()
+	) {
+		super();
+	}
+
 	async save(data: Map<K, V>) {
+		this.value = new Map(data);
 	}
 
 	async load() {
-		return new Map();
+		return new Map(this.value);
 	}
 }
 
