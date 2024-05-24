@@ -539,6 +539,9 @@ describe("lib/datastore", function() {
 				datastore.set(value);
 				assert.notEqual(value.updatedAtMs, undefined);
 				assert(value.updatedAtMs > 0, "updatedAtMs greater than zero");
+				const prev = value.updatedAtMs;
+				datastore.set(value);
+				assert(value.updatedAtMs > prev, "updatedAtMs must increase");
 			});
 		});
 
@@ -568,6 +571,10 @@ describe("lib/datastore", function() {
 				assert.notEqual(updates[1].updatedAtMs, undefined);
 				assert(updates[0].updatedAtMs > 0, "updatedAtMs greater than zero");
 				assert(updates[1].updatedAtMs > 0, "updatedAtMs greater than zero");
+				const prev = [updates[0].updatedAtMs, updates[1].updatedAtMs];
+				datastore.setMany(updates);
+				assert(updates[0].updatedAtMs > prev[0], "updatedAtMs must increase");
+				assert(updates[1].updatedAtMs > prev[1], "updatedAtMs must increase");
 			});
 		});
 
