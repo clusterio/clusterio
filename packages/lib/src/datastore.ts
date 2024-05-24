@@ -240,6 +240,7 @@ export class SubscribableDatastore<
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(value: V) {
 		this.data.set(value.id, value);
+		value.updatedAtMs = Date.now();
 		this.touch([value]);
 	}
 
