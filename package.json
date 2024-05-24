@@ -23,6 +23,11 @@
 	"engines": {
 		"node": ">=18"
 	},
+	"workspaces": [
+		"packages/*",
+		"plugins/*",
+		"external_plugins/*"
+	],
 	"devDependencies": {
 		"@clusterio/controller": "workspace:*",
 		"@clusterio/ctl": "workspace:*",
