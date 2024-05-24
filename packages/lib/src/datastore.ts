@@ -51,7 +51,7 @@ export class JsonDatastoreProvider<
 > extends DatastoreProvider<K, V> {
 	constructor(
 		private filePath: string,
-		private fromJson: (json: J) => V,
+		private fromJson: (json: J) => V = v => v as any,
 		private migrations: (rawJson: Record<DatastoreKey, unknown>) => Record<DatastoreKey, J> = v => v as any,
 		private finalise: (obj: V) => V = v => v,
 	) {
@@ -92,7 +92,7 @@ export class JsonIdDatastoreProvider<
 > extends DatastoreProvider<K, V> {
 	constructor(
 		private filePath: string,
-		private fromJson: (json: J) => V,
+		private fromJson: (json: J) => V = v => v as any,
 		private migrations: (rawJson: Array<unknown>) => Array<J> = v => v as any,
 		private finalise: (obj: V) => V = v => v,
 	) {
@@ -129,7 +129,7 @@ export class JsonIdDatastoreProvider<
 }
 
 // Implements a similar interface to a map
-export abstract class BaseDatastore<
+export abstract class Datastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
 > extends EventEmitter {
@@ -196,10 +196,10 @@ export abstract class BaseDatastore<
 }
 
 // General key value mapping which can be saved and loaded with the file system
-export class Datastore<
+export class KeyValueDatastore<
 	K extends DatastoreKey,
 	V extends DatastoreValue,
-> extends BaseDatastore<K, V> {
+> extends Datastore<K, V> {
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(key: K, value: V) {
 		this.data.set(key, value);
@@ -236,7 +236,7 @@ export class Datastore<
 // A special implementation of the datastore to work directly with subscribable values
 export class SubscribableDatastore<
 	V extends SubscribableValue,
-> extends BaseDatastore<V["id"], V> {
+> extends Datastore<V["id"], V> {
 	// Set the value in the datastore, be careful of race conditions if you await any functions before calling set
 	set(value: V) {
 		this.data.set(value.id, value);
