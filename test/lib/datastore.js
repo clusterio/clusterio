@@ -534,12 +534,13 @@ describe("lib/datastore", function() {
 					["save", new Map([...datastoreProvider.value.entries(), [value.id, value]])]
 				);
 			});
-			it("sets the updatedAtMs property", function() {
+			it("sets the updatedAtMs property", async function() {
 				const value = { id: "test" };
 				datastore.set(value);
 				assert.notEqual(value.updatedAtMs, undefined);
 				assert(value.updatedAtMs > 0, "updatedAtMs greater than zero");
 				const prev = value.updatedAtMs;
+				await lib.wait();
 				datastore.set(value);
 				assert(value.updatedAtMs > prev, "updatedAtMs must increase");
 			});
@@ -564,7 +565,7 @@ describe("lib/datastore", function() {
 					["save", new Map([...datastoreProvider.value.entries(), ...updates.map(v => [v.id, v])])]
 				);
 			});
-			it("sets the updatedAtMs property", function() {
+			it("sets the updatedAtMs property", async function() {
 				const updates = [{ id: "test1" }, { id: "test2" }];
 				datastore.setMany(updates);
 				assert.notEqual(updates[0].updatedAtMs, undefined);
@@ -572,6 +573,7 @@ describe("lib/datastore", function() {
 				assert(updates[0].updatedAtMs > 0, "updatedAtMs greater than zero");
 				assert(updates[1].updatedAtMs > 0, "updatedAtMs greater than zero");
 				const prev = [updates[0].updatedAtMs, updates[1].updatedAtMs];
+				await lib.wait();
 				datastore.setMany(updates);
 				assert(updates[0].updatedAtMs > prev[0], "updatedAtMs must increase");
 				assert(updates[1].updatedAtMs > prev[1], "updatedAtMs must increase");
