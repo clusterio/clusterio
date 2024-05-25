@@ -169,6 +169,10 @@ describe("lib/datastore", function() {
 				const loadedData = await datastoreProvider.load();
 				assert.equal(loadedData.size, 0);
 			});
+			it("throws for invalid file contents", async function() {
+				await fs.copy(path.join(testFiles, "json", "invalid.json"), dataPath);
+				await assert.rejects(() => datastoreProvider.load(dataPath));
+			});
 		});
 	});
 
@@ -244,6 +248,10 @@ describe("lib/datastore", function() {
 				datastoreProvider = new lib.JsonIdDatastoreProvider(path.join(baseDir, "not_exists.json"));
 				const loadedData = await datastoreProvider.load();
 				assert.equal(loadedData.size, 0);
+			});
+			it("throws for invalid file contents", async function() {
+				await fs.copy(path.join(testFiles, "json", "invalid.json"), dataPath);
+				await assert.rejects(() => datastoreProvider.load(dataPath));
 			});
 		});
 	});
@@ -386,15 +394,15 @@ describe("lib/datastore", function() {
 
 		describe("getMutable", function() {
 			it("returns the correct value", function() {
-				assert.equal(datastore.get("foo"), "fooValue");
-				assert.equal(datastore.get("bar"), "barValue");
-				assert.equal(datastore.get("baz"), "bazValue");
+				assert.equal(datastore.getMutable("foo"), "fooValue");
+				assert.equal(datastore.getMutable("bar"), "barValue");
+				assert.equal(datastore.getMutable("baz"), "bazValue");
 			});
 			it("returns undefined correctly", function() {
-				assert.equal(datastore.get("missing1"), undefined);
-				assert.equal(datastore.get("missing2"), undefined);
-				assert.equal(datastore.get(1), undefined);
-				assert.equal(datastore.get(2), undefined);
+				assert.equal(datastore.getMutable("missing1"), undefined);
+				assert.equal(datastore.getMutable("missing2"), undefined);
+				assert.equal(datastore.getMutable(1), undefined);
+				assert.equal(datastore.getMutable(2), undefined);
 			});
 		});
 
@@ -406,7 +414,7 @@ describe("lib/datastore", function() {
 
 		describe("valuesMutable", function() {
 			it("returns all values", function() {
-				assert.deepEqual([...datastore.values()], [...datastoreProvider.value.values()]);
+				assert.deepEqual([...datastore.valuesMutable()], [...datastoreProvider.value.values()]);
 			});
 		});
 	});
