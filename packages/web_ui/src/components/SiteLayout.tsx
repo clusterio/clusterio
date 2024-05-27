@@ -1,7 +1,6 @@
 import React, { Fragment, useContext, useEffect, useState } from "react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { Dropdown, Layout, Menu, MenuProps } from "antd";
-import { ItemType, MenuItemType } from "antd/es/menu/interface";
 import UserOutlined from "@ant-design/icons/UserOutlined";
 import webUiPackage from "../../package.json";
 

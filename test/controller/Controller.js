@@ -1,14 +1,36 @@
 "use strict";
 const assert = require("assert").strict;
 const { Controller } = require("@clusterio/controller");
-const { ControllerConfig } = require("@clusterio/lib");
+const { ControllerConfig, Address, RequestError } = require("@clusterio/lib");
+const { EventEmitter } = require("stream");
+
+class MockEvent {}
+
+class MockInstanceConfig extends EventEmitter {
+	constructor(data = new Map()) {
+		super();
+		this._data = data;
+	}
+
+	get(field) {
+		return this._data.get(field);
+	}
+
+	set(field, value) {
+		return this._data.set(field, value);
+	}
+}
 
 describe("controller/src/Controller", function() {
 	describe("class Controller", function() {
 		/** @type {Controller} */
-		let controller;
-		before(function() {
+		let controller, mockInstanceConfig;
+		before(async function() {
 			controller = new Controller({}, [], "", new ControllerConfig("controller"));
+			mockInstanceConfig = new MockInstanceConfig(new Map([
+				["instance.id", 100], ["instance.name", "test"], ["factorio.settings", []],
+			]));
+			await controller.instanceCreate(mockInstanceConfig);
 		});
 		function check(list, ip, present = true) {
 			if (present === false) {
@@ -48,6 +70,113 @@ describe("controller/src/Controller", function() {
 				check(list, "192.168.0.16");
 				check(list, "192.168.0.17");
 				check(list, "192.168.0.18", false);
+			});
+		});
+
+		describe(".sendRequest()", function() {
+			it("should error on loopback", function() {
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), Address.fromShorthand("controller")),
+					new Error(`Message would return back to sender ${Address.fromShorthand("controller")}.`)
+				);
+			});
+			it("should error on invalid controller", function() {
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ controlId: 99 })),
+					new RequestError("Target control connection does not exist.")
+				);
+			});
+			it("should error on invalid instance", function() {
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 99 })),
+					new RequestError("Instance with ID 99 does not exist")
+				);
+			});
+			it("should error on unassigned instance", function() {
+				mockInstanceConfig.set("instance.assigned_host", null);
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
+					new RequestError("Instance is not assigned to a host")
+				);
+			});
+			it("should error on instance with disconnected host", function() {
+				mockInstanceConfig.set("instance.assigned_host", 99);
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
+					new RequestError("Host containing instance is not connected")
+				);
+			});
+			it("should error on invalid host", function() {
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), Address.fromShorthand({ hostId: 99 })),
+					new RequestError("Host is not connected")
+				);
+			});
+			it("should error on invalid broadcast", function() {
+				// This is different to sendEvent because requests do not support broadcasting
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), new Address(Address.broadcast, 99)),
+					new Error(`Unknown address type ${Address.broadcast}`)
+				);
+			});
+			it("should error on invalid address", function() {
+				assert.throws(
+					() => controller.sendRequest(new MockEvent(), new Address(99, 99)),
+					new Error("Unknown address type 99")
+				);
+			});
+		});
+
+		describe(".sendEvent()", function() {
+			it("should error on loopback", function() {
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), Address.fromShorthand("controller")),
+					new Error(`Message would return back to sender ${Address.fromShorthand("controller")}.`)
+				);
+			});
+			it("should error on invalid controller", function() {
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), Address.fromShorthand({ controlId: 99 })),
+					new Error("Target control connection does not exist.")
+				);
+			});
+			it("should error on invalid instance", function() {
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), Address.fromShorthand({ instanceId: 99 })),
+					new Error("Instance with ID 99 does not exist")
+				);
+			});
+			it("should error on unassigned instance", function() {
+				mockInstanceConfig.set("instance.assigned_host", null);
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
+					new Error("Instance is not assigned to a host")
+				);
+			});
+			it("should error on instance with disconnected host", function() {
+				mockInstanceConfig.set("instance.assigned_host", 99);
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), Address.fromShorthand({ instanceId: 100 })),
+					new Error("Host containing instance is not connected")
+				);
+			});
+			it("should error on invalid host", function() {
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), Address.fromShorthand({ hostId: 99 })),
+					new Error("Host is not connected")
+				);
+			});
+			it("should error on invalid broadcast", function() {
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), new Address(Address.broadcast, 99)),
+					new Error("Unexpected broadcast target 99")
+				);
+			});
+			it("should error on invalid address", function() {
+				assert.throws(
+					() => controller.sendEvent(new MockEvent(), new Address(99, 99)),
+					new Error("Unknown address type 99")
+				);
 			});
 		});
 	});
