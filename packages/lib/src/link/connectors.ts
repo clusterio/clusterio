@@ -34,6 +34,7 @@ export abstract class BaseConnector extends events.EventEmitter {
 	}
 
 	protected abstract send(message: libData.MessageRoutable): void;
+	abstract get valid(): boolean;
 
 	forward(message: libData.MessageRoutable) {
 		const seq = this._seq;
@@ -345,6 +346,14 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 */
 	get hasSession() {
 		return ["connected", "resuming"].includes(this._state);
+	}
+
+	/**
+	 * True if the connector is valid and can accept new messages,
+	 * only needs to be checked on fringe cases during setup and tear down.
+	 */
+	get valid() {
+		return this.hasSession;
 	}
 }
 
@@ -722,5 +731,15 @@ export class VirtualConnector extends BaseConnector {
 	 */
 	send(message: libData.Message) {
 		this.other.emit("message", message);
+	}
+
+	/**
+	 * True if the connector is valid and can accept new messages,
+	 * only needs to be checked on fringe cases during setup and tear down.
+	 *
+	 * For a virtual connector this is always true.
+	 */
+	get valid() {
+		return true;
 	}
 }
