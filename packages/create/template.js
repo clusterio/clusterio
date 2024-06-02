@@ -76,8 +76,15 @@ async function copyPluginTemplates(pluginName, templates) {
 	const files = new Map();
 	const prepare = [];
 
+	// Some basic flags for selecting files to include
 	const javascriptOnly = templates.includes("js");
-	const webpack = templates.includes("controller") || templates.includes("web");
+	const config = !templates.includes("no_config") && templates.some(value => (
+		["controller", "host", "instance", "ctl"].includes(value)
+	));
+	const webpack = config || templates.includes("controller") || templates.includes("web");
+
+	// A count of the number of isolated contexts the plugin runs under
+	let pluginContexts = 0;
 
 	// Get the file extension and path to the templates
 	const ext = javascriptOnly ? "js" : "ts";
@@ -88,7 +95,6 @@ async function copyPluginTemplates(pluginName, templates) {
 	files.set(".gitignore", path.join(commonPath, ".gitignore"));
 	files.set(".npmignore", path.join(commonPath, ".npmignore"));
 	files.set("package.json", path.join(commonPath, "package.json"));
-	files.set(`messages.${ext}`, path.join(templatePath, `messages.${ext}`));
 	files.set(`index.${ext}`, path.join(templatePath, `index.${ext}`));
 
 	// Files and dependencies to support typescript
@@ -105,24 +111,30 @@ async function copyPluginTemplates(pluginName, templates) {
 	if (webpack) {
 		prepare.push("webpack-cli --env production");
 		files.set("webpack.config.js", path.join(commonPath, "webpack.config.js"));
-		files.set(`web/index.${ext}x`, path.join(templatePath,
-			templates.includes("web") ? `web/plugin.${ext}x` : `web/no_plugin.${ext}x`
-		));
+		if (templates.includes("web")) {
+			files.set(`web/index.${ext}x`, path.join(templatePath, `web/plugin.${ext}x`));
+			pluginContexts += 1;
+		} else {
+			files.set(`web/index.${ext}x`, path.join(templatePath, `web/no_plugin.${ext}x`));
+		}
 	}
 
 	// Files for the controller
 	if (templates.includes("controller")) {
 		files.set(`controller.${ext}`, path.join(templatePath, `controller.${ext}`));
+		pluginContexts += 1;
 	}
 
 	// Files for hosts
 	if (templates.includes("host")) {
 		files.set(`host.${ext}`, path.join(templatePath, `host.${ext}`));
+		pluginContexts += 1;
 	}
 
 	// Files for instances
 	if (templates.includes("instance")) {
 		files.set(`instance.${ext}`, path.join(templatePath, `instance.${ext}`));
+		pluginContexts += 1;
 	}
 
 	// Files for lua modules
@@ -133,16 +145,26 @@ async function copyPluginTemplates(pluginName, templates) {
 		files.set("module/module_exports.lua", path.join(commonPath, "module/module_exports.lua"));
 		if (templates.includes("instance")) {
 			files.set("module/globals.lua", path.join(commonPath, "module/globals.lua"));
+		} else {
+			files.set(`instance.${ext}`, path.join(templatePath, `instance_empty.${ext}`));
+			pluginContexts += 1;
 		}
 	}
 
 	// Files for the control tool
 	if (templates.includes("ctl")) {
 		files.set(`ctl.${ext}`, path.join(templatePath, `ctl.${ext}`));
+		pluginContexts += 1;
+	}
+
+	// If there are more than one contexts then include the message file
+	if (pluginContexts > 1) {
+		files.set(`messages.${ext}`, path.join(templatePath, `messages.${ext}`));
 	}
 
 	// Properties that will control the replacements in the templates
 	const properties = {
+		config: config,
 		typescript: !javascriptOnly,
 		controller: templates.includes("controller"),
 		host: templates.includes("host"),
@@ -150,6 +172,7 @@ async function copyPluginTemplates(pluginName, templates) {
 		module: templates.includes("module"),
 		ctl: templates.includes("ctl"),
 		web: templates.includes("web"),
+		multi_context: pluginContexts > 1,
 		plugin_name: pluginName,
 		prepare: prepare.join(" && "),
 		ext: ext,

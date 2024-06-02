@@ -699,6 +699,7 @@ async function inquirerMissingArgs(args) {
 					{ name: "Command Line", value: "ctl" },
 					{ name: "Web UI", value: "web" },
 					{ name: "No Typescript", value: "js" },
+					{ name: "No Config", value: "no_config" },
 				],
 			},
 			{

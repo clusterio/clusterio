@@ -7,7 +7,9 @@ local MyModule = {
 }
 
 --- global is 'synced' between players, you should use your plugin name to avoid conflicts
--- setupGlobalData should either be removed or called during clusterio_api.events.on_server_startup
+-- The following helper function is desync safe and avoids conflicts if called during on_server_startup
+-- There are edge cases in the following events: pre player left, player left, console command, config changed
+-- If you use any of these events and access globalData then make sure to call this function first
 local globalData = {}
 local function setupGlobalData()
 	if global["__plugin_name__"] == nil then
@@ -28,7 +30,7 @@ local function bar()
 	game.print("bar")
 end
 
---- Clusterio provides a few custom events, on_server_startup is the most useful and should be used in place of on_load
+--- Clusterio provides a few custom events, on_server_startup is the most useful and should be used in place of on_load and on_init
 MyModule.events[clusterio_api.events.on_server_startup] = function(event)
 	setupGlobalData()
 	game.print(game.table_to_json(event))
