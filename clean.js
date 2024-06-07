@@ -9,6 +9,7 @@
 "use strict";
 const path = require("path");
 const fs = require("fs-extra");
+const yargs = require("yargs");
 
 const npmPackage = require("./package.json");
 const workspaces = npmPackage.workspaces.map(p => p.slice(0, -2));
@@ -74,41 +75,40 @@ async function removeExecutionArtifacts() {
 	await Promise.all(artifacts.map(artifact => tryRemove(path.resolve(artifact))));
 }
 
-// Selection which type of clean to perform
-if (process.argv.length > 2) {
-	switch (process.argv[2]) {
-		// Remove all artifacts
-		case "all-dry":
-			DRY = true;
-		case "all": {
+/**
+ * Main function for this script
+ */
+async function main() {
+	await yargs
+		.scriptName("clean")
+		.usage("$0 <command> [options]")
+		.option("dry", {
+			nargs: 0,
+			describe: "Will not delete any files",
+			default: false,
+			type: "boolean",
+		})
+		.command("all", "Remove all artifacts", () => {}, argv => {
+			DRY = argv.dry;
 			removeBuildArtifacts();
 			removeTestArtifacts();
 			removeExecutionArtifacts();
-			break;
-		}
-
-		// Remove all build and test artifacts
-		case "tests-dry":
-			DRY = true;
-		case "tests": {
+		})
+		.command("tests", "Remove all build and test artifacts", () => {}, argv => {
+			DRY = argv.dry;
 			removeBuildArtifacts();
 			removeTestArtifacts();
-			break;
-		}
-
-		// Remove all build artifacts
-		case "fast-dry":
-			DRY = true;
-		case "fast": {
+		})
+		.command("fast", "Remove all build artifacts", () => {}, argv => {
+			DRY = argv.dry;
 			removeBuildArtifacts();
-			break;
-		}
+		})
+		.demandCommand(1, "You need to specify a command to run")
+		.strict()
+		.parse();
+}
 
-		default: {
-			// eslint-disable-next-line no-console
-			console.error("First argument must be one of: all, tests, fast, all-dry, tests-dry, fast-dry");
-		}
-	}
-} else {
-	removeBuildArtifacts();
+// Run main if started from command line
+if (module === require.main) {
+	main();
 }
