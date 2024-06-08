@@ -10,7 +10,7 @@ import React, {
 // } from "antd";
 
 import {
-	BaseWebPlugin, PageLayout, Control, ControlContext, notifyErrorHandler,
+	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext, notifyErrorHandler,
 } from "@clusterio/web_ui";
 //%if multi_context // Subscribing requires multi context
 
@@ -34,7 +34,7 @@ function MyTemplatePage() {
 //%endif
 
 	return <PageLayout nav={[{ name: "__plugin_name__" }]}>
-		<h2>__plugin_name__</h2>
+		<PageHeader title="__plugin_name__" />
 //%if controller // Subscribing requires web content and the controller
 		Synced: {String(synced)} Data: {JSON.stringify([...subscribableData.values()])}
 //%endif
