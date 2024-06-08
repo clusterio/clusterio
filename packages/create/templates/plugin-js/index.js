@@ -1,5 +1,6 @@
 "use strict";
 const lib = require("@clusterio/lib");
+//%if multi_context
 const Messages = require("./messages");
 
 lib.definePermission({
@@ -13,6 +14,7 @@ lib.definePermission({
 	title: "Example permission request",
 	description: "Example Description. Request. Change me in index.js",
 });
+//%endif
 //%if controller & web // Subscribing requires web content and the controller
 
 lib.definePermission({
@@ -34,9 +36,13 @@ const plugin = {
 	name: "__plugin_name__",
 	title: "__plugin_name__",
 	description: "Example Description. Plugin. Change me in index.js",
-//%if controller
+//%if controller | host & !config | instance & !config | ctl & !config // Blank line for formatting
 
-	controllerEntrypoint: "./controller",
+//%endif
+//%if controller
+controllerEntrypoint: "./dist/node/controller",
+//%endif
+//%if controller & config
 	controllerConfigFields: {
 		"__plugin_name__.myControllerField": {
 			title: "My Controller Field",
@@ -46,9 +52,13 @@ const plugin = {
 		},
 	},
 //%endif
-//%if host
+//%if host & config // Blank line for formatting
 
-	hostEntrypoint: "./host",
+//%endif
+//%if host
+	hostEntrypoint: "./dist/node/host",
+//%endif
+//%if host & config
 	hostConfigFields: {
 		"__plugin_name__.myHostField": {
 			title: "My Host Field",
@@ -58,9 +68,13 @@ const plugin = {
 		},
 	},
 //%endif
-//%if instance
+//%if instance & config | module & config // Blank line for formatting
 
-	instanceEntrypoint: "./instance",
+//%endif
+//%if instance | module // Modules load an empty instance plugin
+	instanceEntrypoint: "./dist/node/instance",
+//%endif
+//%if instance & config
 	instanceConfigFields: {
 		"__plugin_name__.myInstanceField": {
 			title: "My Instance Field",
@@ -70,9 +84,13 @@ const plugin = {
 		},
 	},
 //%endif
-//%if ctl
+//%if ctl & config // Blank line for formatting
 
-	ctlEntrypoint: "./ctl",
+//%endif
+//%if ctl
+	ctlEntrypoint: "./dist/node/ctl",
+//%endif
+//%if ctl & config
 	controlConfigFields: {
 		"__plugin_name__.myControlField": {
 			title: "My Control Field",
@@ -82,25 +100,24 @@ const plugin = {
 		},
 	},
 //%endif
+//%if multi_context // Subscribing requires multi context
 
 	messages: [
 		Messages.PluginExampleEvent,
 		Messages.PluginExampleRequest,
+//%endif
 //%if controller & web // Subscribing requires web content and the controller
 		Messages.ExampleSubscribableUpdate,
 //%endif
+//%if multi_context // Subscribing requires multi context
 	],
+//%endif
 //%if web // Web content template has an example route which is the plugin name
 
 	webEntrypoint: "./web",
 	routes: [
 		"/__plugin_name__",
 	],
-//%endif
-//%if controller & !web // The controller always includes web entry even if there is no content
-
-	webEntrypoint: "./web",
-	routes: [],
 //%endif
 };
 
