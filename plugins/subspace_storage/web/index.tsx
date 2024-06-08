@@ -3,7 +3,7 @@ import { Input, Table, Typography } from "antd";
 
 import * as lib from "@clusterio/lib";
 import {
-	BaseWebPlugin, PageLayout, Control, ControlContext,
+	BaseWebPlugin, PageLayout, PageHeader, Control, ControlContext,
 	notifyErrorHandler, useItemMetadata, useLocale,
 } from "@clusterio/web_ui";
 import { GetStorageRequest, Item, SetStorageSubscriptionRequest, UpdateStorageEvent } from "../messages";
@@ -60,7 +60,7 @@ function StoragePage() {
 	let numberFormat = new Intl.NumberFormat("en-US");
 
 	return <PageLayout nav={[{ name: "Storage" }]}>
-		<h2>Storage</h2>
+		<PageHeader title="Storage" />
 		<Paragraph>
 			<Input
 				placeholder="Search"
