@@ -61,6 +61,8 @@ describe("player_auth", function() {
 										return load;
 									} else if (field === "factorio.settings") {
 										return { name };
+									} else if (field === "instance.id") {
+										return id;
 									}
 									throw new Error(`field ${field} not implemented`);
 								},

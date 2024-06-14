@@ -66,9 +66,9 @@ void new lib.Gauge(
 			if (!controller || !controller.hosts) {
 				return;
 			}
-			for (let [id, host] of controller.hosts) {
+			for (const host of controller.hosts.values()) {
 				gauge.labels({
-					host_id: String(id),
+					host_id: String(host.id),
 					host_name: host.name,
 				}).set(1);
 			};
@@ -86,9 +86,9 @@ void new lib.Gauge(
 			if (!controller || !controller.instances) {
 				return;
 			}
-			for (let [id, instance] of controller.instances) {
+			for (const instance of controller.instances.values()) {
 				gauge.labels({
-					instance_id: String(id),
+					instance_id: String(instance.id),
 					instance_name: String(instance.config.get("instance.name")),
 					host_id: String(instance.config.get("instance.assigned_host")),
 				}).set(1);

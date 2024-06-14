@@ -48,6 +48,13 @@ export default class InstanceInfo {
 		return this.status === "deleted";
 	}
 
+	set isDeleted(value: boolean) {
+		if (value === false) {
+			throw new Error("Setting isDeleted to false is not supported, use status instead.");
+		}
+		this.status = "deleted";
+	}
+
 	/** Shorthand for `instance.config.get("instance.id")` */
 	get id():number {
 		return this.config.get("instance.id");

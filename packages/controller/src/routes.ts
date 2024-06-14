@@ -218,7 +218,7 @@ async function uploadExport(req: Request, res: Response) {
 		res.sendStatus(400);
 		return;
 	}
-	let modPack = res.app.locals.controller.modPacks.get(modPackId);
+	let modPack = res.app.locals.controller.modPacks.getMutable(modPackId);
 	if (!modPack) {
 		res.sendStatus(400);
 		return;
@@ -261,7 +261,7 @@ async function uploadExport(req: Request, res: Response) {
 
 	modPack.exportManifest = new lib.ExportManifest(assets);
 	modPack.fillDefaultSettings(settingPrototypes, logger);
-	res.app.locals.controller.modPacksUpdated([modPack]);
+	res.app.locals.controller.modPacks.set(modPack);
 
 	res.sendStatus(200);
 }

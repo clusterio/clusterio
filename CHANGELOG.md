@@ -25,6 +25,10 @@ Many thanks to the following for contributing to this release:
 
 ## Version 2.0.0-alpha.19
 
+### Features
+
+- Added Datastore and Datastore Provider classes to the library to support savable Maps [#629](https://github.com/clusterio/clusterio/pull/629).
+
 ### Changes
 
 - Fixed IPC errors reporting undefined when no stack trace was present [#624](https://github.com/clusterio/clusterio/pull/624).
