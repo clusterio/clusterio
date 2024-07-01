@@ -28,6 +28,8 @@ export * from "./src/stream";
 export * from "./src/system_collectors";
 export * from "./src/zip_ops";
 export * from "./src/subscriptions";
+export * from "./src/wube";
+export * from "./src/memoize_timeout";
 
 export { default as ExponentialBackoff } from "./src/ExponentialBackoff";
 export { default as ModStore } from "./src/ModStore";
