@@ -25,10 +25,22 @@ Many thanks to the following for contributing to this release:
 
 ## Version 2.0.0-alpha.19
 
+### Features
+
+- Added clean script to speed up publishing and debugging of build steps [#640](https://github.com/clusterio/clusterio/pull/640).
+- Added sub-tile option on plugin page headers [#642](https://github.com/clusterio/clusterio/pull/642).
+- Greatly improved plugin and module template generation [#641](https://github.com/clusterio/clusterio/pull/641).
+
 ### Changes
 
+- Added tests for sendEvent and sendRequest throwing the correct error messages [#638](https://github.com/clusterio/clusterio/pull/638).
+- Updated all web ui pages to use correct page header component [#643](https://github.com/clusterio/clusterio/pull/643).
 - Fixed IPC errors reporting undefined when no stack trace was present [#624](https://github.com/clusterio/clusterio/pull/624).
 - Fixed loopback routing for instances reporting the wrong error message [#625](https://github.com/clusterio/clusterio/pull/625).
+- Fixed docs linking to non-existing js files after ts migration [#633](https://github.com/clusterio/clusterio/pull/633).
+- Fixed CI workflows using deprecated version of nodejs [#637](https://github.com/clusterio/clusterio/pull/637).
+- Fixed test running on windows that should be linux only [#628](https://github.com/clusterio/clusterio/pull/628).
+- Fixed log events being sent from a host over an invalid websocket [#639](https://github.com/clusterio/clusterio/pull/639).
 - Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir" [#648](https://github.com/clusterio/clusterio/pull/648).
 - Fixed spaces passed in arguments to the installer causing it to break [#620](https://github.com/clusterio/clusterio/issues/620)
 
@@ -38,7 +50,9 @@ Many thanks to the following for contributing to this release:
 
 Many thanks to the following for contributing to this release:  
 [@Cooldude2606](https://github.com/Cooldude2606)
+[@Danielv123](https://github.com/Danielv123)
 [@Hornwitser](https://github.com/Hornwitser)
+[@Laar](https://github.com/Laar)
 
 ## Version 2.0.0-alpha.18
 
