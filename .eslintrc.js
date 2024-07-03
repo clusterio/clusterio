@@ -23,7 +23,9 @@ module.exports = {
 				"@typescript-eslint/no-useless-constructor": "error",
 				"@typescript-eslint/no-unused-vars": "off",
 				"@typescript-eslint/triple-slash-reference": "off",
+				"@typescript-eslint/no-shadow": "error",
 				"prefer-const": "off",
+				"no-shadow": "off",
 			},
 		},
 		{
