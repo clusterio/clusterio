@@ -9,6 +9,25 @@ import { logger } from "../logging";
 import ExponentialBackoff from "../ExponentialBackoff";
 import type { Request, Event } from "./link";
 
+/**
+ * Numbered codes describing why a connection was closed
+ * See: https://github.com/Luka967/websocket-close-codes
+ */
+export enum ConnectionClosed {
+	// Codes between 1000 and 1015 are pre-allocated for web sockets
+	Generic = 1000, // CLOSE_NORMAL
+	ServerQuit = 1001, // CLOSE_GOING_AWAY
+	ProtocolError = 1002, // CLOSE_PROTOCOL_ERROR
+	PolicyError = 1008, // Policy Violation
+	ServerError = 1011, // Server Error
+
+	// Codes after 4000 are available for applications
+	// Ours are somewhat based on http client error codes
+	BadRequest = 4000,
+	Unauthorized = 4003,
+	Timeout = 4008,
+	Reset = 4010
+};
 
 /**
  * Base connector for links
@@ -178,13 +197,13 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 		try {
 			json = JSON.parse(text);
 		} catch (err) {
-			this.close(4000, "Malformed JSON");
+			this.close(ConnectionClosed.BadRequest, "Malformed JSON");
 			return undefined;
 		}
 		if (!libData.Message.validate(json)) {
 			logger.error(`Received malformed message: ${text}`);
 			// logger.error(JSON.stringify(libData.Message.validate.errors, null, "\t"));
-			this.close(4000, "Malformed message");
+			this.close(ConnectionClosed.BadRequest, "Malformed message");
 			return undefined;
 		}
 		return libData.Message.fromJSON(json);
@@ -220,7 +239,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 			logger.verbose("Connector | closing after heartbeat timed out");
 			// eslint-disable-next-line node/no-process-env
 			if (process.env.APP_ENV === "browser") {
-				this._socket!.close(4008, "Heartbeat timeout");
+				this._socket!.close(ConnectionClosed.Timeout, "Heartbeat timeout");
 			} else {
 				this._socket!.terminate();
 			}
@@ -294,10 +313,12 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 * Gracefully disconnect
 	 *
 	 * Sets closing flag an initiates the disconnect sequence.
+	 * @param [code=1000] WebSocket close code.
+	 * @param [reason="Disconnect"] WebSocket close reason.
 	 */
-	async disconnect() {
+	async disconnect(code: number = ConnectionClosed.Generic, reason: string = "Disconnect") {
 		if (this._state !== "connected") {
-			await this.close(1000, "Disconnect");
+			await this.close(code, reason);
 			return;
 		}
 
@@ -316,7 +337,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 			clearTimeout(timeout);
 		}
 
-		await this.close(1000, "Disconnect");
+		await this.close(code, reason);
 	}
 
 	/**
@@ -458,7 +479,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		if (this._socket) {
-			this._socket!.close(1000, "Connector closing");
+			this._socket!.close(ConnectionClosed.Generic, "Connector closing");
 
 		} else {
 			this._reset();
