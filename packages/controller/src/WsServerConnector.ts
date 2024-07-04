@@ -114,7 +114,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	_timedOut() {
 		logger.verbose("Connector | Connection timed out");
 		this._reset();
-		this.emit("close");
+		this.emit("close", lib.ConnectionClosed.Timeout, "Connection timed out");
 	}
 
 	_attachSocketHandlers() {
@@ -131,7 +131,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 
 			if (this._closing) {
 				this._reset();
-				this.emit("close");
+				this.emit("close", code, reason);
 
 			} else {
 				this._state = "resuming";
@@ -188,7 +188,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 
 		if (this._state === "resuming") {
 			this._reset();
-			this.emit("close");
+			this.emit("close", lib.ConnectionClosed.Reset, "Forced Closed");
 			return;
 		}
 
@@ -224,7 +224,7 @@ export default class WsServerConnector extends lib.WebSocketBaseConnector {
 	setClosing() {
 		if (this._state === "resuming") {
 			this._reset();
-			this.emit("close");
+			this.emit("close", lib.ConnectionClosed.Reset, "Forced Closed");
 			return;
 		}
 
