@@ -335,18 +335,21 @@ export default class Host extends lib.Link {
 			});
 		});
 
-		this.connector.on("close", () => {
+		this.connector.on("close", (code: lib.ConnectionClosed, reason: string) => {
 			if (this._shuttingDown) {
 				return;
 			}
 
-			if (this._disconnecting) {
+			if (code === lib.ConnectionClosed.PolicyError && reason === "Registered from another connection") {
+				// Another process connected to the controller with the same host id, we should shutdown
+				logger.fatal("Controller identified host connection with same host id, forced shutdown");
+				this.shutdown();
+			} else if (this._disconnecting) {
 				this._disconnecting = false;
 				this.connector.connect().catch((err) => {
 					logger.fatal(`Unexpected error reconnecting to controller:\n${err.stack}`);
 					return this.shutdown();
 				});
-
 			} else {
 				logger.fatal("Controller connection was unexpectedly closed");
 				this.shutdown();
