@@ -15,7 +15,7 @@ import type { Request, Event } from "./link";
  */
 export enum ConnectionClosed {
 	// Codes between 1000 and 1015 are pre-allocated for web sockets
-	Generic = 1000, // CLOSE_NORMAL
+	Normal = 1000, // CLOSE_NORMAL
 	ServerQuit = 1001, // CLOSE_GOING_AWAY
 	ProtocolError = 1002, // CLOSE_PROTOCOL_ERROR
 	PolicyError = 1008, // Policy Violation
@@ -316,7 +316,7 @@ export abstract class WebSocketBaseConnector extends BaseConnector {
 	 * @param [code=1000] WebSocket close code.
 	 * @param [reason="Disconnect"] WebSocket close reason.
 	 */
-	async disconnect(code: number = ConnectionClosed.Generic, reason: string = "Disconnect") {
+	async disconnect(code: number = ConnectionClosed.Normal, reason: string = "Disconnect") {
 		if (this._state !== "connected") {
 			await this.close(code, reason);
 			return;
@@ -457,7 +457,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 		} else {
 			this._reset();
-			this.emit("close");
+			this.emit("close", ConnectionClosed.Reset, "Forced Closed");
 		}
 	}
 
@@ -479,11 +479,11 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		}
 
 		if (this._socket) {
-			this._socket!.close(ConnectionClosed.Generic, "Connector closing");
+			this._socket!.close(ConnectionClosed.Normal, "Connector closing");
 
 		} else {
 			this._reset();
-			this.emit("close");
+			this.emit("close", ConnectionClosed.Reset, "Forced Closed");
 		}
 	}
 
@@ -542,7 +542,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			this._reset();
 			if (this._closing) {
 				this._reset();
-				this.emit("close");
+				this.emit("close", ConnectionClosed.Timeout, "Session timed out");
 			} else {
 				this._state = "connecting";
 				this.emit("invalidate");
@@ -562,7 +562,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			const previousState = this._state;
 
 			// Authentication failed
-			if (event.code === 4003) {
+			if (event.code === ConnectionClosed.Unauthorized) {
 				this.emit("error", new libErrors.AuthenticationFailed(event.reason));
 				this._closing = true;
 			}
@@ -572,7 +572,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 				this.stopHeartbeat();
 				if (this._closing) {
 					this._reset();
-					this.emit("close");
+					this.emit("close", event.code, event.reason);
 
 				} else {
 					this._state = "resuming";
@@ -585,7 +585,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 				// eslint-disable-next-line no-lonely-if
 				if (this._closing) {
 					this._reset();
-					this.emit("close");
+					this.emit("close", event.code, event.reason);
 
 				} else {
 					this.reconnect();
@@ -594,7 +594,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 
 			// Log must be sent after state change is complete
 			let message = `Connector | Close (code: ${event.code}, reason: ${event.reason})`;
-			if (previousState === "connected" && event.code !== 1000) {
+			if (previousState === "connected" && event.code !== ConnectionClosed.Normal) {
 				logger.info(message);
 			} else {
 				logger.verbose(message);
@@ -692,7 +692,7 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 			logger.warn("Connector | session invalidated by controller");
 			if (this._closing) {
 				this._reset();
-				this.emit("close");
+				this.emit("close", ConnectionClosed.Reset, "Invalidated");
 			} else {
 				this._invalidate();
 				this.emit("invalidate");
