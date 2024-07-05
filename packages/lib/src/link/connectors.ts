@@ -561,10 +561,23 @@ export abstract class WebSocketClientConnector extends WebSocketBaseConnector {
 		this._socket!.onclose = (event) => {
 			const previousState = this._state;
 
-			// Authentication failed
-			if (event.code === ConnectionClosed.Unauthorized) {
-				this.emit("error", new libErrors.AuthenticationFailed(event.reason));
-				this._closing = true;
+			switch (event.code) {
+				case ConnectionClosed.Unauthorized:
+					// Authentication failed
+					this.emit("error", new libErrors.AuthenticationFailed(event.reason));
+					this._closing = true;
+					break;
+				case ConnectionClosed.ProtocolError:
+					// Connection was closed because invalid data was sent
+					this.emit("error", new libErrors.ProtocolViolation(event.reason));
+					this._closing = true;
+					break;
+				case ConnectionClosed.PolicyError:
+					// Connection was closed to prevent the server entering an invalid state
+					this.emit("error", new libErrors.PolicyViolation(event.reason));
+					this._closing = true;
+					break;
+				default:
 			}
 
 			this._socket = null;
