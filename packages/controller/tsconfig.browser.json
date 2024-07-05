@@ -7,6 +7,5 @@
 	"include": [ "web/**/*.tsx", "web/**/*.ts", "package.json" ],
 	"compilerOptions": {
 		"rootDir": "..",
-		"outDir": "dist/browser",
 	}
 }

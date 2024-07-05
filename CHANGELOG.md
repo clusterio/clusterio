@@ -29,6 +29,7 @@ Many thanks to the following for contributing to this release:
 
 - Fixed IPC errors reporting undefined when no stack trace was present [#624](https://github.com/clusterio/clusterio/pull/624).
 - Fixed loopback routing for instances reporting the wrong error message [#625](https://github.com/clusterio/clusterio/pull/625).
+- Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir" [#648](https://github.com/clusterio/clusterio/pull/648).
 
 ### Breaking Changes
 

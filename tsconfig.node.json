@@ -6,5 +6,6 @@
 		"moduleResolution": "node16",
 		"target": "es2022",
 		"forceConsistentCasingInFileNames": true,
+		"outDir": "${configDir}/dist/node",
 	},
 }
