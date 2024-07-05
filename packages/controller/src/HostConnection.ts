@@ -155,6 +155,15 @@ export default class HostConnection extends BaseConnection {
 		return this.info.id;
 	}
 
+	/**
+	 * Remote address of the host this connection is connected to
+	 *
+	 * @returns {string} host remote address.
+	 */
+	get remoteAddress() {
+		return this.info.remoteAddress;
+	}
+
 	async handleHostInfoUpdateEvent(event: lib.HostInfoUpdateEvent) {
 		this.info.name = event.update.name;
 		this.info.publicAddress = event.update.publicAddress;

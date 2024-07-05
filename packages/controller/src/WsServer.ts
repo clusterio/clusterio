@@ -267,11 +267,22 @@ ${err.stack}`
 			return;
 		}
 
-		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));
 		let connection = this.hostConnections.get(data.id);
 		if (connection) {
-			logger.verbose(`WsServer | disconnecting existing connection for host ${data.id}`);
-			await connection.disconnect(lib.ConnectionClosed.PolicyError, "Registered from another connection");
+			if (connection.remoteAddress !== this.remoteAddr(req)) {
+				logger.verbose(
+					`WsServer | disallowed duplicate connection from ${this.remoteAddr(req)} for host ${data.id}`
+				);
+				wsRejectedConnectionsCounter.inc();
+				socket.close(lib.ConnectionClosed.PolicyError, "Host already connected from another address");
+				return;
+			}
+			logger.verbose(
+				`WsServer | disconnecting duplicate connection from host ${data.id}`
+			);
+			await connection.disconnect(
+				lib.ConnectionClosed.PolicyError, "Newer connection for host from same address"
+			);
 		}
 
 		logger.info(
@@ -283,6 +294,8 @@ ${err.stack}`
 				`version of the controller is currently running (${packageVersion}). It may not work as expected.`
 			);
 		}
+
+		let [connector, sessionToken] = this.createSession(new lib.Address(lib.Address.host, data.id));
 
 		// Handle close before HostConnection does. This avoids a host
 		// connection event happening between the connection breaking and
