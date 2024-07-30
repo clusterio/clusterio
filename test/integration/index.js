@@ -161,20 +161,30 @@ function getControl() {
 }
 
 function spawn(name, cmd, waitFor) {
+	// eslint-disable-next-line node/no-process-env
+	const silent = process.env.SILENT_TEST;
 	return new Promise((resolve, reject) => {
 		console.log(cmd);
 		let parts = cmd.split(" ");
 		let process = child_process.spawn(parts[0], parts.slice(1), { cwd: path.join("temp", "test") });
 		let stdout = new LineSplitter({ readableObjectMode: true });
-		stdout.on("data", line => {
+		let stderr = new LineSplitter({ readableObjectMode: true });
+		let onDataOut = line => {
 			line = line.toString("utf8");
 			if (waitFor.test(line)) {
+				if (silent) {
+					stdout.off("data", onDataOut);
+					stderr.off("data", onDataErr);
+				}
 				resolve(process);
 			}
 			console.log(name, line);
-		});
-		let stderr = new LineSplitter({ readableObjectMode: true });
-		stderr.on("data", line => { console.log(name, line.toString("utf8")); });
+		};
+		let onDataErr = line => {
+			console.log(name, line.toString("utf8"));
+		};
+		stdout.on("data", onDataOut);
+		stderr.on("data", onDataErr);
 		process.stdout.pipe(stdout);
 		process.stderr.pipe(stderr);
 	});
@@ -183,10 +193,17 @@ function spawn(name, cmd, waitFor) {
 before(async function() {
 	this.timeout(40000);
 
+	// eslint-disable-next-line node/no-process-env
+	const silent = process.env.SILENT_TEST;
+	if (silent) {
+		console.log("SILENT_TEST is present in env, loggers after bootstrap will be muted.");
+	}
+
 	// Some integration tests may cause log events
 	logger.add(new ConsoleTransport({
 		level: "info",
 		format: new lib.TerminalFormat(),
+		filter: () => !silent,
 	}));
 
 	// If fast test is enabled then output that it is
@@ -206,6 +223,7 @@ before(async function() {
 
 	await fs.ensureDir(path.join("temp", "test"));
 
+	console.log("Building Mods");
 	await fs.ensureDir(modsDir);
 	await lib.build({
 		build: true,
@@ -232,6 +250,7 @@ before(async function() {
 	}
 	await fs.copyFile(`mods/${ssZip}`, `${modsDir}/${ssZip}`);
 
+	console.log("Setting Controller Config");
 	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
 	await exec("node ../../packages/controller config set controller.http_port 8880");
 	await exec("node ../../packages/controller config set controller.https_port 4443");
@@ -240,12 +259,14 @@ before(async function() {
 	await exec("node ../../packages/controller config set controller.tls_certificate ../../test/file/tls/cert.pem");
 	await exec("node ../../packages/controller config set controller.tls_private_key ../../test/file/tls/key.pem");
 
+	console.log("Setting Controller Plugins");
 	await exec("node ../../packages/ctl plugin add ../../plugins/global_chat");
 	await exec("node ../../packages/ctl plugin add ../../plugins/research_sync");
 	await exec("node ../../packages/ctl plugin add ../../plugins/statistics_exporter");
 	await exec("node ../../packages/ctl plugin add ../../plugins/subspace_storage");
 	await exec("node ../../packages/ctl plugin add ../../plugins/player_auth");
 
+	console.log("Bootstrapping");
 	await exec("node ../../packages/controller bootstrap create-admin test");
 	await exec("node ../../packages/controller bootstrap create-ctl-config test");
 	await exec("node ../../packages/ctl control-config set control.tls_ca ../../test/file/tls/cert.pem");

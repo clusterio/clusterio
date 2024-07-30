@@ -1043,6 +1043,11 @@ export default class Controller {
 	}
 
 	instanceDetailsUpdated(instances: InstanceInfo[]) {
+		for (const instance of instances) {
+			if (instance.status === "stopped") {
+				this.subscriptions.unsubscribeAddress(lib.Address.fromShorthand({instanceId: instance.id}));
+			}
+		}
 		const updates = instances.map(instance => instance.toInstanceDetails());
 		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}
