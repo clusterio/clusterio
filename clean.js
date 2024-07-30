@@ -12,7 +12,9 @@ const fs = require("fs-extra");
 const yargs = require("yargs");
 
 const npmPackage = require("./package.json");
-const workspaces = npmPackage.workspaces.map(p => p.slice(0, -2));
+const workspaces = npmPackage.workspaces
+	.map(p => p.slice(0, -2))
+	.filter(p => !p.includes("external_plugins"));
 
 let DRY = false;
 

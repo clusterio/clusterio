@@ -30,7 +30,8 @@
 	"workspaces": [
 		"packages/*",
 		"plugins/*",
-		"external_plugins/*"
+		"external_plugins/*",
+		"external_plugins/*/*"
 	],
 	"devDependencies": {
 		"@clusterio/controller": "workspace:*",
