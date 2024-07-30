@@ -95,7 +95,7 @@ export default class Controller {
 	public shouldRestart: boolean = false;
 	_fallbackedRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
 	_registeredRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
-	_registeredEvents = new Map();
+	_registeredEvents = new Map<lib.EventClass<unknown>, lib.EventHandler<unknown>>();
 	_snoopedEvents = new Map();
 
 	devMiddleware: any | null = null;
