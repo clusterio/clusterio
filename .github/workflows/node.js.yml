@@ -24,7 +24,7 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-    - run: pnpm i --no-optional --no-frozen-lockfile
+    - run: pnpm i --no-frozen-lockfile
     - run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
       if: ${{ matrix.node-version != '18.x' }}
@@ -49,5 +49,5 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: 18.x
-    - run: pnpm i --no-optional --no-frozen-lockfile
+    - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
