@@ -16,6 +16,7 @@ const { copyPluginTemplates } = require("./template");
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
 const finished = util.promisify(stream.finished);
+const { escapeArg } = require("./escape_arg");
 
 // I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
 // See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
@@ -106,15 +107,25 @@ async function safeOutputFile(file, data, options={}) {
 }
 
 async function execFile(cmd, args) {
-	logger.verbose(`executing ${cmd} ${args.join(" ")}`);
+	const escaped = args.map(escapeArg);
+	logger.verbose(`executing ${cmd} ${escaped.join(" ")}`);
 	return new Promise((resolve, reject) => {
-		let child = child_process.execFile(cmd, args, { shell: true }, (err, stdout, stderr) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve({ stdout, stderr });
+		let child = child_process.execFile(
+			cmd,
+			escaped,
+			{
+				shell: true,
+				// eslint-disable-next-line node/no-process-env
+				env: process.platform === "win32" ? { ...process.env, pct: "%" } : undefined,
+			},
+			(err, stdout, stderr) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve({ stdout, stderr });
+				}
 			}
-		});
+		);
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		stdout.on("data", line => { logger.verbose(line.toString()); });
 		child.stdout.pipe(stdout);
