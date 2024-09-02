@@ -43,6 +43,7 @@ Many thanks to the following for contributing to this release:
 - Fixed log events being sent from a host over an invalid websocket [#639](https://github.com/clusterio/clusterio/pull/639).
 - Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir" [#648](https://github.com/clusterio/clusterio/pull/648).
 - Fixed spaces passed in arguments to the installer causing it to break [#620](https://github.com/clusterio/clusterio/issues/620)
+- Fixed numeric admin name breaking login [#536](https://github.com/clusterio/clusterio/issues/536)
 
 ### Breaking Changes
 
@@ -53,6 +54,7 @@ Many thanks to the following for contributing to this release:
 [@Danielv123](https://github.com/Danielv123)
 [@Hornwitser](https://github.com/Hornwitser)
 [@Laar](https://github.com/Laar)
+[@psihius](https://github.com/psihius)
 
 ## Version 2.0.0-alpha.18
 
