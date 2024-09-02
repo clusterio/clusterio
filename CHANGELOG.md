@@ -44,6 +44,7 @@ Many thanks to the following for contributing to this release:
 - Bumped Typescript version to 5.5 and implemented `${configDir}` in base configs for "outDir" [#648](https://github.com/clusterio/clusterio/pull/648).
 - Fixed spaces passed in arguments to the installer causing it to break [#620](https://github.com/clusterio/clusterio/issues/620)
 - Fixed numeric admin name breaking login [#536](https://github.com/clusterio/clusterio/issues/536)
+- Added factorio.executable_path option which allows overriding the default path to the Factorio executable run.
 
 ### Breaking Changes
 
