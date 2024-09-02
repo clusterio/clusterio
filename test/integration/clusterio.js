@@ -206,6 +206,12 @@ describe("Integration of Clusterio", function() {
 			});
 		});
 		it("should auto start instances with auto_start enabled", async function() {
+			// On windows there's currently no way to automate graceful shutdown of the host
+			// process as CTRL+C is some weird terminal thing and SIGINT isn't a thing.
+			if (process.platform === "win32") {
+				this.skip();
+			}
+
 			slowTest(this);
 
 			let hostProcess;

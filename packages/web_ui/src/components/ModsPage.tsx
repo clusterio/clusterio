@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Modal, Popconfirm, Space, Table, Typography, Upload } from "antd";
 import ImportOutlined from "@ant-design/icons/ImportOutlined";
 import PlusOutlined from "@ant-design/icons/PlusOutlined";
-import UploadOutlined from "@ant-design/icons/UploadOutlined";
 
 import * as lib from "@clusterio/lib";
 
@@ -17,6 +16,8 @@ import PageLayout from "./PageLayout";
 import PluginExtra from "./PluginExtra";
 import SectionHeader from "./SectionHeader";
 import ModDetails from "./ModDetails";
+import { Dropzone } from "./Dropzone";
+import UploadButton from "./UploadButton";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -55,11 +56,13 @@ function ImportModPackButton() {
 					name="string"
 					rules={[
 						{ required: true },
-						{ async validator(rule, value) {
-							if (value) {
-								lib.ModPack.fromModPackString(value);
-							}
-						}},
+						{
+							async validator(rule, value) {
+								if (value) {
+									lib.ModPack.fromModPackString(value);
+								}
+							},
+						},
 					]}
 				>
 					<Input.TextArea autoSize={{ minRows: 6, maxRows: 6 }} />
@@ -172,12 +175,13 @@ export default function ModsPage() {
 			name="file"
 			accept=".zip"
 			multiple
+			showUploadList={false}
 			headers={{
-				"X-Access-Token": control.connector.token||"",
+				"X-Access-Token": control.connector.token || "",
 			}}
 			action={`${webRoot}api/upload-mod`}
 		>
-			<Button icon={<UploadOutlined/>}>Upload</Button>
+			<UploadButton />
 		</Upload>;
 	}
 
@@ -219,54 +223,76 @@ export default function ModsPage() {
 			})}
 		/>
 		<SectionHeader title="Stored Mods" extra={uploadButton} />
-		<Table
-			columns={[
-				{
-					title: "Name",
-					dataIndex: "title",
-					defaultSortOrder: "ascend",
-					sorter: (a, b) => (
-						strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
-					),
-				},
-				{
-					title: "Version",
-					key: "version",
-					align: "right",
-					render: (_, mod) => <>
-						{`${mod.version} `}
-						<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
-					</>,
-				},
-				{
-					title: "Filename",
-					dataIndex: "filename",
-					responsive: ["xl"],
-					sorter: (a, b) => strcmp(a.filename, b.filename),
-				},
-				{
-					title: "Size",
-					key: "size",
-					responsive: ["lg"],
-					render: (_, mod) => lib.formatBytes(mod.size),
-					align: "right",
-					sorter: (a, b) => a.size - b.size,
-				},
-				{
-					title: "Action",
-					key: "action",
-					responsive: ["lg"],
-					render: (_, mod) => actions(mod),
-				},
-			]}
-			expandable={{
-				expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
-				expandedRowClassName: () => "no-expanded-padding",
+
+		<Upload.Dragger
+			className="save-list-dragger"
+			openFileDialogOnClick={false}
+			name="file"
+			accept=".zip"
+			multiple
+			headers={{
+				"X-Access-Token": control.connector.token || "",
 			}}
-			dataSource={[...mods.values()]}
-			pagination={false}
-			rowKey={mod => mod.id}
-		/>
+			action={`${webRoot}api/upload-mod`}
+			showUploadList={false}
+		>
+			<div
+				style={{
+					position: "relative",
+					zIndex: "1010",
+				}}
+			>
+				<Dropzone />
+				<Table
+					columns={[
+						{
+							title: "Name",
+							dataIndex: "title",
+							defaultSortOrder: "ascend",
+							sorter: (a, b) => (
+								strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
+							),
+						},
+						{
+							title: "Version",
+							key: "version",
+							align: "right",
+							render: (_, mod) => <>
+								{`${mod.version} `}
+								<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
+							</>,
+						},
+						{
+							title: "Filename",
+							dataIndex: "filename",
+							responsive: ["xl"],
+							sorter: (a, b) => strcmp(a.filename, b.filename),
+						},
+						{
+							title: "Size",
+							key: "size",
+							responsive: ["lg"],
+							render: (_, mod) => lib.formatBytes(mod.size),
+							align: "right",
+							sorter: (a, b) => a.size - b.size,
+						},
+						{
+							title: "Action",
+							key: "action",
+							responsive: ["lg"],
+							render: (_, mod) => actions(mod),
+						},
+					]}
+					expandable={{
+						expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
+						expandedRowClassName: () => "no-expanded-padding",
+					}}
+					dataSource={[...mods.values()]}
+					pagination={false}
+					rowKey={mod => mod.id}
+				/>
+			</div>
+		</Upload.Dragger>
 		<PluginExtra component="ModsPage" />
 	</PageLayout>;
 }

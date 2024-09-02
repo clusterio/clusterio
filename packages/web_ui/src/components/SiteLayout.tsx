@@ -9,16 +9,36 @@ import ErrorBoundary from "./ErrorBoundary";
 import ErrorPage from "./ErrorPage";
 import ControlContext from "./ControlContext";
 import { pages } from "../pages";
+import { DraggingContext } from "../model/is_dragging";
+
+type MenuItem = Required<MenuProps>["items"][number];
 
 const { Header, Sider } = Layout;
 
+function isActiveDropzone(element: HTMLElement | null): boolean {
+	if (!element) {
+		return false;
+	}
+	const checkDepth = 5;
+	let depth = 0;
+	while (element && depth < checkDepth) {
+		if (element.classList.contains("dropzone")) {
+			return element.classList.contains("enabled");
+		}
+		element = element.parentElement;
+		depth += 1;
+	}
+	return false;
+}
+
 export default function SiteLayout() {
 	let navigate = useNavigate();
-	let [currentSidebarPath, setCurrentSidebarPath] = useState<string|null>(null);
+	let [currentSidebarPath, setCurrentSidebarPath] = useState<string | null>(null);
 	let account = useAccount();
 	let plugins = useContext(ControlContext).plugins;
+	const [dragging, setDragging] = useState(0);
 
-	function SetSidebar(props: { path: string|null }) {
+	function SetSidebar(props: { path: string | null }) {
 		useEffect(() => {
 			setCurrentSidebarPath(props.path);
 		});
@@ -26,7 +46,7 @@ export default function SiteLayout() {
 	}
 
 	let accountMenuProps: MenuProps = {
-		onClick: ({ key }: {key:string}) => {
+		onClick: ({ key }: { key: string }) => {
 			if (key === "user") {
 				navigate(`/users/${account.name}/view`);
 			} else if (key === "logOut") {
@@ -45,7 +65,7 @@ export default function SiteLayout() {
 		combinedPages.push(...plugin.pages);
 	}
 
-	let menuItems = [];
+	let menuItems: MenuItem[] = [];
 	let menuGroups = new Map();
 	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
 		if (
@@ -72,59 +92,91 @@ export default function SiteLayout() {
 		menuItems.push({ type: "group", label: name, children: group, key: name });
 	}
 
-	return <Layout style={{ minHeight: "100vh" }}>
-		<Header className="header">
-			<div className="site-logo" />
-			<span className="site-name">Clusterio</span>
-			<span className="site-version">{ webUiPackage.version }</span>
-			<Menu
-				theme="dark"
-				mode="horizontal"
-				defaultSelectedKeys={["1"]}
-				items={[{ label: "Dashboard", key: "1" }]}
-			/>
-			<Dropdown
-				className="account-dropdown-header"
-				placement="bottomRight"
-				trigger={["click"]}
-				menu={accountMenuProps}
-			>
-				<UserOutlined/>
-			</Dropdown>
-		</Header>
-		<Layout className="site-layout">
-			<Sider
-				collapsible
-				collapsedWidth={0}
-				breakpoint="md"
-				zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
-				width={250}
-				className="site-layout-sider"
-			>
+	// Prevent issues with event ordering
+	let dragChange = 0;
+	function setDraggingProxy(value: number) {
+		dragChange += value;
+		setDragging(dragging + dragChange);
+	}
+
+	return <Layout
+		style={{ minHeight: "100vh" }}
+		onDragEnter={() => setDraggingProxy(1)}
+		onDragLeave={() => setDraggingProxy(-1)}
+		// Reset dragging state when dropped
+		onDrop={(e) => {
+			setDragging(0);
+			// Prevent dropping outside of dropzone
+			if (!isActiveDropzone(e.target as HTMLElement)) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}}
+		// Allow entire document to be a drag target
+		onDragOver={(e) => {
+			e.preventDefault();
+			// Change cursor
+			if (isActiveDropzone(e.target as HTMLElement)) {
+				e.dataTransfer.dropEffect = "copy";
+			} else {
+				e.dataTransfer.dropEffect = "none";
+			}
+		}}
+	>
+		<DraggingContext.Provider value={dragging > 0}>
+			<Header className="header">
+				<div className="site-logo" />
+				<span className="site-name">Clusterio</span>
+				<span className="site-version">{webUiPackage.version}</span>
 				<Menu
-					mode="inline"
-					defaultOpenKeys={[...menuGroups.keys()]}
-					selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
-					style={{ height: "100%", borderRight: 0 }}
-					onClick={({ key }) => navigate(key)}
-					items={menuItems}
+					theme="dark"
+					mode="horizontal"
+					defaultSelectedKeys={["1"]}
+					items={[{ label: "Dashboard", key: "1" }]}
 				/>
-			</Sider>
-			<Layout className="site-layout-content-container">
-				<Routes>
-					{combinedPages.map(({path, sidebarPath, content}) => <Route
-						path={path}
-						key={path}
-						element={<Fragment key={path}>
-							<SetSidebar path={sidebarPath ? sidebarPath : path} />
-							<ErrorBoundary Component={ErrorPage}>
-								{content}
-							</ErrorBoundary>
-						</Fragment>}
-					/>)}
-					<Route element={<SetSidebar path={null} />} />
-				</Routes>
+				<Dropdown
+					className="account-dropdown-header"
+					placement="bottomRight"
+					trigger={["click"]}
+					menu={accountMenuProps}
+				>
+					<UserOutlined />
+				</Dropdown>
+			</Header>
+			<Layout className="site-layout">
+				<Sider
+					collapsible
+					collapsedWidth={0}
+					breakpoint="md"
+					zeroWidthTriggerStyle={{ top: 6, zIndex: -1 }}
+					width={250}
+					className="site-layout-sider"
+				>
+					<Menu
+						mode="inline"
+						defaultOpenKeys={[...menuGroups.keys()]}
+						selectedKeys={currentSidebarPath ? [currentSidebarPath] : []}
+						style={{ height: "100%", borderRight: 0 }}
+						onClick={({ key }) => navigate(key)}
+						items={menuItems}
+					/>
+				</Sider>
+				<Layout className="site-layout-content-container">
+					<Routes>
+						{combinedPages.map(({ path, sidebarPath, content }) => <Route
+							path={path}
+							key={path}
+							element={<Fragment key={path}>
+								<SetSidebar path={sidebarPath ? sidebarPath : path} />
+								<ErrorBoundary Component={ErrorPage}>
+									{content}
+								</ErrorBoundary>
+							</Fragment>}
+						/>)}
+						<Route element={<SetSidebar path={null} />} />
+					</Routes>
+				</Layout>
 			</Layout>
-		</Layout>
+		</DraggingContext.Provider>
 	</Layout>;
 }

@@ -248,8 +248,12 @@ async function initialize(): Promise<InitializeParameters> {
 		.command("config", "Manage Controller config", lib.configCommand)
 		.command("bootstrap", "Bootstrap access to cluster", yargs => {
 			yargs
-				.command("create-admin <name>", "Create a cluster admin")
-				.command("generate-user-token <name>", "Generate authentication token for the given user")
+				.command("create-admin <name>", "Create a cluster admin", yargs => {
+					yargs.positional("name", { describe: "Name of the admin user", type: "string" });
+				})
+				.command("generate-user-token <name>", "Generate authentication token for the given user", yargs => {
+					yargs.positional("name", { describe: "Name of the user", type: "string" });
+				})
 				.command("generate-host-token <id>", "Generate authentication token for the given host", yargs => {
 					yargs.positional("id", { describe: "ID of the host", type: "number" });
 				})

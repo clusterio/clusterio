@@ -1,4 +1,5 @@
 import * as lib from "@clusterio/lib";
+//%if multi_context
 import * as Messages from "./messages";
 
 lib.definePermission({
@@ -12,6 +13,7 @@ lib.definePermission({
 	title: "Example permission request",
 	description: "Example Description. Request. Change me in index.ts",
 });
+//%endif
 //%if controller & web // Subscribing requires web content and the controller
 
 lib.definePermission({
@@ -28,37 +30,46 @@ lib.definePermission({
 	description: "Example Description. View. Change me in index.ts",
 });
 //%endif
+//%if config
 
 declare module "@clusterio/lib" {
-//%if controller
+//%endif
+//%if controller & config
 	export interface ControllerConfigFields {
 		"__plugin_name__.myControllerField": string;
 	}
 //%endif
-//%if host
+//%if host & config
 	export interface HostConfigFields {
 		"__plugin_name__.myHostField": string;
 	}
 //%endif
-//%if instance
+//%if instance & config
 	export interface InstanceConfigFields {
 		"__plugin_name__.myInstanceField": string;
 	}
 //%endif
-//%if ctl
+//%if ctl & config
 	export interface ControlConfigFields {
 		"__plugin_name__.myControlField": string;
 	}
 //%endif
+//%if config
 }
+//%endif
 
 export const plugin: lib.PluginDeclaration = {
 	name: "__plugin_name__",
 	title: "__plugin_name__",
 	description: "Example Description. Plugin. Change me in index.ts",
-//%if controller
+//%// There are a lot of statements here to make the formatting look good with and without 'config'
+//%if controller | host & !config | instance & !config | ctl & !config // Blank line for formatting
 
+//%endif
+//%if controller
 	controllerEntrypoint: "./dist/node/controller",
+//%endif
+//%if controller & config
 	controllerConfigFields: {
 		"__plugin_name__.myControllerField": {
 			title: "My Controller Field",
@@ -68,9 +79,13 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 //%endif
-//%if host
+//%if host & config // Blank line for formatting
 
+//%endif
+//%if host
 	hostEntrypoint: "./dist/node/host",
+//%endif
+//%if host & config
 	hostConfigFields: {
 		"__plugin_name__.myHostField": {
 			title: "My Host Field",
@@ -80,9 +95,13 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 //%endif
-//%if instance
+//%if instance & config | module & config // Blank line for formatting
 
+//%endif
+//%if instance | module // Modules load an empty instance plugin
 	instanceEntrypoint: "./dist/node/instance",
+//%endif
+//%if instance & config
 	instanceConfigFields: {
 		"__plugin_name__.myInstanceField": {
 			title: "My Instance Field",
@@ -92,9 +111,13 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 //%endif
-//%if ctl
+//%if ctl & config // Blank line for formatting
 
+//%endif
+//%if ctl
 	ctlEntrypoint: "./dist/node/ctl",
+//%endif
+//%if ctl & config
 	controlConfigFields: {
 		"__plugin_name__.myControlField": {
 			title: "My Control Field",
@@ -104,24 +127,23 @@ export const plugin: lib.PluginDeclaration = {
 		},
 	},
 //%endif
+//%if multi_context // Subscribing requires multi context
 
 	messages: [
 		Messages.PluginExampleEvent,
 		Messages.PluginExampleRequest,
+//%endif
 //%if controller & web // Subscribing requires web content and the controller
 		Messages.ExampleSubscribableUpdate,
 //%endif
+//%if multi_context // Subscribing requires multi context
 	],
+//%endif
 //%if web // Web content template has an example route which is the plugin name
 
 	webEntrypoint: "./web",
 	routes: [
 		"/__plugin_name__",
 	],
-//%endif
-//%if controller & !web // The controller always includes web entry even if there is no content
-
-	webEntrypoint: "./web",
-	routes: [],
 //%endif
 };

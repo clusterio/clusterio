@@ -18,7 +18,7 @@
 		"node": ">=18"
 	},
 	"peerDependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.0"
+		"@clusterio/lib": "workspace:*"
 	},
 	"dependencies": {
 		"@sinclair/typebox": "^0.30.4",
@@ -26,8 +26,8 @@
 		"jsonwebtoken": "^9.0.1"
 	},
 	"devDependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.18",
-		"@clusterio/web_ui": "^2.0.0-alpha.18",
+		"@clusterio/lib": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
 		"@types/express": "^4.17.17",
 		"@types/jsonwebtoken": "^9.0.2",
 		"@types/node": "^20.4.5",
@@ -36,7 +36,7 @@
 		"phin": "^3.7.0",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
-		"typescript": "^5.1.6",
+		"typescript": "^5.5.3",
 		"webpack": "^5.88.2",
 		"webpack-cli": "^5.1.4",
 		"webpack-merge": "^5.9.0"

@@ -209,12 +209,17 @@ See the [readme for @clusterio/controller](/packages/controller/README.md) for m
 
 ## Managing Factorio mods
 
-Clusterio currently only provides a manual method for running mods on servers by copying them either to each instance's individual `mods` folder, or by copying them into a host installation's `sharedMods` folder which will link/copy them to the `mods` folder of each instance on that host if the file doesn't already exist in the `mods` folder for that instance.
-Mods are copied from `sharedMods` on Windows and symlinked on Linux, this means that when mods are removed from `sharedMods` the mods will also be removed from the instance's `mods` folder on Linux if it got there by being linked by Clusterio, but not on Windows.
+Mods in clusterio are managed as parts of modpacks. There is currently no mod portal integration, so you first need to navigate to the mods section of the web UI and upload your mods. You can then create a modpack from the uploaded mods by navigating to the mods page, hitting `create`. Once you have a modpack, you can assign it to an instance under Instance config -> Factorio -> Mod pack. You can also set a default modpack for new instances in the controller settings.
 
-For managing the mod settings, the `mod-settings.dat` and `mod-list.json` files will also be linked/copied over if present in `sharedMods`, but since Factorio creates these files automatically it might be necessary to delete them from each instance's `mods` folder for changes to them in `sharedMods` to take effect.
+![Select mod pack for instance](docs/assets/config_select_mod_pack.png)
 
-Better remote management of mods is a planned feature.
+Mod settings can be managed under the modpack configuration page in the web UI. For mod settings to show, you first need to run an export. This is done by creating an instance with the modpack assigned, opening the instance page and pressing More -> Export data.
+
+![Export mod configuration data](docs/assets/export_mod_config_data.png)
+
+Once this is done, the mod settings will show up under the modpack configuration page.
+
+![Mod settings configuration in web interface](docs/assets/mod_settings_configuration.png)
 
 
 ## Setting up shared storage

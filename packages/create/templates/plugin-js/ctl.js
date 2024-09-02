@@ -1,6 +1,7 @@
 "use strict";
 const { BaseCtlPlugin } = require("@clusterio/ctl");
 const { CommandTree, Command } = require("@clusterio/lib");
+//%// We do not check for multi context here because it doesn't make sense to have a ctl without messages
 const { PluginExampleEvent, PluginExampleRequest } = require("./messages");
 /* eslint-disable no-console */
 

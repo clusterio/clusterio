@@ -407,6 +407,8 @@ export interface FactorioServerOptions {
 	 * the latest version found in `factorioDir`.
 	 */
 	version?: string,
+	/** Path to executable to invoke when starting the server */
+	executablePath?: string;
 	/** UDP port to host game on. */
 	gamePort?: number,
 	/** TCP port to use for RCON. */
@@ -450,6 +452,8 @@ export interface FactorioServerOptions {
  * @extends events.EventEmitter
  */
 export class FactorioServer extends events.EventEmitter {
+	/** Path to executable to invoke when starting the server */
+	executablePath?: string;
 	/** UDP port used for hosting the Factorio game server on */
 	gamePort: number;
 	/** TCP port used for RCON on the Factorio game server */
@@ -504,6 +508,7 @@ export class FactorioServer extends events.EventEmitter {
 
 		this._logger = options.logger || lib.logger;
 		this._targetVersion = options.version || "latest";
+		this.executablePath = options.executablePath;
 		/** UDP port used for hosting the Factorio game server on */
 		this.gamePort = options.gamePort || randomDynamicPort();
 		/** TCP port used for RCON on the Factorio game server */
@@ -564,8 +569,8 @@ export class FactorioServer extends events.EventEmitter {
 
 	// TODO at the moment this is just a helper function, it has the potential for schema checking
 	handle<Event>(eventName: string, handler: (event: Event) => Promise<void>) {
-		this.on(`ipc-${eventName}`, (event) => handler(event).catch(err => {
-			this._logger.error(`Error handling ipc event:\n${err.stack}`);
+		this.on(`ipc-${eventName}`, (event) => handler(event).catch((err: Error) => {
+			this._logger.error(`Error handling ipc event:\n${err.stack ?? err.message}`);
 		}));
 	}
 
@@ -1155,11 +1160,15 @@ export class FactorioServer extends events.EventEmitter {
 	/**
 	 * Get Factorio binary path
 	 *
-	 * Get the path to the factorio binary depending on the platform (MacOS support)
+	 * Get the path to the factorio binary depending on the configuration
+	 * and or the platform (MacOS support)
 	 *
 	 * @returns Path to factorio binary
 	 */
 	binaryPath() {
+		if (this.executablePath) {
+			return this.dataPath("..", this.executablePath);
+		}
 		if (process.platform === "darwin") {
 			return this.dataPath("..", "MacOS", "factorio");
 		}

@@ -16,6 +16,7 @@ const { copyPluginTemplates } = require("./template");
 let dev = false;
 const scriptExt = process.platform === "win32" ? ".cmd" : "";
 const finished = util.promisify(stream.finished);
+const { escapeArg } = require("./escape_arg");
 
 // I hate this, there is a bug with rl.close on windows that was meant to have been fixed in Node14.4
 // See nodejs/node#21771 and nodejs/node#30701 for the apparent fix that was applied
@@ -106,15 +107,25 @@ async function safeOutputFile(file, data, options={}) {
 }
 
 async function execFile(cmd, args) {
-	logger.verbose(`executing ${cmd} ${args.join(" ")}`);
+	const escaped = args.map(escapeArg);
+	logger.verbose(`executing ${cmd} ${escaped.join(" ")}`);
 	return new Promise((resolve, reject) => {
-		let child = child_process.execFile(cmd, args, { shell: true }, (err, stdout, stderr) => {
-			if (err) {
-				reject(err);
-			} else {
-				resolve({ stdout, stderr });
+		let child = child_process.execFile(
+			cmd,
+			escaped,
+			{
+				shell: true,
+				// eslint-disable-next-line node/no-process-env
+				env: process.platform === "win32" ? { ...process.env, pct: "%" } : undefined,
+			},
+			(err, stdout, stderr) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve({ stdout, stderr });
+				}
 			}
-		});
+		);
 		let stdout = new LineSplitter({ readableObjectMode: true });
 		stdout.on("data", line => { logger.verbose(line.toString()); });
 		child.stdout.pipe(stdout);
@@ -551,6 +562,25 @@ async function inquirerMissingArgs(args) {
 				},
 			},
 		], answers);
+
+		if (args.httpPort) { answers.httpPort = args.httpPort; }
+		answers = await inquirer.prompt([
+			{
+				type: "input",
+				name: "httpPort",
+				message: "HTTP port to listen on",
+				default: 8080,
+				validate: input => {
+					if (!input) {
+						return "May not be empty";
+					}
+					if (!Number.isInteger(Number(input))) {
+						return "Must be a number";
+					}
+					return true;
+				},
+			},
+		], answers);
 	}
 
 	if (answers.mode === "host") {
@@ -680,6 +710,7 @@ async function inquirerMissingArgs(args) {
 					{ name: "Command Line", value: "ctl" },
 					{ name: "Web UI", value: "web" },
 					{ name: "No Typescript", value: "js" },
+					{ name: "No Config", value: "no_config" },
 				],
 			},
 			{
@@ -775,6 +806,9 @@ async function main() {
 		.option("admin", {
 			nargs: 1, describe: "Admin account name [standalone/controller]", type: "string",
 		})
+		.option("http-port", {
+			nargs: 1, describe: "HTTP port to listen on [standalone/controller]", type: "number",
+		})
 		.option("host-name", {
 			nargs: 1, describe: "Host name [host]", type: "string",
 		})
@@ -854,6 +888,7 @@ async function main() {
 	if (["standalone", "controller"].includes(answers.mode)) {
 		logger.info("Setting up controller");
 		await execController(["bootstrap", "create-admin", answers.admin]);
+		await execController(["config", "set", "controller.http_port", answers.httpPort]);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
 		adminToken = result.stdout.split("\n").slice(-2)[0];
 	}
@@ -868,6 +903,8 @@ async function main() {
 		result = await execController(["bootstrap", "generate-host-token", hostId]);
 		let hostToken = result.stdout.split("\n").slice(-2)[0];
 
+		// Default to localhost on correct port for host in standalone mode
+		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}`]);
 		await execHost(["config", "set", "host.controller_token", hostToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);

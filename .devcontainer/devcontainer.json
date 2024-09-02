@@ -1,0 +1,4 @@
+{
+	"image":"mcr.microsoft.com/devcontainers/universal:2",
+	"postCreateCommand": "wget https://factorio.com/get-download/1.1.107/headless/linux64 && tar -xf linux64 && pnpm install",
+}

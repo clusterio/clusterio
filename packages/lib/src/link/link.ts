@@ -538,6 +538,9 @@ export class Link {
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Request ${request.constructor.name}`);
 		}
+		if (this.connector.src.addressedTo(dst)) {
+			throw new Error(`Message would return back to sender ${dst}.`);
+		}
 		if (this.validateSent) {
 			entry.requestFromJSON(JSON.parse(JSON.stringify(request)));
 		}
@@ -571,6 +574,9 @@ export class Link {
 		let entry = Link._eventsByClass.get(event.constructor as EventClass<unknown>);
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Event ${event.constructor.name}`);
+		}
+		if (this.connector.src.addressedTo(dst)) {
+			throw new Error(`Message would return back to sender ${dst}.`);
 		}
 		if (this.validateSent) {
 			entry.eventFromJSON(JSON.parse(JSON.stringify(event)));

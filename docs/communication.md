@@ -30,7 +30,7 @@ There's also the virtual connector which lets two links in the same program be c
 ## Message
 
 There's two types of messages currently implemented apart from the Link builtin close message and that's Request and Event.
-The builtin messages are defined in [packages/lib/link/messages.js](/packages/lib/link/messages.js) and are attached to links via the attachAllMessages function, which is usally called in the Link subclass constructor.
+The builtin messages are defined in [packages/lib/src/link/messages.ts](/packages/lib/src/link/messages.ts) and are attached to links via the attachAllMessages function, which is usally called in the Link subclass constructor.
 
 The messages define which links they are valid on and only attaches handlers for those links.
 There's also a forwarding mechanism for when a request or event is to be forwarded another hop.

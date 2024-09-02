@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.18",
+		"@clusterio/lib": "workspace:*",
 		"as-table": "^1.0.55",
 		"fs-extra": "^11.1.1",
 		"phin": "^3.7.0",
@@ -35,6 +35,6 @@
 		"@types/node": "^20.4.5",
 		"@types/set-blocking": "^2.0.0",
 		"@types/yargs": "^17.0.24",
-		"typescript": "^5.1.6"
+		"typescript": "^5.5.3"
 	}
 }

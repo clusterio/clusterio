@@ -169,6 +169,7 @@ export default class Instance extends lib.Link {
 		let serverOptions = {
 			logger: this.logger,
 			version: this.config.get("factorio.version"),
+			executablePath: this.config.get("factorio.executable_path") ?? undefined,
 			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
 			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
 			rconPassword: this.config.get("factorio.rcon_password") ?? undefined,

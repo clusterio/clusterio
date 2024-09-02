@@ -19,7 +19,7 @@
 		"node": ">=18"
 	},
 	"dependencies": {
-		"@clusterio/lib": "^2.0.0-alpha.18",
+		"@clusterio/lib": "workspace:*",
 		"@sinclair/typebox": "^0.30.4",
 		"busboy": "^1.6.0",
 		"compression": "^1.7.4",
@@ -29,14 +29,13 @@
 		"jsonwebtoken": "^9.0.1",
 		"jszip": "^3.10.1",
 		"set-blocking": "^2.0.0",
-		"webpack-cli": "^5.1.4",
 		"winston": "^3.10.0",
 		"winston-daily-rotate-file": "^4.7.1",
 		"ws": "^8.13.0",
 		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
-		"@clusterio/web_ui": "^2.0.0-alpha.18",
+		"@clusterio/web_ui": "workspace:*",
 		"@swc/core": "^1.4.0",
 		"@types/busboy": "^1.5.0",
 		"@types/compression": "^1.7.2",
@@ -51,10 +50,11 @@
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-router-dom": "^6.4.14",
-		"typescript": "^5.1.6",
+		"typescript": "^5.5.3",
 		"webpack": "^5.88.2",
 		"webpack-dev-middleware": "^6.1.1",
-		"webpack-merge": "^5.9.0"
+		"webpack-merge": "^5.9.0",
+		"webpack-cli": "^5.1.4"
 	},
 	"publishConfig": {
 		"access": "public"

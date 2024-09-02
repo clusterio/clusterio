@@ -16,15 +16,15 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: pnpm/action-setup@v2.4.0
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
       with:
         version: 8
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-    - run: pnpm i --no-optional --no-frozen-lockfile
+    - run: pnpm i --no-frozen-lockfile
     - run: wget -q -O factorio.tar.gz https://www.factorio.com/get-download/latest/headless/linux64 && tar -xf factorio.tar.gz && rm factorio.tar.gz
     - name: Run tests
       if: ${{ matrix.node-version != '18.x' }}
@@ -34,19 +34,20 @@ jobs:
       run: pnpm run ci-cover
     - name : Upload coverage to Codecov
       if: ${{ matrix.node-version == '18.x' }}
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v4
       with:
         files: ./coverage/lcov.info
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: pnpm/action-setup@v2.4.0
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
       with:
         version: 8
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4
       with:
         node-version: 18.x
-    - run: pnpm i --no-optional --no-frozen-lockfile
+    - run: pnpm i --no-frozen-lockfile
     - run: pnpm run lint
