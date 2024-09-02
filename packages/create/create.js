@@ -904,7 +904,7 @@ async function main() {
 		let hostToken = result.stdout.split("\n").slice(-2)[0];
 
 		// Default to localhost on correct port for host in standalone mode
-		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}`]);
+		await execHost(["config", "set", "host.controller_url", `http://localhost:${answers.httpPort}/`]);
 		await execHost(["config", "set", "host.controller_token", hostToken]);
 		await execHost(["config", "set", "host.public_address", answers.publicAddress]);
 		await execHost(["config", "set", "host.factorio_directory", answers.factorioDir]);

@@ -45,7 +45,7 @@ describe("Integration of create tool", function () {
 		assert.equal(hostConfig["host.name"], "local");
 		assert.equal(hostConfig["host.public_address"], "localhost");
 		assert.equal(hostConfig["host.factorio_directory"], "test/factorio");
-		assert.equal(hostConfig["host.controller_url"], "http://localhost:8099");
+		assert.equal(hostConfig["host.controller_url"], "http://localhost:8099/");
 	}).timeout(1200000);
 	it("should create a new controller installation", async function () {
 		this.skip();
