@@ -232,6 +232,7 @@ before(async function() {
 	}
 	await fs.copyFile(`mods/${ssZip}`, `${modsDir}/${ssZip}`);
 
+	await exec("node ../../packages/controller config create");
 	await exec("node ../../packages/controller config set controller.auth_secret TestSecretDoNotUse");
 	await exec("node ../../packages/controller config set controller.http_port 8880");
 	await exec("node ../../packages/controller config set controller.https_port 4443");

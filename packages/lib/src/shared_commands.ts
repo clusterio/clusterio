@@ -3,11 +3,13 @@
  * @module lib/shared_commands
  */
 import path from "path";
+import fs from "fs-extra";
 
 import * as libConfig from "./config";
 import * as libFileOps from "./file_ops";
 import { logger } from "./logging";
 import * as libHelpers from "./helpers";
+import { StartupError } from "./errors";
 
 
 function print(...content: any[]) {
@@ -117,6 +119,7 @@ export function configCommand(yargs: any) {
 		})
 		.command("show <field>", "Show value of the given config field")
 		.command("list", "List all configuration fields and their values")
+		.command("create", "Create the default config")
 		.demandCommand(1, "You need to specify a command to run")
 		.help()
 		.strict()
@@ -129,15 +132,28 @@ export function configCommand(yargs: any) {
  * Handle the actions that are made available by configCommand.
  *
  * @param args - yargs args object.
- * @param instance - Config instance.
+ * @param instanceLoader - Function that loads the config instance.
  * @param configPath - Path to configuration file.
+ * @param emptyConfigSupplier - Function supplying a default config for
+ *   the create command.
  */
 export async function handleConfigCommand(
 	args: Record<string, unknown>,
-	instance: libConfig.Config<any>,
-	configPath: string
+	instanceLoader: () => Promise<libConfig.Config<any>>,
+	configPath: string,
+	emptyConfigSupplier: () => libConfig.Config<any>
 ) {
 	let command = (args._ as string[])[1];
+
+	if (command === "create") {
+		if (await fs.exists(configPath)) {
+			logger.error(`Config "${configPath}" already exists`);
+			return;
+		}
+		await libFileOps.safeOutputFile(configPath, JSON.stringify(emptyConfigSupplier(), null, "\t"));
+		return;
+	}
+	let instance = await instanceLoader();
 
 	if (command === "list") {
 		for (const name of Object.keys(instance.constructor.fieldDefinitions)) {
@@ -172,6 +188,26 @@ export async function handleConfigCommand(
 			} else {
 				throw err;
 			}
+		}
+	}
+}
+
+/**
+ * Load a config from file.
+ * @param configPath The file path to the config
+ * @param jsonCtor Constructor like function taking json input to create a config.
+ * @returns The created config, or StartupError on failure.
+ */
+export async function loadConfig<CType>(configPath: string, jsonCtor: (json: any) => CType) : Promise<CType> {
+	logger.info(`Loading config from ${configPath}`);
+	try {
+		let jsonConfig = JSON.parse(await fs.readFile(configPath, { encoding: "utf8"}));
+		return jsonCtor(jsonConfig);
+	} catch (err: any) {
+		if (err.code === "ENOENT") {
+			throw new StartupError(`Config "${configPath}" not found.`);
+		} else {
+			throw new StartupError(`Failed to load ${configPath}: ${err.message}`);
 		}
 	}
 }

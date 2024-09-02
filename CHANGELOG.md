@@ -347,6 +347,7 @@ Many thanks to the following for contributing code in this release:
 - Controller no longer creates secret-api-token.txt.
 - Removed automatic creation of self-signed TLS certificate.
 - Node.js versions below 12 are no longer supported.
+- Controller, host and ctl programs fail when the config is not found instead of creating one silently. Configs can be created using 'config create' (host & controller) or 'control-config create' commands.
 
 ## Version 1.2.4
 

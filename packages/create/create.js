@@ -887,6 +887,7 @@ async function main() {
 	let adminToken = null;
 	if (["standalone", "controller"].includes(answers.mode)) {
 		logger.info("Setting up controller");
+		await execController(["config", "create"]);
 		await execController(["bootstrap", "create-admin", answers.admin]);
 		await execController(["config", "set", "controller.http_port", answers.httpPort]);
 		let result = await execController(["bootstrap", "generate-user-token", answers.admin]);
@@ -895,6 +896,7 @@ async function main() {
 
 	if (answers.mode === "standalone") {
 		logger.info("Setting up host");
+		await execHost(["config", "create"]);
 		await execHost(["config", "set", "host.name", "local"]);
 
 		let result = await execHost(["config", "show", "host.id"]);
@@ -912,6 +914,7 @@ async function main() {
 
 	if (answers.mode === "host") {
 		logger.info("Setting up host");
+		await execHost(["create", "config"]);
 		let hostId = JSON.parse(Buffer.from(answers.controllerToken.split(".")[1], "base64")).host;
 		await execHost(["config", "set", "host.id", hostId]);
 		await execHost(["config", "set", "host.name", answers.hostName]);
@@ -927,6 +930,7 @@ async function main() {
 	}
 
 	if (answers.mode === "ctl") {
+		await execCtl(["control-config", "create"]);
 		await execCtl(["control-config", "set", "control.controller_url", answers.controllerUrl]);
 		await execCtl(["control-config", "set", "control.controller_token", answers.controllerToken]);
 	}
