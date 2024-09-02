@@ -357,15 +357,8 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		{
 			account.hasPermission("core.instance.save.upload")
 				? <Upload.Dragger className="save-list-dragger" openFileDialogOnClick={false} {...uploadProps}>
-					<div
-						style={{
-							position: "relative",
-							zIndex: "1010",
-						}}
-					>
-						<Dropzone disabled={hostOffline} />
-						{saveTable}
-					</div>
+					<Dropzone disabled={hostOffline} />
+					{saveTable}
 				</Upload.Dragger>
 				: saveTable
 		}
