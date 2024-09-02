@@ -33,6 +33,7 @@ Many thanks to the following for contributing to this release:
 
 ### Changes
 
+- Added prompt for the HTTP port to host the controller to the installer [#619](https://github.com/clusterio/clusterio/pull/619).
 - Added tests for sendEvent and sendRequest throwing the correct error messages [#638](https://github.com/clusterio/clusterio/pull/638).
 - Updated all web ui pages to use correct page header component [#643](https://github.com/clusterio/clusterio/pull/643).
 - Fixed IPC errors reporting undefined when no stack trace was present [#624](https://github.com/clusterio/clusterio/pull/624).
