@@ -730,12 +730,12 @@ export class FactorioServer extends events.EventEmitter {
 	}
 
 	/**
-	 * The version of Factorio in use.  This will be the actual version if
-	 * "latest" (the default) was specified as `factorioVersion` to the
-	 * constructor.
+	 * The version of Factorio in use. This will be the actual version if
+	 * "latest" (the default) was specified as `factorioVersion` to the constructor.
+	 * This will be undefined before the server is initialized, or if init failed.
 	 */
-	get version() {
-		return this._version!;
+	get version(): string | undefined {
+		return this._version ?? undefined;
 	}
 
 	/**

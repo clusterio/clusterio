@@ -454,6 +454,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				this.id,
 				status,
 				this.server.gamePort,
+				status === "running"? this.server.version : this.config.get("factorio.version"),
 			),
 		);
 	}

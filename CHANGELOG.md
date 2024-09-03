@@ -45,17 +45,21 @@ Many thanks to the following for contributing to this release:
 - Fixed spaces passed in arguments to the installer causing it to break [#620](https://github.com/clusterio/clusterio/issues/620)
 - Fixed numeric admin name breaking login [#536](https://github.com/clusterio/clusterio/issues/536)
 - Added factorio.executable_path option which allows overriding the default path to the Factorio executable run.
+- Added instance version display [#573](https://github.com/clusterio/clusterio/pull/573)
 
 ### Breaking Changes
 
 - Previously silent errors for controller.sendEvent now throw exceptions [#625](https://github.com/clusterio/clusterio/pull/625).
+- @clusterio/controller export InstanceInfo has added factorioVersion parameter.
 
 Many thanks to the following for contributing to this release:  
+[@CCpersonguy](https://github.com/CCpersonguy)
 [@Cooldude2606](https://github.com/Cooldude2606)
 [@Danielv123](https://github.com/Danielv123)
 [@Hornwitser](https://github.com/Hornwitser)
 [@Laar](https://github.com/Laar)
 [@psihius](https://github.com/psihius)
+
 
 ## Version 2.0.0-alpha.18
 
