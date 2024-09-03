@@ -5,12 +5,14 @@ const path = require("path");
 const { _exportLocale } = require("@clusterio/host/dist/node/src/export");
 const { FactorioServer } = require("@clusterio/host/dist/node/src/server");
 
+const { factorioDir } = require("./index");
+
 
 describe("Integration of lib/factorio/export", function() {
 	describe("exportLocale()", function() {
 		it("returns a nested Map with base game locale information", async function() {
 			let writePath = path.join("temp", "test", "server");
-			let testServer = new FactorioServer("factorio", writePath, {});
+			let testServer = new FactorioServer(factorioDir, writePath, {});
 			await testServer.init();
 
 			let locale = await _exportLocale(testServer, new Map(), ["base"], "en");

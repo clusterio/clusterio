@@ -8,13 +8,13 @@ const lib = require("@clusterio/lib");
 const { FactorioServer, _getVersion } = require("@clusterio/host/dist/node/src/server");
 const { logger } = lib;
 
-const { slowTest } = require("./index");
+const { slowTest, factorioDir } = require("./index");
 
 
 describe("Integration of host/src/server", function() {
 	describe("_getVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
-			let version = await _getVersion(path.join("factorio", "data", "changelog.txt"));
+			let version = await _getVersion(path.join(factorioDir, "data", "changelog.txt"));
 			if (!/^\d+\.\d+\.\d+$/.test(version)) {
 				assert.fail(`Detected version '${version}' does not followed the format x.y.z`);
 			}
@@ -23,7 +23,7 @@ describe("Integration of host/src/server", function() {
 
 	describe("class FactorioServer", function() {
 		let writePath = path.join("temp", "test", "integration");
-		let server = new FactorioServer("factorio", writePath, {});
+		let server = new FactorioServer(factorioDir, writePath, {});
 		let logFile;
 
 		before(async function() {
