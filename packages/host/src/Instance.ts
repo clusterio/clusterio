@@ -470,6 +470,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	notifyExit() {
 		this._loadedSave = null;
 		this.notifyStatus("stopped");
+		this.connector.emit("close");
 
 		this.config.off("fieldChanged", this._configFieldChanged);
 		clearTimeout(this._playerCheckInterval);

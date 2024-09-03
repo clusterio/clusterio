@@ -35,7 +35,7 @@ export default class BaseConnection extends lib.Link {
 
 		this.handle(lib.SubscriptionRequest, this.handleSubscriptionRequest.bind(this));
 		this.connector.on("close", () => {
-			this._controller.subscriptions.unsubscribe(this);
+			this._controller.subscriptions.unsubscribeLink(this);
 		});
 	}
 
