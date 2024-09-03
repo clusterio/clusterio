@@ -1,6 +1,7 @@
 {
 	"name": "root",
 	"private": true,
+	"files": [],
 	"scripts": {
 		"build": "tsc --build",
 		"watch": "tsc --build --watch",
@@ -11,6 +12,9 @@
 		"ci-cover": "nyc --reporter=lcovonly pnpm run-script test",
 		"lint": "eslint packages plugins test",
 		"lint-fix": "eslint --fix packages plugins test",
+		"clean": "node ./clean.js fast",
+		"clean-tests": "node ./clean.js tests",
+		"clean-all": "node ./clean.js all",
 		"docs": "typedoc",
 		"bundle-dependencies": "bundle-dependencies"
 	},
@@ -23,12 +27,18 @@
 	"engines": {
 		"node": ">=18"
 	},
+	"workspaces": [
+		"packages/*",
+		"plugins/*",
+		"external_plugins/*",
+		"external_plugins/*/*"
+	],
 	"devDependencies": {
 		"@clusterio/controller": "workspace:*",
 		"@clusterio/ctl": "workspace:*",
 		"@clusterio/host": "workspace:*",
-		"@clusterio/web_ui": "workspace:*",
 		"@clusterio/lib": "workspace:*",
+		"@clusterio/web_ui": "workspace:*",
 		"@swc/core": "^1.4.0",
 		"@typescript-eslint/eslint-plugin": "^6.4.1",
 		"@typescript-eslint/parser": "^6.4.1",
@@ -42,7 +52,8 @@
 		"mocha": "^10.2.0",
 		"nyc": "^15.1.0",
 		"phin": "^3.7.0",
-		"typedoc": "^0.24.8",
-		"typescript": "^5.1.6"
+		"typedoc": "^0.26.3",
+		"typescript": "^5.5.3",
+		"yargs": "^17.7.2"
 	}
 }

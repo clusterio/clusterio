@@ -42,6 +42,7 @@ export class InstanceDetails {
 		public assignedHost: number | undefined,
 		public gamePort: number | undefined,
 		public status: InstanceStatus,
+		public factorioVersion: string | undefined,
 		/** Millisecond Unix timestamp this entry was last updated at */
 		public updatedAtMs = 0,
 	) { }
@@ -55,6 +56,7 @@ export class InstanceDetails {
 			"unknown", "unassigned", "stopped", "starting", "running", "stopping",
 			"creating_save", "exporting_data", "deleted",
 		]),
+		"factorioVersion": Type.Optional(Type.String()),
 		"updatedAtMs": Type.Optional(Type.Number()),
 	});
 
@@ -65,6 +67,7 @@ export class InstanceDetails {
 			json.assignedHost,
 			json.gamePort,
 			json.status,
+			json.factorioVersion,
 			json.updatedAtMs,
 		);
 	}
@@ -717,6 +720,7 @@ export class HostInstanceUpdate {
 		public config: Static<typeof InstanceConfig.jsonSchema>,
 		public status: InstanceStatus,
 		public gamePort: undefined | number,
+		public factorioVersion: undefined | string,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -725,10 +729,11 @@ export class HostInstanceUpdate {
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
 		"gamePort": Type.Optional(Type.Number()),
+		"factorioVersion": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.config, json.status, json.gamePort);
+		return new this(json.config, json.status, json.gamePort, json.factorioVersion);
 	}
 }
 
@@ -822,6 +827,7 @@ export class InstanceStatusChangedEvent {
 		public instanceId: number,
 		public status: InstanceStatus,
 		public gamePort?: number,
+		public factorioVersion?: string,
 	) { }
 
 	static jsonSchema = Type.Object({
@@ -830,10 +836,11 @@ export class InstanceStatusChangedEvent {
 			"stopped", "starting", "running", "stopping", "creating_save", "exporting_data",
 		]),
 		"gamePort": Type.Optional(Type.Integer()),
+		"factorioVersion": Type.Optional(Type.String()),
 	});
 
 	static fromJSON(json: Static<typeof this.jsonSchema>) {
-		return new this(json.instanceId, json.status, json.gamePort);
+		return new this(json.instanceId, json.status, json.gamePort, json.factorioVersion);
 	}
 }
 

@@ -1,11 +1,12 @@
 import { Type, Static } from "@sinclair/typebox";
-import { Link, Event, EventClass, RequestHandler, WebSocketClientConnector, WebSocketBaseConnector } from "./link";
-import { logger } from "./logging";
-import { Address, MessageRequest, IControllerUser } from "./data";
+import { Link, Event, EventClass, RequestHandler, WebSocketBaseConnector } from "./link";
+import { Address, MessageRequest, IControllerUser, plainJson, JsonBoolean } from "./data";
 import isDeepStrictEqual from "./is_deep_strict_equal";
+import { RequestError, SessionLost } from "./errors";
+import { logger } from "./logging";
 
 export type SubscriptionRequestHandler<T> = RequestHandler<SubscriptionRequest, Event<T> | null>;
-export type EventSubscriberCallback<T> = (updates: T[], synced: boolean) => void
+export type EventSubscriberCallback<T> = (event: T | null, synced: boolean) => void
 
 /**
  * A subscription request sent by a subscriber, this updates what events the subscriber will be sent
@@ -15,7 +16,7 @@ export type EventSubscriberCallback<T> = (updates: T[], synced: boolean) => void
 export class SubscriptionRequest {
 	declare ["constructor"]: typeof SubscriptionRequest;
 	static type = "request" as const;
-	static src = ["control", "instance"] as const;
+	static src = ["control", "host", "instance"] as const;
 	static dst = "controller" as const;
 	static permission(user: IControllerUser, message: MessageRequest) {
 		if (typeof message.data === "object" && message.data !== null) {
@@ -30,6 +31,9 @@ export class SubscriptionRequest {
 			}
 		}
 	}
+
+	/** Indicates if updates have been sent */
+	static Response = JsonBoolean;
 
 	constructor(
 		public eventName: string,
@@ -56,9 +60,14 @@ export class SubscriptionRequest {
 	}
 }
 
+type Subscriber = {
+	link: Link,
+	dst: Address,
+}
+
 type EventData = {
 	subscriptionUpdate?: SubscriptionRequestHandler<unknown>,
-	subscriptions: Set<Link>,
+	subscriptions: Array<Subscriber>,
 };
 
 /**
@@ -85,7 +94,7 @@ export class SubscriptionController {
 		}
 		this._events.set(entry.name, {
 			subscriptionUpdate: subscriptionUpdate,
-			subscriptions: new Set(),
+			subscriptions: [],
 		});
 	}
 
@@ -102,12 +111,27 @@ export class SubscriptionController {
 		if (!eventData) {
 			throw new Error(`Event ${entry.name} is not a registered as subscribable`);
 		}
-		for (let link of eventData.subscriptions) {
-			if ((link.connector as WebSocketBaseConnector).closing) {
-				eventData.subscriptions.delete(link);
+		const toRemove: Subscriber[] = [];
+		for (const subscriber of eventData.subscriptions) {
+			if ((subscriber.link.connector as WebSocketBaseConnector).closing) {
+				toRemove.push(subscriber);
 			} else {
-				link.send(event);
+				subscriber.link.sendTo(subscriber.dst, event);
 			}
+		}
+		eventData.subscriptions = eventData.subscriptions.filter(subscriber => !toRemove.includes(subscriber));
+	}
+
+	/**
+	 * Unsubscribe from all events of a given address.
+	 * Used when an instance is stopped to stop all active subscriptions.
+	 * @param address - Address to stop sending events to.
+	 */
+	unsubscribeAddress(address: Address) {
+		for (let eventData of this._events.values()) {
+			eventData.subscriptions = eventData.subscriptions.filter(
+				subscriber => !subscriber.dst.addressedTo(address)
+			);
 		}
 	}
 
@@ -116,9 +140,11 @@ export class SubscriptionController {
 	 * Used when a link is closed to stop all active subscriptions.
 	 * @param link - Link to stop sending events to.
 	 */
-	unsubscribe(link: Link) {
+	unsubscribeLink(link: Link) {
 		for (let eventData of this._events.values()) {
-			eventData.subscriptions.delete(link);
+			eventData.subscriptions = eventData.subscriptions.filter(
+				subscriber => subscriber.link !== link
+			);
 		}
 	}
 
@@ -138,16 +164,23 @@ export class SubscriptionController {
 			throw new Error(`Event ${event.eventName} is not a registered as subscribable`);
 		}
 		if (event.subscribe === false) {
-			eventData.subscriptions.delete(link);
+			const index = eventData.subscriptions.findLastIndex(subscriber => subscriber.dst.addressedTo(src));
+			if (index >= 0) {
+				eventData.subscriptions.splice(index, 1);
+			}
 		} else {
-			eventData.subscriptions.add(link);
+			if (!eventData.subscriptions.some(subscriber => subscriber.dst.addressedTo(src))) {
+				eventData.subscriptions.push({ link: link, dst: src });
+			}
 			if (eventData.subscriptionUpdate) {
 				const eventReplay = await eventData.subscriptionUpdate(event, src, dst);
 				if (eventReplay) {
-					link.send(eventReplay);
+					link.sendTo(src, eventReplay);
+					return true;
 				}
 			}
 		}
+		return false;
 	}
 }
 
@@ -157,9 +190,9 @@ export interface SubscribableValue {
 	isDeleted: boolean,
 }
 
-export interface EventSubscribable<T, V extends SubscribableValue> extends Event<T> {
+export type EventSubscribable<T, V extends SubscribableValue> = Event<T> & Partial<{
 	updates: V[],
-}
+}>
 
 /**
  * Component for subscribing to and tracking updates of a remote resource
@@ -167,34 +200,50 @@ export interface EventSubscribable<T, V extends SubscribableValue> extends Event
  */
 export class EventSubscriber<
 	T extends EventSubscribable<T, V>,
-	K extends string | number = T["updates"][number]["id"],
-	V extends SubscribableValue = T["updates"][number],
+	K extends string | number = NonNullable<T["updates"]>[number]["id"],
+	V extends SubscribableValue = NonNullable<T["updates"]>[number],
 > {
-	_callbacks = new Array<EventSubscriberCallback<V>>();
+	/** The time at which an event was last received, is less than 0 when there have been no events */
+	lastResponseTimeMs = -1;
 	/** Values of the subscribed resource */
 	values = new Map<K, V>();
 	/** True if this subscriber is currently synced with the source */
 	synced = false;
-	_snapshot?: readonly [ReadonlyMap<K, Readonly<V>>, boolean];
-	_snapshotLastUpdatedMs = 0;
-	lastResponseTimeMs = -1;
+	/** True if this subscriber is expecting to receive updates from the source */
+	_syncing = false;
+	/** Repeat calls to getSnapshot will return the same readonly copy unless values has updated */
+	_snapshot: readonly [ReadonlyMap<K, Readonly<V>>, boolean] = [new Map<K, V>(), false];
+	_snapshotLastUpdatedMs = -1;
+	/** Callbacks will be called when an event is received or the synced state changes */
+	_callbacks = new Array<EventSubscriberCallback<T>>();
 
 	constructor(
 		private Event: EventClass<T>,
 		public control: Link,
 	) {
-		control.handle(Event, this._handle.bind(this));
+		control.handle(Event, this._handleEvent.bind(this));
 		control.connector.on("connect", () => {
-			this._updateSubscription();
+			this.handleConnectionEvent("connect");
 		});
 		control.connector.on("close", () => {
-			if (this.synced) {
-				this.synced = false;
-				for (let callback of this._callbacks) {
-					callback([], this.synced);
-				}
-			}
+			this.handleConnectionEvent("close");
 		});
+	}
+
+	/**
+	 * Handle connection events from this connector or another in the chain to the controller
+	 * This should be called by an instance plugin during onControllerConnectionEvent
+	 * @param event - event type that occurred
+	 */
+	handleConnectionEvent(event: "connect" | "drop" | "resume" | "close") {
+		if (event === "connect" || event === "resume") {
+			this._updateSubscription();
+		} else if (this.synced) {
+			this.synced = false;
+			for (let callback of this._callbacks) {
+				callback(null, false);
+			}
+		}
 	}
 
 	/**
@@ -202,8 +251,10 @@ export class EventSubscriber<
 	 * @param event - event from subscribed resource
 	 * @internal
 	 */
-	async _handle(event: EventSubscribable<T, V>) {
-		for (const value of event.updates) {
+	async _handleEvent(event: T) {
+		// We support the automatic maintaining of a map for events with the updates property
+		const updates = event.updates ?? [];
+		for (const value of updates) {
 			this.lastResponseTimeMs = Math.max(this.lastResponseTimeMs, value.updatedAtMs);
 			// Warn about updates which changes content but don't update updatedAtMs
 			const existing = this.values.get(value.id as K);
@@ -219,8 +270,13 @@ export class EventSubscriber<
 				this.values.set(value.id as K, value);
 			}
 		}
-		for (let callback of this._callbacks) {
-			callback(event.updates, this.synced);
+		// Event handling logic
+		if (this._syncing && !this.synced) {
+			this._snapshotLastUpdatedMs = -1;
+			this.synced = true;
+		}
+		for (const callback of this._callbacks) {
+			callback(event, this.synced);
 		}
 	}
 
@@ -228,10 +284,10 @@ export class EventSubscriber<
 	 * Subscribe to receive all event notifications
 	 * @param handler -
 	 *     callback invoked whenever the subscribed resource changes or the
-	 *     synced property changes, in which case the updates will be empty.
+	 *     synced property changes, in which case the event will be null.
 	 * @returns function that will unsubscribe from notifications
 	 */
-	subscribe(handler: EventSubscriberCallback<V>) {
+	subscribe(handler: EventSubscriberCallback<T>) {
 		this._callbacks.push(handler);
 		if (this._callbacks.length === 1) {
 			this._updateSubscription();
@@ -277,26 +333,30 @@ export class EventSubscriber<
 	 * Update the subscription with the controller based on current handler counts
 	 */
 	async _updateSubscription() {
-		if (!(this.control.connector as WebSocketClientConnector).connected) {
+		if (!this.control.connector.valid) {
 			return;
 		}
 		const entry = Link._eventsByClass.get(this.Event)!;
 
 		try {
-			await this.control.send(new SubscriptionRequest(
+			this._syncing = this._callbacks.length > 0;
+			const updatesSent = await this.control.sendTo("controller", new SubscriptionRequest(
 				entry.name,
-				this._callbacks.length > 0,
+				this._syncing,
 				this.lastResponseTimeMs
 			));
-			this.synced = this._callbacks.length > 0;
-			this._snapshotLastUpdatedMs = 0;
-			for (let callback of this._callbacks) {
-				callback([], this.synced);
+			if (!updatesSent) {
+				this.synced = this._syncing;
+				for (const callback of this._callbacks) {
+					callback(null, this.synced);
+				}
 			}
 		} catch (err: any) {
-			logger.error(
-				`Unexpected error updating ${entry.name} subscription:\n${err.stack}`
-			);
+			if (!(err instanceof RequestError) || err.code !== "SessionLost") {
+				logger.error(
+					`Unexpected error updating ${entry.name} subscription:\n${err.stack}`
+				);
+			}
 		}
 	}
 }

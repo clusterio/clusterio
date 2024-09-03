@@ -169,6 +169,7 @@ export default class Instance extends lib.Link {
 		let serverOptions = {
 			logger: this.logger,
 			version: this.config.get("factorio.version"),
+			executablePath: this.config.get("factorio.executable_path") ?? undefined,
 			gamePort: this.config.get("factorio.game_port") ?? host.assignGamePort(this.id),
 			rconPort: this.config.get("factorio.rcon_port") ?? undefined,
 			rconPassword: this.config.get("factorio.rcon_password") ?? undefined,
@@ -453,6 +454,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 				this.id,
 				status,
 				this.server.gamePort,
+				status === "running"? this.server.version : this.config.get("factorio.version"),
 			),
 		);
 	}
@@ -469,6 +471,7 @@ rcon.print(game.table_to_json(players))`.replace(/\r?\n/g, " ");
 	notifyExit() {
 		this._loadedSave = null;
 		this.notifyStatus("stopped");
+		this.connector.emit("close");
 
 		this.config.off("fieldChanged", this._configFieldChanged);
 		clearTimeout(this._playerCheckInterval);

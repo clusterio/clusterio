@@ -207,7 +207,9 @@ export class LinkTransport extends Transport {
 		}
 
 		try {
-			this.link.send(new libData.LogMessageEvent(info));
+			if (this.link.connector.valid) {
+				this.link.send(new libData.LogMessageEvent(info));
+			}
 		} catch (err) {
 			// Ignore session lost errors.
 			if (!(err instanceof libErrors.SessionLost)) {

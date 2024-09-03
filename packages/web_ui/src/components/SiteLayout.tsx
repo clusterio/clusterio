@@ -11,6 +11,8 @@ import ControlContext from "./ControlContext";
 import { pages } from "../pages";
 import { DraggingContext } from "../model/is_dragging";
 
+type MenuItem = Required<MenuProps>["items"][number];
+
 const { Header, Sider } = Layout;
 
 function isActiveDropzone(element: HTMLElement | null): boolean {
@@ -63,7 +65,7 @@ export default function SiteLayout() {
 		combinedPages.push(...plugin.pages);
 	}
 
-	let menuItems = [];
+	let menuItems: MenuItem[] = [];
 	let menuGroups = new Map();
 	for (let { sidebarName, sidebarGroup, permission, path } of combinedPages) {
 		if (

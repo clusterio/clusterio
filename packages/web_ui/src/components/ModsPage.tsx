@@ -236,62 +236,55 @@ export default function ModsPage() {
 			action={`${webRoot}api/upload-mod`}
 			showUploadList={false}
 		>
-			<div
-				style={{
-					position: "relative",
-					zIndex: "1010",
+			<Dropzone />
+			<Table
+				columns={[
+					{
+						title: "Name",
+						dataIndex: "title",
+						defaultSortOrder: "ascend",
+						sorter: (a, b) => (
+							strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
+						),
+					},
+					{
+						title: "Version",
+						key: "version",
+						align: "right",
+						render: (_, mod) => <>
+							{`${mod.version} `}
+							<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
+						</>,
+					},
+					{
+						title: "Filename",
+						dataIndex: "filename",
+						responsive: ["xl"],
+						sorter: (a, b) => strcmp(a.filename, b.filename),
+					},
+					{
+						title: "Size",
+						key: "size",
+						responsive: ["lg"],
+						render: (_, mod) => lib.formatBytes(mod.size),
+						align: "right",
+						sorter: (a, b) => a.size - b.size,
+					},
+					{
+						title: "Action",
+						key: "action",
+						responsive: ["lg"],
+						render: (_, mod) => actions(mod),
+					},
+				]}
+				expandable={{
+					expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
+					expandedRowClassName: () => "no-expanded-padding",
 				}}
-			>
-				<Dropzone />
-				<Table
-					columns={[
-						{
-							title: "Name",
-							dataIndex: "title",
-							defaultSortOrder: "ascend",
-							sorter: (a, b) => (
-								strcmp(a.name, b.name) || a.integerVersion - b.integerVersion
-							),
-						},
-						{
-							title: "Version",
-							key: "version",
-							align: "right",
-							render: (_, mod) => <>
-								{`${mod.version} `}
-								<Typography.Text type="secondary">{`/ ${mod.factorioVersion}`}</Typography.Text>
-							</>,
-						},
-						{
-							title: "Filename",
-							dataIndex: "filename",
-							responsive: ["xl"],
-							sorter: (a, b) => strcmp(a.filename, b.filename),
-						},
-						{
-							title: "Size",
-							key: "size",
-							responsive: ["lg"],
-							render: (_, mod) => lib.formatBytes(mod.size),
-							align: "right",
-							sorter: (a, b) => a.size - b.size,
-						},
-						{
-							title: "Action",
-							key: "action",
-							responsive: ["lg"],
-							render: (_, mod) => actions(mod),
-						},
-					]}
-					expandable={{
-						expandedRowRender: (mod: lib.ModInfo) => <ModDetails mod={mod} actions={actions} />,
-						expandedRowClassName: () => "no-expanded-padding",
-					}}
-					dataSource={[...mods.values()]}
-					pagination={false}
-					rowKey={mod => mod.id}
-				/>
-			</div>
+				dataSource={[...mods.values()]}
+				pagination={false}
+				rowKey={mod => mod.id}
+			/>
 		</Upload.Dragger>
 		<PluginExtra component="ModsPage" />
 	</PageLayout>;

@@ -9,6 +9,7 @@ import type { PluginWebApi } from "@clusterio/lib";
 import notify from "../util/notify";
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
+import PageHeader from "./PageHeader";
 
 const strcmp = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
 
@@ -47,7 +48,7 @@ export default function PluginsPage() {
 	}
 
 	return <PageLayout nav={[{ name: "Plugins" }]}>
-		<h2>Plugins</h2>
+		<PageHeader title="Plugins" />
 		<Table
 			columns={[
 				{

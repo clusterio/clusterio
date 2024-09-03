@@ -1,7 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Alert, Button, Descriptions, Dropdown, Menu, MenuProps, Modal, Space, Spin, Typography } from "antd";
-import type { ItemType } from "antd/es/menu/hooks/useItems";
+import { Alert, Button, Descriptions, Dropdown, MenuProps, Modal, Space, Spin, Typography } from "antd";
 import DeleteOutlined from "@ant-design/icons/DeleteOutlined";
 import DownOutlined from "@ant-design/icons/DownOutlined";
 
@@ -25,6 +24,7 @@ import { useHost } from "../model/host";
 import InstanceStatusTag from "./InstanceStatusTag";
 import Link from "./Link";
 
+type MenuItem = Required<MenuProps>["items"][number];
 const { Title } = Typography;
 
 type InstanceDescriptionProps = {
@@ -59,6 +59,9 @@ function InstanceDescription(props: InstanceDescriptionProps) {
 				buttonContent={assigned ? "Reassign" : "Assign"}
 			/>}
 		</Descriptions.Item>
+		<Descriptions.Item label="Version">
+			{instance.factorioVersion ?? "unknown"}
+		</Descriptions.Item>
 		<Descriptions.Item label="Status"><InstanceStatusTag status={instance.status!} /></Descriptions.Item>
 	</Descriptions>;
 }
@@ -71,7 +74,7 @@ function InstanceButtons(props: { instance: lib.InstanceDetails }) {
 	let instance = props.instance;
 	let instanceId = instance.id!;
 
-	let instanceButtonMenuItems: ItemType[] = [];
+	let instanceButtonMenuItems: MenuItem[] = [];
 	if (account.hasPermission("core.instance.export_data")) {
 		instanceButtonMenuItems.push({
 			disabled: exportingData || instance.status !== "stopped",

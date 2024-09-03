@@ -261,6 +261,7 @@ export interface InstanceConfigFields {
 	"instance.auto_start": boolean;
 
 	"factorio.version": string;
+	"factorio.executable_path": string | null;
 	"factorio.game_port": number | null;
 	"factorio.host_assigned_game_port": number | null;
 	"factorio.rcon_port": number | null;
@@ -310,6 +311,14 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 			restartRequired: true,
 			type: "string",
 			initialValue: "latest",
+		},
+		"factorio.executable_path": {
+			description:
+				"Relative path from the Factorio installation directory to the executable to run. " +
+				"Defaults to auto detect the path, only needed in special setups.",
+			restartRequired: true,
+			type: "string",
+			optional: true,
 		},
 		"factorio.game_port": {
 			description: "UDP port to run game on, uses a port in host.factorio_port_range if null",

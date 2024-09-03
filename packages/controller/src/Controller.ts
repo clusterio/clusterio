@@ -84,7 +84,7 @@ export default class Controller {
 	public shouldRestart: boolean = false;
 	_fallbackedRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
 	_registeredRequests: Map<lib.RequestClass<unknown, unknown>, lib.RequestHandler<unknown, unknown>> = new Map();
-	_registeredEvents = new Map();
+	_registeredEvents = new Map<lib.EventClass<unknown>, lib.EventHandler<unknown>>();
 	_snoopedEvents = new Map();
 
 	devMiddleware: any | null = null;
@@ -808,7 +808,7 @@ export default class Controller {
 		};
 		instanceConfig.set("factorio.settings", settings);
 
-		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, Date.now());
+		let instance = new InstanceInfo(instanceConfig, "unassigned", undefined, undefined, Date.now());
 		this.instances.set(instance);
 		await lib.invokeHook(this.plugins, "onInstanceStatusChanged", instance);
 		this.addInstanceHooks(instance);
@@ -935,6 +935,11 @@ export default class Controller {
 	}
 
 	instanceDetailsUpdated(instances: InstanceInfo[]) {
+		for (const instance of instances) {
+			if (instance.status === "stopped") {
+				this.subscriptions.unsubscribeAddress(lib.Address.fromShorthand({instanceId: instance.id}));
+			}
+		}
 		const updates = instances.map(instance => instance.toInstanceDetails());
 		this.subscriptions.broadcast(new lib.InstanceDetailsUpdatesEvent(updates));
 	}

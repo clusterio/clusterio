@@ -1,7 +1,7 @@
 # Protocol
 
 Clusterio communicates using a simple homebrew message passing protocol based on JSON over WebSocket with limited support for reliable transport of messages.
-The protocol is implemented in [packages/lib/link](/packages/lib/link) and uses the `ws` library to handle the WebSocket connections on the Node.js side and the native WebSocket API on the browser side.
+The protocol is implemented in [packages/lib/src/link](/packages/lib/src/link) and uses the `ws` library to handle the WebSocket connections on the Node.js side and the native WebSocket API on the browser side.
 
 Two general kinds of messages are supported: events and requests.
 Events are messages sent by one party and received by the other and offer no notification for the sender on whether it was actually received.
@@ -166,7 +166,7 @@ Events are messages send in one direction over the link, that the receiver is ex
 By convention message types ending in `*_event` are events.
 The data payload of an event consists solely of event specific properties.
 
-See [packages/lib/link/messages.js](/packages/lib/link/messages.js) for the recognized core events and their contents.
+See [packages/lib/src/link/messages.ts](/packages/lib/src/link/messages.ts) for the recognized core events and their contents.
 Plugins may defined their own events as well.
 
 #### `*_event`
@@ -181,7 +181,7 @@ They function a lot like HTTP requests except that both parties of a connection 
 By convention message types ending in `*_request` are requests, and is expected to be replied to with a corresponding `*_response` message.
 If an error occured while processing the request an error response containing an error property in the data payload is sent instead.
 
-See [packages/lib/link/messages.js](/packages/lib/link/messages.js) for the recognized core requests and their contents.
+See [packages/lib/src/link/messages.ts](/packages/lib/src/link/messages.ts) for the recognized core requests and their contents.
 Plugins may define their own requests as well.
 
 #### `*_request`

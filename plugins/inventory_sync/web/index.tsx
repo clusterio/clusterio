@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 
-import { BaseWebPlugin, PageLayout, ControlContext } from "@clusterio/web_ui";
+import { BaseWebPlugin, PageLayout, PageHeader, ControlContext } from "@clusterio/web_ui";
 import { DatabaseStatsRequest, DatabaseStatsResponse } from "../messages";
 
 import "./style.css";
@@ -18,7 +18,7 @@ function InventoryPage() {
 	}, []);
 
 	return <PageLayout nav={[{ name: "Inventory sync" }]}>
-		<h2>Inventory sync</h2>
+		<PageHeader title="Inventory sync" />
 		{statsData && <>
 			<p>Database size: {Math.round(statsData.databaseSize / 1000)}kB</p>
 			<p>Database entries: {statsData.databaseEntries}</p>

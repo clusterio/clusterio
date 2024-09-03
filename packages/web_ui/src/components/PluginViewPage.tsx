@@ -6,6 +6,7 @@ import type { PluginWebApi } from "@clusterio/lib";
 
 import ControlContext from "./ControlContext";
 import PageLayout from "./PageLayout";
+import PageHeader from "./PageHeader";
 import notify from "../util/notify";
 
 export default function PluginViewPage() {
@@ -39,7 +40,7 @@ export default function PluginViewPage() {
 	let pluginMeta = pluginList.find(p => p.name === pluginName);
 	if (!pluginMeta) {
 		return <PageLayout nav={nav}>
-			<h2>Plugin not found</h2>
+			<PageHeader title="Plugin not found" />
 			<p>Plugin with name {pluginName} was not found on the controller.</p>
 		</PageLayout>;
 	}
