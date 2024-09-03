@@ -27,6 +27,7 @@ Many thanks to the following for contributing to this release:
 
 ### Features
 
+- Added Datastore and Datastore Provider classes to the library to support savable Maps [#629](https://github.com/clusterio/clusterio/pull/629).
 - Added clean script to speed up publishing and debugging of build steps [#640](https://github.com/clusterio/clusterio/pull/640).
 - Added sub-tile option on plugin page headers [#642](https://github.com/clusterio/clusterio/pull/642).
 - Greatly improved plugin and module template generation [#641](https://github.com/clusterio/clusterio/pull/641).
