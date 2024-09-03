@@ -142,7 +142,7 @@ export async function safeOutputFile(file: string, data: string | Buffer, option
 	if (dir && !await fs.pathExists(dir)) {
 		await fs.mkdirs(dir);
 	}
-	let temporary = `${dir}${name}.tmp${ext}`;
+	let temporary = path.join(dir, `${name}.tmp${ext}`);
 	let fd = await fs.open(temporary, "w");
 	try {
 		await fs.writeFile(fd, data, options);
