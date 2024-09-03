@@ -126,15 +126,35 @@ async function get(urlPath) {
 	return res;
 }
 
+function loadJSON(filePath) {
+	try {
+		// eslint-disable-next-line node/no-sync
+		return JSON.parse(fs.readFileSync(filePath, "utf8"));
+	} catch (err) {
+		if (err.code === "ENOENT") {
+			return undefined;
+		}
+		throw err;
+	}
+}
+
+function getFactorioDir(hostConfig) {
+	const factorioDir = hostConfig?.["host.factorio_directory"] ?? "factorio";
+	return path.join(factorioDir);
+}
+
 let controllerProcess;
 let hostProcess;
 let control;
+
+const baseHostConfig = loadJSON("config-host.json");
 
 let url = "https://localhost:4443/";
 let controlToken = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 let instancesDir = path.join("temp", "test", "instances");
 let modsDir = path.join("temp", "test", "mods");
 let databaseDir = path.join("temp", "test", "database");
+let factorioDir = getFactorioDir(baseHostConfig);
 let pluginListPath = path.join("temp", "test", "plugin-list.json");
 let controllerConfigPath = path.join("temp", "test", "config-controller.json");
 let hostConfigPath = path.join("temp", "test", "config-host.json");
@@ -274,7 +294,9 @@ before(async function() {
 	controllerProcess = await spawn("controller:", "node ../../packages/controller run", /Started controller/);
 
 	await execCtl("host create-config --id 4 --name host --generate-token");
-	await exec(`node ../../packages/host config set host.factorio_directory ${path.join("..", "..", "factorio")}`);
+
+	const relativeFactorioDir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
+	await exec(`node ../../packages/host config set host.factorio_directory ${relativeFactorioDir}`);
 	await exec("node ../../packages/host config set host.tls_ca ../../test/file/tls/cert.pem");
 
 	hostProcess = await spawn("host:", "node ../../packages/host run", /Started host/);
@@ -338,6 +360,7 @@ module.exports = {
 	instancesDir,
 	modsDir,
 	databaseDir,
+	factorioDir,
 	controllerConfigPath,
 	hostConfigPath,
 	controlConfigPath,
