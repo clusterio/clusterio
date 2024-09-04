@@ -577,11 +577,11 @@ export default class Controller {
 	}
 
 	static migrateHosts(rawJson: unknown[]): Static<typeof HostInfo.jsonSchema>[] {
-		const serialized = rawJson as Static<typeof HostInfo.jsonSchema>[];
+		let serialized = rawJson as any;
 
-		// TODO: migrate remove after release.
-		if (serialized.length && !(serialized[0] instanceof Array)) {
-			return []; // Discard old format.
+		// migrate from pre alpha.19 format
+		if (serialized.length && serialized[0] instanceof Array) {
+			serialized = serialized.map((e: any) => e[1]);
 		}
 
 		return serialized;
