@@ -102,12 +102,12 @@ export default class Controller {
 
 		const systems = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "systems.json"),
-			lib.SystemInfo.fromJSON
+			lib.SystemInfo.fromJSON.bind(lib.SystemInfo)
 		).bootstrap());
 
 		const hosts = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "hosts.json"),
-			HostInfo.fromJSON,
+			HostInfo.fromJSON.bind(HostInfo),
 			this.migrateHosts, this.finaliseHosts,
 		).bootstrap());
 
@@ -119,12 +119,12 @@ export default class Controller {
 
 		const saves = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "saves.json"),
-			lib.SaveDetails.fromJSON
+			lib.SaveDetails.fromJSON.bind(lib.SaveDetails)
 		).bootstrap());
 
 		const modPacks = new lib.SubscribableDatastore(...await new lib.JsonIdDatastoreProvider(
 			path.join(databaseDirectory, "mod-packs.json"),
-			lib.ModPack.fromJSON
+			lib.ModPack.fromJSON.bind(lib.ModPack)
 		).bootstrap());
 
 		const userManager = new UserManager(config);
