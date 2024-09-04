@@ -184,6 +184,11 @@ export abstract class Datastore<
 		return this.data.get(key);
 	}
 
+	// Allow iterating through the datastore like a Map.
+	[Symbol.iterator](): IterableIterator<[K, Readonly<V>]> {
+		return this.data.entries();
+	}
+
 	// Returns all values in the datastore
 	values() {
 		return this.data.values() as IterableIterator<Readonly<V>>;
