@@ -242,6 +242,7 @@ type ModsTableProps = {
 	changes: ModChange[];
 	onChange: (change: ModChange) => void;
 	onRevert: (change: ModChange) => void;
+	builtInMods: string[];
 };
 function ModsTable(props: ModsTableProps) {
 	const [showAddMods, setShowAddMods] = useState(false);
@@ -263,6 +264,12 @@ function ModsTable(props: ModsTableProps) {
 
 	const mods = [...props.modPack.mods.values(), ...deletedMods.values()].map(
 		(mod: lib.ModRecord|lib.ModInfo): lib.ModInfo|lib.ModRecord => {
+			if (props.builtInMods.includes(mod.name)) {
+				return {
+					...mod,
+					enabled: (mod as any).enabled ?? false,
+				};
+			}
 			const candidate = modsMap.get(`${mod.name}_${mod.version}`);
 			if (!candidate) {
 				return {
@@ -283,7 +290,7 @@ function ModsTable(props: ModsTableProps) {
 
 	function actions(mod: lib.ModRecord|lib.ModInfo) {
 		return <Space>
-			{!deletedMods.has(mod.name) && <Typography.Link
+			{!deletedMods.has(mod.name) && !props.builtInMods.includes(mod.name) && <Typography.Link
 				type="danger"
 				onClick={() => {
 					props.onChange({
@@ -882,7 +889,13 @@ export default function ModPackViewPage() {
 					</Form.Item>
 				</Descriptions.Item>
 			</Descriptions>
-			<ModsTable modPack={modifiedModPack} changes={changes} onChange={pushChange} onRevert={revertChange} />
+			<ModsTable
+				modPack={modifiedModPack}
+				changes={changes}
+				onChange={pushChange}
+				onRevert={revertChange}
+				builtInMods={["base", "core"]}
+			/>
 			<SettingsTable
 				modPack={modifiedModPack}
 				changes={changes}
