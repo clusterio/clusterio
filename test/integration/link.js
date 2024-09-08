@@ -5,6 +5,7 @@ const fs = require("fs-extra");
 const jwt = require("jsonwebtoken");
 
 const { TestControlConnector, TestControl, get, exec, url } = require("./index");
+const { ConnectionClosed, ProtocolViolation, PolicyViolation, AuthenticationFailed } = require("@clusterio/lib");
 
 let token = jwt.sign({ aud: "user", user: "test" }, Buffer.from("TestSecretDoNotUse", "base64"));
 
@@ -35,10 +36,37 @@ describe("Integration of lib/link", function() {
 	it("should connect with proper credentials", async function() {
 		await controlConnector.connect();
 	});
+	it("should emit an error if closed due to ProtocolError", async function() {
+		await controlConnector.connect();
+		controlConnector._socket.close(ConnectionClosed.ProtocolError, "Test");
+		await assert.rejects(
+			// event.once rejects if "error" is emitted before "close"
+			events.once(controlConnector, "close"),
+			new ProtocolViolation("Test")
+		);
+	});
+	it("should emit an error if closed due to PolicyError", async function() {
+		await controlConnector.connect();
+		controlConnector._socket.close(ConnectionClosed.PolicyError, "Test");
+		await assert.rejects(
+			// event.once rejects if "error" is emitted before "close"
+			events.once(controlConnector, "close"),
+			new PolicyViolation("Test")
+		);
+	});
+	it("should emit an error if closed due to Unauthorized", async function() {
+		await controlConnector.connect();
+		controlConnector._socket.close(ConnectionClosed.Unauthorized, "Test");
+		await assert.rejects(
+			// event.once rejects if "error" is emitted before "close"
+			events.once(controlConnector, "close"),
+			new AuthenticationFailed("Test")
+		);
+	});
 
 	it("should reconnect on connection lost", async function() {
 		await controlConnector.connect();
-		controlConnector._socket.close(1008, "Test");
+		controlConnector._socket.close(ConnectionClosed.Normal, "Test");
 		await events.once(controlConnector, "resume");
 	});
 
@@ -64,7 +92,7 @@ describe("Integration of lib/link", function() {
 
 	it("should properly close connector if close is called during reconnect wait", async function() {
 		await controlConnector.connect();
-		controlConnector._socket.close(1008, "Test");
+		controlConnector._socket.close(ConnectionClosed.Normal, "Test");
 		controlConnector.once("drop", () => {
 			controlConnector.close();
 		});
