@@ -7,5 +7,6 @@
 		"target": "es2022",
 		"jsx": "react-jsx",
 		"noEmitOnError": true,
+		"outDir": "${configDir}/dist/browser",
 	},
 }

@@ -4,7 +4,4 @@
 		{ "path": "../lib/tsconfig.browser.json" },
 	],
 	"include": [ "src/**/*.tsx", "src/**/*.ts", "package.json", "global.d.ts" ],
-	"compilerOptions": {
-		"outDir": "dist/browser",
-	}
 }

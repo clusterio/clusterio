@@ -538,7 +538,7 @@ export class Link {
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Request ${request.constructor.name}`);
 		}
-		if (this.connector.src.equals(dst)) {
+		if (this.connector.src.addressedTo(dst)) {
 			throw new Error(`Message would return back to sender ${dst}.`);
 		}
 		if (this.validateSent) {
@@ -575,7 +575,7 @@ export class Link {
 		if (!entry) {
 			throw new Error(`Attempt to send unregistered Event ${event.constructor.name}`);
 		}
-		if (this.connector.src.equals(dst)) {
+		if (this.connector.src.addressedTo(dst)) {
 			throw new Error(`Message would return back to sender ${dst}.`);
 		}
 		if (this.validateSent) {
