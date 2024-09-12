@@ -13,7 +13,7 @@ const { wait } = lib;
 const testStrings = require("../lib/factorio/test_strings");
 const {
 	TestControl, TestControlConnector, url, controlToken, slowTest,
-	get, exec, execCtl, sendRcon, getControl, spawn, instancesDir,
+	exec, execCtl, sendRcon, getControl, spawn, instancesDir, factorioDir,
 } = require("./index");
 
 
@@ -41,7 +41,8 @@ async function startAltHost() {
 	await execCtl(`host create-config --id 5 --name alt-host --generate-token --output ${config}`);
 	await exec(`node ../../packages/host --config ${config} config set host.tls_ca ../../test/file/tls/cert.pem`);
 	await exec(`node ../../packages/host --config ${config} config set host.instances_directory alt-instances`);
-	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ../../factorio`);
+	const dir = path.isAbsolute(factorioDir) ? factorioDir : path.join("..", "..", factorioDir);
+	await exec(`node ../../packages/host --config ${config} config set host.factorio_directory ${dir}`);
 	await exec(`node ../../packages/host --config ${config} config set host.mods_directory alt-mods`);
 	return await spawnAltHost(config);
 }
