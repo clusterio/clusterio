@@ -211,9 +211,6 @@ describe("host/server", function() {
 
 		describe(".stop()", function() {
 			it("should handle server quitting on its own during stop", async function() {
-				if (process.platform === "win32") {
-					this.skip();
-				}
 				server.hangTimeoutMs = 20;
 				server._server = new events.EventEmitter();
 				server._server.kill = () => true;

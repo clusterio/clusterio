@@ -219,10 +219,6 @@ describe("Integration of host/src/server", function() {
 
 		describe(".start() termination detection", function() {
 			it("should tell if Factorio got killed", async function() {
-				// This does not work on Windows
-				if (process.platform === "win32") {
-					this.skip();
-				}
 				slowTest(this);
 				log(".start() for kill detection");
 
