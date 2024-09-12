@@ -14,9 +14,25 @@ const { slowTest, factorioDir } = require("./index");
 describe("Integration of host/src/server", function() {
 	describe("_getVersion()", function() {
 		it("should get a version from factorio's changelog.txt", async function() {
+			function checkVersion(version) {
+				if (!/^\d+\.\d+\.\d+$/.test(version)) {
+					assert.fail(`Detected version '${version}' does not followed the format x.y.z`);
+				}
+			}
+
 			let version = await _getVersion(path.join(factorioDir, "data", "changelog.txt"));
-			if (!/^\d+\.\d+\.\d+$/.test(version)) {
-				assert.fail(`Detected version '${version}' does not followed the format x.y.z`);
+			if (version !== null) {
+				checkVersion(version);
+			} else {
+				for (let entry of await fs.readdir(factorioDir, { withFileTypes: true })) {
+					if (!entry.isDirectory()) {
+						continue;
+					}
+
+					checkVersion(
+						await _getVersion(path.join(factorioDir, entry.name, "data", "changelog.txt"))
+					);
+				}
 			}
 		});
 	});
