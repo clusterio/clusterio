@@ -217,12 +217,14 @@ export default function HostsPage() {
 				},
 				{
 					title: "CPU%",
+					key: "cpuPct",
 					sorter: (a, b) => (systems.get(a.id)?.cpuRatio ?? 0) - (systems.get(b.id)?.cpuRatio ?? 0),
 					render: (_, host) => <MetricCpuRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
 				{
 					title: "Cores",
+					key: "cores",
 					sorter: (a, b) => (
 						(systems.get(a.id)?.cpuUsed ?? 0) - (systems.get(b.id)?.cpuUsed ?? 0)
 					),
@@ -231,6 +233,7 @@ export default function HostsPage() {
 				},
 				{
 					title: "Mem%",
+					key: "memPct",
 					sorter: (a, b) => (
 						(systems.get(a.id)?.memoryRatio ?? 0) - (systems.get(b.id)?.memoryRatio ?? 0)
 					),
@@ -239,6 +242,7 @@ export default function HostsPage() {
 				},
 				{
 					title: "Memory",
+					key: "memory",
 					sorter: (a, b) => (
 						(systems.get(a.id)?.memoryUsed ?? 0) - (systems.get(b.id)?.memoryUsed ?? 0)
 					),
@@ -247,12 +251,14 @@ export default function HostsPage() {
 				},
 				{
 					title: "Disk%",
+					key: "diskPct",
 					sorter: (a, b) => (systems.get(a.id)?.diskAvailable ?? 0) - (systems.get(b.id)?.diskAvailable ?? 0),
 					render: (_, host) => <MetricDiskRatio system={systems.get(host.id)} />,
 					hidden: !showRatios,
 				},
 				{
 					title: "Disk",
+					key: "disk",
 					sorter: (a, b) => (
 						(systems.get(a.id)?.diskUsed ?? 0) - (systems.get(b.id)?.diskUsed ?? 0)
 					),

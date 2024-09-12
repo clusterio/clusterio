@@ -209,7 +209,7 @@ export default function ModsPage() {
 				},
 				{
 					title: "Mods",
-					key: "roles",
+					key: "mods",
 					render: (_, modPack) => modPack.mods.size,
 				},
 			]}

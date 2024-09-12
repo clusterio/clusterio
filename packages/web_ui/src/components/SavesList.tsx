@@ -214,6 +214,7 @@ export default function SavesList(props: { instance: lib.InstanceDetails }) {
 		columns={[
 			{
 				title: "Name",
+				key: "name",
 				render: (_, save) => <>
 					{save.name}
 					{save.loaded && <Tooltip title="Currently loaded save"><CaretLeftOutlined /></Tooltip>}

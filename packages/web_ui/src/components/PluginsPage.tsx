@@ -77,6 +77,7 @@ export default function PluginsPage() {
 				},
 				{
 					title: "Loaded",
+					key: "loaded",
 					render: (_, plugin) => (plugin.package ? "Yes" : null),
 					sorter: (a, b) => Number(Boolean(a.package)) - Number(Boolean(b.package)),
 					responsive: ["sm"],
