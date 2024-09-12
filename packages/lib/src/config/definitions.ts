@@ -262,6 +262,7 @@ export interface InstanceConfigFields {
 
 	"factorio.version": string;
 	"factorio.executable_path": string | null;
+	"factorio.shutdown_timeout": number;
 	"factorio.game_port": number | null;
 	"factorio.host_assigned_game_port": number | null;
 	"factorio.rcon_port": number | null;
@@ -318,6 +319,14 @@ export class InstanceConfig extends classes.Config<InstanceConfigFields> {
 				"Defaults to auto detect the path, only needed in special setups.",
 			restartRequired: true,
 			type: "string",
+			optional: true,
+		},
+		"factorio.shutdown_timeout": {
+			description:
+				"Timeout in seconds to wait after requesting the server to stop before killing " +
+				"the process. Set to 0 to disable.",
+			type: "number",
+			initialValue: 300,
 			optional: true,
 		},
 		"factorio.game_port": {

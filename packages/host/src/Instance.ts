@@ -153,7 +153,9 @@ export default class Instance extends lib.Link {
 		this._configFieldChanged = (field: string, curr: unknown, prev: unknown) => {
 			let hook = () => lib.invokeHook(this.plugins, "onInstanceConfigFieldChanged", field, curr, prev);
 
-			if (field === "factorio.settings") {
+			if (field === "factorio.shutdown_timeout") {
+				this.server.shutdownTimeoutMs = curr as number * 1000;
+			} else if (field === "factorio.settings") {
 				this.updateFactorioSettings(curr as any, prev as any).finally(hook);
 			} else if (field === "factorio.enable_whitelist") {
 				this.updateFactorioWhitelist(curr as any).finally(hook);
@@ -178,6 +180,7 @@ export default class Instance extends lib.Link {
 			verboseLogging: this.config.get("factorio.verbose_logging"),
 			stripPaths: this.config.get("factorio.strip_paths"),
 			maxConcurrentCommands: this.config.get("factorio.max_concurrent_commands"),
+			shutdownTimeoutMs: this.config.get("factorio.shutdown_timeout") * 1000,
 		};
 
 		this.server = new FactorioServer(

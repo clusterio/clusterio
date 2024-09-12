@@ -351,20 +351,37 @@ const outputHeuristics: Heuristic[] = [
 		},
 	},
 
-	// Message indicating the server is shutting down
+	// Last messages before the server hangs during shutdown waiting for console input on Windows.
 	{
 		filter: {
 			type: "generic",
-			message: /^Quitting: /,
+			message: "Quitting: multiplayer error.",
 		},
 		action: function(parsed) {
-			this.emit("_quitting");
-
 			// On windows the Factorio server will wait for input on the console input buffer
-			// when an error occurs.  Since we can't send input there we terminate the server
+			// before shutting down.  Since we can't send input there we terminate the server
 			// process when this happens.
-			if (process.platform === "win32" && parsed.message === "Quitting: multiplayer error.") {
+			if (process.platform === "win32") {
 				this._server!.kill();
+				// Notify that the server is being killed after the last message
+				// is logged so that it doesn't look like it was killed unnecessarily.
+				process.nextTick(() => {
+					this._logger.info("Killing Factorio process to avoid it hanging forever.");
+				});
+			}
+		},
+	},
+	{
+		filter: {
+			type: "log",
+			message: /^updateTick\(\d+\) changing state from\(Disconnected\) to\(Closed\)$/,
+		},
+		action: function() {
+			if (process.platform === "win32") {
+				this._server!.kill();
+				process.nextTick(() => {
+					this._logger.info("Killing Factorio process to avoid it hanging forever.");
+				});
 			}
 		},
 	},
@@ -428,8 +445,11 @@ export interface FactorioServerOptions {
 	 * connection.
 	 */
 	maxConcurrentCommands?: number
-	/** Timeout in ms to wait for a response to a shutdown command. */
-	hangTimeoutMs?: number,
+	/**
+	 * Timeout in ms to wait after a shutdown is requested before killing the
+	 * process. Defaults to 0 meaning no timeout
+	 */
+	shutdownTimeoutMs?: number,
 }
 
 /**
@@ -466,8 +486,8 @@ export class FactorioServer extends events.EventEmitter {
 	enableAuthserverBans: boolean;
 	/** Enable verbose logging */
 	verboseLogging: boolean;
-	/** Timeout in ms to wait for a response to a shutdown command */
-	hangTimeoutMs = 5000;
+	_shutdownTimeoutMs = 0;
+	_stopTimeoutId?: ReturnType<typeof setTimeout>;
 
 	_factorioDir: string;
 	_writeDir: string;
@@ -523,8 +543,9 @@ export class FactorioServer extends events.EventEmitter {
 		this.verboseLogging = options.verboseLogging || false;
 		/** Maximum number of RCON commands transmitted in parallel on the RCON connection  */
 		this.maxConcurrentCommands = options.maxConcurrentCommands || 5;
-		/** Timeout in ms to wait for a response to a shutdown command */
-		this.hangTimeoutMs = options.hangTimeoutMs ?? 5000;
+		if (options.shutdownTimeoutMs !== undefined) {
+			this.shutdownTimeoutMs = options.shutdownTimeoutMs;
+		}
 
 		if (options.stripPaths) {
 			let charSet = new Set(path.resolve(this.writePath("temp")));
@@ -666,10 +687,6 @@ export class FactorioServer extends events.EventEmitter {
 	}
 
 	async _startRcon() {
-		if (this._state === "stopping") {
-			return;
-		}
-
 		if (this._rconClient !== null) {
 			throw Error("RCON client is already started");
 		}
@@ -798,6 +815,9 @@ export class FactorioServer extends events.EventEmitter {
 						`\n- ${this._unexpected.join("\n- ")}`
 					));
 				}
+
+			} else { // if state === "stopping"
+				this._clearStopTimeout();
 			}
 
 			if (this._rconClient) {
@@ -1006,6 +1026,44 @@ export class FactorioServer extends events.EventEmitter {
 	}
 
 	/**
+	 * Timeout in ms to wait after a shutdown is requested before killing the
+	 * process. Defaults to 0 meaning no timeout
+	 */
+	get shutdownTimeoutMs() {
+		return this._shutdownTimeoutMs;
+	}
+
+	set shutdownTimeoutMs(newTimeoutMs: number) {
+		this._shutdownTimeoutMs = newTimeoutMs;
+		if (this._state === "stopping") {
+			this._clearStopTimeout();
+			this._setStopTimeout();
+		}
+	}
+
+	_setStopTimeout() {
+		if (this._shutdownTimeoutMs !== 0) {
+			this._stopTimeoutId = setTimeout(
+				this.onStopTimeout.bind(this),
+				this.shutdownTimeoutMs
+			);
+		}
+	}
+
+	_clearStopTimeout() {
+		clearTimeout(this._stopTimeoutId);
+		this._stopTimeoutId = undefined;
+	}
+
+	onStopTimeout() {
+		this._logger.error("Factorio appears to have hanged, killing process");
+		if (this._rconClient) {
+			this._rconClient.end().catch(() => {});
+		}
+		this._server!.kill("SIGKILL");
+	}
+
+	/**
 	 * Stop the server
 	 *
 	 * Send stop signal to the server process and wait for it to shut
@@ -1013,88 +1071,53 @@ export class FactorioServer extends events.EventEmitter {
 	 */
 	async stop() {
 		this._check(["running"]);
-
-		let hanged = true;
-		let stopped = false;
-		function setAlive() { hanged = false; }
-
-		let timeoutId = setTimeout(() => {
-			if (hanged) {
-				this._logger.error("Factorio appears to have hanged, sending SIGKILL");
-				if (this._rconClient) {
-					this._rconClient.end().catch(() => {});
-				}
-				this._server!.kill("SIGKILL");
-			}
-		}, this.hangTimeoutMs);
-
-		// It's possible the server decides to exit on its own, in which
-		// case the stop operation has to be cancelled.
-		this._server!.once("exit", () => {
-			stopped = true;
-			clearTimeout(timeoutId);
-		});
-
 		this._state = "stopping";
-		// On Windows we need to save the map as there's no graceful shutdown.
-		if (this._rconClient && process.platform === "win32") {
-			// Not using events.once here as that will reject on error.
-			let saved = new Promise(resolve => this.once("_saved", resolve));
-			this.on("_saving", setAlive);
 
-			try {
-				await this.sendRcon("/server-save");
-				await saved;
+		// It's possible the server doesn't stop if it's stuck in an infinite
+		// loop or overloaded, kill it if the shutdown takes too long.
+		this._setStopTimeout();
 
-			} catch (err) {
-				// Ignore
-			}
-
-			clearTimeout(timeoutId);
-			this.off("_saving", setAlive);
-		}
-
-		if (this._rconClient) {
-
-			// If RCON is not yet fully connected that operation needs to
-			// complete before the RCON connection can be closed cleanly.
-			if (!this._rconReady) {
-				await events.once(this, "rcon-ready");
-			}
-
-			await this._rconClient.end();
+		// If RCON is not yet fully connected that operation needs to
+		// complete before the RCON connection can be used
+		if (!this._rconReady) {
+			await events.once(this, "rcon-ready");
 		}
 
 		// The Factorio server may have decided to get ahead of us and
 		// stop by itself before we had the chance to signal it.
-		if (stopped) {
+		if (this._state !== "stopping") {
 			return;
 		}
 
-		// On linux this sends SIGTERM to the process.  On windows this
-		// will terminate the process with no cleanup.  You can send your
-		// complaint for the lack of graceful shutdown to the Factorio
-		// developers.  Rcon does not recognize /quit, stdin is not
-		// recognized, and there's no "send CTRL+C to process" on Windows.
-		this._server!.kill();
+		const waitForExit = events.once(this._server!, "exit");
+		waitForExit.catch(() => {}); // Prevent unhandled promise rejection
 
-		// There appears to be an race condition where sending SIGTERM
-		// immediatly before the RCON interface comes online causes the
-		// Factorio server to hang.  It's also possible the server doesn't
-		// stop if it's stuck with an infinite lua code loop.  In either
-		// case there's no recovering from it.
-		if (process.platform !== "win32") {
-			this.on("_quitting", setAlive);
-			await events.once(this._server!, "exit");
-
-			clearTimeout(timeoutId);
-			this.off("_quitting", setAlive);
-
-		// On windows the process is terminated immediately, but to keep
-		// ordering wait until after the exit event here.
+		// Stop the server
+		if (this._rconClient) {
+			// Use RCON by default to stop the the server as it's available on
+			// all platforms and simplifies the code.
+			try {
+				await this.sendRcon("/quit");
+			} catch (err: any) {
+				// Ignore RCON connection being closed while sending the quit command.
+				if (err.message !== "Connection closed") {
+					throw err;
+				}
+			}
 		} else {
-			await events.once(this._server!, "exit");
+			// No rcon connection is available, fallback to signal.  On linux
+			// this sends SIGTERM to the process.  On windows this
+			// will terminate the process without saving.  You can send your
+			// complaint for the lack of graceful shutdown options to the
+			// Factorio developers.  I haven't found any way to make stdin work
+			// and there's no "send CTRL+C to process" API on Windows.
+			if (process.platform === "win32") {
+				this._logger.warn("No RCON connection, falling back to killing the server.");
+			}
+			this._server!.kill();
 		}
+
+		await waitForExit;
 	}
 
 	/**

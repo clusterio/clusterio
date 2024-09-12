@@ -229,7 +229,51 @@ describe("Integration of host/src/server", function() {
 				server.sendRcon("/c while true do end").catch(() => {});
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				log(".stop() for hang detection");
+				server.shutdownTimeoutMs = 2000;
 				await server.stop();
+				server.shutdownTimeoutMs = 0;
+			});
+			it("should not hang if RCON fails to connect", async function() {
+				slowTest(this);
+
+				const origWaitForReady = server._waitForReady;
+				server._waitForReady = () => {
+					server._waitForReady = origWaitForReady;
+					server.rconPort -= 1; // Mangle port so it fails to connect.
+					return server._waitForReady();
+				};
+				try {
+					await server.start("test.zip");
+					if (server._rconReady) {
+						assert.fail("Test failed, RCON managed to connect");
+					}
+					await assert.rejects(
+						server.stop(),
+						{ code: "ECONNREFUSED" }
+					);
+
+				} finally {
+					if (server._state !== "init") {
+						await server.kill();
+					}
+				}
+			});
+			it("should work if RCON has dropped out", async function() {
+				slowTest(this);
+
+				try {
+					await server.start("test.zip");
+					if (!server._rconReady) {
+						await events.once(server, "rcon-ready");
+					}
+					await server._rconClient.end();
+					await server.stop();
+
+				} finally {
+					if (server._state !== "init") {
+						await server.kill();
+					}
+				}
 			});
 		});
 
